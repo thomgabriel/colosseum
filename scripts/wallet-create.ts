@@ -4,7 +4,10 @@ import { dirname } from 'node:path';
 import { createKeyPairSignerFromPrivateKeyBytes, getAddressEncoder } from '@solana/kit';
 
 // Creates the demo wallet keypair in Solana CLI format (64-byte JSON array). Never overwrites.
-const path = process.env.DEMO_WALLET_KEYPAIR_PATH ?? './secrets/demo-wallet.json';
+const argPath = process.argv.includes('--path')
+  ? process.argv[process.argv.indexOf('--path') + 1]
+  : undefined;
+const path = argPath ?? process.env.DEMO_WALLET_KEYPAIR_PATH ?? './secrets/demo-wallet.json';
 if (existsSync(path)) {
   console.error(`${path} already exists; refusing to overwrite`);
   process.exit(1);

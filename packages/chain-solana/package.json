@@ -11,6 +11,10 @@
   "dependencies": {
     "@colosseum/schemas": "workspace:*",
     "@solana/kit": "^2.3.0",
-    "@kamino-finance/klend-sdk": "^12.0.1"
+    "@kamino-finance/klend-sdk": "^12.0.1",
+    "@solana-program/token": "^0.6.0",
+    "@solana-program/system": "^0.8.0",
+    "@solana-program/address-lookup-table": "^0.8.0",
+    "@solana-program/compute-budget": "^0.9.0"
   }
 }
