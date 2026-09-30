@@ -137,3 +137,31 @@ export async function tokenAccountState(
         : null,
   };
 }
+
+/** User-signed: approve several mints to the agent in one transaction (policy activation). */
+export async function buildApprovalsTx(
+  rpc: SolanaRpc,
+  owner: KeyPairSigner,
+  agent: Address,
+  approvals: Array<{ mint: Address; amountBase: bigint; decimals: number }>,
+  agentFeeLamports = 0n,
+): Promise<SignedV0> {
+  const ixs: Instruction[] = [];
+  for (const a of approvals) {
+    ixs.push(
+      getApproveCheckedInstruction({
+        source: await ata(owner.address, a.mint),
+        mint: a.mint,
+        delegate: agent,
+        owner,
+        amount: a.amountBase,
+        decimals: a.decimals,
+      }),
+    );
+  }
+  if (agentFeeLamports > 0n)
+    ixs.push(
+      getTransferSolInstruction({ source: owner, destination: agent, amount: agentFeeLamports }),
+    );
+  return buildSignedV0(rpc, owner, ixs, []);
+}

@@ -212,6 +212,8 @@ export const policies = pgTable('policies', {
   trigger: jsonb('trigger').notNull(),
   withdrawalDestination: text('withdrawal_destination').notNull(),
   mechanism: policyMechanismEnum('mechanism').notNull(),
+  mechanismByAsset: jsonb('mechanism_by_asset').notNull().default({}),
+  delegation: jsonb('delegation'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
