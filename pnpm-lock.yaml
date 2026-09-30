@@ -124,9 +124,15 @@ importers:
       '@colosseum/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@solana/kit':
+        specifier: ^2.3.0
+        version: 2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.22.0(bufferutil@4.1.0)(utf-8-validate@6.0.6))
 
   packages/db:
     dependencies:
+      '@colosseum/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@colosseum/schemas':
         specifier: workspace:*
         version: link:../schemas
