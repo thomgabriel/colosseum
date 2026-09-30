@@ -220,18 +220,81 @@ if (step === 'propose' || step === 'run') {
     const first = proposal.orders[0];
     if (!first) throw new Error('no orders');
     const build = await buildOrderTx(rpc, first, assetMap, prices, agent);
-    if (build.kind !== 'delegated') {
-      console.log(
-        JSON.stringify({
-          step,
-          order: first,
-          build: build.kind,
-          reason:
-            'reason' in build
-              ? build.reason
-              : 'user-signed path: returned unsigned tx for the wallet',
-        }),
-      );
+    if (build.kind === 'unsupported') {
+      console.log(JSON.stringify({ step, order: first, build: build.kind, reason: build.reason }));
+    } else if (build.kind === 'user_signed') {
+      // The owner (demo wallet) signs each unsigned transaction in order; every outcome is logged.
+      const { signBase64 } = await import('@colosseum/chain-solana');
+      const [reb] = SEND
+        ? await db
+            .insert(rebalances)
+            .values({
+              policyId: policy.id,
+              triggerReason: proposal.reason,
+              proposed: proposal.orders,
+              mechanism: 'user_signed',
+            })
+            .returning()
+        : [undefined];
+      for (const t of build.txs) {
+        const { wire, signature } = await signBase64(t.payload, owner);
+        const sim = await simulateBase64(rpc, wire);
+        if (!sim.ok || !SEND) {
+          console.log(
+            JSON.stringify({
+              step,
+              rebalanceId: reb?.id,
+              tx: t.description,
+              simulation: sim.ok ? 'ok' : sim.err,
+              sent: false,
+              logs: sim.ok ? undefined : sim.logs.slice(-5),
+            }),
+          );
+          if (!sim.ok) break;
+          continue;
+        }
+        const execId = await recordBuilt(db, {
+          planId,
+          wallet: owner.address,
+          chain: 'solana',
+          kind: t.kind,
+          assetId: t.legAssetId,
+          amountIn: build.amountBase.toString(),
+          provenance: 'live',
+        });
+        if (reb && t === build.txs[0])
+          await db.update(rebalances).set({ executionId: execId }).where(eq(rebalances.id, reb.id));
+        await markSent(db, execId, signature, explorerTxUrl(signature));
+        const r = await sendAndConfirm(rpc, wire);
+        if (r.err) {
+          await markFailed(db, execId, JSON.stringify(r.err));
+          console.log(
+            JSON.stringify({
+              step,
+              rebalanceId: reb?.id,
+              tx: t.description,
+              signature,
+              explorer: explorerTxUrl(signature),
+              status: 'failed',
+              err: r.err,
+            }),
+          );
+          break;
+        }
+        await markConfirmed(db, execId);
+        console.log(
+          JSON.stringify({
+            step,
+            rebalanceId: reb?.id,
+            tx: t.description,
+            signature,
+            explorer: explorerTxUrl(signature),
+            slot: r.slot,
+            status: 'confirmed',
+            signer: owner.address,
+          }),
+        );
+      }
     } else {
       const sim = await simulateBase64(rpc, build.signed.wire);
       if (!sim.ok || !SEND)
