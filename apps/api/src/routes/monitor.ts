@@ -67,7 +67,8 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
     const assetMap = new Map(assets.map((a) => [a.id, a]));
     const legs = await db.select().from(planLegs).where(eq(planLegs.planId, policy.planId));
     const targets = Object.fromEntries(legs.map((l) => [l.assetId, Number(l.weight)]));
-    const live = await readPositions(rpc(), asAddress(policy.wallet), assetMap);
+    const read = await readPositions(rpc(), asAddress(policy.wallet), assetMap);
+    const live = read.positions;
     for (const p of live)
       await db.insert(positionsTable).values({
         wallet: policy.wallet,
@@ -99,13 +100,20 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
       .where(eq(rebalances.policyId, policy.id))
       .orderBy(desc(rebalances.createdAt))
       .limit(1);
-    const proposal = proposeRebalance({
-      policy,
-      targets,
-      positions: inPolicy,
-      dexAssets,
-      lastRebalanceAt: last?.createdAt,
-    });
+    const proposal =
+      read.errors.length > 0
+        ? {
+            triggered: false,
+            reason: `positions incomplete, no rebalance: ${read.errors.map((e) => `${e.assetId}: ${e.error}`).join('; ')}`,
+            orders: [],
+          }
+        : proposeRebalance({
+            policy,
+            targets,
+            positions: inPolicy,
+            dexAssets,
+            lastRebalanceAt: last?.createdAt,
+          });
     const [base] = await db
       .select()
       .from(schedules)
@@ -128,6 +136,7 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
     return {
       policy,
       targets,
+      positionErrors: read.errors,
       positions: live.map((p) => ({
         assetId: p.assetId,
         amount: p.amount,

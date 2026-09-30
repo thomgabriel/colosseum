@@ -168,7 +168,9 @@ if (step === 'approve') {
 }
 
 if (step === 'propose' || step === 'run') {
-  const pos = await readPositions(rpc, asAddress(owner.address), assetMap);
+  const read = await readPositions(rpc, asAddress(owner.address), assetMap);
+  if (read.errors.length) console.log(JSON.stringify({ step, positionErrors: read.errors }));
+  const pos = read.positions;
   for (const p of pos)
     await db.insert(positionsTable).values({
       wallet: owner.address,

@@ -15,11 +15,17 @@ export type ChainPosition = {
 };
 
 /** Live positions of `wallet` across the registry: token balances plus Kamino main-market deposits, valued in USDC. */
+export type PositionsRead = {
+  positions: ChainPosition[];
+  errors: Array<{ assetId: string; error: string }>;
+};
+
 export async function readPositions(
   rpc: SolanaRpc,
   wallet: Address,
   assets: Map<string, Asset>,
-): Promise<ChainPosition[]> {
+): Promise<PositionsRead> {
+  const errors: Array<{ assetId: string; error: string }> = [];
   const usdc = assets.get('usdc');
   if (!usdc?.mint) throw new Error('registry: usdc');
   const usdcMint = usdc.mint;
@@ -41,19 +47,25 @@ export async function readPositions(
   }
   const kamino = [...assets.values()].find((a) => a.mintPath === 'lending_deposit');
   if (kamino) {
-    const sdk = await import('@kamino-finance/klend-sdk');
-    const market = await sdk.KaminoMarket.load(
-      rpc,
-      KAMINO_MAIN_MARKET,
-      sdk.DEFAULT_RECENT_SLOT_DURATION_MS,
-    );
-    if (market) {
+    let lastErr = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const ob = await market.getUserVanillaObligation(wallet);
-        const usdcDeposit = [...ob.deposits.values()].find(
-          (d) =>
-            market.getReserveByAddress(d.reserveAddress)?.getLiquidityMint() === address(usdcMint),
+        const sdk = await import('@kamino-finance/klend-sdk');
+        const market = await sdk.KaminoMarket.load(
+          rpc,
+          KAMINO_MAIN_MARKET,
+          sdk.DEFAULT_RECENT_SLOT_DURATION_MS,
         );
+        if (!market) throw new Error('market load returned null');
+        let deposits: Array<{ mintAddress: Address; amount: { toString(): string } }> = [];
+        try {
+          const ob = await market.getUserVanillaObligation(wallet);
+          deposits = [...ob.deposits.values()];
+        } catch (e) {
+          // No obligation yet is a legitimate zero; any other failure is retried and then reported.
+          if (!/not found|does not exist|null/i.test(String(e))) throw e;
+        }
+        const usdcDeposit = deposits.find((d) => d.mintAddress === address(usdcMint));
         if (usdcDeposit) {
           const amount = Number(usdcDeposit.amount.toString()) / 1e6;
           const price = await getUsdcPrice(kamino, usdcMint);
@@ -66,10 +78,14 @@ export async function readPositions(
             observedAt,
           });
         }
-      } catch {
-        // no obligation yet
+        lastErr = '';
+        break;
+      } catch (e) {
+        lastErr = String(e).slice(0, 200);
+        await new Promise((r) => setTimeout(r, 700));
       }
     }
+    if (lastErr) errors.push({ assetId: kamino.id, error: lastErr });
   }
-  return out;
+  return { positions: out, errors };
 }

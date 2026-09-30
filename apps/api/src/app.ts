@@ -19,6 +19,11 @@ const notYet = (what: string, slot: string) => ({
   error: `${what} is implemented in slot ${slot} (docs/PLAN.md §4)`,
 });
 
+// Chain amounts are bigint; serialise them as strings in every response.
+(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function toJSON(this: bigint) {
+  return this.toString();
+};
+
 export async function buildApp() {
   const app = Fastify({
     logger: process.env.NODE_ENV !== 'test',
