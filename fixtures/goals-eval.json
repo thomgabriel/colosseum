@@ -1,0 +1,170 @@
+[
+  {
+    "text": "R$3.000 por mês a partir de 2028, resgate em até 7 dias",
+    "expect": {
+      "profile": "income",
+      "kind": "monthly_cashflow",
+      "amountBrl": 3000,
+      "startMonth": "2028-01",
+      "liquidityWindowDays": 7
+    }
+  },
+  {
+    "text": "R$250 mil em 3 anos, aceito risco de crédito",
+    "expect": {
+      "profile": "accumulation",
+      "kind": "balance",
+      "amountBrl": 250000,
+      "creditTolerance": "accept"
+    }
+  },
+  {
+    "text": "Grow to R$500k in 5 years, I accept stock market risk and credit risk, I can wait 30 days to withdraw",
+    "expect": {
+      "profile": "high_risk",
+      "kind": "balance",
+      "amountBrl": 500000,
+      "creditTolerance": "accept",
+      "liquidityWindowDays": 30
+    }
+  },
+  {
+    "text": "Quero R$1.500 por mês a partir de 2027, sem risco de crédito",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 1500,
+      "startMonth": "2027-01",
+      "creditTolerance": "none"
+    }
+  },
+  {
+    "text": "R$100.000 em 2 anos, conservador",
+    "expect": {
+      "profile": "accumulation",
+      "amountBrl": 100000,
+      "riskBudget": "low"
+    }
+  },
+  {
+    "text": "Renda de R$5.000 mensais a partir de 06/2029, resgate em 1 semana",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 5000,
+      "startMonth": "2029-06",
+      "liquidityWindowDays": 7
+    }
+  },
+  {
+    "text": "I want R$2,000 a month starting 2028, withdrawals within 15 days",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 2000,
+      "startMonth": "2028-01",
+      "liquidityWindowDays": 15
+    }
+  },
+  {
+    "text": "Juntar R$50 mil em 18 meses",
+    "expect": {
+      "profile": "accumulation",
+      "amountBrl": 50000
+    }
+  },
+  {
+    "text": "R$1 milhão em 10 anos, aceito ações e crédito privado",
+    "expect": {
+      "profile": "high_risk",
+      "amountBrl": 1000000,
+      "creditTolerance": "accept"
+    }
+  },
+  {
+    "text": "Preciso de R$4.000 por mês por 20 anos a partir de 2030",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 4000,
+      "startMonth": "2030-01"
+    }
+  },
+  {
+    "text": "R$20.000 em 1 ano, sem risco",
+    "expect": {
+      "profile": "accumulation",
+      "amountBrl": 20000,
+      "riskBudget": "low"
+    }
+  },
+  {
+    "text": "Reserva de R$30 mil em 12 meses, resgate em até 3 dias",
+    "expect": {
+      "profile": "accumulation",
+      "amountBrl": 30000,
+      "liquidityWindowDays": 3
+    }
+  },
+  {
+    "text": "R$800 por mês a partir de 2027, aceito câmbio",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 800,
+      "fxStance": "accept_fx"
+    }
+  },
+  {
+    "text": "Accumulate R$300k by 2030, aggressive, ok with credit risk",
+    "expect": {
+      "profile": "high_risk",
+      "amountBrl": 300000,
+      "byMonth": "2030-01",
+      "creditTolerance": "accept"
+    }
+  },
+  {
+    "text": "R$10 mil por mês a partir de 2035",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 10000,
+      "startMonth": "2035-01"
+    }
+  },
+  {
+    "text": "Quero aposentadoria de R$6.000 mensais a partir de 2040, aporte de R$2.000 por mês",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 6000,
+      "startMonth": "2040-01",
+      "monthlyContributionBrl": 2000
+    }
+  },
+  {
+    "text": "R$150k em 4 anos com baixo risco e sem crédito",
+    "expect": {
+      "profile": "accumulation",
+      "amountBrl": 150000,
+      "riskBudget": "low",
+      "creditTolerance": "none"
+    }
+  },
+  {
+    "text": "Save R$75,000 in 3 years, conservative",
+    "expect": {
+      "profile": "accumulation",
+      "amountBrl": 75000,
+      "riskBudget": "low"
+    }
+  },
+  {
+    "text": "R$2.500 por mês a partir de 2028, resgate em 2 meses",
+    "expect": {
+      "profile": "income",
+      "amountBrl": 2500,
+      "liquidityWindowDays": 60
+    }
+  },
+  {
+    "text": "quero ficar rico rápido",
+    "expect": {
+      "error": true
+    }
+  }
+]

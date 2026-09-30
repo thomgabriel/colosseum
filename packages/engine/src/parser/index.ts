@@ -1,6 +1,7 @@
-import { NotImplementedUntil } from '../errors';
+export * from './llm';
+export * from './rules';
 
-/** Implemented in slot D6-AM. Stub keeps the module boundary visible from D1. */
-export function parseGoal(..._args: unknown[]): never {
-  throw new NotImplementedUntil('parser.parseGoal', 'D6-AM');
-}
+import { parseGoalLlm } from './llm';
+
+/** Parse a goal: LLM when configured, rules otherwise; both validated by the same schema. */
+export const parseGoal = parseGoalLlm;
