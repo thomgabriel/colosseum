@@ -1,5 +1,5 @@
 import type { Base64EncodedWireTransaction } from '@solana/kit';
-import type { SolanaRpc } from './rpc.js';
+import type { SolanaRpc } from './rpc';
 
 export type SimulationResult = {
   ok: boolean;

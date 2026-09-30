@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Language, Profile } from './enums.js';
+import { Language, Profile } from './enums';
 
 const YearMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'expected YYYY-MM');
 

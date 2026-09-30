@@ -1,5 +1,5 @@
 import type { Asset } from '@colosseum/schemas';
-import { getQuote } from './jupiter.js';
+import { getQuote } from './jupiter';
 
 export type PriceObservation = {
   assetId: string;

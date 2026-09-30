@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { ConstraintSheet } from './constraint-sheet.js';
-import { Language } from './enums.js';
-import { Plan } from './plan.js';
-import { UnsignedTx } from './tx.js';
+import { ConstraintSheet } from './constraint-sheet';
+import { Language } from './enums';
+import { Plan } from './plan';
+import { UnsignedTx } from './tx';
 
 export const PostGoalsRequest = z.object({
   text: z.string().min(3).max(2000),

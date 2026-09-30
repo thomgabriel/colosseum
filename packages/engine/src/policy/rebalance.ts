@@ -1,5 +1,5 @@
 import type { LegOrder, Policy } from '@colosseum/schemas';
-import { computeDrift, type PositionValue } from './drift.js';
+import { computeDrift, type PositionValue } from './drift';
 
 export type RebalanceInput = {
   policy: Policy;

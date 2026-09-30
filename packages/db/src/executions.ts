@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import type { Db } from './index.js';
-import { executions } from './schema.js';
+import type { Db } from './index';
+import { executions } from './schema';
 
 export type ExecutionInsert = typeof executions.$inferInsert;
 

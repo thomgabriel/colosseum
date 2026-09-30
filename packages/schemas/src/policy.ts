@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PolicyMechanism } from './enums.js';
+import { PolicyMechanism } from './enums';
 
 export const WeightBand = z.object({
   assetId: z.string(),

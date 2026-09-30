@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Chain, ExecutionKind, Provenance } from './enums.js';
+import { Chain, ExecutionKind, Provenance } from './enums';
 
 /** What POST /plans/{id}/transactions returns: chain-specific unsigned payloads a partner wallet signs. */
 export const UnsignedTx = z.object({

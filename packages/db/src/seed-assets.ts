@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { REGISTRY } from '@colosseum/engine';
 import { Asset } from '@colosseum/schemas';
-import { assets, createDb } from './index.js';
+import { assets, createDb } from './index';
 
 // Upserts the registry into `assets`. Idempotent. Run: pnpm db:seed
 const { db, client } = createDb();

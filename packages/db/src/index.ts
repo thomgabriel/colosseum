@@ -1,9 +1,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from './schema.js';
+import * as schema from './schema';
 
-export * from './executions.js';
-export * from './schema.js';
+export * from './executions';
+export * from './schema';
 export { schema };
 
 export function createDb(

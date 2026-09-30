@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { YieldObservation } from './asset.js';
-import { ConstraintSheet } from './constraint-sheet.js';
-import { Profile, Provenance } from './enums.js';
+import { YieldObservation } from './asset';
+import { ConstraintSheet } from './constraint-sheet';
+import { Profile, Provenance } from './enums';
 
 export const PlanLeg = z.object({
   assetId: z.string(),

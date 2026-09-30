@@ -1,8 +1,8 @@
 import type { Asset, UnsignedTx } from '@colosseum/schemas';
 import { type Address, address } from '@solana/kit';
-import { buildSwapTx, getQuote } from './jupiter.js';
-import { buildKaminoDepositUnsigned } from './kamino.js';
-import type { SolanaRpc } from './rpc.js';
+import { buildSwapTx, getQuote } from './jupiter';
+import { buildKaminoDepositUnsigned } from './kamino';
+import type { SolanaRpc } from './rpc';
 
 export type PlanLegInput = { assetId: string; amountUsd: number; executionId?: string };
 export type ExecutionPlan = {

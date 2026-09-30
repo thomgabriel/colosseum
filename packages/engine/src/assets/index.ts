@@ -1,2 +1,2 @@
-export * from './eligibility.js';
-export * from './registry.js';
+export * from './eligibility';
+export * from './registry';

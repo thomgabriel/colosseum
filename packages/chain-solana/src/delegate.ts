@@ -10,9 +10,9 @@ import {
   getTransferCheckedInstruction,
   TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token';
-import { buildSignedV0, jupiterInstructions, type SignedV0 } from './compose.js';
-import { getQuote, getSwapInstructions } from './jupiter.js';
-import type { SolanaRpc } from './rpc.js';
+import { buildSignedV0, jupiterInstructions, type SignedV0 } from './compose';
+import { getQuote, getSwapInstructions } from './jupiter';
+import type { SolanaRpc } from './rpc';
 
 /**
  * Policy mechanism A (spike D2-PM): the user approves an agent key as SPL delegate for a bounded amount of a leg;

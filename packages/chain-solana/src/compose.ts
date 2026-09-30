@@ -23,8 +23,8 @@ import {
   getSetComputeUnitLimitInstruction,
   getSetComputeUnitPriceInstruction,
 } from '@solana-program/compute-budget';
-import type { JupiterSwapInstructions } from './jupiter.js';
-import type { SolanaRpc } from './rpc.js';
+import type { JupiterSwapInstructions } from './jupiter';
+import type { SolanaRpc } from './rpc';
 
 type JupIx = JupiterSwapInstructions['swapInstruction'];
 

@@ -13,8 +13,8 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
 } from '@solana/kit';
-import { buildUnsignedV0, type UnsignedV0 } from './compose.js';
-import type { SolanaRpc } from './rpc.js';
+import { buildUnsignedV0, type UnsignedV0 } from './compose';
+import type { SolanaRpc } from './rpc';
 
 export const KAMINO_MAIN_MARKET = address('7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF');
 /** Main-market USDC reserve (nine-figure deposits); two tiny USDC reserves also exist and must be ignored. */

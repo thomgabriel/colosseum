@@ -17,7 +17,8 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { registerTransactionRoutes } from './routes/transactions.js';
+import { registerReadRoutes } from './routes/read';
+import { registerTransactionRoutes } from './routes/transactions';
 
 const notYet = (what: string, slot: string) => ({
   error: `${what} is implemented in slot ${slot} (docs/PLAN.md §4)`,
@@ -80,6 +81,7 @@ export async function buildApp() {
   );
 
   await registerTransactionRoutes(app);
+  await registerReadRoutes(app);
 
   return app;
 }

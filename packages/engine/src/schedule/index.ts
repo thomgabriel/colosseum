@@ -1,4 +1,4 @@
-import { NotImplementedUntil } from '../errors.js';
+import { NotImplementedUntil } from '../errors';
 
 /** Implemented in slot D5-PM. Stub keeps the module boundary visible from D1. */
 export function buildSchedule(..._args: unknown[]): never {

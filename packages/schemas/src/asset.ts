@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AssetKind, Chain, MintPathKind, Profile, Provenance } from './enums.js';
+import { AssetKind, Chain, MintPathKind, Profile, Provenance } from './enums';
 
 /** Static, provenance-carrying description of an eligible asset. Numbers live in observations, not here. */
 export const Asset = z.object({

@@ -8,7 +8,7 @@ import {
   type Signature,
   signTransaction,
 } from '@solana/kit';
-import type { SolanaRpc } from './rpc.js';
+import type { SolanaRpc } from './rpc';
 
 export type SendResult = { signature: string; slot: number | null; err: unknown };
 

@@ -1,10 +1,10 @@
 import type { Asset, LegOrder, UnsignedTx } from '@colosseum/schemas';
 import { address, type KeyPairSigner } from '@solana/kit';
-import type { SignedV0 } from './compose.js';
-import { buildDelegatedSwapTx } from './delegate.js';
-import { buildSwapTx, getQuote } from './jupiter.js';
-import type { PriceObservation } from './prices.js';
-import type { SolanaRpc } from './rpc.js';
+import type { SignedV0 } from './compose';
+import { buildDelegatedSwapTx } from './delegate';
+import { buildSwapTx, getQuote } from './jupiter';
+import type { PriceObservation } from './prices';
+import type { SolanaRpc } from './rpc';
 
 export type OrderBuild =
   | {

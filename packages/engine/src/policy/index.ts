@@ -1,2 +1,2 @@
-export * from './drift.js';
-export * from './rebalance.js';
+export * from './drift';
+export * from './rebalance';

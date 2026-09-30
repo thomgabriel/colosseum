@@ -1,4 +1,4 @@
-import type { MintAdapter } from './types.js';
+import type { MintAdapter } from './types';
 
 export const BRL_LEG_IN_PROGRESS_LABEL = 'BRS mint via Nora: integration in progress';
 

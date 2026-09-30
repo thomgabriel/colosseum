@@ -1,9 +1,9 @@
 import type { Asset } from '@colosseum/schemas';
 import { type Address, address } from '@solana/kit';
-import { tokenAccountState } from './delegate.js';
-import { KAMINO_MAIN_MARKET } from './kamino.js';
-import { getUsdcPrice, type PriceObservation } from './prices.js';
-import type { SolanaRpc } from './rpc.js';
+import { tokenAccountState } from './delegate';
+import { KAMINO_MAIN_MARKET } from './kamino';
+import { getUsdcPrice, type PriceObservation } from './prices';
+import type { SolanaRpc } from './rpc';
 
 export type ChainPosition = {
   assetId: string;
