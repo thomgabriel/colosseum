@@ -63,12 +63,14 @@ export const DEFAULT_PRIORITY = { units: 200_000, microLamportsPerUnit: 500_000n
 
 /** Prepends compute-unit limit + price unless the instruction list already carries ComputeBudget instructions. */
 export function withPriorityFee(ixs: Instruction[], p = DEFAULT_PRIORITY): Instruction[] {
-  if (ixs.some((ix) => ix.programAddress === COMPUTE_BUDGET_PROGRAM_ADDRESS)) return ixs;
-  return [
-    getSetComputeUnitLimitInstruction({ units: p.units }),
-    getSetComputeUnitPriceInstruction({ microLamports: p.microLamportsPerUnit }),
-    ...ixs,
-  ];
+  // ComputeBudget instruction discriminators: 2 = SetComputeUnitLimit, 3 = SetComputeUnitPrice.
+  const has = (disc: number) =>
+    ixs.some((ix) => ix.programAddress === COMPUTE_BUDGET_PROGRAM_ADDRESS && ix.data?.[0] === disc);
+  const prefix: Instruction[] = [];
+  if (!has(2)) prefix.push(getSetComputeUnitLimitInstruction({ units: p.units }));
+  if (!has(3))
+    prefix.push(getSetComputeUnitPriceInstruction({ microLamports: p.microLamportsPerUnit }));
+  return [...prefix, ...ixs];
 }
 
 export type SignedV0 = {

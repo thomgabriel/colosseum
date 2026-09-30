@@ -132,6 +132,10 @@ export async function getSwapInstructions(params: {
       userPublicKey: params.userPublicKey,
       destinationTokenAccount: params.destinationTokenAccount,
       wrapAndUnwrapSol: false,
+      dynamicComputeUnitLimit: true,
+      prioritizationFeeLamports: {
+        priorityLevelWithMaxLamports: { maxLamports: 1_000_000, priorityLevel: 'medium' },
+      },
     }),
   });
   const body = await res.json();

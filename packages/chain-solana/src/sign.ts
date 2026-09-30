@@ -54,9 +54,23 @@ export async function sendAndConfirm(
     }
     await new Promise((r) => setTimeout(r, 1500));
   }
+  // Last look with history search: the status cache can miss a just-landed signature.
+  const late = await rpc
+    .getSignatureStatuses([signature as Signature], { searchTransactionHistory: true })
+    .send();
+  const l = late.value[0];
+  if (
+    l &&
+    !l.err &&
+    (l.confirmationStatus === 'confirmed' || l.confirmationStatus === 'finalized')
+  ) {
+    return { signature, slot: Number(l.slot), err: null };
+  }
   return {
     signature,
     slot: null,
-    err: { timeout: `not confirmed within ${opts.timeoutMs ?? 90_000} ms` },
+    err: {
+      timeout: `not confirmed within ${opts.timeoutMs ?? 120_000} ms; blockhash expired, rebuild before sending again`,
+    },
   };
 }
