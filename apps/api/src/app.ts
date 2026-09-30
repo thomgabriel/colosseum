@@ -10,6 +10,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { registerMonitorRoutes } from './routes/monitor';
 import { registerPlanRoutes } from './routes/plans';
 import { registerReadRoutes } from './routes/read';
 import { registerTransactionRoutes } from './routes/transactions';
@@ -51,6 +52,7 @@ export async function buildApp() {
   await registerPlanRoutes(app);
   await registerTransactionRoutes(app);
   await registerReadRoutes(app);
+  await registerMonitorRoutes(app);
 
   return app;
 }
