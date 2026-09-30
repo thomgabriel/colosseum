@@ -1,5 +1,17 @@
 import type { PlanDetail } from '@/lib/api';
 import { ProvenanceBadge } from './Provenance';
+import { ScheduleChart } from './ScheduleChart';
+
+type Row = {
+  month: string;
+  withdrawalBrl: number;
+  balanceUsd: number;
+  balanceBrl: number;
+  fxUsdBrl: number;
+  liquidityOk: boolean;
+};
+const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+const pct3 = (v: number | null) => (v === null ? '—' : `${(v * 100).toFixed(2)}%`);
 
 const pct = (w: string | number) => `${(Number(w) * 100).toFixed(1)}%`;
 
@@ -68,33 +80,171 @@ export function PlanView({ d, embed = false }: { d: PlanDetail; embed?: boolean 
 
       <section>
         <h2 className="font-semibold">BRL schedule and stresses</h2>
-        {d.schedules.length === 0 ? (
-          <p className="mt-1 text-sm text-gray-500">Schedule engine lands in D5-PM.</p>
-        ) : (
-          <p className="mt-1 text-sm">
-            {d.schedules.length} cases · base liquidity{' '}
-            {d.schedules.find((s) => s.caseId === 'base')?.liquidityOk ? 'holds' : 'breaks'}
-          </p>
-        )}
-        {d.stresses.length > 0 && (
-          <ul className="mt-1 text-sm">
-            {d.stresses.map((s) => (
-              <li key={s.stressId}>
-                {s.name}: liquidity {s.liquidityOk ? 'holds' : 'breaks'}
-              </li>
-            ))}
-          </ul>
-        )}
+        {(() => {
+          const base = d.schedules.find((x) => x.caseId === 'base');
+          if (!base)
+            return <p className="mt-1 text-sm text-gray-500">No schedule stored for this plan.</p>;
+          const rows = base.rows as Row[];
+          const stressRows = d.schedules
+            .filter((x) => x.caseId !== 'base')
+            .map((x) => ({
+              id: x.caseId,
+              name: d.stresses.find((st) => st.stressId === x.caseId)?.name ?? x.caseId,
+              rows: x.rows as Row[],
+            }));
+          const firstWithdrawal = rows.findIndex((r) => r.withdrawalBrl > 0);
+          const show = rows.slice(
+            Math.max(0, firstWithdrawal - 1),
+            Math.max(0, firstWithdrawal - 1) + 12,
+          );
+          return (
+            <div className="mt-2 space-y-3">
+              <p className="text-sm">
+                Base case: liquidity{' '}
+                {base.liquidityOk ? (
+                  <span className="text-green-700">holds every month</span>
+                ) : (
+                  <span className="text-red-700">breaks</span>
+                )}{' '}
+                over {rows.length} months · FX {rows[0]?.fxUsdBrl} (PTAX at plan time) · black =
+                base, dashed = stresses
+              </p>
+              <ScheduleChart base={rows} stresses={stressRows} />
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500">
+                    <th>Stress</th>
+                    <th>Parameters</th>
+                    <th>Liquidity</th>
+                    <th>Terminal balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-gray-100">
+                    <td className="py-1">Base</td>
+                    <td className="text-gray-500">—</td>
+                    <td>{base.liquidityOk ? 'holds' : 'breaks'}</td>
+                    <td>{brl(rows[rows.length - 1]?.balanceBrl ?? 0)}</td>
+                  </tr>
+                  {d.stresses.map((st) => {
+                    const sr = d.schedules.find((x) => x.caseId === st.stressId)?.rows as
+                      | Row[]
+                      | undefined;
+                    return (
+                      <tr key={st.stressId} className="border-t border-gray-100">
+                        <td className="py-1">{st.name}</td>
+                        <td className="text-gray-500">
+                          {Object.entries(st.params)
+                            .map(([k, v]) => `${k} ${v}`)
+                            .join(', ')}
+                        </td>
+                        <td className={st.liquidityOk ? 'text-green-700' : 'text-red-700'}>
+                          {st.liquidityOk ? 'holds' : 'breaks'}
+                        </td>
+                        <td>{sr ? brl(sr[sr.length - 1]?.balanceBrl ?? 0) : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {show.length > 0 && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-gray-600">
+                    Month by month (12 months around the first withdrawal)
+                  </summary>
+                  <table className="mt-1 w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-gray-500">
+                        <th>Month</th>
+                        <th>Withdrawal</th>
+                        <th>Balance BRL</th>
+                        <th>Balance USD</th>
+                        <th>FX</th>
+                        <th>Liquidity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {show.map((r) => (
+                        <tr key={r.month} className="border-t border-gray-100">
+                          <td>{r.month}</td>
+                          <td>{brl(r.withdrawalBrl)}</td>
+                          <td>{brl(r.balanceBrl)}</td>
+                          <td>
+                            {r.balanceUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td>{r.fxUsdBrl}</td>
+                          <td>{r.liquidityOk ? 'ok' : 'short'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              )}
+            </div>
+          );
+        })()}
       </section>
 
       <section>
         <h2 className="font-semibold">Risk sheet</h2>
         {d.riskSheet.length === 0 ? (
-          <p className="mt-1 text-sm text-gray-500">
-            Risk sheet lands in D4-PM. Every yield shown will carry a source and a timestamp.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">No risk sheet stored for this plan.</p>
         ) : (
-          <pre className="mt-1 overflow-auto text-xs">{JSON.stringify(d.riskSheet, null, 1)}</pre>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th>Leg</th>
+                  <th>Quoted</th>
+                  <th>Haircut</th>
+                  <th>Rule</th>
+                  <th>Source · fetched</th>
+                  <th>Oracle</th>
+                  <th>Redemption</th>
+                  <th>Depth</th>
+                  <th>Gates</th>
+                  <th>Issuer / credit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.riskSheet.map((r) => {
+                  const e = r.entry as Record<string, unknown>;
+                  return (
+                    <tr key={r.assetId} className="border-t border-gray-100 align-top">
+                      <td className="py-1 pr-2">
+                        {r.assetId}
+                        {e.label ? <div className="text-amber-800">{String(e.label)}</div> : null}
+                      </td>
+                      <td className="pr-2">{pct3(e.quotedYield as number | null)}</td>
+                      <td className="pr-2 font-medium">{pct3(e.haircutYield as number | null)}</td>
+                      <td className="pr-2">{String(e.haircutRule ?? '—')}</td>
+                      <td className="pr-2 max-w-[14rem] break-all text-gray-600">
+                        {String(e.yieldSource ?? '—')}
+                        <div>
+                          {e.yieldFetchedAt
+                            ? new Date(String(e.yieldFetchedAt)).toLocaleString()
+                            : ''}
+                        </div>
+                      </td>
+                      <td className="pr-2">{String(e.oracle ?? '—')}</td>
+                      <td className="pr-2">
+                        {String(e.redemptionPath ?? '—')}
+                        <div className="text-gray-500">{String(e.redemptionTime ?? '')}</div>
+                      </td>
+                      <td className="pr-2">{String(e.depthNote ?? '—')}</td>
+                      <td className="pr-2">
+                        {Array.isArray(e.gates) ? (e.gates as string[]).join('; ') : '—'}
+                      </td>
+                      <td>
+                        {String(e.issuer ?? '—')}
+                        <div className="text-gray-500">{String(e.creditExposure ?? '')}</div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

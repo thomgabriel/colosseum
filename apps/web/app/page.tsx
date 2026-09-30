@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { GoalFlow } from '@/components/GoalFlow';
 import { apiGet } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -27,17 +28,7 @@ export default async function Home() {
           precificados. Política na sua carteira, não um fundo.
         </p>
       </div>
-      <div className="rounded border border-dashed border-gray-300 p-4 text-sm text-gray-600">
-        <p className="font-medium text-gray-800">Chat de objetivo</p>
-        <p>
-          Ex.: “R$3.000 por mês a partir de 2028, resgate em até 7 dias” · “R$250 mil em 3 anos,
-          aceito risco de crédito”
-        </p>
-        <p className="mt-2 text-xs">
-          O parser (LLM → planilha de restrições validada) entra em D6-AM. Até lá, os planos abaixo
-          vêm de fixtures rotuladas.
-        </p>
-      </div>
+      <GoalFlow />
       <div>
         <h2 className="font-semibold">Planos recentes</h2>
         {apiError && <p className="text-sm text-red-700">API indisponível: {apiError}</p>}
