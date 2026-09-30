@@ -84,6 +84,44 @@ export default function MonitorPage() {
     load();
   }, [load]);
 
+  async function revoke() {
+    if (!drift || !signTransaction) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`${API}/policies/${drift.policy.id}/revoke`, { method: 'POST' });
+      const d = (await res.json()) as {
+        transactions: Array<{ payload: string; executionId?: string }>;
+        note?: string;
+      };
+      if (!d.transactions.length) {
+        setResult({ outcome: 'nothing to revoke', note: d.note });
+        return;
+      }
+      const t = d.transactions[0] as { payload: string; executionId?: string };
+      const tx = VersionedTransaction.deserialize(
+        Uint8Array.from(atob(t.payload), (c) => c.charCodeAt(0)),
+      );
+      const signed = await signTransaction(tx);
+      const sig = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 0 });
+      const conf = await connection.confirmTransaction(sig, 'confirmed');
+      await fetch(`${API}/executions/${t.executionId}/report`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: conf.value.err ? 'failed' : 'confirmed', signature: sig }),
+      });
+      setResult({
+        outcome: conf.value.err ? 'failed' : 'revoked',
+        signature: sig,
+        explorerUrl: `https://solscan.io/tx/${sig}`,
+      });
+      await load();
+    } catch (e) {
+      setResult({ outcome: 'error', error: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runPolicy() {
     if (!drift) return;
     setBusy(true);

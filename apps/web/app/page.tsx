@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { GoalFlow } from '@/components/GoalFlow';
+import { StatsCard } from '@/components/StatsCard';
 import { apiGet } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export default async function Home() {
         </p>
       </div>
       <GoalFlow />
+      <StatsCard />
       <div>
         <h2 className="font-semibold">Planos recentes</h2>
         {apiError && <p className="text-sm text-red-700">API indisponível: {apiError}</p>}

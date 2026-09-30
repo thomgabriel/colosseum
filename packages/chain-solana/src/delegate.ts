@@ -10,7 +10,13 @@ import {
   getTransferCheckedInstruction,
   TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token';
-import { buildSignedV0, jupiterInstructions, type SignedV0 } from './compose';
+import {
+  buildSignedV0,
+  buildUnsignedV0,
+  jupiterInstructions,
+  type SignedV0,
+  type UnsignedV0,
+} from './compose';
 import { getQuote, getSwapInstructions } from './jupiter';
 import type { SolanaRpc } from './rpc';
 
@@ -164,4 +170,16 @@ export async function buildApprovalsTx(
       getTransferSolInstruction({ source: owner, destination: agent, amount: agentFeeLamports }),
     );
   return buildSignedV0(rpc, owner, ixs, []);
+}
+
+/** Unsigned revoke of the delegate on several mints (the wallet signs): the policy off-switch. */
+export async function buildRevokeUnsigned(
+  rpc: SolanaRpc,
+  owner: Address,
+  mints: Address[],
+): Promise<UnsignedV0> {
+  const ixs: Instruction[] = [];
+  for (const mint of mints)
+    ixs.push(getRevokeInstruction({ source: await ata(owner, mint), owner }));
+  return buildUnsignedV0(rpc, owner, ixs, []);
 }

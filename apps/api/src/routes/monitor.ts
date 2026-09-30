@@ -1,6 +1,7 @@
 import {
   asAddress,
   buildOrderTx,
+  buildRevokeUnsigned,
   createRpc,
   explorerTxUrl,
   loadKeypair,
@@ -338,6 +339,107 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
           explorerUrl: e.explorerUrl,
           createdAt: e.createdAt.toISOString(),
         }));
+    },
+  );
+
+  f.get(
+    '/stats',
+    {
+      schema: {
+        summary:
+          'Live numbers for the close: wallets, plans, confirmed executions, rebalances, value observed',
+        response: { 200: z.any() },
+      },
+    },
+    async () => {
+      const execs = await db.select().from(executions);
+      const confirmed = execs.filter((e) => e.status === 'confirmed');
+      const wallets = new Set(confirmed.map((e) => e.wallet));
+      const rebs = await db.select().from(rebalances);
+      const planRows = await db.select().from(plans);
+      const latestPositions = await db
+        .select()
+        .from(positionsTable)
+        .orderBy(desc(positionsTable.observedAt))
+        .limit(300);
+      const latest = new Map<string, number>();
+      for (const p of latestPositions) {
+        const k = `${p.wallet}:${p.assetId}`;
+        if (!latest.has(k)) latest.set(k, Number(p.valueUsd ?? 0));
+      }
+      return {
+        wallets: wallets.size,
+        plans: planRows.length,
+        executionsConfirmed: confirmed.length,
+        executionsFailed: execs.filter((e) => e.status === 'failed').length,
+        rebalances: rebs.length,
+        byKind: Object.fromEntries(
+          ['swap', 'deposit', 'withdraw', 'mint', 'rebalance', 'approve'].map((k) => [
+            k,
+            confirmed.filter((e) => e.kind === k).length,
+          ]),
+        ),
+        observedValueUsd: Math.round([...latest.values()].reduce((a, b) => a + b, 0) * 100) / 100,
+        firstExecutionAt:
+          confirmed
+            .map((e) => e.createdAt)
+            .sort((a, b) => a.getTime() - b.getTime())[0]
+            ?.toISOString() ?? null,
+        asOf: new Date().toISOString(),
+        disclaimer: DISCLAIMER.en,
+      };
+    },
+  );
+
+  f.post(
+    '/policies/:id/revoke',
+    {
+      schema: {
+        summary:
+          'Policy off-switch: unsigned transaction revoking the agent delegate on every delegated asset; the wallet signs',
+        params: z.object({ id: z.string().uuid() }),
+        response: { 200: z.any(), 404: ApiError },
+      },
+    },
+    async (req, reply) => {
+      const [pol] = await db.select().from(policies).where(eq(policies.id, req.params.id));
+      if (!pol) return reply.code(404).send({ error: 'policy not found' });
+      const policy = rowToPolicy(pol);
+      const assets = new Map(
+        (await db.select().from(assetsTable)).map((r) => [r.id, rowToAsset(r)]),
+      );
+      const mints = Object.keys(policy.delegation?.approvedBase ?? {})
+        .map((id) => assets.get(id)?.mint)
+        .filter((m): m is string => Boolean(m));
+      if (mints.length === 0)
+        return { transactions: [], note: 'no delegated approvals on this policy' };
+      const built = await buildRevokeUnsigned(
+        rpc(),
+        asAddress(policy.wallet),
+        mints.map((m) => asAddress(m)),
+      );
+      const executionId = await recordBuilt(db, {
+        planId: policy.planId,
+        wallet: policy.wallet,
+        chain: 'solana',
+        kind: 'approve',
+        assetId: null,
+        provenance: 'live',
+      });
+      return {
+        transactions: [
+          {
+            legAssetId: 'policy',
+            kind: 'approve',
+            chain: 'solana',
+            payload: built.wire,
+            description: `Revoke agent ${policy.delegation?.agent} on ${mints.length} asset(s)`,
+            provenance: 'live',
+            executionId,
+            lastValidBlockHeight: built.lastValidBlockHeight,
+          },
+        ],
+      };
     },
   );
 }
