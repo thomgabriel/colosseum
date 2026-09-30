@@ -5,7 +5,7 @@ Status: `todo | in-progress | done | slipped`. Evidence links point to files, te
 | Slot | Date | Workstream | Status | Evidence |
 |---|---|---|---|---|
 | D1-AM | Thu Oct 1 (run early, Wed Sep 30) | Setup + Verify | done | scaffold; `CLAUDE.md`; `packages/db/migrations/0000_*.sql` applied to local Postgres (15 tables); `docs/VERIFICATION.md` V1–V7; `pnpm lint && pnpm typecheck && pnpm test` green (12 tests) |
-| D1-PM | Thu Oct 1 (run early, Wed Sep 30) | Exec plumbing | done (funding pending) | `packages/chain-solana`: `rpc.ts`, `jupiter.ts` (quote, `/swap`, `/swap-instructions`), `simulate.ts`, `wallet.ts`; demo wallet `5pKoRYvYrqdpurepmJLnGkqv7ffjh6ySpYJYgnS1mhn7` created (`secrets/`, gitignored), **not yet funded**; registry (`packages/engine/src/assets/registry.ts`, 8 assets incl. abstract BRL leg) seeded via `pnpm db:seed`; `pnpm depth:import` loaded 112 rows into `depth_observations`; check `pnpm check:d1pm`: USDC→USDY $5 quote + swap build + `simulateTransaction` ok (58,374 CU, Jupiter success) using a **labelled proxy signer** (exchange wallet, sigVerify=false) because the demo wallet is unfunded; 18 tests green |
+| D1-PM | Thu Oct 1 (run early, Wed Sep 30) | Exec plumbing | done (funding pending) | `packages/chain-solana`: `rpc.ts`, `jupiter.ts` (quote, `/swap`, `/swap-instructions`), `simulate.ts`, `wallet.ts`; demo wallet `GMhJgqo4MqSD29iDNQvHA5ksJeYQJZD2UKKAHqJQtFCh` created (`secrets/`, gitignored), **not yet funded**; registry (`packages/engine/src/assets/registry.ts`, 8 assets incl. abstract BRL leg) seeded via `pnpm db:seed`; `pnpm depth:import` loaded 112 rows into `depth_observations`; check `pnpm check:d1pm`: USDC→USDY $5 quote + swap build + `simulateTransaction` ok (58,374 CU, Jupiter success) using a **labelled proxy signer** (exchange wallet, sigVerify=false) because the demo wallet is unfunded; 18 tests green |
 | D2-AM | Fri Oct 2 | Exec: first mainnet txs | todo | |
 | D2-PM | Fri Oct 2 | Policy spike + decision | todo | |
 | D3-AM | Sat Oct 3 | Exec engine + `/transactions` | todo | |
@@ -46,7 +46,8 @@ Status: `todo | in-progress | done | slipped`. Evidence links point to files, te
 - D1-PM: the founder's Chainstack RPC returns 403 for `getTokenLargestAccounts`; the public RPC rate-limits it. Avoid that method in product code.
 - D1-PM: with the Jupiter key the quote tier shows `x-ratelimit-remaining: 9` per window (keyless: 4). Execution paths still space calls.
 - D1-PM: the `/swap` endpoint is used for single-leg transactions; `/swap-instructions` is wired for the D2-PM delegated composition. Both honour `destinationTokenAccount`.
-- D2-AM prerequisite: fund `5pKoRYvYrqdpurepmJLnGkqv7ffjh6ySpYJYgnS1mhn7` with ~0.3 SOL and 100–150 USDC before Fri Oct 2 morning; re-run `pnpm check:d1pm` to see the simulation on the real wallet.
+- D1-PM: the first demo keypair was retired unfunded after its private key was echoed into the chat session via the `!` prompt prefix (`secrets/demo-wallet.RETIRED-*.json`, never fund it). Wallet export must be run in a normal terminal window.
+- D2-AM prerequisite: fund `GMhJgqo4MqSD29iDNQvHA5ksJeYQJZD2UKKAHqJQtFCh` with ~0.3 SOL and 100–150 USDC before Fri Oct 2 morning; re-run `pnpm check:d1pm` to see the simulation on the real wallet.
 
 - Kamino main market has three USDC reserves; only `D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59` is the real one. Hard-coded in `scripts/lib.ts`; registry seed (D1-PM) must use it.
 - `swap-instructions` silently ignores unknown parameters, so parameter acceptance proves nothing; the destination check compares the swap instruction's account list instead (V5).
