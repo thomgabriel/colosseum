@@ -135,7 +135,7 @@ What PASS displaces: UI polish, S1, execution hardening, and the friendly-user s
 | EVM adapter S1 | Build one leg on the confirmed pilot chain / skip | **Skip** | D5-AM | Founder | Build only if a partner has confirmed a chain in writing **and** `STATE.md` shows no `slipped` rows **and** G-Nora has not passed (or B2 exists). Lands in D8-AM (FAIL branch). |
 | Solver form | LP via `javascript-lp-solver` with rules layer / rules-only greedy waterfall | **LP + rules**; greedy as the infeasibility fallback | D5-AM | Founder | If the LP misbehaves on the three fixture goals within 2 h, D5-AM finishes with the greedy waterfall and the LP is dropped; the check is unchanged. |
 | Feature freeze | Oct 9 18:00 BRT / later | **Oct 9 18:00 BRT** | D9-PM | Founder | After the freeze: no new features, schema changes or dependency upgrades; only P0 fixes (crash, wrong number, failed mainnet path) with a test; copy changes allowed; `main` tagged `freeze`. |
-| Second builder | Yes / no | **No** | D1-AM | Founder | Yes: B2 owns D1-PM, D2-AM, D2-PM, D3-AM, D3-PM, D6-AM API half, D6-PM execution half, D7-AM, the BRS block and S1; founder starts D4-PM engine work on D2 in parallel. Plan closes solo either way. |
+| Second builder | Yes / no | **No** (decided 2026-09-30; revisit if someone joins) | D1-AM | Founder | Yes: B2 owns D1-PM, D2-AM, D2-PM, D3-AM, D3-PM, D6-AM API half, D6-PM execution half, D7-AM, the BRS block and S1; founder starts D4-PM engine work on D2 in parallel. Plan closes solo either way. |
 | Kamino leg substitute | klend-sdk main market / Jupiter Lend USDC | **klend-sdk** | D1-AM (V3) | Founder | Substitute changes D2-AM leg 3 and the registry entry only. |
 
 ## 6. Risk register
@@ -203,6 +203,8 @@ Shot rules: every live segment is recorded live on Oct 11 with the income goal; 
 - [ ] Submit by 18:00 BRT Oct 12; confirmation saved in `docs/submission/`.
 
 ## 10. Open questions for the founder
+
+**Resolved 2026-09-30 by the founder:** no second builder for now (may join later; `[B2]` marks stay so slots can be handed over mid-build). All other questions take the default below. Feature freeze confirmed for Oct 9 18:00 BRT.
 
 | # | Question | Default assumed |
 |---|---|---|
