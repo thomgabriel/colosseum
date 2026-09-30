@@ -6,7 +6,7 @@ Status: `todo | in-progress | done | slipped`. Evidence links point to files, te
 |---|---|---|---|---|
 | D1-AM | Thu Oct 1 (run early, Wed Sep 30) | Setup + Verify | done | scaffold; `CLAUDE.md`; `packages/db/migrations/0000_*.sql` applied to local Postgres (15 tables); `docs/VERIFICATION.md` V1–V7; `pnpm lint && pnpm typecheck && pnpm test` green (12 tests) |
 | D1-PM | Thu Oct 1 (run early, Wed Sep 30) | Exec plumbing | done (funding pending) | `packages/chain-solana`: `rpc.ts`, `jupiter.ts` (quote, `/swap`, `/swap-instructions`), `simulate.ts`, `wallet.ts`; demo wallet `GMhJgqo4MqSD29iDNQvHA5ksJeYQJZD2UKKAHqJQtFCh` created (`secrets/`, gitignored), **not yet funded**; registry (`packages/engine/src/assets/registry.ts`, 8 assets incl. abstract BRL leg) seeded via `pnpm db:seed`; `pnpm depth:import` loaded 112 rows into `depth_observations`; check `pnpm check:d1pm`: USDC→USDY $5 quote + swap build + `simulateTransaction` ok (58,374 CU, Jupiter success) using a **labelled proxy signer** (exchange wallet, sigVerify=false) because the demo wallet is unfunded; 18 tests green |
-| D2-AM | Fri Oct 2 | Exec: first mainnet txs | todo | |
+| D2-AM | Fri Oct 2 (run early, Wed Sep 30) | Exec: first mainnet txs | done | Three confirmed mainnet transactions from `GMhJ…tFCh`, 5 USDC each, rows in `executions` with explorer links: USDC→USDY swap [`2Aoz1bhv…ZaTv8a`](https://solscan.io/tx/2Aoz1bhvLDECQYbzJGxQdFnPADZddwhtZUsqQ9LV364mAZpREXMtKrQsXQJnRx2uZ5g7seETMQf7H6CTLEZaTv8a) (slot 452077892); USDC→syrupUSDC swap [`5UsayYGR…Vrj1fh`](https://solscan.io/tx/5UsayYGRmiTjuUsuYumFx7QLA54qcVF1mHPo4Y2udnUBmZYSCvZhbtTVdcVpSwmFzzaXgKt1TXN7f4YesVJrj1fh) (slot 452077905); Kamino USDC deposit incl. user-metadata + obligation init [`AuBoh4p3…tiNCoR`](https://solscan.io/tx/AuBoh4p3XHsKv59ke5beC3UtK83BiBpMTL6c6cZDWyzpD8rsBiH57A9FLgJKp1C7aEZTwCTYJhUdRDXVztiNCoR) (slot 452078448). Code: `chain-solana/sign.ts` (sign, send once, poll confirm), `chain-solana/kamino.ts` (deposit via klend-sdk + market LUT), `db/executions.ts` logger, `scripts/execute/d2am-*.ts`, `scripts/checks/positions.ts` |
 | D2-PM | Fri Oct 2 | Policy spike + decision | todo | |
 | D3-AM | Sat Oct 3 | Exec engine + `/transactions` | todo | |
 | D3-PM | Sat Oct 3 | Policy + rebalance #1 | todo | |
@@ -42,6 +42,10 @@ Status: `todo | in-progress | done | slipped`. Evidence links point to files, te
 - **pnpm 11** requires `allowBuilds` in `pnpm-workspace.yaml` and enforces a minimum release age (it auto-excluded a list of fresh packages); this is why `klend-sdk` resolved to 12.0.1 instead of 13.0.1.
 
 ## Discovered (out-of-slot notes)
+
+- D2-AM: Kamino's `/kamino-market` (v1) config omits `lookupTable`; `/v2/kamino-market` has it (main market LUT `FGMSBiyVE8TvZcdQnZETAAKw28tkQJ2ccZy6pyp95URb`). The first deposit spends ~183k CU with 8 instructions (user metadata + obligation init + deposit); later deposits will be smaller.
+- D2-AM: `sendAndConfirm` polls `getSignatureStatuses` (no websocket needed) and never retries; a timeout is logged as `failed` and a human rebuilds.
+- D3-AM should reuse `d2am-first-txs.ts` leg loop as the `compose/` per-leg status model; the Kamino leg cannot share a Jupiter `/swap` transaction, so multi-leg plans are N transactions with per-leg rows, not one bundle.
 
 - D1-PM: the founder's Chainstack RPC returns 403 for `getTokenLargestAccounts`; the public RPC rate-limits it. Avoid that method in product code.
 - D1-PM: with the Jupiter key the quote tier shows `x-ratelimit-remaining: 9` per window (keyless: 4). Execution paths still space calls.

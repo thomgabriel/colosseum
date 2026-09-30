@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@colosseum/schemas": "workspace:*",
-    "@solana/kit": "^2.3.0"
+    "@solana/kit": "^2.3.0",
+    "@kamino-finance/klend-sdk": "^12.0.1"
   }
 }
