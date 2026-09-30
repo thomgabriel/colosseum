@@ -3,19 +3,20 @@
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.colosseum.depth-snapshot</string>
-  <key>WorkingDirectory</key><string>/Users/rodrigo/Documents/Colosseum</string>
+  <key>WorkingDirectory</key><string>__HOME_DIR__</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PATH</key><string>/Users/rodrigo/.nvm/versions/node/v24.16.0/bin:/Users/rodrigo/Library/pnpm/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>PATH</key><string>__NODE_BIN__:/usr/bin:/bin</string>
+    <key>DEPTH_DIR</key><string>__HOME_DIR__/depth</string>
   </dict>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
     <string>-c</string>
-    <string>node_modules/.bin/tsx scripts/depth-snapshot.ts >> data/depth/cron.log 2>&1</string>
+    <string>set -a; source __HOME_DIR__/env; set +a; node __HOME_DIR__/depth-snapshot.mjs >> __HOME_DIR__/cron.log 2>&1</string>
   </array>
   <key>StartInterval</key><integer>900</integer>
   <key>RunAtLoad</key><true/>
-  <key>StandardErrorPath</key><string>/Users/rodrigo/Documents/Colosseum/data/depth/launchd.err</string>
+  <key>StandardErrorPath</key><string>__HOME_DIR__/launchd.err</string>
 </dict>
 </plist>
