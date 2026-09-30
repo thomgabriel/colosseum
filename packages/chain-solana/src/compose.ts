@@ -16,6 +16,11 @@ import {
   signTransactionMessageWithSigners,
 } from '@solana/kit';
 import { fetchAllAddressLookupTable } from '@solana-program/address-lookup-table';
+import {
+  COMPUTE_BUDGET_PROGRAM_ADDRESS,
+  getSetComputeUnitLimitInstruction,
+  getSetComputeUnitPriceInstruction,
+} from '@solana-program/compute-budget';
 import type { JupiterSwapInstructions } from './jupiter.js';
 import type { SolanaRpc } from './rpc.js';
 
@@ -53,6 +58,19 @@ export function jupiterInstructions(r: JupiterSwapInstructions): Instruction[] {
   ].map(jupiterIxToKit);
 }
 
+/** Default priority fee for transactions we compose ourselves (Jupiter supplies its own compute-budget ixs). */
+export const DEFAULT_PRIORITY = { units: 200_000, microLamportsPerUnit: 500_000n };
+
+/** Prepends compute-unit limit + price unless the instruction list already carries ComputeBudget instructions. */
+export function withPriorityFee(ixs: Instruction[], p = DEFAULT_PRIORITY): Instruction[] {
+  if (ixs.some((ix) => ix.programAddress === COMPUTE_BUDGET_PROGRAM_ADDRESS)) return ixs;
+  return [
+    getSetComputeUnitLimitInstruction({ units: p.units }),
+    getSetComputeUnitPriceInstruction({ microLamports: p.microLamportsPerUnit }),
+    ...ixs,
+  ];
+}
+
 export type SignedV0 = {
   wire: ReturnType<typeof getBase64EncodedWireTransaction>;
   signature: string;
@@ -84,7 +102,7 @@ export async function buildSignedV0(
     createTransactionMessage({ version: 0 }),
     (m) => setTransactionMessageFeePayerSigner(feePayer, m),
     (m) => setTransactionMessageLifetimeUsingBlockhash(blockhash, m),
-    (m) => appendTransactionMessageInstructions(ixs, m),
+    (m) => appendTransactionMessageInstructions(withPriorityFee(ixs), m),
     (m) => (luts.length ? compressTransactionMessageUsingAddressLookupTables(m, tables) : m),
   );
   const signed = await signTransactionMessageWithSigners(message);

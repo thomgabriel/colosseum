@@ -43,7 +43,7 @@ export async function sendAndConfirm(
       preflightCommitment: 'confirmed',
     })
     .send();
-  const deadline = Date.now() + (opts.timeoutMs ?? 90_000);
+  const deadline = Date.now() + (opts.timeoutMs ?? 120_000);
   while (Date.now() < deadline) {
     const st = await rpc.getSignatureStatuses([signature as Signature]).send();
     const s = st.value[0];
