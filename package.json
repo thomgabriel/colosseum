@@ -1,0 +1,37 @@
+{
+  "name": "colosseum",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "db:generate": "pnpm --filter @colosseum/db generate",
+    "db:migrate": "pnpm --filter @colosseum/db migrate",
+    "plan:demo": "tsx scripts/plan-demo.ts",
+    "execute:demo": "tsx scripts/execute-demo.ts",
+    "verify:all": "tsx scripts/verify/run-all.ts",
+    "depth:snapshot": "tsx scripts/depth-snapshot.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@kamino-finance/klend-sdk": "^12.0.1",
+    "@solana/kit": "^2.3.0",
+    "@types/node": "^22.15.0",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3",
+    "drizzle-orm": "^0.45.3",
+    "zod": "^4.6.5"
+  }
+}

@@ -4,6 +4,8 @@
 
 Calendar: D1 Thu Oct 1 · D2 Fri Oct 2 · **D3 Sat Oct 3 · D4 Sun Oct 4** · D5 Mon Oct 5 · D6 Tue Oct 6 · D7 Wed Oct 7 · D8 Thu Oct 8 · D9 Fri Oct 9 · **D10 Sat Oct 10 · D11 Sun Oct 11** · D12 Mon Oct 12. Weekends in bold: xStocks depth is thin, so xStocks execution is scheduled on weekdays only.
 
+*Amended after the D1 verification run (see `docs/VERIFICATION.md`, "Plan changes"): Solana client library, local Postgres port, D2-PM spike scope, D4-PM yield method.*
+
 ---
 
 ## 1. Plan summary
@@ -22,11 +24,11 @@ Calendar: D1 Thu Oct 1 · D2 Fri Oct 2 · **D3 Sat Oct 3 · D4 Sun Oct 4** · D5
 | Language | TypeScript end to end, pnpm workspace monorepo (`apps/api`, `apps/web`, `packages/schemas`, `packages/engine`, `packages/chain-solana`, `packages/chain-evm`) | Jupiter and klend-sdk are TS; one language for a solo builder. |
 | API | Fastify + `fastify-type-provider-zod`; OpenAPI generated from zod; Scalar docs page served at `/docs` | The three endpoints and the docs page come from the same schemas; no hand-written spec. |
 | Schemas | zod in `packages/schemas`, shared by API, engine, UI and the LLM parser | One `ConstraintSheet` type validates LLM output, API input and DB rows. |
-| Database | **Postgres from day 1** (Drizzle ORM + drizzle-kit migrations; local via docker compose, hosted on Railway or Neon) | Deviation from "SQLite for speed": hosting Postgres is one click, friendly users need a hosted DB by D8, and it removes the migration note. The product continues after Oct 12. |
+| Database | **Postgres from day 1** (Drizzle ORM + drizzle-kit migrations; local `docker run` on port 5433, hosted on Railway or Neon) | Deviation from "SQLite for speed": hosting Postgres is one click, friendly users need a hosted DB by D8, and it removes the migration note. The product continues after Oct 12. |
 | UI | Next.js (App Router) + Tailwind, plain components; `@solana/wallet-adapter-react` (Phantom); deployed on Vercel | Serves chat, plan view, monitoring, embed route and docs link from one app; wallet connect is the only auth. |
 | Solver | Rules layer (eligibility, caps, profile) + small LP via `javascript-lp-solver` (pure JS, no WASM toolchain); greedy waterfall fallback when infeasible, reported as such | Deterministic, explainable in one screen as "binding constraints"; no LLM in the loop. |
 | LLM | Anthropic Claude API (TS SDK), structured output validated by zod; default model `claude-sonnet-5-5`, swap by env var | Parses goals into `ConstraintSheet` only. Invalid output → user edits the sheet; the solver never runs on unvalidated input. |
-| Solana | `@solana/web3.js` version matched to klend-sdk's peer dependency (checked in V3); Jupiter REST `api.jup.ag/swap/v1` (`quote`, `swap-instructions`) with `x-api-key`; `@kamino-finance/klend-sdk`; Helius or Triton RPC | Direct REST for Jupiter avoids SDK churn; `swap-instructions` lets the executor compose atomic multi-instruction transactions. |
+| Solana | `@solana/kit` 2.x in `chain-solana` (klend-sdk 12.x depends on it, not on web3.js v1; V3); Jupiter REST `api.jup.ag/swap/v1` (`quote`, `swap-instructions`) with `x-api-key`; `@kamino-finance/klend-sdk` 12.x; Helius or Triton RPC. The web app keeps `@solana/wallet-adapter` (web3.js v1) and exchanges base64 transactions with the API | Direct REST for Jupiter avoids SDK churn; `swap-instructions` lets the executor compose atomic multi-instruction transactions. |
 | EVM (stub) | viem; `packages/chain-evm` returns calldata for a plan leg; no execution unless S1 is approved | Keeps the core chain-agnostic at near-zero cost. |
 | Data feeds | Kamino API / klend-sdk on-chain reads; issuer-reported yields (Maple, Ondo) with realised-yield cross-check from on-chain price or exchange rate; BCB SGS API for PTAX, Selic, CDI; Jupiter quotes for depth | Every observation stores `source`, `fetched_at`, `method`. |
 | Tooling | vitest, Biome (lint + format), tsx scripts, GitHub Actions on push (typecheck, lint, test) | One config each; CI proves in-window commits build. |

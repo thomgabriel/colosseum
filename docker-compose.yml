@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: colosseum-pg
+    environment:
+      POSTGRES_USER: colosseum
+      POSTGRES_PASSWORD: colosseum
+      POSTGRES_DB: colosseum
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

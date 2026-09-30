@@ -1,0 +1,20 @@
+[
+  {
+    "id": "income-1",
+    "language": "pt",
+    "text": "R$3.000 por mês a partir de 2028, resgate em até 7 dias",
+    "expectedProfile": "income"
+  },
+  {
+    "id": "accum-1",
+    "language": "pt",
+    "text": "R$250 mil em 3 anos, aceito risco de crédito",
+    "expectedProfile": "accumulation"
+  },
+  {
+    "id": "highrisk-1",
+    "language": "en",
+    "text": "Grow to R$500k in 5 years, I accept stock market risk and credit risk, I can wait 30 days to withdraw",
+    "expectedProfile": "high_risk"
+  }
+]

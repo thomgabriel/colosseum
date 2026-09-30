@@ -1,3 +1,14 @@
 .DS_Store
 .env
+.env.*
+!.env.example
+node_modules/
+dist/
+.next/
+coverage/
+secrets/
 *.keypair.json
+data/
+!data/.gitkeep
+docs/loi/*.pdf
+*.tsbuildinfo
