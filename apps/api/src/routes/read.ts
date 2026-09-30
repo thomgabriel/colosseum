@@ -2,6 +2,7 @@ import {
   assets as assetsTable,
   constraintSheets,
   createDb,
+  depthObservations,
   executions,
   goals,
   planLegs,
@@ -12,8 +13,16 @@ import {
   riskSheets,
   schedules,
   stressCases,
+  yieldObservations,
 } from '@colosseum/db';
-import { ApiError, DISCLAIMER } from '@colosseum/schemas';
+import { buildRiskSheet, pickPrimaryYield } from '@colosseum/engine';
+import {
+  ApiError,
+  Asset,
+  type DepthObservation,
+  DISCLAIMER,
+  type YieldObservation,
+} from '@colosseum/schemas';
 import { desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -214,6 +223,81 @@ export async function registerReadRoutes(app: FastifyInstance) {
         })),
         policies: pols.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() })),
         rebalances: rebs.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+        disclaimer: DISCLAIMER,
+      };
+    },
+  );
+
+  f.get(
+    '/assets/risk-sheet',
+    {
+      schema: {
+        summary:
+          'Registry with the latest yield observation (source, timestamp, haircut rule) and depth per asset',
+        response: { 200: z.any() },
+      },
+    },
+    async () => {
+      const rows = await db.select().from(assetsTable);
+      const assets = rows.map((r) =>
+        Asset.parse({
+          ...r,
+          mint: r.mint ?? undefined,
+          tokenProgram: r.tokenProgram ?? undefined,
+          decimals: r.decimals ?? undefined,
+          capWeight: Number(r.capWeight),
+        }),
+      );
+      const ys = await db
+        .select()
+        .from(yieldObservations)
+        .orderBy(desc(yieldObservations.fetchedAt))
+        .limit(200);
+      const yields: YieldObservation[] = ys.map((y) => ({
+        assetId: y.assetId,
+        quotedYield: Number(y.quotedYield),
+        haircutYield: Number(y.haircutYield),
+        haircutRule: y.haircutRule,
+        source: y.source,
+        method: y.method,
+        fetchedAt: y.fetchedAt.toISOString(),
+        provenance: y.provenance,
+      }));
+      const ds = await db
+        .select()
+        .from(depthObservations)
+        .orderBy(desc(depthObservations.fetchedAt))
+        .limit(400);
+      const depth = new Map<string, DepthObservation[]>();
+      for (const r of ds) {
+        const list = depth.get(r.assetId) ?? [];
+        if (!list.some((x) => x.notionalUsd === Number(r.notionalUsd)))
+          list.push({
+            assetId: r.assetId,
+            side: r.side as 'buy',
+            notionalUsd: Number(r.notionalUsd),
+            priceImpactPct: Number(r.priceImpactPct),
+            outAmount: r.outAmount,
+            source: r.source,
+            method: r.method,
+            fetchedAt: r.fetchedAt.toISOString(),
+            provenance: r.provenance,
+          });
+        depth.set(r.assetId, list);
+      }
+      return {
+        assets: assets.map((a) => ({
+          id: a.id,
+          symbol: a.symbol,
+          name: a.name,
+          kind: a.kind,
+          eligibleProfiles: a.eligibleProfiles,
+          capWeight: a.capWeight,
+          mintPath: a.mintPath,
+          provenance: a.provenance,
+        })),
+        riskSheet: buildRiskSheet({ assets, yields: pickPrimaryYield(yields), depth }),
+        allObservations: yields.slice(0, 40),
         disclaimer: DISCLAIMER,
       };
     },
