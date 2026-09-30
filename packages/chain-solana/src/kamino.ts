@@ -136,3 +136,38 @@ export async function buildKaminoDepositUnsigned(
   ];
   return buildUnsignedV0(rpc, owner, ixs, [await fetchMarketLookupTable(market)]);
 }
+
+/** Unsigned Kamino withdrawal of `amountBase` USDC for `owner` (owner signature required: lending legs are never delegated). */
+export async function buildKaminoWithdrawUnsigned(
+  rpc: SolanaRpc,
+  owner: Address,
+  amountBase: bigint,
+  reserve: Address = KAMINO_USDC_RESERVE,
+  market: Address = KAMINO_MAIN_MARKET,
+): Promise<UnsignedV0> {
+  const sdk = await import('@kamino-finance/klend-sdk');
+  const kaminoMarket = await sdk.KaminoMarket.load(
+    rpc,
+    market,
+    sdk.DEFAULT_RECENT_SLOT_DURATION_MS,
+  );
+  if (!kaminoMarket) throw new Error('Kamino market load returned null');
+  const currentLedgerInstant = await sdk.getCurrentLedgerInstant(rpc);
+  const action = await sdk.KaminoAction.buildWithdrawTxns({
+    kaminoMarket,
+    amount: amountBase.toString(),
+    reserveAddress: reserve,
+    owner: createNoopSigner(owner),
+    obligation: new sdk.VanillaObligation(kaminoMarket.programId),
+    useV2Ixs: true,
+    scopeRefreshConfig: undefined,
+    currentLedgerInstant,
+  });
+  const ixs = [
+    ...action.computeBudgetIxs,
+    ...action.setupIxs,
+    ...action.lendingIxs,
+    ...action.cleanupIxs,
+  ];
+  return buildUnsignedV0(rpc, owner, ixs, [await fetchMarketLookupTable(market)]);
+}

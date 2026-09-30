@@ -214,28 +214,33 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
           detail: build.reason,
         };
       if (build.kind === 'user_signed') {
-        const execId = await recordBuilt(db, {
-          planId: s.policy.planId,
-          wallet: s.policy.wallet,
-          chain: 'solana',
-          kind: 'rebalance',
-          assetId: order.toAssetId,
-          amountIn: build.amountBase.toString(),
-          provenance: 'live',
-        });
+        const txs = [];
+        for (const t of build.txs) {
+          const executionId = await recordBuilt(db, {
+            planId: s.policy.planId,
+            wallet: s.policy.wallet,
+            chain: 'solana',
+            kind: t.kind,
+            assetId: t.legAssetId,
+            amountIn: build.amountBase.toString(),
+            provenance: 'live',
+          });
+          txs.push({ ...t, executionId });
+        }
+        const first = txs[0];
         await db.insert(rebalances).values({
           policyId: s.policy.id,
           triggerReason: s.proposal.reason,
           proposed: s.proposal.orders,
           mechanism: 'user_signed',
-          executionId: execId,
+          executionId: first?.executionId ?? null,
         });
         return {
           triggered: true,
           reason: s.proposal.reason,
           order,
           outcome: 'user_signed',
-          transaction: { ...build.tx, executionId: execId },
+          transactions: txs,
         };
       }
       const sim = await simulateBase64(rpc(), build.signed.wire);

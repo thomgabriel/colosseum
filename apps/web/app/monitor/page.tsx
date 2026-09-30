@@ -98,33 +98,52 @@ export default function MonitorPage() {
         outcome?: string;
         transaction?: { payload: string; executionId?: string };
       };
-      if (d.outcome === 'user_signed' && d.transaction && signTransaction) {
-        // The policy proposed; the wallet signs and sends; the outcome is reported back so the executions table stays complete.
-        const tx = VersionedTransaction.deserialize(
-          Uint8Array.from(atob(d.transaction.payload), (c) => c.charCodeAt(0)),
-        );
-        const signed = await signTransaction(tx);
-        const sig = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 0 });
-        await fetch(`${API}/executions/${d.transaction.executionId}/report`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ status: 'sent', signature: sig }),
-        });
-        const conf = await connection.confirmTransaction(sig, 'confirmed');
-        await fetch(`${API}/executions/${d.transaction.executionId}/report`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            status: conf.value.err ? 'failed' : 'confirmed',
+      if (d.outcome === 'user_signed' && Array.isArray(d.transactions) && signTransaction) {
+        // The policy proposed; the wallet signs each transaction in order and reports every outcome back.
+        const outcomes: Array<{
+          asset: string;
+          signature: string;
+          explorerUrl: string;
+          ok: boolean;
+        }> = [];
+        for (const t of d.transactions as Array<{
+          payload: string;
+          executionId?: string;
+          legAssetId: string;
+        }>) {
+          const tx = VersionedTransaction.deserialize(
+            Uint8Array.from(atob(t.payload), (c) => c.charCodeAt(0)),
+          );
+          const signed = await signTransaction(tx);
+          const sig = await connection.sendRawTransaction(signed.serialize(), { maxRetries: 0 });
+          await fetch(`${API}/executions/${t.executionId}/report`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ status: 'sent', signature: sig }),
+          });
+          const conf = await connection.confirmTransaction(sig, 'confirmed');
+          const ok = !conf.value.err;
+          await fetch(`${API}/executions/${t.executionId}/report`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              status: ok ? 'confirmed' : 'failed',
+              signature: sig,
+              error: ok ? undefined : JSON.stringify(conf.value.err),
+            }),
+          });
+          outcomes.push({
+            asset: t.legAssetId,
             signature: sig,
-            error: conf.value.err ? JSON.stringify(conf.value.err) : undefined,
-          }),
-        });
+            explorerUrl: `https://solscan.io/tx/${sig}`,
+            ok,
+          });
+          if (!ok) break;
+        }
         setResult({
           ...d,
-          outcome: conf.value.err ? 'failed' : 'confirmed',
-          signature: sig,
-          explorerUrl: `https://solscan.io/tx/${sig}`,
+          outcome: outcomes.every((o) => o.ok) ? 'confirmed' : 'failed',
+          outcomes,
           signer: wallet,
         });
       } else setResult(d);

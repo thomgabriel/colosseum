@@ -115,7 +115,14 @@ const rowToPolicy = (r: typeof policies.$inferSelect): Policy => ({
   createdAt: r.createdAt.toISOString(),
 });
 
-const policy = await loadOrCreatePolicy();
+let policy = await loadOrCreatePolicy();
+const triggerArg = opt('--trigger');
+if (triggerArg) {
+  // Owner action: tighten or loosen the drift trigger of their own policy (a policy parameter, recorded).
+  const trigger = { ...policy.trigger, driftPct: Number(triggerArg) };
+  await db.update(policies).set({ trigger }).where(eq(policies.id, policy.id));
+  policy = { ...policy, trigger };
+}
 console.log(
   JSON.stringify({
     step,
