@@ -1,0 +1,17 @@
+# ACCEPTANCE.md — HANDOFF §4.5 checks (run 2026-09-30T22:15:17.912Z)
+
+Data: yields 10 observations (live), FX USD/BRL 5.1809 (https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados/ultimos/1?formato=json). Solver capital parameter 100000 USD. G-Nora: not passed (FAIL branch).
+
+| # | Check | Status | Evidence |
+|---|---|---|---|
+| 1 | Three goals give three sensibly different allocations with visible reasoning (income incl. BRL leg; accumulation; high-risk incl. xStocks and credit) | **pass** | income-1 (income): usdc 2.0%, brl-leg 5.0%, kamino-usdc 28.0%, syrupusdc 25.0%, usdy 40.0%; accum-1 (accumulation): usdc 2.0%, brl-leg 1.5%, kamino-usdc 16.5%, syrupusdc 40.0%, usdy 40.0%; highrisk-1 (high_risk): usdc 2.0%, brl-leg 3.0%, spyx 17.5%, qqqx 17.5%, syrupusdc 20.0%, usdy 40.0% |
+| 2 | BRL-leg weight changes with the liquidity window and near-term obligations, and never exceeds its cap | **pass** | window 7d → 0.05, 90d → 0.015; large near-term obligations → 0.3 (cap 0.3) |
+| 3 | G-Nora not passed → BRL leg labelled "integration in progress" and never executed | **pass** | risk-sheet label: BRS mint via Nora: integration in progress; db mintPath: unavailable; executor: BRS mint via Nora: integration in progress |
+| 4 | xStocks never appear in an income-profile allocation | **pass** | income goal: no equity legs; income with riskBudget=high forced: no equity (registry eligibility rule) |
+| 5 | Every yield shown carries a source and a timestamp; no hard-coded APYs (tests/no-yield-literals.test.ts guards the codebase) | **pass** | usdc: HC-CASH-ZERO 2026-09-30T22:15:11.700Z; usdt: HC-CASH-ZERO 2026-09-30T22:15:11.701Z; kamino-usdc: HC-LEND-VAR 2026-09-30T22:15:14.019Z; syrupusdc: HC-REALISED 2026-09-30T22:15:14.928Z; usdy: HC-REALISED 2026-09-30T22:15:16.397Z; spyx: HC-EQUITY-ZERO 2026-09-30T22:15:17.405Z; qqqx: HC-EQUITY-ZERO 2026-09-30T22:15:17.405Z; brl-leg: HC-BRL-ZERO 2026-09-30T22:15:17.405Z |
+| 6 | A mainnet explorer link exists for every execution and rebalance shown | **pass** | 5 confirmed executions, 0 rebalance rows; 0 rows with a signature but no link. Latest: rebalance syrupusdc https://solscan.io/tx/351mCDMsrA4FYk9cmYRDc9wZ5Z4UAG1fLdBKGpzY2Urenk2tcRkBcuQgpkbCPxFR8QZbeo7UkFEYotZeL27qzVMa; approve usdy https://solscan.io/tx/3PCcL9bPKnD7WdwMgGCLPoVCqfecp5BuV7cqA5UCDzAWsGgzzuRE6eGLeR2GoNcJy6g8HGmPmEYYZo1oJPYoEu2y; deposit kamino-usdc https://solscan.io/tx/AuBoh4p3XHsKv59ke5beC3UtK83BiBpMTL6c6cZDWyzpD8rsBiH57A9FLgJKp1C7aEZTwCTYJhUdRDXVztiNCoR; swap syrupusdc https://solscan.io/tx/5UsayYGRmiTjuUsuYumFx7QLA54qcVF1mHPo4Y2udnUBmZYSCvZhbtTVdcVpSwmFzzaXgKt1TXN7f4YesVJrj1fh; swap usdy https://solscan.io/tx/2Aoz1bhvLDECQYbzJGxQdFnPADZddwhtZUsqQ9LV364mAZpREXMtKrQsXQJnRx2uZ5g7seETMQf7H6CTLEZaTv8a |
+| 7 | The BRL schedule reproduces by hand for one month (spreadsheet cross-check) | **pass** | docs/schedule-check.csv (formula in header) + tests/schedule.test.ts "reproduces month one by hand" |
+| 8 | Any mocked or sandbox element is labelled as such on screen | **pass** | 0 non-live yield observations in the current feed set; UI renders ProvenanceBadge (FIXTURE/MOCK/SANDBOX) from the provenance field; fixture plans show the FIXTURE badge |
+| 9 | The API returns a valid unsigned transaction set for a plan, and a script can sign and send it | **pending** | dry run passed (3-leg fixture plan builds and simulates); founder to run `pnpm sign-and-send --plan <id> --send` |
+
+Registry vs database: in sync.

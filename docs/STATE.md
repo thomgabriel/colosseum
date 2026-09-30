@@ -20,7 +20,7 @@ Status: `todo | in-progress | done | slipped`. Evidence links point to files, te
 | D7-PM | Wed Oct 7 | FLEX-1 (BRS-1 or label + UI polish) | todo | |
 | D8-AM | Thu Oct 8 | FLEX-2 (BRS-2 or S1 / hardening) | todo | |
 | D8-PM | Thu Oct 8 | FLEX-3 (BRS-3 or friendly users) | todo | |
-| D9-AM | Fri Oct 9 | Hardening + acceptance | todo | |
+| D9-AM | Fri Oct 9 | Hardening + acceptance | in-progress (script ready, run early) | `pnpm acceptance` → `docs/ACCEPTANCE.md`: 8/9 pass on 2026-09-30, #9 pending the founder's sign-and-send run; registry-vs-DB sync check included. Re-run on D9 after all mainnet steps and the three-goal UI screenshots. |
 | D9-PM | Fri Oct 9 | FREEZE + video prep | todo | |
 | D10-AM | Sat Oct 10 | Video dry run | todo | |
 | D10-PM | Sat Oct 10 | Buffer | todo | |

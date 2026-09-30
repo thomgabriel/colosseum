@@ -31,7 +31,8 @@
     "sign-and-send": "tsx scripts/sign-and-send.ts",
     "fixture:plan": "tsx scripts/fixtures/insert-fixture-plan.ts",
     "feeds:refresh": "tsx scripts/feeds/refresh.ts",
-    "schedule:export": "tsx scripts/schedule-export.ts"
+    "schedule:export": "tsx scripts/schedule-export.ts",
+    "acceptance": "tsx scripts/acceptance.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
