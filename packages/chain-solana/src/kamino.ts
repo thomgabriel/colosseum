@@ -4,6 +4,7 @@ import {
   address,
   appendTransactionMessageInstructions,
   compressTransactionMessageUsingAddressLookupTables,
+  createNoopSigner,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
   getSignatureFromTransaction,
@@ -12,6 +13,7 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
 } from '@solana/kit';
+import { buildUnsignedV0, type UnsignedV0 } from './compose.js';
 import type { SolanaRpc } from './rpc.js';
 
 export const KAMINO_MAIN_MARKET = address('7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF');
@@ -97,4 +99,40 @@ export async function buildKaminoDepositTx(
     instructionCount: ixs.length,
     lookupTables: [lutAddress],
   };
+}
+
+/** Unsigned Kamino deposit for `owner` (a wallet we do not hold): returned through the API for the partner wallet to sign. */
+export async function buildKaminoDepositUnsigned(
+  rpc: SolanaRpc,
+  owner: Address,
+  amountBase: bigint,
+  reserve: Address = KAMINO_USDC_RESERVE,
+  market: Address = KAMINO_MAIN_MARKET,
+): Promise<UnsignedV0> {
+  const sdk = await import('@kamino-finance/klend-sdk');
+  const kaminoMarket = await sdk.KaminoMarket.load(
+    rpc,
+    market,
+    sdk.DEFAULT_RECENT_SLOT_DURATION_MS,
+  );
+  if (!kaminoMarket) throw new Error('Kamino market load returned null');
+  const currentLedgerInstant = await sdk.getCurrentLedgerInstant(rpc);
+  const action = await sdk.KaminoAction.buildDepositTxns({
+    kaminoMarket,
+    amount: amountBase.toString(),
+    reserveAddress: reserve,
+    owner: createNoopSigner(owner),
+    obligation: new sdk.VanillaObligation(kaminoMarket.programId),
+    useV2Ixs: true,
+    scopeRefreshConfig: undefined,
+    currentLedgerInstant,
+    initUserMetadata: { skipInitialization: false, skipLutCreation: true },
+  });
+  const ixs = [
+    ...action.computeBudgetIxs,
+    ...action.setupIxs,
+    ...action.lendingIxs,
+    ...action.cleanupIxs,
+  ];
+  return buildUnsignedV0(rpc, owner, ixs, [await fetchMarketLookupTable(market)]);
 }

@@ -11,5 +11,16 @@ export const UnsignedTx = z.object({
   evm: z.object({ to: z.string(), value: z.string(), chainId: z.number() }).optional(),
   description: z.string(),
   provenance: Provenance,
+  /** Row in `executions` created when the set was built; the signer reports the outcome against it. */
+  executionId: z.string().optional(),
+  /** Solana: the block height after which the payload's blockhash is stale and must be rebuilt. */
+  lastValidBlockHeight: z.number().optional(),
 });
+
+export const ExecutionReport = z.object({
+  signature: z.string().min(64).optional(),
+  status: z.enum(['sent', 'confirmed', 'failed']),
+  error: z.string().max(2000).optional(),
+});
+export type ExecutionReport = z.infer<typeof ExecutionReport>;
 export type UnsignedTx = z.infer<typeof UnsignedTx>;

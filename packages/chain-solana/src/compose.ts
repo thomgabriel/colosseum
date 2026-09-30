@@ -3,6 +3,7 @@ import {
   type Address,
   address,
   appendTransactionMessageInstructions,
+  compileTransaction,
   compressTransactionMessageUsingAddressLookupTables,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
@@ -11,6 +12,7 @@ import {
   type Instruction,
   type KeyPairSigner,
   pipe,
+  setTransactionMessageFeePayer,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
@@ -112,5 +114,44 @@ export async function buildSignedV0(
     wire: getBase64EncodedWireTransaction(signed),
     signature: getSignatureFromTransaction(signed),
     instructionCount: ixs.length,
+  };
+}
+
+export type UnsignedV0 = {
+  wire: ReturnType<typeof getBase64EncodedWireTransaction>;
+  instructionCount: number;
+  lastValidBlockHeight: number;
+};
+
+/** Same composition, but unsigned: fee payer is an address, signatures are left empty for the wallet that owns it. */
+export async function buildUnsignedV0(
+  rpc: SolanaRpc,
+  feePayer: Address,
+  ixs: Instruction[],
+  lutAddresses: string[],
+): Promise<UnsignedV0> {
+  const luts = lutAddresses.length
+    ? await fetchAllAddressLookupTable(
+        rpc,
+        lutAddresses.map((a) => address(a)),
+      )
+    : [];
+  const tables = Object.fromEntries(luts.map((l) => [l.address, l.data.addresses])) as Record<
+    Address,
+    Address[]
+  >;
+  const { value: blockhash } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(feePayer, m),
+    (m) => setTransactionMessageLifetimeUsingBlockhash(blockhash, m),
+    (m) => appendTransactionMessageInstructions(withPriorityFee(ixs), m),
+    (m) => (luts.length ? compressTransactionMessageUsingAddressLookupTables(m, tables) : m),
+  );
+  const compiled = compileTransaction(message);
+  return {
+    wire: getBase64EncodedWireTransaction(compiled),
+    instructionCount: withPriorityFee(ixs).length,
+    lastValidBlockHeight: Number(blockhash.lastValidBlockHeight),
   };
 }

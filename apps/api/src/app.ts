@@ -5,8 +5,6 @@ import {
   PostGoalsResponse,
   PostPlansRequest,
   PostPlansResponse,
-  PostPlanTransactionsRequest,
-  PostPlanTransactionsResponse,
 } from '@colosseum/schemas';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
@@ -19,6 +17,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { registerTransactionRoutes } from './routes/transactions.js';
 
 const notYet = (what: string, slot: string) => ({
   error: `${what} is implemented in slot ${slot} (docs/PLAN.md §4)`,
@@ -80,20 +79,7 @@ export async function buildApp() {
       reply.code(501).send(notYet('POST /plans (solver, schedule, risk sheet)', 'D5-AM')),
   );
 
-  app.post(
-    '/plans/:id/transactions',
-    {
-      schema: {
-        summary:
-          'Build the unsigned transaction set for a plan; the partner wallet signs and sends',
-        params: z.object({ id: z.string() }),
-        body: PostPlanTransactionsRequest,
-        response: { 200: PostPlanTransactionsResponse, 501: ApiError },
-      },
-    },
-    async (_req, reply) =>
-      reply.code(501).send(notYet('POST /plans/{id}/transactions (execution engine)', 'D3-AM')),
-  );
+  await registerTransactionRoutes(app);
 
   return app;
 }

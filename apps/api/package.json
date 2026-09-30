@@ -20,7 +20,8 @@
     "@fastify/cors": "^11.0.1",
     "@scalar/fastify-api-reference": "^1.72.3",
     "zod": "^4.6.5",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.45.3"
   },
   "devDependencies": {
     "tsx": "^4.23.15"
