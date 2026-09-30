@@ -10,5 +10,10 @@
       "@colosseum/chain-evm": ["./packages/chain-evm/src/index.ts"]
     }
   },
-  "include": ["scripts/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "packages/engine/src/types/*.d.ts"
+  ]
 }

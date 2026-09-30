@@ -6,4 +6,4 @@ export * as parser from './parser/index';
 export * from './policy/index';
 export * from './risk/index';
 export * as schedule from './schedule/index';
-export * as solver from './solver/index';
+export * from './solver/index';

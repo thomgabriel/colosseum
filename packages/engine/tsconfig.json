@@ -10,5 +10,5 @@
       "@colosseum/chain-evm": ["../chain-evm/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
 }

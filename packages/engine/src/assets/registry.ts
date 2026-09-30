@@ -101,6 +101,7 @@ export const REGISTRY: Asset[] = [
     metadata: {
       issuer: 'Maple Finance',
       creditExposure: 'institutional over-collateralised loans (Syrup pool)',
+      creditLeg: true,
       oracle: 'pool exchange rate (Ethereum) / Jupiter price',
       redemptionPath: 'Jupiter DEX on Solana; primary redemption on Ethereum without KYC',
       redemptionTime: 'instant on DEX; primary queue on Ethereum',

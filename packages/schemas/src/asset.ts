@@ -22,6 +22,8 @@ export const Asset = z.object({
     redemptionPath: z.string().optional(),
     redemptionTime: z.string().optional(),
     gates: z.array(z.string()).default([]),
+    /** True for legs whose return depends on borrowers repaying (private credit); counted against the credit budget. */
+    creditLeg: z.boolean().optional(),
     docsUrl: z.string().url().optional(),
     label: z.string().optional(),
   }),
