@@ -30,7 +30,8 @@
     "wallet:import": "tsx scripts/wallet-import.ts",
     "sign-and-send": "tsx scripts/sign-and-send.ts",
     "fixture:plan": "tsx scripts/fixtures/insert-fixture-plan.ts",
-    "feeds:refresh": "tsx scripts/feeds/refresh.ts"
+    "feeds:refresh": "tsx scripts/feeds/refresh.ts",
+    "schedule:export": "tsx scripts/schedule-export.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

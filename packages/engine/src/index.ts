@@ -5,5 +5,5 @@ export * from './feeds/index';
 export * as parser from './parser/index';
 export * from './policy/index';
 export * from './risk/index';
-export * as schedule from './schedule/index';
+export * from './schedule/index';
 export * from './solver/index';
