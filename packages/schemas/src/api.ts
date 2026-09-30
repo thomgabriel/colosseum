@@ -12,7 +12,10 @@ export const PostGoalsRequest = z.object({
 export const PostGoalsResponse = z.object({
   goalId: z.string(),
   sheet: ConstraintSheet.nullable(),
+  /** The parser's raw proposal, for the editor to prefill even when validation failed. */
+  candidate: z.record(z.string(), z.unknown()),
   validationErrors: z.array(z.object({ path: z.string(), message: z.string() })),
+  parser: z.object({ method: z.enum(['rules', 'llm']), model: z.string().optional() }),
   disclaimer: z.string(),
 });
 

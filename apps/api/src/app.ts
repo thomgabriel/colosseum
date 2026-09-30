@@ -1,11 +1,4 @@
-import {
-  ApiError,
-  DISCLAIMER,
-  PostGoalsRequest,
-  PostGoalsResponse,
-  PostPlansRequest,
-  PostPlansResponse,
-} from '@colosseum/schemas';
+import { DISCLAIMER } from '@colosseum/schemas';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import scalar from '@scalar/fastify-api-reference';
@@ -17,6 +10,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { registerPlanRoutes } from './routes/plans';
 import { registerReadRoutes } from './routes/read';
 import { registerTransactionRoutes } from './routes/transactions';
 
@@ -54,32 +48,7 @@ export async function buildApp() {
     }),
   );
 
-  app.post(
-    '/goals',
-    {
-      schema: {
-        summary: 'Parse a natural-language goal into a validated constraint sheet',
-        body: PostGoalsRequest,
-        response: { 200: PostGoalsResponse, 501: ApiError },
-      },
-    },
-    async (_req, reply) => reply.code(501).send(notYet('POST /goals (goal parser)', 'D6-AM')),
-  );
-
-  app.post(
-    '/plans',
-    {
-      schema: {
-        summary:
-          'Solve an allocation, BRL schedule with stresses, and risk sheet for a constraint sheet',
-        body: PostPlansRequest,
-        response: { 200: PostPlansResponse, 501: ApiError },
-      },
-    },
-    async (_req, reply) =>
-      reply.code(501).send(notYet('POST /plans (solver, schedule, risk sheet)', 'D5-AM')),
-  );
-
+  await registerPlanRoutes(app);
   await registerTransactionRoutes(app);
   await registerReadRoutes(app);
 
