@@ -25,7 +25,9 @@
     "db:seed": "pnpm --filter @colosseum/db seed",
     "depth:import": "tsx scripts/depth-import.ts",
     "wallet:create": "tsx scripts/wallet-create.ts",
-    "check:d1pm": "tsx scripts/checks/d1pm-simulate.ts"
+    "check:d1pm": "tsx scripts/checks/d1pm-simulate.ts",
+    "wallet:export": "tsx scripts/wallet-export.ts",
+    "wallet:import": "tsx scripts/wallet-import.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
