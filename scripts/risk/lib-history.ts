@@ -31,6 +31,8 @@ export type RegistryPool = {
   decimals0: number;
   decimals1: number;
   tvlUsd: number;
+  assetMint: string;
+  assetIsToken0: number;
   tier: string;
   exitPath: string;
 };

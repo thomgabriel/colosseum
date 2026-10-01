@@ -1,5 +1,5 @@
 import type { PoolEvent } from './events/logs';
-import type { InitTick } from './pools/cl-math';
+import type { ClState, InitTick } from './pools/cl-math';
 
 // Step 5b — exact concentrated-liquidity replay over decoded history.
 // The liquidity layout (each initialised tick's net and gross liquidity) changes only through position
@@ -153,4 +153,56 @@ export function chainBreaks(
       if (s) prev = s.liquidity;
     }
   return out;
+}
+
+/** Tick index whose price is at or below a Q64.64 sqrt price (for venues whose events report price only). */
+export function tickAtSqrtPriceX64(sqrtPriceX64: bigint): number {
+  const p = (Number(sqrtPriceX64) / 2 ** 64) ** 2;
+  let t = Math.floor(Math.log(p) / Math.log(1.0001));
+  // correct float error at the boundary
+  while (1.0001 ** (t + 1) <= p) t++;
+  while (1.0001 ** t > p) t--;
+  return t;
+}
+
+/** A simulator-ready state from an exact layout and a price point. Active liquidity comes from the layout. */
+export function clStateFromLayout(
+  layout: TickMap,
+  price: { sqrtPriceX64: bigint; tick: number },
+  feeRate: number,
+): ClState {
+  return {
+    sqrtPrice: Number(price.sqrtPriceX64) / 2 ** 64,
+    tickCurrent: price.tick,
+    liquidity: Number(activeLiquidity(layout, price.tick)),
+    feeRate,
+    ticks: [...layout]
+      .filter(([, v]) => v.net !== 0n)
+      .map(([tick, v]) => ({ tick, liquidityNet: Number(v.net) }))
+      .sort((a, b) => a.tick - b.tick),
+  };
+}
+
+/** Moves a layout along a chronological list of liquidity rows: `to` is the number of rows applied. */
+export class LayoutCursor {
+  readonly layout: TickMap;
+  constructor(
+    anchor: TickMap,
+    private readonly rows: ReadonlyArray<{ changes: LiquidityChange[] }>,
+    private at: number,
+  ) {
+    this.layout = new Map([...anchor].map(([k, v]) => [k, { ...v }]));
+  }
+  moveTo(to: number) {
+    while (this.at > to) {
+      this.at--;
+      for (const c of [...(this.rows[this.at]?.changes ?? [])].reverse())
+        applyLiquidity(this.layout, c, -1);
+    }
+    while (this.at < to) {
+      for (const c of this.rows[this.at]?.changes ?? []) applyLiquidity(this.layout, c, 1);
+      this.at++;
+    }
+    return this.layout;
+  }
 }
