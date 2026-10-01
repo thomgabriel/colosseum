@@ -924,7 +924,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 **Rodrigo, by Oct 2**
 
 1. Write access for Thom so `basket` lives in his repo, and which branch is submitted. His rules keep `risk-layer` out of `main` until Oct 12.
-2. MIT or Apache-2.0.
+2. The licence. Thom proposes Apache-2.0; it is on the `basket` branch of his fork for Rodrigo to keep or change.
 3. The add-only rule. He makes four small edits on `risk-layer`: delete the `/policies/*` signing routes, move `seed-assets.ts` to `scripts/`, the PR0 chores, six lines in `scripts/risk/compute.ts`. Ownership of `chain-solana` and `chain-evm` passes to Thom. No new migrations on `risk-layer` after the cut.
 4. One of Thom's agents ports the personalization prototype into `engine/src/personal/`; he owns the sleeve table, glide floors, caps and wording, by Oct 4.
 5. Stock tokens in income plans: keep his rule that excludes them, or allow a stock sleeve never counted as income.

@@ -73,7 +73,7 @@ The full list, with dates, is section 17 of `DESIGN-VAULT.md`. The ones that sha
 - [ ] **Process.** Parallel streams against frozen interfaces, beside his slot plan, with slot ids of the form `<stream>-<n>`. His rules stay: provenance, MOCK labels, deterministic engine, explorer links, no advice claim. One rule needs his word: "never auto-retry" against a keeper that re-plans a leg which expired without landing.
 - [ ] **The `risk-layer` branch.** His rule keeps it out of `main` until after Oct 12, but the exit plan is that work. Proposal: the vault work sits on a branch cut from `risk-layer`, and one branch becomes the submission.
 - [ ] **Four small edits on his side,** on `risk-layer`: delete the routes that sign on the server, move `seed-assets.ts` to `scripts/`, the CI chores, and the six lines in `compute.ts`.
-- [ ] **Smaller ones.** A licence (MIT or Apache-2.0). Where the Bearing data runs for the demo. Revoking the two live approvals on the demo wallet. Whether he takes the Solana mainnet sessions. The name (Tenonfi is provisional on the `design` branch), which also decides the `@colosseum/` scope and the working code names.
+- [ ] **Smaller ones.** A licence: Thom proposes Apache-2.0. Where the Bearing data runs for the demo. Revoking the two live approvals on the demo wallet. Whether he takes the Solana mainnet sessions. The name (Tenonfi is provisional on the `design` branch), which also decides the `@colosseum/` scope and the working code names.
 
 ## Pull requests
 
