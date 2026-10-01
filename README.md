@@ -11,6 +11,8 @@ cp .env.example .env                      # fill keys
 docker run -d --name colosseum-pg -p 5433:5432 -e POSTGRES_PASSWORD=colosseum -e POSTGRES_USER=colosseum -e POSTGRES_DB=colosseum postgres:16
 pnpm install
 pnpm db:migrate
+pnpm db:seed                              # the asset registry rows
+pnpm feeds:refresh                        # yield and FX observations; POST /plans needs them
 pnpm dev                                  # api :3001 (/docs), web :3000
 pnpm test && pnpm typecheck && pnpm lint
 pnpm verify:all                           # reproduces docs/VERIFICATION.md
@@ -20,7 +22,7 @@ pnpm execute:demo                         # mainnet, asks for confirmation
 
 ## Layout
 
-`apps/api` Fastify + zod → OpenAPI · `apps/web` Next.js · `packages/schemas` shared zod types and the disclaimer · `packages/db` Drizzle schema and migrations · `packages/engine` parser, registry, solver, schedule, risk, policy · `packages/chain-solana` executors and the abstract BRL leg · `packages/chain-evm` calldata stub · `scripts/verify` reproducible checks.
+`apps/api` Fastify + zod → OpenAPI · `apps/web` Next.js · `packages/schemas` shared zod types and the disclaimer · `packages/db` Drizzle schema and migrations · `packages/engine` parser, registry, solver, schedule, risk, policy · `packages/chain-solana` executors and the abstract BRL leg · `packages/chain-evm` calldata stub · `packages/risk` pool decoders, exit-cost curves and the liquidity provider · `apps/risk-api` the `/risk/*` routes on their own · `scripts/verify` reproducible checks.
 
 ## Disclaimer
 
