@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import * as schema from './schema';
 
 export * from './executions';
+export * from './risk-schema';
 export * from './schema';
 export { schema };
 

@@ -12,7 +12,47 @@ import {
   WP_FIXED_TICK_ARRAY_POOL_OFFSET,
   whirlpoolState,
 } from '@colosseum/risk';
-import { rpc } from '../lib';
+import { RPC_URL, sleep } from '../lib';
+
+/** RPC call counters for coverage reporting. */
+export const rpcStats = { calls: 0, retries429: 0, errors: 0 };
+
+/**
+ * JSON-RPC with backoff on 429 (Chainstack limits some methods per second, e.g. getProgramAccounts).
+ * Waits 0.5 s, 1 s, 2 s ... up to 8 attempts, then throws. Never loops tightly.
+ */
+export async function rpc<T = unknown>(method: string, params: unknown[]): Promise<T> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    rpcStats.calls++;
+    let j: { result?: T; error?: { code?: number; message?: string } };
+    try {
+      const res = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      });
+      if (res.status === 429) {
+        rpcStats.retries429++;
+        await sleep(500 * 2 ** attempt);
+        continue;
+      }
+      j = (await res.json()) as typeof j;
+    } catch (e) {
+      rpcStats.errors++;
+      await sleep(500 * 2 ** attempt);
+      if (attempt === 7) throw e;
+      continue;
+    }
+    if (j.error?.code === 429) {
+      rpcStats.retries429++;
+      await sleep(500 * 2 ** attempt);
+      continue;
+    }
+    if (j.error) throw new Error(`rpc ${method}: ${JSON.stringify(j.error)}`);
+    return j.result as T;
+  }
+  throw new Error(`rpc ${method}: still rate-limited after 8 attempts`);
+}
 
 export type RawAccount = { pubkey: string; data: Uint8Array };
 

@@ -32,7 +32,14 @@
     "fixture:plan": "tsx scripts/fixtures/insert-fixture-plan.ts",
     "feeds:refresh": "tsx scripts/feeds/refresh.ts",
     "schedule:export": "tsx scripts/schedule-export.ts",
-    "acceptance": "tsx scripts/acceptance.ts"
+    "acceptance": "tsx scripts/acceptance.ts",
+    "risk:discover": "tsx scripts/risk/discover-pools.ts",
+    "risk:pareto": "tsx scripts/risk/pool-pareto.ts",
+    "risk:registry": "tsx scripts/risk/build-registry.ts",
+    "risk:collect": "set -a && . ./.env && set +a && RISK_FORCE_ALL=${RISK_FORCE_ALL:-0} tsx scripts/risk/collector/pools.ts",
+    "risk:install-collector": "zsh scripts/risk/collector/install.sh",
+    "risk:coverage": "tsx scripts/risk/coverage.ts",
+    "risk:retier": "tsx scripts/risk/retier.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

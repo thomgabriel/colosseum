@@ -15,6 +15,13 @@
       "when": 1790804167819,
       "tag": "0001_cool_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790816544729,
+      "tag": "0002_faulty_trauma",
+      "breakpoints": true
     }
   ]
 }
