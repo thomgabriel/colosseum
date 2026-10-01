@@ -10,7 +10,7 @@ The repo is closer to the design than it looks. `apps/api`, `apps/web`, `package
 
 Two things get replaced: custody (a token approval to a server-held key) and the Brazil-specific frame around the engine. The engine, Bearing, the provenance rules and the execution log stay.
 
-Code builds on upstream `risk-layer` (now `9cb2294`), because the exit plan needs `packages/risk`. `main` stays frozen for the structurer until Rodrigo says otherwise.
+On Oct 1 Rodrigo merged the risk layer and the design system into `main`, so the work builds on `main`.
 
 ## What happens to each piece
 
@@ -71,18 +71,16 @@ Settled on Oct 1 unless marked open. Each keeps its trade-off, so it can be reop
 - [x] **Sign-in.** Privy (connect or passkey) against wallet-adapter only. It reaches people without a wallet and covers three chains; it adds a vendor and a free-tier ceiling. The API needs auth either way.
 - [x] **Units.** New types and tables use basis points and raw token amounts, so weights sum to exactly 10,000 and an 18-decimal token can be stored. His float weights and his tables stay as they are.
 - [x] **Process.** Parallel streams against frozen interfaces, beside his slot plan, with slot ids of the form `<stream>-<n>`. His rules stay: provenance, MOCK labels, deterministic engine, explorer links, no advice claim. One rule needs his word: "never auto-retry" against a keeper that re-plans a leg which expired without landing.
-- [x] **The `risk-layer` branch.** His rule keeps it out of `main` until after Oct 12, but the exit plan is that work. Proposal: the vault work sits on a branch cut from `risk-layer`, and one branch becomes the submission.
+- [x] **The `risk-layer` branch.** Merged into `main` on Oct 1, with the design system. The vault work builds on `main`.
 - [x] **Four small edits to his files,** which we make: the routes that sign on the server go behind a flag and are deleted once the vault path replaces them, `seed-assets.ts` moves to `scripts/`, the CI chores (done), and six lines in `compute.ts`.
 - [ ] **Smaller ones.** Still open: where the Bearing data runs for the demo, revoking the two live approvals on the demo wallet, and who runs the Solana mainnet sessions. The licence is Apache-2.0. The name (Tenonfi is provisional on the `design` branch), which also decides the `@colosseum/` scope and the working code names.
 
 ## Pull requests
 
-1. **This one,** into `main`, draft: documents, the research, the two test rigs, proposed rows in `GATES.md`, and one line in `ci.yml`. No file under `apps/` or `packages/` changes.
-2. **A `basket` branch cut from `risk-layer`.** Stream pull requests target it; one draft pull request goes from it to `main` when Rodrigo lifts the freeze.
-   - PR0 repairs the checks: the CI setup step, three lint errors, a Postgres service, the placeholder `allowBuilds` lines, a licence.
-   - PR1a is the frame the TypeScript streams wait for: the first version of the shared types, the mock adapter with its contract tests, the migration, the flags.
-   - PR1b follows without blocking anyone: the test that enforces the import rules, and the CI workflows for the program and the contracts.
-   - Then one pull request per stream. The streams, their owners and what "done" means are in section 15 of the design; the day-by-day plan is in section 16.
+1. **Documents and clean-up into `main`:** the product, the design, the audit, this map, the research, the two test rigs, the decisions in `GATES.md`, the licence, and the fixes that make every check run and pass. No product behaviour changes.
+2. **Repo organisation,** from `main`: remove what is dead or stale, and lay out the folders the design needs.
+3. **The frame** the TypeScript streams wait for: the first version of the shared types, the mock adapter with its contract tests, the migration, the flags. Then the test that enforces the import rules and the CI workflows for the program and the contracts.
+4. **One pull request per stream.** The streams, their owners and what "done" means are in section 15 of the design; the day-by-day plan is in section 16.
 
 Before every merge: `pnpm typecheck && pnpm lint && pnpm test` locally and a green run on GitHub.
 
