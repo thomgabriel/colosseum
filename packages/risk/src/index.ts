@@ -1,3 +1,5 @@
+export * from './assess';
+export * from './breach';
 export * from './curves';
 export * from './pools/bytes';
 export * from './pools/cl-math';
