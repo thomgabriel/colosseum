@@ -29,3 +29,7 @@ pnpm execute:demo                         # mainnet, asks for confirmation
 This tool is not licensed investment advice. It structures and explains an allocation from a goal you state; the decision and custody are yours. The distributor embedding this tool holds the client relationship.
 
 Esta ferramenta não presta consultoria de investimentos nem é licenciada para tal.
+
+## Licence
+
+Apache-2.0. See `LICENSE`.
