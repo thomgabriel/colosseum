@@ -13,7 +13,7 @@ import {
   WP_FIXED_TICK_ARRAY_POOL_OFFSET,
 } from '@colosseum/risk';
 import { jupHeaders, nowIso } from '../lib';
-import { getAccount, programAccountsByMemcmp } from './lib-pools';
+import { getAccount, programAccountsByMemcmp, rpc } from './lib-pools';
 
 // Freezes one pool's raw accounts plus Jupiter direct quotes taken right after, as a test fixture
 // (fixtures/risk/pools/<venue>-<pool>.json.gz). Usage: tsx capture-pool-fixture.ts <venue> <pool> <inMint> <outMint> <amountRaw,...>
@@ -58,6 +58,18 @@ if (venue === 'raydium') {
 } else {
   children = await programAccountsByMemcmp(program, DLMM_BIN_ARRAY_PAIR_OFFSET, pool);
 }
+const positions: Record<string, string> = {};
+if (process.env.POSITIONS === '1' && (venue === 'raydium' || venue === 'orca')) {
+  const [size, offset] = venue === 'raydium' ? [281, 41] : [216, 8];
+  const r = await rpc<Array<{ pubkey: string; account: { data: [string, string] } }>>(
+    'getProgramAccounts',
+    [
+      program,
+      { encoding: 'base64', filters: [{ dataSize: size }, { memcmp: { offset, bytes: pool } }] },
+    ],
+  );
+  for (const a of r) positions[a.pubkey] = a.account.data[0];
+}
 const childData = Object.fromEntries(
   children.map((c) => [c.pubkey, Buffer.from(c.data).toString('base64')]),
 );
@@ -94,6 +106,7 @@ writeFileSync(
       outTransferFeeBps: Number(process.env.OUT_FEE_BPS ?? 0),
       accounts,
       children: childData,
+      positions,
       quotes,
     }),
   ),
