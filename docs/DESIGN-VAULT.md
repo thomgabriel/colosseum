@@ -965,7 +965,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 - The label on the sign-in button. Thom's pick is "Sign in", opening a choice of passkey or wallet; his landing page says "Connect wallet".
 - The plan-leg bar allows four legs. Confirm that sleeves in the bar with tokens in a table under it is the reading he wants.
 - The disclaimer says "the decision and custody are yours". Only the owner can withdraw from a vault, so it stays; the "unaudited, team holds the upgrade keys" notice sits beside it before the first deposit.
-- The automatic switch. It is off by default; the person sees an author's change 12 hours before it takes effect and can refuse; then the vault copies the change inside its own limits. It does not re-check the person's goal. His voice rules say the agent "proposes and explains" and never follows a theme, so this needs his yes.
+- The automatic switch. It is off by default; the person sees an author's change 12 hours before it takes effect and can refuse; then the vault copies the change inside its own limits. It does not re-check the person's goal. Thom's decision is to keep it this way. It sits beside the voice rule that the agent "proposes and explains": the 12-hour notice is the proposal, and the person can refuse.
 
 **Thom**
 
