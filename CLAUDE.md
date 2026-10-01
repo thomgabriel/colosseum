@@ -29,7 +29,7 @@ Read `docs/HANDOFF-IDEA1.md` (spec) and `docs/PLAN.md` (schedule) before any slo
 - `packages/chain-solana` executors (Jupiter, Kamino, abstract BRL leg), compose, sign, log. `packages/chain-evm` calldata stub.
 - `scripts/verify` reproducible checks behind `docs/VERIFICATION.md`. `scripts/depth-snapshot.mjs` the xStocks depth cron.
 
-## Vault work (branch `basket`)
+## Vault work
 
 - Read `docs/HANDOFF-VAULT.md` (the product) and `docs/DESIGN-VAULT.md` (the design) before any vault work. Decisions are in section 17 of the design and in `docs/GATES.md`.
 - For any screen, `.design/branding/working-brand/patterns/STYLE.md` and the component specs beside it are binding.
