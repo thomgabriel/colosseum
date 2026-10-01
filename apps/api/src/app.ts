@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { registerMonitorRoutes } from './routes/monitor';
 import { registerPlanRoutes } from './routes/plans';
 import { registerReadRoutes } from './routes/read';
+import { registerRiskRoutes } from './routes/risk';
 import { registerTransactionRoutes } from './routes/transactions';
 
 const notYet = (what: string, slot: string) => ({
@@ -58,6 +59,7 @@ export async function buildApp() {
   await registerTransactionRoutes(app);
   await registerReadRoutes(app);
   await registerMonitorRoutes(app);
+  await registerRiskRoutes(app);
 
   return app;
 }

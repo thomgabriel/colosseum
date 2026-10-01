@@ -1,0 +1,380 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  createDb,
+  riskDepthCurves,
+  riskEvents,
+  riskLpConcentration,
+  riskPools,
+} from '@colosseum/db';
+import {
+  type AssetCurves,
+  assessLiquidity,
+  type DepthCurve,
+  defaultRegimeParams,
+  type IssuerModel,
+  liquidityScore,
+  maxNotionalAt,
+  REGIMES,
+  type Regime,
+  recoverableValue,
+  regimesIn,
+  weekendRatio,
+} from '@colosseum/risk';
+import { DISCLAIMER } from '@colosseum/schemas';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+
+/**
+ * Liquidity & risk API (`/risk/*`). Mounted by apps/api and, alone, by apps/risk-api. Every number carries
+ * its method version, sample counts and dates; issuer redemption terms are labelled `assumption`.
+ * Not licensed advice or a rating: DISCLAIMER on every response.
+ */
+const ROOT = process.env.REPO_ROOT ?? join(import.meta.dirname, '..', '..', '..', '..');
+const calendar = JSON.parse(
+  readFileSync(join(ROOT, 'fixtures/risk/us-market-holidays.json'), 'utf8'),
+);
+const REGIME_PARAMS = defaultRegimeParams(calendar);
+const ISSUERS = JSON.parse(readFileSync(join(ROOT, 'fixtures/risk/issuer-models.json'), 'utf8'))
+  .models as Record<string, IssuerModel>;
+const METHOD_VERSION = 'risk-0.2';
+const HONESTY = [
+  'Depth is measured from on-chain pool state; calm-market depth overstates depth in stress. Each curve shows its regime, sample count and date range.',
+  'Curves use the best single pool per snapshot; a router splitting across pools can do better, never worse.',
+  'Issuer redemption capacity is a scenario input (assumption), not a measurement.',
+  'Asset- and market-level aggregates only; no wallet positions are published.',
+];
+const Regimes = z.enum(['us_market_hours', 'us_offhours_weekday', 'weekend', 'us_holiday']);
+
+export async function registerRiskRoutes(app: FastifyInstance) {
+  const { db } = createDb();
+  const f = app.withTypeProvider<ZodTypeProvider>();
+
+  async function resolveAsset(id: string) {
+    const rows = await db
+      .select({ mint: riskPools.assetMint, symbol: riskPools.assetSymbol })
+      .from(riskPools)
+      .where(
+        sql`lower(${riskPools.assetSymbol}) = ${id.toLowerCase()} or ${riskPools.assetMint} = ${id}`,
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  }
+  async function curvesFor(mint: string, side: 'sell' | 'buy' = 'sell'): Promise<AssetCurves> {
+    const rows = await db
+      .select()
+      .from(riskDepthCurves)
+      .where(
+        and(
+          eq(riskDepthCurves.assetMint, mint),
+          eq(riskDepthCurves.side, side),
+          eq(riskDepthCurves.methodVersion, METHOD_VERSION),
+        ),
+      );
+    const byRegime: Partial<Record<Regime, DepthCurve>> = {};
+    for (const r of rows)
+      byRegime[r.regime as Regime] = {
+        points: r.points as DepthCurve['points'],
+        insufficientFrom: r.insufficientFrom,
+        quantile: r.quantile,
+        minSamples: r.minSamples,
+        from: r.dataFrom?.toISOString() ?? null,
+        to: r.dataTo?.toISOString() ?? null,
+        samples: r.samples,
+      };
+    return { assetId: mint, byRegime };
+  }
+
+  f.get(
+    '/risk/assets',
+    {
+      schema: {
+        summary: 'Assets with measured exit capacity per regime',
+        description: `Sell-side capacity at cost tolerance tau per time-of-week regime, weekend/market-hours ratio, and coverage.\n\n${DISCLAIMER.en}`,
+        querystring: z.object({ tau: z.coerce.number().positive().max(0.5).default(0.01) }),
+        response: {
+          200: z.object({
+            methodVersion: z.string(),
+            tau: z.number(),
+            honesty: z.array(z.string()),
+            disclaimer: z.string(),
+            assets: z.array(z.any()),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const tau = req.query.tau;
+      const pools = await db
+        .select()
+        .from(riskPools)
+        .where(inArray(riskPools.tier, ['A', 'B']));
+      const tvl = new Map<string, { symbol: string; tvl: number; pools: number }>();
+      for (const p of pools) {
+        const v = tvl.get(p.assetMint) ?? { symbol: p.assetSymbol, tvl: 0, pools: 0 };
+        v.tvl += p.tvlUsd ?? 0;
+        v.pools++;
+        tvl.set(p.assetMint, v);
+      }
+      const assets = [];
+      for (const [mint, v] of [...tvl.entries()].sort((a, b) => b[1].tvl - a[1].tvl)) {
+        const c = await curvesFor(mint);
+        const capacity = Object.fromEntries(
+          REGIMES.filter((r) => c.byRegime[r]).map((r) => {
+            const m = maxNotionalAt(c.byRegime[r] as DepthCurve, tau);
+            const cv = c.byRegime[r] as DepthCurve;
+            return [
+              r,
+              {
+                status: cv.insufficientFrom === 0 ? 'insufficient_samples' : 'ok',
+                capacityUsd: cv.insufficientFrom === 0 ? null : m.notionalUsd,
+                lowerBound: m.lowerBound,
+                samples: cv.samples,
+                from: cv.from,
+                to: cv.to,
+                insufficientFrom: cv.insufficientFrom,
+              },
+            ];
+          }),
+        );
+        assets.push({
+          assetMint: mint,
+          symbol: v.symbol,
+          poolTvlUsd: v.tvl,
+          pools: v.pools,
+          capacityAtTau: capacity,
+          weekendRatio: weekendRatio(c, tau),
+          provenance: 'live',
+        });
+      }
+      return {
+        methodVersion: METHOD_VERSION,
+        tau,
+        honesty: HONESTY,
+        disclaimer: DISCLAIMER.en,
+        assets,
+      };
+    },
+  );
+
+  f.get(
+    '/risk/assets/:id/depth',
+    {
+      schema: {
+        summary: 'Fitted depth curve for one asset, side and regime',
+        params: z.object({ id: z.string() }),
+        querystring: z.object({
+          side: z.enum(['sell', 'buy']).default('sell'),
+          regime: Regimes.default('us_market_hours'),
+        }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const a = await resolveAsset(req.params.id);
+      if (!a) return reply.code(404).send({ error: `unknown asset ${req.params.id}` });
+      const [row] = await db
+        .select()
+        .from(riskDepthCurves)
+        .where(
+          and(
+            eq(riskDepthCurves.assetMint, a.mint),
+            eq(riskDepthCurves.side, req.query.side),
+            eq(riskDepthCurves.regime, req.query.regime),
+            eq(riskDepthCurves.methodVersion, METHOD_VERSION),
+          ),
+        );
+      if (!row)
+        return reply
+          .code(404)
+          .send({ error: `no ${req.query.side} curve for ${a.symbol} in ${req.query.regime} yet` });
+      return { asset: a.symbol, ...row, costUnit: 'fraction', disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/risk/assets/:id/lp',
+    {
+      schema: {
+        summary: 'LP concentration and LP-exit stress for the asset’s pools (latest hour)',
+        params: z.object({ id: z.string() }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const a = await resolveAsset(req.params.id);
+      if (!a) return reply.code(404).send({ error: `unknown asset ${req.params.id}` });
+      const rows = await db
+        .select()
+        .from(riskLpConcentration)
+        .where(eq(riskLpConcentration.asset, a.symbol))
+        .orderBy(desc(riskLpConcentration.fetchedAt))
+        .limit(50);
+      const latest = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) if (!latest.has(r.pool)) latest.set(r.pool, r);
+      return { asset: a.symbol, pools: [...latest.values()], disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/risk/recoverable',
+    {
+      schema: {
+        summary:
+          'Recoverable value of a notional at a time and horizon (DEX path vs issuer redemption)',
+        querystring: z.object({
+          asset: z.string(),
+          notional: z.coerce.number().positive(),
+          at: z.string().datetime().optional(),
+          hours: z.coerce
+            .number()
+            .positive()
+            .max(24 * 30)
+            .default(24),
+          holderKyc: z.coerce.boolean().default(false),
+        }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const a = await resolveAsset(req.query.asset);
+      if (!a) return reply.code(404).send({ error: `unknown asset ${req.query.asset}` });
+      const c = await curvesFor(a.mint);
+      const at = req.query.at ? new Date(req.query.at) : new Date();
+      const r = recoverableValue(
+        c,
+        ISSUERS.xstocks ?? null,
+        req.query.notional,
+        at,
+        req.query.hours,
+        REGIME_PARAMS,
+        req.query.holderKyc,
+      );
+      return { asset: a.symbol, ...r, methodVersion: METHOD_VERSION, disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/risk/assets/:id/score',
+    {
+      schema: {
+        summary:
+          'Liquidity score: share of a reference notional exitable at ≤ tau in the worst regime of the horizon',
+        params: z.object({ id: z.string() }),
+        querystring: z.object({
+          tau: z.coerce.number().positive().default(0.01),
+          nRef: z.coerce.number().positive(),
+          hours: z.coerce.number().positive().default(72),
+        }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const a = await resolveAsset(req.params.id);
+      if (!a) return reply.code(404).send({ error: `unknown asset ${req.params.id}` });
+      const c = await curvesFor(a.mint);
+      const s = liquidityScore(
+        c,
+        regimesIn(new Date(), req.query.hours, REGIME_PARAMS),
+        req.query.tau,
+        req.query.nRef,
+      );
+      return { asset: a.symbol, ...s, methodVersion: METHOD_VERSION, disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.post(
+    '/risk/positions/assess',
+    {
+      schema: {
+        summary: 'Liquidity breach assessment for a set of positions and a withdrawal schedule',
+        body: z.object({
+          cashUsd: z.number().nonnegative(),
+          brlUsd: z.number().nonnegative().default(0),
+          liquid: z
+            .array(z.object({ assetId: z.string(), valueUsd: z.number().nonnegative() }))
+            .default([]),
+          illiquid: z.array(z.object({ asset: z.string(), valueUsd: z.number().nonnegative() })),
+          withdrawals: z.array(z.object({ at: z.string().datetime(), usd: z.number().positive() })),
+          windowDays: z.number().int().min(0).max(365),
+          tau: z.number().positive().default(0.01),
+          shareOfDepth: z.number().positive().max(1).default(0.25),
+          dryFactorFloor: z.number().positive().max(1).default(0.25),
+        }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const illiquid = [];
+      for (const l of req.body.illiquid) {
+        const a = await resolveAsset(l.asset);
+        if (!a) return reply.code(404).send({ error: `unknown asset ${l.asset}` });
+        illiquid.push({ assetId: a.symbol, valueUsd: l.valueUsd, curves: await curvesFor(a.mint) });
+      }
+      const r = assessLiquidity({ ...req.body, illiquid, regimeParams: REGIME_PARAMS });
+      return { ...r, methodVersion: METHOD_VERSION, disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/risk/events',
+    {
+      schema: {
+        summary: 'Collector events: LP withdrawals near the price, stale tick maps',
+        querystring: z.object({
+          since: z.string().datetime().optional(),
+          kind: z.string().optional(),
+        }),
+        response: { 200: z.any() },
+      },
+    },
+    async (req) => {
+      const since = req.query.since
+        ? new Date(req.query.since)
+        : new Date(Date.now() - 7 * 86_400_000);
+      const rows = await db
+        .select()
+        .from(riskEvents)
+        .where(
+          and(
+            gte(riskEvents.fetchedAt, since),
+            req.query.kind ? eq(riskEvents.kind, req.query.kind) : sql`true`,
+          ),
+        )
+        .orderBy(desc(riskEvents.fetchedAt))
+        .limit(500);
+      return { events: rows, disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/risk/pools',
+    {
+      schema: {
+        summary: 'Pool registry: venue, exit path, on-chain TVL and refresh tier',
+        querystring: z.object({
+          asset: z.string().optional(),
+          includeDust: z.coerce.boolean().default(false),
+        }),
+        response: { 200: z.any() },
+      },
+    },
+    async (req) => {
+      const a = req.query.asset ? await resolveAsset(req.query.asset) : null;
+      const rows = await db
+        .select()
+        .from(riskPools)
+        .where(
+          and(
+            a ? eq(riskPools.assetMint, a.mint) : sql`true`,
+            req.query.includeDust ? sql`true` : inArray(riskPools.tier, ['A', 'B']),
+          ),
+        )
+        .orderBy(desc(riskPools.tvlUsd))
+        .limit(500);
+      return { pools: rows, disclaimer: DISCLAIMER.en };
+    },
+  );
+}
