@@ -11,28 +11,38 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import {
+  bandTicksFor,
+  CLMM_POSITION_POOL_OFFSET,
+  CLMM_POSITION_SIZE,
   CLMM_TICK_ARRAY_POOL_OFFSET,
   type ClState,
   clmmState,
   clSim,
+  concentration,
   cpSim,
   DLMM_BIN_ARRAY_PAIR_OFFSET,
   decodeClmmAmmConfig,
   decodeClmmPool,
+  decodeClmmPosition,
   decodeClmmTickArray,
   decodeCpmmAmmConfig,
   decodeCpmmPool,
   decodeDlmmBinArray,
   decodeDlmmPair,
   decodeWhirlpool,
+  decodeWpPosition,
   decodeWpTickArray,
   dlmmFeeRate,
   dlmmSim,
+  inBandWeight,
   type PoolSim,
   usdCurves,
   WP_DYNAMIC_TICK_ARRAY_POOL_OFFSET,
   WP_FIXED_TICK_ARRAY_POOL_OFFSET,
+  WP_POSITION_POOL_OFFSET,
+  WP_POSITION_SIZE,
   whirlpoolState,
+  withoutPositions,
 } from '@colosseum/risk';
 
 export const COLLECTOR_METHOD_VERSION = 'pools-0.1';
@@ -42,6 +52,10 @@ const NOTIONALS = [100, 500, 2_500, 10_000, 50_000, 250_000, 1_000_000, 5_000_00
 const BAND_PCT = 0.02;
 const CHILD_REFRESH_MIN = 60;
 const RAW_TOP_SHARE = 0.8;
+/** LP-withdrawal alarm: in-band depth drop (policy input) when the tick map changed in the same run. */
+const WITHDRAWAL_ALARM = Number(process.env.RISK_WITHDRAWAL_ALARM ?? 0.2);
+/** LP-exit stress: number of largest in-band positions removed (policy input). */
+const LP_EXIT_N = Number(process.env.RISK_LP_EXIT_N ?? 3);
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const USDT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const SOL = 'So11111111111111111111111111111111111111112';
@@ -71,6 +85,8 @@ type Cache = {
   /** Decoded initialized ticks [tick, liquidityNet] for concentrated-liquidity pools. */
   ticks: Record<string, Array<[number, number]>>;
   configs: Record<string, string>;
+  /** Last in-band (±2%) sell depth in quote UI units, per pool. */
+  lastDepth?: Record<string, number>;
 };
 const isCl = (p: RegPool) => p.venue === 'raydium_clmm' || p.venue === 'orca_whirlpool';
 
@@ -84,6 +100,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(30_000),
       });
       const j = (await res.json().catch(() => ({ error: { code: res.status } }))) as {
         result?: T;
@@ -145,7 +162,13 @@ async function discoverChildren(p: RegPool): Promise<string[]> {
   return keys;
 }
 
-type Built = { sim: PoolSim; invariantRelErr: number | null; activeLiquidity: string | null };
+type Built = {
+  sim: PoolSim;
+  invariantRelErr: number | null;
+  activeLiquidity: string | null;
+  cl?: ClState;
+  assetIs0?: boolean;
+};
 function decodeTicks(p: RegPool, head: Uint8Array, kids: Uint8Array[]): Array<[number, number]> {
   if (p.venue === 'raydium_clmm') {
     return kids
@@ -258,6 +281,7 @@ async function main() {
     ? (JSON.parse(readFileSync(cachePath, 'utf8')) as Cache)
     : { children: {}, childrenAt: {}, ticks: {}, configs: {} };
   cache.ticks ??= {};
+  cache.lastDepth ??= {};
   const hourly = now.getUTCMinutes() < 5 || process.env.RISK_FORCE_ALL === '1';
   const due = reg.pools.filter((p) => p.tier === 'A' || hourly);
   const totalTvl = reg.pools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);
@@ -348,7 +372,9 @@ async function main() {
         kids.get(p.vault0),
         kids.get(p.vault1),
       ]);
+      let staleThisRun = false;
       if (built.invariantRelErr !== null && built.invariantRelErr > 1e-9) {
+        staleThisRun = true;
         // cached tick map is stale: an LP changed liquidity in range. Re-discover and rebuild.
         const before = built.invariantRelErr;
         cache.children[p.address] = await discoverChildren(p);
@@ -404,6 +430,57 @@ async function main() {
         })}\n`,
       );
       rows++;
+      const depthNow = depth.sellQuoteOut / 10 ** decQuote;
+      const depthPrev = cache.lastDepth?.[p.address];
+      if (staleThisRun && depthPrev && depthNow < (1 - WITHDRAWAL_ALARM) * depthPrev) {
+        appendFileSync(
+          events,
+          `${JSON.stringify({ kind: 'lp_withdrawal', pool: p.address, asset: p.assetSymbol, quote: p.quoteSymbol, depth2pctBefore: depthPrev, depth2pctAfter: depthNow, dropShare: 1 - depthNow / depthPrev, alarm: WITHDRAWAL_ALARM, fetchedAt: now.toISOString(), slot })}\n`,
+        );
+      }
+      (cache.lastDepth as Record<string, number>)[p.address] = depthNow;
+      if (hourly && rawSet.has(p.address) && built.cl && quoteUsd > 0) {
+        try {
+          const [size, offset] =
+            p.venue === 'raydium_clmm'
+              ? [CLMM_POSITION_SIZE, CLMM_POSITION_POOL_OFFSET]
+              : [WP_POSITION_SIZE, WP_POSITION_POOL_OFFSET];
+          const raw = await rpc<Array<{ pubkey: string; account: { data: [string, string] } }>>(
+            'getProgramAccounts',
+            [
+              p.program,
+              {
+                encoding: 'base64',
+                filters: [{ dataSize: size }, { memcmp: { offset, bytes: p.address } }],
+              },
+            ],
+          );
+          const decode = p.venue === 'raydium_clmm' ? decodeClmmPosition : decodeWpPosition;
+          const ps = raw
+            .map((a) => decode(a.pubkey, b64(a.account.data[0])))
+            .filter((x) => x.pool === p.address && x.liquidity > 0);
+          const tickNow = built.cl.tickCurrent;
+          const c = concentration(ps, tickNow, BAND_PCT);
+          const w = bandTicksFor(BAND_PCT);
+          const top = [...ps]
+            .sort((x, y) => inBandWeight(y, tickNow, w) - inBandWeight(x, tickNow, w))
+            .slice(0, LP_EXIT_N);
+          const stressed = usdCurves(
+            clSim(withoutPositions(built.cl, top), built.assetIs0 ?? true, {}),
+            decAsset,
+            decQuote,
+            quoteUsd,
+            NOTIONALS,
+          );
+          mkdirSync(join(HOME, 'lp'), { recursive: true });
+          appendFileSync(
+            join(HOME, 'lp', `${day}.jsonl`),
+            `${JSON.stringify({ pool: p.address, venue: p.venue, asset: p.assetSymbol, quote: p.quoteSymbol, fetchedAt: now.toISOString(), slot, bandPct: BAND_PCT, ...c, lpExitN: LP_EXIT_N, topPositions: top.map((x) => ({ address: x.address, nftMint: x.nftMint, tickLower: x.tickLower, tickUpper: x.tickUpper, liquidity: x.liquidity })), sellBase: curves?.sell ?? null, sellWithoutTopN: stressed.sell, source: 'Solana RPC getProgramAccounts (positions)', method: 'lp_concentration_positions', methodVersion: COLLECTOR_METHOD_VERSION, provenance: 'live' })}\n`,
+          );
+        } catch (e) {
+          failures.push(`${p.address} lp: ${String(e).slice(0, 100)}`);
+        }
+      }
       if (refreshCl.has(p.address) && rawSet.has(p.address)) {
         const rawDir = join(HOME, 'raw', day, String(now.getUTCHours()).padStart(2, '0'));
         mkdirSync(rawDir, { recursive: true });

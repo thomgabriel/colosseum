@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createDb, riskPools } from '@colosseum/db';
@@ -13,7 +13,7 @@ import {
   RAYDIUM_CPMM_PROGRAM,
 } from '@colosseum/risk';
 import { sql } from 'drizzle-orm';
-import { MINTS, nowIso, sleep } from '../lib';
+import { jupHeaders, MINTS, nowIso, sleep } from '../lib';
 import { getMultiple, rpc, rpcStats } from './lib-pools';
 
 // Step 1 — pool registry. Confirms every candidate xStocks pool on-chain (owner program, decoded mints),
@@ -107,32 +107,38 @@ for (const line of readFileSync(discoveryFile, 'utf8').split('\n').filter(Boolea
   if (r.pairs?.length) assetsWithPools.add(r.assetMint);
 }
 
-// --- second pass: on-chain search by mint, per venue ---
+// --- second pass: on-chain search by mint, per venue (checkpointed: a rerun skips finished searches) ---
+const ckptFile = join(
+  OUT,
+  `registry-search-${discoveryFile.match(/(\d{8}T\d{4})/)?.[1] ?? 'x'}.json`,
+);
+const ckpt: Record<string, string[]> = existsSync(ckptFile)
+  ? JSON.parse(readFileSync(ckptFile, 'utf8'))
+  : {};
 let found = 0;
 for (const mint of assetsWithPools) {
   for (const [, cfg] of Object.entries(VENUES)) {
     for (const offset of cfg.mintOffsets) {
-      const r = await rpc<Array<{ pubkey: string }>>('getProgramAccounts', [
-        cfg.program,
-        {
-          encoding: 'base64',
-          dataSlice: { offset: 0, length: 0 },
-          filters: [{ dataSize: cfg.size }, { memcmp: { offset, bytes: mint } }],
-        },
-      ]);
-      for (const a of r) {
-        if (!cands.has(a.pubkey)) {
-          cands.set(a.pubkey, {
-            address: a.pubkey,
-            dsVenue: 'onchain',
-            liq: 0,
-            vol: 0,
-            fromDiscovery: false,
-          });
+      const key = `${cfg.program}:${offset}:${mint}`;
+      if (!ckpt[key]) {
+        const r = await rpc<Array<{ pubkey: string }>>('getProgramAccounts', [
+          cfg.program,
+          {
+            encoding: 'base64',
+            dataSlice: { offset: 0, length: 0 },
+            filters: [{ dataSize: cfg.size }, { memcmp: { offset, bytes: mint } }],
+          },
+        ]);
+        ckpt[key] = r.map((a) => a.pubkey);
+        writeFileSync(ckptFile, JSON.stringify(ckpt));
+        await sleep(150);
+      }
+      for (const a of ckpt[key] ?? []) {
+        if (!cands.has(a)) {
+          cands.set(a, { address: a, dsVenue: 'onchain', liq: 0, vol: 0, fromDiscovery: false });
           found++;
         }
       }
-      await sleep(150);
     }
   }
 }
@@ -269,15 +275,27 @@ for (const [i, v] of vaults.entries()) {
   if (a && a.data.length >= 72)
     bal.set(v, Number(new DataView(a.data.buffer, a.data.byteOffset).getBigUint64(64, true)));
 }
-const price = new Map<string, number>();
-for (let i = 0; i < mints.length; i += 50) {
-  const ids = mints.slice(i, i + 50).join(',');
-  const r = (await (await fetch(`https://lite-api.jup.ag/price/v3?ids=${ids}`)).json()) as Record<
-    string,
-    { usdPrice?: number }
-  >;
-  for (const [m, p] of Object.entries(r)) if (p?.usdPrice) price.set(m, p.usdPrice);
-  await sleep(300);
+// Price only the xStocks and the USD/SOL quotes; exotic quote tokens are left unpriced, so a pool's TVL
+// counts the xStock side plus any USD/SOL/xStock quote side (a lower bound for exotic pairs).
+const price = new Map<string, number>([
+  [MINTS.USDC, 1],
+  [MINTS.USDT, 1],
+]);
+const toPrice = [SOL, ...new Set(rows.flatMap((r) => [r.mint0, r.mint1]).filter((m) => isX(m)))];
+for (let i = 0; i < toPrice.length; i += 50) {
+  const ids = toPrice.slice(i, i + 50).join(',');
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const res = await fetch(`https://api.jup.ag/price/v3?ids=${ids}`, { headers: jupHeaders() });
+    const text = await res.text();
+    if (res.status === 429 || !text.startsWith('{')) {
+      await sleep(2000 * 2 ** attempt);
+      continue;
+    }
+    for (const [m, p] of Object.entries(JSON.parse(text) as Record<string, { usdPrice?: number }>))
+      if (p?.usdPrice) price.set(m, p.usdPrice);
+    break;
+  }
+  await sleep(1300);
 }
 for (const r of rows) {
   const m0 = mintInfo.get(r.mint0);

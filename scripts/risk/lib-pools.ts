@@ -30,6 +30,7 @@ export async function rpc<T = unknown>(method: string, params: unknown[]): Promi
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(30_000),
       });
       if (res.status === 429) {
         rpcStats.retries429++;
