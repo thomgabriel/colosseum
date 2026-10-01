@@ -16,6 +16,7 @@ const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type RegPool = {
+  address: string;
   assetMint: string;
   assetSymbol: string;
   tvlUsd: number;
@@ -47,10 +48,25 @@ for (const e of [...tvlByAsset.entries()].sort((a, b) => b[1].tvl - a[1].tvl)) {
 const day = new Date().toISOString().slice(0, 10);
 const snapFile = join(HOME, 'pools', `${day}.jsonl`);
 const midUsd = new Map<string, number>();
+const refTvl = new Map<string, number>();
+const poolTvl = new Map(
+  (reg.pools as Array<RegPool & { address?: string }>).map((p) => [p.address ?? '', p.tvlUsd ?? 0]),
+);
 if (existsSync(snapFile)) {
   for (const l of readFileSync(snapFile, 'utf8').split('\n').filter(Boolean)) {
-    const r = JSON.parse(l) as { assetMint: string; midUsd: number | null; exitPath: string };
-    if (r.midUsd && r.exitPath === 'direct_usd') midUsd.set(r.assetMint, r.midUsd);
+    const r = JSON.parse(l) as {
+      pool: string;
+      assetMint: string;
+      midUsd: number | null;
+      exitPath: string;
+    };
+    // reference price: the asset's largest direct-USD pool (by registry TVL), latest snapshot
+    if (!r.midUsd || r.exitPath !== 'direct_usd') continue;
+    const tvl = poolTvl.get(r.pool) ?? 0;
+    if (tvl >= (refTvl.get(r.assetMint) ?? 0)) {
+      refTvl.set(r.assetMint, tvl);
+      midUsd.set(r.assetMint, r.midUsd);
+    }
   }
 }
 

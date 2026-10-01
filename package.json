@@ -42,7 +42,8 @@
     "risk:retier": "tsx scripts/risk/retier.ts",
     "risk:import": "tsx scripts/risk/import.ts",
     "risk:compute": "tsx scripts/risk/compute.ts",
-    "risk:history": "tsx scripts/risk/history-backfill.ts"
+    "risk:history": "tsx scripts/risk/history-backfill.ts",
+    "risk:routing-gap": "tsx scripts/risk/routing-gap.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
