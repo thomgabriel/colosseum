@@ -1,137 +1,145 @@
 # Positioning
-> Phase: strategy | Brand: working-brand ([Name] TBD, see naming.md) | Generated: 2026-10-01
+> Phase: strategy | Brand: working-brand ([Name] TBD, see naming.md) | Generated: 2026-10-01 · **Revised 2026-10-01 (founder-approved positioning, binding)**
 
-Founder-confirmed direction: **bold, "made to measure, every joint shown"**. Both halves are mandatory. If either half is dropped, the positioning collapses into a competitor's: fit without visibility is Nexa or a private bank, and visibility without fit is Ondo's constituent transparency or Gauntlet's VaultBook.
+**Central frame: hyper-personalisation.** [Name] works **backwards from one goal** (the inverse problem), not forwards from an idea, a theme or a menu. Two things make that claim tangible: **an exit plan before it invests**, and **every joint in sight**.
 
 ---
 
-## 1. Positioning statement
+## 1. Positioning (binding, founder-approved)
 
-### Consumer / master statement
-> **For people who hold dollars and have something specific to reach, [Name] is the agent that builds a portfolio for that one goal and shows every joint: where each yield comes from, what it is really worth after risk, and how fast you can get out. Because the plan comes from a deterministic engine, cut with a credit structurer's haircuts and measured exit depth, and it runs in your own wallet with every move logged. Not a menu. Made to measure.**
+### Lead line
+> **"Tell us what your money needs to do. [Name] builds the portfolio that gets it there — and shows you how."**
 
-The refinements to the founder's reference statement, and why each was made:
+### Positioning statement
+> **For anyone with a specific goal for their money — an amount, a date, a yield, cash they must be able to reach — [Name] is the agent that works backwards from that goal. You set the outcome and the limits; it builds and manages the portfolio of tokenized real-world assets that fits them, with an exit plan before it invests, and every joint in sight. Others turn an idea into a basket. We turn your goal into a plan made to measure.**
 
-| Change | Why |
-|---|---|
-| Added the **because** clause (deterministic engine, haircuts, measured exit depth, own wallet, logged moves) | The formula requires a reason to believe, and each item is a shipped fact (solver, risk sheet, depth dataset, executions table). No claim is made that the product can't show today |
-| Kept "the agent", not "the app" or "the platform" | Category frame = agent. That is the 2026 frame Robinhood, Peaks and SAQTA are fighting over, so we win it on accountability, not autonomy |
-| "In your own wallet" moved into the proof, with "Not a menu. Made to measure." as the closing beat | The close has to be the claim people remember. Self-custody is a reason to believe, not the headline |
-| "What it's really worth after risk" kept verbatim | It's the founder's sharpest phrase. It names the haircut without the jargon |
+### Proof line (killer feature)
+> **"Every portfolio has an exit plan before the agent invests."**
+
+Tokenized does not mean liquid. The question nobody else answers up front is *"can I actually get the money back when I need it, and at what cost?"*. [Name] answers it **before** the first dollar moves, from measured exit depth (the same data that powers [Name] Bearing).
 
 ### Formula breakdown
 | Slot | Content |
 |---|---|
-| **Audience** | People who hold dollars (USD, USDC, stablecoins) **and have something specific to reach**: an amount by a date, an income, a cash-access window. Behavioural, not demographic. Covers Mariana 1a (crypto-native) and 1b (life-goal saver) |
-| **Need** | To know whether *their* goal will land, under what risks, and how fast they can get out. That is not "the highest rate" |
-| **Category (reframed)** | The **goal-built portfolio agent**. Not "yield app", not "robo-advisor", not "AI agent" |
-| **Benefit** | A portfolio cut to one goal, with every joint visible: source, after-risk value, exit |
-| **Reason to believe** | Deterministic solver over a validated, editable constraint sheet. Credit-aware haircuts on quoted yields. Measured exit depth by size and hour of week. Self-custody execution with every transaction logged and linked to the explorer. Every figure carries source, fetched_at and method |
+| **Audience** | Anyone with a **specific goal for their money**: an amount, a date, a yield, cash they must be able to reach. Behavioural, not demographic. Covers Mariana 1a and 1b, and the end users of partners |
+| **Need** | Reach *that* outcome within *their* limits, and know they can get out |
+| **Category (reframed)** | **The agent that works backwards from your goal.** Not "AI portfolio builder", not "RWA baskets", not "yield app" |
+| **Benefit** | A portfolio of tokenized RWAs made to measure for the goal, managed against **the odds of reaching it**, with an exit plan before investing |
+| **Reason to believe** | Kept out of the statement on purpose (plain language). It lives in the proof points: a deterministic solver over a validated, editable constraint sheet; credit-aware haircuts; measured exit depth by size and hour of week; execution in the user's own wallet with every move logged with an explorer link; source · fetched_at · method on every figure |
 
-### Surface statements (same engine, same promise, different buyer)
-
-**Embed / API (Rafael):**
-> For neobanks and wallets whose "earn" tab is a single rate button, **[Name]** is the goal-built portfolio engine you embed under your own brand. Your users get a plan made to measure for what they're saving for, and your compliance team gets every figure with its source and every leg with its risk sheet. Because the plan is solved deterministically, documented in OpenAPI, and labelled MOCK wherever it isn't live.
-
-**Risk product (Priya), working name [Name] Bearing:**
-> For risk leads who set LTVs and caps on tokenized stocks and commodities, **[Name] Bearing** measures how much of that collateral can actually be turned into dollars, at what cost, at what hour of the week. Because it is recorded continuously, versioned, sample-counted and published with its method, by a team that sells no yield to the protocols it measures.
+### Surface statements (same engine)
+- **Embed / API (Rafael):** "The goal and liquidity intelligence layer under your app. Your users say what their money needs to do. [Name] builds the made-to-measure plan, with an exit plan before it invests, under your brand, with every figure's source for compliance."
+- **[Name] Bearing (Priya and B2B):** "Tokenized does not mean liquid. Bearing measures whether the money can actually come back, how much, at what cost, at what hour of the week: versioned, sample-counted, method in the open." Bearing is also sold as the liquidity layer **under wallets, fintechs and consumer apps**. Even idea-to-basket apps are potential distribution, not only competitors.
 
 ---
 
-## 2. Positioning map: the consumer and embed surfaces
+## 2. Competitive frame: three ways to build a portfolio
 
-**Axes chosen because both are axes the personas actually decide on:**
-- **X: Menu ↔ Made to measure.** Does the product start from a fixed portfolio, strategy or rate that you fit yourself to, or from your goal (amount, date, cash flow, exit window) that the portfolio is fitted to? *Mariana 1b: "products show yields, not whether my goal will land."*
-- **Y: Sealed ↔ Every joint shown.** Can you see why it holds: where each number comes from, what was haircut, how fast you can exit, and what the agent did and why? *Mariana 1a: "sources and timestamps on every number"; Rafael: "risk he can explain to compliance".*
+| Frame | Who | Input → output | What drives rebalancing | What it answers |
+|---|---|---|---|---|
+| **Idea → basket** | **Peaks**, **Cesto** (both Colosseum Accelerator Cohort 5, from the Frontier hackathon) | A theme, narrative or worldview → a basket (Peaks: "self-managing portfolios based on a sector, personality, or worldview"; Cesto: thematic baskets of Solana RWAs, prediction markets and perps) | Following the theme or narrative | "What do I believe in?" |
+| **Menu → model portfolio** | **Ondo Intelligent Portfolios** (BlackRock model strategies), **Glider / Bitwise ATP** (published strategies, rebalanced in-wallet). Also Wealthfront and Betterment off-chain | Pick a manager's model → hold it | Drift back to the model's weights | "Which product should I buy?" |
+| **Goal + constraints → made to measure** | **[Name]** | Outcome (amount, date, yield, reachable cash) + limits (risk, exit window, exclusions) → a portfolio solved backwards from them, **with an exit plan before investing** | **The odds of reaching the goal.** When the probability of landing on time moves, the plan is re-trued | "Will my goal land, what could stop it, and can I get my money back when I need it?" |
+
+**Why this is the inverse problem:** idea and menu products run *forwards*: choose the assets, then see what happens. [Name] runs *backwards*: fix the outcome and the limits, then solve for the assets. That is goal-based portfolio construction and financial engineering (structuring, haircuts, liquidity sizing), not narrative trading.
+
+### The danger framing, and how to answer it
+> ✗ **Never:** "an AI agent that builds diversified RWA portfolios." That invites *"why isn't this just Cesto with an AI interface?"*
+
+| If asked | Answer |
+|---|---|
+| "Isn't this Cesto or Peaks with AI?" | "They turn an idea into a basket. We turn your goal into a plan. You don't tell us a theme; you tell us what the money needs to do, and we manage the odds of getting there, with an exit plan before we invest." |
+| "Isn't this Ondo's or Glider's model portfolios?" | "Those are menus: someone else's model, and you fit yourself to it. Ours is cut to your goal and your limits." |
+
+**Do not lead with:** "AI", "agent builds portfolios", "diversified", "RWA baskets", "thematic". **Lead with:** your goal, made to measure, the exit plan, every joint in sight.
+
+---
+
+## 3. Positioning map: consumer and embed
+
+**Axes (both decide the purchase for the personas):**
+- **X: Starts from a product or idea ↔ Starts from your goal** (forwards versus backwards).
+- **Y: Sealed ↔ Every joint in sight** (sources, after-risk value, **exit plan known before investing**, action log).
 
 ```
-                               EVERY JOINT SHOWN
-                     (provenance, haircuts, exit, action log)
+                              EVERY JOINT IN SIGHT
+                     (sources, haircuts, exit plan up front, log)
                                       |
                                       |                 ◎ [Name]
-                YieldCompass ●        |            goal-built AND open
-               (realized APY,         |
-                still a list)         |
-     Glider / Bitwise ATP ●           |
-     (published strategy)             |
-          Ondo Intelligent ●          |
-          Portfolios (constituents    |
-          visible, BlackRock models)  |
-MENU ─────────────────────────────────┼──────────────────────────────── MADE TO MEASURE
+          Glider / Bitwise ATP ●      |          goal + constraints → plan,
+          (published strategy)        |          exit plan before investing
+        Ondo Intelligent ●            |
+        Portfolios (constituents)     |
                                       |
-   Wealthfront ●   ● Betterment       |
+STARTS FROM A ────────────────────────┼────────────────────── STARTS FROM
+PRODUCT / IDEA                        |                         YOUR GOAL
+   Wealthfront ● ● Betterment         |
    (goal label on model portfolios)   |
-                                      |          ● Nexa (hyper-personalised,
-     SAQTA / Yield AI ●               |            off-chain, B2B to advisors,
-     ("pick a strategy, walk away")   |            engine not shown to end user)
-                 ● Peaks              |
-                 (theme portfolios)   |
-                                      |
+        ● Cesto                       |          ● Nexa (hyper-personalised,
+        (thematic RWA baskets)        |            off-chain, B2B to advisors)
+      ● Peaks                         |
+      (worldview portfolios)          |
+   SAQTA / yield agents ●             |
+   ("pick a strategy, walk away")     |
                                     SEALED
-                        ("trust the model", "walk away")
 ```
 
-Plots are based on market perception, using the competitive audit of 2026-10-01 (homepages, OG cards, product docs). Gauntlet and Chaos Labs are plotted on the risk map below, because they don't sell to Mariana.
+Plots reflect market perception (the competitive audit, plus the Colosseum Cohort 5 and Frontier announcements, checked 2026-10-01). Cesto and Peaks sit left because their input is an idea. They aren't low on Y because they hide things; it's because exit capacity and after-risk value aren't part of their proposition.
 
-### White space analysis
-- **The upper-right quadrant is empty.** Every on-chain portfolio launched in 2026 (Ondo Intelligent Portfolios on 24 Sept, Bitwise ATP via Glider in Aug) is a **better-packaged menu**. Transparency is moving up the Y axis, since constituents and rebalancing events are now visible, but nobody is moving right. The robo-advisors moved right *in the interface only*: the goal changes the glide path, not the instruments.
-- **Nexa is the only brand right of centre, and it is sealed, off-chain and sold to advisors.** It proves the story resonates ("The market starts with the product. Nexa starts with the client."). It does not own the end user, the chain, or visibility.
-- **Is there demand?** Yes. Wealthfront Path and Betterment's forecaster trained a generation to expect "am I on track?". Mariana 1a's distrust of leaderboards after the 2–5.6x overstatement era (founder's prior analytics) creates demand for the Y axis. Rafael's boxed-in "earn" tab creates the B2B pull.
-- **Can we credibly claim it?** Yes, and only because of shipped architecture. The goal becomes a validated constraint sheet, a deterministic solver fits legs to it, a risk sheet sits on every leg, and provenance comes with every figure. A competitor can copy the words, but would have to rebuild the engine to copy the proof.
-- **Is it defensible?** Partly through data that can't be backfilled (exit depth by notional × hour-of-week, collected since Sept 2026), partly through the founder's structuring and credit expertise encoded as haircuts, and partly through distribution in partner wallets.
+### White space
+- **Upper right is empty.** In 2026 the market split into *idea → basket* (Peaks, Cesto) and *menu → model portfolio* (Ondo IP, Glider/ATP). Both move up the Y axis (transparency of constituents and weights). Nobody moves right.
+- **The exit plan is the tie-breaker.** None of the products on the map shows, before investing, whether and how fast the money can come back. That is the single feature that makes "made to measure" provable and not just a claim.
+- **Demand:** the goal question has been trained by robo-advisors ("am I on track?"). Distrust of quoted yields (the founder's prior analytics found figures off by 2–5.6x) and the illiquidity of tokenized stocks and commodities make the exit plan urgent.
+- **Defensibility:** depth data recorded since Sept 2026 that can't be backfilled, credit and structuring expertise encoded as haircuts, a deterministic solver, and partner distribution.
 
 ---
 
-## 3. Positioning map: the risk surface ([Name] Bearing)
+## 4. Positioning map: liquidity layer ([Name] Bearing)
 
-- **X: Sells yield or AI ↔ Neutral measurement.** Is the vendor also paid for the outcome it measures?
-- **Y: Modelled opinion ↔ Measured and reproducible.** Simulations and scores, or observed depth with n=, version and public method?
+- **X: Sells yield or AI ↔ Neutral measurement.**
+- **Y: Modelled opinion ↔ Measured, reproducible.**
 
 ```
                          MEASURED, REPRODUCIBLE
                                   |
                                   |            ◎ [Name] Bearing
-                                  |      neutral instrument, versioned, n=, method open
-         Gauntlet VaultBook ●     |
-         (documented, but         |
-         Gauntlet curates yield)  |
+                                  |      "can the money come back, how much,
+         Gauntlet VaultBook ●     |       at what cost, at what hour?"
 SELLS YIELD / AI ─────────────────┼─────────────────── NEUTRAL MEASUREMENT
-   Gauntlet ●                     |
-   ("premier yield curator")      |   ● Amberdata / generic
-   Chaos Labs ●                   |     liquidity analytics
-   ("Sovereign AI", left Aave     |     (dashboards, not exit
-   Apr 2026)                      |     capacity by hour)
-                                  |
+   Gauntlet ● (yield curator)     |   ● generic liquidity analytics
+   Chaos Labs ● ("Sovereign AI")  |     (dashboards, not exit capacity by hour)
                           MODELLED OPINION
 ```
 
-**White space:** the two best-known risk brands have moved left. Gauntlet curates yield and Chaos Labs sells AI and oracles. Priya needs numbers she can cite in governance from someone not paid by the outcome.
-
-**The honest complication:** [Name] does earn AUM fees on consumer and partner portfolios, so "sells no yield" must be stated precisely. **Bearing is never paid by, and never curates for, the protocols it measures, and the method and raw samples are public.** The conflict is disclosed in the method page, not hidden. Hiding it would break our own "every joint shown" rule.
+**Honest complication:** [Name] earns fees on goal portfolios. Bearing is never paid by, and never curates for, the protocols it measures, and it publishes its method and samples. The relationship is disclosed, not hidden.
 
 ---
 
-## 4. Differentiation matrix (parity versus true differentiators)
+## 5. Differentiation matrix
 
-| Dimension | [Name] | Ondo IP | Glider / ATP | Wealthfront / Betterment | Nexa | Peaks / SAQTA |
-|---|---|---|---|---|---|---|
-| Starting point | **Your goal** (amount, date, cash flow, exit window) | Manager's model | Manager's strategy | Model portfolio + goal label | Client profile (via advisor) | Theme / strategy pick |
-| Yield shown as | **After-risk, with source · fetched_at · method** | Constituents | Weights | Headline APY | Not public | APY |
-| Exit / liquidity | **Measured depth by size and hour, in the plan** | Not shown | Not shown | Implied (cash) | Not public | Not shown |
-| Agent posture | **Accountable craftsman: proposes, explains, logs, re-trues** | Smart-contract rebalance | Auto-rebalance | Automation | Advisor tool | Autonomy ("walk away") |
-| Custody | Own wallet | Token | Own wallet | Custodial | Bank / advisor | Mixed |
-| Visual language | **Material mechanism** (real joints, exploded views) | Documentary photography | 3D glass, mint | Blue/indigo gradients | Green, headshots | Dark trading app |
+| Dimension | [Name] | Peaks / Cesto | Ondo IP / Glider ATP | Wealthfront / Betterment | Nexa |
+|---|---|---|---|---|---|
+| Input | **Goal + limits** | Idea / theme | Chosen model | Model + goal label | Client profile (via advisor) |
+| Direction | **Backwards from outcome** | Forwards from belief | Forwards from model | Forwards from model | Backwards (off-chain) |
+| Rebalances on | **Odds of reaching the goal** | Theme / narrative | Model drift | Model drift / glide path | Advisor |
+| Exit plan before investing | **Yes, from measured depth** | No | No | Implied (cash) | Not public |
+| Yield shown as | **After haircut, with source** | Price / performance | Constituents | Headline APY | Not public |
+| Custody | Own wallet | Mixed | Token / own wallet | Custodial | Bank |
 
-- **Parity (must have, does not differentiate):** self-custody (Glider has it), automation (everyone), goal language (robo-advisors), on-chain RWAs (Ondo).
-- **True differentiators, ranked by relevance × difficulty to copy:**
-  1. **Made to measure for one goal**, solved backwards from the goal, not a model with a label.
-  2. **Every joint shown**: after-risk yield, measured exit, provenance on every figure, logged moves. This is the pair no one holds together.
-  3. **Measured exit depth**, a dataset that can't be backfilled and also powers the risk product.
+- **Parity:** tokenized RWAs, automation, self-custody, goal language.
+- **True differentiators, ranked:** (1) made to measure, solved backwards from one goal; (2) an exit plan before investing; (3) managed against the odds of reaching the goal; (4) every joint in sight.
 
 ---
 
-## 5. Guardrails on the position
-- **Never position against a competitor by name in public copy.** Position against *the menu*. The enemy is the category habit, not Ondo or Glider.
-- **Never claim the outcome.** We claim the fit, the visibility and the upkeep ("we'd tell you in March"), never the return. No "guaranteed", no "up to X%", no "beat the bank".
-- **Not licensed advice.** The positioning is "builds and explains a plan for your goal", never "advises you". The disclaimer constant appears on the plan view and API docs.
-- **Global, not regional.** Brazil and LatAm are where the first partners are, not the brand frame. No regional signalling in the positioning.
+## 6. Guardrails
+- **The odds are an estimate, and are labelled as one.** "Probability of reaching your goal" always carries its method and as-of date. It is never a promise. Say "your odds", "on track" or "at risk", never "you will reach".
+- **No return claims.** No "guaranteed", no "up to X%". A target yield is the *user's* constraint, not our promise.
+- **Not licensed advice.** The disclaimer constant appears on the plan view and API docs.
+- **Never position against a competitor by name in public copy.** Use the frames instead ("an idea turned into a basket", "a menu"). Named comparisons are for judges, decks and internal use.
+- **Plain language in the core.** Technical proof belongs in supporting points.
+- **Global frame.** Brazil and LatAm are the first partners, not the brand.
+
+## Sources (competitive frame)
+- Colosseum Accelerator Cohort 5: https://blog.colosseum.com/announcing-colosseums-accelerator-cohort-5/ · https://solanacompass.com/news/colosseum-admits-21-startups-to-its-5th-accelerator-cohort-drawn-from-the-frontier-hackathon-and-eternal-sprint
+- Frontier winners (Peaks, Cesto): https://blog.colosseum.com/announcing-the-winners-of-the-solana-frontier-hackathon/ · https://solanacompass.com/news/colosseum-announces-26-winners-of-the-solana-frontier-hackathon-the-largest-crypto-hackathon-ever
+- Cesto's specific track (Consumer Apps) is per the founder. Search confirms it was a Frontier winner, not the track **[U]**.

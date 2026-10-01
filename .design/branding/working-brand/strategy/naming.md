@@ -212,3 +212,12 @@ Mesura outscores Aplomb on the sheet, but it ranks below Cerne in the recommenda
 - Kerf: https://kerf.co/ · https://kerf.works/ · https://www.zoominfo.com/c/kerf-design-inc/1138134262
 - Cota Capital: https://www.cotacapital.com/ · Prumo Logística: https://www.investing.com/equities/prumo-logistica-sa · Justos: https://www.latamfintech.co/articles/justos-a-brazilian-insurtech-just-raises-us-35-8m-in-ribbit-capital-led-series-a · Plum: https://www.crunchbase.com/organization/plum-fintech · Kumi: https://www.crunchbase.com/organization/kumi
 - Domain and handle signals: `dig NS`, `whois -h whois.fi`, `https://rdap.org/domain/<d>`, `https://api.fxtwitter.com/<handle>`, all run 2026-10-01 and calibrated as described in §1
+
+---
+
+## Decision (2026-10-01): provisional name **Tenonfi**
+The founder chose **Tenonfi** as the **provisional** name. It's Tenon plus "-fi", and it isn't final yet.
+- **Why it works:** it keeps the Tenon meaning (cut to fit one mortise, with the joint visible) and the "-fi" ending helps handle and domain availability (e.g. tenonfi.com, @tenonfi).
+- **Trade-off:** "-fi" was on this file's list of generic fintech suffixes. If it's dropped later, the name falls back to plain **Tenon**, which keeps the same identity.
+- **Checks still required before it's final:** native-speaker checks in PT and ES; trademark searches in USPTO, INPI and EUIPO (classes 36/42); domain and X handle secured. **None of these has been done for "Tenonfi".**
+- **For downstream phases:** identity uses "Tenonfi" for the wordmark exploration but must keep the mark usable as plain "Tenon". The folder slug stays `working-brand` until the name is final.

@@ -1,130 +1,137 @@
 # Messaging
-> Phase: strategy | Brand: working-brand ([Name] TBD, see naming.md) | Generated: 2026-10-01
+> Phase: strategy | Brand: working-brand ([Name] TBD, see naming.md) | Generated: 2026-10-01 · **Revised 2026-10-01 (founder-approved positioning)**
 
-**Swap test (applies to every line here):** replace [Name] with Ondo, Glider, Wealthfront, Betterment, Nexa or Gauntlet. If the line still works, it's too generic and must be rewritten. Every line below has been checked against this.
+**Swap test (applies to every line here):** replace [Name] with Peaks, Cesto, Ondo, Glider, Wealthfront or Nexa. If the line still works, it's too generic, so rewrite it. **Danger test:** if a line could be summarised as "AI agent that builds diversified RWA portfolios", it invites "why isn't this just Cesto with an AI interface?". Rewrite it around *your goal*, *the exit plan* and *the odds*.
 
 ---
 
-## 1. Core message
+## 1. Lead line, core message, proof line
 
-> **No product fits everyone. So [Name] cuts a portfolio to fit your one goal, and leaves every joint in plain sight.**
+### Lead line (homepage hero, video open, deck title)
+> **"Tell us what your money needs to do. [Name] builds the portfolio that gets it there — and shows you how."**
 
-The core message always carries **both halves**: *made to measure* (fit to one goal) **and** *every joint shown* (source, after-risk value, exit, every move logged). A surface that only has room for one line uses the tagline. The tagline holds both halves too.
+### Core message (the one thing every surface communicates)
+> **Others turn an idea into a basket. [Name] turns your goal into a plan made to measure, with an exit plan before it invests and every joint in sight.**
 
-### Manifesto line (brand line, video close, site footer)
+It always carries **both halves**: *made to measure* (worked backwards from one goal) **and** *every joint in sight* (sources, after-risk value, the exit plan, every move logged).
+
+### Proof line (killer feature, used right after the lead line)
+> **"Every portfolio has an exit plan before the agent invests."**
+
+Tokenized does not mean liquid. The exit plan answers *"can I actually get the money back when I need it, and at what cost?"* before the first dollar moves.
+
+### Manifesto line (video close, site footer)
 > **"No product fits everyone. So we cut each one to fit — and leave every joint in plain sight."**
 
-Founder's line, kept as written. It passes the swap test: Ondo, Glider and Wealthfront all sell products meant to fit everyone.
-
-### Short manifesto (site / video voice-over, about 90 words)
-> Finance sells menus. A rate. A model portfolio. A strategy someone else designed, and you fit yourself to it.
-> We start the other way round. You tell us what you're reaching for: an amount, a date, a way out. We measure, cut a portfolio for that one goal, and show you every joint: where each yield comes from, what it's really worth after risk, how fast you can get out.
-> Then we keep it true. When something moves, you'll hear it from us early, with the reason and the receipt.
+### Short manifesto (about 90 words, voice-over)
+> Most portfolios start from someone else's idea: a theme, a narrative, a model. You pick one and hope it fits.
+> We start from yours. Tell us what your money needs to do: an amount, a date, a yield, cash you must be able to reach. [Name] works backwards from that goal, builds the portfolio that fits it, and plans the way out before it invests.
+> Then it keeps the odds on your side. When they move, you hear it early, with the reason and the receipt.
 > No product fits everyone. So we cut each one to fit.
 
 ---
 
 ## 2. Supporting messages and proof points
 
-### SM1: Made to measure: one goal, one portfolio
-> **You bring the goal. The portfolio is cut for it, not picked from a menu.**
+### SM1: Made to measure: worked backwards from your goal
+> **You set the outcome and the limits. The portfolio is solved for them, not picked from a menu or built around a theme.**
 
 | Proof point | Status |
 |---|---|
-| Goals are stated in plain language and turned into an explicit, editable constraint sheet (amount, date, income, exit window, risk profile) that the user confirms | Shipped (parser + zod-validated `ConstraintSheet`) |
-| A deterministic solver builds the portfolio from the constraints across dollar yield, treasuries, credit, tokenized stocks, commodities and cash. The same inputs always give the same plan | Shipped (engine) |
-| Rules are enforced in the asset registry, not in a prompt. For example, tokenized stocks are never used for income goals | Shipped and tested |
-| If a goal can't be met as set, the user is told why and shown the closest fit | Product behaviour (validation and solver output) |
+| Goals (amount, date, yield, reachable cash) and limits (risk profile, exit window, exclusions) are stated in plain language and turned into an explicit, editable constraint sheet the user confirms | Shipped (parser + zod-validated `ConstraintSheet`) |
+| A deterministic solver builds the portfolio backwards from the constraints across tokenized treasuries, credit, stocks, commodities, dollar yield and cash. The same inputs always give the same plan | Shipped (engine) |
+| Rules are enforced in the asset registry, not a prompt. For example, tokenized stocks are never used for income goals | Shipped and tested |
+| If a goal can't be met within the limits, the user is told why and shown the closest fit | Product behaviour |
 
-*Never say:* "personalised AI portfolios", "bespoke", "tailored strategies". These are interchangeable claims. Always say **made to measure for your goal**.
+*Never say:* "AI-built diversified RWA portfolios", "thematic", "bespoke". *Always say:* **made to measure for your goal**.
 
-### SM2: Every joint shown: you can see why it holds
-> **Every number shows where it came from. Every yield shows what it's worth after risk. Every plan shows how fast you can get out.**
-
-| Proof point | Status |
-|---|---|
-| Every yield, price and FX figure carries source · fetched_at · method (the pin) | Shipped rule, enforced by test (no hard-coded yields outside fixtures) |
-| Quoted yields are cut by credit-aware haircuts. We show the quoted and the used figure. The founder's prior analytics found on-chain yield/volume figures overstated by 2–5.6x | Shipped (risk sheet per leg). The 2–5.6x figure is from prior work and must be cited as such |
-| Exit capacity is measured, not assumed: depth by size and hour of week, recorded continuously since Sept 2026 | Shipped (depth snapshot cron); dataset is growing |
-| Stress cases are shown next to the base case, month by month | Shipped (path + stress) |
-| Anything mocked is labelled MOCK, in the UI and in the API (`"provenance": "mock"`) | Shipped rule |
-
-### SM3: Kept true, in your own wallet
-> **It runs as a policy in your wallet, re-trues as things move, and tells you early, with the reason and the receipt.**
+### SM2: An exit plan before it invests
+> **Before a dollar moves, you know how much you can get back, how fast, and at what cost.**
 
 | Proof point | Status |
 |---|---|
-| Execution goes into the user's own wallet (self-custody). We never hold funds | Shipped (Solana mainnet, real transactions) |
-| Every mainnet transaction is logged with its explorer link and shown in the UI | Shipped (`executions` table) |
-| Rebalances happen to keep *the goal* on track, never to chase rate. Each carries a "because" | Policy behaviour |
-| The agent proposes and explains. The language model only parses goals. The solver, not the model, decides | Shipped architecture |
-| Not licensed advice. The disclaimer appears on the plan and in the API docs | Shipped (single `DISCLAIMER` constant) |
+| Exit capacity is measured, not assumed: depth by size, path and hour of week, recorded continuously since Sept 2026 (the [Name] Bearing dataset, which can't be backfilled) | Shipped (depth snapshot cron); dataset growing |
+| Positions are sized so the user's cash-access limit holds under measured depth | Engine behaviour (sizing uses depth) |
+| Stress cases are shown next to the base case, including exit cost in a thin market | Shipped (path + stress) |
+
+### SM3: Managed on the odds of reaching your goal, with every joint in sight
+> **It rebalances to keep your odds of reaching the goal on track, not to follow a theme, and shows why every time.**
+
+| Proof point | Status |
+|---|---|
+| The plan tracks whether the goal is on track and re-trues when the outlook moves. Each move is logged with its "because" | Policy behaviour. **The odds are an estimate:** always shown with method and as-of date, never as a promise |
+| Every yield, price and FX figure carries source · fetched_at · method. Quoted yields are cut by credit-aware haircuts, and quoted and used figures are both shown | Shipped rule, enforced by test |
+| Execution goes into the user's own wallet. Every mainnet transaction is shown with its explorer link | Shipped (`executions` table) |
+| MOCK is always labelled (`"provenance": "mock"`). Not licensed advice; the disclaimer appears on the plan and in API docs | Shipped |
 
 ---
 
 ## 3. Elevator pitch (30 seconds)
 
-> Everyone with dollars gets offered a menu: a rate, a model portfolio, an "earn 5%" button. None of them answers the real question: *will my goal land, what could break it, and how fast can I get out?*
+> Most portfolio apps start from an idea: a theme, a narrative, a model someone else built. None of them starts from what *your* money needs to do.
 >
-> [Name] is an agent that starts from your goal instead. You say what you're reaching for, say "this amount by June 2028, with a week's access to cash". It confirms the details with you, then cuts a portfolio for that one goal across dollar yield, treasuries, credit and tokenized assets. Every number shows its source, every yield shows what it's worth after risk, every plan shows the exit. It runs in your own wallet and re-trues as things move.
+> [Name] works backwards. Tell it the goal ("this amount by June 2028, with a week's access to cash") and your limits. It builds the portfolio of tokenized real-world assets that fits, and **plans the exit before it invests**, because tokenized doesn't mean liquid. Then it manages the odds of reaching your goal, in your own wallet, with every number's source in sight.
 >
-> Not a menu. Made to measure, with every joint shown.
+> Others turn an idea into a basket. We turn your goal into a plan made to measure.
 
-**10-second version:** "[Name] builds a portfolio for your one goal, made to measure, and shows every joint: where each yield comes from, what it's worth after risk, and how fast you can get out."
+**10-second version:** "Tell us what your money needs to do. [Name] builds the portfolio that gets it there, with an exit plan before it invests, and shows you how."
 
 ---
 
 ## 4. Tagline directions
 
-| # | Tagline | Rationale | Risk |
-|---|---|---|---|
-| **A (recommended)** | **Made to measure. Every joint shown.** | Holds both halves of the positioning in five words. The second sentence is the brand's distinctive claim and passes the swap test (no competitor shows its joints). It doubles as a visual instruction for the identity: the exploded view | "Joint" has a cannabis meaning in EN. In context ("every joint shown") the joinery reading dominates. Test with 5 EN speakers. Fallback: A2 |
-| A2 (fallback for A) | **Made to measure. Nothing hidden.** | Same structure, no ambiguity, echoes the brand promise | Less distinctive ("nothing hidden" is closer to generic transparency claims) |
-| B | **Cut for your goal. Open to every question.** | More Caregiver: speaks to the person and invites scrutiny | Longer. "Cut" can read as "reduced" out of context |
-| C | **It holds. And you can see why.** | Pure Sage × Caregiver: reassurance plus the reason. Strong as a video end line or plan-view sub-line | Doesn't say "made to measure", so it can never be used alone. Pair it with the manifesto |
+**Tagline A stays: "Made to measure. Every joint shown."** It does not conflict with the new positioning: "made to measure" closes the statement, and "every joint shown" is the sign-off form of "every joint in sight" and "shows you how". The roles are separate. The **lead line** opens (hero, video open). The **proof line** follows. **Tagline A** closes (end card, footer, partner badge).
 
-**Localised tagline A:**
-- **PT:** "Sob medida. Cada encaixe à vista." (*encaixe* = fit/joint, no ambiguity in PT)
-- **ES:** "A la medida. Cada ensamble a la vista." (*ensamble* = joinery joint; avoids *mortaja*)
+| # | Tagline | Role / rationale | Risk |
+|---|---|---|---|
+| **A (recommended)** | **Made to measure. Every joint shown.** | Sign-off. Both halves in five words. Passes the swap test against Peaks, Cesto and Ondo | EN cannabis reading of "joint". Test with 5 EN speakers. Fallback: A2 |
+| A2 | Made to measure. Nothing hidden. | Unambiguous fallback | Less distinctive |
+| B | **Your goal in. The way out planned.** | New option from the exit-plan proof. Use it as a campaign line for the video or social, not as the brand tagline | Loses "made to measure", so pair it with the lead line |
+| C | It holds. And you can see why. | Plan-view sub-line | Never alone |
+
+**Localised A:** PT "Sob medida. Cada encaixe à vista." · ES "A la medida. Cada ensamble a la vista."
+**Localised proof line:** PT "Todo portfólio tem um plano de saída antes de o agente investir." · ES "Cada portafolio tiene un plan de salida antes de que el agente invierta."
 
 ---
 
 ## 5. Audience mapping
 
-| Audience | Primary motivation | Key message | Supporting points (order) | Tone shift | Proof to show | Channel |
+| Audience | Primary motivation | Key message | Order | Tone | Proof to show | Channel |
 |---|---|---|---|---|---|---|
-| **Mariana 1a**, crypto-native diversifier | Put idle stables to work in RWAs without becoming a PM, *and* see everything | "Tell it what you want. It builds the portfolio for that, in your wallet, with every number's source." | SM2 → SM3 → SM1 | Slightly drier and more technical. Receipts over reassurance | Explorer links, real mainnet transactions, pin popovers, haircut vs quoted, measured exit | X/Crypto Twitter, Telegram/Discord, Colosseum demo |
-| **Mariana 1b**, life-goal saver | Know if *her* goal will land, without learning DeFi | "Your apartment fund, on track for June 2028, and if that changes, you'll hear it early." | SM1 → SM3 → SM2 | Warmest. Plain words, the goal by its name, dates over percentages | On-track statement, stress case in plain words, "access to cash" | Partner app (embed), word of mouth, financial creators |
-| **Rafael**, neobank / fintech Head of Product | A differentiated earn feature that compliance can defend and that won't embarrass his app | "Replace the rate button with a plan for what each user is saving for, under your brand, with every figure's source." | SM1 (as differentiation) → SM2 (as compliance) → white-label | Professional, concise, docs-first. ROI in user outcomes, never rate | OpenAPI at `/docs`, MOCK labelling, disclaimer boundary, deterministic solver, embed demo in partner skin | Partner intros (Chainless, Picnic LOIs), API docs, demo calls |
-| **Priya**, risk lead at a lending protocol / curator | Auditable liquidity numbers she can set parameters from and cite in governance | "[Name] Bearing measures how much of your collateral can really be sold, at what cost, at what hour, versioned, sample-counted, method in the open." | Measurement → method → neutrality disclosure | Instrument register: units, n=, versions, no adjectives | Hour-of-week depth heatmap, method doc, raw sample access, version history | Governance forums, risk research posts, direct outreach |
-| **Colosseum judges** (Oct 2026) | Is it real, is it novel, will it matter on Solana? | "Live on mainnet: an agent that builds a portfolio for one goal and shows every joint, plus a liquidity dataset no one can backfill." | Live proof → novelty (fit + visible) → Bearing as a second market | Confident, specific, no hype | Mainnet transactions with explorer links, solver determinism, Bearing heatmap, LOIs | Submission video, demo, deck |
+| **Mariana 1a**, crypto-native diversifier | Move idle stables into RWAs for a real target without becoming a PM. Distrusts hidden illiquidity | "Tell it what your stack needs to do. It builds the portfolio for that, **plans the exit before it invests**, and shows every number's source in your wallet." | SM2 → SM1 → SM3 | Drier, receipts over reassurance | Exit plan with measured depth, explorer links, haircut vs quoted | X, Telegram/Discord, Colosseum demo |
+| **Mariana 1b**, life-goal saver | Know her goal will land without learning DeFi | "Your apartment fund, built backwards from June 2028. **Your odds of reaching it** are on track, and you can reach your cash within a week. If the odds move, you'll hear it early." | SM1 → SM3 → SM2 | Warmest. Goal by name, dates over percentages | On-track and odds statement (with as-of date), "access to cash" in plain words | Partner app (embed), word of mouth |
+| **Rafael**, neobank / fintech PM | A differentiated, defensible earn feature | "Put the **goal and liquidity layer** under your app: users say what their money needs to do, and each plan comes with an **exit plan before it invests** and every figure's source for compliance." | SM1 → SM2 → SM3 | Professional, docs-first | OpenAPI `/docs`, MOCK labels, disclaimer, embed in partner skin | Partner intros (Chainless, Picnic LOIs), docs |
+| **Priya**, risk lead | Auditable liquidity to set parameters from | "Tokenized doesn't mean liquid. [Name] Bearing measures **whether the money can come back**: how much, at what cost, at what hour, versioned, n=, method open." | Measurement → method → neutrality | Instrument register | Hour-of-week depth heatmap, method doc, raw samples | Governance forums, research posts |
+| **Consumer apps as distribution** (including idea-to-basket apps) | Add liquidity truth and goal tracking without building it | "Your users pick the idea. We tell them whether they can get out, and whether their goal still lands." | SM2 → SM3 | Partner-to-partner | Bearing API, exit-plan endpoint | BD |
+| **Colosseum judges** | Real? Novel? Not a rerun of Cohort 5? | "Peaks and Cesto turn an idea into a basket. We solve the inverse problem: goal and constraints in, a made-to-measure portfolio out, **an exit plan before investing**, managed on **the odds of reaching the goal**. Live on mainnet." | Inverse problem → exit plan → live proof → Bearing | Confident, specific | Mainnet transactions, solver determinism, depth heatmap, LOIs | Video, demo, deck |
 
-### Objection handling (short answers)
+### Objection handling
 | Objection | Answer |
 |---|---|
-| "Isn't this just a robo-advisor?" | Robo-advisors put a goal label on a model portfolio. We solve the portfolio from the goal, and we show the after-risk yield, the sources and the exit. |
-| "Can an AI agent be trusted with money?" | The language model only reads your goal and writes it down for you to confirm. A deterministic solver builds the plan. Everything runs in your wallet, and every move is logged with its transaction. |
-| "What return will I get?" | We don't promise returns. We show what your plan is built on, what it's worth after risk, what happens if rates fall, and we tell you early if your date moves. |
-| "You earn fees on portfolios, so how is Bearing neutral?" | Bearing is never paid by, and never curates for, the protocols it measures. The method and samples are public, so you can check the numbers without trusting us. |
-| "Is this financial advice?" | No. It's a tool that builds and explains a plan from the goal you set. The disclaimer is on every plan. |
+| "Isn't this just Cesto or Peaks with an AI interface?" | No. They start from an idea and build a basket. We start from what your money needs to do, solve backwards, plan the exit before investing, and rebalance on the odds of reaching your goal, not on a theme. |
+| "Isn't this a robo-advisor or a model portfolio?" | Those put a goal label on someone else's model. Ours is solved from your goal and limits, with the exit measured. |
+| "Can an AI agent be trusted with money?" | The language model only reads your goal and writes it down for you to confirm. A deterministic solver builds the plan. Everything runs in your wallet, and every move is logged. |
+| "What return will I get?" | We don't promise returns. We show your odds of reaching the goal (an estimate, with its method), what could change them, and the exit. |
+| "How is Bearing neutral if you earn fees?" | Bearing is never paid by, and never curates for, the protocols it measures. The method and samples are public. |
+| "Is this financial advice?" | No. It builds and explains a plan from the goal you set. The disclaimer is on every plan. |
 
 ---
 
 ## 6. Narrative arc (video and deck)
 
-| Beat | Content | Visual cue (for identity phase) |
+| Beat | Content | Visual cue |
 |---|---|---|
-| **Setup** | Everyone with dollars is handed a menu: rates, model portfolios, an "earn" button | A rack of identical pre-cut parts |
-| **Tension** | None of them answers *will my goal land, what could break it, how fast can I get out?*, and the parts that decide it (haircut, depth, exit cost) are hidden | Pieces that don't fit, gaps showing |
-| **Resolution** | [Name] measures the goal, cuts a portfolio for it, shows every joint, and keeps it true in your wallet | Two species apart, they slide, lock, the pin goes in. Cut to the plan's exploded view |
-| **Transformation** | "Your apartment fund is on track for June 2028." Seen, at ease, in control | The locked joint, light passing through. End card: tagline A |
+| **Setup** | Portfolios start from ideas: themes, narratives, models. You pick one and fit yourself to it | A rack of identical pre-cut parts |
+| **Tension** | None asks what your money must do, and none tells you whether you can get out. Tokenized doesn't mean liquid | A piece that won't come out of its slot |
+| **Resolution** | Tell [Name] the goal. It works backwards, plans the exit first, builds the fit, and shows every joint | Two species apart → slide → lock → pin. The exploded view of the plan with the exit marked |
+| **Transformation** | "Your apartment fund is on track for June 2028. Cash reachable within a week." | Locked joint, light through. End card: tagline A |
 
 ---
 
 ## 7. Claims guardrails (non-negotiable)
-- No return, rate or outcome claims. "Up to" is banned.
-- Any number in marketing is either a real figure with its pin (source · fetched_at · method) or marked **illustrative**. No unlabelled example yields.
-- MOCK is always labelled, including in the video and screenshots.
-- "Not licensed advice" appears on every plan view and in API docs, rendered from the constant.
-- Prior-work statistics (2–5.6x overstatement) are cited as the founder's prior analytics, not as a [Name] product measurement.
-- Brazil and LatAm partners may be named as partners. They are never the frame of the brand.
+- No return or outcome claims. "Up to" is banned. **The odds of reaching a goal are an estimate**, shown with method and as-of date, never "you will reach".
+- The exit plan states measured capacity and cost **as of a date**, never "instant" or "guaranteed liquidity".
+- Every number in marketing is real with its pin, or marked **illustrative**. MOCK is always labelled.
+- Competitors are named only in decks, judge materials and internal docs, never in public product copy.
+- Prior-work statistic (2–5.6x) cited as the founder's prior analytics.
+- Brazil and LatAm are partners, not the frame.

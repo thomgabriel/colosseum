@@ -3,7 +3,7 @@
 ## Brand: working-brand
 **Started:** 2026-10-01
 **Mode:** new
-**Current Phase:** 1 (Discover complete)
+**Current Phase:** 2 (Strategy complete)
 **Prettiness Level:** 0%
 
 ---
@@ -14,7 +14,7 @@
 |---|-------|--------|---------|-----------|
 | 0 | Audit | skipped | — | — |
 | 1 | Discover | complete | 2026-10-01 | 2026-10-01 |
-| 2 | Strategy | pending | — | — |
+| 2 | Strategy | complete | 2026-10-01 | 2026-10-01 |
 | 3 | Identity | pending | — | — |
 | 4 | Patterns | pending | — | — |
 
@@ -30,3 +30,5 @@
 - 2026-10-01 · Brief: visual direction is Japanese wood joinery (governing image `visual-refferences/master.jpg`). An earlier "warm old-desktop" pick was explicitly rejected as too close to Teiten.
 - 2026-10-01 · No name yet; `working-brand` is a placeholder slug. Naming is owed by strategy; rename the folder once chosen.
 - 2026-10-01 · Deadline: whole branding diamond done by 2026-10-04.
+- 2026-10-01 · Strategy: Sage × Caregiver archetype (founder's choice over Creator × Caregiver); bold positioning "goal + constraints → made-to-measure portfolio, exit plan before it invests" (revised to stand apart from Peaks and Cesto); voice is clear, candid, kind; one masterbrand, with the risk product called "[Name] Bearing".
+- 2026-10-01 · Name: **Tenonfi**, provisional (fallback: Tenon). Trademark, domain and native-speaker checks still pending.

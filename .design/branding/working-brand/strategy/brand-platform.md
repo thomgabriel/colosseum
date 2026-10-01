@@ -1,5 +1,7 @@
 # Brand Platform
-> Phase: strategy | Brand: working-brand ([Name] TBD, see naming.md) | Generated: 2026-10-01
+> Phase: strategy | Brand: working-brand ([Name] TBD, see naming.md) | Generated: 2026-10-01 · **Revised 2026-10-01 (positioning, see positioning.md)**
+
+**Lead line:** *"Tell us what your money needs to do. [Name] builds the portfolio that gets it there — and shows you how."*
 
 **Emotional compass (brand_heartbeat):** *"It fits because it was cut for me — and I trust it because I can see every joint."*
 
@@ -11,7 +13,7 @@ Everything below is a way of keeping that sentence true.
 
 > **We believe people deserve a plan cut to their own life, and the right to see exactly why it holds.**
 
-Finance sells menus and hides the joinery. It offers fixed products, model portfolios and rate leaderboards, and asks people to fit themselves to them. The parts that decide whether a plan really works are kept out of sight: the haircut on a quoted yield, the depth behind an exit, the FX gap, the cost of getting out early. For most people, the private-banker treatment (a plan made for you, kept on course, with the assumptions on the table) was never on offer. We exist to make it ordinary, and to make it open.
+Finance sells menus and ideas, and hides the joinery. It offers fixed products, model portfolios, thematic baskets and rate leaderboards, and asks people to fit themselves to them. Almost nobody starts from what the person's money actually needs to do. The parts that decide whether a plan really works are kept out of sight: the haircut on a quoted yield, the depth behind an exit, the FX gap, the cost of getting out early. Tokenized does not mean liquid. For most people, the private-banker treatment (a plan made for you, kept on course, with the assumptions on the table) was never on offer. We exist to make it ordinary, and to make it open.
 
 **Why this is ownable:** competitors' "why" statements are about access ("Open Economy"), automation ("Portfolio meets automation") or growth ("Fuel your growth"). None of them is about **fit plus visibility**.
 
@@ -25,20 +27,21 @@ The concrete version for the next 3–5 years:
 - "Is my goal on track, and what would break it?" becomes the default question a money app answers, replacing "what's the rate?"
 - Provenance (source, fetched_at, method) on a financial figure becomes as expected as a timestamp on a message.
 - The liquidity of tokenized assets is *measured and public*, so no one is surprised at 3am on a Sunday.
+- **No portfolio is built without an exit plan**, and portfolios are managed on the odds of reaching the goal rather than on a theme.
 
 ---
 
 ## Mission
 
-> **We turn a person's goal into a portfolio made to measure for it, keep it true as things move, and show every joint along the way: for people directly, through the apps they already use, and for the protocols that need to know what will hold.**
+> **We work backwards from what a person's money needs to do: we build the portfolio of tokenized real-world assets that fits their goal and limits, plan the exit before investing, manage it on the odds of reaching the goal, and show every joint along the way. We do it for people directly, through the apps they already use, and for the protocols that need to know what will hold.**
 
 How the mission breaks down across the three surfaces (one engine):
 
 | Surface | Mission in practice |
 |---|---|
-| **[Name]** (direct app) | Take the goal in plain words. Confirm it as an editable constraint sheet. Solve a portfolio for it. Show the path, the stress cases and the exit. Execute into the user's wallet. Re-true it as conditions change |
-| **Powered by [Name]** (embed / API) | Give partners the same engine under their brand. The colour and type become theirs; the joints (provenance, MOCK labels, disclaimer, logs) stay |
-| **[Name] Bearing** (risk product) | Measure how much of an asset can really become dollars, at what cost, at what hour. Publish it with method and sample counts |
+| **[Name]** (direct app) | Take the goal and limits in plain words. Confirm them as an editable constraint sheet. Solve the portfolio backwards from them. **Plan the exit before investing.** Show the path and stress cases. Execute into the user's wallet. Re-true it when the odds of reaching the goal move |
+| **Powered by [Name]** (embed / API) | Be the **goal and liquidity intelligence layer** under wallets, fintechs and consumer apps (including idea-to-basket apps). The colour and type become theirs; the joints (provenance, exit plan, MOCK labels, disclaimer, logs) stay |
+| **[Name] Bearing** (risk product) | Answer *"can the money actually come back, and at what cost?"*: how much of an asset can become dollars, at what cost, at what hour. Publish it with method and sample counts. The same data writes every exit plan |
 
 ---
 
@@ -50,8 +53,8 @@ Each value is a rule someone can follow or break on a Tuesday afternoon. Each on
 |---|---|---|---|---|
 | 1 | **Measure before you cut** | Start from the goal. Turn it into an explicit constraint sheet the user confirms and can edit. The solver only runs on a validated sheet | Propose a portfolio before we know the goal. Let an unvalidated parse drive money | Can the user see and edit what we understood *before* any plan exists? |
 | 2 | **Show every joint** | Every yield, price and FX figure carries source · fetched_at · method. Every mock is labelled MOCK. Every mainnet transaction is shown with its explorer link | Show a number without its origin. Let a mock look live. Hide the haircut | Pick any figure on any screen. Can you get to its source in one tap? |
-| 3 | **Say the downside first** | Show the stress case next to the base case. Say what would make the goal miss, and what we'd do about it, early | Bury risk in disclosures. Lead with best-case. Use "up to" | Does the user learn the bad scenario on the same screen as the good one? |
-| 4 | **Re-true, don't chase** | Rebalance only to keep *the goal* on track. Log each move with what changed, why, and the source | Chase the highest APY. Trade for activity. Make a move we can't explain in one sentence | Does every log line have a "because" tied to the goal? |
+| 3 | **Say the downside first** | Plan the exit before investing: how much can come back, how fast, at what cost. Show the stress case next to the base case. Say what would make the goal miss, and what we'd do about it, early | Bury risk in disclosures. Lead with best-case. Use "up to" | Does the user learn the bad scenario on the same screen as the good one? |
+| 4 | **Re-true, don't chase** | Rebalance only to keep *the odds of reaching the goal* on track, never to follow a theme or a rate. Log each move with what changed, why, and the source | Chase the highest APY. Trade for activity. Make a move we can't explain in one sentence | Does every log line have a "because" tied to the goal? |
 | 5 | **Your wallet, your call** | Execute in the user's own wallet. The agent proposes and explains. The user can override, pause or exit | Take custody. Act beyond the agreed policy. Describe the agent as autopilot | Could the user walk away with everything, today, without asking us? |
 | 6 | **Know the edge of the craft** | Say "not licensed advice" where the plan is shown. Say "I don't know yet" or "this goal can't be met as set" when true. Keep xStocks out of income goals, enforced in the registry | Promise returns. Pretend certainty. Let a prompt override a rule | Is there any sentence that a reasonable reader would take as a guarantee? |
 
@@ -63,7 +66,7 @@ Each value is a rule someone can follow or break on a Tuesday afternoon. Each on
 
 | Layer | Promise |
 |---|---|
-| **Functional** | Your goal becomes a portfolio made to measure for it, kept on course, with every assumption, source and exit visible. The hard work of cutting the pieces is ours. You bring the need |
+| **Functional** | Your goal becomes a portfolio made to measure for it, with an exit plan before it invests, managed on the odds of reaching the goal, with every assumption, source and exit visible. The hard work of cutting the pieces is ours. You bring the need |
 | **Emotional** | **Seen** (it's mine, not a template), **at ease** (it holds, and I'll hear early if it won't), **in control** (I can open any joint and see why) |
 | **To partners** | Your brand in front, our joints underneath: provenance, MOCK labels, disclaimer and logs survive white-labelling |
 | **To risk leads** | Measured, versioned, sample-counted numbers with the method in the open, from someone not paid by the outcome |
@@ -107,7 +110,7 @@ The long form, for internal use only: *cut to fit, shown in full.*
 | Risk product | **[Name] Bearing** | Instrument register: dark, hairline, Plex Condensed and Mono, no photography, no serif |
 
 **Why one masterbrand:**
-1. **One engine, one proof.** The exit depth Bearing measures is the same data that sizes Mariana's positions. "The same measurements that size your plan" is a consumer trust point. "Used in production portfolios" is a risk-buyer trust point. Splitting the brand splits the proof.
+1. **One engine, one proof.** The exit depth Bearing measures is the same data that writes every exit plan and sizes Mariana's positions. "Every portfolio has an exit plan before the agent invests" is only true because Bearing exists. "The same measurements that size your plan" is a consumer trust point. "Used in production portfolios" is a risk-buyer trust point. Splitting the brand splits the proof.
 2. **A solo founder with a 4 October deadline** can build one name's equity, not two.
 3. **A separate name would hide a joint.** A distinct risk sub-brand reads as distance from the yield business. We'd rather disclose the relationship and publish the method. That is our own value 2 applied to ourselves.
 4. **Joinery supports a family without new names.** The masterbrand is the craft. Product nouns come from structure (*Bearing*). Features use plain words.
