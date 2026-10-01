@@ -805,7 +805,7 @@ No key that can move funds or loosen a limit sits where a coding agent has a she
 | Each rule bites: comment out each check in turn, in the contracts and in `checks.rs` | A named test fails for each |
 | I1 and I4 | Hold in unit tests and on live state |
 | One scripted mainnet rehearsal, $10 to $20, every transaction logged | Create, deposit, owner swap, publish, adopt, one keeper leg; A1, A2, A4, A8 and A13 fail as expected on live state; pause; withdraw while paused |
-| The keeper key is on no machine with a coding agent and in no repository secret | Checked by a person |
+| The keeper key holds only gas, sits in a password-protected keystore no coding agent can read, and is in no repository secret | Checked by a person |
 
 | Tier 2: run and recorded; open items go in `docs/SECURITY.md` and the trust notice | Tool |
 |---|---|
