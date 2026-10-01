@@ -116,7 +116,7 @@ const ckpt: Record<string, string[]> = existsSync(ckptFile)
   ? JSON.parse(readFileSync(ckptFile, 'utf8'))
   : {};
 let found = 0;
-for (const mint of assetsWithPools) {
+for (const mint of process.env.SKIP_SEARCH === '1' ? [] : assetsWithPools) {
   for (const [, cfg] of Object.entries(VENUES)) {
     for (const offset of cfg.mintOffsets) {
       const key = `${cfg.program}:${offset}:${mint}`;

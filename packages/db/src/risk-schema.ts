@@ -76,3 +76,88 @@ export const riskPoolSnapshots = pgTable(
   },
   (t) => [primaryKey({ columns: [t.pool, t.fetchedAt] })],
 );
+
+/** Fitted sell/buy depth curve per asset, side and regime (packages/risk fitCurve), versioned. */
+export const riskDepthCurves = pgTable(
+  'risk_depth_curves',
+  {
+    assetMint: text('asset_mint').notNull(),
+    assetSymbol: text('asset_symbol').notNull(),
+    side: text('side').notNull(),
+    regime: text('regime').notNull(),
+    /** [{notionalUsd, cost, samples}] after isotonic fit; cost is a fraction. */
+    points: jsonb('points').notNull(),
+    insufficientFrom: integer('insufficient_from'),
+    quantile: doublePrecision('quantile').notNull(),
+    minSamples: integer('min_samples').notNull(),
+    samples: integer('samples').notNull(),
+    dataFrom: ts('data_from'),
+    dataTo: ts('data_to'),
+    computedAt: ts('computed_at').notNull(),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.assetMint, t.side, t.regime, t.methodVersion] })],
+);
+
+/** Collector events: LP withdrawals near the price, stale tick maps. */
+export const riskEvents = pgTable(
+  'risk_events',
+  {
+    pool: text('pool').notNull(),
+    kind: text('kind').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    asset: text('asset'),
+    detail: jsonb('detail').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pool, t.kind, t.fetchedAt] })],
+);
+
+/** Hourly LP concentration per pool and the LP-exit stress curve. */
+export const riskLpConcentration = pgTable(
+  'risk_lp_concentration',
+  {
+    pool: text('pool').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    asset: text('asset').notNull(),
+    positions: integer('positions').notNull(),
+    inBandPositions: integer('in_band_positions').notNull(),
+    top1: doublePrecision('top1').notNull(),
+    top3: doublePrecision('top3').notNull(),
+    top10: doublePrecision('top10').notNull(),
+    holderKind: text('holder_kind').notNull(),
+    bandPct: doublePrecision('band_pct').notNull(),
+    lpExitN: integer('lp_exit_n').notNull(),
+    sellBase: jsonb('sell_base'),
+    sellWithoutTopN: jsonb('sell_without_top_n'),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pool, t.fetchedAt] })],
+);
+
+/** Jupiter quote cross-checks (routes kept) for the routing gap against pool simulation. */
+export const riskQuotes = pgTable(
+  'risk_quotes',
+  {
+    runId: text('run_id').notNull(),
+    assetMint: text('asset_mint').notNull(),
+    asset: text('asset').notNull(),
+    side: text('side').notNull(),
+    notionalUsd: doublePrecision('notional_usd').notNull(),
+    amountIn: text('amount_in'),
+    outAmount: text('out_amount'),
+    route: jsonb('route'),
+    error: text('error'),
+    fetchedAt: ts('fetched_at').notNull(),
+    source: text('source'),
+    method: text('method'),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.assetMint, t.side, t.notionalUsd] })],
+);

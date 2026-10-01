@@ -14,7 +14,7 @@ const OUT = process.env.RISK_DATA_DIR ?? 'data/risk';
 const file = join(
   OUT,
   readdirSync(OUT)
-    .filter((n) => n.startsWith('registry-') && n.endsWith('.json'))
+    .filter((n) => n.startsWith('registry-2') && n.endsWith('.json'))
     .sort()
     .at(-1) as string,
 );

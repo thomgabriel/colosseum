@@ -39,7 +39,10 @@
     "risk:collect": "set -a && . ./.env && set +a && RISK_FORCE_ALL=${RISK_FORCE_ALL:-0} tsx scripts/risk/collector/pools.ts",
     "risk:install-collector": "zsh scripts/risk/collector/install.sh",
     "risk:coverage": "tsx scripts/risk/coverage.ts",
-    "risk:retier": "tsx scripts/risk/retier.ts"
+    "risk:retier": "tsx scripts/risk/retier.ts",
+    "risk:import": "tsx scripts/risk/import.ts",
+    "risk:compute": "tsx scripts/risk/compute.ts",
+    "risk:history": "tsx scripts/risk/history-backfill.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

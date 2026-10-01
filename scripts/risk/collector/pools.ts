@@ -52,6 +52,8 @@ const NOTIONALS = [100, 500, 2_500, 10_000, 50_000, 250_000, 1_000_000, 5_000_00
 const BAND_PCT = 0.02;
 const CHILD_REFRESH_MIN = 60;
 const RAW_TOP_SHARE = 0.8;
+/** Child-account re-discoveries (getProgramAccounts) per run, so the hourly refresh is spread across runs. */
+const MAX_DISCOVERIES_PER_RUN = Number(process.env.RISK_MAX_DISCOVERIES ?? 40);
 /** LP-withdrawal alarm: in-band depth drop (policy input) when the tick map changed in the same run. */
 const WITHDRAWAL_ALARM = Number(process.env.RISK_WITHDRAWAL_ALARM ?? 0.2);
 /** LP-exit stress: number of largest in-band positions removed (policy input). */
@@ -221,6 +223,8 @@ function build(
       sim: clSim(s, h.mint0 === p.assetMint, fees),
       invariantRelErr: inv(s),
       activeLiquidity: h.liquidity.toString(),
+      cl: s,
+      assetIs0: h.mint0 === p.assetMint,
     };
   }
   if (p.venue === 'orca_whirlpool') {
@@ -237,6 +241,8 @@ function build(
       sim: clSim(s, h.mintA === p.assetMint, fees),
       invariantRelErr: inv(s),
       activeLiquidity: h.liquidity.toString(),
+      cl: s,
+      assetIs0: h.mintA === p.assetMint,
     };
   }
   if (p.venue === 'meteora_dlmm') {
@@ -295,10 +301,13 @@ async function main() {
 
   // children: re-discover account lists hourly or when missing; CL tick maps are re-read on the same cadence
   const refreshCl = new Set<string>();
+  let discoveries = 0;
   for (const p of due) {
     const at = cache.childrenAt[p.address];
     const stale = !at || now.getTime() - Date.parse(at) > CHILD_REFRESH_MIN * 60_000;
-    if (p.venue !== 'raydium_cpmm' && stale) {
+    const missing = !cache.children[p.address];
+    if (p.venue !== 'raydium_cpmm' && stale && (missing || discoveries < MAX_DISCOVERIES_PER_RUN)) {
+      discoveries++;
       cache.children[p.address] = await discoverChildren(p);
       cache.childrenAt[p.address] = now.toISOString();
       if (isCl(p)) refreshCl.add(p.address);
