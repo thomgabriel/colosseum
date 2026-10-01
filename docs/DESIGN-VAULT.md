@@ -40,6 +40,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 - Hostile cases A1 to A18, a two-tier security gate per chain, and a separate gate before the public link is shared.
 - The build starts small. Section 16 lists what is out unless the team is ahead, each with a date.
 - Turnkey and Privy's gas sponsorship are no longer free. The app uses a funding check that includes gas.
+- The web app follows Rodrigo's design system, which is now on `main`: his three screens are rebuilt on it and extended, the goal comes first, and section 11 lists where his component specs change what we build.
 
 **Conflicts between notes and reviews, settled**
 
@@ -78,7 +79,7 @@ Not built: bridging, shared pools, an adviser view, creator fees, fiat ramps, pe
 
 Base: `risk-layer` at its upstream tip. Integration branch `basket`. Stream pull requests target `basket`; one draft pull request goes `basket` to `main`. The documents-only draft pull request to `main` is separate and already under way. Merge `risk-layer` into `basket` each morning. Only `basket` generates migrations after the cut.
 
-**The add-only rule.** `basket` adds files. An edit to a file Rodrigo owns is made by him on `risk-layer` and arrives by merge, so the morning merge never conflicts. His surfaces are switched off, not deleted: with `LEGACY_STRUCTURER=off` the `/policies/*`, `/plans/*` and `/monitor` routes are not registered and their pages leave the navigation. They are deleted in one commit after the freeze. Exceptions he agrees to (section 17): the PR0 chores, and `packages/chain-solana` and `packages/chain-evm`, which pass to Thom at the cut.
+**The add-only rule.** `basket` adds files. An edit to a file Rodrigo owns is made by him and arrives by merge, so the morning merge never conflicts. In the API, his server-signing surfaces are switched off, not deleted: with `LEGACY_STRUCTURER=off` the `/policies/*` routes are not registered. In the web app his three screens (home, plan, monitor) are rebuilt on his design system and extended, as section 11 describes; who edits which file there is agreed per screen. Exceptions he agrees to (section 17): the PR0 chores, and `packages/chain-solana` and `packages/chain-evm`, which pass to Thom at the cut.
 
 | Path | Status | Owner | May import |
 |---|---|---|---|
@@ -725,29 +726,48 @@ GitHub Actions is the later home for the keeper, not the MVP one. It needs Rodri
 
 ## 11. Web app
 
-Stack kept: Next 16.3.8, React 19.3.0, Tailwind 4.3.3. Added: Privy, viem, TanStack Query, next-intl, shadcn primitives, Playwright with axe. `cacheComponents` stays off. No Server Functions for writes; the Fastify API is the one backend.
+**The contract.** Rodrigo's design system is on `main` and it is binding: `.design/branding/working-brand/patterns/STYLE.md`, the component specs beside it, and `working-brand.theme.json`. A screen that breaks one of its seven rules is wrong, however good it looks. In short: a provenance pin after every yield, price and FX figure; MOCK always as a hatch plus the word; the disclaimer from the one `DISCLAIMER` constant; no Japanese words or clichés; nothing like Teiten; no blue or violet; the brand recedes in a partner embed. Everything is square (2px radius, no shadows, no pills) except the typing box. Light and dark both ship. His voice rules apply to every string: answer, then reason, then risk, then action; "I" for the agent; no exclamation marks; MOCK is the only uppercase word.
 
-- **Same for everyone** (shelf, shared-portfolio page, risk sheet): statically generated with `revalidate: 60` and a 3-second fetch timeout, so a slow or sleeping API serves the last good copy. The first build reads the committed seed file.
-- **Per wallet** (portfolio, vaults, orders, quotes): client components with TanStack Query. Every key includes owner and chain, which fixes the audit's stale-wallet bug.
+Stack kept: Next 16.3.8, React 19.3.0, Tailwind 4.3.3. There is no UI library: tokens go into `globals.css` through Tailwind's `@theme`, with shadcn-compatible variable names, as his `token-mapping.md` lays out. Added: Privy, viem, TanStack Query, next-intl, `lucide-react` behind his one icon wrapper, Playwright with axe. `cacheComponents` stays off. No Server Functions for writes; the Fastify API is the one backend.
 
-One agent builds the shared layer first: layout, providers, `proxy.ts`, `components/ui/`, `lib/{wallet,chains,format,brand}`, `styles/tokens.css`, `messages/`. Then each screen is one folder under `apps/web/features/` and one agent, built against the mock adapter.
+**His screens are extended, not replaced.** His specs already describe the product flow: the composer, the constraint sheet, the goal card, the plan legs, the exit-plan line, the execution list. They name the screens they belong to: home, the plan view and the monitor. So the web app is those three screens, rebuilt on his primitives, with the vault under them, plus the screens his system has no spec for. This replaces the earlier idea of parallel screens with his switched off.
 
-| Feature | Route | States it must show |
-|---|---|---|
-| `shelf` | `/` | Loading; empty; cards with chains, creator address, platform badge, value following |
-| `index` | `/indexes/[slug]` | Recipe per chain; a pending version with its effective time; risk roll-up; follow; not found |
-| `fit` | `/fit`, `/fit/[slug]` | Sentence, then the form as confirm step; per-field disagreement flags; parser down; the proposal with reasons; goal not achievable, with the gap |
-| `basket` | `/baskets/[id]` | The five-field card; drift; "portfolio changed: rebalance"; "new asset: accept"; the auto-follow switch with the keeper limits in numbers; withdraw in kind |
-| `vault` | `/vaults/[chain]/[address]` | A public read-only view of any vault: holdings, drift, explorer links. The team's demo vaults are linked from the home page, so a visitor with no funds sees real state |
-| `order` | `/orders/[id]` | Review (summary, preview, minimum received, warnings, consents); funding missing per chain; per leg: planned, awaiting signature, sent, confirmed, failed with retry, expired with rebuild; resume on reload; wrong wallet connected |
-| `portfolio` | `/portfolio` | One query per chain; a failing chain is "unavailable" on its own row; the combined view is derived |
-| `publish` | `/publish` | One simple form; limit errors from `previewPublish`; a leg per chain |
-| notices | all | No location block and no banner. The terms say the app is not for US persons; before the first deposit the person accepts the terms and sees the "unaudited, team holds the keys" notice |
+Order of work:
+
+1. **The design system is applied first.** Tokens, fonts and the primitives in `components/ui/` (button, field, card, data table, status mark, provenance pin, MOCK plate, explorer link, icon) come from his specs. His brand pipeline can apply them; Rodrigo is asked to run it as soon as the branches are merged (section 17).
+2. **Route groups, as his embed spec requires:** `app/(app)/` for the product, `app/(marketing)/` for his landing page, and a bare `app/embed/[id]/`. The embed is his, stays, and is read-only.
+3. **Then one agent per screen,** against the mock adapter.
+
+- **Same for everyone** (the shelf, a shared portfolio's page, risk sheets): statically generated with `revalidate: 60` and a 3-second fetch timeout, so a slow or sleeping API serves the last good copy.
+- **Per wallet** (plans, portfolio, vaults, orders, quotes): client components with TanStack Query. Every key includes owner and chain, which fixes the audit's stale-wallet bug.
+
+| Screen | Route | Built from his specs | What we add, from his primitives |
+|---|---|---|---|
+| Goal (home) | `/`, `/fit/[slug]` | Composer; constraint sheet with "Build my plan" blocked until valid; lattice loader | Sheet fields for the new inputs (amount in dollars, themes, holdings, chains); per-field flags where the model and the rules parser disagree. `/fit/[slug]` is the same screen started from a shared portfolio |
+| Plan | `/plans/[id]` | Goal card as header; plan legs; schedule chart; exit-plan panel; risk sheet table; disclaimer block; execution list | The vault panel: its limits in numbers, the automatic switch, pause state, withdraw. "Portfolio changed: rebalance" and "new asset: accept" prompts |
+| Monitor | `/monitor` | Goal cards; drift table with "Out of band"; execution list | One row per chain, with a failing chain shown as "unavailable"; the rebalance order |
+| Shelf | `/shelf` | Cards, status marks, pins | A card per shared portfolio: name, author address, platform badge, value following, chains |
+| Shared portfolio | `/indexes/[slug]` | Plan legs, exit-plan line, Bearing heatmap tile, data table | Versions and a pending version with its effective time; follow; "Start from this" leading to the goal screen |
+| Order | `/orders/[id]` | Execution list; primary button that names the action and amount | Review (summary, minimum received, warnings, consents); funding missing per chain; a status per leg; resume on reload; wrong wallet |
+| Vault, public | `/vaults/[chain]/[address]` | Data table, explorer links | A read-only view of any vault, so a visitor with no funds sees real state |
+| Publish | `/publish` | Fields, error summary | One simple form; limit errors from `previewPublish`; a leg per chain |
+| Sign-in and notices | all | Buttons, cards | Passkey or wallet; before the first deposit, the terms and the "unaudited, team holds the keys" notice |
+
+**Where his specs change what we build.**
+
+- **The goal comes first.** The home screen is the composer, not the shelf. A shared portfolio is reached from the plan or the shelf and always leads back to the goal screen.
+- **At most four legs in the bar.** His plan-leg spec treats more as an engine error. The bar shows the plan's sleeves (stocks, dollar yield, gold, cash). The tokens inside each sleeve go in a data table under it.
+- **Status on the goal card.** "On track", "Watch" or "Off track" comes from the engine, never the UI. The design computes a verdict for income goals only, so the status for other goals, and the odds his showcase prints, are open (section 17).
+- **The exit plan is tiers in time,** such as "up to $4,000 within a day, the rest within 7 days, cost ≤ 0.50%", shown before the invest button, with costs as "≤" or "about" and never as a promise. The roll-up in `packages/basket` gives a cost at a size; it also has to give tiers. Withdrawing the tokens themselves is stated on its own line and is not called access to cash.
+- **Pins need staleness.** The pin has a stale state that the API must state; the UI may not infer it. `Sourced` gets a staleness field at the first interface freeze, agreed with Rodrigo (his own open item).
+- **Signing.** A button that signs names the action and the amount ("Sign: swap 5 USDC → USDY"), and there is one primary per view. A failed mainnet line has no retry button and reads "(not retried)"; a new attempt is a new action the person signs. A busy button changes its label; there are no spinners.
+- **The agent's log speaks in the first person with its reason and its source:** "I moved $1,200 from USDC to USDY because rates dipped and your June date needs a little more income. Source · Tx ↗". Every keeper leg stores the reason it was made, so the line can be written.
+- **Wallets.** His specs style the Solana wallet-adapter button and modal, and his landing page says "Connect wallet". Passkey sign-in through Privy needs the same care and his decision on the label (section 17).
+- **Languages.** Strings live in a dictionary keyed by language from day one, with human labels for every sheet field. English and Portuguese both, since his home screen is Portuguese today.
 
 - **Order executor.** The web uses `execute()` from `packages/sdk` with a `WalletPort`-backed signer; there is one state machine, not two. It writes every transition to the API before the next step. On reload, `sent` legs are tracked and `built` or `expired` legs are rebuilt; signed bytes are never re-sent. A failed leg stops its chain only. Status changes go to an `aria-live` region with the explorer link.
-- **Brand.** Rodrigo's brand lands Oct 4. `tokens.css` has raw brand variables and semantic names; components use only the semantic ones, and a CI grep rejects raw palette classes. The Oct 4 change is `tokens.css`, one font line, `brand.ts` and a copy pass.
-- **Languages and access.** next-intl with the locale in a cookie and every string in `messages/en/` from day one. Portuguese is a messages file added on Oct 7 if the screens are done. Status is icon plus text, never colour alone. Every Playwright spec runs axe at 375 px. An unknown provenance never renders as live.
-- His `/risk/*` pages stay. `/monitor`, `/plans/[id]` and `/embed` leave the navigation and are deleted after the freeze.
+- **Checks.** Every Playwright spec runs axe at 375 px in light and dark. A DOM test fails the build if a hatch appears without the word MOCK or "stale" in the same component, as his spec asks. A CI grep rejects raw palette classes and any blue. An unknown provenance never renders as live.
+- His `/risk/*` pages stay as they are.
 
 ## 12. Agent surface
 
@@ -866,13 +886,13 @@ Only the TypeScript streams wait for PR1a. `SOL`, `EVM`, `RISK`, `BRAND`, `OPS`,
 | KEEP | Keeper | Thom | 3.5, 10 | `apps/keeper`, alerts, the run script for the keeper machine | BAS, ADS, ADE | A shared-portfolio update rebalances an auto-follow vault on each live chain; two sessions of clean runs |
 | WAL | Sign-in | Thom | 3.5, 9 | Privy provider, `WalletPort`, test wallet | The Privy app and origin | A passkey wallet signs on three chains; `next build` passes |
 | AGT | Agent surface | Thom | 9, 12 | Guard and executor first; then `packages/sdk`, `apps/mcp`, skill, `llms.txt` | FRAME; API for the rest | Guard negatives pass; an outside agent builds a plan and a person approves it from the link |
-| WEB | Screens | Thom, Rodrigo's brand | 11 | The shared layer, then the feature folders | WAL, AGT's executor, API (mock first) | The nine MVP items work end to end; axe and 375 px pass |
+| WEB | Screens | Thom, on Rodrigo's design system | 11 | His three screens extended, then the new ones, one agent per screen | BRAND's primitives, WAL, AGT's executor, API (mock first) | The nine MVP items work end to end; the seven binding rules hold; axe passes at 375 px in light and dark |
 | ENG | Personalization | Thom's agent ports; Rodrigo owns the table and wording | 3.6, 7, the prototype | `engine/src/personal/`, the parameter table, templates, a 12-goal eval | BAS's `flatten` | The three-profile test passes; his baseline test stays green |
 | RISK | Risk layer, sheets | Rodrigo | 8 | Three fixes; about ten family sheets; a dated dump; six lines in `compute.ts` | none | Sheets render; hosted curves show their date |
 | REVM | EVM depth | Thom | 8 | The hourly collector | RISK's `compute.ts` change | Curves for five tokens per EVM chain, 8 samples per regime |
 | SEC | Security, rehearsal | Thom | 13 | `SECURITY.md`, `INCIDENT.md`, the rehearsal script, `authority-check` | SOL, EVM, API | `G-SEC` recorded per chain; `G-LINK` recorded |
 | OPS | Mainnet work a person does | Thom; Rodrigo is asked to take the Solana sessions | 10, 13, 16 | `docs/RUNBOOK-OPS.md`: a checklist per session with a name per item. Hosting, accounts, admin keys, funded wallets, deploys, config, seeding, rehearsals, footage | Accounts opened | The public URL serves the app; `authority-check` is green |
-| BRAND | Name and brand | Rodrigo | His brand process | Palette, tokens, name, copy | none | The Oct 4 token swap passes screenshots |
+| BRAND | Design system in the app | Rodrigo | `.design/branding/working-brand/patterns/` | Tokens and fonts in `globals.css`, the primitives in `components/ui/`, route groups, his three screens on them; the final name and logo artwork | none | The primitives exist and his screens render on them in light and dark |
 
 OPS sets the pace and is planned like a stream. It is three $10 runs, three deploys, about 50 asset entries, about 13 recipe publishes, three admin keys, funded wallets, two rehearsals, a pause drill and the footage, mostly inside five sessions of 5.5 hours. Every `scripts/ops/*` script is idempotent, has a dry run that prints the exact transactions, and reads one JSON file of assets, feeds and recipes. The deployer writes config in the deploy session, before admin passes to the multisig; later changes go through the multisig as one batch.
 
@@ -885,7 +905,7 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 | Thu Oct 1 | SOL, EVM, the personalization port and the Privy page start from sections 3.7, 3.8 and 7. Accounts opened |
 | Fri Oct 2 | PR0 and PR1a by midday; v0 interfaces. In session, and nothing else for Thom: the three $10 runs and the Scope read. All three chains funded, so a failure to get USDG on chain 4663 shows on day 1. Second Jupiter organisation. Privy origin test. Half-day tries: one mock MCP tool on the free host, Slither on the spike vault, one hand-written kit 2.3 builder. Rodrigo answers section 17 |
 | Sat Oct 3 | SOL: `route_v2` on surfpool, registry, create and first-buy sizes at 7 and 12 assets. EVM: vault, factory, registry with unit tests. Adapters: read side. API: auth and orders. AGT: guard and executor. WEB: shared layer. Three-profile test green on placeholder numbers. Log feed ages over the weekend |
-| Sun Oct 4 | The keeper path in program and contracts; A-cases; adapters build and simulate on a fork. Evening: the interface amendment window closes and the hash test turns on. Origin decided. Admin keys created. Brand tokens land. Deploy dry run |
+| Sun Oct 4 | The keeper path in program and contracts; A-cases; adapters build and simulate on a fork. Evening: the interface amendment window closes and the hash test turns on. Origin decided. Admin keys created. Design system applied to the app by now. Deploy dry run |
 | Mon Oct 5 | Deploy on three chains: config, caps, handover to the admin key, `authority-check`. First hosted web and API; cold-start test (no pings for 20 minutes, then load the home page). In session: the owner path on three chains; first keeper leg and first publish-adopt-trade cycle on Solana |
 | Tue Oct 6 | A three-chain buy with a passkey wallet; publish and follow. In session: auto-follow cycles on Robinhood Chain; rehearsal 1 on Solana and Robinhood Chain. MCP against the real API |
 | Wed Oct 7 | In session: rehearsal 2, and the market-open footage. Portfolio and rebalance end to end. Sheets render. Add-backs decided |
@@ -931,10 +951,20 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 6. Stocks and gold: stay with "no return assumed", or show a sourced historical range.
 7. May the keeper re-plan a leg that expired without landing, up to three times? His rule says never auto-retry.
 8. Risk sheets per issuer family with generated per-asset fields; a dated dump of curves first.
-9. The brand as a palette plus a tokens file; retiring `/monitor`, `/plans` and `/embed` after the freeze.
+9. Run his brand pipeline on `apps/web` as soon as the branches are merged (tokens, fonts, primitives, route groups), so every screen is built on it. His three screens are rebuilt and extended, not retired, and the embed stays his.
 10. Will he take the Solana session work (deploy, config, rehearsals)? He has already run mainnet transactions from his demo wallet.
 11. Later: one keeper workflow on `main` with a pinned commit and a restricted environment.
-12. For agents, is a self-declared country enough, with the IP block on the web app and approval page only?
+12. For agents, is a self-declared country enough?
+
+**Rodrigo, from his own design system** (added after reading it)
+
+- The provenance pin is specified three ways across his files (size, outline colour, hatch pitch). One has to be picked before screens are built, since it follows every number.
+- There is no final logo artwork yet; the spec says to draw the outlines from it.
+- The pin's stale state needs a staleness field from the API (his open item). Proposal: add it to `Sourced` at the first interface freeze.
+- The goal card needs a status from the engine, and his showcase prints odds. The design computes a verdict for income goals only. Who builds the status for other goals and the odds estimate, and what the card shows until then.
+- The label on the sign-in button. His landing page says "Connect wallet"; with a passkey option it opens a choice of two.
+- The plan-leg bar allows four legs. Confirm that sleeves in the bar with tokens in a table under it is the reading he wants.
+- The disclaimer says "the decision and custody are yours". With a vault and a team-held upgrade key, the wording has to stay true.
 
 **Thom**
 
