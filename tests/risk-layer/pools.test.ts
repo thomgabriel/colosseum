@@ -2,11 +2,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import {
+  afterTransferFee,
   type ClState,
   clmmState,
+  cpSwapExactIn,
   decodeClmmAmmConfig,
   decodeClmmPool,
   decodeClmmTickArray,
+  decodeCpmmAmmConfig,
+  decodeCpmmPool,
   decodeDlmmBinArray,
   decodeDlmmPair,
   decodeWhirlpool,
@@ -22,7 +26,8 @@ import { describe, expect, it } from 'vitest';
 // scripts/risk/capture-pool-fixture.ts. Tolerances are per venue and documented in docs/PLAN-RISK.md:
 // Raydium CLMM is exact to float precision; DLMM and Orca carry dynamic fees not yet modelled.
 type Fixture = {
-  venue: 'raydium' | 'orca' | 'dlmm';
+  venue: 'raydium' | 'orca' | 'dlmm' | 'cpmm';
+  outTransferFeeBps?: number;
   pool: string;
   inMint: string;
   accounts: Record<string, string>;
@@ -34,11 +39,27 @@ const fixtures: Fixture[] = readdirSync(dir).map((f) =>
   JSON.parse(gunzipSync(readFileSync(join(dir, f))).toString()),
 );
 const b = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
-const TOL = { raydium: 1e-6, dlmm: 1e-4, orca: 1e-3 };
+const TOL = { raydium: 1e-6, dlmm: 1e-4, orca: 1e-3, cpmm: 1e-9 };
+// SPL token account: amount u64 at offset 64.
+const tokenAmount = (d: Uint8Array) =>
+  Number(new DataView(d.buffer, d.byteOffset).getBigUint64(64, true));
 
 function simulate(fx: Fixture): { simulate: (amountIn: number) => number; invariant?: number } {
   const head = b(fx.accounts[fx.pool] as string);
   const kids = Object.values(fx.children).map(b);
+  if (fx.venue === 'cpmm') {
+    const p = decodeCpmmPool(head);
+    const cfg = decodeCpmmAmmConfig(b(fx.accounts[p.ammConfig] as string));
+    const r0 = tokenAmount(b(fx.accounts[p.vault0] as string)) - Number(p.owed0);
+    const r1 = tokenAmount(b(fx.accounts[p.vault1] as string)) - Number(p.owed1);
+    const zeroIn = p.mint0 === fx.inMint;
+    const feeRate = (cfg.tradeFeeRate + (p.enableCreatorFee ? cfg.creatorFeeRate : 0)) / 1e6;
+    const s = { reserveIn: zeroIn ? r0 : r1, reserveOut: zeroIn ? r1 : r0, feeRate };
+    const fee = fx.outTransferFeeBps
+      ? { bps: fx.outTransferFeeBps, maximumFee: Number.MAX_SAFE_INTEGER }
+      : undefined;
+    return { simulate: (x) => afterTransferFee(cpSwapExactIn(s, x), fee) };
+  }
   if (fx.venue === 'dlmm') {
     const p = decodeDlmmPair(head);
     const bins = kids
