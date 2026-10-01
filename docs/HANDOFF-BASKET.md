@@ -1,6 +1,6 @@
 # HANDOFF: Basket app (proposal)
 
-*Written 2026-10-01 by Thom. Companion to `HANDOFF-IDEA1.md` (the structurer) and `HANDOFF-RISK.md` (the liquidity and risk layer). This is a proposal for where the product goes next; nothing here is decided until Rodrigo agrees. Technical design: `DESIGN-BASKET.md`. How it maps onto the code in this repo: `CONVERGENCE-BASKET.md`. Research behind it: `research/`.*
+*Written 2026-10-01 by Thom. Companion to `HANDOFF-IDEA1.md` (the structurer) and `HANDOFF-RISK.md` (the liquidity and risk layer). This is a proposal for where the product goes next; nothing here is decided until Rodrigo agrees. Technical design: `DESIGN-BASKET.md`. How it maps onto the code in this repo: `CONVERGENCE-BASKET.md`. Review of the current code: `AUDIT-BASKET.md`. Research behind it: `research/`.*
 
 Working name not chosen.
 
