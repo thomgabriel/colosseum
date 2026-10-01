@@ -151,7 +151,7 @@ Slots are half days (AM 09–13, PM 14–18 BRT) for Phases 0–3 and full days 
 
 | Slot | Phase | Workstream | Deliverable | Check | Depends on | [B2]? | Notes |
 |---|---|---|---|---|---|---|---|
-| P0-1 Thu Oct 1 AM | 0 | Verify + collector | **First check:** the existing job is still writing. Then **VR-1** (Jupiter keyed tier) and **VR-2** (four mints). Then `scripts/risk-collect.mjs`: dependency-free; sell and buy, 8 assets × 8 notionals; hourly market block; spacing from VR-1; 429s as rows; reads the old job's file mtime only to avoid overlap. Plus `docs/STATE-RISK.md`. | (1) `stat -f %m ~/.colosseum/depth/2026-10-01.jsonl` advanced within the last 16 min, before any new file is written. (2) One manual run into a scratch dir: 128 quote rows (errors included) + ≥ 1 market row with `source`, `fetchedAt`. (3) `docs/VERIFICATION-RISK.md` rows VR-1 and VR-2. | — | [B2] | Grid and spacing follow decision D8. Assets whose mint fails VR-2 are left out, never guessed. Kamino xStocks reserve addresses come from `GET /v2/kamino-market` plus `reserves/metrics` filtered by verified mints, stored raw. Config fields are not interpreted until R4-1. |
+| P0-1 Thu Oct 1 AM | 0 | Verify + collector | **First check:** the existing job is still writing. Then **VR-1** (Jupiter keyed tier) and **VR-2** (xStocks discovery and mint checks, §9a). Then `scripts/risk-collect.mjs`: dependency-free; sell and buy, 8 notionals, tiered asset list (§9a); hourly market block; spacing from VR-1; 429s as rows; reads the old job's file mtime only to avoid overlap. Plus `docs/STATE-RISK.md`. | (1) `stat -f %m ~/.colosseum/depth/2026-10-01.jsonl` advanced within the last 16 min, before any new file is written. (2) One manual run into a scratch dir: 16 quote rows per Tier-1 asset plus the Tier-2 rotation share (errors included) + ≥ 1 market row with `source`, `fetchedAt`. (3) `docs/VERIFICATION-RISK.md` rows VR-1 and VR-2. | — | [B2] | Grid and spacing follow decision D8. Assets whose mint fails VR-2 are left out, never guessed. Kamino xStocks reserve addresses come from `GET /v2/kamino-market` plus `reserves/metrics` filtered by verified mints, stored raw. Config fields are not interpreted until R4-1. |
 | P0-2 Thu Oct 1 PM | 0 | Scheduling + markets | `scripts/launchd/com.colosseum.risk-collect.plist` (`StartCalendarInterval` at fixed minutes, 7 min after the old job's observed phase), `scripts/launchd/install-risk.sh` (copies to `~/.colosseum/risk-collect.mjs`, its own env file `~/.colosseum/risk/env` with the key and RPC), the hourly market block (Kamino metrics plus raw `getAccountInfo` base64 of each reserve; Jupiter Lend vaults by the source found in a 45-min timebox), and `pnpm risk:coverage` (runs, 429 rate, rows per regime). | Two consecutive scheduled runs in `~/.colosseum/risk/2026-10-01.jsonl`. `~/.colosseum/risk/markets-2026-10-01.jsonl` has Kamino rows (and Jupiter Lend rows, or a logged `not_found` row). `launchctl list \| grep colosseum` shows both jobs. The old file's mtime is still advancing. `risk:coverage` output pasted into STATE-RISK. | P0-1 | [B2] | `scripts/launchd/install.sh`, the old plist, `~/.colosseum/env` and `~/.colosseum/depth/` are not edited. Founder action: power settings for the Oct 3–4 and Oct 10–11 weekends (R-9). |
 
 **Between Oct 2 and Oct 12 (no slots, about 2 min a day):** run `pnpm risk:coverage` and append one line to STATE-RISK. If coverage of any regime falls below the D3 threshold, record it; do not patch the job mid-weekend unless it has stopped writing.
@@ -233,7 +233,7 @@ Slots are half days (AM 09–13, PM 14–18 BRT) for Phases 0–3 and full days 
 
 | # | Risk | Likelihood | Impact | Early signal | Mitigation | Retired in |
 |---|---|---|---|---|---|---|
-| R-1 | Jupiter rate limits corrupt the time series | **High** (seen: old job keyless, 115/416 rows `429` on Sep 30) | Thin buckets, biased toward quiet hours | `risk:coverage` 429 share per run | VR-1 sizes spacing; D8 thins the buy side; errors stored as rows; per-point sample counts and `insufficient` flags | P0-2 (partially), R1-3 |
+| R-1 | Jupiter rate limits corrupt the time series | **High** (seen: old job keyless, 115/416 rows `429` on Sep 30; key added Oct 1 per Q8) | Thin buckets, biased toward quiet hours | `risk:coverage` 429 share per run | VR-1 sizes spacing; D8 thins the buy side; errors stored as rows; per-point sample counts and `insufficient` flags | P0-2 (partially), R1-3 |
 | R-2 | Sparse weekend samples make regime curves unreliable | Medium | Weekend capacity and ρ wrong, so caps and breach are wrong | Weekend samples per grid point after Oct 4 | Two weekends before Phase 1; D3 keeps hour-of-week descriptive; `insufficient` curves cap nothing silently: the solver treats them as capacity 0 and says so | R1-1 |
 | R-3 | Quote impact diverges from realised slippage | Medium | Capacity overstated | `risk:slippage` on Sep 30 executions | Reported on the methodology page; D4 can add a second source; `curveQuantile` can move to a pessimistic quantile | R2-6 |
 | R-4 | Kamino weekend price band unreadable from Scope config | Medium | Gap simulator's "unliquidatable while closed" undefined | VR-3 cannot locate the band field | `bandPct` becomes a labelled `assumption` input with the reason; the output says "band not read" | R4-1 |
@@ -288,20 +288,33 @@ Slots are half days (AM 09–13, PM 14–18 BRT) for Phases 0–3 and full days 
 
 ## 9. Open questions for the founder
 
-| # | Question | Default assumed |
+Answered on 2026-10-01 unless marked OPEN.
+
+| # | Question | Answer |
 |---|---|---|
-| Q1 | Impact tolerance τ (`impactTolerancePct`)? | 1% |
-| Q2 | Share of measured capacity the solver may plan to use (`shareOfDepth`)? | 0.25 |
-| Q3 | Which six xStocks? | SPYx, QQQx, TSLAx, NVDAx, AAPLx, GOOGLx (subject to VR-2) |
-| Q4 | `liquidity_dry`: measured ratio with a floor, or always at least a fixed cut? | `d = max(dryFactorFloor, min(1, ρ))`, `dryFactorFloor` 0.25; if ρ is `insufficient`, `d = dryFactorFloor` |
-| Q5 | §6 P1.2: under the default settlement assumption, a 72 h horizon cannot settle a T+n redemption. Should "includes the primary path" mean listed, or counted in value? | Listed with status `settles_after_horizon` and `assumption` label, not counted in value |
-| Q6 | Rate limit on third-party `/risk/*`? | None while local; add a per-IP limit before any public deploy |
-| Q7 | Phase 1 start date? | Tue Oct 13 (D1) |
-| Q8 | The old collector runs without the Jupiter key (`~/.colosseum/env` has no key), so about a quarter of its rows are 429s. Re-install it with the key before the Oct 3–4 weekend (touches the protected job), or leave it? | Leave it untouched; the new keyed collector covers the same assets from Oct 1 |
+| Q1 | Impact tolerance τ (`impactTolerancePct`)? | **1%** (founder accepted the recommendation) |
+| Q2 | Share of measured capacity the solver may plan to use (`shareOfDepth`)? | **OPEN.** Recommendation: 0.25; reasoning given to the founder |
+| Q3 | Which xStocks? | **OPEN.** Founder asked for all of them. Proposal: all verified xStocks in tiers (§9a) |
+| Q4 | `liquidity_dry` multiplier? | **Agreed:** `d = max(dryFactorFloor, min(1, ρ))`, `dryFactorFloor` 0.25; if ρ is `insufficient`, `d = dryFactorFloor` |
+| Q5 | Does a too-slow issuer redemption count in a 72 h answer? | **OPEN.** Re-asked in plain words. Default: listed as "too slow for this horizon", not counted |
+| Q6 | Rate limit on third-party `/risk/*`? | **None while local; limited when deployed live** |
+| Q7 | Phase 1 start date? | **OPEN.** Re-asked in plain words. Default: Tue Oct 13 |
+| Q8 | Re-install the old collector with the Jupiter key? | **Yes.** Done 2026-10-01 ~00:30Z with `pnpm depth:install-cron`. The script was unchanged (the deployed copy differed from the repo only in formatting); the env file now has the key. This is the one approved exception to "do not touch the existing job". |
+
+### 9a. Asset coverage (proposal for Q3)
+
+The limit on coverage is Jupiter's quote rate, not RPC. Each asset costs 16 quotes per run (8 notionals × 2 sides); RPC is used only for hourly market snapshots. VR-1 gives the quote budget per 15 minutes. The proposed tiers:
+
+- **Tier 1, every 15 min:** SPYx, QQQx, TSLAx, NVDAx, AAPLx, GOOGLx, MSTRx, HOODx (the xStocks lending markets accept as collateral, subject to VR-2), plus USDY and syrupUSDC.
+- **Tier 2, rotating:** every other verified xStock. Each is quoted at least hourly, sell side first.
+- **Discovery:** P0-1 enumerates xStocks from Jupiter token search (verified tag, Token-2022, same mint authority and hook as SPYx) and stores the list with `source` and `fetchedAt`. No mint is typed by hand.
+- An asset with no route is kept and shown as "no measurable depth". That is a result, not a gap.
+
+Tier 2 cadence is set in P0-1 from the measured budget (D8). If the budget allows every asset every 15 min, the tiers collapse into one.
 
 ## 10. Plan self-check
 
-- **(a) Nothing touches the existing collector, its data or `main` before Oct 12.** Confirmed. Phase 0 writes new files only: `risk-collect.mjs`, a new plist, `install-risk.sh`, `~/.colosseum/risk/`. It only `stat`s the old file. All commits go on `risk-layer`. The fold (D6) and the first merge from `main` happen on Oct 13.
+- **(a) Nothing touches the existing collector, its data or `main` before Oct 12.** Confirmed, with one approved exception: Q8, a key-only re-install of the old job on Oct 1 (script unchanged). Phase 0 writes new files only: `risk-collect.mjs`, a new plist, `install-risk.sh`, `~/.colosseum/risk/`. It only `stat`s the old file. All commits go on `risk-layer`. The fold (D6) and the first merge from `main` happen on Oct 13.
 - **(b) `packages/risk` has no import from `packages/engine`.** Confirmed by design (§3) and enforced by `tests/risk-layer/boundary.test.ts` from R1-1.
 - **(c) The no-provider path is proven before any engine change.** Confirmed. R3-1 freezes `engine-baseline.test.ts` on the unchanged engine. Engine hooks start at R3-3, and each one re-runs it.
 - **(d) Every §7 unverified item the build depends on has a verification task in the first slot of its phase.**
