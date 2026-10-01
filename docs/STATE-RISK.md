@@ -1,26 +1,30 @@
 # STATE-RISK.md — risk layer progress (branch `risk-layer`)
 
-Steps are defined in `docs/PLAN-RISK.md` §3. Status: `todo | in-progress | done | blocked`. Evidence points to files, tests, commands or links.
+Steps are defined in `docs/PLAN-RISK.md` §3. Status: `todo | in-progress | done | blocked`. Evidence points to files, tests, commands or links. Times are UTC.
 
 | Step | Status | Evidence |
 |---|---|---|
-| 0. Decoders | done | Raydium CLMM, Orca Whirlpool, Meteora DLMM, Raydium CPMM in `packages/risk/src/pools/`. `tests/risk-layer/pools.test.ts` checks frozen mainnet accounts against same-pool Jupiter quotes: CLMM ≤ 2e-8, CPMM 3e-13 (with the Token-2022 transfer fee), DLMM 3e-5, Orca 3e-4 (adaptive fee not modelled). Liquidity rebuilt from ticks = stored liquidity exactly (CLMM, Orca). Commits `3299d86`, `df5b985`. |
-| 1. Pool registry | in-progress | `pnpm risk:registry` (on-chain confirmation + search by mint per venue + TVL from vault balances); `pnpm risk:retier`. Tables `risk_pools`, `risk_pool_snapshots` (migration `0002_faulty_trauma.sql`, applied locally 2026-10-01). |
-| 2. Pool collector | in-progress | `scripts/risk/collector/pools.ts`, installed by `pnpm risk:install-collector` as `com.colosseum.risk-pools` |
-| 3. Quote cross-check | in-progress | `scripts/risk/collector/quotes.ts` → `com.colosseum.risk-quotes` |
-| 4. LP concentration | todo | |
-| 5. History | todo | |
-| 6. Engine | todo | |
-| 7. Service + dashboard | todo | |
-| 8. Join | todo | |
-| 9. Mainnet rebalance | todo | |
-| 10. Lending markets | todo | |
+| 0. Decoders | done | Raydium CLMM, Orca Whirlpool, Meteora DLMM and Raydium CPMM in `packages/risk/src/pools/`. `tests/risk-layer/pools.test.ts` checks frozen mainnet accounts against same-pool Jupiter quotes: CLMM ≤ 2e-8; CPMM 3e-13 with the Token-2022 transfer fee; DLMM 3e-5; Orca 3e-4 (adaptive fee not modelled). Liquidity rebuilt from ticks equals stored liquidity exactly (CLMM, Orca). |
+| 1. Pool registry | done | `pnpm risk:registry` + `pnpm risk:retier` → `risk_pools`. 2026-10-01 01:39Z: 715 DexScreener candidates + 5,353 more found on-chain by mint search → 5,951 confirmed pools, 50 assets, $41.6M on-chain TVL. After the dust filter (< $1k): 992 live pools, 47 assets. Tier A (99% of TVL) = 757 pools, every 5 min; Tier B = 235, hourly; dust = 4,959. Pareto on-chain: 34 pools = 80%, 82 = 90%, 206 = 95%, 757 = 99%. File: `data/risk/registry-20261001T0139.json`. |
+| 2. Pool collector | done (running) | launchd `com.colosseum.risk-pools`, minutes 2,7,…,57. Steady state: 757 pools in about 6 s, 28 RPC calls, 0 failures (01:47Z). Hourly: all 992 pools + LP concentration + markets, about 100 s. Output: `~/.colosseum/risk/pools/*.jsonl`, `lp/`, `markets/`, `raw/`, `raw-markets/`, `events.jsonl`. Stale tick maps are detected and re-read live (`tick_map_stale` events). Old depth job still writing (checked 22:29 local). |
+| 3. Quote cross-check | done (running) | launchd `com.colosseum.risk-quotes`, minutes 4,19,34,49: 10 assets (80% of TVL) × 3 sizes × sell/buy. First run 01:49Z: 60 rows, 0 errors. The routing-gap report is not yet written. |
+| 4. LP concentration | in-progress | Positions decoded for Raydium CLMM and Orca. Positions spanning the price sum to active liquidity exactly (`tests/risk-layer/positions.test.ts`). Hourly concentration + LP-exit stress for the 80% pools (`lp/*.jsonl`, `risk_lp_concentration`). Example 01:36Z: TSLAx main pool, top 3 positions hold 63% of in-band liquidity, a $250k sale costs 3.5% → 36.7% if they leave. Owner-level aggregation (position NFT holders) not done yet. |
+| 5. History | in-progress | The RPC serves archive history (blocks 365 days back, `getBlock`). Raydium `SwapEvent` decoded from logs (v0 and v1 txs). `pnpm risk:history 5 28 30` running: top 5 Raydium USDC pools, 4 weeks, 30 swaps/hour. Dune: not checked (needs a key; optional). |
+| 6. Engine | done | `packages/risk`: time (ET/DST/NYSE holidays), curves (isotonic + PL in ln n), recoverable (DEX vs issuer, assumption-labelled), score, breach/likely-breach with orders, gap simulator, provider. Phase 1 acceptance in `tests/risk-layer/assess.test.ts`, `time-curves.test.ts`. `pnpm risk:report` CLI not written yet (the API covers P1.1's content). |
+| 7. Service + dashboard | done (screenshots pending data) | Tables `risk_pools`, `risk_pool_snapshots`, `risk_depth_curves`, `risk_events`, `risk_lp_concentration`, `risk_quotes` (migrations 0002, 0003). `pnpm risk:import`, `pnpm risk:compute`. `/risk/*` plugin in `apps/api` + standalone `apps/risk-api` (`apps/risk-api/src/app.test.ts`: only `/risk/*` served; assess over HTTP = Phase 1 fixture). Dashboard `/risk`, `/risk/[asset]`, `/risk/methodology` render (200). Curves show "insufficient samples" until each regime has 8 snapshots per size. |
+| 8. Join | done (UI screenshots pending data) | Baseline `tests/engine-baseline.test.ts` frozen at `edd1307` with the engine identical to `main`, unchanged after every hook. Seam `packages/schemas/src/liquidity.ts`; provider `packages/risk/src/provider.ts`; hooks in solver, schedule (exit cost + `liquidity_dry`), risk sheet, policy (`liquidity_breach`). `tests/liquidity-hooks.test.ts` covers P3.2–P3.5. API passes the provider (`apps/api/src/liquidity.ts`; `RISK_LIQUIDITY=off` restores the old behaviour). UI: PlanView exit-liquidity panel, monitor liquidity check. |
+| 9. Mainnet rebalance | todo (founder) | Needs a weekday, curves with samples, and the founder's signature. |
+| 10. Lending markets | in-progress | Raw hourly snapshots of Kamino (xStocks, Sentora xStocks, STRCx markets) and Jupiter Lend (8 xStock vaults) from 2026-10-01 01:53Z, with on-chain account bytes. Decoding and verification not done yet. |
 
 ## Discovered
 
 - 2026-10-01: the old depth job ran without the Jupiter key (`~/.colosseum/env` had no key); 115 of 416 rows on Sep 30 were `429`. Re-installed with the key (founder approved); the script is unchanged.
-- 2026-10-01: Chainstack rate-limits `getProgramAccounts` per method ("Too many requests for a specific RPC call"), despite the unlimited plan. Scripts back off (0.5 s doubling, 8 attempts); the collector calls `getProgramAccounts` only hourly or when a tick map is stale.
-- 2026-10-01: an on-chain search by mint finds far more pools than DexScreener; for example, 531 Raydium CLMM pools have SPYx as token 0. Most are dust; pools below `MIN_POOL_TVL_USD` are tier X and are not collected.
-- 2026-10-01: the Byreal CLMM fork decodes at header level, but its tick arrays differ from Raydium's. It is excluded until it has its own decoder.
-- 2026-10-01: some transactions are now version 1; `getTransaction` needs `maxSupportedTransactionVersion: 1` (Step 5).
-- 2026-10-01: the risk tables live in the same local Postgres as the structurer (additive migration `0002`). If `main` adds its own `0002` before the merge, regenerate the risk migration at merge time.
+- 2026-10-01: Chainstack rate-limits `getProgramAccounts` per method despite the unlimited plan. Scripts back off (0.5 s doubling, 8 attempts, 30 s timeout). The collector caps re-discoveries per run.
+- 2026-10-01: DexScreener misses most pools: on-chain search found 5,353 more (mostly dust; $2.3M of TVL, about 6%). 499 Raydium CPMM pools are in Tier A.
+- 2026-10-01: 188 of 371 early pools (about $4M) pair an xStock with a non-dollar token (another xStock, STRC-type tokens). They are not counted as exit routes; two-hop exits are a later extension.
+- 2026-10-01: **`HANDOFF-RISK.md` says the schedule never draws equity; the code does.** Stocks sit in the at-par liquid pool. With a provider they are now sold last at measured exit cost; without one, behaviour is unchanged (baseline test).
+- 2026-10-01: the Byreal CLMM fork decodes at header level, but its tick arrays differ. It is excluded until it has its own decoder.
+- 2026-10-01: some transactions are version 1; `getTransaction` needs `maxSupportedTransactionVersion: 1`.
+- 2026-10-01: the risk tables live in the same local Postgres as the structurer (additive migrations 0002, 0003). If `main` adds its own 0002/0003 before the merge, regenerate the risk migrations at merge time.
+- 2026-10-01: Kamino's API reports per-reserve `maxLtv`, and Jupiter Lend's API reports `collateralFactor` / `liquidationThreshold` / `liquidationPenalty` per vault. Both are stored raw. They are not used as facts until checked against on-chain config (Step 10).
+- 2026-10-01: a history signature walk that kept every signature produced a 238 MB checkpoint for one pool (about 50k tx/day). Rewritten to keep a rolling 30-per-hour buffer.

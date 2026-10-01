@@ -55,37 +55,50 @@ const since = Math.floor(Date.now() / 1000) - DAYS * 86_400;
 for (const p of pools) {
   const sigFile = join(OUT, `${p.address}-sigs.json`);
   const swapFile = join(OUT, `${p.address}-swaps.jsonl`);
-  // 1. signatures (checkpointed)
+  // 1. walk signatures newest → oldest, keeping per UTC hour only the PER_HOUR oldest successful ones seen
+  //    (a rolling buffer: what remains after the walk passes an hour is that hour's oldest consecutive run).
+  //    Checkpoint = cursor + buffers, so memory and disk stay small for pools with ~50k tx/day.
   type Sig = { signature: string; slot: number; blockTime: number | null; err: unknown };
-  const sigs: Sig[] = existsSync(sigFile) ? JSON.parse(readFileSync(sigFile, 'utf8')) : [];
-  let before = sigs.at(-1)?.signature;
-  while (!sigs.length || (sigs.at(-1)?.blockTime ?? 0) > since) {
+  type Ckpt = {
+    before?: string;
+    oldestTime?: number;
+    walked: number;
+    hours: Record<string, Sig[]>;
+  };
+  const ck: Ckpt = existsSync(sigFile)
+    ? JSON.parse(readFileSync(sigFile, 'utf8'))
+    : { walked: 0, hours: {} };
+  while ((ck.oldestTime ?? Number.POSITIVE_INFINITY) > since) {
     const page = await rpc<Sig[]>('getSignaturesForAddress', [
       p.address,
-      { limit: 1000, ...(before ? { before } : {}) },
+      { limit: 1000, ...(ck.before ? { before: ck.before } : {}) },
     ]);
     if (!page.length) break;
-    sigs.push(
-      ...page.map((s) => ({
-        signature: s.signature,
-        slot: s.slot,
-        blockTime: s.blockTime,
-        err: s.err ? 1 : null,
-      })),
-    );
-    before = page.at(-1)?.signature;
-    if (sigs.length % 20_000 < 1000) writeFileSync(sigFile, JSON.stringify(sigs));
+    for (const sg of page) {
+      if (sg.err || !sg.blockTime || sg.blockTime < since) continue;
+      const h = String(Math.floor(sg.blockTime / 3600));
+      const buf = ck.hours[h] ?? [];
+      buf.push({ signature: sg.signature, slot: sg.slot, blockTime: sg.blockTime, err: null });
+      if (buf.length > PER_HOUR) buf.shift(); // keep the oldest PER_HOUR (walk goes backwards in time)
+      ck.hours[h] = buf;
+    }
+    ck.walked += page.length;
+    ck.before = page.at(-1)?.signature;
+    ck.oldestTime = page.at(-1)?.blockTime ?? ck.oldestTime;
+    if (ck.walked % 50_000 < 1000) {
+      writeFileSync(sigFile, JSON.stringify(ck));
+      console.log(
+        JSON.stringify({
+          pool: p.address,
+          walked: ck.walked,
+          oldest: ck.oldestTime ? new Date(ck.oldestTime * 1000).toISOString() : null,
+        }),
+      );
+    }
   }
-  writeFileSync(sigFile, JSON.stringify(sigs));
-  // 2. sample per UTC hour: the oldest PER_HOUR successful transactions (consecutive by slot)
-  const byHour = new Map<number, Sig[]>();
-  for (const s of sigs) {
-    if (s.err || !s.blockTime || s.blockTime < since) continue;
-    const h = Math.floor(s.blockTime / 3600);
-    const arr = byHour.get(h) ?? [];
-    arr.push(s);
-    byHour.set(h, arr);
-  }
+  writeFileSync(sigFile, JSON.stringify(ck));
+  const byHour = new Map<number, Sig[]>(Object.entries(ck.hours).map(([h, v]) => [Number(h), v]));
+  const sigs = { length: ck.walked };
   const done = new Set<string>(
     existsSync(swapFile)
       ? readFileSync(swapFile, 'utf8')

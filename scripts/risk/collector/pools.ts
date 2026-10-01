@@ -276,6 +276,114 @@ function build(
   };
 }
 
+/**
+ * Hourly lending-market snapshot (P0.3): Kamino reserves of every market holding an xStock, and Jupiter Lend
+ * vaults with xStock collateral, as reported by each protocol's public API (stored raw, with source and time),
+ * plus the raw on-chain bytes of every reserve / vault account for later decoding (Step 10). Parameters from
+ * the APIs are not trusted as facts until checked against the on-chain config.
+ */
+async function snapshotMarkets(now: Date, xMints: Set<string>) {
+  const day = now.toISOString().slice(0, 10);
+  const out = join(HOME, 'markets', `${day}.jsonl`);
+  mkdirSync(join(HOME, 'markets'), { recursive: true });
+  const fetchedAt = now.toISOString();
+  const rows: Array<Record<string, unknown>> = [];
+  const accounts: string[] = [];
+  try {
+    const markets = (await (
+      await fetch('https://api.kamino.finance/v2/kamino-market', {
+        signal: AbortSignal.timeout(30_000),
+      })
+    ).json()) as Array<{ lendingMarket: string; name?: string }>;
+    for (const m of markets) {
+      const url = `https://api.kamino.finance/kamino-market/${m.lendingMarket}/reserves/metrics`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(30_000) }).catch(() => null);
+      if (!res?.ok) continue;
+      const reserves = (await res.json()) as Array<Record<string, unknown>>;
+      if (!reserves.some((r) => xMints.has(String(r.liquidityTokenMint)))) continue;
+      for (const r of reserves) {
+        rows.push({
+          venue: 'kamino',
+          market: m.lendingMarket,
+          marketName: m.name ?? null,
+          account: r.reserve,
+          assetMint: r.liquidityTokenMint,
+          symbol: r.liquidityToken,
+          isXStock: xMints.has(String(r.liquidityTokenMint)),
+          api: r,
+          source: url,
+          method: 'kamino_api_reserves_metrics',
+          fetchedAt,
+          provenance: 'live',
+        });
+        accounts.push(String(r.reserve));
+      }
+      await sleep(200);
+    }
+  } catch (e) {
+    rows.push({
+      venue: 'kamino',
+      error: String(e).slice(0, 200),
+      source: 'https://api.kamino.finance',
+      fetchedAt,
+    });
+  }
+  try {
+    const url = 'https://lite-api.jup.ag/lend/v1/borrow/vaults';
+    const vaults = (await (
+      await fetch(url, { signal: AbortSignal.timeout(30_000) })
+    ).json()) as Array<
+      Record<string, unknown> & {
+        supplyToken: { address: string; symbol: string };
+        borrowToken: { symbol: string };
+        address: string;
+      }
+    >;
+    for (const v of vaults.filter((x) => xMints.has(x.supplyToken.address))) {
+      const { liquiditySupplyData: _s, liquidityBorrowData: _b, rewards: _r, ...api } = v;
+      rows.push({
+        venue: 'jupiter_lend',
+        market: 'jupiter_lend',
+        account: v.address,
+        assetMint: v.supplyToken.address,
+        symbol: v.supplyToken.symbol,
+        borrowSymbol: v.borrowToken.symbol,
+        isXStock: true,
+        api,
+        source: url,
+        method: 'jupiter_lend_api_borrow_vaults',
+        fetchedAt,
+        provenance: 'live',
+      });
+      accounts.push(v.address);
+    }
+  } catch (e) {
+    rows.push({
+      venue: 'jupiter_lend',
+      error: String(e).slice(0, 200),
+      source: 'https://lite-api.jup.ag/lend/v1/borrow/vaults',
+      fetchedAt,
+    });
+  }
+  for (const r of rows) appendFileSync(out, `${JSON.stringify(r)}\n`);
+  const raw = await getMultiple(accounts).catch(() => new Map<string, Uint8Array>());
+  const rawDir = join(HOME, 'raw-markets', day);
+  mkdirSync(rawDir, { recursive: true });
+  writeFileSync(
+    join(rawDir, `${String(now.getUTCHours()).padStart(2, '0')}.json.gz`),
+    gzipSync(
+      JSON.stringify({
+        fetchedAt,
+        slot: lastSlot,
+        accounts: Object.fromEntries(
+          [...raw].map(([k, v]) => [k, Buffer.from(v).toString('base64')]),
+        ),
+      }),
+    ),
+  );
+  return { marketRows: rows.length, marketAccounts: raw.size };
+}
+
 async function main() {
   if (!RPC_URL) throw new Error('SOLANA_RPC_URL not set (see ~/.colosseum/risk/env)');
   const started = Date.now();
@@ -519,7 +627,13 @@ async function main() {
     }
   }
   writeFileSync(cachePath, JSON.stringify(cache));
+  const markets = hourly
+    ? await snapshotMarkets(now, new Set(reg.pools.map((p) => p.assetMint))).catch((e) => ({
+        error: String(e).slice(0, 120),
+      }))
+    : null;
   const summary = {
+    markets,
     kind: 'run',
     fetchedAt: now.toISOString(),
     slot,
