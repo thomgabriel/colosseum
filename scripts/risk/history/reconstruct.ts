@@ -30,7 +30,8 @@ import { HISTORY_DIR, type RegistryPool, valuePools } from '../lib-history';
 // hour. Depth: the same simulator as the live collector (risk-0.3 single-pool curves).
 // Quote in USD: 1 for USDC; otherwise implied from the same asset's largest USDC pool at the same hour
 // (`quoteUsdMethod: implied_from_<pool>`), so no external price feed is needed. Hours without one are skipped.
-// Checks, per hour (Raydium CLMM): active liquidity from the layout = the last swap's reported liquidity.
+// Checks, per hour: no tick with negative gross liquidity after rewinding (a missed add shows here), and
+// for Raydium CLMM active liquidity from the layout = the last swap's reported liquidity.
 // Output: hourly/<pool>.jsonl, and hourly/summary.json.  Usage: tsx reconstruct.ts [poolPrefix]
 const METHOD = 'history-replay-0.1';
 const SOURCE = 'Solana RPC history (getTransaction) + hourly raw pool snapshots';
@@ -219,10 +220,12 @@ for (const p of pools) {
   const lines: string[] = [];
   let checks = 0;
   let checkFails = 0;
+  let negativeGross = 0;
   let skipped = 0;
   const priceMap = assetUsd.get(p.assetSymbol) ?? new Map();
   for (const h of hours) {
     const layout = cursor.moveTo(h.liqIndex);
+    for (const v of layout.values()) if (v.gross < 0n) negativeGross++;
     if (h.reportedLiquidity !== undefined && p.venue === 'raydium_clmm') {
       checks++;
       if (activeLiquidity(layout, h.tick) !== h.reportedLiquidity) checkFails++;
@@ -291,10 +294,10 @@ for (const p of pools) {
       midErrs.push(Math.abs(mid / lv.midUsd - 1));
     }
   }
-  const q = (a: number[], f: number) =>
-    a.length
-      ? +[...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * f)]!.toExponential(2)
-      : null;
+  const q = (a: number[], f: number) => {
+    const v = [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * f)];
+    return v === undefined ? null : +v.toExponential(2);
+  };
   assetUsd.set(p.assetSymbol, priceMap);
   writeFileSync(join(OUT, `${p.address}.jsonl`), lines.length ? `${lines.join('\n')}\n` : '');
   const row = {
@@ -309,6 +312,7 @@ for (const p of pools) {
     liquidityRows: liq.length,
     activeLiquidityChecks: checks,
     activeLiquidityFails: checkFails,
+    negativeGrossTicks: negativeGross,
     vsCollector: {
       reads: errs.length,
       midRelErrP50: q(midErrs, 0.5),
