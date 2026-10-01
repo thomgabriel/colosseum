@@ -4,7 +4,8 @@
  * Double precision is ~1e-15 relative, far below the precision a depth curve needs. The fee is taken
  * from the input before stepping (on-chain takes it per step; the difference is below one fee rounding).
  */
-export type InitTick = { tick: number; liquidityNet: number };
+/** `net` / `gross` keep the exact on-chain i128 / u128 (the history replay compares them exactly). */
+export type InitTick = { tick: number; liquidityNet: number; net?: bigint; gross?: bigint };
 
 export type ClState = {
   sqrtPrice: number;

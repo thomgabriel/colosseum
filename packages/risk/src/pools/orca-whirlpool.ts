@@ -51,7 +51,13 @@ export function decodeWpTickArray(data: Uint8Array, tickSpacing: number): WpTick
     for (let k = 0; k < TICKS_PER_ARRAY; k++) {
       const o = 12 + k * 113;
       if (r.u8(o) === 0) continue;
-      ticks.push({ tick: start + k * tickSpacing, liquidityNet: Number(r.i128(o + 1)) });
+      const net = r.i128(o + 1);
+      ticks.push({
+        tick: start + k * tickSpacing,
+        liquidityNet: Number(net),
+        net,
+        gross: r.u128(o + 17),
+      });
     }
     return {
       pool: r.pubkey(WP_FIXED_TICK_ARRAY_POOL_OFFSET),
@@ -66,7 +72,13 @@ export function decodeWpTickArray(data: Uint8Array, tickSpacing: number): WpTick
     const tag = r.u8(o);
     o += 1;
     if (tag === 0) continue;
-    ticks.push({ tick: start + k * tickSpacing, liquidityNet: Number(r.i128(o)) });
+    const net = r.i128(o);
+    ticks.push({
+      tick: start + k * tickSpacing,
+      liquidityNet: Number(net),
+      net,
+      gross: r.u128(o + 16),
+    });
     o += 112;
   }
   return {
@@ -84,7 +96,7 @@ export function whirlpoolState(h: WhirlpoolHeader, arrays: WpTickArray[]): ClSta
     liquidity: Number(h.liquidity),
     feeRate: h.feeRate / 1e6,
     ticks: arrays
-      .flatMap((a) => a.ticks)
+      .flatMap((a) => a.ticks.map(({ tick, liquidityNet }) => ({ tick, liquidityNet })))
       .filter((t) => t.liquidityNet !== 0)
       .sort((a, b) => a.tick - b.tick),
   };

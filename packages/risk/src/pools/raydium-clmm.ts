@@ -64,7 +64,8 @@ export function decodeClmmTickArray(data: Uint8Array): ClmmTickArray | null {
     const o = 44 + k * TICK_SIZE;
     const gross = r.u128(o + 20);
     if (gross === 0n) continue;
-    ticks.push({ tick: r.i32(o), liquidityNet: Number(r.i128(o + 4)) });
+    const net = r.i128(o + 4);
+    ticks.push({ tick: r.i32(o), liquidityNet: Number(net), net, gross });
   }
   return { pool, startTickIndex, ticks };
 }
@@ -74,7 +75,9 @@ export function clmmState(
   feeRateMillionths: number,
   arrays: ClmmTickArray[],
 ): ClState {
-  const ticks = arrays.flatMap((a) => a.ticks).sort((a, b) => a.tick - b.tick);
+  const ticks = arrays
+    .flatMap((a) => a.ticks.map(({ tick, liquidityNet }) => ({ tick, liquidityNet })))
+    .sort((a, b) => a.tick - b.tick);
   return {
     sqrtPrice: Number(pool.sqrtPriceX64) / Q64,
     tickCurrent: pool.tickCurrent,
