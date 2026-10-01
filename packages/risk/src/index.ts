@@ -9,4 +9,5 @@ export * from './pools/positions';
 export * from './pools/raydium-clmm';
 export * from './pools/raydium-cpmm';
 export * from './pools/simulate';
+export * from './provider';
 export * from './time';

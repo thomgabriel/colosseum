@@ -1,6 +1,6 @@
 import { type AssetCurves, liquidityScore, weekendRatio, worstCapacity } from './assess';
 import type { RegimeParams } from './time';
-import { regimesIn } from './time';
+import { REGIMES, regimesIn } from './time';
 
 /**
  * Liquidity breach (method risk-0.2). Withdrawals are drawn in order from the BRL leg, cash, then liquid
@@ -102,7 +102,8 @@ export function assessLiquidity(inp: BreachInput) {
   let state = inp;
   let after = checks;
   // least liquid first: lowest score at the plan's window
-  const regimesAll = regimesIn(new Date(), Math.max(24, inp.windowDays * 24), inp.regimeParams);
+  // least liquid first, judged over every regime (no clock: the result must not depend on when it runs)
+  const regimesAll = REGIMES;
   const order = [...inp.illiquid].sort(
     (a, b) =>
       liquidityScore(a.curves, regimesAll, inp.tau, a.valueUsd).score -
