@@ -21,7 +21,7 @@ It always carries **both halves**: *made to measure* (worked backwards from one 
 Tokenized does not mean liquid. The exit plan answers *"can I actually get the money back when I need it, and at what cost?"* before the first dollar moves.
 
 ### Manifesto line (video close, site footer)
-> **"No product fits everyone. So we cut each one to fit — and leave every joint in plain sight."**
+> **"No product fits everyone. So we make the pieces — and your goals decide how they fit."**
 
 ### Short manifesto (about 90 words, voice-over)
 > Most portfolios start from someone else's idea: a theme, a narrative, a model. You pick one and hope it fits.
@@ -135,3 +135,7 @@ Tokenized does not mean liquid. The exit plan answers *"can I actually get the m
 - Competitors are named only in decks, judge materials and internal docs, never in public product copy.
 - Prior-work statistic (2–5.6x) cited as the founder's prior analytics.
 - Brazil and LatAm are partners, not the frame.
+
+
+---
+**Founder edit (2026-10-01):** manifesto / hero headline changed to "No product fits everyone. So we make the pieces — and your goals decide how they fit." The user is the one who decides the fit; the tagline "Made to measure. Every joint shown." is unchanged.

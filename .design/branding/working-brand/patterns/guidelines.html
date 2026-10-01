@@ -196,8 +196,8 @@ h3.sub { font: 600 1.25rem/1.75rem var(--font-body); margin: 56px 0 16px; letter
 .joint .ground { fill: var(--background); }
 .joint .dim { stroke: var(--border); stroke-width: .06; fill: none; }
 .joint .dim-label { font-family: var(--font-mono); font-size: 1.05px; fill: var(--muted-foreground); }
-.joint .piece { animation: seat 1400ms var(--ease) 600ms both; }
-.joint .pin-in { animation: pin-drop 700ms var(--ease) 2200ms both; }
+.joint .piece { animation: seat 1100ms var(--ease) 400ms both; }
+.joint .pin-in { animation: pin-drop 500ms var(--ease) 1500ms both; }  /* hero lock ≈ 2.0s total — founder choice 2026-10-01 */
 @keyframes seat { from { transform: translateX(-11px); } to { transform: none; } }
 @keyframes pin-drop { from { transform: translateY(-5px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -463,7 +463,7 @@ footer { padding: 48px 0 64px; }
     <div class="hero-inner">
       <div>
         <div class="eyebrow"><svg width="32" height="32"><use href="#A"/></svg><span class="wordmark" style="font-size:36px">tenonfi</span></div>
-        <h1>No product fits everyone. So we cut each one to fit — and leave every joint in plain sight.</h1>
+        <h1>No product fits everyone. So we make the pieces — and your goals decide how they fit.</h1>
         <p class="tagline"><b>Made to measure. Every joint shown.</b><br>Tell us what your money needs to do. tenonfi builds the portfolio that gets it there — and shows you how.</p>
       </div>
       <figure style="margin:0" aria-label="The Open Joint: the plan slides through the goal and a pin locks it.">

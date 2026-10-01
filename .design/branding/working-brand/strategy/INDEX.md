@@ -19,7 +19,7 @@
 - **Voice:** Clear, candid, kind. Answer → reason → risk → action. Metaphor in the pictures, plain words in the product.
 - **Essence:** "Fit, shown." **Promise:** "Built for your goal. Nothing hidden."
 - **Architecture:** branded house. **[Name]** (app) · **Powered by [Name]** / **[Name] API** (embed) · **[Name] Bearing** (risk product and the goal + liquidity intelligence layer for partners). No separate sub-brand.
-- **Tagline (recommended):** "Made to measure. Every joint shown." **Manifesto:** "No product fits everyone. So we cut each one to fit — and leave every joint in plain sight."
+- **Tagline (recommended):** "Made to measure. Every joint shown." **Manifesto:** "No product fits everyone. So we make the pieces — and your goals decide how they fit."
 
 ## Open for the founder
 - **Name:** recommended top 3 are **Tenon** (strategist's pick), **Masu** and **Cerne**. Risk-product noun: **Bearing**. Evidence and gaps are in naming.md. Trademark registers are not yet searched.

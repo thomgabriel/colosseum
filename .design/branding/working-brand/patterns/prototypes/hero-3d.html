@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tenonfi — 3D hero prototype</title>
+<!-- PROTOTYPE (design branch). Scroll-driven 3D joint + pre-wallet goal simulator.
+     The joint starts in the master.jpg pose (pieces apart, raking light on warm black)
+     and seats as you scroll; the pin drops last. Everything in the simulator is MOCK. -->
+<style>
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap");
+:root {
+  --black:#0D0B09; --char:#1A1714; --char-2:#24201B; --washi:#ECE4D6; --stone:#A49A8E; --hair:#3A322A;
+  --hinoki:#E6D3B7; --hinoki-deep:#C9AE86; --hardwood:#7A5A3A; --member:#7A6D5F;
+  --font-display:"Newsreader",Georgia,"Times New Roman",serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(0.2,0,0,1);
+  color-scheme: dark;
+}
+* { box-sizing:border-box; }
+html { background:var(--black); }
+body { margin:0; background:var(--black); color:var(--washi); font:400 16px/1.6 var(--font-body); }
+#scene { position:fixed; inset:0; width:100vw; height:100vh; display:block; z-index:0; }
+.wrap { position:relative; z-index:1; max-width:1280px; margin:0 auto; padding:0 clamp(16px,4vw,56px); }
+
+/* top bar */
+.bar { position:fixed; top:0; left:0; right:0; z-index:5; display:flex; justify-content:space-between; align-items:center;
+  padding:calc(env(safe-area-inset-top,0px) + 16px) clamp(16px,4vw,56px) 16px; pointer-events:none; }
+.bar > * { pointer-events:auto; }
+.brand { display:flex; align-items:center; gap:10px; color:var(--washi); text-decoration:none; }
+.brand .wm { font:400 24px/1 var(--font-display); letter-spacing:-.01em; }
+.brand svg { fill:var(--hinoki); }
+.proto { font:400 11px var(--font-mono); color:var(--stone); border:1px solid var(--hair); padding:4px 8px; border-radius:2px; }
+
+/* hero */
+.hero { min-height:100vh; display:flex; align-items:center; overflow-wrap:break-word; }
+.hero-copy { width:100%; min-width:0; max-width:560px; padding-top:72px; }
+.hero h1 { font:400 clamp(2.4rem,1.6rem + 2.6vw,4rem)/1.12 var(--font-display); letter-spacing:-.015em; margin:0; }
+.hero .tagline { margin:28px 0 0; font-size:1.125rem; line-height:1.7; color:var(--stone); max-width:44ch; }
+.hero .tagline b { color:var(--washi); font-weight:500; }
+.scroll-cue { margin-top:40px; font:400 12px var(--font-mono); color:var(--stone); display:flex; gap:10px; align-items:center; }
+.scroll-cue i { display:inline-block; width:1px; height:28px; background:var(--stone); animation:cue 1.6s var(--ease) infinite; transform-origin:top; }
+@keyframes cue { 0%{transform:scaleY(0)} 50%{transform:scaleY(1)} 100%{transform:scaleY(1);opacity:0} }
+
+/* steps (between hero and chat) */
+.steps { min-height:120vh; display:flex; flex-direction:column; justify-content:center; gap:22vh; padding-block:10vh; }
+.step { max-width:420px; opacity:.25; transition:opacity 400ms var(--ease); }
+.step.on { opacity:1; }
+.step .n { font:500 12px var(--font-mono); color:var(--hinoki-deep); letter-spacing:.04em; }
+.step h2 { font:400 clamp(1.6rem,1.2rem + 1.2vw,2.3rem)/1.2 var(--font-display); margin:8px 0 8px; }
+.step p { margin:0; color:var(--stone); }
+
+/* chat simulator */
+.sim { min-height:100vh; display:flex; align-items:center; padding-block:12vh; }
+.panel { width:min(560px,100%); background:rgba(26,23,20,.94); border:1px solid var(--hair); border-radius:2px; }
+.panel-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--hair); }
+.panel-head b { font:500 14px var(--font-body); }
+.panel-head span { font:400 11px var(--font-mono); color:var(--stone); }
+.log { padding:18px; display:flex; flex-direction:column; gap:14px; max-height:56vh; overflow:auto; }
+.msg { max-width:92%; }
+.msg.user { align-self:flex-end; background:var(--char-2); border:1px solid var(--hair); padding:10px 14px; border-radius:2px; }
+.msg.agent { align-self:flex-start; }
+.msg.agent p { margin:0 0 8px; }
+.sheet { border:1px solid var(--hair); border-radius:2px; margin-top:6px; }
+.sheet .row { display:grid; grid-template-columns:130px 1fr; gap:12px; padding:7px 12px; border-top:1px solid var(--hair); font-size:14px; }
+.sheet .row:first-child { border-top:0; }
+.sheet .k { font:400 12px var(--font-mono); color:var(--stone); padding-top:2px; }
+.sheet .v.missing { color:var(--stone); font-style:italic; }
+.legs { margin-top:10px; border:1px solid var(--hair); border-radius:2px; position:relative; }
+.legs-head { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid var(--hair); }
+.mock { font:500 11px var(--font-mono); letter-spacing:.06em; color:var(--washi); padding:2px 8px; border-radius:2px;
+  background-color:var(--black); background-image:repeating-linear-gradient(45deg, var(--stone) 0 1px, transparent 1px 6px); }
+.mock span { background:var(--black); padding:0 4px; }
+.leg { display:grid; grid-template-columns:1fr 54px; gap:8px; align-items:center; padding:8px 12px; }
+.leg .name { font-size:14px; }
+.leg .why { font-size:12px; color:var(--stone); }
+.leg .w { font:500 13px var(--font-mono); text-align:right; font-variant-numeric:tabular-nums; }
+.bar-track { grid-column:1 / -1; height:4px; background:var(--char-2); }
+.bar-fill { height:100%; width:0; transition:width 600ms var(--ease); }
+.exit { margin-top:10px; font:400 13px var(--font-body); color:var(--washi); border-left:2px solid var(--hinoki); padding:2px 0 2px 10px; }
+.exit em { font-style:normal; color:var(--stone); font-family:var(--font-mono); font-size:12px; }
+.disclaimer { margin-top:10px; font-size:12px; color:var(--stone); }
+.chips { display:flex; flex-wrap:wrap; gap:8px; padding:0 18px 14px; }
+.chip { font:400 13px var(--font-body); color:var(--washi); background:transparent; border:1px solid var(--member); border-radius:2px; padding:6px 10px; cursor:pointer; }
+.chip:hover { background:var(--char-2); }
+form.ask { display:flex; gap:8px; padding:14px 18px; border-top:1px solid var(--hair); }
+form.ask input { flex:1; min-width:0; font:400 15px var(--font-body); color:var(--washi); background:var(--black); border:1px solid var(--member); border-radius:2px; padding:10px 12px; }
+form.ask input:focus-visible, .chip:focus-visible, button:focus-visible { outline:2px solid var(--hinoki); outline-offset:2px; }
+button.primary { font:500 14px var(--font-body); color:var(--black); background:var(--hinoki); border:0; border-radius:2px; padding:10px 16px; cursor:pointer; }
+button.primary:hover { background:#D7C09E; }
+.connect { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 18px; border-top:1px solid var(--hair); font-size:13px; color:var(--stone); }
+button.ghost { font:500 13px var(--font-body); color:var(--washi); background:transparent; border:1px solid var(--member); border-radius:2px; padding:8px 12px; cursor:pointer; }
+.foot { padding:40px 0 calc(env(safe-area-inset-bottom,0px) + 40px); font:400 12px var(--font-mono); color:var(--stone); }
+
+@media (max-width:820px) {
+  .hero { align-items:flex-end; padding-bottom:12vh; }
+  .hero-copy { background:linear-gradient(to top, rgba(13,11,9,.92) 70%, rgba(13,11,9,0)); padding:40px 0 0; }
+  .sheet .row { grid-template-columns:110px 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .scroll-cue i { animation:none; } .bar-fill { transition:none; } }
+</style>
+</head>
+<body>
+
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<header class="bar">
+  <a class="brand" href="#top" aria-label="tenonfi">
+    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="12" width="5" height="10"/><rect x="7" y="13" width="23" height="8"/><rect x="11" y="3" width="9" height="27"/><circle cx="25" cy="17" r="2" fill="#0D0B09"/></svg>
+    <span class="wm">tenonfi</span>
+  </a>
+  <span class="proto">PROTOTYPE · 3D hero</span>
+</header>
+
+<main class="wrap" id="top">
+  <section class="hero" aria-label="Introduction">
+    <div class="hero-copy">
+      <h1>No product fits everyone. So we make the pieces — and your goals decide how they fit.</h1>
+      <p class="tagline"><b>Made to measure. Every joint shown.</b><br>Tell us what your money needs to do. tenonfi builds the portfolio that gets it there, and shows you how.</p>
+      <div class="scroll-cue"><i></i> scroll to see it fit</div>
+    </div>
+  </section>
+
+  <section class="steps" aria-label="How it fits">
+    <div class="step" data-at="0.25"><div class="n">01 · THE PIECES</div><h2>We cut the pieces.</h2><p>Dollar yield, treasuries, credit, cash: each one measured for what it really pays after risk, and how fast it can be turned back into dollars.</p></div>
+    <div class="step" data-at="0.55"><div class="n">02 · THE FIT</div><h2>Your goal decides how they fit.</h2><p>An amount, a date, cash you must be able to reach. The plan is cut to those limits and to no one else's.</p></div>
+    <div class="step" data-at="0.85"><div class="n">03 · THE PIN</div><h2>Every joint stays in sight.</h2><p>Every number carries its source. Every portfolio has an exit plan before the agent invests.</p></div>
+  </section>
+
+  <section class="sim" id="simulate" aria-label="Try it before connecting a wallet">
+    <div class="panel">
+      <div class="panel-head"><b>Try a goal, no wallet needed</b><span>simulation · nothing is executed</span></div>
+      <div class="log" id="log" aria-live="polite">
+        <div class="msg agent"><p>Tell me what your money needs to do: an amount, a date, and how fast you might need it back. I'll show you how the pieces would fit.</p></div>
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip" type="button">$40,000 by June 2028, cash within 7 days</button>
+        <button class="chip" type="button">$3,000 a month from 2028</button>
+        <button class="chip" type="button">Grow $25,000 over 3 years, I accept credit risk</button>
+      </div>
+      <form class="ask" id="ask" autocomplete="off">
+        <label for="q" class="sr" style="position:absolute;left:-9999px">Your goal</label>
+        <input id="q" name="q" placeholder="e.g. $40,000 by June 2028, cash within 7 days">
+        <button class="primary" type="submit">Fit it</button>
+      </form>
+      <div class="connect"><span>Like the fit? Connect a wallet to get a live plan with sourced numbers.</span><button class="ghost" type="button" disabled title="Prototype">Connect wallet</button></div>
+    </div>
+  </section>
+
+  <footer class="foot">tenonfi · prototype on the design branch · simulated plans are MOCK, carry no live figures, and are not investment advice.</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var canvas = document.getElementById('scene');
+
+  /* ---------- graceful fallback: no WebGL / no three ---------- */
+  var gl = null;
+  try { gl = canvas.getContext('webgl2') || canvas.getContext('webgl'); } catch (e) {}
+  if (!window.THREE || !gl) { canvas.style.display = 'none'; window.__progress = function(){}; return setupUI(function(){}); }
+
+  /* ---------- renderer / scene / camera ---------- */
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, context: gl, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0D0B09);
+
+  var camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+
+  /* raking key light from upper-left (master.jpg), warm fill, low ambient */
+  scene.add(new THREE.HemisphereLight(0xfff1dc, 0x0d0b09, 0.35));
+  var key = new THREE.DirectionalLight(0xffe7c4, 2.1);
+  key.position.set(-9, 14, 10);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left = -14; key.shadow.camera.right = 14; key.shadow.camera.top = 14; key.shadow.camera.bottom = -14;
+  key.shadow.bias = -0.0004; key.shadow.radius = 4;
+  scene.add(key);
+  var rim = new THREE.DirectionalLight(0xffd9a8, 0.55);
+  rim.position.set(10, 4, -8);
+  scene.add(rim);
+
+  /* ---------- procedural wood ---------- */
+  function woodTexture(base, dark, light, seed, endGrain) {
+    var c = document.createElement('canvas'); c.width = c.height = 512;
+    var x = c.getContext('2d');
+    x.fillStyle = base; x.fillRect(0, 0, 512, 512);
+    var r = seed;
+    function rnd() { r = (r * 9301 + 49297) % 233280; return r / 233280; }
+    if (endGrain) {
+      var cx = 256 + (rnd() - .5) * 200, cy = 256 + (rnd() - .5) * 200;
+      for (var i = 0; i < 46; i++) {
+        x.beginPath(); x.strokeStyle = (i % 3 === 0) ? dark : light;
+        x.globalAlpha = 0.18 + rnd() * 0.25; x.lineWidth = 1 + rnd() * 2.5;
+        x.arc(cx, cy, 12 + i * 11 + rnd() * 5, 0, Math.PI * 2); x.stroke();
+      }
+    } else {
+      for (var j = 0; j < 90; j++) {
+        var y0 = rnd() * 512, amp = 2 + rnd() * 9, f = 0.004 + rnd() * 0.01, ph = rnd() * 6;
+        x.beginPath(); x.strokeStyle = (j % 4 === 0) ? light : dark;
+        x.globalAlpha = 0.08 + rnd() * 0.22; x.lineWidth = 0.6 + rnd() * 2.2;
+        for (var px = 0; px <= 512; px += 8) {
+          var py = y0 + Math.sin(px * f + ph) * amp + Math.sin(px * f * 3.1 + ph) * amp * 0.25;
+          if (px === 0) x.moveTo(px, py); else x.lineTo(px, py);
+        }
+        x.stroke();
+      }
+    }
+    x.globalAlpha = 1;
+    var t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return t;
+  }
+  function woodMats(base, dark, light, seed) {
+    var side = new THREE.MeshStandardMaterial({ map: woodTexture(base, dark, light, seed, false), roughness: 0.72, metalness: 0 });
+    var end = new THREE.MeshStandardMaterial({ map: woodTexture(base, dark, light, seed + 7, true), roughness: 0.8, metalness: 0 });
+    /* BoxGeometry face order: +x, -x, +y, -y, +z, -z. alongX = grain runs along x. */
+    return { alongX: [end, end, side, side, side, side], alongY: [side, side, end, end, side, side] };
+  }
+  var HINOKI = woodMats('#E2CBA6', '#B8976B', '#F3E6CF', 11);   /* pale post, like master.jpg right */
+  var HARD   = woodMats('#6E4A2E', '#4A2E18', '#8E6844', 23);   /* darker hardwood rail */
+  var PIN    = new THREE.MeshStandardMaterial({ map: woodTexture('#EAD7B6', '#C9AE86', '#F6EBD6', 37, false), roughness: 0.6 });
+
+  function box(w, h, d, mats, x, y, z) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats);
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m;
+  }
+
+  /* ---------- the joint (assembled coordinates; units ≈ cm) ----------
+     Post: 3 × 14 × 3, centred at origin, with a 1.6 (y) × 1.2 (z) through-mortise along x.
+     Rail: 3 × 3 section, ends at x = -1.5; tenon 1.6 × 1.2 passes through and stands out to x = 3.6,
+           with a 0.64 pin hole at x = 2.55.
+     Pin:  r 0.3 dowel, vertical through the tenon end. */
+  var group = new THREE.Group(); scene.add(group);
+
+  var post = new THREE.Group();
+  post.add(box(3, 6.2, 3, HINOKI.alongY, 0, -3.9, 0));      /* below mortise */
+  post.add(box(3, 6.2, 3, HINOKI.alongY, 0,  3.9, 0));      /* above */
+  post.add(box(3, 1.6, 0.9, HINOKI.alongY, 0, 0,  1.05));   /* front cheek */
+  post.add(box(3, 1.6, 0.9, HINOKI.alongY, 0, 0, -1.05));   /* back cheek */
+  group.add(post);
+
+  var rail = new THREE.Group();
+  rail.add(box(12, 3, 3, HARD.alongX, -7.5, 0, 0));          /* body x ∈ [-13.5, -1.5] */
+  rail.add(box(3.75, 1.6, 1.2, HARD.alongX, 0.375, 0, 0));   /* tenon x ∈ [-1.5, 2.25] */
+  rail.add(box(0.75, 1.6, 1.2, HARD.alongX, 3.225, 0, 0));   /* tenon tip x ∈ [2.85, 3.6] */
+  rail.add(box(0.6, 1.6, 0.28, HARD.alongX, 2.55, 0,  0.46)); /* hole cheeks */
+  rail.add(box(0.6, 1.6, 0.28, HARD.alongX, 2.55, 0, -0.46));
+  group.add(rail);
+
+  var pin = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3.4, 32), PIN);
+  pin.castShadow = true; pin.position.set(2.55, 0, 0);
+  group.add(pin);
+
+  /* second, pale rail entering from the front (the lower-left member in master.jpg) — static, frames the composition */
+  var rail2 = new THREE.Group();
+  rail2.add(box(3, 3, 10, HINOKI.alongY, 0, -5.2, 6.6));
+  rail2.rotation.y = 0;
+  group.add(rail2);
+
+  group.rotation.set(0.12, -0.62, 0);
+
+  /* ---------- poses ---------- */
+  function ease(t) { return 1 - Math.pow(1 - t, 3); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function setProgress(p) {
+    /* 0 → master pose (apart); 0.75 → rail seated; 0.75–1 → pin drops in */
+    var a = ease(clamp(p / 0.75, 0, 1));
+    var b = ease(clamp((p - 0.72) / 0.28, 0, 1));
+    rail.position.x = -7.2 * (1 - a);
+    rail.position.y = 0.9 * (1 - a);
+    rail.rotation.y = 0.22 * (1 - a);
+    rail.rotation.z = -0.05 * (1 - a);
+    pin.position.x = 2.55 + rail.position.x;           /* the pin follows the rail until it drops */
+    pin.position.y = 7.5 * (1 - b) + rail.position.y * (1 - b);
+    pin.rotation.z = 0.35 * (1 - b);
+    pin.material.opacity = 1;
+    rail2.position.z = 3.2 * (1 - a);
+  }
+
+  /* ---------- layout: joint sits right in hero, slides further right for the chat ---------- */
+  var current = 0, target = 0;
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    frame();
+  }
+  function frame() {
+    var w = window.innerWidth, narrow = w < 820;
+    camera.position.set(14, 17, 24);
+    camera.lookAt(0, 0, 0);
+    /* screen-space offset: push the joint to the right of the copy */
+    var off = narrow ? 0 : 4.2 + current * 1.2;
+    group.position.set(off, narrow ? 3.5 : 0, -off * 0.6);
+    var s = narrow ? 0.7 : 1;
+    group.scale.setScalar(s);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* scroll → progress: 0 at top, 1 when the simulator reaches the middle of the screen */
+  var sim = document.getElementById('simulate');
+  var forced = 0;
+  function readScroll() {
+    var end = sim.offsetTop - window.innerHeight * 0.25;
+    target = Math.max(forced, clamp(window.scrollY / Math.max(end, 1), 0, 1));
+    document.querySelectorAll('.step').forEach(function (s) {
+      s.classList.toggle('on', target >= +s.dataset.at - 0.2 && target < +s.dataset.at + 0.25 || (target >= 0.99 && s.dataset.at === '0.85'));
+    });
+  }
+  window.addEventListener('scroll', readScroll, { passive: true });
+  readScroll();
+
+  function loop() {
+    current += (target - current) * (reduce ? 1 : 0.08);
+    if (Math.abs(target - current) < 0.0005) current = target;
+    setProgress(reduce ? (target > 0.5 ? 1 : 0) : current);
+    frame();
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  window.__progress = function (p) { forced = p; readScroll(); };
+  /* review aid: ?p=0.5 pins the assembly at a given progress (e.g. for screenshots) */
+  var qp = new URLSearchParams(location.search).get('p');
+  if (qp !== null && !isNaN(+qp)) { forced = clamp(+qp, 0, 1); current = forced; readScroll(); }
+  if (new URLSearchParams(location.search).get('at') === 'sim') { document.querySelectorAll('.hero, .steps').forEach(function (el) { el.style.display = 'none'; }); }
+  setupUI(function () { forced = 1; readScroll(); });
+})();
+
+/* ---------- pre-wallet simulator (all output is MOCK; no live figures, no yields) ---------- */
+function setupUI(onFit) {
+  var log = document.getElementById('log'), form = document.getElementById('ask'), q = document.getElementById('q');
+  document.querySelectorAll('.chip').forEach(function (c) { c.addEventListener('click', function () { q.value = c.textContent; form.requestSubmit(); }); });
+  /* review aid: ?demo=1 submits the first suggestion on load */
+  if (new URLSearchParams(location.search).get('demo') === '1') { window.addEventListener('load', function () { document.querySelector('.chip').click(); }); }
+
+  function esc(s) { return s.replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+  function parse(t) {
+    var s = t.toLowerCase(), out = {};
+    var amt = t.match(/[$R€]\$?\s?([\d.,]+)\s*(k|mil|m)?/i);
+    if (amt) { out.amount = amt[0].replace(/\s+/g, ''); }
+    out.kind = /month|mês|mes|mensal/.test(s) ? 'Income: monthly withdrawals' : /grow|cres|crec/.test(s) ? 'Growth: target balance' : 'Target balance by a date';
+    var yr = s.match(/\b(20[2-9]\d)\b/); var mon = s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/);
+    var yrs = s.match(/(\d+)\s*(years|year|anos|años)/);
+    out.horizon = yr ? ((mon ? mon[0][0].toUpperCase() + mon[0].slice(1, 3) + ' ' : '') + yr[1]) : yrs ? yrs[1] + ' years' : null;
+    var liq = s.match(/(\d+)\s*(days|day|dias|días)/);
+    out.liquidity = liq ? 'Cash within ' + liq[1] + ' days' : /week|semana/.test(s) ? 'Cash within 7 days' : null;
+    out.credit = /credit|crédito|credito/.test(s) ? 'Accepted' : 'Not stated, assume cautious';
+    out.stocks = out.kind.indexOf('Income') === 0 ? 'Not eligible for income goals' : /grow/.test(s) ? 'Eligible (growth goal)' : 'Not used';
+    return out;
+  }
+  function plan(p) {
+    var income = p.kind.indexOf('Income') === 0, growth = p.kind.indexOf('Growth') === 0, fast = !!p.liquidity;
+    var legs = [
+      { n: 'Cash buffer', why: 'covers the liquidity window', w: fast ? 20 : 10, c: '#E6D3B7' },
+      { n: 'Tokenized treasuries', why: 'dollar yield, daily redemption', w: income ? 45 : 35, c: '#C9AE86' },
+      { n: 'Dollar lending', why: 'variable rate, fast exit', w: growth ? 20 : 25, c: '#9D7751' },
+      growth ? { n: 'Tokenized stocks', why: 'growth leg, thinner weekend exit', w: 0, c: '#7A5A3A' }
+      : p.credit === 'Accepted' ? { n: 'Private credit', why: 'higher yield, slower exit (credit risk accepted)', w: 0, c: '#7A5A3A' }
+      : { n: 'Longer treasuries', why: 'locks in a rate, short exit; no credit risk', w: 0, c: '#7A5A3A' }
+    ];
+    legs[3].w = 100 - legs[0].w - legs[1].w - legs[2].w;
+    return legs;
+  }
+  function add(html, cls) { var d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var t = q.value.trim(); if (!t) return;
+    add(esc(t), 'user'); q.value = '';
+    var p = parse(t), legs = plan(p);
+    function row(k, v) { return '<div class="row"><span class="k">' + k + '</span><span class="v' + (v ? '' : ' missing') + '">' + (v ? esc(v) : 'not given, I’ll ask') + '</span></div>'; }
+    var html = '<p>Here’s how I read your goal. Edit anything that’s wrong before I fit the pieces.</p>' +
+      '<div class="sheet">' + row('goal', p.kind) + row('amount', p.amount) + row('horizon', p.horizon) + row('liquidity', p.liquidity) + row('credit risk', p.credit) + row('stocks', p.stocks) + '</div>' +
+      '<div class="legs"><div class="legs-head"><span style="font:500 13px var(--font-body)">How the pieces would fit</span><span class="mock"><span>MOCK</span></span></div>' +
+      legs.map(function (l) { return '<div class="leg"><div><div class="name">' + l.n + '</div><div class="why">' + l.why + '</div></div><div class="w">' + l.w + '%</div><div class="bar-track"><div class="bar-fill" data-w="' + l.w + '" style="background:' + l.c + '"></div></div></div>'; }).join('') +
+      '</div>' +
+      '<div class="exit">Exit plan before investing: ' + (p.liquidity ? esc(p.liquidity.toLowerCase()) + ' is covered by the cash buffer and daily-redeemable legs' : 'tell me how fast you might need cash and I’ll size the buffer') + '. <em>Yields and exit costs are sourced live after you connect.</em></div>' +
+      '<div class="disclaimer">Simulation with sample weights. Not investment advice.</div>';
+    var d = add(html, 'agent');
+    requestAnimationFrame(function () { d.querySelectorAll('.bar-fill').forEach(function (b) { b.style.width = b.dataset.w + '%'; }); });
+    onFit();
+  });
+}
+</script>
+</body>
+</html>
