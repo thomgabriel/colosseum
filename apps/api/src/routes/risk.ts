@@ -2,17 +2,21 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   createDb,
+  riskAssetSnapshots,
   riskDepthCurves,
   riskEvents,
   riskLpConcentration,
+  riskMarketParams,
   riskPoolSnapshots,
   riskPools,
 } from '@colosseum/db';
 import {
   type AssetCurves,
   assessLiquidity,
+  costAt,
   type DepthCurve,
   defaultRegimeParams,
+  gapSim,
   hourOfWeek,
   type IssuerModel,
   liquidityScore,
@@ -394,6 +398,168 @@ export async function registerRiskRoutes(app: FastifyInstance) {
       }
       const r = assessLiquidity({ ...req.body, illiquid, regimeParams: REGIME_PARAMS });
       return { ...r, methodVersion: METHOD_VERSION, disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  async function latestMarkets() {
+    const rows = await db
+      .select()
+      .from(riskMarketParams)
+      .orderBy(desc(riskMarketParams.fetchedAt))
+      .limit(2000);
+    const latest = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) if (!latest.has(r.account)) latest.set(r.account, r);
+    return [...latest.values()];
+  }
+
+  f.get(
+    '/risk/markets',
+    {
+      schema: {
+        summary:
+          'Lending markets that accept tokenized stocks: parameters per reserve / vault and the dispersion table',
+        description: `Kamino reserves are decoded from on-chain account bytes (verification: onchain); Jupiter Lend vaults come from the protocol API (verification: api).\n\n${DISCLAIMER.en}`,
+        response: { 200: z.any() },
+      },
+    },
+    async () => {
+      const markets = await latestMarkets();
+      const dispersion = new Map<
+        string,
+        Array<{
+          venue: string;
+          market: string;
+          ltv: number;
+          liquidationThreshold: number;
+          verification: string;
+        }>
+      >();
+      for (const m of markets.filter((x) => x.isXStock)) {
+        const p = m.params as { ltv: number; liquidationThreshold: number };
+        if (!p.ltv) continue;
+        dispersion.set(m.asset, [
+          ...(dispersion.get(m.asset) ?? []),
+          {
+            venue: m.venue,
+            market: m.borrowAsset ? `${m.market} (${m.borrowAsset})` : m.market,
+            ltv: p.ltv,
+            liquidationThreshold: p.liquidationThreshold,
+            verification: m.verification,
+          },
+        ]);
+      }
+      return {
+        markets,
+        dispersion: [...dispersion.entries()].map(([asset, venues]) => ({
+          asset,
+          venues,
+          ltvRange: [Math.min(...venues.map((v) => v.ltv)), Math.max(...venues.map((v) => v.ltv))],
+        })),
+        disclaimer: DISCLAIMER.en,
+      };
+    },
+  );
+
+  f.post(
+    '/risk/markets/:account/gap',
+    {
+      schema: {
+        summary:
+          'Gap simulator: liquidatable at reopen vs unliquidatable while the primary market is closed',
+        params: z.object({ account: z.string() }),
+        body: z.object({
+          gapPct: z.number().positive().max(0.9),
+          /** Oracle price band while closed (fraction); the Scope band is not yet verified, so it is an input. */
+          bandPct: z.number().positive().max(1).default(1),
+          closeFactor: z.number().positive().max(1).default(0.2),
+          fullLiqLtv: z.number().positive().max(1).optional(),
+        }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const m = (await latestMarkets()).find((x) => x.account === req.params.account);
+      if (!m || !m.assetMint)
+        return reply.code(404).send({ error: `unknown market account ${req.params.account}` });
+      const p = m.params as {
+        liquidationThreshold: number;
+        liquidationBonusMax: number;
+        liquidationMaxLimit?: number;
+      };
+      const [snap] = await db
+        .select()
+        .from(riskAssetSnapshots)
+        .where(eq(riskAssetSnapshots.assetMint, m.assetMint))
+        .orderBy(desc(riskAssetSnapshots.fetchedAt))
+        .limit(1);
+      if (!snap) return reply.code(404).send({ error: `no price snapshot for ${m.asset}` });
+      const t = (m.totals ?? {}) as Record<string, unknown>;
+      let collateralUsd: number;
+      let debtUsd: number;
+      const assumptions: string[] = [];
+      if (m.venue === 'jupiter_lend') {
+        collateralUsd = (Number(t.totalSupply) / 10 ** Number(t.supplyDecimals)) * snap.refMidUsd;
+        debtUsd = Number(t.totalBorrow) / 10 ** Number(t.borrowDecimals);
+        assumptions.push(
+          'isolated vault: collateral and debt are the vault totals (protocol API); debt valued at par',
+        );
+      } else {
+        // Kamino: debt is pooled across a market's collaterals; attribute it pro rata to collateral value
+        const siblings = (await latestMarkets()).filter((x) => x.market === m.market);
+        const coll = siblings.reduce(
+          (s2, x) =>
+            s2 +
+            Number((x.totals as Record<string, unknown> | null)?.totalSupplyUsd ?? 0) *
+              (x.isXStock ? 1 : 0),
+          0,
+        );
+        const debt = siblings.reduce(
+          (s2, x) => s2 + Number((x.totals as Record<string, unknown> | null)?.totalBorrowUsd ?? 0),
+          0,
+        );
+        collateralUsd = Number(t.totalSupplyUsd ?? 0);
+        debtUsd = coll > 0 ? (debt * collateralUsd) / coll : 0;
+        assumptions.push(
+          'pooled market: debt attributed to this collateral pro rata to xStock collateral value (assumption)',
+        );
+      }
+      assumptions.push(
+        'one aggregate position at the average LTV: individual positions nearer the threshold liquidate earlier; obligations not enumerated',
+        `close factor ${req.body.closeFactor} and band ${req.body.bandPct} are inputs (band: Scope config not yet verified)`,
+      );
+      const c = await curvesFor(m.assetMint);
+      const reopen = c.byRegime.us_market_hours;
+      const result = gapSim(
+        {
+          ltvLiq: p.liquidationThreshold,
+          closeFactor: req.body.closeFactor,
+          fullLiqLtv: req.body.fullLiqLtv ?? p.liquidationMaxLimit ?? 0.95,
+          liqBonus: p.liquidationBonusMax,
+          bandPct: req.body.bandPct,
+          provenance: m.verification === 'onchain' ? 'live' : 'assumption',
+          source: m.source,
+        },
+        [{ collateralUsd, debtUsd }],
+        req.body.gapPct,
+        (n) => (reopen ? costAt(reopen, n) : null),
+      );
+      return {
+        market: m.market,
+        venue: m.venue,
+        asset: m.asset,
+        account: m.account,
+        verification: m.verification,
+        aggregate: {
+          collateralUsd,
+          debtUsd,
+          ltv: collateralUsd > 0 ? debtUsd / collateralUsd : null,
+          priceUsd: snap.refMidUsd,
+          priceAt: snap.fetchedAt,
+        },
+        ...result,
+        assumptions: [...result.assumptions, ...assumptions],
+        disclaimer: DISCLAIMER.en,
+      };
     },
   );
 

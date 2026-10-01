@@ -182,3 +182,29 @@ export const riskAssetSnapshots = pgTable(
   },
   (t) => [primaryKey({ columns: [t.assetMint, t.fetchedAt] })],
 );
+
+/** Lending-market parameters per reserve / vault: on-chain decoded where possible, else protocol API. */
+export const riskMarketParams = pgTable(
+  'risk_market_params',
+  {
+    venue: text('venue').notNull(),
+    market: text('market').notNull(),
+    account: text('account').notNull(),
+    assetMint: text('asset_mint'),
+    asset: text('asset').notNull(),
+    borrowAsset: text('borrow_asset'),
+    isXStock: integer('is_xstock').notNull(),
+    /** Normalised: ltv, liquidationThreshold (fractions), liquidationBonus (fraction), plus raw fields. */
+    params: jsonb('params').notNull(),
+    /** Supply / borrow totals as reported (API), for market-level aggregates. */
+    totals: jsonb('totals'),
+    /** 'onchain' when decoded from account bytes and matched; 'api' when only the protocol API is available. */
+    verification: text('verification').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.account, t.fetchedAt] })],
+);

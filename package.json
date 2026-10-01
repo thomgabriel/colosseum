@@ -43,7 +43,8 @@
     "risk:import": "tsx scripts/risk/import.ts",
     "risk:compute": "tsx scripts/risk/compute.ts",
     "risk:history": "tsx scripts/risk/history-backfill.ts",
-    "risk:routing-gap": "tsx scripts/risk/routing-gap.ts"
+    "risk:routing-gap": "tsx scripts/risk/routing-gap.ts",
+    "risk:markets": "tsx scripts/risk/verify-markets.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
