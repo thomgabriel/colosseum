@@ -29,7 +29,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 
 ## 0. What changed from v1
 
-- The code lands in Rodrigo's repo, on a branch `basket` cut from `risk-layer` (upstream tip `9cb2294`; our read-only copy is at `75ae4f0`). `packages/engine` keeps its name; Thom's chain-free logic goes in a new `packages/basket`. `basket` adds files and does not edit or delete his.
+- The code lands in Rodrigo's repo and builds on `main`, which has had the risk layer and the design system since Oct 1. `packages/engine` keeps its name; Thom's chain-free logic goes in a new `packages/basket`. New work adds files where it can.
 - Nine MVP items: the agent surface is item 9. Free tiers only, so the backend reads chain state and runs no indexer.
 - One object, the **order**, with **legs**, backs every buy, rebalance, publish and agent approval. Keeper legs sit in their own table, which only the keeper can write.
 - The browser handles bytes only. A guard checks every transaction down to the function and its arguments before it is signed.
@@ -37,7 +37,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 - Solana: Kamino Scope prices cover ten stock tokens and nothing else, so auto-follow runs only on vaults whose every asset is in that list.
 - EVM: a fresh price does not prove an open market, so stock legs trade only in a fixed weekday window, minus a list of closed days.
 - The model fills a form and nothing else. Explanation text comes from templates.
-- The keeper runs as a loop on a machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is Rodrigo's frozen `main`.
+- The keeper runs as a loop on a machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is `main`.
 - The publish delay has a one-way launch latch: short while only team money is in, 48 hours and locked before the public link.
 - Hostile cases A1 to A18, a two-tier security gate per chain, and a separate gate before the public link is shared.
 - The build starts small. Section 16 lists what is out unless the team is ahead, each with a date.
@@ -79,9 +79,9 @@ Not built: bridging, shared pools, an adviser view, creator fees, fiat ramps, pe
 
 ## 2. Repo layout
 
-Base: `risk-layer` at its upstream tip. Integration branch `basket`. Stream pull requests target `basket`; one draft pull request goes `basket` to `main`. The documents-only draft pull request to `main` is separate and already under way. Merge `risk-layer` into `basket` each morning. Only `basket` generates migrations after the cut.
+Base: `main`. Each stream works in a short-lived branch and opens a pull request to `main`. Only one branch at a time generates migrations.
 
-**The add-only rule.** `basket` adds files. An edit to a file Rodrigo owns is made by him and arrives by merge, so the morning merge never conflicts. In the API, his server-signing surfaces are switched off, not deleted: with `LEGACY_STRUCTURER=off` the `/policies/*` routes are not registered. In the web app his three screens (home, plan, monitor) are rebuilt on his design system and extended, as section 11 describes; who edits which file there is agreed per screen. Exceptions he agrees to (section 17): the PR0 chores, and `packages/chain-solana` and `packages/chain-evm`, which pass to Thom at the cut.
+**The add-only rule.** New work adds files. An edit to a file Rodrigo owns is made by him and arrives by merge, so the morning merge never conflicts. In the API, his server-signing surfaces are switched off, not deleted: with `LEGACY_STRUCTURER=off` the `/policies/*` routes are not registered. In the web app his three screens (home, plan, monitor) are rebuilt on his design system and extended, as section 11 describes; who edits which file there is agreed per screen. Exceptions he agrees to (section 17): the PR0 chores, and `packages/chain-solana` and `packages/chain-evm`, which pass to Thom at the cut.
 
 | Path | Status | Owner | May import |
 |---|---|---|---|
@@ -945,9 +945,9 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 
 **Settled on Oct 1.** These were written as questions for Rodrigo. They are decided here because they make sense for the product; either founder can reopen one.
 
-1. Write access: granted. The build branch is `basket`, cut from `risk-layer` and moved onto `main` once his branches are merged there. It merges into `main` for the submission.
+1. Write access: granted. Rodrigo merged his branches into `main` on Oct 1; the work builds on `main`, in a short-lived branch per stream, and `main` is what gets submitted.
 2. The licence: Apache-2.0.
-3. Adding files stays the default, to keep merges clean. Where an edit to an existing file makes the product better, we make it and say so in the pull request. The four edits are ours to make: the server-signing routes go behind `LEGACY_STRUCTURER` and are deleted once the vault path replaces them; `seed-assets.ts` moves to `scripts/`; the CI chores are done on `basket`; and six lines in `scripts/risk/compute.ts`. `chain-solana` and `chain-evm` are Thom's. Migrations are generated on `basket` only.
+3. Adding files stays the default, to keep merges clean. Where an edit to an existing file makes the product better, we make it and say so in the pull request. The four edits are ours to make: the server-signing routes go behind `LEGACY_STRUCTURER` and are deleted once the vault path replaces them; `seed-assets.ts` moves to `scripts/`; the CI chores are done; and six lines in `scripts/risk/compute.ts`. `chain-solana` and `chain-evm` are Thom's. One branch at a time generates migrations.
 4. One of Thom's agents ports the personalization prototype into `engine/src/personal/` with sensible starting numbers. Rodrigo tunes the sleeve table, glide floors, caps and wording when he can.
 5. Stock tokens stay out of income plans, as his rule says.
 6. Stocks and gold: no return assumed, with the dollar loss in a 20% fall shown. A sourced range can come later.

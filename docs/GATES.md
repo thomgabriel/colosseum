@@ -32,7 +32,7 @@ From `docs/HANDOFF-VAULT.md`. Either founder can reopen one.
 | **EVM-S1** — EVM adapter | DECIDED: build | Build it for Robinhood Chain and Base, with the same vault | `spikes/evm-vault` passed on a Robinhood Chain fork; Base passed as a read-only simulation |
 | **B2** — second builder | DECIDED: yes | Thom joins; split in `docs/HANDOFF-VAULT.md` | Engine, risk layer and brand stay with Rodrigo |
 | **SIGN-IN** | DECIDED | Wallet connect or a passkey wallet (Privy) | `docs/research/open-questions/wallet-providers.md` |
-| **BRANCH** — where the vault work lands | DECIDED | Branch `basket`, built on `risk-layer`, moved onto `main` once the branches are merged there | The risk sheet needs `packages/risk`; `main` is frozen for the structurer |
+| **BRANCH** — where the vault work lands | DECIDED | The vault work builds on `main`, in short-lived branches per stream | Rodrigo merged the risk layer and the design system into `main` on Oct 1 |
 | **RISK-DATA** — risk data for the demo | OPEN | Hosted collector or a dated snapshot | The collectors run under launchd on one machine today |
 | **NAME** | OPEN | Tenonfi is provisional on the `design` branch; final after the trademark, domain and native-speaker checks | — |
 | **LICENCE** | DECIDED | Apache-2.0 | The repo was public with no licence |
