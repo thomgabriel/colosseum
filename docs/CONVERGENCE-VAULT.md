@@ -34,7 +34,7 @@ Code builds on upstream `risk-layer` (now `9cb2294`), because the exit plan need
 | `apps/risk-api` | keep | Not touched |
 | `apps/web` | adapt | New screens in `features/` folders. His `/risk/*` pages stay. `/monitor`, `/plans/[id]` and `/embed` leave the navigation and are deleted after the freeze. Privy replaces the wallet-adapter provider |
 | `scripts/`, `fixtures/`, `tests/`, `docs/` | keep | Collectors and launchd jobs untouched before Oct 12. Old docs get a "superseded by" line once he agrees |
-| `packages/basket` | new | Chain-free logic: flatten a plan that holds shared portfolios, value and drift, the re-truing planner, the check on authors' limits, the risk roll-up |
+| `packages/basket` | new | Chain-free logic: flatten a plan that holds shared portfolios, value and drift, the rebalancing planner, the check on authors' limits, the risk roll-up |
 | `packages/chain-mock` | new | The mock adapter the web app, keeper and adapter contract tests run against |
 | `programs/basket` | new | Anchor vault and registry, grown from `spikes/solana-vault-swap` |
 | `contracts/` | new | Foundry `BasketVault`, `VaultFactory`, `IndexRegistry`, from `spikes/evm-vault` |
@@ -63,7 +63,7 @@ docs/        HANDOFF-VAULT  DESIGN-VAULT  AUDIT-VAULT  CONVERGENCE-VAULT  resear
 
 The full list, with dates, is section 17 of `DESIGN-VAULT.md`. The ones that shape everything else:
 
-- [ ] **Custody.** A program-owned vault per plan per chain replaces the token approval. For: the rules hold if the server is compromised, and stocks can be re-trued without a signature each time. Against: two unaudited contracts with upgrade keys, built in eleven days, where today the tokens never leave the wallet. He ruled out a custom program on time; the spike behind the new estimate passed locally, not yet on mainnet.
+- [ ] **Custody.** A program-owned vault per plan per chain replaces the token approval. For: the rules hold if the server is compromised, and stocks can be rebalanced without a signature each time. Against: two unaudited contracts with upgrade keys, built in eleven days, where today the tokens never leave the wallet. He ruled out a custom program on time; the spike behind the new estimate passed locally, not yet on mainnet.
 - [ ] **Brazil-specific logic.** New plans and their card are in dollars; the reais schedule, BRL leg, FX stresses and the G-NORA gate stay where they are, for the structurer. For: one global product, and the BRL leg cannot execute today. Against: goals in reais are his differentiator and his partners' frame. Middle path: a BRL stable as one shelf asset if G-NORA passes by Oct 6.
 - [ ] **Stocks.** From "high-risk only, at most 35%, zero expected return" to the core of the shelf. The design keeps "no return assumed" for stocks and gold and shows the dollar loss in a 20% fall; whether to show a sourced range is his call. His rule keeping xStocks out of income profiles can survive as "no stocks in the income share".
 - [ ] **Chains.** Three from day one, against Solana only. For: partner pilots may land on an EVM chain (gate EVM-S1), and one adapter interface contains the cost. Against: three mainnet rehearsals, and Bearing data that is Solana only, so the exit plan on the other two is thinner. A chain that fails its test becomes read-only.
@@ -104,7 +104,7 @@ Found by running the code, and taken into the design:
 - The dividend multiplier is a schedule (current, next, effective time). SPYx's transfer hook is unset today while permanent delegate, pause and freeze are live; that belongs on the risk sheet.
 - The exit plan needs two numbers. At $1k to $50k most Jupiter flow went through a venue Bearing does not decode, so the design shows "quoted" beside "measured, worst regime".
 - No HTTP request may make a server-held key sign, and the keeper plans from chain state, never from a row the API wrote.
-- Kamino Scope prices ten stock tokens and no dollar-yield token, so on Solana automatic re-truing covers only plans built from those ten.
+- Kamino Scope prices ten stock tokens and no dollar-yield token, so on Solana automatic rebalancing covers only plans built from those ten.
 - One Solana client per place: `@solana/kit` 2.3 in the packages, a newer kit in the web app only, and the two never meet.
 
 Still open after the design:

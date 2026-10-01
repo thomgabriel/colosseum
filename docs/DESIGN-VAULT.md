@@ -13,7 +13,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 | Plan | A portfolio made to measure for one goal, with its reasons, its card and its exit plan | `BasketSheet`, `BasketProposal`, `baskets`, `packages/basket` |
 | Shared portfolio | A public, versioned list of assets and weights that a plan can start from or follow | `Recipe` with `kind: 'community'`, `index_families`, `IIndexRegistry`, `/indexes/[slug]` |
 | Vault | The person's own onchain account for one plan on one chain | `Vault`, `IBasketVault`, `programs/basket` |
-| Re-true | Trade back toward the targets | `rebalance`, `planRebalance`, `keeper_leg` |
+| Rebalance | Trade back toward the targets. His voice rules keep "re-true" for marketing copy; the product says rebalance | `rebalance`, `planRebalance`, `keeper_leg` |
 | Exit plan | What it costs to get out at your size, and the withdrawal of the tokens themselves | `RiskRollUp.exit`, `LiquidityProvider`, `withdraw` |
 | Bearing | The liquidity and risk layer | `packages/risk` |
 
@@ -67,7 +67,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 | 3 | Plan from a sentence or a form | `engine/src/personal/` (`compose`); `/v1/baskets/parse` and `/personalize`; fit screens; the three-profile test |
 | 4 | One-tap buy on three chains, status per leg, retry | `POST /v1/orders`; legs and attempts; owner builders; `/orders/[id]` |
 | 5 | Portfolio across chains with drift | `getVaults`, `getPrices`; `view()` in `packages/basket`; portfolio screen |
-| 6 | Re-true in one tap | `planRebalance` in `packages/basket`; a rebalance order |
+| 6 | Rebalance in one tap | `planRebalance` in `packages/basket`; a rebalance order |
 | 7 | Publish, follow, update, prompt; auto-follow off by default | Registry with creator limits; accept, adopt and keeper-leg calls; `apps/keeper`; a simple publish form |
 | 8 | The exit plan and the risk sheet: a sheet per asset, a roll-up per plan | `content/risk-sheets/` (Rodrigo); `LiquidityProvider`; the EVM collector; `rollUp` in `packages/basket` |
 | 9 | Built for agents | `/v1` REST with a committed OpenAPI file; `packages/sdk`; `apps/mcp`; `skills/basket/SKILL.md`; approval at `/orders/[id]` |
@@ -737,7 +737,7 @@ One agent builds the shared layer first: layout, providers, `proxy.ts`, `compone
 | `shelf` | `/` | Loading; empty; cards with chains, creator address, platform badge, value following |
 | `index` | `/indexes/[slug]` | Recipe per chain; a pending version with its effective time; risk roll-up; follow; not found |
 | `fit` | `/fit`, `/fit/[slug]` | Sentence, then the form as confirm step; per-field disagreement flags; parser down; the proposal with reasons; goal not achievable, with the gap |
-| `basket` | `/baskets/[id]` | The five-field card; drift; "portfolio changed: re-true"; "new asset: accept"; the auto-follow switch with the keeper limits in numbers; withdraw in kind |
+| `basket` | `/baskets/[id]` | The five-field card; drift; "portfolio changed: rebalance"; "new asset: accept"; the auto-follow switch with the keeper limits in numbers; withdraw in kind |
 | `vault` | `/vaults/[chain]/[address]` | A public read-only view of any vault: holdings, drift, explorer links. The team's demo vaults are linked from the home page, so a visitor with no funds sees real state |
 | `order` | `/orders/[id]` | Review (summary, preview, minimum received, warnings, consents); funding missing per chain; per leg: planned, awaiting signature, sent, confirmed, failed with retry, expired with rebuild; resume on reload; wrong wallet connected |
 | `portfolio` | `/portfolio` | One query per chain; a failing chain is "unavailable" on its own row; the combined view is derived |

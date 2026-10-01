@@ -15,7 +15,7 @@ The notes are kept as written, so some of what they say was overtaken. `../DESIG
 
 | The notes say | The design says |
 |---|---|
-| Pyth prices on Solana, so every launch portfolio can be re-trued automatically (`open-questions/launch-shelf.md`, `solana-price-reference.md`) | Free tiers only. Kamino Scope's free prices cover ten stock tokens, so automatic re-truing on Solana covers only portfolios built from those ten |
+| Pyth prices on Solana, so every launch portfolio can be rebalanced automatically (`open-questions/launch-shelf.md`, `solana-price-reference.md`) | Free tiers only. Kamino Scope's free prices cover ten stock tokens, so automatic rebalancing on Solana covers only portfolios built from those ten |
 | Eight launch portfolios, one of them meme tokens (`open-questions/launch-shelf.md` and its seed file) | No meme tokens at launch. "The 500" holds one asset, so it is a single-asset portfolio outside the registry. A five-stock portfolio of Scope-priced tokens is proposed for the Solana demo |
 | A deposit cap per vault during the hackathon (`vaults/decision-memo.md`, `vaults/solana-feasibility.md`) | No deposit cap |
 | Turnkey as the fallback for sign-in (`open-questions/wallet-providers.md`) | Turnkey is no longer free; the fallback is still to be decided |

@@ -32,7 +32,7 @@ Three things around the engine and Bearing, and two smaller ones.
 2. **Confirms the sheet.** The goal and the limits, written down and editable.
 3. **Sees the plan before anything moves:** each line with its reason ("less Nvidia because you already hold $4k of it", "20% in dollar yield because you need the money in 18 months"), and the exit plan at their size: how much they can get back, how fast, at what cost.
 4. **Buys in one tap.** The trades run on each chain and the assets land in their own vault.
-5. **Stays on track.** The product shows drift and whether the goal still lands. Re-truing takes one tap, or runs by itself inside the limits.
+5. **Stays on track.** The product shows drift and whether the goal still lands. Rebalancing takes one tap, or runs by itself inside the limits.
 6. **Can start from a shared portfolio, or publish their own.**
 
 When a goal can't be met as set, the product says so, shows the gap and the ways to close it. It never pretends a goal works.
@@ -42,7 +42,7 @@ When a goal can't be met as set, the product says so, shows the gap and the ways
 A shared portfolio is a named, versioned list of assets and weights that anyone can publish. In the positioning's terms it is an idea. Here an idea is an input, never the product.
 
 - **It always goes through the goal.** Choosing one sets the themes on the sheet. The goal, the limits, what the person already holds and the exit plan then decide how much of it they hold, and the plan says why, line by line. Someone who only wants to hold it still gets the sheet, the reasons and the exit plan at their size.
-- **Following.** When its author publishes a new version, the people following it are told, with the change. They re-true with one tap. A switch, off by default, lets the vault do it by itself: after a 12-hour delay, inside the vault's limits, and never into a new asset without the owner's tap.
+- **Following.** When its author publishes a new version, the people following it are told, with the change. They rebalance with one tap. A switch, off by default, lets the vault do it by itself: after a 12-hour delay, inside the vault's limits, and never into a new asset without the owner's tap.
 - **Limits on authors.** 3 to 12 assets, each between 2% and 50%; no weight moves more than 10 points per version; one version a day. An asset's maximum weight is capped by its measured exit capacity, from Bearing.
 - **Why have them.** They are the reason to come back and the thing to share, and each one carries the exit plan to whoever picks it up.
 - **At launch:** about six, serious assets only, no meme tokens. Names and weights are drafts in `research/open-questions/launch-shelf.md`.
@@ -77,7 +77,7 @@ Decided from the research in `research/vaults/decision-memo.md`:
 - **A plan can hold shared portfolios, one level deep.** The vault holds only the underlying assets. A shared portfolio lives on one chain; one that spans chains is a set of per-chain versions under one name.
 - **The vault checks every agent trade itself:** only assets in the plan, what was bought must land back in the vault, the price must be close to a reference price, losses are capped per week, and the owner can always switch the agent off and withdraw the tokens directly.
 - **The vault is our own small contract:** one program on Solana and one Solidity contract shared by Base and Robinhood Chain, built on OpenZeppelin's audited library where possible. Both are unaudited, and the product says so. There is no deposit cap.
-- **The keeper** that triggers automatic re-truing is a small service the team runs. Because the vault checks every trade, the keeper does not have to be trusted.
+- **The keeper** that triggers automatic rebalancing is a small service the team runs. Because the vault checks every trade, the keeper does not have to be trusted.
 
 ## Chains and assets
 
@@ -98,7 +98,7 @@ The positioning's three frames, with what this proposal adds to the third. No pr
 | | An idea turned into a basket | A menu of model portfolios | A goal turned into a plan |
 |---|---|---|---|
 | Input | A theme | A chosen model | The goal and the limits; a shared portfolio is one more input |
-| Re-trued on | The theme's updates | Drift from the model | Whether the goal still lands, drift, and updates to a followed portfolio |
+| Rebalanced on | The theme's updates | Drift from the model | Whether the goal still lands, drift, and updates to a followed portfolio |
 | Exit plan before investing | No | No | Yes, measured, plus withdrawal of the tokens themselves |
 | Who enforces the limits | The operator | The operator | The person's own vault, on chain |
 | Chains | One | One | Solana, Robinhood Chain, Base |
@@ -118,8 +118,8 @@ What must work live on mainnet, with real small amounts. These nine things are t
 3. **A plan from a sentence or a form,** with a reason on every line. Three test people must get three visibly different plans.
 4. **One-tap buy.** One confirmation places real swaps on all three chains, with a status per leg and a retry if one fails.
 5. **The portfolio, across chains.** Holdings read on the three chains, valued correctly (stock tokens carry dividend multipliers), with drift from target.
-6. **Re-true in one tap,** on every chain.
-7. **Publish and follow.** Publish a shared portfolio with its version recorded on chain, follow it from a second account, update it, and the follower is prompted to re-true. The automatic switch is per plan, off by default, and goes live on each chain once that chain's price-check tests pass, Solana first.
+6. **Rebalance in one tap,** on every chain.
+7. **Publish and follow.** Publish a shared portfolio with its version recorded on chain, follow it from a second account, update it, and the follower is prompted to rebalance. The automatic switch is per plan, off by default, and goes live on each chain once that chain's price-check tests pass, Solana first.
 8. **The exit plan and the risk sheet.** Every asset has a short, sourced sheet: who issues it, what backs it, how you get out, what could go wrong. Every plan and every shared portfolio shows the roll-up: what it holds, where the risk concentrates, and what it costs to exit at your size. The exit cost comes from Bearing (`packages/risk`).
 9. **Built for agents.** An API, an SDK, an MCP server and a skill file over the same logic. Agents propose and the person approves from a link; an agent can also publish a shared portfolio.
 
@@ -140,7 +140,7 @@ Along the narrative arc in `messaging.md`.
 1. **Three people, three goals (60s).** Each types what their money needs to do. Three visibly different plans appear, every line explained, each with its exit plan.
 2. **One tap, three chains (40s).** One of them buys. Legs settle on Solana, Robinhood Chain and Base, and the assets sit in their own vault.
 3. **Starting from someone else's idea (35s).** Pick a shared portfolio, and watch it get cut to the goal.
-4. **It stays on track (25s).** An author updates a portfolio; a follower's vault re-trues inside its limits, and the log shows why.
+4. **It stays on track (25s).** An author updates a portfolio; a follower's vault rebalances inside its limits, and the log shows why.
 5. **Why us (20s).** The structuring, credit and risk background behind the engine and Bearing; live on mainnet.
 
 ## How it gets built
@@ -168,13 +168,13 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 
 ## Thom's position so far
 
-- The vault replaces the token approval for automatic re-truing.
+- The vault replaces the token approval for automatic rebalancing.
 - Shared portfolios are in, with serious assets only at launch.
 - Solana, Robinhood Chain and Base from day one. The person funds each chain they want to use.
 - Wallet connect or a passkey wallet (Privy).
 - The product is not for US persons, and the terms say so. There is no location block and no banner.
 - When an author adds a new asset, each follower approves it with a tap. A new version takes effect for followers 12 hours after it is published.
-- On Robinhood Chain, only the stock tokens with a price feed (about 36 of 195) can be re-trued automatically. The rest are one-tap only.
+- On Robinhood Chain, only the stock tokens with a price feed (about 36 of 195) can be rebalanced automatically. The rest are one-tap only.
 - The team holds the upgrade keys for the vault contracts for now, one disclosed key per chain, and the product says so.
 - Free tiers only, apart from about $10 of model credit for reading the goal sentence. On Solana the price reference is Kamino's free onchain prices.
 - Author limits as in `research/open-questions/creator-limits.md`.
@@ -189,5 +189,7 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 4. The README describes the structurer alone. Update it once the direction is agreed.
 5. Where the Bearing data runs for the demo: a hosted collector or a dated snapshot.
 6. The decisions in `DESIGN-VAULT.md`, section 17.
+7. Two lines of shipped copy that the vault touches, for Rodrigo to rule on. `DISCLAIMER` says "the decision and custody are yours", and `DISCLAIMER_SHORT` says "Policy in your wallet, not a fund." With a vault, the assets sit in a contract only the owner can withdraw from, and the team holds an upgrade key. The wording has to stay true.
+8. The automatic switch against the voice rules, which say rebalancing is "never to follow a theme or a rate" and that the agent "proposes and explains". Proposed wording for the switch: "Rebalance without asking when the portfolio I follow changes", with the helper line saying that a change which does not fit the person's limits is not applied.
 
 The research notes under `research/` were written before the brand strategy. They say "basket" and "community index" where this document says plan and shared portfolio.
