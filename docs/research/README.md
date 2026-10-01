@@ -20,6 +20,6 @@ The notes are kept as written, so some of what they say was overtaken. `../DESIG
 | A deposit cap per vault during the hackathon (`vaults/decision-memo.md`, `vaults/solana-feasibility.md`) | No deposit cap |
 | Turnkey as the fallback for sign-in (`open-questions/wallet-providers.md`) | Turnkey is no longer free; the fallback is still to be decided |
 | About twelve MCP tools and an optional paid endpoint (`open-questions/agent-native.md`) | Seven tools, no paid endpoint |
-| Anchor 1.2 with a generated client, the keeper on a scheduled GitHub workflow, a multisig for the upgrade keys (`design-v2/` notes) | Anchor 0.31.1 with hand-written builders, the keeper run by the team during market sessions, one disclosed key per chain for now. `design-v2/review-log.md` records why |
+| Anchor 1.2 with a generated client, the keeper on a scheduled GitHub workflow, a multisig for the upgrade keys (`design-v2/` notes) | Anchor 0.31.1 with hand-written builders, the keeper run locally while testing and on a small VM at deploy, one disclosed key per chain for now. `design-v2/review-log.md` records why |
 | US visitors blocked by location (`design-v2/web-app.md`) | No location block; the terms say the product is not for US persons |
 

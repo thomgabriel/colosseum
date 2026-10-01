@@ -21,7 +21,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 
 - US persons: no location block and no banner. The terms say the app is not for US persons, and a person accepts the terms before the first deposit.
 - Upgrade keys: one disclosed key per chain for now, and the app says so. A multisig comes after the MVP.
-- Keeper: run locally by the team during market sessions for now, with a gas-only key. Where it lives later is undecided.
+- Keeper: run locally while testing, with a gas-only key. At deploy it moves to a small VM.
 - About $10 of Anthropic credit for the sentence parser is approved.
 - Build tools may be installed on Thom's machine. Already there: Anchor 0.31.1, Solana CLI 3.0.1, Rust, Foundry (older than the pin), Docker. Missing: surfpool, solana-verify, Slither.
 
@@ -717,7 +717,7 @@ The roll-up states the share of the plan that is measured.
 | API | Render free web service | Sleeps after 15 idle minutes and takes about a minute to wake. UptimeRobot's free plan pings `/health` every 5 minutes **[C 12]** |
 | MCP | Vercel, its own project | Stateless; calls the API through the SDK with its service key |
 | Postgres | Supabase free | 500 MB. The free direct connection is IPv6 only; use the shared pooler in session mode, port 5432 **[C 12]**. Data API off |
-| Keeper | `keeper --loop`, run locally by the team during market sessions for now | A gas-only key, kept away from coding agents. It only has to work Mon to Fri, 14:30 to 20:00 UTC. A permanent home is decided later |
+| Keeper | `keeper --loop`, run locally while testing; a small VM at deploy | A gas-only key, kept away from coding agents. It only has to work Mon to Fri, 14:30 to 20:00 UTC |
 | EVM collector | An hourly loop on the same machine | No chain keys; its own database role |
 | Solana collectors | Rodrigo's Mac | Unchanged |
 
@@ -942,7 +942,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 14. Run the three $10 tests. May agents install Anchor, the Solana CLI, surfpool, Foundry 1.8.3 and Docker?
 15. About $10 of Anthropic credit for the sentence parser: approved on Oct 1.
 16. Turnkey costs about $0.10 a signature after 25 a month **[C 9]**. Is it still the fallback, or is the fallback "connect a wallet only"?
-17. Where the keeper lives after the MVP. For now it runs locally.
+17. Which VM runs the keeper at deploy. It runs locally while testing.
 
 **Both, on Oct 2 where marked**
 
