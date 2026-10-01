@@ -3,10 +3,12 @@
 
 | Chunk | File | ~Lines |
 |-------|------|--------|
-| Logo Directions | [logo-directions.md](./logo-directions.md) | ~92 |
-| Color System | [color-system.md](./color-system.md) | ~89 |
-| Typography | [typography.md](./typography.md) | ~54 |
+| Logo Directions | [logo-directions.md](./logo-directions.md) | ~143 |
+| Color System | [color-system.md](./color-system.md) | ~190 |
+| Palettes (OKLCH, contrast) | [palettes.json](./palettes.json) | n/a |
+| Typography | [typography.md](./typography.md) | ~320 |
 | Imagery Style | [imagery-style.md](./imagery-style.md) | ~156 |
+| Iconography | [iconography.md](./iconography.md) | ~115 |
 | Brand Applications | [brand-applications.md](./brand-applications.md) | ~68 |
 | Logo comparison (visual) | [logo-comparison.html](./logo-comparison.html) | n/a |
 

@@ -52,12 +52,18 @@
     <symbol id="A" viewBox="0 0 32 32">
       <rect x="1" y="10" width="5" height="12"/>
       <rect x="7" y="2" width="10" height="28"/>
-      <path fill-rule="evenodd" d="M18 12h12v8H18z M25 13.75a2.25 2.25 0 1 0 0.001 0z"/>
+      <path fill-rule="evenodd" d="M18 12h12v8H18z M25 14a2 2 0 1 0 0.001 0z"/>
     </symbol>
-    <!-- A, small-size cut (16px and below): no rail, one joint line, bigger pin -->
+    <!-- A, 24 hint (22-31px): gaps snapped to 1px -->
+    <symbol id="A24" viewBox="0 0 24 24">
+      <rect x="1" y="7" width="3" height="10"/>
+      <rect x="5" y="1" width="8" height="22"/>
+      <path fill-rule="evenodd" d="M14 9h9v6H14z M19 10.5a1.5 1.5 0 1 0 0.001 0z"/>
+    </symbol>
+    <!-- A, small cut (12-21px): no rail, one joint line, enlarged pin, pixel-snapped at 16 -->
     <symbol id="A16" viewBox="0 0 16 16">
-      <rect x="1" y="1" width="5" height="14"/>
-      <path fill-rule="evenodd" d="M7 4.5h8v7H7z M11 6.5a1.5 1.5 0 1 0 0.001 0z"/>
+      <rect x="1" y="1" width="4" height="14"/>
+      <path fill-rule="evenodd" d="M6 4h9v8H6z M11 6a2 2 0 1 0 0.001 0z"/>
     </symbol>
     <!-- Direction B: stacked cantilever T (Yusuhara). Three members on one column. -->
     <symbol id="B" viewBox="0 0 32 32">
@@ -101,7 +107,7 @@
 
 <header>
   <h1>Tenonfi: three logo directions</h1>
-  <p>Identity phase, 2026-10-01. Each direction shown on daylight paper and warm black, at favicon size, as a lockup, as "Powered by" inside a neutral partner card, as "Tenonfi Bearing", and as the plain "Tenon" fallback. Wordmarks are set in live type for review only; <span class="mono">/gsp-logo --enrich</span> draws the final outlines.</p>
+  <p>Identity phase, 2026-10-01. Each direction shown on daylight paper and warm black, at favicon size, as a lockup, as "Powered by" inside a neutral partner card, as "Tenonfi Bearing", and as the plain "Tenon" fallback. Wordmarks are set in live type for review only; production uses outlines. The A construction sheet (enriched spec) closes the page.</p>
 </header>
 
 <!-- ============ DIRECTION A ============ -->
@@ -113,8 +119,9 @@
       <div class="cell"><svg width="96" height="96" style="color:var(--ink)" fill="currentColor"><use href="#A"/></svg><span class="lab">96</span></div>
       <div class="cell"><svg width="48" height="48" fill="var(--ink)"><use href="#A"/></svg><span class="lab">48</span></div>
       <div class="cell"><svg width="32" height="32" fill="var(--ink)"><use href="#A"/></svg><span class="lab">32</span></div>
+      <div class="cell"><svg width="24" height="24" fill="var(--ink)"><use href="#A24"/></svg><span class="lab">24 hint</span></div>
       <div class="cell"><svg width="16" height="16" fill="var(--ink)"><use href="#A16"/></svg><span class="lab">16 cut</span></div>
-      <div class="cell"><svg width="96" height="96"><g fill="var(--hardwood)"><use href="#A"/></g><circle cx="75" cy="48" r="5.6" fill="var(--hinoki)"/></svg><span class="lab">two-species (hero only)</span></div>
+      <div class="cell"><svg width="96" height="96"><g fill="var(--hardwood)"><use href="#A"/></g><circle cx="75" cy="48" r="6" fill="var(--hinoki)"/></svg><span class="lab">two-species (hero only)</span></div>
     </div>
     <div class="row">
       <div class="lockup"><svg width="40" height="40" fill="var(--ink)"><use href="#A"/></svg><span class="wm-serif" style="font-size:44px">tenonfi</span></div>
@@ -125,7 +132,7 @@
     </div>
     <div class="row">
       <div class="partner"><div style="font-size:12px;color:#777">Savings goal · Apartment</div><div class="num">$12,480 <svg width="12" height="12" fill="currentColor" style="color:#777"><use href="#pin"/></svg></div>
-        <div class="pb"><svg width="11" height="11" fill="currentColor"><use href="#A16"/></svg>Powered by <span class="wm-serif" style="font-size:13px;color:#444">tenonfi</span></div></div>
+        <div class="pb"><svg width="12" height="12" fill="currentColor"><use href="#A16"/></svg>Powered by <span class="wm-serif" style="font-size:13px;color:#444">tenonfi</span></div></div>
       <div class="fav"><div class="tab"><svg width="16" height="16" fill="currentColor"><use href="#A16"/></svg>Tenonfi · Plan</div></div>
     </div>
   </div>
@@ -136,8 +143,9 @@
       <div class="cell"><svg width="96" height="96" fill="var(--hinoki)"><use href="#A"/></svg><span class="lab">96</span></div>
       <div class="cell"><svg width="48" height="48" fill="var(--hinoki)"><use href="#A"/></svg><span class="lab">48</span></div>
       <div class="cell"><svg width="32" height="32" fill="var(--hinoki)"><use href="#A"/></svg><span class="lab">32</span></div>
+      <div class="cell"><svg width="24" height="24" fill="var(--hinoki)"><use href="#A24"/></svg><span class="lab">24 hint</span></div>
       <div class="cell"><svg width="16" height="16" fill="var(--hinoki)"><use href="#A16"/></svg><span class="lab">16 cut</span></div>
-      <div class="cell"><svg width="96" height="96"><g fill="var(--hinoki-deep)"><use href="#A"/></g><circle cx="75" cy="48" r="5.6" fill="var(--hinoki)"/></svg><span class="lab">two-tone</span></div>
+      <div class="cell"><svg width="96" height="96"><g fill="var(--hinoki-deep)"><use href="#A"/></g><circle cx="75" cy="48" r="6" fill="var(--hinoki)"/></svg><span class="lab">two-tone</span></div>
     </div>
     <div class="row">
       <div class="lockup"><svg width="40" height="40" fill="var(--hinoki)"><use href="#A"/></svg><span class="wm-serif" style="font-size:44px;color:var(--text-d)">tenonfi</span></div>
@@ -148,7 +156,7 @@
     </div>
     <div class="row">
       <div class="partner"><div style="font-size:12px;color:#999">Savings goal · Apartment</div><div class="num">$12,480 <svg width="12" height="12" fill="currentColor" style="color:#999"><use href="#pin"/></svg></div>
-        <div class="pb"><svg width="11" height="11" fill="currentColor"><use href="#A16"/></svg>Powered by <span class="wm-serif" style="font-size:13px;color:#bbb">tenonfi</span></div></div>
+        <div class="pb"><svg width="12" height="12" fill="currentColor"><use href="#A16"/></svg>Powered by <span class="wm-serif" style="font-size:13px;color:#bbb">tenonfi</span></div></div>
       <div class="fav"><div class="tab"><svg width="16" height="16" fill="currentColor"><use href="#A16"/></svg>Tenonfi · Plan</div></div>
     </div>
   </div>
@@ -260,6 +268,46 @@
       <span style="display:flex;align-items:center;gap:6px">6.4% <svg width="12" height="12" fill="var(--hinoki)" style="color:var(--hinoki)"><use href="#pin"/></svg></span>
       <span style="display:flex;align-items:center;gap:6px">6.4% <svg width="12" height="12" fill="var(--stone-d)" style="color:var(--stone-d)"><use href="#pin-stale"/></svg><span class="mono stone">stale</span></span>
       <span style="display:flex;align-items:center;gap:6px">6.4% <svg width="12" height="12"><use href="#pin-mock-d"/></svg><span class="mono" style="border:1px solid var(--stone-d);padding:0 4px">MOCK</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ A CONSTRUCTION SHEET ============ -->
+<section class="dir">
+  <div class="half">
+    <h2>A · Construction</h2>
+    <p class="stone note">Master on a 32-unit grid. H = post height = 28u. Post width 10u = 0.36H is the base measure: clear space and lockup gap. Heights post : rail : tenon = 7 : 3 : 2. Pin d = tenon height ÷ 2, offset 7u / 5u toward the end grain.</p>
+    <div class="row">
+      <svg width="320" height="320" viewBox="-4 -4 40 40" style="overflow:visible">
+        <g stroke="var(--hair-l)" stroke-width="0.06">
+          <path d="M0 0V32M1 0V32M2 0V32M3 0V32M4 0V32M5 0V32M6 0V32M7 0V32M8 0V32M9 0V32M10 0V32M11 0V32M12 0V32M13 0V32M14 0V32M15 0V32M16 0V32M17 0V32M18 0V32M19 0V32M20 0V32M21 0V32M22 0V32M23 0V32M24 0V32M25 0V32M26 0V32M27 0V32M28 0V32M29 0V32M30 0V32M31 0V32M32 0V32"/>
+          <path d="M0 0H32M0 1H32M0 2H32M0 3H32M0 4H32M0 5H32M0 6H32M0 7H32M0 8H32M0 9H32M0 10H32M0 11H32M0 12H32M0 13H32M0 14H32M0 15H32M0 16H32M0 17H32M0 18H32M0 19H32M0 20H32M0 21H32M0 22H32M0 23H32M0 24H32M0 25H32M0 26H32M0 27H32M0 28H32M0 29H32M0 30H32M0 31H32M0 32H32"/>
+        </g>
+        <rect x="-2.6" y="-0.6" width="35.2" height="33.2" fill="none" stroke="var(--hardwood)" stroke-width="0.12" stroke-dasharray="0.6 0.4"/>
+        <g fill="var(--ink)" opacity=".9"><use href="#A" width="32" height="32"/></g>
+        <g stroke="var(--hardwood)" stroke-width="0.1" fill="none"><line x1="0" y1="16" x2="32" y2="16" stroke-dasharray="0.5 0.3"/><circle cx="25" cy="16" r="2"/></g>
+        <g font-family="IBM Plex Mono,monospace" font-size="1.2" fill="var(--stone)">
+          <text x="7" y="-1.4">post 10u</text><text x="18" y="11">tenon 12×8 (3:2)</text><text x="0" y="24">rail 5×12</text><text x="22" y="22.4">pin d4</text><text x="30.6" y="16.4">axis</text><text x="-2.4" y="34.6">clear space 0.36H (dashed)</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+  <div class="half">
+    <h2>Cuts, lockups, minimums</h2>
+    <p class="stone note">Three masters, never auto-scaled across a breakpoint: master ≥ 32 px, 24 hint 22–31 px, small cut 12–21 px.</p>
+    <div class="row">
+      <div class="cell"><svg width="32" height="32" fill="var(--ink)"><use href="#A"/></svg><span class="lab">master 32</span></div>
+      <div class="cell"><svg width="24" height="24" fill="var(--ink)"><use href="#A24"/></svg><span class="lab">hint 24</span></div>
+      <div class="cell"><svg width="16" height="16" fill="var(--ink)"><use href="#A16"/></svg><span class="lab">cut 16</span></div>
+      <div class="cell"><svg width="12" height="12" fill="var(--ink)"><use href="#A16"/></svg><span class="lab">cut 12 (min)</span></div>
+    </div>
+    <div class="row">
+      <div class="cell"><div class="lockup" style="gap:8px"><svg width="22" height="22" fill="var(--ink)"><use href="#A24"/></svg><span class="wm-serif" style="font-size:26px">tenonfi</span></div><span class="lab">primary lockup at min (96 px wide)</span></div>
+      <div class="cell"><div style="display:flex;flex-direction:column;gap:20px;align-items:flex-start"><svg width="40" height="40" fill="var(--ink)"><use href="#A"/></svg><span class="wm-serif" style="font-size:34px">tenonfi</span></div><span class="lab">stacked (square formats)</span></div>
+    </div>
+    <div class="row">
+      <div class="cell"><div class="partner" style="width:auto"><div class="pb" style="margin-top:0">Powered by <svg width="12" height="12" fill="currentColor" style="color:#444"><use href="#A16"/></svg><span class="wm-serif" style="font-size:13px;color:#444">tenonfi</span></div></div><span class="lab">"Powered by" at min: 12 / 11 / 13 px</span></div>
+      <div class="cell"><div class="partner" style="width:auto"><div class="pb" style="margin-top:0">Powered by tenonfi</div></div><span class="lab">text-only (below min, or no marks)</span></div>
     </div>
   </div>
 </section>
