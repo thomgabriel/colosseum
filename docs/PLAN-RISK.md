@@ -90,6 +90,54 @@
 - **What you'll see:** `pnpm risk:history` prints how many weeks are covered per pool and the weekend-vs-weekday cost ratio from real trades.
 - **Done when:** at least 4 past weekends are covered for the top 10 pools, or the RPC limit is documented with the depth we did reach.
 
+### Step 5b — Complete history of the 34 value pools, RPC only *(decided 2026-10-01; start in a fresh session)*
+
+**Why.** Sampled swaps (Step 5) tell us trade costs, not how liquidity moved. The founder wants a complete record for the 34 pools that hold 80% of on-chain value:
+- every trade;
+- every liquidity event: open, add, remove and close position, each with its price range.
+
+From that record each pool's exact state can be rebuilt at any moment: price, active liquidity, and the full liquidity-by-price layout. This shows how large trades move the price and how LPs react, by adding, pulling or moving their ranges.
+
+**Constraints.**
+- RPC only: Chainstack enterprise, free for one week (from about 2026-10-01), then discounted. No Dune.
+- So the bulk fetch should run inside the free week. Newest weeks go first, so recent weekends land first.
+
+**Pool list.** The 34 pools come from `data/risk/registry-20261001T0139.json`: sort by `tvlUsd`, cumulative 80%. They are listed in `docs/STATE-RISK.md`, Step 1, and can be regenerated with the snippet in this step's script. 30 are Raydium CLMM, 3 are Orca Whirlpool, 1 is Meteora DLMM.
+
+**Do it in this order. Each item ends with a commit and a line in STATE-RISK.**
+1. **Measure before fetching (30 min).**
+   - Walk `getSignaturesForAddress` for all 34 pools over the chosen window (default 28 days). Count only; this is cheap, as the 5 pools in Step 5 showed.
+   - Run a 5-minute `getTransaction` throughput test at 4, 16, 32 and 64 parallel requests (`maxSupportedTransactionVersion: 1`), recording rate and 429s.
+   - Output: total transaction count and a time estimate. If the estimate exceeds the free week, shorten the window (14 days first) rather than sample.
+2. **Fetcher (`scripts/risk/history-full.ts`).** Reuse the checkpointed signature walk in `history-backfill.ts`, but keep every signature, streamed to disk in chunks, not one JSON array.
+   - Parallel `getTransaction` at the measured safe level, 30 s timeout, backoff on 429.
+   - Resumable by signature cursor. Store **decoded events only**, as compact JSONL per pool per day, plus a raw-body sample of 1 in 1,000 for audits.
+   - Run it under launchd or nohup, not as a session background task: those are killed after 2 h.
+3. **Decoders for liquidity events** (pure functions in `packages/risk/src/events/`, tested against live transactions):
+   - **Raydium CLMM:** `SwapEvent` (decoded already; 221-byte variant), `CreatePersonalPositionEvent`, `IncreaseLiquidityEvent`, `DecreaseLiquidityEvent`, `LiquidityChangeEvent` (tick range, liquidity delta, amounts). Discriminators are `sha256("event:<Name>")[0..8]`; check field offsets against a known transaction, as was done for `SwapEvent`.
+   - **Orca Whirlpool:** `Traded` and the liquidity increase/decrease events if the program emits them. Otherwise decode the instructions (`increaseLiquidity`, `decreaseLiquidity`, `openPosition`, `closePosition`) with their position account and tick range.
+   - **Meteora DLMM:** swap and add/remove liquidity events, with bin ranges.
+   - Swaps also carry pre/post token balances: a cross-check of every decoded amount.
+4. **Completeness checks** (they decide whether the history can be trusted):
+   - Every signature in the walk is fetched or listed in `errors.jsonl` (a retry pass runs at the end).
+   - **Backward replay:** start from the hourly raw snapshots saved since 2026-10-01 (`~/.colosseum/risk/raw/`) and undo events in reverse order. The rebuilt pool state at an earlier snapshot must equal that snapshot exactly (active liquidity and every tick's `liquidityNet`). A mismatch means a missing or misdecoded event; the gap is located by bisection.
+   - The sum of liquidity deltas per position equals each live position's current liquidity (positions decoded in Step 4).
+5. **Reconstruction (`packages/risk/src/replay.ts`).** Pool state at any slot comes from the latest raw snapshot plus reversed events. The depth curves, depth within ±2%, LP concentration and the LP-exit stress are recomputed per hour of history. This gives a **historical** curve per regime: 4 past weekends instead of only the ones collected live.
+6. **Analysis (the founder's question).** Find large trades, by size relative to depth within ±2%, then measure:
+   - the price displacement;
+   - the time for the price to recover (arbitrage);
+   - LP reactions in the next N minutes: adds, removes or range moves near the price, and by whom (position owner).
+
+   Report this per asset and per regime. It feeds the stress parameters (`dryFactorFloor`, LP-exit N) with measured values instead of defaults.
+
+**Storage.** Decoded events are about 200 bytes each; budget 5–8 GB for 20–40M transactions in `data/risk/history-full/` (gitignored). Raw sample about 1 GB.
+
+**Done when:** all signatures for the 34 pools in the window are fetched; the backward replay matches the saved snapshots; STATE-RISK records the counts, error rate and window covered; and `pnpm risk:history-report` prints the large-trade / LP-reaction table.
+
+**Status at handover (2026-10-01 ~04:30Z).**
+- Step 5 sampled swaps exist for 4 pools, complete: NVDAx `49iMatQt`, SPYx `6truu3rZ`, CRCLx `GYqHjuDz`, SPCXx `AHNN6Jmv`. QQQx `GMjGLWzv` is partial (3,720 of 18,570). All in `data/risk/history/`. They stay useful as a cross-check.
+- No liquidity events have been captured historically yet. The live collector captures them from 2026-10-01 onward (`events.jsonl`, hourly `lp/` and `raw/`).
+
 ### Step 6 — The risk engine *(Oct 2–3)*
 - **What it does:** `packages/risk` gets the math from the spec, as pure functions with tests:
   - time of week (US market hours, weekday off-hours, weekend, holiday, with DST handled);
@@ -187,7 +235,7 @@ Names in `code` are policy inputs stored next to every output. Anything not list
 | D2 | Main depth source | **Pool reads; quotes as cross-check** (founder, Oct 1) | done |
 | D3 | Pool coverage | **Tier A = pools holding 99% of liquidity (5 min); Tier B = the rest (hourly)** | Step 1; re-tiered weekly from fresh discovery |
 | D4 | Byreal and other unsupported venues | **Excluded and listed until their decoder passes the same validation**; then added | Step 2 |
-| D5 | History source | **Dune if it has the trades; else our own RPC backfill of the top 34 pools** | Step 5 |
+| D5 | History source | **RPC only (founder, 2026-10-01): complete history of the 34 value pools, trades and liquidity events (Step 5b); Dune not used** | done |
 | D6 | Hour-of-week curves vs regime curves | **Regime curves for decisions; hour-of-week as a heatmap**, upgraded where 5-min samples give ≥ `minSamplesPerPoint` per bucket | Step 6 |
 | D7 | Merge into `main` / the hackathon submission | **Not before Oct 12 unless the founder says so (Q1)** | Founder, by Oct 9 |
 | D8 | Fold the old depth job | **After Oct 12**: final import, then unload. Its data stays read-only. | Oct 13 |
