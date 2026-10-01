@@ -1,61 +1,257 @@
-# PLAN-RISK.md — build plan for the liquidity and risk layer
+# PLAN-RISK.md — build plan for the liquidity and risk layer (v2)
 
-*Written Thu 2026-10-01 (00:10Z) on branch `risk-layer`. Spec: `HANDOFF-RISK.md` (wins on conflict). Product it joins: `docs/HANDOFF-IDEA1.md`. Slot status will live in `docs/STATE-RISK.md` (created in P0-1). Every figure in this file is a parameter, a date or a count of work. None of it is a market fact.*
+*v2, written Thu 2026-10-01 ~01:10Z on branch `risk-layer`. It replaces v1 (commit `07a4fcf`). Spec: `HANDOFF-RISK.md`. Founder decisions on 2026-10-01: build now at full speed rather than waiting for Oct 13; read the pools directly as the main data source; quotes are a cross-check.*
 
 ---
 
-## 1. Plan summary
+## 1. Summary
 
-- **Phase 0 (Thu Oct 1, 2 slots):** a second, keyed collector writes sell and buy quotes for 8 assets every 15 min, plus hourly raw market snapshots, with the old job untouched. **Must prove:** both jobs write side by side through the Oct 3–4 and Oct 10–11 weekends.
-- **Phase 1 (from Tue Oct 13, 6 slots):** `packages/risk` with pure functions over a frozen fixture, plus `pnpm risk:report`. **Must prove:** Saturday and Tuesday give different, reproducible numbers, and the breach and likely-breach fixture works.
-- **Phase 2 (6 slots):** `risk_*` tables, importer, `/risk/*` plugin, standalone `apps/risk-api`, dashboard and methodology page. **Must prove:** HTTP reproduces Phase 1 byte for byte.
-- **Phase 3 (9 slots):** the `LiquidityProvider` seam and four engine hooks. **Must prove:** with no provider, the engine is unchanged. It closes with one mainnet rebalance from a `liquidity_breach` proposal on Tue Oct 27.
-- **Phase 4 (6 day-slots, from Wed Oct 28):** market readers, gap simulator, a lending leg gated by pool score, and a borrow-capacity view. **Must prove:** market parameters come from on-chain reads, not docs.
-- **Most likely failure point:** Jupiter rate limits that leave holes in the time series. Signs are already visible: the existing collector runs **keyless**, and 115 of its 416 rows on Sep 30 were `429`. **Mitigation:** P0-1 measures the keyed tier before writing the collector, then sets spacing and grid to fit inside it. 429s are stored as rows, and coverage is reported per bucket so a thin bucket is labelled, not hidden.
+- **What changed from v1:**
+  - We read every pool's on-chain state over RPC and simulate sales of any size exactly. Jupiter quotes are kept, but only as an independent check.
+  - Work starts today, at build speed. There is no artificial start date and no half-day padding.
+  - `main` stays untouched until the founder decides to merge (Q1).
+- **What was proven today** (dated evidence in §2):
+  - Decoders for the four pool types that hold 99.5% of xStocks liquidity reproduce Jupiter's same-pool quotes, to between 1e-9 and 3e-4 depending on pool type.
+  - Only 50 of 1,171 verified xStocks have any DEX pool. 34 pools hold 80% of liquidity, and 301 pools hold 99%.
+- **Most likely failure:** history.
+  - Quotes cannot be backfilled, and replaying past pool state on Solana is heavy: about 1,000 transactions an hour on the busiest SPYx pool.
+  - **Mitigation:** collect forward from today at 5-minute resolution. For the 34 pools that matter, backfill past trades (not full state) from transaction history. Check an indexer (Dune) as a shortcut before writing our own backfill.
 
-## 2. Stack additions
+## 2. What we know now (measured 2026-10-01, evidence in repo)
 
-| Need | Choice | Why (one line) |
+| Finding | Evidence |
+|---|---|
+| The old depth job ran without the Jupiter key: 115 of 416 rows on Sep 30 were `429`. Re-installed with the key (founder approved). The first keyed run had 1 failure in 16. | `~/.colosseum/depth/2026-10-01.jsonl`, run at 00:28Z |
+| Jupiter lists 1,171 verified xStocks, all with one mint authority `7pt9…taCj` | `data/risk/xstocks-20261001T0049.json` (gitignored data dir) |
+| 50 of them have any DEX pool; 715 pools in total, 82 of them with zero liquidity | `data/risk/pools-dexscreener-20261001T0049.pareto.json` |
+| Liquidity: 34 pools (18 assets) = 80%, 75 = 90%, 138 = 95%, 301 = 99%. 24h volume: 28 pools = 80%, 129 = 99%. | same file (DexScreener estimates; used for discovery only) |
+| By venue: Raydium CLMM holds most of the liquidity; then Orca Whirlpool, Raydium CPMM, Meteora DLMM. These four = 99.5% of liquidity, 98.4% of volume. | same file |
+| Raydium CLMM decoder: liquidity rebuilt from tick arrays equals the pool's stored value exactly; simulated sales equal Jupiter same-pool quotes to ≤ 2e-8 | `scripts/risk/validate-clmm.ts`, `tests/risk-layer/pools.test.ts` |
+| Orca Whirlpool: liquidity exact; sales within 3e-4. The gap grows with ticks crossed, consistent with Orca's adaptive fee, which is not yet modelled; our output is slightly optimistic. | same |
+| Meteora DLMM: sales within 3e-5; bins sum to 97–98% of reserves (the rest is likely fees) | `scripts/risk/validate-dlmm.ts` |
+| Raydium CPMM: exact (3e-13) once Token-2022 transfer fees are applied to the fee-bearing leg | `scripts/risk/validate-cpmm.ts` |
+| Byreal (a Raydium CLMM fork): header decodes and small sales match, but its tick arrays differ, so the liquidity check fails. **Not supported yet.** | probe output, 2026-10-01 |
+| RPC: one `getProgramAccounts` returns a pool's full tick arrays in about 2 s. Some transactions are now version 1 and need `maxSupportedTransactionVersion: 1`. Signatures for a 12-day-old transaction were still served. | `scripts/verify/vr-pools-probe.ts` |
+| Teiten has no Solana pool-state decoding. Reusable, both Python: the swap inference from transfers (`teiten-solana/analysis/solana/lib/dex_census.py`) and the rate-control design (`teiten-solana/ingestion/src/solana_capture.py`). | Teiten survey, 2026-10-01 |
+
+## 3. The steps, in plain English
+
+**Who does what:** I build. You (the founder) do the five things marked **YOU**. Every step ends with tests passing, a commit, and a one-line entry in `docs/STATE-RISK.md`. Dates are targets, not padding. If a step finishes early, the next one starts.
+
+---
+
+### Step 1 — Pool registry *(today, Oct 1)*
+- **What it does:** turns today's discovery list into a confirmed list of pools.
+  - Each pool is opened on-chain: which program owns it, which two tokens it pairs, and whether a token charges a transfer fee.
+  - Pools that fail confirmation are dropped with a reason.
+  - A second pass searches each of the 50 assets on-chain (by mint) for pools that DexScreener missed.
+- **Pool tiers:**
+  - **Tier A:** the pools that together hold 99% of liquidity. Refreshed every 5 minutes.
+  - **Tier B:** everything else. Refreshed hourly.
+- **What you'll see:** `pnpm risk:pools` prints the tiers, and the database table `risk_pools` holds them.
+- **YOU:** nothing.
+- **Done when:** every Tier A pool is confirmed on-chain, and the tier counts match the Pareto file.
+
+### Step 2 — Pool snapshot collector *(today, Oct 1)*
+- **What it does:** a new background job (`com.colosseum.risk-pools`) reads Tier A pools every 5 minutes and Tier B hourly. Each run:
+  1. Reads the pool's state: price, active liquidity, and liquidity at every price level.
+  2. Simulates selling and buying the asset for USDC at 8 sizes, from $100 to $5M.
+  3. Writes the result with source, time and method.
+
+  Raw account bytes are kept for Tier A once an hour, so any number can be recomputed later. The Kamino and Jupiter Lend market accounts are also stored raw every hour, for Step 10. The old depth job keeps running untouched.
+- **What you'll see:** `~/.colosseum/risk/pools/YYYY-MM-DD.jsonl` grows every 5 minutes. `pnpm risk:coverage` shows runs, failures and samples per hour.
+- **YOU:** keep the laptop **plugged in with sleep off**, starting this weekend (Oct 3–4). In Terminal: `sudo pmset -c sleep 0`. Afterwards, `sudo pmset -c sleep 1` restores the default.
+- **Done when:** two consecutive runs are on disk and the old job is still writing.
+
+### Step 3 — Quote cross-check *(today, Oct 1)*
+- **What it does:** a lighter job, every 15 minutes, asks Jupiter for real quotes on the 18 assets in the 80% set, at a few sizes, sell and buy, and compares them with our simulation.
+  - Jupiter can split a sale across pools. If it gets a better price than our best single pool, the gap tells us how much routing adds.
+  - If our simulation is better than Jupiter, something is wrong, and the check flags it.
+  - Failed quotes are stored as rows, never retried in a loop.
+- **What you'll see:** a column "sim vs Jupiter" in `risk:coverage`.
+- **YOU:** nothing.
+- **Done when:** the gap is recorded for every Tier A asset, and any pool where it exceeds the venue's tolerance is listed.
+
+### Step 4 — Who provides the liquidity *(Oct 1–2)*
+- **What it does:** reads every liquidity position in Tier A pools and who owns it. That gives LP concentration: what share of the liquidity near the current price belongs to the top 1, 3 and 10 providers.
+  - New stress test: "the top N providers withdraw". The pool's depth is recomputed without their positions. This replaces a flat "weekend factor" with a measured one.
+  - Liquidity withdrawals become events. The collector compares each snapshot with the last and records any drop in liquidity near the price, with the transaction that caused it.
+- **What you'll see:** per pool, "top-3 LPs hold X% of depth within ±2%". Per asset, the sale size that costs 1% before and after the top LP leaves.
+- **YOU:** nothing.
+- **Done when:** concentration is computed for every Tier A pool, and an LP-withdrawal event appears in the log within 5 minutes of happening (checked against the transaction on Solscan).
+
+### Step 5 — History *(Oct 2)*
+- **What it does:**
+  1. Checks how far back the RPC serves transactions (archive or not).
+  2. Checks whether Dune already has Solana xStocks trades. If it does, we use it and skip our own backfill. **YOU:** a Dune API key, if you have or want one (optional).
+  3. Otherwise ports Teiten's swap inference to TypeScript and backfills past swaps for the 34 pools that hold 80% of liquidity. Each swap's size and price give the real cost by trade size and hour of the week, across every past weekend in the window.
+  4. Liquidity adds and removes come from the same transactions, giving past LP withdrawals.
+  5. Compares the realised cost of our own Sep 30 SPYx/QQQx buys (`executions`) with their quotes.
+- **What you'll see:** `pnpm risk:history` prints how many weeks are covered per pool and the weekend-vs-weekday cost ratio from real trades.
+- **Done when:** at least 4 past weekends are covered for the top 10 pools, or the RPC limit is documented with the depth we did reach.
+
+### Step 6 — The risk engine *(Oct 2–3)*
+- **What it does:** `packages/risk` gets the math from the spec, as pure functions with tests:
+  - time of week (US market hours, weekday off-hours, weekend, holiday, with DST handled);
+  - depth curves per time bucket;
+  - the issuer redemption route (labelled assumption);
+  - recoverable value;
+  - liquidity score;
+  - breach and likely-breach;
+  - the weekend-gap simulator.
+
+  Curves now come from simulated pool snapshots plus trade history, not from quotes.
+- **What you'll see:** `pnpm risk:report` prints, per asset: the sale size that costs 1% in market hours vs on the weekend, the weekend/weekday ratio, and the top-LP-exit stress.
+- **Done when:** the Phase 1 acceptance checks pass (§7).
+
+### Step 7 — Service and dashboard *(Oct 3–4, during the weekend's collection)*
+- **What it does:**
+  - database tables;
+  - an importer for the collected files;
+  - `/risk/*` API routes;
+  - a standalone `apps/risk-api` that serves only those routes;
+  - dashboard pages: per-asset depth curves, an hour-of-week heatmap, LP concentration, and a methodology page with the honesty notes.
+- **What you'll see:** `http://localhost:3000/risk` in the browser, and `http://localhost:3002/docs` for the API.
+- **YOU:** look at the dashboard once on Saturday and once on Sunday and tell me anything that reads wrong. 10 minutes each.
+- **Done when:** the Phase 2 acceptance checks pass.
+
+### Step 8 — Join to the structurer *(Oct 5–6)*
+1. Freeze a snapshot of today's three demo plans. With no liquidity data passed in, the structurer must produce exactly the same plans; that proof comes before any engine change.
+2. Add the four hooks:
+   - **Sizing:** stock weights capped by measured weekend exit capacity.
+   - **Schedule:** exit cost and a "liquidity dries up" stress.
+   - **Risk sheet:** a liquidity block per leg.
+   - **Policy:** sell stock to cash ahead of a likely breach.
+3. Show it in the plan view and the monitor.
+- **What you'll see:** a high-risk plan whose SPYx/QQQx weights shrink as capital grows, with the reason naming the weekend capacity. A "liquidity breach" proposal on the monitor.
+- **Done when:** the Phase 3 checks 1–5 pass.
+
+### Step 9 — One real rebalance *(a weekday, Oct 6 or 7)*
+- **What it does:** on the demo wallet, a policy with a stated 1% cost tolerance proposes selling a small amount of stock to USDC because a withdrawal could not be met on a weekend.
+- **YOU:** open `/monitor`, read the proposal, and sign it in Phantom. This is the same flow as your earlier rebalance, a few dollars.
+- **Done when:** the transaction's Solscan link is on the monitor and in `executions`.
+
+### Step 10 — Lending markets *(Oct 7–9)*
+- **What it does:**
+  - Reads Kamino's xStocks reserves and Jupiter Lend's xStocks vaults on-chain: loan-to-value, liquidation threshold and bonus, caps, and the weekend price band. This verification comes first.
+  - Shows them side by side, with a weekend-gap simulator per market.
+  - Adds a "supply USDC to a stock-collateral market" leg, allowed only when the pool's score passes.
+  - Adds a read-only borrow-capacity check for a wallet holding SPYx.
+- **YOU:** nothing. This step is read-only; no borrowing is executed.
+- **Done when:** the Phase 4 checks pass.
+
+---
+
+**Throughout:**
+- `main` is not touched, and the hackathon tasks on `main` (rebalance #2, deploy, video, submission) are unaffected.
+- On Oct 9 (feature freeze) I report where the risk layer stands, so you can decide Q1: whether any of it goes into the submission.
+
+## 4. Methods (source for the methodology page; `method_version = risk-0.2`)
+
+Names in `code` are policy inputs stored next to every output. Anything not listed here is as in Appendix A.
+
+- **Pool simulation (primary depth).** For each pool, decode its state and simulate an exact-input swap at notional `n`:
+  - **Concentrated liquidity** (Raydium CLMM, Orca): step through initialized ticks, using `Δx = L(1/√P_target − 1/√P)` and `Δy = L(√P − √P_target)`, and update `L` by each tick's `liquidityNet` at the crossing.
+  - **DLMM:** walk bins from the active bin, consuming each bin's opposite-token amount at the bin price.
+  - **CPMM:** `out = R_out × n' / (R_in + n')`, using reserves net of owed fees.
+  - **Fees:** taken from input at the pool's rate. Token-2022 transfer fees are applied to the leg in that token.
+  - Liquidity outside the fetched ticks is treated as absent, which can only understate depth.
+  - Per-venue tolerance against Jupiter same-pool quotes is a tested constant: Raydium CLMM 1e-6, CPMM 1e-9, DLMM 1e-4, Orca 1e-3 until adaptive fees are modelled.
+- **Asset depth.** At each snapshot, the asset's sell curve is the best single-pool output at each notional across its USDC and SOL pools. SOL is converted at the SOL/USDC pool price in the same snapshot.
+  - Multi-pool routing is not added, so the curve is a lower bound on what a router gets.
+  - Step 3 measures the routing gap and stores it beside the curve.
+- **Cost.** `I(n) = 1 − out(n) / (n × P_mid)`, where `P_mid` is the pool's mid price at the snapshot. It includes the fee. Jupiter's `priceImpactPct` is never used.
+- **Founder defaults** (answered Oct 1): τ = 1%, `shareOfDepth` = 0.25, `dryFactorFloor` = 0.25. The dry multiplier stays `d = max(dryFactorFloor, min(1, ρ))`, and the measured top-N-LP-exit curve is reported beside it.
+- **LP concentration.** For each pool and band `±b` around the price (`concentrationBandPct`, default 2%):
+  - share of in-band liquidity held by the top 1, 3 and 10 owners;
+  - **LP-exit stress:** recompute the pool without the top `N` owners' positions (`lpExitN`, default 3).
+- **LP-withdrawal event.** Between consecutive snapshots, a drop of more than `withdrawalAlarmPct` (default 20%) in in-band liquidity, attributed to the `decrease_liquidity` or `remove_liquidity` transactions in that window. It feeds the policy as an early warning, before any withdrawal date.
+- **Trade history (calibration).** Each past swap gives its size and execution price. Pre-trade mid price comes from the pool state or the previous trade. Realised cost by size and hour-of-week is compared with the simulated curve for the same bucket, and the comparison is published.
+- **Redemption.** An issuer redemption that settles after the horizon is listed with status `settles_after_horizon` and is not counted in recoverable value (founder, Oct 1).
+
+## 5. Stack additions
+
+| Need | Choice | Why |
 |---|---|---|
-| Engine, DB, API, web | **Nothing new** | `packages/risk` is TypeScript on the existing toolchain. Drizzle, Fastify with swagger, and Next are already in the repo. |
-| Curve fitting | **No library.** Isotonic (pool-adjacent-violators) over per-grid-point quantiles, then monotone piecewise-linear interpolation in ln(notional) | About 60 lines, deterministic, invertible in closed form, auditable on the methodology page |
-| Time zones and DST | **No library.** `Intl.DateTimeFormat` with `timeZone: 'America/New_York'` (Node ICU) | DST comes from the tz database that ships with Node; holidays are a fixture list |
-| Charts (curves, heatmap) | **Plain SVG components** in the style of `apps/web/components/ScheduleChart.tsx` | Same pattern as the existing chart, no chart dependency, no SSR issues |
-| Collector scheduling | **Second launchd job** `com.colosseum.risk-collect`, new plist and new `scripts/launchd/install-risk.sh` | Same mechanism as the proven first job; files outside `~/Documents` for the same privacy reason |
-| Market reads (Phase 4) | `@kamino-finance/klend-sdk` 12.x (already installed). For Jupiter Lend: HTTP or raw account decode by default; an SDK only if R4-1 shows no other path | Avoids a new dependency unless verification forces one; pnpm's minimum-release-age rule applies |
+| Pool decoding | **Hand-written decoders in `packages/risk`, no SDK** | Validated against Jupiter. The SDKs pull `web3.js` v1 and Anchor, while this repo uses `@solana/kit` 2.x. |
+| Curve fit, time zones | No library (isotonic + piecewise-linear in ln n; `Intl` for ET) | Deterministic, auditable |
+| Charts | Plain SVG like `ScheduleChart.tsx` | No dependency |
+| Collectors | Two new launchd jobs: `com.colosseum.risk-pools` (5 min) and `com.colosseum.risk-quotes` (15 min). Each has its own directory and env file. | Same proven mechanism; the old job is left alone |
+| History | Dune API if available (Step 5), else RPC + a port of Teiten's swap inference | Fastest path to past weekends |
 
-## 3. Architecture sketch
+## 6. Decisions
 
-```
-Phase 0 (files only)                    Phase 2 (service)                         Phase 3 (seam)
-scripts/risk-collect.mjs  ──JSONL──▶  scripts/risk-import.ts ──▶ depth_observations (side=buy|sell)
-  (launchd, ~/.colosseum/risk/)         risk_market_snapshots (raw)        │
-                                       scripts/risk-compute.ts ──▶ risk_depth_curves (method_version)
-                                                                 ──▶ risk_liquidity_scores
-packages/risk (pure, no I/O):                                    ──▶ risk_redemption_models (assumption)
-  time       ET clock, hour-of-week, regime(at)                  ──▶ risk_market_params / risk_assessments
-  curves     fit(samples) → DepthCurve; impactAt, maxNotionalAt, recoverableValue
-  redemption primaryCapacity(issuer, at, H, n)
-  recoverable recoverable(asset, n, at, H) → {value, path, provenance}
-  score      liquidityScore(asset, H, τ, Nref)
-  breach     assess(positions, withdrawals, window, params) → LiquidityAssessment
-  gap        gapSim(marketParams, aggregates, gapPct) (Phase 1 math, Phase 4 inputs)
-  markets    decoders for Kamino reserve / Jupiter Lend vault (Phase 4)
-  provider   createLiquidityProvider(curveSnapshot, models) implements schemas.LiquidityProvider
+| # | Decision | Default | Decided by / when |
+|---|---|---|---|
+| D1 | Start date | **Now** (founder, Oct 1) | done |
+| D2 | Main depth source | **Pool reads; quotes as cross-check** (founder, Oct 1) | done |
+| D3 | Pool coverage | **Tier A = pools holding 99% of liquidity (5 min); Tier B = the rest (hourly)** | Step 1; re-tiered weekly from fresh discovery |
+| D4 | Byreal and other unsupported venues | **Excluded and listed until their decoder passes the same validation**; then added | Step 2 |
+| D5 | History source | **Dune if it has the trades; else our own RPC backfill of the top 34 pools** | Step 5 |
+| D6 | Hour-of-week curves vs regime curves | **Regime curves for decisions; hour-of-week as a heatmap**, upgraded where 5-min samples give ≥ `minSamplesPerPoint` per bucket | Step 6 |
+| D7 | Merge into `main` / the hackathon submission | **Not before Oct 12 unless the founder says so (Q1)** | Founder, by Oct 9 |
+| D8 | Fold the old depth job | **After Oct 12**: final import, then unload. Its data stays read-only. | Oct 13 |
+| D9 | Orca adaptive fee | **Model it in Step 3** if Orca pools are in Tier A for assets the structurer uses; else keep the documented tolerance | Step 3 |
 
-apps/api/src/routes/risk.ts  (Fastify plugin: /risk/*)  ← mounted by apps/api AND by apps/risk-api (only this plugin + /docs)
-apps/web/app/risk/*          (assets, asset/[id], markets, methodology)
+## 7. Acceptance mapping (`HANDOFF-RISK.md` §6)
 
-packages/schemas  ◀── packages/risk        packages/schemas ◀── packages/engine
-   (types + LiquidityProvider interface; risk never imports engine; engine never imports risk)
-apps/api builds the provider from packages/risk and passes it into engine calls. No provider → today's code path.
-```
+| Check | Step | Proof |
+|---|---|---|
+| P0.1 collector grows every 15 min, sell and buy, 429s as rows | 2, 3 | `~/.colosseum/risk/` files; `risk:coverage` (the pool collector runs every 5 min, exceeding the spec) |
+| P0.2 old job unchanged and writing | 2 (and daily) | `stat` mtime; old script unchanged vs `main` (key-only re-install, approved) |
+| P0.3 hourly Kamino / Jupiter Lend rows | 2 (raw), 10 (decoded) | `markets-*.jsonl` |
+| P1.1–P1.4 report, recoverable, breach fixtures, determinism | 6 | `docs/risk/report-*.txt`; `tests/risk-layer/*.test.ts` |
+| P2.1–P2.4 depth endpoint, assess over HTTP, standalone API, dashboard | 7 | saved responses; screenshots |
+| P3.1 no-provider unchanged | 8 (first) | `tests/engine-baseline.test.ts`, empty snapshot diff |
+| P3.2–P3.5 sizing, risk sheet, dry stress, monitor proposal | 8 | tests + screenshots |
+| P3.6 mainnet rebalance from `liquidity_breach` | 9 | Solscan link in `executions` |
+| P4.1–P4.4 markets, gap sim, lending leg, borrow capacity | 10 | API responses + tests |
 
-**Data flow, quote to binding constraint:** Jupiter quote (USDC→asset buy, asset→USDC sell) → JSONL row with `source`, `fetchedAt`, `method`, `error` → `risk-import` → `depth_observations` → `risk-compute` buckets each row by regime → `risk_depth_curves` (asset, side, regime, points, samples, date range, `method_version`) → `apps/api` `POST /plans` loads the latest curve snapshot into `createLiquidityProvider` → `solve({..., liquidity})` computes the effective cap per stock → `bindingConstraints` gets "spyx capped at w: weekend sell capacity $C at τ, shareOfDepth s, n samples, dates" → the plan stores the curve snapshot id in each leg's risk-sheet `liquidity` block.
+**Added beyond the spec:**
+- **V-POOL:** every venue decoder passes the same-pool Jupiter check in `tests/risk-layer/pools.test.ts`. Done for 4 venues.
+- **V-LP:** an LP withdrawal is detected within one snapshot (Step 4).
+- **V-HIST:** realised trade cost compared with the simulation per bucket (Step 5).
 
-**Quote to `liquidity_breach` order:** `GET /policies/:id/drift` reads live positions and the plan's schedule → `provider.assess(positions, next withdrawals, window, policy.trigger.liquidity)` → `LiquidityAssessment {breach, likelyBreach, shortfall, monthsAtRisk}` → `proposeRebalance({..., liquidity})` adds orders illiquid → `usdc` with `reason: 'liquidity_breach'` → `/monitor` → `POST /policies/:id/rebalance` (xStocks are user-signed) → `executions` row with explorer link → `rebalances` row.
+## 8. Risks
 
-## 4. Method definitions (source for the methodology page; `method_version = risk-0.1`)
+| Risk | Likelihood | Mitigation | Retired in |
+|---|---|---|---|
+| Laptop asleep, so gaps in the 5-min series | High | Founder power setting (Step 2); gaps reported, never filled in | ongoing |
+| Unlimited RPC ends | Medium | Tier B hourly; the collector's request rate is configurable; raw bytes kept so nothing must be re-fetched | Step 2 |
+| A decoder silently breaks after a program upgrade | Medium | Hourly self-check: liquidity rebuild plus one Jupiter same-pool quote per venue. A failure marks the venue `degraded` and stops its numbers being published. | Step 3 |
+| Simulation overstates depth (single pool vs routing; Orca adaptive fee) | Low for overstating; routing makes us conservative | Routing gap measured; Orca tolerance tested; adaptive fee in D9 | Step 3 |
+| History too heavy to backfill | Medium | Dune first; top 34 pools only; trades, not full state | Step 5 |
+| Engine change alters existing plans | Low | No-provider snapshot proof before any hook | Step 8 |
+| Liquidity orders conflict with band invariants | Medium | Liquidity orders only to USDC and only reduce illiquid legs; invariants tested | Step 8 |
+| Scope creep (agent layer, design system) | Medium | Out of scope per spec; logged, not built | ongoing |
+| Discovery source (DexScreener) misses pools | Low–Medium | On-chain `getProgramAccounts` by mint for the 50 assets as a second pass | Step 1 |
+
+## 9. Open questions
+
+| # | Question | Default |
+|---|---|---|
+| Q1 | Should any of the risk layer go into the hackathon submission (merge before Oct 12)? | No; decide by Oct 9 |
+| Q2 | Dune API key for history? | Optional; without it, the RPC backfill is used |
+| Q3 | LP-withdrawal alarm: drop in liquidity near price that triggers it (`withdrawalAlarmPct`)? | 20% within ±2% of price |
+| Q4 | Tier A cut-off: 99% of liquidity (301 pools) or 95% (138)? | 99% |
+
+**Answered on Oct 1:** τ 1%; `shareOfDepth` 0.25; dry floor 0.25; too-slow issuer redemption is listed, not counted; no API rate limit locally, limited when live; old job re-installed with the key; start now; pool reads first.
+
+## 10. Self-check
+
+- **(a) `main` and the old collector:** untouched, except the approved key-only re-install of the old job on Oct 1. All work is on `risk-layer`.
+- **(b) `packages/risk` never imports `packages/engine`:** enforced by `tests/risk-layer/boundary.test.ts`.
+- **(c) No-provider proof before any engine change:** first action of Step 8.
+- **(d) Verification before dependence:**
+  - Jupiter tier: Step 3.
+  - Mints: Step 1 (confirmed on-chain).
+  - Kamino, Scope and Jupiter Lend: Step 10, first.
+  - Quote vs realised: Step 5.
+  - Pool decoders: done today, tested.
+- **(e) Every §6 check maps to a step:** §7.
+- **(f) No market figure is carried as fact:** §2 lists dated measurements with their files; method defaults are policy inputs.
+
+## Appendix A — Method definitions carried from v1 (`risk-0.1`, unchanged unless §4 says otherwise)
 
 Every name in `code font` below is a **policy input** in `RISK_PARAMS`, `SOLVER_PARAMS` or `STRESS_PARAMS`. Each input is stored next to each output and is never a market fact.
 
@@ -143,186 +339,3 @@ Without a provider, equity is never drawn (today).
 
 Every assumption is listed in the response.
 
-## 5. Slot tables
-
-Slots are half days (AM 09–13, PM 14–18 BRT) for Phases 0–3 and full days for Phase 4. Post-hackathon work uses weekdays only. `[B2]` marks work for a possible second builder. Every slot ends with `pnpm typecheck && pnpm lint && pnpm test`, an evidence row in `docs/STATE-RISK.md`, and a commit named after the slot (`R1-3: curve fit and queries`).
-
-### Phase 0 — Collect (Thu Oct 1)
-
-| Slot | Phase | Workstream | Deliverable | Check | Depends on | [B2]? | Notes |
-|---|---|---|---|---|---|---|---|
-| P0-1 Thu Oct 1 AM | 0 | Verify + collector | **First check:** the existing job is still writing. Then **VR-1** (Jupiter keyed tier) and **VR-2** (xStocks discovery and mint checks, §9a). Then `scripts/risk-collect.mjs`: dependency-free; sell and buy, 8 notionals, tiered asset list (§9a); hourly market block; spacing from VR-1; 429s as rows; reads the old job's file mtime only to avoid overlap. Plus `docs/STATE-RISK.md`. | (1) `stat -f %m ~/.colosseum/depth/2026-10-01.jsonl` advanced within the last 16 min, before any new file is written. (2) One manual run into a scratch dir: 16 quote rows per Tier-1 asset plus the Tier-2 rotation share (errors included) + ≥ 1 market row with `source`, `fetchedAt`. (3) `docs/VERIFICATION-RISK.md` rows VR-1 and VR-2. | — | [B2] | Grid and spacing follow decision D8. Assets whose mint fails VR-2 are left out, never guessed. Kamino xStocks reserve addresses come from `GET /v2/kamino-market` plus `reserves/metrics` filtered by verified mints, stored raw. Config fields are not interpreted until R4-1. |
-| P0-2 Thu Oct 1 PM | 0 | Scheduling + markets | `scripts/launchd/com.colosseum.risk-collect.plist` (`StartCalendarInterval` at fixed minutes, 7 min after the old job's observed phase), `scripts/launchd/install-risk.sh` (copies to `~/.colosseum/risk-collect.mjs`, its own env file `~/.colosseum/risk/env` with the key and RPC), the hourly market block (Kamino metrics plus raw `getAccountInfo` base64 of each reserve; Jupiter Lend vaults by the source found in a 45-min timebox), and `pnpm risk:coverage` (runs, 429 rate, rows per regime). | Two consecutive scheduled runs in `~/.colosseum/risk/2026-10-01.jsonl`. `~/.colosseum/risk/markets-2026-10-01.jsonl` has Kamino rows (and Jupiter Lend rows, or a logged `not_found` row). `launchctl list \| grep colosseum` shows both jobs. The old file's mtime is still advancing. `risk:coverage` output pasted into STATE-RISK. | P0-1 | [B2] | `scripts/launchd/install.sh`, the old plist, `~/.colosseum/env` and `~/.colosseum/depth/` are not edited. Founder action: power settings for the Oct 3–4 and Oct 10–11 weekends (R-9). |
-
-**Between Oct 2 and Oct 12 (no slots, about 2 min a day):** run `pnpm risk:coverage` and append one line to STATE-RISK. If coverage of any regime falls below the D3 threshold, record it; do not patch the job mid-weekend unless it has stopped writing.
-
-### Phase 1 — Engine (`packages/risk`), default Tue Oct 13 – Thu Oct 15
-
-| Slot | Phase | Workstream | Deliverable | Check | Depends on | [B2]? | Notes |
-|---|---|---|---|---|---|---|---|
-| R1-1 Tue Oct 13 AM | 1 | Fixture + boundary | **VR-6** (primary-redemption terms). `packages/risk` scaffold. `scripts/risk-fixture.ts` freezes `fixtures/risk/quotes-2026-10-01_12.jsonl` (both collectors, two weekends) and `fixtures/risk/issuer-models.json` (assumptions). `tests/risk-layer/boundary.test.ts`: no `@colosseum/engine` import anywhere under `packages/risk` or `apps/risk-api`. | Boundary test green. Fixture row counts per regime printed and recorded. Decisions D3 and D6 recorded in STATE-RISK. | P0 data | | Before this slot (15 min): merge `main` into `risk-layer`, then apply the D6 fold. |
-| R1-2 Tue Oct 13 PM | 1 | `time` | ET conversion, hour-of-week, `regimeAt`, `bucketsIn(at, H)`, holiday fixture | `tests/risk-layer/time.test.ts`: Sat 10:00Z → `weekend`. Tue 15:00Z → `us_market_hours`. DST changes on Sun Nov 1, 2026 and Sun Mar 8, 2026. Thanksgiving 2026 → `us_holiday`. | R1-1 | | |
-| R1-3 Wed Oct 14 AM | 1 | `curves` | `fitCurve`, `impactAt`, `maxNotionalAt`, `recoverableValue`, coverage and `insufficient` flags, weekend ratio | `tests/risk-layer/curves.test.ts`: monotone output on non-monotone input. Inverse round-trip `impactAt(maxNotionalAt(τ)) ≤ τ`. Same input gives byte-identical JSON. Leave-one-day-out error is printed (D2). | R1-2 | | |
-| R1-4 Wed Oct 14 PM | 1 | `redemption` + `recoverable` | `primaryCapacity`, `recoverable` with path and status | `recoverable.test.ts`: `spyx, $50k, Sat 10:00Z, 24h` → DEX only. Same at `72h` → primary path present with `provenance: 'assumption'` and its status (see Q5). | R1-3 | | |
-| R1-5 Thu Oct 15 AM | 1 | `score` + `breach` | `liquidityScore`, `assess` (base and dry), orders sized to the shortfall | `breach.test.ts`: fixture A (monthly withdrawal > cash + liquid) gives `breach: false`, `likelyBreach: true`, with orders, and no `likelyBreach` after applying them. Fixture B (enough cash) gives neither. | R1-4 | | |
-| R1-6 Thu Oct 15 PM | 1 | `gap` + CLI | `gapSim` over a labelled fixture market. `pnpm risk:report` prints sell curves for `weekend` and `us_market_hours`, `maxNotionalAt(τ)` and ρ per asset. `no-yield-literals.test.ts` extended to `packages/risk` (impact, price and depth names). | `docs/risk/report-2026-10-15.txt` committed. Literal test green. `gap.test.ts` green. | R1-5 | | Phase 1 acceptance run. |
-
-**Alternative, Phase 1 from Mon Oct 5 (on the branch, during the hackathon):**
-- R1-1..R1-4 → Oct 5 AM, Oct 5 PM, Oct 6 AM, Oct 6 PM. These are D5/D6 calendar slots, free because D5/D6 ran early.
-- R1-5..R1-6 → Thu Oct 8 AM and PM (FLEX-2, FLEX-3), only if G-Nora FAILED on Oct 6. If G-Nora passed, they move to Tue Oct 13 AM and PM.
-- The fixture has one weekend (Oct 3–4). It is refreshed with Oct 10–11 in a dedicated `R1-fixture-refresh` commit on Oct 13, and D3 still decides on Oct 13.
-- Phase 2 then starts Oct 13 AM, Phase 3 ends Thu Oct 22 AM (mainnet), and Phase 4 runs Fri Oct 23 – Fri Oct 30.
-- **Cost to the hackathon:**
-  - FLEX-2 (S1 EVM adapter or execution hardening) and FLEX-3 (friendly-user onboarding, ≥ 2 external wallets) are dropped.
-  - The founder items that would use Oct 5–6 (deploy logins, rebalance #2, S1 decision) compete with R1 slots.
-  - Context switching costs the run-up to the Oct 9 freeze.
-  - `main` is not touched either way.
-
-### Phase 2 — Service, Fri Oct 16 – Tue Oct 20
-
-| Slot | Phase | Workstream | Deliverable | Check | Depends on | [B2]? | Notes |
-|---|---|---|---|---|---|---|---|
-| R2-1 Fri Oct 16 AM | 2 | Tables | **VR-7** (quote vs realised slippage, method only). Drizzle tables `risk_depth_curves`, `risk_liquidity_scores`, `risk_redemption_models`, `risk_market_params`, `risk_market_snapshots`, `risk_assessments`, each with `method_version` and provenance columns. Migration. `docs/DATA-MODEL.md` rows. | Migration applies on local Postgres (5433). `db-schema.test.ts` extended and green. | R1-6 | | `depth_observations` kept; sell rows land there with `side='sell'` |
-| R2-2 Fri Oct 16 PM | 2 | Importer + compute | `scripts/risk-import.ts` (quotes → `depth_observations`, markets → `risk_market_snapshots`, idempotent; error rows counted into coverage). `scripts/risk-compute.ts` (curves and scores persisted with `method_version`, snapshot id). | Two consecutive imports: the second prints `inserted: 0`. `risk:compute` prints the curve count per regime. | R2-1 | [B2] | |
-| R2-3 Mon Oct 19 AM | 2 | Read API | `apps/api/src/routes/risk.ts` plugin: `GET /risk/assets`, `/risk/assets/:id/depth?side&regime`, `/risk/assets/:id/score`, `/risk/recoverable`. zod schemas, so they appear in OpenAPI. `DISCLAIMER` on every response. | `curl /risk/assets/spyx/depth?side=sell&regime=weekend` returns points, `samples`, `from`, `to`, `methodVersion`. Saved to `docs/risk/evidence/r2-3.json`. | R2-2 | | |
-| R2-4 Mon Oct 19 PM | 2 | Assess + standalone | `POST /risk/positions/assess`. `apps/risk-api` (Fastify, mounts only the risk plugin and swagger). | API test: the HTTP result equals the R1-5 fixture result (deep-equal). `pnpm --filter risk-api dev`: `/docs` lists only `/risk/*`, and `/plans` returns 404. | R2-3 | | |
-| R2-5 Tue Oct 20 AM | 2 | Dashboard | `apps/web/app/risk/page.tsx` (assets and scores), `risk/[asset]/page.tsx` (SVG curves per regime, hour-of-week heatmap with sample counts, ρ) | Screenshot `docs/screenshots/r2-5-risk-spyx.jpg`, showing the regime, samples and date range | R2-4 | [B2] | |
-| R2-6 Tue Oct 20 PM | 2 | Methodology + slippage | `risk/methodology` rendered from §4 of this plan plus the §3.3 honesty lines and the disclaimer. `pnpm risk:slippage`: quoted vs realised for every `executions` swap row (Sep 30 SPYx/QQQx onward), shown on the methodology page. | Screenshot. `risk-slippage.test.ts` (computation on fixture executions). Decision D4 recorded. | R2-5 | [B2] | Phase 2 acceptance run |
-
-### Phase 3 — Join, Wed Oct 21 – Tue Oct 27
-
-| Slot | Phase | Workstream | Deliverable | Check | Depends on | [B2]? | Notes |
-|---|---|---|---|---|---|---|---|
-| R3-1 Wed Oct 21 AM | 3 | **No-provider proof** | `tests/engine-baseline.test.ts`: the three demo goals' full plan output (legs, binding constraints, schedule, stresses, risk sheet) snapshotted on the unchanged engine. Additive schema types: `DepthCurve`, `LiquidityScore`, `LiquidityAssessment`, `LiquidityEntry`, the `LiquidityProvider` interface, optional `Policy.trigger.liquidity`, optional `RiskSheetEntry.liquidity`. | Full `pnpm test` green with **zero** snapshot updates (`git diff tests/__snapshots__` is empty apart from the new baseline file). Commit hash recorded as the baseline. | R2-6 | | Decision D7 recorded. From here on, any engine change re-runs this test. |
-| R3-2 Wed Oct 21 PM | 3 | Providers | `packages/risk/provider` (`createLiquidityProvider(snapshot)`) and `tests/fixtures/fixture-liquidity-provider.ts` (`provenance: 'fixture'`) | `provider-contract.test.ts` runs the same assertions against both | R3-1 | | |
-| R3-3 Thu Oct 22 AM | 3 | Solver hook | `solve({..., liquidity?})`: effective cap, binding text, `SOLVER_PARAMS.impactTolerancePct` and `shareOfDepth` | `solver-liquidity.test.ts`: high-risk plan SPYx/QQQx weights fall as capital crosses weekend capacity, and the binding text names `weekend` and the dollar capacity. Baseline green. | R3-2 | | |
-| R3-4 Thu Oct 22 PM | 3 | Schedule hook | Equity drawable at exit cost; `liquidity_dry` stress; `STRESS_PARAMS.dryFactorFloor` | `schedule-liquidity.test.ts`: `liquidity_dry` present for stock plans only. A fixture whose withdrawal is drawn from stocks flips `liquidityOk` when exit cost applies. Baseline green. | R3-3 | | |
-| R3-5 Fri Oct 23 AM | 3 | Risk-sheet hook | `buildRiskSheet({..., liquidity?})` emits a `liquidity` block (score, capacity at the plan's window, ρ, primary summary, samples, dates, provenance). `depthNote` is rendered from it. | `risk.test.ts`: high-risk plan has the block on SPYx and QQQx. Income and accumulation plans have it on USDY and syrupUSDC. Baseline green. | R3-4 | | Today `POST /plans` passes an empty depth map; that stays the no-provider behaviour |
-| R3-6 Fri Oct 23 PM | 3 | Policy hook | `proposeRebalance({..., liquidity?})` with `liquidity_breach` orders | `policy.test.ts` adds: never above band max; destination is always the owner; liquidity orders only reduce illiquid legs; liquidity orders respect the minimum interval. Existing six invariants unchanged. | R3-5 | | R-7 |
-| R3-7 Mon Oct 26 AM | 3 | API wiring | `POST /plans` and `GET /policies/:id/drift` build and pass the provider; responses gain `liquidity`; `/risk/*` mounted in `apps/api`. `pnpm acceptance:risk` → `docs/ACCEPTANCE-RISK.md`. | `curl` evidence for both routes. `acceptance:risk` passes P0–P2 and P3 checks 1–4. | R3-6 | | |
-| R3-8 Mon Oct 26 PM | 3 | UI | `PlanView` liquidity panel (capacity vs need per window, regime); `/monitor` liquidity status row with the proposal reason | Screenshots: plan panel, and a monitor showing a `liquidity_breach` proposal for the fixture policy (FIXTURE badge visible). P3 check 5 passes. | R3-7 | [B2] | |
-| R3-9 Tue Oct 27 AM | 3 | **Mainnet** | Demo-wallet policy with `trigger.liquidity` (τ per D10). `/monitor` proposes `liquidity_breach` (stock → USDC). User-signed, smallest sensible amount, sent once. | Explorer link in `executions` and `rebalances`, shown on `/monitor`. `acceptance:risk` passes all Phase 3 checks. | R3-8 | | Weekday. A failed send is logged, never auto-retried. Tue Oct 27 PM is unallocated buffer. |
-
-### Phase 4 — Lending (day slots), Wed Oct 28 – Wed Nov 4
-
-| Slot | Phase | Workstream | Deliverable | Check | Depends on | [B2]? | Notes |
-|---|---|---|---|---|---|---|---|
-| R4-1 Wed Oct 28 | 4 | **Verify account reads** | **VR-3** (Kamino xStocks reserves: addresses, `ReserveConfig` fields, Scope price-band config), **VR-4** (Jupiter Lend vault configs), **VR-5** (obligation enumeration feasibility). Scratch decoders run against the raw P0 snapshots. | `docs/VERIFICATION-RISK.md` VR-3..VR-5 with method, timestamp and value. Decisions D5 and D9 recorded. | R3-9 | | First because these reads are the unfamiliar part |
-| R4-2 Thu Oct 29 | 4 | Market readers | `packages/risk/markets` decoders. `risk-import` backfills `risk_market_params` from the raw snapshots collected since Oct 1. | `GET /risk/markets` lists each reserve and vault with on-chain params, `source`, `fetchedAt`, and the dispersion table | R4-1 | [B2] | |
-| R4-3 Fri Oct 30 | 4 | Gap + market pages | `POST /risk/markets/:id/gap` on real params. `apps/web/app/risk/markets/*`. | Gap response for one market at a chosen `gapPct`: liquidatable-at-reopen, unliquidatable-while-closed, assumptions listed. Screenshot. | R4-2 | [B2] | |
-| R4-4 Mon Nov 2 | 4 | Lending leg | Registry entry "USDC supplied to stock-collateral market", haircut rule `HC-LEND-RWA`, gate on pool score, `db:seed` | `registry.test.ts`: appears in an accumulation plan only when score ≥ `poolScoreMin`, never in income. Acceptance registry-vs-DB diff green. | R4-3 | | Registry is the enforcement point |
-| R4-5 Tue Nov 3 | 4 | Borrow capacity | `POST /risk/positions/borrow-capacity` (read-only) | For a wallet holding SPYx: capacity, liquidation distance, thinnest hour-of-week. Test asserts no transaction is built. | R4-4 | | |
-| R4-6 Wed Nov 4 | 4 | Obligations or hardening | If D5 = yes: obligation enumeration into `risk_market_snapshots`. Else: full `acceptance:risk` across Phases 0–4 and fixes. | `docs/ACCEPTANCE-RISK.md` all rows | R4-5 | | |
-
-## 6. Decision log with cut-offs
-
-| # | Decision | Options | Default | Cut-off | What changes on each outcome |
-|---|---|---|---|---|---|
-| D1 | Phase 1 start | Oct 5 (hackathon slots) / Oct 13 | **Oct 13** | Sun Oct 4 20:00 BRT | Oct 5: alternative row map in §5; FLEX-2 and FLEX-3 content dropped; everything after shifts 3 working days earlier. Oct 13: table as written. |
-| D2 | Curve fit | Isotonic + PL in ln n / parametric power law | **Isotonic + PL** | R1-3 | Parametric only if its leave-one-day-out error is lower on ≥ half the (asset, side) pairs. Then `method_version` changes, and the methodology text gets a new section. |
-| D3 | Hour-of-week curves | Regime only / hour-of-week where data allows | **Regime curves for all decisions; hour-of-week as a descriptive heatmap only** | R1-1 (Oct 13, after the second weekend) | Hour-of-week becomes decision-grade per (asset, side) only where every bucket has ≥ `minSamplesPerPoint` successful samples at every grid point. `risk:coverage` reports this. |
-| D4 | Second depth source (direct Raydium/Orca/Meteora reads) | yes / no | **No** | R2-6 | Yes only if realised slippage diverges from quoted impact beyond `slippageDivergenceTol` on most executions, or more than `maxErrorRunShare` of runs fail. It would be added as a Phase 4+ slot, not inside Phases 1–3. |
-| D5 | Obligation enumeration | yes / no | **No** (market aggregates from reserve metrics) | R4-1 | Yes only if the paid RPC serves filtered `getProgramAccounts` within budget and the founder approves the cost. Then R4-6 builds it. |
-| D6 | Fold the old collector on Oct 13 | Fold / keep both | **Fold.** Final `pnpm depth:import` of `~/.colosseum/depth/`, unload `com.colosseum.depth-snapshot`, keep its files read-only, mark `depth-snapshot.mjs` superseded. | Tue Oct 13 AM | Keep both: two key/IP consumers stay (R-8). The old grid series continues for comparison only. |
-| D7 | Merge `risk-layer` into `main` | After Phase 2 / after Phase 3 | **After Phase 3** (R3-9 green) | R3-1 | Merging after Phase 2 brings the service onto `main` earlier, but leaves engine hooks on the branch longer. |
-| D8 | Collector grid and cadence if VR-1 shows the keyed tier is too tight | Full grid / 6 notionals / sell every run and buy every second run | **Full grid at the spacing VR-1 allows**, provided a run finishes in ≤ 10 min | P0-1 | Otherwise: sell side every run (it matters for exit), buy side on alternate runs. The cadence is written into every row (`runId`, `grid`). |
-| D9 | Jupiter Lend source | HTTP API / raw account decode / SDK | **HTTP if found in P0-2's timebox, else raw accounts** | P0-2 (collection), R4-1 (decode) | Neither found by P0-2: Jupiter Lend history starts at R4-2, and §6 P0 check 3 is partial (recorded) |
-| D10 | τ for the mainnet demo policy | `impactTolerancePct` default / tighter, set from measured curves | **Chosen at R3-9 from the stored curves, written into the policy before the proposal runs** | R3-9 | A breach exists only under a tolerance the policy actually states. The value and its reason go in STATE-RISK. It is never tuned after seeing the proposal. |
-
-## 7. Risk register
-
-| # | Risk | Likelihood | Impact | Early signal | Mitigation | Retired in |
-|---|---|---|---|---|---|---|
-| R-1 | Jupiter rate limits corrupt the time series | **High** (seen: old job keyless, 115/416 rows `429` on Sep 30; key added Oct 1 per Q8) | Thin buckets, biased toward quiet hours | `risk:coverage` 429 share per run | VR-1 sizes spacing; D8 thins the buy side; errors stored as rows; per-point sample counts and `insufficient` flags | P0-2 (partially), R1-3 |
-| R-2 | Sparse weekend samples make regime curves unreliable | Medium | Weekend capacity and ρ wrong, so caps and breach are wrong | Weekend samples per grid point after Oct 4 | Two weekends before Phase 1; D3 keeps hour-of-week descriptive; `insufficient` curves cap nothing silently: the solver treats them as capacity 0 and says so | R1-1 |
-| R-3 | Quote impact diverges from realised slippage | Medium | Capacity overstated | `risk:slippage` on Sep 30 executions | Reported on the methodology page; D4 can add a second source; `curveQuantile` can move to a pessimistic quantile | R2-6 |
-| R-4 | Kamino weekend price band unreadable from Scope config | Medium | Gap simulator's "unliquidatable while closed" undefined | VR-3 cannot locate the band field | `bandPct` becomes a labelled `assumption` input with the reason; the output says "band not read" | R4-1 |
-| R-5 | Jupiter Lend vault API or layout changes | Medium | Market page breaks or shows stale data | Decoder errors in `risk-import` | Raw snapshots stored before decoding; decoder version in `method_version`; errors render as errors, never as zeros | R4-2 |
-| R-6 | The solver change alters existing plans unexpectedly | Low (opt-in), high impact | Hackathon plans and demo change | `engine-baseline.test.ts` diff | No-provider baseline frozen in R3-1 before any hook; every hook slot re-runs it | R3-1, R3-3..R3-6 |
-| R-7 | Liquidity orders conflict with band invariants | Medium | A proposal violates a band, or sells into an over-band asset | New `policy.test.ts` invariants fail | Liquidity orders go only to `usdc` and only reduce illiquid legs; post-order weights are checked against band max; on conflict the band wins and the residual shortfall is reported | R3-6 |
-| R-8 | Second launchd job disturbs the first (shared IP window, overlap) | Medium | Old weekend series (cannot be re-collected) loses rows | Old job's 429 share before vs after install (same hours) | Separate env file and key; fixed-minute schedule offset from the old job's phase; mtime guard waits if the old file was written < 30 s ago; uninstall the new job if the old 429 share rises | P0-2 (+ Oct 2 check) |
-| R-9 | Laptop asleep during collection | **High** (`fetch failed` rows already present) | Gaps on the weekends that matter most | Missing runs in `risk:coverage` | Founder keeps the laptop on power with sleep disabled for Oct 3–4 and Oct 10–11 (`sudo pmset -c sleep 0` or `caffeinate -s`); gaps reported, never interpolated | Oct 12 (D6) |
-| R-10 | Scope creep into the agent layer or the design system | Medium | Phases 3–4 slip | Any slot touching `apps/web` beyond the listed pages, or an "agent" module | Out-of-scope list from `HANDOFF-RISK.md` §4 in STATE-RISK; plain UI; discoveries logged, not built | Ongoing, reviewed at R2-6 and R3-9 |
-| R-11 | `main` moves through Oct 12 and conflicts with `risk-layer` | Medium | Merge pain in Phase 3 | `git merge-base` drift | Phases 0–2 touch only new files; merge `main` into `risk-layer` on Oct 13 before R1-1 and again at R3-1 | R3-1 |
-| R-12 | Primary-path acceptance wording vs settlement assumption (Q5) | Certain ambiguity | §6 P1 check 2 read two ways | — | Default in Q5; the response lists the path and status either way | R1-4 |
-| R-13 | No sell-side liquidity at all for a new xStock (VR-2 passes, routes fail) | Medium | Curve empty | Sell rows all error | Asset kept with `insufficient`; score 0 with reason; not dropped silently | R1-3 |
-
-## 8. Acceptance mapping (`HANDOFF-RISK.md` §6)
-
-| # | Check | Slot | Artifact that proves it |
-|---|---|---|---|
-| P0.1 | `~/.colosseum/risk/YYYY-MM-DD.jsonl` grows every 15 min with sell and buy rows for 8 assets × 8 notionals; 429s are rows | P0-2 | `risk:coverage` output in STATE-RISK; file listing |
-| P0.2 | Existing `com.colosseum.depth-snapshot` unchanged and still writing (mtime) | P0-1 (first check), P0-2, daily | `stat` output in STATE-RISK; `git diff main -- scripts/depth-snapshot.mjs scripts/launchd/` empty |
-| P0.3 | Hourly Kamino and Jupiter Lend market rows with `source` and `fetched_at` | P0-2 | `~/.colosseum/risk/markets-*.jsonl`; D9 note if Jupiter Lend is partial |
-| P1.1 | `risk:report` prints weekend and market-hours sell curves, `maxNotionalAt(1%)`, ρ | R1-6 | `docs/risk/report-2026-10-15.txt` |
-| P1.2 | `recoverable(spyx, $50k, Sat 10:00Z, 24h)` DEX only; at 72h primary path labelled `assumption` | R1-4 | `tests/risk-layer/recoverable.test.ts` |
-| P1.3 | Breach fixture: base `false`, dry `true`, orders remove it; cash fixture: neither | R1-5 | `tests/risk-layer/breach.test.ts` |
-| P1.4 | Deterministic, unit-tested, no literals outside `fixtures/` | R1-6 | `no-yield-literals.test.ts` (extended); determinism assertions in each test file |
-| P2.1 | `GET /risk/assets/spyx/depth?side=sell&regime=weekend` returns curve with samples, dates, method version | R2-3 | `docs/risk/evidence/r2-3.json` |
-| P2.2 | `POST /risk/positions/assess` reproduces Phase 1 fixture | R2-4 | API test (deep-equal with R1-5 output) |
-| P2.3 | `apps/risk-api` serves only `/risk/*` and `/docs` | R2-4 | `/docs` listing and `/plans` 404 in STATE-RISK |
-| P2.4 | Dashboard: curves per regime, heatmap, methodology with §3.3 lines | R2-5, R2-6 | `docs/screenshots/r2-5-*.jpg`, `r2-6-*.jpg` |
-| P3.1 | No provider: every existing test and snapshot passes unchanged | R3-1 (then every R3 slot) | `engine-baseline.test.ts`; empty snapshot diff |
-| P3.2 | With provider: SPYx/QQQx weights fall past weekend capacity; binding text names regime and capacity | R3-3 | `solver-liquidity.test.ts` |
-| P3.3 | `liquidity` block per stock leg; also USDY and syrupUSDC for income and accumulation | R3-5 | `risk.test.ts` |
-| P3.4 | `liquidity_dry` in stress table for stock plans; `liquidityOk` changes with exit cost | R3-4 | `schedule-liquidity.test.ts` |
-| P3.5 | Monitor shows `liquidity_breach` for a fixture policy; invariants hold | R3-6, R3-8 | `policy.test.ts`; `docs/screenshots/r3-8-monitor.jpg` |
-| P3.6 | One mainnet rebalance from a `liquidity_breach` proposal, user-signed, explorer link | R3-9 | `executions` and `rebalances` rows; Solscan link in STATE-RISK |
-| P4.1 | `GET /risk/markets` lists Kamino reserves and Jupiter Lend vaults with on-chain params, source, timestamp, dispersion | R4-2 | Response saved to `docs/risk/evidence/r4-2.json` |
-| P4.2 | Gap simulator: liquidatable at reopen and unliquidatable while closed, assumptions listed | R4-3 | `gap` API test and saved response |
-| P4.3 | Lending leg in registry, gated by pool score, haircut `HC-LEND-RWA`, appears only when score passes | R4-4 | `registry.test.ts`, solver test |
-| P4.4 | Borrow capacity for a SPYx wallet: capacity, liquidation distance, thinnest hour; no borrow | R4-5 | API test asserting no transaction built |
-
-**Verification tasks** (`HANDOFF-RISK.md` §7; results go to `docs/VERIFICATION-RISK.md`, values dated, never copied into this plan):
-
-| Id | Item | Slot | How | If it fails |
-|---|---|---|---|---|
-| VR-1 | Jupiter keyed quote tier | P0-1 | Burst of keyed `GET api.jup.ag/swap/v1/quote` calls. Record `x-ratelimit-*` headers, the call that first returns 429, and the window reset. Compare with the plan shown on portal.jup.ag. | D8: thin buy side or grid; spacing set from the measured window |
-| VR-2 | Mints for TSLAx, NVDAx, AAPLx, GOOGLx | P0-1 | V6 method: `lite-api.jup.ag/tokens/v2/search` (verified tag), then `getAccountInfo jsonParsed`. Must be Token-2022 with the same extension set and mint authority / hook program as SPYx. | Asset left out of the collector and recorded; no guessed mint |
-| VR-3 | Kamino xStocks reserves, `ReserveConfig`, Scope band | R4-1 | klend-sdk `KaminoMarket.load` on each market found in P0; `reserve.state.config`; Scope `OracleMappings` / price-chain config for the xStocks tokens; cross-check against the raw bytes stored since Oct 1 | Band → labelled assumption (R-4); a reserve not found → removed from `/risk/markets` with a note |
-| VR-4 | Jupiter Lend `getVaultConfig()` for SPYx/QQQx/TSLAx/NVDAx | R4-1 | Source chosen in D9; compare decoded collateral factor and liquidation threshold with the vault UI | Vault shown as `unverified` and excluded from the dispersion table |
-| VR-5 | Obligation enumeration | R4-1 | One filtered `getProgramAccounts` on the paid RPC; record latency, size and cost | D5 = no |
-| VR-6 | Primary redemption terms (window, minimum, KYC, settlement; Ondo 24/7 limits) | R1-1 | `docs.xstocks.fi` FAQ and terms, the Ondo blog and docs; a primary source per field or `assumption` | Field stays `assumption`; only values change, not code |
-| VR-7 | Quote impact vs realised slippage | R2-1 (method), R2-6 (report) | `executions` rows (Sep 30 SPYx/QQQx buys onward): realised rate from the confirmed transaction's balance changes vs the quote at build time | D4 |
-| — | Direct pool reads as a second source | Not scheduled | Decision D4 | — |
-
-## 9. Open questions for the founder
-
-Answered on 2026-10-01 unless marked OPEN.
-
-| # | Question | Answer |
-|---|---|---|
-| Q1 | Impact tolerance τ (`impactTolerancePct`)? | **1%** (founder accepted the recommendation) |
-| Q2 | Share of measured capacity the solver may plan to use (`shareOfDepth`)? | **OPEN.** Recommendation: 0.25; reasoning given to the founder |
-| Q3 | Which xStocks? | **OPEN.** Founder asked for all of them. Proposal: all verified xStocks in tiers (§9a) |
-| Q4 | `liquidity_dry` multiplier? | **Agreed:** `d = max(dryFactorFloor, min(1, ρ))`, `dryFactorFloor` 0.25; if ρ is `insufficient`, `d = dryFactorFloor` |
-| Q5 | Does a too-slow issuer redemption count in a 72 h answer? | **OPEN.** Re-asked in plain words. Default: listed as "too slow for this horizon", not counted |
-| Q6 | Rate limit on third-party `/risk/*`? | **None while local; limited when deployed live** |
-| Q7 | Phase 1 start date? | **OPEN.** Re-asked in plain words. Default: Tue Oct 13 |
-| Q8 | Re-install the old collector with the Jupiter key? | **Yes.** Done 2026-10-01 ~00:30Z with `pnpm depth:install-cron`. The script was unchanged (the deployed copy differed from the repo only in formatting); the env file now has the key. This is the one approved exception to "do not touch the existing job". |
-
-### 9a. Asset coverage (proposal for Q3)
-
-The limit on coverage is Jupiter's quote rate, not RPC. Each asset costs 16 quotes per run (8 notionals × 2 sides); RPC is used only for hourly market snapshots. VR-1 gives the quote budget per 15 minutes. The proposed tiers:
-
-- **Tier 1, every 15 min:** SPYx, QQQx, TSLAx, NVDAx, AAPLx, GOOGLx, MSTRx, HOODx (the xStocks lending markets accept as collateral, subject to VR-2), plus USDY and syrupUSDC.
-- **Tier 2, rotating:** every other verified xStock. Each is quoted at least hourly, sell side first.
-- **Discovery:** P0-1 enumerates xStocks from Jupiter token search (verified tag, Token-2022, same mint authority and hook as SPYx) and stores the list with `source` and `fetchedAt`. No mint is typed by hand.
-- An asset with no route is kept and shown as "no measurable depth". That is a result, not a gap.
-
-Tier 2 cadence is set in P0-1 from the measured budget (D8). If the budget allows every asset every 15 min, the tiers collapse into one.
-
-## 10. Plan self-check
-
-- **(a) Nothing touches the existing collector, its data or `main` before Oct 12.** Confirmed, with one approved exception: Q8, a key-only re-install of the old job on Oct 1 (script unchanged). Phase 0 writes new files only: `risk-collect.mjs`, a new plist, `install-risk.sh`, `~/.colosseum/risk/`. It only `stat`s the old file. All commits go on `risk-layer`. The fold (D6) and the first merge from `main` happen on Oct 13.
-- **(b) `packages/risk` has no import from `packages/engine`.** Confirmed by design (§3) and enforced by `tests/risk-layer/boundary.test.ts` from R1-1.
-- **(c) The no-provider path is proven before any engine change.** Confirmed. R3-1 freezes `engine-baseline.test.ts` on the unchanged engine. Engine hooks start at R3-3, and each one re-runs it.
-- **(d) Every §7 unverified item the build depends on has a verification task in the first slot of its phase.**
-  - Phase 0, P0-1: Jupiter tier (VR-1), four mints (VR-2).
-  - Phase 1, R1-1: redemption terms (VR-6).
-  - Phase 2, R2-1: slippage (VR-7).
-  - Phase 4, R4-1: Kamino config and Scope band (VR-3), Jupiter Lend (VR-4), obligations (VR-5).
-  - Direct pool reads are not a dependency (D4).
-- **(e) Every §6 check maps to a slot.** Confirmed: 21 of 21 in §8.
-- **(f) No depth, yield or price figure appears as a fact in the plan.** Confirmed. Numbers here are parameters with defaults (τ, grid bounds, `shareOfDepth`, `dryFactorFloor`), dates, slot counts, or the dated health counts of the existing collector's file (rows and errors, not market values). Dossier figures (LTVs, volumes, settlement days) are not carried; they are verification targets.
-- **(g) Phase 0 fits in ≤ 2 slots and starts Oct 1.** Confirmed: P0-1 and P0-2, Thu Oct 1 AM and PM.

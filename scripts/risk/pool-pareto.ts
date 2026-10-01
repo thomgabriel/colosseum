@@ -10,7 +10,7 @@ const file =
   join(
     OUT,
     readdirSync(OUT)
-      .filter((n) => n.startsWith('pools-dexscreener-'))
+      .filter((n) => n.startsWith('pools-dexscreener-') && n.endsWith('.jsonl'))
       .sort()
       .at(-1) as string,
   );
