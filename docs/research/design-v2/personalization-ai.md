@@ -1,6 +1,6 @@
 # Personalization engine: design v2 note
 
-Oct 1, 2026. Stream: turning a sentence or a form into a personal basket. Tags: `[n]` checked today against source n; `[repo]` read in `risk-layer`; `[audit]` from the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-BASKET.md`); `[proto]` run today in `docs/research/design-v2/personalization-proto/`; `[memory]` not checked.
+Oct 1, 2026. Stream: turning a sentence or a form into a personal basket. Tags: `[n]` checked today against source n; `[repo]` read in `risk-layer`; `[audit]` from the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-VAULT.md`); `[proto]` run today in `docs/research/design-v2/personalization-proto/`; `[memory]` not checked.
 
 ## 1. Bottom line
 

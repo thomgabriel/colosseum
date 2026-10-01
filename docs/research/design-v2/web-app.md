@@ -1,6 +1,6 @@
 # Web app: design v2 note
 
-Oct 1, 2026. Stream: `apps/web`. Built on the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-BASKET.md`) (the `web-NN` findings) and `apps/web` on `risk-layer`. `[n]` = checked today against source n. `[memory]` = not checked.
+Oct 1, 2026. Stream: `apps/web`. Built on the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-VAULT.md`) (the `web-NN` findings) and `apps/web` on `risk-layer`. `[n]` = checked today against source n. `[memory]` = not checked.
 
 ## 1. Bottom line
 
@@ -189,4 +189,4 @@ Vercel Hobby: free, native Next 16, 1M function invocations and 100 GB transfer 
 14. https://docs.privy.io/recipes/using-test-accounts
 15. https://developers.cloudflare.com/workers/platform/limits/
 16. https://docs.privy.io/authentication/user-authentication/login-methods/passkey
-17. Local: the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-BASKET.md`), `docs/research/open-questions/wallet-providers.md`, `spikes/*/README.md`, `risk-layer/apps/web`, `risk-layer/packages/schemas/src/tx.ts`
+17. Local: the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-VAULT.md`), `docs/research/open-questions/wallet-providers.md`, `spikes/*/README.md`, `risk-layer/apps/web`, `risk-layer/packages/schemas/src/tx.ts`

@@ -177,5 +177,5 @@ From `TRUST_STATUS`, at the first deposit (a checkbox, stored with text version 
 13. `safe-deployments`, `src/assets/v1.4.1/safe_l2.json`, 4663 and 8453 both "canonical": https://github.com/safe-global/safe-deployments
 14. https://docs.squads.so/main/development/reference/accounts
 15. `docs/research/vaults/permission-security.md`, which links 3Commas, dHEDGE, Enzyme and Index Coop
-16. Local: the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-BASKET.md`); both spikes; the five sibling notes in `docs/research/design-v2/`; `risk-layer` at `75ae4f0`. Runs today: `gitleaks git` on `risk-layer` (read-only), `cargo deny check advisories` on the Solana spike, local tool versions
+16. Local: the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-VAULT.md`); both spikes; the five sibling notes in `docs/research/design-v2/`; `risk-layer` at `75ae4f0`. Runs today: `gitleaks git` on `risk-layer` (read-only), `cargo deny check advisories` on the Solana spike, local tool versions
 17. npm registry today: `fast-check` 4.10.2, `@fastify/rate-limit` 11.2.0, `@fastify/helmet` 13.1.1, `jose` 6.2.12

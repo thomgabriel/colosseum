@@ -1,10 +1,21 @@
-# DESIGN: Basket app, technical design v2
+# DESIGN: plans held in a vault, technical design v2
 
-*Written 2026-10-01. A proposal, like `HANDOFF-BASKET.md`: nothing here is decided until Rodrigo agrees. It replaces the first version, which is in this branch's history. For Rodrigo, Thom and the coding agents that build each piece.*
+*Written 2026-10-01. A proposal, like `HANDOFF-VAULT.md`: nothing here is decided until Rodrigo agrees. It replaces the first version, which is in this branch's history. For Rodrigo, Thom and the coding agents that build each piece.*
 
-How this was made: nine research notes (`docs/research/design-v2/*.md`) merged with the product (`docs/HANDOFF-BASKET.md`), the first version, the audit (`docs/AUDIT-BASKET.md`) and the convergence blueprint (`docs/CONVERGENCE-BASKET.md`), then revised after three reviews: scope against time, security, and seams. What each review changed is in `docs/research/design-v2/review-log.md`. Marks: **[C n]** means checked on Oct 1 against source n in the last section, by a stream note, a reviewer or this revision; **(memory)** means not re-checked. Other numbers come from the stream notes, which carry their own source lists.
+How this was made: nine research notes (`docs/research/design-v2/*.md`) merged with the product (`docs/HANDOFF-VAULT.md`), the first version, the audit (`docs/AUDIT-VAULT.md`) and the convergence blueprint (`docs/CONVERGENCE-VAULT.md`), then revised after three reviews: scope against time, security, and seams. What each review changed is in `docs/research/design-v2/review-log.md`. Marks: **[C n]** means checked on Oct 1 against source n in the last section, by a stream note, a reviewer or this revision; **(memory)** means not re-checked. Other numbers come from the stream notes, which carry their own source lists.
 
 Nothing here has run on mainnet. The three $10 runs come first in time.
+
+**Words.** The product words follow the brand strategy on the `design` branch. The code names in the listings are working names, chosen before the strategy. They are renamed once, together with the package scope, when the name is final (section 17, item 18).
+
+| Product word | What it is | Working code name |
+|---|---|---|
+| Plan | A portfolio made to measure for one goal, with its reasons, its card and its exit plan | `BasketSheet`, `BasketProposal`, `baskets`, `packages/basket` |
+| Shared portfolio | A public, versioned list of assets and weights that a plan can start from or follow | `Recipe` with `kind: 'community'`, `index_families`, `IIndexRegistry`, `/indexes/[slug]` |
+| Vault | The person's own onchain account for one plan on one chain | `Vault`, `IBasketVault`, `programs/basket` |
+| Re-true | Trade back toward the targets | `rebalance`, `planRebalance`, `keeper_leg` |
+| Exit plan | What it costs to get out at your size, and the withdrawal of the tokens themselves | `RiskRollUp.exit`, `LiquidityProvider`, `withdraw` |
+| Bearing | The liquidity and risk layer | `packages/risk` |
 
 **Decided by Thom after the reviews (Oct 1).** The text below is updated for these.
 
@@ -41,7 +52,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 | Keeper on GitHub cron, or a loop on a team machine | The loop | The cron cannot run `basket` code before Oct 12, and its secrets would be open to anything that can push |
 | A hard 12-hour floor on the delay, or a short delay for test cycles | Both, through the launch latch | Three test cycles in total were too few; after `launch()` the floor cannot drop |
 | Accept may name a pending version, or only the active one | Only the active one, by number | Pre-acceptance needs extra vault state; the prompt appears when the version takes effect |
-| Keeper revisits any vault outside the band, or only after an index update | Any auto-follow vault not yet back in band since its last adoption | Fixes half-finished rebalances without shipping drift rebalancing, which is on the roadmap |
+| Keeper revisits any vault outside the band, or only after a shared-portfolio update | Any auto-follow vault not yet back in band since its last adoption | Fixes half-finished rebalances without shipping drift rebalancing, which is on the roadmap |
 | Relay signed bytes, or report only | Report, with optional signed Solana bytes that must match a leg the server built | The browser has no RPC; binding to a built leg avoids an open relay |
 | viem 2.57.x or 2.56.x | 2.56.0 everywhere | `@privy-io/react-auth` 3.46.0 depends on exactly 2.56.0 **[C 8]** |
 | Cooldown per vault or per asset | Per asset | A rebalance finishes in one pass and cannot ping-pong |
@@ -52,13 +63,13 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 | # | MVP item | Pieces that deliver it |
 |---|---|---|
 | 1 | Sign in two ways; a chain is usable once funded | Privy behind `WalletPort`; `users`, `user_wallets`; `GET /v1/funding` (cash plus gas per chain) |
-| 2 | At least 6 community indexes, 2 on more than one chain | Onchain registries; `index_families`, `recipes`, `recipe_versions`; shelf and index screens; a seed script from `launch-shelf.seed.json` |
-| 3 | Personal basket from a sentence or a form | `engine/src/personal/` (`compose`); `/v1/baskets/parse` and `/personalize`; fit screens; the three-profile test |
+| 2 | At least 6 shared portfolios, 2 on more than one chain | Onchain registries; `index_families`, `recipes`, `recipe_versions`; shelf and shared-portfolio screens; a seed script from `launch-shelf.seed.json` |
+| 3 | Plan from a sentence or a form | `engine/src/personal/` (`compose`); `/v1/baskets/parse` and `/personalize`; fit screens; the three-profile test |
 | 4 | One-tap buy on three chains, status per leg, retry | `POST /v1/orders`; legs and attempts; owner builders; `/orders/[id]` |
 | 5 | Portfolio across chains with drift | `getVaults`, `getPrices`; `view()` in `packages/basket`; portfolio screen |
-| 6 | One-tap rebalance | `planRebalance` in `packages/basket`; a rebalance order |
+| 6 | Re-true in one tap | `planRebalance` in `packages/basket`; a rebalance order |
 | 7 | Publish, follow, update, prompt; auto-follow off by default | Registry with creator limits; accept, adopt and keeper-leg calls; `apps/keeper`; a simple publish form |
-| 8 | Risk sheet per asset, roll-up per basket | `content/risk-sheets/` (Rodrigo); `LiquidityProvider`; the EVM collector; `rollUp` in `packages/basket` |
+| 8 | The exit plan and the risk sheet: a sheet per asset, a roll-up per plan | `content/risk-sheets/` (Rodrigo); `LiquidityProvider`; the EVM collector; `rollUp` in `packages/basket` |
 | 9 | Built for agents | `/v1` REST with a committed OpenAPI file; `packages/sdk`; `apps/mcp`; `skills/basket/SKILL.md`; approval at `/orders/[id]` |
 
 Not built: bridging, shared pools, an adviser view, creator fees, fiat ramps, perps, CCIP sync, sponsored gas, session signers, an event indexer, agent API keys, keeper rebalancing on drift.
@@ -104,7 +115,7 @@ Two things in his code break these rules today. `packages/db/src/seed-assets.ts`
 
 **Pull requests.** PR0 repairs CI, which has failed at setup on every run: delete `version: 11` in `ci.yml`, fix three lint errors, add a Postgres 16 service and `pnpm db:migrate`, delete the placeholder `allowBuilds` lines, add `LICENSE`. PR1a is the frame every TypeScript stream waits for: the v0 types, `chain-mock` with contract tests, migration `0006`, flags. PR1b follows without blocking anyone: the boundary test, three CI workflows (`ci.yml`, `program.yml`, `contracts.yml`) and the dependency pins.
 
-**Process.** His slot process carries over: `docs/PLAN-BASKET.md`, `docs/STATE-BASKET.md`, rows in `docs/GATES.md`. Slot ids are `<stream>-<n>`, half a day each. An open gate stops one stream. `pnpm dev` starts `api` and `web` only.
+**Process.** His slot process carries over: `docs/PLAN-VAULT.md`, `docs/STATE-VAULT.md`, rows in `docs/GATES.md`. Slot ids are `<stream>-<n>`, half a day each. An open gate stops one stream. `pnpm dev` starts `api` and `web` only.
 
 ## 3. Frozen interfaces
 
@@ -366,7 +377,7 @@ function metaHash(family: FamilyMeta): string;
 
 ### 3.7 Solana program (`programs/basket`, `idl/basket.json`)
 
-One Anchor program (0.31.1, the version the spike builds on) holds the vaults, the registry and the asset list. A program-derived account (PDA: an address only the program can sign for) per basket stores the state and signs swaps. The TypeScript builders in `chain-solana` are written by hand on `@solana/kit` 2.3, and a test decodes every built instruction against the IDL.
+One Anchor program (0.31.1, the version the spike builds on) holds the vaults, the registry and the asset list. A program-derived account (PDA: an address only the program can sign for) per plan stores the state and signs swaps. The TypeScript builders in `chain-solana` are written by hand on `@solana/kit` 2.3, and a test decodes every built instruction against the IDL.
 
 ```rust
 // seeds: ["config"] | ["assets"] | ["recipe", creator, family_id] | ["vault", owner, basket_id u64 LE]
@@ -516,7 +527,7 @@ event KeeperTrade(address indexed vault, address tokenIn, address tokenOut,
 | `index_families` | `family_id`, slug, a folded-name key (unique), name, copy, `creator_user_id`, `creator_kind`, `kind` (`index`, `single`), `platform` badge, `params jsonb` |
 | `recipes`, `recipe_versions` | family, chain, onchain id; version, components, `meta_hash`, `effective_at`, status, nullable `fee_bps` |
 | `baskets`, `proposals` | user, kind (`personal`, `follow`), family; the stored `BasketProposal` keyed by `inputs_hash` |
-| `vaults` | `(chain_id, address)` unique; owner, basket, recipe, accepted version, auto-follow, targets, balances, `value_usd`, `vault_type`, `observed_at` |
+| `vaults` | `(chain_id, address)` unique; owner, plan, recipe, accepted version, auto-follow, targets, balances, `value_usd`, `vault_type`, `observed_at` |
 | `follows` | user, family: the watchlist and pending prompts |
 | `orders`, `legs`, `leg_attempts` | the `Order`, `Leg` and `Attempt` fields; nullable `org_id` on orders; attempts carry `message_hash`, `nonce`, his provenance columns, nullable `fee_amount`, unique `(chain_id, tx_id)` |
 | `keeper_runs`, `keeper_legs`, `keeper_vaults` | one open run per chain (a partial unique index, which works through any connection pooler); the keeper's own leg log; `synced_version` per vault |
@@ -527,7 +538,7 @@ Three Postgres roles. `api` can read the keeper tables and not write them. `keep
 
 Units: weights are integer basis points; token amounts are raw units in `numeric(78,0)`; dollars are display values only.
 
-**Onchain.** Solana: the accounts in 3.7. A vault is about 1.06 KB (0.0060 SOL rent) plus a token account per asset (about 0.0015 SOL); a 12-asset vault costs about 0.027 SOL, refundable. EVM: a proxy per vault holds owner, index id, accepted version, auto-follow, operator, targets, last keeper time per asset and the loss counter. The factory holds asset config, the router allowlist, keeper, guardian, closed days and parameters.
+**Onchain.** Solana: the accounts in 3.7. A vault is about 1.06 KB (0.0060 SOL rent) plus a token account per asset (about 0.0015 SOL); a 12-asset vault costs about 0.027 SOL, refundable. EVM: a proxy per vault holds owner, portfolio id, accepted version, auto-follow, operator, targets, last keeper time per asset and the loss counter. The factory holds asset config, the router allowlist, keeper, guardian, closed days and parameters.
 
 **Reading state, with no events.** EVM: `vaultsOf`, `vaultAt`, `snapshot()`, `indexAt` and `active()` through Multicall3. Solana: `getProgramAccounts` with `memcmp` at offset 8 for the portfolio, and at offsets 40 and 76 for the keeper.
 
@@ -566,16 +577,16 @@ The session window sits inside the New York session in summer and winter time, s
 
 **EVM specifics.** Raw units everywhere; the feeds already include the multiplier. Decimals (18 on Robinhood Chain, 8 on Base) are passed in config, never read from the token. Robinhood Chain swaps go through Universal Router 2.1.2 (`0x204FAca1764B154221e35c0d20aBb3c525710498`) on hookless pools. Base uses our hardened `SlipstreamAdapter`: it checks `pool.factory()`, sends output only to `msg.sender` and holds nothing. Robinhood Chain has no sequencer feed; that risk is accepted.
 
-## 6. Index registry and creator limits
+## 6. Shared-portfolio registry and creator limits
 
 - Onchain and small: creator, family id, version, components, effective time, `metaHash`, creator counters. Names and copy stay in Postgres.
-- A multi-chain index is a family with one recipe per chain, tied together by `familyId`.
+- A multi-chain shared portfolio is a family with one recipe per chain, tied together by `familyId`.
 - A family row is created or renamed only after its publish transaction confirms and its creator matches the signed-in wallet. Names are ASCII in the MVP. Uniqueness is checked on a folded key (lower case, spaces and punctuation removed, look-alike digits mapped to letters), and the launch names are reserved.
-- Cards, the approval page and the server-written summary show the creator address and a platform badge, set from the platform creator address. Indexes rank by value following. The follower count includes only vaults holding $10 or more, since an empty vault costs almost nothing to make.
+- Cards, the approval page and the server-written summary show the creator address and a platform badge, set from the platform creator address. Shared portfolios rank by value following. The follower count includes only vaults holding $10 or more, since an empty vault costs almost nothing to make.
 - Following is the vault pointing at a recipe.
-- The 500 holds one asset, so it is not a registry index. It sits on the shelf as a single-asset basket (`kind: 'single'`): a vault with one target and no recipe. The registry keeps one rule set and no admin exception.
+- The 500 holds one asset, so it is not a registered shared portfolio. It sits on the shelf as a single-asset portfolio (`kind: 'single'`): a vault with one target and no recipe. The registry keeps one rule set and no admin exception.
 
-Limits, checked by the registry. Constants, not per-index settings. Shape limits and `maxWeightBps` apply from version 1; change limits from version 2.
+Limits, checked by the registry. Constants, not per-portfolio settings. Shape limits and `maxWeightBps` apply from version 1; change limits from version 2.
 
 | Limit | Value |
 |---|---|
@@ -592,7 +603,7 @@ Limits, checked by the registry. Constants, not per-index settings. Shape limits
 
 with `shareOfDepth` 0.25 and `τ` 1% (his values), and `indexCapacityUsd` $250k on Solana and $50k on the EVM chains (from `creator-limits.md`). An asset with no measured curve keeps the ceiling of its shelf tier. The first values are written in the deploy session on Oct 5.
 
-Caps follow the curves, so a cap can fall below a live weight. A component above its cap is then allowed if it does not rise and falls by the lesser of 10 points or the distance to the cap. Without this rule an index whose cap dropped by more than 10 points could never publish again.
+Caps follow the curves, so a cap can fall below a live weight. A component above its cap is then allowed if it does not rise and falls by the lesser of 10 points or the distance to the cap. Without this rule a shared portfolio whose cap dropped by more than 10 points could never publish again.
 
 `previewPublish` and `limits()` let an agent check before paying for a transaction. The TypeScript check, the Solana program and the EVM registry share one file of test vectors, including a week boundary, a cap below a live weight and a non-zero `flags`.
 
@@ -614,13 +625,13 @@ Three pure steps. **Exposure:** how big each sleeve is (stocks and crypto, dolla
 | Amount | Dollar ceiling per token = min(tier ceiling, 0.25 × exit capacity); overflow goes to the same exposure on another chain, then to dollar yield | "Gold on Solana limited to $10,000" |
 | Country | Blocked tokens are skipped; the same exposure is taken on another chain if one exists | "On Robinhood Chain: the Solana token is not offered in X" |
 
-- A prototype over the launch shelf passes the brief's test: three people, three baskets, and each input alone moves the basket and adds a reason naming it. Its numbers are placeholders for Rodrigo.
-- A personal basket holds at most 8 lines per chain in the MVP. The vault itself allows 16.
+- A prototype over the launch shelf passes the handoff's test: three people, three plans, and each input alone moves the plan and adds a reason naming it. Its numbers are placeholders for Rodrigo.
+- A plan holds at most 8 lines per chain in the MVP. The vault itself allows 16.
 - **The card:** money needed today; expected return (a yield range on the dollar-yield share; stocks and gold assume no return, plus the dollar loss in a 20% fall); total term; cash-flow pattern; when you can get out. Income goals add a verdict with the gap and each way to close it.
 - **The model** fills `BasketSheetDraft` (every field nullable) and nothing else: Claude Haiku 4.5 on Anthropic's Messages API with structured outputs, about $0.002 a parse **[C 11]**. The call lives in `apps/api/src/llm.ts` with a 6-second timeout and a daily budget.
 - Checks after the model, in pure code: the amount and time frame must appear in the text; themes must be shelf slugs; any disagreement with the regex parser is flagged per field. The form is always the confirm step. Model down: the regex parser pre-fills it. That fails: it opens with defaults.
-- Community index names never reach the model. Explanation text is one template per rule, in English and Portuguese. A 12-goal evaluation set guards the parser.
-- A test bans "recommend", "suitable" and "best for you" in templates, and a new disclaimer constant replaces his distributor wording. This is positioning only: a basket built from a person's circumstances can count as advice whatever the wording.
+- Shared portfolio names never reach the model. Explanation text is one template per rule, in English and Portuguese. A 12-goal evaluation set guards the parser.
+- A test bans "recommend", "suitable" and "best for you" in templates, and a new disclaimer constant replaces his distributor wording. This is positioning only: a plan built from a person's circumstances can count as advice whatever the wording.
 
 ## 8. Risk sheet
 
@@ -631,7 +642,7 @@ Three pure steps. **Exposure:** how big each sleeve is (stocks and crypto, dolla
 - **Quoted:** the latest stored quote at the nearest size, shown with its time. On Solana these are his 15-minute Jupiter snapshots; on EVM the collector's rows. A live quote is made only when an order is planned or a leg is built.
 - **Measured, worst regime:** `LiquidityProvider.exitCost`. What the measured pools alone would give on a bad day.
 
-The roll-up states the share of the basket that is measured.
+The roll-up states the share of the plan that is measured.
 
 **Solana.** His risk layer as it stands: four pool decoders, cost curves by time-of-week regime, LP concentration. It covers xStocks only; dollar-yield tokens show the quoted number alone. Rodrigo's side fixes three things before anything public reads it: the request that freezes the API (`POST /risk/positions/assess`), the hourly import that grows until it runs out of memory, and a regime with too few samples counting as zero capacity.
 
@@ -716,7 +727,7 @@ GitHub Actions is the later home for the keeper, not the MVP one. It needs Rodri
 
 Stack kept: Next 16.3.8, React 19.3.0, Tailwind 4.3.3. Added: Privy, viem, TanStack Query, next-intl, shadcn primitives, Playwright with axe. `cacheComponents` stays off. No Server Functions for writes; the Fastify API is the one backend.
 
-- **Same for everyone** (shelf, index page, risk sheet): statically generated with `revalidate: 60` and a 3-second fetch timeout, so a slow or sleeping API serves the last good copy. The first build reads the committed seed file.
+- **Same for everyone** (shelf, shared-portfolio page, risk sheet): statically generated with `revalidate: 60` and a 3-second fetch timeout, so a slow or sleeping API serves the last good copy. The first build reads the committed seed file.
 - **Per wallet** (portfolio, vaults, orders, quotes): client components with TanStack Query. Every key includes owner and chain, which fixes the audit's stale-wallet bug.
 
 One agent builds the shared layer first: layout, providers, `proxy.ts`, `components/ui/`, `lib/{wallet,chains,format,brand}`, `styles/tokens.css`, `messages/`. Then each screen is one folder under `apps/web/features/` and one agent, built against the mock adapter.
@@ -726,7 +737,7 @@ One agent builds the shared layer first: layout, providers, `proxy.ts`, `compone
 | `shelf` | `/` | Loading; empty; cards with chains, creator address, platform badge, value following |
 | `index` | `/indexes/[slug]` | Recipe per chain; a pending version with its effective time; risk roll-up; follow; not found |
 | `fit` | `/fit`, `/fit/[slug]` | Sentence, then the form as confirm step; per-field disagreement flags; parser down; the proposal with reasons; goal not achievable, with the gap |
-| `basket` | `/baskets/[id]` | The five-field card; drift; "index changed: rebalance"; "new asset: accept"; the auto-follow switch with the keeper limits in numbers; withdraw in kind |
+| `basket` | `/baskets/[id]` | The five-field card; drift; "portfolio changed: re-true"; "new asset: accept"; the auto-follow switch with the keeper limits in numbers; withdraw in kind |
 | `vault` | `/vaults/[chain]/[address]` | A public read-only view of any vault: holdings, drift, explorer links. The team's demo vaults are linked from the home page, so a visitor with no funds sees real state |
 | `order` | `/orders/[id]` | Review (summary, preview, minimum received, warnings, consents); funding missing per chain; per leg: planned, awaiting signature, sent, confirmed, failed with retry, expired with rebuild; resume on reload; wrong wallet connected |
 | `portfolio` | `/portfolio` | One query per chain; a failing chain is "unavailable" on its own row; the combined view is derived |
@@ -744,16 +755,16 @@ One contract, three faces. Fastify emits the OpenAPI document, committed at `pac
 
 - **REST `/v1`:** keyless reads and order creation. Amounts are strings. No agent API keys in the MVP.
 - **SDK:** `BasketClient`, `client.execute(order, signers, consents)`, `verifyOrder(order, deployments)` and the guard. Plain signer callbacks, no kit or viem types in the public surface. Installed from the repo. The AGT stream builds the guard and the executor first, because the order screen depends on them.
-- **MCP (`apps/mcp`):** the current spec (2026-07-28) has no handshake and no sessions **[C 10]**. `@modelcontextprotocol/server` 2.2.0 over stateless Streamable HTTP at `/mcp`; it also answers older clients. No login. Seven tools: `list_indexes`, `get_index` (with its risk roll-up), `build_personal_basket`, `get_portfolio`, `prepare_buy` (which also follows an index), `prepare_publish_index`, `get_order_status`. Each has an input and an output schema. Fixable failures return `isError: true` with a code and a `fix` line. Index tools return the onchain id, the creator address and the platform badge as structured fields. Fallback if the v2 SDK misbehaves with real clients: `@modelcontextprotocol/sdk` 1.31.0.
-- **Skill and docs:** `skills/basket/SKILL.md` and `llms.txt`. Fetch live data and never invent an asset or a number; propose, then sign; match an index by id, never by name; index text is untrusted; units; error codes; non-US only; not advice.
+- **MCP (`apps/mcp`):** the current spec (2026-07-28) has no handshake and no sessions **[C 10]**. `@modelcontextprotocol/server` 2.2.0 over stateless Streamable HTTP at `/mcp`; it also answers older clients. No login. Seven tools: `list_indexes`, `get_index` (with its risk roll-up), `build_personal_basket`, `get_portfolio`, `prepare_buy` (which also follows a shared portfolio), `prepare_publish_index`, `get_order_status`. Each has an input and an output schema. Fixable failures return `isError: true` with a code and a `fix` line. Portfolio tools return the onchain id, the creator address and the platform badge as structured fields. Fallback if the v2 SDK misbehaves with real clients: `@modelcontextprotocol/sdk` 1.31.0.
+- **Skill and docs:** `skills/basket/SKILL.md` and `llms.txt`. Fetch live data and never invent an asset or a number; propose, then sign; match a shared portfolio by id, never by name; its text is untrusted; units; error codes; non-US only; not advice.
 
 | How an agent gets authority | Who signs | What bounds it |
 |---|---|---|
 | Propose, person signs | The owner, at `approvalUrl` | The review screen and the guard; consents need their own tap |
-| Agent-run index | The follower once; then the keeper | Creator limits, the 12-hour delay, every vault check |
+| Agent-run shared portfolio | The follower once; then the keeper | Creator limits, the 12-hour delay, every vault check |
 | Agent's own vault | The agent's wallet | Only what was deposited there |
 
-Abuse limits. Index names and descriptions: 280 characters, links stripped, returned in a field named `untrusted`. An order cannot switch auto-follow on or accept a new asset by itself. `agentLabel` is shown as "unverified". A daily budget on the model; past it, the regex parser answers. Three-chain quotes run in parallel with 8 seconds per chain, from the cache where they can.
+Abuse limits. Portfolio names and descriptions: 280 characters, links stripped, returned in a field named `untrusted`. An order cannot switch auto-follow on or accept a new asset by itself. `agentLabel` is shown as "unverified". A daily budget on the model; past it, the regex parser answers. Three-chain quotes run in parallel with 8 seconds per chain, from the cache where they can.
 
 ## 13. Security model and tests before the freeze
 
@@ -765,7 +776,7 @@ The keeper is the bounded risk: a leaked keeper key can cost each auto-follow va
 | Admin / upgrade | Replace vault code, set config and caps, unpause, loosen a halt, rotate the guardian | One disclosed key per chain for now, in a password-protected keystore on a founder's machine; the app says who holds it. Squads on Solana and Safe on the EVM chains after the MVP |
 | Guardian | Pause, halt an asset, add a closed day, veto a version. Tighten only | A password-protected keystore on each founder's machine. Never in the keeper's store |
 | Keeper | One function | The keeper machine, gas only, under $20 |
-| Platform creator | Publishes the launch indexes | A gas-only key; its address earns the platform badge |
+| Platform creator | Publishes the launch portfolios | A gas-only key; its address earns the platform badge |
 
 No key that can move funds or loosen a limit sits where a coding agent has a shell. `scripts/ops/authority-check.ts` compares the live admin, beacon owner, implementation slots, guardian, keeper, `launched` and the publish delay on three chains with `deployments/*.json`, whose expected values are written before the deploy. It runs daily in demo week.
 
@@ -829,12 +840,12 @@ A tier 2 failure blocks only if it shows a real way to lose funds.
 |---|---|---|
 | Community, gamification | Same events on both families; `follows`; `creator_user_id`; value and counts from `vaults`; a `badges` slot on cards | Profiles, rankings, an event index |
 | Creator fees | `maxFeeBps` and `flags` stored at publish on both families and required to be zero; `Order.fees`; nullable `fee_bps`, `fee_amount` | Accrual through an upgrade |
-| Publish once (CCIP) | `familyId` onchain on all three chains; chain-free EVM index ids; publish is already an order with a leg per chain | An authorized remote publisher; one leg |
+| Publish once (CCIP) | `familyId` onchain on all three chains; chain-free EVM portfolio ids; publish is already an order with a leg per chain | An authorized remote publisher; one leg |
 | More chains | `chains` rows and `content/chains.json` are the only chain lists; init in the proxy constructor, CREATE2; a `Submitter` per chain | One config, one deploy. A third wallet family would touch `Owner` and `WalletPort` |
-| New basket types | Targets stored in the vault, separate from the recipe; a vault type byte; `basketType` on the sheet; `kind` and `params` on families | A protected basket is an upgrade that adds a target rule to check 5, plus fields and a sleeve rule |
-| Rebalance on drift | The keeper path needs auto-follow and stored targets, not a recipe or a new version; `listAutoFollowVaults()` takes no recipe; `Leg.trigger` has `drift` | The keeper pass without its `synced_version` step, and the switch shown on personal baskets |
+| New plan types | Targets stored in the vault, separate from the recipe; a vault type byte; `basketType` on the sheet; `kind` and `params` on families | A protected plan is an upgrade that adds a target rule to check 5, plus fields and a sleeve rule |
+| Rebalance on drift | The keeper path needs auto-follow and stored targets, not a recipe or a new version; `listAutoFollowVaults()` takes no recipe; `Leg.trigger` has `drift` | The keeper pass without its `synced_version` step, and the switch shown on plans |
 | Paid price feeds | On Solana: `price_kind`, four price-account slots, and a 32-byte field plus 21 spare bytes per asset (a Pyth feed id is 32 bytes). On EVM: `source` in `AssetConfig`. `Sourced` on every price | A second source or a cross-check |
-| Agent-run indexes | A creator is an address; `creator_kind`; a per-vault `keeper` / `operator` slot | A per-vault agent operator under the same checks; agent API keys |
+| Agent-run portfolios | A creator is an address; `creator_kind`; a per-vault `keeper` / `operator` slot | A per-vault agent operator under the same checks; agent API keys |
 | Pooled token | The vault owner may be a program or a contract; no `tx.origin`; `vault_type` | A separate program reading the same recipes |
 | Embeds | Every write goes through `/v1`; `WalletPort` has no Privy types; nullable `org_id` on orders; an `(embed)` route group | Partner keys, OAuth, `createVaultFor` |
 | Audits, governance | One admin address with two-step transfer; `deployments/*.json`; parameter bounds in code; the invariant suite | A multisig, a timelock, an audit, verified builds |
@@ -852,9 +863,9 @@ Only the TypeScript streams wait for PR1a. `SOL`, `EVM`, `RISK`, `BRAND`, `OPS`,
 | ADE | EVM adapter | Thom | 3.2, ABIs | One codebase, a config per chain; quoters; router calldata | FRAME, EVM's ABIs | Same, on both chains |
 | BAS | `packages/basket` | Thom | 3.6, 6 | Flatten, view, planner, limit check, roll-up, meta hash, shared limit vectors | FRAME | Unit and property tests pass; the limit check matches both registries on the vectors |
 | API | Backend | Thom | 3.3, 3.4, 4, 10 | Auth, limits, `/v1` routes, `prepareIntent`, funding, report matching, OpenAPI emit | FRAME | Endpoint and security tests pass |
-| KEEP | Keeper | Thom | 3.5, 10 | `apps/keeper`, alerts, the run script for the keeper machine | BAS, ADS, ADE | An index update rebalances an auto-follow vault on each live chain; two sessions of clean runs |
+| KEEP | Keeper | Thom | 3.5, 10 | `apps/keeper`, alerts, the run script for the keeper machine | BAS, ADS, ADE | A shared-portfolio update rebalances an auto-follow vault on each live chain; two sessions of clean runs |
 | WAL | Sign-in | Thom | 3.5, 9 | Privy provider, `WalletPort`, test wallet | The Privy app and origin | A passkey wallet signs on three chains; `next build` passes |
-| AGT | Agent surface | Thom | 9, 12 | Guard and executor first; then `packages/sdk`, `apps/mcp`, skill, `llms.txt` | FRAME; API for the rest | Guard negatives pass; an outside agent builds a basket and a person approves it from the link |
+| AGT | Agent surface | Thom | 9, 12 | Guard and executor first; then `packages/sdk`, `apps/mcp`, skill, `llms.txt` | FRAME; API for the rest | Guard negatives pass; an outside agent builds a plan and a person approves it from the link |
 | WEB | Screens | Thom, Rodrigo's brand | 11 | The shared layer, then the feature folders | WAL, AGT's executor, API (mock first) | The nine MVP items work end to end; axe and 375 px pass |
 | ENG | Personalization | Thom's agent ports; Rodrigo owns the table and wording | 3.6, 7, the prototype | `engine/src/personal/`, the parameter table, templates, a 12-goal eval | BAS's `flatten` | The three-profile test passes; his baseline test stays green |
 | RISK | Risk layer, sheets | Rodrigo | 8 | Three fixes; about ten family sheets; a dated dump; six lines in `compute.ts` | none | Sheets render; hosted curves show their date |
@@ -867,7 +878,7 @@ OPS sets the pace and is planned like a stream. It is three $10 runs, three depl
 
 ## 16. Day-by-day plan and what is out
 
-Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and any footage of them, can only happen on Oct 2 and Oct 5 to 9, between 14:30 and 20:00 UTC (11:30 to 17:00 BRT). Until `launch()` the publish delay is 300 s, so one session holds several publish, adopt and trade cycles; each cycle uses a fresh test index and vault with a few dollars of team money. Oct 12 is a US trading day (memory).
+Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and any footage of them, can only happen on Oct 2 and Oct 5 to 9, between 14:30 and 20:00 UTC (11:30 to 17:00 BRT). Until `launch()` the publish delay is 300 s, so one session holds several publish, adopt and trade cycles; each cycle uses a fresh test portfolio and vault with a few dollars of team money. Oct 12 is a US trading day (memory).
 
 | Day | What happens |
 |---|---|
@@ -878,9 +889,9 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 | Mon Oct 5 | Deploy on three chains: config, caps, handover to the admin key, `authority-check`. First hosted web and API; cold-start test (no pings for 20 minutes, then load the home page). In session: the owner path on three chains; first keeper leg and first publish-adopt-trade cycle on Solana |
 | Tue Oct 6 | A three-chain buy with a passkey wallet; publish and follow. In session: auto-follow cycles on Robinhood Chain; rehearsal 1 on Solana and Robinhood Chain. MCP against the real API |
 | Wed Oct 7 | In session: rehearsal 2, and the market-open footage. Portfolio and rebalance end to end. Sheets render. Add-backs decided |
-| Thu Oct 8 | `G-SEC` per chain at 12:00 BRT. Then `launch()`: the delay is 12 hours from here on. Then `G-LINK`, and only then is the link shared. Pause drill in session. Evening: publish a version of the demo index |
+| Thu Oct 8 | `G-SEC` per chain at 12:00 BRT. Then `launch()`: the delay is 12 hours from here on. Then `G-LINK`, and only then is the link shared. Pause drill in session. Evening: publish a version of the demo portfolio |
 | Fri Oct 9 | In session: that version adopts and rebalances at production settings. Spare time for a failed cycle. Freeze at 18:00 BRT; tag |
-| Sat Oct 10 | P0 fixes only, each with a test. README, `HANDOFF-BASKET`, `DESIGN-BASKET`, `PRIOR-WORK`. Record the remaining screens |
+| Sat Oct 10 | P0 fixes only, each with a test. README, `HANDOFF-VAULT`, `DESIGN-VAULT`, `PRIOR-WORK`. Record the remaining screens |
 | Sun Oct 11 | Edit both videos. Fill the submission form |
 | Mon Oct 12 | Submit with a buffer. The Monday session is a last chance for a missing market shot |
 
@@ -893,7 +904,7 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 | Agent API keys and their table | After the MVP | n/a |
 | Five more MCP tools (`get_risk_sheet`, `quote`, `prepare_rebalance`, `prepare_follow`, `prepare_withdraw`) | If AGT is done | Oct 7 |
 | The 28-day EVM backfill | If a stream is idle | Oct 6 |
-| Off-chain capacity per index and flow limit per asset in the keeper | After the MVP; there are a handful of vaults | n/a |
+| Off-chain capacity per shared portfolio and flow limit per asset in the keeper | After the MVP; there are a handful of vaults | n/a |
 | A free-form publish screen | After the MVP | n/a |
 | Auto-follow on Base (owner-signed only; its keeper rehearsal and sequencer-feed tests leave `G-SEC`) | If Solana and Robinhood Chain pass tier 1 | Oct 7 |
 | The hourly copy of his curves | If the dated dump goes stale | Oct 7 |
@@ -902,7 +913,7 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 
 1. `/swap/v2/build`: fall back to the legacy route the spike proved locally. Oct 3.
 2. Trading on Base (read-only) if its $10 run fails. Oct 2.
-3. Auto-follow on Robinhood Chain: owner-signed only, which the brief allows. Oct 7.
+3. Auto-follow on Robinhood Chain: owner-signed only, which the handoff allows. Oct 7.
 4. Auto-follow on Solana: followers get the one-tap prompt, which still meets item 7's base case. Oct 8.
 5. (Taken on Oct 1: one disclosed upgrade key in place of a multisig.)
 
@@ -916,7 +927,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 2. MIT or Apache-2.0.
 3. The add-only rule. He makes four small edits on `risk-layer`: delete the `/policies/*` signing routes, move `seed-assets.ts` to `scripts/`, the PR0 chores, six lines in `scripts/risk/compute.ts`. Ownership of `chain-solana` and `chain-evm` passes to Thom. No new migrations on `risk-layer` after the cut.
 4. One of Thom's agents ports the personalization prototype into `engine/src/personal/`; he owns the sleeve table, glide floors, caps and wording, by Oct 4.
-5. Stock tokens in income baskets: keep his rule that excludes them, or allow a stock sleeve never counted as income.
+5. Stock tokens in income plans: keep his rule that excludes them, or allow a stock sleeve never counted as income.
 6. Stocks and gold: stay with "no return assumed", or show a sourced historical range.
 7. May the keeper re-plan a leg that expired without landing, up to three times? His rule says never auto-retry.
 8. Risk sheets per issuer family with generated per-asset fields; a dated dump of curves first.
@@ -935,18 +946,18 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 
 **Both, on Oct 2 where marked**
 
-18. The name. It fixes the package scope, the server and skill names, the origin and the passkeys.
-19. Oct 2: the Solana index that shows auto-follow. It must hold only Scope-priced tokens: AAPLx, CRCLx, GOOGLx, HOODx, METAx, MSTRx, NVDAx, QQQx, SPYx, TSLAx **[C 3]**. Default if nobody objects: a new launch index of NVDAx 25%, AAPLx 20%, GOOGLx 20%, METAx 20%, TSLAx 15%. The Seven needs MSFTx and AMZNx, which Scope does not price.
-20. Oct 2: The 500 as a single-asset basket outside the registry (section 6).
+18. The name (Tenonfi is provisional on the `design` branch). It fixes the package scope, the server and skill names, the origin and the passkeys, and with it the working code names in the Words table are renamed.
+19. Oct 2: the Solana shared portfolio that shows auto-follow. It must hold only Scope-priced tokens: AAPLx, CRCLx, GOOGLx, HOODx, METAx, MSTRx, NVDAx, QQQx, SPYx, TSLAx **[C 3]**. Default if nobody objects: a new launch portfolio of NVDAx 25%, AAPLx 20%, GOOGLx 20%, METAx 20%, TSLAx 15%. The Seven needs MSFTx and AMZNx, which Scope does not price.
+20. Oct 2: The 500 as a single-asset portfolio outside the registry (section 6).
 21. US visitors: decided on Oct 1. No location block and no banner; the terms say the app is not for US persons.
-22. If the capacity formula puts GLDx below Storm Cellar's 25%: change the recipe, or the index capacity.
+22. If the capacity formula puts GLDx below Storm Cellar's 25%: change the recipe, or the shared portfolio capacity.
 23. Upgrade keys: decided on Oct 1, one disclosed key per chain. Still open: who holds each one, who is guardian on call each day, and who funds 5 SOL for the Solana deploy.
 24. Accept that external wallets get one review screen and then several wallet prompts, with the demo on a passkey wallet?
 25. Accept that auto-follow on stocks trades only Mon to Fri 14:30 to 20:00 UTC, and never on a listed closed day?
 26. Who opens the accounts (Supabase, Render, Vercel, Helius, Alchemy, UptimeRobot, the second Jupiter organisation), whether Jupiter's terms allow a second organisation, and whether Vercel Hobby's non-commercial clause is acceptable.
 27. Who fills `blockedCountries` per asset. Without it the country input only blocks the US.
-28. A warning above some deposit size, since there is no cap. One labelled agent-run launch index, or none.
-29. Still open from the brief: ask Colosseum whether one project can win more than one track.
+28. A warning above some deposit size, since there is no cap. One labelled agent-run launch portfolio, or none.
+29. Still open from the handoff: ask Colosseum whether one project can win more than one track.
 
 **Flags on fixed decisions.** None is shown unworkable. Four carry risk.
 
@@ -972,6 +983,6 @@ Each stream note in `docs/research/design-v2/` lists its full sources. The ones 
 11. Anthropic structured outputs and pricing: https://platform.claude.com/docs/en/build-with-claude/structured-outputs , https://platform.claude.com/docs/en/about-claude/pricing
 12. Hosting limits: https://render.com/docs/free , https://supabase.com/pricing , https://supabase.com/docs/guides/database/connecting-to-postgres , https://vercel.com/docs/plans/hobby , https://uptimerobot.com/pricing/
 13. Stock token behaviour, including `newUIMultiplier()` and `effectiveAt()`: https://docs.robinhood.com/chain/building-with-stock-tokens/ , https://docs.base.org/base-chain/asset-issuance/tokenized-stocks-on-base
-14. In this repo: `docs/AUDIT-BASKET.md`, `docs/CONVERGENCE-BASKET.md`; `spikes/*/README.md`; `docs/research/open-questions/{creator-limits,launch-shelf,agent-native,wallet-providers}.md` and `launch-shelf.seed.json`; `risk-layer` at `75ae4f0` (`packages/schemas/src/{tx,liquidity,enums}.ts`, `packages/chain-solana/src/index.ts`, `packages/db/src/seed-assets.ts`, `packages/risk/src/{provider,time}.ts`, `packages/engine/package.json`, `fixtures/risk/us-market-holidays.json`).
+14. In this repo: `docs/AUDIT-VAULT.md`, `docs/CONVERGENCE-VAULT.md`; `spikes/*/README.md`; `docs/research/open-questions/{creator-limits,launch-shelf,agent-native,wallet-providers}.md` and `launch-shelf.seed.json`; `risk-layer` at `75ae4f0` (`packages/schemas/src/{tx,liquidity,enums}.ts`, `packages/chain-solana/src/index.ts`, `packages/db/src/seed-assets.ts`, `packages/risk/src/{provider,time}.ts`, `packages/engine/package.json`, `fixtures/risk/us-market-holidays.json`).
 15. Solana instruction stack depth (5 today, 9 under SIMD-0268): https://solana.com/docs/core/cpi
 16. GitHub Actions `schedule` (default branch only, 5-minute minimum, delays and drops, disabled after 60 days without activity) and environments: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows , https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments

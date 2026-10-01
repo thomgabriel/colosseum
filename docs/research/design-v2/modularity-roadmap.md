@@ -1,6 +1,6 @@
 # Modularity and roadmap seams: note for design v2
 
-Oct 1, 2026. Tags: `[repo]` read in Rodrigo's code today, `[audit]` from the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-BASKET.md`), `[n]` checked today against source n, `[memory]` not checked. Nothing was installed or run in his trees.
+Oct 1, 2026. Tags: `[repo]` read in Rodrigo's code today, `[audit]` from the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-VAULT.md`), `[n]` checked today against source n, `[memory]` not checked. Nothing was installed or run in his trees.
 
 ## 1. Bottom line
 
@@ -101,7 +101,7 @@ type Capabilities = { trade: 'live' | 'readonly' | 'mock'; autoFollow: boolean }
 
 ### Slots and streams together
 
-- A third instance of his pattern, as he did for risk [repo]: `docs/PLAN-BASKET.md`, `docs/STATE-BASKET.md` (one section per stream, so parallel edits merge), rows appended to `docs/GATES.md`.
+- A third instance of his pattern, as he did for risk [repo]: `docs/PLAN-VAULT.md`, `docs/STATE-VAULT.md` (one section per stream, so parallel edits merge), rows appended to `docs/GATES.md`.
 - Slot ids are `<stream>-<n>` (`SOL-3`, `EVM-2`, `KEEP-1`): half a day, one deliverable, one check, a depends-on. Serial inside a stream, parallel across. Commits are `SOL-3: keeper leg rejects stale price`.
 - His rule "stop if a gate is OPEN" now stops one stream. Gates and defaults: `IFACE-FREEZE` (Oct 2; freeze as drafted), `SOL-$10`, `RH-$10`, `BASE-$10` (chain goes `readonly`), `SCOPE-PRICE` (Solana auto-follow off), `ANCHOR-1.2` (stay on 0.31.1; 1.2.0 is current [1]), `SUBMISSION-BRANCH`.
 - `CLAUDE.md` on `basket` gains one paragraph pointing basket streams at the basket documents. His rules stay.

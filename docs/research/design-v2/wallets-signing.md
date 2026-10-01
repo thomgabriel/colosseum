@@ -173,4 +173,4 @@ Screens and the keeper code against `WalletPort` and a mock from day 1.
 - S19 https://github.com/solana-foundation/kora (self-hosted Solana fee payer, v2.2.0-beta.8)
 - S20 https://www.turnkey.com/pricing
 - S21 https://ColosseumOrg.github.io/hackathon-resources/current.json
-- Local: `risk-layer/apps/web/app/providers.tsx`, `packages/schemas/src/tx.ts`, `packages/chain-solana/src/{sign,simulate}.ts`, `apps/api/src/app.ts`; the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-BASKET.md`), `audit-web.md`; `spikes/*/README.md`
+- Local: `risk-layer/apps/web/app/providers.tsx`, `packages/schemas/src/tx.ts`, `packages/chain-solana/src/{sign,simulate}.ts`, `apps/api/src/app.ts`; the audit reviewers' notes (outside this repo; summary in `docs/AUDIT-VAULT.md`), `audit-web.md`; `spikes/*/README.md`

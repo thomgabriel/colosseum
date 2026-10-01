@@ -1,6 +1,6 @@
-# AUDIT: `main` and `risk-layer` before the basket work
+# AUDIT: `main` and `risk-layer` before the vault work
 
-*Written 2026-10-01. For Rodrigo and Thom. Companion to `HANDOFF-BASKET.md` and `CONVERGENCE-BASKET.md`.*
+*Written 2026-10-01. For Rodrigo and Thom. Companion to `HANDOFF-VAULT.md` and `CONVERGENCE-VAULT.md`.*
 
 Scope: `main` at `6970dc5` and `risk-layer` at `75ae4f0`. Eight reviewers read the code and ran it in scratch copies, with no keys and nothing sent to mainnet. The fourteen most serious findings then went to a second pass whose job was to refute them. The reviewers' notes and probe logs are kept outside this repo; ask Thom for any of them.
 

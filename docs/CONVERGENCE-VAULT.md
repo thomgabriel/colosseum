@@ -1,6 +1,8 @@
-# CONVERGENCE: from the structurer to the basket app
+# CONVERGENCE: from the structurer to plans held in a vault
 
-*Written 2026-10-01. For Rodrigo and Thom. A proposal: every verdict below is open until Rodrigo agrees.* Read with the audit (`AUDIT-BASKET.md`), the product (`HANDOFF-BASKET.md`) and the design (`DESIGN-BASKET.md`).
+*Written 2026-10-01. For Rodrigo and Thom. A proposal: every verdict below is open until Rodrigo agrees.* Read with the audit (`AUDIT-VAULT.md`), the product (`HANDOFF-VAULT.md`) and the design (`DESIGN-VAULT.md`).
+
+Product words follow the brand strategy on the `design` branch: plan, shared portfolio, vault, exit plan, Bearing. Paths and code names in backticks are working names. This was written before `DESIGN-VAULT.md` was revised; where the two differ, the design wins. It keeps `packages/engine` under its name and only adds files.
 
 ## Starting point
 
@@ -16,7 +18,7 @@ Code builds on upstream `risk-layer` (now `9cb2294`), because the risk sheet nee
 |---|---|---|
 | `packages/schemas` | keep | Stays the shared type leaf. Gains `Recipe`, `Component`, `Asset`, `VaultState`, `ChainAdapter`, an address type per chain. Basis points and raw units. Every API response typed |
 | `packages/engine` | adapt, as `packages/core` | One mechanical rename. `feeds/` and `parser/llm.ts` move to `apps/api`, so core has no network, env or clock |
-| engine `solver/` | adapt | Keep the cap-and-fill waterfall and the reason per leg. Drop the LP: it never beat the greedy fill in 2,358 random cases. Caps per asset, issuer, class and chain; start from index weights, not a yield ranking |
+| engine `solver/` | adapt | Keep the cap-and-fill waterfall and the reason per leg. Drop the LP: it never beat the greedy fill in 2,358 random cases. Caps per asset, issuer, class and chain; start from the weights of the shared portfolios the person chose, not a yield ranking |
 | engine `schedule/` | adapt | Backs the card: cash-flow pattern, return range, verdict with gap. Dollar base, correct compounding, return assumptions per asset class |
 | engine `policy/` | adapt | Becomes the planner: basis points, raw units, sell before buy, two legs through cash, executable assets only |
 | engine `parser/rules.ts` | adapt | New input schema, negation and amount fixes. Stays as the no-key path and as a cross-check on the model |
@@ -31,9 +33,9 @@ Code builds on upstream `risk-layer` (now `9cb2294`), because the risk sheet nee
 | chain-solana `delegate` | retire | Keep `buildRevokeUnsigned` as the migration tool, and a program-aware `ata()` |
 | chain-solana `kamino`, `brl-leg` | park, retire | Lending deposits do not fit one token account per asset. klend-sdk leaves the runtime path |
 | `packages/chain-evm` | replace | The stub becomes the Base and Robinhood Chain adapter |
-| `apps/api` | adapt | Auth, CORS allowlist, rate limits, one error handler, one database pool. Plan routes become basket routes. The rebalance trigger goes; `/risk` routes stay |
+| `apps/api` | adapt | Auth, CORS allowlist, rate limits, one error handler, one database pool. New `/v1` routes for plans held in a vault sit beside the plan routes. The rebalance trigger goes; `/risk` routes stay |
 | `apps/risk-api` | keep | Rodrigo decides whether to fold it in. Its routes move to a package both apps mount |
-| `apps/web` | adapt | `GoalFlow` becomes the fit flow, `PlanView` the index page and card, the monitor becomes portfolio, drift and rebalance. `ScheduleChart` and the risk charts stay. `providers.tsx` gives way to Privy. `app/embed` is parked |
+| `apps/web` | adapt | `GoalFlow` becomes the fit flow, `PlanView` the plan card and the shared-portfolio page, the monitor becomes portfolio, drift and rebalance. `ScheduleChart` and the risk charts stay. `providers.tsx` gives way to Privy. `app/embed` is parked |
 | `scripts/`, `fixtures/`, `tests/`, `docs/` | keep | Collectors and launchd jobs untouched before Oct 12. Old docs get a "superseded by" line |
 | `programs/basket` | new | Anchor vault and registry, grown from `spikes/solana-vault-swap` |
 | `contracts/` | new | Foundry `BasketVault`, `VaultFactory`, `IndexRegistry`, from `spikes/evm-vault` |
@@ -54,7 +56,7 @@ contracts/   src  test  script   Foundry
 content/     risk-sheets
 scripts/     verify  risk  execute   unchanged until Oct 12
 tests/  fixtures/  spikes/
-docs/        HANDOFF-BASKET  DESIGN-BASKET  AUDIT-BASKET  CONVERGENCE-BASKET  research/
+docs/        HANDOFF-VAULT  DESIGN-VAULT  AUDIT-VAULT  CONVERGENCE-VAULT  research/
              plus the existing uppercase files, kept as history
 ```
 
@@ -62,16 +64,16 @@ docs/        HANDOFF-BASKET  DESIGN-BASKET  AUDIT-BASKET  CONVERGENCE-BASKET  re
 
 ## Decisions for Rodrigo
 
-- [ ] **Custody.** A program-owned vault per basket per chain replaces the token approval. For: the rules hold if the server is compromised, and stocks can rebalance without a signature each time. Against: two unaudited contracts with upgrade keys, built in eleven days, where today the tokens never leave the wallet. He ruled out a custom program on time; the spike behind the new estimate passed locally, not yet on mainnet.
+- [ ] **Custody.** A program-owned vault per plan per chain replaces the token approval. For: the rules hold if the server is compromised, and stocks can rebalance without a signature each time. Against: two unaudited contracts with upgrade keys, built in eleven days, where today the tokens never leave the wallet. He ruled out a custom program on time; the spike behind the new estimate passed locally, not yet on mainnet.
 - [ ] **Brazil-specific logic.** Goals and the card in dollars; the reais schedule, BRL leg, FX stresses and the G-NORA gate parked behind a currency parameter. For: one global product, and the BRL leg cannot execute today. Against: goals in reais are his differentiator and his partners' frame. Middle path: a BRL stable as one shelf asset if G-NORA passes by Oct 6.
 - [ ] **Stocks.** From "high-risk only, at most 35%, zero expected return" to the core of the shelf. That needs a return range per asset class, a view the engine has so far declined to state. His rule keeping xStocks out of income profiles should survive as "no stocks in the income share".
 - [ ] **Chains.** Three from day one, against Solana only. For: partner pilots may land on an EVM chain (gate EVM-S1), and one adapter interface contains the cost. Against: three mainnet rehearsals, and risk data that is Solana only, so sheets on the other two are thinner. A chain that fails its test becomes read-only.
-- [ ] **Audience.** Direct to a person, with community indexes, against the partner embed. Indexes give a reason to return and something to share; they also sit uneasily with a brand that argues against menu baskets. One framing holds both: indexes are pre-cut pieces and the personal basket is assembled from them. The embed is parked, not removed.
+- [ ] **Audience and shared portfolios.** Direct to a person, next to the partner embed. The positioning stays: the goal comes first. A shared portfolio is an input to the goal and a way for the product to spread, never the product: nobody takes one without the sheet, the reasons and the exit plan. For: a reason to return and something to share. Against: a shelf of them can read as "an idea turned into a basket", the frame the positioning rejects, so they stay one step behind the goal on every screen. The embed is parked, not removed.
 - [ ] **Sign-in.** Privy (connect or passkey) against wallet-adapter only. It reaches people without a wallet and covers three chains; it adds a vendor and a free-tier ceiling. The API needs auth either way.
 - [ ] **Units.** Basis points and raw token amounts replace float weights and dollar floats. Every weight assertion and money column changes. In return, weights sum to exactly 10,000 and an 18-decimal token can be stored.
 - [ ] **Process.** Parallel streams against frozen interfaces, beside his slot plan. His rules stay: provenance, MOCK labels, deterministic engine, explorer links, no advice claim. Three lines change: `CLAUDE.md` points at the new spec, "never auto-retry" allows a retry the person starts, and commit prefixes gain an area form (`core:`, `vault:`) next to slot ids.
-- [ ] **The `risk-layer` branch.** His rule keeps it out of `main` until after Oct 12, but the risk sheet is that work. Proposal: basket code sits on top of `risk-layer` and one branch becomes the submission. Merging turns the liquidity provider on wherever curves exist, which can change the high-risk demo plan; `RISK_LIQUIDITY=off` restores the old output.
-- [ ] **Smaller ones.** A licence (MIT matches the code we borrow). The `engine` to `core` rename while he is still committing to engine files. Where the risk data runs for the demo. Revoking the two live approvals before the audit is public. The name, which also decides the `@colosseum/` scope.
+- [ ] **The `risk-layer` branch.** His rule keeps it out of `main` until after Oct 12, but the risk sheet is that work. Proposal: the vault work sits on top of `risk-layer` and one branch becomes the submission. Merging turns the liquidity provider on wherever curves exist, which can change the high-risk demo plan; `RISK_LIQUIDITY=off` restores the old output.
+- [ ] **Smaller ones.** A licence (MIT matches the code we borrow). The `engine` to `core` rename while he is still committing to engine files. Where the risk data runs for the demo. Revoking the two live approvals before the audit is public. The name (Tenonfi is provisional on the `design` branch), which also decides the `@colosseum/` scope and the working code names.
 
 ## Pull requests
 
@@ -79,17 +81,17 @@ CI has never passed, so "green" starts with PR 1. PR 2 onward target a `basket` 
 
 | PR | Scope | Files | True before it merges |
 |---|---|---|---|
-| 1. `basket-design` into `main`, draft | Documents and structure only, in his naming. The proposal, the design, the research, the audit, this blueprint, proposed rows in `GATES.md`, and one `chore:` commit for the CI setup step. "Superseded by" lines on the older docs and a closing `STATE:` entry follow once Rodrigo agrees | `docs/HANDOFF-BASKET.md`, `DESIGN-BASKET.md`, `AUDIT-BASKET.md`, `CONVERGENCE-BASKET.md`, `docs/research/`, `README.md`, `docs/PRIOR-WORK.md`, `docs/GATES.md`, `spikes/` source, `.github/workflows/ci.yml` | Rodrigo has read the checklist. No file under `apps/` or `packages/` changes. The first green run exists |
+| 1. `basket-design` into `main`, draft | Documents and structure only, in his naming. The proposal, the design, the research, the audit, this blueprint, proposed rows in `GATES.md`, and one `chore:` commit for the CI setup step. "Superseded by" lines on the older docs and a closing `STATE:` entry follow once Rodrigo agrees | `docs/HANDOFF-VAULT.md`, `DESIGN-VAULT.md`, `AUDIT-VAULT.md`, `CONVERGENCE-VAULT.md`, `docs/research/`, `README.md`, `docs/PRIOR-WORK.md`, `docs/GATES.md`, `spikes/` source, `.github/workflows/ci.yml` | Rodrigo has read the checklist. No file under `apps/` or `packages/` changes. The first green run exists |
 | 2. `chore:` checks | Every check runs and passes | `ci.yml` (Postgres service, migrate, build, root `tsc`), two heatmap keys, five `allowBuilds` lines, 11 type errors, `next-env.d.ts` untracked, ignore entries for build output, `undici` override, `dev` naming api and web, a test database URL | 146 tests pass on Linux. No behaviour change |
 | 3. `core:` rename and purity | `engine` to `core`; feeds and the model call to `apps/api`; seed out of `db`; alias blocks removed; `now` a required input | about 30 non-doc files, the boundary test | The engine snapshot baseline is byte-identical. Rodrigo has no unmerged engine work |
 | 4. `types:` interfaces | Section 3 types, `ChainAdapter`, mock adapter, new tables | `packages/schemas`, `packages/chain-mock`, `packages/db` | Both have agreed the types. Migrations have one owner |
-| 5. `core:` basket logic | Flatten, personalization rules, planner, roll-up, parser fixes, verdict | `packages/core`, `fixtures/` | Three test people give three different baskets. Weights sum to 10,000. The planner is tested with a non-executable leg |
+| 5. `core:` plan logic | Flatten, personalization rules, planner, roll-up, parser fixes, verdict | `packages/core`, `fixtures/` | Three test people get three different plans. Weights sum to 10,000. The planner is tested with a non-executable leg |
 | 6. `vault:` Solana | Program, then adapter | `programs/basket`, `packages/chain-solana` | Adversarial tests pass. The $10 mainnet run is recorded in `STATE`. `delegate.ts` is out of the runtime path |
 | 7. `vault:` EVM | Contracts and adapter | `contracts/`, `packages/chain-evm` | Fork and adversarial tests pass. Deployed on both chains |
 | 8. `api:` and keeper | Auth, limits, typed routes, a per-leg log with guarded status changes; the keeper worker | `apps/api`, `apps/keeper` | Handler tests run on a test database. No HTTP request can make a server-held key sign |
 | 9. `risk:` sheet | Audit fixes, chain column, a route for three sizes, content files, a dated dataset | `packages/risk`, `content/risk-sheets/`, `scripts/risk/` | A sheet renders for every launch asset from the repo alone |
 | 10. `web:` screens | Privy, shelf, fit flow, card, buy flow, portfolio, publish, settings | `apps/web` | The MVP flows run against the mock adapter, then the real ones |
-| 11. `agents:` | SDK, MCP server, skill file, approval page | `packages/sdk`, `apps/mcp` | An outside agent builds a basket and a person approves it from a link |
+| 11. `agents:` | SDK, MCP server, skill file, approval page | `packages/sdk`, `apps/mcp` | An outside agent builds a plan and a person approves it from a link |
 
 ## What the design should change
 

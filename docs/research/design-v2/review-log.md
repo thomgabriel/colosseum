@@ -1,6 +1,6 @@
 # Design v2: review log
 
-Oct 1, 2026. What the three reviews (scope, security, seams) changed in `docs/DESIGN-BASKET.md`, and what was not taken.
+Oct 1, 2026. What the three reviews (scope, security, seams) changed in `docs/DESIGN-VAULT.md`, and what was not taken.
 
 Thom asked whether work can run in parallel instead of waiting. It can: only the TypeScript streams wait for the frame (PR1a). The Solana program, the contracts, Rodrigo's streams, the Privy page, the personalization port and account opening start now (sections 15 and 16).
 
