@@ -18,7 +18,7 @@ export const CURVE_METHOD_VERSION = 'risk-0.3';
 const QUANTILE = Number(process.env.RISK_CURVE_QUANTILE ?? 0.5);
 const MIN_SAMPLES = Number(process.env.RISK_MIN_SAMPLES ?? 8);
 const P = defaultRegimeParams(
-  JSON.parse(readFileSync('fixtures/risk/us-market-holidays.json', 'utf8')),
+  JSON.parse(readFileSync(process.env.RISK_HOLIDAYS ?? 'fixtures/risk/us-market-holidays.json', 'utf8')),
 );
 
 const { db, client } = createDb();
