@@ -52,7 +52,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 | Personalization in `engine` or in `packages/basket` | `engine/src/personal/`, new files only | The fixed split gives the engine to Rodrigo. `engine` may import `basket`, so nesting is flattened in one place |
 | Extend his `executions` table and enums, or add our own | New `leg_attempts` table in his column style | No change to his tables while he is still migrating; his `tx.ts` is not edited |
 | His `chain` enum, a new enum, or text | `chain_id` as text with a foreign key to a `chains` table | A new chain is a row, not a migration |
-| Keeper on GitHub cron, or a loop on a team machine | The loop | The cron cannot run `basket` code before Oct 12, and its secrets would be open to anything that can push |
+| Keeper on GitHub cron, or a loop on a team machine | The loop | Its secrets would be open to anything that can push, and scheduled runs can be delayed or dropped |
 | A hard 48-hour floor on the delay, or a short delay for test cycles | Both, through the launch latch | Three test cycles in total were too few; after `launch()` the floor cannot drop |
 | Accept may name a pending version, or only the active one | Only the active one, by number | Pre-acceptance needs extra vault state; the prompt appears when the version takes effect |
 | Keeper revisits any vault outside the band, or only after a shared-portfolio update | Any auto-follow vault not yet back in band since its last adoption | Fixes half-finished rebalances without shipping drift rebalancing, which is on the roadmap |
