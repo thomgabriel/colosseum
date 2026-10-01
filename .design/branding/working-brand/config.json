@@ -13,7 +13,7 @@
     "replace": []
   },
   "system_config": {
-    "tech_stack": "nextjs",
+    "tech_stack": "nextjs-16 + tailwind-v4 (@theme css vars), no shadcn yet",
     "system_strategy": "generate",
     "style_preset": "",
     "style_base": [
