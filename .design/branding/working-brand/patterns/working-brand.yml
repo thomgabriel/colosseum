@@ -166,6 +166,9 @@ tokens:
     border-radius-sm: "0px"     # badges, status squares, tags, table cells
     border-radius-md: "2px"     # cards, inputs, buttons
     border-radius-lg: "2px"     # → --radius. shadcn's calc(var(--radius) - 4px) clamps to 0 — intended
+    # Founder exception (2026-10-01): the typing box alone is modern and rounded. Composer + subscribe field only.
+    border-radius-composer: "20px"   # → --tf-radius-composer. The goal composer container and the subscribe field
+    border-radius-round: "9999px"    # → --tf-radius-round. The composer's send button only (and the pin)
     border-width: "1px"
     border-width-key: "1.5px"   # key member outline in drawings, icon stroke
     focus-ring-width: "2px"
@@ -367,7 +370,7 @@ constraints:
     - "hardwood on dark grounds or hinoki-deep as a plan-leg fill on paper (fails 3:1) — use wood-400 #9D7751"
     - "a status ('watch' above all) shown by colour alone — ochre vs hardwood is 1.06:1"
     - "patterns behind numbers, text, form fields, charts, the provenance popover or the disclaimer (stop >= 1 grid unit away)"
-    - "radius above 2px, pills, circles as containers (round belongs to the pin alone), drop shadows"
+    - "radius above 2px, pills, circles as containers (round belongs to the pin and the composer's send button alone), drop shadows. Sole exception: the composer container and subscribe field at radius-composer (20px)"
     - "Newsreader in the embed, in Bearing, in tables, buttons, labels or on pinned numbers; Newsreader bold or italic"
     - "light font weights; uppercase except the word MOCK; centred or justified body text"
     - "wood-grain textures as UI backgrounds; text set on photographs; gradient scrims or duotones"

@@ -142,7 +142,7 @@ It takes the Sage's structure (Swiss grid discipline, hairlines, tabular figures
 - Hardwood on dark grounds (2.58–3.13:1), or hinoki-deep as a plan-leg fill on paper (1.89:1). Use wood-400 `#9D7751`.
 - A status shown by colour alone. "Watch" ochre is 1.06:1 against hardwood, so the word and the half-filled square carry it.
 - Patterns behind numbers, text, form fields, charts, the provenance popover or the disclaimer. They stop at least one grid unit away.
-- Radius above 2px, pills, circles as containers (round belongs to the pin alone), or drop shadows.
+- Radius above 2px, pills, circles as containers (round belongs to the pin and the composer's send button alone), or drop shadows. **Sole exception (founder, 2026-10-01):** the typing box. The goal composer container and the subscribe field use `--tf-radius-composer` (20px), with a round 36px send button inside. Nothing else softens.
 - Newsreader in the embed, in Bearing, in tables, buttons or labels, or on pinned numbers. Newsreader bold or italic.
 - Light font weights, uppercase other than the word MOCK, or centred or justified body text.
 - Wood-grain textures as UI backgrounds, text set on photographs, gradient scrims or duotones.
@@ -233,6 +233,7 @@ It takes the Sage's structure (Swiss grid discipline, hairlines, tabular figures
   --color-leg-1: var(--chart-1); --color-leg-2: var(--chart-2);
   --color-leg-3: var(--chart-3); --color-leg-4: var(--chart-4);
   --radius-sm: 0px; --radius-md: var(--radius); --radius-lg: var(--radius);
+  --radius-composer: 20px; --radius-round: 9999px;   /* typing box only: composer + subscribe field */
   --font-display: "Newsreader Variable", "Newsreader Fallback", Georgia, serif;
   --font-sans: "IBM Plex Sans", "Plex Sans Fallback", system-ui, Arial, sans-serif;
   --font-condensed: "IBM Plex Sans Condensed", "IBM Plex Sans", "Arial Narrow", sans-serif;
