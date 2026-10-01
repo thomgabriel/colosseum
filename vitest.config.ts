@@ -16,6 +16,7 @@ export default defineConfig({
         'packages/chain-solana/src/index.ts',
       ),
       '@colosseum/chain-evm': path.resolve(import.meta.dirname, 'packages/chain-evm/src/index.ts'),
+      '@colosseum/risk': path.resolve(import.meta.dirname, 'packages/risk/src/index.ts'),
     },
   },
 });
