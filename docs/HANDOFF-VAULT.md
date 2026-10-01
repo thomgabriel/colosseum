@@ -42,7 +42,7 @@ When a goal can't be met as set, the product says so, shows the gap and the ways
 A shared portfolio is a named, versioned list of assets and weights that anyone can publish. In the positioning's terms it is an idea. Here an idea is an input, never the product.
 
 - **It always goes through the goal.** Choosing one sets the themes on the sheet. The goal, the limits, what the person already holds and the exit plan then decide how much of it they hold, and the plan says why, line by line. Someone who only wants to hold it still gets the sheet, the reasons and the exit plan at their size.
-- **Following.** When its author publishes a new version, the people following it are told, with the change. They rebalance with one tap. A switch, off by default, lets the vault do it by itself: after a 12-hour delay, inside the vault's limits, and never into a new asset without the owner's tap.
+- **Following.** When its author publishes a new version, the people following it are told, with the change. They rebalance with one tap. A switch, off by default, lets the vault do it by itself: after a 48-hour delay, inside the vault's limits, and never into a new asset without the owner's tap.
 - **Limits on authors.** 3 to 12 assets, each between 2% and 50%; no weight moves more than 10 points per version; one version a day. An asset's maximum weight is capped by its measured exit capacity, from Bearing.
 - **Why have them.** They are the reason to come back and the thing to share, and each one carries the exit plan to whoever picks it up.
 - **At launch:** about six, serious assets only, no meme tokens. Names and weights are drafts in `research/open-questions/launch-shelf.md`.
@@ -173,7 +173,7 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 - Solana, Robinhood Chain and Base from day one. The person funds each chain they want to use.
 - Wallet connect or a passkey wallet (Privy).
 - The product is not for US persons, and the terms say so. There is no location block and no banner.
-- When an author adds a new asset, each follower approves it with a tap. A new version takes effect for followers 12 hours after it is published.
+- When an author adds a new asset, each follower approves it with a tap. A new version takes effect for followers 48 hours after it is published.
 - On Robinhood Chain, only the stock tokens with a price feed (about 36 of 195) can be rebalanced automatically. The rest are one-tap only.
 - The team holds the upgrade keys for the vault contracts for now, one disclosed key per chain, and the product says so.
 - Free tiers only, apart from about $10 of model credit for reading the goal sentence. On Solana the price reference is Kamino's free onchain prices.
@@ -190,6 +190,6 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 5. Where the Bearing data runs for the demo: a hosted collector or a dated snapshot.
 6. The decisions in `DESIGN-VAULT.md`, section 17.
 7. Two lines of shipped copy that the vault touches. `DISCLAIMER` says "the decision and custody are yours", and `DISCLAIMER_SHORT` says "Policy in your wallet, not a fund." Only the owner can withdraw from a vault, so the first stays, with the "unaudited, team holds the upgrade keys" notice beside it. The second needs a word from Rodrigo, since the assets move from the wallet to a vault the person owns.
-8. The automatic switch against the voice rules, which say rebalancing is "never to follow a theme or a rate" and that the agent "proposes and explains". What it does: off by default; the person sees an author's change 12 hours ahead and can refuse; then the vault copies it inside its own limits, without re-checking the person's goal. Label: "Rebalance without asking when the portfolio I follow changes". Thom's decision is to keep it this way; the 12-hour notice is the proposal, and the person can refuse.
+8. The automatic switch against the voice rules, which say rebalancing is "never to follow a theme or a rate" and that the agent "proposes and explains". What it does: off by default; the person sees an author's change 48 hours ahead and can refuse; then the vault copies it inside its own limits, without re-checking the person's goal. Label: "Rebalance without asking when the portfolio I follow changes". Thom's decision is to keep it this way; the 48-hour notice is the proposal, and the person can refuse.
 
 The research notes under `research/` were written before the brand strategy. They say "basket" and "community index" where this document says plan and shared portfolio.

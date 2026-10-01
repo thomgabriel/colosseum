@@ -6,6 +6,8 @@ How this was made: nine research notes (`docs/research/design-v2/*.md`) merged w
 
 Nothing here has run on mainnet. The three $10 runs come first in time.
 
+**Changed on Oct 1, night:** the delay between an author publishing a new version and a vault applying it is 48 hours after launch, up from 12. The person has two days to see the change and refuse it.
+
 **Words.** The product words follow the brand strategy on the `design` branch. The code names in the listings are working names, chosen before the strategy. They are renamed once, together with the package scope, when the name is final (section 17, item 18).
 
 | Product word | What it is | Working code name |
@@ -36,7 +38,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 - EVM: a fresh price does not prove an open market, so stock legs trade only in a fixed weekday window, minus a list of closed days.
 - The model fills a form and nothing else. Explanation text comes from templates.
 - The keeper runs as a loop on a machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is Rodrigo's frozen `main`.
-- The publish delay has a one-way launch latch: short while only team money is in, 12 hours and locked before the public link.
+- The publish delay has a one-way launch latch: short while only team money is in, 48 hours and locked before the public link.
 - Hostile cases A1 to A18, a two-tier security gate per chain, and a separate gate before the public link is shared.
 - The build starts small. Section 16 lists what is out unless the team is ahead, each with a date.
 - Turnkey and Privy's gas sponsorship are no longer free. The app uses a funding check that includes gas.
@@ -51,7 +53,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 | Extend his `executions` table and enums, or add our own | New `leg_attempts` table in his column style | No change to his tables while he is still migrating; his `tx.ts` is not edited |
 | His `chain` enum, a new enum, or text | `chain_id` as text with a foreign key to a `chains` table | A new chain is a row, not a migration |
 | Keeper on GitHub cron, or a loop on a team machine | The loop | The cron cannot run `basket` code before Oct 12, and its secrets would be open to anything that can push |
-| A hard 12-hour floor on the delay, or a short delay for test cycles | Both, through the launch latch | Three test cycles in total were too few; after `launch()` the floor cannot drop |
+| A hard 48-hour floor on the delay, or a short delay for test cycles | Both, through the launch latch | Three test cycles in total were too few; after `launch()` the floor cannot drop |
 | Accept may name a pending version, or only the active one | Only the active one, by number | Pre-acceptance needs extra vault state; the prompt appears when the version takes effect |
 | Keeper revisits any vault outside the band, or only after a shared-portfolio update | Any auto-follow vault not yet back in band since its last adoption | Fixes half-finished rebalances without shipping drift rebalancing, which is on the roadmap |
 | Relay signed bytes, or report only | Report, with optional signed Solana bytes that must match a leg the server built | The browser has no RPC; binding to a built leg avoids an open relay |
@@ -418,7 +420,7 @@ pub struct Position { mint: Pubkey, target_bps: u16, tracked: u64, last_keeper_t
 - `withdraw` and `owner_swap` take no Config, registry or price account. A pause or a dead feed cannot block the owner.
 - The swap target must be Jupiter's program id with selector `route_v2` or `shared_accounts_route_v2`, or the two legacy selectors the spike used. Bytes and accounts are forwarded as in the spike.
 - Every instruction derives the associated token account for (vault, mint, the mint's own token program) and rejects any other account. The account list may hold exactly two token accounts owned by the vault, the input and the output; after the call their owner, delegate, close authority and data length must be unchanged. Anything else is `AccountTampered`.
-- `set_params` enforces hard-coded bounds: tolerance at most 300 bps, loss cap at most 500 bps, cooldown at least 600 s, publish delay at least 60 s before `launch()` and at least 43,200 s after. The numbers the app shows cannot move past these without an upgrade.
+- `set_params` enforces hard-coded bounds: tolerance at most 300 bps, loss cap at most 500 bps, cooldown at least 600 s, publish delay at least 60 s before `launch()` and at least 172,800 s after. The numbers the app shows cannot move past these without an upgrade.
 - Errors, order frozen, append only: `NotKeeper, AutoFollowOff, KeeperPaused, MintNotAccepted, RouterNotAllowed, SpentTooMuch, ReceivedTooLittle, OtherAccountDebited, AccountTampered, PriceStale, PriceDeviation, MarketClosed, MultiplierWindow, NotTowardTarget, PastTarget, Cooldown, LossCapReached, AssetNotPriced, NewAssetNeedsOwner, VersionNotEffective, CreatorLimit, VersionMismatch, WrongDestination, ParamOutOfBounds`.
 - Events, same names on EVM: `VaultCreated`, `Followed`, `Unfollowed`, `VersionAdopted`, `TargetsSet`, `KeeperTrade`, `RecipePublished`, `VersionCancelled`.
 
@@ -595,7 +597,7 @@ Limits, checked by the registry. Constants, not per-portfolio settings. Shape li
 | Change per asset per version | 10 points, including adds and removals |
 | Turnover | 20% per version; 60% per 7 days, on a counter that decays linearly over 7 days, the same on both families |
 | Frequency | One version per 24 hours; none while one is pending |
-| Delay | `publishDelay`, 12 hours after `launch()`; computed by the registry, checked by the vault |
+| Delay | `publishDelay`, 48 hours after `launch()`; computed by the registry, checked by the vault |
 | Cancel | The creator or the guardian can cancel a pending version. A cancel gives back neither the 24-hour slot nor the turnover |
 
 **The cap from measured exit capacity.** Each listed asset has `maxWeightBps` in the onchain asset list. The registry rejects a component above `min(5000, maxWeightBps)`. An ops script sets it from Rodrigo's curves:
@@ -781,7 +783,7 @@ One contract, three faces. Fastify emits the OpenAPI document, committed at `pac
 | How an agent gets authority | Who signs | What bounds it |
 |---|---|---|
 | Propose, person signs | The owner, at `approvalUrl` | The review screen and the guard; consents need their own tap |
-| Agent-run shared portfolio | The follower once; then the keeper | Creator limits, the 12-hour delay, every vault check |
+| Agent-run shared portfolio | The follower once; then the keeper | Creator limits, the 48-hour delay, every vault check |
 | Agent's own vault | The agent's wallet | Only what was deposited there |
 
 Abuse limits. Portfolio names and descriptions: 280 characters, links stripped, returned in a field named `untrusted`. An order cannot switch auto-follow on or accept a new asset by itself. `agentLabel` is shown as "unverified". A daily budget on the model; past it, the regex parser answers. Three-chain quotes run in parallel with 8 seconds per chain, from the cache where they can.
@@ -843,7 +845,7 @@ A tier 2 failure blocks only if it shows a real way to lose funds.
 - Guard negatives, one vector each: a hostile instruction in an allowed program, a withdraw built for a third party, a wrong spender, `setOperator`, auto-follow without consent, a swap whose minimum differs from the screen.
 - Identity: wallet B cannot approve wallet A's order; B claiming A's address is refused; an unrelated successful transaction cannot confirm a leg.
 - No registered route reaches a signer. A keeper row inserted with the `api` role is never submitted. 100 anonymous quote calls cause a bounded number of upstream calls.
-- `authority-check` is green with the disclosed admin key as admin, `launched` true and the delay at 43,200 s. The Supabase Data API is off.
+- `authority-check` is green with the disclosed admin key as admin, `launched` true and the delay at 172,800 s. The Supabase Data API is off.
 - The three-profile test passes: pairwise distance at least 3,000 bps, a reason on every line.
 
 **Supply chain.** Keep pnpm 11's one-day release hold and build-script approval. A pull request that changes the lockfile names the new packages and a person reads the diff. `security.yml` runs gitleaks, `pnpm audit --prod` and cargo-deny.
@@ -909,11 +911,11 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 | Mon Oct 5 | Deploy on three chains: config, caps, handover to the admin key, `authority-check`. First hosted web and API; cold-start test (no pings for 20 minutes, then load the home page). In session: the owner path on three chains; first keeper leg and first publish-adopt-trade cycle on Solana |
 | Tue Oct 6 | A three-chain buy with a passkey wallet; publish and follow. In session: auto-follow cycles on Robinhood Chain; rehearsal 1 on Solana and Robinhood Chain. MCP against the real API |
 | Wed Oct 7 | In session: rehearsal 2, and the market-open footage. Portfolio and rebalance end to end. Sheets render. Add-backs decided |
-| Thu Oct 8 | `G-SEC` per chain at 12:00 BRT. Then `launch()`: the delay is 12 hours from here on. Then `G-LINK`, and only then is the link shared. Pause drill in session. Evening: publish a version of the demo portfolio |
-| Fri Oct 9 | In session: that version adopts and rebalances at production settings. Spare time for a failed cycle. Freeze at 18:00 BRT; tag |
+| Thu Oct 8 | `G-SEC` per chain at 12:00 BRT. Then `launch()`: the delay is 48 hours from here on. Then `G-LINK`, and only then is the link shared. Pause drill in session. In session: publish a version of the demo portfolio |
+| Fri Oct 9 | Spare session for a failed test cycle. Freeze at 18:00 BRT; tag. The version published on Oct 8 takes effect on Saturday, when the stock market is closed, so its rebalance waits for Monday |
 | Sat Oct 10 | P0 fixes only, each with a test. README, `HANDOFF-VAULT`, `DESIGN-VAULT`, `PRIOR-WORK`. Record the remaining screens |
 | Sun Oct 11 | Edit both videos. Fill the submission form |
-| Mon Oct 12 | Submit with a buffer. The Monday session is a last chance for a missing market shot |
+| Mon Oct 12 | In session: the Oct 8 version adopts and rebalances at production settings. If it fails, auto-follow is switched off on that chain. Then submit with a buffer |
 
 **Out unless ahead.** Each item starts out and comes back only on its date, if the streams it needs are done.
 
@@ -965,7 +967,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 - The label on the sign-in button. Thom's pick is "Sign in", opening a choice of passkey or wallet; his landing page says "Connect wallet".
 - The plan-leg bar allows four legs: sleeves go in the bar, with the tokens in a table under it.
 - The disclaimer says "the decision and custody are yours". Only the owner can withdraw from a vault, so it stays; the "unaudited, team holds the upgrade keys" notice sits beside it before the first deposit.
-- The automatic switch. It is off by default; the person sees an author's change 12 hours before it takes effect and can refuse; then the vault copies the change inside its own limits. It does not re-check the person's goal. Thom's decision is to keep it this way. It sits beside the voice rule that the agent "proposes and explains": the 12-hour notice is the proposal, and the person can refuse.
+- The automatic switch. It is off by default; the person sees an author's change 48 hours before it takes effect and can refuse; then the vault copies the change inside its own limits. It does not re-check the person's goal. Thom's decision is to keep it this way. It sits beside the voice rule that the agent "proposes and explains": the 48-hour notice is the proposal, and the person can refuse.
 
 **Thom**
 
@@ -993,7 +995,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 **Flags on fixed decisions.** None is shown unworkable. Four carry risk.
 
 - No deposit cap sits on unaudited, upgradeable code, and one disclosed key per chain holds the upgrade power. The app says so and `G-LINK` checks the key against `deployments/*.json`.
-- The 12-hour delay holds for every public user, but test cycles before `launch()` run at 300 s on team money. The latch is one-way and `authority-check` reads it.
+- The 48-hour delay holds for every public user, but test cycles before `launch()` run at 300 s on team money. The latch is one-way and `authority-check` reads it.
 - Free tiers can sleep the API or throttle Jupiter. Each has a mitigation in section 10 and a test in `G-LINK` or the Oct 5 cold-start test.
 - Jupiter's `route_v2` from a vault is unproven: settled on surfpool by Oct 3, then by the $10 run.
 
