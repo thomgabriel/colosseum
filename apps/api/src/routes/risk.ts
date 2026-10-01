@@ -563,6 +563,97 @@ export async function registerRiskRoutes(app: FastifyInstance) {
     },
   );
 
+  f.post(
+    '/risk/positions/borrow-capacity',
+    {
+      schema: {
+        summary:
+          'Borrow capacity for stock holdings (read-only): per market, max borrow, liquidation distance, thinnest hour of week',
+        description: `Read-only assessment. No transaction is built or sent.\n\n${DISCLAIMER.en}`,
+        body: z.object({
+          holdings: z.array(z.object({ asset: z.string(), units: z.number().positive() })).min(1),
+        }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const markets = await latestMarkets();
+      const out = [];
+      for (const h of req.body.holdings) {
+        const a = await resolveAsset(h.asset);
+        if (!a) return reply.code(404).send({ error: `unknown asset ${h.asset}` });
+        const [snap] = await db
+          .select()
+          .from(riskAssetSnapshots)
+          .where(eq(riskAssetSnapshots.assetMint, a.mint))
+          .orderBy(desc(riskAssetSnapshots.fetchedAt))
+          .limit(1);
+        if (!snap) return reply.code(404).send({ error: `no price snapshot for ${a.symbol}` });
+        const valueUsd = h.units * snap.refMidUsd;
+        // thinnest hour: highest median routed sell cost at the holding's size, by hour of week (ET)
+        const rows = await db
+          .select({ fetchedAt: riskAssetSnapshots.fetchedAt, sell: riskAssetSnapshots.sell })
+          .from(riskAssetSnapshots)
+          .where(eq(riskAssetSnapshots.assetMint, a.mint));
+        const byHow = new Map<number, number[]>();
+        for (const r of rows) {
+          const pts = (r.sell as Array<{ notionalUsd: number; outUsd: number }>)
+            .map((p) => ({ n: p.notionalUsd, c: 1 - p.outUsd / p.notionalUsd }))
+            .sort((x, y) => x.n - y.n);
+          const hi = pts.findIndex((p) => p.n >= valueUsd);
+          const cost = hi < 0 ? null : (pts[hi] as { c: number }).c;
+          if (cost === null) continue;
+          const how = hourOfWeek(r.fetchedAt);
+          byHow.set(how, [...(byHow.get(how) ?? []), cost]);
+        }
+        const med = (xs: number[]) =>
+          [...xs].sort((x, y) => x - y)[Math.floor((xs.length - 1) / 2)] as number;
+        const thinnest =
+          [...byHow.entries()]
+            .map(([how, xs]) => ({
+              hourOfWeekEt: how,
+              medianSellCost: med(xs),
+              samples: xs.length,
+            }))
+            .sort((x, y) => y.medianSellCost - x.medianSellCost)[0] ?? null;
+        const venues = markets
+          .filter((m) => m.assetMint === a.mint)
+          .map((m) => {
+            const p = m.params as { ltv: number; liquidationThreshold: number };
+            const maxBorrowUsd = valueUsd * p.ltv;
+            return {
+              venue: m.venue,
+              market: m.borrowAsset ? `${m.market} (${m.borrowAsset})` : m.market,
+              account: m.account,
+              ltv: p.ltv,
+              liquidationThreshold: p.liquidationThreshold,
+              maxBorrowUsd,
+              /** price fall that triggers liquidation when borrowing the maximum: 1 − ltv / threshold */
+              liquidationDistanceAtMax:
+                p.liquidationThreshold > 0 ? 1 - p.ltv / p.liquidationThreshold : null,
+              verification: m.verification,
+            };
+          });
+        out.push({
+          asset: a.symbol,
+          units: h.units,
+          priceUsd: snap.refMidUsd,
+          priceAt: snap.fetchedAt,
+          valueUsd,
+          venues,
+          thinnestHour: thinnest,
+          timezone: 'America/New_York',
+        });
+      }
+      return {
+        readOnly: true,
+        holdings: out,
+        methodVersion: METHOD_VERSION,
+        disclaimer: DISCLAIMER.en,
+      };
+    },
+  );
+
   f.get(
     '/risk/events',
     {
