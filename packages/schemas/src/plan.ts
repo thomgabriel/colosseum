@@ -65,6 +65,8 @@ export const Plan = z.object({
   stresses: z.array(StressCase),
   riskSheet: z.array(RiskSheetEntry),
   solverVersion: z.string(),
+  /** Liquidity provider used for this plan (risk layer); null or absent when none. */
+  liquidity: z.object({ methodVersion: z.string(), provenance: z.string() }).nullable().optional(),
   disclaimer: z.string(),
   createdAt: z.string().datetime(),
 });

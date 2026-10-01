@@ -11,6 +11,7 @@ import {
 } from '@colosseum/chain-solana';
 import {
   assets as assetsTable,
+  constraintSheets,
   createDb,
   executions,
   markConfirmed,
@@ -25,11 +26,18 @@ import {
   schedules,
 } from '@colosseum/db';
 import { computeDrift, proposeRebalance } from '@colosseum/engine';
-import { ApiError, Asset, DISCLAIMER, type Policy } from '@colosseum/schemas';
+import {
+  ApiError,
+  Asset,
+  DISCLAIMER,
+  type LiquidityAssessment,
+  type Policy,
+} from '@colosseum/schemas';
 import { desc, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { loadLiquidityProvider } from '../liquidity';
 
 const rowToAsset = (r: typeof assetsTable.$inferSelect): Asset =>
   Asset.parse({
@@ -101,6 +109,55 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
       .where(eq(rebalances.policyId, policy.id))
       .orderBy(desc(rebalances.createdAt))
       .limit(1);
+    // liquidity trigger (risk layer): assess the next withdrawals against measured exit capacity
+    let liquidity: (LiquidityAssessment & { withdrawalScale: number; windowDays: number }) | null =
+      null;
+    const trig = policy.trigger.liquidity;
+    if (trig && read.errors.length === 0) {
+      const provider = await loadLiquidityProvider(db, assets);
+      const [planRow] = await db.select().from(plans).where(eq(plans.id, policy.planId));
+      if (provider && planRow) {
+        const [sheetRow] = await db
+          .select()
+          .from(constraintSheets)
+          .where(eq(constraintSheets.id, planRow.constraintSheetId));
+        const windowDays =
+          (sheetRow?.sheet as { liquidityWindowDays?: number } | undefined)?.liquidityWindowDays ??
+          30;
+        const baseRowsAll = ((
+          await db.select().from(schedules).where(eq(schedules.planId, policy.planId))
+        ).find((x) => x.caseId === 'base')?.rows ?? []) as Array<{
+          month: string;
+          withdrawalBrl: number;
+          fxUsdBrl: number;
+        }>;
+        const thisMonth = new Date().toISOString().slice(0, 7);
+        const actual = inPolicy.reduce((t, p) => t + p.valueUsd, 0);
+        // the plan's schedule is at plan capital; the wallet may hold a demo-size amount
+        const scale = Number(planRow.capitalUsd) > 0 ? actual / Number(planRow.capitalUsd) : 1;
+        const withdrawals = baseRowsAll
+          .filter((r) => r.month >= thisMonth && r.withdrawalBrl > 0)
+          .slice(0, trig.horizonMonths)
+          .map((r) => ({
+            at: `${r.month}-01T12:00:00.000Z`,
+            usd: (r.withdrawalBrl / r.fxUsdBrl) * scale,
+          }));
+        const byKind = (k: string) =>
+          inPolicy.filter((p) => assetMap.get(p.assetId)?.kind === k && p.assetId !== 'usdc');
+        const a = provider.assess({
+          cashUsd: inPolicy.find((p) => p.assetId === 'usdc')?.valueUsd ?? 0,
+          brlUsd: byKind('brl_stable').reduce((t, p) => t + p.valueUsd, 0),
+          liquid: byKind('usd_yield'),
+          illiquid: byKind('equity'),
+          withdrawals,
+          windowDays,
+          tau: trig.impactTolerancePct / 100,
+          shareOfDepth: trig.shareOfDepth,
+          dryFactorFloor: trig.dryFactorFloor,
+        });
+        liquidity = { ...a, withdrawalScale: scale, windowDays };
+      }
+    }
     const proposal =
       read.errors.length > 0
         ? {
@@ -114,6 +171,7 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
             positions: inPolicy,
             dexAssets,
             lastRebalanceAt: last?.createdAt,
+            liquidity: liquidity ?? undefined,
           });
     const [base] = await db
       .select()
@@ -148,6 +206,7 @@ export async function registerMonitorRoutes(app: FastifyInstance) {
       })),
       drift,
       proposal,
+      liquidity,
       nextWithdrawal,
       projectedVsActual:
         plan && projected
