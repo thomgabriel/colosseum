@@ -384,6 +384,88 @@ async function snapshotMarkets(now: Date, xMints: Set<string>) {
   return { marketRows: rows.length, marketAccounts: raw.size };
 }
 
+/**
+ * Routed asset curves: the best split of a sale (or purchase) across all of an asset's dollar-exit pools,
+ * allocating ROUTE_CHUNKS equal chunks greedily to the pool with the highest marginal output. Each pool is
+ * simulated statelessly from this run's state. Reference price = mid of the asset's largest pool (by TVL).
+ */
+const ROUTE_CHUNKS = 32;
+function writeRoutedCurves(
+  exits: Array<{
+    p: RegPool;
+    sim: PoolSim;
+    decAsset: number;
+    decQuote: number;
+    quoteUsd: number;
+    midUsd: number;
+  }>,
+  now: Date,
+  slot: number,
+): number {
+  const byAsset = new Map<string, typeof exits>();
+  for (const e of exits) byAsset.set(e.p.assetMint, [...(byAsset.get(e.p.assetMint) ?? []), e]);
+  const file = join(HOME, 'assets', `${now.toISOString().slice(0, 10)}.jsonl`);
+  mkdirSync(join(HOME, 'assets'), { recursive: true });
+  for (const [mint, es] of byAsset) {
+    const ref = [...es].sort((a, b) => b.p.tvlUsd - a.p.tvlUsd)[0] as (typeof es)[number];
+    const route = (n: number, side: 'sell' | 'buy') => {
+      const alloc = es.map(() => 0); // sell: asset UI units per pool; buy: USD per pool
+      const outAt = (i: number, x: number) => {
+        const e = es[i] as (typeof es)[number];
+        if (x <= 0) return 0;
+        if (side === 'sell') {
+          const r = e.sim.sellAsset(Math.floor(x * 10 ** e.decAsset));
+          return (r.out / 10 ** e.decQuote) * e.quoteUsd * (1 - r.unfilledShare);
+        }
+        const r = e.sim.buyAsset(Math.floor((x / e.quoteUsd) * 10 ** e.decQuote));
+        return (r.out / 10 ** e.decAsset) * ref.midUsd * (1 - r.unfilledShare);
+      };
+      const total = side === 'sell' ? n / ref.midUsd : n;
+      const chunk = total / ROUTE_CHUNKS;
+      const cur = es.map(() => 0);
+      for (let k = 0; k < ROUTE_CHUNKS; k++) {
+        let bi = 0;
+        let bGain = Number.NEGATIVE_INFINITY;
+        for (let i = 0; i < es.length; i++) {
+          const g = outAt(i, (alloc[i] as number) + chunk) - (cur[i] as number);
+          if (g > bGain) {
+            bGain = g;
+            bi = i;
+          }
+        }
+        alloc[bi] = (alloc[bi] as number) + chunk;
+        cur[bi] = outAt(bi, alloc[bi] as number);
+      }
+      const outUsd = cur.reduce((t, v) => t + v, 0);
+      return {
+        notionalUsd: n,
+        outUsd,
+        costPct: (1 - outUsd / n) * 100,
+        poolsUsed: alloc.filter((a) => a > 0).length,
+      };
+    };
+    appendFileSync(
+      file,
+      `${JSON.stringify({
+        assetMint: mint,
+        asset: ref.p.assetSymbol,
+        fetchedAt: now.toISOString(),
+        slot,
+        refPool: ref.p.address,
+        refMidUsd: ref.midUsd,
+        pools: es.length,
+        sell: NOTIONALS.map((n) => route(n, 'sell')),
+        buy: NOTIONALS.map((n) => route(n, 'buy')),
+        source: 'pool simulations of this run (Solana RPC pool state)',
+        method: `routed_greedy_${ROUTE_CHUNKS}_chunks`,
+        methodVersion: COLLECTOR_METHOD_VERSION,
+        provenance: 'live',
+      })}\n`,
+    );
+  }
+  return byAsset.size;
+}
+
 async function main() {
   if (!RPC_URL) throw new Error('SOLANA_RPC_URL not set (see ~/.colosseum/risk/env)');
   const started = Date.now();
@@ -463,6 +545,15 @@ async function main() {
   const file = join(outDir, `${day}.jsonl`);
   const events = join(HOME, 'events.jsonl');
   let rows = 0;
+  // pools usable as dollar exits this run, for the routed (multi-pool) asset curves
+  const exits: Array<{
+    p: RegPool;
+    sim: PoolSim;
+    decAsset: number;
+    decQuote: number;
+    quoteUsd: number;
+    midUsd: number;
+  }> = [];
   let refetched = 0;
   const failures: string[] = [];
   for (const p of due) {
@@ -514,6 +605,8 @@ async function main() {
       const decQuote = p.assetIsToken0 ? p.decimals1 : p.decimals0;
       const curves =
         quoteUsd > 0 ? usdCurves(built.sim, decAsset, decQuote, quoteUsd, NOTIONALS) : null;
+      if (curves && (p.exitPath === 'direct_usd' || p.exitPath === 'via_sol') && curves.midUsd > 0)
+        exits.push({ p, sim: built.sim, decAsset, decQuote, quoteUsd, midUsd: curves.midUsd });
       const depth = built.sim.depthWithin(BAND_PCT);
       appendFileSync(
         file,
@@ -627,6 +720,7 @@ async function main() {
     }
   }
   writeFileSync(cachePath, JSON.stringify(cache));
+  const routed = writeRoutedCurves(exits, now, slot);
   const markets = hourly
     ? await snapshotMarkets(now, new Set(reg.pools.map((p) => p.assetMint))).catch((e) => ({
         error: String(e).slice(0, 120),
@@ -634,6 +728,7 @@ async function main() {
     : null;
   const summary = {
     markets,
+    routedAssets: routed,
     kind: 'run',
     fetchedAt: now.toISOString(),
     slot,

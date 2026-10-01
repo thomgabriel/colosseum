@@ -41,10 +41,10 @@ const calendar = JSON.parse(
 const REGIME_PARAMS = defaultRegimeParams(calendar);
 const ISSUERS = JSON.parse(readFileSync(join(ROOT, 'fixtures/risk/issuer-models.json'), 'utf8'))
   .models as Record<string, IssuerModel>;
-const METHOD_VERSION = 'risk-0.2';
+const METHOD_VERSION = 'risk-0.3';
 const HONESTY = [
   'Depth is measured from on-chain pool state; calm-market depth overstates depth in stress. Each curve shows its regime, sample count and date range.',
-  'Curves use the best single pool per snapshot; a router splitting across pools can do better, never worse.',
+  'Curves simulate the best split of a sale across the asset’s dollar-exit pools (USDC, USDT, SOL) per snapshot; pools quoted in other tokens are not counted.',
   'Issuer redemption capacity is a scenario input (assumption), not a measurement.',
   'Asset- and market-level aggregates only; no wallet positions are published.',
 ];

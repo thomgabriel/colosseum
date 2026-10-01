@@ -12,7 +12,7 @@ import type { Asset, LiquidityProvider } from '@colosseum/schemas';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
 const ROOT = process.env.REPO_ROOT ?? join(import.meta.dirname, '..', '..', '..');
-export const RISK_METHOD_VERSION = 'risk-0.2';
+export const RISK_METHOD_VERSION = 'risk-0.3';
 
 /**
  * Builds the structurer's LiquidityProvider from the risk layer's stored curves (sell side, current method

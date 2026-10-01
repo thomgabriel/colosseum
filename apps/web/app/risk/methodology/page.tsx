@@ -6,7 +6,7 @@ export const metadata = { title: 'Methodology — exit liquidity' };
 export default function Methodology() {
   return (
     <article className="prose max-w-3xl space-y-4 text-sm">
-      <h1 className="text-2xl font-semibold">Methodology (risk-0.2)</h1>
+      <h1 className="text-2xl font-semibold">Methodology (risk-0.3)</h1>
 
       <h2 className="font-semibold">What is measured</h2>
       <p>
@@ -67,8 +67,9 @@ export default function Methodology() {
           sample count and dates.
         </li>
         <li>
-          Curves use the best single pool. A router splitting across pools can do better, never
-          worse; we measure the gap separately.
+          Curves simulate the best split of a sale across the asset's dollar-exit pools (USDC, USDT,
+          SOL pools), allocated in 32 chunks to whichever pool pays most for the next chunk. Jupiter
+          quotes are collected every 15 minutes as an independent check; the gap is reported.
         </li>
         <li>
           Pools quoted in other tokens (not USDC, USDT or SOL) are not counted as exit routes.

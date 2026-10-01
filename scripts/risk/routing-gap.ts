@@ -95,14 +95,12 @@ for (const r of rows)
   byAsset.set(`${r.asset} $${r.n}`, [...(byAsset.get(`${r.asset} $${r.n}`) ?? []), r.gap]);
 const median = (xs: number[]) =>
   [...xs].sort((a, b) => a - b)[Math.floor((xs.length - 1) / 2)] as number;
-const report = [...byAsset.entries()]
-  .sort()
-  .map(([k, xs]) => ({
-    key: k,
-    samples: xs.length,
-    medianGapPct: Number((median(xs) * 100).toFixed(3)),
-    minGapPct: Number((Math.min(...xs) * 100).toFixed(3)),
-  }));
+const report = [...byAsset.entries()].sort().map(([k, xs]) => ({
+  key: k,
+  samples: xs.length,
+  medianGapPct: Number((median(xs) * 100).toFixed(3)),
+  minGapPct: Number((Math.min(...xs) * 100).toFixed(3)),
+}));
 console.log(
   JSON.stringify(
     {

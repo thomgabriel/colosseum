@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   createDb,
+  riskAssetSnapshots,
   riskEvents,
   riskLpConcentration,
   riskPoolSnapshots,
@@ -28,7 +29,7 @@ const lines = (dir: string) =>
             .map((l) => JSON.parse(l) as Record<string, unknown>),
         )
     : [];
-const counts = { snapshots: 0, events: 0, lp: 0, quotes: 0, skippedUnknownPool: 0 };
+const counts = { assets: 0, snapshots: 0, events: 0, lp: 0, quotes: 0, skippedUnknownPool: 0 };
 const chunk = <T>(xs: T[], n = 500) =>
   Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
@@ -139,6 +140,31 @@ for (const c of chunk(qs)) {
     .onConflictDoNothing()
     .returning({ p: riskQuotes.runId });
   counts.quotes += res.length;
+}
+const as = lines(join(HOME, 'assets'));
+for (const c of chunk(as)) {
+  const res = await db
+    .insert(riskAssetSnapshots)
+    .values(
+      c.map((r) => ({
+        assetMint: r.assetMint as string,
+        asset: r.asset as string,
+        fetchedAt: new Date(r.fetchedAt as string),
+        slot: Number(r.slot),
+        refPool: r.refPool as string,
+        refMidUsd: Number(r.refMidUsd),
+        pools: Number(r.pools),
+        sell: r.sell,
+        buy: r.buy,
+        methodVersion: r.methodVersion as string,
+        source: r.source as string,
+        method: r.method as string,
+        provenance: 'live' as const,
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ a: riskAssetSnapshots.assetMint });
+  counts.assets += res.length;
 }
 await client.end();
 console.log(JSON.stringify({ home: HOME, inserted: counts }));

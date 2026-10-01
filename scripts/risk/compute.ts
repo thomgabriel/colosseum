@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
-import { createDb, riskDepthCurves, riskPoolSnapshots, riskPools } from '@colosseum/db';
+import { createDb, riskAssetSnapshots, riskDepthCurves, riskPools } from '@colosseum/db';
 import {
   type CostSample,
   defaultRegimeParams,
@@ -9,13 +9,12 @@ import {
   type Regime,
   regimeAt,
 } from '@colosseum/risk';
-import { inArray, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
-// Computes asset-level depth curves from pool snapshots. Per asset and snapshot time, the asset's sell
-// (buy) outcome at each notional is the best single exit pool (USDC/USDT and SOL pools); routing across
-// pools is not added, so curves are a lower bound on what a router achieves. Samples are bucketed by
+// Computes asset-level depth curves from routed asset snapshots (risk-0.3): per asset and collector run, the
+// best split of a sale across the asset's USDC/USDT and SOL pools. Samples are bucketed by
 // regime and fitted with fitCurve. Persisted to risk_depth_curves with method_version.
-export const CURVE_METHOD_VERSION = 'risk-0.2';
+export const CURVE_METHOD_VERSION = 'risk-0.3';
 const QUANTILE = Number(process.env.RISK_CURVE_QUANTILE ?? 0.5);
 const MIN_SAMPLES = Number(process.env.RISK_MIN_SAMPLES ?? 8);
 const P = defaultRegimeParams(
@@ -23,41 +22,31 @@ const P = defaultRegimeParams(
 );
 
 const { db, client } = createDb();
-const pools = await db
-  .select()
-  .from(riskPools)
-  .where(inArray(riskPools.exitPath, ['direct_usd', 'via_sol']));
-const byPool = new Map(pools.map((p) => [p.address, p]));
-const snaps = await db
+const pools = await db.select().from(riskPools);
+// routed asset snapshots: the best split across the asset's dollar-exit pools (risk-0.3)
+const assetRows = await db
   .select({
-    pool: riskPoolSnapshots.pool,
-    fetchedAt: riskPoolSnapshots.fetchedAt,
-    sell: riskPoolSnapshots.sell,
-    buy: riskPoolSnapshots.buy,
+    assetMint: riskAssetSnapshots.assetMint,
+    fetchedAt: riskAssetSnapshots.fetchedAt,
+    sell: riskAssetSnapshots.sell,
+    buy: riskAssetSnapshots.buy,
   })
-  .from(riskPoolSnapshots)
-  .where(inArray(riskPoolSnapshots.pool, [...byPool.keys()]));
+  .from(riskAssetSnapshots);
 type Pt = { notionalUsd: number; outUsd: number };
-// asset → time → side → notional → best outUsd
 const best = new Map<
   string,
   Map<string, { sell: Map<number, number>; buy: Map<number, number> }>
 >();
-for (const s of snaps) {
-  const p = byPool.get(s.pool);
-  if (!p) continue;
-  const t = s.fetchedAt.toISOString();
-  const a = best.get(p.assetMint) ?? new Map();
-  const e = a.get(t) ?? { sell: new Map<number, number>(), buy: new Map<number, number>() };
-  for (const side of ['sell', 'buy'] as const) {
-    for (const pt of (s[side] as Pt[]) ?? []) {
-      if (!Number.isFinite(pt.outUsd)) continue;
-      e[side].set(pt.notionalUsd, Math.max(e[side].get(pt.notionalUsd) ?? 0, pt.outUsd));
-    }
-  }
-  a.set(t, e);
-  best.set(p.assetMint, a);
+for (const r of assetRows) {
+  const a = best.get(r.assetMint) ?? new Map();
+  const e = { sell: new Map<number, number>(), buy: new Map<number, number>() };
+  for (const side of ['sell', 'buy'] as const)
+    for (const pt of (r[side] as Pt[]) ?? [])
+      if (Number.isFinite(pt.outUsd)) e[side].set(pt.notionalUsd, pt.outUsd);
+  a.set(r.fetchedAt.toISOString(), e);
+  best.set(r.assetMint, a);
 }
+const snaps = assetRows;
 const symbol = new Map(pools.map((p) => [p.assetMint, p.assetSymbol]));
 let written = 0;
 const now = new Date();
@@ -88,7 +77,7 @@ for (const [mint, times] of best) {
         dataTo: c.to ? new Date(c.to) : null,
         computedAt: now,
         methodVersion: CURVE_METHOD_VERSION,
-        source: 'risk_pool_snapshots (best single exit pool per snapshot)',
+        source: 'risk_asset_snapshots (routed: best split across dollar-exit pools per snapshot)',
         method: 'fitCurve_isotonic_pl_ln_notional',
         provenance: 'live' as const,
       };

@@ -70,7 +70,7 @@ beforeAll(async () => {
         minSamples: c.minSamples,
         samples: c.samples,
         computedAt: now,
-        methodVersion: 'risk-0.2',
+        methodVersion: 'risk-0.3',
         source: 'fixtures/risk/curves-synthetic.json',
         method: 'fixture',
         provenance: 'fixture',

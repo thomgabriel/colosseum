@@ -161,3 +161,24 @@ export const riskQuotes = pgTable(
   },
   (t) => [primaryKey({ columns: [t.runId, t.assetMint, t.side, t.notionalUsd] })],
 );
+
+/** Routed (multi-pool) asset-level sell/buy curves per collector run. */
+export const riskAssetSnapshots = pgTable(
+  'risk_asset_snapshots',
+  {
+    assetMint: text('asset_mint').notNull(),
+    asset: text('asset').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    refPool: text('ref_pool').notNull(),
+    refMidUsd: doublePrecision('ref_mid_usd').notNull(),
+    pools: integer('pools').notNull(),
+    sell: jsonb('sell').notNull(),
+    buy: jsonb('buy').notNull(),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.assetMint, t.fetchedAt] })],
+);
