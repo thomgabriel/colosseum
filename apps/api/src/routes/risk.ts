@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
   createDb,
   riskDepthCurves,
+  riskPoolSnapshots,
   riskEvents,
   riskLpConcentration,
   riskPools,
@@ -12,6 +13,7 @@ import {
   assessLiquidity,
   type DepthCurve,
   defaultRegimeParams,
+  hourOfWeek,
   type IssuerModel,
   liquidityScore,
   maxNotionalAt,
@@ -215,6 +217,52 @@ export async function registerRiskRoutes(app: FastifyInstance) {
       const latest = new Map<string, (typeof rows)[number]>();
       for (const r of rows) if (!latest.has(r.pool)) latest.set(r.pool, r);
       return { asset: a.symbol, pools: [...latest.values()], disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/risk/assets/:id/heatmap',
+    {
+      schema: {
+        summary: 'Hour-of-week sell cost at a reference notional (median of best single-pool cost per snapshot)',
+        params: z.object({ id: z.string() }),
+        querystring: z.object({ notional: z.coerce.number().positive().default(50_000), side: z.enum(['sell', 'buy']).default('sell') }),
+        response: { 200: z.any(), 404: z.object({ error: z.string() }) },
+      },
+    },
+    async (req, reply) => {
+      const a = await resolveAsset(req.params.id);
+      if (!a) return reply.code(404).send({ error: `unknown asset ${req.params.id}` });
+      const pools = await db
+        .select({ address: riskPools.address })
+        .from(riskPools)
+        .where(and(eq(riskPools.assetMint, a.mint), inArray(riskPools.exitPath, ['direct_usd', 'via_sol'])));
+      if (!pools.length) return { asset: a.symbol, cells: [], disclaimer: DISCLAIMER.en };
+      const snaps = await db
+        .select({ fetchedAt: riskPoolSnapshots.fetchedAt, curve: req.query.side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy })
+        .from(riskPoolSnapshots)
+        .where(inArray(riskPoolSnapshots.pool, pools.map((p) => p.address)));
+      const bestAt = new Map<string, number>();
+      for (const s of snaps) {
+        const pt = (s.curve as Array<{ notionalUsd: number; outUsd: number }>).find((x) => x.notionalUsd === req.query.notional);
+        if (!pt) continue;
+        const k = s.fetchedAt.toISOString();
+        bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
+      }
+      const byHow = new Map<number, number[]>();
+      for (const [t, out] of bestAt) {
+        const h = hourOfWeek(new Date(t));
+        const arr = byHow.get(h) ?? [];
+        arr.push(1 - out / req.query.notional);
+        byHow.set(h, arr);
+      }
+      const cells = [...byHow.entries()]
+        .sort((x, y) => x[0] - y[0])
+        .map(([how, xs]) => {
+          const s = [...xs].sort((p, q) => p - q);
+          return { hourOfWeekEt: how, medianCost: s[Math.floor((s.length - 1) / 2)], samples: s.length };
+        });
+      return { asset: a.symbol, notionalUsd: req.query.notional, side: req.query.side, cells, timezone: 'America/New_York', hourOfWeek: 'Mon 00:00 = 0', disclaimer: DISCLAIMER.en };
     },
   );
 
