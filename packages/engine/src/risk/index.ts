@@ -61,7 +61,7 @@ export function buildRiskSheet(input: RiskInputs): RiskSheetEntry[] {
 
 function liquidityBlock(input: RiskInputs, assetId: string) {
   const l = input.liquidity;
-  if (!l || !l.provider.covers(assetId)) return {};
+  if (!l?.provider.covers(assetId)) return {};
   const entry = l.provider.entry(assetId, {
     tau: l.tau,
     windowDays: l.windowDays,
