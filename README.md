@@ -4,7 +4,7 @@ Goals in reais, allocations across on-chain legs (USD yield, a BRL leg, cash, an
 
 Built for the Colosseum Crypto World's Fair (Solana track, Superteam Brasil track), Oct 1–12, 2026. Spec: `docs/HANDOFF-IDEA1.md`. Plan: `docs/PLAN.md`. Status: `docs/STATE.md`. Decisions: `docs/GATES.md`.
 
-Proposed next (Oct 1, pending): hold each plan in a vault that enforces its limits on chain, let people start from portfolios others have shared, and add Robinhood Chain and Base. See `docs/HANDOFF-VAULT.md`.
+Next (Oct 1): hold each plan in a vault that enforces its limits on chain, let people start from portfolios others have shared, and add Robinhood Chain and Base. See `docs/HANDOFF-VAULT.md`.
 
 ## Run
 

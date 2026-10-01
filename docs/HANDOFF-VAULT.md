@@ -1,6 +1,6 @@
-# HANDOFF: plans held in a vault (proposal)
+# HANDOFF: plans held in a vault
 
-*Written 2026-10-01 by Thom, and rewritten the same day in the words of the brand strategy on the `design` branch. Companion to `HANDOFF-IDEA1.md` (the structurer) and `HANDOFF-RISK.md` (the liquidity and risk layer, "Bearing" in the brand). A proposal: nothing here is decided until Rodrigo agrees. Technical design: `DESIGN-VAULT.md`. How it maps onto the code in this repo: `CONVERGENCE-VAULT.md`. Review of the current code: `AUDIT-VAULT.md`. Research behind it: `research/`.*
+*Written 2026-10-01 by Thom, and rewritten the same day in the words of the brand strategy on the `design` branch. Companion to `HANDOFF-IDEA1.md` (the structurer) and `HANDOFF-RISK.md` (the liquidity and risk layer, "Bearing" in the brand). Thom and Rodrigo spoke on Oct 1 and the work continues on this basis; the decisions are listed below and in `GATES.md`. Technical design: `DESIGN-VAULT.md`. How it maps onto the code in this repo: `CONVERGENCE-VAULT.md`. Review of the current code: `AUDIT-VAULT.md`. Research behind it: `research/`.*
 
 The positioning stays as it is: tell us what your money needs to do, and the product builds the portfolio that gets it there, with an exit plan before it invests and every joint in sight. This document is about what it takes to make each part of that sentence hold on chain, for every asset, on more than one chain.
 
@@ -166,7 +166,7 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 - **Stock tokens can be paused or frozen by their issuers** and exclude US persons.
 - **Two unaudited contracts with upgrade keys,** built in eleven days, where today the tokens never leave the wallet.
 
-## Thom's position so far
+## Decided
 
 - The vault replaces the token approval for automatic rebalancing.
 - Shared portfolios are in, with serious assets only at launch.

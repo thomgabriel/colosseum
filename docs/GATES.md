@@ -21,17 +21,18 @@ Source: `docs/PLAN.md` §5. Status is one of `OPEN | PASSED | FAILED | DECIDED`.
 | Written permission to use partner names or logos in the embed | OPEN | default: unbranded |
 | Regulatory position (who carries personalised-allocation liability) | OPEN | default: disclaimer on plan view, API docs, README, video |
 
-## Proposed on 2026-10-01 (Thom), pending Rodrigo
+## Decided on 2026-10-01 (Thom, after speaking with Rodrigo)
 
-From `docs/HANDOFF-VAULT.md`. None of these changes a gate above until Rodrigo agrees; they are recorded here so a slot that touches them stops and asks.
+From `docs/HANDOFF-VAULT.md`. Either founder can reopen one.
 
-| Gate | Status | Proposal | Facts |
+| Gate | Status | Decision | Facts |
 |---|---|---|---|
-| **CUSTODY** — who enforces the policy | OPEN | A vault per plan per chain (Anchor program on Solana, contract on EVM) in place of delegation to the agent key for automatic rebalances | POLICY A covers USDC, USDY and syrupUSDC only, and the only on-chain limit is the approved amount. A program-owned vault bought SPYx through Jupiter CPI on a validator with cloned mainnet state on Oct 1 (`spikes/solana-vault-swap`); mainnet run still to do. |
-| **SHARED-PORTFOLIOS** | OPEN | Public, versioned portfolios anyone can publish. A plan can start from one or follow it, always through the goal and the limits. Serious assets only in the MVP | `docs/research/open-questions/creator-limits.md`, `launch-shelf.md` |
-| **EVM-S1** — EVM adapter | OPEN (see above) | Build it for Robinhood Chain and Base, with the same vault | `spikes/evm-vault` passed on a Robinhood Chain fork; Base passed as a read-only simulation |
-| **B2** — second builder | DECIDED: no (see above) | Thom joins; split in `docs/HANDOFF-VAULT.md` | Engine, risk layer and brand stay with Rodrigo |
-| **SIGN-IN** | OPEN | Wallet connect or a passkey wallet (Privy) | `docs/research/open-questions/wallet-providers.md` |
-| **BRANCH** — where the vault work lands | OPEN | A new branch built on `risk-layer`, pull request to `main` | The risk sheet needs `packages/risk`; `main` is frozen for the structurer |
+| **CUSTODY** — who enforces the policy | DECIDED | A vault per plan per chain (Anchor program on Solana, contract on EVM) in place of delegation to the agent key for automatic rebalances | POLICY A covers USDC, USDY and syrupUSDC only, and the only on-chain limit is the approved amount. A program-owned vault bought SPYx through Jupiter CPI on a validator with cloned mainnet state on Oct 1 (`spikes/solana-vault-swap`); mainnet run still to do. |
+| **SHARED-PORTFOLIOS** | DECIDED | Public, versioned portfolios anyone can publish. A plan can start from one or follow it, always through the goal and the limits. Serious assets only in the MVP | `docs/research/open-questions/creator-limits.md`, `launch-shelf.md` |
+| **EVM-S1** — EVM adapter | DECIDED: build | Build it for Robinhood Chain and Base, with the same vault | `spikes/evm-vault` passed on a Robinhood Chain fork; Base passed as a read-only simulation |
+| **B2** — second builder | DECIDED: yes | Thom joins; split in `docs/HANDOFF-VAULT.md` | Engine, risk layer and brand stay with Rodrigo |
+| **SIGN-IN** | DECIDED | Wallet connect or a passkey wallet (Privy) | `docs/research/open-questions/wallet-providers.md` |
+| **BRANCH** — where the vault work lands | DECIDED | Branch `basket`, built on `risk-layer`, moved onto `main` once the branches are merged there | The risk sheet needs `packages/risk`; `main` is frozen for the structurer |
 | **RISK-DATA** — risk data for the demo | OPEN | Hosted collector or a dated snapshot | The collectors run under launchd on one machine today |
 | **NAME** | OPEN | Tenonfi is provisional on the `design` branch; final after the trademark, domain and native-speaker checks | — |
+| **LICENCE** | DECIDED | Apache-2.0 | The repo was public with no licence |

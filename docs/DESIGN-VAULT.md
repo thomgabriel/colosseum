@@ -1,6 +1,6 @@
 # DESIGN: plans held in a vault, technical design v2
 
-*Written 2026-10-01. A proposal, like `HANDOFF-VAULT.md`: nothing here is decided until Rodrigo agrees. It replaces the first version, which is in this branch's history. For Rodrigo, Thom and the coding agents that build each piece.*
+*Written 2026-10-01. The working design. Thom and Rodrigo spoke on Oct 1 and the work continues on this basis. Whoever builds a piece decides what makes sense for the product and records it in section 17 and in `GATES.md`; either founder can reopen a choice. It replaces the first version, which is in this branch's history. For Rodrigo, Thom and the coding agents that build each piece.*
 
 How this was made: nine research notes (`docs/research/design-v2/*.md`) merged with the product (`docs/HANDOFF-VAULT.md`), the first version, the audit (`docs/AUDIT-VAULT.md`) and the convergence blueprint (`docs/CONVERGENCE-VAULT.md`), then revised after three reviews: scope against time, security, and seams. What each review changed is in `docs/research/design-v2/review-log.md`. Marks: **[C n]** means checked on Oct 1 against source n in the last section, by a stream note, a reviewer or this revision; **(memory)** means not re-checked. Other numbers come from the stream notes, which carry their own source lists.
 
@@ -939,55 +939,55 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 
 Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-LINK`; no registered route that reaches a signer; the three-profile test.
 
-## 17. Decisions a person still has to make
+## 17. Decisions: made, and still to make
 
-**Rodrigo, by Oct 2**
+**Settled on Oct 1.** These were written as questions for Rodrigo. They are decided here because they make sense for the product; either founder can reopen one.
 
-1. Write access for Thom so `basket` lives in his repo, and which branch is submitted. His rules keep `risk-layer` out of `main` until Oct 12.
-2. The licence. Thom proposes Apache-2.0; it is on the `basket` branch of his fork for Rodrigo to keep or change.
-3. The add-only rule. He makes four small edits on `risk-layer`: delete the `/policies/*` signing routes, move `seed-assets.ts` to `scripts/`, the PR0 chores, six lines in `scripts/risk/compute.ts`. Ownership of `chain-solana` and `chain-evm` passes to Thom. No new migrations on `risk-layer` after the cut.
-4. One of Thom's agents ports the personalization prototype into `engine/src/personal/`; he owns the sleeve table, glide floors, caps and wording, by Oct 4.
-5. Stock tokens in income plans: keep his rule that excludes them, or allow a stock sleeve never counted as income.
-6. Stocks and gold: stay with "no return assumed", or show a sourced historical range.
-7. May the keeper re-plan a leg that expired without landing, up to three times? His rule says never auto-retry.
+1. Write access: granted. The build branch is `basket`, cut from `risk-layer` and moved onto `main` once his branches are merged there. It merges into `main` for the submission.
+2. The licence: Apache-2.0.
+3. Adding files stays the default, to keep merges clean. Where an edit to an existing file makes the product better, we make it and say so in the pull request. The four edits are ours to make: the server-signing routes go behind `LEGACY_STRUCTURER` and are deleted once the vault path replaces them; `seed-assets.ts` moves to `scripts/`; the CI chores are done on `basket`; and six lines in `scripts/risk/compute.ts`. `chain-solana` and `chain-evm` are Thom's. Migrations are generated on `basket` only.
+4. One of Thom's agents ports the personalization prototype into `engine/src/personal/` with sensible starting numbers. Rodrigo tunes the sleeve table, glide floors, caps and wording when he can.
+5. Stock tokens stay out of income plans, as his rule says.
+6. Stocks and gold: no return assumed, with the dollar loss in a 20% fall shown. A sourced range can come later.
+7. The keeper may re-plan a leg that expired without landing, up to three times. A leg that reverted is never sent again, which keeps the point of his never-auto-retry rule.
 8. Risk sheets per issuer family with generated per-asset fields; a dated dump of curves first.
-9. Run his brand pipeline on `apps/web` as soon as the branches are merged (tokens, fonts, primitives, route groups), so every screen is built on it. His three screens are rebuilt and extended, not retired, and the embed stays his.
-10. Will he take the Solana session work (deploy, config, rehearsals)? He has already run mainnet transactions from his demo wallet.
+9. The design system is applied to `apps/web` from his specs at the start of the web stream (tokens, fonts, primitives, route groups), by whoever gets there first. His three screens are rebuilt and extended, not retired, and the embed stays.
+10. Open: who runs the Solana mainnet sessions (deploy, config, rehearsals). Rodrigo has already run mainnet transactions from his demo wallet.
 11. Later: one keeper workflow on `main` with a pinned commit and a restricted environment.
-12. For agents, is a self-declared country enough?
+12. For agents, a self-declared country is enough.
 
-**Rodrigo, from his own design system** (added after reading it)
+**From his design system** (read on Oct 1)
 
-- The provenance pin is specified three ways across his files (size, outline colour, hatch pitch). One has to be picked before screens are built, since it follows every number.
-- There is no final logo artwork yet; the spec says to draw the outlines from it.
-- The pin's stale state needs a staleness field from the API (his open item). Proposal: add it to `Sourced` at the first interface freeze.
+- The provenance pin is specified three ways across his files (size, outline colour, hatch pitch). We build it from `patterns/components/provenance-pin.md` and `working-brand.yml`, since his own rule is that the `.yml` wins.
+- Open: there is no final logo artwork yet. The spec says to draw the outlines from it.
+- The pin's stale state needs a staleness field from the API (his open item). It is added to `Sourced` at the first interface freeze.
 - The goal card needs a status from the engine, and his showcase prints odds. The design computes a verdict for income goals only. Rodrigo builds the status for other goals and the odds estimate; until then the card shows the verdict where one exists and no percentage.
 - The label on the sign-in button. Thom's pick is "Sign in", opening a choice of passkey or wallet; his landing page says "Connect wallet".
-- The plan-leg bar allows four legs. Confirm that sleeves in the bar with tokens in a table under it is the reading he wants.
+- The plan-leg bar allows four legs: sleeves go in the bar, with the tokens in a table under it.
 - The disclaimer says "the decision and custody are yours". Only the owner can withdraw from a vault, so it stays; the "unaudited, team holds the upgrade keys" notice sits beside it before the first deposit.
 - The automatic switch. It is off by default; the person sees an author's change 12 hours before it takes effect and can refuse; then the vault copies the change inside its own limits. It does not re-check the person's goal. Thom's decision is to keep it this way. It sits beside the voice rule that the agent "proposes and explains": the 12-hour notice is the proposal, and the person can refuse.
 
 **Thom**
 
 13. Create the two Privy apps. Buy a domain (about $10 a year) or fix one Vercel URL, by Oct 4.
-14. Run the three $10 tests. May agents install Anchor, the Solana CLI, surfpool, Foundry 1.8.3 and Docker?
+14. Run the three $10 tests. Agents may install the build tools.
 15. About $10 of Anthropic credit for the sentence parser: approved on Oct 1.
-16. Turnkey costs about $0.10 a signature after 25 a month **[C 9]**. Is it still the fallback, or is the fallback "connect a wallet only"?
+16. Turnkey costs about $0.10 a signature after 25 a month **[C 9]**, so it is not the fallback. If Privy fails, the fallback is connecting a wallet only.
 17. Which VM runs the keeper at deploy. It runs locally while testing.
 
-**Both, on Oct 2 where marked**
+**Defaults taken, and what is still open**
 
 18. The name (Tenonfi is provisional on the `design` branch). It fixes the package scope, the server and skill names, the origin and the passkeys, and with it the working code names in the Words table are renamed.
-19. Oct 2: the Solana shared portfolio that shows auto-follow. It must hold only Scope-priced tokens: AAPLx, CRCLx, GOOGLx, HOODx, METAx, MSTRx, NVDAx, QQQx, SPYx, TSLAx **[C 3]**. Default if nobody objects: a new launch portfolio of NVDAx 25%, AAPLx 20%, GOOGLx 20%, METAx 20%, TSLAx 15%. The Seven needs MSFTx and AMZNx, which Scope does not price.
-20. Oct 2: The 500 as a single-asset portfolio outside the registry (section 6).
+19. Oct 2: the Solana shared portfolio that shows auto-follow. It must hold only Scope-priced tokens: AAPLx, CRCLx, GOOGLx, HOODx, METAx, MSTRx, NVDAx, QQQx, SPYx, TSLAx **[C 3]**. Taken: a new launch portfolio of NVDAx 25%, AAPLx 20%, GOOGLx 20%, METAx 20%, TSLAx 15%. The Seven needs MSFTx and AMZNx, which Scope does not price.
+20. The 500 is a single-asset portfolio outside the registry (section 6).
 21. US visitors: decided on Oct 1. No location block and no banner; the terms say the app is not for US persons.
-22. If the capacity formula puts GLDx below Storm Cellar's 25%: change the recipe, or the shared portfolio capacity.
+22. If the capacity formula puts GLDx below Storm Cellar's 25%, the recipe changes; the capacity rule does not.
 23. Upgrade keys: decided on Oct 1, one disclosed key per chain. Still open: who holds each one, who is guardian on call each day, and who funds 5 SOL for the Solana deploy.
-24. Accept that external wallets get one review screen and then several wallet prompts, with the demo on a passkey wallet?
-25. Accept that auto-follow on stocks trades only Mon to Fri 14:30 to 20:00 UTC, and never on a listed closed day?
+24. External wallets get one review screen and then several wallet prompts. The demo uses a passkey wallet.
+25. Auto-follow on stocks trades only Mon to Fri 14:30 to 20:00 UTC, and never on a listed closed day.
 26. Who opens the accounts (Supabase, Render, Vercel, Helius, Alchemy, UptimeRobot, the second Jupiter organisation), whether Jupiter's terms allow a second organisation, and whether Vercel Hobby's non-commercial clause is acceptable.
 27. Who fills `blockedCountries` per asset. Without it the country input only blocks the US.
-28. A warning above some deposit size, since there is no cap. One labelled agent-run launch portfolio, or none.
+28. A warning above $1,000 per vault, since there is no cap. No agent-run portfolio at launch.
 29. Still open from the handoff: ask Colosseum whether one project can win more than one track.
 
 **Flags on fixed decisions.** None is shown unworkable. Four carry risk.
