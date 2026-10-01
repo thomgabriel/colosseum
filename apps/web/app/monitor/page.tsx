@@ -47,6 +47,16 @@ type Drift = {
       reason: string;
     }>;
   };
+  liquidity: {
+    breach: boolean;
+    likelyBreach: boolean;
+    shortfallUsd: number;
+    monthsAtRisk: string[];
+    withdrawalScale: number;
+    windowDays: number;
+    methodVersion: string;
+    params: Record<string, number>;
+  } | null;
   nextWithdrawal: { month: string; withdrawalBrl: number } | null;
   projectedVsActual: {
     month: string;
@@ -282,6 +292,29 @@ export default function MonitorPage() {
                 <div>—</div>
               )}
             </div>
+            {drift.liquidity && (
+              <div className="rounded border border-gray-200 p-2">
+                <div className="text-gray-500">Liquidity check</div>
+                <div>
+                  {drift.liquidity.likelyBreach ? (
+                    <span className="text-amber-800">
+                      likely breach: short US$ {drift.liquidity.shortfallUsd.toFixed(2)} under the
+                      dry stress in {drift.liquidity.monthsAtRisk.join(', ')}
+                    </span>
+                  ) : drift.liquidity.breach ? (
+                    <span className="text-red-700">breach in the base case</span>
+                  ) : (
+                    <span className="text-green-700">
+                      next withdrawals covered (window {drift.liquidity.windowDays} days)
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  withdrawals scaled ×{drift.liquidity.withdrawalScale.toFixed(4)} to wallet size ·{' '}
+                  {drift.liquidity.methodVersion}
+                </div>
+              </div>
+            )}
             <div className="rounded border border-gray-200 p-2">
               <div className="text-gray-500">Policy check</div>
               <div>

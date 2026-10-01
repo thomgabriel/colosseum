@@ -3,6 +3,7 @@ export * from './asset';
 export * from './constants';
 export * from './constraint-sheet';
 export * from './enums';
+export * from './liquidity';
 export * from './plan';
 export * from './policy';
 export * from './tx';

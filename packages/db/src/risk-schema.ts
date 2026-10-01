@@ -1,0 +1,210 @@
+import {
+  doublePrecision,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
+import { provenanceEnum } from './schema';
+
+// Risk layer tables (branch risk-layer). Kept apart from schema.ts so the structurer's schema and its
+// tests are untouched. Every computed row carries method_version plus source / method / fetched_at.
+const ts = (name: string) => timestamp(name, { withTimezone: true });
+const provenanceCols = {
+  source: text('source').notNull(),
+  method: text('method').notNull(),
+  fetchedAt: ts('fetched_at').notNull(),
+  provenance: provenanceEnum('provenance').notNull(),
+};
+
+/** Every DEX pool that trades an xStock, confirmed on-chain, with its refresh tier. */
+export const riskPools = pgTable(
+  'risk_pools',
+  {
+    address: text('address').primaryKey(),
+    program: text('program').notNull(),
+    venue: text('venue').notNull(),
+    assetMint: text('asset_mint').notNull(),
+    assetSymbol: text('asset_symbol').notNull(),
+    quoteMint: text('quote_mint').notNull(),
+    quoteSymbol: text('quote_symbol'),
+    /** direct_usd (USDC/USDT), via_sol, via_xstock, other: how a seller reaches dollars through this pool. */
+    exitPath: text('exit_path').notNull(),
+    assetIsToken0: integer('asset_is_token0').notNull(),
+    decimals0: integer('decimals0').notNull(),
+    decimals1: integer('decimals1').notNull(),
+    transferFeeBps0: integer('transfer_fee_bps0').notNull().default(0),
+    transferFeeBps1: integer('transfer_fee_bps1').notNull().default(0),
+    /** Pool TVL in USD measured on-chain from vault balances at registry build time. */
+    tvlUsd: doublePrecision('tvl_usd'),
+    discoveryLiquidityUsd: doublePrecision('discovery_liquidity_usd'),
+    discoveryVolume24hUsd: doublePrecision('discovery_volume24h_usd'),
+    /** A = refreshed every 5 min (pools holding the top share of TVL), B = hourly, X = excluded. */
+    tier: text('tier').notNull(),
+    status: text('status').notNull(),
+    statusReason: text('status_reason'),
+    methodVersion: text('method_version').notNull(),
+    ...provenanceCols,
+  },
+  (t) => [index('risk_pools_asset_idx').on(t.assetMint), index('risk_pools_tier_idx').on(t.tier)],
+);
+
+/** One simulated depth snapshot of one pool: price, active liquidity, sell and buy curves. */
+export const riskPoolSnapshots = pgTable(
+  'risk_pool_snapshots',
+  {
+    pool: text('pool')
+      .notNull()
+      .references(() => riskPools.address),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    /** Mid price of the asset in the quote token (UI units). */
+    midPrice: doublePrecision('mid_price').notNull(),
+    activeLiquidity: text('active_liquidity'),
+    /** [{notionalUsd, out, costPct, unfilledShare}] for selling the asset into the quote token. */
+    sell: jsonb('sell').notNull(),
+    buy: jsonb('buy').notNull(),
+    /** Liquidity within ±band of price, for LP-withdrawal detection. */
+    inBandLiquidity: doublePrecision('in_band_liquidity'),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pool, t.fetchedAt] })],
+);
+
+/** Fitted sell/buy depth curve per asset, side and regime (packages/risk fitCurve), versioned. */
+export const riskDepthCurves = pgTable(
+  'risk_depth_curves',
+  {
+    assetMint: text('asset_mint').notNull(),
+    assetSymbol: text('asset_symbol').notNull(),
+    side: text('side').notNull(),
+    regime: text('regime').notNull(),
+    /** [{notionalUsd, cost, samples}] after isotonic fit; cost is a fraction. */
+    points: jsonb('points').notNull(),
+    insufficientFrom: integer('insufficient_from'),
+    quantile: doublePrecision('quantile').notNull(),
+    minSamples: integer('min_samples').notNull(),
+    samples: integer('samples').notNull(),
+    dataFrom: ts('data_from'),
+    dataTo: ts('data_to'),
+    computedAt: ts('computed_at').notNull(),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.assetMint, t.side, t.regime, t.methodVersion] })],
+);
+
+/** Collector events: LP withdrawals near the price, stale tick maps. */
+export const riskEvents = pgTable(
+  'risk_events',
+  {
+    pool: text('pool').notNull(),
+    kind: text('kind').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    asset: text('asset'),
+    detail: jsonb('detail').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pool, t.kind, t.fetchedAt] })],
+);
+
+/** Hourly LP concentration per pool and the LP-exit stress curve. */
+export const riskLpConcentration = pgTable(
+  'risk_lp_concentration',
+  {
+    pool: text('pool').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    asset: text('asset').notNull(),
+    positions: integer('positions').notNull(),
+    inBandPositions: integer('in_band_positions').notNull(),
+    top1: doublePrecision('top1').notNull(),
+    top3: doublePrecision('top3').notNull(),
+    top10: doublePrecision('top10').notNull(),
+    holderKind: text('holder_kind').notNull(),
+    bandPct: doublePrecision('band_pct').notNull(),
+    lpExitN: integer('lp_exit_n').notNull(),
+    sellBase: jsonb('sell_base'),
+    sellWithoutTopN: jsonb('sell_without_top_n'),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pool, t.fetchedAt] })],
+);
+
+/** Jupiter quote cross-checks (routes kept) for the routing gap against pool simulation. */
+export const riskQuotes = pgTable(
+  'risk_quotes',
+  {
+    runId: text('run_id').notNull(),
+    assetMint: text('asset_mint').notNull(),
+    asset: text('asset').notNull(),
+    side: text('side').notNull(),
+    notionalUsd: doublePrecision('notional_usd').notNull(),
+    amountIn: text('amount_in'),
+    outAmount: text('out_amount'),
+    route: jsonb('route'),
+    error: text('error'),
+    fetchedAt: ts('fetched_at').notNull(),
+    source: text('source'),
+    method: text('method'),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.assetMint, t.side, t.notionalUsd] })],
+);
+
+/** Routed (multi-pool) asset-level sell/buy curves per collector run. */
+export const riskAssetSnapshots = pgTable(
+  'risk_asset_snapshots',
+  {
+    assetMint: text('asset_mint').notNull(),
+    asset: text('asset').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    refPool: text('ref_pool').notNull(),
+    refMidUsd: doublePrecision('ref_mid_usd').notNull(),
+    pools: integer('pools').notNull(),
+    sell: jsonb('sell').notNull(),
+    buy: jsonb('buy').notNull(),
+    methodVersion: text('method_version').notNull(),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.assetMint, t.fetchedAt] })],
+);
+
+/** Lending-market parameters per reserve / vault: on-chain decoded where possible, else protocol API. */
+export const riskMarketParams = pgTable(
+  'risk_market_params',
+  {
+    venue: text('venue').notNull(),
+    market: text('market').notNull(),
+    account: text('account').notNull(),
+    assetMint: text('asset_mint'),
+    asset: text('asset').notNull(),
+    borrowAsset: text('borrow_asset'),
+    isXStock: integer('is_xstock').notNull(),
+    /** Normalised: ltv, liquidationThreshold (fractions), liquidationBonus (fraction), plus raw fields. */
+    params: jsonb('params').notNull(),
+    /** Supply / borrow totals as reported (API), for market-level aggregates. */
+    totals: jsonb('totals'),
+    /** 'onchain' when decoded from account bytes and matched; 'api' when only the protocol API is available. */
+    verification: text('verification').notNull(),
+    fetchedAt: ts('fetched_at').notNull(),
+    slot: doublePrecision('slot'),
+    source: text('source').notNull(),
+    method: text('method').notNull(),
+    provenance: provenanceEnum('provenance').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.account, t.fetchedAt] })],
+);
