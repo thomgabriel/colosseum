@@ -27,7 +27,8 @@ import { rpc, rpcStats } from './lib-pools';
 //    pre and post balances (an absolute reserve trace, a cross-check of decoded amounts, and a
 //    completeness check: each row's pre must equal the previous row's post), instruction names,
 //    any undecoded pool-program payload, and a truncated-log flag. Failures go to `errors.jsonl`.
-// 3. 1 in 1,000 signatures (by hash, so reproducible) also keep the raw body in `raw-sample/`.
+// 3. 1 in 1,000 signatures (by hash, so reproducible) also keep the raw body in `raw-sample/`, and so does
+//    every tx whose log was truncated (`truncated/`; about 1% of rows).
 // Resumable: a unit is done when `events/<pool>/<day>.done` exists; a partial unit skips rows already
 // written. Errors are retried on the next run. Run under nohup or launchd (session tasks die at 2 h).
 // Usage: tsx history-full.ts [parallel=32] [maxDays=28] [poolFilter]
@@ -188,6 +189,9 @@ await Promise.all(
           ...(d?.truncated ? { tr: 1 } : {}),
           ...(decode ? {} : { logs: tx.meta.logMessages, inner: tx.meta.innerInstructions }),
         });
+        // a truncated log may have cut pool events: keep the whole body so they can be recovered
+        if (d?.truncated)
+          sink.write(join(HISTORY_DIR, 'truncated', j.u.pool.address, `${j.u.day}.jsonl`), tx);
         if (createHash('sha256').update(j.sig).digest().readUInt32BE(0) % 1000 === 0) {
           sink.write(join(HISTORY_DIR, 'raw-sample', `${j.u.pool.address}.jsonl`), tx);
           stats.rawSampled++;
