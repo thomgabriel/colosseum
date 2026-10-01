@@ -11,7 +11,7 @@
      3. Two goal showcases (photo + prompt + plan panel with chart).
      4. "Try your own goal" simulator, no wallet needed.
      Every plan, weight, rate and odds figure on this page is MOCK sample data: no live figures, not advice.
-     Review aids: ?p=0..1 pins the joint, ?at=show|sim jumps to a section, ?demo=1 submits a sample goal. -->
+     Review aids: ?p=0..1 pins the joint, ?at=show|sim|close jumps to a section, ?demo=1 submits a sample goal. -->
 <style>
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap");
 :root {
@@ -157,6 +157,23 @@ button.primary { font:500 14px var(--font-body); color:var(--black); background:
 button.primary:hover { background:#D7C09E; }
 .connect { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 18px; border-top:1px solid var(--hair); font-size:13px; color:var(--stone); }
 button.ghost { font:500 13px var(--font-body); color:var(--washi); background:transparent; border:1px solid var(--member); border-radius:2px; padding:8px 12px; cursor:pointer; }
+/* ---------------- closing: centred image + subscribe ---------------- */
+.closing { position:relative; z-index:2; background:var(--black); padding-block:clamp(56px,8vw,120px) clamp(72px,10vw,140px); text-align:center; }
+.closing .eyebrow { display:block; }
+.closing h2 { font:400 clamp(2rem,1.4rem + 2vw,3.2rem)/1.15 var(--font-display); margin:10px auto 14px; max-width:20ch; letter-spacing:-.01em; }
+.closing .lede { color:var(--stone); margin:0 auto 40px; max-width:52ch; }
+.frame { position:relative; width:min(560px,100%); margin:0 auto; aspect-ratio:770 / 840; max-width:100%; border:1px solid var(--hair); border-radius:2px; overflow:hidden; }
+.frame img { width:100%; height:100%; object-fit:cover; }
+.frame::after { content:""; position:absolute; inset:0; background:linear-gradient(to top, rgba(13,11,9,.55), rgba(13,11,9,0) 40%); }
+.frame figcaption { position:absolute; left:14px; bottom:12px; z-index:1; font:400 11px var(--font-mono); color:var(--washi); text-align:left; }
+form.sub { display:flex; gap:8px; width:min(520px,100%); margin:32px auto 0; }
+form.sub input { flex:1; min-width:0; font:400 15px var(--font-body); color:var(--washi); background:var(--char); border:1px solid var(--member); border-radius:2px; padding:12px 14px; }
+form.sub input:focus-visible { outline:2px solid var(--hinoki); outline-offset:2px; }
+.sub-opts { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:13px; color:var(--stone); }
+.sub-opts label { display:flex; gap:6px; align-items:center; cursor:pointer; }
+.sub-opts input { accent-color:#E6D3B7; }
+.sub-note { margin-top:14px; font:400 12px var(--font-mono); color:var(--stone); min-height:1.6em; }
+@media (max-width:520px) { form.sub { flex-direction:column; } }
 .foot { position:relative; z-index:2; background:var(--black); border-top:1px solid var(--hair); padding:28px 0 calc(env(safe-area-inset-bottom,0px) + 40px); font:400 12px var(--font-mono); color:var(--stone); }
 @media (prefers-reduced-motion: reduce) { .scroll-cue i { animation:none; } .bar-fill, .nav, .menu, .step-in { transition:none; } }
 </style>
@@ -274,6 +291,31 @@ button.ghost { font:500 13px var(--font-body); color:var(--washi); background:tr
       </div>
     </div>
   </section>
+  <!-- 4 · closing: centred image + subscribe -->
+  <section class="closing" id="updates" aria-label="Follow along">
+    <div class="wrap">
+      <span class="eyebrow">FOLLOW ALONG</span>
+      <h2>Built piece by piece. Watch it come together.</h2>
+      <p class="lede">Product updates as new pieces are cut, and a short letter on goals, liquidity and what tokenized assets really pay. No hype, no price calls.</p>
+      <figure class="frame" style="margin-left:auto;margin-right:auto">
+        <picture>
+          <source srcset="assets/closing.avif" type="image/avif">
+          <img src="assets/closing.jpg" alt="Offset timber beams, stacked and interlocked, frame a view of a forest through tall windows." loading="lazy">
+        </picture>
+        <figcaption>stacked offset beams · reference photo</figcaption>
+      </figure>
+      <form class="sub" id="sub" novalidate>
+        <label for="email" style="position:absolute;left:-9999px">Email address</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+        <button class="primary" type="submit">Subscribe</button>
+      </form>
+      <div class="sub-opts" role="group" aria-label="What to receive">
+        <label><input type="checkbox" checked> Product updates</label>
+        <label><input type="checkbox" checked> Newsletter</label>
+      </div>
+      <div class="sub-note" id="sub-note" aria-live="polite">Unsubscribe any time.</div>
+    </div>
+  </section>
 </main>
 
 <footer class="foot" id="resources"><div class="wrap">tenonfi · prototype on the design branch · plans, rates and odds on this page are MOCK sample data, carry no live figures, and are not investment advice.</div></footer>
@@ -288,9 +330,10 @@ button.ghost { font:500 13px var(--font-body); color:var(--washi); background:tr
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   /* ---------------- review aids ---------------- */
-  if (Q.get('at') === 'show' || Q.get('at') === 'sim') {
+  if (['show', 'sim', 'close'].indexOf(Q.get('at')) >= 0) {
     document.getElementById('stage').style.display = 'none';
-    if (Q.get('at') === 'sim') document.getElementById('showcase').style.display = 'none';
+    if (Q.get('at') !== 'show') document.getElementById('showcase').style.display = 'none';
+    if (Q.get('at') === 'close') document.getElementById('simulate').style.display = 'none';
   }
 
   /* ---------------- header + steps: driven by scroll ---------------- */
@@ -570,6 +613,14 @@ button.ghost { font:500 13px var(--font-body); color:var(--washi); background:tr
     requestAnimationFrame(function () { d.querySelectorAll('.bar-fill').forEach(function (b) { b.style.width = b.dataset.w + '%'; }); });
   });
   if (Q.get('demo') === '1') window.addEventListener('load', function () { document.querySelector('.chip').click(); });
+
+  /* ---------------- subscribe (prototype: nothing is sent) ---------------- */
+  var sub = document.getElementById('sub'), note = document.getElementById('sub-note'), email = document.getElementById('email');
+  sub.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!email.checkValidity()) { note.textContent = 'That doesn’t look like an email address.'; email.focus(); return; }
+    note.textContent = 'Prototype: nothing was sent. In the product, ' + email.value + ' would get a confirmation email.';
+  });
 })();
 </script>
 </body>
