@@ -961,10 +961,11 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 - The provenance pin is specified three ways across his files (size, outline colour, hatch pitch). One has to be picked before screens are built, since it follows every number.
 - There is no final logo artwork yet; the spec says to draw the outlines from it.
 - The pin's stale state needs a staleness field from the API (his open item). Proposal: add it to `Sourced` at the first interface freeze.
-- The goal card needs a status from the engine, and his showcase prints odds. The design computes a verdict for income goals only. Who builds the status for other goals and the odds estimate, and what the card shows until then.
-- The label on the sign-in button. His landing page says "Connect wallet"; with a passkey option it opens a choice of two.
+- The goal card needs a status from the engine, and his showcase prints odds. The design computes a verdict for income goals only. Rodrigo builds the status for other goals and the odds estimate; until then the card shows the verdict where one exists and no percentage.
+- The label on the sign-in button. Thom's pick is "Sign in", opening a choice of passkey or wallet; his landing page says "Connect wallet".
 - The plan-leg bar allows four legs. Confirm that sleeves in the bar with tokens in a table under it is the reading he wants.
-- The disclaimer says "the decision and custody are yours". With a vault and a team-held upgrade key, the wording has to stay true.
+- The disclaimer says "the decision and custody are yours". Only the owner can withdraw from a vault, so it stays; the "unaudited, team holds the upgrade keys" notice sits beside it before the first deposit.
+- The automatic switch. It is off by default; the person sees an author's change 12 hours before it takes effect and can refuse; then the vault copies the change inside its own limits. It does not re-check the person's goal. His voice rules say the agent "proposes and explains" and never follows a theme, so this needs his yes.
 
 **Thom**
 
