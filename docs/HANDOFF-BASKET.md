@@ -153,11 +153,11 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 
 ## Decided on Oct 1 (second pass)
 
-- The app serves all non-US persons. US visitors are blocked.
+- The app is not for US persons and says so. It does not block by location; a person confirms they are not a US person before the first deposit.
 - When a creator adds a new asset to an index, each follower approves it with a tap.
 - An index update takes effect for followers 12 hours after it is published.
 - On Robinhood Chain, only the stock tokens with a price feed (about 36 of 195) can be in an auto-follow index. The rest are one-tap only.
-- The team holds the upgrade keys for the vault contracts for now, and the app says so.
+- The team holds the upgrade keys for the vault contracts for now, one disclosed key per chain, and the app says so.
 - Prior work will be disclosed in the submission.
 - Launch shelf direction: the S&P 500 or another big index, a few themes in the spirit of Cesto's, and indexes that are only possible with Base's and Robinhood Chain's stock tokens. (A Solana meme index was in this list; it was dropped from the MVP on the fourth pass.)
 

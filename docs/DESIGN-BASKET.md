@@ -6,6 +6,13 @@ How this was made: nine research notes (`docs/research/design-v2/*.md`) merged w
 
 Nothing here has run on mainnet. The three $10 runs come first in time.
 
+**Decided by Thom after the reviews (Oct 1).** The text below is updated for these.
+
+- US persons: no location block. The app says it is not for US persons, on every page and before the first deposit.
+- Upgrade keys: one disclosed key per chain for now, and the app says so. A multisig comes after the MVP.
+- Keeper: a small cloud machine on a free tier, still to pick, in place of a laptop. It keeps its own user, no coding agent and a gas-only key.
+- Build tools may be installed on Thom's machine. Already there: Anchor 0.31.1, Solana CLI 3.0.1, Rust, Foundry (older than the pin), Docker. Missing: surfpool, solana-verify, Slither.
+
 ## 0. What changed from v1
 
 - The code lands in Rodrigo's repo, on a branch `basket` cut from `risk-layer` (upstream tip `9cb2294`; our read-only copy is at `75ae4f0`). `packages/engine` keeps its name; Thom's chain-free logic goes in a new `packages/basket`. `basket` adds files and does not edit or delete his.
@@ -16,7 +23,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 - Solana: Kamino Scope prices cover ten stock tokens and nothing else, so auto-follow runs only on vaults whose every asset is in that list.
 - EVM: a fresh price does not prove an open market, so stock legs trade only in a fixed weekday window, minus a list of closed days.
 - The model fills a form and nothing else. Explanation text comes from templates.
-- The keeper runs as a loop on a machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is Rodrigo's frozen `main`.
+- The keeper runs as a loop on a cloud machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is Rodrigo's frozen `main`.
 - The publish delay has a one-way launch latch: short while only team money is in, 12 hours and locked before the public link.
 - Hostile cases A1 to A18, a two-tier security gate per chain, and a separate gate before the public link is shared.
 - The build starts small. Section 16 lists what is out unless the team is ahead, each with a date.
@@ -698,7 +705,7 @@ The roll-up states the share of the basket that is measured.
 | API | Render free web service | Sleeps after 15 idle minutes and takes about a minute to wake. UptimeRobot's free plan pings `/health` every 5 minutes **[C 12]** |
 | MCP | Vercel, its own project | Stateless; calls the API through the SDK with its service key |
 | Postgres | Supabase free | 500 MB. The free direct connection is IPv6 only; use the shared pooler in session mode, port 5432 **[C 12]**. Data API off |
-| Keeper | `keeper --loop` on one machine the team controls | A separate OS user or a spare laptop with no coding agent. Started by hand for session hours. It only has to work Mon to Fri, 14:30 to 20:00 UTC |
+| Keeper | `keeper --loop` on a small cloud machine, free tier, still to pick | Its own user, no coding agent, a gas-only key. It only has to work Mon to Fri, 14:30 to 20:00 UTC |
 | EVM collector | An hourly loop on the same machine | No chain keys; its own database role |
 | Solana collectors | Rodrigo's Mac | Unchanged |
 
@@ -723,7 +730,7 @@ One agent builds the shared layer first: layout, providers, `proxy.ts`, `compone
 | `order` | `/orders/[id]` | Review (summary, preview, minimum received, warnings, consents); funding missing per chain; per leg: planned, awaiting signature, sent, confirmed, failed with retry, expired with rebuild; resume on reload; wrong wallet connected |
 | `portfolio` | `/portfolio` | One query per chain; a failing chain is "unavailable" on its own row; the combined view is derived |
 | `publish` | `/publish` | One simple form; limit errors from `previewPublish`; a leg per chain |
-| notices | all | US visitors browse and use the fit flow read-only; order routes return 451. The "not a US person" checkbox and the "unaudited, team holds the keys" notice before the first deposit |
+| notices | all | A "not for US persons" line on every page, with no location block. The "not a US person" checkbox and the "unaudited, team holds the keys" notice before the first deposit |
 
 - **Order executor.** The web uses `execute()` from `packages/sdk` with a `WalletPort`-backed signer; there is one state machine, not two. It writes every transition to the API before the next step. On reload, `sent` legs are tracked and `built` or `expired` legs are rebuilt; signed bytes are never re-sent. A failed leg stops its chain only. Status changes go to an `aria-live` region with the explorer link.
 - **Brand.** Rodrigo's brand lands Oct 4. `tokens.css` has raw brand variables and semantic names; components use only the semantic ones, and a CI grep rejects raw palette classes. The Oct 4 change is `tokens.css`, one font line, `brand.ts` and a copy pass.
@@ -753,8 +760,8 @@ The keeper is the bounded risk: a leaked keeper key can cost each auto-follow va
 
 | Key | Power | Where |
 |---|---|---|
-| Deployer | Deploy and first config, then nothing | Fresh per chain; an encrypted keystore with a password prompt. Hands admin to the multisig in the same session |
-| Admin / upgrade | Replace vault code, set config and caps, unpause, loosen a halt, rotate the guardian | Squads on Solana (the upgrade authority is the Squads vault address, memory); Safe 1.4.1 on 8453 and 4663. Created on Oct 4, before the deploy. Fallback: one disclosed key |
+| Deployer | Deploy and first config, then nothing | Fresh per chain; an encrypted keystore with a password prompt. Hands admin to the admin key in the same session |
+| Admin / upgrade | Replace vault code, set config and caps, unpause, loosen a halt, rotate the guardian | One disclosed key per chain for now, in a password-protected keystore on a founder's machine; the app says who holds it. Squads on Solana and Safe on the EVM chains after the MVP |
 | Guardian | Pause, halt an asset, add a closed day, veto a version. Tighten only | A password-protected keystore on each founder's machine. Never in the keeper's store |
 | Keeper | One function | The keeper machine, gas only, under $20 |
 | Platform creator | Publishes the launch indexes | A gas-only key; its address earns the platform badge |
@@ -771,7 +778,7 @@ No key that can move funds or loosen a limit sits where a coding agent has a she
 - A10 balance changed from outside, including a second token account owned by the vault.
 - A11 any approval, Permit2 allowance, delegate or close authority left after a call. A12 inside the multiplier window.
 - A13 caller not the keeper, or auto-follow off. A14 new asset not accepted by the owner.
-- A15 upgrade to a dummy v2 through the multisig: state intact, withdraw works; `initialize` reverts on every logic contract and live proxy.
+- A15 upgrade to a dummy v2 with the admin key: state intact, withdraw works; `initialize` reverts on every logic contract and live proxy.
 - A16 creator limits, from the shared vectors.
 - A17 a router or hooked pool re-enters `adoptVersion`, `multicall` or `keeperSwap` mid-swap.
 - A18 a create or accept signed against version N lands after N+1 is active.
@@ -795,7 +802,7 @@ No key that can move funds or loosen a limit sits where a coding agent has a she
 | A1 and A11 against a real `route_v2` account list; a saved route replays | surfpool |
 | Static analysis | Slither, Aderyn, `forge lint`, `forge build --sizes`, `cargo clippy`, cargo-deny |
 | Robinhood fork at a pinned block, including a Saturday block | dRPC |
-| A second rehearsal, with A15 through the multisig | Scripted |
+| A second rehearsal, with A15 run with the admin key | Scripted |
 
 A tier 2 failure blocks only if it shows a real way to lose funds.
 
@@ -804,7 +811,7 @@ A tier 2 failure blocks only if it shows a real way to lose funds.
 - Guard negatives, one vector each: a hostile instruction in an allowed program, a withdraw built for a third party, a wrong spender, `setOperator`, auto-follow without consent, a swap whose minimum differs from the screen.
 - Identity: wallet B cannot approve wallet A's order; B claiming A's address is refused; an unrelated successful transaction cannot confirm a leg.
 - No registered route reaches a signer. A keeper row inserted with the `api` role is never submitted. 100 anonymous quote calls cause a bounded number of upstream calls.
-- `authority-check` is green with the multisig as admin, `launched` true and the delay at 43,200 s. The Supabase Data API is off.
+- `authority-check` is green with the disclosed admin key as admin, `launched` true and the delay at 43,200 s. The Supabase Data API is off.
 - The three-profile test passes: pairwise distance at least 3,000 bps, a reason on every line.
 
 **Supply chain.** Keep pnpm 11's one-day release hold and build-script approval. A pull request that changes the lockfile names the new packages and a person reads the diff. `security.yml` runs gitleaks, `pnpm audit --prod` and cargo-deny.
@@ -829,7 +836,7 @@ A tier 2 failure blocks only if it shows a real way to lose funds.
 | Agent-run indexes | A creator is an address; `creator_kind`; a per-vault `keeper` / `operator` slot | A per-vault agent operator under the same checks; agent API keys |
 | Pooled token | The vault owner may be a program or a contract; no `tx.origin`; `vault_type` | A separate program reading the same recipes |
 | Embeds | Every write goes through `/v1`; `WalletPort` has no Privy types; nullable `org_id` on orders; an `(embed)` route group | Partner keys, OAuth, `createVaultFor` |
-| Audits, governance | One admin address with two-step transfer; multisig; `deployments/*.json`; parameter bounds in code; the invariant suite | A timelock, an audit, verified builds |
+| Audits, governance | One admin address with two-step transfer; `deployments/*.json`; parameter bounds in code; the invariant suite | A multisig, a timelock, an audit, verified builds |
 
 ## 15. Workstreams
 
@@ -852,10 +859,10 @@ Only the TypeScript streams wait for PR1a. `SOL`, `EVM`, `RISK`, `BRAND`, `OPS`,
 | RISK | Risk layer, sheets | Rodrigo | 8 | Three fixes; about ten family sheets; a dated dump; six lines in `compute.ts` | none | Sheets render; hosted curves show their date |
 | REVM | EVM depth | Thom | 8 | The hourly collector | RISK's `compute.ts` change | Curves for five tokens per EVM chain, 8 samples per regime |
 | SEC | Security, rehearsal | Thom | 13 | `SECURITY.md`, `INCIDENT.md`, the rehearsal script, `authority-check` | SOL, EVM, API | `G-SEC` recorded per chain; `G-LINK` recorded |
-| OPS | Mainnet work a person does | Thom; Rodrigo is asked to take the Solana sessions | 10, 13, 16 | `docs/RUNBOOK-OPS.md`: a checklist per session with a name per item. Hosting, accounts, multisigs, funded wallets, deploys, config, seeding, rehearsals, footage | Accounts opened | The public URL serves the app; `authority-check` is green |
+| OPS | Mainnet work a person does | Thom; Rodrigo is asked to take the Solana sessions | 10, 13, 16 | `docs/RUNBOOK-OPS.md`: a checklist per session with a name per item. Hosting, accounts, admin keys, funded wallets, deploys, config, seeding, rehearsals, footage | Accounts opened | The public URL serves the app; `authority-check` is green |
 | BRAND | Name and brand | Rodrigo | His brand process | Palette, tokens, name, copy | none | The Oct 4 token swap passes screenshots |
 
-OPS sets the pace and is planned like a stream. It is three $10 runs, three deploys, about 50 asset entries, about 13 recipe publishes, three multisigs, funded wallets, two rehearsals, a pause drill and the footage, mostly inside five sessions of 5.5 hours. Every `scripts/ops/*` script is idempotent, has a dry run that prints the exact transactions, and reads one JSON file of assets, feeds and recipes. The deployer writes config in the deploy session, before admin passes to the multisig; later changes go through the multisig as one batch.
+OPS sets the pace and is planned like a stream. It is three $10 runs, three deploys, about 50 asset entries, about 13 recipe publishes, three admin keys, funded wallets, two rehearsals, a pause drill and the footage, mostly inside five sessions of 5.5 hours. Every `scripts/ops/*` script is idempotent, has a dry run that prints the exact transactions, and reads one JSON file of assets, feeds and recipes. The deployer writes config in the deploy session, before admin passes to the multisig; later changes go through the multisig as one batch.
 
 ## 16. Day-by-day plan and what is out
 
@@ -866,8 +873,8 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 | Thu Oct 1 | SOL, EVM, the personalization port and the Privy page start from sections 3.7, 3.8 and 7. Accounts opened |
 | Fri Oct 2 | PR0 and PR1a by midday; v0 interfaces. In session, and nothing else for Thom: the three $10 runs and the Scope read. All three chains funded, so a failure to get USDG on chain 4663 shows on day 1. Second Jupiter organisation. Privy origin test. Half-day tries: one mock MCP tool on the free host, Slither on the spike vault, one hand-written kit 2.3 builder. Rodrigo answers section 17 |
 | Sat Oct 3 | SOL: `route_v2` on surfpool, registry, create and first-buy sizes at 7 and 12 assets. EVM: vault, factory, registry with unit tests. Adapters: read side. API: auth and orders. AGT: guard and executor. WEB: shared layer. Three-profile test green on placeholder numbers. Log feed ages over the weekend |
-| Sun Oct 4 | The keeper path in program and contracts; A-cases; adapters build and simulate on a fork. Evening: the interface amendment window closes and the hash test turns on. Origin decided. Multisigs created. Brand tokens land. Deploy dry run |
-| Mon Oct 5 | Deploy on three chains: config, caps, handover to the multisig, `authority-check`. First hosted web and API; cold-start test (no pings for 20 minutes, then load the home page). In session: the owner path on three chains; first keeper leg and first publish-adopt-trade cycle on Solana |
+| Sun Oct 4 | The keeper path in program and contracts; A-cases; adapters build and simulate on a fork. Evening: the interface amendment window closes and the hash test turns on. Origin decided. Admin keys created. Brand tokens land. Deploy dry run |
+| Mon Oct 5 | Deploy on three chains: config, caps, handover to the admin key, `authority-check`. First hosted web and API; cold-start test (no pings for 20 minutes, then load the home page). In session: the owner path on three chains; first keeper leg and first publish-adopt-trade cycle on Solana |
 | Tue Oct 6 | A three-chain buy with a passkey wallet; publish and follow. In session: auto-follow cycles on Robinhood Chain; rehearsal 1 on Solana and Robinhood Chain. MCP against the real API |
 | Wed Oct 7 | In session: rehearsal 2, and the market-open footage. Portfolio and rebalance end to end. Sheets render. Add-backs decided |
 | Thu Oct 8 | `G-SEC` per chain at 12:00 BRT. Then `launch()`: the delay is 12 hours from here on. Then `G-LINK`, and only then is the link shared. Pause drill in session. Evening: publish a version of the demo index |
@@ -896,7 +903,7 @@ Stock markets are closed on Oct 3, 4, 10 and 11. Keeper trades on stocks, and an
 2. Trading on Base (read-only) if its $10 run fails. Oct 2.
 3. Auto-follow on Robinhood Chain: owner-signed only, which the brief allows. Oct 7.
 4. Auto-follow on Solana: followers get the one-tap prompt, which still meets item 7's base case. Oct 8.
-5. The multisig: one disclosed key, said in the app. Oct 4.
+5. (Taken on Oct 1: one disclosed upgrade key in place of a multisig.)
 
 Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-LINK`; no registered route that reaches a signer; the three-profile test.
 
@@ -923,16 +930,16 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 14. Run the three $10 tests. May agents install Anchor, the Solana CLI, surfpool, Foundry 1.8.3 and Docker?
 15. Is about $10 of Anthropic credit inside "free tiers only"? If not: regex and form only.
 16. Turnkey costs about $0.10 a signature after 25 a month **[C 9]**. Is it still the fallback, or is the fallback "connect a wallet only"?
-17. Which machine runs the keeper, and under which OS user.
+17. Which free cloud machine runs the keeper.
 
 **Both, on Oct 2 where marked**
 
 18. The name. It fixes the package scope, the server and skill names, the origin and the passkeys.
 19. Oct 2: the Solana index that shows auto-follow. It must hold only Scope-priced tokens: AAPLx, CRCLx, GOOGLx, HOODx, METAx, MSTRx, NVDAx, QQQx, SPYx, TSLAx **[C 3]**. Default if nobody objects: a new launch index of NVDAx 25%, AAPLx 20%, GOOGLx 20%, METAx 20%, TSLAx 15%. The Seven needs MSFTx and AMZNx, which Scope does not price.
 20. Oct 2: The 500 as a single-asset basket outside the registry (section 6).
-21. Oct 2: US visitors. The brief says blocked; the default here is read-only browsing and the fit flow with no orders, so people in the US can still see the product.
+21. US visitors: decided on Oct 1. No location block; the app says it is not for US persons and asks for the checkbox before the first deposit.
 22. If the capacity formula puts GLDx below Storm Cellar's 25%: change the recipe, or the index capacity.
-23. Upgrade keys: 2-of-2, or 2-of-3 with a cold third key. Who is guardian on call each day. Who funds 5 SOL for the Solana deploy.
+23. Upgrade keys: decided on Oct 1, one disclosed key per chain. Still open: who holds each one, who is guardian on call each day, and who funds 5 SOL for the Solana deploy.
 24. Accept that external wallets get one review screen and then several wallet prompts, with the demo on a passkey wallet?
 25. Accept that auto-follow on stocks trades only Mon to Fri 14:30 to 20:00 UTC, and never on a listed closed day?
 26. Who opens the accounts (Supabase, Render, Vercel, Helius, Alchemy, UptimeRobot, the second Jupiter organisation), whether Jupiter's terms allow a second organisation, and whether Vercel Hobby's non-commercial clause is acceptable.
@@ -942,7 +949,7 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 
 **Flags on fixed decisions.** None is shown unworkable. Four carry risk.
 
-- No deposit cap sits on unaudited, upgradeable code. The multisig is in place before the deploy and `G-LINK` checks it.
+- No deposit cap sits on unaudited, upgradeable code, and one disclosed key per chain holds the upgrade power. The app says so and `G-LINK` checks the key against `deployments/*.json`.
 - The 12-hour delay holds for every public user, but test cycles before `launch()` run at 300 s on team money. The latch is one-way and `authority-check` reads it.
 - Free tiers can sleep the API or throttle Jupiter. Each has a mitigation in section 10 and a test in `G-LINK` or the Oct 5 cold-start test.
 - Jupiter's `route_v2` from a vault is unproven: settled on surfpool by Oct 3, then by the $10 run.
