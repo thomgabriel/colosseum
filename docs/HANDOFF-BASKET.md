@@ -153,7 +153,7 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 
 ## Decided on Oct 1 (second pass)
 
-- The app is not for US persons and says so. It does not block by location; a person confirms they are not a US person before the first deposit.
+- The app is not for US persons, and the terms say so. There is no location block and no banner.
 - When a creator adds a new asset to an index, each follower approves it with a tap.
 - An index update takes effect for followers 12 hours after it is published.
 - On Robinhood Chain, only the stock tokens with a price feed (about 36 of 195) can be in an auto-follow index. The rest are one-tap only.

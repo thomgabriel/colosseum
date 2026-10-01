@@ -8,9 +8,10 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 
 **Decided by Thom after the reviews (Oct 1).** The text below is updated for these.
 
-- US persons: no location block. The app says it is not for US persons, on every page and before the first deposit.
+- US persons: no location block and no banner. The terms say the app is not for US persons, and a person accepts the terms before the first deposit.
 - Upgrade keys: one disclosed key per chain for now, and the app says so. A multisig comes after the MVP.
-- Keeper: a small cloud machine on a free tier, still to pick, in place of a laptop. It keeps its own user, no coding agent and a gas-only key.
+- Keeper: run locally by the team during market sessions for now, with a gas-only key. Where it lives later is undecided.
+- About $10 of Anthropic credit for the sentence parser is approved.
 - Build tools may be installed on Thom's machine. Already there: Anchor 0.31.1, Solana CLI 3.0.1, Rust, Foundry (older than the pin), Docker. Missing: surfpool, solana-verify, Slither.
 
 ## 0. What changed from v1
@@ -23,7 +24,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 - Solana: Kamino Scope prices cover ten stock tokens and nothing else, so auto-follow runs only on vaults whose every asset is in that list.
 - EVM: a fresh price does not prove an open market, so stock legs trade only in a fixed weekday window, minus a list of closed days.
 - The model fills a form and nothing else. Explanation text comes from templates.
-- The keeper runs as a loop on a cloud machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is Rodrigo's frozen `main`.
+- The keeper runs as a loop on a machine the team controls. GitHub's scheduler only runs workflows from the default branch **[C 16]**, which is Rodrigo's frozen `main`.
 - The publish delay has a one-way launch latch: short while only team money is in, 12 hours and locked before the public link.
 - Hostile cases A1 to A18, a two-tier security gate per chain, and a separate gate before the public link is shared.
 - The build starts small. Section 16 lists what is out unless the team is ahead, each with a date.
@@ -705,7 +706,7 @@ The roll-up states the share of the basket that is measured.
 | API | Render free web service | Sleeps after 15 idle minutes and takes about a minute to wake. UptimeRobot's free plan pings `/health` every 5 minutes **[C 12]** |
 | MCP | Vercel, its own project | Stateless; calls the API through the SDK with its service key |
 | Postgres | Supabase free | 500 MB. The free direct connection is IPv6 only; use the shared pooler in session mode, port 5432 **[C 12]**. Data API off |
-| Keeper | `keeper --loop` on a small cloud machine, free tier, still to pick | Its own user, no coding agent, a gas-only key. It only has to work Mon to Fri, 14:30 to 20:00 UTC |
+| Keeper | `keeper --loop`, run locally by the team during market sessions for now | A gas-only key, kept away from coding agents. It only has to work Mon to Fri, 14:30 to 20:00 UTC. A permanent home is decided later |
 | EVM collector | An hourly loop on the same machine | No chain keys; its own database role |
 | Solana collectors | Rodrigo's Mac | Unchanged |
 
@@ -730,7 +731,7 @@ One agent builds the shared layer first: layout, providers, `proxy.ts`, `compone
 | `order` | `/orders/[id]` | Review (summary, preview, minimum received, warnings, consents); funding missing per chain; per leg: planned, awaiting signature, sent, confirmed, failed with retry, expired with rebuild; resume on reload; wrong wallet connected |
 | `portfolio` | `/portfolio` | One query per chain; a failing chain is "unavailable" on its own row; the combined view is derived |
 | `publish` | `/publish` | One simple form; limit errors from `previewPublish`; a leg per chain |
-| notices | all | A "not for US persons" line on every page, with no location block. The "not a US person" checkbox and the "unaudited, team holds the keys" notice before the first deposit |
+| notices | all | No location block and no banner. The terms say the app is not for US persons; before the first deposit the person accepts the terms and sees the "unaudited, team holds the keys" notice |
 
 - **Order executor.** The web uses `execute()` from `packages/sdk` with a `WalletPort`-backed signer; there is one state machine, not two. It writes every transition to the API before the next step. On reload, `sent` legs are tracked and `built` or `expired` legs are rebuilt; signed bytes are never re-sent. A failed leg stops its chain only. Status changes go to an `aria-live` region with the explorer link.
 - **Brand.** Rodrigo's brand lands Oct 4. `tokens.css` has raw brand variables and semantic names; components use only the semantic ones, and a CI grep rejects raw palette classes. The Oct 4 change is `tokens.css`, one font line, `brand.ts` and a copy pass.
@@ -928,16 +929,16 @@ Never cut: in-kind withdrawal; tier 1 on any chain where auto-follow is on; `G-L
 
 13. Create the two Privy apps. Buy a domain (about $10 a year) or fix one Vercel URL, by Oct 4.
 14. Run the three $10 tests. May agents install Anchor, the Solana CLI, surfpool, Foundry 1.8.3 and Docker?
-15. Is about $10 of Anthropic credit inside "free tiers only"? If not: regex and form only.
+15. About $10 of Anthropic credit for the sentence parser: approved on Oct 1.
 16. Turnkey costs about $0.10 a signature after 25 a month **[C 9]**. Is it still the fallback, or is the fallback "connect a wallet only"?
-17. Which free cloud machine runs the keeper.
+17. Where the keeper lives after the MVP. For now it runs locally.
 
 **Both, on Oct 2 where marked**
 
 18. The name. It fixes the package scope, the server and skill names, the origin and the passkeys.
 19. Oct 2: the Solana index that shows auto-follow. It must hold only Scope-priced tokens: AAPLx, CRCLx, GOOGLx, HOODx, METAx, MSTRx, NVDAx, QQQx, SPYx, TSLAx **[C 3]**. Default if nobody objects: a new launch index of NVDAx 25%, AAPLx 20%, GOOGLx 20%, METAx 20%, TSLAx 15%. The Seven needs MSFTx and AMZNx, which Scope does not price.
 20. Oct 2: The 500 as a single-asset basket outside the registry (section 6).
-21. US visitors: decided on Oct 1. No location block; the app says it is not for US persons and asks for the checkbox before the first deposit.
+21. US visitors: decided on Oct 1. No location block and no banner; the terms say the app is not for US persons.
 22. If the capacity formula puts GLDx below Storm Cellar's 25%: change the recipe, or the index capacity.
 23. Upgrade keys: decided on Oct 1, one disclosed key per chain. Still open: who holds each one, who is guardian on call each day, and who funds 5 SOL for the Solana deploy.
 24. Accept that external wallets get one review screen and then several wallet prompts, with the demo on a passkey wallet?
