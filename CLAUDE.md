@@ -27,4 +27,4 @@ Read `docs/HANDOFF-IDEA1.md` (spec) and `docs/PLAN.md` (schedule) before any slo
 - `packages/db` Drizzle schema and migrations (Postgres).
 - `packages/engine` parser, asset registry, solver, schedule, risk sheet, policy.
 - `packages/chain-solana` executors (Jupiter, Kamino, abstract BRL leg), compose, sign, log. `packages/chain-evm` calldata stub.
-- `scripts/verify` reproducible checks behind `docs/VERIFICATION.md`. `scripts/depth-snapshot.ts` the xStocks depth cron.
+- `scripts/verify` reproducible checks behind `docs/VERIFICATION.md`. `scripts/depth-snapshot.mjs` the xStocks depth cron.
