@@ -20,3 +20,18 @@ Source: `docs/PLAN.md` §5. Status is one of `OPEN | PASSED | FAILED | DECIDED`.
 | Which chain each LOI partner pilots on (Chainless, Picnic) | OPEN | — |
 | Written permission to use partner names or logos in the embed | OPEN | default: unbranded |
 | Regulatory position (who carries personalised-allocation liability) | OPEN | default: disclaimer on plan view, API docs, README, video |
+
+## Proposed on 2026-10-01 (Thom), pending Rodrigo
+
+From `docs/HANDOFF-BASKET.md`. None of these changes a gate above until Rodrigo agrees; they are recorded here so a slot that touches them stops and asks.
+
+| Gate | Status | Proposal | Facts |
+|---|---|---|---|
+| **CUSTODY** — who enforces the policy | OPEN | A vault per basket per chain (Anchor program on Solana, contract on EVM) in place of delegation to the agent key for automatic rebalances | POLICY A covers USDC, USDY and syrupUSDC only, and the only on-chain limit is the approved amount. A program-owned vault bought SPYx through Jupiter CPI on a validator with cloned mainnet state on Oct 1 (`spikes/solana-vault-swap`); mainnet run still to do. |
+| **INDEXES** — community indexes | OPEN | Public, versioned recipes anyone can publish and follow; a personal basket can hold one. No meme index in the MVP | `docs/research/open-questions/creator-limits.md`, `launch-shelf.md` |
+| **EVM-S1** — EVM adapter | OPEN (see above) | Build it for Robinhood Chain and Base, with the same vault | `spikes/evm-vault` passed on a Robinhood Chain fork; Base passed as a read-only simulation |
+| **B2** — second builder | DECIDED: no (see above) | Thom joins; split in `docs/HANDOFF-BASKET.md` | Engine, risk layer and brand stay with Rodrigo |
+| **SIGN-IN** | OPEN | Wallet connect or a passkey wallet (Privy) | `docs/research/open-questions/wallet-providers.md` |
+| **BRANCH** — where the basket work lands | OPEN | A new branch built on `risk-layer`, pull request to `main` | The risk sheet needs `packages/risk`; `main` is frozen for the structurer |
+| **RISK-DATA** — risk data for the demo | OPEN | Hosted collector or a dated snapshot | The collectors run under launchd on one machine today |
+| **NAME** | OPEN | Chosen in the brand strategy phase | — |
