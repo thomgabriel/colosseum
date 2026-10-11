@@ -273,12 +273,16 @@ const VerdictFields = {
 
 export const UniverseAssetBase = z.strictObject({
   // identity, read on chain
-  id: AssetId,
+  /** At most 96 characters: a key other tables join on. */
+  id: AssetId.refine((id) => id.length <= 96, 'an id of at most 96 characters'),
   chain: UniverseChain,
   address: Address,
-  /** As the chain answers it; where the chain holds none, the listing's, said in `read.symbolFrom`. */
-  symbol: z.string().min(1),
-  name: z.string().min(1).nullable(),
+  /**
+   * As the chain answers it; where the chain holds none, the listing's, said in `read.symbolFrom`. At most 64
+   * characters, and a name at most 256: a longer answer is cut there and the row says so in `unverified`.
+   */
+  symbol: z.string().min(1).max(64),
+  name: z.string().min(1).max(256).nullable(),
   nameReason: Reason.nullable(),
   decimals: z.number().int().min(0).max(36),
   standard: z.enum(['spl', 'token2022', 'erc20', 'erc4626', 'native', 'other']),

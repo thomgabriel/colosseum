@@ -297,6 +297,15 @@ describe('UniverseAsset', () => {
     expect(issues({ ...paxg(), mintRedeem: terms, mintRedeemReason: null })).toEqual([]);
   });
 
+  it('keeps an id, a symbol and a name to lengths another table can join on and a page can show', () => {
+    expect(issues({ ...paxg(), id: `solana:${'a'.repeat(96)}` })).toEqual([
+      'id: an id of at most 96 characters',
+    ]);
+    expect(issues({ ...paxg(), symbol: 'X'.repeat(65) })).toHaveLength(1);
+    expect(issues({ ...paxg(), name: 'n'.repeat(257) })).toHaveLength(1);
+    expect(issues({ ...paxg(), symbol: 'X'.repeat(64), name: 'n'.repeat(256) })).toEqual([]);
+  });
+
   it('refuses a source that is neither a URL nor a document of this repository', () => {
     expect(
       issues({ ...paxg(), sources: [{ url: 'a blog', title: 't', readOn: '2026-10-10' }] }),
