@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { firstShort, referenceCostBps } from '../src/vault/funds';
+import { firstShort } from '../src/vault/funds';
 
 // What a step's trades may sell: what the vault holds, and what the trades before it in the same
 // transaction bring in. The vault runs a step's swaps in order, so the cash of a sale is there for
@@ -71,28 +71,5 @@ describe('what the trades of one step may sell', () => {
       asset: TSLA,
       held: 4n,
     });
-  });
-});
-
-describe("a quote's cost against the reference prices", () => {
-  it('is whole basis points where both sides have a value', () => {
-    expect(referenceCostBps(100, 99)).toBe(100);
-    expect(referenceCostBps(99.9, 100.2)).toBe(-30);
-  });
-
-  it('is none where it cannot be worked out: no value in, or a value that is not a number', () => {
-    for (const [inUsd, outUsd] of [
-      [0, 5],
-      [-1, 5],
-      [null, 5],
-      [5, null],
-      [Number.NaN, 5],
-      [5, Number.NaN],
-      [5, Number.POSITIVE_INFINITY],
-      [Number.POSITIVE_INFINITY, 5],
-      // a value in so small the ratio overflows
-      [5e-324, 1e300],
-    ] as const)
-      expect(referenceCostBps(inUsd, outUsd)).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import {
   OwnerSwapArgs,
   PublishRecipeArgs,
   type Quote,
+  referenceCostBps,
   SetAutoFollowArgs,
   SetTargetsArgs,
   SolanaAddress,
@@ -1176,9 +1177,11 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
     if (!sell || !buy) return null;
     const valueIn = (Number(amountIn) / 10 ** sell.decimals) * sell.usd;
     const valueOut = (Number(outRaw) / 10 ** buy.decimals) * buy.usd;
-    if (!(valueIn > 0)) return null;
+    // None where it is not a finite figure (a price that does not read as a number): never NaN.
+    const costBps = referenceCostBps(valueIn, valueOut);
+    if (costBps === null) return null;
     return {
-      costBps: Math.round(((valueIn - valueOut) / valueIn) * 10_000),
+      costBps,
       source: `the price account ${config.priceSource.address} at the same moment`,
     };
   }
