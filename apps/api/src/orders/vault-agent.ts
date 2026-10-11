@@ -1274,6 +1274,9 @@ function stockAsks(
           // "I want no stocks, just AAPL": the exception to a refusal the person wanted is asked for.
           const except = wanted ? piece.replace(EXCEPT, '') : piece;
           if (carried === null || !found.length || !bareList(except)) carried = null;
+          // "Forget gold, just Tesla": the exception to a refusal with no asking word is not refused
+          // with it, and not asked for either.
+          else if (!carried && !wanted && EXCEPT.test(piece)) carried = null;
           else
             for (const { key } of found)
               latest.set(key, { at, asked: carried || except !== piece });
@@ -1752,8 +1755,20 @@ function forgottenNames(text: string, named: (text: string) => Named[]): string[
   const before = after ? null : LIMIT_BEFORE.exec(body);
   const [target, word] = after ? [after[1], after[2]] : before ? [before[2], before[1]] : [];
   if (word === undefined) return only(body);
-  // Of a share: its asset. Of a limit, or of nothing named: no asset.
-  return (/^shares?$/iu.test(word) && target ? only(target) : null) ?? [];
+  // A share or a limit with no name ("drop the limit") takes back no asset. Of a named asset: a
+  // share, the asset; a limit lifted, none. With anything else in it, the sentence is not this form:
+  // it is read piece by piece ("remove Tesla and drop the gold limit", "drop gold and add Tesla shares").
+  if (!target) return [];
+  // The share or the limit is one asset's, named alone before the word: with a second name or a
+  // joiner ("drop Tesla and the gold limit", "remove Tesla and the limit") the pieces tell them apart.
+  const [name, ...others] = named(target);
+  const alone =
+    name &&
+    !others.length &&
+    /^(?:the\s+)?$/iu.test(target.slice(0, name.start)) &&
+    name.end === target.length;
+  const ids = alone ? name.ids : null;
+  return ids && (/^shares?$/iu.test(word) ? ids : []);
 }
 /** A share of the whole vault leaves no room for a floor or a share on assets it does not cover. */
 const noRoomFor = (earlier: PersonShare, whole: PersonShare) =>

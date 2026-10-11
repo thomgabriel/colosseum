@@ -961,3 +961,63 @@ describe('forgetting one stock beside other words', () => {
     ]);
   });
 });
+
+// Re-check of #238 (05409997): a sentence that opened with a withdrawal verb and ended in a share or
+// limit word was taken whole, so its other pieces were never read: a refusal staging honoured was
+// ignored, and an ask was lost. Such a sentence goes to the piece reader.
+describe('a withdrawal with more in its sentence is read piece by piece', () => {
+  const both = ['I want Tesla and Nvidia.', noted] as const;
+  const sorted = (ids: string[]) => [...ids].sort();
+
+  it.each([
+    'remove Tesla and drop the gold limit',
+    'drop Tesla and the gold limit',
+    'remove Tesla and the limit',
+    'drop Tesla, drop the limit',
+    'remove Tesla and keep the Nvidia share',
+    'drop Tesla and keep my Nvidia shares',
+    'forget Tesla and remove the minimum',
+  ])('still takes Tesla back, and only Tesla: %j', async (text) => {
+    const w = world('solana');
+    const out = await w.reply([...both, text], w.drafting(w.tsla, w.nvda));
+    expect(out.requested).toEqual([w.nvda.id]);
+    expect(out.lines).toEqual([[w.nvda.id, 10_000]]);
+  });
+
+  it.each([
+    'drop gold and add Tesla shares',
+    'remove gold and add Tesla shares',
+    'forget gold and add Tesla shares',
+  ])('still reads the ask beside it: %j', async (text) => {
+    const w = world('solana');
+    const out = await w.reply([text], w.drafting(w.tsla, w.nvda));
+    expect(out.requested).toEqual([w.tsla.id]);
+    expect(out.lines).toEqual([[w.tsla.id, 10_000]]);
+  });
+
+  it.each(['forget gold, just Tesla', 'drop gold, just Tesla', 'forget gold, only Tesla'])(
+    'does not take back the stock named as the exception: %j',
+    async (text) => {
+      const w = world('solana');
+      const out = await w.reply([...both, text], w.drafting(w.tsla, w.nvda));
+      expect(sorted(out.requested)).toEqual(sorted([w.tsla.id, w.nvda.id]));
+      // and it asks for nothing that was not asked before
+      const fresh = await w.reply([text], w.drafting(w.tsla, w.reserve));
+      expect(fresh.requested).toEqual([]);
+    },
+  );
+
+  it('keeps a bare list after a refusal refused', async () => {
+    const w = world('solana');
+    const out = await w.reply(
+      [...both, 'sell Tesla, Nvidia'],
+      w.drafting(w.tsla, w.nvda, w.reserve),
+    );
+    expect(out.requested).toEqual([]);
+    const forgot = await w.reply(
+      [...both, 'forget Tesla, Nvidia'],
+      w.drafting(w.tsla, w.nvda, w.reserve),
+    );
+    expect(forgot.requested).toEqual([]);
+  });
+});
