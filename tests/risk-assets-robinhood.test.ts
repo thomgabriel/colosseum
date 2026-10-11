@@ -146,7 +146,9 @@ describe('the committed list', () => {
     }
     // DA16: every other stock token of the registry is a candidate outside the cut
     for (const r of rows.filter((x) => x.issuerRegistry && !x.tracked))
-      expect(r.statusReason).toMatch(/^outside the 80% cut \(DA16\)/);
+      expect(r.statusReason).toMatch(
+        /^outside the cut that names the tracked stocks \(gate UNIVERSE, DA16\)/,
+      );
   });
 
   it('takes the class of a fund from the class table of the tracked list', () => {

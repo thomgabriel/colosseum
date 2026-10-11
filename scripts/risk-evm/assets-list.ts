@@ -381,7 +381,7 @@ export const STATED = {
   rules:
     "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's. The registry's tokens match issuer-registry and the class rule of their underlying; a token named after a stock of the registry and not in it matches not-the-issuers-stock-token.",
   derived:
-    "For a registry token the builder derives: underlying, the registry's symbol; status, listed for a tracked stock of scripts/risk/universe/robinhood.json (and the model of a deploy record's token) and candidate with 'outside the 80% cut' for every other (DA16); leg types, from packages/engine/src/personal/leg-types.ts at the symbol for a dollar-yield token, none for the others; and a source naming the registry row. Rules and a token's own verdict are applied over these.",
+    "For a registry token the builder derives: underlying, the registry's symbol; status, listed for a tracked stock of scripts/risk/universe/robinhood.json (and the model of a deploy record's token) and candidate with 'outside the cut that names the tracked stocks (gate UNIVERSE)' for every other (DA16); leg types, from packages/engine/src/personal/leg-types.ts at the symbol for a dollar-yield token, none for the others; and a source naming the registry row. Rules and a token's own verdict are applied over these.",
   listed:
     "listed = on today's shelf: a tracked stock (tracked_stock), or a token a deploy record names (deploy_record): the model of an asset of deployments/robinhood-testnet.json by its modelOf, matched to the registry token of that symbol, or the cash token contracts/script/config/4663.json names by address (cashToken). No structurer registry row is on Robinhood Chain.",
   ids: "id: the tracked list's id, else the shelf fixture's (packages/engine/src/personal/fixtures/shelves/robinhood-yield.json), else robinhood:eth for the gas coin, else robinhood:<slug of the symbol>. A slug several rows share goes to the one of them that is not excluded where there is exactly one; every other row with it, and a row whose slug an earlier rule took, gets the first six hex digits of its address after a dash.",
@@ -764,7 +764,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       const leg = classTable === 'dollar_yield' ? files.legTypes.rows[symbol] : undefined;
       const reason = tracked
         ? `a tracked stock of ${files.tracked.path} (gate UNIVERSE)${model ? `, and ${model}` : ''}`
-        : `outside the 80% cut (DA16): a stock token of the issuer's registry that ${files.tracked.cut} does not name`;
+        : `outside the cut that names the tracked stocks (gate UNIVERSE, DA16): a stock token of the issuer's registry that ${files.tracked.cut} does not name`;
       derived = {
         underlying: symbol,
         underlyingReason: null,
