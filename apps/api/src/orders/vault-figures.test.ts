@@ -1560,4 +1560,73 @@ describe('a figure is read with what stands around it', () => {
     expect(message).toContain('5%');
     expect(message).not.toContain(FIGURE_CUT);
   });
+
+  // The review of #242: a neighbour is read only when it speaks of the yield.
+  it.each([
+    'I will show you the breakdown. The reserve’s quoted yield is [Y] a year.',
+    'The reserve’s quoted yield is [Y] a year. I’ll walk you through the rest if you like.',
+    'The reserve’s quoted yield is [Y] a year. That is a past observation, not a promise.',
+    'The reserve’s quoted yield is [Y] a year. It is not a forecast.',
+    'The reserve’s quoted yield is [Y] a year. It can change.',
+    'The reserve’s quoted yield is [Y] a year. It will change over time.',
+    'The reserve’s quoted yield is [Y] a year. That may not continue.',
+    'The reserve’s quoted yield is [Y] a year. It may not stay there.',
+    'The reserve’s quoted yield is [Y] a year. Rates never stand still.',
+    'The reserve’s quoted yield is [Y] a year. That is a measurement, not a guarantee.',
+    'The reserve’s quoted yield is [Y] a year. Nobody can say what it will be later.',
+    'The reserve’s quoted yield is [Y] a year. I can’t tell you what happens next.',
+    "The reserve’s quoted yield is [Y] a year. I can't tell you what happens next.",
+    'The reserve’s quoted yield is [Y] a year. Nvidia has no yield and I won’t invent one.',
+    'The reserve’s quoted yield is [Y] a year. The stocks pay no yield; their value will move with the market.',
+    'The reserve’s quoted yield is [Y] a year. Would you like the figure after the haircut?',
+    'You asked what the reserve will pay. Its quoted yield is [Y] a year.',
+    'Here is what remains of your question. The reserve’s quoted yield is [Y] a year.',
+    'The reserve stays in dollars. Its quoted yield is [Y] a year.',
+    'The reserve’s quoted yield is [Y] a year. The rest of your vault stays in stocks.',
+    'The reserve’s quoted yield is [Y] a year. Nvidia remains your largest stock.',
+    'O rendimento cotado é [Y] ao ano. Isso pode mudar e não é uma promessa.',
+    'O rendimento cotado é [Y] ao ano. Vou mostrar o resto a seguir.',
+    'The reserve’s quoted yield is [Y] a year. I don’t expect you to take that as a promise.',
+    'The reserve’s quoted yield is [Y] a year. Nvidia is worth [NV].',
+    'The reserve’s quoted yield is [Y] a year. Shall I continue with the stocks?',
+  ])('serves a yield whole beside an honest sentence: %s', async (text) => {
+    const message = await shown(text);
+    expect(message).toContain('5%');
+    expect(message).not.toContain(FIGURE_CUT);
+  });
+
+  it('keeps the yield when the sentence beside it only says it is not guaranteed', async () => {
+    // the older figure check takes that sentence for its word; the yield is not refused with it
+    const message = await shown('The reserve’s quoted yield is [Y] a year. It is not guaranteed.');
+    expect(message).toBe(`The reserve’s quoted yield is 5% a year.\n${FIGURE_CUT}`);
+  });
+
+  it.each([
+    'Its quoted yield is [Y] a year.\n- It never goes down.',
+    'O rendimento cotado é [Y] ao ano. Todo ano é assim.',
+    'Its quoted yield is [Y] a year. You will earn that again.',
+    'It never goes down. Its quoted yield is [Y] a year.',
+    'Its quoted yield is [Y] a year. And that is yours in perpetuity.',
+    'Its quoted yield is [Y] a year. It won’t ever drop.',
+  ])('still cuts a yield the sentence beside it promises: %s', async (text) => {
+    expect(await shown(text)).not.toContain('5%');
+  });
+
+  it.each([
+    'Nvidia’s price and value are [NV] and [NP].',
+    'Nvidia’s value and target are [NT] and [NV].',
+    'Nvidia’s value and share of the vault: [NS] and [NV].',
+    'Nvidia’s drawdown and volatility are [NVOL] and [ND].',
+    'O preço e o valor de Nvidia são [NV] e [NP].',
+  ])('cuts kinds named in one order and figures given in the other: %s', async (sentence) => {
+    expect(await left(sentence)).toBe(CUT);
+  });
+
+  it.each([
+    'Nvidia’s price and value are [NP] and [NV].',
+    'Nvidia’s drawdown and volatility are [ND] and [NVOL].',
+    'O preço e o valor de Nvidia são [NP] e [NV].',
+  ])('serves kinds and figures in the same order: %s', async (sentence) => {
+    expect(await left(sentence)).not.toContain(FIGURE_CUT);
+  });
 });

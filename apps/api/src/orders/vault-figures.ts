@@ -194,7 +194,7 @@ const MOVE = lone(
   'up|down|climb\\p{L}*|sank|sink\\p{L}*|sunk|soar\\p{L}*|surg\\p{L}*|plung\\p{L}*|tumbl\\p{L}*|slid|slide[sd]?|sliding|slump\\p{L}*|rall(?:y|ies|ied|ying)|tick(?:s|ed|ing)|edg(?:es|ed|ing)|rise[sn]?|rose|rising|fell|falls?|fallen|falling|drop\\p{L}*|los[te]|loses|losing|loss|losses|downside|drawdowns?|declin\\p{L}*|decreas\\p{L}*|increas\\p{L}*|jump\\p{L}*|sub(?:ir|iu|a|indo)|sobe|ca(?:ir|iu|ia|indo)|cai|perd\\p{L}*|quedas?|desvaloriz\\p{L}*|aument\\p{L}*|diminu\\p{L}*',
 );
 const FORECAST = new RegExp(
-  `${lone("will|won'?t|shall|going\\s+to|gonna|expect\\p{L}*|forecast\\p{L}*|project(?:ed|s|ion|ions)|predict\\p{L}*|guarante\\p{L}*|promis\\p{L}*|vai|v[aã]o|ir[aá]|ir[aã]o|garant\\p{L}*|promet\\p{L}*|prev[eê]\\p{L}*|previs\\p{L}*|esper\\p{L}*").source}|['’]ll(?![\\p{L}\\p{N}])|\\p{L}{2,}(?:ará|erá|irá|arão|erão|irão)(?![\\p{L}\\p{N}])`,
+  `${lone("will|won['’]?t|shall|going\\s+to|gonna|expect\\p{L}*|forecast\\p{L}*|project(?:ed|s|ion|ions)|predict\\p{L}*|guarante\\p{L}*|promis\\p{L}*|vai|v[aã]o|ir[aá]|ir[aã]o|garant\\p{L}*|promet\\p{L}*|prev[eê]\\p{L}*|previs\\p{L}*|esper\\p{L}*").source}|['’]ll(?![\\p{L}\\p{N}])|\\p{L}{2,}(?:ará|erá|irá|arão|erão|irão)(?![\\p{L}\\p{N}])`,
   'iu',
 );
 // What a word rule must not read as its word: the class name "dollar-yield reserve", "makes up", and
@@ -214,7 +214,7 @@ const CLAIM = lone(
 );
 /** With a yield, none of these in its sentence or in the one before or after it. */
 const PROMISE = lone(
-  "should|would|ought|must|always|sure|surely|certain\\p{L}*|definitely|safe|safely|secure\\p{L}*|protected|count(?:s|ing)?\\s+on|bank(?:s|ing)?\\s+on|rely\\p{L}*|relies|relied|depend\\p{L}*|at\\s+least|never\\s+less|not\\s+(?:pay\\s+)?less|next\\s+(?:year|month|week)|from\\s+(?:now|here)(?:\\s+on)?|going\\s+forward|here\\s+to\\s+stay|forever|for\\s+life|for\\s+good|keeps?|kept|lock\\p{L}*|steady|steadily|fixed|reliab\\p{L}*|no\\s+matter|without\\s+fail|rain|clockwork|every\\s+(?:time|year|month|week|day)|each\\s+and\\s+every|as\\s+long\\s+as|risk|downside|collect\\p{L}*|take\\s+home|pocket|set\\s+for|nothing\\s+can|can\\s*not|can'?t|does\\s+not\\s+change|doesn['’]?t\\s+change|deve|devem|dever[aá]|deveria|sempre|cert[oa]|certeza|certamente|segur[oa]\\p{L}*|cont[ae]r?\\s+com|pelo\\s+menos|nunca\\s+menos|(?:ano|m[eê]s)\\s+que\\s+vem|pr[oó]xim[oa]\\s+(?:ano|m[eê]s)|todo\\s+(?:ano|m[eê]s|dia)|todos\\s+os\\s+(?:anos|meses)|n[aã]o\\s+muda|daqui\\s+(?:para|pra)\\s+frente|risco|livre\\s+de|trav\\p{L}*|est[aá]vel|est[aá]veis|fix[oa]s?|confi[aá]ve\\p{L}*",
+  "should|would|ought|must|always|sure|surely|certain\\p{L}*|definitely|safe|safely|secure\\p{L}*|protected|count(?:s|ing)?\\s+on|bank(?:s|ing)?\\s+on|rely\\p{L}*|relies|relied|depend\\p{L}*|at\\s+least|never\\s+less|not\\s+(?:pay\\s+)?less|next\\s+(?:year|month|week)|from\\s+(?:now|here)(?:\\s+on)?|going\\s+forward|here\\s+to\\s+stay|forever|for\\s+life|for\\s+good|keeps?|kept|lock\\p{L}*|steady|steadily|fixed|reliab\\p{L}*|no\\s+matter|without\\s+fail|rain|clockwork|every\\s+(?:time|year|month|week|day)|each\\s+and\\s+every|as\\s+long\\s+as|risk|downside|collect\\p{L}*|take\\s+home|pocket|set\\s+for|nothing\\s+can|can\\s*not|can['’]?t|does\\s+not\\s+change|doesn['’]?t\\s+change|deve|devem|dever[aá]|deveria|sempre|cert[oa]|certeza|certamente|segur[oa]\\p{L}*|cont[ae]r?\\s+com|pelo\\s+menos|nunca\\s+menos|(?:ano|m[eê]s)\\s+que\\s+vem|pr[oó]xim[oa]\\s+(?:ano|m[eê]s)|todo\\s+(?:ano|m[eê]s|dia)|todos\\s+os\\s+(?:anos|meses)|n[aã]o\\s+muda|daqui\\s+(?:para|pra)\\s+frente|risco|livre\\s+de|trav\\p{L}*|est[aá]vel|est[aá]veis|fix[oa]s?|confi[aá]ve\\p{L}*",
 );
 
 /** A sentence that says the figure is no promise names the word without making one. */
@@ -224,6 +224,33 @@ const DISCLAIMED =
 const LASTING = lone(
   'perpetu\\p{L}*|indefinitely|never|nothing\\s+changes|year\\s+after\\s+year|without\\s+exception|continu\\p{L}*|stays?|remain\\p{L}*|nunca|nada\\s+muda|ano\\s+ap[oó]s\\s+ano|sem\\s+exce[cç][aã]o|indefinidamente|permane\\p{L}*',
 );
+/** The same, in words that say it of whatever stands beside them, whoever the subject is. */
+const LASTING_OF_IT = lone(
+  'perpetu\\p{L}*|indefinitely|nothing\\s+changes|year\\s+after\\s+year|without\\s+exception|nada\\s+muda|ano\\s+ap[oó]s\\s+ano|sem\\s+exce[cç][aã]o|indefinidamente',
+);
+/** A sentence that speaks of the yield: it, that, this, the yield or the rate is its subject. */
+const OF_THE_YIELD =
+  /^\s*(?:[-*•–—]\s+)?(?:(?:and|but|so|e|mas)\s+)?(?:it|that|this|the\s+(?:yield|rate)|isso|isto|ele|ela|o\s+rendimento|a\s+taxa)(?![\p{L}\p{N}])/iu;
+/** Or it tells the person what they will get. */
+const YOU_WILL_GET =
+  /(?<![\p{L}\p{N}])(?:you\s+will|you['’]ll|voc[eê]\s+vai|voc[eê]\s+ir[aá])\s+(?:\p{L}+\s+)?(?:earn|get|keep|receive|be\s+paid|receber|ganhar|manter)(?![\p{L}\p{N}])/iu;
+/** A sentence that says the figure may not hold: a caveat, never a promise. */
+const HEDGED = lone(
+  'may\\s+not|might\\s+not|(?:can|could|may|might|will)\\s+(?:change|vary|move)|not\\s+(?:a\\s+|an\\s+|any\\s+)?(?:guarante\\p{L}*|promis\\p{L}*|forecast\\p{L}*)|never\\s+stands?\\s+still|pode\\s+(?:mudar|variar)|n[aã]o\\s+[eé]\\s+(?:uma?\\s+)?(?:promessa|garantia|previs[aã]o)|n[aã]o\\s+[eé]\\s+garantid[oa]',
+);
+/**
+ * Whether a sentence beside a yield promises it. It is read only when it speaks of the yield; a
+ * sentence about something else ("Nvidia remains your largest stock"), one that offers to go on ("I
+ * will show you the rest") and one that hedges ("It will change over time") are served. Where this
+ * cannot tell, it serves.
+ */
+function promisesTheYield(neighbour: string): boolean {
+  if (HEDGED.test(neighbour)) return false;
+  if (LASTING_OF_IT.test(neighbour)) return true;
+  if (!OF_THE_YIELD.test(neighbour) && !YOU_WILL_GET.test(neighbour)) return false;
+  const said = neighbour.replace(DISCLAIMED, ' ');
+  return FORECAST.test(said) || LASTING.test(said);
+}
 
 // The yield grammar. `Y` stands where a yield reference stood. A clause starts the sentence or follows
 // another clause, and ends the sentence.
@@ -348,34 +375,48 @@ const BOUND_KINDS: Array<[RegExp, RegExp]> = [
 /**
  * Whether each figure stands beside a word of its own kind. Every kind word of the sentence binds to
  * the reference nearest it; a figure that words are bound to, none of them of its kind, is called
- * what another figure is ("priced at <a cost> and costs <a price>"). A figure no word binds to is
- * left to the other rules. `ids` are the figures of `words`, one for each mark, in order.
+ * what another figure is ("priced at <a cost> and costs <a price>"). Where the kinds are named in a
+ * run and the figures given in another ("its price and value are X and Y"), they pair in order. A
+ * figure no word binds to is left to the other rules. `ids` are the figures of `words`, one for each mark, in order.
  */
 function boundToItsKind(words: string, ids: readonly (string | undefined)[]): boolean {
   const marks = [...words.matchAll(new RegExp(MARK, 'gu'))].map((match) => match.index);
   if (marks.length < 2) return true;
   const bound = marks.map(() => ({ any: false, own: false }));
-  BOUND_KINDS.forEach(([of, named]) => {
-    for (const match of words.matchAll(new RegExp(named.source, `g${named.flags}`))) {
-      const from = match.index;
-      const to = from + match[0].length;
-      let nearest = 0;
+  // every kind word, once, in the order it stands
+  const spans = new Map<number, { from: number; to: number; word: string }>();
+  for (const [, named] of BOUND_KINDS)
+    for (const match of words.matchAll(new RegExp(named.source, `g${named.flags}`)))
+      spans.set(match.index, {
+        from: match.index,
+        to: match.index + match[0].length,
+        word: match[0],
+      });
+  const said = [...spans.values()].sort((a, b) => a.from - b.from);
+  const first = marks[0] ?? 0;
+  const last = marks.at(-1) ?? 0;
+  // "A and B are X and Y": as many kind words as figures, all before them or all after, pair in order
+  const inOrder =
+    said.length === marks.length &&
+    (said.every((span) => span.to <= first) || said.every((span) => span.from > last));
+  said.forEach((span, place) => {
+    let nearest = place;
+    if (!inOrder) {
       let least = Number.POSITIVE_INFINITY;
       marks.forEach((at, index) => {
-        const gap = at >= to ? at - to : from - at;
+        const gap = at >= span.to ? at - span.to : span.from - at;
         if (gap < least) {
           least = gap;
           nearest = index;
         }
       });
-      const slot = bound[nearest];
-      const id = ids[nearest];
-      if (!slot || id === undefined) continue;
-      slot.any = true;
-      // a word of several kinds ("trades": a price and a volume) agrees with each
-      if (BOUND_KINDS.some(([kind, word]) => kind.test(id) && word.test(match[0]))) slot.own = true;
-      else if (of.test(id)) slot.own = true;
     }
+    const slot = bound[nearest];
+    const id = ids[nearest];
+    if (!slot || id === undefined) return;
+    slot.any = true;
+    // a word of several kinds ("trades": a price and a volume) agrees with each
+    if (BOUND_KINDS.some(([kind, word]) => kind.test(id) && word.test(span.word))) slot.own = true;
   });
   return bound.every((slot) => !slot.any || slot.own);
 }
@@ -568,9 +609,19 @@ export function figureResolver(input: {
       // words: free text there would say of the yield what the clause may not.
       if (rest.includes(Y) || (!rest.includes(MARK) && /\p{L}/u.test(rest))) found.push('frame');
       // A promise beside the yield is one of it, in its own sentence or in the one before or after:
-      // "…a year. You will keep earning that." A neighbour that only disclaims ("not a promise") is none.
-      const beside = `${lead} ${plainly(withoutReferences(next))}`.replace(DISCLAIMED, ' ');
-      if (PROMISE.test(`${beside} ${all}`) || FORECAST.test(beside) || LASTING.test(beside))
+      // "…a year. You will keep earning that." A neighbour is read for a forecast only when it speaks
+      // of the yield (`promisesTheYield`); one about anything else, or one that hedges, is served.
+      const after = plainly(withoutReferences(next));
+      // a question to the person beside the yield ("Would you like…?") promises nothing, nor does
+      // what the agent says of itself ("I can't tell you what happens next")
+      const worded = [lead, after].filter(
+        (neighbour) =>
+          !/\?\s*$/u.test(neighbour) && !/^\s*(?:I|Eu)(?![\p{L}\p{N}])/u.test(neighbour),
+      );
+      if (
+        PROMISE.test(`${worded.join(' ').replace(DISCLAIMED, ' ')} ${all}`) ||
+        [lead, after].some(promisesTheYield)
+      )
         found.push('forecast');
       bindable = rest;
       own = rest.replaceAll(Y, MARK);
