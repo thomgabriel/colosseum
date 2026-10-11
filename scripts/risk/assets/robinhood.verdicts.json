@@ -1,0 +1,1265 @@
+{
+  "chain": "robinhood",
+  "reviewedOn": "2026-10-11",
+  "note": "The verdicts of the Robinhood Chain asset universe (PLAN-ASSETS AS.3), reviewed by hand. The rules cover every token of the issuer's registry; every other token a listing names has its own verdict. Read by scripts/risk-evm/assets-list.ts, which says in scripts/risk/assets/README.md how a rule's match is read.",
+  "rules": [
+    {
+      "name": "issuer-registry",
+      "match": {
+        "listing": "issuer_registry"
+      },
+      "fields": {
+        "verdictSource": null,
+        "issuer": "Robinhood",
+        "issuerReason": null,
+        "issuerKind": "tokenization_issuer",
+        "currency": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read_on_an_issuer_source",
+        "access": null,
+        "accessReason": "not_read_on_an_issuer_source",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read_on_an_issuer_source",
+        "unverified": [
+          "the issuing entity: the registry names none; the screening note's input list says Robinhood Assets (Jersey) Ltd",
+          "how a dividend reaches a holder: the input list says it is reinvested through the multiplier; not read on an issuer page",
+          "who may hold the token: the input list says persons of the US, Canada, the UK, Switzerland and the UAE are barred; not read on an issuer page"
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://api.robinhood.com/rhj/assets",
+          "title": "Robinhood's stock token registry: every row, with its symbol, name, decimals, status, ISIN, multiplier and deployment",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row Stock Tokens (190+)",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "registry-class-stock",
+      "match": {
+        "listing": "issuer_registry",
+        "classTable": "stock"
+      },
+      "fields": {
+        "category": "tokenized_stock"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/universe/list.ts",
+          "title": "CLASS_BY_UNDERLYING (DU7): a token whose underlying is not in the table is a stock",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "registry-class-etf",
+      "match": {
+        "listing": "issuer_registry",
+        "classTable": "etf"
+      },
+      "fields": {
+        "category": "tokenized_etf"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/universe/list.ts",
+          "title": "CLASS_BY_UNDERLYING (DU7): SPY and QQQ are etf",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "registry-class-gold",
+      "match": {
+        "listing": "issuer_registry",
+        "classTable": "gold"
+      },
+      "fields": {
+        "category": "tokenized_gold"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/universe/list.ts",
+          "title": "CLASS_BY_UNDERLYING (DU7): GLD is gold",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "registry-class-commodity",
+      "match": {
+        "listing": "issuer_registry",
+        "classTable": "commodity"
+      },
+      "fields": {
+        "category": "tokenized_commodity"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/universe/list.ts",
+          "title": "CLASS_BY_UNDERLYING (DU7): SLV and USO are commodity",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "registry-class-dollar-yield",
+      "match": {
+        "listing": "issuer_registry",
+        "classTable": "dollar_yield"
+      },
+      "fields": {
+        "category": "treasury_fund_open",
+        "verdictSource": "docs/vault/research/open-questions/launch-shelf.md (SGOV, the chain's one rate token on the launch shelf)"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/universe/list.ts",
+          "title": "CLASS_BY_UNDERLYING (DU7): SGOV is dollar_yield",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.md",
+          "title": "The launch shelf: SGOV, a fund of 0-3 month Treasury bills, as a stock token of Robinhood Chain",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "not-the-issuers-stock-token",
+      "match": {
+        "listing": "dexscreener",
+        "symbolOf": "issuer_registry"
+      },
+      "fields": {
+        "category": "other",
+        "status": "excluded",
+        "statusReason": "not the asset it claims: its symbol is that of a stock token of the issuer's registry, and the registry, which lists every token the issuer deploys on the chain, does not hold its address",
+        "verdictSource": null,
+        "issuer": null,
+        "issuerReason": "not the issuer's: the registry does not hold its address",
+        "issuerKind": null,
+        "underlying": null,
+        "underlyingReason": "it is not a share of the stock its symbol names",
+        "currency": null,
+        "legTypes": null,
+        "legTypesReason": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read",
+        "unverified": ["who deployed it"]
+      },
+      "sources": [
+        {
+          "url": "https://api.robinhood.com/rhj/assets",
+          "title": "Robinhood's stock token registry: every token the issuer deploys on Robinhood Chain, by address",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://api.dexscreener.com/latest/dex/search?q=robinhood%20NVDA",
+          "title": "DexScreener's pairs on Robinhood Chain, which name the token with a stock's symbol",
+          "readOn": "2026-10-11"
+        }
+      ]
+    }
+  ],
+  "verdicts": [
+    {
+      "address": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "symbol": "ETH",
+      "category": "native",
+      "status": "candidate",
+      "statusReason": "the chain's gas coin; crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "the gas coin of the chain has no issuer",
+      "issuerKind": "chain_native",
+      "underlying": "ETH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read: how ether reaches the chain (its bridges) was not read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row Native staking: ETH is the gas, there is no native token of the chain",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the symbol ETH and the 18 decimals: no contract answers for the gas coin; they are the input list's and the EVM's"
+      ]
+    },
+    {
+      "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+      "symbol": "USDG",
+      "category": "stablecoin_usd",
+      "status": "listed",
+      "statusReason": "the cash token (cashToken) of contracts/script/config/4663.json, the mainnet deploy config; the collector's dollar token (scripts/risk-evm/config.ts)",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 4 (USDG: a cash token; reserve yield goes to partners, none to holders)",
+      "issuer": "Paxos (Global Dollar Network)",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "USDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read: Paxos mints and redeems for its customers; its terms were not read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 4: USDG, a cash token, not a yield asset",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row USDG",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "scripts/risk-evm/config.ts",
+          "title": "The dollar token every Robinhood Chain pool is quoted against: USDG",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "that holders earn nothing: the input list says reserve yield goes to distribution partners",
+        "whether and how the issuer can freeze an address: the note says it can (section 3.2, not verified), and none of the watched freeze selectors is in its code"
+      ]
+    },
+    {
+      "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+      "symbol": "USDe",
+      "category": "stablecoin_synthetic",
+      "status": "candidate",
+      "statusReason": "a dollar backed by positions; the note keeps it off the yield shelf (no base yield, section 4); as cash it is not decided",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 4 (USDe: no base yield; incentives only)",
+      "issuer": null,
+      "issuerReason": "not verified: the note did not verify USDe's issuer on this chain (section 3.2); the input list names Ethena Labs",
+      "issuerKind": null,
+      "underlying": "USDe",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read: the input list says it is bought on the chain's exchanges or bridged as a LayerZero OFT",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: USDe on this chain, 0x5d3a…ef34, 18 decimals",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 4: USDe: no base yield",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row USDe",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the issuer of this contract: Ethena Labs by the input list",
+        "the bridge it arrives by"
+      ]
+    },
+    {
+      "address": "0x00000000d61733e7a393a10a5b48c311abe8f1e5",
+      "symbol": "frxUSD",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "not screened: the screening note does not name it, and nothing read ties this address to Frax",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not read: DexScreener calls it Frax USD; no source ties the address to an issuer",
+      "issuerKind": null,
+      "underlying": "frxUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x00000000d61733e7a393a10a5b48c311abe8f1e5",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["that it is Frax's dollar, and what backs it"]
+    },
+    {
+      "address": "0x4f11d7603d1b0d0f021db552d8a6d88d7fa38ecf",
+      "symbol": "aUSD",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "not screened: the screening note does not name it, and nothing read names its issuer",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not read: DexScreener calls it Arrow USD; no source names an issuer",
+      "issuerKind": null,
+      "underlying": "aUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x4f11d7603d1b0d0f021db552d8a6d88d7fa38ecf",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["who issues it and what backs it"]
+    },
+    {
+      "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "symbol": "WETH",
+      "category": "wrapped_eth",
+      "status": "candidate",
+      "statusReason": "the wrapped gas coin the Uniswap v4 position manager unwraps (WETH9()); crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "a wrapper of the gas coin; who deployed and administers it was not read",
+      "issuerKind": null,
+      "underlying": "ETH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "deposit ether to mint, withdraw to burn, at one to one, as a wrapper of the gas coin does",
+        "kyc": false,
+        "minimum": null,
+        "settlement": null,
+        "source": "the WETH9 convention; not read on this contract"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "https://rpc.mainnet.chain.robinhood.com",
+          "title": "Robinhood Chain, read by this list: WETH9() of the Uniswap v4 position manager 0x58daec3116aae6d93017baaea7749052e8a04fa7",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row Native staking",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "that deposit and withdraw are one to one on this contract: the convention, not read"
+      ]
+    },
+    {
+      "address": "0xa3d68b74bf0528fdd07263c60d6488749044914b",
+      "symbol": "weETH",
+      "category": "liquid_staking",
+      "status": "candidate",
+      "statusReason": "an ETH staking token, not a dollar asset (the note, section 4); crypto is enumerated and not decided (DA6)",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 4 (wstETH, weETH: not dollar assets)",
+      "issuer": "ether.fi",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ETH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read: the input list says it is bridged in",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 4: wstETH, weETH: ETH staking tokens, not dollar assets",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row weETH",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the issuer of this contract: ether.fi by the input list",
+        "that it accrues by an exchange rate against eETH: the Chainlink directory lists a WEETH / EETH exchange rate; the contract was not read for it"
+      ]
+    },
+    {
+      "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+      "symbol": "cbBTC",
+      "category": "wrapped_btc",
+      "status": "held_out",
+      "statusReason": "identity not confirmed: only DexScreener names it, and nothing read ties this address to Coinbase",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not confirmed: DexScreener calls it Coinbase Wrapped BTC",
+      "issuerKind": null,
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "that Coinbase issues this contract; Chainlink lists a CBBTC / USD feed on the chain, which names no address"
+      ]
+    },
+    {
+      "address": "0xbeeff033f34c046626b8d0a041844c5d1a5409dd",
+      "symbol": "steakUSDG",
+      "category": "lending_deposit",
+      "status": "candidate",
+      "statusReason": "add with caution (the note, section 3.1): the only exit is redemption, and a fully borrowed market can block it",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 3.1, steakUSDG",
+      "issuer": "Steakhouse (Morpho)",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "steakUSDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "market_deposit",
+          "source": "packages/engine/src/personal/leg-types.ts, steakUSDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": "open",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "withdraw or redeem to USDG in one transaction, while the markets it lends into have USDG free",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "one transaction; it waits when the markets are fully borrowed",
+        "source": "docs/vault/research/yield-shelf/robinhood.md, section 3.1"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.1: steakUSDG",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row steakUSDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "geo-blocks",
+        "verified source code",
+        "that the leg type says all of it: its borrowers post basis and credit tokens"
+      ]
+    },
+    {
+      "address": "0x40858070814a57fdf33a613ae84fe0a8b4a874f7",
+      "symbol": "syrupUSDG",
+      "category": "private_credit",
+      "status": "candidate",
+      "statusReason": "add with caution (the note, section 3.1): it sells in one pool",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 3.1, syrupUSDG",
+      "issuer": "Maple",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "syrupUSDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "packages/engine/src/personal/leg-types.ts, syrupUSDG",
+          "readOn": "2026-10-06"
+        },
+        {
+          "type": "basis",
+          "source": "packages/engine/src/personal/leg-types.ts, syrupUSDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read: on this chain it is a bridged token; how it accrues here was not read",
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": null,
+      "mintRedeemReason": "none on this chain: the exit is the pool (the note, section 3.1)",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.1: syrupUSDG",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, row syrupUSDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the countries excluded: Maple's page says it is not available in all jurisdictions and eligibility restrictions apply, with no list (the note, section 3.1); on chain a transfer to an unlisted address passes",
+        "the bridge and its limits",
+        "whether the pool price equals the net asset value"
+      ]
+    },
+    {
+      "address": "0xde770c84fe66e063336b31737cfe9790f18c4087",
+      "symbol": "spUSDG",
+      "category": "savings_rate",
+      "status": "held_out",
+      "statusReason": "on hold (the note, section 5.3): what funds its rate is not verified, so its leg type is not settled, and a person decides it",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, sections 3.1 and 5.3, spUSDG",
+      "issuer": "Spark",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "spUSDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "not settled: the nearest of the four is market_deposit, and no row is recorded (the note, section 5.3)",
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": "open",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "withdraw or redeem in one transaction, up to the USDG left in the vault",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "one transaction",
+        "source": "docs/vault/research/yield-shelf/robinhood.md, section 3.1"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.1: spUSDG",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 5.3: spUSDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": ["what funds the rate and who may take the assets", "geo-blocks"]
+    },
+    {
+      "address": "0xf04c58853d54f2445989108c29087f1a61c034cb",
+      "symbol": "rUSDG",
+      "category": "basis_strategy",
+      "status": "held_out",
+      "statusReason": "on hold (the note, section 5.3), recommendation out: a capped carry strategy whose positions and cap are not published",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, sections 3.1 and 5.3, rUSDG",
+      "issuer": "Mellow",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "rUSDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "none settled: a carry with leverage fits none of the four (the note, section 3.1)",
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": "open",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "deposit at once; withdrawal by request, then claim",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "typically 2 to 3 days",
+        "source": "docs/vault/research/yield-shelf/robinhood.md, section 3.1"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.1: rUSDG",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 5.3: rUSDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "positions, leverage cap and fees",
+        "geo-blocks",
+        "that it accrues by its oracle's share price: read in the note, not here"
+      ]
+    },
+    {
+      "address": "0x6982e39521a070a3c40782548bfbed6dc8f566ef",
+      "symbol": "PT-USDG-25MAR2027",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "a token with a maturity (25 March 2027): the schedule models none yet (the note, section 5.2)",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, sections 3.2 and 5.2, PT-USDG-25MAR2027",
+      "issuer": "Pendle",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "PT-USDG-25MAR2027",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "none recorded: rate is proposed (the note, section 5.2)",
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "open",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "from maturity, PT redeems one to one into SY-USDG, which pays USDG one to one; before it, it is sold on Pendle's market",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "from 2027-03-25",
+        "source": "docs/vault/research/yield-shelf/robinhood.md, section 3.2"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: PT-USDG-25MAR2027",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 5.2: Pendle PT-USDG",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "source code, audits and incidents",
+        "geo-blocks",
+        "who pays the reward behind its rate"
+      ]
+    },
+    {
+      "address": "0xf35ee6bd9a93fe42bc7e628bfc4ddbdc6de1f615",
+      "symbol": "YT-USDG-25MAR2027",
+      "category": "yield_claim",
+      "status": "held_out",
+      "statusReason": "out (the note, section 3.2): a claim on the yield alone, worth nothing at maturity",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 3.2 (YT is out)",
+      "issuer": "Pendle",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "YT-USDG-25MAR2027",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "distribution",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: PT-USDG-25MAR2027 (YT)",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x8d3127aabf76f95fe2970a0480b8662b4ad4c286",
+      "symbol": "SY-USDG",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "Pendle's wrapper of USDG inside the PT market, one to one (the note, section 3.2): not a token a plan holds",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 3.2",
+      "issuer": "Pendle",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: SY-USDG wraps raw USDG one to one",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0xc2b89e6eca583e2c232201ac557e9be58af55f4c",
+      "symbol": "PLP-USDG-25MAR2027",
+      "category": "lp_share",
+      "status": "held_out",
+      "statusReason": "the share of Pendle's PT market (PT and SY-USDG): no class takes a pool share (DA1), and the note lists none (sections 3.2 and 5.1)",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, sections 3.2 and 5.1",
+      "issuer": "Pendle",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "PLP-USDG-25MAR2027",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: the market of PT-USDG-25MAR2027",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 5.1: the pool share",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0xfed493f38c1aacb4ea4e6a11f8b9287849ee0096",
+      "symbol": "mGLO",
+      "category": "private_credit",
+      "status": "held_out",
+      "statusReason": "out (the note, section 3.1): a vault can receive it and cannot sell it: no pool, and redemption is for KYC-checked, greenlisted addresses",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 3.1, mGLO",
+      "issuer": "Midas (strategy by Fasanara Capital)",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "mGLO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "docs/vault/research/yield-shelf/robinhood.md, section 3.1, mGLO: private debt",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "hybrid: minting and redemption need KYC/AML eligibility and a greenlisted address, and holders transfer freely (the note, section 3.1); neither open nor permissioned as read",
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "Midas only, for a KYC-checked and greenlisted address: an instant route with a fee and a finite capacity, or monthly at NAV",
+        "kyc": true,
+        "minimum": null,
+        "settlement": "about 35 days after the valuation on the standard route",
+        "source": "docs/vault/research/yield-shelf/robinhood.md, section 3.1"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.1: mGLO",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "Midas's own documents",
+        "the redemption vault and its greenlist on this chain"
+      ]
+    },
+    {
+      "address": "0xc6a4854eeb493224d5f9485e12dd3a81f22eee14",
+      "symbol": "syrupUSDC",
+      "category": "private_credit",
+      "status": "excluded",
+      "statusReason": "out on filter 4 (the note, section 3.1): not live on this chain, a bridged token with almost no supply",
+      "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 3.1, syrupUSDC",
+      "issuer": "Maple",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "syrupUSDC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "packages/engine/src/personal/leg-types.ts, syrupUSDC",
+          "readOn": "2026-10-03"
+        },
+        {
+          "type": "basis",
+          "source": "packages/engine/src/personal/leg-types.ts, syrupUSDC",
+          "readOn": "2026-10-03"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "none on this chain (the note, section 3.1)",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.1: syrupUSDC",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x5b5448bb4101a136127ca8bf60a9f669f93fc09b",
+      "symbol": "USDT",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "not shown to be Tether's deployment",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not confirmed: it calls itself Tether USD, and nothing read ties the address to Tether",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not confirmed",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x5b5448bb4101a136127ca8bf60a9f669f93fc09b",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: the \"USDT\" and the \"USDC\" are not confirmed as the issuers' tokens",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "that it is Tether's: the note could not confirm it (section 3.2); Tether's own list of deployments was not read",
+        "what this read found: 18 decimals, no owner(), neither a pause nor a blacklist selector, and code 3,248 bytes long, the length of the code of seven tokens here named after stocks of the issuer's registry and not in it (a length proves nothing)"
+      ]
+    },
+    {
+      "address": "0x11d04a2491ab485a54da3817c10c2a9178c7991e",
+      "symbol": "USDC",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not Circle's USDC: it calls itself UpSideDownCat on robinhood, and its one pool is the junk pool of the note (section 3.2)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x11d04a2491ab485a54da3817c10c2a9178c7991e",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/robinhood.md",
+          "title": "The yield shelf on Robinhood Chain, section 3.2: the \"USDC\"/USDG pool, a junk pool",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x8dffab0c883818963b97f37a5792952296621f77",
+      "symbol": "USDC",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not Circle's USDC: it calls itself Unconditional Support Dog Coin",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x8dffab0c883818963b97f37a5792952296621f77",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0xec680b4160dd30a35a30b412e1677ceae82417f1",
+      "symbol": "ETH",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not ether: the gas coin of the chain is ether, and WETH9() of the Uniswap v4 position manager names its wrapper; this contract calls itself RobinhoodVladRWAPepe67",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0xec680b4160dd30a35a30b412e1677ceae82417f1",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x988ee7076ffb6b3d8da43bb993396be1e2031e18",
+      "symbol": "WBTC",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not Wrapped BTC: it calls itself We Buy The Cat; an EIP-1167 clone of 0x3be8b97fd0e713b5abe0649fa830223b6b4bc599, owned by 0xeb7c034704ef8dcd2d32324c1545f62fb4ad0862, as 13 of the 26 tokens here named after stocks of the issuer's registry and not in it are (this read)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x988ee7076ffb6b3d8da43bb993396be1e2031e18",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x208092689248d96aa7f30aab09ff6a7e05b41e18",
+      "symbol": "SOL",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not Solana's coin: it calls itself SOLANA; an EIP-1167 clone of 0x3be8b97fd0e713b5abe0649fa830223b6b4bc599, owned by 0xeb7c034704ef8dcd2d32324c1545f62fb4ad0862, as 13 of the 26 tokens here named after stocks of the issuer's registry and not in it are (this read)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x208092689248d96aa7f30aab09ff6a7e05b41e18",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x9ac0efe775ef5eadf1fd106a6efe19d0e1421e18",
+      "symbol": "PRIME",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not the PRIME of the prompt (a credit token on Solana): it calls itself Optimus Prime; an EIP-1167 clone of 0x3be8b97fd0e713b5abe0649fa830223b6b4bc599, owned by 0xeb7c034704ef8dcd2d32324c1545f62fb4ad0862, as 13 of the 26 tokens here named after stocks of the issuer's registry and not in it are (this read)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x9ac0efe775ef5eadf1fd106a6efe19d0e1421e18",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x362db5af0367315ad57ade8f3c132d6e0b7d19df",
+      "symbol": "GOLD",
+      "category": "tokenized_gold",
+      "status": "held_out",
+      "statusReason": "not shown to be a gold token: nothing read names an issuer or a gold reserve",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not read: it calls itself Robinhood Gold; the issuer's gold token is GLD of its registry",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not confirmed",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x362db5af0367315ad57ade8f3c132d6e0b7d19df",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what backs it, and who issues it",
+        "what this read found: code 3,248 bytes long and no owner()"
+      ]
+    },
+    {
+      "address": "0xa62f748f8d16009cb19366da8d1160fb29de428f",
+      "symbol": "GOLD",
+      "category": "tokenized_gold",
+      "status": "held_out",
+      "statusReason": "not shown to be a gold token: nothing read names an issuer or a gold reserve",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not read: it calls itself GOLD; the issuer's gold token is GLD of its registry",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not confirmed",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0xa62f748f8d16009cb19366da8d1160fb29de428f",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what backs it, and who issues it",
+        "what this read found: code 3,248 bytes long and no owner()"
+      ]
+    },
+    {
+      "address": "0xae2df3c1749daee721c1bfcbbfdde5d61ae7cb99",
+      "symbol": "BTCETHUSDTBNBUSDCXRPSOLTRXHYPEDOGERAINZECDELLEOXLMXMRLINKADACCDAIBCHUSD1USDEGRAMLTCUSDGSUIDEXEHBARPYUSDAVAXCRONEARXAUTSHIBUNITAOUSDYWLFIPAXGOKBASTERONDOMHTXRLUSDUSDDSKYDOTMNTAAVEWLDUSDFICPBGBPEPEETCUMORPHOUSDGOPIKCSCTMSTABLEPOLJLPJSTATOMQNTENARENDERKASALGOBEATGT币安人生PUMPBDXJUPGHOFILXDCTBLLXFLRVVVLITARBUSD0USXINJAPTUSDAITUSDNEXONIGHTCAKEETHFIDASHAEROEURCVETVIRTUALTRUMPPENGUPYTHFETSUNFDUSDSEITIACRVSPXLUNCLDOSTXGNOZROJTOBSVBTTDUCKYPENDLENFTIMXMONXTZCFXBONKJASMYFRAXUB2ZDCRVELVETOPSTRCXKOGEXPLSYRUPKAIAKITEAUSDKAITOSTRKAPEPEFLOKIZBCNEIGENXECUSATGRTENSHWFIRAYFFPIEVERSECOMPTELAAPLXBIOTACHZAXSSPYXAKTWIFMXEDGEBORGMUXZANOGUSDTSLAXEURCVRUNEHOODXQQQXTWTAPETHETANEOXCNSANDMANABTWFARTCOININTCXRIFGOOGLXNVDAXTRACALEVSNARTBKBPCVXWEMIXCRCLXBATAWEAGOMININGTIBBIRUDSTAGSHFLFRXUSDRLBUSSFPGENIUSDUSDMRVLX1INCHNEXDYDXSOSOBMXEUSXGALAGLMREALSENTEGLDSMILEKABJSMCFGDATAAVVGLDXDEEPZKKMNOOCRCLONVCNTMETAXALLOSOONDRVYZYATHAMDXGRASSCHEEMSMSFTXGEODQUSDONSPCXBUAIFLUIDWOULDLIGHTMELANIASNDKBBANKRAVECSCOXBEAMSNXCOWZAMANMRANTFUNORDIRSRYFIZENKOXQTUMLISUSDZBUANSEMVTXLPTBANMSTRXLURMETXPRLINXLBTNXPCCOINXZRXORCAPLTRXWALHUMAARCBANANAS31MUBGASSFORMIVVONKTABASDGBGMXFTTCARDSMAXNILAUSDSUIRIVERBILLCVXXSHXIEMGXAIOZFIDDQFISAFEUSELESSHOTCHIPVXPLUMERVNGSXPFEXREDOGQUBICVBUSDPRESPCXZIGXPINAIHKSMLABVELOTFUELGCOINPGXSCHFXCOAIMINATURBOBIOWCASHCATMAGMAZILABBVXENJVTIXEWUXBERAAVGOXDHNBABYDOGEIOSUPERJELLYJELLYLINEAAPRDIEMGWEISYNHDXAZNXXPNPCZETASPKBRETTXOMXUNHXELFBRK.BXBABYTONXXGPSPROSGMEXIDHONXKUBMEGABRAXLTOSHISKHYXCYSSOXXXKAVAXNOCRCLBUPOPENLIONHOLOXVSSUSHISN4AKEIWMXSN51CCDOMIJCTCKBTQQQXXAUMREDVVSCOPXXMNGOMOVECTCONTASTRTROLLBLURBTBTXELGCRWDXTCELOSMHXAPPXFLOWREQPURRASSETACHROSEBDCATRBARRRDHRXSRXMRKXRONZCHFALTMUONPOPCATAPEXIBITONXYOBARDSUTJNJXEWYXSPYONNOCKPNUTLLYXRPLYUSDSKRFUNAGTPEAQPCIPMXBACXICNTAMZNXXUSDNVDAONMOGSENTISMYMASKJPMXEURIPOLYXAMPGHNTFBBUSDAZTECSTARVTHOPROVEESPMOODENGNOTMEVAMGLIDRMMTBIMORCLXAMBRXGOHOMEBNKRKGENB2ATAMPLCUSD0GMOCAANKRTMOXSOXLXWMTXPRONVOXKLACXSNTFOGOMEMETGBPNFLXXPEPXREKTBURNMANTRAUMAVANAXVGWAVESAIATSCQQQONZEREBRODUSKCOINONLOCUSCROSSHIMSONPMLUNASPACEDBRELONIRYSATOSZBTSSVBSBCMCSAXHSKUSDPOREMEWZESTNESSAHARAABTXDEGENARXKNTQACNXSQDCSPRSTORJLAYERAISN44MANTALUSDWKCCOREPRLHOMEUPCNOWACXUSTCMBGSKYAIDFDVXCAPBOLDAVNTBANDBMNRXBNTPLAYXANMCDXSUSDOPENXSERVUSDKDEPWHITETORNZORAMYXESPORTSEUSDHIVEBOMEUNSUQCLITEXB3PEOPLEBORASMARTTRUTHCATITAKLKWUSDMDTXGIGGLEETHWORBSFOLKSOSMOIBMXSWFTCSN9SLXAITCOLLECTASTEROIDCRMXICXRAILVRNEIRORLCUNPVANTAOPGSIRENPOWRAIOPROMAOPORBRATMARKMWOOSKLSOMICYBERALEONAORISMVLQANXHANAROBOHYPERCALCHAINEDUONGISIKCAUCTIONMERLKNCDAGSNEKEULIOSTGMTIOTXLCXSLVONGOOGLONWINSTEEMEVSLVXCOTIBBILVBASEDMUSDSLTFAIPREOPAIPUNDIXDODOFIDALONCOINDEPOSTRAXCTSIPYTHIAGIGAARKCHEELARDRMTLMLKPHAMETISROGLISTASIGNNOSSLPSATSREZCVCPYBOBOWOJAKSTGIQTLTONSNCYGGAIOTCLOAUDIOPMTANTTPTDKABLASTTXCNEETDOGSCARVXCHXYMLSKABTCPOOLAPI3TRIAMSTRONRIZEBREVPOKTSN3SAPIENERGAIXBTWAXPWBXCGOCBKSTRXIDOLAPTMLRCDRAMBPPLTXRTXWCTYNGFLUXCETUSCGPTOHOSOXLBBIGTIMESONICTACGAMEFULPOWERPIPPINAEVOKMDONEIEFAONSPELLACUEDENEGL1BLESSTAIKOMEDMOVRCTKGCBBOXNILUSUALMOBBTGOXBFCTNSRADSARARAABEYMGOMRVLON龙虾TOKAMAKBIRBPIXELOXTLQTYZENTPARTIETNWETGOLDGRTSLAONXNYINAOCHRSTBLEPICFTRBXAIINTCONQUAISCRTONRMUHEZANIMEFRSNDKBTRSTNYMEVAAAGLDENSOXAUT0AGGONBLUAIRUJIGNSSN56MAGICQKCNMCBICOINXMETAAURORAMBLDFGGOATCLANKERCHEXELSABANANAMEYPDDONARROW哈基米CELRIBSFLOCKUSDHZKCSTRCONSOFIONINTCBNEWTC98DESOZKPMMUIARPAQIELUCICWXTRADORDERITOTONHPGYENJOECTRRECALLUSDCVBITCOINMPLXUFDVANRYUSDBSLNDOGCORNSBBTCMIRADIAYBDIAMIAUONLUMIASAUCEBLENDHMSTRFIROIXSBCDXSGDBROCCOLIMUBARAKXRDISLMALICEOSAKOPNFUSDOGNAVATLMFELYREIKATTIPONKISHUDOODAVAILSOLVTUTMSFTONEFAONKCTPONKEWECANKAIOVENOMAMZNONALIAERGOINITREPWANMAVGLMRFARSXTBONEMWXTSFIAIARSCRAREACNBULLAABELESETSTHUNTSN62GODSMSTRBNSTGUNVEREMRBNTBOBAFARTBOYLAERATGCCWUCOLXKERNELSN5CATDOLONXAAPXRCRCLMANIFESTBERTHEGICCOLAMDONPORTALUSDMLYNARIAPROMPTIEMGONCHILLGUYNCTFHESTOFCTEVEREPSYELLOWCETBUTTCOINCLASHSOPHGLEECDESUHEIBOBAAPLONMETAONOWBIWFONVOWXIONLMTSROLLTT4VINEEWTAURATXRESOLVPSGCHECKPRIMEREPPOSANTOSTRUSTXU3O8EURRADXWALLETDYMGRIFFAINBELIAGGRSSPCXSHELLRAMPTAITRADOORDRIFTMOCUCNQQQBPPCWILDBMTQIAVICIREADYAICSPCXONUSDQDEXTSDACTHONEYGRNDDORASPCXX我踏马来了BEEAGRSFORTGUAMCOINGALSKHYBNVDABSTCINVTKOBOUNTYASRASMPNKBARDADDYAGIBALHFTDEODIKAAHTNIMSOILNETXOMGLYXLOANSOLOVDAISLERFTHEMCBARTXEEMONDXIHAEDALPEPBTCLESQGROWSUPRAOLASMBXTSMONTAKETOWNSNUMIBADGERMAPOESIMSWARMSALPINEXSGOVONOUSDCREPECOOKIEACEWRXLOOMACSOGYFIGHTPIKAPEPECOINMNSRYPUFFERMAVIAREDOQUICKMUSNDKONWENKNNBISONELAAUKIL3ELKONETKGSTMPCBGSCPORTOPONDDIVIANYONENAVXBRISEUSDRBETATLOSRACAUSDPTKANAPUFUELGTCANTHROPICBTRSDEXTREETQQQONPOLSMAMOPAALUTKRIONARGAMOBTXIWNONVULTVATRENIDAOZRCSAVESPARKLETAVGOONMOBILECITYVNXAUBFGAQTEDELASPMAMEPHNIXJUVVLINKPPTCAWGPHDNMINTURTLESAGALLYONZKJCOQPITEWYBPOPMCDULLORCLONRIOXWCARMONSUREETHDYDXVCHFALPHRHEADNTKRLUSDUCARENAPNGWEXOBLUECRETAOMIKAMITOKEALCXLMWRRSS3LVLADYSPDTLAZIOATSPYRVICHOPRDEUSKYVEATLASSPAODOSDOGINMEBCNMLNXPLAMORIGSTMONANEONMIMGEARKOMACOREUMRMRVLANONPTBSPCMPAYAIBMNRONSCRSPSHEMIFWOGNOMGBYTESIXLINGOBOSONM87PZMWOLFREFWAIGALEONROAMHOODONSKIPIBDMDAUDDKEYCATELIZAOSTONICSWAPLAVASUNDOGSYMMPKOINBTSEGFALPORKOLORAIACMXEM$PURPEVLTCQCOMONLATRSPCXSCORSPACEXSNANDYVESTGMMTDGMAMITOQUQLMTONPIVXGHXSHAREASMLONEURQKLVPBTCMNTXTSLABSBDGRINLQKOONSEND哭哭马CATEAFCKEKIUSIHCSWELLSPECTREPUSSBNBTIGERCRTSLOFIPOLISFEISWEATSTNKCESSWOLFONRMSTRFARMBTGNSJAGERGFIRINTCIWMONAVLSPCDRAMONWENDRGNBLZAIVMETFIALUVTCWODPUNDIAIRENVITABTSDJEDDMCRLS客服小何DSYNCOCTAGEMSMVCFOXPALMIJHONWSPPXCPDIMOBUYPFEONNEURALA8CXTUBTBIFIRNBWBABAONNOBODYSN88XBGZTCOVPPMEASHDWKENDUIDIASUKUUSOONGROKASTSONWNCGFLMCOLSPROPCFREYAGMETETCULTCARDINGOVOOIGAIBMAJORMEVREEFBFMANYUYEEEMTIBMONRMETAQAITDENTXFCNBISBCSCOONNAKAMIGGLESJPMONALTSZNAVTPGONXEPPLTRONBELLSZYPTOUSDC(WORMHOLE)NATIXCTXCLVTSMBNIZAMATHGOLDAOPXPAINA47PEIPEIABBCALEPHINTERCVXONROAOASIMPTPRCLRAMDIRFEGVARAMINIMA雪球NVOONOBSRMYROUSDVPANWONLOTRDRAMOFCKOSYSMCDONCLOAKVALFORESTQSTRNVDANEXASHIDOVFYGHSTHEARTLEASHVAIDMTRBOOEFORTHVOLTLNQARWOORTWMTONLIBERTYAECOOKGMEESWCHKARRATDJI6930RTSLABAYNODLTRUAZEROSNSSTREAMZEUSPORNROCKETLQRIDRTPEPONSTATUSAVONDLHEROEURTMRVLBALTTTOKENBZZSBUXONCEEKPARTPBRONTRUFRWALUCKYCAFOXSYBIDDOBOSISSHARPSDTTRUUHIGHGLWBBORGYSTUFFMANEKISRMRTSMTAROTPLUDCEATYURUPXCFTRDRXAMDBPINRUSSELLRQQQKIBSHIRYULMBRNFTYECCEURXTNJESUSCUBERMSFTPUPSNXRAVNOMDTEPTBLKONTMONMYSTXSWAPVERSEMYTHDEUROJOBYAIDOGESOLCEXNUMGOALASKPAPARAZZIKUJIAURYMSFTBTAOBOTMCMBXNWHALEBOTTORAVGORGOOGLLINONBIOTBOTGMCOINTEMCOMOBYOBTXPMGOOGLBLIBRAKINDBIDZHOOKEQIXONLIMEMTADNNUBINDYTHQREGENTRARIGEONHOLDBOOPRZRCSWAPKWENTAIDEXCOPXONVERTAIADPLUCA401JKPROPSKDABENJIMIABITCIP2PWHITEWHALETTNSTIKHIUOSCWEBHAROLDQCOMBVEURTRIASSTRIKEVEXTRA0X0AST67WINRXTERHOSKYSNOWONMETAVGOATEDBTC2TRWARBNNOWONSOULCHATMOEWCUMMIESBFICSMTOPENAIDAMMCHCRYPTOZCLHOGESAROSCRPTMAYCRPNMTMONKYTAVAUNHONKORIALXELNOKBDEVVEBILLYEGGZTXOVROCICATDOPUCAGAQUACKFANCBYTESHPINGCEREHTREVDCSCAABTONRVFNYACTPXFIRETARDIOMLCPALUMERYLUMINTAXMXDBAREAIOTRISEWFCONGAFIPENGUINHODLSOXXONRENECMULTICAMP$HACHIXMNGSONCOINBCROWN10SETSTORMTRADESCSSKEYMCADEMDAOBAONABNBONSPURSGHUBNKEONBIDUONAIXDDXSNDKOGPUBULLSHIBDOGESMCIONPERPDHTRICEBSAIRSOXLSHRBABYASTEROIDHACHIKOHOUSERNBISCYCHGPTSERAPHASTRACHEQRHOODBABYSHARKSIGMAPYPLONADMMAONEURAUANDURILSIGNACOHRONMETABCOSALONHIPPOIRENONCOSTONPUBLICVRTONECHOGHOSTLXVLXJDONGAIXQCADBCOINRKLBONNAPMAIGAPIPESLRSRXDATTSTARLAACDLLUXCRWVONHASHAIPORHOPPYKARATEAZITHAIGOGAEURRAIVADERAOL一KAITKPALEXGOCHUIZIROBOTSRDDTONDEFXDTECPLTRBWELFPXL1PHOTONSKHYPEPEONTRONXPASSBEB1MGXACMGONBLOCKWEPE3ULLLITEBMCNPANDORAXAVIERBUILDOUTXTPJMPTIDRXSKHYONWARDAAOIBCRMONFLQLONINCEONCELLNIBIPSYOPANIMENEOCLOUDMYRIATOPEWYONAXPONSPGIONSOV人生K线KIMAEQBJAILSTOOLARIA20WAGMIGAMESTSUKAOPUSUNCXROARYFIIHELLOOBOLHYGONLITKEYMAGAWIKENNRGARIOGRGRWAINCIMUNODESQQQONBSTSOXLONPHBPAWSSLXMEZOVSYSWUFTEAGORKPIGGYMGPDBCNOICENIKOTPTUHNSXDAGGPUSHOGGOTHSWASHFUTUONSOGNISALTADBEONFRICURANUSHEHEBXEDISONSBETVRAICHIGROWACNONDASHONRNOKITABESTSTCREAMSLAPCHKNVINUFIONFLXONSTRDCPHRMVXRPHSHRAPOPTIGAIATOWERHYDRANTXDNXUBERONSPYBPUNCHAARTMOTHERDEROCBRSBHOSICOCORALLRDSFACTVOXELNOKONZFISAMOGLDONCASPWEASEGRACYRDNTMOCHILOBOHTDBUNKERVISTAETNONSAITOCOCOROPSPSUPSHILITEONXCLFLIXMANCUDISSCPGLWONA2ZSOLVEXPEPUWCOTCOMRKLBBZKMLAPOONWDCBNFPFISQOMTXNONPXPMELIONCAHCOINBERRYPIRATEATRSHIRODUREVBCAAARKPEPE2.0NBT修仙OXYONAIPONBXXHYPCVBCHBOTONUFOUXLINKSLOTHWOZXKILOWHYROOT$1CLORESNDKXJYAIKATATMXUNIBOTAVGOBKOMPETEINTUONZEXTURBOSSHRUBKINICMATAWCFUSETERMINUSSHOPONCPRUSDNEMCMEMEFIBASEYOOSHITSPACEXCWIFRTQQQBABABIMGNIBMBHINTPVTKEXMOONGLQEXAAEROBUDGMRXSQTRRKLBFNCTPDAIRISASEQBTSONUNA老子CHIRPHEGEJEWELNRNNAFTSCAMFLIXXMNWRASMLAGIALPHABNBHOLDERABYSSEXRDARMBBTC.ℏRORCLZOONCHIATAWARXRPHAIBTCBAMSHFTTITDRTRBCRWSPKTGGRCOHRAXOLPUSHDPRBONDOKLOONKOINRINGSHMSGTHOODBENXAI3AMATONMAIVNURARSPYWSIMAKOSCARSPECRIFT1DEFIPACEMEFAISLAYSPOTONPOOHAAOIONFIGONEQTYIDNGBAXBNCLNWBAIMTVCEGONMSTRLKYNUTUSDSFOXYCHOXNACREOTOTOLMCSWAPQORPOGMMPNICPEPONKTC$MICHIFLHYONLOOKAPPONGAINMADREMXONMDXBCUTSDAOANOMEPATRIOTJETTONDFIGTAI安DUCKSLIMBC2WEFIFFOGONCIRCLEMEMESEAIBXCRAMZNVSGISLANDPINOCHAMPDOLANALLNITROFLTAIKEKSLC4EVERWDCONGOUTKMCELBCRASHOIIAOIIASNAIKPOPCAPTAINBNBBOSSWYACLVNCAPSU2UGOZENPHONHEMULEEFI42SMURFCATNOTHINGMNTCSTUPIDRAAOISTMXLOLXELSGEVONKEYCELRFOXBASEDAIFGDLONURAONRDWONARTYVKORABGLPLNSOLAMAHTSHAKKAMTRGFROGBABYPEPERIOTONISKNULSSTRMXPRTDEMOWL$WAFFLESFAIR3CREDIDELABSBOSTHLMENGOGMEONMIDASMLZSWAPCANNMSQHAPPYMUBARAKAHEFCLC黑马KP3RBADRAAPLRFCRIBMNUXBUCKAZOIDSTROGLABUBUNPCSJAMDEGOSBETONDUKOHMNDDIPMBOXBCCOINBZRPORT3ENDVERTCKPTIMEGZONEBEONRITEPOXALPHARABITRVLMASQSAMBUZZSSGXCXSFUNDBRGOVLSABAIBHCBUBBLEEDGENMTDKUNCIRVVORCSIPHERVCFLUCEACAESBDOGITOHOODBEERDCDRBABAHOLYRPLTRMRXMYSTERYMCRTHONKXMONEYNAVINBLUTITNCARRXRBIOFIGLXYONGENEALVAVTIONTBULLHORDVDOT$TOADPOOLXAKITALTXLISATIMIROOBEEMILLIBUSYMPONSCFJUNODFSAUBERCHONKYONDSON",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "a launch token whose symbol strings the names of hundreds of coins together; not any of them",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0xae2df3c1749daee721c1bfcbbfdde5d61ae7cb99",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x9ad56c5f95208be3c6feb7da5accb48ec1873f5c",
+      "symbol": "SUSD",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not a screened dollar: it calls itself Stable USD and is an EIP-1167 clone of 0x5bebcf09…, owned by 0x3f5d6d4a48540fed25d1aa9b63fe55adb25d7dbe, which also owns the copies of the issuer's AAPL, MSTR, NVDA and QQQ here (this read); no issuer is named",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x9ad56c5f95208be3c6feb7da5accb48ec1873f5c",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0x5fc591225f1f20c08c3c59fe25826f6a36e1d168",
+      "symbol": "USDG",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "not the dollar token: USDG is 0x5fc5360d…d168 (the collector's and the registry pools' dollar); this address begins and ends as that one does, the mark of a copy made to be mistaken for it, and it is an EIP-1167 clone of 0x5bebcf09…, owned by 0x3f5d6d4a48540fed25d1aa9b63fe55adb25d7dbe, which also owns the copies of the issuer's AAPL, MSTR, NVDA and QQQ here (this read)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x5fc591225f1f20c08c3c59fe25826f6a36e1d168",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    }
+  ]
+}
