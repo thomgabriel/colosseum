@@ -1,0 +1,2591 @@
+{
+  "chain": "solana",
+  "reviewedOn": "2026-10-11",
+  "note": "The Solana verdicts of the asset universe (PLAN-ASSETS AS.2). Rules classify every token a listing names one way, matched by scripts/risk/assets/solana-list.ts (README: how match is read); a verdict decides one address. Each names its sources; what it says that was not read is in unverified. Dollar yield follows the research note's verdicts; nothing here decides what a plan may hold (DA5).",
+  "rules": [
+    {
+      "name": "xstocks",
+      "match": {
+        "jupiterTag": "xstocks",
+        "minter": "7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj",
+        "nameEndsWith": " xStock"
+      },
+      "fields": {
+        "status": "candidate",
+        "statusReason": "outside the cut that names the tracked stocks (gate UNIVERSE, DA16)",
+        "issuer": "Backed (xStocks)",
+        "issuerReason": null,
+        "issuerKind": "tokenization_issuer",
+        "unverified": [
+          "the issuer of each token: from the mint authority it shares with the tracked xStocks and its metadata host, not from a page per token",
+          "what each token tracks: from its symbol, not from its product page"
+        ],
+        "verdictSource": null,
+        "currency": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read"
+      },
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "content/stocks/solana.json",
+          "title": "Sourced attributes of the tracked xStocks: each row's product page on assets.backed.fi",
+          "readOn": "2026-10-08"
+        },
+        {
+          "url": "https://assets.backed.fi/products/nvidia-xstock",
+          "title": "Backed Assets, NVIDIA xStock product page (names the Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "ondo-global-markets",
+      "match": {
+        "jupiterTag": "ondo",
+        "minter": "9foMHsSDq7nMg4WPusSz9eY7tyxyukqborA8GyU5cUxD"
+      },
+      "fields": {
+        "status": "candidate",
+        "statusReason": "outside the cut that names the tracked stocks (gate UNIVERSE, DA16)",
+        "issuer": "Ondo Global Markets",
+        "issuerReason": null,
+        "issuerKind": "tokenization_issuer",
+        "unverified": [
+          "the issuer of each token: from the one mint authority the tag's tokens share and their metadata host, not from a page per token",
+          "what each token tracks: from its symbol"
+        ],
+        "verdictSource": null,
+        "currency": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read"
+      },
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.ondo.finance/addresses",
+          "title": "Ondo Finance docs, Smart Contract Addresses (Solana): Ondo Stocks on Solana (its program and USDon)",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "backpack-securities",
+      "match": {
+        "jupiterTag": "backpack",
+        "nameEndsWith": " - Backpack Securities",
+        "freezeAuthority": "2cVYpagTt7ZGc3mmTXBa7fAznUtx5DUu6aCq8uVDaf4a",
+        "permanentDelegate": "2cVYpagTt7ZGc3mmTXBa7fAznUtx5DUu6aCq8uVDaf4a"
+      },
+      "fields": {
+        "status": "candidate",
+        "statusReason": "outside the cut that names the tracked stocks (gate UNIVERSE, DA16)",
+        "issuer": "Backpack Securities",
+        "issuerReason": null,
+        "issuerKind": "tokenization_issuer",
+        "unverified": [
+          "the issuer: from the on-chain name, the tag and the one freeze authority and permanent delegate the tokens share; each has its own mint authority",
+          "what each token is in law"
+        ],
+        "verdictSource": null,
+        "currency": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read"
+      },
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-treasury-fund",
+      "match": {
+        "nameKind": "treasury_fund"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "a fund of Treasuries or government bonds on a stock issuer's shelf: not screened on Solana, held out until it is"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-bond-fund",
+      "match": {
+        "nameKind": "bond_fund"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "a fund of bonds, loans or income on a stock issuer's shelf: not screened, and no category takes it as dollar yield yet"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-crypto-fund",
+      "match": {
+        "nameKind": "crypto_fund"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "a fund of crypto assets on a stock issuer's shelf: not screened"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-leveraged-etf",
+      "match": {
+        "nameKind": "leveraged_etf"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "leveraged or inverse: not screened"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "prestocks",
+      "match": {
+        "jupiterTag": "prestocks"
+      },
+      "fields": {
+        "category": "tokenized_stock",
+        "status": "excluded",
+        "statusReason": "pre-IPO tokens whose claim on the company's shares is disputed: the launch-shelf note leaves them out (the Anthropic and OpenAI transfer dispute)",
+        "verdictSource": "docs/vault/research/open-questions/launch-shelf.md, Platform asset list, Solana",
+        "underlying": null,
+        "underlyingReason": "a_private_company_with_no_listed_share",
+        "issuer": "PreStocks",
+        "issuerReason": null,
+        "issuerKind": "tokenization_issuer",
+        "legTypes": null,
+        "legTypesReason": null,
+        "currency": null,
+        "yieldMechanism": "none",
+        "yieldMechanismReason": null,
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read",
+        "unverified": [
+          "what a holder owns: the dispute is from the launch-shelf note, not read on an issuer page"
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.md",
+          "title": "Launch shelf, Platform asset list, Solana: not listed, PreStocks pre-IPO tokens",
+          "readOn": "2026-10-01"
+        }
+      ]
+    },
+    {
+      "name": "lst",
+      "match": {
+        "jupiterTag": "lst"
+      },
+      "fields": {
+        "category": "liquid_staking",
+        "status": "candidate",
+        "statusReason": "crypto: enumerated and read, not decided (DA6)",
+        "verdictSource": null,
+        "issuer": null,
+        "issuerReason": "not_read_per_token",
+        "issuerKind": null,
+        "underlying": "SOL",
+        "underlyingReason": null,
+        "currency": null,
+        "legTypes": null,
+        "legTypesReason": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read_per_token",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read",
+        "unverified": [
+          "the stake pool or protocol behind each token, where the row has no verdict of its own: Jupiter's lst tag only"
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "on-todays-shelf",
+      "match": {
+        "listedIn": "any"
+      },
+      "fields": {
+        "status": "listed",
+        "statusReason": "on today's shelf: listedIn says where"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/universe/solana.json",
+          "title": "The tracked stock list of gate UNIVERSE (RU.4)",
+          "readOn": "2026-10-05"
+        },
+        {
+          "url": "deployments/solana-devnet.json",
+          "title": "The test network's record: the mainnet token each test token models (modelOf)",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "packages/engine/src/assets/registry.ts",
+          "title": "The structurer's registry",
+          "readOn": "2026-10-11"
+        }
+      ]
+    }
+  ],
+  "verdicts": [
+    {
+      "address": "BTRR3sj1Bn2ZjuemgbeQ6SCtf84iXS81CS7UDTSxUCaK",
+      "symbol": "USCC",
+      "category": "basis_strategy",
+      "status": "held_out",
+      "statusReason": "a permissioned fund: a vault cannot be put on an allowlist (DA4)",
+      "verdictSource": null,
+      "issuer": "Superstate",
+      "issuerReason": null,
+      "issuerKind": "regulated_fund_manager",
+      "underlying": "USCC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "not_read",
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": "permissioned",
+      "accessReason": null,
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.superstate.com/investors/smart-contracts",
+          "title": "Superstate docs, Smart Contracts: SVM contracts, Solana Mainnet (allowlist, USTB and USCC Token-2022)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "3ThdFZQKM6kRyVGLG48kaPg5TRMhYMKY1iCRa9xop1WC",
+      "symbol": "eUSX",
+      "category": "basis_strategy",
+      "status": "held_out",
+      "statusReason": "hold in the research note: an off-chain basis strategy whose terms may bar retail",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, eUSX",
+      "issuer": "Solstice",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "eUSX",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "basis",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, eUSX",
+          "readOn": "2026-10-06"
+        },
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, eUSX",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": "permissioned",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "unlock to USX in the app, then USX on a pool; or sell eUSX on a pool",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "seven days standard, a day for a small amount (section 3.2)",
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, eUSX"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, eUSX",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://docs.solstice.finance/solstice-for-users/eusx-powered-by-yieldvault",
+          "title": "Solstice docs, eUSX (powered by YieldVault)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the \"professional and institutional users only\" clause in full",
+        "manager, venues, custody, leverage"
+      ]
+    },
+    {
+      "address": "Eh6XEPhSwoLv5wFApukmnaVSHQ6sAnoD9BmgmwQoN2sN",
+      "symbol": "sUSDe",
+      "category": "basis_strategy",
+      "status": "held_out",
+      "statusReason": "hold in the research note: no route at a person's size on Solana, and the real exit is on Ethereum, section 3.1",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSDe",
+      "issuer": "Ethena",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "sUSDe",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "basis",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSDe",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, sUSDe",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+          "title": "Ethena docs, Key Addresses (Solana row)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "on Solana the price follows the Ethereum share only through the bridge and arbitrage",
+        "the bridge type",
+        "the cooldown"
+      ]
+    },
+    {
+      "address": "CETES7CKqqKQizuSN6iWQwmTeFRjbJR6Vw2XRKfEDR8f",
+      "symbol": "CETES",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "add with caution in the research note, listed in pesos and in no plan: a token in another currency (USD-ONLY, DA7) whose bond the engine cannot use as a matching leg yet",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.3, CETES",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "CETES",
+      "underlyingReason": null,
+      "currency": "MXN",
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.3, CETES",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Etherfuse at NAV after KYC; a vault sells on its pool",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.3"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, CETES",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the exact holding and its maturity",
+        "whether Etherfuse redeems tokens bought on a pool"
+      ]
+    },
+    {
+      "address": "EuroszHk1AL7fHBBsxgeGHsamUqwBpb26oEyt9BcfZ6G",
+      "symbol": "EUROB",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "hold in the research note: not tradable on Solana; in euros (USD-ONLY, DA7)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.3, EUROB",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "EUROB",
+      "underlyingReason": null,
+      "currency": "EUR",
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.3, EUROB",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Etherfuse at NAV after KYC",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.3"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, EUROB",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the holding"]
+    },
+    {
+      "address": "GiLTSeSFnNse7xQVYeKdMyckGw66AoRmyggGg1NNd4yr",
+      "symbol": "GILTS",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "add with caution in the research note, listed in pounds and in no plan: a token in another currency (USD-ONLY, DA7) whose bond the engine cannot use as a matching leg yet",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.3, GILTS",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "GILTS",
+      "underlyingReason": null,
+      "currency": "GBP",
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.3, GILTS",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Etherfuse at NAV after KYC; a vault sells on its pool",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.3"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, GILTS",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the exact holding and its maturity",
+        "whether Etherfuse redeems tokens bought on a pool"
+      ]
+    },
+    {
+      "address": "KTBeXe7VMPMLxBsqDQu4KA9PdSajF3Hkw1y9qRsKqfL",
+      "symbol": "KTB",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "add with caution in the research note, listed in won and in no plan: a token in another currency (USD-ONLY, DA7) whose bond the engine cannot use as a matching leg yet",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.3, KTB",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "KTB",
+      "underlyingReason": null,
+      "currency": "KRW",
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.3, KTB",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Etherfuse at NAV after KYC; a vault sells on its pool",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.3"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, KTB",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the exact holding and its maturity",
+        "whether Etherfuse redeems tokens bought on a pool"
+      ]
+    },
+    {
+      "address": "BRNTNaZeTJANz9PeuD8drNbBHwGgg7ZTjiQYrFgWQ48p",
+      "symbol": "TESOURO",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "add with caution in the research note, listed in reais and in no plan: a token in another currency (USD-ONLY, DA7) whose bond the engine cannot use as a matching leg yet",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.3, TESOURO",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "TESOURO",
+      "underlyingReason": null,
+      "currency": "BRL",
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.3, TESOURO",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Etherfuse at NAV after KYC; a vault sells on its pool",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.3"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, TESOURO",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the exact holding and its maturity",
+        "whether Etherfuse redeems tokens bought on a pool"
+      ]
+    },
+    {
+      "address": "USTRYnGgcHAhdWsanv8BG6vHGd4p7UGgoB9NRd8ei7j",
+      "symbol": "USTRY",
+      "category": "fixed_maturity",
+      "status": "held_out",
+      "statusReason": "hold in the research note: not tradable on Solana; the engine models no maturity",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.3, USTRY",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "USTRY",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.3, USTRY",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Etherfuse at NAV after KYC",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.3"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, USTRY",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the holding"]
+    },
+    {
+      "address": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+      "symbol": "JTO",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Jito",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "JTO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: JTO, solana-native",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "symbol": "JUP",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Jupiter",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "JUP",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: JUP, solana-native",
+          "readOn": "2026-10-01"
+        },
+        {
+          "url": "https://station.jup.ag/docs/jup-token",
+          "title": "Jupiter Station docs, JUP token",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "KMNo3nJsBXfcpJTVhZcXLW7RmTwTt4GVFE7suUBo9sS",
+      "symbol": "KMNO",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Kamino",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "KMNO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: KMNO, solana-native",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+      "symbol": "PYTH",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Pyth Network",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "PYTH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: PYTH, solana-native",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "symbol": "RAY",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Raydium",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "RAY",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: RAY, solana-native",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "usd63SVWcKqLeyNHpmVhZGYAqfE5RHE8jwqjRA2ida2",
+      "symbol": "USDC+",
+      "category": "lending_deposit",
+      "status": "excluded",
+      "statusReason": "out in the research note: hit by the Drift exploit of 2026-04-01; mint and redemption paused; not tradable",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, sections 3.2 and 4, USDC+",
+      "issuer": "Reflect",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USDC+",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "market_deposit",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, USDC+",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, USDC+",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 4, USDC+",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": ["the share of backing lost", "the mint on a Reflect page"]
+    },
+    {
+      "address": "GcV9tEj62VncGithz4o4N9x6HWXARxuRgEAYk9zahNA8",
+      "symbol": "jlEURC",
+      "category": "lending_deposit",
+      "status": "held_out",
+      "statusReason": "a deposit in euros: held out under USD-ONLY (DA7), and the research has not screened it",
+      "verdictSource": null,
+      "issuer": "Jupiter Lend",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "jlEURC",
+      "underlyingReason": null,
+      "currency": "EUR",
+      "legTypes": null,
+      "legTypesReason": "not_screened_by_the_research",
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+    },
+    {
+      "address": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
+      "symbol": "jlJUPUSD",
+      "category": "lending_deposit",
+      "status": "candidate",
+      "statusReason": "add with caution in the research note (it sells through redemption while that is open): not decided for a plan (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, jlJupUSD",
+      "issuer": "Jupiter Lend",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "jlJUPUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "market_deposit",
+          "source": "packages/engine/src/personal/leg-types.ts, jlJupUSD: The deposit token of a lending market over JupUSD: borrowers pay the interest, as read in docs/vault/research/yield-shelf/solana.md, section 3",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, jlJupUSD",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["JupUSD reserves from an issuer document", "the terms", "how rewards are paid"]
+    },
+    {
+      "address": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
+      "symbol": "jlUSDC",
+      "category": "lending_deposit",
+      "status": "listed",
+      "statusReason": "on today's shelf: listedIn says where",
+      "verdictSource": "docs/vault/research/open-questions/launch-shelf.md, Platform asset list, Solana",
+      "issuer": "Jupiter Lend",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "jlUSDC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "market_deposit",
+          "source": "packages/engine/src/personal/leg-types.ts, jlUSDC: Jupiter Lend USDC deposit, docs/vault/research/open-questions/launch-shelf.md (dollar yield on Solana)",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.md",
+          "title": "Launch shelf, Platform asset list, Solana: jlUSDC, dollar yield, tier A",
+          "readOn": "2026-10-01"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+    },
+    {
+      "address": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
+      "symbol": "jlUSDG",
+      "category": "lending_deposit",
+      "status": "held_out",
+      "statusReason": "a dollar-yield token the research has not screened: held out until it is",
+      "verdictSource": null,
+      "issuer": "Jupiter Lend",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "jlUSDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "not_screened_by_the_research",
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+    },
+    {
+      "address": "j14XLJZSVMcUYpAfajdZRpnfHUpJieZHS4aPektLWvh",
+      "symbol": "jlUSDS",
+      "category": "lending_deposit",
+      "status": "held_out",
+      "statusReason": "a dollar-yield token the research has not screened: held out until it is",
+      "verdictSource": null,
+      "issuer": "Jupiter Lend",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "jlUSDS",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "market_deposit",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSDS (the nearest on Solana is jlUSDS, a Jupiter Lend deposit)",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, sUSDS",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+    },
+    {
+      "address": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
+      "symbol": "jlUSDT",
+      "category": "lending_deposit",
+      "status": "held_out",
+      "statusReason": "a dollar-yield token the research has not screened: held out until it is",
+      "verdictSource": null,
+      "issuer": "Jupiter Lend",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "jlUSDT",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "not_screened_by_the_research",
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+    },
+    {
+      "address": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
+      "symbol": "kUSDC",
+      "category": "lending_deposit",
+      "status": "candidate",
+      "statusReason": "add with caution in the research note (no market route, redemption at the reserve only; section 5.2 asks whether it waits off the shelf): not decided for a plan (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, kUSDC",
+      "issuer": "Kamino",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "kUSDC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "market_deposit",
+          "source": "packages/engine/src/personal/leg-types.ts, kUSDC: The deposit token of the USDC reserve of a lending market: borrowers pay the interest, and a withdrawal waits when all is lent, as read in docs/vault/research/yield-shelf/solana.md, section 3",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "redeem at the USDC reserve D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59 of the Main Market for USDC, up to the USDC not lent out",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "instant while the reserve has liquidity; blocked at full use",
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.1, kUSDC"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, kUSDC",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the symbol: the mint holds no metadata; kUSDC is the research note's name",
+        "withdrawal caps",
+        "the terms"
+      ]
+    },
+    {
+      "address": "Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ",
+      "symbol": "dSOL",
+      "category": "liquid_staking",
+      "status": "excluded",
+      "statusReason": "wound down, defunct or exploit-linked: the research note's list of what is out, from the input list",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 4",
+      "issuer": "Drift",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SOL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 4, dSOL",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "why it is out: the input list says it, the note did not research it again",
+        "the issuer: from the token's name on chain"
+      ]
+    },
+    {
+      "address": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "symbol": "mSOL",
+      "category": "liquid_staking",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Marinade",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SOL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.marinade.finance/developers/contract-addresses",
+          "title": "Marinade docs, Contract Addresses",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj",
+      "symbol": "stSOL",
+      "category": "liquid_staking",
+      "status": "excluded",
+      "statusReason": "wound down, defunct or exploit-linked: the research note's list of what is out, from the input list",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 4",
+      "issuer": "Lido",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SOL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 4, stSOL",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "why it is out: the input list says it, the note did not research it again",
+        "the issuer: from the token's name on chain"
+      ]
+    },
+    {
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "SOL",
+      "category": "native",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6); the row is the SPL Token native mint that wraps SOL",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "the_chain_native_token",
+      "issuerKind": null,
+      "underlying": "SOL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: SOL, crypto-major",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5",
+      "symbol": "ONyc",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "hold in the research note: none of the four leg types fits (reinsurance: premium less insured losses, plus the yield on the collateral); section 5.1 asks Rodrigo for a type",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, sections 3.2 and 5.1, ONyc",
+      "issuer": "OnRe",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ONyc",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, ONyc",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 5.1, ONyc",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "what backs it in full",
+        "the terms list countries that may not use its interface, section 3.2"
+      ]
+    },
+    {
+      "address": "star9agSpjiFe3M49B3RniVU4CMBBEK3Qnaqn3RGiFM",
+      "symbol": "USD*",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "hold in the research note: none of the four leg types fits (a stable pool with delta-neutral, lending and real-world sources whose shares were not read); section 5.1 asks Rodrigo for a type",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, sections 3.2 and 5.1, USD*",
+      "issuer": "Perena",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USD*",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, USD*",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 5.1, USD*",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": ["the mint on an issuer page", "what backs it in full", "geo-blocks"]
+    },
+    {
+      "address": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
+      "symbol": "AUTO",
+      "category": "private_credit",
+      "status": "candidate",
+      "statusReason": "add with caution in the research note (consumer credit from one originator, and the terms of PRIME unread): not decided for a plan (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, AUTO",
+      "issuer": "Hastra",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "AUTO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "packages/engine/src/personal/leg-types.ts, AUTO: A share in a pool of consumer auto loans, as read in docs/vault/research/yield-shelf/solana.md, section 3",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, AUTO",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the mint on a Hastra page",
+        "geo-blocks",
+        "the auto lender and the quality of the loans",
+        "unstake terms"
+      ]
+    },
+    {
+      "address": "3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7",
+      "symbol": "PRIME",
+      "category": "private_credit",
+      "status": "candidate",
+      "statusReason": "add with caution in the research note (geo-blocks and unstake terms not read): not decided for a plan (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, PRIME",
+      "issuer": "Hastra",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "PRIME",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "packages/engine/src/personal/leg-types.ts, PRIME: A share in warehouse lending against home-equity lines of credit, as read in docs/vault/research/yield-shelf/solana.md, section 3",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, PRIME",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the mint on a Hastra page",
+        "geo-blocks",
+        "unstake delay and fees",
+        "who bears a default and in what order"
+      ]
+    },
+    {
+      "address": "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+      "symbol": "PST",
+      "category": "private_credit",
+      "status": "candidate",
+      "statusReason": "add with caution in the research note (credit with no borrower disclosure read): not decided for a plan (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, PST",
+      "issuer": "Huma Finance",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "PST",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "packages/engine/src/personal/leg-types.ts, PST: A share in loans to payment-financing businesses: their fees are the yield, as read in docs/vault/research/yield-shelf/solana.md, section 3",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": {
+        "primary": "protocol",
+        "description": "redeem first come, first served under a global daily cap that resets at 00:00 UTC; or sell on a pool",
+        "kyc": false,
+        "minimum": null,
+        "settlement": "usually one business day, at most seven",
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.1, PST"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, PST",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the mint on a Huma page",
+        "borrowers and defaults",
+        "the size of the cap",
+        "geo-blocks"
+      ]
+    },
+    {
+      "address": "BwB3tNH92jKw6naNGDYDbDwRo8bvYxZVvZjRZRcoWR2h",
+      "symbol": "oTFY",
+      "category": "private_credit",
+      "status": "held_out",
+      "statusReason": "hold in the research note: no issuer page names the mint",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, oTFY",
+      "issuer": "Obligate",
+      "issuerReason": null,
+      "issuerKind": "regulated_fund_manager",
+      "underlying": "oTFY",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, oTFY",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "subscribe and redeem with the issuer, for qualified or professional investors after KYC",
+        "kyc": true,
+        "minimum": "$10,000",
+        "settlement": "a seven-day redemption window, subject to the liquidity buffer",
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, oTFY"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, oTFY",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the mint on an Obligate page",
+        "whether a holder without KYC may hold and sell it",
+        "geo-blocks"
+      ]
+    },
+    {
+      "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+      "symbol": "syrupUSDC",
+      "category": "private_credit",
+      "status": "listed",
+      "statusReason": "on today's shelf: listedIn says where",
+      "verdictSource": "docs/vault/research/open-questions/launch-shelf.md, Platform asset list, Solana",
+      "issuer": "Maple Finance",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "syrupUSDC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "credit",
+          "source": "packages/engine/src/personal/leg-types.ts, syrupUSDC: Maple Finance, \"Withdrawal Process\", \"Risk Disclosures\", \"Defaults and Impairments\" (docs.maple.finance), as read in docs/vault/research/portfolio-method.md [64]",
+          "readOn": "2026-10-03"
+        },
+        {
+          "type": "basis",
+          "source": "packages/engine/src/personal/leg-types.ts, syrupUSDC: Maple Finance, \"Withdrawal Process\", \"Risk Disclosures\", \"Defaults and Impairments\" (docs.maple.finance), as read in docs/vault/research/portfolio-method.md [64]",
+          "readOn": "2026-10-03"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "packages/engine/src/assets/registry.ts",
+          "title": "The structurer's registry, row syrupusdc",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.md",
+          "title": "Launch shelf, Platform asset list, Solana: syrupUSDC, dollar yield, tier A",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": [
+        "the exchange rate is the Ethereum pool's; on Solana the token is bridged",
+        "the mint on an issuer page"
+      ]
+    },
+    {
+      "address": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+      "symbol": "EURC",
+      "category": "stablecoin_other",
+      "status": "held_out",
+      "statusReason": "a stablecoin in euros: held out under USD-ONLY (DA7)",
+      "verdictSource": null,
+      "issuer": "Circle",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "EURC",
+      "underlyingReason": null,
+      "currency": "EUR",
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+          "title": "Circle developer docs, EURC contract addresses",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "euro5sNHrZC2wu2RoLvy6xxoVMc3Qnd1vjxoWf4MftA",
+      "symbol": "EUROP",
+      "category": "stablecoin_other",
+      "status": "held_out",
+      "statusReason": "a stablecoin in euros: held out under USD-ONLY (DA7)",
+      "verdictSource": null,
+      "issuer": "Schuman Financial",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "EUROP",
+      "underlyingReason": null,
+      "currency": "EUR",
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://stablecoins.llama.fi/stablecoins?includePrices=false",
+          "title": "DefiLlama's stablecoins: Schuman EUROP, pegged to the euro (a name)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
+    },
+    {
+      "address": "CeteszTBgDCiRWyPX6KFMHGVcSBTAg82dbaiFC7xDXSn",
+      "symbol": "MEX",
+      "category": "stablecoin_other",
+      "status": "held_out",
+      "statusReason": "out in the research note: not a bond, priced at one peso with an on-chain rate of zero, what backs it not found; in pesos, held out under USD-ONLY (DA7)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, sections 3.3 and 4, MEX",
+      "issuer": "Etherfuse",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "MEX",
+      "underlyingReason": null,
+      "currency": "MXN",
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.3, MEX",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://api.etherfuse.com/lookup/stablebonds",
+          "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["what backs MEX"]
+    },
+    {
+      "address": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
+      "symbol": "USDS",
+      "category": "stablecoin_synthetic",
+      "status": "candidate",
+      "statusReason": "a dollar backed by loans and positions, not on the shelf: not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "Sky",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USDS",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, sUSDS",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "what backs USDS: Sky's mix of loans, allocations and Treasury holdings, as the note reasons it, not read on an issuer page",
+        "the mint on an issuer page"
+      ]
+    },
+    {
+      "address": "DEkqHyPN7GMRJ5cArtQFAWefqbZb33Hyf6s5iCwjEonT",
+      "symbol": "USDe",
+      "category": "stablecoin_synthetic",
+      "status": "candidate",
+      "statusReason": "a synthetic dollar, not on the shelf: which cash a plan holds is not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "Ethena",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USDe",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+          "title": "Ethena docs, Key Addresses (Solana row)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["how USDe reaches Solana (the bridge) and how it is redeemed there"]
+    },
+    {
+      "address": "AUSD1jCcCyPLybk1YnvPWsHQSrZ46dxwoMniN4N2UEB9",
+      "symbol": "AUSD",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: which cash a plan holds is not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "Agora",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "AUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://stablecoins.llama.fi/stablecoins?includePrices=false",
+          "title": "DefiLlama's stablecoins: Agora Dollar (a name)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
+    },
+    {
+      "address": "9zNQRsGLjNKwCUU5Gq5LR8beUCPzQMVMqKAi3SSZh54u",
+      "symbol": "FDUSD",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: which cash a plan holds is not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "First Digital",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "FDUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the mint on an issuer page"]
+    },
+    {
+      "address": "JuprjznTrTSp2UFa3ZBUFgwdAmtZCq4MQCwysN55USD",
+      "symbol": "JupUSD",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: which cash a plan holds is not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "Jupiter",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "JupUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+          "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, jlJupUSD",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the reserves at launch (USDtb and USDC): a press report the note read, not an issuer document"
+      ]
+    },
+    {
+      "address": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "symbol": "PYUSD",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: the research note leaves it off the yield shelf for paying nothing, which does not decide it as cash (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 4",
+      "issuer": "Paxos",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "PYUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.paxos.com/guides/stablecoin/pyusd/mainnet",
+          "title": "Paxos docs, PYUSD on mainnet",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 4, PYUSD",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+      "symbol": "USD1",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: which cash a plan holds is not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "World Liberty Financial",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "USD1",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the mint on an issuer page"]
+    },
+    {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "symbol": "USDC",
+      "category": "stablecoin_usd",
+      "status": "listed",
+      "statusReason": "on today's shelf: listedIn says where",
+      "verdictSource": null,
+      "issuer": "Circle",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "USDC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+          "title": "Circle developer docs, USDC contract addresses",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "packages/engine/src/assets/registry.ts",
+          "title": "The structurer's registry, rows usdc and kamino-usdc",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "symbol": "USDG",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: which cash a plan holds is not decided here (DA5)",
+      "verdictSource": null,
+      "issuer": "Paxos",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "USDG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.paxos.com/guides/stablecoin/usdg/mainnet",
+          "title": "Paxos docs, USDG on mainnet",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "symbol": "USDT",
+      "category": "stablecoin_usd",
+      "status": "listed",
+      "statusReason": "on today's shelf: listedIn says where",
+      "verdictSource": null,
+      "issuer": "Tether",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "USDT",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://tether.to/en/supported-protocols/",
+          "title": "Tether, Supported Protocols",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "packages/engine/src/assets/registry.ts",
+          "title": "The structurer's registry, row usdt",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "6FrrzDk5mQARGc1TDYoyVnSyRdds1t4PbtohCD6p3tgG",
+      "symbol": "USX",
+      "category": "stablecoin_usd",
+      "status": "candidate",
+      "statusReason": "a stablecoin, not on the shelf: the research note leaves it off the yield shelf for paying nothing (it fell well under a dollar on 2025-12-26, section 3.2), which does not decide it as cash (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, USX",
+      "issuer": "Solstice",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USX",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, USX",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the mint on a Solstice page",
+        "a reserve attestation",
+        "the mint on an issuer page"
+      ]
+    },
+    {
+      "address": "5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW",
+      "symbol": "PAXG",
+      "category": "tokenized_gold",
+      "status": "listed",
+      "statusReason": "on today's shelf: listedIn says where",
+      "verdictSource": "docs/GATES.md, GOLD-PAXG",
+      "issuer": "Paxos",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "PAXG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/GATES.md",
+          "title": "Gate GOLD-PAXG: gold on Solana is PAXG, issued natively by Paxos",
+          "readOn": "2026-10-05"
+        },
+        {
+          "url": "https://docs.paxos.com/guides/stablecoin/paxg/mainnet",
+          "title": "Paxos docs, PAXG on mainnet",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6",
+      "symbol": "USDY",
+      "category": "treasury_fund_open",
+      "status": "listed",
+      "statusReason": "on today's shelf: the structurer's registry (the research note's verdict is add)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, USDY",
+      "issuer": "Ondo Finance",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "USDY",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "packages/engine/src/personal/leg-types.ts, USDY: Ondo Finance, \"USDY Basics\" (docs.ondo.finance), as read in docs/vault/research/portfolio-method.md [63]",
+          "readOn": "2026-10-03"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": "accruing_price",
+      "yieldMechanismReason": null,
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
+      "mintRedeem": {
+        "primary": "issuer",
+        "description": "mint and redeem with Ondo after KYC, for non-US persons, by bank wire; a vault sells on a pool",
+        "kyc": true,
+        "minimum": null,
+        "settlement": null,
+        "source": "docs/vault/research/yield-shelf/solana.md, section 3.1, USDY"
+      },
+      "mintRedeemReason": null,
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, USDY",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "packages/engine/src/assets/registry.ts",
+          "title": "The structurer's registry, row usdy",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.ondo.finance/addresses",
+          "title": "Ondo Finance docs, Smart Contract Addresses (Solana)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "geo-blocks: read from a search extract of the issuer's eligibility page, not the page",
+        "the current issuing entity"
+      ]
+    },
+    {
+      "address": "susdabGDNbhrnCa6ncrYo81u4s9GM8ecK2UwMyZiq4X",
+      "symbol": "sUSD",
+      "category": "treasury_fund_open",
+      "status": "held_out",
+      "statusReason": "hold in the research note: even a small sale loses much of its value, and the rate the mint reads is not a T-bill rate, section 3.1",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSD",
+      "issuer": "Solayer",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "sUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSD",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "interest_bearing_extension_changes_only_the_displayed_amount",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, sUSD",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the leg type: from launch coverage only",
+        "the mint against the issuer",
+        "backing",
+        "redemption",
+        "geo-blocks"
+      ]
+    },
+    {
+      "address": "8fr7WGTVFszfyNWRMXj6fRjZZAnDwmXwEpCrtzmUkdih",
+      "symbol": "wYLDS",
+      "category": "treasury_fund_open",
+      "status": "candidate",
+      "statusReason": "add with caution in the research note (one order book, and every sale fills under par, section 3.1): not decided for a plan (DA5)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, wYLDS",
+      "issuer": "Hastra",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "wYLDS",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": [
+        {
+          "type": "rate",
+          "source": "packages/engine/src/personal/leg-types.ts, wYLDS: A wrapper of a registered certificate that pays an overnight rate less a spread; the issuer owes it, as read in docs/vault/research/yield-shelf/solana.md, section 3",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "how_a_plain_holder_receives_the_yield_was_not_verified",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.1, wYLDS",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "the category: a face-amount certificate paying an overnight rate less a spread, filed as the nearest category; what backs it was not read",
+        "the mint on a Hastra page",
+        "geo-blocks",
+        "redemption terms"
+      ]
+    },
+    {
+      "address": "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc",
+      "symbol": "OUSG",
+      "category": "treasury_fund_permissioned",
+      "status": "held_out",
+      "statusReason": "a permissioned fund: a vault cannot be put on an allowlist (DA4)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 4",
+      "issuer": "Ondo Finance",
+      "issuerReason": null,
+      "issuerKind": "regulated_fund_manager",
+      "underlying": "OUSG",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "not_read",
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": "permissioned",
+      "accessReason": null,
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.ondo.finance/addresses",
+          "title": "Ondo Finance docs, Smart Contract Addresses (Solana): the OUSG token on Solana; addresses that can hold OUSG are on its registry",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 4, permissioned funds",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "CCz3SGVziFeLYk2xfEstkiqJfYkjaSWb2GCABYsVcjo2",
+      "symbol": "USTB",
+      "category": "treasury_fund_permissioned",
+      "status": "held_out",
+      "statusReason": "a permissioned fund: a vault cannot be put on an allowlist (DA4)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 4",
+      "issuer": "Superstate",
+      "issuerReason": null,
+      "issuerKind": "regulated_fund_manager",
+      "underlying": "USTB",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": "not_read",
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": "permissioned",
+      "accessReason": null,
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.superstate.com/investors/smart-contracts",
+          "title": "Superstate docs, Smart Contracts: SVM contracts, Solana Mainnet (allowlist, USTB and USCC Token-2022)",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 4, permissioned funds",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+      "symbol": "WBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "a wrapped token of a wrapped token: Ethereum's WBTC carried by the Wormhole bridge, as the on-chain name says",
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+      "symbol": "cbBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Coinbase",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/open-questions/launch-shelf.seed.json",
+          "title": "Launch-shelf seed, Solana: cbBTC, crypto-major",
+          "readOn": "2026-10-01"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "zBTCug3er3tLyffELcvDNrKkCymbPWysGcWihESYfLg",
+      "symbol": "zBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["the issuer and the bridge behind it", "the mint on an issuer page"]
+    },
+    {
+      "address": "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+      "symbol": "WETH",
+      "category": "wrapped_eth",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "ETH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "the mint on an issuer page",
+        "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    }
+  ]
+}

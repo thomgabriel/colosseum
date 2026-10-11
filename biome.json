@@ -25,6 +25,12 @@
       "!idl"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["scripts/risk/assets/*.json"],
+      "files": { "maxSize": 16777216 }
+    }
+  ],
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2,
