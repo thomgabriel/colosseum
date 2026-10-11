@@ -11,6 +11,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ASSETS_METHOD,
   kindOfName,
+  LEFT_OUT_FILE,
+  LeftOut,
   MATCH_KEYS,
   ruleMatches,
   type SolanaReads,
@@ -29,6 +31,7 @@ import { repoInputs } from '../scripts/risk/assets/solana-repo';
 const LIST = 'scripts/risk/assets/solana.json';
 const committed = () => JSON.parse(readFileSync(LIST, 'utf8'));
 const verdicts = () => UniverseVerdicts.parse(JSON.parse(readFileSync(VERDICTS_FILE, 'utf8')));
+const leftOut = () => LeftOut.parse(JSON.parse(readFileSync(LEFT_OUT_FILE, 'utf8')));
 const fixtureOf = (list: { inputs: Record<string, string> }) => {
   const stamp = list.inputs.reads?.match(/solana-reads-(\d{8}T\d{4}Z)\.json/)?.[1];
   if (!stamp) throw new Error('the committed list names no reads file');
@@ -171,7 +174,7 @@ describe('the committed list', () => {
     const list = UniverseList.parse(file);
     expect(list.chain).toBe('solana');
     expect(list.method).toBe(ASSETS_METHOD);
-    expect(file).toEqual(JSON.parse(JSON.stringify(solanaList(reads, verdicts()).list)));
+    expect(file).toEqual(JSON.parse(JSON.stringify(solanaList(reads, verdicts(), leftOut()).list)));
   });
 
   it('reads every row on chain at a recorded slot and gives each a source', () => {
@@ -276,7 +279,7 @@ describe('the rules and the name method', () => {
         t.id === PENGU ? { ...t, tags: [...t.tags, 'xstocks'] } : t,
       ),
     };
-    const list = solanaList(tagged, verdicts()).list;
+    const list = solanaList(tagged, verdicts(), leftOut()).list;
     expect(list.assets.some((a) => a.address === PENGU)).toBe(false);
     expect(list.counts.rows).toBe(committed().counts.rows);
   });
@@ -336,9 +339,44 @@ describe('the rules and the name method', () => {
         },
       ],
     });
-    const list = solanaList(reads, partial).list;
+    const list = solanaList(reads, partial, leftOut()).list;
     expect(list.assets.some((a) => a.address === PENGU)).toBe(false);
     expect(list.stated.rules).toContain('PENGU: category');
+  });
+});
+
+describe('the crypto selection', () => {
+  it('reviews every token it picks: a row, or left out with the reason and its source', () => {
+    const list = UniverseList.parse(committed());
+    expect(list.stated.crypto).not.toMatch(/not_reviewed \(\d/);
+    const rows = new Set(list.assets.map((a) => a.address));
+    const left = leftOut().tokens;
+    expect(left.filter((t) => rows.has(t.address))).toEqual([]);
+    const picked = new Set(reads.jupiter.filter((t) => t.selected).map((t) => t.id));
+    expect(left.filter((t) => !picked.has(t.address))).toEqual([]);
+    expect(left.filter((t) => t.reason === 'memecoin').length).toBeGreaterThan(0);
+  });
+
+  it("names each new crypto row's mint on CoinGecko's list, as the reads hold it", () => {
+    const list = UniverseList.parse(committed());
+    const cg = list.assets.filter((a) =>
+      a.sources.some((s) => s.url.startsWith('https://www.coingecko.com/en/coins/')),
+    );
+    expect(cg.length).toBeGreaterThan(100);
+    for (const a of cg) {
+      const id = a.sources
+        .find((s) => s.url.startsWith('https://www.coingecko.com/en/coins/'))
+        ?.url.split('/')
+        .pop();
+      expect(reads.coingecko.byMint[a.address]?.id).toBe(id);
+    }
+    const jlp = list.assets.find((a) => a.symbol === 'JLP');
+    expect([jlp?.category, jlp?.status, jlp?.statusReason]).toEqual([
+      'other',
+      'held_out',
+      'a fungible share of a perps pool: no class takes it yet',
+    ]);
+    expect(list.assets.find((a) => a.address === USDC)?.id).toBe('solana:usdc');
   });
 });
 
@@ -351,7 +389,7 @@ describe('the builder refuses', () => {
       ...v,
       verdicts: [...v.verdicts, { ...own, address: KAMINO_MAIN_MARKET, symbol: 'MARKET' }],
     });
-    expect(() => solanaList(reads, bad)).toThrow(
+    expect(() => solanaList(reads, bad, leftOut())).toThrow(
       `verdicts for addresses no read saw as a mint: MARKET ${KAMINO_MAIN_MARKET}`,
     );
   });
@@ -364,7 +402,7 @@ describe('the builder refuses', () => {
       ...v,
       rules: [{ ...rule, name: 'misspelt', match: { jupitertag: 'xstocks' } }, ...v.rules],
     });
-    expect(() => solanaList(reads, bad)).toThrow(
+    expect(() => solanaList(reads, bad, leftOut())).toThrow(
       `rule misspelt: match key jupitertag; the Solana builder reads ${MATCH_KEYS.join(', ')}`,
     );
   });

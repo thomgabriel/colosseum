@@ -1,0 +1,691 @@
+{
+  "chain": "solana",
+  "reviewedOn": "2026-10-11",
+  "note": "Tokens the crypto selection picks (Jupiter verified; tagged major or strict, or a 24 h volume on Jupiter of at least the floor) that are not rows, each with the reason and where it was read. A token Jupiter tags meme, launchpad or moonshot is counted by the builder and is not listed here. Reviewed by hand on readOn.",
+  "tokens": [
+    {
+      "address": "BoZoQQRAmYkr5iJhqo7DChAs7DPDwEZ5cv1vkYC9yzJG",
+      "symbol": "$BOZO",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/bozo-collective: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "8c71AvjQeKKeWRe8jtTGG1bJ2WiYXQdbjqFbUfhHgSVk",
+      "symbol": "$GARY",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/gary: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "HXkbUADfocGyz2WrzJpjEfry8qyNDm5Kwiiq3Mz3tTi1",
+      "symbol": "$RETIRE",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/retire-on-sol: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "J8cKU4pD2NTSovvV5XghWHQiJy5TTEzgSyozorxz6ax8",
+      "symbol": "$SOLO",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/solordi: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "7ypCq2CJ4fnbtS3z2B1W1UT2he5E3u7Md6Gy1ri7uGrQ",
+      "symbol": "ANT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/antminer: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "CWZ6BsdnjkDVTGkmL6bGbJXXig6ceef12KvyGQW14cMt",
+      "symbol": "ANTFUN",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/antfun: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "C3JX9TWLqHKmcoTDTppaJebX2U7DcUQDEHVSmJFz6K6S",
+      "symbol": "Bazinga",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/bazinga-2: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "EkHr62PC6Y1axrLS7cR8YC4BZeW19mtHxQLCLMrf9vnq",
+      "symbol": "CIRCLE",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/you-looked: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "8HGyAAB1yoM1ttS7pXjHMa3dukTFGQggnFFH3hJZgzQh",
+      "symbol": "COPE",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/cope: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "ApZuxdpzMrbEYTGEzeY9afh5pj9d6qPRJCTgQYiipbKg",
+      "symbol": "CYBERLEEK",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files cyberleek as a meme"
+    },
+    {
+      "address": "A5gVj5j16U4vCTMXQYYrhkmWgx6gej4nAeZRNQMLUAfy",
+      "symbol": "DJCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/djcat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "7Xgc5RacHtGzfhw2HukUBk5V986yBbvshr7rrCoopump",
+      "symbol": "DRMR",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/derekmercer: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "A2khRbhRJNrAEHj95htivC4cR4VbJwfssDH5FPPbP4m9",
+      "symbol": "duk",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/duk-on-sol: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "HgcxVs6kJhPAaGqnPNGaa7zYgNT49hJrLufiqcNMuYZT",
+      "symbol": "FEELSGOOD",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/feels-good-man-3: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "FeKmTunVrXDKEoDJbuTwZi8vfFFw3MHzpPB79JD8ARYU",
+      "symbol": "FIW",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/777fuckilluminatiworldwid: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "CTPoyCwkjMvoJwU4xvZZqoD8tiYk6yDchySiN5gGpump",
+      "symbol": "fone",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files apeonfone as a meme"
+    },
+    {
+      "address": "HbPDWSqu8hpVMX6gMjwMDGe5rVgicWo3Qh3Jaojypump",
+      "symbol": "Frank",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/frank-ashford: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "D1YZZg9dBZ7AbfknZVbaeVLto36eySwoFYEVhZrD4F4n",
+      "symbol": "GO",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/lesgo: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "BQ3F72yt9FVRgYrqCVCG3YohyBesDZ9bTuhGdmQ7GNEF",
+      "symbol": "GROK",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/grok-6: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "EEpng77ZPn9FbgbT4xsRjwuxNCcMBYq3HTwEscyTpump",
+      "symbol": "HeeHaw",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/justice-for-heehaw: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "GTBxUiw6wJdmmkCGZgRHLyYxqu1vG4KtRpeox6yDpump",
+      "symbol": "JEANPHIL",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files jean-phil as a meme"
+    },
+    {
+      "address": "9Pfync3ejPC9eHqVzq3nYQJAhyhjqpnB9UsaSfLxpump",
+      "symbol": "KET",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/ket-3: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "9vrGUHwsC8LyLjQoh3zJb9S53x7A88u49La63qPB6F5t",
+      "symbol": "lilpump",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/lil-pump: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "DDti34vnkrCehR8fih6dTGpPuc3w8tL4XQ4QLQhc3xPa",
+      "symbol": "LSD",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/liquid-solana-derivative: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "BCdwQBAn8dYB5YjTsoB6TdHAWokxv28k2oZUodERpump",
+      "symbol": "MANIFEST",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files manifesting as a meme"
+    },
+    {
+      "address": "8W4qpyLx74vwBRewa3rVEPPVMnJ8VWMkCTWCTSYPQTDu",
+      "symbol": "MEMES",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/memecoindao: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "6UtY9iTZMQQ5QZVrbzFnNaJntV7oySm9k97mvwnuZcxr",
+      "symbol": "NEARKAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/nearkat-2: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "dekNoN3D8mXa4JHLwTbVXz8aPAyJUkk443UjcSpJKi4",
+      "symbol": "peanie",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/peanie: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "EkFRff9a2jKztJHML1LG9FRmEkPJDR6XAYp3uCPdpump",
+      "symbol": "SLOPCORE",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/slopcore: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "fESbUKjuMY6jzDH9VP8cy4p3pu2q5W2rK2XghVfNseP",
+      "symbol": "SOLANA",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/catfrogdogshark: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "E99fN4tCRb1tQphXK1DU7prXji6hMzxETyPNJro19Fwz",
+      "symbol": "SOLCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/catsolhat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "EN2nnxrg8uUi6x2sJkzNPd2eT6rB9rdSoQNNaENA4RZA",
+      "symbol": "SQUIRE",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/pod-the-squire: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+      "symbol": "STONK",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/stonk-3: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "FaxYQ3LVXP51rDP2yWGLWVrFAAHeSdFF8SGZxwj2dvor",
+      "symbol": "SWAG",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/swag-coin: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "42cXQvAAr7hcPBPWAS4ocVtDyeJ4Fa6gRR2uG4gppump",
+      "symbol": "TBB",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files the-bitcoin-bull as a meme"
+    },
+    {
+      "address": "A13oRB9FFaiUjfi6LdCg6p9ka1u8SfGkUFs4SKvPpump",
+      "symbol": "TOAD",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/the-toad-pepe: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "VP9UaBXLM4KYRvyjisu65rz8BU5xNAbewU7LVmyU2x4",
+      "symbol": "VCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/vibing-cat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "GJgHsc1HU4ibmzW6oWQr8L2RRT95ATc1BoNuLkp94AwU",
+      "symbol": "WBS",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/white-boy-summer: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+      "symbol": "ZCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files anonymous-cat as a meme"
+    },
+    {
+      "address": "ARBzQTYDCW2KnVEjs1Mc81LekB1ibVFZKbSVmorkoT9d",
+      "symbol": "ARB",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "AxaTJdRuuc3626FtPWdQCMcWPH6yzgxXKWbFCZN3TMgy",
+      "symbol": "ASV",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "DM3Y4R7n1HGhP9AkNT6Ex4w1qQTpgq1TyujrMDX11FMT",
+      "symbol": "BASC",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "Ai66LHZG9MCzg1WKdawwqduVAXpNDUuV8M3uyq5ppump",
+      "symbol": "CATE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "cbADAmv9issuPfhFwyQG3xac4DGPd1LDSt1oz7vwJsg",
+      "symbol": "cbADA",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "cbLTC4T5NpzSUtQ7ekgEMZGaUPVJY1ko6BUikqa4gGf",
+      "symbol": "cbLTC",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o",
+      "symbol": "DAI",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "DoGEV7LASBkQbibMc5k5vKnTZoMg423GpJ5QtJEGfm7R",
+      "symbol": "DOGE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "HnnGv3HrSqjRpgdFmx7vQGjntNEoex1SU4e9Lxcxuihz",
+      "symbol": "eHYUSD",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "6FhVPctYg363pQbs4iSvqyHe2cJzfsvFD96gePy6pump",
+      "symbol": "EXFIL",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "VVWAy5U2KFd1p8AdchjUxqaJbZPBeP5vUQRZtAy8hyc",
+      "symbol": "FLIP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "6gx6Ph2ek73kF6EWDrG4GQ54pcLJB6CYpATuRyxKXumo",
+      "symbol": "fPHX",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "HTmQz7My6MehV7bjhJ6jde8nDND1yvsz68d24LP7YgUQ",
+      "symbol": "GP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "EicWvteVi2fWepEzS3FYWsnuPoP6caZfjnKqNvydLjCH",
+      "symbol": "LIT",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "GPzpoXpD74E2C4CJNayuoyBqPQJEsPtdse3nhntrpump",
+      "symbol": "LOOKSMAX",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
+      "symbol": "MINI",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "Morpho2VPeTr2E1Jx6monxCzF7mqwUnjz74RdwLXYyP",
+      "symbol": "MORPHO",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "CY2E69dSG9vBsMoaXDvYmMDSMEP4SZtRY1rqVQ9tkNDu",
+      "symbol": "NFD",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "9dwPiStDBwJJqC3QzMnjpJP7xohZbMVmHELFx3uy3KRq",
+      "symbol": "NVDA",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "ondohH8Vssxiqcy5u6Efi4AYN17KZrzQtv2a91dnrgW",
+      "symbol": "ONDO",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "Ea5SjE2Y6yvCeW5dYTn7PYMuW5ikXkvbGdcmSnXeaLjS",
+      "symbol": "PAI",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "3f7wfg9yHLtGKvy75MmqsVT1ueTFoqyySQbusrX1YAQ4",
+      "symbol": "PbP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "PEPEqnuuCDbBC89p1u9vpnP1KQ2oj1xTcQBsjt9X55m",
+      "symbol": "PEPE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "poNSfquKq512ApeYjVghwViSun4x1MhCqHVH2Paq4jN",
+      "symbol": "PONS",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "9EaLkQrbjmbbuZG9Wdpo8qfNUEjHATJFSycEmw6f1rGX",
+      "symbol": "pSOL",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
+      "symbol": "PURR",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "qntUzPUsJ51abNP7VYNxkmsQ4RnvEZAhavUxsCxpxH4",
+      "symbol": "QNT",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "shib5gSoVKPjwkXrxRk7SbQFzb2R9rQB3TgQWYX4RwW",
+      "symbol": "SHIB",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "SNSNkV9zfG5ZKWQs6x4hxvBRV6s8SqMfSGCtECDvdMd",
+      "symbol": "SNS",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "CH74tuRLTYcxG7qNJCsV9rghfLXJCQJbsu7i52a8F1Gn",
+      "symbol": "SOLX",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "stJUPZMmAWA1PNVPXCvqVK6MHABr4yFo5rv2JTethCa",
+      "symbol": "stJUP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "suifhC9gU1VbJAPYPTBkHJyyyStKGLLYPVDTmPoqbvA",
+      "symbol": "SUI",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE",
+      "symbol": "sUSDai",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "88881Hu2jGMfCs9tMu5Rr7Ah7WBNBuXqde4nR5ZmKYYy",
+      "symbol": "sUSDC-8",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "JEFFSQ3s8T3wKsvp4tnRAsUBW7Cqgnf8ukBZC4C8XBm1",
+      "symbol": "sUSDC-9",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "SV151D5pjygAKA8aJJcKzm4wFnRX5G92Fye94jQJk7g",
+      "symbol": "SV151",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "taoC6xyv2v8tDLcev4uaGUgV4vdQsWJrGft2kcBRrBY",
+      "symbol": "TAO",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "DLGRpmkMGr7J4KD1xR5x2XjaGeQH64PLFQkyxNNSpump",
+      "symbol": "TCG",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "AmgUMQeqW8H74trc8UkKjzZWtxBdpS496wh4GLy2mCpo",
+      "symbol": "TOKE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "FCqfQSujuPxy6V42UvafBhsysWtEq1vhjfMN1PUbgaxA",
+      "symbol": "USDCbs",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "E2VmbootbVCBkMNNxKQgCLMS1X3NoGMaYAsufaAsf7M",
+      "symbol": "USDCpo",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "8qJSyQprMC57TWKaYEmetUR3UUiTP2M3hXdcvFhkZdmv",
+      "symbol": "USDTbs",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "5goWRao6a3yNC4d6UjMdQxonkCMvKBwdpubU3qhfcdf1",
+      "symbol": "USDTpo",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "FNMLmBPkhh7nBFyGHsdrmCuvgEf6ygpaVqFejimHEx9V",
+      "symbol": "vBLSH",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "C4Kkr9NZU3VbyedcgutU6LKmi6MKz81sx6gRmk5pX519",
+      "symbol": "VEUR",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "VVV4UdRywr7SLafPHzqXwRCw7myXkmgCtitXUvj8g8c",
+      "symbol": "VVV",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "WLDTE73PPdfFFjhpBz8Yuhvx5N45gvgEgyMXqwa3rFn",
+      "symbol": "WLD",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "3ZLekZYq2qkZiSpnSvabjit34tUkjSwD1JFuW9as9wBG",
+      "symbol": "wNEAR",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "2zCo6bUowJMvr89ajxuWsPadAqJ2F9akCkxumNsSdgsL",
+      "symbol": "xBTC",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "xLfNTYy76B8Tiix3hA51Jyvc1kMSFV4sPdR7szTZsRu",
+      "symbol": "xLFNTY",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp",
+      "symbol": "XMR",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "xorcaYqbXUNz3474ubUMJAdu2xgPsew3rUCe5ughT3N",
+      "symbol": "xORCA",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "AqEHVh8J2nXH9saV2ciZyYwPpqWFRfD2ffcq5Z8xxqm5",
+      "symbol": "YAKU",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "J9BcrQfX4p9D1bvLzRNCbMDv8f44a9LFdeqNE4Yk2WMD",
+      "symbol": "ISC",
+      "reason": "not_of_a_class_of_the_product",
+      "source": "https://www.coingecko.com/en/coins/international-stable-currency: a currency pegged to a basket: no category of the product takes it"
+    },
+    {
+      "address": "2uQsyo1fXXQkDtcpXnLofWy88PxcvnfH2L8FPSE62FVU",
+      "symbol": "jlWSOL",
+      "reason": "not_of_a_class_of_the_product",
+      "source": "https://lite-api.jup.ag/lend/v1/earn/tokens: a deposit of SOL in a lending market (Jupiter Lend's earn tokens API names it): no category of the product takes it"
+    },
+    {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "symbol": "EMBER",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/embercurve: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "Afo4NumBNHDXc7m7p6qjZ1pF3LbqYfG5k1CNrGve8rVu",
+      "symbol": "FALX",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/falx: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "BWXrrYFhT7bMHmNBFoQFWdsSgA3yXoAnMhDK6Fn1eSEn",
+      "symbol": "HADES",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/hades: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS",
+      "symbol": "KNOTS",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/knots: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "E5ZVeBMazQAYq4UEiSNRLxfMeRds9SKL31yPan7j5GJK",
+      "symbol": "LDZ",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/voodoo: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "5HsZR8eG7QpQcN8Mnp8oFdENRkJMP9ZkcKhPSCKTJSWh",
+      "symbol": "MRC",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/moon-roll-coin: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "H1aN3vcvB68eaFPbMkoAss3vnfi4AhP5C2dpnrZzdBc7",
+      "symbol": "MYRA",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/myra: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "HrLx8MLKegpbmbmWePZiuvf3AbJNx1CJyjBwUHwicEgW",
+      "symbol": "NYXC",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/nyxia-ai: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "MukLDtJ8Cx9DxLbeyLRSWPSposTMWuwHANbuaudpump",
+      "symbol": "OTC",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/otc: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "PerPsCe2SJ7Q25CN4R5TTX4fmBdmknE2hQmqCt96fHL",
+      "symbol": "PERPSPAD",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/perpspad: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "EswgBj2hZKdgovX2ihWSUDnuBg9VNbGmSGoH5yjNsPRa",
+      "symbol": "PHY",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/physis: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "HHjoYwUp5aU6pnrvN4s2pwEErwXNZKhxKGYjRJMoBjLw",
+      "symbol": "PIP",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/pip: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "2bpT3ksMdwdZ6DuHyq3FDUr7HDwvZ5DRZoT1fUPALJaH",
+      "symbol": "RIV",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/riv-coin: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "SATqS9DYpLQsM2z51P4QCoqJRHa5wboV4qjJerJRUSH",
+      "symbol": "RUSH",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/sat-rush: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "8FA3TPf84h9gEZAxDhiLkMN4vvZcdEUZxmGadbo12auh",
+      "symbol": "SCALES",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/scales: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "HLnTNCG5RD7jYVduFc1pMCHiuApoWGn9LveqEFanQFZb",
+      "symbol": "TREN",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/tren: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "96egraTCizRpzNx4WvMMhPJf7TKS7W5kUHeenmd1XfuN",
+      "symbol": "XFEE",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/xfee: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ",
+      "symbol": "tKalshi",
+      "reason": "stock_token_no_rule_takes",
+      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
+    },
+    {
+      "address": "oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ",
+      "symbol": "tOpenAI",
+      "reason": "stock_token_no_rule_takes",
+      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
+    },
+    {
+      "address": "TSPXcLV76s6V2zDiZQ18kBfcbnjaE2ZzNT3ga2Pd99v",
+      "symbol": "tSpaceX",
+      "reason": "stock_token_no_rule_takes",
+      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
+    }
+  ]
+}
