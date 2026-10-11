@@ -327,7 +327,7 @@ async function robinhoodLogs() {
       otherVenueNotRead: sum(/:other_venue$/),
     };
     const gzBytes = sum(/:gzBytes$/);
-    const logsAll = sum(/^(v[34]_swap|mint|burn|v[34]_liquidity):/);
+    const logsAll = sum(/^(v[34]_swap|mint|burn|v[34]_liquidity):(?!rowBytes|gzBytes)/);
     const queriesPerSample = res.measured.queries / Math.max(1, res.strata);
     const windows = Math.ceil((h - from + 1) / size);
     // the full walk asks the same filters over every window: the sample's queries and seconds a window, scaled
