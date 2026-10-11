@@ -42,6 +42,7 @@ Checked against `origin/staging` at `4f2585c9` and the files on this machine, 20
 
 **AS.1 — The plan and the row** (branch `universe/assets-plan`).
 This document; the zod schemas `UniverseAsset`, `UniverseList`, `UniverseVerdicts` and the category table `CATEGORY_CLASS` in `packages/schemas/src/asset-universe.ts` (additive; imports nothing outside the package).
+- **No figure in words.** A reason, a status reason, a note of what was not verified and a mint path's description state no percentage, basis points or amount of money (`FIGURE_IN_WORDS`): a figure is an observation with its own source, time and method. The issuer's published minimum and settlement terms are kept as the issuer writes them.
 - **The statuses the schema holds** (the plan's decisions, so no builder can drift from them): a permissioned token, a token with a maturity or in another currency, a token with no class and a dollar-yield token with no leg type are never `listed` or `candidate` (DA4, DA7, the prompt's 5.3); a tracked stock names its tracked row and no other row does.
 - **Check:** `pnpm exec vitest run tests/asset-universe-schema.test.ts tests/asset-universe-assemble.test.ts`: a row of each kind parses; every rule of the row refuses what it should (a null without its reason, a class that is not the category's, leg types outside dollar yield, a tracked stock that copies its pools or oracle or names none, a listed row with no shelf, an offered status the plan holds out, the other chain's standard, symbol source, authorities or registry, an EVM implementation without a proxy); the rules a token matches apply in the table's order, each once; the schema's leg types equal the engine's `LegType`.
 
@@ -91,7 +92,7 @@ In order: (1) Robinhood Chain logs for the whole life of every pool and token of
 | DA13 | Pool state on Robinhood Chain before Oct 2 | Not rebuilt; a v3 and v4 replay is a later step | default |
 | DA14 | Disk and RPC budget | Count before fetching. **Amended for this machine:** 68 GB are free, so the prompt's 100 GB cannot be reached; the backfill may take 35 GB and stops if free space falls below 25 GB. A keyed indexer is DA8's question | stated, not chosen (pending Rodrigo) |
 | DA15 | USDC and USDT supply history | The external daily series only; their mints are not walked | default |
-| DA16 | A stock token that is not tracked | A row with `status: candidate` and the reason "outside the 80% cut": not tracked, its pools counted where the chain's files know them, no oracle read for it beyond the directory | stated, not chosen (pending Rodrigo) |
+| DA16 | A stock token that is not tracked | A row with `status: candidate` and the reason "outside the cut that names the tracked stocks (gate UNIVERSE)": not tracked, its pools counted where the chain's files know them, no oracle read for it beyond the directory | stated, not chosen (pending Rodrigo) |
 | DA17 | BRS, the BRL stablecoin on Solana | Not enumerated: no BRS-specific code or row until `G-NORA` passes (`CLAUDE.md`) | default |
 
 ## 5. Not in this plan

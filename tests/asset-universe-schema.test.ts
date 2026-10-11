@@ -272,6 +272,31 @@ describe('UniverseAsset', () => {
     expect(issues({ ...eurc, currency: 'USD' })).toEqual(['currency: dollars carry no currency']);
   });
 
+  it('states no figure in its words: a rate, a cost or an amount is an observation', () => {
+    const fig = 'a figure in words: it needs its own source, time and method';
+    expect(issues({ ...paxg(), statusReason: 'a $100 sale loses over 4%' })).toEqual([
+      `statusReason: ${fig}`,
+    ]);
+    expect(issues({ ...paxg(), unverified: ['a standing discount near 48 bps'] })).toEqual([
+      `unverified.0: ${fig}`,
+    ]);
+    expect(issues({ ...paxg(), mintRedeemReason: 'about $0.80 a share' })).toEqual([
+      `mintRedeemReason: ${fig}`,
+    ]);
+    expect(
+      issues({ ...paxg(), statusReason: 'held out under gate USD-ONLY, note section 3.2' }),
+    ).toEqual([]);
+    const terms = {
+      primary: 'issuer',
+      description: 'minted and redeemed by the issuer for verified holders',
+      kyc: true,
+      minimum: '$100,000',
+      settlement: 'T+1',
+      source: 'https://example.org/terms',
+    };
+    expect(issues({ ...paxg(), mintRedeem: terms, mintRedeemReason: null })).toEqual([]);
+  });
+
   it('refuses a source that is neither a URL nor a document of this repository', () => {
     expect(
       issues({ ...paxg(), sources: [{ url: 'a blog', title: 't', readOn: '2026-10-10' }] }),

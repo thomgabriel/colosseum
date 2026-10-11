@@ -18,3 +18,9 @@ paths = [
   '''^contracts/script/testnet/deployed/[0-9]+\.json$''',
   '''^deployments/(robinhood|base)-(testnet|local)\.json$''',
 ]
+
+[[allowlists]]
+description = "The asset universe lists and their verdict tables (docs/risk/PLAN-ASSETS.md, ASSET-1): generated from public chain reads and issuer pages, with public addresses and words under keys such as `access`, `accessReason`, `authorities` and `token` (`access: front_end_geo_blocked` alone trips the generic rule's entropy). Only the generic rule is lifted; a private key or a provider token there is still caught."
+targetRules = ["generic-api-key"]
+paths = ['''^scripts/risk/assets/(solana|robinhood)(\.verdicts|\.issuer-mints)?\.json$''']
+
