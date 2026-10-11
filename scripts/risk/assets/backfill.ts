@@ -289,7 +289,11 @@ async function robinhoodLogs() {
     const queriesPerSample = res.measured.queries / Math.max(1, res.strata);
     const windows = Math.ceil((h - from + 1) / size);
     // the full walk asks the same filters over every window: the sample's queries and seconds a window, scaled
-    const hours = ((res.measured.rpcSeconds / Math.max(1, res.strata)) * windows) / 3600;
+    // the live loop's minutes the count waited out are not the endpoint's time
+    const quietS = events
+      .filter((e) => e.event === 'quiet')
+      .reduce((a, e) => a + Number(e.waitS ?? 0), 0);
+    const hours = (((res.measured.rpcSeconds - quietS) / Math.max(1, res.strata)) * windows) / 3600;
     // the loop's minutes take a quarter of every hour
     const wallHours = hours / (46 / 60);
     const budget = budgetNow(gzBytes);
@@ -350,7 +354,8 @@ async function robinhoodLogs() {
   let from: number;
   let to: number;
   if (all) {
-    from = cls.firstBlock;
+    // the chain's first block: a token's first mint can come before its first pool
+    from = 0;
     to = await head(deps);
   } else {
     const [a, b] = (opt('--window') as string).split('-').map(Number);
@@ -402,8 +407,16 @@ async function chainlinkRounds() {
   if (opt('--feed')) recordExtra.feed = opt('--feed')?.toLowerCase();
   if (mode === 'count') {
     const rounds = counted.feeds.reduce((a, f) => a + (f.rounds ?? 0), 0);
-    // bytes a round: the sample fetch's measure where one exists, else the row's size, gzipped as SGOV's
-    const perRoundGz = 60;
+    // bytes a round: what the feeds fetched so far wrote (their manifests), else SGOV's 158 B of Oct 11
+    const done = join(OUT, 'robinhood', 'chainlink');
+    const manifests = existsSync(done)
+      ? readdirSync(done)
+          .map((f) => join(done, f, 'manifest.json'))
+          .filter((f) => existsSync(f))
+          .map((f) => JSON.parse(readFileSync(f, 'utf8')) as { rows: number; bytes: number })
+      : [];
+    const fetchedRows = manifests.reduce((a, m) => a + m.rows, 0);
+    const perRoundGz = fetchedRows ? manifests.reduce((a, m) => a + m.bytes, 0) / fetchedRows : 158;
     const gzBytes = rounds * perRoundGz;
     const budget = budgetNow(gzBytes);
     const body = {
@@ -425,7 +438,9 @@ async function chainlinkRounds() {
       estimate: {
         gzBytes,
         perRoundGzBytes: perRoundGz,
-        perRoundSource: 'a guess until the sample fetch measures it',
+        perRoundSource: fetchedRows
+          ? `the ${manifests.length} feeds fetched so far (${fetchedRows} rounds)`
+          : 'SGOV, 2026-10-11',
       },
       budget,
       perFeed: counted.feeds,

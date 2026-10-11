@@ -22,6 +22,7 @@ export const CL_SEL = {
   phaseAggregators: 'c1597304', // phaseAggregators(uint16)
   latestRound: '668a0f02', // latestRound()
   getRoundData: '9a6fc8f5', // getRoundData(uint80)
+  latestRoundData: 'feaf968c', // latestRoundData()
   aggregator: '245a7bfc', // aggregator()
 } as const;
 export const PHASE_SHIFT = 64n;
@@ -62,7 +63,13 @@ export type FeedCount = {
   feed: string;
   symbol: string;
   phase: number | null;
-  phases: Array<{ phase: number; aggregator: string | null; rounds: number | null }>;
+  phases: Array<{
+    phase: number;
+    aggregator: string | null;
+    rounds: number | null;
+    /** Where the count came from when the aggregator did not say. */
+    from?: string;
+  }>;
   rounds: number | null;
   reason: string | null;
 };
@@ -125,6 +132,25 @@ export async function countRounds(
       rounds: r === null ? null : Number(r & 0xffff_ffff_ffff_ffffn),
     });
   });
+  // an aggregator that does not answer latestRound(): the proxy's latestRoundData() names the current phase's
+  // newest round in the low 64 bits of its round id
+  const gaps = out.filter((f) => f.phases.at(-1)?.rounds === null);
+  if (gaps.length) {
+    const lr = await multicallAsk(
+      deps,
+      chain,
+      gaps.map((f) => ({ target: f.feed, callData: `0x${CL_SEL.latestRoundData}` })),
+    );
+    requests += lr.requests;
+    gaps.forEach((f, i) => {
+      const id = uint(lr.replies[i]);
+      const last = f.phases.at(-1);
+      if (id !== null && last && Number(id >> PHASE_SHIFT) === last.phase) {
+        last.rounds = Number(id & 0xffff_ffff_ffff_ffffn);
+        last.from = 'proxy_latestRoundData';
+      }
+    });
+  }
   for (const f of out) {
     if (f.reason) continue;
     const missing = f.phases.filter((p) => p.rounds === null);

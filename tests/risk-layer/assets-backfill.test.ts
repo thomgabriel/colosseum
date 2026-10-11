@@ -360,3 +360,47 @@ describe.skipIf(!existsSync(roundsFx))(
     });
   },
 );
+
+describe('the anchored estimate on frozen real pages (Step 5b’s 34 pools)', () => {
+  type P = [number, number, number | null, number | null, number, number];
+  const fx = JSON.parse(readFileSync(join(FX, 'solana-anchored-pages.json'), 'utf8')) as {
+    window: { now: string; day90: string };
+    pools: Array<{
+      address: string;
+      exact: { signatures: number; failed: number; from: number; to: number };
+      sigs90: number;
+      pages: P[];
+    }>;
+  };
+  const pagesOf = (ps: P[]): AnchoredPage[] =>
+    ps.map(([t, n, newest, oldest, failed, exhausted]) => ({
+      t,
+      n,
+      newest,
+      oldest,
+      failed,
+      exhausted: exhausted === 1,
+    }));
+  it('gives again the count file’s 90-day figure of each pool', () => {
+    const now = Date.parse(fx.window.now) / 1000;
+    const d90 = Date.parse(fx.window.day90) / 1000;
+    for (const p of fx.pools)
+      expect(Math.round(estimateSignatures(pagesOf(p.pages), d90, now).signatures)).toBe(p.sigs90);
+  });
+  it('sizes the total of the exact walk to within a few percent, and no single pool', () => {
+    let est = 0;
+    let exact = 0;
+    const ratios: number[] = [];
+    for (const p of fx.pools) {
+      const e = estimateSignatures(pagesOf(p.pages), p.exact.from, p.exact.to).signatures;
+      est += e;
+      exact += p.exact.signatures;
+      ratios.push(e / p.exact.signatures);
+    }
+    // measured 2026-10-11: 52.5M estimated against 50.6M walked, while single pools run from 0.01× to 14.5×
+    expect(est / exact).toBeGreaterThan(0.95);
+    expect(est / exact).toBeLessThan(1.1);
+    expect(Math.min(...ratios)).toBeLessThan(0.1);
+    expect(Math.max(...ratios)).toBeGreaterThan(10);
+  });
+});
