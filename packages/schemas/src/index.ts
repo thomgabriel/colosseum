@@ -1,6 +1,7 @@
 export * from './account-api';
 export * from './api';
 export * from './asset';
+export * from './asset-universe';
 export * from './basket';
 export * from './basket-asset';
 export * from './basket-sheet';

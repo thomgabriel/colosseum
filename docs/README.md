@@ -90,9 +90,11 @@ Built and merged; the collectors still run.
 | [`STATE-RISK.md`](risk/STATE-RISK.md) | Progress and evidence per step of that plan | Decision record |
 | [`PLAN-ANALYTICS.md`](risk/PLAN-ANALYTICS.md) | The facts the agent and the analytics pages read. Its section 5 is the methodology the API serves word for word (`tests/risk-layer/facts-methodology.test.ts`) | Current |
 | [`PLAN-UNIVERSE.md`](risk/PLAN-UNIVERSE.md) | The tracked stocks, every pool they trade in and the oracle a rebalance needs. Its section 6 says what is merged | Current |
+| [`PLAN-ASSETS.md`](risk/PLAN-ASSETS.md) | Every token of the product's classes on Solana and Robinhood Chain, each with its status and reason, and the tables and jobs that keep their facts over time. Its section 6 says what is built | Current |
 | [`PROMPT-PLAN-RISK.md`](risk/PROMPT-PLAN-RISK.md), [`PROMPT-BUILD-RISK.md`](risk/PROMPT-BUILD-RISK.md) | The prompts that produced the plan and drove the build | Historical |
 | [`PROMPT-BUILD-ANALYTICS.md`](risk/PROMPT-BUILD-ANALYTICS.md), [`PROMPT-BUILD-ANALYTICS-PAGE.md`](risk/PROMPT-BUILD-ANALYTICS-PAGE.md) | The prompts for the analytics and for its page prototype | Historical |
 | [`PROMPT-BUILD-UNIVERSE.md`](risk/PROMPT-BUILD-UNIVERSE.md) | The prompt for the tracked universe | Historical |
+| [`PROMPT-BUILD-ASSETS.md`](risk/PROMPT-BUILD-ASSETS.md) | The prompt for the asset universe and its pipeline | Historical |
 
 ## `structurer/`: the first engine, built Sep 30
 
