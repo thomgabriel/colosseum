@@ -1,6 +1,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { basketSchema, chainRows, createDb, schema } from '@colosseum/db';
+import {
+  assetObservations,
+  basketSchema,
+  chainRows,
+  createDb,
+  marketBars,
+  schema,
+} from '@colosseum/db';
 import {
   AssetKind,
   ExecutionKind,
@@ -236,5 +243,50 @@ describe('db schema: vault tables', () => {
     expect(() => chainRows(seeded, mainnet)).toThrow(
       'chains.robinhood is testnet in this database and mainnet in the config: one database per network',
     );
+  });
+});
+
+// docs/risk/PLAN-ASSETS.md AS.4 (gate ASSET-METRICS), migration 0021: a token's facts over time and its hourly bars.
+describe('db schema: the asset universe tables', () => {
+  it('keys a fact by chain, token, metric, source and time, and a bar by chain, token, pool, hour and method', () => {
+    const pk = (t: PgTable) => getTableConfig(t).primaryKeys[0]?.columns.map((c) => c.name);
+    expect(getTableName(assetObservations)).toBe('asset_observations');
+    expect(pk(assetObservations)).toEqual(['chain', 'address', 'metric', 'source', 'observed_at']);
+    expect(getTableName(marketBars)).toBe('market_bars');
+    expect(pk(marketBars)).toEqual(['chain', 'address', 'pool', 'hour', 'method_version']);
+  });
+
+  it('holds a value to its reason and the dollars of a bar to its priced swaps, by check', () => {
+    expect(getTableConfig(assetObservations).checks.map((c) => c.name)).toEqual([
+      'asset_observations_value_or_reason',
+      'asset_observations_unit',
+    ]);
+    expect(getTableConfig(marketBars).checks.map((c) => c.name)).toEqual([
+      'market_bars_swaps',
+      'market_bars_priced',
+    ]);
+  });
+
+  it('carries the chain and the four provenance columns on both, in the existing enum', () => {
+    for (const t of [assetObservations, marketBars]) {
+      const cols = getTableConfig(t).columns;
+      const names = cols.map((c) => c.name);
+      for (const n of ['chain', 'source', 'method', 'fetched_at', 'provenance', 'method_version'])
+        expect(names, `${getTableName(t)}.${n}`).toContain(n);
+      expect(cols.find((c) => c.name === 'provenance')?.getSQLType()).toBe('provenance');
+      expect(cols.find((c) => c.name === 'chain')?.notNull).toBe(true);
+    }
+    const value = getTableConfig(assetObservations).columns.find((c) => c.name === 'value');
+    expect(value?.notNull).toBe(false);
+  });
+
+  it('is created by 0021 and by no other migration', () => {
+    const dir = join(__dirname, '..', 'packages/db/migrations');
+    const creating = readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .filter((f) =>
+        /CREATE TABLE "(asset_observations|market_bars)"/.test(readFileSync(join(dir, f), 'utf8')),
+      );
+    expect(creating).toEqual(['0021_asset_observations.sql']);
   });
 });

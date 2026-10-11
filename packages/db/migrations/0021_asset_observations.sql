@@ -1,0 +1,56 @@
+CREATE TABLE "asset_observations" (
+	"chain" text NOT NULL,
+	"address" text NOT NULL,
+	"metric" text NOT NULL,
+	"value" double precision,
+	"unit" text NOT NULL,
+	"null_reason" text,
+	"observed_at" timestamp with time zone NOT NULL,
+	"height" double precision,
+	"detail" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"method_version" text NOT NULL,
+	"source" text NOT NULL,
+	"method" text NOT NULL,
+	"fetched_at" timestamp with time zone NOT NULL,
+	"provenance" "provenance" NOT NULL,
+	CONSTRAINT "asset_observations_pk" PRIMARY KEY("chain","address","metric","source","observed_at"),
+	CONSTRAINT "asset_observations_value_or_reason" CHECK (("asset_observations"."value" is null) <> ("asset_observations"."null_reason" is null)),
+	CONSTRAINT "asset_observations_unit" CHECK ("asset_observations"."unit" in ('usd', 'tokens', 'fraction', 'count', 'ratio'))
+);
+--> statement-breakpoint
+CREATE TABLE "market_bars" (
+	"chain" text NOT NULL,
+	"address" text NOT NULL,
+	"pool" text NOT NULL,
+	"hour" timestamp with time zone NOT NULL,
+	"quote_address" text,
+	"open_quote" double precision,
+	"high_quote" double precision,
+	"low_quote" double precision,
+	"close_quote" double precision,
+	"vwap_quote" double precision,
+	"open_usd" double precision,
+	"high_usd" double precision,
+	"low_usd" double precision,
+	"close_usd" double precision,
+	"vwap_usd" double precision,
+	"swaps" integer NOT NULL,
+	"buy_swaps" integer NOT NULL,
+	"sell_swaps" integer NOT NULL,
+	"unpriced_swaps" integer NOT NULL,
+	"volume_tokens" double precision NOT NULL,
+	"volume_usd" double precision,
+	"quote_usd_method" text,
+	"detail" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"method_version" text NOT NULL,
+	"source" text NOT NULL,
+	"method" text NOT NULL,
+	"fetched_at" timestamp with time zone NOT NULL,
+	"provenance" "provenance" NOT NULL,
+	CONSTRAINT "market_bars_pk" PRIMARY KEY("chain","address","pool","hour","method_version"),
+	CONSTRAINT "market_bars_swaps" CHECK ("market_bars"."buy_swaps" + "market_bars"."sell_swaps" = "market_bars"."swaps" and "market_bars"."unpriced_swaps" between 0 and "market_bars"."swaps"),
+	CONSTRAINT "market_bars_priced" CHECK (("market_bars"."volume_usd" is null) = ("market_bars"."unpriced_swaps" = "market_bars"."swaps"))
+);
+--> statement-breakpoint
+CREATE INDEX "asset_observations_metric_idx" ON "asset_observations" USING btree ("metric","observed_at");--> statement-breakpoint
+CREATE INDEX "market_bars_hour_idx" ON "market_bars" USING btree ("hour");
