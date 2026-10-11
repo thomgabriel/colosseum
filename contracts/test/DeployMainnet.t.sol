@@ -103,18 +103,47 @@ contract PoolAverageLike {
 /// A router, or any contract that is not a Safe: an address with code.
 contract Anything {}
 
-/// What a Safe says of itself: who its owners are and how many must sign.
+/// What a Safe says of itself: who its owners are, how many must sign, and which modules it has enabled.
+/// `answers` is how it lists its modules: 2 as Safe 1.1.1 and later do (`getModulesPaginated`), 1 as 1.0.0
+/// does (`getModules()` only), 0 not at all. A call it does not know goes to its fallback handler, as a
+/// real Safe's does, and comes back empty and successful.
 contract SafeLike {
     address[] internal owners;
+    address[] internal modules;
     uint256 public getThreshold;
+    uint8 internal answers = 2;
 
     constructor(address[] memory owners_, uint256 threshold_) {
         owners = owners_;
         getThreshold = threshold_;
     }
 
+    function enableModule(address module) external {
+        modules.push(module);
+    }
+
+    function setAnswers(uint8 answers_) external {
+        answers = answers_;
+    }
+
     function getOwners() external view returns (address[] memory) {
         return owners;
+    }
+
+    fallback() external {
+        bytes4 asked = msg.sig;
+        if (asked == bytes4(keccak256("getModulesPaginated(address,uint256)")) && answers == 2) {
+            bytes memory out = abi.encode(modules, address(1));
+            assembly ("memory-safe") {
+                return(add(out, 0x20), mload(out))
+            }
+        }
+        if (asked == bytes4(keccak256("getModules()")) && answers >= 1) {
+            bytes memory out = abi.encode(modules);
+            assembly ("memory-safe") {
+                return(add(out, 0x20), mload(out))
+            }
+        }
     }
 }
 
@@ -425,6 +454,43 @@ contract DeployMainnetTest is Test {
         d = script.deploy(cfg, deployer);
         assertFalse(VaultFactory(d.factory).creationRestricted());
         assertTrue(VaultFactory(d.factory).mayCreate(keeper));
+    }
+
+    /// A module can make a Safe act with no signature of its owners, so two of three means nothing beside
+    /// one. The script reads the Safe's modules and refuses any, by either way a Safe lists them, and
+    /// refuses a Safe that lists them by neither: what cannot be read cannot be ruled out.
+    function test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike current = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(current);
+        (uint256 threshold, address[] memory owners) = script.checkSafe(address(current), 2);
+        assertEq(threshold, 2, "no module: it passes");
+        assertEq(owners.length, 3);
+
+        current.enableModule(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Safe 1.0.0: `getModules()` and no paginated call.
+        SafeLike old = SafeLike(payable(_safe(3, 2)));
+        old.setAnswers(1);
+        cfg.timelockOwner = address(old);
+        script.checkSafe(address(old), 2);
+        old.enableModule(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Neither call answered: the fallback handler returns nothing, and succeeds.
+        SafeLike silent = SafeLike(payable(_safe(3, 2)));
+        silent.setAnswers(0);
+        cfg.timelockOwner = address(silent);
+        _refused(cfg, "the Safe does not say which modules it has enabled: they cannot be ruled out");
+
+        // More modules than one page holds is still "has a module".
+        SafeLike many = SafeLike(payable(_safe(3, 2)));
+        for (uint160 i = 1; i <= 12; ++i) {
+            many.enableModule(address(i + 0xD00D00));
+        }
+        cfg.timelockOwner = address(many);
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
     }
 
     function test_mainnet_refusesADelayUnder48Hours_orOver30Days() public {

@@ -50,6 +50,7 @@ export const SELECTORS = {
   getThreshold: ['getThreshold()', '0xe75235b8'],
   getOwners: ['getOwners()', '0xa0e67e2b'],
   getModulesPaginated: ['getModulesPaginated(address,uint256)', '0xcc2f8452'],
+  getModules: ['getModules()', '0xb2494df3'],
   // TestPriceFeed: the mark of a price one key writes
   writer: ['writer()', '0x453a2abc'],
 } as const satisfies Record<string, readonly [string, string]>;
@@ -732,7 +733,9 @@ export async function checkAuthority(
     const threshold = asUint(wordAt(t, 0));
     const owners = Array.from({ length: count }, (_, i) => asAddress(wordAt(o, 2 + i)));
     // A module may make the Safe act with no signature of its owners. Up to ten are read, from the
-    // list's sentinel; one is enough to fail a mainnet.
+    // list's sentinel; one is enough to fail a mainnet. Safe 1.0.0 has no paginated call and is asked
+    // `getModules()` instead. A Safe that answers neither fails a mainnet: what cannot be read cannot
+    // be ruled out.
     const m = await probe(
       `${what} getModulesPaginated()`,
       account,
@@ -746,6 +749,16 @@ export async function checkAuthority(
       if (words(m) >= at + 1 + n)
         modules = Array.from({ length: n }, (_, i) => asAddress(wordAt(m, at + 1 + i)));
     }
+    let asked = m !== undefined;
+    if (asked && modules === undefined) {
+      const old = await probe(`${what} getModules()`, account, sel('getModules'), 2);
+      asked = old !== undefined;
+      if (old !== undefined && old !== 'none') {
+        const n = Number(asUint(wordAt(old, 1)));
+        if (asUint(wordAt(old, 0)) === 32n && words(old) >= 2 + n)
+          modules = Array.from({ length: n }, (_, i) => asAddress(wordAt(old, 2 + i)));
+      }
+    }
     const moduleWords =
       modules === undefined ? 'not answered' : modules.length ? modules.join(', ') : 'none';
     const live = `${threshold} of ${owners.length}: ${owners.join(', ')}; modules: ${moduleWords}`;
@@ -753,11 +766,11 @@ export async function checkAuthority(
     if (!mainnet) return;
     if (modules === undefined) {
       // A node that did not answer was already reported as a failure by the probe.
-      if (m !== undefined)
+      if (asked)
         say({
-          status: 'WARN',
+          status: 'FAIL',
           what: `${what} modules`,
-          note: 'getModulesPaginated() is not answered (an older Safe?): its modules cannot be ruled out',
+          note: 'neither getModulesPaginated() nor getModules() is answered: its modules cannot be ruled out',
         });
     } else if (modules.length > 0)
       say({

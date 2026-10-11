@@ -3025,6 +3025,20 @@ const RULES = [
     replace: '',
     expect: 'test_mainnet_holdsTheTimelockOwnerToBeingASafeOfTwoOrMore',
   },
+  {
+    id: 'setup-deploy-safe-no-module',
+    file: 'script/Deploy.s.sol',
+    find: 'require(modules == 0, MainnetRefused("the Safe has a module enabled: a module can move it without its signers"));',
+    replace: '',
+    expect: 'test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas',
+  },
+  {
+    id: 'setup-deploy-safe-modules-must-be-read',
+    file: 'script/Deploy.s.sol',
+    find: 'require(\n            answered, MainnetRefused("the Safe does not say which modules it has enabled: they cannot be ruled out")\n        );',
+    replace: '',
+    expect: 'test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas',
+  },
 ];
 
 // Fewer fuzz and invariant runs than the default: a removed rule fails on the first runs or not at all.
