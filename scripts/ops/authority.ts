@@ -80,6 +80,8 @@ export const ROLES = {
 } as const;
 
 /** Where an ERC-1967 proxy keeps its implementation. */
+/** Where a Safe (1.3.0 and later) keeps its transaction guard: keccak256("guard_manager.guard.address"). */
+export const GUARD_SLOT = '0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8';
 export const IMPLEMENTATION_SLOT =
   '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 
@@ -732,41 +734,69 @@ export async function checkAuthority(
     }
     const threshold = asUint(wordAt(t, 0));
     const owners = Array.from({ length: count }, (_, i) => asAddress(wordAt(o, 2 + i)));
-    // A module may make the Safe act with no signature of its owners. Up to ten are read, from the
-    // list's sentinel; one is enough to fail a mainnet. Safe 1.0.0 has no paginated call and is asked
-    // `getModules()` instead. A Safe that answers neither fails a mainnet: what cannot be read cannot
-    // be ruled out.
+    // A module may make the Safe act with no signature of its owners. Both ways a Safe lists its
+    // modules are asked: `getModulesPaginated` from the list's sentinel (1.1.1 and later, a page of ten)
+    // and `getModules()` (1.0.0 to 1.2.0). A module under either fails a mainnet, and so does a Safe that
+    // answers neither: what cannot be read cannot be ruled out. The paginated answer is held to the
+    // exact shape `checkSafe` in contracts/script/Deploy.s.sol holds it to (the array's offset 64, at
+    // most ten entries, nothing after them), so the two never disagree about one Safe.
     const m = await probe(
       `${what} getModulesPaginated()`,
       account,
       sel('getModulesPaginated', `0x${'0'.repeat(39)}1`, '0xa'),
       3,
     );
-    let modules: string[] | undefined;
-    if (m !== undefined && m !== 'none') {
-      const at = Number(asUint(wordAt(m, 0)) / 32n);
-      const n = Number(asUint(wordAt(m, at)));
-      if (words(m) >= at + 1 + n)
-        modules = Array.from({ length: n }, (_, i) => asAddress(wordAt(m, at + 1 + i)));
-    }
-    let asked = m !== undefined;
-    if (asked && modules === undefined) {
-      const old = await probe(`${what} getModules()`, account, sel('getModules'), 2);
-      asked = old !== undefined;
-      if (old !== undefined && old !== 'none') {
-        const n = Number(asUint(wordAt(old, 1)));
-        if (asUint(wordAt(old, 0)) === 32n && words(old) >= 2 + n)
-          modules = Array.from({ length: n }, (_, i) => asAddress(wordAt(old, 2 + i)));
+    const old =
+      m === undefined
+        ? undefined
+        : await probe(`${what} getModules()`, account, sel('getModules'), 2);
+    let paged: string[] | undefined;
+    let next = 1n;
+    if (m !== undefined && m !== 'none' && asUint(wordAt(m, 0)) === 64n) {
+      const n = asUint(wordAt(m, 2));
+      if (n <= 10n && BigInt(words(m)) === 3n + n) {
+        paged = Array.from({ length: Number(n) }, (_, i) => asAddress(wordAt(m, 3 + i)));
+        next = asUint(wordAt(m, 1));
       }
     }
+    let listed: string[] | undefined;
+    if (old !== undefined && old !== 'none' && asUint(wordAt(old, 0)) === 32n) {
+      const n = asUint(wordAt(old, 1));
+      if (n < 1n << 32n && BigInt(words(old)) === 2n + n)
+        listed = Array.from({ length: Number(n) }, (_, i) => asAddress(wordAt(old, 2 + i)));
+    }
+    const modules =
+      paged === undefined && listed === undefined
+        ? undefined
+        : [...new Set([...(paged ?? []), ...(listed ?? [])])];
     const moduleWords =
       modules === undefined ? 'not answered' : modules.length ? modules.join(', ') : 'none';
     const live = `${threshold} of ${owners.length}: ${owners.join(', ')}; modules: ${moduleWords}`;
     say({ status: 'INFO', what, live, note: 'compare the owners with the people who hold them' });
+    // A guard can block a Safe's transactions and cannot make one. It is printed for a person to look
+    // at and is not a failure; the deploy script does not read it.
+    let guard: string | undefined;
+    try {
+      guard = asAddress(strip(await reader.storageAt(account, GUARD_SLOT)).padStart(64, '0'));
+    } catch {
+      guard = undefined;
+    }
+    const guarded = guard !== undefined && guard !== ZERO_ADDRESS;
+    say({
+      status: mainnet && (guarded || guard === undefined) ? 'WARN' : 'INFO',
+      what: `guard of ${what}`,
+      live: guard === undefined ? undefined : guarded ? guard : 'none',
+      note:
+        guard === undefined
+          ? 'its guard slot could not be read'
+          : guarded
+            ? 'a guard can block the Safe’s transactions; it is not checked at deploy: look at what it is'
+            : undefined,
+    });
     if (!mainnet) return;
     if (modules === undefined) {
       // A node that did not answer was already reported as a failure by the probe.
-      if (asked)
+      if (m !== undefined && old !== undefined)
         say({
           status: 'FAIL',
           what: `${what} modules`,
@@ -778,6 +808,13 @@ export async function checkAuthority(
         what: `${what} modules`,
         live: modules.join(', '),
         note: 'a module can move the Safe without its signers',
+      });
+    else if (paged !== undefined && next > 1n)
+      say({
+        status: 'FAIL',
+        what: `${what} modules`,
+        live: asAddress(wordAt(m as string, 1)),
+        note: 'it lists no module and names a next one: its list cannot be trusted',
       });
     const least = BigInt(expected?.safeMinThreshold ?? MIN_SAFE_THRESHOLD);
     if (threshold < least)

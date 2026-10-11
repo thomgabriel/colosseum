@@ -3026,18 +3026,32 @@ const RULES = [
     expect: 'test_mainnet_holdsTheTimelockOwnerToBeingASafeOfTwoOrMore',
   },
   {
-    id: 'setup-deploy-safe-no-module',
+    id: 'setup-deploy-safe-no-module-paged',
     file: 'script/Deploy.s.sol',
-    find: 'require(modules == 0, MainnetRefused("the Safe has a module enabled: a module can move it without its signers"));',
-    replace: '',
-    expect: 'test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas',
+    find: 'inPage == 0 && inList == 0,',
+    replace: 'inList == 0,',
+    expect: 'test_mainnet_asksASafeBothWaysForItsModules_andEitherListingOneRefuses',
+  },
+  {
+    id: 'setup-deploy-safe-no-module-listed',
+    file: 'script/Deploy.s.sol',
+    find: 'inPage == 0 && inList == 0,',
+    replace: 'inPage == 0,',
+    expect: 'test_mainnet_asksASafeBothWaysForItsModules_andEitherListingOneRefuses',
   },
   {
     id: 'setup-deploy-safe-modules-must-be-read',
     file: 'script/Deploy.s.sol',
-    find: 'require(\n            answered, MainnetRefused("the Safe does not say which modules it has enabled: they cannot be ruled out")\n        );',
-    replace: '',
+    find: 'paged || listed,',
+    replace: 'true,',
     expect: 'test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas',
+  },
+  {
+    id: 'setup-deploy-safe-empty-page-ends',
+    file: 'script/Deploy.s.sol',
+    find: '!paged || inPage != 0 || pageEnds,',
+    replace: 'true,',
+    expect: 'test_mainnet_refusesASafeWhoseEmptyModulePageNamesANextOne',
   },
 ];
 
