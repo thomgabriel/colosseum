@@ -1,0 +1,212 @@
+{
+  "about": "Which free source answers which metric of which row of scripts/risk/assets/<chain>.json (docs/risk/PLAN-ASSETS.md AS.5, gate ASSET-METRICS, DA8). Reviewed by hand; every entry names where it was read. A row no entry names takes the reason of its metric's plan (packages/risk/src/assets/metrics.ts, metricPlan). No figure is written here.",
+  "reviewedOn": "2026-10-11",
+  "inYieldObservations": [
+    {
+      "chain": "solana",
+      "address": "A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6",
+      "assetId": "usdy",
+      "metrics": ["yield_realised_30d", "yield_quoted"],
+      "source": "packages/engine/src/feeds/yields.ts fetchAllYields (pnpm feeds:refresh): realised_30d and aggregator_defillama into yield_observations"
+    },
+    {
+      "chain": "solana",
+      "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+      "assetId": "syrupusdc",
+      "metrics": ["yield_realised_30d", "yield_quoted"],
+      "source": "packages/engine/src/feeds/yields.ts fetchAllYields (pnpm feeds:refresh): realised_30d and aggregator_defillama into yield_observations"
+    },
+    {
+      "chain": "solana",
+      "address": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
+      "assetId": "kamino-usdc",
+      "metrics": ["yield_quoted"],
+      "source": "packages/engine/src/feeds/yields.ts fetchKaminoUsdc (pnpm feeds:refresh): the supply rate of the Kamino main market USDC reserve, whose deposit token this is; the registry row names the USDC mint"
+    },
+    {
+      "chain": "solana",
+      "address": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
+      "assetId": "jlusdc",
+      "metrics": ["yield_realised_30d"],
+      "source": "scripts/feeds/refresh-models.ts (pnpm feeds:refresh-models): realised_30d into yield_observations"
+    },
+    {
+      "chain": "robinhood",
+      "address": "0x92fd66527192e3e61d4ddd13322aa222de86f9b5",
+      "assetId": "robinhood:sgov",
+      "metrics": ["yield_realised_30d"],
+      "source": "scripts/feeds/refresh-models.ts (pnpm feeds:refresh-models): realised_30d from the Chainlink SGOV-USD rounds into yield_observations"
+    }
+  ],
+  "issuerSupply": [
+    {
+      "chain": "solana",
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "kind": "circle_stablecoins",
+      "url": "https://api.circle.com/v1/stablecoins",
+      "key": {
+        "symbol": "USDC",
+        "chain": "SOL"
+      },
+      "source": "Circle's public stablecoins endpoint, read 2026-10-11: per coin and chain, the amount and its update time, no key"
+    },
+    {
+      "chain": "solana",
+      "address": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+      "kind": "circle_stablecoins",
+      "url": "https://api.circle.com/v1/stablecoins",
+      "key": {
+        "symbol": "EURC",
+        "chain": "SOL"
+      },
+      "source": "Circle's public stablecoins endpoint, read 2026-10-11"
+    },
+    {
+      "chain": "solana",
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "kind": "tether_transparency",
+      "url": "https://app.tether.to/transparency.json",
+      "key": {
+        "chain": "sol"
+      },
+      "source": "Tether's transparency file, read 2026-10-11: totaltokens_sol, reserve_balance_sol and quarantined_sol, no time of its own"
+    }
+  ],
+  "kaminoReserves": [
+    {
+      "chain": "solana",
+      "address": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
+      "reserve": "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+      "market": "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
+      "source": "packages/engine/src/feeds/yields.ts (KAMINO_MAIN, KAMINO_USDC_RESERVE); docs/vault/research/yield-shelf/solana.md, kUSDC (the collateral mint at byte 2560 of the reserve). The lending import (risk_lending_pools) holds only the xStocks markets, so the reserve is read here; the decoder checks the collateral mint on every read"
+    }
+  ],
+  "defillamaYieldPools": [
+    {
+      "chain": "solana",
+      "address": "8fr7WGTVFszfyNWRMXj6fRjZZAnDwmXwEpCrtzmUkdih",
+      "symbol": "wYLDS",
+      "pool": "2218b935-52b4-496b-9fb2-a59116503cf1",
+      "project": "hastra",
+      "metrics": ["yield_quoted", "protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project hastra, chain Solana, symbol WYLDS, underlying token this mint; the note's rollout (solana.md section 7): the aggregator's pool"
+    },
+    {
+      "chain": "solana",
+      "address": "3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7",
+      "symbol": "PRIME",
+      "pool": "76bb34c2-e68a-4398-9fba-d8a14c0caa44",
+      "project": "hastra",
+      "metrics": ["yield_quoted", "protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project hastra, chain Solana, symbol PRIME (underlying wYLDS); solana.md section 7"
+    },
+    {
+      "chain": "solana",
+      "address": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
+      "symbol": "AUTO",
+      "pool": "4964d3ac-eb9a-54dd-a7f6-faadac4393ea",
+      "project": "hastra",
+      "metrics": ["yield_quoted", "protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project hastra, chain Solana, symbol AUTO (underlying wYLDS); solana.md section 7"
+    },
+    {
+      "chain": "solana",
+      "address": "BTRR3sj1Bn2ZjuemgbeQ6SCtf84iXS81CS7UDTSxUCaK",
+      "symbol": "USCC",
+      "pool": "04bf0e7d-904a-4d42-9a25-bb1b5634e863",
+      "project": "bitwise-uscc",
+      "metrics": ["yield_quoted", "protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project bitwise-uscc, chain Solana, symbol USCC, underlying token this mint"
+    },
+    {
+      "chain": "solana",
+      "address": "CCz3SGVziFeLYk2xfEstkiqJfYkjaSWb2GCABYsVcjo2",
+      "symbol": "USTB",
+      "pool": "9ad71299-9318-47b3-9a5a-bbe67c5121bf",
+      "project": "invesco-ustb",
+      "metrics": ["yield_quoted", "protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project invesco-ustb, chain Solana, symbol USTB, underlying token this mint (the list names Superstate as the issuer: DefiLlama files the pool under another name)"
+    },
+    {
+      "chain": "solana",
+      "address": "A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6",
+      "symbol": "USDY",
+      "pool": "00b83068-9f87-4411-b5d7-5d2ff48c40c4",
+      "project": "ondo-yield-assets",
+      "metrics": ["protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project ondo-yield-assets, chain Solana, symbol USDY, underlying token this mint; the pool the engine's fetchAggregator reads (its rate stays in yield_observations)"
+    },
+    {
+      "chain": "robinhood",
+      "address": "0xbeeff033f34c046626b8d0a041844c5d1a5409dd",
+      "symbol": "steakUSDG",
+      "pool": "32f586b4-5358-5aa2-88ee-c842139e7023",
+      "project": "morpho-blue",
+      "metrics": ["yield_quoted", "protocol_tvl_usd"],
+      "source": "https://yields.llama.fi/pools, 2026-10-11: project morpho-blue, chain Robinhood Chain, symbol STEAKUSDG, underlying USDG. robinhood.md section 7 names the lending protocol's own API; Morpho's public API (blue-api.morpho.org) answered no vault for chain 4663 on 2026-10-11, so the aggregator stands in"
+    }
+  ],
+  "issuerMultiplier": [
+    {
+      "chain": "robinhood",
+      "address": "0x92fd66527192e3e61d4ddd13322aa222de86f9b5",
+      "url": "https://api.robinhood.com/rhj/assets",
+      "source": "the issuer's registry (scripts/risk-evm/registry.ts REGISTRY_URL): currentMultiplier and pendingMultiplier per token; SGOV pays its distributions through it (scripts/feeds/refresh-models.ts)"
+    }
+  ],
+  "realisedPricePath": [
+    {
+      "chain": "solana",
+      "address": "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw",
+      "symbol": "PST",
+      "source": "docs/vault/research/yield-shelf/solana.md section 7: PST, none found; the token's price over time gives a realised rate"
+    },
+    {
+      "chain": "robinhood",
+      "address": "0x40858070814a57fdf33a613ae84fe0a8b4a874f7",
+      "symbol": "syrupUSDG",
+      "source": "docs/vault/research/yield-shelf/robinhood.md section 7: syrupUSDG, none read; the issuer's figure, or the token's price over time"
+    }
+  ],
+  "jupiterLend": {
+    "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+    "source": "Jupiter Lend's public earn API, read 2026-10-11: per deposit token its convertToAssets, totalAssets, supplyRate and rewardsRate (basis points), and the asset's price; solana.md section 7 (jlJupUSD: the lending endpoint's supply rate, incentives apart)",
+    "tokens": [
+      {
+        "chain": "solana",
+        "address": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
+        "symbol": "jlJupUSD"
+      },
+      {
+        "chain": "solana",
+        "address": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
+        "symbol": "jlUSDC"
+      },
+      {
+        "chain": "solana",
+        "address": "2uQsyo1fXXQkDtcpXnLofWy88PxcvnfH2L8FPSE62FVU",
+        "symbol": "jlWSOL"
+      },
+      {
+        "chain": "solana",
+        "address": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
+        "symbol": "jlUSDT"
+      },
+      {
+        "chain": "solana",
+        "address": "GcV9tEj62VncGithz4o4N9x6HWXARxuRgEAYk9zahNA8",
+        "symbol": "jlEURC"
+      },
+      {
+        "chain": "solana",
+        "address": "j14XLJZSVMcUYpAfajdZRpnfHUpJieZHS4aPektLWvh",
+        "symbol": "jlUSDS"
+      },
+      {
+        "chain": "solana",
+        "address": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
+        "symbol": "jlUSDG"
+      }
+    ]
+  }
+}

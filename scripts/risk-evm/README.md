@@ -307,6 +307,8 @@ Every live run writes its reads (`reads-<stamp>.json.gz`, with the code samples)
 
 **What is frozen** (`pnpm risk-evm:assets-freeze`): `fixtures/risk-evm/assets/robinhood-reads-<stamp>.json.gz` holds every read above as the list uses it (the multicall answers as returned, the slots, the code scans, the GETs cut) and the discovery file cut to pools grouped by stock token, other side and source; `robinhood-code-<stamp>.json.gz` holds the raw code of six addresses, one of each kind the reads found, for the decoder tests. `tests/risk-assets-robinhood.test.ts` rebuilds the committed list from them with no network.
 
+**The metrics of every row (ASSET-2, AS.5 and AS.6)** are read by `assets-metrics.ts` (`totalSupply()` and the ERC-4626 rates by Multicall3 at one pinned block, outside minutes 1 to 14 and with the same Cloudflare retry; the newest discovery file's pool TVL; the issuer registry's SGOV multiplier) for `pnpm risk:assets-import robinhood`, and hourly by `com.colosseum.assets-robinhood` (`install-assets-job.sh`, minute 38). What each metric is and where it goes: `scripts/risk/assets/README.md`, "Metrics".
+
 ## Files
 
 | File | What it is |
