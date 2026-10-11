@@ -264,6 +264,7 @@ describe('db schema: the asset universe tables', () => {
     expect(getTableConfig(marketBars).checks.map((c) => c.name)).toEqual([
       'market_bars_swaps',
       'market_bars_priced',
+      'market_bars_sides_priced',
     ]);
   });
 

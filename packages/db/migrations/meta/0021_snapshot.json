@@ -1,5 +1,5 @@
 {
-  "id": "1ace0628-b60b-4129-9e9c-d73e48f7956a",
+  "id": "cfda9969-ba8c-46ac-a0f5-8bec7a8cde0f",
   "prevId": "add479bf-e44e-4419-8050-e874a24260c3",
   "version": "7",
   "dialect": "postgresql",
@@ -1566,6 +1566,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "buy_volume_usd": {
+          "name": "buy_volume_usd",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sell_volume_usd": {
+          "name": "sell_volume_usd",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
         "quote_usd_method": {
           "name": "quote_usd_method",
           "type": "text",
@@ -1651,6 +1663,10 @@
         "market_bars_priced": {
           "name": "market_bars_priced",
           "value": "(\"market_bars\".\"volume_usd\" is null) = (\"market_bars\".\"unpriced_swaps\" = \"market_bars\".\"swaps\")"
+        },
+        "market_bars_sides_priced": {
+          "name": "market_bars_sides_priced",
+          "value": "(\"market_bars\".\"buy_volume_usd\" is null) = (\"market_bars\".\"volume_usd\" is null) and (\"market_bars\".\"sell_volume_usd\" is null) = (\"market_bars\".\"volume_usd\" is null)"
         }
       },
       "isRLSEnabled": false

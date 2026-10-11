@@ -688,6 +688,9 @@ export const marketBars = pgTable(
     volumeTokens: doublePrecision('volume_tokens').notNull(),
     /** Dollars of the priced swaps; null when none was priced. */
     volumeUsd: doublePrecision('volume_usd'),
+    /** The same, by side: dollars of the priced purchases and of the priced sales of the token. */
+    buyVolumeUsd: doublePrecision('buy_volume_usd'),
+    sellVolumeUsd: doublePrecision('sell_volume_usd'),
     /** How the quote was put in dollars this hour (`usdc_at_source`, `implied_from_<pool>`), or why it was not. */
     quoteUsdMethod: text('quote_usd_method'),
     /** Which layer the bar was built from (`raw_events`, `collector`), the pools of an 'asset' row and each one's share. */
@@ -706,5 +709,9 @@ export const marketBars = pgTable(
       sql`${t.buySwaps} + ${t.sellSwaps} = ${t.swaps} and ${t.unpricedSwaps} between 0 and ${t.swaps}`,
     ),
     check('market_bars_priced', sql`(${t.volumeUsd} is null) = (${t.unpricedSwaps} = ${t.swaps})`),
+    check(
+      'market_bars_sides_priced',
+      sql`(${t.buyVolumeUsd} is null) = (${t.volumeUsd} is null) and (${t.sellVolumeUsd} is null) = (${t.volumeUsd} is null)`,
+    ),
   ],
 );

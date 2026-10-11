@@ -40,6 +40,8 @@ CREATE TABLE "market_bars" (
 	"unpriced_swaps" integer NOT NULL,
 	"volume_tokens" double precision NOT NULL,
 	"volume_usd" double precision,
+	"buy_volume_usd" double precision,
+	"sell_volume_usd" double precision,
 	"quote_usd_method" text,
 	"detail" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"method_version" text NOT NULL,
@@ -49,7 +51,8 @@ CREATE TABLE "market_bars" (
 	"provenance" "provenance" NOT NULL,
 	CONSTRAINT "market_bars_pk" PRIMARY KEY("chain","address","pool","hour","method_version"),
 	CONSTRAINT "market_bars_swaps" CHECK ("market_bars"."buy_swaps" + "market_bars"."sell_swaps" = "market_bars"."swaps" and "market_bars"."unpriced_swaps" between 0 and "market_bars"."swaps"),
-	CONSTRAINT "market_bars_priced" CHECK (("market_bars"."volume_usd" is null) = ("market_bars"."unpriced_swaps" = "market_bars"."swaps"))
+	CONSTRAINT "market_bars_priced" CHECK (("market_bars"."volume_usd" is null) = ("market_bars"."unpriced_swaps" = "market_bars"."swaps")),
+	CONSTRAINT "market_bars_sides_priced" CHECK (("market_bars"."buy_volume_usd" is null) = ("market_bars"."volume_usd" is null) and ("market_bars"."sell_volume_usd" is null) = ("market_bars"."volume_usd" is null))
 );
 --> statement-breakpoint
 CREATE INDEX "asset_observations_metric_idx" ON "asset_observations" USING btree ("metric","observed_at");--> statement-breakpoint
