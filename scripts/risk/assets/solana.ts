@@ -2,11 +2,9 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createDb, riskLendingPools } from '@colosseum/db';
-import { REGISTRY } from '@colosseum/engine';
 import { decodeMint, METAPLEX_METADATA_PROGRAM } from '@colosseum/risk';
 import { type UniverseRead, UniverseVerdicts } from '@colosseum/schemas';
 import { address, getAddressEncoder, getProgramDerivedAddress } from '@solana/kit';
-import { LEG_TYPES } from '../../../packages/engine/src/personal/leg-types';
 import { rpc, rpcStats } from '../lib-pools';
 import {
   type B64Account,
@@ -20,10 +18,10 @@ import {
   type NamedBy,
   readsFileName,
   type SolanaReads,
-  type SolanaRepoInputs,
   solanaList,
   VERDICTS_FILE,
 } from './solana-list';
+import { FILES, repoInputs } from './solana-repo';
 
 // The Solana builder of `pnpm risk:assets solana` (PLAN-ASSETS AS.2). All the I/O is here; the list is
 // made by solana-list.ts from what this saves, so a run can be rebuilt with no network.
@@ -40,18 +38,6 @@ const LLAMA_PROTOCOLS = 'https://api.llama.fi/protocols';
 const LLAMA_CATEGORIES = new Set(['RWA', 'Yield', 'Yield Aggregator']);
 const LOCAL_DB = 'postgres://colosseum:colosseum@localhost:5433/colosseum';
 const REGISTRY_DEFAULT = 'data/risk/registry-20261001T0139.json';
-const FILES = {
-  tracked: 'scripts/risk/universe/solana.json',
-  shelf: 'packages/engine/src/personal/fixtures/shelves/solana-yield.json',
-  deploy: 'deployments/solana-devnet.json',
-  structurer: 'packages/engine/src/assets/registry.ts',
-  scope: 'fixtures/solana-vault/scope-indexes.json',
-  content: 'content/stocks/solana.json',
-  seed: 'docs/vault/research/open-questions/launch-shelf.seed.json',
-  note: 'docs/vault/research/yield-shelf/solana.md',
-  legTypes: 'packages/engine/src/personal/leg-types.ts',
-};
-
 const arg = (args: string[], name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
@@ -393,89 +379,4 @@ async function readAccounts(addrs: readonly string[]): Promise<Record<string, Ch
     });
   }
   return out;
-}
-
-/** The repository's own files the list reads, cut to the fields it uses. */
-function repoInputs(): SolanaRepoInputs {
-  const tracked = json(FILES.tracked) as {
-    assets: Array<{ id: string; symbol: string; address: string }>;
-  };
-  const shelf = json(FILES.shelf) as {
-    rows: Array<{
-      asset: { id: string; symbol: string; address: string };
-      verdict: string;
-      source: string;
-    }>;
-  };
-  const deploy = json(FILES.deploy) as {
-    cash: { id: string; modelOf: string };
-    assets: Array<{ id: string; modelOf: string }>;
-  };
-  const scope = json(FILES.scope) as SolanaRepoInputs['scope'] & {
-    assets: SolanaRepoInputs['scope']['rows'];
-  };
-  const content = json(FILES.content) as { stocks: Array<{ symbol: string }> };
-  const seed = json(FILES.seed) as {
-    assets: { solana: Array<{ symbol: string; address: string; pyth?: string }> };
-  };
-  const note = readFileSync(FILES.note, 'utf8');
-  const noteAddresses = [
-    ...new Set([...note.matchAll(/`([1-9A-HJ-NP-Za-km-z]{32,44})`/g)].map((m) => m[1] as string)),
-  ].sort();
-  return {
-    tracked: {
-      file: FILES.tracked,
-      rows: tracked.assets.map((a) => ({ id: a.id, symbol: a.symbol, address: a.address })),
-    },
-    shelf: {
-      file: FILES.shelf,
-      rows: shelf.rows.map((r) => ({
-        id: r.asset.id,
-        symbol: r.asset.symbol,
-        address: r.asset.address,
-        verdict: r.verdict,
-        source: r.source,
-      })),
-    },
-    deploy: {
-      file: FILES.deploy,
-      rows: [deploy.cash, ...deploy.assets].map((a) => ({ id: a.id, modelOf: a.modelOf })),
-    },
-    structurer: {
-      file: FILES.structurer,
-      rows: REGISTRY.filter((a) => a.chain === 'solana' && a.mint).map((a) => ({
-        id: a.id,
-        symbol: a.symbol,
-        mint: a.mint as string,
-      })),
-    },
-    scope: {
-      file: FILES.scope,
-      source: scope.source,
-      fetchedAt: scope.fetchedAt,
-      method: scope.method,
-      provenance: scope.provenance,
-      priceAccount: scope.priceAccount,
-      rows: scope.assets,
-    },
-    content: { file: FILES.content, symbols: content.stocks.map((s) => s.symbol) },
-    seed: {
-      file: FILES.seed,
-      rows: seed.assets.solana.map((a) => ({
-        symbol: a.symbol,
-        address: a.address,
-        pyth: a.pyth ?? null,
-      })),
-    },
-    note: { file: FILES.note, addresses: noteAddresses },
-    legTypes: {
-      file: FILES.legTypes,
-      rows: Object.fromEntries(
-        Object.entries(LEG_TYPES).map(([k, v]) => [
-          k,
-          { types: [...v.types], source: v.source, readAt: v.readAt },
-        ]),
-      ),
-    },
-  };
 }

@@ -8,12 +8,13 @@ import {
 import {
   type AssetClass,
   IN_TRACKED_ROW,
+  Provenance,
   type TrackedOracle,
   type UniverseAsset,
   type UniverseCategory,
   type UniverseList,
   type UniverseRead,
-  type UniverseVerdict,
+  UniverseVerdict,
   type UniverseVerdicts,
 } from '@colosseum/schemas';
 import { CLASS_BY_UNDERLYING } from '../universe/list';
@@ -143,20 +144,36 @@ export type SolanaReads = {
 /**
  * The keys a rule's `match` may hold; a token matches when every key holds. A key not here stops the
  * run, so a misspelt rule never matches nothing silently.
- *   jupiterTag     Jupiter's verified list carries the tag for the token
- *   minter         the mint authority read on chain is this address
- *   program        the token program read on chain: spl or token2022
- *   nameEndsWith   the name the chain answers ends with this text
- *   listedIn       the token is on today's shelf that way (structurer_registry, deploy_record,
- *                  tracked_stock), or `any` / `none`
+ *   jupiterTag         Jupiter's verified list carries the tag for the token
+ *   minter             the mint authority read on chain is this address
+ *   freezeAuthority    the freeze authority read on chain is this address
+ *   permanentDelegate  the permanent delegate read on chain is this address
+ *   program            the token program read on chain: spl or token2022
+ *   nameEndsWith       the name the chain answers ends with this text
+ *   nameKind           what the name method (`kindOfName`) reads in a stock issuer's token's name
+ *   listedIn           the token is on today's shelf that way (structurer_registry, deploy_record,
+ *                      tracked_stock), or `any` / `none`
  */
-export const MATCH_KEYS = ['jupiterTag', 'minter', 'program', 'nameEndsWith', 'listedIn'] as const;
+export const MATCH_KEYS = [
+  'jupiterTag',
+  'minter',
+  'freezeAuthority',
+  'permanentDelegate',
+  'program',
+  'nameEndsWith',
+  'nameKind',
+  'listedIn',
+] as const;
 
-type Facts = {
+export type Facts = {
   tags: ReadonlySet<string>;
   mintAuthority: string | null;
+  freezeAuthority: string | null;
+  permanentDelegate: string | null;
   program: string;
   name: string | null;
+  /** `none` for a token no stock issuer's rule takes. */
+  nameKind: NameKind | 'none';
   listedIn: readonly string[];
 };
 
@@ -174,8 +191,11 @@ export function ruleMatches(match: Record<string, string>, f: Facts): boolean {
   for (const [key, want] of Object.entries(match)) {
     if (key === 'jupiterTag' && !f.tags.has(want)) return false;
     if (key === 'minter' && f.mintAuthority !== want) return false;
+    if (key === 'freezeAuthority' && f.freezeAuthority !== want) return false;
+    if (key === 'permanentDelegate' && f.permanentDelegate !== want) return false;
     if (key === 'program' && f.program !== want) return false;
     if (key === 'nameEndsWith' && !(f.name ?? '').endsWith(want)) return false;
+    if (key === 'nameKind' && f.nameKind !== want) return false;
     if (key === 'listedIn') {
       const ok =
         want === 'any'
@@ -215,42 +235,94 @@ export const SYMBOL_SUFFIX: Record<string, string> = {
   'backpack-securities': '',
 };
 
-/** The tracked list's class table (DU7) as a category: a fund by its underlying's ticker. */
-const CATEGORY_OF_CLASS: Partial<Record<AssetClass, UniverseCategory>> = {
-  etf: 'tokenized_etf',
-  gold: 'tokenized_gold',
-  commodity: 'tokenized_commodity',
-  dollar_yield: 'treasury_fund_open',
+/**
+ * What a stock issuer's token is, read from the name the chain answers (a stated method, `kindOfName`):
+ *   stock           no fund word in the name
+ *   equity_etf      a fund of shares
+ *   gold_fund       a fund of gold (not of gold miners)
+ *   commodity_fund  a fund of silver, platinum, palladium, oil, gas or a commodity index
+ *   treasury_fund   a fund of Treasuries, T-bills or government bonds
+ *   bond_fund       another fund of bonds, loans or income
+ *   crypto_fund     a fund of bitcoin, ether or another crypto asset
+ *   leveraged_etf   a fund that multiplies or inverts its index
+ * The tracked list's class table (CLASS_BY_UNDERLYING, DU7) wins where it names the ticker.
+ */
+export type NameKind =
+  | 'stock'
+  | 'equity_etf'
+  | 'gold_fund'
+  | 'commodity_fund'
+  | 'treasury_fund'
+  | 'bond_fund'
+  | 'crypto_fund'
+  | 'leveraged_etf';
+
+/** Sponsors that are fund brands only, never a listed company of the same name. */
+const FUND_SPONSOR =
+  /\b(?:iShares|SPDR|Vanguard|ProShares|Direxion|GraniteShares|Leverage Shares|Volatility Shares|abrdn|Global X|VanEck|Roundhill|KraneShares|Sprott|First Trust|Defiance|Breakwave)\b/;
+const FUND_WORD = /\b(?:ETF|ETN|Fund|Index)\b/;
+/** An index named in a fund's name; MSCI alone is MSCI Inc., the company. */
+const INDEX_NAME = /\b(?:S&P 500|SP500|Russell \d+|EURO STOXX|MSCI (?!xStock\b)\w+)/;
+const LEVERAGE =
+  /\b\d+(?:\.\d+)?x\b|\b(?:Bull|Bear|UltraPro|Leveraged|Inverse)\b|\bProShares (?:Ultra|Short)\b/i;
+const CRYPTO = /\b(?:Bitcoin|Ethereum|Ether|Solana|Crypto)\b/;
+const NOT_THE_METAL =
+  /\b(?:Miners?|Mining|Services|Exploration|Production|Producers|Shipping|Tanker)\b/;
+const GOLD = /\bGold\b/;
+const COMMODITY =
+  /\b(?:Silver|Platinum|Palladium|Precious Metals|Oil|Brent|Natural Gas|Commodity|Cmd|Copper Index)\b/;
+const TREASURY = /\b(?:Treasury|T-Bill|Government|TIPS)\b/;
+const BOND =
+  /\b(?:Bond|Income|Yield|CLO|Loan|Credit|Securitized|Aggregate|Corporate|Duration|Total Return)\b/;
+
+const CATEGORY_OF_CLASS: Partial<Record<AssetClass, NameKind>> = {
+  etf: 'equity_etf',
+  gold: 'gold_fund',
+  commodity: 'commodity_fund',
+  dollar_yield: 'treasury_fund',
+};
+
+export function kindOfName(name: string, ticker: string): NameKind {
+  const cls = CLASS_BY_UNDERLYING[ticker];
+  const tabled = cls ? CATEGORY_OF_CLASS[cls] : undefined;
+  if (tabled) return tabled;
+  if (!(FUND_WORD.test(name) || FUND_SPONSOR.test(name) || INDEX_NAME.test(name))) return 'stock';
+  if (LEVERAGE.test(name)) return 'leveraged_etf';
+  if (CRYPTO.test(name)) return 'crypto_fund';
+  if (GOLD.test(name) && !NOT_THE_METAL.test(name)) return 'gold_fund';
+  if (COMMODITY.test(name) && !NOT_THE_METAL.test(name)) return 'commodity_fund';
+  if (TREASURY.test(name)) return 'treasury_fund';
+  if (BOND.test(name) && !/\bEquity\b/.test(name)) return 'bond_fund';
+  return 'equity_etf';
+}
+
+export const CATEGORY_OF_KIND: Record<NameKind, UniverseCategory> = {
+  stock: 'tokenized_stock',
+  equity_etf: 'tokenized_etf',
+  gold_fund: 'tokenized_gold',
+  commodity_fund: 'tokenized_commodity',
+  treasury_fund: 'treasury_fund_open',
+  bond_fund: 'tokenized_etf',
+  crypto_fund: 'tokenized_etf',
+  leveraged_etf: 'tokenized_etf',
 };
 
 type VerdictFields = Omit<UniverseVerdict, 'address' | 'symbol'>;
 
-function derivedFor(
-  symbol: string,
-  rules: readonly string[],
-  legTypes: SolanaRepoInputs['legTypes'],
-): Partial<VerdictFields> | undefined {
-  const issuerRule = rules.find((r) => r in SYMBOL_SUFFIX);
-  if (!issuerRule) return undefined;
+/** The ticker in a stock issuer's symbol: the symbol less the issuer's suffix, or '' where the suffix is missing. */
+function tickerOf(symbol: string, issuerRule: string): string {
   const suffix = SYMBOL_SUFFIX[issuerRule] ?? '';
-  const ticker =
-    suffix === '' ? symbol : symbol.endsWith(suffix) ? symbol.slice(0, -suffix.length) : '';
-  const cls = ticker ? CLASS_BY_UNDERLYING[ticker] : undefined;
-  const category = (cls && CATEGORY_OF_CLASS[cls]) || 'tokenized_stock';
-  // a fund the class table files as dollar yield takes the engine's leg types of its underlying
-  const engine = cls === 'dollar_yield' ? legTypes.rows[ticker] : undefined;
+  return suffix === '' ? symbol : symbol.endsWith(suffix) ? symbol.slice(0, -suffix.length) : '';
+}
+
+/** The fields the builder derives for a stock issuer's token: its underlying, category and leg types. */
+function derivedFor(ticker: string, kind: NameKind): Partial<VerdictFields> {
   return {
     underlying: ticker.length > 0 ? ticker : null,
     underlyingReason: ticker.length > 0 ? null : 'symbol_without_the_issuer_suffix',
-    category,
-    legTypes: engine
-      ? engine.types.map((type) => ({
-          type: type as 'rate' | 'credit' | 'basis' | 'market_deposit',
-          source: `${legTypes.file}, ${ticker}: ${engine.source}`,
-          readOn: engine.readAt,
-        }))
-      : null,
-    legTypesReason: cls === 'dollar_yield' && !engine ? 'no_engine_row_for_the_underlying' : null,
+    category: CATEGORY_OF_KIND[kind],
+    legTypes: null,
+    legTypesReason: kind === 'treasury_fund' ? 'not_screened_on_solana' : null,
   };
 }
 
@@ -269,6 +341,19 @@ const fromB64 = (a: NonNullable<B64Account>) => ({
   owner: a.owner,
   data: Uint8Array.from(Buffer.from(a.data, 'base64')),
 });
+
+/** A lending row's provenance as it holds it; one that is not a provenance stops the run. */
+function provenanceOf(r: LendingRow): Provenance {
+  const p = Provenance.safeParse(r.provenance);
+  if (!p.success) throw new Error(`lending row ${r.account}: provenance ${r.provenance}`);
+  return p.data;
+}
+
+/** The verdict fields a row needs from some layer, and those the builder derives for a stock issuer's token. */
+const REQUIRED_KEYS = Object.keys(UniverseVerdict.shape).filter(
+  (k) => !['address', 'symbol', 'sources', 'unverified'].includes(k),
+);
+const DERIVED_KEYS = ['underlying', 'underlyingReason', 'category', 'legTypes', 'legTypesReason'];
 
 function scopeOracle(
   reads: SolanaReads,
@@ -295,7 +380,9 @@ function scopeOracle(
       reason: null,
     };
   // a Kamino reserve of the lending import that prices this token names its Scope chain
-  const reserves = reads.lending.filter((l) => l.venue === 'kamino' && l.mint === mint && l.scope);
+  const kamino = reads.lending.filter((l) => l.venue === 'kamino' && l.mint === mint);
+  if (kamino.length === 0) return { oracle: null, reason: 'scope_not_read' };
+  const reserves = kamino.filter((l) => l.scope);
   if (reserves.length === 0) return { oracle: null, reason: 'no_scope_entry' };
   const chains = new Set(
     reserves.map((l) => JSON.stringify([l.scope?.feed, l.scope?.price, l.scope?.twap])),
@@ -318,7 +405,7 @@ function scopeOracle(
       source: `risk_lending_pools (the lending import): Kamino reserve ${r.account}${r.marketName ? ` (${r.marketName})` : ''}, oracles.scopePriceChain and scopeTwapChain`,
       fetchedAt: r.fetchedAt,
       method: 'kamino_reserve_decode',
-      provenance: r.provenance === 'live' ? 'live' : 'fixture',
+      provenance: provenanceOf(r),
     },
     reason: null,
   };
@@ -414,19 +501,52 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
     return out;
   };
 
-  // which rules each read token matches
+  // which rules each read token matches. A stock issuer's rule (SYMBOL_SUFFIX) is matched first, so the
+  // name method can read the token's ticker and kind; then every rule is matched with that kind. A token
+  // Jupiter tags deprecated is not enumerated, nor one whose rules leave a verdict field unset.
+  const issuerRules = verdicts.rules.filter((r) => r.name in SYMBOL_SUFFIX);
   const matched = new Map<string, string[]>();
+  const kindOf = new Map<string, { ticker: string; kind: NameKind }>();
   const own = new Set(verdicts.verdicts.map((v) => v.address));
+  const deprecated: string[] = [];
+  const incomplete: Array<{ address: string; rules: string[]; missing: string[] }> = [];
   for (const [address, id] of identities) {
-    const facts: Facts = {
-      tags: new Set(jup.get(address)?.tags ?? []),
+    const tags = new Set(jup.get(address)?.tags ?? []);
+    const base: Facts = {
+      tags,
       mintAuthority: id.decoded.mintAuthority,
+      freezeAuthority: id.decoded.freezeAuthority,
+      permanentDelegate: id.authorities.permanentDelegate.holder,
       program: id.standard,
       name: id.name,
+      nameKind: 'none',
       listedIn: listedOf(address),
     };
+    const issuer = issuerRules.find((r) => ruleMatches(r.match, base));
+    let facts = base;
+    if (issuer) {
+      const ticker = tickerOf(id.symbol, issuer.name);
+      const kind = kindOfName(id.name ?? '', ticker);
+      kindOf.set(address, { ticker, kind });
+      facts = { ...base, nameKind: kind };
+    }
+    if (tags.has('deprecated') && !own.has(address)) {
+      deprecated.push(address);
+      continue;
+    }
     const rules = verdicts.rules.filter((r) => ruleMatches(r.match, facts)).map((r) => r.name);
-    if (rules.length > 0 || own.has(address)) matched.set(address, rules);
+    if (rules.length === 0 && !own.has(address)) continue;
+    if (!own.has(address)) {
+      const set = new Set<string>(issuer ? DERIVED_KEYS : []);
+      for (const r of verdicts.rules)
+        if (rules.includes(r.name)) for (const k of Object.keys(r.fields)) set.add(k);
+      const missing = REQUIRED_KEYS.filter((k) => !set.has(k));
+      if (missing.length > 0) {
+        incomplete.push({ address, rules, missing });
+        continue;
+      }
+    }
+    matched.set(address, rules);
   }
 
   // ids: the tracked list's, the shelf fixture's, else solana:<slug of the symbol>, made unique
@@ -498,7 +618,8 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
           ? `the mint on ${p.url}: the page answered without it when the command fetched it`
           : `the mint on ${p.url}: the page did not answer when the command fetched it`,
       );
-    const fromRules = derivedFor(identity.symbol, rules, repo.legTypes);
+    const k = kindOf.get(address);
+    const fromRules = k ? derivedFor(k.ticker, k.kind) : undefined;
     const derived =
       fromRules || pageNotes.length > 0 ? { ...fromRules, unverified: pageNotes } : undefined;
     const row = universeRow(
@@ -520,7 +641,11 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
       verdicts: VERDICTS_FILE,
       reads: `data/assets/solana/${readsFileName(reads.startedAt)}, frozen as fixtures/risk/assets/${readsFileName(reads.startedAt)}.gz`,
     },
-    stated: stated(reads, verdicts, identities, matched, notMints, rows),
+    stated: stated(reads, verdicts, identities, matched, notMints, rows, {
+      deprecated,
+      incomplete,
+      kindOf,
+    }),
     stamp,
   });
   return { list, lines: lines(list, verdicts, identities, matched) };
@@ -653,11 +778,20 @@ function stated(
   matched: Map<string, string[]>,
   notMints: Record<string, string[]>,
   rows: readonly UniverseAsset[],
+  left_: {
+    deprecated: readonly string[];
+    incomplete: ReadonlyArray<{ address: string; rules: string[]; missing: string[] }>;
+    kindOf: ReadonlyMap<string, { ticker: string; kind: NameKind }>;
+  },
 ): Record<string, string> {
   const rowSet = new Set(rows.map((r) => r.address));
   const jupLeft = reads.jupiter.filter((t) => !rowSet.has(t.id));
+  const deprecatedSet = new Set(left_.deprecated);
+  const incompleteSet = new Set(left_.incomplete.map((i) => i.address));
   const why = (t: JupiterRow) => {
     const tags = new Set(t.tags);
+    if (deprecatedSet.has(t.id)) return 'jupiter_tags_it_deprecated';
+    if (incompleteSet.has(t.id)) return 'its_rules_leave_a_verdict_field_unset';
     if (identities.has(t.id) && !matched.has(t.id)) return 'read_and_matched_no_rule_in_full';
     if (tags.has('shift')) return 'shift_leveraged_or_inverse_tracker';
     if (tags.has('tessera')) return 'tessera_pre_ipo_token';
@@ -694,6 +828,17 @@ function stated(
   const classTable = Object.entries(CLASS_BY_UNDERLYING)
     .map(([k, v]) => `${k} ${v}`)
     .join(', ');
+  const sym = (a: string) => (identities.get(a) as Identity).symbol;
+  const kinds = countBy(
+    rows.filter((r) => left_.kindOf.has(r.address)),
+    (r) => (left_.kindOf.get(r.address) as { kind: NameKind }).kind,
+  );
+  const kindExamples = (k: NameKind) =>
+    rows
+      .filter((r) => left_.kindOf.get(r.address)?.kind === k)
+      .slice(0, 12)
+      .map((r) => r.symbol)
+      .join(', ');
   const namedText =
     namedLeft
       .map(([a, by]) => `${(identities.get(a) as Identity).symbol} (${by.join('/')})`)
@@ -705,15 +850,15 @@ function stated(
     identity:
       "Read on chain for every row by getMultipleAccounts, the slot in read.height: decimals, the token program, the Token-2022 extensions by name in the order the mint holds them, the mint and freeze authorities (null with reason 'none' where the account's option is empty), the permanent delegate (the extension's key; 'none' where the extension is absent or, on a classic SPL mint, where the program has none). Symbol and name from the mint's own tokenMetadata extension, else its Metaplex metadata account (read at its derived address in a second batch), else the listing: Jupiter's row or, for a token Jupiter does not list, the shelf fixture's symbol (read.symbolFrom 'listing', name null with 'no_metadata_on_chain').",
     ids: "The tracked list's id for a tracked stock, else the shelf fixture's, else solana:<the symbol the chain answers, lower case, + as plus, * as star, any other run of characters a dash>. Where two rows meet on one slug, each takes a dash and the first six characters of its address, lower case.",
-    rules: `A rule's match is read by the builder (scripts/risk/assets/solana-list.ts, MATCH_KEYS), every key holding: jupiterTag, Jupiter carries the tag; minter, the mint authority read on chain; program, spl or token2022; nameEndsWith, the name the chain answers; listedIn, on today's shelf that way, or any or none. Rules apply in the table's order and a token's own verdict last (decidedBy). Rows per rule: ${ruleCounts}; with a verdict of their own: ${rows.filter((r) => r.decidedBy.includes('verdict')).length}.`,
-    derived: `For a token of a stock issuer's rule (${Object.keys(SYMBOL_SUFFIX).join(', ')}) the builder derives two fields, the lowest layer: underlying, the symbol the chain answers less the issuer's suffix ('x' for xStocks, 'on' for Ondo; Backpack's symbol is the ticker), null with 'symbol_without_the_issuer_suffix' where the suffix is missing; and category, tokenized_stock, or the fund's category where the tracked list's class table (CLASS_BY_UNDERLYING in scripts/risk/universe/list.ts, DU7) names the underlying (${classTable}). No other fund among the issuers' tokens is told apart, as no read gives a token's kind: an ETF outside that table is filed tokenized_stock (stated, not chosen).`,
+    rules: `A rule's match is read by the builder (scripts/risk/assets/solana-list.ts, MATCH_KEYS), every key holding: jupiterTag, Jupiter carries the tag; minter, freezeAuthority and permanentDelegate, those keys as read on chain; program, spl or token2022; nameEndsWith, the name the chain answers; nameKind, what the name method reads in a stock issuer's token's name; listedIn, on today's shelf that way, or any or none. The stock issuers' rules rest on keys read on chain (one mint authority for xStocks and for Ondo, one freeze authority and permanent delegate for Backpack's tokens), not on Jupiter's tag alone. The lst rule rests on Jupiter's tag alone: no key read on chain is shared by the stake pools, so a token Jupiter mistags would be swept in (stated, not chosen). Rules apply in the table's order and a token's own verdict last (decidedBy). A token Jupiter tags deprecated is not enumerated (${left_.deprecated.map(sym).join(', ') || 'none'}), nor one whose rules leave a verdict field unset (${left_.incomplete.map((i) => `${sym(i.address)}: ${i.missing.join('/')}`).join(', ') || 'none'}). Rows per rule: ${ruleCounts}; with a verdict of their own: ${rows.filter((r) => r.decidedBy.includes('verdict')).length}.`,
+    derived: `For a token of a stock issuer's rule (${Object.keys(SYMBOL_SUFFIX).join(', ')}) the builder derives, the lowest layer: underlying, the symbol the chain answers less the issuer's suffix ('x' for xStocks, 'on' for Ondo; Backpack's symbol is the ticker), null with 'symbol_without_the_issuer_suffix' where the suffix is missing; and category, from what the name the chain answers says the token is (kindOfName): the tracked list's class table (CLASS_BY_UNDERLYING in scripts/risk/universe/list.ts, DU7: ${classTable}) where it names the ticker; else no fund word (ETF, ETN, Fund, Index, a fund-only sponsor such as iShares, SPDR or Vanguard, or an index name such as S&P 500 or Russell 2000) is a stock; else a fund, which is leveraged or inverse (a multiple such as 2x or 3x, Bull, Bear, UltraPro, ProShares Ultra or Short), of crypto assets, of gold, of another commodity (miners, services and producers are shares, not the metal), of Treasuries or government bonds, of other bonds or income, or of shares, in that order. A stock and a fund of shares are tokenized_stock and tokenized_etf, gold tokenized_gold, a commodity tokenized_commodity, a Treasury fund treasury_fund_open with no leg type ('not_screened_on_solana'), and a leveraged, crypto or bond fund tokenized_etf; the rules hold out every fund that is not screened. Rows by kind: ${top(kinds)}. A name without a fund word is filed a stock whatever the token is (JPSTx, a short-bond fund, is one): stated, not chosen. Examples: leveraged ${kindExamples('leveraged_etf')}; treasury ${kindExamples('treasury_fund')}; gold ${kindExamples('gold_fund')}; commodity ${kindExamples('commodity_fund')}.`,
     status:
-      "listed: on today's shelf, by mint in the structurer's registry (packages/engine/src/assets/registry.ts), as the model of a token of deployments/solana-devnet.json (its modelOf matched to the one named mint that answers that symbol), or a tracked stock of scripts/risk/universe/solana.json; listedIn says which. A tracked stock's row names its tracked row and reads its pools and oracle there. A stock token outside the cut is candidate, 'outside the 80% cut' (DA16, stated, not chosen). Dollar yield takes the research note's verdict: add and add with caution candidate, hold held_out, out held_out or excluded by its reason, verdictSource naming the note and section. Permissioned funds held_out (DA4); a token in another currency held_out (USD-ONLY, DA7); crypto candidate (DA6); a token with a maturity or with no class held_out; defunct, exploit-linked or not the asset it claims excluded.",
+      "listed: on today's shelf, by mint in the structurer's registry (packages/engine/src/assets/registry.ts), as the model of a token of deployments/solana-devnet.json (its modelOf matched to the one named mint that answers that symbol), or a tracked stock of scripts/risk/universe/solana.json; listedIn says which. A tracked stock's row names its tracked row and reads its pools and oracle there. A stock token outside the cut that names the tracked stocks is candidate (gate UNIVERSE, DA16, stated, not chosen); a fund among them that is not screened (a Treasury, bond, crypto, leveraged or inverse fund) is held_out. Dollar yield takes the research note's verdict: add and add with caution candidate, hold held_out, out held_out or excluded by its reason, verdictSource naming the note and section. Permissioned funds held_out (DA4); a token in another currency held_out (USD-ONLY, DA7); crypto candidate (DA6); a token with a maturity or with no class held_out; defunct, exploit-linked or not the asset it claims excluded.",
     shelf:
       "The structurer's kamino-usdc row names the USDC mint (its leg is a deposit made in USDC), so it lists USDC; Kamino's deposit token itself (kUSDC, B8V6…) is a row of its own with the research note's verdict.",
-    legTypes: `Only for dollar yield, from the research note, and held to the engine's table (${repo.legTypes.file}) by the shelf fixture's symbol: a row whose types differ stops the run. A token the note types as none of the four is null with its reason, never a guess.`,
+    legTypes: `Only for dollar yield, from the research note, and held to the engine's table (${repo.legTypes.file}) by the shelf fixture's symbol: a row whose types differ stops the run. A token the note types as none of the four (ONyc, USD*) is filed other, with no class and so no leg types, and held out; a dollar-yield token no source types is null with its reason, never a guess.`,
     oracle:
-      "A Scope entry where fixtures/solana-vault/scope-indexes.json names the mint, else where a Kamino reserve of risk_lending_pools prices it with a one-entry Scope chain; else null, 'no_scope_entry'. A tracked stock's oracle is read in its tracked row. A Pyth feed the launch-shelf seed names is in unverifiedOracles and is never read (DU4).",
+      "A Scope entry where fixtures/solana-vault/scope-indexes.json names the mint, else where a Kamino reserve of risk_lending_pools prices it with a one-entry Scope chain. Null with 'no_scope_entry' where a Kamino reserve of the lending import holds the token and names no Scope chain for it; 'scope_not_read' where no reserve the lending import knows holds it, since the import holds only the xStocks markets and no Scope entry was looked for. A tracked stock's oracle is read in its tracked row. A Pyth feed the launch-shelf seed names is in unverifiedOracles and is never read (DU4).",
     pools: `How many pools of the registry file ${reads.registry.file} (pnpm risk:registry: pools confirmed on chain at build) hold the mint on either side, all counted as confirmed; none: null, 'no_registered_pool'. That registry was built for the stock tokens' pools, so a count there is the pools a token shares with a stock token, not every pool it has.`,
     xstocks: `The ${byRule('xstocks').length} tokens of the xstocks rule, as read on chain: ${facts('xstocks')}.`,
     ondo: `The ${byRule('ondo-global-markets').length} tokens of the ondo-global-markets rule, as read on chain: ${facts('ondo-global-markets')}.`,
@@ -755,5 +900,3 @@ function lines(
   }
   return out;
 }
-
-export const _test = { derivedFor, slugOf };

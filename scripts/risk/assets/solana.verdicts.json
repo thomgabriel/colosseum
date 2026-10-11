@@ -12,7 +12,7 @@
       },
       "fields": {
         "status": "candidate",
-        "statusReason": "a stock token outside the 80% cut (DA16, stated, not chosen)",
+        "statusReason": "outside the cut that names the tracked stocks (gate UNIVERSE, DA16)",
         "issuer": "Backed (xStocks)",
         "issuerReason": null,
         "issuerKind": "tokenization_issuer",
@@ -55,7 +55,7 @@
       },
       "fields": {
         "status": "candidate",
-        "statusReason": "a stock token outside the 80% cut (DA16, stated, not chosen)",
+        "statusReason": "outside the cut that names the tracked stocks (gate UNIVERSE, DA16)",
         "issuer": "Ondo Global Markets",
         "issuerReason": null,
         "issuerKind": "tokenization_issuer",
@@ -89,16 +89,18 @@
       "name": "backpack-securities",
       "match": {
         "jupiterTag": "backpack",
-        "nameEndsWith": " - Backpack Securities"
+        "nameEndsWith": " - Backpack Securities",
+        "freezeAuthority": "2cVYpagTt7ZGc3mmTXBa7fAznUtx5DUu6aCq8uVDaf4a",
+        "permanentDelegate": "2cVYpagTt7ZGc3mmTXBa7fAznUtx5DUu6aCq8uVDaf4a"
       },
       "fields": {
         "status": "candidate",
-        "statusReason": "a stock token outside the 80% cut (DA16, stated, not chosen)",
+        "statusReason": "outside the cut that names the tracked stocks (gate UNIVERSE, DA16)",
         "issuer": "Backpack Securities",
         "issuerReason": null,
         "issuerKind": "tokenization_issuer",
         "unverified": [
-          "the issuer: from the on-chain name and the tag only; each token has its own mint authority",
+          "the issuer: from the on-chain name, the tag and the one freeze authority and permanent delegate the tokens share; each has its own mint authority",
           "what each token is in law"
         ],
         "verdictSource": null,
@@ -114,6 +116,74 @@
         {
           "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
           "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-treasury-fund",
+      "match": {
+        "nameKind": "treasury_fund"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "a fund of Treasuries or government bonds on a stock issuer's shelf: not screened on Solana, held out until it is"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-bond-fund",
+      "match": {
+        "nameKind": "bond_fund"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "a fund of bonds, loans or income on a stock issuer's shelf: not screened, and no category takes it as dollar yield yet"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-crypto-fund",
+      "match": {
+        "nameKind": "crypto_fund"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "a fund of crypto assets on a stock issuer's shelf: not screened"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "stock-issuer-leveraged-etf",
+      "match": {
+        "nameKind": "leveraged_etf"
+      },
+      "fields": {
+        "status": "held_out",
+        "statusReason": "leveraged or inverse: not screened"
+      },
+      "sources": [
+        {
+          "url": "scripts/risk/assets/solana-list.ts",
+          "title": "The name method (kindOfName): what a stock issuer's token is, read from the name the chain answers",
           "readOn": "2026-10-11"
         }
       ]
@@ -196,23 +266,6 @@
       ]
     },
     {
-      "name": "jupiter-deprecated",
-      "match": {
-        "jupiterTag": "deprecated"
-      },
-      "fields": {
-        "status": "excluded",
-        "statusReason": "Jupiter tags it deprecated"
-      },
-      "sources": [
-        {
-          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
-          "title": "Jupiter's verified token list, with every tag",
-          "readOn": "2026-10-11"
-        }
-      ]
-    },
-    {
       "name": "on-todays-shelf",
       "match": {
         "listedIn": "any"
@@ -228,8 +281,8 @@
           "readOn": "2026-10-05"
         },
         {
-          "url": "packages/engine/src/personal/leg-types.ts",
-          "title": "The engine's leg types, whose test-network rows name the tokens deployments/solana-devnet.json models",
+          "url": "deployments/solana-devnet.json",
+          "title": "The test network's record: the mainnet token each test token models (modelOf)",
           "readOn": "2026-10-11"
         },
         {
@@ -299,14 +352,14 @@
       "legTypesReason": null,
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "permissioned",
       "accessReason": null,
       "mintRedeem": {
         "primary": "protocol",
         "description": "unlock to USX in the app, then USX on a pool; or sell eUSX on a pool",
         "kyc": false,
         "minimum": null,
-        "settlement": "7 days standard; 24 hours for $1,000 or less",
+        "settlement": "seven days standard, a day for a small amount (section 3.2)",
         "source": "docs/vault/research/yield-shelf/solana.md, section 3.2, eUSX"
       },
       "mintRedeemReason": null,
@@ -332,7 +385,7 @@
       "symbol": "sUSDe",
       "category": "basis_strategy",
       "status": "held_out",
-      "statusReason": "hold in the research note: no route at $10,000 on Solana; the real exit is on Ethereum",
+      "statusReason": "hold in the research note: no route at a person's size on Solana, and the real exit is on Ethereum, section 3.1",
       "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSDe",
       "issuer": "Ethena",
       "issuerReason": null,
@@ -350,8 +403,8 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -395,7 +448,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -446,7 +499,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -494,7 +547,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -545,7 +598,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -596,7 +649,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -647,7 +700,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -689,8 +742,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -727,8 +780,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -767,8 +820,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -805,8 +858,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -843,8 +896,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -922,8 +975,8 @@
       "legTypesReason": "not_screened_by_the_research",
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -938,7 +991,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
@@ -963,8 +1016,8 @@
       "legTypesReason": null,
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1004,8 +1057,8 @@
       "legTypesReason": null,
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1025,7 +1078,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
@@ -1044,8 +1097,8 @@
       "legTypesReason": "not_screened_by_the_research",
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1060,7 +1113,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "j14XLJZSVMcUYpAfajdZRpnfHUpJieZHS4aPektLWvh",
@@ -1085,8 +1138,8 @@
       "legTypesReason": null,
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1106,7 +1159,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
@@ -1125,8 +1178,8 @@
       "legTypesReason": "not_screened_by_the_research",
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1141,7 +1194,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
@@ -1166,8 +1219,8 @@
       "legTypesReason": null,
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": {
         "primary": "protocol",
         "description": "redeem at the USDC reserve D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59 of the Main Market for USDC, up to the USDC not lent out",
@@ -1207,8 +1260,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1245,8 +1298,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1280,8 +1333,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1318,8 +1371,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1353,7 +1406,7 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
@@ -1369,7 +1422,11 @@
           "readOn": "2026-10-06"
         }
       ],
-      "unverified": ["the mint on an issuer page", "what backs it in full"]
+      "unverified": [
+        "the mint on an issuer page",
+        "what backs it in full",
+        "the terms list countries that may not use its interface, section 3.2"
+      ]
     },
     {
       "address": "star9agSpjiFe3M49B3RniVU4CMBBEK3Qnaqn3RGiFM",
@@ -1388,8 +1445,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1404,7 +1461,7 @@
           "readOn": "2026-10-06"
         }
       ],
-      "unverified": ["the mint on an issuer page", "what backs it in full"]
+      "unverified": ["the mint on an issuer page", "what backs it in full", "geo-blocks"]
     },
     {
       "address": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
@@ -1429,8 +1486,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1470,8 +1527,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1511,8 +1568,8 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": {
         "primary": "protocol",
         "description": "redeem first come, first served under a global daily cap that resets at 00:00 UTC; or sell on a pool",
@@ -1559,8 +1616,8 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": {
         "primary": "issuer",
         "description": "subscribe and redeem with the issuer, for qualified or professional investors after KYC",
@@ -1611,8 +1668,8 @@
       "legTypesReason": null,
       "yieldMechanism": "exchange_rate",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1724,8 +1781,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": null,
-      "accessReason": "not_read",
+      "access": "front_end_geo_blocked",
+      "accessReason": null,
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -1919,7 +1976,7 @@
         }
       ],
       "unverified": [
-        "the reserves (90% USDtb and 10% USDC at launch): a press report the note read, not an issuer document"
+        "the reserves at launch (USDtb and USDC): a press report the note read, not an issuer document"
       ]
     },
     {
@@ -2112,7 +2169,7 @@
       "symbol": "USX",
       "category": "stablecoin_usd",
       "status": "candidate",
-      "statusReason": "a stablecoin, not on the shelf: the research note leaves it off the yield shelf for paying nothing (it fell to about $0.80 on 2025-12-26), which does not decide it as cash (DA5)",
+      "statusReason": "a stablecoin, not on the shelf: the research note leaves it off the yield shelf for paying nothing (it fell well under a dollar on 2025-12-26, section 3.2), which does not decide it as cash (DA5)",
       "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, USX",
       "issuer": "Solstice",
       "issuerReason": null,
@@ -2163,8 +2220,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -2209,7 +2266,7 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": {
         "primary": "issuer",
@@ -2247,7 +2304,7 @@
       "symbol": "sUSD",
       "category": "treasury_fund_open",
       "status": "held_out",
-      "statusReason": "hold in the research note: a $100 sale loses over 4%, and the rate on the mint reads 30.91%, which is not a T-bill rate",
+      "statusReason": "hold in the research note: even a small sale loses much of its value, and the rate the mint reads is not a T-bill rate, section 3.1",
       "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, sUSD",
       "issuer": "Solayer",
       "issuerReason": null,
@@ -2265,8 +2322,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "interest_bearing_extension_changes_only_the_displayed_amount",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -2289,7 +2346,7 @@
       "symbol": "wYLDS",
       "category": "treasury_fund_open",
       "status": "candidate",
-      "statusReason": "add with caution in the research note (one order book and a standing discount near 48 bps): not decided for a plan (DA5)",
+      "statusReason": "add with caution in the research note (one order book, and every sale fills under par, section 3.1): not decided for a plan (DA5)",
       "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.1, wYLDS",
       "issuer": "Hastra",
       "issuerReason": null,
@@ -2307,8 +2364,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "how_a_plain_holder_receives_the_yield_was_not_verified",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -2412,8 +2469,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -2446,8 +2503,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -2484,8 +2541,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -2514,8 +2571,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [

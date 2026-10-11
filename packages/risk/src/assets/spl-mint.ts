@@ -45,6 +45,7 @@ export const TOKEN_2022_EXTENSIONS: Record<number, string> = {
   25: 'scaledUiAmountConfig',
   26: 'pausableConfig',
   27: 'pausableAccount',
+  28: 'permissionedBurn',
 };
 
 export type TokenMetadataFields = {
@@ -153,7 +154,7 @@ export function decodeMint(owner: string, data: Uint8Array): DecodedMint {
   while (o + 4 <= data.length) {
     const type = r.u16(o);
     const len = r.u16(o + 2);
-    if (type === 0 && len === 0) break; // the zeroed tail of a reallocated account
+    if (type === 0) break; // uninitialized: the zeroed tail of the account, whatever length it reads
     const value = data.subarray(o + 4, o + 4 + len);
     if (value.length !== len) throw new Error(`extension ${type} runs past the account`);
     const name = TOKEN_2022_EXTENSIONS[type];

@@ -10,11 +10,14 @@ import { UniverseList, UniverseVerdicts } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import {
   ASSETS_METHOD,
+  kindOfName,
   MATCH_KEYS,
+  ruleMatches,
   type SolanaReads,
   solanaList,
   VERDICTS_FILE,
 } from '../scripts/risk/assets/solana-list';
+import { repoInputs } from '../scripts/risk/assets/solana-repo';
 
 // PLAN-ASSETS AS.2 (gate ASSET-UNIVERSE): the Solana asset universe. The reads one run was built from
 // are frozen under fixtures/risk/assets/ (pnpm risk:freeze-assets-solana): Jupiter's verified list cut
@@ -51,6 +54,12 @@ const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const TESOURO = 'BRNTNaZeTJANz9PeuD8drNbBHwGgg7ZTjiQYrFgWQ48p';
 const AMZNON = '14Tqdo8V1FhzKsE3W2pFsZCzYPQxxupXRcqw9jv6ondo';
 const KUSDC = 'B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D';
+/** BRS, the BRL stablecoin (scripts/lib.ts MINTS.BRS): never a row before gate G-NORA. */
+const BRS = 'BRSxQRUaGswjLs7ewcH7uXj3r7SgmfKSSLLXyCKHZtUo';
+/** PENGU, a memecoin the launch-shelf seed names: read, and no row. */
+const PENGU = '2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv';
+/** jjupSOL: Jupiter tags it lst and deprecated. */
+const JJUPSOL = 'BgYgFYq4A9a2o5S1QbWkmYVFBh7LBQL8YvugdhieFg38';
 /** Kamino Lend's Main Market: an account no read of the list asks for. */
 const KAMINO_MAIN_MARKET = '7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF';
 
@@ -207,7 +216,8 @@ describe('the committed list', () => {
     const list = UniverseList.parse(committed());
     const rows = new Set(list.assets.map((a) => a.address));
     expect(verdicts().verdicts.filter((v) => !rows.has(v.address))).toEqual([]);
-    expect(list.assets.some((a) => /^BRS/i.test(a.symbol))).toBe(false);
+    expect(list.assets.some((a) => a.address === BRS || /^BRS/i.test(a.symbol))).toBe(false);
+    expect(rows.has(JJUPSOL)).toBe(false);
     const memes = new Set(reads.jupiter.filter((t) => t.tags.includes('meme')).map((t) => t.id));
     expect(list.assets.filter((a) => memes.has(a.address)).map((a) => a.symbol)).toEqual([]);
   });
@@ -220,6 +230,115 @@ describe('the committed list', () => {
     expect(byRule('ondo-global-markets').length).toBeGreaterThan(400);
     const stockVerdicts = v.verdicts.filter((x) => x.category === 'tokenized_stock');
     expect(stockVerdicts.length).toBeLessThan(10);
+  });
+});
+
+describe("the frozen copy of the repository's files", () => {
+  it('is what the files say now, so a change to any of them asks for the list to be built again', () => {
+    // leg-types.ts, the structurer's registry, the tracked list, the deploy record, the Scope table, the
+    // shelf fixture, the research note's addresses, the launch-shelf seed and the stocks' attributes
+    expect(JSON.parse(JSON.stringify(repoInputs()))).toEqual(reads.repo);
+  });
+});
+
+describe('the rules and the name method', () => {
+  const facts = {
+    tags: new Set(['xstocks', 'verified']),
+    mintAuthority: '7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj',
+    freezeAuthority: null,
+    permanentDelegate: null,
+    program: 'token2022',
+    name: 'NVIDIA xStock',
+    nameKind: 'stock' as const,
+    listedIn: [],
+  };
+  const xstocks = () => {
+    const r = verdicts().rules.find((x) => x.name === 'xstocks');
+    if (!r) throw new Error('no xstocks rule');
+    return r;
+  };
+
+  it('take a token by the keys read on chain, not by the tag alone', () => {
+    expect(ruleMatches(xstocks().match, facts)).toBe(true);
+    expect(ruleMatches(xstocks().match, { ...facts, mintAuthority: KAMINO_MAIN_MARKET })).toBe(
+      false,
+    );
+    const backpack = verdicts().rules.find((x) => x.name === 'backpack-securities');
+    expect(Object.keys(backpack?.match ?? {})).toEqual(
+      expect.arrayContaining(['freezeAuthority', 'permanentDelegate']),
+    );
+  });
+
+  it('do not sweep in a token Jupiter tags xstocks whose mint authority is another', () => {
+    const tagged: SolanaReads = {
+      ...reads,
+      jupiter: reads.jupiter.map((t) =>
+        t.id === PENGU ? { ...t, tags: [...t.tags, 'xstocks'] } : t,
+      ),
+    };
+    const list = solanaList(tagged, verdicts()).list;
+    expect(list.assets.some((a) => a.address === PENGU)).toBe(false);
+    expect(list.counts.rows).toBe(committed().counts.rows);
+  });
+
+  it("read a fund's kind from its name, the tracked list's class table first", () => {
+    const cases: Array<[string, string, string]> = [
+      ['ProShares UltraPro Short QQQ xStock', 'SQQQ', 'leveraged_etf'],
+      ['Direxion Daily 20 Year Treasury Bull 3X ETF xStock', 'TMF', 'leveraged_etf'],
+      ['AB Ultra Short Income ETF (Ondo Tokenized)', 'YEAR', 'bond_fund'],
+      ['iShares 0-3 Month Treasury Bond ETF xStock', 'SGOV', 'treasury_fund'],
+      ['SPDR Bloomberg 1-3 Month T-Bill ETF (Ondo Tokenized)', 'BIL', 'treasury_fund'],
+      ['iShares Gold Trust (Ondo Tokenized)', 'IAU', 'gold_fund'],
+      ['VanEck Gold Miners xStock', 'GDX', 'equity_etf'],
+      ['United States Oil Fund xStock', 'USO', 'commodity_fund'],
+      ['SPDR S&P Oil & Gas Exploration & Production ETF xStock', 'XOP', 'equity_etf'],
+      ['iShares Bitcoin Trust (Ondo Tokenized)', 'IBIT', 'crypto_fund'],
+      ['Vanguard xStock', 'VTI', 'equity_etf'],
+      ['Russell 2000 xStock', 'IWM', 'equity_etf'],
+      ['Digital Realty Trust xStock', 'DLR', 'stock'],
+      ['Invesco xStock', 'IVZ', 'stock'],
+      ['MSCI xStock', 'MSCI', 'stock'],
+      ['Webull Corporation Class A Ordinary Shares - Backpack Securities', 'BULL', 'stock'],
+    ];
+    expect(cases.map(([name, ticker]) => kindOfName(name, ticker))).toEqual(cases.map((c) => c[2]));
+  });
+
+  it('hold out every unscreened fund of a stock issuer, with no leg type borrowed', () => {
+    const list = UniverseList.parse(committed());
+    const issuerRows = list.assets.filter((a) =>
+      a.decidedBy.some((d) => /^rule:(?:xstocks|ondo-global-markets|backpack-securities)$/.test(d)),
+    );
+    const funds = issuerRows.filter((a) => a.category === 'treasury_fund_open');
+    expect(funds.map((a) => a.symbol)).toEqual(
+      expect.arrayContaining(['SGOVx', 'SGOVon', 'BILon']),
+    );
+    for (const a of funds)
+      expect([a.status, a.legTypes, a.legTypesReason]).toEqual([
+        'held_out',
+        null,
+        'not_screened_on_solana',
+      ]);
+    for (const s of ['SQQQx', 'TQQQon', 'IBITon', 'HYGon'])
+      expect(list.assets.find((a) => a.symbol === s)?.status).toBe('held_out');
+  });
+
+  it('leave out a token whose rules set only some verdict fields, and say so', () => {
+    const v = verdicts();
+    const partial = UniverseVerdicts.parse({
+      ...v,
+      rules: [
+        ...v.rules,
+        {
+          name: 'partial',
+          match: { nameEndsWith: 'Penguins' },
+          fields: { status: 'excluded', statusReason: 'a test rule that sets only the status' },
+          sources: [{ url: 'https://example.org/test', title: 'a test', readOn: '2026-10-11' }],
+        },
+      ],
+    });
+    const list = solanaList(reads, partial).list;
+    expect(list.assets.some((a) => a.address === PENGU)).toBe(false);
+    expect(list.stated.rules).toContain('PENGU: category');
   });
 });
 
