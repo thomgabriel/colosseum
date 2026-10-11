@@ -138,6 +138,31 @@ describe('the verdict of a token', () => {
     expect(v.decidedBy).toEqual(['rule:xstocks', 'verdict']);
   });
 
+  it('applies the rules it matches in the table order, each once, whatever order they are named in', () => {
+    const two = UniverseVerdicts.parse({
+      ...verdicts,
+      rules: [
+        verdicts.rules[0],
+        {
+          name: 'held',
+          match: { jupiterTag: 'prestocks' },
+          fields: { status: 'held_out' },
+          sources: SRC('2026-10-10'),
+        },
+      ],
+    });
+    const derived = { underlying: 'NVDA', underlyingReason: null };
+    for (const rules of [
+      ['xstocks', 'held'],
+      ['held', 'xstocks'],
+      ['held', 'xstocks', 'held'],
+    ]) {
+      const v = verdictOf(two, { identity: identity(NVDAX, 'NVDAx'), rules, derived });
+      expect(v.status).toBe('held_out');
+      expect(v.decidedBy).toEqual(['derived', 'rule:xstocks', 'rule:held']);
+    }
+  });
+
   it('names the token and the fields no verdict sets', () => {
     expect(() =>
       verdictOf(verdicts, { identity: identity(NVDAX, 'NVDAx'), rules: ['xstocks'] }),
@@ -181,6 +206,7 @@ describe('a row and a list', () => {
       STAMP,
     );
     expect(nvdax.cls).toBe('stock');
+    expect(nvdax.decidedBy).toEqual(['derived', 'rule:xstocks']);
     expect(paxg.cls).toBe('gold');
     const list = universeList({
       chain: 'solana',

@@ -42,7 +42,8 @@ Checked against `origin/staging` at `4f2585c9` and the files on this machine, 20
 
 **AS.1 — The plan and the row** (branch `universe/assets-plan`).
 This document; the zod schemas `UniverseAsset`, `UniverseList`, `UniverseVerdicts` and the category table `CATEGORY_CLASS` in `packages/schemas/src/asset-universe.ts` (additive; imports nothing outside the package).
-- **Check:** `pnpm exec vitest run tests/asset-universe-schema.test.ts`: a row of each kind parses; every rule of the row refuses what it should (a null without its reason, a class that is not the category's, leg types outside dollar yield, a tracked stock that copies its pools or oracle, a listed row with no shelf); the schema's leg types equal the engine's `LegType`.
+- **The statuses the schema holds** (the plan's decisions, so no builder can drift from them): a permissioned token, a token with a maturity or in another currency, a token with no class and a dollar-yield token with no leg type are never `listed` or `candidate` (DA4, DA7, the prompt's 5.3); a tracked stock names its tracked row and no other row does.
+- **Check:** `pnpm exec vitest run tests/asset-universe-schema.test.ts tests/asset-universe-assemble.test.ts`: a row of each kind parses; every rule of the row refuses what it should (a null without its reason, a class that is not the category's, leg types outside dollar yield, a tracked stock that copies its pools or oracle or names none, a listed row with no shelf, an offered status the plan holds out, the other chain's standard, symbol source, authorities or registry, an EVM implementation without a proxy); the rules a token matches apply in the table's order, each once; the schema's leg types equal the engine's `LegType`.
 
 **AS.2 — The Solana list** (branch `universe/assets-solana`).
 `pnpm risk:assets solana` writes `scripts/risk/assets/solana.json` from reads, in the order of the prompt's section 5.2: Jupiter's verified list with every tag; the reserves the lending import knows (`risk_lending_pools`); the two screening notes and their inputs; DefiLlama's public lists as names only; the issuers' pages. Every candidate address is then read on chain in batches (`getMultipleAccounts` on the mints and their metadata accounts): decimals, the token program, the Token-2022 extensions by name, the mint, freeze and permanent-delegate authorities, symbol and name. The verdict columns come from `scripts/risk/assets/solana.verdicts.json` (schema `UniverseVerdicts`): rules for a class a listing names in one way (the `xstocks` and `ondo` tags, the LSTs), and one verdict per address elsewhere; the command refuses a verdict for an address it did not read. Memecoins are not enumerated (the Oct 1 note: no meme index in the MVP), and neither is BRS (gate `G-NORA`).
@@ -53,7 +54,7 @@ This document; the zod schemas `UniverseAsset`, `UniverseList`, `UniverseVerdict
 - **Check:** as AS.2, on `fixtures/risk-evm/assets/`; every registry row has a list row.
 
 **AS.4 — Two tables, one migration** (branch `universe/assets-metrics`).
-`asset_observations` (one narrow row per chain, token, metric, source and time, with a `null_reason`, a `detail` and the four provenance columns) and `market_bars` (one hour of one pool, or of one token across its pools, from the swap history), by migration `0021`, claiming the migration token in the ledger first. `tests/db-schema.test.ts`, `docs/DATA-MODEL.md` and `DESIGN-VAULT.md` section 4 say the new tables.
+`asset_observations` (one narrow row per chain, token, metric, source and time, with a `null_reason`, a `detail` and the four provenance columns) and `market_bars` (one hour of one pool, or of one token across its pools, from the swap history), by migration `0021`, under the migration token claimed on 2026-10-10 (DA3). `tests/db-schema.test.ts`, `docs/DATA-MODEL.md` and `DESIGN-VAULT.md` section 4 say the new tables.
 - **Check:** `pnpm db:migrate` on a scratch database applies `0021` and nothing else; the schema test lists the tables; a row with a value and a reason both, or neither, is refused by the table's check.
 
 **AS.5 — The readers and the import.**
@@ -75,9 +76,9 @@ In order: (1) Robinhood Chain logs for the whole life of every pool and token of
 
 | # | Question | Default | Status |
 |---|---|---|---|
-| DA1 | The fine categories and their class | `UniverseCategory` and `CATEGORY_CLASS` in `packages/schemas/src/asset-universe.ts`: the table of the prompt's section 5.3 with five added from what the reads name: `savings_rate` (sUSDS) and `fixed_maturity` as dollar yield, `stablecoin_synthetic` (USDe) as cash, `wrapped_other` as crypto, and `other` with no class and its reason. A row's class is always its category's | default (pending Rodrigo) |
+| DA1 | The fine categories and their class | `UniverseCategory` and `CATEGORY_CLASS` in `packages/schemas/src/asset-universe.ts`: the table of the prompt's section 5.3 with four added from what the reads name: `savings_rate` (sUSDS) as dollar yield, `stablecoin_synthetic` (USDe) as cash, `wrapped_other` as crypto, and `other` with no class and its reason. A row's class is always its category's | default (pending Rodrigo) |
 | DA2 | Where the all-class list lives | `scripts/risk/assets/<chain>.json`, generated and committed; the stock list unchanged beside it | default |
-| DA3 | One narrow `asset_observations` table, by migration `0021` | Yes; the token is free in fact (section 2) and is claimed in the ledger by AS.4 | default |
+| DA3 | One narrow `asset_observations` table, by migration `0021` | Yes. The ledger's row named a holder whose migration had merged, and the migration after it was taken without the row changing (section 2), so the token was claimed for ASSET-2 on 2026-10-10 in the plan's pull request, before `0021` was generated. Thom may take it back: `0021` is renumbered then | stated, not chosen (Thom to confirm) |
 | DA4 | Permissioned funds (BUIDL, OUSG, BENJI, USTB, USYC, VBILL, WTGXX, ACRED) | In the list, `held_out`, metrics read where public; never on a shelf, since a vault cannot be put on an allowlist | default |
 | DA5 | Which screened dollar-yield tokens join the structurer's registry | None by this work; their readings go to `asset_observations` until he decides by `/decide` under `UNIVERSE` | default |
 | DA6 | Crypto: native, LSTs, wrapped BTC and ETH, governance | Enumerated and read, class `crypto`, status `candidate`; memecoins not enumerated | default |
@@ -86,7 +87,7 @@ In order: (1) Robinhood Chain logs for the whole life of every pool and token of
 | DA9 | Cadence and where the jobs run | The prompt's section 6.2; on Rodrigo's machine beside the other jobs (DU5), installed by him | the install is his |
 | DA10 | A `chain` column | Not on the existing tables (DU6); the new tables have one from the start | default |
 | DA11 | How far back | The prompt's section 6.4: whole life where cheap, 90 days of per-swap history on Solana and a sampled walk beyond, state from Oct 1 | decided 2026-10-10 (Rodrigo) |
-| DA12 | The grain kept | Raw events on disk, hourly bars in Postgres, facts at every change; per-swap rows in Postgres only if he asks | default |
+| DA12 | The grain kept | Raw events on disk, hourly bars in Postgres, facts at every change; per-swap rows in Postgres only for the reference pools of the shelf, and only if he asks | default |
 | DA13 | Pool state on Robinhood Chain before Oct 2 | Not rebuilt; a v3 and v4 replay is a later step | default |
 | DA14 | Disk and RPC budget | Count before fetching. **Amended for this machine:** 68 GB are free, so the prompt's 100 GB cannot be reached; the backfill may take 35 GB and stops if free space falls below 25 GB. A keyed indexer is DA8's question | stated, not chosen (pending Rodrigo) |
 | DA15 | USDC and USDT supply history | The external daily series only; their mints are not walked | default |
@@ -120,7 +121,8 @@ In order: (1) Robinhood Chain logs for the whole life of every pool and token of
 ### Stated, not chosen
 
 - The disk budget of DA14 and the status of an untracked stock token (DA16): the orchestrator's, for Rodrigo to confirm.
-- Five categories added to the prompt's table (DA1), each with the token that asked for it.
+- Four categories added to the prompt's table (DA1), each with the token that asked for it.
+- The migration token, claimed from a stale row (DA3), for Thom to confirm.
 - The two counts that differ from the prompt (section 2): the registry's 8 rows and the issuer's 194 tokens.
 
 ### Discovered

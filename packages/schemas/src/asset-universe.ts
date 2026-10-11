@@ -19,7 +19,13 @@ export const UniverseChain = z.enum(['solana', 'robinhood']);
 export type UniverseChain = z.infer<typeof UniverseChain>;
 
 /** A calendar day, YYYY-MM-DD. */
-const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
+const Day = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+  .refine((d) => {
+    const t = new Date(`${d}T00:00:00Z`);
+    return !Number.isNaN(t.getTime()) && t.toISOString().startsWith(d);
+  }, 'not a calendar day');
 const Reason = z.string().min(1);
 
 /** Where a row or a list came from. */
@@ -129,7 +135,22 @@ export const UniverseAuthority = z
   });
 export type UniverseAuthority = z.infer<typeof UniverseAuthority>;
 
-/** The authorities each family's row carries, by name. */
+/** The reason a tracked stock's oracle and pools are null: they are read in its tracked row. */
+export const IN_TRACKED_ROW = 'in_tracked_row';
+
+/** What a row's chain allows: its standards, where its symbol may come from, its authorities by name. */
+export const CHAIN_FIELDS = {
+  solana: {
+    standards: ['spl', 'token2022', 'other'],
+    symbolFrom: ['metaplex', 'token_metadata_extension', 'listing'],
+  },
+  robinhood: {
+    standards: ['erc20', 'erc4626', 'native', 'other'],
+    symbolFrom: ['erc20', 'native', 'listing'],
+  },
+} as const;
+
+/** The authorities each family's row carries, by name: exactly these. */
 export const AUTHORITY_KEYS = {
   solana: ['mint', 'freeze', 'permanentDelegate'],
   evm: ['owner', 'admin'],
@@ -154,8 +175,11 @@ export const UniverseExtensions = z.discriminatedUnion('family', [
   z.strictObject({
     family: z.literal('evm'),
     proxy: EvmFlag,
-    /** The implementation behind a proxy, lower case, where `proxy` is true and the slot was read. */
-    implementation: z.string().nullable(),
+    /** The implementation behind a proxy, lower case: set exactly when `proxy` is true. */
+    implementation: z
+      .string()
+      .regex(/^0x[0-9a-f]{40}$/)
+      .nullable(),
     pausable: EvmFlag,
     blacklist: EvmFlag,
   }),
@@ -283,6 +307,11 @@ export const UniverseAssetBase = z.strictObject({
   ),
 
   // where it stands
+  /**
+   * Which layers set the verdict fields, lowest first: `derived` (by the builder's stated method), `rule:<name>`
+   * for each rule of the table it matched, in the table's order, and `verdict` for its own row.
+   */
+  decidedBy: z.array(z.string().regex(/^(?:derived|verdict|rule:.+)$/)).min(1),
   /** Where a `listed` row is on today's shelf. Empty for every other status. */
   listedIn: z.array(z.enum(['structurer_registry', 'deploy_record', 'tracked_stock'])),
   /** How many pools the chain's registry or cut knows for the token, and the file. `unconfirmed`: counted from a listing, not confirmed on chain. */
@@ -341,20 +370,61 @@ export const UniverseAsset = UniverseAssetBase.superRefine((a: Base, ctx) => {
     fail(['standardNote'], 'another standard is named');
   if (a.extensions !== null && a.extensions.family !== family)
     fail(['extensions'], "the extensions are those of the asset's chain");
-  if (a.authorities !== null)
+  if (a.authorities !== null) {
     for (const key of AUTHORITY_KEYS[family])
       if (!(key in a.authorities)) fail(['authorities', key], `the ${key} authority is read`);
+    for (const key of Object.keys(a.authorities))
+      if (!(AUTHORITY_KEYS[family] as readonly string[]).includes(key))
+        fail(['authorities', key], `${key} is not an authority of a ${family} token`);
+  }
+  const allowed = CHAIN_FIELDS[a.chain];
+  if (!(allowed.standards as readonly string[]).includes(a.standard))
+    fail(['standard'], `${a.standard} is not a standard of ${a.chain}`);
+  if (!(allowed.symbolFrom as readonly string[]).includes(a.read.symbolFrom))
+    fail(['read', 'symbolFrom'], `${a.read.symbolFrom} is not a source of a ${a.chain} symbol`);
+  if (a.chain !== 'robinhood' && a.issuerRegistry !== null)
+    fail(['issuerRegistry'], "only Robinhood Chain's issuer registry is kept on a row");
+  if (
+    a.extensions?.family === 'evm' &&
+    (a.extensions.implementation !== null) !== (a.extensions.proxy.value === true)
+  )
+    fail(
+      ['extensions', 'implementation'],
+      'an implementation is named exactly when the token is a proxy',
+    );
+  if (a.issuer !== null && a.issuerKind === null) fail(['issuerKind'], 'a named issuer has a kind');
+  // statuses the plan states (DA4, DA7, prompt 5.3): what a vault cannot hold or a gate keeps out is never offered
+  const offered = a.status === 'listed' || a.status === 'candidate';
+  if (offered) {
+    if (a.category === 'treasury_fund_permissioned' || a.access === 'permissioned')
+      fail(
+        ['status'],
+        'a permissioned token is held out: a vault cannot be put on an allowlist (DA4)',
+      );
+    if (a.category === 'fixed_maturity')
+      fail(['status'], 'a token with a maturity is held out: the engine models none');
+    if (a.currency !== null)
+      fail(['status'], 'a token in another currency is held out (USD-ONLY, DA7)');
+    if (a.cls === null)
+      fail(['status'], 'a token with no class is held out: the vault cannot hold it');
+    if (a.cls === 'dollar_yield' && a.legTypes === null)
+      fail(
+        ['status'],
+        'a dollar-yield token with no leg type is held out: its kind is never guessed',
+      );
+  }
   if ((a.status === 'listed') !== a.listedIn.length > 0)
     fail(['listedIn'], 'a listed row says where it is listed, and no other row does');
+  if ((a.tracked !== null) !== a.listedIn.includes('tracked_stock'))
+    fail(['tracked'], 'a tracked stock names its tracked row, and only a tracked stock does');
   if (a.tracked !== null) {
     if (a.tracked.id !== a.id) fail(['tracked', 'id'], 'a tracked row keeps its tracked id');
-    if (a.oracle !== null || a.oracleReason !== 'in_tracked_row')
+    if (a.oracle !== null || a.oracleReason !== IN_TRACKED_ROW)
       fail(['oracleReason'], "a tracked stock's oracle is read in its tracked row");
-    if (a.pools !== null || a.poolsReason !== 'in_tracked_row')
+    if (a.pools !== null || a.poolsReason !== IN_TRACKED_ROW)
       fail(['poolsReason'], "a tracked stock's pools are read in its tracked row");
-  }
-  if (a.chain === 'robinhood' && a.standard !== 'native' && a.read.symbolFrom === 'metaplex')
-    fail(['read', 'symbolFrom'], 'metaplex is a Solana program');
+  } else if (a.oracleReason === IN_TRACKED_ROW || a.poolsReason === IN_TRACKED_ROW)
+    fail(['tracked'], 'only a tracked stock points at a tracked row');
   if (a.oracle !== null) {
     const ok =
       a.oracle.kind === 'chainlink'
@@ -386,6 +456,8 @@ export const UniverseCounts = z.strictObject({
   byStatus: z.record(z.string(), z.number().int().min(1)),
   /** By `cls`; a row with none is counted under `none`. */
   byClass: z.record(z.string(), z.number().int().min(1)),
+  /** How many rows each layer of `decidedBy` set fields on. */
+  byDecider: z.record(z.string(), z.number().int().min(1)),
   /** For each field that may be null, how many rows carry each reason. */
   nulls: z.record(z.string(), z.record(z.string(), z.number().int().min(1))),
 });
@@ -400,6 +472,7 @@ export function universeCounts(assets: readonly UniverseAsset[]): UniverseCounts
   const byCategory: Record<string, number> = {};
   const byStatus: Record<string, number> = {};
   const byClass: Record<string, number> = {};
+  const byDecider: Record<string, number> = {};
   const nulls: Record<string, Record<string, number>> = {};
   const nul = (field: string, reason: string) => {
     nulls[field] ??= {};
@@ -409,6 +482,7 @@ export function universeCounts(assets: readonly UniverseAsset[]): UniverseCounts
     bump(byCategory, a.category);
     bump(byStatus, a.status);
     bump(byClass, a.cls ?? 'none');
+    for (const d of new Set(a.decidedBy)) bump(byDecider, d);
     for (const [field, reason] of NULL_PAIRS) {
       const why = a[reason];
       if (a[field] === null && why !== null) nul(field, why);
@@ -416,17 +490,31 @@ export function universeCounts(assets: readonly UniverseAsset[]): UniverseCounts
     if (a.legTypes === null && a.legTypesReason !== null) nul('legTypes', a.legTypesReason);
     for (const [key, auth] of Object.entries(a.authorities ?? {}))
       if (auth.holder === null && auth.reason !== null) nul(`authorities.${key}`, auth.reason);
+    if (a.extensions?.family === 'evm')
+      for (const flag of ['proxy', 'pausable', 'blacklist'] as const) {
+        const f = a.extensions[flag];
+        if (f.value === null && f.reason !== null) nul(`extensions.${flag}`, f.reason);
+      }
   }
   const sorted = <T>(m: Record<string, T>) =>
-    Object.fromEntries(Object.entries(m).sort(([x], [y]) => x.localeCompare(y)));
+    Object.fromEntries(Object.entries(m).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)));
   return {
     rows: assets.length,
     byCategory: sorted(byCategory),
     byStatus: sorted(byStatus),
     byClass: sorted(byClass),
+    byDecider: sorted(byDecider),
     nulls: sorted(Object.fromEntries(Object.entries(nulls).map(([k, v]) => [k, sorted(v)]))),
   };
 }
+
+/** JSON with every object's keys in one order, so two equal counts compare equal however they were written. */
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_k, x) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : x,
+  );
 
 /** One chain's file. */
 export const UniverseList = z
@@ -452,7 +540,7 @@ export const UniverseList = z
       fail(['assets'], 'one row per token address');
     if (new Set(l.assets.map((a) => a.id)).size !== l.assets.length)
       fail(['assets'], 'one row per id');
-    if (JSON.stringify(l.counts) !== JSON.stringify(universeCounts(l.assets)))
+    if (canonical(l.counts) !== canonical(universeCounts(l.assets)))
       fail(['counts'], 'the counts are those of the rows');
   });
 export type UniverseList = z.infer<typeof UniverseList>;
@@ -474,7 +562,8 @@ export type UniverseVerdict = z.infer<typeof UniverseVerdict>;
 export const UniverseVerdictRule = z.strictObject({
   name: z.string().min(1),
   match: z.record(z.string().min(1), z.string().min(1)),
-  fields: z.strictObject(VerdictFields).partial(),
+  /** What the rule sets. Its sources are the rule's own `sources`, not a field. */
+  fields: z.strictObject(VerdictFields).omit({ sources: true }).partial(),
   sources: z.array(UniverseSource).min(1),
 });
 export type UniverseVerdictRule = z.infer<typeof UniverseVerdictRule>;
