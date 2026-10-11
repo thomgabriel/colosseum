@@ -217,6 +217,14 @@ const PROMISE = lone(
   "should|would|ought|must|always|sure|surely|certain\\p{L}*|definitely|safe|safely|secure\\p{L}*|protected|count(?:s|ing)?\\s+on|bank(?:s|ing)?\\s+on|rely\\p{L}*|relies|relied|depend\\p{L}*|at\\s+least|never\\s+less|not\\s+(?:pay\\s+)?less|next\\s+(?:year|month|week)|from\\s+(?:now|here)(?:\\s+on)?|going\\s+forward|here\\s+to\\s+stay|forever|for\\s+life|for\\s+good|keeps?|kept|lock\\p{L}*|steady|steadily|fixed|reliab\\p{L}*|no\\s+matter|without\\s+fail|rain|clockwork|every\\s+(?:time|year|month|week|day)|each\\s+and\\s+every|as\\s+long\\s+as|risk|downside|collect\\p{L}*|take\\s+home|pocket|set\\s+for|nothing\\s+can|can\\s*not|can'?t|does\\s+not\\s+change|doesn['’]?t\\s+change|deve|devem|dever[aá]|deveria|sempre|cert[oa]|certeza|certamente|segur[oa]\\p{L}*|cont[ae]r?\\s+com|pelo\\s+menos|nunca\\s+menos|(?:ano|m[eê]s)\\s+que\\s+vem|pr[oó]xim[oa]\\s+(?:ano|m[eê]s)|todo\\s+(?:ano|m[eê]s|dia)|todos\\s+os\\s+(?:anos|meses)|n[aã]o\\s+muda|daqui\\s+(?:para|pra)\\s+frente|risco|livre\\s+de|trav\\p{L}*|est[aá]vel|est[aá]veis|fix[oa]s?|confi[aá]ve\\p{L}*",
 );
 
+/** A sentence that says the figure is no promise names the word without making one. */
+const DISCLAIMED =
+  /(?<![\p{L}\p{N}])(?:not|no|never|n[aã]o|nem|sem)\s+(?:(?:a|an|any|the|uma?|nenhuma?)\s+)?(?:promis\p{L}*|promess\p{L}*|forecast\p{L}*|previs\p{L}*|prediction\p{L}*)/giu;
+/** Beside a yield, a sentence that says it lasts. */
+const LASTING = lone(
+  'perpetu\\p{L}*|indefinitely|never|nothing\\s+changes|year\\s+after\\s+year|without\\s+exception|continu\\p{L}*|stays?|remain\\p{L}*|nunca|nada\\s+muda|ano\\s+ap[oó]s\\s+ano|sem\\s+exce[cç][aã]o|indefinidamente|permane\\p{L}*',
+);
+
 // The yield grammar. `Y` stands where a yield reference stood. A clause starts the sentence or follows
 // another clause, and ends the sentence.
 const Y = '\u0002';
@@ -324,6 +332,53 @@ const STRICT_KINDS: Array<[RegExp, RegExp]> = [
   [/^capvar:/u, lone('var(?:y|ies|ied|iation|iations)|varia\\p{L}*')],
   [/^volume:/u, lone('volume|traded|negociad\\p{L}*')],
 ];
+// The words that bind to a figure: each names one kind and stands beside the figure it speaks of
+// ("priced at X", "X of the vault", "X units"). Narrower than `KINDS`: "holding" and "total" stand
+// in sentences about any figure, and "share" is also a unit of a stock.
+const BOUND_KINDS: Array<[RegExp, RegExp]> = [
+  [/^(?:vault:value|holding:.*:value)$/u, lone('worth|values?|valued|vale|valem|valor')],
+  [
+    /^holding:.*:share$/u,
+    lone('of\\s+(?:the|your|this)\\s+vault|d[oe]\\s+(?:seu\\s+)?cofre|parcela|participa[cç][aã]o'),
+  ],
+  [/^holding:.*:target$/u, lone('targets?|alvo|meta')],
+  [/^holding:.*:amount$/u, lone('units?|tokens?|unidades?')],
+  ...STRICT_KINDS,
+];
+/**
+ * Whether each figure stands beside a word of its own kind. Every kind word of the sentence binds to
+ * the reference nearest it; a figure that words are bound to, none of them of its kind, is called
+ * what another figure is ("priced at <a cost> and costs <a price>"). A figure no word binds to is
+ * left to the other rules. `ids` are the figures of `words`, one for each mark, in order.
+ */
+function boundToItsKind(words: string, ids: readonly (string | undefined)[]): boolean {
+  const marks = [...words.matchAll(new RegExp(MARK, 'gu'))].map((match) => match.index);
+  if (marks.length < 2) return true;
+  const bound = marks.map(() => ({ any: false, own: false }));
+  BOUND_KINDS.forEach(([of, named]) => {
+    for (const match of words.matchAll(new RegExp(named.source, `g${named.flags}`))) {
+      const from = match.index;
+      const to = from + match[0].length;
+      let nearest = 0;
+      let least = Number.POSITIVE_INFINITY;
+      marks.forEach((at, index) => {
+        const gap = at >= to ? at - to : from - at;
+        if (gap < least) {
+          least = gap;
+          nearest = index;
+        }
+      });
+      const slot = bound[nearest];
+      const id = ids[nearest];
+      if (!slot || id === undefined) continue;
+      slot.any = true;
+      // a word of several kinds ("trades": a price and a volume) agrees with each
+      if (BOUND_KINDS.some(([kind, word]) => kind.test(id) && word.test(match[0]))) slot.own = true;
+      else if (of.test(id)) slot.own = true;
+    }
+  });
+  return bound.every((slot) => !slot.any || slot.own);
+}
 const strictlyNamed = (id: string, words: string) =>
   STRICT_KINDS.some(([of, named]) => of.test(id) && named.test(words));
 const anyKindWord = (words: string) =>
@@ -365,6 +420,8 @@ const SAID = {
     'a letter that is not Latin, or a character that is not shown, in or just before a sentence with a reference',
   asset: "a sentence that names one asset and references another asset's figure",
   malformed: 'a brace that is not part of one well-formed reference',
+  bound:
+    'a figure beside the word for another kind of figure (a cost called a price, a share called a value): put each reference next to the word for what it is',
   kind: "a reference whose sentence does not call the figure what it is: say price, cost to sell, the largest sale or capacity, weekend, provider, variation, volume, volatility or drawdown, as the figure's own line says, in the sentence of the figure or in the heading of its list",
   comparison:
     'a comparison in a sentence with a reference ("more than", "cheaper than", "versus"): give each figure in its own sentence and no verdict',
@@ -484,6 +541,7 @@ export function figureResolver(input: {
     // Rule 5: each yield in a clause of the grammar, which is then set aside; what is left of the
     // sentence is read for its other figures.
     let own = all;
+    let bindable = all;
     if (yields) {
       let rest = plainly(
         sentence.replace(FIGURE_REFERENCE, (_whole, id: string) =>
@@ -509,10 +567,22 @@ export function figureResolver(input: {
       // What is left beside the clauses is nothing, or another figure that is judged on its own
       // words: free text there would say of the yield what the clause may not.
       if (rest.includes(Y) || (!rest.includes(MARK) && /\p{L}/u.test(rest))) found.push('frame');
-      if (PROMISE.test(`${lead} ${all} ${plainly(withoutReferences(next))}`))
+      // A promise beside the yield is one of it, in its own sentence or in the one before or after:
+      // "…a year. You will keep earning that." A neighbour that only disclaims ("not a promise") is none.
+      const beside = `${lead} ${plainly(withoutReferences(next))}`.replace(DISCLAIMED, ' ');
+      if (PROMISE.test(`${beside} ${all}`) || FORECAST.test(beside) || LASTING.test(beside))
         found.push('forecast');
+      bindable = rest;
       own = rest.replaceAll(Y, MARK);
     }
+    // Each kind word beside the figure it names: ids that name no figure keep their place in the order.
+    if (
+      !boundToItsKind(
+        bindable,
+        ids.filter((id) => !id.startsWith('yield:')).map((id) => (figure(id) ? id : undefined)),
+      )
+    )
+      found.push('bound');
     // Rule 4: a sentence that names the kind of every figure stands on its own; one that only names an
     // asset is read with the sentence before it; one that does neither is not served.
     const here = input.named?.(all);

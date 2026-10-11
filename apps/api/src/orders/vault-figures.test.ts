@@ -1501,4 +1501,63 @@ describe('a figure is read with what stands around it', () => {
       'Do you want to keep Nvidia at its target of 30%?',
     );
   });
+
+  // Follow-ups: each kind word binds to the reference nearest it, and a promise in the sentence
+  // beside a yield is refused like one in its own.
+  it.each([
+    'NVDAx is priced at [NX] and costs [NP] to sell.',
+    'Nvidia’s largest measured drawdown was [NVOL], and its annualised volatility is [ND].',
+    'Nvidia is worth [NS] and is [NV] of the vault.',
+    'You hold [NV] units of Nvidia, worth [NA].',
+    'Nvidia’s target is [NS], and it is now [NT] of the vault.',
+    'Nvidia’s price is [NV], and the holding is worth [NP].',
+    'O preço da Nvidia é [NX] e vender custa [NP].',
+  ])('cuts a sentence whose kind words sit beside each other’s figures: %s', async (sentence) => {
+    expect(await left(sentence)).toBe(CUT);
+  });
+
+  it.each([
+    'NVDAx is priced at [NP] and costs [NX] to sell.',
+    'Nvidia’s largest measured drawdown was [ND], and its annualised volatility is [NVOL].',
+    'Nvidia is worth [NV] and is [NS] of the vault.',
+    'You hold [NA] units of Nvidia, worth [NV].',
+    'Nvidia’s target is [NT], and it is now [NS] of the vault.',
+    'At the current price of [NP], your [NA] units of Nvidia come to [NV].',
+    'Cash makes up [CS] of your vault ([CV]).',
+    'Nvidia is the largest stock position at [NS], against a target of [NT].',
+    'Your Nvidia holding is up to date as of the last read: [NV].',
+    'Nvidia is priced at about [NP] per unit.',
+  ])('serves each figure beside its own kind word, or beside none: %s', async (sentence) => {
+    const message = await left(sentence);
+    expect(message).not.toContain(FIGURE_CUT);
+    expect(message).toContain('A new line follows.');
+  });
+
+  it.each([
+    'Its quoted yield is [Y] a year. You will earn that again.',
+    'Its quoted yield is [Y] a year. You’ll keep earning that.',
+    'Its quoted yield is [Y] a year. And that is yours in perpetuity.',
+    'Its quoted yield is [Y] a year. Nothing changes that.',
+    'Its quoted yield is [Y] a year. Enjoy it, year after year.',
+    'It never goes down. Its quoted yield is [Y] a year.',
+    'It is going to stay that way. Its quoted yield is [Y] a year.',
+    'Its quoted yield is [Y] a year. That is guaranteed.',
+    'O rendimento cotado é [Y] ao ano. E isso continua.',
+    'O rendimento cotado é [Y] ao ano. Você vai receber isso.',
+  ])('cuts a yield promised by the sentence beside it: %s', async (text) => {
+    expect(await shown(text)).not.toContain('5%');
+  });
+
+  it.each([
+    'The reserve’s quoted yield is [Y] a year. That is a past observation, not a promise.',
+    'Its quoted yield is [Y] a year. That’s a measured rate, not a promise.',
+    'Its quoted yield is [Y] a year. It can change.',
+    'Its quoted yield is [Y] a year. Your reserve is worth [RV].',
+    'This is what was measured. Its quoted yield is [Y] a year.',
+    'O rendimento cotado é [Y] ao ano. Isso é uma observação passada, não uma promessa.',
+  ])('serves a yield beside an honest sentence that promises nothing: %s', async (text) => {
+    const message = await shown(text);
+    expect(message).toContain('5%');
+    expect(message).not.toContain(FIGURE_CUT);
+  });
 });

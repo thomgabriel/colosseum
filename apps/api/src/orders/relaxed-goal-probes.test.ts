@@ -287,14 +287,14 @@ describe('the reviews’ probes on the goal path', () => {
         "G4 remainder carries the promise": {
           "failed": 0,
           "refused": 24,
-          "served": 4,
-          "trimmed": 1,
+          "served": 0,
+          "trimmed": 5,
         },
         "G5 Portuguese": {
           "failed": 0,
           "refused": 15,
-          "served": 1,
-          "trimmed": 0,
+          "served": 0,
+          "trimmed": 1,
         },
         "G6 self-describing ignores the sentence before": {
           "failed": 0,
