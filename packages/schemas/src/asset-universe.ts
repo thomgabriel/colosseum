@@ -129,7 +129,11 @@ export type UniverseLegType = z.infer<typeof UniverseLegType>;
 
 /** Where a statement about a token was read: a URL, or a document of this repository. */
 export const UniverseSource = z.strictObject({
-  url: z.string().regex(/^(?:https?:\/\/\S+|(?:docs|content|scripts|fixtures|packages|contracts|deployments)\/\S+)$/),
+  url: z
+    .string()
+    .regex(
+      /^(?:https?:\/\/\S+|(?:docs|content|scripts|fixtures|packages|contracts|deployments)\/\S+)$/,
+    ),
   title: z.string().min(1),
   readOn: Day,
 });
