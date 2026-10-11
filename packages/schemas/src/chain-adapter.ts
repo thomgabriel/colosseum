@@ -326,3 +326,16 @@ export interface TxProbe {
 
 /** No builder sets a vault's keeper or operator. */
 export type ChainAdapter = ChainReader & OwnerBuilder & KeeperBuilder & TxProbe;
+
+/**
+ * What a quote costs against the reference prices (`Quote.costBps`), in whole basis points of the
+ * value that goes in, or null where there is none to state: a side with no price, nothing going in,
+ * or a figure that is not finite (a price that does not read as a number, a value that overflows).
+ * Never NaN or Infinity: the order that carries the cost could not be answered. Both chain adapters
+ * state their quote's cost through it.
+ */
+export function referenceCostBps(inUsd: number | null, outUsd: number | null): number | null {
+  if (inUsd === null || outUsd === null || !(inUsd > 0)) return null;
+  const bps = Math.round(((inUsd - outUsd) / inUsd) * 10_000);
+  return Number.isFinite(bps) ? bps : null;
+}

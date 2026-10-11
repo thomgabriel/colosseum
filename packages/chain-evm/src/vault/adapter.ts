@@ -13,6 +13,7 @@ import {
   OwnerSwapArgs,
   PublishRecipeArgs,
   type Quote,
+  referenceCostBps,
   SetAutoFollowArgs,
   SetTargetsArgs,
   statedMinimum,
@@ -31,7 +32,7 @@ import {
 } from 'viem';
 import { z } from 'zod';
 import { type Composed, compose } from './compose';
-import { firstShort, referenceCostBps } from './funds';
+import { firstShort } from './funds';
 import { BASKET_VAULT_ABI, INDEX_REGISTRY_ABI, VAULT_FACTORY_ABI } from './generated/abi';
 import { createEvmVaultReader, type EvmVaultReader, type EvmVaultReaderOptions } from './reader';
 import { quoteExactIn, swapCalldata, type V4Pools } from './routes';
