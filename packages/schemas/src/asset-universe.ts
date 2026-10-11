@@ -26,7 +26,21 @@ const Day = z
     const t = new Date(`${d}T00:00:00Z`);
     return !Number.isNaN(t.getTime()) && t.toISOString().startsWith(d);
   }, 'not a calendar day');
-const Reason = z.string().min(1);
+/**
+ * A figure in words: a percentage, basis points or an amount of money. A row states decisions and their sources,
+ * never a figure: a price, a rate, a cost or a yield needs its own source, time and method (CLAUDE.md), so it is an
+ * observation, not a sentence in a verdict.
+ */
+export const FIGURE_IN_WORDS = /\d[\d,.]*\s*(?:%|bps?\b|basis points?)|[$€£]\s?\d/i;
+/** Text that states no figure. */
+const Words = z
+  .string()
+  .min(1)
+  .refine(
+    (t) => !FIGURE_IN_WORDS.test(t),
+    'a figure in words: it needs its own source, time and method',
+  );
+const Reason = Words;
 
 /** Where a row or a list came from. */
 const Stamp = {
@@ -115,7 +129,11 @@ export type UniverseLegType = z.infer<typeof UniverseLegType>;
 
 /** Where a statement about a token was read: a URL, or a document of this repository. */
 export const UniverseSource = z.strictObject({
-  url: z.string().regex(/^(?:https?:\/\/\S+|(?:docs|content|scripts|fixtures|packages)\/\S+)$/),
+  url: z
+    .string()
+    .regex(
+      /^(?:https?:\/\/\S+|(?:docs|content|scripts|fixtures|packages|contracts|deployments)\/\S+)$/,
+    ),
   title: z.string().min(1),
   readOn: Day,
 });
@@ -190,7 +208,7 @@ export type UniverseExtensions = z.infer<typeof UniverseExtensions>;
 export const UniverseMintRedeem = z.strictObject({
   primary: z.enum(['issuer', 'protocol', 'bridge', 'staking', 'none']),
   /** The path in words, as the source says it. */
-  description: z.string().min(1),
+  description: Words,
   kyc: z.boolean().nullable(),
   /** The minimum, in the source's words; null where it publishes none. */
   minimum: z.string().min(1).nullable(),
@@ -211,7 +229,7 @@ export const UniverseLeg = z.strictObject({
 const VerdictFields = {
   category: UniverseCategory,
   status: z.enum(['listed', 'candidate', 'held_out', 'excluded']),
-  statusReason: Reason,
+  statusReason: Words,
   /** The note and section where a research verdict exists, else null. */
   verdictSource: z.string().min(1).nullable(),
   issuer: z.string().min(1).nullable(),
@@ -250,7 +268,7 @@ const VerdictFields = {
   mintRedeemReason: Reason.nullable(),
   sources: z.array(UniverseSource).min(1),
   /** What the verdict says that was not read on a source. */
-  unverified: z.array(z.string().min(1)),
+  unverified: z.array(Words),
 };
 
 export const UniverseAssetBase = z.strictObject({

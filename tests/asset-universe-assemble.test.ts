@@ -72,7 +72,7 @@ const verdicts = UniverseVerdicts.parse({
       fields: {
         category: 'tokenized_stock',
         status: 'candidate',
-        statusReason: 'outside the 80% cut',
+        statusReason: 'outside the cut that names the tracked stocks (gate UNIVERSE)',
         verdictSource: null,
         issuer: 'Backed Finance',
         issuerReason: null,
