@@ -17,6 +17,7 @@ import {
   UniverseVerdict,
   type UniverseVerdicts,
 } from '@colosseum/schemas';
+import { z } from 'zod';
 import { CLASS_BY_UNDERLYING } from '../universe/list';
 
 // The Solana asset universe from its reads (PLAN-ASSETS AS.2, gate ASSET-UNIVERSE). No I/O, no clock, no
@@ -27,6 +28,38 @@ import { CLASS_BY_UNDERLYING } from '../universe/list';
 export const ASSETS_METHOD = 'assets-list-0.1';
 export const VERDICTS_FILE = 'scripts/risk/assets/solana.verdicts.json';
 export const ISSUER_MINTS_FILE = 'scripts/risk/assets/solana.issuer-mints.json';
+export const LEFT_OUT_FILE = 'scripts/risk/assets/solana.left-out.json';
+
+/**
+ * The selection of crypto tokens (Rodrigo, 2026-10-11): every token of Jupiter's verified list that is
+ * tagged `major` or `strict`, or that traded at least this much on Jupiter in the 24 hours before the
+ * read. The volume picks a token and is not kept: the saved row holds `selected` only.
+ */
+export const SELECTION_FLOOR_USD = 50_000;
+
+/** Why a selected token is not a row, as the reviewed table solana.left-out.json says it. */
+export const LeftOutReason = z.enum([
+  'memecoin',
+  'project_not_confirmed',
+  'no_source_names_the_mint',
+  'stock_token_no_rule_takes',
+  'not_of_a_class_of_the_product',
+]);
+export const LeftOut = z.strictObject({
+  chain: z.literal('solana'),
+  reviewedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  note: z.string().min(1),
+  tokens: z.array(
+    z.strictObject({
+      address: z.string().min(32),
+      symbol: z.string().min(1),
+      reason: LeftOutReason,
+      /** Where the reason was read: a CoinGecko coin page, the project's page, or the reads themselves. */
+      source: z.string().min(1),
+    }),
+  ),
+});
+export type LeftOut = z.infer<typeof LeftOut>;
 
 /** The name of a run's saved reads, from the time the run started: solana-reads-YYYYMMDDTHHMMZ.json. */
 export const readsFileName = (startedAt: string) =>
@@ -36,7 +69,13 @@ const SPL = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const T22 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 
 /** Jupiter's verified list, each row cut to what the list reads: no price, supply, holder or liquidity figure. */
-export type JupiterRow = { id: string; symbol: string; tags: string[] };
+export type JupiterRow = {
+  id: string;
+  symbol: string;
+  tags: string[];
+  /** Picked by the crypto selection (SELECTION_FLOOR_USD); the volume that picked it is not kept. */
+  selected: boolean;
+};
 /** An account as getMultipleAccounts answered it, its bytes in base64; null where there is none. */
 export type B64Account = { owner: string; data: string } | null;
 export type ChainRead = { slot: number; at: string; account: B64Account };
@@ -136,6 +175,8 @@ export type SolanaReads = {
     protocols: Array<{ name: string; category: string }>;
   };
   issuerPages: IssuerPage[];
+  /** CoinGecko's coin list, cut to the coin it names for each mint the list reads or selects. */
+  coingecko: { what: string; byMint: Record<string, { id: string; symbol: string; name: string }> };
   repo: SolanaRepoInputs;
 };
 
@@ -221,8 +262,8 @@ export function candidates(
 ): string[] {
   const tags = ruleTags(verdicts);
   const own = new Set(verdicts.verdicts.map((v) => v.address));
-  const out = new Set(Object.keys(named));
-  for (const t of jupiter) if (own.has(t.id) || t.tags.some((g) => tags.has(g))) out.add(t.id);
+  const out = new Set([...Object.keys(named), ...own]);
+  for (const t of jupiter) if (t.tags.some((g) => tags.has(g))) out.add(t.id);
   return [...out].sort();
 }
 
@@ -428,7 +469,11 @@ const top = (m: Record<string, number>) =>
     .map(([k, v]) => `${k} (${v})`)
     .join(', ');
 
-export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Built {
+export function solanaList(
+  reads: SolanaReads,
+  verdicts: UniverseVerdicts,
+  leftOut: LeftOut,
+): Built {
   if (verdicts.chain !== 'solana') throw new Error(`the verdicts are those of ${verdicts.chain}`);
   checkMatchKeys(verdicts);
   const jup = new Map(reads.jupiter.map((t) => [t.id, t]));
@@ -439,7 +484,11 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
   const notMints: Record<string, string[]> = {};
   for (const address of want) {
     const m = reads.mints[address];
-    if (!m) throw new Error(`${address} is a candidate the reads never asked the chain for`);
+    if (!m) {
+      // a verdict's address the reads never asked for is unread, and refused below
+      if (verdicts.verdicts.some((v) => v.address === address)) continue;
+      throw new Error(`${address} is a candidate the reads never asked the chain for`);
+    }
     const account = m.account;
     const why = !account
       ? 'no_account'
@@ -564,8 +613,17 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
   }
   const idOf = new Map(fixedId);
   for (const [slug, addrs] of bySlug) {
-    if (addrs.length === 1 && !taken.has(slug)) idOf.set(addrs[0] as string, slug);
-    else for (const a of addrs) idOf.set(a, `${slug}-${a.slice(0, 6).toLowerCase()}`);
+    // one row on its slug keeps it; of several, the one on today's shelf keeps it (USDC, not a bridged USDC)
+    const shelved = addrs.filter((a) => listedOf(a).length > 0);
+    const keeper = taken.has(slug)
+      ? undefined
+      : addrs.length === 1
+        ? addrs[0]
+        : shelved.length === 1
+          ? shelved[0]
+          : undefined;
+    for (const a of addrs)
+      idOf.set(a, a === keeper ? slug : `${slug}-${a.slice(0, 6).toLowerCase()}`);
   }
 
   // the rows
@@ -610,14 +668,24 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
           ? { file: repo.content.file, symbol: identity.symbol }
           : null,
     };
-    // an issuer page that did not answer, or answered without the address, is said on the row
-    const pageNotes = reads.issuerPages
-      .filter((p) => p.address === address && !(p.answered && p.namesAddress))
-      .map((p) =>
-        p.answered
-          ? `the mint on ${p.url}: the page answered without it when the command fetched it`
-          : `the mint on ${p.url}: the page did not answer when the command fetched it`,
-      );
+    // an issuer page that did not answer, or answered without the address, is said on the row; so is a
+    // CoinGecko coin a verdict cites that CoinGecko's list does not name for this mint
+    const own_ = verdicts.verdicts.find((v) => v.address === address);
+    const cgCited = (own_?.sources ?? [])
+      .map((x) => x.url.match(/^https:\/\/www\.coingecko\.com\/en\/coins\/([a-z0-9-]+)$/)?.[1])
+      .filter((x): x is string => !!x);
+    const pageNotes = [
+      ...reads.issuerPages
+        .filter((p) => p.address === address && !(p.answered && p.namesAddress))
+        .map((p) =>
+          p.answered
+            ? `the mint on ${p.url}: the page answered without it when the command fetched it`
+            : `the mint on ${p.url}: the page did not answer when the command fetched it`,
+        ),
+      ...cgCited
+        .filter((cg) => reads.coingecko.byMint[address]?.id !== cg)
+        .map((cg) => `the mint on CoinGecko: its coin list does not name it for ${cg}`),
+    ];
     const k = kindOf.get(address);
     const fromRules = k ? derivedFor(k.ticker, k.kind) : undefined;
     const derived =
@@ -632,6 +700,26 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
     rows.push(row);
   }
 
+  // every token the crypto selection picks is a row, or the reviewed table says why not
+  const rowSet = new Set(rows.map((r) => r.address));
+  const leftOf = new Map(leftOut.tokens.map((t) => [t.address, t]));
+  for (const t of leftOut.tokens)
+    if (rowSet.has(t.address))
+      throw new Error(`${t.symbol} ${t.address} is a row and is in ${LEFT_OUT_FILE}`);
+  const MEME_TAGS = ['meme', 'launchpad', 'moonshot'];
+  const selection = reads.jupiter
+    .filter((t) => t.selected && !rowSet.has(t.id))
+    .map((t) => ({
+      t,
+      reason:
+        leftOf.get(t.id)?.reason ??
+        (t.tags.some((g) => MEME_TAGS.includes(g))
+          ? 'jupiter_tags_it_meme_or_launchpad'
+          : 'not_reviewed'),
+    }));
+  const selectedIds = new Set(reads.jupiter.filter((t) => t.selected).map((t) => t.id));
+  const staleLeftOut = leftOut.tokens.filter((t) => !selectedIds.has(t.address));
+
   const list = universeList({
     chain: 'solana',
     rows,
@@ -641,11 +729,14 @@ export function solanaList(reads: SolanaReads, verdicts: UniverseVerdicts): Buil
       verdicts: VERDICTS_FILE,
       reads: `data/assets/solana/${readsFileName(reads.startedAt)}, frozen as fixtures/risk/assets/${readsFileName(reads.startedAt)}.gz`,
     },
-    stated: stated(reads, verdicts, identities, matched, notMints, rows, {
-      deprecated,
-      incomplete,
-      kindOf,
-    }),
+    stated: {
+      ...stated(reads, verdicts, identities, matched, notMints, rows, {
+        deprecated,
+        incomplete,
+        kindOf,
+      }),
+      crypto: `The crypto selection: every token of Jupiter's verified list tagged major or strict, or traded at least $${SELECTION_FLOOR_USD.toLocaleString('en-US')} on Jupiter in the 24 hours before the read (its stats24h buy and sell volume, which picks a token and is not kept). ${reads.jupiter.filter((t) => t.selected).length} tokens are picked; ${reads.jupiter.filter((t) => t.selected).length - selection.length} are rows. The rest are not rows: ${top(countBy(selection, (x) => x.reason))}. A memecoin is a token whose project is no protocol, chain or product by its own pages or CoinGecko's categories, tagged so by Jupiter or not; each one not tagged is in ${LEFT_OUT_FILE} with where that was read. A token picked and in no table is counted not_reviewed and is not a row. A new row's mint is named by CoinGecko's coin list (or an issuer's page) and read on chain like every other row.${staleLeftOut.length > 0 ? ` ${staleLeftOut.length} entries of ${LEFT_OUT_FILE} were not picked this run.` : ''}`,
+    },
     stamp,
   });
   return { list, lines: lines(list, verdicts, identities, matched) };
@@ -849,7 +940,7 @@ function stated(
     enumeration: `In the prompt's order (5.2): Jupiter's verified list, live, every tag kept (${reads.jupiter.length} tokens); the reserves of risk_lending_pools, their mints and debt mints (${reads.lending.length} rows); the research note ${repo.note.file} (${repo.note.addresses.length} full addresses in it) and its shelf fixture ${repo.shelf.file} (${repo.shelf.rows.length} rows); DefiLlama's stablecoins and its protocols on Solana in the RWA and yield categories, as names only (${reads.llama.stablecoins.length} and ${reads.llama.protocols.length}); the issuers' pages of ${ISSUER_MINTS_FILE} (${pages.length} mints). Also read: the tracked stock list, the structurer's registry, the Scope table and the launch-shelf seed, whose addresses are on today's shelf or carry an oracle. A Jupiter token is read on chain when it carries a tag a rule asks for or has a verdict; every other named address is read. ${identities.size} mints were read; of the other named addresses: ${notMintText} (the note names reserves, markets, programs and authorities beside its mints).`,
     identity:
       "Read on chain for every row by getMultipleAccounts, the slot in read.height: decimals, the token program, the Token-2022 extensions by name in the order the mint holds them, the mint and freeze authorities (null with reason 'none' where the account's option is empty), the permanent delegate (the extension's key; 'none' where the extension is absent or, on a classic SPL mint, where the program has none). Symbol and name from the mint's own tokenMetadata extension, else its Metaplex metadata account (read at its derived address in a second batch), else the listing: Jupiter's row or, for a token Jupiter does not list, the shelf fixture's symbol (read.symbolFrom 'listing', name null with 'no_metadata_on_chain').",
-    ids: "The tracked list's id for a tracked stock, else the shelf fixture's, else solana:<the symbol the chain answers, lower case, + as plus, * as star, any other run of characters a dash>. Where two rows meet on one slug, each takes a dash and the first six characters of its address, lower case.",
+    ids: "The tracked list's id for a tracked stock, else the shelf fixture's, else solana:<the symbol the chain answers, lower case, + as plus, * as star, any other run of characters a dash>. Where two rows meet on one slug, the one on today's shelf keeps it (solana:usdc is Circle's USDC, not a bridged copy) and each other takes a dash and the first six characters of its address, lower case; with none or several on the shelf, every one does.",
     rules: `A rule's match is read by the builder (scripts/risk/assets/solana-list.ts, MATCH_KEYS), every key holding: jupiterTag, Jupiter carries the tag; minter, freezeAuthority and permanentDelegate, those keys as read on chain; program, spl or token2022; nameEndsWith, the name the chain answers; nameKind, what the name method reads in a stock issuer's token's name; listedIn, on today's shelf that way, or any or none. The stock issuers' rules rest on keys read on chain (one mint authority for xStocks and for Ondo, one freeze authority and permanent delegate for Backpack's tokens), not on Jupiter's tag alone. The lst rule rests on Jupiter's tag alone: no key read on chain is shared by the stake pools, so a token Jupiter mistags would be swept in (stated, not chosen). Rules apply in the table's order and a token's own verdict last (decidedBy). A token Jupiter tags deprecated is not enumerated (${left_.deprecated.map(sym).join(', ') || 'none'}), nor one whose rules leave a verdict field unset (${left_.incomplete.map((i) => `${sym(i.address)}: ${i.missing.join('/')}`).join(', ') || 'none'}). Rows per rule: ${ruleCounts}; with a verdict of their own: ${rows.filter((r) => r.decidedBy.includes('verdict')).length}.`,
     derived: `For a token of a stock issuer's rule (${Object.keys(SYMBOL_SUFFIX).join(', ')}) the builder derives, the lowest layer: underlying, the symbol the chain answers less the issuer's suffix ('x' for xStocks, 'on' for Ondo; Backpack's symbol is the ticker), null with 'symbol_without_the_issuer_suffix' where the suffix is missing; and category, from what the name the chain answers says the token is (kindOfName): the tracked list's class table (CLASS_BY_UNDERLYING in scripts/risk/universe/list.ts, DU7: ${classTable}) where it names the ticker; else no fund word (ETF, ETN, Fund, Index, a fund-only sponsor such as iShares, SPDR or Vanguard, or an index name such as S&P 500 or Russell 2000) is a stock; else a fund, which is leveraged or inverse (a multiple such as 2x or 3x, Bull, Bear, UltraPro, ProShares Ultra or Short), of crypto assets, of gold, of another commodity (miners, services and producers are shares, not the metal), of Treasuries or government bonds, of other bonds or income, or of shares, in that order. A stock and a fund of shares are tokenized_stock and tokenized_etf, gold tokenized_gold, a commodity tokenized_commodity, a Treasury fund treasury_fund_open with no leg type ('not_screened_on_solana'), and a leveraged, crypto or bond fund tokenized_etf; the rules hold out every fund that is not screened. Rows by kind: ${top(kinds)}. A name without a fund word is filed a stock whatever the token is (JPSTx, a short-bond fund, is one): stated, not chosen. Examples: leveraged ${kindExamples('leveraged_etf')}; treasury ${kindExamples('treasury_fund')}; gold ${kindExamples('gold_fund')}; commodity ${kindExamples('commodity_fund')}.`,
     status:
@@ -868,7 +959,7 @@ function stated(
     issuerPages: `${pages.length} mints named by an issuer's page (${ISSUER_MINTS_FILE}); the command fetched each page: ${pages.filter((p) => p.answered && p.namesAddress).length} answered and hold the address in their HTML, ${pages.filter((p) => p.answered && !p.namesAddress).length} answered without it (rendered by script, or printed elsewhere on the site), ${pages.filter((p) => !p.answered).length} did not answer. A row whose page did not hold its address says so in unverified.`,
     names: `Of the prompt's ${PROMPT_NAMES.length} names (the xStocks and the Etherfuse bonds aside), a row of the same symbol, case aside: ${PROMPT_NAMES.filter((n) => symbols.has(n.toLowerCase())).join(', ')}. No row, as no read of this run named a Solana mint for it (no listing, issuer page, research row or lending reserve): ${PROMPT_NAMES.filter((n) => !symbols.has(n.toLowerCase())).join(', ') || 'none'}. sUSDS: the research note found no Solana mint (section 3.1). The permissioned funds without a row were looked for on their issuers' pages and none printing a Solana mint was found.`,
     notEnumerated:
-      "BRS, the BRL stablecoin (gate G-NORA, DA17). Memecoins. Base. The deposit tokens of the Kamino reserves the lending import knows, other than the Main Market's kUSDC that the research note names: the import's rows name each reserve's liquidity mint, and no listing names its deposit token. PUMP and MET, which the launch-shelf seed files as solana-native, are not in the prompt's list of governance tokens (JUP, RAY, JTO, PYTH, KMNO).",
+      "BRS, the BRL stablecoin (gate G-NORA, DA17). Memecoins. Base. The deposit tokens of the Kamino reserves the lending import knows, other than the Main Market's kUSDC that the research note names: the import's rows name each reserve's liquidity mint, and no listing names its deposit token. Crypto tokens outside the selection of stated.crypto.",
     figures:
       "No price, TVL, supply, holder count or yield is copied from any read: Jupiter's figures are cut away before the reads are saved. Those are observations (AS.4, AS.5).",
     later:

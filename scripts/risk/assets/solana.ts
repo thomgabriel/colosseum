@@ -14,9 +14,12 @@ import {
   ISSUER_MINTS_FILE,
   type IssuerPage,
   type JupiterRow,
+  LEFT_OUT_FILE,
+  LeftOut,
   type LendingRow,
   type NamedBy,
   readsFileName,
+  SELECTION_FLOOR_USD,
   type SolanaReads,
   solanaList,
   VERDICTS_FILE,
@@ -36,6 +39,7 @@ const JUPITER = 'https://lite-api.jup.ag/tokens/v2/tag?query=verified';
 const LLAMA_STABLES = 'https://stablecoins.llama.fi/stablecoins?includePrices=false';
 const LLAMA_PROTOCOLS = 'https://api.llama.fi/protocols';
 const LLAMA_CATEGORIES = new Set(['RWA', 'Yield', 'Yield Aggregator']);
+const COINGECKO_LIST = 'https://api.coingecko.com/api/v3/coins/list?include_platform=true';
 const LOCAL_DB = 'postgres://colosseum:colosseum@localhost:5433/colosseum';
 const REGISTRY_DEFAULT = 'data/risk/registry-20261001T0139.json';
 const arg = (args: string[], name: string) => {
@@ -52,18 +56,20 @@ export function loadReads(path: string): SolanaReads {
 }
 
 export const loadVerdicts = () => UniverseVerdicts.parse(json(VERDICTS_FILE));
+export const loadLeftOut = () => LeftOut.parse(json(LEFT_OUT_FILE));
 
 export async function buildList(args: string[]): Promise<Built> {
   const verdicts = loadVerdicts();
   const from = arg(args, '--from');
-  if (from) return solanaList(loadReads(from), verdicts);
+  const leftOut = loadLeftOut();
+  if (from) return solanaList(loadReads(from), verdicts, leftOut);
   const reads = await readAll(args, verdicts);
   const dir = arg(args, '--reads-dir') ?? 'data/assets/solana';
   mkdirSync(dir, { recursive: true });
   const out = join(dir, readsFileName(reads.startedAt));
   writeFileSync(`${out}.tmp`, JSON.stringify(reads));
   renameSync(`${out}.tmp`, out);
-  const built = solanaList(reads, verdicts);
+  const built = solanaList(reads, verdicts, leftOut);
   return { list: built.list, lines: [`reads saved: ${out}`, ...built.lines] };
 }
 
@@ -113,9 +119,14 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
         id: string;
         symbol?: string;
         tags?: string[];
+        stats24h?: { buyVolume?: number; sellVolume?: number };
       }>;
+      // the volume picks a token for the crypto selection and is dropped here: no figure is saved
+      const picked = (t: (typeof rows)[number]) =>
+        (t.tags ?? []).some((g) => g === 'major' || g === 'strict') ||
+        (t.stats24h?.buyVolume ?? 0) + (t.stats24h?.sellVolume ?? 0) >= SELECTION_FLOOR_USD;
       const value = rows
-        .map((t) => ({ id: t.id, symbol: t.symbol ?? '', tags: t.tags ?? [] }))
+        .map((t) => ({ id: t.id, symbol: t.symbol ?? '', tags: t.tags ?? [], selected: picked(t) }))
         .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       return { value, calls: 1, rows: value.length };
     },
@@ -248,7 +259,35 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
   );
   for (const p of issuerPages) name(p.address, 'issuer_page');
 
-  // 6. every candidate's mint, then the Metaplex account of each mint holding no metadata of its own
+  // 6. CoinGecko's coin list: the coin it names for each Solana mint (the source of a new crypto row's mint)
+  const coingecko = await timed<SolanaReads['coingecko']>(
+    'coingecko_coins_list',
+    `GET ${COINGECKO_LIST}`,
+    async () => {
+      const list = (await getJson(COINGECKO_LIST)) as Array<{
+        id: string;
+        symbol: string;
+        name: string;
+        platforms?: Record<string, string | null>;
+      }>;
+      const wanted = new Set([
+        ...jupiter.filter((t) => t.selected).map((t) => t.id),
+        ...verdicts.verdicts.map((v) => v.address),
+      ]);
+      const byMint: SolanaReads['coingecko']['byMint'] = {};
+      for (const c of list) {
+        const mint = c.platforms?.solana;
+        if (mint && wanted.has(mint)) byMint[mint] = { id: c.id, symbol: c.symbol, name: c.name };
+      }
+      const sorted = Object.fromEntries(
+        Object.entries(byMint).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+      );
+      return { value: { what: COINGECKO_LIST, byMint: sorted }, calls: 1, rows: list.length };
+    },
+    log,
+  );
+
+  // 7. every candidate's mint, then the Metaplex account of each mint holding no metadata of its own
   const namedSorted = Object.fromEntries(
     Object.entries(named)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -299,7 +338,7 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     log,
   );
 
-  // 7. the pools the registry file knows for each candidate
+  // 8. the pools the registry file knows for each candidate
   const registryPath = arg(args, '--registry') ?? REGISTRY_DEFAULT;
   const registryName = `data/risk/${registryPath.split('/').pop()}`;
   const registry = await timed(
@@ -358,6 +397,7 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     registry,
     llama: { stablecoins, protocols },
     issuerPages,
+    coingecko,
     repo,
   };
 }

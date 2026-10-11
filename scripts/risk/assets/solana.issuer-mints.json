@@ -37,6 +37,13 @@
       "readOn": "2026-10-11"
     },
     {
+      "symbol": "ENA",
+      "address": "72QvBVwpxqmheEPfaCwWSWqEFsUy3rhWt6JhQBMNTwD1",
+      "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+      "title": "Ethena docs, Key Addresses (Solana row)",
+      "readOn": "2026-10-11"
+    },
+    {
       "symbol": "EURC",
       "address": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
       "url": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
