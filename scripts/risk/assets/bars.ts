@@ -11,7 +11,7 @@ import 'dotenv/config';
 import { createDb, marketBars } from '@colosseum/db';
 import { assetBars, BARS_METHOD, BARS_METHOD_VERSION, type Bar } from '@colosseum/risk';
 import { sql } from 'drizzle-orm';
-import { LAYER, type PoolBars, readRobinhood, readSolana } from './bars-read';
+import { CROSS_POOL_ORDER, LAYER, type PoolBars, readRobinhood, readSolana } from './bars-read';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -90,6 +90,7 @@ for (const [address, ps] of byToken) {
   const bars = assetBars(
     ps.map((p) => ({ pool: p.pool, bars: p.bars })),
     LAYER,
+    CROSS_POOL_ORDER[chain],
   );
   const barHours = new Map(ps.map((p) => [p.pool, new Set(p.bars.map((b) => b.hour))]));
   for (const b of bars) {

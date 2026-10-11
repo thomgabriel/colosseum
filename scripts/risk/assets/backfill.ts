@@ -69,10 +69,20 @@ import {
   writeSeries,
 } from './backfill-external';
 import {
+  BudgetStop,
+  budgetGuard,
+  gateWholeSeries,
+  MAX_SAMPLE_WINDOW,
+  newestCount,
+  windowNeedsGate,
+} from './backfill-gate';
+import {
   type Anchor,
   anchoredPage,
   anchors,
   blockAnchors,
+  dayPieces,
+  exactWalk,
   fetchWindow,
   pool,
 } from './backfill-solana';
@@ -126,34 +136,22 @@ const freeBytes = () => {
 };
 const budgetNow = (estimateBytes: number) =>
   fitsBudget({ estimateBytes, usedBytes: dirBytes(OUT), freeBytes: freeBytes() });
-/** Before a fetch and after each piece: stop when the next piece could pass the budget. */
-function guard(nextBytes: number) {
-  const b = budgetNow(nextBytes);
-  if (!b.fits) {
-    log({ event: 'stopped_by_budget', reasons: b.reasons });
-    finish({ stopped: b.reasons });
-    process.exit(2);
-  }
-}
-/** A whole series only when its newest count says it fits. */
-function requireCountThatFits() {
-  const counts = readdirSync(seriesDir)
-    .filter((f) => f.startsWith('count-'))
-    .sort();
-  const last = counts.at(-1);
-  if (!last) {
-    console.error(`--all refused: no count of ${series} in ${seriesDir}; run --count first`);
+/** The check before a fetch and after every piece or window (DA14): it throws BudgetStop, caught below. */
+const fetchGuard = () => budgetGuard(dirBytes(OUT), freeBytes);
+/** A whole series, or a window wider than a sample, only when the newest count of its scope fits. */
+function requireCountThatFits(scope: string, why: string) {
+  const g = gateWholeSeries({
+    dir: seriesDir,
+    scope,
+    usedBytes: dirBytes(OUT),
+    freeBytes: freeBytes(),
+  });
+  if (!g.ok) {
+    console.error(`${why} refused: ${g.reasons.join('; ')}${g.count ? ` (count ${g.count})` : ''}`);
+    finish({ refused: g.reasons, scope, count: g.count });
     process.exit(1);
   }
-  const c = JSON.parse(readFileSync(join(seriesDir, last), 'utf8')) as {
-    estimate?: { gzBytes?: number };
-  };
-  const est = c.estimate?.gzBytes ?? Number.POSITIVE_INFINITY;
-  const b = budgetNow(est);
-  if (!b.fits) {
-    console.error(`--all refused: ${b.reasons.join('; ')} (count ${last})`);
-    process.exit(1);
-  }
+  log({ event: 'gate_passed', scope, count: g.count });
 }
 function finish(result: Record<string, unknown>) {
   const rec = opt('--record');
@@ -201,7 +199,41 @@ if (
   );
   process.exit(1);
 }
-if (mode === 'fetch' && all) requireCountThatFits();
+/** The scope of the count a whole series of this run needs (see backfill-gate.ts). */
+const gateScope = (): string =>
+  ({
+    'robinhood-logs': 'logs',
+    'chainlink-rounds': 'feeds',
+    // the sampled count first; --all then runs the exact pass and gates again on its count
+    'solana-swaps': 'pools',
+    'solana-mints': opt('--via') ?? 'mint',
+    'external-daily': 'rows',
+  })[series];
+if (mode === 'fetch' && all) requireCountThatFits(gateScope(), '--all');
+// a window wider than a sample is a series run: the same gate as --all, before anything is read or asked
+if (mode === 'fetch' && !all && opt('--window')) {
+  const w = opt('--window') as string;
+  if (series === 'robinhood-logs') {
+    const [a, b] = w.split('-').map(Number);
+    if (
+      Number.isInteger(a) &&
+      Number.isInteger(b) &&
+      windowNeedsGate(series, a as number, b as number)
+    )
+      requireCountThatFits(
+        'logs',
+        `a window of ${(b as number) - (a as number) + 1} blocks (wider than ${MAX_SAMPLE_WINDOW[series].size})`,
+      );
+  }
+  if (series === 'solana-swaps' || series === 'solana-mints') {
+    const [a, b] = w.split('..').map((x) => Math.floor(Date.parse(x) / 1000));
+    if (a && b && windowNeedsGate(series, a, b))
+      requireCountThatFits(
+        series === 'solana-swaps' ? 'pools-exact' : 'mint',
+        `a window of ${((b - a + 1) / 86_400).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series].size / 86_400})`,
+      );
+  }
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Robinhood Chain
@@ -212,18 +244,28 @@ const recorded: Record<string, RpcReply> = {};
 /** What a replay needs beside the answers (the feeds a count asked, the feed fetched). */
 const recordExtra: Record<string, unknown> = {};
 const evmDeps = (): Deps => {
-  const inner = createRpc(rpcFor(robinhood).url, { timeoutMs: 120_000 });
-  const rpc: Rpc = opt('--record')
-    ? rpcOver(async (requests) => {
-        const replies = await inner.batch(requests);
-        requests.forEach((r, i) => {
-          const a = replies[i];
-          if (a && !a.error) recorded[requestKey(r)] = a;
-        });
-        return replies;
-      }, inner.stats)
-    : inner;
-  return { rpc, sleep: (ms) => new Promise((r) => setTimeout(r, ms)), now: () => new Date(), log };
+  // one client a request: its timeout ends before the live loop's minutes, and it never retries by itself
+  // (retries: 0), so every retry goes back through `ask` and its check of the clock
+  const clientFor = (timeoutMs: number): Rpc => {
+    const inner = createRpc(rpcFor(robinhood).url, { timeoutMs, retries: 0 });
+    return opt('--record')
+      ? rpcOver(async (requests) => {
+          const replies = await inner.batch(requests);
+          requests.forEach((r, i) => {
+            const a = replies[i];
+            if (a && !a.error) recorded[requestKey(r)] = a;
+          });
+          return replies;
+        }, inner.stats)
+      : inner;
+  };
+  return {
+    rpc: clientFor(120_000),
+    rpcFor: clientFor,
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    now: () => new Date(),
+    log,
+  };
 };
 type ListRow = {
   address: string;
@@ -299,6 +341,7 @@ async function robinhoodLogs() {
     const budget = budgetNow(gzBytes);
     const body = {
       series,
+      scope: 'logs',
       chain: 'robinhood',
       countedAt: new Date().toISOString(),
       methodVersion: BACKFILL_METHOD_VERSION,
@@ -318,6 +361,16 @@ async function robinhoodLogs() {
         allLogs: logsAll,
         gzBytes,
         gzGB: +(gzBytes / GB).toFixed(2),
+        // collapsed strata (neighbours in pairs): the standard error, two either side, the largest stratum
+        spread: {
+          gzSEGB: +(res.estimate.bytesSpread.se / GB).toFixed(2),
+          gzGBTwoSE: [
+            +((gzBytes - 2 * res.estimate.bytesSpread.se) / GB).toFixed(2),
+            +((gzBytes + 2 * res.estimate.bytesSpread.se) / GB).toFixed(2),
+          ],
+          largestStratumShare: +res.estimate.bytesSpread.largestShare.toFixed(3),
+          byClass: res.estimate.spread,
+        },
         totals: t,
       },
       sampledShare: res.estimate.sampledShare,
@@ -335,6 +388,11 @@ async function robinhoodLogs() {
       count: f,
       listLogs,
       gzGB: body.estimate.gzGB,
+      gzSpread: {
+        se: body.estimate.spread.gzSEGB,
+        twoSE: body.estimate.spread.gzGBTwoSE,
+        largest: body.estimate.spread.largestStratumShare,
+      },
       hours: body.hours,
       fits: budget.fits,
     });
@@ -363,11 +421,18 @@ async function robinhoodLogs() {
       throw new Error('--window <fromBlock>-<toBlock>');
     from = a as number;
     to = b as number;
+    // a window wider than a sample is a series run: the same gate as --all
+    if (windowNeedsGate('robinhood-logs', from, to))
+      requireCountThatFits(
+        'logs',
+        `a window of ${to - from + 1} blocks (wider than ${MAX_SAMPLE_WINDOW['robinhood-logs'].size})`,
+      );
   }
-  guard(0);
   const res = await fetchLogs(deps, {
     out: join(OUT, 'robinhood'),
     filters: seriesFilters(robinhood, erc20, { kind, subject, subjectKind }),
+    scope: subject ? subject.toLowerCase() : '*',
+    guard: fetchGuard(),
     from,
     to,
     window: 100_000,
@@ -421,6 +486,7 @@ async function chainlinkRounds() {
     const budget = budgetNow(gzBytes);
     const body = {
       series,
+      scope: 'feeds',
       chain: 'robinhood',
       countedAt: new Date().toISOString(),
       methodVersion: BACKFILL_METHOD_VERSION,
@@ -453,8 +519,11 @@ async function chainlinkRounds() {
     : counted.feeds.filter((f) => f.feed === opt('--feed')?.toLowerCase());
   if (!targets.length) throw new Error(`--feed ${opt('--feed')}: not a feed the lists name`);
   const results = [];
+  const guardFn = fetchGuard();
+  let writtenBytes = 0;
+  let largest = 0;
   for (const f of targets) {
-    guard(0);
+    guardFn({ nextBytes: largest, writtenBytes });
     results.push(
       await fetchRounds(
         deps,
@@ -464,7 +533,11 @@ async function chainlinkRounds() {
         `${robinhood.name} Chainlink proxy ${f.feed} (${f.symbol}): getRoundData of every round of every phase by Multicall3 through ${label}`,
       ),
     );
+    const last = results.at(-1) as { gzBytes: number };
+    writtenBytes += last.gzBytes;
+    largest = Math.max(largest, last.gzBytes);
   }
+  guardFn({ nextBytes: 0, writtenBytes });
   return finish({ fetched: results });
 }
 
@@ -737,6 +810,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const budget = budgetNow(gzBytes);
   const body = {
     series: kind === 'swaps' ? 'solana-swaps' : 'solana-mints',
+    scope: kind === 'swaps' ? 'pools' : (opt('--via') ?? 'mint'),
     via: kind === 'mints' ? (opt('--via') ?? 'mint') : 'pool',
     chain: 'solana',
     countedAt: new Date().toISOString(),
@@ -811,35 +885,203 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   });
 }
 
+/** One address over [a, b], a UTC day at a time newest first, the budget checked before and after each day. */
+async function solanaPieces(inp: {
+  kind: 'swaps' | 'mints';
+  address: string;
+  p?: RegistryPool;
+  from: number;
+  to: number;
+  perHour?: number;
+  before?: string;
+  guard: ReturnType<typeof fetchGuard>;
+  written: { bytes: number; largest: number };
+  /** Stop at a day whose walk reached the address's first transaction (the sampled walk back to inception). */
+  untilExhausted?: boolean;
+}) {
+  const results = [];
+  let before = inp.before;
+  for (const piece of dayPieces(inp.from, inp.to)) {
+    inp.guard({ nextBytes: inp.written.largest, writtenBytes: inp.written.bytes });
+    const r = await fetchWindow({
+      rpc: solRpc as never,
+      out: join(OUT, 'solana'),
+      kind: inp.kind,
+      address: inp.address,
+      ...(inp.p ? { pool: inp.p } : {}),
+      from: piece.from,
+      to: piece.to,
+      parallel: Number(opt('--parallel') ?? 32),
+      ...(inp.perHour ? { perHour: inp.perHour } : {}),
+      ...(before ? { startBefore: before } : {}),
+      source: `Solana RPC getSignaturesForAddress and getTransaction (${process.env.SOLANA_RPC_URL ? 'SOLANA_RPC_URL' : 'public'})${inp.p ? `, decoded by @colosseum/risk's ${inp.p.venue} decoder` : ''}`,
+      now: () => new Date(),
+    });
+    before = r.lastSignature ?? before;
+    inp.written.bytes += r.gzBytes;
+    inp.written.largest = Math.max(inp.written.largest, r.gzBytes);
+    results.push(r);
+    log({
+      event: 'window',
+      address: inp.address,
+      from: r.window.from,
+      fetched: r.fetched,
+      errors: r.errors,
+    });
+    if (inp.untilExhausted && r.exhausted) break;
+  }
+  inp.guard({ nextBytes: 0, writtenBytes: inp.written.bytes });
+  return results;
+}
+
+/** The exact pass over the 90 days of every pool: its count (scope pools-exact) replaces the sampled one. */
+async function solanaExactCount() {
+  const { pools, regFile, list } = solanaSubjects();
+  const nowT = Math.floor(Date.now() / 1000);
+  const d90 = nowT - 90 * DAY;
+  const t1 = Date.now();
+  const walks = await exactWalk(
+    solRpc as never,
+    pools.map((p) => p.address),
+    d90,
+    Number(opt('--parallel') ?? 8),
+    () => new Date(),
+    (w) => log({ event: 'walked', address: w.address, signatures: w.signatures, pages: w.pages }),
+  );
+  const sigs = walks.reduce((a, w) => a + w.signatures, 0);
+  const ok = walks.reduce((a, w) => a + w.signatures - w.failed, 0);
+  // beyond day 90 the sampled count stands (the exact pass does not walk it); Step 5b's bytes a row
+  const sampled = newestCount(seriesDir, 'pools');
+  const sampledBody = sampled
+    ? (JSON.parse(readFileSync(sampled.file, 'utf8')) as {
+        estimate: { sampledBeyond90: number; bytesPerTx: { gz: number } };
+      })
+    : null;
+  const gzPerTx = sampledBody?.estimate.bytesPerTx.gz ?? 109.2;
+  const beyond = sampledBody?.estimate.sampledBeyond90 ?? 0;
+  const gzBytes = (ok + beyond) * gzPerTx;
+  const body = {
+    series,
+    scope: 'pools-exact',
+    chain: 'solana',
+    countedAt: new Date().toISOString(),
+    methodVersion: BACKFILL_METHOD_VERSION,
+    registry: regFile,
+    list,
+    window: { from: new Date(d90 * 1000).toISOString(), to: new Date(nowT * 1000).toISOString() },
+    method:
+      'exact: every signature of every pool from the head back to day 90, getSignaturesForAddress 1,000 a page, counted by day and failed or not (history-full-measure.ts walk, counting only); beyond day 90 the sampled count stands',
+    estimate: {
+      signatures90: sigs,
+      transactions90: ok,
+      sampledBeyond90: beyond,
+      gzBytes,
+      gzGB: +(gzBytes / GB).toFixed(2),
+    },
+    measured: { pages: walks.reduce((a, w) => a + w.pages, 0), seconds: (Date.now() - t1) / 1000 },
+    budget: budgetNow(gzBytes),
+    perPool: walks,
+  };
+  return { file: writeCount(body), body };
+}
+
 async function solanaFetch(kind: 'swaps' | 'mints') {
   const { pools } = solanaSubjects();
+  const guardFn = fetchGuard();
+  const written = { bytes: 0, largest: 0 };
+  if (all) {
+    if (kind === 'mints')
+      throw new Error(
+        '--all on Solana mints: walking the mints or their mint authorities is Rodrigo’s choice (DA20); fetch a mint with --mint and --window',
+      );
+    // step 1, the exact pass, then the gate on its count, then the fetch
+    const exact = await solanaExactCount();
+    log({ event: 'exact_pass', count: exact.file, estimate: exact.body.estimate });
+    requireCountThatFits('pools-exact', '--all after the exact pass');
+    const nowT = Math.floor(Date.now() / 1000);
+    const d90 = nowT - 90 * DAY;
+    const order = [...exact.body.perPool].sort((x, y) => y.signatures - x.signatures);
+    let done = 0;
+    for (const w of order) {
+      const p = pools.find((x) => x.address === w.address) as RegistryPool;
+      const recent = await solanaPieces({
+        kind,
+        address: p.address,
+        p,
+        from: d90,
+        to: nowT,
+        guard: guardFn,
+        written,
+      });
+      const below = recent.at(-1)?.lastSignature ?? undefined;
+      // the sampled walk from day 91 back to the pool's first transaction, 30 transactions an hour
+      if (!recent.at(-1)?.exhausted)
+        await solanaPieces({
+          kind,
+          address: p.address,
+          p,
+          from: Date.parse('2025-06-01T00:00:00Z') / 1000,
+          to: d90 - 1,
+          perHour: Number(opt('--per-hour') ?? 30),
+          ...(below ? { before: below } : {}),
+          guard: guardFn,
+          written,
+          untilExhausted: true,
+        });
+      done++;
+      log({
+        event: 'pool_done',
+        address: p.address,
+        done,
+        of: order.length,
+        writtenBytes: written.bytes,
+      });
+    }
+    return finish({ pools: done, writtenBytes: written.bytes, rpc: rpcStats });
+  }
   const address = opt(kind === 'swaps' ? '--pool' : '--mint');
-  if (all)
-    throw new Error('--all on Solana: run per pool from the count file (not run by this session)');
   if (!address) throw new Error(`--${kind === 'swaps' ? 'pool' : 'mint'} <address> is needed`);
   const [a, b] = (opt('--window') as string)
     .split('..')
     .map((x) => Math.floor(Date.parse(x) / 1000));
   if (!a || !b || b <= a) throw new Error('--window <fromISO>..<toISO>');
+  const series2 = kind === 'swaps' ? 'solana-swaps' : 'solana-mints';
+  if (windowNeedsGate(series2, a, b))
+    requireCountThatFits(
+      kind === 'swaps' ? 'pools-exact' : 'mint',
+      `a window of ${((b - a + 1) / DAY).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series2].size / DAY})`,
+    );
   const p = pools.find((x) => x.address === address);
   if (kind === 'swaps' && !p) throw new Error(`${address} is not a registry pool of the list`);
-  guard(0);
-  const res = await fetchWindow({
-    rpc: solRpc as never,
-    out: join(OUT, 'solana'),
+  const res = await solanaPieces({
     kind,
     address,
-    ...(p ? { pool: p } : {}),
+    ...(p ? { p } : {}),
     from: a,
     to: b,
-    parallel: Number(opt('--parallel') ?? 32),
     ...(opt('--per-hour') ? { perHour: Number(opt('--per-hour')) } : {}),
     // a signature just after the window (from a walk on disk), so the walk starts there and not at the head
-    ...(opt('--before') ? { startBefore: opt('--before') } : {}),
-    source: `Solana RPC getSignaturesForAddress and getTransaction (${process.env.SOLANA_RPC_URL ? 'SOLANA_RPC_URL' : 'public'})${p ? `, decoded by @colosseum/risk's ${p.venue} decoder` : ''}`,
-    now: () => new Date(),
+    ...(opt('--before') ? { before: opt('--before') } : {}),
+    guard: guardFn,
+    written,
   });
-  return finish({ fetched: res, rpc: rpcStats });
+  const sum = (
+    k: 'signatures' | 'successful' | 'fetched' | 'errors' | 'gzBytes' | 'fetchSeconds',
+  ) => res.reduce((x, r) => x + (r[k] as number), 0);
+  return finish({
+    fetched: {
+      address,
+      windows: res.length,
+      signatures: sum('signatures'),
+      successful: sum('successful'),
+      fetched: sum('fetched'),
+      errors: sum('errors'),
+      gzBytes: sum('gzBytes'),
+      txPerSecond: sum('fetched') / Math.max(0.001, sum('fetchSeconds')),
+      perWindow: res,
+    },
+    rpc: rpcStats,
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -913,6 +1155,7 @@ async function externalDaily() {
     const chartRequests = rowsTotal * share * Math.ceil(meanDays / CHART_SPAN_DAYS);
     const body = {
       series,
+      scope: 'rows',
       countedAt: new Date().toISOString(),
       methodVersion: BACKFILL_METHOD_VERSION,
       method:
@@ -956,7 +1199,7 @@ async function externalDaily() {
       })),
     });
   }
-  guard(0);
+  fetchGuard()({ nextBytes: 0, writtenBytes: 0 });
   const out = join(OUT, 'external');
   const at = new Date().toISOString();
   const coin = opt('--coin');
@@ -994,7 +1237,14 @@ async function externalDaily() {
 const run = {
   'robinhood-logs': robinhoodLogs,
   'chainlink-rounds': chainlinkRounds,
-  'solana-swaps': () => (mode === 'count' ? solanaCount('swaps') : solanaFetch('swaps')),
+  'solana-swaps': () =>
+    mode === 'count'
+      ? has('--exact-walk')
+        ? solanaExactCount().then((x) =>
+            finish({ count: x.file, estimate: x.body.estimate, fits: x.body.budget.fits }),
+          )
+        : solanaCount('swaps')
+      : solanaFetch('swaps'),
   'solana-mints': () => (mode === 'count' ? solanaCount('mints') : solanaFetch('mints')),
   'external-daily': externalDaily,
 }[series];
@@ -1002,6 +1252,12 @@ try {
   const r = await run();
   console.log(JSON.stringify(r).slice(0, 4000));
 } catch (e) {
+  if (e instanceof BudgetStop) {
+    // the budget would be crossed by the next piece: everything written so far is recorded and resumable
+    log({ event: 'stopped_by_budget', reasons: e.reasons });
+    console.log(JSON.stringify(finish({ stopped: e.reasons })));
+    process.exit(2);
+  }
   const r = finish({ error: e instanceof Error ? e.message : String(e) });
   console.error(JSON.stringify(r));
   process.exit(1);

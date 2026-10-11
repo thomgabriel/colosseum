@@ -17,14 +17,14 @@
 // `unknown_pool`.
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import {
   addToManifest,
   BACKFILL_METHOD_VERSION,
   extrapolate,
   type Manifest,
   type ManifestCheck,
-  quietWaitMs,
+  requestSlot,
   type StratumCount,
   strata,
 } from '@colosseum/risk';
@@ -176,10 +176,17 @@ export const toRow = (f: LogFilter, l: RawLog, t: number): LogRow => ({
 
 export type Deps = {
   rpc: Rpc;
+  /**
+   * A client whose requests time out after `timeoutMs` and are never retried by the client itself, so every
+   * retry passes through `ask` and its check of the loop's minutes. Without it, `rpc` (a replay in tests).
+   */
+  rpcFor?: (timeoutMs: number) => Rpc;
   sleep: (ms: number) => Promise<unknown>;
   now: () => Date;
   log: (e: Record<string, unknown>) => void;
 };
+/** The longest a request may take; less when the loop's minutes are closer. */
+export const MAX_REQUEST_MS = 120_000;
 /** Waits before asking again: rate, an outage, a 403 from the endpoint's Cloudflare (slowly). */
 export const BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 300_000, 600_000, 600_000];
 export const PAUSE_MS = 1_000;
@@ -191,13 +198,15 @@ export async function ask(
   req: { method: string; params: unknown[] },
 ): Promise<RpcReply> {
   for (let attempt = 0; ; attempt++) {
-    const quiet = quietWaitMs(deps.now());
-    if (quiet > 0) {
-      deps.log({ event: 'quiet', waitS: Math.round(quiet / 1000) });
-      await deps.sleep(quiet);
+    // checked before every try: the first and each retry after a wait
+    const slot = requestSlot(deps.now(), MAX_REQUEST_MS);
+    if (slot.waitMs > 0) {
+      deps.log({ event: 'quiet', waitS: Math.round(slot.waitMs / 1000) });
+      await deps.sleep(slot.waitMs);
     }
+    const rpc = deps.rpcFor ? deps.rpcFor(slot.timeoutMs) : deps.rpc;
     try {
-      const [r] = await deps.rpc.batch([req]);
+      const [r] = await rpc.batch([req]);
       if (r && isTransient(r)) throw new Error(r.error?.message ?? 'refused for rate');
       return r ?? { error: { message: 'no reply' } };
     } catch (e) {
@@ -512,6 +521,8 @@ const dayOf = (t: number) => new Date(t * 1000).toISOString().slice(0, 10);
 export type FetchInput = {
   out: string;
   filters: LogFilter[];
+  /** Whose logs the filters ask for: `*` for the list's every pool and token, else the one subject's address. */
+  scope: string;
   from: number;
   to: number;
   window: number;
@@ -519,13 +530,55 @@ export type FetchInput = {
   keep: (r: LogRow) => boolean;
   /** Called with a piece's rows before `keep` (the resolver asks the chain about pools it does not know). */
   prepare?: (rows: LogRow[]) => Promise<void>;
+  /**
+   * Called before the first piece and after every piece with what the run has written and the most one piece
+   * wrote; it throws (BudgetStop) to end the fetch there, with everything written so far recorded.
+   */
+  guard?: (p: { nextBytes: number; writtenBytes: number }) => void;
   source: string;
 };
 
+type Range = { from: number; to: number };
+/** What a fetch has asked, per filter and scope (`v4_swap:*`, `v4_swap:0x6444…`), merged. */
+export type Fetched = { version: 2; covered: Record<string, Range[]> };
+
+/** [a, b] less the ranges already covered, in order. */
+export function uncovered(a: number, b: number, covered: Range[]): Range[] {
+  const out: Range[] = [];
+  let at = a;
+  for (const c of [...covered].sort((x, y) => x.from - y.from)) {
+    if (c.to < at || c.from > b) continue;
+    if (c.from > at) out.push({ from: at, to: Math.min(b, c.from - 1) });
+    at = Math.max(at, c.to + 1);
+    if (at > b) break;
+  }
+  if (at <= b) out.push({ from: at, to: b });
+  return out;
+}
+const mergeRanges = (rs: Range[], add: Range): Range[] => {
+  const all = [...rs, add].sort((x, y) => x.from - y.from);
+  const out: Range[] = [];
+  for (const r of all) {
+    const last = out.at(-1);
+    if (last && r.from <= last.to + 1) last.to = Math.max(last.to, r.to);
+    else out.push({ ...r });
+  }
+  return out;
+};
+
+/** The fetch record of a folder; a record of the first form (whole pieces by filter names) is not trusted. */
+export function readFetched(path: string): Fetched {
+  if (!existsSync(path)) return { version: 2, covered: {} };
+  const j = JSON.parse(readFileSync(path, 'utf8')) as Fetched | unknown[];
+  return Array.isArray(j) ? { version: 2, covered: {} } : j;
+}
+
 /**
- * One window of the series, newest sub-window first: each 100,000-block piece fetched for every filter, its
- * rows timed from the headers, appended gzipped to <out>/<kind>/<subject>/<day>.jsonl.gz, and the piece added
- * to each subject's manifest, so a stopped fetch resumes from the pieces not yet covered.
+ * One window of the series, newest piece first: each 100,000-block piece asked of every filter for the blocks
+ * not yet covered for that filter (by this scope, or by the list-wide `*`), its rows timed from the headers and
+ * appended gzipped to <out>/<kind>/<subject>/<day>.jsonl.gz, a row already in the day file (by block and log
+ * index) dropped, and the piece added to each filter's record and each subject's manifest. Resuming, or
+ * fetching a range a narrower or wider fetch already took, asks and writes nothing twice.
  */
 export async function fetchLogs(deps: Deps, inp: FetchInput) {
   const t0 = deps.now().getTime();
@@ -534,6 +587,7 @@ export async function fetchLogs(deps: Deps, inp: FetchInput) {
     pieces: 0,
     skipped: 0,
     rows: 0,
+    duplicatesDropped: 0,
     gzBytes: 0,
     rowBytes: 0,
     queries: 0,
@@ -566,39 +620,58 @@ export async function fetchLogs(deps: Deps, inp: FetchInput) {
     manifests.set(key, m);
     return m;
   };
-  // the pieces already fetched for the same filters are skipped (a resumed fetch)
+  // the (block, log index) of every row a day file holds, read once when a piece first extends it
+  const keysOf = new Map<string, Set<number>>();
+  const keysIn = (file: string) => {
+    let k = keysOf.get(file);
+    if (k) return k;
+    k = new Set<number>();
+    if (existsSync(file))
+      for (const l of gunzipSync(readFileSync(file)).toString().split('\n')) {
+        if (!l) continue;
+        const r = JSON.parse(l) as { block: number; logIndex: number };
+        k.add(r.block * 1_000_000 + r.logIndex);
+      }
+    keysOf.set(file, k);
+    return k;
+  };
   const fetchedPath = join(inp.out, 'fetched.json');
-  const fetched: Array<{ from: number; to: number; filters: string[] }> = existsSync(fetchedPath)
-    ? JSON.parse(readFileSync(fetchedPath, 'utf8'))
-    : [];
-  const names = inp.filters
-    .map((f) => f.name)
-    .sort()
-    .join(',');
+  const fetched = readFetched(fetchedPath);
+  const coveredFor = (f: LogFilter) => [
+    ...(fetched.covered[`${f.name}:*`] ?? []),
+    ...(inp.scope === '*' ? [] : (fetched.covered[`${f.name}:${inp.scope}`] ?? [])),
+  ];
+  let largest = 0;
+  inp.guard?.({ nextBytes: 0, writtenBytes: 0 });
   for (const [a, b] of pieces) {
-    if (fetched.some((w) => w.from <= a && w.to >= b && w.filters.join(',') === names)) {
+    const asks = inp.filters
+      .map((f) => ({ f, ranges: uncovered(a, b, coveredFor(f)) }))
+      .filter((x) => x.ranges.length);
+    if (!asks.length) {
       stats.skipped++;
       continue;
     }
     const headers = await windowHeaders(deps, a, b);
     const bySubject = new Map<string, LogRow[]>();
-    for (const f of inp.filters) {
-      const got = await logsOf(deps, f, a, b);
-      stats.queries += got.queries;
-      stats.halvings += got.halvings;
-      const all = got.logs.map((l) =>
-        toRow(f, l, blockTime(headers, Number(BigInt(l.blockNumber)))),
-      );
-      if (inp.prepare) await inp.prepare(all);
-      for (const r of all) {
-        if (!inp.keep(r)) continue;
-        const k = `${r.kind}/${r.subject}`;
-        const list = bySubject.get(k) ?? [];
-        list.push(r);
-        bySubject.set(k, list);
+    for (const { f, ranges } of asks)
+      for (const r0 of ranges) {
+        const got = await logsOf(deps, f, r0.from, r0.to);
+        stats.queries += got.queries;
+        stats.halvings += got.halvings;
+        const all = got.logs.map((l) =>
+          toRow(f, l, blockTime(headers, Number(BigInt(l.blockNumber)))),
+        );
+        if (inp.prepare) await inp.prepare(all);
+        for (const r of all) {
+          if (!inp.keep(r)) continue;
+          const k = `${r.kind}/${r.subject}`;
+          const list = bySubject.get(k) ?? [];
+          list.push(r);
+          bySubject.set(k, list);
+        }
       }
-    }
     const at = deps.now().toISOString();
+    let pieceBytes = 0;
     for (const [k, rows] of bySubject) {
       const [kind, subject] = k.split('/') as [LogKind, string];
       rows.sort((x, y) => x.block - y.block || x.logIndex - y.logIndex);
@@ -608,32 +681,34 @@ export async function fetchLogs(deps: Deps, inp: FetchInput) {
       const byDay = new Map<string, LogRow[]>();
       for (const r of rows) byDay.set(dayOf(r.t), [...(byDay.get(dayOf(r.t)) ?? []), r]);
       const m = load(kind, subject);
+      let dropped = 0;
       for (const [d, rs] of byDay) {
-        const text = `${rs.map((r) => JSON.stringify(r)).join('\n')}\n`;
-        const gz = gzipSync(text);
         const file = join(dir, `${d}.jsonl.gz`);
+        const have = keysIn(file);
+        const fresh = rs.filter((r) => {
+          const key = r.block * 1_000_000 + r.logIndex;
+          if (have.has(key)) return false;
+          have.add(key);
+          return true;
+        });
+        dropped += rs.length - fresh.length;
+        if (!fresh.length) continue;
+        const text = `${fresh.map((r) => JSON.stringify(r)).join('\n')}\n`;
+        const gz = gzipSync(text);
         // a gzip file may hold several members: each piece is appended as its own
         writeFileSync(file, gz, { flag: 'a' });
-        const prev = m.days[d] ?? { rows: 0, bytes: 0 };
-        days[d] = { rows: prev.rows + rs.length, bytes: statSync(file).size };
-        stats.rows += rs.length;
+        days[d] = { rows: have.size, bytes: statSync(file).size };
+        stats.rows += fresh.length;
         stats.gzBytes += gz.length;
         stats.rowBytes += text.length;
+        pieceBytes += gz.length;
       }
-      const ordered = rows.every(
-        (r, i) =>
-          i === 0 ||
-          (rows[i - 1] as LogRow).block < r.block ||
-          ((rows[i - 1] as LogRow).block === r.block &&
-            (rows[i - 1] as LogRow).logIndex < r.logIndex),
-      );
+      stats.duplicatesDropped += dropped;
       const checks: ManifestCheck[] = [
         {
           name: 'one_row_per_log',
-          passed: ordered,
-          detail: ordered
-            ? 'no (block, logIndex) twice in the piece'
-            : 'a (block, logIndex) appears twice in the piece',
+          passed: true,
+          detail: `a (block, log index) is written once: ${dropped} already in the day files dropped from the last piece`,
         },
         {
           name: 'times_inside_headers',
@@ -645,11 +720,16 @@ export async function fetchLogs(deps: Deps, inp: FetchInput) {
       manifests.set(k, next);
       writeFileSync(manifestPath(kind, subject), `${JSON.stringify(next, null, 1)}\n`);
     }
-    fetched.push({ from: a, to: b, filters: names.split(',') });
+    for (const { f } of asks) {
+      const key = `${f.name}:${inp.scope}`;
+      fetched.covered[key] = mergeRanges(fetched.covered[key] ?? [], { from: a, to: b });
+    }
     mkdirSync(inp.out, { recursive: true });
     writeFileSync(fetchedPath, JSON.stringify(fetched));
     stats.pieces++;
+    largest = Math.max(largest, pieceBytes);
     deps.log({ event: 'piece', from: a, to: b, subjects: bySubject.size, rows: stats.rows });
+    inp.guard?.({ nextBytes: largest, writtenBytes: stats.gzBytes });
   }
   const seconds = (deps.now().getTime() - t0) / 1000;
   return { ...stats, seconds, rowsPerSecond: stats.rows / Math.max(1, seconds) };

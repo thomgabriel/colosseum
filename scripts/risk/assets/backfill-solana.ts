@@ -16,7 +16,7 @@
 //           <out>/solana/<swaps|mints>/<address>/<day>.jsonl.gz with a manifest
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import {
   type AnchoredPage,
   addToManifest,
@@ -213,10 +213,13 @@ export async function fetchWindow(inp: FetchSolana) {
   // the walk: newest first, from the first page whose signatures are at or before `to`
   const sigs: Sig[] = [];
   let before: string | undefined = inp.startBefore;
-  // the next, older window starts below the oldest signature this one kept
-  let oldestKept: string | undefined;
+  // the next, older window starts below the oldest signature at or after this window's start: one it kept,
+  // or one newer than the window it passed (a window with no signature of its own)
+  let cursor: string | undefined;
   let pages = 0;
   let walked = 0;
+  /** The walk reached the address's first transaction (a page shorter than its limit). */
+  let exhausted = false;
   for (;;) {
     const page = await inp.rpc<Sig[]>('getSignaturesForAddress', [
       inp.address,
@@ -224,16 +227,20 @@ export async function fetchWindow(inp: FetchSolana) {
     ]);
     pages++;
     walked += page.length;
-    if (!page.length) break;
+    if (!page.length) {
+      exhausted = true;
+      break;
+    }
     for (const s of page) {
       const t = s.blockTime ?? 0;
-      if (t > inp.to) continue;
       if (t < inp.from) break;
+      cursor = s.signature;
+      if (t > inp.to) continue;
       sigs.push(s);
-      oldestKept = s.signature;
     }
     const last = page.at(-1) as Sig;
     before = last.signature;
+    if (page.length < 1000) exhausted = true;
     if ((last.blockTime ?? 0) < inp.from || page.length < 1000) break;
   }
   const walkS = (inp.now().getTime() - t0) / 1000;
@@ -327,14 +334,26 @@ export async function fetchWindow(inp: FetchSolana) {
   const days: Record<string, { rows: number; bytes: number }> = {};
   let rowBytes = 0;
   let gzBytes = 0;
+  let duplicates = 0;
   for (const [d, rs] of byDay) {
-    const text = `${rs.map((r) => JSON.stringify(r)).join('\n')}\n`;
-    const gz = gzipSync(text);
     const file = join(dir, `${d}.jsonl.gz`);
-    writeFileSync(file, gz, { flag: 'a' });
-    days[d] = { rows: rs.length, bytes: statSync(file).size };
-    rowBytes += text.length;
-    gzBytes += gz.length;
+    // a day file another window already extended: its signatures are not written twice, and the day's
+    // count is the file's, not this window's
+    const have = new Set<string>();
+    if (existsSync(file))
+      for (const l of gunzipSync(readFileSync(file)).toString().split('\n'))
+        if (l) have.add((JSON.parse(l) as { s: string }).s);
+    const fresh = rs.filter((r) => !have.has(r.s));
+    duplicates += rs.length - fresh.length;
+    for (const r of fresh) have.add(r.s);
+    if (fresh.length) {
+      const text = `${fresh.map((r) => JSON.stringify(r)).join('\n')}\n`;
+      const gz = gzipSync(text);
+      writeFileSync(file, gz, { flag: 'a' });
+      rowBytes += text.length;
+      gzBytes += gz.length;
+    }
+    days[d] = { rows: have.size, bytes: existsSync(file) ? statSync(file).size : 0 };
   }
   const mp = join(dir, 'manifest.json');
   const m0: Manifest = existsSync(mp)
@@ -353,9 +372,11 @@ export async function fetchWindow(inp: FetchSolana) {
         checks: [],
         updatedAt: inp.now().toISOString(),
       };
+  // a window with a transaction not served is not covered: the next run asks it again (its rows are kept,
+  // and not written twice)
   const m = addToManifest(
     m0,
-    { from: inp.from, to: inp.to, unit: 'second' },
+    errors === 0 ? { from: inp.from, to: inp.to, unit: 'second' } : null,
     days,
     [
       {
@@ -379,7 +400,7 @@ export async function fetchWindow(inp: FetchSolana) {
   writeFileSync(mp, `${JSON.stringify(m, null, 1)}\n`);
   return {
     address: inp.address,
-    lastSignature: oldestKept ?? inp.startBefore ?? null,
+    lastSignature: cursor ?? inp.startBefore ?? null,
     window: {
       from: new Date(inp.from * 1000).toISOString(),
       to: new Date(inp.to * 1000).toISOString(),
@@ -390,6 +411,9 @@ export async function fetchWindow(inp: FetchSolana) {
     successful: ok.length,
     fetched: kept.length,
     errors,
+    covered: errors === 0,
+    duplicatesDropped: duplicates,
+    exhausted,
     walkSeconds: walkS,
     fetchSeconds: fetchS,
     txPerSecond: kept.length / Math.max(0.001, fetchS),
@@ -399,4 +423,81 @@ export async function fetchWindow(inp: FetchSolana) {
     gzBytesPerTx: kept.length ? gzBytes / kept.length : null,
     rowBytesPerTx: kept.length ? rowBytes / kept.length : null,
   };
+}
+
+/** What the exact pass counted for one address: every signature in the window, by UTC day. */
+export type ExactWalk = {
+  address: string;
+  signatures: number;
+  failed: number;
+  byDay: Record<string, [number, number]>;
+  pages: number;
+  seconds: number;
+  /** The walk reached the address's first transaction inside the window. */
+  exhausted: boolean;
+};
+
+/**
+ * The exact signature pass (history-full-measure.ts's walk, counting only): every signature of each address
+ * from the head back to `from`, 1,000 a page, counted by day and failed or not; nothing is fetched or kept but
+ * the counts. It is the first step of the Solana fetch: its count replaces the sampled one before any
+ * transaction is asked.
+ */
+export async function exactWalk(
+  rpc: Rpc,
+  addresses: string[],
+  from: number,
+  parallel: number,
+  now: () => Date,
+  onDone?: (w: ExactWalk) => void,
+): Promise<ExactWalk[]> {
+  return pool(addresses, parallel, async (address) => {
+    const t0 = now().getTime();
+    const w: ExactWalk = {
+      address,
+      signatures: 0,
+      failed: 0,
+      byDay: {},
+      pages: 0,
+      seconds: 0,
+      exhausted: false,
+    };
+    let before: string | undefined;
+    for (;;) {
+      const page = await rpc<Sig[]>('getSignaturesForAddress', [
+        address,
+        { limit: 1000, ...(before ? { before } : {}) },
+      ]);
+      w.pages++;
+      let past = false;
+      for (const s of page) {
+        const t = s.blockTime ?? 0;
+        if (t < from) {
+          past = true;
+          break;
+        }
+        const d = new Date(t * 1000).toISOString().slice(0, 10);
+        const c = w.byDay[d] ?? [0, 0];
+        c[0]++;
+        if (s.err) c[1]++;
+        w.byDay[d] = c;
+        w.signatures++;
+        if (s.err) w.failed++;
+      }
+      if (page.length < 1000) w.exhausted = true;
+      if (past || page.length < 1000) break;
+      before = (page.at(-1) as Sig).signature;
+    }
+    w.seconds = (now().getTime() - t0) / 1000;
+    onDone?.(w);
+    return w;
+  });
+}
+
+/** The UTC days of [from, to], newest first, each cut to the window: the pieces a long window is fetched in. */
+export function dayPieces(from: number, to: number): Array<{ from: number; to: number }> {
+  const out: Array<{ from: number; to: number }> = [];
+  for (let d = Math.floor(to / 86_400) * 86_400; d + 86_400 > from; d -= 86_400)
+    out.push({ from: Math.max(from, d), to: Math.min(to, d + 86_400 - 1) });
+  return out;
 }

@@ -129,13 +129,18 @@ describe('Solana: NVDAx, 2026-09-05 06:00Z (a weekend hour), two pools', () => {
   it('the USDC pool: four sales, open and close by slot, USDC at par as the flow import prices it (D20)', () => {
     const [b] = solBars(USDC);
     if (!b) throw new Error('no bar');
-    const px = usdcSwaps.map(([t, q]) => q / t);
+    // the second and third swaps are dust (0.389836 and 0.587706 USDC, under $1): no price mark, still volume
+    const px = [usdcSwaps[0], usdcSwaps[3]].map(
+      (x) => (x as readonly [number, number])[1] / (x as readonly [number, number])[0],
+    );
     expect(b.hour).toBe('2026-09-05T06:00:00.000Z');
     expect([b.swaps, b.sellSwaps, b.buySwaps, b.unpricedSwaps]).toEqual([4, 4, 0, 0]);
     close(b.openQuote, 5.868821 / 0.02546122);
     close(b.closeQuote, 1.279557 / 0.00555123);
     close(b.highQuote, Math.max(...px));
     close(b.lowQuote, Math.min(...px));
+    expect(b.detail).toMatchObject({ dustSwaps: 2 });
+    expect(b.detail.marksFromDust).toBeUndefined();
     const tokens = 0.02546122 + 0.00169127 + 0.0025497 + 0.00555123;
     const usdc = 5.868821 + 0.389836 + 0.587706 + 1.279557;
     close(b.volumeTokens, tokens);
@@ -177,6 +182,7 @@ describe('Solana: NVDAx, 2026-09-05 06:00Z (a weekend hour), two pools', () => {
         { pool: SOL, bars: solBars(SOL) },
       ],
       'raw_events',
+      'slot',
     );
     if (!a) throw new Error('no bar');
     expect([a.swaps, a.sellSwaps, a.buySwaps, a.unpricedSwaps]).toEqual([7, 7, 0, 0]);
@@ -185,25 +191,30 @@ describe('Solana: NVDAx, 2026-09-05 06:00Z (a weekend hour), two pools', () => {
     close(a.openUsd, (0.042579883 / 0.01886413) * SOL_USD);
     close(a.closeUsd, (0.157590807 / 0.06990039) * SOL_USD);
     const usd = [
-      ...usdcSwaps.map(([t, q]) => ({ t, usd: q, p: q / t })),
-      ...solSwaps.map(([t, q]) => ({ t, usd: q * SOL_USD, p: (q / t) * SOL_USD })),
+      ...usdcSwaps.map(([t, q]) => ({ t, usd: q, p: q / t, dust: q < 1 })),
+      ...solSwaps.map(([t, q]) => ({ t, usd: q * SOL_USD, p: (q / t) * SOL_USD, dust: false })),
     ];
-    close(a.highUsd, Math.max(...usd.map((x) => x.p)));
-    close(a.lowUsd, Math.min(...usd.map((x) => x.p)));
+    // high and low over the swaps that are not dust
+    close(a.highUsd, Math.max(...usd.filter((x) => !x.dust).map((x) => x.p)));
+    close(a.lowUsd, Math.min(...usd.filter((x) => !x.dust).map((x) => x.p)));
     const dollars = usd.reduce((s, x) => s + x.usd, 0);
     const tokens = usd.reduce((s, x) => s + x.t, 0);
     close(a.volumeUsd, dollars);
     close(a.volumeTokens, tokens);
     close(a.vwapUsd, dollars / tokens);
     expect(a.openQuote).toBeNull();
-    expect(a.quoteUsdMethod).toBeNull();
+    // the token's row names its priced pools' methods: USDC at par is the flow import's, inherited (DA21)
+    expect(a.quoteUsdMethod).toBe(`implied_from_${USDC}; usdc_at_par`);
+    expect(a.detail).toMatchObject({ order: 'slot', openPool: SOL, closePool: SOL, dustSwaps: 2 });
+    expect(a.detail.openInSharedSlot).toBeUndefined();
     const pools = (a.detail as { pools: Array<{ pool: string; swaps: number; usdShare: number }> })
       .pools;
+    // the pools in address order
     expect(pools.map((p) => [p.pool, p.swaps])).toEqual([
-      [USDC, 4],
       [SOL, 3],
+      [USDC, 4],
     ]);
-    close(pools[0]?.usdShare ?? null, usdcSwaps.reduce((s, [, q]) => s + q, 0) / dollars);
+    close(pools[1]?.usdShare ?? null, usdcSwaps.reduce((s, [, q]) => s + q, 0) / dollars);
     holdsTheTableChecks(a);
   });
 
@@ -237,7 +248,8 @@ describe('Robinhood Chain: three hours of four pools', () => {
     // block 70005016: the swapper paid 281728 USDG units (6 decimals) and took 1231539033826186 NVDA units
     // (18): NVDA came out of the pool, a purchase. Block 70006901: amounts 0 and 0, no side.
     expect([b.swaps, b.buySwaps, b.sellSwaps, b.unpricedSwaps]).toEqual([1, 1, 0, 0]);
-    expect(b.detail).toMatchObject({ swapsWithoutSide: 1 });
+    // its one sided swap is $0.28: dust, so the hour's marks come from the dust, and say so
+    expect(b.detail).toMatchObject({ swapsWithoutSide: 1, dustSwaps: 1, marksFromDust: true });
     close(b.openQuote, 0.281728 / e18(1231539033826186n));
     close(b.volumeTokens, e18(1231539033826186n));
     close(b.volumeUsd, 0.281728);
@@ -256,7 +268,7 @@ describe('Robinhood Chain: three hours of four pools', () => {
       null,
       null,
       null,
-      null,
+      'none:quote_decimals_unknown',
     ]);
     holdsTheTableChecks(b);
   });
@@ -289,6 +301,7 @@ describe('Robinhood Chain: three hours of four pools', () => {
         { pool: '0xbc73', bars: nvda },
       ],
       'raw_events',
+      'place',
     );
     if (!a) throw new Error('no bar');
     // the NVDA pool's first swap (block 55631438) is before the USDG pool's (55631478)
@@ -354,5 +367,49 @@ describe('the check against risk_pool_flow', () => {
     expect(r.status).toBe('differs');
     expect(r.explainedBySwapsWithoutSide).toBe(true);
     expect(checkFlowRow(bars, { ...row, regime: 'weekend' }).sums.swaps).toBe(0);
+  });
+});
+
+describe('the dust rule and the order of a slot shared by pools', () => {
+  const hour: BarHour = { regime: 'weekend', quoteUsd: 1, method: 'usdc_at_par' };
+  const swap = (slot: number, q: number, tokens: number, quote: number, minRaw: number) => ({
+    t: 1_789_000_000 + slot,
+    at: [slot, -q, 0] as const,
+    side: 'sell' as const,
+    tokens,
+    quote,
+    minRaw,
+  });
+  it('2 raw units against 1 sets no mark (the $100 low of a $229 stock), $0.50 neither', () => {
+    const acc = newPoolBars();
+    addBarSwap(acc, swap(1, 0, 1, 229, 1e8), hour, regimeOfT); // 1 token for $229
+    addBarSwap(acc, swap(2, 0, 2e-8, 2e-6, 1), hour, regimeOfT); // 2 raw units for 1: reads $100
+    addBarSwap(acc, swap(3, 0, 0.002, 0.5, 2e5), hour, regimeOfT); // $0.50: under $1
+    const [b] = poolBars(acc, 'raw_events');
+    if (!b) throw new Error('no bar');
+    expect([b.highQuote, b.lowQuote, b.openQuote, b.closeQuote]).toEqual([229, 229, 229, 229]);
+    expect(b.swaps).toBe(3);
+    close(b.volumeTokens, 1 + 2e-8 + 0.002);
+    close(b.vwapQuote, (229 + 2e-6 + 0.5) / (1 + 2e-8 + 0.002));
+    expect(b.detail).toMatchObject({ dustSwaps: 2 });
+  });
+  it('a slot shared by two pools: the open from the pool that sorts first, the close from the last', () => {
+    const one = (pool: string, slot: number, price: number) => {
+      const acc = newPoolBars();
+      addBarSwap(acc, swap(slot, 5, 1, price, 1e8), hour, regimeOfT);
+      return { pool, bars: poolBars(acc, 'raw_events') };
+    };
+    const [a] = assetBars([one('Bbb', 7, 200), one('Aaa', 7, 100)], 'raw_events', 'slot');
+    if (!a) throw new Error('no bar');
+    expect([a.openUsd, a.closeUsd]).toEqual([100, 200]);
+    expect(a.detail).toMatchObject({
+      openPool: 'Aaa',
+      closePool: 'Bbb',
+      openInSharedSlot: true,
+      closeInSharedSlot: true,
+    });
+    // by place (Robinhood Chain), the same two are ordered by their whole place: no shared slot
+    const [r] = assetBars([one('Bbb', 7, 200), one('Aaa', 8, 100)], 'raw_events', 'place');
+    expect([r?.openUsd, r?.closeUsd, r?.detail.openInSharedSlot]).toEqual([200, 100, undefined]);
   });
 });

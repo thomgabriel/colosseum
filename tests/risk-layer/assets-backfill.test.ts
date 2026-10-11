@@ -1,10 +1,19 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import {
   type AnchoredPage,
   addToManifest,
+  collapsedSpread,
   estimateSampled,
   estimateSignatures,
   extrapolate,
@@ -14,15 +23,25 @@ import {
   mergeCovered,
   pageRate,
   quietWaitMs,
+  requestSlot,
   strata,
 } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
+import {
+  BudgetStop,
+  budgetGuard,
+  gateWholeSeries,
+  newestCount,
+  windowNeedsGate,
+} from '../../scripts/risk/assets/backfill-gate';
+import { dayPieces, fetchWindow } from '../../scripts/risk/assets/backfill-solana';
 import {
   classifyPools,
   type Deps,
   fetchLogs,
   LOG_TOPIC,
   logsOf,
+  readFetched,
   seriesFilters,
 } from '../../scripts/risk-evm/backfill-logs';
 import { countRounds, fetchRounds, roundIdOf } from '../../scripts/risk-evm/backfill-rounds';
@@ -279,6 +298,7 @@ describe.skipIf(!existsSync(fetchFx))('Robinhood Chain logs: a recorded fetch, r
     const inp = {
       out,
       filters,
+      scope: pool,
       from,
       to,
       window: 100_000,
@@ -307,6 +327,255 @@ describe.skipIf(!existsSync(fetchFx))('Robinhood Chain logs: a recorded fetch, r
     const asked = rpc.asked.length;
     const again = await fetchLogs(deps, inp);
     expect([again.pieces, again.skipped, rpc.asked.length]).toEqual([0, res.pieces, asked]);
+  });
+
+  /** The recording as a small chain: its logs by block, and headers between its two by their line. */
+  const chainOf = (rec: Recording) => {
+    const logs: Array<{ blockNumber: string }> = [];
+    const heads: Array<{ block: number; t: number }> = [];
+    for (const a of Object.values(rec.answers)) {
+      if (Array.isArray(a.result)) logs.push(...(a.result as Array<{ blockNumber: string }>));
+      const h = a.result as { number?: string; timestamp?: string } | null;
+      if (h && !Array.isArray(h) && h.number && h.timestamp)
+        heads.push({ block: Number(h.number), t: Number(h.timestamp) });
+    }
+    heads.sort((x, y) => x.block - y.block);
+    const [h0, h1] = heads as [{ block: number; t: number }, { block: number; t: number }];
+    return replayRpc({}, (r) => {
+      if (r.method === 'eth_getLogs') {
+        const q = r.params[0] as { fromBlock: string; toBlock: string };
+        const [a, b] = [Number(q.fromBlock), Number(q.toBlock)];
+        return {
+          result: logs.filter((l) => Number(l.blockNumber) >= a && Number(l.blockNumber) <= b),
+        };
+      }
+      const b = Number(r.params[0]);
+      const t = Math.round(h0.t + ((h1.t - h0.t) * (b - h0.block)) / (h1.block - h0.block));
+      return { result: { number: `0x${b.toString(16)}`, timestamp: `0x${t.toString(16)}` } };
+    });
+  };
+
+  it('a wider fetch over the same blocks writes nothing twice, and the day keeps its count', async () => {
+    const rec = loadGz<Recording>('robinhood-logs-fetch.json.gz');
+    const window = rec.args[rec.args.indexOf('--window') + 1] as string;
+    const pool = rec.args[rec.args.indexOf('--pool') + 1] as string;
+    const [from, to] = window.split('-').map(Number) as [number, number];
+    const out = mkdtempSync(join(tmpdir(), 'backfill-'));
+    const deps: Deps = {
+      rpc: chainOf(rec),
+      sleep: async () => {},
+      now: quiet(new Date(rec.recordedAt)),
+      log: () => {},
+    };
+    const one = seriesFilters(robinhood, [], { subject: pool, subjectKind: 'v4', kind: 'swaps' });
+    const keep = (r: { subject: string }) => r.subject === pool;
+    // the sample: the pool's own v4 swaps, pieces of 1,000 blocks
+    const first = await fetchLogs(deps, {
+      out,
+      filters: one,
+      scope: pool,
+      from,
+      to,
+      window: 1000,
+      keep,
+      source: 'replay',
+    });
+    // then the list-wide filter (`*`), pieces of 100,000 aligned elsewhere: it asks, finds the same logs, drops them
+    const wide = seriesFilters(robinhood, [], { kind: 'swaps' }).filter(
+      (f) => f.name === 'v4_swap',
+    );
+    const second = await fetchLogs(deps, {
+      out,
+      filters: wide,
+      scope: '*',
+      from: from - 500,
+      to,
+      window: 100_000,
+      keep,
+      source: 'replay',
+    });
+    expect(second.rows).toBe(0);
+    expect(second.duplicatesDropped).toBe(first.rows);
+    const m = JSON.parse(
+      readFileSync(join(out, 'swaps', pool, 'manifest.json'), 'utf8'),
+    ) as Manifest;
+    expect(Object.values(m.days).reduce((a, d) => a + d.rows, 0)).toBe(first.rows);
+    // and now the list-wide record covers the sample's blocks: a third, narrower run asks nothing
+    const third = await fetchLogs(deps, {
+      out,
+      filters: one,
+      scope: pool,
+      from,
+      to,
+      window: 1000,
+      keep,
+      source: 'replay',
+    });
+    expect([third.pieces, third.queries]).toEqual([0, 0]);
+  });
+
+  it('stops between pieces when the budget would be crossed, with what it wrote recorded', async () => {
+    const rec = loadGz<Recording>('robinhood-logs-fetch.json.gz');
+    const window = rec.args[rec.args.indexOf('--window') + 1] as string;
+    const pool = rec.args[rec.args.indexOf('--pool') + 1] as string;
+    const [from, to] = window.split('-').map(Number) as [number, number];
+    const out = mkdtempSync(join(tmpdir(), 'backfill-'));
+    const deps: Deps = {
+      rpc: chainOf(rec),
+      sleep: async () => {},
+      now: quiet(new Date(rec.recordedAt)),
+      log: () => {},
+    };
+    const filters = seriesFilters(robinhood, [], {
+      subject: pool,
+      subjectKind: 'v4',
+      kind: 'swaps',
+    });
+    // 30 GB used and 26 GB free at the start: one more piece of any size breaks the 25 GB floor
+    const guard = budgetGuard(30 * GB, () => 25 * GB + 512);
+    let error: unknown = null;
+    try {
+      await fetchLogs(deps, {
+        out,
+        filters,
+        scope: pool,
+        from,
+        to,
+        window: 1000,
+        keep: () => true,
+        guard,
+        source: 'replay',
+      });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(BudgetStop);
+    const fetched = readFetched(join(out, 'fetched.json'));
+    // newest first: the last block alone (no swap, nothing written) passed, then the piece before it wrote
+    // rows; after it the next piece could break the floor, so the oldest piece was never asked
+    const covered = fetched.covered[`v4_swap:${pool}`] ?? [];
+    expect(covered).toEqual([{ from: to - (to % 1000) - 1000, to }]);
+    expect(covered.some((c) => c.from <= from)).toBe(false);
+  });
+});
+
+describe('the gates of a whole series', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'counts-'));
+  const write = (name: string, body: Record<string, unknown>) =>
+    writeFileSync(join(dir, name), JSON.stringify(body));
+  write('count-a.json', {
+    scope: 'mint',
+    countedAt: '2026-10-11T03:21:00Z',
+    estimate: { gzBytes: 48 * GB },
+  });
+  write('count-b.json', {
+    via: 'authority',
+    countedAt: '2026-10-11T03:23:00Z',
+    estimate: { gzBytes: 5.6 * GB },
+  });
+  it('takes the newest count of the same scope, not the newest count', () => {
+    expect(newestCount(dir, 'mint')?.file).toMatch(/count-a/);
+    expect(newestCount(dir, 'authority')?.file).toMatch(/count-b/);
+    expect(newestCount(dir, 'pools-exact')).toBeNull();
+  });
+  it('refuses a series whose count breaks the budget, and one with no count', () => {
+    const free = 63.7 * GB;
+    expect(gateWholeSeries({ dir, scope: 'mint', usedBytes: 0, freeBytes: free }).ok).toBe(false);
+    expect(gateWholeSeries({ dir, scope: 'authority', usedBytes: 0, freeBytes: free }).ok).toBe(
+      true,
+    );
+    expect(
+      gateWholeSeries({ dir, scope: 'pools-exact', usedBytes: 0, freeBytes: free }).reasons[0],
+    ).toMatch(/no count/);
+  });
+  it('a window wider than a sample needs the gate', () => {
+    expect(windowNeedsGate('robinhood-logs', 79_494_000, 80_345_980)).toBe(false);
+    expect(windowNeedsGate('robinhood-logs', 0, 85_526_375)).toBe(true);
+    expect(windowNeedsGate('solana-swaps', 0, 2 * 86_400 - 1)).toBe(false);
+    expect(windowNeedsGate('solana-swaps', 0, 2 * 86_400)).toBe(true);
+  });
+});
+
+describe('a request’s slot before the loop’s minutes', () => {
+  it('times out before minute 1, and sits the minutes out when too little is left', () => {
+    expect(requestSlot(new Date('2026-10-11T03:15:00Z'), 120_000)).toEqual({
+      waitMs: 0,
+      timeoutMs: 120_000,
+    });
+    expect(requestSlot(new Date('2026-10-11T04:00:30Z'), 120_000)).toEqual({
+      waitMs: 0,
+      timeoutMs: 30_000,
+    });
+    // 1 s left: wait it and the 14 minutes, then 46 minutes are free
+    expect(requestSlot(new Date('2026-10-11T03:00:59Z'), 120_000)).toEqual({
+      waitMs: 1_000 + 14 * 60_000,
+      timeoutMs: 120_000,
+    });
+    expect(requestSlot(new Date('2026-10-11T03:05:00Z'), 120_000)).toEqual({
+      waitMs: 10 * 60_000,
+      timeoutMs: 120_000,
+    });
+  });
+});
+
+describe('the spread of a stratified total', () => {
+  it('pairs neighbouring strata, the last three together when odd', () => {
+    // (1, 3) and (5, 7): 2·((1−2)² + (3−2)²) + 2·((5−6)² + (7−6)²) = 8
+    expect(collapsedSpread([1, 3, 5, 7])).toEqual({ se: Math.sqrt(8), largestShare: 7 / 16 });
+    // one group of three: 3/2·((1−3)² + 0 + (5−3)²) = 12
+    expect(collapsedSpread([1, 3, 5]).se).toBeCloseTo(Math.sqrt(12), 12);
+  });
+});
+
+describe('a Solana window: one row per signature, covered only when every transaction was served', () => {
+  const sig = (n: number) => `sig${n}`;
+  const t0 = 1_791_000_000;
+  const fake = (fail: Set<string>) =>
+    (async (method: string, params: unknown[]) => {
+      if (method === 'getSignaturesForAddress')
+        return [1, 2, 3].map((n) => ({
+          signature: sig(n),
+          slot: 100 - n,
+          blockTime: t0 - n * 60,
+          err: null,
+        }));
+      const s = params[0] as string;
+      if (fail.has(s)) throw new Error('not served');
+      return {
+        slot: 1,
+        blockTime: t0 - Number(s.slice(3)) * 60,
+        meta: { logMessages: [], preTokenBalances: [], postTokenBalances: [] },
+        transaction: { signatures: [s], message: { accountKeys: [] } },
+      };
+    }) as never;
+  it('a failed window keeps its rows uncovered; the next run adds only what was missing', async () => {
+    const out = mkdtempSync(join(tmpdir(), 'sol-'));
+    const base = {
+      out,
+      kind: 'mints' as const,
+      address: 'Mint111',
+      from: t0 - 3600,
+      to: t0,
+      parallel: 2,
+      source: 'fake',
+      now: () => new Date(),
+    };
+    const a = await fetchWindow({ ...base, rpc: fake(new Set([sig(2)])) });
+    expect([a.fetched, a.errors, a.covered]).toEqual([2, 1, false]);
+    const mp = join(out, 'mints', 'Mint111', 'manifest.json');
+    expect((JSON.parse(readFileSync(mp, 'utf8')) as Manifest).covered).toEqual([]);
+    const b = await fetchWindow({ ...base, rpc: fake(new Set()) });
+    expect([b.fetched, b.duplicatesDropped, b.covered]).toEqual([3, 2, true]);
+    const m = JSON.parse(readFileSync(mp, 'utf8')) as Manifest;
+    expect(m.rows).toBe(3);
+    expect(m.covered).toEqual([{ from: t0 - 3600, to: t0, unit: 'second' }]);
+  });
+  it('cuts a long window into UTC days, newest first', () => {
+    expect(dayPieces(86_400 + 100, 3 * 86_400 + 5)).toEqual([
+      { from: 3 * 86_400, to: 3 * 86_400 + 5 },
+      { from: 2 * 86_400, to: 3 * 86_400 - 1 },
+      { from: 86_400 + 100, to: 2 * 86_400 - 1 },
+    ]);
   });
 });
 
@@ -403,4 +672,39 @@ describe('the anchored estimate on frozen real pages (Step 5b’s 34 pools)', ()
     expect(Math.min(...ratios)).toBeLessThan(0.1);
     expect(Math.max(...ratios)).toBeGreaterThan(10);
   });
+});
+
+describe('the command refuses a whole series, or a wide window, without a count that fits', () => {
+  const run = (args: string[], out: string) =>
+    spawnSync('npx', ['tsx', 'scripts/risk/assets/backfill.ts', ...args], {
+      env: { ...process.env, ASSETS_DATA_DIR: out, DOTENV_CONFIG_PATH: '/nonexistent' },
+      encoding: 'utf8',
+      timeout: 60_000,
+    });
+  it('no count: refused; an over-budget count of its scope: refused; nothing asked of the network', () => {
+    const out = mkdtempSync(join(tmpdir(), 'gate-'));
+    const none = run(['robinhood-logs', '--fetch', '--all'], out);
+    expect(none.status).toBe(1);
+    expect(none.stderr).toMatch(/--all refused: no count of scope logs/);
+    const dir = join(out, 'robinhood', 'robinhood-logs');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'count-x.json'),
+      JSON.stringify({
+        scope: 'logs',
+        countedAt: '2026-10-11T04:29:00Z',
+        estimate: { gzBytes: 38.6 * GB },
+      }),
+    );
+    const over = run(['robinhood-logs', '--fetch', '--window', '0-85526375'], out);
+    expect(over.status).toBe(1);
+    expect(over.stderr).toMatch(
+      /a window of 85526376 blocks .* refused: new data 38\.6\d GB would pass the 35 GB budget/,
+    );
+    // the run is logged, refused
+    const runs = readFileSync(join(out, 'runs.jsonl'), 'utf8').trim().split('\n');
+    expect(runs.map((l) => (JSON.parse(l) as { refused?: string[] }).refused?.length)).toEqual([
+      1, 1,
+    ]);
+  }, 120_000);
 });

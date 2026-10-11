@@ -48,6 +48,8 @@ import {
 import type { Cursor } from '../../risk-evm/history-run';
 
 export const LAYER = 'raw_events';
+/** Solana orders a token's pools by slot only (each pool's walk orders inside a slot); Robinhood Chain by block and log index. */
+export const CROSS_POOL_ORDER = { solana: 'slot', robinhood: 'place' } as const;
 type Provenance = 'live' | 'prior_dataset';
 
 /** One pool's bars and what each row says of where it came from. */
@@ -109,6 +111,7 @@ export function solanaBarSwaps(row: SolRow, m: SolanaPoolMeta): BarSwap[] {
       side: sell ? 'sell' : 'buy',
       tokens: Number(a) / 10 ** da,
       quote: Number(q) / 10 ** dq,
+      minRaw: Math.min(Number(a), Number(q)),
     });
   }
   return out;
@@ -280,7 +283,7 @@ export function evmBarSwap(
   } catch {
     sides = null;
   }
-  if (!sides) return { t: s.t, at, side: null, tokens: 0, quote: null };
+  if (!sides) return { t: s.t, at, side: null, tokens: 0, quote: null, minRaw: 0 };
   const { zeroForOne, in0, in1 } = sides;
   const sell = p.assetIsToken0 === zeroForOne;
   const rawAsset = p.assetIsToken0 ? in0 : in1;
@@ -292,6 +295,7 @@ export function evmBarSwap(
     side: sell ? 'sell' : 'buy',
     tokens: abs(rawAsset) / 10 ** assetDecimals,
     quote: d ? abs(rawQuote) / 10 ** (p.assetIsToken0 ? d.decimals1 : d.decimals0) : null,
+    minRaw: d ? Math.min(abs(rawAsset), abs(rawQuote)) : abs(rawAsset),
   };
 }
 

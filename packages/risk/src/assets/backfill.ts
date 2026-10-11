@@ -30,6 +30,32 @@ export function quietWaitMs(now: Date, first = 1, last = 14): number {
   return resume.getTime() - now.getTime();
 }
 
+/**
+ * When a request may go out at `now`, and how long it may take: after the quiet minutes, and with a timeout
+ * that ends before minute `first` of the coming hour, so a slow reply never runs into the loop's minutes. When
+ * less than `minMs` would be left, the request waits for the next quiet minutes to pass instead.
+ */
+export function requestSlot(
+  now: Date,
+  maxMs: number,
+  minMs = 15_000,
+  first = 1,
+  last = 14,
+): { waitMs: number; timeoutMs: number } {
+  let wait = quietWaitMs(now, first, last);
+  const start = new Date(now.getTime() + wait);
+  const nextQuiet = new Date(start);
+  nextQuiet.setUTCMinutes(first, 0, 0);
+  if (nextQuiet.getTime() <= start.getTime()) nextQuiet.setUTCHours(nextQuiet.getUTCHours() + 1);
+  let left = nextQuiet.getTime() - start.getTime();
+  if (left < minMs) {
+    // not enough time before the loop's minutes: sit them out, then a whole free stretch is left
+    wait += left + (last - first + 1) * 60_000;
+    left = (60 - (last - first + 1)) * 60_000;
+  }
+  return { waitMs: wait, timeoutMs: Math.min(maxMs, left) };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Sampled windows and the estimate of a total
 
@@ -59,32 +85,68 @@ export function strata(from: number, to: number, k: number, size: number): Strat
 export type StratumCount = { stratum: Stratum; counts: Record<string, number>; bytes: number };
 
 /**
+ * The spread of a stratified total with one sample per stratum (collapsed strata): neighbouring strata are
+ * taken in pairs (the last three together when the count is odd), and each group's variance is
+ * n/(n−1)·Σ(Ŷᵢ − Ȳ)² of its strata's scaled totals Ŷᵢ; the standard error is the root of the sum. Also the
+ * share of the total the largest stratum carries.
+ */
+export function collapsedSpread(scaled: number[]): { se: number; largestShare: number } {
+  const total = scaled.reduce((a, x) => a + x, 0);
+  const groups: number[][] = [];
+  for (let i = 0; i < scaled.length; i += 2) groups.push(scaled.slice(i, i + 2));
+  const last = groups.at(-1);
+  if (groups.length > 1 && last && last.length === 1) {
+    groups.pop();
+    (groups.at(-1) as number[]).push(last[0] as number);
+  }
+  let v = 0;
+  for (const g of groups) {
+    if (g.length < 2) continue;
+    const m = g.reduce((a, x) => a + x, 0) / g.length;
+    v += (g.length / (g.length - 1)) * g.reduce((a, x) => a + (x - m) ** 2, 0);
+  }
+  return { se: Math.sqrt(v), largestShare: total > 0 ? Math.max(...scaled) / total : 0 };
+}
+
+/**
  * The total of each class over the span: each window's count scaled by its stratum's length over the window's
- * (a stratified estimate), with the spread of the per-stratum rates, so a reader sees how uneven the span is.
+ * (a stratified estimate), with its spread (`collapsedSpread`), so a reader sees how uneven the span is.
  * `bytes` scales the same way.
  */
 export function extrapolate(samples: StratumCount[]): {
   totals: Record<string, number>;
   bytes: number;
+  spread: Record<string, { se: number; largestShare: number }>;
+  bytesSpread: { se: number; largestShare: number };
   sampledShare: number;
   perStratum: Array<{ from: number; to: number; counts: Record<string, number> }>;
 } {
   const totals: Record<string, number> = {};
+  const scaled: Record<string, number[]> = {};
+  const bytesScaled: number[] = [];
   let bytes = 0;
   let sampled = 0;
   let span = 0;
+  const keys = new Set(samples.flatMap((s) => Object.keys(s.counts)));
   for (const s of samples) {
     const w = s.stratum.sample[1] - s.stratum.sample[0] + 1;
     const n = s.stratum.to - s.stratum.from + 1;
     const f = n / w;
     sampled += w;
     span += n;
-    for (const [k, v] of Object.entries(s.counts)) totals[k] = (totals[k] ?? 0) + v * f;
+    for (const k of keys) {
+      const v = (s.counts[k] ?? 0) * f;
+      totals[k] = (totals[k] ?? 0) + v;
+      scaled[k] = [...(scaled[k] ?? []), v];
+    }
     bytes += s.bytes * f;
+    bytesScaled.push(s.bytes * f);
   }
   return {
     totals,
     bytes,
+    spread: Object.fromEntries(Object.entries(scaled).map(([k, v]) => [k, collapsedSpread(v)])),
+    bytesSpread: collapsedSpread(bytesScaled),
     sampledShare: span ? sampled / span : 0,
     perStratum: samples.map((s) => ({ from: s.stratum.from, to: s.stratum.to, counts: s.counts })),
   };
@@ -252,10 +314,14 @@ export function mergeCovered(
   return out;
 }
 
-/** A manifest with one more window and its days' counts added. */
+/**
+ * A manifest with one more window and its days' counts. `days` holds each day's totals now (the caller counts
+ * the day file's rows, not this window's alone). `window` null: the window is not covered (it had failures and
+ * will be asked again), though its days are counted.
+ */
 export function addToManifest(
   m: Manifest,
-  window: Manifest['covered'][number],
+  window: Manifest['covered'][number] | null,
   days: Record<string, { rows: number; bytes: number }>,
   checks: ManifestCheck[],
   at: string,
@@ -267,7 +333,7 @@ export function addToManifest(
   const names = new Set(checks.map((c) => c.name));
   return {
     ...m,
-    covered: mergeCovered(m.covered, window),
+    covered: window ? mergeCovered(m.covered, window) : m.covered,
     days: d,
     rows,
     bytes,
