@@ -89,6 +89,21 @@ export type AssetReads = {
   registry: Phase & { url: string; assets: number; rows: RegistryRowCut[] };
   directory: Phase & { url: string; entries: unknown[] };
   dexscreener: Phase & { queries: DexQuery[]; pairs: DexPairCut[] };
+  /** CoinGecko's token list for the chain (names and addresses), and its page of each selected token. */
+  coingecko: Phase & {
+    listUrl: string;
+    list: Array<{ address: string; symbol: string; name: string; decimals: number | null }>;
+    coins: CoinCut[];
+  };
+  /** Chainlink CCIP's token directory, cut to the tokens it lists on this chain. */
+  ccip: Phase & {
+    url: string;
+    tokens: Array<{ address: string; symbol: string; name: string; decimals: number | null }>;
+  };
+  /** DexScreener's pairs of the listed tokens, by tokens/v1: what the selection reads, the day's volume. */
+  volume: Phase & {
+    pairs: Array<{ pairAddress: string; base: string; quote: string; h24: number | null }>;
+  };
   /** Every read on chain, at one block. */
   onchain: {
     block: number;
@@ -296,6 +311,154 @@ export function addressesToRead(args: {
   return [...all].sort();
 }
 
+// ───────────────────────────── crypto beyond the listings ─────────────────────────────
+
+/** CoinGecko's page of one token, cut to what the list reads. */
+export type CoinCut = {
+  address: string;
+  /** The HTTP status of the page: 200 found; 404 CoinGecko has no coin at the address. */
+  status: number;
+  id: string | null;
+  symbol: string | null;
+  name: string | null;
+  categories: string[];
+  homepage: string | null;
+  /** The address CoinGecko gives the coin on Robinhood Chain, lower case. */
+  platformAddress: string | null;
+  /** Read from the coin's page, or from CoinGecko's list of the chain's memecoin category. */
+  via: 'page' | 'meme_category';
+};
+
+/**
+ * The selection of crypto tokens beyond the listings (Rodrigo, 2026-10-11): a token of CoinGecko's
+ * list or Chainlink CCIP's directory on the chain, outside the issuer's registry, whose DexScreener
+ * pairs traded this many US dollars or more over 24 hours together, or whose symbol a Chainlink feed
+ * names. The volume selects only: it is never written in a row.
+ */
+export const VOLUME_FLOOR_USD = 10_000;
+
+/**
+ * CoinGecko categories that name a protocol, a chain or a product, each matched whole: a category such
+ * as "Pons Launchpad" (launched there) or "Bridged-Tokens" (carried there) names no project of the token,
+ * and "Decentralized Finance (DeFi)" or "Artificial Intelligence (AI)" alone are tags, not a protocol.
+ */
+export const PROTOCOL_CATEGORIES = [
+  /^decentralized exchange \(dex\)$/i,
+  /^lending\/borrowing protocols$/i,
+  /^perpetuals$/i,
+  /^derivatives$/i,
+  /^yield aggregator$/i,
+  /^launchpad$/i,
+  /^governance$/i,
+  /^infrastructure$/i,
+  /^oracle$/i,
+  /^bridge$/i,
+  /^cross-chain communication$/i,
+  /^layer 1 \(l1\)$/i,
+  /^layer 2 \(l2\)$/i,
+  /^prediction markets$/i,
+  /^gaming \(gamefi\)$/i,
+  /^ai framework$/i,
+  /^depin$/i,
+];
+/** Categories of a dollar: such a token is a row only by its own verdict (not screened, held out). */
+export const STABLECOIN_CATEGORIES = [/^stablecoins$/i, /^usd stablecoin$/i];
+/** Categories of a product that is not a protocol's token: never a row by the rule. */
+export const NOT_A_PROTOCOL_TOKEN = [/^leveraged token$/i];
+
+/** The 24-hour volume of each token across the pairs of the volume read, by lower-case address. */
+export function volumeByToken(reads: Pick<AssetReads, 'volume'>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const p of reads.volume.pairs)
+    for (const a of [p.base, p.quote]) out.set(lower(a), (out.get(lower(a)) ?? 0) + (p.h24 ?? 0));
+  return out;
+}
+
+/**
+ * The crypto base assets of the directory's feeds, upper case (WSTETH, LINK, CBBTC): a feed named for a
+ * stock token of the issuer ("Robinhood NVDA / USD", "RHSPY / USD", "GLD / USD") is that token's, not
+ * the feed of another token of the same symbol.
+ */
+export const cryptoFeedBases = (directoryNames: string[], registrySymbols: Iterable<string>) => {
+  const stocks = new Set([...registrySymbols].map((x) => x.toUpperCase()));
+  return new Set(
+    directoryNames.flatMap((n) => {
+      if (/^(?:Robinhood\s|RH[A-Z])/.test(n.trim())) return [];
+      const b = feedBase(n);
+      return b && !stocks.has(b) ? [b] : [];
+    }),
+  );
+};
+
+/** The tokens the two lists name on the chain, outside the registry, by lower-case address. */
+export function listedCrypto(reads: Pick<AssetReads, 'coingecko' | 'ccip'>, registry: Set<string>) {
+  const out = new Map<string, { symbol: string; name: string; by: string[] }>();
+  const add = (address: string, symbol: string, name: string, by: string) => {
+    const a = lower(address);
+    if (!isAddress(a) || registry.has(a) || a === NATIVE_IN_POOLS) return;
+    const e = out.get(a) ?? { symbol, name, by: [] };
+    e.by.push(by);
+    out.set(a, e);
+  };
+  for (const t of reads.coingecko.list) add(t.address, t.symbol, t.name, 'coingecko');
+  for (const t of reads.ccip.tokens) add(t.address, t.symbol, t.name, 'chainlink_ccip');
+  return out;
+}
+
+/** The listed tokens the selection keeps: by volume, by a feed, or both. */
+export function cryptoSelection(
+  reads: Pick<AssetReads, 'coingecko' | 'ccip' | 'volume'>,
+  registry: Set<string>,
+  directoryNames: string[],
+  registrySymbols: Iterable<string>,
+): Map<string, { symbol: string; name: string; by: string[]; why: Array<'volume' | 'feed'> }> {
+  const volume = volumeByToken(reads);
+  const bases = cryptoFeedBases(directoryNames, registrySymbols);
+  const out = new Map<
+    string,
+    { symbol: string; name: string; by: string[]; why: Array<'volume' | 'feed'> }
+  >();
+  for (const [a, t] of listedCrypto(reads, registry)) {
+    const why: Array<'volume' | 'feed'> = [];
+    if ((volume.get(a) ?? 0) >= VOLUME_FLOOR_USD) why.push('volume');
+    if (bases.has(t.symbol.toUpperCase())) why.push('feed');
+    if (why.length > 0) out.set(a, { ...t, why });
+  }
+  return out;
+}
+
+/** What CoinGecko's page says a selected token is, by its categories. */
+export type CoinKind =
+  | 'protocol'
+  | 'stablecoin'
+  | 'meme'
+  | 'no_protocol_category'
+  | 'not_on_coingecko';
+export function coinKind(coin: CoinCut | undefined, address: string): CoinKind {
+  if (coin?.status !== 200 || coin.platformAddress !== lower(address)) return 'not_on_coingecko';
+  const has = (res: RegExp[]) => coin.categories.some((c) => res.some((re) => re.test(c.trim())));
+  if (coin.categories.some((c) => /meme/i.test(c))) return 'meme';
+  if (has(STABLECOIN_CATEGORIES)) return 'stablecoin';
+  if (has(NOT_A_PROTOCOL_TOKEN)) return 'no_protocol_category';
+  if (has(PROTOCOL_CATEGORIES)) return 'protocol';
+  return 'no_protocol_category';
+}
+
+/** The selected tokens read on chain: those a verdict names, and those CoinGecko files as a protocol's. */
+export function cryptoToRead(
+  reads: Pick<AssetReads, 'coingecko' | 'ccip' | 'volume'>,
+  registry: Set<string>,
+  directoryNames: string[],
+  registrySymbols: Iterable<string>,
+  verdictAddresses: Iterable<string>,
+): string[] {
+  const withVerdict = new Set([...verdictAddresses].map(lower));
+  const coins = new Map(reads.coingecko.coins.map((c) => [lower(c.address), c]));
+  return [...cryptoSelection(reads, registry, directoryNames, registrySymbols).keys()].filter(
+    (a) => withVerdict.has(a) || ['protocol', 'stablecoin'].includes(coinKind(coins.get(a), a)),
+  );
+}
+
 // ───────────────────────────── pools ─────────────────────────────
 
 const STOCK_SOURCE = 'pools with a stock token of the issuer registry';
@@ -376,10 +539,12 @@ export const STATED = {
   rows: "One row per token, keyed on its address in lower case: every token of the issuer's registry on the chain, the chain's gas coin, and each token another listing named that a verdict or a rule of scripts/risk/assets/robinhood.verdicts.json decides. A token is never a row on a listing's word alone: its decimals() and symbol() must answer on chain.",
   enumeration:
     "Names come from four reads, in this order: the issuer's registry (every row, not only the cut); Chainlink's directory (its feeds, and the names of the assets they price); the screening note of the dollar and yield tokens (docs/vault/research/yield-shelf/robinhood.md with its input list and its shelf fixture: every full address written there), with WETH9() of the Uniswap v4 position manager; DexScreener (searched as 'robinhood <name>' for every class name, then the pairs of each address the note names and of each name a search gave that names a class). Every address any of them named is read on chain.",
+  cryptoSelection:
+    "Crypto beyond the listings above (Rodrigo, 2026-10-11): every token CoinGecko's token list for Robinhood Chain (tokens.coingecko.com/robinhood/all.json) or Chainlink CCIP's token directory names on the chain, outside the issuer's registry, whose DexScreener pairs (tokens/v1, read the same day) traded ten thousand US dollars or more over 24 hours together, or whose symbol, in upper case, is the base asset of a Chainlink feed of the directory. The volume selects only and is never written in a row. Each selected token is looked up on CoinGecko by its address: a token CoinGecko files under a memecoin category is not a row; one with a category naming a protocol, a chain or a product, matched whole (PROTOCOL_CATEGORIES in scripts/risk-evm/assets-list.ts: a category of what the token was launched on, carried by, or a tag such as DeFi or AI alone does not count; a leveraged token never does) is read on chain and is a row by the rule crypto-protocol (category governance, its project as issuer, its CoinGecko page as source); a dollar CoinGecko files as a stablecoin is read and must have its own verdict; any token may have its own verdict instead (a wrapped coin of another chain, a staking token, a protocol a note names); any other is not a row. cryptoLeftOut counts them.",
   classNames:
     "A DexScreener name names one of the product's classes when its symbol holds USD or EUR, or is, in upper case, a name of PROMPT_NAMES in scripts/risk-evm/assets-list.ts (the prompt's names for both chains), a base asset of Chainlink's directory or a symbol of the issuer's registry. Such names are read on chain, with any other the verdict table names; every one of them, and every token the screening note names, must be decided by a verdict or a rule, or the build stops. Other names are neither read nor enumerated: memecoins and launch tokens are not (DA6).",
   rules:
-    "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's. The registry's tokens match issuer-registry and the class rule of their underlying; a token named after a stock of the registry and not in it matches not-the-issuers-stock-token.",
+    "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's. `coingecko`, what CoinGecko's page says a selected token is (protocol, meme, no_protocol_category, not_on_coingecko; see cryptoSelection). The registry's tokens match issuer-registry and the class rule of their underlying; a selected token CoinGecko files as a protocol's matches crypto-protocol; a token named after a stock of the registry and not in it matches not-the-issuers-stock-token, which comes after and wins.",
   derived:
     "For a registry token the builder derives: underlying, the registry's symbol; status, listed for a tracked stock of scripts/risk/universe/robinhood.json (and the model of a deploy record's token) and candidate with 'outside the cut that names the tracked stocks (gate UNIVERSE)' for every other (DA16); leg types, from packages/engine/src/personal/leg-types.ts at the symbol for a dollar-yield token, none for the others; and a source naming the registry row. Rules and a token's own verdict are applied over these.",
   listed:
@@ -420,14 +585,30 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     [...registry.values()].map((r) => r.row.tokenSymbol ?? ''),
     directory.feeds.map((f) => f.name),
   );
+  const registryKeys = new Set(registry.keys());
+  const directoryNames = directory.feeds.map((f) => f.name);
+  const registrySymbolList = [...registry.values()].map((r) => r.row.tokenSymbol ?? '');
+  const selected = cryptoSelection(reads, registryKeys, directoryNames, registrySymbolList);
+  const coins = new Map(reads.coingecko.coins.map((c) => [lower(c.address), c]));
+  const kindOf = (a: string): CoinKind | null =>
+    selected.has(a) ? coinKind(coins.get(a), a) : null;
   const wanted = addressesToRead({
     registry: [...registry.keys()],
     notes,
-    dex: dexToRead(
-      reads,
-      names,
-      verdicts.verdicts.map((v) => v.address),
-    ),
+    dex: [
+      ...dexToRead(
+        reads,
+        names,
+        verdicts.verdicts.map((v) => v.address),
+      ),
+      ...cryptoToRead(
+        reads,
+        registryKeys,
+        directoryNames,
+        registrySymbolList,
+        verdicts.verdicts.map((v) => v.address),
+      ),
+    ],
     weth9,
   });
   const notAsked = wanted.filter((a) => !asked.has(a));
@@ -459,8 +640,11 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       registry.has(a) ? 'issuer_registry' : null,
       notes.includes(a) ? 'screening_note' : null,
       a === weth9 ? 'position_manager_weth9' : null,
-      dex.has(a) ? 'dexscreener' : null,
+      dex.has(a) || volume.has(a) ? 'dexscreener' : null,
+      reads.coingecko.list.some((t) => lower(t.address) === a) ? 'coingecko' : null,
+      reads.ccip.tokens.some((t) => lower(t.address) === a) ? 'chainlink_ccip' : null,
     ].filter((x): x is string => x !== null);
+  const volume = volumeByToken(reads);
 
   // identity of every address asked
   type Read = { address: string; identity: IdentityRead; symbol: string };
@@ -559,6 +743,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     symbolOf: new Set(
       !registry.has(t.address) && registrySymbols.has(t.symbol) ? ['issuer_registry'] : [],
     ),
+    coingecko: new Set(kindOf(t.address) === null ? [] : [kindOf(t.address) as string]),
   });
   const rulesOf = (t: { address: string; symbol: string }): string[] => {
     const facts = factsOf(t);
@@ -602,7 +787,8 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       (notes.includes(t.address) ||
         t.address === weth9 ||
         namesAClass(t.symbol, names) ||
-        namesAClass(dex.get(t.address)?.symbol ?? '', names)),
+        namesAClass(dex.get(t.address)?.symbol ?? '', names) ||
+        kindOf(t.address) === 'stablecoin'),
   );
   const noVerdict = mustHave.filter((t) => !decided(t));
   if (noVerdict.length > 0)
@@ -790,6 +976,28 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
           },
         ],
       };
+    } else if (kindOf(t.address) === 'protocol') {
+      // a protocol's token CoinGecko files at this address: its project, ticker and page, by that page
+      const coin = coins.get(t.address) as CoinCut;
+      derived = {
+        category: 'governance',
+        issuer: coin.name ?? t.symbol,
+        issuerReason: null,
+        issuerKind: 'defi_protocol',
+        underlying: t.symbol,
+        underlyingReason: null,
+        sources: [
+          {
+            url: `https://www.coingecko.com/en/coins/${coin.id}`,
+            title: `CoinGecko: ${coin.name}, at this address on Robinhood Chain; categories ${coin.categories.join(', ')}`,
+            readOn: day(reads.coingecko.at),
+          },
+        ],
+        unverified: [
+          `what the project is: CoinGecko's categories, not the project's own pages${coin.homepage ? ` (${coin.homepage})` : ''}`,
+          'who may mint the token on this chain, and by which bridge it arrives',
+        ],
+      };
     }
     const pools = tracked
       ? null
@@ -850,6 +1058,33 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       errors: reads.dexscreener.errors,
     },
     {
+      name: 'chainlink_ccip',
+      what: `GET ${reads.ccip.url}; rows are the tokens it lists on this chain`,
+      at: reads.ccip.at,
+      calls: reads.ccip.calls,
+      durationMs: reads.ccip.durationMs,
+      rows: reads.ccip.tokens.length,
+      errors: reads.ccip.errors,
+    },
+    {
+      name: 'dexscreener_volume',
+      what: 'GET https://api.dexscreener.com/tokens/v1/robinhood/<30 addresses> over every token the CoinGecko and CCIP lists name outside the registry; rows are the pairs; their day volume selects only and is in no row',
+      at: reads.volume.at,
+      calls: reads.volume.calls,
+      durationMs: reads.volume.durationMs,
+      rows: reads.volume.pairs.length,
+      errors: reads.volume.errors,
+    },
+    {
+      name: 'coingecko',
+      what: `GET ${reads.coingecko.listUrl}, then keyless api.coingecko.com: the coins of the category robinhood-chain-meme, every coin with its addresses, and the page of each selected token outside that category; rows are the tokens the list names`,
+      at: reads.coingecko.at,
+      calls: reads.coingecko.calls,
+      durationMs: reads.coingecko.durationMs,
+      rows: reads.coingecko.list.length,
+      errors: reads.coingecko.errors,
+    },
+    {
       name: 'token_calls',
       what: `eth_call of Multicall3 ${o.multicall3} at block ${block}: WETH9() of the v4 position manager, then decimals(), symbol(), name(), asset(), convertToAssets(1e18), owner() and defaultAdmin() of every address named, implementation() and owner() of each beacon, getFacet(<selector>) of each facet router for the pause and blacklist selectors, and eth_getCode of each facet it names; rows are the addresses asked`,
       at: o.phases.calls.at,
@@ -887,6 +1122,20 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     },
   ];
 
+  // the selected tokens that are not rows, by why
+  const rowAddresses = new Set(rows.map((r) => r.address));
+  const leftOut = new Map<string, string[]>();
+  for (const [a, t] of selected) {
+    if (rowAddresses.has(a)) continue;
+    const why = kindOf(a) ?? 'not_selected';
+    leftOut.set(why, [...(leftOut.get(why) ?? []), t.symbol]);
+  }
+  const leftOutText = `Of the ${selected.size} tokens the crypto selection kept, ${selected.size - [...leftOut.values()].flat().length} are rows; the others are not, by CoinGecko's page of each: ${
+    [...leftOut.entries()]
+      .sort(([x], [y]) => (x < y ? -1 : 1))
+      .map(([why, syms]) => `${why} ${syms.length}`)
+      .join(', ') || 'none'
+  } (meme: a category of memecoins; no_protocol_category: no category that names a protocol, a chain or a product, matched whole; not_on_coingecko: no page for the address).`;
   const list = universeList({
     chain: 'robinhood',
     rows,
@@ -895,6 +1144,8 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       registry: reads.registry.url,
       directory: reads.directory.url,
       dexscreener: 'https://api.dexscreener.com',
+      coingecko: reads.coingecko.listUrl,
+      chainlinkCcip: reads.ccip.url,
       discovery: files.discovery.file,
       tracked: files.tracked.path,
       shelf: files.shelf.path,
@@ -907,7 +1158,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       calendar: files.calendarPath,
       frozen: files.frozenPath,
     },
-    stated: STATED,
+    stated: { ...STATED, cryptoLeftOut: leftOutText },
     stamp,
   });
 

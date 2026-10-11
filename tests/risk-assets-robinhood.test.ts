@@ -27,12 +27,18 @@ import { LEG_TYPES } from '../packages/engine/src/personal/leg-types';
 import { loadFiles, readGz } from '../scripts/risk-evm/assets-files';
 import {
   type AssetFiles,
+  coinKind,
+  cryptoFeedBases,
+  cryptoSelection,
   type FrozenReads,
   NATIVE_ADDRESS,
   poolCount,
   registryTokens,
   robinhoodList,
+  VOLUME_FLOOR_USD,
+  volumeByToken,
 } from '../scripts/risk-evm/assets-list';
+import { parseDirectory } from '../scripts/risk-evm/feeds';
 
 // PLAN-ASSETS AS.3 (gate ASSET-UNIVERSE): the asset universe of Robinhood Chain. The reads it is built
 // from are frozen under fixtures/risk-evm/assets/ (pnpm risk-evm:assets-freeze): the issuer's registry,
@@ -413,5 +419,75 @@ describe('the pool counts', () => {
       registry: new Set([nvda]),
     });
     expect(counts).toEqual({ confirmed: 2, unconfirmed: 2 });
+  });
+});
+
+describe('crypto beyond the listings', () => {
+  const registry = new Set(registryTokens(fx.reads).tokens.keys());
+  const feeds = parseDirectory(fx.reads.directory.entries).feeds.map((f) => f.name);
+  const symbols = [...registryTokens(fx.reads).tokens.values()].map((t) => t.row.tokenSymbol ?? '');
+  const selected = cryptoSelection(fx.reads, registry, feeds, symbols);
+  const coins = new Map(fx.reads.coingecko.coins.map((c) => [c.address, c]));
+  const rowSet = new Set(rows.map((r) => r.address));
+  const own = new Set(
+    JSON.parse(
+      readFileSync(join(ROOT, 'scripts/risk/assets/robinhood.verdicts.json'), 'utf8'),
+    ).verdicts.map((v: { address: string }) => v.address),
+  );
+
+  it('selects by the day volume of the pairs or a Chainlink feed, and writes no volume in a row', () => {
+    const volume = volumeByToken(fx.reads);
+    // a crypto feed's base: no stock token's feed selects a token of the same symbol
+    const bases = cryptoFeedBases(feeds, symbols);
+    for (const b of ['LINK', 'WSTETH', 'CBBTC']) expect(bases.has(b)).toBe(true);
+    for (const b of ['NVDA', 'SPY', 'GLD']) expect(bases.has(b)).toBe(false);
+    for (const [a, t] of selected) {
+      const byVolume = (volume.get(a) ?? 0) >= VOLUME_FLOOR_USD;
+      expect(byVolume || t.why.includes('feed')).toBe(true);
+      expect(t.why.includes('volume')).toBe(byVolume);
+      if (t.why.includes('feed')) expect(bases.has(t.symbol.toUpperCase())).toBe(true);
+    }
+    expect(JSON.stringify(list)).not.toMatch(/"(?:h24|volume|volumeUsd)"/);
+    // every selected token was looked up on CoinGecko
+    for (const a of selected.keys()) expect(coins.has(a)).toBe(true);
+  });
+
+  it('rows a selected token only by its own verdict or as a protocol by CoinGecko, never a memecoin', () => {
+    const ruled = rows.filter((r) => r.decidedBy.includes('rule:crypto-protocol'));
+    expect(ruled.length).toBeGreaterThan(0);
+    for (const r of ruled) {
+      expect(selected.has(r.address)).toBe(true);
+      expect(coinKind(coins.get(r.address), r.address)).toBe('protocol');
+      if (r.status !== 'excluded')
+        expect([r.category, r.status]).toEqual(['governance', 'candidate']);
+    }
+    for (const a of selected.keys()) {
+      const kind = coinKind(coins.get(a), a);
+      if (kind !== 'protocol' && !own.has(a) && !registry.has(a)) {
+        const r = rows.find((x) => x.address === a);
+        // a row only by another path (a class name that must be decided), never by the selection
+        if (r) expect(r.decidedBy).not.toContain('rule:crypto-protocol');
+      }
+    }
+    const memes = [...selected.keys()].filter(
+      (a) => coinKind(coins.get(a), a) === 'meme' && !rowSet.has(a),
+    ).length;
+    expect(list.stated.cryptoLeftOut).toContain(`meme ${memes}`);
+  });
+
+  it("finds wstETH, LINK, TAO and cbBTC through Chainlink CCIP's directory", () => {
+    const ccip = new Set(fx.reads.ccip.tokens.map((t) => t.address));
+    for (const [id, category] of [
+      ['robinhood:wsteth', 'liquid_staking'],
+      ['robinhood:link', 'governance'],
+      ['robinhood:tao', 'wrapped_other'],
+      ['robinhood:cbbtc', 'wrapped_btc'],
+    ] as const) {
+      const r = byId(id);
+      expect([r.category, r.status]).toEqual([category, 'candidate']);
+      expect(ccip.has(r.address)).toBe(true);
+      expect(r.listingTags).toContain('chainlink_ccip');
+    }
+    expect(byId('robinhood:wsteth').oracleReason).toBe('feed_named_in_other_case_not_tied');
   });
 });
