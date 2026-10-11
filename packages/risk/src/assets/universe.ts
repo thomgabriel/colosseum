@@ -103,14 +103,20 @@ export function unreadVerdicts(
 
 /**
  * The verdict fields of one token. Precedence, lowest first: what the command derived, each rule it
- * matches in the table's order, the token's own verdict. Sources and what was not verified are kept
+ * matches in the table's order (each once, whatever order the command names them in), the token's own verdict. Sources and what was not verified are kept
  * from every layer that set a field. Throws when a field is set by none, naming the token and the field.
  */
 export function verdictOf(
   verdicts: UniverseVerdicts,
   input: Pick<RowInput, 'identity' | 'rules' | 'derived'>,
 ): VerdictFields & { decidedBy: string[] } {
-  const rules = new Map<string, UniverseVerdictRule>(verdicts.rules.map((r) => [r.name, r]));
+  const known = new Set(verdicts.rules.map((r) => r.name));
+  for (const name of input.rules)
+    if (!known.has(name))
+      throw new Error(`${input.identity.symbol}: rule ${name} is not in the table`);
+  const matched = new Set(input.rules);
+  /** The rules the token matches, in the table's order, each once, whatever order the builder named them in. */
+  const rules: UniverseVerdictRule[] = verdicts.rules.filter((r) => matched.has(r.name));
   const key = addressKey(verdicts.chain, input.identity.address);
   const own = verdicts.verdicts.find((v) => addressKey(verdicts.chain, v.address) === key);
   const merged: Partial<VerdictFields> = {};
@@ -131,11 +137,7 @@ export function verdictOf(
     if (any) decidedBy.push(by);
   };
   if (input.derived) take(input.derived, 'derived');
-  for (const name of input.rules) {
-    const rule = rules.get(name);
-    if (!rule) throw new Error(`${input.identity.symbol}: rule ${name} is not in the table`);
-    take({ ...rule.fields, sources: rule.sources }, `rule:${name}`);
-  }
+  for (const rule of rules) take({ ...rule.fields, sources: rule.sources }, `rule:${rule.name}`);
   if (own) {
     if (own.symbol !== input.identity.symbol)
       throw new Error(
@@ -173,13 +175,14 @@ export function universeRow(
   input: RowInput,
   stamp: UniverseStamp,
 ): UniverseAsset {
-  const { decidedBy: _d, ...verdict } = verdictOf(verdicts, input);
+  const { decidedBy, ...verdict } = verdictOf(verdicts, input);
   const cls = CATEGORY_CLASS[verdict.category];
   const row = {
     id: input.context.id,
     chain,
     ...input.identity,
     ...verdict,
+    decidedBy,
     cls,
     clsReason: cls === null ? `no class takes ${verdict.category}` : null,
     oracle: input.context.oracle,
@@ -202,6 +205,9 @@ export function universeRow(
   return parsed.data;
 }
 
+/** Code-unit order: the same on every machine, whatever its locale. */
+const order = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+
 /** The list of one chain, its rows sorted by category, then symbol, then address, and its counts. */
 export function universeList(args: {
   chain: UniverseChain;
@@ -213,9 +219,7 @@ export function universeList(args: {
 }): UniverseList {
   const assets = [...args.rows].sort(
     (a, b) =>
-      a.category.localeCompare(b.category) ||
-      a.symbol.localeCompare(b.symbol) ||
-      a.address.localeCompare(b.address),
+      order(a.category, b.category) || order(a.symbol, b.symbol) || order(a.address, b.address),
   );
   return UniverseListSchema.parse({
     chain: args.chain,

@@ -86,6 +86,7 @@ const paxg = () => ({
   oracle: null,
   oracleReason: 'not_read',
   unverifiedOracles: [],
+  decidedBy: ['verdict'],
   listedIn: [],
   pools: { confirmed: 3, unconfirmed: 0, file: 'data/risk/registry.json' },
   poolsReason: null,
@@ -190,6 +191,7 @@ describe('UniverseAsset', () => {
       category: 'lp_share',
       cls: null,
       clsReason: 'the vault cannot hold a pool share',
+      status: 'held_out',
     };
     expect(issues(lp)).toEqual([]);
     expect(issues({ ...lp, clsReason: null })).toContain(
@@ -218,10 +220,12 @@ describe('UniverseAsset', () => {
   });
 
   it('gives leg types to dollar yield only, and asks a reason where none was read', () => {
-    expect(issues({ ...usdy(), legTypes: null })).toEqual([
+    expect(issues({ ...usdy(), legTypes: null, status: 'held_out' })).toEqual([
       'legTypesReason: a dollar-yield row has its leg types or the reason there are none',
     ]);
-    expect(issues({ ...usdy(), legTypes: null, legTypesReason: 'no_reading' })).toEqual([]);
+    expect(
+      issues({ ...usdy(), legTypes: null, legTypesReason: 'no_reading', status: 'held_out' }),
+    ).toEqual([]);
     expect(issues({ ...paxg(), legTypes: usdy().legTypes })).toEqual([
       'legTypes: only a dollar-yield row has leg types',
     ]);
@@ -253,16 +257,16 @@ describe('UniverseAsset', () => {
   });
 
   it('says where a listed row is listed, and only a listed one', () => {
-    expect(issues({ ...nvda(), listedIn: [] })).toEqual([
+    expect(issues({ ...nvda(), listedIn: [] })).toContain(
       'listedIn: a listed row says where it is listed, and no other row does',
-    ]);
+    );
     expect(issues({ ...paxg(), listedIn: ['deploy_record'] })).toEqual([
       'listedIn: a listed row says where it is listed, and no other row does',
     ]);
   });
 
   it('names the currency of a stablecoin of another currency, and never USD', () => {
-    const eurc = { ...paxg(), category: 'stablecoin_other', cls: 'cash' };
+    const eurc = { ...paxg(), category: 'stablecoin_other', cls: 'cash', status: 'held_out' };
     expect(issues(eurc)).toEqual(['currency: a stablecoin of another currency names it']);
     expect(issues({ ...eurc, currency: 'EUR' })).toEqual([]);
     expect(issues({ ...eurc, currency: 'USD' })).toEqual(['currency: dollars carry no currency']);
@@ -273,6 +277,86 @@ describe('UniverseAsset', () => {
       issues({ ...paxg(), sources: [{ url: 'a blog', title: 't', readOn: '2026-10-10' }] }),
     ).toHaveLength(1);
     expect(issues({ ...paxg(), sources: [] })).toHaveLength(1);
+  });
+});
+
+describe('UniverseAsset: what the plan holds out, and what each chain allows', () => {
+  it('names a tracked row exactly for a tracked stock, and no other row points at one', () => {
+    expect(issues({ ...nvda(), tracked: null })).toContain(
+      'tracked: a tracked stock names its tracked row, and only a tracked stock does',
+    );
+    expect(issues({ ...nvda(), status: 'candidate', listedIn: [] })).toEqual([
+      'tracked: a tracked stock names its tracked row, and only a tracked stock does',
+    ]);
+    expect(issues({ ...paxg(), oracleReason: 'in_tracked_row' })).toEqual([
+      'tracked: only a tracked stock points at a tracked row',
+    ]);
+  });
+
+  it('never offers what a vault cannot hold or a gate keeps out', () => {
+    const offered = (row: Record<string, unknown>) =>
+      issues(row).filter((i) => i.startsWith('status:'));
+    expect(offered({ ...usdy(), category: 'treasury_fund_permissioned' })).toHaveLength(1);
+    expect(offered({ ...usdy(), access: 'permissioned' })).toHaveLength(1);
+    expect(offered({ ...usdy(), category: 'fixed_maturity' })).toHaveLength(1);
+    expect(offered({ ...usdy(), currency: 'MXN' })).toHaveLength(1);
+    expect(offered({ ...usdy(), legTypes: null, legTypesReason: 'no_reading' })).toHaveLength(1);
+    expect(
+      offered({
+        ...paxg(),
+        category: 'yield_claim',
+        cls: null,
+        clsReason: 'a claim apart from its principal',
+      }),
+    ).toHaveLength(1);
+    expect(issues({ ...usdy(), currency: 'MXN', status: 'held_out' })).toEqual([]);
+    expect(issues({ ...usdy(), access: 'permissioned', status: 'excluded' })).toEqual([]);
+  });
+
+  it("refuses the other chain's standard, symbol source, authorities and registry", () => {
+    expect(issues({ ...paxg(), standard: 'erc20' })).toEqual([
+      'standard: erc20 is not a standard of solana',
+    ]);
+    expect(issues({ ...paxg(), read: { ...paxg().read, symbolFrom: 'erc20' } })).toEqual([
+      'read.symbolFrom: erc20 is not a source of a solana symbol',
+    ]);
+    expect(issues({ ...paxg(), issuerRegistry: nvda().issuerRegistry })).toEqual([
+      "issuerRegistry: only Robinhood Chain's issuer registry is kept on a row",
+    ]);
+    expect(
+      issues({ ...paxg(), authorities: { ...paxg().authorities, owner: none('owner()') } }),
+    ).toEqual(['authorities.owner: owner is not an authority of a solana token']);
+    expect(issues({ ...nvda(), standard: 'spl' })).toEqual([
+      'standard: spl is not a standard of robinhood',
+    ]);
+    expect(issues({ ...nvda(), read: { ...nvda().read, symbolFrom: 'metaplex' } })).toEqual([
+      'read.symbolFrom: metaplex is not a source of a robinhood symbol',
+    ]);
+  });
+
+  it('names an implementation exactly when the token is a proxy, in lower case', () => {
+    const ext = nvda().extensions;
+    expect(
+      issues({
+        ...nvda(),
+        extensions: { ...ext, proxy: { value: false, reason: null, read: 'slot' } },
+      }),
+    ).toEqual([
+      'extensions.implementation: an implementation is named exactly when the token is a proxy',
+    ]);
+    expect(issues({ ...nvda(), extensions: { ...ext, implementation: null } })).toEqual([
+      'extensions.implementation: an implementation is named exactly when the token is a proxy',
+    ]);
+    expect(issues({ ...nvda(), extensions: { ...ext, implementation: 'hello' } })).toHaveLength(1);
+  });
+
+  it('gives a named issuer a kind, and takes only calendar days', () => {
+    expect(issues({ ...paxg(), issuerKind: null })).toEqual([
+      'issuerKind: a named issuer has a kind',
+    ]);
+    expect(issues({ ...paxg(), sources: [{ ...SRC[0], readOn: '2026-13-45' }] })).toEqual([
+      'sources.0.readOn: not a calendar day',
+    ]);
   });
 });
 
@@ -304,12 +388,27 @@ describe('UniverseList', () => {
       byCategory: { tokenized_gold: 1, treasury_fund_open: 1 },
       byStatus: { candidate: 2 },
       byClass: { dollar_yield: 1, gold: 1 },
+      byDecider: { verdict: 2 },
       nulls: {
         'authorities.freeze': { none: 2 },
         mintRedeem: { not_read: 2 },
         oracle: { not_read: 2 },
       },
     });
+  });
+
+  it("counts an EVM token's unknown code flags with their reasons, and each deciding layer", () => {
+    const c = universeCounts(
+      UniverseAsset.array().parse([nvda(), { ...usdy(), decidedBy: ['rule:open', 'verdict'] }]),
+    );
+    expect(c.nulls['extensions.pausable']).toEqual({ source_not_verified: 1 });
+    expect(c.byDecider).toEqual({ 'rule:open': 1, verdict: 2 });
+  });
+
+  it('takes the same counts written in another key order', () => {
+    const l = list([usdy(), paxg()]);
+    const reordered = { ...l.counts, byCategory: { treasury_fund_open: 1, tokenized_gold: 1 } };
+    expect(UniverseList.safeParse({ ...l, counts: reordered }).success).toBe(true);
   });
 
   it('refuses counts that are not those of its rows, a second row for one address, and a row of another chain', () => {
@@ -374,8 +473,10 @@ describe('UniverseVerdicts', () => {
     ).toBe(false);
   });
 
-  it('holds a rule to the fields a verdict may set', () => {
+  it('holds a rule to the fields a verdict may set, its sources apart', () => {
     const bad = { ...table, rules: [{ ...table.rules[0], fields: { price: 1 } }] };
     expect(UniverseVerdicts.safeParse(bad).success).toBe(false);
+    const sourced = { ...table, rules: [{ ...table.rules[0], fields: { sources: SRC } }] };
+    expect(UniverseVerdicts.safeParse(sourced).success).toBe(false);
   });
 });
