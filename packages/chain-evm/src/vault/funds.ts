@@ -9,6 +9,12 @@ type Selling = { sell: string; buy: string; amountInRaw: string };
  * covered. `held` is what the vault holds now, by asset; `received[i]` is what trade `i` is quoted to
  * bring in. A sale's cash is counted at its quote: the simulation of the built transaction, and the
  * chain itself, still refuse a step whose sale lands under what the purchase after it spends.
+ *
+ * Not at the sale's stated minimum, which is all the bytes guarantee: an order's purchases are sized
+ * from the reference prices less its slippage, and a sale's minimum is the pool's quote less that
+ * slippage, so a purchase that takes all its sale brings in is above the minimum by the pool's fee
+ * and every such order would be refused (tests/evm-vault/funds-at-minimum.test.ts). Holding a step to
+ * its minimums needs the order sized from them first.
  */
 export function firstShort(
   trades: readonly Selling[],
@@ -24,15 +30,4 @@ export function firstShort(
     now.set(t.buy, (now.get(t.buy) ?? 0n) + (received[index] ?? 0n));
   }
   return null;
-}
-
-/**
- * What a quote costs against the reference prices, in whole basis points of the value that goes in,
- * or null where there is none to state: a side with no price, nothing going in, or a figure that is
- * not finite. A cost is never Infinity or NaN: the order that carries it could not be answered.
- */
-export function referenceCostBps(inUsd: number | null, outUsd: number | null): number | null {
-  if (inUsd === null || outUsd === null || !(inUsd > 0)) return null;
-  const bps = Math.round(((inUsd - outUsd) / inUsd) * 10_000);
-  return Number.isFinite(bps) ? bps : null;
 }
