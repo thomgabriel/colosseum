@@ -1215,6 +1215,14 @@ function stockAsks(
         ),
       );
     for (const sentence of sentences) {
+      // "Forget Tesla", "ignore Tesla and Nvidia": the sentence that withdraws a share (`WITHDRAWS`)
+      // takes the request back too, when all it names is stocks.
+      const forgotten = questioned ? [] : forgottenNames(sentence.trim(), namer);
+      if (forgotten.length) {
+        at += 1;
+        for (const id of forgotten) if (stockIds.has(id)) latest.set(id, { at, asked: false });
+        continue;
+      }
       // What a bare list of names continues: an ask (true), a refusal (false) or neither.
       let carried: boolean | null = null;
       let wanted = false;
@@ -1661,11 +1669,47 @@ function oneRequest(text: string, named: (text: string) => Named[]): OneRequest 
   if (!quote || /[;!?"“”]|\.(?!\d)|(?<!\d)\./u.test(quote)) return null;
   const one = wholeAsk(quote, named);
   if (one) return { kind: one.share ? 'whole' : 'only', name: one.name, quote };
-  const pieces = quote.split(/(?<!\d),|,(?!\d)/u).map((piece) => piece.trim());
-  return pieces.every((piece) => plainShares(piece, named).length > 0)
-    ? { kind: 'shares', quote }
-    : null;
+  // Each piece is shares, shares and where the rest goes, or where the rest goes alone; one at least
+  // holds a share.
+  const pieces = quote
+    .split(/(?<!\d),|,(?!\d)/u)
+    .map((piece) => piece.trim())
+    .map((piece) => {
+      const rest = REST_GOES.exec(piece);
+      if (!rest) return plainShares(piece, named).length > 0 ? 'shares' : null;
+      const where = piece.slice(rest.index + rest[0].length);
+      const [name, ...others] = named(where);
+      if (!name || others.length || name.start !== 0 || name.end !== where.length) return null;
+      const head = piece.slice(0, rest.index).trim();
+      if (!head) return 'rest';
+      return plainShares(head, named).length > 0 ? 'shares' : null;
+    });
+  return pieces.every(Boolean) && pieces.includes('shares') ? { kind: 'shares', quote } : null;
 }
+// Where the rest goes, after the shares of a piece or as a piece of its own: "and the rest in cash",
+// "and keep the remainder in jlUSDC", "the rest in cash". One listed name follows it, to the end. The
+// rest is never a share and asks for nothing; `personShares` says it back unless it went there.
+const REST_GOES =
+  /(?:^|\s+)(?:and\s+)?(?:(?:put|keep|leave|hold)\s+)?the\s+(?:rest|remainder)\s+(?:in|into|to|as)\s+/iu;
+
+/**
+ * The assets a sentence takes back by one of the withdrawal forms ("forget X", "drop the X share",
+ * "ignore X and Y"), when it names assets or classes and nothing else. Empty for any other sentence.
+ */
+function forgottenNames(sentence: string, named: (text: string) => Named[]): string[] {
+  const body = WITHDRAWS.exec(
+    sentence.replace(COURTESY_BEFORE, '').replace(COURTESY_AFTER, ''),
+  )?.[1];
+  const names = body ? named(body) : [];
+  if (!body || !names.length) return [];
+  const besides = names.reduceRight(
+    (rest, name) => `${rest.slice(0, name.start)} ${rest.slice(name.end)}`,
+    body,
+  );
+  return FORGOTTEN_BESIDES.test(besides) ? names.flatMap((name) => name.ids) : [];
+}
+const FORGOTTEN_BESIDES =
+  /^(?:\s|,|(?<![\p{L}\p{N}])(?:and|or|the|shares?|limits?|after\s+all|for\s+now)(?![\p{L}\p{N}]))*$/iu;
 /** A share of the whole vault leaves no room for a floor or a share on assets it does not cover. */
 const noRoomFor = (earlier: PersonShare, whole: PersonShare) =>
   earlier.kind !== 'max' &&

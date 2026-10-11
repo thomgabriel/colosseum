@@ -679,3 +679,151 @@ describe('a repeated question is dropped only when it is surely the same', () =>
     });
   });
 });
+
+// Follow-ups to #229 (Oct 10). "30% Tesla and the rest in cash" was still refused: the message is a
+// share and where the rest goes, which `personShares` applies, but the one-request reader took a share
+// only with nothing after it. And "forget Tesla" withdrew the share while Tesla stayed asked for.
+describe('a share with where the rest goes is one request', () => {
+  const w = world('solana');
+  const warned = [
+    { code: 'outside_goal_requested', assetId: w.tsla.id, evidenceId: `catalog:${w.tsla.id}` },
+  ];
+
+  it.each([
+    '30% Tesla and the rest in cash',
+    '30% Tesla, the rest in cash',
+    '30% Tesla and the rest in jlUSDC',
+    'Tesla 30% and the rest in cash',
+    '30% in Tesla and keep the rest in cash',
+    '30% Tesla and put the rest in cash',
+    '30% Tesla and the remainder in cash',
+    'ok, 30% Tesla and the rest in cash, please',
+    'I want 30% Tesla and the rest in cash',
+  ])('passes with the warning: %j', async (text) => {
+    const out = await w.reply([text], w.drafting(w.tsla, w.cash));
+    expect(out.requested).toEqual([w.tsla.id]);
+    expect(out.constraints.map((share) => [share.assetIds, share.minWeightBps])).toEqual([
+      [[w.tsla.id], 3000],
+    ]);
+    expect(out.lines).toEqual([
+      [w.tsla.id, 3000],
+      [w.cash.id, 7000],
+    ]);
+    expect(out.reply.warnings).toEqual(warned);
+    expect(out.reply.message).not.toMatch(/cannot be met|cannot hold/u);
+  });
+
+  it('asks the model once more when it drafts nothing for it', async () => {
+    const out = await w.reply(['30% Tesla and the rest in cash'], w.refusing());
+    expect(out.requested).toEqual([w.tsla.id]);
+    expect(out.repairs[0]).toContain(w.tsla.id);
+    expect(out.out.repair).toEqual({ failed: 'asked_not_proposed', outcome: 'asked_not_proposed' });
+  });
+
+  it.each([
+    // a question, not a request
+    '30% Tesla and the rest in cash?',
+    'should I do 30% Tesla and the rest in cash',
+    'what about 30% Tesla and the rest in cash',
+    // someone else's, the past, a condition, a refusal
+    'My friend has 30% Tesla and the rest in cash',
+    'I had 30% Tesla and the rest in cash',
+    'if it drops, 30% Tesla and the rest in cash',
+    'not 30% Tesla and the rest in cash',
+    'Anything but 30% Tesla and the rest in cash',
+    // more than the request
+    '30% Tesla and the rest in cash. Bad idea.',
+    '30% Tesla and the rest in cash is what he said',
+    '30% Tesla and the rest is risky',
+    '30% Tesla and the rest in whatever is safe',
+    'Tesla -30% and the rest in cash',
+    // the rest alone states no share of the stock
+    'the rest in Tesla',
+    '30% cash and the rest in Tesla',
+  ])('still refuses a near-miss: %j', async (text) => {
+    for (const answer of [w.drafting(w.tsla, w.nvda, w.cash), w.refusing()]) {
+      const out = await w.reply([text], answer);
+      expect(out.requested).toEqual([]);
+      expect(out.reply.proposal?.allocations.map((line) => line.assetId) ?? []).not.toContain(
+        w.tsla.id,
+      );
+      expect(out.reply.warnings).toEqual([]);
+      expect(out.out.repair?.failed).not.toBe('asked_not_proposed');
+    }
+  });
+
+  it('holds only the stock named: one the model adds beside it is left out', async () => {
+    const out = await w.reply(
+      ['30% Tesla and the rest in cash'],
+      w.drafting(w.tsla, w.nvda, w.cash),
+    );
+    expect(out.requested).toEqual([w.tsla.id]);
+    expect(out.lines).toEqual([
+      [w.tsla.id, 3000],
+      [w.cash.id, 7000],
+    ]);
+    expect(out.reply.weightNotes).toContainEqual({
+      code: 'pick_outside_goal',
+      assetIds: [w.nvda.id],
+    });
+  });
+});
+
+describe('forgetting a stock un-asks it', () => {
+  it.each([
+    'forget Tesla',
+    'Forget Tesla.',
+    'drop Tesla',
+    'no Tesla after all',
+    'ok, forget the Tesla',
+    'ignore Tesla',
+    'cancel Tesla',
+    'remove Tesla please',
+    'forget Tesla and Nvidia',
+    'forget stocks',
+  ])('on an income and a protect vault: %j', async (text) => {
+    for (const goal of ['income', 'protect'] as const) {
+      const w = world('solana', goal);
+      for (const first of ['all in Tesla', 'I want Tesla.', '30% Tesla']) {
+        const asked = await w.reply([first], w.drafting(w.tsla, w.reserve));
+        expect(asked.requested, first).toEqual([w.tsla.id]);
+        const out = await w.reply([first, noted, text], w.drafting(w.tsla, w.reserve));
+        expect(out.requested, first).toEqual([]);
+        expect(out.constraints, first).toEqual([]);
+        expect(out.lines, first).toEqual([[w.reserve.id, 10_000]]);
+        expect(out.reply.warnings, first).toEqual([]);
+        expect(out.reply.weightNotes, first).toContainEqual({
+          code: 'pick_outside_goal',
+          assetIds: [w.tsla.id],
+        });
+      }
+    }
+  });
+
+  it('un-asks only the stock named, and a later request asks again', async () => {
+    const w = world('solana');
+    const both = ['I want Tesla and Nvidia.', noted] as const;
+    const kept = await w.reply([...both, 'forget Tesla'], w.drafting(w.tsla, w.nvda));
+    expect(kept.requested).toEqual([w.nvda.id]);
+    expect(kept.lines).toEqual([[w.nvda.id, 10_000]]);
+    const again = await w.reply(
+      [...both, 'forget Tesla', noted, 'all in Tesla'],
+      w.drafting(w.tsla),
+    );
+    expect(again.requested).toContain(w.tsla.id);
+    expect(again.lines).toEqual([[w.tsla.id, 10_000]]);
+  });
+
+  it.each([
+    'should I forget Tesla?',
+    'forget Tesla?',
+    'I cannot forget Tesla',
+    'my friend said forget Tesla',
+    'forget what I said about gold',
+    'forget it',
+  ])('keeps the request where the words do not take it back: %j', async (text) => {
+    const w = world('solana');
+    const out = await w.reply(['I want Tesla.', noted, text], w.drafting(w.tsla, w.reserve));
+    expect(out.requested).toEqual([w.tsla.id]);
+  });
+});
