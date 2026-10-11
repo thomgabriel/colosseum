@@ -1,4 +1,5 @@
 export * from './assess';
+export * from './assets/spl-mint';
 export * from './assets/universe';
 export * from './breach';
 export * from './curves';
