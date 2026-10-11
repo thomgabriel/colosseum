@@ -108,7 +108,7 @@ In order: (1) Robinhood Chain logs for the whole life of every pool and token of
 
 | Step | Status | Evidence |
 |---|---|---|
-| AS.1 The plan and the row | in-progress 2026-10-10 | `packages/schemas/src/asset-universe.ts`; `pnpm exec vitest run tests/asset-universe-schema.test.ts`: 14 passed |
+| AS.1 The plan and the row | done 2026-10-10 | The row: `packages/schemas/src/asset-universe.ts` (`UniverseAsset`, `UniverseList`, `UniverseVerdicts`, `CATEGORY_CLASS`, `universeCounts`). The join both chains use: `packages/risk/src/assets/universe.ts` (`universeRow`, `universeList`, `verdictOf`, `unreadVerdicts`), pure; the command `pnpm risk:assets <chain>` (`scripts/risk/assets/build.ts`, README beside it), which validates what a chain's builder returns before it writes. `pnpm exec vitest run tests/asset-universe-schema.test.ts tests/asset-universe-assemble.test.ts`: 21 passed. `pnpm verify` on `89ef75c0`: lint, typechecks and build pass; 9,331 tests pass, 11 failed in three files that read the local database. Ten were the local database missing `0020_vault_numbers` (applied with `pnpm db:migrate`, after which those files pass); the eleventh, `tests/solana-vault/deployment.test.ts`, fails on the local database's content: its `basket_assets` holds rows of another deploy record (`solana:usdc`, `solana:spyx`, `solana:qqqx` at addresses not in `solana-devnet`). That table is left as it is; CI's Postgres is clean |
 | AS.2 The Solana list | todo | |
 | AS.3 The Robinhood Chain list | todo | |
 | AS.4 Two tables, one migration | todo | |
