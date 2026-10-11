@@ -23,11 +23,15 @@ import type { Call } from './abi';
 import {
   type AssetReads,
   addressesToRead,
+  type CoinCut,
   classNames,
+  cryptoSelection,
+  cryptoToRead,
   type DexPairCut,
   type DexQuery,
   dexNames,
   dexToRead,
+  listedCrypto,
   NATIVE_IN_POOLS,
   namesAClass,
   type Phase,
@@ -162,7 +166,47 @@ async function timed<T>(deps: ReadDeps, fn: () => Promise<T>) {
   return { value, phase };
 }
 
-export type Listings = Pick<AssetReads, 'registry' | 'directory' | 'dexscreener'>;
+export type Listings = Pick<
+  AssetReads,
+  'registry' | 'directory' | 'dexscreener' | 'coingecko' | 'ccip' | 'volume'
+>;
+
+const COINGECKO_LIST = 'https://tokens.coingecko.com/robinhood/all.json';
+const COINGECKO_API = 'https://api.coingecko.com/api/v3';
+/** CoinGecko's category of the chain's memecoins, and its name as the category list gives it. */
+const MEME_CATEGORY = 'robinhood-chain-meme';
+const MEME_CATEGORY_NAME = 'Robinhood Chain Meme';
+const CCIP_TOKENS = 'https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet';
+/** CoinGecko's keyless API: one call every 6 seconds, a minute's wait on a refusal for rate. */
+const COINGECKO_SPACING_MS = 6_000;
+
+/** CoinGecko's page of a coin cut to what the list reads. */
+export function cutCoin(
+  address: string,
+  status: number,
+  d: Record<string, unknown> | null,
+  via: CoinCut['via'] = 'page',
+): CoinCut {
+  const links = (d?.links ?? {}) as { homepage?: unknown[] };
+  const platforms = (d?.platforms ?? {}) as Record<string, unknown>;
+  const home = Array.isArray(links.homepage)
+    ? links.homepage.find((h) => typeof h === 'string' && h !== '')
+    : null;
+  return {
+    address: address.toLowerCase(),
+    status,
+    id: text(d?.id),
+    symbol: text(d?.symbol),
+    name: text(d?.name),
+    categories: Array.isArray(d?.categories)
+      ? (d.categories as unknown[]).filter((c): c is string => typeof c === 'string')
+      : [],
+    homepage: typeof home === 'string' ? home : null,
+    platformAddress:
+      typeof platforms.robinhood === 'string' ? platforms.robinhood.toLowerCase() : null,
+    via,
+  };
+}
 
 /** The public GETs: the registry, the directory, then DexScreener in two rounds. */
 export async function readListings(deps: ReadDeps, input: ReadInput) {
@@ -277,7 +321,194 @@ export async function readListings(deps: ReadDeps, input: ReadInput) {
     pairs,
   };
   log(`DexScreener: ${calls} calls, ${pairs.length} pairs, ${errors} errors`);
-  return { registry, directory, dexscreener };
+
+  // the token lists of CoinGecko and of Chainlink CCIP: names and addresses on the chain
+  const cgList = await getOne(COINGECKO_LIST);
+  const cgTokens = (
+    ((cgList.json as { tokens?: unknown[] })?.tokens ?? []) as Array<Record<string, unknown>>
+  ).filter((t) => t?.chainId === input.chain.chainId && typeof t.address === 'string');
+  const ccipAnswer = await getOne(CCIP_TOKENS);
+  const ccipData = ((ccipAnswer.json as { data?: unknown })?.data ?? {}) as Record<
+    string,
+    Record<string, Record<string, unknown>>
+  >;
+  const ccipTokens = Object.values(ccipData).flatMap((byChain) => {
+    const t = byChain?.[String(input.chain.chainId)];
+    return t && typeof t.tokenAddress === 'string'
+      ? [
+          {
+            address: t.tokenAddress.toLowerCase(),
+            symbol: String(t.symbol ?? ''),
+            name: String(t.name ?? ''),
+            decimals: int(t.decimals),
+          },
+        ]
+      : [];
+  });
+  const ccip: AssetReads['ccip'] = {
+    url: CCIP_TOKENS,
+    at: ccipAnswer.at,
+    durationMs: ccipAnswer.durationMs,
+    calls: 1,
+    httpRequests: 1,
+    errors: 0,
+    tokens: ccipTokens.sort((a, b) => (a.address < b.address ? -1 : 1)),
+  };
+
+  // the day's DexScreener volume of every listed token, 30 addresses a call
+  const registrySet0 = new Set(
+    registryTokens({ chainId: input.chain.chainId, registry } as AssetReads).tokens.keys(),
+  );
+  const listed = listedCrypto(
+    {
+      coingecko: {
+        list: cgTokens.map((t) => ({
+          address: String(t.address),
+          symbol: String(t.symbol ?? ''),
+          name: String(t.name ?? ''),
+          decimals: int(t.decimals),
+        })),
+      },
+      ccip,
+    } as AssetReads,
+    registrySet0,
+  );
+  const volStart = deps.now();
+  const volAt = isoNow(deps);
+  const volPairs = new Map<string, AssetReads['volume']['pairs'][number]>();
+  let volCalls = 0;
+  let volErrors = 0;
+  const addresses = [...listed.keys()].sort();
+  for (let i = 0; i < addresses.length; i += 30) {
+    if (volCalls > 0) await deps.sleep(input.dexSpacingMs ?? 1_100);
+    volCalls++;
+    let answer: unknown = [];
+    try {
+      answer = await deps.fetchJson(
+        `${DEX}/tokens/v1/${slug}/${addresses.slice(i, i + 30).join(',')}`,
+      );
+    } catch {
+      volErrors++;
+    }
+    for (const p of Array.isArray(answer) ? (answer as Array<Record<string, unknown>>) : []) {
+      const cut = cutPair(p, slug);
+      if (!cut) continue;
+      const v = (p.volume as { h24?: unknown } | undefined)?.h24;
+      volPairs.set(cut.pairAddress.toLowerCase(), {
+        pairAddress: cut.pairAddress.toLowerCase(),
+        base: cut.base.address.toLowerCase(),
+        quote: cut.quote.address.toLowerCase(),
+        h24: typeof v === 'number' && Number.isFinite(v) ? v : null,
+      });
+    }
+  }
+  const volume: AssetReads['volume'] = {
+    at: volAt,
+    durationMs: Math.round(deps.now() - volStart),
+    calls: volCalls,
+    httpRequests: volCalls,
+    errors: volErrors,
+    pairs: [...volPairs.values()].sort((a, b) => (a.pairAddress < b.pairAddress ? -1 : 1)),
+  };
+  log(`DexScreener volume: ${volCalls} calls, ${volume.pairs.length} pairs, ${volErrors} errors`);
+
+  // CoinGecko's page of each selected token, slowly
+  const cgBase = {
+    listUrl: COINGECKO_LIST,
+    list: cgTokens
+      .map((t) => ({
+        address: String(t.address).toLowerCase(),
+        symbol: String(t.symbol ?? ''),
+        name: String(t.name ?? ''),
+        decimals: int(t.decimals),
+      }))
+      .sort((a, b) => (a.address < b.address ? -1 : 1)),
+  };
+  const selected = cryptoSelection(
+    { coingecko: { ...cgBase, coins: [] } as unknown as AssetReads['coingecko'], ccip, volume },
+    registrySet0,
+    parseDirectory(entries).feeds.map((f) => f.name),
+    registry.rows.map((r) => r.tokenSymbol ?? ''),
+  );
+  const cgStart = deps.now();
+  const cgAt = isoNow(deps);
+  let cgCalls = 0;
+  let cgErrors = 0;
+  /** One keyless CoinGecko call: spaced, and asked again after a minute when refused for rate. */
+  const cg = async (url: string): Promise<{ status: number; json: unknown }> => {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await deps.sleep(attempt === 0 ? COINGECKO_SPACING_MS : 60_000);
+      cgCalls++;
+      try {
+        return { status: 200, json: await deps.fetchJson(url) };
+      } catch (e) {
+        const m = /HTTP (\d{3})/.exec(e instanceof Error ? e.message : '');
+        const status = m ? Number(m[1]) : 0;
+        if (status !== 429) return { status, json: null };
+      }
+    }
+    return { status: 429, json: null };
+  };
+  // the chain's memecoin category, by CoinGecko's own list of it, and every coin's address on the chain
+  const memeIds = new Set<string>();
+  for (let page = 1; page <= 20; page++) {
+    const r = await cg(
+      `${COINGECKO_API}/coins/markets?vs_currency=usd&category=${MEME_CATEGORY}&per_page=250&page=${page}`,
+    );
+    if (r.status !== 200) {
+      cgErrors++;
+      break;
+    }
+    const ids = (Array.isArray(r.json) ? (r.json as Array<{ id?: unknown }>) : []).flatMap((c) =>
+      typeof c.id === 'string' ? [c.id] : [],
+    );
+    for (const id of ids) memeIds.add(id);
+    if (ids.length < 250) break;
+  }
+  const idOf = new Map<string, string>();
+  const all = await cg(`${COINGECKO_API}/coins/list?include_platform=true`);
+  if (all.status !== 200) cgErrors++;
+  for (const c of Array.isArray(all.json)
+    ? (all.json as Array<{ id?: unknown; platforms?: Record<string, unknown> }>)
+    : []) {
+    const a = c.platforms?.robinhood;
+    if (typeof c.id === 'string' && typeof a === 'string' && a !== '')
+      idOf.set(a.toLowerCase(), c.id);
+  }
+  const coins: CoinCut[] = [];
+  for (const a of [...selected.keys()].sort()) {
+    const id = idOf.get(a);
+    if (id && memeIds.has(id)) {
+      coins.push(
+        cutCoin(
+          a,
+          200,
+          { id, categories: [MEME_CATEGORY_NAME], platforms: { robinhood: a } },
+          'meme_category',
+        ),
+      );
+      continue;
+    }
+    const r = await cg(
+      `${COINGECKO_API}/coins/robinhood/contract/${a}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`,
+    );
+    if (r.status !== 200 && r.status !== 404) cgErrors++;
+    coins.push(cutCoin(a, r.status, r.status === 200 ? (r.json as Record<string, unknown>) : null));
+    input.log?.(`CoinGecko page ${coins.length} of ${selected.size}: ${a} ${r.status}`);
+  }
+  const coingecko: AssetReads['coingecko'] = {
+    ...cgBase,
+    at: cgList.at,
+    durationMs: cgList.durationMs + Math.round(deps.now() - cgStart),
+    calls: 1 + cgCalls,
+    httpRequests: 1 + cgCalls,
+    errors: cgErrors,
+    coins,
+  };
+  log(
+    `CoinGecko: ${cgBase.list.length} listed, ${selected.size} selected, ${cgCalls} pages, ${cgErrors} errors (from ${cgAt})`,
+  );
+  return { registry, directory, dexscreener, coingecko, ccip, volume };
 }
 
 /** Every read on chain, pinned to one block. Throws on any refusal of the endpoint. */
@@ -307,7 +538,16 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
     const addresses = addressesToRead({
       registry: [...registryTokens(reads0).tokens.keys()],
       notes: input.notes,
-      dex: dexToRead(reads0, names, input.verdictAddresses),
+      dex: [
+        ...dexToRead(reads0, names, input.verdictAddresses),
+        ...cryptoToRead(
+          listings,
+          new Set(registryTokens(reads0).tokens.keys()),
+          parseDirectory(listings.directory.entries).feeds.map((f) => f.name),
+          listings.registry.rows.map((r) => r.tokenSymbol ?? ''),
+          input.verdictAddresses,
+        ),
+      ],
       weth9: weth,
     });
     const data = tokenCallData();
