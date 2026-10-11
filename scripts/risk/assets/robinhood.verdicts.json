@@ -189,8 +189,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read: how ether reaches the chain (its bridges) was not read",
       "sources": [
@@ -209,7 +209,7 @@
       "symbol": "USDG",
       "category": "stablecoin_usd",
       "status": "listed",
-      "statusReason": "the model of tUSDG, the cash token of deployments/robinhood-testnet.json (each asset there is t and its model's symbol); the collector's dollar token (scripts/risk-evm/config.ts)",
+      "statusReason": "the cash token (cashToken) of contracts/script/config/4663.json, the mainnet deploy config; the collector's dollar token (scripts/risk-evm/config.ts)",
       "verdictSource": "docs/vault/research/yield-shelf/robinhood.md, section 4 (USDG: a cash token; reserve yield goes to partners, none to holders)",
       "issuer": "Paxos (Global Dollar Network)",
       "issuerReason": null,
@@ -367,8 +367,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": {
         "primary": "protocol",
         "description": "deposit ether to mint, withdraw to burn, at one to one, as a wrapper of the gas coin does",
@@ -544,7 +544,7 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read: on this chain it is a bridged token; how it accrues here was not read",
-      "access": "open",
+      "access": "front_end_geo_blocked",
       "accessReason": null,
       "mintRedeem": null,
       "mintRedeemReason": "none on this chain: the exit is the pool (the note, section 3.1)",
@@ -561,7 +561,7 @@
         }
       ],
       "unverified": [
-        "who may buy it from the issuer: Maple's page says it is not available in all jurisdictions and eligibility restrictions apply, with no list (the note, section 3.1); on chain a transfer to an unlisted address passes",
+        "the countries excluded: Maple's page says it is not available in all jurisdictions and eligibility restrictions apply, with no list (the note, section 3.1); on chain a transfer to an unlisted address passes",
         "the bridge and its limits",
         "whether the pool price equals the net asset value"
       ]
@@ -717,8 +717,8 @@
       "legTypesReason": null,
       "yieldMechanism": "distribution",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -747,8 +747,8 @@
       "legTypesReason": null,
       "yieldMechanism": "none",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -777,8 +777,8 @@
       "legTypesReason": null,
       "yieldMechanism": null,
       "yieldMechanismReason": "not_read",
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "not_read",
       "mintRedeem": null,
       "mintRedeemReason": "not_read",
       "sources": [
@@ -818,8 +818,8 @@
       "legTypesReason": null,
       "yieldMechanism": "accruing_price",
       "yieldMechanismReason": null,
-      "access": "open",
-      "accessReason": null,
+      "access": null,
+      "accessReason": "hybrid: minting and redemption need KYC/AML eligibility and a greenlisted address, and holders transfer freely (the note, section 3.1); neither open nor permissioned as read",
       "mintRedeem": {
         "primary": "issuer",
         "description": "Midas only, for a KYC-checked and greenlisted address: an instant route with a fee and a finite capacity, or monthly at NAV",
@@ -858,12 +858,12 @@
         {
           "type": "credit",
           "source": "packages/engine/src/personal/leg-types.ts, syrupUSDC",
-          "readOn": "2026-10-06"
+          "readOn": "2026-10-03"
         },
         {
           "type": "basis",
           "source": "packages/engine/src/personal/leg-types.ts, syrupUSDC",
-          "readOn": "2026-10-06"
+          "readOn": "2026-10-03"
         }
       ],
       "legTypesReason": null,
@@ -885,15 +885,15 @@
     {
       "address": "0x5b5448bb4101a136127ca8bf60a9f669f93fc09b",
       "symbol": "USDT",
-      "category": "other",
-      "status": "excluded",
-      "statusReason": "not shown to be Tether's token: the note could not confirm it (section 3.2); it has 18 decimals, no owner(), neither a pause nor a blacklist in its code, and its code is of the same length, 3,248 bytes, as the code of seven tokens here named after stocks of the issuer's registry and not in it (this read)",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "not shown to be Tether's deployment",
       "verdictSource": null,
       "issuer": null,
-      "issuerReason": "no issuer is named for it in anything read",
+      "issuerReason": "not confirmed: it calls itself Tether USD, and nothing read ties the address to Tether",
       "issuerKind": null,
       "underlying": null,
-      "underlyingReason": "not the asset its name claims",
+      "underlyingReason": "not confirmed",
       "currency": null,
       "legTypes": null,
       "legTypesReason": null,
@@ -916,7 +916,8 @@
         }
       ],
       "unverified": [
-        "that Tether issues no USDT on this chain: its own list of deployments was not read"
+        "that it is Tether's: the note could not confirm it (section 3.2); Tether's own list of deployments was not read",
+        "what this read found: 18 decimals, no owner(), neither a pause nor a blacklist selector, and code 3,248 bytes long, the length of the code of seven tokens here named after stocks of the issuer's registry and not in it (a length proves nothing)"
       ]
     },
     {
@@ -959,7 +960,7 @@
       "symbol": "USDC",
       "category": "other",
       "status": "excluded",
-      "statusReason": "not Circle's USDC: it calls itself Unconditional Support Dog Coin, and its code is of the same length, 3,248 bytes, as the code of seven tokens here named after stocks of the issuer's registry and not in it (this read)",
+      "statusReason": "not Circle's USDC: it calls itself Unconditional Support Dog Coin",
       "verdictSource": null,
       "issuer": null,
       "issuerReason": "no issuer is named for it in anything read",
@@ -1107,15 +1108,15 @@
     {
       "address": "0x362db5af0367315ad57ade8f3c132d6e0b7d19df",
       "symbol": "GOLD",
-      "category": "other",
-      "status": "excluded",
-      "statusReason": "not a gold token: nothing read names an issuer or a gold reserve; it calls itself Robinhood Gold and is not the issuer's (the issuer's gold is GLD of its registry); its code is of the same length, 3,248 bytes, as the code of seven tokens here named after stocks of the issuer's registry and not in it (this read)",
+      "category": "tokenized_gold",
+      "status": "held_out",
+      "statusReason": "not shown to be a gold token: nothing read names an issuer or a gold reserve",
       "verdictSource": null,
       "issuer": null,
-      "issuerReason": "no issuer is named for it in anything read",
+      "issuerReason": "not read: it calls itself Robinhood Gold; the issuer's gold token is GLD of its registry",
       "issuerKind": null,
       "underlying": null,
-      "underlyingReason": "not the asset its name claims",
+      "underlyingReason": "not confirmed",
       "currency": null,
       "legTypes": null,
       "legTypesReason": null,
@@ -1132,20 +1133,23 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": [
+        "what backs it, and who issues it",
+        "what this read found: code 3,248 bytes long and no owner()"
+      ]
     },
     {
       "address": "0xa62f748f8d16009cb19366da8d1160fb29de428f",
       "symbol": "GOLD",
-      "category": "other",
-      "status": "excluded",
-      "statusReason": "not a gold token: nothing read names an issuer or a gold reserve, and its code is of the same length, 3,248 bytes, as the code of seven tokens here named after stocks of the issuer's registry and not in it (this read)",
+      "category": "tokenized_gold",
+      "status": "held_out",
+      "statusReason": "not shown to be a gold token: nothing read names an issuer or a gold reserve",
       "verdictSource": null,
       "issuer": null,
-      "issuerReason": "no issuer is named for it in anything read",
+      "issuerReason": "not read: it calls itself GOLD; the issuer's gold token is GLD of its registry",
       "issuerKind": null,
       "underlying": null,
-      "underlyingReason": "not the asset its name claims",
+      "underlyingReason": "not confirmed",
       "currency": null,
       "legTypes": null,
       "legTypesReason": null,
@@ -1162,7 +1166,10 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": []
+      "unverified": [
+        "what backs it, and who issues it",
+        "what this read found: code 3,248 bytes long and no owner()"
+      ]
     },
     {
       "address": "0xae2df3c1749daee721c1bfcbbfdde5d61ae7cb99",

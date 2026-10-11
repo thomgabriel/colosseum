@@ -4,23 +4,27 @@ import { join } from 'node:path';
 import {
   BEACON_CALLS,
   CODE_SELECTORS,
+  type CodeContext,
+  codeLayout,
   decodeAbiText,
   EIP1967,
   evmAuthorities,
   evmExtensions,
   evmStandard,
+  ROUTER_SELECTOR,
   scanCode,
   slotValue,
   TOKEN_CALLS,
   tokenAnswers,
   tokenBasics,
+  UPGRADE_SELECTORS,
   WATCHED_SELECTORS,
   wordAddress,
 } from '@colosseum/risk';
 import { UniverseList, UniverseVerdicts } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { LEG_TYPES } from '../packages/engine/src/personal/leg-types';
-import { loadFiles, readGz } from '../scripts/risk-evm/assets';
+import { loadFiles, readGz } from '../scripts/risk-evm/assets-files';
 import {
   type AssetFiles,
   type FrozenReads,
@@ -69,19 +73,30 @@ const scanOf = (address: string) => {
   if (!c) throw new Error(`no code read for ${address}`);
   return c;
 };
-const contextOf = (address: string) => {
+const contextOf = (address: string): CodeContext => {
   const t = tokenRead(address);
   const beacon = slotValue(t.slots.beacon);
   const b =
     beacon.kind === 'address'
       ? fx.reads.onchain.beacons.find((x) => x.address === beacon.address)
       : undefined;
+  const own = scanOf(address);
+  const routes = fx.reads.onchain.facets.filter((f) => f.token === address);
   return {
     slots: t.slots,
-    own: scanOf(address),
+    own,
     codeAt: (a: string) => fx.reads.onchain.code.find((x) => x.address === a) ?? null,
     beacon: b ? { implementation: b.implementation, owner: b.owner } : null,
+    cloneTargetSlots: own.minimalProxyTarget
+      ? (fx.reads.onchain.cloneTargets.find((c) => c.address === own.minimalProxyTarget)?.slots ??
+        null)
+      : null,
+    facets: routes.length ? Object.fromEntries(routes.map((f) => [f.selector, f.reply])) : null,
   };
+};
+const authoritiesOf = (address: string) => {
+  const a = tokenAnswers(tokenRead(address).replies);
+  return evmAuthorities({ owner: a.owner, defaultAdmin: a.defaultAdmin, code: contextOf(address) });
 };
 
 describe('the committed list', () => {
@@ -185,7 +200,11 @@ describe('the verdict table', () => {
   it('types the leg of a dollar-yield token as leg-types.ts does', () => {
     for (const r of rows.filter((x) => x.legTypes !== null)) {
       const row = LEG_TYPES[r.symbol];
-      if (row) expect(r.legTypes?.map((l) => l.type)).toEqual(row.types);
+      if (!row) continue;
+      expect(r.legTypes?.map((l) => l.type)).toEqual(row.types);
+      // the day of the source: leg-types.ts's readAt
+      for (const l of r.legTypes ?? [])
+        expect([r.symbol, l.readOn]).toEqual([r.symbol, row.readAt]);
     }
     expect(byId('robinhood:steakusdg').legTypes?.map((l) => l.type)).toEqual(['market_deposit']);
     expect(byId('robinhood:spusdg').legTypes).toBeNull();
@@ -203,29 +222,24 @@ describe('the verdict table', () => {
     }
   });
 
-  it('says of the excluded dollars only what the frozen code shows', () => {
-    // the verdicts of USDT, one USDC and both GOLD say their code has the length of the code of seven
-    // tokens named after stocks of the registry and not in it (they are not byte for byte the same)
-    const ruled = new Set(
-      rows
-        .filter((r) => r.decidedBy.includes('rule:not-the-issuers-stock-token'))
-        .map((r) => r.address),
-    );
-    expect(
-      fx.reads.onchain.code.filter((c) => ruled.has(c.address) && c.size === 3248),
-    ).toHaveLength(7);
-    for (const a of [
-      '0x5b5448bb4101a136127ca8bf60a9f669f93fc09b',
-      '0x8dffab0c883818963b97f37a5792952296621f77',
-      '0x362db5af0367315ad57ade8f3c132d6e0b7d19df',
-      '0xa62f748f8d16009cb19366da8d1160fb29de428f',
-    ]) {
-      expect(scanOf(a).sha256).toMatch(/^[0-9a-f]{64}$/);
-      expect(scanOf(a).size).toBe(3248);
-      expect(rows.find((r) => r.address === a)?.statusReason).toMatch(
-        /3,248 bytes, as the code of seven tokens/,
-      );
-    }
+  it('holds out what is not shown to be the asset it names, and ties it no feed', () => {
+    const usdt = rows.find((r) => r.address === '0x5b5448bb4101a136127ca8bf60a9f669f93fc09b');
+    expect([usdt?.status, usdt?.statusReason, usdt?.oracleReason]).toEqual([
+      'held_out',
+      "not shown to be Tether's deployment",
+      'issuer_not_confirmed',
+    ]);
+    // the directory prices USDE and WEETH: by the oracle map's rule, letters as written, they tie no row
+    expect(byId('robinhood:usde').oracleReason).toBe('feed_named_in_other_case_not_tied');
+    expect(byId('robinhood:weeth').oracleReason).toBe('feed_named_in_other_case_not_tied');
+    expect(byId('robinhood:usdg').oracle?.description).toBe('USDG / USD');
+  });
+
+  it('lists USDG by the address the mainnet deploy config names', () => {
+    const usdg = byId('robinhood:usdg');
+    expect(usdg.listedIn).toEqual(['deploy_record']);
+    expect(usdg.statusReason).toMatch(/cashToken\) of contracts\/script\/config\/4663\.json/);
+    expect(files.mainnetConfig.cashToken.toLowerCase()).toBe(usdg.address);
   });
 });
 
@@ -275,11 +289,7 @@ describe('the decoders, on what the chain answered', () => {
     expect(ext.implementation).toBe('0xb35490d6f9163de4f80d88dc75c3516eb64c5ae2');
     expect(ext.pausable.value).toBe(true);
     expect(ext.blacklist.read).toMatch(/isBlocked\(address\)/);
-    const auth = evmAuthorities({
-      owner: tokenAnswers(tokenRead(nvda).replies).owner,
-      ...contextOf(nvda),
-    });
-    expect(auth.admin.read).toMatch(/^owner\(\) of the EIP-1967 beacon 0x/);
+    expect(authoritiesOf(nvda).admin.read).toMatch(/^owner\(\) of the EIP-1967 beacon 0x/);
   });
 
   it('reads an EIP-1967 proxy, a code that delegates without a slot, and a clone', () => {
@@ -293,15 +303,53 @@ describe('the decoders, on what the chain answered', () => {
       null,
     ]);
     const c = evmExtensions(contextOf(clone));
-    expect(c.proxy.value).toBe(false);
     expect(c.proxy.read).toMatch(/EIP-1167 clone of 0x3be8b97fd0e713b5abe0649fa830223b6b4bc599/);
     expect(c.implementation).toBeNull();
-    const w = evmAuthorities({
-      owner: tokenAnswers(tokenRead(weth).replies).owner,
-      ...contextOf(weth),
-    });
+    // a clone cannot be upgraded only where its target does not delegate; its target's slots are named
+    const target = scanOf('0x3be8b97fd0e713b5abe0649fa830223b6b4bc599');
+    expect(c.proxy.value).toBe(target.delegatecall ? null : false);
+    expect(c.proxy.read).toMatch(/the target's own slots: implementation/);
+    const w = authoritiesOf(weth);
     expect(w.owner.reason).toBe('no_owner_function');
     expect(w.admin.holder).toMatch(/^0x[0-9a-f]{40}$/);
+  });
+
+  it('never reads a flag as false where the code that runs delegates', () => {
+    let nulls = 0;
+    for (const r of rows) {
+      if (r.extensions?.family !== 'evm') continue;
+      const layout = codeLayout(contextOf(r.address));
+      const delegates = layout.codes.some((c) => !c.shell && c.scan?.delegatecall);
+      for (const f of [r.extensions.pausable, r.extensions.blacklist]) {
+        if (delegates || layout.proxy.value === null) expect(f.value).not.toBe(false);
+        if (f.value === null) nulls++;
+      }
+    }
+    expect(nulls).toBeGreaterThan(0);
+  });
+
+  it('reads the dollar token through its facet router, and its admin as a UUPS proxy', () => {
+    const u = evmExtensions(contextOf(usdg));
+    expect(scanOf('0x68184c449e1a8f34fa18d289737129fd27b66f8f').selectors).toContain(
+      ROUTER_SELECTOR[1],
+    );
+    expect(fx.reads.onchain.facets.filter((f) => f.token === usdg).length).toBeGreaterThan(0);
+    for (const f of [u.pausable, u.blacklist]) {
+      expect(f.value).not.toBe(false);
+      if (f.value === true) expect(f.read).toMatch(/facet router: getFacet\(\) of the token sends/);
+    }
+    const a = authoritiesOf(usdg).admin;
+    expect([a.holder, a.reason]).toEqual([null, 'uups_upgrade_in_implementation']);
+    expect(a.read).toMatch(/owner\(\) answers 0x/);
+    expect(byId('robinhood:usdg').authorities?.admin?.reason).toBe(
+      'uups_upgrade_in_implementation',
+    );
+  });
+
+  it('refuses reads whose code was scanned for other selectors', () => {
+    const stale = JSON.parse(JSON.stringify(fx.reads)) as typeof fx.reads;
+    stale.onchain.watched = stale.onchain.watched.slice(1);
+    expect(() => robinhoodList(stale, files)).toThrow(/scanned for other selectors/);
   });
 
   it('writes each selector and slot as the hash of its name', () => {
@@ -313,6 +361,8 @@ describe('the decoders, on what the chain answered', () => {
     for (const [sig, s] of [
       ...TOKEN_CALLS,
       ...BEACON_CALLS,
+      ...UPGRADE_SELECTORS,
+      ROUTER_SELECTOR,
       ...CODE_SELECTORS.pausable,
       ...CODE_SELECTORS.blacklist,
     ])

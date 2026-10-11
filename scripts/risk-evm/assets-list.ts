@@ -5,6 +5,7 @@
 import {
   addressKey,
   type CallReply,
+  type CodeContext,
   type CodeScan,
   decodeAbiText,
   evmAuthorities,
@@ -18,6 +19,7 @@ import {
   universeList,
   universeRow,
   unreadVerdicts,
+  WATCHED_SELECTORS,
 } from '@colosseum/risk';
 import {
   IN_TRACKED_ROW,
@@ -103,6 +105,13 @@ export type AssetReads = {
       slots: { implementation: string; admin: string; beacon: string };
     }>;
     beacons: Array<{ address: string; implementation: CallReply; owner: CallReply }>;
+    /** The EIP-1967 slots of each clone's target: its own storage, read to say what it is. */
+    cloneTargets: Array<{
+      address: string;
+      slots: { implementation: string; admin: string; beacon: string };
+    }>;
+    /** getFacet(selector) of each token whose running code is a facet router, for FACET_QUERIES. */
+    facets: Array<{ token: string; selector: string; reply: CallReply }>;
     /** The code of every token, implementation and clone target, scanned (scanCode), with its SHA-256. */
     code: Array<{ address: string; sha256: string } & CodeScan>;
     /** Requests the RPC's Cloudflare answered with a challenge, each asked again after a wait. */
@@ -135,6 +144,8 @@ export type AssetFiles = {
     assets: Array<{ symbol: string; modelOf?: string }>;
   };
   content: { path: string; symbols: string[] };
+  /** The mainnet deploy config: the cash token it names. */
+  mainnetConfig: { path: string; cashToken: string };
   legTypes: {
     path: string;
     rows: Record<string, { types: string[]; source: string; readAt: string }>;
@@ -372,18 +383,18 @@ export const STATED = {
   derived:
     "For a registry token the builder derives: underlying, the registry's symbol; status, listed for a tracked stock of scripts/risk/universe/robinhood.json (and the model of a deploy record's token) and candidate with 'outside the 80% cut' for every other (DA16); leg types, from packages/engine/src/personal/leg-types.ts at the symbol for a dollar-yield token, none for the others; and a source naming the registry row. Rules and a token's own verdict are applied over these.",
   listed:
-    "listed = on today's shelf: a tracked stock (tracked_stock), or the model of a token of deployments/robinhood-testnet.json (deploy_record: an asset's modelOf; for the cash token tUSDG, its symbol without the leading t, the form every asset of the record follows). No structurer registry row is on Robinhood Chain.",
+    "listed = on today's shelf: a tracked stock (tracked_stock), or a token a deploy record names (deploy_record): the model of an asset of deployments/robinhood-testnet.json by its modelOf, matched to the registry token of that symbol, or the cash token contracts/script/config/4663.json names by address (cashToken). No structurer registry row is on Robinhood Chain.",
   ids: "id: the tracked list's id, else the shelf fixture's (packages/engine/src/personal/fixtures/shelves/robinhood-yield.json), else robinhood:eth for the gas coin, else robinhood:<slug of the symbol>. A slug several rows share goes to the one of them that is not excluded where there is exactly one; every other row with it, and a row whose slug an earlier rule took, gets the first six hex digits of its address after a dash.",
   identity:
     "symbol, name and decimals are what the contract answered at the block of `read.height` (name null where name() gives no text). The registry's own symbol, name, decimals, status, ISIN and multiplier are kept beside them in `issuerRegistry`, as the registry wrote them; nothing is applied. listingTags names the listings that named the token (issuer_registry, screening_note, position_manager_weth9, dexscreener).",
   standard:
     'erc4626 where asset() answers a non-zero address and convertToAssets(1e18) answers one word; erc20 for every other token; native for the gas coin.',
   extensions:
-    "proxy: true where the EIP-1967 implementation slot holds an address, or the beacon slot does and the beacon's implementation() answers one; implementation is that address. false where the three slots are zero and the code has no DELEGATECALL, or the code is an EIP-1167 clone (it cannot be upgraded). Null where the code delegates without a slot. pausable and blacklist: a selector of CODE_SELECTORS (packages/risk/src/assets/evm.ts, listed in scripts/risk/assets/README.md) pushed by the code that runs (the proxy and its implementation, or a clone's target); false says only that none of those names is in the code.",
+    "proxy: true where the EIP-1967 implementation slot holds an address, or the beacon slot does and the beacon's implementation() answers one; implementation is that address. false where the three slots are zero and the code has no DELEGATECALL, or the code is an EIP-1167 clone whose target has none (it cannot be upgraded). Null where the code delegates without a slot, or a clone's target delegates (its own slots are read and named). pausable and blacklist: true where a selector of CODE_SELECTORS (packages/risk/src/assets/evm.ts, listed in scripts/risk/assets/README.md) is pushed by the code that runs (the proxy and its implementation, or a clone's target), or where that code is a facet router (it pushes getFacet(bytes4)) whose getFacet(<selector>) names a facet that pushes it; null where none is found and the code that runs has a DELEGATECALL, or a code was not read (code_may_run_elsewhere); false only where none is found in code that does not delegate.",
   authorities:
-    'owner: owner() (no_owner_function where it reverts, none where it answers the zero address). admin: the EIP-1967 admin slot (none where it is zero); behind a beacon, owner() of the beacon, which is who may change the code of every proxy of it. Who a role-based contract (AccessControl) lets act is not read.',
+    'owner: owner() (no_owner_function where it reverts, none where it answers the zero address). admin: behind a beacon, owner() of the beacon, which is who may change the code of every proxy of it; else the EIP-1967 admin slot. An empty admin slot is none only on a token that is not a proxy; on a proxy it is uups_upgrade_in_implementation where the implementation pushes upgradeTo, upgradeToAndCall or proxiableUUID, else admin_slot_empty_on_proxy, and admin_slot_empty_code_delegates on code that delegates without a slot; owner() and defaultAdmin() of the token are named in the read. Who a role-based contract (AccessControl) lets act is not read.',
   oracle:
-    "A Chainlink feed of the directory, tied to a token and confirmed on chain at the block by the rule of the oracle map (scripts/risk-evm/feeds.ts matchToken: the name and the contract's description() must read as a US dollar price of the symbol, letters as written; decimals() as the directory says; a positive answer not after the block). The twins check is over the rows not excluded; an excluded row gets no feed (excluded_row). A tracked stock's oracle is in its tracked row. prices is what the directory says the feed prices (token_with_multiplier for a primaryTokenizedPrice product, token_from_pools for dex_state_price), else null. No answer of a feed is stored.",
+    "A Chainlink feed of the directory, tied to a token and confirmed on chain at the block by the rule of the oracle map (scripts/risk-evm/feeds.ts matchToken: the name and the contract's description() must read as a US dollar price of the symbol, letters as written; decimals() as the directory says; a positive answer not after the block). The twins check is over the rows not excluded; an excluded row gets no feed (excluded_row). A feed names an asset, not an address: it is not tied to a token whose issuer no verdict or rule names (issuer_not_confirmed). Where the directory names the symbol in another case only, the reason says so (feed_named_in_other_case_not_tied). A tracked stock's oracle is in its tracked row. prices is what the directory says the feed prices (token_with_multiplier for a primaryTokenizedPrice product, token_from_pools for dex_state_price), else null. No answer of a feed is stored.",
   pools:
     "pools.confirmed and pools.unconfirmed: see poolCount. A pool with a stock token of the issuer registry is counted from the discovery file of RU.2 (confirmed by the v3 factory or the v4 pool manager, unconfirmed when only DexScreener named it: the venues that are not Uniswap v3 or v4 are not read, D4, BYREAL-D4); a pool with none is counted from this run's DexScreener answers, unconfirmed. The gas coin is the zero address in pools. no_known_pool where neither knows one. A tracked stock's pools are in its tracked row.",
   noFigures:
@@ -433,6 +444,12 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
 
   const codeOf = new Map(reads.onchain.code.map((c) => [lower(c.address), c]));
   const beaconOf = new Map(reads.onchain.beacons.map((b) => [lower(b.address), b]));
+  const cloneSlotsOf = new Map(reads.onchain.cloneTargets.map((c) => [lower(c.address), c.slots]));
+  // a scan reduced to other selectors than the code's of today is refused, not read as absent
+  if (JSON.stringify(reads.onchain.watched) !== JSON.stringify(WATCHED_SELECTORS))
+    throw new Error(
+      'the code was scanned for other selectors than WATCHED_SELECTORS: read the chain again',
+    );
   const at = iso(reads.onchain.blockTime);
   const block = reads.onchain.block;
 
@@ -465,11 +482,17 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         ? `0x${beaconSlot.slice(26)}`.toLowerCase()
         : null;
     const b = beaconAddress ? (beaconOf.get(beaconAddress) ?? null) : null;
-    const ctx = {
+    const routes = reads.onchain.facets.filter((f) => f.token === a);
+    const ctx: CodeContext = {
       slots: t.slots,
       own,
       codeAt: (x: string) => codeOf.get(lower(x)) ?? null,
       beacon: b ? { implementation: b.implementation, owner: b.owner } : null,
+      cloneTargetSlots: own.minimalProxyTarget
+        ? (cloneSlotsOf.get(own.minimalProxyTarget) ?? null)
+        : null,
+      facets:
+        routes.length > 0 ? Object.fromEntries(routes.map((f) => [f.selector, f.reply])) : null,
     };
     const reg = registry.get(a)?.row ?? null;
     tokensRead.push({
@@ -485,7 +508,11 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         standardNote: null,
         extensions: evmExtensions(ctx),
         extensionsReason: null,
-        authorities: evmAuthorities({ owner: answers.owner, slots: t.slots, beacon: ctx.beacon }),
+        authorities: evmAuthorities({
+          owner: answers.owner,
+          defaultAdmin: answers.defaultAdmin,
+          code: ctx,
+        }),
         authoritiesReason: null,
         read: {
           method: 'eth_call by Multicall3, eth_getStorageAt and eth_getCode',
@@ -547,6 +574,17 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
   };
   const decided = (t: { address: string; symbol: string }) =>
     verdictOfAddress.has(t.address) || rulesOf(t).length > 0;
+  /** The issuer (or the chain, for its own coin) a token's own verdict or its last matching rule names; null where none does. */
+  const issuer0 = (t: { address: string; symbol: string }): string | null => {
+    const matched = new Set(rulesOf(t));
+    const v = verdictOfAddress.get(t.address);
+    const layer =
+      v ??
+      verdicts.rules.filter((r) => matched.has(r.name) && r.fields.issuerKind !== undefined).at(-1)
+        ?.fields;
+    if (!layer) return null;
+    return layer.issuer ?? (layer.issuerKind === 'chain_native' ? 'chain_native' : null);
+  };
   /** The status a token's own verdict or its last matching rule gives, before the builder derives one. */
   const status0 = (t: { address: string; symbol: string }) => {
     const matched = new Set(rulesOf(t));
@@ -636,23 +674,17 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
   }
 
   // listed
-  const followsT = files.deploy.assets.every((x) => x.modelOf && x.symbol === `t${x.modelOf}`);
+  // listed by a deploy record: the model of a test-network asset (its modelOf), or the cash token the
+  // mainnet deploy config names by address
   const models = new Map<string, string>(
     files.deploy.assets.flatMap((x) => (x.modelOf ? [[x.modelOf, x.symbol] as const] : [])),
   );
-  if (followsT && files.deploy.cash.symbol.startsWith('t'))
-    models.set(files.deploy.cash.symbol.slice(1), files.deploy.cash.symbol);
+  const cashToken = files.mainnetConfig.cashToken.toLowerCase();
   const deployModel = (t: Read): string | null => {
+    if (t.address === cashToken) return `the cash token (cashToken) of ${files.mainnetConfig.path}`;
     const test = models.get(t.symbol);
-    if (!test) return null;
-    const named = registry.has(t.address) || notes.includes(t.address);
-    const twins = all.filter(
-      (x) =>
-        x.symbol === t.symbol &&
-        (registry.has(x.address) || notes.includes(x.address)) &&
-        status0(x) !== 'excluded',
-    );
-    return named && twins.length === 1 ? test : null;
+    if (!test || !registry.has(t.address)) return null;
+    return `the model of ${test} in ${files.deploy.path}`;
   };
 
   // oracles: Chainlink's directory, confirmed at the block
@@ -670,7 +702,22 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
   const oracleOf = (t: Read): Pick<RowContext, 'oracle' | 'oracleReason'> => {
     if (status0(t) === 'excluded') return { oracle: null, oracleReason: 'excluded_row' };
     const r = matchToken({ address: t.address, symbol: t.symbol }, false, matchCtx);
-    if (!r.feed) return { oracle: null, oracleReason: r.reason ?? 'no_feed' };
+    if (!r.feed) {
+      // a feed whose name reads as this symbol in another case is said, and not tied (letters as written)
+      const otherCase = directory.feeds.some((f) => {
+        const m = /^(?:Robinhood\s+|RH)?(\S+?)\s*(?:\/|-)\s*USD$/i.exec(f.name.trim());
+        return m && m[1] !== t.symbol && (m[1] as string).toUpperCase() === t.symbol.toUpperCase();
+      });
+      return {
+        oracle: null,
+        oracleReason:
+          r.reason === 'no_feed' && otherCase
+            ? 'feed_named_in_other_case_not_tied'
+            : (r.reason ?? 'no_feed'),
+      };
+    }
+    // a feed names an asset, not an address: it is not tied to a token whose issuer is not confirmed
+    if (issuer0(t) === null) return { oracle: null, oracleReason: 'issuer_not_confirmed' };
     const f = fundRow(r, null);
     const oracle: TrackedOracle = {
       kind: 'chainlink',
@@ -716,7 +763,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       const symbol = reg.tokenSymbol ?? t.symbol;
       const leg = classTable === 'dollar_yield' ? files.legTypes.rows[symbol] : undefined;
       const reason = tracked
-        ? `a tracked stock of ${files.tracked.path} (gate UNIVERSE)${model ? `, and the model of ${model} in ${files.deploy.path}` : ''}`
+        ? `a tracked stock of ${files.tracked.path} (gate UNIVERSE)${model ? `, and ${model}` : ''}`
         : `outside the 80% cut (DA16): a stock token of the issuer's registry that ${files.tracked.cut} does not name`;
       derived = {
         underlying: symbol,
@@ -804,7 +851,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     },
     {
       name: 'token_calls',
-      what: `eth_call of Multicall3 ${o.multicall3} at block ${block}: WETH9() of the v4 position manager, then decimals(), symbol(), name(), asset(), convertToAssets(1e18) and owner() of every address named, implementation() and owner() of each beacon; rows are the addresses asked`,
+      what: `eth_call of Multicall3 ${o.multicall3} at block ${block}: WETH9() of the v4 position manager, then decimals(), symbol(), name(), asset(), convertToAssets(1e18), owner() and defaultAdmin() of every address named, implementation() and owner() of each beacon, getFacet(<selector>) of each facet router for the pause and blacklist selectors, and eth_getCode of each facet it names; rows are the addresses asked`,
       at: o.phases.calls.at,
       calls: o.phases.calls.calls,
       durationMs: o.phases.calls.durationMs,
@@ -813,7 +860,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     },
     {
       name: 'proxy_slots',
-      what: `eth_getStorageAt of the EIP-1967 implementation, admin and beacon slots of every address named, at block ${block}`,
+      what: `eth_getStorageAt of the EIP-1967 implementation, admin and beacon slots of every address named and of each clone's target, at block ${block}`,
       at: o.phases.slots.at,
       calls: o.phases.slots.calls,
       durationMs: o.phases.slots.durationMs,
@@ -822,7 +869,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     },
     {
       name: 'code',
-      what: `eth_getCode of every address named, every implementation and every clone's target, at block ${block}; rows are the codes read`,
+      what: `eth_getCode of every address named, every implementation and every clone's target, at block ${block}; rows are the codes read, with the facets read beside the router's calls`,
       at: o.phases.code.at,
       calls: o.phases.code.calls,
       durationMs: o.phases.code.durationMs,
@@ -852,6 +899,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       tracked: files.tracked.path,
       shelf: files.shelf.path,
       deploy: files.deploy.path,
+      mainnetConfig: files.mainnetConfig.path,
       content: files.content.path,
       legTypes: files.legTypes.path,
       notes: files.notes.map((n) => n.path).join(', '),

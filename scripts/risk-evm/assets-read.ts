@@ -7,9 +7,14 @@ import {
   BEACON_CALLS,
   type CallReply,
   type CodeScan,
+  codeLayout,
   EIP1967,
+  FACET_QUERIES,
+  getFacetCall,
+  isFacetRouter,
   scanCode,
   slotValue,
+  TOKEN_CALLS,
   tokenCallData,
   WATCHED_SELECTORS,
   wordAddress,
@@ -314,11 +319,12 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
   });
   const { addresses } = calls.value;
 
-  const slots = await timed(deps, async () => {
+  /** The three EIP-1967 slots of each address, 20 addresses a request. */
+  const readSlots = async (list: string[]) => {
     const out: Array<{ implementation: string; admin: string; beacon: string }> = [];
     const keys = [EIP1967.implementation, EIP1967.admin, EIP1967.beacon];
-    for (let i = 0; i < addresses.length; i += SLOT_BATCH / 3) {
-      const part = addresses.slice(i, i + SLOT_BATCH / 3);
+    for (let i = 0; i < list.length; i += SLOT_BATCH / 3) {
+      const part = list.slice(i, i + SLOT_BATCH / 3);
       const replies = await rpc.batch(
         part.flatMap((a) => keys.map((k) => ({ method: 'eth_getStorageAt', params: [a, k, tag] }))),
       );
@@ -335,7 +341,8 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
         });
     }
     return out;
-  });
+  };
+  const slots = await timed(deps, () => readSlots(addresses));
 
   // each beacon: the implementation its proxies run, and its owner
   const beaconAddresses = [
@@ -364,28 +371,28 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
 
   // the code: every address, every implementation, then every clone's target
   const raw = new Map<string, string>();
-  const code = await timed(deps, async () => {
-    const scans = new Map<string, CodeScan & { sha256: string }>();
-    const fetchCode = async (list: string[]) => {
-      const todo = list.filter((a) => !scans.has(a));
-      for (let i = 0; i < todo.length; i += CODE_BATCH) {
-        const part = todo.slice(i, i + CODE_BATCH);
-        const replies = await rpc.batch(
-          part.map((a) => ({ method: 'eth_getCode', params: [a, tag] })),
-        );
-        for (const [j, r] of replies.entries()) {
-          if (r.error || typeof r.result !== 'string')
-            throw new Error(`eth_getCode ${part[j]}: ${r.error?.message ?? 'no result'}`);
-          raw.set(part[j] as string, r.result);
-          scans.set(part[j] as string, {
-            ...scanCode(r.result),
-            sha256: createHash('sha256')
-              .update(Buffer.from(r.result.slice(2), 'hex'))
-              .digest('hex'),
-          });
-        }
+  const scans = new Map<string, CodeScan & { sha256: string }>();
+  const fetchCode = async (list: string[]) => {
+    const todo = list.filter((a) => !scans.has(a));
+    for (let i = 0; i < todo.length; i += CODE_BATCH) {
+      const part = todo.slice(i, i + CODE_BATCH);
+      const replies = await rpc.batch(
+        part.map((a) => ({ method: 'eth_getCode', params: [a, tag] })),
+      );
+      for (const [j, r] of replies.entries()) {
+        if (r.error || typeof r.result !== 'string')
+          throw new Error(`eth_getCode ${part[j]}: ${r.error?.message ?? 'no result'}`);
+        raw.set(part[j] as string, r.result);
+        scans.set(part[j] as string, {
+          ...scanCode(r.result),
+          sha256: createHash('sha256')
+            .update(Buffer.from(r.result.slice(2), 'hex'))
+            .digest('hex'),
+        });
       }
-    };
+    }
+  };
+  const code = await timed(deps, async () => {
     const impls = slots.value.flatMap((s) => {
       const v = slotValue(s.implementation);
       return v.kind === 'address' ? [v.address] : [];
@@ -399,10 +406,55 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
       s.minimalProxyTarget ? [s.minimalProxyTarget] : [],
     );
     await fetchCode([...new Set(targets)]);
-    return [...scans.entries()]
-      .map(([address, s]) => ({ address, ...s }))
-      .sort((a, b) => (a.address < b.address ? -1 : 1));
   });
+
+  // the slots of each clone's target, which are its own storage and not the clone's
+  const targets = [
+    ...new Set(
+      addresses.flatMap((a) => {
+        const t = scans.get(a)?.minimalProxyTarget;
+        return t ? [t] : [];
+      }),
+    ),
+  ].sort();
+  const targetSlots = await timed(deps, () => readSlots(targets));
+
+  // a facet router's table: getFacet(<selector>) of each token whose running code pushes it
+  const beaconOf = new Map(beacons.map((b) => [b.address, b]));
+  const routers = addresses.filter((a, i) => {
+    const own = scans.get(a);
+    if (!own) return false;
+    const slotsOf = slots.value[i] as { implementation: string; admin: string; beacon: string };
+    const b = slotValue(slotsOf.beacon);
+    const beacon = b.kind === 'address' ? beaconOf.get(b.address) : undefined;
+    return isFacetRouter(
+      codeLayout({
+        slots: slotsOf,
+        own,
+        codeAt: (x) => scans.get(x) ?? null,
+        beacon: beacon ? { implementation: beacon.implementation, owner: beacon.owner } : null,
+      }),
+    );
+  });
+  const facetCalls = routers.flatMap((a) =>
+    FACET_QUERIES.map((sel) => ({ target: a, callData: getFacetCall(sel) })),
+  );
+  const facetReplies = await timed(deps, async () => {
+    const replies = await multicall(rpc, m3, facetCalls, tag);
+    const facets = replies.flatMap((r) => {
+      const f = r.success ? wordAddress(r.data) : null;
+      return f && !/^0x0{40}$/.test(f) ? [f] : [];
+    });
+    await fetchCode([...new Set(facets)]);
+    return replies;
+  });
+  const facets = routers.flatMap((token, i) =>
+    FACET_QUERIES.map((selector, j) => ({
+      token,
+      selector,
+      reply: facetReplies.value[i * FACET_QUERIES.length + j] as CallReply,
+    })),
+  );
 
   const feeds = await timed(deps, () =>
     multicall(rpc, m3, feedCalls(parseDirectory(listings.directory.entries).feeds), tag),
@@ -415,6 +467,7 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
     httpRequests: a.httpRequests + b.httpRequests,
     errors: a.errors + b.errors,
   });
+  const n = TOKEN_CALLS.length;
   const onchain: AssetReads['onchain'] = {
     block: Number(head.number),
     blockTime: Number(head.timestamp),
@@ -423,17 +476,24 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
     weth9: calls.value.weth9,
     tokens: addresses.map((address, i) => ({
       address,
-      replies: calls.value.replies.slice(i * 6, i * 6 + 6),
+      replies: calls.value.replies.slice(i * n, i * n + n),
       slots: slots.value[i] as { implementation: string; admin: string; beacon: string },
     })),
     beacons,
-    code: code.value,
-    feeds: feeds.value,
+    cloneTargets: targets.map((address, i) => ({
+      address,
+      slots: targetSlots.value[i] as { implementation: string; admin: string; beacon: string },
+    })),
+    facets,
+    code: [...scans.entries()]
+      .map(([address, s]) => ({ address, ...s }))
+      .sort((a, b) => (a.address < b.address ? -1 : 1)),
     watched: [...WATCHED_SELECTORS],
     challenged: input.challenged?.() ?? 0,
+    feeds: feeds.value,
     phases: {
-      calls: merge(calls.phase, beaconReplies.phase),
-      slots: slots.phase,
+      calls: merge(merge(calls.phase, beaconReplies.phase), facetReplies.phase),
+      slots: merge(slots.phase, targetSlots.phase),
       code: code.phase,
       feeds: feeds.phase,
     },

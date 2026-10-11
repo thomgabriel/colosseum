@@ -10,15 +10,13 @@
 import 'dotenv/config';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { gunzipSync, gzipSync } from 'node:zlib';
-import { defaultRegimeParams, tokenAnswers, tokenBasics } from '@colosseum/risk';
-import { UniverseVerdicts } from '@colosseum/schemas';
-import { LEG_TYPES } from '../../packages/engine/src/personal/leg-types';
+import { gzipSync } from 'node:zlib';
+import { tokenAnswers, tokenBasics } from '@colosseum/risk';
+import { codePath, frozenPath, loadFiles, PATHS, readGz } from './assets-files';
 import {
   type AssetFiles,
   type AssetReads,
   cutDiscovery,
-  type DiscoveryCut,
   type FrozenReads,
   namesTable,
   noteAddresses,
@@ -30,61 +28,12 @@ import { type Listings, readAssets, readListings } from './assets-read';
 const CHALLENGE_TRIES = 8;
 const CHALLENGE_WAIT_MS = 15_000;
 /** UTC minutes, from and before, in which the hourly collector (scheduled at minute 4) reads the chain. */
-const LOOP_QUIET = [1, 14] as const;
+const LOOP_QUIET = [1, 15] as const;
 
 import { CHAINS, rpcFor } from './config';
 import { DIRECTORY_URL } from './feeds';
 import { latestFile, REGISTRY_URL, stamp } from './registry';
 import { createRpc } from './rpc';
-
-export const PATHS = {
-  verdicts: 'scripts/risk/assets/robinhood.verdicts.json',
-  tracked: 'scripts/risk/universe/robinhood.json',
-  shelf: 'packages/engine/src/personal/fixtures/shelves/robinhood-yield.json',
-  deploy: 'deployments/robinhood-testnet.json',
-  content: 'content/stocks/robinhood.json',
-  legTypes: 'packages/engine/src/personal/leg-types.ts',
-  note: 'docs/vault/research/yield-shelf/robinhood.md',
-  noteInputs: 'docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv',
-  calendar: 'fixtures/risk/us-market-holidays.json',
-  fixtures: 'fixtures/risk-evm/assets',
-} as const;
-
-/** Where a run's frozen reads go, by the time of the block they were read at. */
-export const frozenPath = (reads: AssetReads) =>
-  `${PATHS.fixtures}/robinhood-reads-${stamp(new Date(reads.onchain.blockTime * 1000))}.json.gz`;
-export const codePath = (reads: AssetReads) =>
-  `${PATHS.fixtures}/robinhood-code-${stamp(new Date(reads.onchain.blockTime * 1000))}.json.gz`;
-
-const json = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
-export const readGz = <T>(path: string): T => JSON.parse(gunzipSync(readFileSync(path)).toString());
-
-/** The repository's files the list reads, and the discovery cut it counts pools from. */
-export function loadFiles(discovery: DiscoveryCut, root = '.'): Omit<AssetFiles, 'frozenPath'> {
-  const at = (p: string) => join(root, p);
-  const tracked = json(at(PATHS.tracked)) as {
-    inputs: { cut: string };
-    assets: Array<{ id: string; address: string }>;
-  };
-  const deploy = json(at(PATHS.deploy)) as AssetFiles['deploy'];
-  const content = json(at(PATHS.content)) as { stocks: Array<{ symbol: string }> };
-  return {
-    verdicts: UniverseVerdicts.parse(json(at(PATHS.verdicts))),
-    verdictsPath: PATHS.verdicts,
-    tracked: { path: PATHS.tracked, cut: tracked.inputs.cut, assets: tracked.assets },
-    shelf: { path: PATHS.shelf, rows: (json(at(PATHS.shelf)) as AssetFiles['shelf']).rows },
-    deploy: { path: PATHS.deploy, cash: deploy.cash, assets: deploy.assets },
-    content: { path: PATHS.content, symbols: content.stocks.map((s) => s.symbol) },
-    legTypes: { path: PATHS.legTypes, rows: LEG_TYPES },
-    notes: [PATHS.note, PATHS.noteInputs, PATHS.shelf].map((p) => ({
-      path: p,
-      text: readFileSync(at(p), 'utf8'),
-    })),
-    discovery,
-    regime: defaultRegimeParams(json(at(PATHS.calendar))),
-    calendarPath: PATHS.calendar,
-  };
-}
 
 /** The raw code of a few addresses, for the decoder tests: one of each kind the reads found. */
 function codeSamples(reads: AssetReads, code: Map<string, string>, dollar: string) {
@@ -155,6 +104,17 @@ export async function buildList(args: string[]) {
     const { url: rpcUrl, label } = rpcFor(chain);
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     let challenged = 0;
+    // the hourly collector reads the same endpoint at minute 4: nothing is asked of it in minutes 1 to 14
+    const quiet = async () => {
+      for (;;) {
+        const minute = new Date().getUTCMinutes();
+        if (minute < LOOP_QUIET[0] || minute >= LOOP_QUIET[1]) return;
+        console.error(
+          `minute ${minute}: paused until minute ${LOOP_QUIET[1]}, the collector's hour`,
+        );
+        await sleep(30_000);
+      }
+    };
     const deps = {
       // The public RPC sits behind Cloudflare, which at times answers a request with a challenge
       // (HTTP 403, cf-mitigated). Such a request is asked again, slowly, as it is: nothing is solved or
@@ -162,6 +122,8 @@ export async function buildList(args: string[]) {
       rpc: createRpc(rpcUrl, {
         fetch: async (url, init) => {
           for (let attempt = 0; ; attempt++) {
+            // every request, not only the first: the chain is not read in the collector's minutes
+            await quiet();
             const res = await fetch(url, init);
             if (
               res.status !== 403 ||
@@ -205,23 +167,14 @@ export async function buildList(args: string[]) {
       writeFileSync(out, gzipSync(JSON.stringify(listings)));
       lines.push(`listings written to ${out}`);
     }
-    // the hourly collector reads the same endpoint at minute 4: the chain is not read near it
-    const beforeChain = async () => {
-      for (;;) {
-        const minute = new Date().getUTCMinutes();
-        if (minute < LOOP_QUIET[0] || minute >= LOOP_QUIET[1]) return;
-        console.error(`minute ${minute}: waiting for the collector's hour to pass`);
-        await sleep(60_000);
-      }
-    };
-    const { reads, code } = await readAssets(deps, { ...input, listings, beforeChain });
+    const { reads, code } = await readAssets(deps, { ...input, listings, beforeChain: quiet });
 
     const dir = process.env.RISK_EVM_DIR ?? 'data/risk-evm';
     const discoveryFile = option('--discovery') ?? latestFile(dir, 'discovery', 'robinhood');
     if (!discoveryFile) throw new Error(`no discovery file in ${dir}: set RISK_EVM_DIR`);
     const discovery = cutDiscovery(
       basename(discoveryFile),
-      json(discoveryFile),
+      JSON.parse(readFileSync(discoveryFile, 'utf8')),
       reads.onchain.tokens.map((t) => t.address),
     );
     frozen = { reads, discovery, samples: codeSamples(reads, code, chain.dollar.address) };

@@ -24,6 +24,7 @@ export const TOKEN_CALLS = [
   ['asset()', '38d52e0f'],
   ['convertToAssets(uint256)', '07a2d13a'],
   ['owner()', '8da5cb5b'],
+  ['defaultAdmin()', '84ef8ffc'],
 ] as const;
 /** The amount convertToAssets is asked about: one whole share at 18 decimals. Only whether it answers is read. */
 export const CONVERT_AMOUNT = 10n ** 18n;
@@ -67,10 +68,40 @@ export const CODE_SELECTORS = {
   ],
 } as const;
 
+/** The functions by which an implementation upgrades its own proxy (UUPS): the admin slot is then empty by design. */
+export const UPGRADE_SELECTORS = [
+  ['upgradeTo(address)', '3659cfe6'],
+  ['upgradeToAndCall(address,bytes)', '4f1ef286'],
+  ['proxiableUUID()', '52d1902d'],
+] as const;
+
+/**
+ * A facet router's table: code that pushes it sends each selector to the facet `getFacet` names, by
+ * DELEGATECALL. Asking `getFacet(<selector>)` of the token is a read of where a function runs.
+ */
+export const ROUTER_SELECTOR = ['getFacet(bytes4)', '112b6a67'] as const;
+
 /** Every selector looked for in code, sorted: what a frozen code scan was reduced to. */
 export const WATCHED_SELECTORS: readonly string[] = [
-  ...new Set([...CODE_SELECTORS.pausable, ...CODE_SELECTORS.blacklist].map(([, s]) => s)),
+  ...new Set(
+    [
+      ...CODE_SELECTORS.pausable,
+      ...CODE_SELECTORS.blacklist,
+      ...UPGRADE_SELECTORS,
+      ROUTER_SELECTOR,
+    ].map(([, s]) => s),
+  ),
 ].sort();
+
+/** The selectors a facet router is asked about, one getFacet call each: those of CODE_SELECTORS. */
+export const FACET_QUERIES: readonly string[] = [
+  ...CODE_SELECTORS.pausable,
+  ...CODE_SELECTORS.blacklist,
+].map(([, s]) => s);
+
+/** The calldata of getFacet(selector). */
+export const getFacetCall = (selector: string) =>
+  `0x${ROUTER_SELECTOR[1]}${selector.padEnd(64, '0')}`;
 
 /** One answer of a Multicall3 call. */
 export type CallReply = { success: boolean; data: string };
@@ -215,80 +246,156 @@ export type CodeContext = {
   codeAt: (address: string) => CodeScan | null;
   /** implementation() and owner() of the token's beacon, where its beacon slot names one. */
   beacon: { implementation: CallReply; owner: CallReply } | null;
+  /** The EIP-1967 slots of a clone's target, where the token is a clone. Its own storage, not the clone's. */
+  cloneTargetSlots?: { implementation: string; admin: string; beacon: string } | null;
+  /** getFacet(selector) asked of the token, by selector, where the code that runs is a facet router. */
+  facets?: Record<string, CallReply> | null;
 };
 
 const sigs = (selectors: readonly (readonly [string, string])[], found: Set<string>) =>
   selectors.filter(([, s]) => found.has(s)).map(([sig]) => sig);
+const slotText = (s: { implementation: string; admin: string; beacon: string }) => {
+  const parts = (['implementation', 'admin', 'beacon'] as const).map((k) => {
+    const v = slotValue(s[k]);
+    return `${k} ${v.kind === 'address' ? v.address : v.kind === 'zero' ? 'zero' : 'not an address'}`;
+  });
+  return parts.join(', ');
+};
 
-/** Whether the token is an upgradeable proxy and to what, where its code is, and what that code can do. */
-export function evmExtensions(ctx: CodeContext): UniverseExtensions & { family: 'evm' } {
+/** Where the code of a token runs, as its slots and its code say. */
+export type CodeLayout = {
+  proxy: Flag;
+  implementation: string | null;
+  /** The code that runs when the token is called, each with a label; the proxy's own code first where there is one. */
+  codes: Array<{ at: string; scan: CodeScan | null; shell: boolean }>;
+};
+
+/** Whether the token is an upgradeable proxy and to what, and which code runs when it is called. */
+export function codeLayout(ctx: CodeContext): CodeLayout {
   const impl = slotValue(ctx.slots.implementation);
   const beacon = slotValue(ctx.slots.beacon);
-  let proxy: Flag;
-  let implementation: string | null = null;
-  /** Where the code that runs is, and its label for a `read`. */
-  let codes: Array<{ at: string; scan: CodeScan | null }> = [{ at: 'the token', scan: ctx.own }];
-  if (impl.kind === 'address') {
-    proxy = {
-      value: true,
-      reason: null,
-      read: `EIP-1967 implementation slot holds ${impl.address}`,
+  const own = { at: 'the token', scan: ctx.own, shell: false };
+  if (impl.kind === 'address')
+    return {
+      proxy: {
+        value: true,
+        reason: null,
+        read: `EIP-1967 implementation slot holds ${impl.address}`,
+      },
+      implementation: impl.address,
+      codes: [
+        { at: 'the proxy', scan: ctx.own, shell: true },
+        { at: `the implementation ${impl.address}`, scan: ctx.codeAt(impl.address), shell: false },
+      ],
     };
-    implementation = impl.address;
-    codes = [
-      { at: 'the proxy', scan: ctx.own },
-      { at: `the implementation ${impl.address}`, scan: ctx.codeAt(impl.address) },
-    ];
-  } else if (beacon.kind === 'address') {
+  if (beacon.kind === 'address') {
     const answered = ctx.beacon?.implementation.success
       ? wordAddress(ctx.beacon.implementation.data)
       : null;
-    if (answered && answered !== ZERO) {
-      proxy = {
-        value: true,
-        reason: null,
-        read: `EIP-1967 beacon slot holds ${beacon.address}, whose implementation() is ${answered}`,
+    if (answered && answered !== ZERO)
+      return {
+        proxy: {
+          value: true,
+          reason: null,
+          read: `EIP-1967 beacon slot holds ${beacon.address}, whose implementation() is ${answered}`,
+        },
+        implementation: answered,
+        codes: [
+          { at: 'the proxy', scan: ctx.own, shell: true },
+          { at: `the implementation ${answered}`, scan: ctx.codeAt(answered), shell: false },
+        ],
       };
-      implementation = answered;
-      codes = [
-        { at: 'the proxy', scan: ctx.own },
-        { at: `the implementation ${answered}`, scan: ctx.codeAt(answered) },
-      ];
-    } else {
-      proxy = {
+    return {
+      proxy: {
         value: null,
         reason: 'beacon_gave_no_implementation',
         read: `EIP-1967 beacon slot holds ${beacon.address}; its implementation() gave no address`,
+      },
+      implementation: null,
+      codes: [{ at: 'the proxy', scan: ctx.own, shell: true }],
+    };
+  }
+  if (impl.kind === 'not_an_address' || beacon.kind === 'not_an_address')
+    return {
+      proxy: {
+        value: null,
+        reason: 'slot_holds_no_address',
+        read: 'an EIP-1967 implementation or beacon slot holds a word that is not an address',
+      },
+      implementation: null,
+      codes: [own],
+    };
+  const target = ctx.own.minimalProxyTarget;
+  if (target) {
+    const scan = ctx.codeAt(target);
+    const theirs = ctx.cloneTargetSlots
+      ? `; the target's own slots: ${slotText(ctx.cloneTargetSlots)}`
+      : "; the target's slots were not read";
+    const codes = [{ at: `the clone's target ${target}`, scan, shell: false }];
+    if (scan === null)
+      return {
+        proxy: {
+          value: null,
+          reason: 'clone_target_not_read',
+          read: `EIP-1967 slots are zero; the code is an EIP-1167 clone of ${target}, whose code was not read`,
+        },
+        implementation: null,
+        codes,
       };
-      codes = [{ at: 'the proxy', scan: ctx.own }];
-    }
-  } else if (impl.kind === 'not_an_address' || beacon.kind === 'not_an_address') {
-    proxy = {
-      value: null,
-      reason: 'slot_holds_no_address',
-      read: 'an EIP-1967 implementation or beacon slot holds a word that is not an address',
+    if (scan.delegatecall)
+      return {
+        proxy: {
+          value: null,
+          reason: 'clone_target_delegates',
+          read: `EIP-1967 slots are zero; the code is an EIP-1167 clone of ${target}, whose code has a DELEGATECALL: where it forwards was not read${theirs}`,
+        },
+        implementation: null,
+        codes,
+      };
+    return {
+      proxy: {
+        value: false,
+        reason: null,
+        read: `EIP-1967 slots are zero; the code is an EIP-1167 clone of ${target}, which has no DELEGATECALL, so it cannot be upgraded${theirs}`,
+      },
+      implementation: null,
+      codes,
     };
-  } else if (ctx.own.minimalProxyTarget) {
-    const target = ctx.own.minimalProxyTarget;
-    proxy = {
-      value: false,
-      reason: null,
-      read: `EIP-1967 slots are zero; the code is an EIP-1167 clone of ${target}, which cannot be upgraded`,
+  }
+  if (ctx.own.delegatecall)
+    return {
+      proxy: {
+        value: null,
+        reason: 'delegatecall_without_eip1967_slot',
+        read: 'EIP-1967 slots are zero and the code has a DELEGATECALL: where it forwards was not read',
+      },
+      implementation: null,
+      codes: [own],
     };
-    codes = [{ at: `the clone's target ${target}`, scan: ctx.codeAt(target) }];
-  } else if (ctx.own.delegatecall) {
-    proxy = {
-      value: null,
-      reason: 'delegatecall_without_eip1967_slot',
-      read: 'EIP-1967 slots are zero and the code has a DELEGATECALL: where it forwards was not read',
-    };
-  } else
-    proxy = {
+  return {
+    proxy: {
       value: false,
       reason: null,
       read: 'EIP-1967 implementation, admin and beacon slots are zero and the code has no DELEGATECALL',
-    };
+    },
+    implementation: null,
+    codes: [own],
+  };
+}
 
+/** True when the code that runs (not a proxy's own shell) pushes getFacet(bytes4). */
+export const isFacetRouter = (layout: CodeLayout) =>
+  layout.codes.some((c) => !c.shell && (c.scan?.selectors ?? []).includes(ROUTER_SELECTOR[1]));
+
+/**
+ * Whether the token is an upgradeable proxy and to what, where its code is, and what that code can do.
+ * A flag is true where a selector of CODE_SELECTORS is pushed by the code that runs, or a facet router
+ * names a facet for it; null where it is not found and the code that runs has a DELEGATECALL (it may
+ * run code that has it), or where a code was not read; false only where none of that holds.
+ */
+export function evmExtensions(ctx: CodeContext): UniverseExtensions & { family: 'evm' } {
+  const { proxy, implementation, codes } = codeLayout(ctx);
+  const router = isFacetRouter({ proxy, implementation, codes });
   const flag = (which: keyof typeof CODE_SELECTORS): Flag => {
     const list = CODE_SELECTORS[which];
     const missing = codes.find((c) => c.scan === null);
@@ -309,16 +416,34 @@ export function evmExtensions(ctx: CodeContext): UniverseExtensions & { family: 
     const found = sigs(list, new Set(codes.flatMap((c) => c.scan?.selectors ?? [])));
     if (found.length > 0)
       return { value: true, reason: null, read: `${found.join(', ')} in the code of ${where}` };
-    if (proxy.value === null)
+    if (router && ctx.facets) {
+      // a selector the router sends to a facet whose own code pushes it
+      const routed = list.flatMap(([sig, sel]) => {
+        const r = ctx.facets?.[sel];
+        const facet = r?.success ? wordAddress(r.data) : null;
+        if (!facet || facet === ZERO) return [];
+        return ctx.codeAt(facet)?.selectors.includes(sel) ? [`${sig} to ${facet}`] : [];
+      });
+      if (routed.length > 0)
+        return {
+          value: true,
+          reason: null,
+          read: `the code of ${where} is a facet router: getFacet() of the token sends ${routed.join(', ')}, whose code pushes it`,
+        };
+    }
+    const delegates = codes.find((c) => !c.shell && c.scan?.delegatecall);
+    if (delegates || proxy.value === null)
       return {
         value: null,
         reason: 'code_may_run_elsewhere',
-        read: `none of the ${which} selectors in the code of ${where}, which may run other code`,
+        read: `none of the ${which} selectors in the code of ${where}${
+          router ? ', nor a facet for them by getFacet()' : ''
+        }; ${delegates ? `${delegates.at} has a DELEGATECALL` : 'the code delegates'}, so a function may run in code not read`,
       };
     return {
       value: false,
       reason: null,
-      read: `none of the ${which} selectors in the code of ${where}`,
+      read: `none of the ${which} selectors in the code of ${where}, which has no DELEGATECALL`,
     };
   };
   return {
@@ -338,39 +463,78 @@ function holderOf(reply: CallReply | null, read: string, noFunction: string): Un
   return a === ZERO ? { holder: null, reason: 'none', read } : { holder: a, reason: null, read };
 }
 
+const answerText = (name: string, reply: CallReply) => {
+  const a = reply.success ? wordAddress(reply.data) : null;
+  return a ? `${name} answers ${a}` : `${name} gives no address`;
+};
+
 /**
- * `owner` from owner(); `admin` from the EIP-1967 admin slot, or, behind a beacon, from owner() of the
- * beacon, which is who may change the code every proxy of it runs.
+ * `owner` from owner(). `admin`: behind a beacon, owner() of the beacon, which is who may change the
+ * code of every proxy of it; else the EIP-1967 admin slot. An empty admin slot is `none` only on a token
+ * that is no proxy; on a proxy it is unknown (`uups_upgrade_in_implementation` where the implementation
+ * upgrades itself, `admin_slot_empty_on_proxy` otherwise), and on code that delegates without a slot
+ * `admin_slot_empty_code_delegates`. owner() and defaultAdmin() of the token are named in the read.
  */
 export function evmAuthorities(ctx: {
   owner: CallReply;
-  slots: CodeContext['slots'];
-  beacon: CodeContext['beacon'];
+  defaultAdmin: CallReply;
+  code: CodeContext;
 }): Record<'owner' | 'admin', UniverseAuthority> {
   const owner = holderOf(ctx.owner, 'owner()', 'no_owner_function');
-  const beacon = slotValue(ctx.slots.beacon);
-  const implSet = slotValue(ctx.slots.implementation).kind !== 'zero';
+  const layout = codeLayout(ctx.code);
+  const beacon = slotValue(ctx.code.slots.beacon);
+  const implSet = slotValue(ctx.code.slots.implementation).kind !== 'zero';
   if (beacon.kind === 'address' && !implSet)
     return {
       owner,
       admin: holderOf(
-        ctx.beacon?.owner ?? null,
+        ctx.code.beacon?.owner ?? null,
         `owner() of the EIP-1967 beacon ${beacon.address}`,
         'no_owner_function',
       ),
     };
-  const slot = slotValue(ctx.slots.admin);
-  const read = 'EIP-1967 admin slot';
-  const admin: UniverseAuthority =
-    slot.kind === 'zero'
-      ? { holder: null, reason: 'none', read }
-      : slot.kind === 'address'
-        ? { holder: slot.address, reason: null, read }
-        : { holder: null, reason: 'slot_holds_no_address', read };
-  return { owner, admin };
+  const slot = slotValue(ctx.code.slots.admin);
+  if (slot.kind === 'address')
+    return { owner, admin: { holder: slot.address, reason: null, read: 'EIP-1967 admin slot' } };
+  if (slot.kind === 'not_an_address')
+    return {
+      owner,
+      admin: { holder: null, reason: 'slot_holds_no_address', read: 'EIP-1967 admin slot' },
+    };
+  if (layout.proxy.value === false)
+    return { owner, admin: { holder: null, reason: 'none', read: 'EIP-1967 admin slot' } };
+  const named = `${answerText('owner()', ctx.owner)}, ${answerText('defaultAdmin()', ctx.defaultAdmin)}; which of them may upgrade is not read`;
+  if (layout.proxy.value === null)
+    return {
+      owner,
+      admin: {
+        holder: null,
+        reason: 'admin_slot_empty_code_delegates',
+        read: `EIP-1967 admin slot is empty and the code delegates; ${named}`,
+      },
+    };
+  const upgrades = sigs(
+    UPGRADE_SELECTORS,
+    new Set(layout.codes.filter((c) => !c.shell).flatMap((c) => c.scan?.selectors ?? [])),
+  );
+  return {
+    owner,
+    admin:
+      upgrades.length > 0
+        ? {
+            holder: null,
+            reason: 'uups_upgrade_in_implementation',
+            read: `EIP-1967 admin slot is empty; the implementation pushes ${upgrades.join(', ')}, so it upgrades itself; ${named}`,
+          }
+        : {
+            holder: null,
+            reason: 'admin_slot_empty_on_proxy',
+            read: `EIP-1967 admin slot is empty on a proxy whose implementation pushes no upgrade selector; ${named}`,
+          },
+  };
 }
 
-/** The six answers of TOKEN_CALLS for one address, by name. */
+/** The answers of TOKEN_CALLS for one address, by name. */
 export type TokenAnswers = {
   decimals: CallReply;
   symbol: CallReply;
@@ -378,11 +542,13 @@ export type TokenAnswers = {
   asset: CallReply;
   convertToAssets: CallReply;
   owner: CallReply;
+  defaultAdmin: CallReply;
 };
 export function tokenAnswers(replies: readonly CallReply[]): TokenAnswers {
   if (replies.length !== TOKEN_CALLS.length)
     throw new Error(`tokenAnswers: ${replies.length} answers, ${TOKEN_CALLS.length} calls`);
-  const [decimals, symbol, name, asset, convertToAssets, owner] = replies as [
+  const [decimals, symbol, name, asset, convertToAssets, owner, defaultAdmin] = replies as [
+    CallReply,
     CallReply,
     CallReply,
     CallReply,
@@ -390,7 +556,7 @@ export function tokenAnswers(replies: readonly CallReply[]): TokenAnswers {
     CallReply,
     CallReply,
   ];
-  return { decimals, symbol, name, asset, convertToAssets, owner };
+  return { decimals, symbol, name, asset, convertToAssets, owner, defaultAdmin };
 }
 
 /** The calldata of TOKEN_CALLS, in order. */
