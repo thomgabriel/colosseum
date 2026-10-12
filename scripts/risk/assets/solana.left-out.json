@@ -1,8 +1,14 @@
 {
   "chain": "solana",
-  "reviewedOn": "2026-10-11",
+  "reviewedOn": "2026-10-12",
   "note": "Tokens the crypto selection picks (Jupiter verified; tagged major or strict, or a 24 h volume on Jupiter of at least the floor) that are not rows, each with the reason and where it was read. A token Jupiter tags meme, launchpad or moonshot is counted by the builder and is not listed here. Reviewed by hand on readOn.",
   "tokens": [
+    {
+      "address": "3W52uCb8NW8ruMF9mmJX3oKiYAjdPai4633srsZFQCS6",
+      "symbol": "$BIAO",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/biao-coin: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
     {
       "address": "BoZoQQRAmYkr5iJhqo7DChAs7DPDwEZ5cv1vkYC9yzJG",
       "symbol": "$BOZO",
@@ -12,20 +18,56 @@
     {
       "address": "8c71AvjQeKKeWRe8jtTGG1bJ2WiYXQdbjqFbUfhHgSVk",
       "symbol": "$GARY",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/gary: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/gary: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "HXkbUADfocGyz2WrzJpjEfry8qyNDm5Kwiiq3Mz3tTi1",
       "symbol": "$RETIRE",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/retire-on-sol: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/retire-on-sol: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "J8cKU4pD2NTSovvV5XghWHQiJy5TTEzgSyozorxz6ax8",
       "symbol": "$SOLO",
       "reason": "memecoin",
       "source": "https://www.coingecko.com/en/coins/solordi: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "F3nefJBcejYbtdREjui1T9DPh5dBgpkKq7u2GAAMXs5B",
+      "symbol": "AART",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/all-art: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "5MAYDfq5yxtudAhtfyuMBuHZjgAbaS9tbEyEQYAhDS5y",
+      "symbol": "ACS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/access-protocol: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "99ouK5YUK3JPGCPX9joNtHsMU7NPpU7w91JN4kdQ97po",
+      "symbol": "AI",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/ai-community: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+      "symbol": "ALCH",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/alchemist-ai: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "3UCMiSnkcnkPE1pgQ5ggPCBv6dXgVUy16TmMUe1WpG9x",
+      "symbol": "ALEPH",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/aleph-im-wormhole: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "8XtRWb4uAAJFMP4QQhoYYCWR6XXb7ybcCdiqPwz9s5WS",
+      "symbol": "ALON",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/alon: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "7ypCq2CJ4fnbtS3z2B1W1UT2he5E3u7Md6Gy1ri7uGrQ",
@@ -36,8 +78,104 @@
     {
       "address": "CWZ6BsdnjkDVTGkmL6bGbJXXig6ceef12KvyGQW14cMt",
       "symbol": "ANTFUN",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/antfun: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "5JnZ667P3VcjDinkJFysWh2K2KtViy63FZ3oL5YghEhW",
+      "symbol": "APYS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/apyswap: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "ARBzQTYDCW2KnVEjs1Mc81LekB1ibVFZKbSVmorkoT9d",
+      "symbol": "ARB",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "ARXwZkNAtzPfdcoqQiduJn8EPv9fKiDfGn2KyggyDrFs",
+      "symbol": "ARX",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/arcium: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "AxaTJdRuuc3626FtPWdQCMcWPH6yzgxXKWbFCZN3TMgy",
+      "symbol": "ASV",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx",
+      "symbol": "ATLAS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/star-atlas: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "ATRLuHph8dxnPny4WSNW7fxkhbeivBrtWbY6BfB4xpLj",
+      "symbol": "ATR",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/artrade: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+      "symbol": "AUDIO",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/audius: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "AURYydfxJib1ZkTir1Jn1J9ECYUtjb6rKQVmtYaixWPP",
+      "symbol": "AURY",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/aurory: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "BANXbTpN8U2cU41FjPxe2Ti37PiT5cCxLUKDQZuJeMMR",
+      "symbol": "BANX",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/banx: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "DM3Y4R7n1HGhP9AkNT6Ex4w1qQTpgq1TyujrMDX11FMT",
+      "symbol": "BASC",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "EPeUFDgHRxs9xxEPVaL6kfGQvCon7jmAWKVUHuux1Tpz",
+      "symbol": "BAT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/basic-attention-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "BLVxek8YMXUQhcKmMvrFTrzh5FXg8ec88Crp6otEaCMf",
+      "symbol": "BELIEVE",
       "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/antfun: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "source": "https://www.coingecko.com/en/coins/ben-pasternak: CoinGecko files it in meme-token, solana-meme-coins (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "NFTUkR4u7wKxy9QLaX2TGvd9oZSWoMo4jqSJqdMb7Nk",
+      "symbol": "BLOCK",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/blockasset: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "3dQTr7ror2QPKQ3GbBCokJUmjErGg8kTJzdnYjNfvi3Z",
+      "symbol": "BORG",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/swissborg: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "7C94RweVKZtBhA291WpXW7pkYEnbqhGvCFTU8nPoBTFY",
+      "symbol": "BOTIFY",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/botify: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy",
+      "symbol": "BP",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/backpack: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "C3JX9TWLqHKmcoTDTppaJebX2U7DcUQDEHVSmJFz6K6S",
@@ -46,16 +184,76 @@
       "source": "https://www.coingecko.com/en/coins/bazinga-2: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
+      "address": "CARDSccUMFKoPRZxt5vt3ksUbxEFEcnZ3H2pd3dKxYjp",
+      "symbol": "CARDS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/collector-crypt: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "CARSsxWPkpQWvfyRBwfGMGvysJBHdHGfE46X5MNgmeta",
+      "symbol": "CARS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/rip-cars: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "Ai66LHZG9MCzg1WKdawwqduVAXpNDUuV8M3uyq5ppump",
+      "symbol": "CATE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "947tEoG318GUmyjVYhraNRvWpMX7fpBTDQFBoJvSkSG3",
+      "symbol": "CHAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/solchat: CoinGecko files it in meme-token (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "EkHr62PC6Y1axrLS7cR8YC4BZeW19mtHxQLCLMrf9vnq",
       "symbol": "CIRCLE",
       "reason": "memecoin",
       "source": "https://www.coingecko.com/en/coins/you-looked: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
+      "address": "739dnZEG4yaBWFsY8L8ZwrfhGG6dhtCSercW8Umspump",
+      "symbol": "CLAW",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/clawpump-tech: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "69LjZUUzxj3Cb3Fxeo1X4QpYEQTboApkhXTysPpbpump",
+      "symbol": "CODEC",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/codec-flow: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "8HGyAAB1yoM1ttS7pXjHMa3dukTFGQggnFFH3hJZgzQh",
       "symbol": "COPE",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/cope: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/cope: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "CREDBHvVqREBCAxMihzr8D1nepHMr2gmQoZWpmgGmeta",
+      "symbol": "CRED",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/credible-finance: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "GDfnEsia2WLAW5t8yx2X5j2mkfA74i5kwGdDuZHt7XmG",
+      "symbol": "CROWN",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/crown-by-third-time-games: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "CRWNYkqdgvhGGae9CKfNka58j6QQkaD5bLhKXvUYqnc1",
+      "symbol": "CRWNY",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/crowny-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "HfYFjMKNZygfMC8LsQ8LtpPsPxEJoXJx4M6tqi75Hajo",
+      "symbol": "CWAR",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/cryowar-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "ApZuxdpzMrbEYTGEzeY9afh5pj9d6qPRJCTgQYiipbKg",
@@ -64,10 +262,58 @@
       "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files cyberleek as a meme"
     },
     {
+      "address": "6NwarBvDkXhByqVp2Qkq5i9XbtA2B3Bwe8SWGu9vpump",
+      "symbol": "Cupsey",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/cupsey-2: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o",
+      "symbol": "DAI",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "7KEPApdbBMByrmqihz3bht2uMhFQcatjfSFQCKq66kH3",
+      "symbol": "DARK",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/darkswap: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "DFL1zNkaGPWm1BqAVqRjCZvHmwTFrEaJtbzJWgseoNJh",
+      "symbol": "DFL",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/defi-land: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "BiDB55p4G3n1fGhwKFpxsokBMqgctL4qnZpDH1bVQxMD",
+      "symbol": "DIO",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/decimated: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "E1kvzJNxShvvWTrudokpzuc789vRiDXfXG3duCuY6ooE",
+      "symbol": "DITH",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/dither: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "A5gVj5j16U4vCTMXQYYrhkmWgx6gej4nAeZRNQMLUAfy",
       "symbol": "DJCAT",
       "reason": "memecoin",
       "source": "https://www.coingecko.com/en/coins/djcat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "DoGEV7LASBkQbibMc5k5vKnTZoMg423GpJ5QtJEGfm7R",
+      "symbol": "DOGE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "J2LWsSXx4r3pYbJ1fwuX5Nqo7PPxjcGPpUb2zHNadWKa",
+      "symbol": "DPLN",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/deplan: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "7Xgc5RacHtGzfhw2HukUBk5V986yBbvshr7rrCoopump",
@@ -76,10 +322,46 @@
       "source": "https://www.coingecko.com/en/coins/derekmercer: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
-      "address": "A2khRbhRJNrAEHj95htivC4cR4VbJwfssDH5FPPbP4m9",
-      "symbol": "duk",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/duk-on-sol: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "address": "DUSTawucrTsGU8hcqRdHDCbuYhCPADMLM2VcCb8VnFnQ",
+      "symbol": "DUST",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/dust-protocol: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "4Hx6Bj56eGyw8EJrrheM6LBQAvVYRikYCWsALeTrwyRU",
+      "symbol": "DYDX",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/dydx-wormhole: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "5g6wVay8NYQ5Tspo4irj9YqSFfQoPDW7apkX352N29PP",
+      "symbol": "EDEL",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/edel: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "symbol": "EMBER",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/embercurve: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "CvB1ztJvpYQPvdPBePtRzjL4aQidjydtUz61NWgcgQtP",
+      "symbol": "EPCT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/epics-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "6FhVPctYg363pQbs4iSvqyHe2cJzfsvFD96gePy6pump",
+      "symbol": "EXFIL",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "Afo4NumBNHDXc7m7p6qjZ1pF3LbqYfG5k1CNrGve8rVu",
+      "symbol": "FALX",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/falx: no page read confirms a protocol, chain or product (reviewed by hand)"
     },
     {
       "address": "HgcxVs6kJhPAaGqnPNGaa7zYgNT49hJrLufiqcNMuYZT",
@@ -94,28 +376,118 @@
       "source": "https://www.coingecko.com/en/coins/777fuckilluminatiworldwid: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
-      "address": "CTPoyCwkjMvoJwU4xvZZqoD8tiYk6yDchySiN5gGpump",
-      "symbol": "fone",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files apeonfone as a meme"
+      "address": "VVWAy5U2KFd1p8AdchjUxqaJbZPBeP5vUQRZtAy8hyc",
+      "symbol": "FLIP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "FLUXBmPhT3Fd1EDVFdg46YREqHBeNypn1h4EbnTzWERX",
+      "symbol": "FLUXB",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/fluxbot: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "Eh1fXbAipe4k7CYR9UMb2bbWmBcpU3HcyX3LWuRVFBLz",
+      "symbol": "FM",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/flowmatic: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "FoRGERiW7odcCBGU1bztZi16osPBHjxharvDathL5eds",
+      "symbol": "FORGE",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/blocksmith-labs-forge: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "FoXyMu5xwXre7zEoSvzViRk3nGawHUp9kUh97y2NDhcq",
+      "symbol": "FOXY",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/famous-fox-federation: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "HbPDWSqu8hpVMX6gMjwMDGe5rVgicWo3Qh3Jaojypump",
       "symbol": "Frank",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/frank-ashford: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/frank-ashford: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
-      "address": "D1YZZg9dBZ7AbfknZVbaeVLto36eySwoFYEVhZrD4F4n",
-      "symbol": "GO",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/lesgo: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "address": "CKaKtYvz6dKPyMvYq9Rh3UBrnNqYZAyd7iF4hJtjUvks",
+      "symbol": "GARI",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/gari-network: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
-      "address": "BQ3F72yt9FVRgYrqCVCG3YohyBesDZ9bTuhGdmQ7GNEF",
-      "symbol": "GROK",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/grok-6: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "address": "7JA5eZdCzztSfQbJvS8aVVxMFfd81Rs9VvwnocV1mKHu",
+      "symbol": "GEOD",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/geodnet: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "7i5KKsX2weiTkry7jA4ZwSuXGhs5eJBEjY8vVxR4pfRx",
+      "symbol": "GMT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/stepn: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "GoLDppdjB1vDTPSGxyMJFqdnj134yH6Prg9eqsGDiw6A",
+      "symbol": "GOLD",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/gold-11: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "HTmQz7My6MehV7bjhJ6jde8nDND1yvsz68d24LP7YgUQ",
+      "symbol": "GP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "Grass7B4RdKfBCjTKgSqnXkqjwiGvQyFbuSCUJr3XXjs",
+      "symbol": "GRASS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/grass: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "AFbX8oGjGpmVFywbVouvhQSRmiW2aR1mohfahi4Y2AdB",
+      "symbol": "GST",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/green-satoshi-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "BWXrrYFhT7bMHmNBFoQFWdsSgA3yXoAnMhDK6Fn1eSEn",
+      "symbol": "HADES",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/hades: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "4h49hPGphLNJNDRyiBwzvKoasR3rw1WJCEv19PhUbSS4",
+      "symbol": "HELLO",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/hello-labs: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux",
+      "symbol": "HNT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/helium: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "4vMsoUT2BWatFweudnQM1xedRLfJgJ7hswhcpz4xgBTy",
+      "symbol": "HONEY",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/hivemapper: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "C1mBfBoDkwWfd6uTFZp62ARHLjeVp3bDpCDMfMZtPngE",
+      "symbol": "HOOKED",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/hooked: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "3dgCCb15HMQSA4Pn3Tfii5vRk7aRqTH95LJjxzsG2Mug",
+      "symbol": "HXD",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/honeyland-honey: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "EEpng77ZPn9FbgbT4xsRjwuxNCcMBYq3HTwEscyTpump",
@@ -124,10 +496,34 @@
       "source": "https://www.coingecko.com/en/coins/justice-for-heehaw: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
+      "address": "BZLbGTNCSFfoth2GYDtwr7e4imWzpR5jqcUuGEwr646K",
+      "symbol": "IO",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/io: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "iotEVVZLEywoTn1QdwNPddxPWszn3zFhEot3MfL9fns",
+      "symbol": "IOT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/helium-iot: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "J9BcrQfX4p9D1bvLzRNCbMDv8f44a9LFdeqNE4Yk2WMD",
+      "symbol": "ISC",
+      "reason": "not_of_a_class_of_the_product",
+      "source": "https://www.coingecko.com/en/coins/international-stable-currency: a currency pegged to a basket: no category of the product takes it"
+    },
+    {
       "address": "GTBxUiw6wJdmmkCGZgRHLyYxqu1vG4KtRpeox6yDpump",
       "symbol": "JEANPHIL",
       "reason": "memecoin",
       "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files jean-phil as a meme"
+    },
+    {
+      "address": "Ge87EtsjwRQbHaqQmKRno69RFTwh9bfSsm99XNxTpump",
+      "symbol": "Jimothy",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/jimothy-the-raccoon: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "9Pfync3ejPC9eHqVzq3nYQJAhyhjqpnB9UsaSfLxpump",
@@ -136,184 +532,34 @@
       "source": "https://www.coingecko.com/en/coins/ket-3: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
-      "address": "9vrGUHwsC8LyLjQoh3zJb9S53x7A88u49La63qPB6F5t",
-      "symbol": "lilpump",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/lil-pump: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "address": "kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6",
+      "symbol": "KIN",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/kin: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
-      "address": "DDti34vnkrCehR8fih6dTGpPuc3w8tL4XQ4QLQhc3xPa",
-      "symbol": "LSD",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/liquid-solana-derivative: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "address": "1zJX5gRnjLgmTpq5sVwkq69mNDQkCemqoasyjaPW6jm",
+      "symbol": "KLED",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/kled-ai: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
-      "address": "BCdwQBAn8dYB5YjTsoB6TdHAWokxv28k2oZUodERpump",
-      "symbol": "MANIFEST",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files manifesting as a meme"
+      "address": "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS",
+      "symbol": "KNOTS",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/knots: no page read confirms a protocol, chain or product (reviewed by hand)"
     },
     {
-      "address": "8W4qpyLx74vwBRewa3rVEPPVMnJ8VWMkCTWCTSYPQTDu",
-      "symbol": "MEMES",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/memecoindao: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+      "address": "E5ZVeBMazQAYq4UEiSNRLxfMeRds9SKL31yPan7j5GJK",
+      "symbol": "LDZ",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/voodoo: no page read confirms a protocol, chain or product (reviewed by hand)"
     },
     {
-      "address": "6UtY9iTZMQQ5QZVrbzFnNaJntV7oySm9k97mvwnuZcxr",
-      "symbol": "NEARKAT",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/nearkat-2: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "dekNoN3D8mXa4JHLwTbVXz8aPAyJUkk443UjcSpJKi4",
-      "symbol": "peanie",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/peanie: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "EkFRff9a2jKztJHML1LG9FRmEkPJDR6XAYp3uCPdpump",
-      "symbol": "SLOPCORE",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/slopcore: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "fESbUKjuMY6jzDH9VP8cy4p3pu2q5W2rK2XghVfNseP",
-      "symbol": "SOLANA",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/catfrogdogshark: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "E99fN4tCRb1tQphXK1DU7prXji6hMzxETyPNJro19Fwz",
-      "symbol": "SOLCAT",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/catsolhat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "EN2nnxrg8uUi6x2sJkzNPd2eT6rB9rdSoQNNaENA4RZA",
-      "symbol": "SQUIRE",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/pod-the-squire: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
-      "symbol": "STONK",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/stonk-3: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "FaxYQ3LVXP51rDP2yWGLWVrFAAHeSdFF8SGZxwj2dvor",
-      "symbol": "SWAG",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/swag-coin: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "42cXQvAAr7hcPBPWAS4ocVtDyeJ4Fa6gRR2uG4gppump",
-      "symbol": "TBB",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files the-bitcoin-bull as a meme"
-    },
-    {
-      "address": "A13oRB9FFaiUjfi6LdCg6p9ka1u8SfGkUFs4SKvPpump",
-      "symbol": "TOAD",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/the-toad-pepe: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "VP9UaBXLM4KYRvyjisu65rz8BU5xNAbewU7LVmyU2x4",
-      "symbol": "VCAT",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/vibing-cat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "GJgHsc1HU4ibmzW6oWQr8L2RRT95ATc1BoNuLkp94AwU",
-      "symbol": "WBS",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/coins/white-boy-summer: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
-    },
-    {
-      "address": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
-      "symbol": "ZCAT",
-      "reason": "memecoin",
-      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files anonymous-cat as a meme"
-    },
-    {
-      "address": "ARBzQTYDCW2KnVEjs1Mc81LekB1ibVFZKbSVmorkoT9d",
-      "symbol": "ARB",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "AxaTJdRuuc3626FtPWdQCMcWPH6yzgxXKWbFCZN3TMgy",
-      "symbol": "ASV",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "DM3Y4R7n1HGhP9AkNT6Ex4w1qQTpgq1TyujrMDX11FMT",
-      "symbol": "BASC",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "Ai66LHZG9MCzg1WKdawwqduVAXpNDUuV8M3uyq5ppump",
-      "symbol": "CATE",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "cbADAmv9issuPfhFwyQG3xac4DGPd1LDSt1oz7vwJsg",
-      "symbol": "cbADA",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "cbLTC4T5NpzSUtQ7ekgEMZGaUPVJY1ko6BUikqa4gGf",
-      "symbol": "cbLTC",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o",
-      "symbol": "DAI",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "DoGEV7LASBkQbibMc5k5vKnTZoMg423GpJ5QtJEGfm7R",
-      "symbol": "DOGE",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "HnnGv3HrSqjRpgdFmx7vQGjntNEoex1SU4e9Lxcxuihz",
-      "symbol": "eHYUSD",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "6FhVPctYg363pQbs4iSvqyHe2cJzfsvFD96gePy6pump",
-      "symbol": "EXFIL",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "VVWAy5U2KFd1p8AdchjUxqaJbZPBeP5vUQRZtAy8hyc",
-      "symbol": "FLIP",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "6gx6Ph2ek73kF6EWDrG4GQ54pcLJB6CYpATuRyxKXumo",
-      "symbol": "fPHX",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "HTmQz7My6MehV7bjhJ6jde8nDND1yvsz68d24LP7YgUQ",
-      "symbol": "GP",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+      "address": "3bRTivrVsitbmCTGtqwp7hxXPsybkjn4XLNtPsHqa3zR",
+      "symbol": "LIKE",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/only1: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "EicWvteVi2fWepEzS3FYWsnuPoP6caZfjnKqNvydLjCH",
@@ -328,6 +574,54 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "DDti34vnkrCehR8fih6dTGpPuc3w8tL4XQ4QLQhc3xPa",
+      "symbol": "LSD",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/liquid-solana-derivative: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "4VC7UYqBo9Siw8ZnkPXfw9D3dzYCiVrPDzs9XRtyRJMH",
+      "symbol": "Labz ",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/insane-labz: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "EpXtn6xGoZ4Y45vRjiDUHSCGbBoJD5FaEqZbF98YswH1",
+      "symbol": "MADE",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/selfmade-by-sp3nd: CoinGecko files it in meme-token, solana-meme-coins (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "BCdwQBAn8dYB5YjTsoB6TdHAWokxv28k2oZUodERpump",
+      "symbol": "MANIFEST",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files manifesting as a meme"
+    },
+    {
+      "address": "MEFNBXixkEbait3xn9bkm8WsJzXtVsaJEn4c8Sam21u",
+      "symbol": "ME",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/magic-eden: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "ETAtLmCmsoiEEKfNrHKJ2kYy3MoABhU6NQvpSfij5tDs",
+      "symbol": "MEDIA",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/media-network: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "8W4qpyLx74vwBRewa3rVEPPVMnJ8VWMkCTWCTSYPQTDu",
+      "symbol": "MEMES",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/memecoindao: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "METADDFL6wWMWEoKTFJwcThTbUmtarRJZjRpzUvkxhr",
+      "symbol": "META",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/meta-2: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
       "symbol": "MINI",
       "reason": "no_source_names_the_mint",
@@ -340,10 +634,64 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "METAewgxyPbgwsseH8T16a39CQ5VyVxZi9zXiDPY18m",
+      "symbol": "MPLX",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/metaplex: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "5HsZR8eG7QpQcN8Mnp8oFdENRkJMP9ZkcKhPSCKTJSWh",
+      "symbol": "MRC",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/moon-roll-coin: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "H53UGEyBrB9easo9ego8yYk7o4Zq1G5cCtkxD3E3hZav",
+      "symbol": "MXM",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/mixmob: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "H1aN3vcvB68eaFPbMkoAss3vnfi4AhP5C2dpnrZzdBc7",
+      "symbol": "MYRA",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/myra: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "C8cNX2D1y3jqKpMFkQhP1gGbfvTEdeckZXLBKSN5z5KF",
+      "symbol": "Mail",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/solmail: CoinGecko files it in meme-token (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "FRySi8LPkuByB7VPSCCggxpewFUeeJiwEGRKKuhwpKcX",
+      "symbol": "NATIX",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/natix-network: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "6UtY9iTZMQQ5QZVrbzFnNaJntV7oySm9k97mvwnuZcxr",
+      "symbol": "NEARKAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/nearkat-2: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "NeonTjSjsuo3rexg9o6vHuMXw62f9V7zvmu8M8Zut44",
+      "symbol": "NEON",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/neon: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "CY2E69dSG9vBsMoaXDvYmMDSMEP4SZtRY1rqVQ9tkNDu",
       "symbol": "NFD",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "nosXBVoaCTtYdLvKY6Csb4AC8JCdQKKAaWYtx2ZMoo7",
+      "symbol": "NOS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/nosana: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "9dwPiStDBwJJqC3QzMnjpJP7xohZbMVmHELFx3uy3KRq",
@@ -352,14 +700,98 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "HrLx8MLKegpbmbmWePZiuvf3AbJNx1CJyjBwUHwicEgW",
+      "symbol": "NYXC",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/nyxia-ai: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
       "address": "ondohH8Vssxiqcy5u6Efi4AYN17KZrzQtv2a91dnrgW",
       "symbol": "ONDO",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "oreoU2P8bN6jkk3jbaiVxYnG1dCXcYxwhwyK9jSybcp",
+      "symbol": "ORE",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/ore: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "MukLDtJ8Cx9DxLbeyLRSWPSposTMWuwHANbuaudpump",
+      "symbol": "OTC",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/otc: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "octo82drBEdm8CSDaEKBymVn86TBtgmPnDdmE64PTqJ",
+      "symbol": "OTK",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/octo-gaming: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "Ea5SjE2Y6yvCeW5dYTn7PYMuW5ikXkvbGdcmSnXeaLjS",
       "symbol": "PAI",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "PAYmo6moDF3Ro3X6bU2jwe2UdBnBhv8YjLgL1j4DxGu",
+      "symbol": "PAYAI",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/payai-network-2: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "PEPEqnuuCDbBC89p1u9vpnP1KQ2oj1xTcQBsjt9X55m",
+      "symbol": "PEPE",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "EswgBj2hZKdgovX2ihWSUDnuBg9VNbGmSGoH5yjNsPRa",
+      "symbol": "PHY",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/physis: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "HHjoYwUp5aU6pnrvN4s2pwEErwXNZKhxKGYjRJMoBjLw",
+      "symbol": "PIP",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/pip: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk",
+      "symbol": "POLIS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/star-atlas-dao: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "poNSfquKq512ApeYjVghwViSun4x1MhCqHVH2Paq4jN",
+      "symbol": "PONS",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "PRSMNsEPqhGVCH1TtWiJqPjJyh2cKrLostPZTNy1o5x",
+      "symbol": "PRISM",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/prism: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
+      "symbol": "PUMP",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/pump-fun: CoinGecko files it in meme-token (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "Eg2ymQ2aQqjMcibnmTt8erC6Tvk9PVpJZCxvVPJz2agu",
+      "symbol": "PUMPCADE",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/pumpcade: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
+      "symbol": "PURR",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
@@ -370,40 +802,88 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "PEPEqnuuCDbBC89p1u9vpnP1KQ2oj1xTcQBsjt9X55m",
-      "symbol": "PEPE",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "poNSfquKq512ApeYjVghwViSun4x1MhCqHVH2Paq4jN",
-      "symbol": "PONS",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "9EaLkQrbjmbbuZG9Wdpo8qfNUEjHATJFSycEmw6f1rGX",
-      "symbol": "pSOL",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
-      "symbol": "PURR",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
       "address": "qntUzPUsJ51abNP7VYNxkmsQ4RnvEZAhavUxsCxpxH4",
       "symbol": "QNT",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "shib5gSoVKPjwkXrxRk7SbQFzb2R9rQB3TgQWYX4RwW",
-      "symbol": "SHIB",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+      "address": "AD27ov5fVU2XzwsbvnFvb1JpCBaCB5dRXrczV9CqSVGb",
+      "symbol": "REAL",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/realy-metaverse: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+      "symbol": "RENDER",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/render-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "2bpT3ksMdwdZ6DuHyq3FDUr7HDwvZ5DRZoT1fUPALJaH",
+      "symbol": "RIV",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/riv-coin: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "SATqS9DYpLQsM2z51P4QCoqJRHa5wboV4qjJerJRUSH",
+      "symbol": "RUSH",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/sat-rush: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "8FA3TPf84h9gEZAxDhiLkMN4vvZcdEUZxmGadbo12auh",
+      "symbol": "SCALES",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/scales: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "SCSuPPNUSypLBsV4darsrYNg4ANPgaGhKhsA3GmMyjz",
+      "symbol": "SCS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/solcasino-token: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "SENDdRQtYMWaQrBroBrJ2Q53fgVuq95CV9UPGEvpCxa",
+      "symbol": "SEND",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/send-2: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "SHARKSYJjqaNyxVfrpnBN9pjgkhwDhatnMyicWPnr1s",
+      "symbol": "SHARK",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/sharky-fi: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "SHDWyBxihqiCj6YekG2GUr7wqKLeLAMK1gHZck9pL6y",
+      "symbol": "SHDW",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/genesysgo-shadow: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "xxxxa1sKNGwFtw2kFn8XauW9xq8hBZ5kVtcSesTT9fW",
+      "symbol": "SLIM",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/solanium: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "SLNDpmoWTVADgEdndyvWzroNL7zSi1dF9PC3xHGtPwp",
+      "symbol": "SLND",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/solend: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "EkFRff9a2jKztJHML1LG9FRmEkPJDR6XAYp3uCPdpump",
+      "symbol": "SLOPCORE",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/slopcore: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "FS66v5XYtJAFo14LiPz5HT93EUMAHmYipCfQhLpU4ss8",
+      "symbol": "SMOG",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/smog: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "SNSNkV9zfG5ZKWQs6x4hxvBRV6s8SqMfSGCtECDvdMd",
@@ -412,16 +892,76 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "fESbUKjuMY6jzDH9VP8cy4p3pu2q5W2rK2XghVfNseP",
+      "symbol": "SOLANA",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/catfrogdogshark: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "DLUNTKRQt7CrpqSX1naHUYoBznJ9pvMP65uCeWQgYnRK",
+      "symbol": "SOLC",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/solcard: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "E99fN4tCRb1tQphXK1DU7prXji6hMzxETyPNJro19Fwz",
+      "symbol": "SOLCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/catsolhat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "AMjzRn1TBQwQfNAjHFeBb7uGbbqbJB7FzXAnGgdFPk6K",
+      "symbol": "SOLCEX",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/solcex: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "SoLo9oxzLDpcq1dpqAgMwgce5WqkRDtNXK7EPnbmeta",
+      "symbol": "SOLO",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/solomon: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "CH74tuRLTYcxG7qNJCsV9rghfLXJCQJbsu7i52a8F1Gn",
       "symbol": "SOLX",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "stJUPZMmAWA1PNVPXCvqVK6MHABr4yFo5rv2JTethCa",
-      "symbol": "stJUP",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+      "address": "sonarX4VtVkQemriJeLm6CKeW3GDMyiBnnAEMw1MRAE",
+      "symbol": "SONAR",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/sonarwatch: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "J4ywFdm8H7hjwKzCaEQujhkDRfCnRviVnHMvFNDAoLNQ",
+      "symbol": "SOUL",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/soul-scanner: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "EN2nnxrg8uUi6x2sJkzNPd2eT6rB9rdSoQNNaENA4RZA",
+      "symbol": "SQUIRE",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/pod-the-squire: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "2x8o3hA5S5fBxCSE9hzVTf3RohcMWHqkDNKNEPuzprD5",
+      "symbol": "STBOT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/soltradingbot: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "StepAscQoEioFxxWGnh2sLBDFp9d8rvKz2Yp39iDpyT",
+      "symbol": "STEP",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/step-finance: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+      "symbol": "STONK",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/stonk-3: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "suifhC9gU1VbJAPYPTBkHJyyyStKGLLYPVDTmPoqbvA",
@@ -430,28 +970,10 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE",
-      "symbol": "sUSDai",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "88881Hu2jGMfCs9tMu5Rr7Ah7WBNBuXqde4nR5ZmKYYy",
-      "symbol": "sUSDC-8",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "JEFFSQ3s8T3wKsvp4tnRAsUBW7Cqgnf8ukBZC4C8XBm1",
-      "symbol": "sUSDC-9",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "SV151D5pjygAKA8aJJcKzm4wFnRX5G92Fye94jQJk7g",
-      "symbol": "SV151",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+      "address": "FaxYQ3LVXP51rDP2yWGLWVrFAAHeSdFF8SGZxwj2dvor",
+      "symbol": "SWAG",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/swag-coin: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "taoC6xyv2v8tDLcev4uaGUgV4vdQsWJrGft2kcBRrBY",
@@ -460,16 +982,40 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "DLGRpmkMGr7J4KD1xR5x2XjaGeQH64PLFQkyxNNSpump",
-      "symbol": "TCG",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+      "address": "TNSRxcUxoT9xBG3de7PiJyTDYu7kskLqcpddxnEJAS6",
+      "symbol": "TNSR",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/tensor: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "AmgUMQeqW8H74trc8UkKjzZWtxBdpS496wh4GLy2mCpo",
       "symbol": "TOKE",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "HLnTNCG5RD7jYVduFc1pMCHiuApoWGn9LveqEFanQFZb",
+      "symbol": "TREN",
+      "reason": "project_not_confirmed",
+      "source": "https://www.coingecko.com/en/coins/tren: no page read confirms a protocol, chain or product (reviewed by hand)"
+    },
+    {
+      "address": "PRVT6TB7uss3FrUd2D9xs2zqDBsa3GbMJMwCQsgmeta",
+      "symbol": "UMBRA",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/umbra: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "8FU95xFJhUUkyyCLU13HSzDLs7oC4QZdXQHL6SCeab36",
+      "symbol": "UNI",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/uniswap-wormhole: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "UPTx1d24aBWuRgwxVnFmX4gNraj3QGFzL3QqBgxtWQG",
+      "symbol": "UPT",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/uprock: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
     },
     {
       "address": "FCqfQSujuPxy6V42UvafBhsysWtEq1vhjfMN1PUbgaxA",
@@ -496,10 +1042,16 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "FNMLmBPkhh7nBFyGHsdrmCuvgEf6ygpaVqFejimHEx9V",
-      "symbol": "vBLSH",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+      "address": "9ckR7pPPvyPadACDTzLwK2ZAEeUJ3qGSnzPs8bVaHrSy",
+      "symbol": "USDu",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/usdu: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "VP9UaBXLM4KYRvyjisu65rz8BU5xNAbewU7LVmyU2x4",
+      "symbol": "VCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/vibing-cat: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
     },
     {
       "address": "C4Kkr9NZU3VbyedcgutU6LKmi6MKz81sx6gRmk5pX519",
@@ -508,14 +1060,212 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "3iQL8BFS2vE7mww4ehAqQHAsbmRNCrPxizWAT2Zfyr9y",
+      "symbol": "VIRTUAL",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/virtual-protocol: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
       "address": "VVV4UdRywr7SLafPHzqXwRCw7myXkmgCtitXUvj8g8c",
       "symbol": "VVV",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
+      "address": "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ",
+      "symbol": "W",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/wormhole: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "GJgHsc1HU4ibmzW6oWQr8L2RRT95ATc1BoNuLkp94AwU",
+      "symbol": "WBS",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/white-boy-summer: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
       "address": "WLDTE73PPdfFFjhpBz8Yuhvx5N45gvgEgyMXqwa3rFn",
       "symbol": "WLD",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "EcQCUYv57C4V6RoPxkVUiDwtX1SP8y8FP5AEToYL8Az",
+      "symbol": "WLKN",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/walken: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "wxmJYe17a2oGJZJ1wDe6ZyRKUKmrLj2pJsavEdTVhPP",
+      "symbol": "WXM",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/weatherxm-network: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp",
+      "symbol": "XMR",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "AqEHVh8J2nXH9saV2ciZyYwPpqWFRfD2ffcq5Z8xxqm5",
+      "symbol": "YAKU",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "4Zp52aF4hZi9fzH19xpbWKYKQvgLyCN67KFbrQDqeTKh",
+      "symbol": "ZAMA",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/zama: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "ZBCNpuD7YMXzTHB2fhGkGi78MNsHGLRXUhRewNRm9RU",
+      "symbol": "ZBCN",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/zebec-network: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+      "symbol": "ZCAT",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files anonymous-cat as a meme"
+    },
+    {
+      "address": "cbLTC4T5NpzSUtQ7ekgEMZGaUPVJY1ko6BUikqa4gGf",
+      "symbol": "cbLTC",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "4FdojUmXeaFMBG6yUaoufAC5Bz7u9AwnSAMizkx5pump",
+      "symbol": "core",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/core-2: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "HnnGv3HrSqjRpgdFmx7vQGjntNEoex1SU4e9Lxcxuihz",
+      "symbol": "eHYUSD",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "DuMbhu7mvQvqQHGcnikDgb4XegXJRyhUBfdU22uELiZA",
+      "symbol": "elizaOS",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/elizaos: CoinGecko files it in no protocol category and no project page is cited (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "6gx6Ph2ek73kF6EWDrG4GQ54pcLJB6CYpATuRyxKXumo",
+      "symbol": "fPHX",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "CTPoyCwkjMvoJwU4xvZZqoD8tiYk6yDchySiN5gGpump",
+      "symbol": "fone",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/categories/meme-token: CoinGecko files apeonfone as a meme"
+    },
+    {
+      "address": "CyUgNnKPQLqFcheyGV8wmypnJqojA7NzsdJjTS4nUT2j",
+      "symbol": "gil",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/kith-gil: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "FeR8VBqNRSUD5NtXAj2n3j1dAHkZHfyDktKuLXD4pump",
+      "symbol": "jellyjelly",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/jelly-my-jelly: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "2uQsyo1fXXQkDtcpXnLofWy88PxcvnfH2L8FPSE62FVU",
+      "symbol": "jlWSOL",
+      "reason": "not_of_a_class_of_the_product",
+      "source": "https://lite-api.jup.ag/lend/v1/earn/tokens: a deposit of SOL in a lending market (Jupiter Lend's earn tokens API names it): no category of the product takes it"
+    },
+    {
+      "address": "9vrGUHwsC8LyLjQoh3zJb9S53x7A88u49La63qPB6F5t",
+      "symbol": "lilpump",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/lil-pump: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "JxxWsvm9jHt4ah7DT9NuLyVLYZcZLUdPD93PcPQ71Ka",
+      "symbol": "mockJUP",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/mockjup: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "9EaLkQrbjmbbuZG9Wdpo8qfNUEjHATJFSycEmw6f1rGX",
+      "symbol": "pSOL",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "dekNoN3D8mXa4JHLwTbVXz8aPAyJUkk443UjcSpJKi4",
+      "symbol": "peanie",
+      "reason": "memecoin",
+      "source": "https://www.coingecko.com/en/coins/peanie: no protocol, chain or product by its name or CoinGecko's (reviewed by hand)"
+    },
+    {
+      "address": "88881Hu2jGMfCs9tMu5Rr7Ah7WBNBuXqde4nR5ZmKYYy",
+      "symbol": "sUSDC-8",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "JEFFSQ3s8T3wKsvp4tnRAsUBW7Cqgnf8ukBZC4C8XBm1",
+      "symbol": "sUSDC-9",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE",
+      "symbol": "sUSDai",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "25p2BoNp6qrJH5As6ek6H7Ei495oSkyZd3tGb97sqFmH",
+      "symbol": "soba",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/sol-bastard: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "stJUPZMmAWA1PNVPXCvqVK6MHABr4yFo5rv2JTethCa",
+      "symbol": "stJUP",
+      "reason": "no_source_names_the_mint",
+      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
+    },
+    {
+      "address": "74SBV4zDXxTRgv1pEMoECskKBkZHc2yGPnc7GYVepump",
+      "symbol": "swarms",
+      "reason": "no_protocol_category_and_no_project_page",
+      "source": "https://www.coingecko.com/en/coins/swarms: CoinGecko files it in no meme and no protocol category (categories read 2026-10-12T16:49:03.656Z)"
+    },
+    {
+      "address": "TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ",
+      "symbol": "tKalshi",
+      "reason": "stock_token_no_rule_takes",
+      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
+    },
+    {
+      "address": "oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ",
+      "symbol": "tOpenAI",
+      "reason": "stock_token_no_rule_takes",
+      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
+    },
+    {
+      "address": "TSPXcLV76s6V2zDiZQ18kBfcbnjaE2ZzNT3ga2Pd99v",
+      "symbol": "tSpaceX",
+      "reason": "stock_token_no_rule_takes",
+      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
+    },
+    {
+      "address": "FNMLmBPkhh7nBFyGHsdrmCuvgEf6ygpaVqFejimHEx9V",
+      "symbol": "vBLSH",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
@@ -538,154 +1288,10 @@
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
     },
     {
-      "address": "WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp",
-      "symbol": "XMR",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
       "address": "xorcaYqbXUNz3474ubUMJAdu2xgPsew3rUCe5ughT3N",
       "symbol": "xORCA",
       "reason": "no_source_names_the_mint",
       "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "AqEHVh8J2nXH9saV2ciZyYwPpqWFRfD2ffcq5Z8xxqm5",
-      "symbol": "YAKU",
-      "reason": "no_source_names_the_mint",
-      "source": "CoinGecko's coin list names no coin for this mint, and no issuer page read names it"
-    },
-    {
-      "address": "J9BcrQfX4p9D1bvLzRNCbMDv8f44a9LFdeqNE4Yk2WMD",
-      "symbol": "ISC",
-      "reason": "not_of_a_class_of_the_product",
-      "source": "https://www.coingecko.com/en/coins/international-stable-currency: a currency pegged to a basket: no category of the product takes it"
-    },
-    {
-      "address": "2uQsyo1fXXQkDtcpXnLofWy88PxcvnfH2L8FPSE62FVU",
-      "symbol": "jlWSOL",
-      "reason": "not_of_a_class_of_the_product",
-      "source": "https://lite-api.jup.ag/lend/v1/earn/tokens: a deposit of SOL in a lending market (Jupiter Lend's earn tokens API names it): no category of the product takes it"
-    },
-    {
-      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
-      "symbol": "EMBER",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/embercurve: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "Afo4NumBNHDXc7m7p6qjZ1pF3LbqYfG5k1CNrGve8rVu",
-      "symbol": "FALX",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/falx: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "BWXrrYFhT7bMHmNBFoQFWdsSgA3yXoAnMhDK6Fn1eSEn",
-      "symbol": "HADES",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/hades: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS",
-      "symbol": "KNOTS",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/knots: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "E5ZVeBMazQAYq4UEiSNRLxfMeRds9SKL31yPan7j5GJK",
-      "symbol": "LDZ",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/voodoo: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "5HsZR8eG7QpQcN8Mnp8oFdENRkJMP9ZkcKhPSCKTJSWh",
-      "symbol": "MRC",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/moon-roll-coin: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "H1aN3vcvB68eaFPbMkoAss3vnfi4AhP5C2dpnrZzdBc7",
-      "symbol": "MYRA",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/myra: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "HrLx8MLKegpbmbmWePZiuvf3AbJNx1CJyjBwUHwicEgW",
-      "symbol": "NYXC",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/nyxia-ai: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "MukLDtJ8Cx9DxLbeyLRSWPSposTMWuwHANbuaudpump",
-      "symbol": "OTC",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/otc: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "PerPsCe2SJ7Q25CN4R5TTX4fmBdmknE2hQmqCt96fHL",
-      "symbol": "PERPSPAD",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/perpspad: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "EswgBj2hZKdgovX2ihWSUDnuBg9VNbGmSGoH5yjNsPRa",
-      "symbol": "PHY",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/physis: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "HHjoYwUp5aU6pnrvN4s2pwEErwXNZKhxKGYjRJMoBjLw",
-      "symbol": "PIP",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/pip: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "2bpT3ksMdwdZ6DuHyq3FDUr7HDwvZ5DRZoT1fUPALJaH",
-      "symbol": "RIV",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/riv-coin: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "SATqS9DYpLQsM2z51P4QCoqJRHa5wboV4qjJerJRUSH",
-      "symbol": "RUSH",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/sat-rush: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "8FA3TPf84h9gEZAxDhiLkMN4vvZcdEUZxmGadbo12auh",
-      "symbol": "SCALES",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/scales: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "HLnTNCG5RD7jYVduFc1pMCHiuApoWGn9LveqEFanQFZb",
-      "symbol": "TREN",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/tren: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "96egraTCizRpzNx4WvMMhPJf7TKS7W5kUHeenmd1XfuN",
-      "symbol": "XFEE",
-      "reason": "project_not_confirmed",
-      "source": "https://www.coingecko.com/en/coins/xfee: no page read confirms a protocol, chain or product (reviewed by hand)"
-    },
-    {
-      "address": "TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ",
-      "symbol": "tKalshi",
-      "reason": "stock_token_no_rule_takes",
-      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
-    },
-    {
-      "address": "oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ",
-      "symbol": "tOpenAI",
-      "reason": "stock_token_no_rule_takes",
-      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
-    },
-    {
-      "address": "TSPXcLV76s6V2zDiZQ18kBfcbnjaE2ZzNT3ga2Pd99v",
-      "symbol": "tSpaceX",
-      "reason": "stock_token_no_rule_takes",
-      "source": "the reads: Jupiter tags it stocks/tessera, and no stock issuer's rule takes it"
     }
   ]
 }
