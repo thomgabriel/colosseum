@@ -8,11 +8,14 @@ import {
   createPublicClient,
   createTestClient,
   createWalletClient,
+  encodeAbiParameters,
   encodeFunctionData,
+  encodePacked,
   type Hex,
   http,
   type PublicClient,
   parseAbi,
+  parseAbiParameters,
 } from 'viem';
 import { foundry } from 'viem/chains';
 import { createEvmVaultAdapter, type EvmVaultAdapter } from '../src/vault/adapter';
@@ -46,6 +49,10 @@ export const MAINNET = {
   nvdaFeed: '0x379ec4f7c378f34a1b47e4f3cbebcbac3e8e9f15',
   gld: '0xc9a981fee1f9dec688bb123ccdecc63d0debfc4e',
   gldFeed: '0x470a51258068043bd43dc0a56245625c9fe86eb0',
+  aapl: '0xaf3d76f1834a1d425780943c99ea8a608f8a93f9',
+  aaplFeed: '0x6b22a786baa607d76728168703a39ea9c99f2cd0',
+  msft: '0xe93237c50d904957cf27e7b1133b510c669c2e74',
+  msftFeed: '0x45c3c877c15e6ba2ebb19ea114ea508d14c1af2e',
   router: '0x204faca1764b154221e35c0d20abb3c525710498',
   permit2: '0x000000000022d473030f116ddee9f6b43ac78ba3',
 } as const;
@@ -61,10 +68,40 @@ export const ACCOUNTS = {
 
 /** The bound and the limits of contracts/script/config/4663.json, for the two tokens listed here. */
 export const BOUND_BPS = 200;
-export const MAX_TRADE_USD = { nvda: 50_000, gld: 1_000 } as const;
+export const RAIL_BPS = 1_000;
+/**
+ * Each token's average pool, from contracts/script/config/pool-feeds/4663.json: its Uniswap v3 pool
+ * against USDG and the floor on its liquidity. NVDA's keeps 7,200 observations and is usable; GLD's
+ * keeps 1,800, under an hour's worth, and is not.
+ */
+export const AVERAGE = {
+  nvda: {
+    pool: '0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3',
+    minLiquidity: '1900000000000000000',
+    usable: true,
+  },
+  gld: {
+    pool: '0xba2f1ed4ceb2169d538d1e614d847e83c5a55913',
+    minLiquidity: '880000000000000000',
+    usable: false,
+  },
+  msft: {
+    pool: '0xeb60bcd1d920ad6e102690ccfc6fb488899e1510',
+    minLiquidity: '80000000000000000',
+    usable: true,
+  },
+  aapl: {
+    pool: '0xaae0d815ee56e4092a5e5c2911e676fea50b2d6d',
+    minLiquidity: '200000000000000000',
+    usable: true,
+  },
+} as const;
+/** The fee of each average pool (Uniswap v3), for a stranger's trade in it. */
+export const AVERAGE_FEE = { nvda: 500, gld: 500, msft: 3000, aapl: 500 } as const;
+export const MAX_TRADE_USD = { nvda: 50_000, gld: 1_000, msft: 5_000, aapl: 50_000 } as const;
 const MAX_AGE = 93_600;
 export const OWNER_CASH = 20_000_000_000n;
-const PUSHER_CASH = 200_000_000_000n;
+const PUSHER_CASH = 400_000_000_000n;
 
 const ERC20 = parseAbi([
   'function transfer(address, uint256) returns (bool)',
@@ -91,6 +128,9 @@ export type MainnetTradeWorld = {
    * router: what pushing a pool is. Returns what the stranger received.
    */
   push(tokenIn: Address, tokenOut: Address, amountIn: bigint): Promise<bigint>;
+  /** The same in the asset's average pool, a Uniswap v3 pool at `fee`. */
+  pushAverage(tokenIn: Address, tokenOut: Address, fee: number, amountIn: bigint): Promise<bigint>;
+  rpcUrl: string;
   balanceOf(token: Address, holder: Address): Promise<bigint>;
   vaultOf(basketId: string): Promise<Address>;
   /** Moves the copy's clock on and mines a block. */
@@ -248,6 +288,22 @@ export async function buildMainnetTradeWorld(
     await listed(MAINNET.usdg, NONE, 6, false);
     await listed(MAINNET.nvda, MAINNET.nvdaFeed, 18, true);
     await listed(MAINNET.gld, MAINNET.gldFeed, 18, true);
+    await listed(MAINNET.msft, MAINNET.msftFeed, 18, true);
+    // AAPL with a feed of our own (the contracts' MockFeed): the real feed's last answer less 12%, at
+    // the real feed's own time. It stands for a feed that last spoke before the market moved.
+    const real = (await client.readContract({
+      address: MAINNET.aaplFeed,
+      abi: parseAbi([
+        'function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)',
+      ]),
+      functionName: 'latestRoundData',
+    })) as readonly [bigint, bigint, bigint, bigint, bigint];
+    const aaplFeed = await deploy('Feeds.sol', 'MockFeed');
+    await call(ACCOUNTS.deployer, aaplFeed, parseAbi(['function set(int256, uint256)']), 'set', [
+      (real[1] * 88n) / 100n,
+      real[3],
+    ]);
+    await listed(MAINNET.aapl, aaplFeed, 18, true);
     await onFactory('setCashToken', [MAINNET.usdg]);
     await onFactory('setRouter', [MAINNET.router, 2]);
 
@@ -259,7 +315,7 @@ export async function buildMainnetTradeWorld(
     await test.stopImpersonatingAccount({ address: MAINNET.usdgHolder });
 
     const stock = (
-      slug: 'nvda' | 'gld',
+      slug: 'nvda' | 'gld' | 'msft' | 'aapl',
       address: Address,
       feed: Address,
       kind: 'stock' | 'gold',
@@ -282,6 +338,7 @@ export async function buildMainnetTradeWorld(
       range: null,
       pool,
       maxTradeUsd: MAX_TRADE_USD[slug],
+      average: AVERAGE[slug],
     });
     const record: EvmDeploymentRecord = {
       network: 'robinhood-local',
@@ -299,6 +356,7 @@ export async function buildMainnetTradeWorld(
       },
       sequencerFeed: null,
       priceBoundBps: BOUND_BPS,
+      staleRailBps: RAIL_BPS,
       routers: [{ address: MAINNET.router, pull: 2 }],
       cash: {
         id: 'robinhood:usdg',
@@ -310,6 +368,8 @@ export async function buildMainnetTradeWorld(
       assets: [
         stock('nvda', MAINNET.nvda, MAINNET.nvdaFeed, 'stock', { fee: 100, tickSpacing: 1 }),
         stock('gld', MAINNET.gld, MAINNET.gldFeed, 'gold', { fee: 2100, tickSpacing: 21 }),
+        stock('msft', MAINNET.msft, MAINNET.msftFeed, 'stock', { fee: 3000, tickSpacing: 60 }),
+        stock('aapl', MAINNET.aapl, aaplFeed, 'stock', { fee: 3000, tickSpacing: 60 }),
       ],
       retired: [],
     };
@@ -348,7 +408,7 @@ export async function buildMainnetTradeWorld(
         args: [holder],
       });
     // The stranger's standing approvals, as any trader of the router has them.
-    for (const token of [MAINNET.usdg, MAINNET.nvda, MAINNET.gld] as const) {
+    for (const token of [MAINNET.usdg, MAINNET.nvda, MAINNET.gld, MAINNET.msft] as const) {
       await call(ACCOUNTS.pusher, token, ERC20, 'approve', [MAINNET.permit2, (1n << 256n) - 1n]);
       await call(ACCOUNTS.pusher, MAINNET.permit2, PERMIT2, 'approve', [
         token,
@@ -380,6 +440,38 @@ export async function buildMainnetTradeWorld(
         if (receipt.status !== 'success') throw new Error('the push reverted on the copy');
         return (await balanceOf(tokenOut, ACCOUNTS.pusher)) - before;
       },
+      pushAverage: async (tokenIn, tokenOut, fee, amountIn) => {
+        const before = await balanceOf(tokenOut, ACCOUNTS.pusher);
+        const deadline = (await client.getBlock()).timestamp + 600n;
+        // Universal Router 2.1's V3_SWAP_EXACT_IN: (recipient, amountIn, amountOutMin, path, payerIsUser,
+        // minHopPriceX36), the last left empty.
+        const input = encodeAbiParameters(
+          parseAbiParameters('address, uint256, uint256, bytes, bool, uint256[]'),
+          [
+            ACCOUNTS.pusher,
+            amountIn,
+            0n,
+            encodePacked(['address', 'uint24', 'address'], [tokenIn, fee, tokenOut]),
+            true,
+            [],
+          ],
+        );
+        const receipt = await mined(
+          await wallet.sendTransaction({
+            account: ACCOUNTS.pusher,
+            to: MAINNET.router,
+            data: encodeFunctionData({
+              abi: parseAbi(['function execute(bytes commands, bytes[] inputs, uint256 deadline)']),
+              functionName: 'execute',
+              args: ['0x00', [input], deadline],
+            }),
+            gas: 3_000_000n,
+          }),
+        );
+        if (receipt.status !== 'success') throw new Error('the push of the average pool reverted');
+        return (await balanceOf(tokenOut, ACCOUNTS.pusher)) - before;
+      },
+      rpcUrl,
       balanceOf,
       vaultOf: async (basketId) =>
         (

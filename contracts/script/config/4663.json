@@ -1,5 +1,5 @@
 {
-  "about": "Robinhood Chain MAINNET (4663). NOT READY TO DEPLOY: the script refuses this file while the word T-O-D-O appears anywhere in it, and it appears beside every value a person has not confirmed. Confirmed by a person (Thom, 2026-10-12): timelock.owner, the Safe, and the guardian. Also confirmed by him that day: SPY's pool, and that GLD is listed. Not confirmed: every other asset's pool, every asset's ceiling (maxWeightBps) and largest trade (maxTradeUsd), the bound to the feed (priceBoundBps), and the eight tokens added on 2026-10-12. The first mainnet step is owner-signed vaults only: no keeper (keeperEnabled false, keeper zero, every asset's flags 0), so no averageFeed is needed yet; the pool-average feed fills that slot when the keeper comes. The admin and the beacon's owner is a TimelockController the script creates; timelock.owner is the Safe that proposes to it. Listed: USDG as cash and nine tokens (NVDA, SPY, AAPL, MSFT, GOOGL, AMZN, META, TSLA, GLD), each with its Chainlink feed and its feedDescription, and each with `pool`: the one hookless Uniswap v4 pool against USDG its trades go through (fee in hundredths of a basis point, tick spacing). Each also states `maxTradeUsd`, the largest single trade the app builds. The deploy script reads neither `pool`, `maxTradeUsd` nor `priceBoundBps` (the contracts hold no pool and check an owner's swap against its minimum only); the app's builder and, for the pool, the guard do, and test/fork/RobinhoodForkDeploy.t.sol trades every listed token through it on a fork. All read at block 86735800 on 2026-10-12 by packages/chain-evm/test/pool-quotes.ts (ROBINHOOD-MAINNET-SCOPE, section of that day). Not listed: QQQ and SGOV, whose v4 pools against USDG do not fill a $1,000 trade. No deposit cap is set (caps none; Thom, 2026-10-10): the per-vault and total caps exist in the contracts and the Safe can set them later through the timelock. Closed days are the NYSE closures the test network file carries. safeMinThreshold is the fewest signatures the Safe must need (2 at least on a mainnet). Anyone may create a vault; naming creators would restrict it to them.",
+  "about": "Robinhood Chain MAINNET (4663). NOT READY TO DEPLOY: the script refuses this file while the word T-O-D-O appears anywhere in it, and it appears beside every value a person has not confirmed. Confirmed by a person (Thom, 2026-10-12): timelock.owner, the Safe, and the guardian. Also confirmed by him that day: SPY's pool, and that GLD is listed. Not confirmed: every other asset's pool, every asset's ceiling (maxWeightBps) and largest trade (maxTradeUsd), the bound to the feed (priceBoundBps), the rail and the average pools for a stale feed (staleRailBps, average), and the eight tokens added on 2026-10-12. The first mainnet step is owner-signed vaults only: no keeper (keeperEnabled false, keeper zero, every asset's flags 0), so no averageFeed is needed yet; the pool-average feed fills that slot when the keeper comes. The admin and the beacon's owner is a TimelockController the script creates; timelock.owner is the Safe that proposes to it. Listed: USDG as cash and nine tokens (NVDA, SPY, AAPL, MSFT, GOOGL, AMZN, META, TSLA, GLD), each with its Chainlink feed and its feedDescription, and each with `pool`: the one hookless Uniswap v4 pool against USDG its trades go through (fee in hundredths of a basis point, tick spacing). Each also states `maxTradeUsd`, the largest single trade the app builds. The deploy script reads `priceBoundBps` and `maxTradeUsd` only to refuse a file that leaves one out, and reads neither `pool`, `staleRailBps` nor `average` (the contracts hold no pool and check an owner's swap against its minimum only); the app's builder and, for the pool, the guard do, and test/fork/RobinhoodForkDeploy.t.sol trades every listed token through it on a fork. All read at block 86735800 on 2026-10-12 by packages/chain-evm/test/pool-quotes.ts (ROBINHOOD-MAINNET-SCOPE, section of that day). Not listed: QQQ and SGOV, whose v4 pools against USDG do not fill a $1,000 trade. No deposit cap is set (caps none; Thom, 2026-10-10): the per-vault and total caps exist in the contracts and the Safe can set them later through the timelock. Closed days are the NYSE closures the test network file carries. safeMinThreshold is the fewest signatures the Safe must need (2 at least on a mainnet). Anyone may create a vault; naming creators would restrict it to them.",
   "chainId": 4663,
   "adminIsDeployer": false,
   "admin": "0x0000000000000000000000000000000000000000",
@@ -27,6 +27,8 @@
   "sessionPriceAge": 3600,
   "priceBoundBps": 200,
   "priceBoundNote": "TODO: a person confirms the bound. How far a pool's quote for an owner's trade may be from the token's Chainlink price, pool fee included, before the app refuses to build the trade: 2%, the bound test/fork/RobinhoodForkDeploy.t.sol holds every listed token's fill to (MAX_COST_BPS). Source: the listed pools cost 0.01% to 0.97% at their largest trade and sat at most 0.35% from their feeds at block 86735800, so 2% leaves room for a moving market and refuses a pushed pool. The deploy script does not read it (the contract checks an owner's swap against its minimum only); the app's builder does, from the deploy record, and never sets a minimum under the feed's price less this bound.",
+  "staleRailBps": 1000,
+  "staleRailNote": "TODO: a person confirms the rail. While a token's Chainlink feed is older than its maxAge (a stock's, from Saturday evening to Sunday evening), the app checks an owner's trade against the last hour's average price of the token's `average` pool instead, by the same priceBoundBps, and refuses outright when the pool's quote is more than this far from the feed's last answer, however old: 10%. Proposed by Thom's direction of 2026-10-12 (gate OWNER-PRICE-BOUND). The deploy script does not read it.",
   "caps": "none",
   "cashToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
   "assets": [
@@ -71,7 +73,14 @@
       },
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of NVDA and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0x6444a8e0b267406a15db74ca00c4a24bdfa81ed3180f5b6d0851f8ed6f4f29c5. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 1.4/1.4, $1,000 2.3/2.3, $10,000 11.9/11.9. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 50000,
-      "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.54% in, 0.65% out at $50,000; $250,000 costs 2.5% in and does not sell. A larger trade is refused with a line the person reads, and can be made in parts."
+      "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.54% in, 0.65% out at $50,000; $250,000 costs 2.5% in and does not sell. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0xd4EB21209C4D6093f80B5b84f5C45cc093EA14a3",
+        "fee": 500,
+        "minLiquidity": "1900000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. NVDA's Uniswap v3 pool against USDG at fee 500, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $208,231 moves this pool 1%, against $46,636 for the pool the token trades in."
     },
     {
       "token": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
@@ -98,6 +107,13 @@
       "poolNote": "Confirmed by Thom on 2026-10-12 (gate POOL-PER-ASSET): SPY trades in its deepest pool. The hookless Uniswap v4 pool of SPY and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0xfe2a80bb5618fd14984b92ca6d45bf5ba67443ddb1435e28b2e48df2fc1526cd. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 35/35, $1,000 35.1/35.1, $10,000 35.7/35.7. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts). The alternative he passed over: the 100/1 pool, which costs 0.01% to 0.08% up to $10,000 and 0.33% at $50,000, holds a ninth of the liquidity and does not fill $250,000.",
       "maxTradeUsd": 250000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.53% in, 0.52% out at $250,000, the largest size asked. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0xa7Bb1AC63BBaB0C44316E6c8C455213441689167",
+        "fee": 500,
+        "minLiquidity": "110000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. SPY's Uniswap v3 pool against USDG at fee 500, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $29,496 moves this pool 1%, against $725,813 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'SPY', decimals() 18, paused() false; the feed answers description() 'RHSPY / USD', decimals() 8, a price 51260 seconds old."
     },
     {
@@ -125,6 +141,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of AAPL and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0xc748f4671a867db48b552f6b7650bf3255e05f80f00e3f7aad1b17ccb7898fdb. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 35.1/35.1, $1,000 36.1/36.1, $10,000 45.9/45.8. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 50000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.91% in, 0.87% out at $50,000; $250,000 costs 14.6% in. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0xAae0d815EE56e4092a5E5C2911E676Fea50B2d6D",
+        "fee": 500,
+        "minLiquidity": "200000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. AAPL's Uniswap v3 pool against USDG at fee 500, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $50,762 moves this pool 1%, against $45,971 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'AAPL', decimals() 18, paused() false; the feed answers description() 'Robinhood AAPL / USD', decimals() 8, a price 546 seconds old."
     },
     {
@@ -152,6 +175,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of MSFT and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0x9194a557b6a6bb2236b49ea7e2bbccec5d3eeb705aef00903be4b3de1d949579. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 36.1/36, $1,000 46.2/41.9, $10,000 274.3/97.3. SIZE WARNING: a $10,000 trade costs 2.7% in and 1.0% out; keep trades near $1,000. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 5000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.91% in, 0.68% out at $5,000; $10,000 costs 2.74% in. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0xeb60bCD1D920ad6E102690CCFC6fB488899E1510",
+        "fee": 3000,
+        "minLiquidity": "80000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. MSFT's Uniswap v3 pool against USDG at fee 3000, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $17,029 moves this pool 1%, against $4,427 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'MSFT', decimals() 18, paused() false; the feed answers description() 'RHMSFT / USD', decimals() 8, a price 1671 seconds old."
     },
     {
@@ -179,6 +209,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of GOOGL and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0xd4ecb79fdc521d7725d22b33ed43cb4e47aa96bfad76aa29577e3151f723ac5e. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 35.1/35.1, $1,000 36.5/36.5, $10,000 49.9/49.9. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 25000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.72% each way at $25,000; $50,000 costs 1.11% in. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0x34D0dC122CF9A8Eb296fC5e0D3A233625D7d19b7",
+        "fee": 500,
+        "minLiquidity": "490000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. GOOGL's Uniswap v3 pool against USDG at fee 500, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $89,931 moves this pool 1%, against $33,165 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'GOOGL', decimals() 18, paused() false; the feed answers description() 'Robinhood GOOGL / USD', decimals() 8, a price 147 seconds old."
     },
     {
@@ -206,6 +243,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of AMZN and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0xefc94885c96b02696b9b45de43eeeb8ac53c0199cab42b4daae4911b96fb8825. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 29.5/29.5, $1,000 44.6/44.6, $10,000 195.7/180.7. SIZE WARNING: a $10,000 trade costs about 2%, and $50,000 does not fill; keep trades near $1,000. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 2500,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.70% in, 0.69% out at $2,500; $5,000 costs 1.11% in. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0x8AC92DA74AB5F3b1d024Dc1943Ad7e15Dc4179Ef",
+        "fee": 3000,
+        "minLiquidity": "410000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. AMZN's Uniswap v3 pool against USDG at fee 3000, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $78,767 moves this pool 1%, against $2,964 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'AMZN', decimals() 18, paused() false; the feed answers description() 'Robinhood AMZN / USD', decimals() 8, a price 395 seconds old."
     },
     {
@@ -233,6 +277,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of META and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0x5875d407a42965b0e768c8925cea290e06fa50603ef34fc99eb92a1050e6ae36. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 35/35, $1,000 35.2/35.2, $10,000 37.2/37.2. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 250000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.91% each way at $250,000, the largest size asked. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0x107a7Cb40d8665360ba10E59471Af06150A50922",
+        "fee": 3000,
+        "minLiquidity": "60000000000000000",
+        "usable": false
+      },
+      "averageNote": "TODO: a person confirms the average pool. META's Uniswap v3 pool against USDG at fee 3000, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 1,801 observations (an hour needs more than 3,600), so usable is false: META is not traded while its feed is stale until someone grows the pool's history (increaseObservationCardinalityNext, in steps; ROBINHOOD-MAINNET-DRYRUN) and sets this to true. About $19,013 moves this pool 1%, against $220,800 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'META', decimals() 18, paused() false; the feed answers description() 'Robinhood META / USD', decimals() 8, a price 886 seconds old."
     },
     {
@@ -260,6 +311,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of TSLA and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0x8517f8071ae5b831b738052f12125e8e3d6c158b78728aa44ce3b25e5104d32e. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 35.1/35.1, $1,000 36.2/36.2, $10,000 47.2/47.2. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 50000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.97% in, 0.94% out at $50,000; $250,000 costs 15.5% in. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0xf4ACdAEEB7022862A763C9B1B885e11191c889E3",
+        "fee": 3000,
+        "minLiquidity": "130000000000000000",
+        "usable": true
+      },
+      "averageNote": "TODO: a person confirms the average pool. TSLA's Uniswap v3 pool against USDG at fee 3000, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 7,200 observations (an hour needs more than 3,600), so usable is true. About $32,169 moves this pool 1%, against $40,507 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'TSLA', decimals() 18, paused() false; the feed answers description() 'RHTSLA / USD', decimals() 8, a price 2632 seconds old."
     },
     {
@@ -287,6 +345,13 @@
       "poolNote": "TODO: a person confirms this pool. The hookless Uniswap v4 pool of GLD and USDG with the most liquidity in range at block 86735800 (2026-10-12 14:14 UTC), id 0xd85389e64f380f1f634d458dd32bc26ed7d36bf555ee144d798145b46c056f95. Quoted cost against its own mid, fee included, in bps to trade in / out: $100 30.3/30.3, $1,000 81.8/88.4, $10,000 473/5242.4. SIZE WARNING: thin. $1,000 costs 0.9%; a $10,000 sale loses half. Trades of $1,000 at most. Its Chainlink feed is itself made from pools. Every trade of this token goes through this pool and no other; packages/sdk/deployments/mainnet.json states the same pool (tests/evm-vault/record.test.ts).",
       "maxTradeUsd": 1000,
       "maxTradeNote": "TODO: a person confirms the limit. The largest single trade of this token the app builds, in dollars: the largest size asked (of $1,000, $10,000, $50,000 and $250,000, and $2,500, $5,000 and $25,000 for the four thinnest pools) that cost 1% or less each way in the pool above at block 86735800: 0.82% in, 0.88% out at $1,000; $2,500 costs 1.5% in and 2.1% out, and a $10,000 sale loses half. A larger trade is refused with a line the person reads, and can be made in parts.",
+      "average": {
+        "pool": "0xBA2f1ed4cEB2169D538d1e614D847E83C5A55913",
+        "fee": 500,
+        "minLiquidity": "880000000000000000",
+        "usable": false
+      },
+      "averageNote": "TODO: a person confirms the average pool. GLD's Uniswap v3 pool against USDG at fee 500, the pool contracts/script/config/pool-feeds/4663.json names for it, with that file's floor on its liquidity in range. Read on 2026-10-12: it keeps 1,800 observations (an hour needs more than 3,600), so usable is false: GLD is not traded while its feed is stale until someone grows the pool's history (increaseObservationCardinalityNext, in steps; ROBINHOOD-MAINNET-DRYRUN) and sets this to true. About $151,457 moves this pool 1%, against $850 for the pool the token trades in.",
       "note": "TODO: a person confirms the token and the feed. Read on chain at block 86735800 (2026-10-12): the token answers symbol() 'GLD', decimals() 18, paused() false; the feed answers description() 'GLD / USD', decimals() 8, a price 6659 seconds old. Listed by Thom's decision of 2026-10-12 (gate GOLD-LISTED). Its Chainlink feed is made from on-chain pool prices, not from a stock exchange: the bound to the feed sees a push of this one pool, and would not see a push of the pools the feed itself reads. What then limits a loss is maxTradeUsd, $1,000 a trade (docs/vault/SECURITY.md). This marker is not to be lifted until someone has measured which pools the feed reads and what moving them costs."
     }
   ],

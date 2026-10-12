@@ -151,6 +151,31 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     expect(least).toBe(1_000);
   });
 
+  it('state what stands in for a stale feed: the rail, and an average pool per token that says whether it can be used', () => {
+    const file = contracts as ContractsFile & { staleRailBps?: number };
+    expect(file.staleRailBps).toBe(1_000);
+    const [, ...stocks] = contracts.assets as (ContractsFile['assets'][number] & {
+      feedDescription?: string;
+      average?: { pool: string; fee: number; minLiquidity: string; usable: boolean };
+    })[];
+    // The pool and its floor are the ones the keeper's pool-average file names for the token.
+    const feeds = JSON.parse(
+      readFileSync(join(ROOT, 'contracts', 'script', 'config', 'pool-feeds', '4663.json'), 'utf8'),
+    ) as { assets: { token: string; pool: string; fee: number; minLiquidity: string }[] };
+    for (const a of stocks) {
+      const named = feeds.assets.find((f) => lower(f.token) === lower(a.token));
+      expect(a.average, a.token).toEqual({
+        pool: named?.pool,
+        fee: named?.fee,
+        minLiquidity: named?.minLiquidity,
+        usable: expect.any(Boolean),
+      });
+    }
+    // The two whose pools keep under an hour of history say so, and are not traded on a stale feed.
+    const unusable = stocks.filter((a) => !a.average?.usable).map((a) => a.feedDescription);
+    expect(unusable.sort()).toEqual(['GLD / USD', 'Robinhood META / USD']);
+  });
+
   it('the builder writes each mainnet token the pool the guard would hold it to', () => {
     const [, ...stocks] = contracts.assets;
     const pools = v4Pools(

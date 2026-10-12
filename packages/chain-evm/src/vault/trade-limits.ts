@@ -10,8 +10,13 @@ import { toScaled } from './amounts';
 //
 // - the pool's quote is within `priceBoundBps` of what the feed says the trade is worth, either way,
 //   pool fee included, or the step is refused (`PriceDeviation`);
-// - a feed that is stale by the asset's own `maxAge`, or gives no price, refuses (`PriceStale`,
-//   `AssetNotPriced`): no witness is not a pass;
+// - a feed that gives no price refuses (`AssetNotPriced`): no witness is not a pass;
+// - a feed that is stale by the asset's own `maxAge` (a stock's, from Saturday evening to Sunday
+//   evening) is not dropped and does not stop every trade either. The witness becomes the one-hour
+//   average of the asset's average pool (the Uniswap v3 pool the keeper's `PoolAverageFeed` is
+//   designed around, read here off chain with the same arithmetic), held to the same bound, inside an
+//   outer rail: the quote is within `staleRailBps` of the feed's last answer, however old. An asset
+//   whose average pool keeps too little history, or is too thin, is not traded on a stale feed;
 // - `minOut` is never under the feed's worth less the bound, so the fill itself is held to it on the
 //   chain, whatever the pool does between the quote and the block;
 // - one trade is at most the asset's `maxTradeUsd`, the size its pool was measured to fill.
@@ -30,7 +35,32 @@ export type TradeLimits = {
   priceBoundBps: number | null;
   /** The largest single trade of each asset, in dollars, by token address in lower case. Null or absent: none. */
   maxTradeUsd: Readonly<Record<string, number | null>>;
+  /**
+   * While an asset's feed is stale: how far a pool's quote may be from the feed's last answer, however
+   * old, in basis points. With it, a stale feed is replaced as the witness by the one-hour average of
+   * the asset's average pool (`average`), held to the same `priceBoundBps`. Null or absent: a stale
+   * feed refuses, as it did before there was a second witness.
+   */
+  staleRailBps?: number | null;
+  /** Each asset's average pool, by token address in lower case. Null or absent: it has none. */
+  average?: Readonly<Record<string, AveragePool | null>>;
 };
+
+/**
+ * The pool an asset's one-hour average is read from while its feed is stale: the Uniswap v3 pool the
+ * keeper's `PoolAverageFeed` is designed around, read off chain with the same arithmetic. `usable` is
+ * stated, never guessed: false while the pool keeps too little history for an hour's window, and then
+ * the asset is not traded on a stale feed at all.
+ */
+export type AveragePool = { pool: string; minLiquidity: bigint; usable: boolean };
+
+/** What the average pool said, for a trade whose feed is stale. */
+export type AverageWitness =
+  | { state: 'ok'; usdPerToken: string }
+  /** The record says the pool's history is too short to use. */
+  | { state: 'unusable' }
+  /** Read, and refused by the average's own rules: too thin now or over the hour, or under an hour of history. */
+  | { state: 'thin' | 'short' | 'unreadable' };
 
 /** No limit at all: for a chain in memory and for tests of something else. */
 export const NO_TRADE_LIMITS: TradeLimits = { priceBoundBps: null, maxTradeUsd: {} };
@@ -58,6 +88,8 @@ export type HeldTrade = {
   assetDecimals: number;
   /** Null where the asset has no feed, or the network does not check. */
   price: FeedPrice | null;
+  /** The asset's one-hour pool average, read only while its feed is stale and the network has a rail. */
+  average?: AverageWitness | null;
 };
 
 const SCALE = 10n ** 18n;
@@ -117,12 +149,29 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
       'AssetNotPriced',
       `${t.symbol} has no reference price to check the pool against: not trading`,
     );
-  if (checked && t.price && t.price.ageSeconds > t.price.maxAgeSeconds)
+  const stale = checked && t.price !== null && t.price.ageSeconds > t.price.maxAgeSeconds;
+  const rail = limits.staleRailBps ?? null;
+  // A stale feed with no second witness for the network or the asset: nothing to check against.
+  if (stale && t.price && (rail === null || !t.average))
     throw new ChainError(
       'PriceStale',
       t.price.market === 'closed'
         ? `no fresh reference price for ${t.symbol}: the market is closed; trades of ${t.symbol} resume when it opens`
         : `no fresh reference price for ${t.symbol}: the last one is ${hours(t.price.ageSeconds)} old, and it may be ${hours(t.price.maxAgeSeconds)} at most; trades of ${t.symbol} resume when a new one arrives`,
+    );
+  // A second witness that cannot be used: said plainly, and not traded.
+  if (stale && t.average && t.average.state !== 'ok')
+    throw new ChainError(
+      'PriceStale',
+      `${t.symbol} trades only while its market is open, for now: ${
+        t.average.state === 'unusable'
+          ? "its pool keeps too little history for an hour's average price"
+          : t.average.state === 'thin'
+            ? "the pool its hour's average price comes from is too thin to trust"
+            : t.average.state === 'short'
+              ? 'its pool has less than an hour of history for an average price'
+              : "its hour's average price could not be read"
+      }`,
     );
 
   if (max !== null) {
@@ -144,7 +193,20 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
 
   if (!checked || !t.price) return null;
   const bound = BigInt(limits.priceBoundBps as number);
-  const fair = worthAtFeed(t, t.amountIn, t.price.usdPerToken);
+  // The witness: the feed while it is fresh; the last hour's average of the asset's pool while it is
+  // stale, inside an outer rail around the feed's last answer.
+  const average = stale && t.average?.state === 'ok' ? t.average : null;
+  if (average && rail !== null) {
+    const last = worthAtFeed(t, t.amountIn, t.price.usdPerToken);
+    const off = t.out > last ? t.out - last : last - t.out;
+    if (last <= 0n || off * 10_000n > BigInt(rail) * last)
+      throw new ChainError(
+        'PriceDeviation',
+        `the pool's price for ${t.symbol} is ${last > 0n ? pct((off * 10_000n + last - 1n) / last) : 'far'} ${t.out < last ? 'worse' : 'better'} than its last reference price, from ${hours(t.price.ageSeconds)} ago, more than the ${pct(BigInt(rail))} allowed while there is no fresh one: not trading`,
+      );
+  }
+  const against = average ? "the last hour's average price" : 'the reference price';
+  const fair = worthAtFeed(t, t.amountIn, average ? average.usdPerToken : t.price.usdPerToken);
   if (fair <= 0n)
     throw new ChainError('BadTrade', `a trade of ${t.symbol} too small to price: not trading`);
   const gap = t.out > fair ? t.out - fair : fair - t.out;
@@ -158,8 +220,8 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
     throw new ChainError(
       'PriceDeviation',
       gap * 10_000n <= bound * fair + (bound * fair) / 2n
-        ? `the pool's price for ${t.symbol} is ${pct(shown)} ${way} than the reference price right now, just past the ${pct(bound)} allowed: try again shortly`
-        : `the pool's price for ${t.symbol} is ${pct(shown)} ${way} than the reference price, more than the ${pct(bound)} allowed: not trading. The pool may be thin or pushed; try a smaller amount, or later`,
+        ? `the pool's price for ${t.symbol} is ${pct(shown)} ${way} than ${against} right now, just past the ${pct(bound)} allowed: try again shortly`
+        : `the pool's price for ${t.symbol} is ${pct(shown)} ${way} than ${against}, more than the ${pct(bound)} allowed: not trading. The pool may be thin or pushed; try a smaller amount, or later`,
     );
   }
   return (fair * (10_000n - bound)) / 10_000n;

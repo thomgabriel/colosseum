@@ -75,6 +75,12 @@ export const EvmDeploymentRecord = z
      * way for a stopped copier to stop deposits on a demo. A mainnet's is a number.
      */
     priceBoundBps: z.number().int().min(1).max(1_000).nullable(),
+    /**
+     * While an asset's feed is stale: how far a pool's quote may be from the feed's last answer,
+     * however old, in basis points; and with it the asset's one-hour pool average (`average` below)
+     * takes the feed's place as the witness. Null: a stale feed refuses the trade.
+     */
+    staleRailBps: z.number().int().min(1).max(5_000).nullable(),
     /** `pull` 1 takes the input with `transferFrom`, 2 through Permit2. */
     routers: z.array(
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
@@ -111,6 +117,16 @@ export const EvmDeploymentRecord = z
          * million dollars a side).
          */
         maxTradeUsd: z.number().int().positive().nullable(),
+        /**
+         * The pool the asset's one-hour average is read from while its feed is stale: a Uniswap v3
+         * pool of the asset and the cash, the least liquidity in range it may hold (its own units),
+         * and whether its history is long enough to use. `usable` is stated by whoever writes the
+         * record, from the pool's observation cardinality: nothing guesses it when a trade is built.
+         * Null: the asset has none, and is not traded on a stale feed.
+         */
+        average: z
+          .strictObject({ pool: Address, minLiquidity: Raw, usable: z.boolean() })
+          .nullable(),
       }),
     ),
     /** Listed once and taken off the list: vaults may still hold them. */
@@ -167,6 +183,19 @@ export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
   return {
     priceBoundBps: record.priceBoundBps,
     maxTradeUsd: Object.fromEntries(record.assets.map((a) => [a.address, a.maxTradeUsd])),
+    staleRailBps: record.staleRailBps,
+    average: Object.fromEntries(
+      record.assets.map((a) => [
+        a.address,
+        a.average
+          ? {
+              pool: a.average.pool,
+              minLiquidity: BigInt(a.average.minLiquidity),
+              usable: a.average.usable,
+            }
+          : null,
+      ]),
+    ),
   };
 }
 

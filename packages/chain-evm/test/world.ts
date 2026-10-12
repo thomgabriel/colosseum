@@ -537,6 +537,7 @@ export async function buildWorld(forkUrl: string, port: number): Promise<Fork> {
         tokenIssuer: null,
       },
       priceBoundBps: 200,
+      staleRailBps: null,
       routers: [],
       sequencerFeed: null,
       cash: {
@@ -616,5 +617,6 @@ function stock(
     // own fork test trades in.
     pool: slug === 'nvda' ? { fee: 100, tickSpacing: 1 } : { fee: 3000, tickSpacing: 60 },
     maxTradeUsd: 10_000,
+    average: null,
   };
 }

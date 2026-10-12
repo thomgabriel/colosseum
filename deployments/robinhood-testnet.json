@@ -21,6 +21,7 @@
   },
   "sequencerFeed": null,
   "priceBoundBps": null,
+  "staleRailBps": null,
   "routers": [
     {
       "address": "0xd290cfe0738e1ab9cea9dc138bbec024dc3bd127",
@@ -58,7 +59,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tqqq",
@@ -83,7 +85,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tnvda",
@@ -108,7 +111,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:taapl",
@@ -133,7 +137,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tmsft",
@@ -158,7 +163,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tgoogl",
@@ -183,7 +189,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tamzn",
@@ -208,7 +215,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tmeta",
@@ -233,7 +241,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:ttsla",
@@ -258,7 +267,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tgld",
@@ -283,7 +293,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tsgov",
@@ -308,7 +319,8 @@
         "fee": 500,
         "tickSpacing": 10
       },
-      "maxTradeUsd": null
+      "maxTradeUsd": null,
+      "average": null
     }
   ],
   "retired": []

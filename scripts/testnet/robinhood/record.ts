@@ -121,6 +121,7 @@ export function buildRecord(
     // Not checked against the feeds here: the kit's market keeps each pool at its feed, and the feeds
     // are written by our own copier (packages/chain-evm/src/vault/deployment.ts).
     priceBoundBps: null,
+    staleRailBps: null,
     routers: [{ address: kit.router, pull: 2 as const }],
     cash: {
       id: idOf(kit.cashSymbol),
@@ -155,6 +156,7 @@ export function buildRecord(
         pool: { fee: kit.fee, tickSpacing: kit.tickSpacing },
         // No largest trade: the kit seeds each pool with a million dollars a side.
         maxTradeUsd: null,
+        average: null,
       };
     }),
     retired: chain.removed.map((address) => {

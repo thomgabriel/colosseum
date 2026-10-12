@@ -9,6 +9,7 @@ import {
   CreateVaultArgs,
   DepositArgs,
   EvmAddress,
+  isStalePrice,
   type LegKind,
   OwnerSwapArgs,
   type Price,
@@ -32,14 +33,16 @@ import {
   parseAbiParameters,
 } from 'viem';
 import { z } from 'zod';
+import { fromScaled } from './amounts';
 import { type Composed, compose } from './compose';
 import { firstShort } from './funds';
 import { BASKET_VAULT_ABI, INDEX_REGISTRY_ABI, VAULT_FACTORY_ABI } from './generated/abi';
+import { readPoolAveragePlan } from './pool-average';
 import { createEvmVaultReader, type EvmVaultReader, type EvmVaultReaderOptions } from './reader';
 import { poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
 import { ask } from './rpc';
 import { createEvmProbe } from './send';
-import { holdTrade, type TradeLimits } from './trade-limits';
+import { type AverageWitness, holdTrade, type TradeLimits } from './trade-limits';
 import { unlistedAssetId, unlistedToken } from './unlisted';
 
 // The EVM adapter whole (DESIGN-VAULT 3.2): the reader of ADE-1, every builder, the quotes and the
@@ -70,6 +73,9 @@ export function indexIdOf(creator: string, familyId: string): Hex {
 }
 
 const ZERO_WORD = `0x${'0'.repeat(64)}` as Hex;
+/** The window of the pool average that stands in for a stale feed: an hour, as `PoolAverageFeed`'s. */
+const AVERAGE_WINDOW_S = 3600;
+type Witnessed = { price: Price; average: AverageWitness | null };
 const ERC20 = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
   'function allowance(address owner, address spender) view returns (uint256)',
@@ -170,16 +176,68 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
    * asset with no feed has none here, and `holdTrade` refuses it; a feed that gives no price is
    * refused by the read itself (`AssetNotPriced`).
    */
-  async function feedPrices(ids: AssetId[]) {
+  async function feedPrices(ids: AssetId[]): Promise<Map<AssetId, Witnessed>> {
     if (limits.priceBoundBps === null && Object.values(limits.maxTradeUsd).every((v) => v === null))
-      return new Map<AssetId, Price>();
+      return new Map();
     const priced = [...new Set(ids)].filter((id) => byId.get(id)?.priceKind === 'chainlink');
     const prices = priced.length ? await reader.getPrices(priced) : [];
-    return new Map(prices.map((p) => [p.asset, p]));
+    // A stale feed, on a network with a rail: the asset's one-hour pool average is read beside it.
+    const stale = prices.filter(
+      (p) =>
+        limits.priceBoundBps !== null && isStalePrice(p) && (limits.staleRailBps ?? null) !== null,
+    );
+    const block = stale.length
+      ? await ask('eth_getBlockByNumber', () => rpc.getBlock({ blockTag: 'latest' }))
+      : null;
+    const averages = new Map<AssetId, AverageWitness>();
+    await Promise.all(
+      stale.map(async (p) => {
+        const asset = byId.get(p.asset);
+        const named = asset ? (limits.average?.[asset.address] ?? null) : null;
+        if (!asset || !named || !block) return;
+        if (!named.usable) {
+          averages.set(p.asset, { state: 'unusable' });
+          return;
+        }
+        const reading = await readPoolAveragePlan(
+          rpc,
+          {
+            pool: named.pool as Address,
+            base: asset.address as Address,
+            quote: cash?.address as Address,
+            feed: asset.priceRef as Address,
+            baseDecimals: asset.decimals,
+            quoteDecimals: cash?.decimals ?? 6,
+            window: AVERAGE_WINDOW_S,
+            minLiquidity: named.minLiquidity,
+            // Chainlink's own hour is not asked of a feed that is stale: its last answer is the rail.
+            jumpBps: 10_000,
+            maxRounds: 1,
+          },
+          { block: block.number, time: block.timestamp },
+        );
+        averages.set(
+          p.asset,
+          reading.reason === 'ThinPool'
+            ? { state: 'thin' }
+            : reading.reason === 'ShortHistory'
+              ? { state: 'short' }
+              : reading.average > 0n &&
+                  (reading.reason === null ||
+                    reading.reason === 'FeedRounds' ||
+                    reading.reason === 'FeedJumped')
+                ? { state: 'ok', usdPerToken: fromScaled(reading.average, reading.feedDecimals) }
+                : { state: 'unreadable' },
+        );
+      }),
+    );
+    return new Map(
+      prices.map((p) => [p.asset, { price: p, average: averages.get(p.asset) ?? null }]),
+    );
   }
   /** One trade against the network's limits: throws the refusal, or gives the feed's floor for `minOut`. */
   function held(
-    prices: Map<AssetId, Price>,
+    prices: Map<AssetId, Witnessed>,
     t: Trade,
     leg: { tokenIn: Address; tokenOut: Address; amountIn: bigint; amountInSoFar: bigint },
     out: bigint,
@@ -187,7 +245,8 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
     const side = t.sell === cash?.id ? 'buy' : 'sell';
     const id = side === 'buy' ? t.buy : t.sell;
     const asset = byId.get(id);
-    const price = prices.get(id);
+    const witnessed = prices.get(id);
+    const price = witnessed?.price;
     return holdTrade(limits, side === 'buy' ? leg.tokenOut : leg.tokenIn, {
       symbol: asset?.symbol ?? id,
       side,
@@ -205,6 +264,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
               market: price.market,
             }
           : null,
+      average: witnessed?.average ?? null,
     });
   }
 

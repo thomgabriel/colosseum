@@ -169,6 +169,112 @@ describe('the bound to the feed', () => {
   });
 });
 
+describe('a stale feed: the last hour of the pool stands in, inside a rail', () => {
+  const WEEKEND: TradeLimits = { ...LIMITS, staleRailBps: 1_000 };
+  const STALE = { ...FRESH, ageSeconds: 130_000, market: 'closed' as const };
+  // The feed last said $400; the pool's last hour averages $410.
+  const witnessed = (out: bigint, over: Partial<HeldTrade> = {}) =>
+    buyOf(out, { price: STALE, average: { state: 'ok', usdPerToken: '410' }, ...over });
+  const fairAtAverage = (400n * USD * ONE * ONE) / (USD * 410n * ONE);
+
+  it('holds the quote to the average by the same bound, and the minimum to its floor', () => {
+    expect(holdTrade(WEEKEND, GLD_AT, witnessed(fairAtAverage))).toBe((fairAtAverage * 98n) / 100n);
+    // 2% under the average passes; a unit more does not.
+    expect(holdTrade(WEEKEND, GLD_AT, witnessed((fairAtAverage * 98n) / 100n + 1n))).not.toBeNull();
+    const refused = refusalOf(() =>
+      holdTrade(WEEKEND, GLD_AT, witnessed((fairAtAverage * 95n) / 100n)),
+    );
+    expect(refused.code).toBe('PriceDeviation');
+    // The refusal names the witness it used.
+    expect(refused.message).toBe(
+      "the pool's price for GLD is 5.01% worse than the last hour's average price, more than the 2.00% allowed: not trading. The pool may be thin or pushed; try a smaller amount, or later",
+    );
+    expect(
+      refusalOf(() => holdTrade(WEEKEND, GLD_AT, witnessed((fairAtAverage * 9_790n) / 10_000n)))
+        .message,
+    ).toMatch(
+      /worse than the last hour's average price right now, just past the 2\.00% allowed: try again shortly/,
+    );
+  });
+
+  it('a fresh feed is still the witness: the average is not read for it', () => {
+    // Inside the feed's bound, far from an average that would refuse: the feed decides.
+    const fresh = buyOf(ONE, { price: FRESH, average: { state: 'ok', usdPerToken: '300' } });
+    expect(holdTrade(WEEKEND, GLD_AT, fresh)).toBe((ONE * 98n) / 100n);
+  });
+
+  it('the rail: a quote over 10% from the last feed answer is refused, whatever the average says', () => {
+    // Both pools agree at $460, 15% above the $400 the feed last said.
+    const drifted = (400n * USD * ONE * ONE) / (USD * 460n * ONE);
+    const refused = refusalOf(() =>
+      holdTrade(
+        WEEKEND,
+        GLD_AT,
+        witnessed(drifted, { average: { state: 'ok', usdPerToken: '460' } }),
+      ),
+    );
+    expect(refused.code).toBe('PriceDeviation');
+    expect(refused.message).toBe(
+      "the pool's price for GLD is 13.05% worse than its last reference price, from 36 hours ago, more than the 10.00% allowed while there is no fresh one: not trading",
+    );
+    // Exactly at the rail, with the average agreeing, it is traded; a unit past, it is not.
+    const at = (ONE * 90n) / 100n;
+    const agreeing = { state: 'ok' as const, usdPerToken: '444.444444444444444444' };
+    expect(holdTrade(WEEKEND, GLD_AT, witnessed(at, { average: agreeing }))).not.toBeNull();
+    expect(
+      refusalOf(() => holdTrade(WEEKEND, GLD_AT, witnessed(at - 1n, { average: agreeing })))
+        .message,
+    ).toMatch(/than its last reference price/);
+    // The other way too: a pool paying 12% more than the feed last said.
+    expect(
+      refusalOf(() =>
+        holdTrade(
+          WEEKEND,
+          GLD_AT,
+          witnessed((ONE * 112n) / 100n, { average: { state: 'ok', usdPerToken: '357' } }),
+        ),
+      ).message,
+    ).toMatch(/12\.00% better than its last reference price/);
+  });
+
+  it('a token whose average cannot be used is not traded on a stale feed, and the person is told why', () => {
+    const cases: [HeldTrade['average'], RegExp][] = [
+      [{ state: 'unusable' }, /its pool keeps too little history for an hour's average price$/],
+      [{ state: 'short' }, /its pool has less than an hour of history for an average price$/],
+      [{ state: 'thin' }, /the pool its hour's average price comes from is too thin to trust$/],
+      [{ state: 'unreadable' }, /its hour's average price could not be read$/],
+    ];
+    for (const [average, why] of cases) {
+      const refused = refusalOf(() => holdTrade(WEEKEND, GLD_AT, witnessed(ONE, { average })));
+      expect(refused.code).toBe('PriceStale');
+      expect(refused.retryable).toBe(true);
+      expect(refused.message).toMatch(/^GLD trades only while its market is open, for now: /);
+      expect(refused.message).toMatch(why);
+    }
+  });
+
+  it('with no average pool for the asset, or no rail for the network, a stale feed refuses as before', () => {
+    const none = refusalOf(() => holdTrade(WEEKEND, GLD_AT, buyOf(ONE, { price: STALE })));
+    expect(none.code).toBe('PriceStale');
+    expect(none.message).toBe(
+      'no fresh reference price for GLD: the market is closed; trades of GLD resume when it opens',
+    );
+    // No rail: the average is not a witness here, however good.
+    for (const limits of [LIMITS, { ...LIMITS, staleRailBps: null }])
+      expect(refusalOf(() => holdTrade(limits, GLD_AT, witnessed(fairAtAverage))).message).toMatch(
+        /^no fresh reference price for GLD/,
+      );
+  });
+
+  it('the size limit holds on a stale feed, measured at its last answer', () => {
+    const big = witnessed((ONE * 1_001n) / 410n, {
+      amountIn: 1_001n * USD,
+      amountInSoFar: 1_001n * USD,
+    });
+    expect(refusalOf(() => holdTrade(WEEKEND, GLD_AT, big)).code).toBe('BadTrade');
+  });
+});
+
 describe("the asset's largest trade", () => {
   const big = (usd: bigint) =>
     buyOf((ONE * usd) / 400n, { amountIn: usd * USD, amountInSoFar: usd * USD });
