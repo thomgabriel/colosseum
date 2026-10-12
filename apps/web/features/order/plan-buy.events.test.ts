@@ -447,7 +447,8 @@ describe('the buy screen', () => {
     expect(read.at(-1)?.path).toBe(
       `/v1/funding?amountUsd=40000&proposalId=${PLAN_ID}&wallet=${SOLANA}`,
     );
-    expect(host.textContent).toContain(en.buy.funding.short('Solana'));
+    expect(host.textContent).toContain(en.buy.funding.insufficient);
+    expect(host.textContent).toContain(en.buy.funding.addToken('USDC'));
     // in whole units, with the units the test network's deployment committed
     expect(host.textContent).toContain('40,000 USDC');
     const button = find(host, SIGN);
@@ -469,7 +470,8 @@ describe('the buy screen', () => {
     });
     rememberPlan(planOn());
     const host = await buy();
-    expect(host.textContent).toContain(en.buy.funding.short('Solana'));
+    expect(host.textContent).toContain(en.buy.funding.insufficient);
+    expect(host.textContent).toContain(en.buy.funding.addToken('USDC'));
     expect(host.textContent).toContain('40,000 USDC');
     expect(host.textContent).toContain('1 SOL');
     expect(host.textContent).toContain('0.02 SOL');
@@ -562,7 +564,9 @@ describe('the buy screen', () => {
     expect(server.to('/v1/funding').at(-1)?.path).toBe(
       `/v1/funding?amountUsd=40000&proposalId=${PLAN_ID}&wallet=${EVM}`,
     );
-    expect(host.textContent).toContain(en.buy.funding.short('Robinhood Chain'));
+    expect(host.textContent).toContain(en.buy.funding.insufficient);
+    expect(host.textContent).toContain(en.buy.funding.addToken('tUSDG'));
+    expect(host.textContent).toContain(en.buy.funding.addGas('ETH'));
     expect(host.textContent).toContain('40,000 tUSDG');
     expect(host.textContent).toContain('ETH');
     expect(find(host, SIGN).getAttribute('aria-disabled')).toBe('true');

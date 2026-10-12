@@ -82,6 +82,8 @@ function api(
     have?: string;
     /** The answer of POST /v1/testnet/fund. Default: what was sent, and the wallet funded after. */
     fund?: () => Response;
+    /** Changes what GET /v1/funding answers. */
+    say?: (answer: ReturnType<typeof funding>) => ReturnType<typeof funding>;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -100,7 +102,9 @@ function api(
       if (path === '/v1/me') return json(person);
       if (path.startsWith('/v1/funding?'))
         return json(
-          funding({ funded, faucet: o.faucet ?? false, provenance: o.provenance, have: o.have }),
+          (o.say ?? ((x) => x))(
+            funding({ funded, faucet: o.faucet ?? false, provenance: o.provenance, have: o.have }),
+          ),
         );
       if (path === '/v1/testnet/fund' && method === 'POST') {
         if (o.fund) return o.fund();
@@ -139,6 +143,26 @@ const amountField = (host: HTMLElement) =>
 const button = (host: HTMLElement, name: string) =>
   [...host.querySelectorAll('button')].find(
     (b) => b.textContent?.includes(name) && !b.closest('[hidden]'),
+  );
+/**
+ * What the funds card says while the wallet is short: its text without the address, which is not a
+ * figure, and without the table behind the closed disclosure.
+ */
+const said = (host: HTMLElement) => {
+  const card = find(host, '[data-ui="funding-step"]').cloneNode(true) as HTMLElement;
+  for (const el of card.querySelectorAll(
+    '[data-ui="funding-address"], [data-ui="funding-details"]',
+  ))
+    el.remove();
+  return card.textContent ?? '';
+};
+/** The account menu's copy control, beside the address in the funds card. */
+const copyOf = (host: HTMLElement, address: string) =>
+  [...find(host, '[data-ui="funding-step"]').querySelectorAll('[data-ui="copy-button"]')].find(
+    (b) =>
+      b.getAttribute('aria-label') === en.shell.copyAddress &&
+      b.closest('p')?.querySelector('[data-ui="funding-address"]')?.getAttribute('title') ===
+        address,
   );
 
 beforeEach(() => {
@@ -272,13 +296,18 @@ describe('the funds, shown because the wallet is short', () => {
   // 36,000 of the 40,000 test dollars held: what is missing is within one send of test funds
   const WITHIN = '36000000000';
 
-  it('says the need in one line, with the details behind a disclosure', async () => {
+  it('says the balance is short in plain words and no figure, with the details behind a disclosure', async () => {
     api({ funded: false });
     const host = await buy();
     const line = find(host, '[data-ui="funding-line"]');
-    expect(line.textContent).toBe(
-      `${en.buy.funding.needs('40,000 USDC', '0.0101 SOL')} ${en.buy.funding.haveNone}`,
-    );
+    // both short: the heading, the token line, then the fee line, each symbol from the read
+    expect([...line.children].map((c) => c.textContent)).toEqual([
+      en.buy.funding.insufficient,
+      en.buy.funding.addToken('USDC'),
+      en.buy.funding.addGas('SOL'),
+    ]);
+    expect(said(host)).not.toMatch(/\d/);
+    expect(said(host)).not.toMatch(/!/);
     const details = find<HTMLDetailsElement>(host, 'details[data-ui="funding-details"]');
     expect(details.open).toBe(false);
     expect(details.querySelector('summary')?.textContent).toBe(en.buy.funding.details);
@@ -297,8 +326,13 @@ describe('the funds, shown because the wallet is short', () => {
     const host = await buy();
     const get = button(host, en.buy.funding.testFunds);
     expect(get).toBeDefined();
-    // the old instructions give way to the button
-    expect(host.textContent).not.toContain(en.buy.funding.short('Solana'));
+    // only the cash is short here: the token line alone, beside the button
+    expect([...find(host, '[data-ui="funding-line"]').children].map((c) => c.textContent)).toEqual([
+      en.buy.funding.insufficient,
+      en.buy.funding.addToken('USDC'),
+    ]);
+    expect(said(host)).not.toMatch(/\d/);
+    expect(copyOf(host, SOLANA)).toBeDefined();
     expect(host.textContent).toContain(en.buy.funding.testNote);
     const reads = server.to('/v1/funding').length;
     await click(get as HTMLButtonElement);
@@ -336,8 +370,37 @@ describe('the funds, shown because the wallet is short', () => {
     api({ funded: false, faucet: false });
     const host = await buy();
     expect(button(host, en.buy.funding.testFunds)).toBeUndefined();
-    expect(host.textContent).toContain(en.buy.funding.short('Solana'));
-    expect(host.textContent).toContain(en.buy.funding.address(SOLANA));
+    expect(host.textContent).toContain(en.buy.funding.insufficient);
+    expect(host.textContent).toContain(en.buy.funding.addToken('USDC'));
+    // the whole address is there for a screen reader, short for the eye, with the account menu's copy
+    const address = find(host, '[data-ui="funding-address"]');
+    expect(address.getAttribute('title')).toBe(SOLANA);
+    expect(address.textContent).toContain(SOLANA);
+    expect(copyOf(host, SOLANA)).toBeDefined();
+    expect(said(host)).not.toMatch(/\d/);
+  });
+
+  it('asks for the fee token alone where only it is short', async () => {
+    api({
+      funded: false,
+      say: (a) => ({ ...a, cash: { ...a.cash, haveRaw: a.cash.needRaw, missingRaw: '0' } }),
+    });
+    const host = await buy();
+    expect([...find(host, '[data-ui="funding-line"]').children].map((c) => c.textContent)).toEqual([
+      en.buy.funding.insufficient,
+      en.buy.funding.addGas('SOL'),
+    ]);
+    expect(said(host)).not.toMatch(/\d/);
+  });
+
+  it('says it in Portuguese with the same symbols', () => {
+    const pt = dictionary('pt').buy.funding;
+    expect(pt.insufficient).toBe('Saldo insuficiente.');
+    expect(pt.addToken('USDG')).toBe('Adicione USDG à sua carteira para depositar.');
+    expect(pt.addGas('ETH')).toBe('Adicione um pouco de ETH para as taxas de rede.');
+    expect(en.buy.funding.insufficient).toBe('Insufficient balance.');
+    expect(en.buy.funding.addToken('USDG')).toBe('Add USDG to your wallet to deposit.');
+    expect(en.buy.funding.addGas('ETH')).toBe('Add a little ETH for network fees.');
   });
 
   it('never offers test funds on figures that are not the test network’s', async () => {
@@ -388,7 +451,9 @@ describe('short by more than one send of test funds gives', () => {
   it('says what a send gives before the ask, and sends that much instead of being refused the whole amount', async () => {
     const server = api({ funded: false, faucet: true, have: HAVE });
     const host = await buy();
-    expect(find(host, '[data-ui="funding-line"]').textContent).toContain('27,100 USDC');
+    // what is missing is a figure of the details, never of the line
+    expect(find(host, '[data-ui="funding-line"]').textContent).not.toMatch(/\d/);
+    expect(find(host, '[data-ui="funding-details"]').textContent).toContain('27,100 USDC');
     expect(find(host, '[data-ui="test-funds-cap"]').textContent).toContain(
       en.invest.short.cap('$5,000', 3),
     );
@@ -451,7 +516,7 @@ describe('short by more than one send of test funds gives', () => {
     api({ funded: false, faucet: false, have: HAVE });
     const none = await buy();
     expect(none.querySelector('[data-ui="invest-short"]')).toBeNull();
-    expect(none.textContent).toContain(en.buy.funding.address(SOLANA));
+    expect(find(none, '[data-ui="funding-address"]').textContent).toContain(SOLANA);
   });
 });
 

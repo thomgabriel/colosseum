@@ -1184,8 +1184,10 @@ export const en = {
       title: 'What your wallet needs',
       /** The need in one line: the deposit, and the fees. */
       needs: (cash: string, gas: string) => `You need ${cash} and ${gas} for fees.`,
-      haveNone: 'You have none yet.',
-      lacking: (list: string) => `You’re still short ${list}.`,
+      /** A short wallet, in plain words and no figure (Thom, Oct 12): the heading, then what to add. */
+      insufficient: 'Insufficient balance.',
+      addToken: (symbol: string) => `Add ${symbol} to your wallet to deposit.`,
+      addGas: (symbol: string) => `Add a little ${symbol} for network fees.`,
       and: (a: string, b: string) => `${a} and ${b}`,
       details: 'Show the details',
       testFunds: 'Get test funds',
@@ -1212,8 +1214,6 @@ export const en = {
       need: 'This deposit needs',
       missing: 'Missing',
       ok: 'Your wallet has what this deposit needs.',
-      short: (chain: string) =>
-        `Your wallet is short of what this deposit needs. Add what is missing to your wallet on ${chain}, then read it again.`,
       address: (address: string) => `Your address there: ${address}`,
       newVault: 'This deposit opens your vault, which costs a little more in fees the first time.',
       readAgain: 'Read my wallet again',

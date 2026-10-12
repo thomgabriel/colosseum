@@ -1010,8 +1010,9 @@ export const pt: Dictionary = {
     funding: {
       title: 'O que sua carteira precisa',
       needs: (cash: string, gas: string) => `Você precisa de ${cash} e ${gas} para as taxas.`,
-      haveNone: 'Você ainda não tem nada.',
-      lacking: (list: string) => `Ainda faltam ${list}.`,
+      insufficient: 'Saldo insuficiente.',
+      addToken: (symbol: string) => `Adicione ${symbol} à sua carteira para depositar.`,
+      addGas: (symbol: string) => `Adicione um pouco de ${symbol} para as taxas de rede.`,
       and: (a: string, b: string) => `${a} e ${b}`,
       details: 'Mostrar os detalhes',
       testFunds: 'Receber fundos de teste',
@@ -1039,8 +1040,6 @@ export const pt: Dictionary = {
       need: 'Esta compra precisa',
       missing: 'Faltam',
       ok: 'Sua carteira tem o que esta compra precisa.',
-      short: (chain: string) =>
-        `Falta na sua carteira o que esta compra precisa. Adicione o que falta à sua carteira em ${chain} e leia de novo.`,
       address: (address: string) => `Seu endereço lá: ${address}`,
       newVault:
         'Esta compra abre o seu cofre para este plano, o que custa um pouco mais de taxa na primeira vez.',
