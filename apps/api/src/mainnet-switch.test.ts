@@ -199,3 +199,27 @@ describe('Robinhood Chain on mainnet', () => {
     );
   });
 });
+
+// The flags are read at every start with the whole environment, and a name under CHAIN_ that nobody
+// knows stops the server as a typo. The switch's own name has to be known, or mainnet can never start:
+// on Oct 12 2026 the hosted API refused its first mainnet deploy with "unknown variable:
+// CHAIN_MAINNET_ROBINHOOD".
+describe('the mainnet switch is a name the flags know', () => {
+  it('reads the environment of a mainnet deploy without calling the switch a typo', () => {
+    const env = {
+      CHAIN_MODE_ROBINHOOD: 'live',
+      CHAIN_NETWORK_ROBINHOOD: 'mainnet',
+      [MAINNET_SWITCH]: 'real-money',
+      CHAIN_MODE_SOLANA: 'live',
+    };
+    expect(() => parseFlags(env)).not.toThrow();
+    expect(parseFlags(env).chainMode.robinhood).toBe('live');
+    expect(() => parseChainConfigs(env)).not.toThrow();
+  });
+
+  it('still stops on a misspelt switch', () => {
+    expect(() => parseFlags({ CHAIN_MAINNET_ROBINHOD: 'real-money' })).toThrow(
+      'unknown variable: CHAIN_MAINNET_ROBINHOD',
+    );
+  });
+});
