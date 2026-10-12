@@ -102,6 +102,19 @@ contract Deploy is Script {
         address[] creators;
         /// The file still holds the word TODO somewhere: a value nobody has confirmed.
         bool placeholders;
+        /// What the app holds an owner's trade to, which no contract reads: how far a pool's quote may be
+        /// from the asset's Chainlink price (basis points), and each asset's largest single trade in
+        /// dollars, in the assets' order. Zero is "not stated". The script writes neither anywhere; on a
+        /// mainnet it refuses a file that leaves one out, because the deploy record is written from this
+        /// file and a record with none is a mainnet whose trades are checked against nothing.
+        uint256 priceBoundBps;
+        uint256[] maxTradeUsd;
+        /// While a feed is not live the app leans on a pool's average inside a rail around the feed's last
+        /// answer (`staleRailBps`; zero is no rail). With a rail a mainnet file also states the largest
+        /// trade then and how old that answer may be: the same reason as above, and the script writes none.
+        uint256 staleRailBps;
+        uint256 maxTradeUsdNotLive;
+        uint256 staleRailMaxAge;
     }
 
     struct Deployed {
@@ -527,6 +540,30 @@ contract Deploy is Script {
             }
         }
         require(cashListed, MainnetRefused("the cash token is not among the assets"));
+
+        // The app's own limits on an owner's trade. Nothing here reads them on chain; a mainnet file
+        // states them all the same, so the record written from it cannot leave a trade unchecked.
+        require(
+            cfg.priceBoundBps != 0 && cfg.priceBoundBps <= 1000,
+            MainnetRefused("no priceBoundBps of 1 to 1000: an owner's trade would be checked against no price")
+        );
+        for (uint256 i; i < cfg.assets.length; ++i) {
+            if (cfg.assets[i].token == cfg.cashToken) continue;
+            require(
+                i < cfg.maxTradeUsd.length && cfg.maxTradeUsd[i] != 0,
+                MainnetRefused("an asset states no maxTradeUsd: a trade of any size would be built")
+            );
+        }
+        if (cfg.staleRailBps != 0) {
+            require(
+                cfg.maxTradeUsdNotLive != 0,
+                MainnetRefused("a rail with no maxTradeUsdNotLive: a trade of any size would lean on the pools alone")
+            );
+            require(
+                cfg.staleRailMaxAge != 0,
+                MainnetRefused("a rail with no staleRailMaxAge: a feed that died would anchor trades for ever")
+            );
+        }
     }
 
     /// Holds the timelock's owner to being a Safe more than one person must sign for. "Has code" is not
@@ -769,8 +806,18 @@ contract Deploy is Script {
         uint256 n = _count(json, ".assets");
         cfg.assets = new Asset[](n);
         cfg.feedDescriptions = new string[](n);
+        cfg.maxTradeUsd = new uint256[](n);
+        if (vm.keyExistsJson(json, ".priceBoundBps")) cfg.priceBoundBps = json.readUint(".priceBoundBps");
+        if (vm.keyExistsJson(json, ".staleRailBps")) cfg.staleRailBps = json.readUint(".staleRailBps");
+        if (vm.keyExistsJson(json, ".maxTradeUsdNotLive")) {
+            cfg.maxTradeUsdNotLive = json.readUint(".maxTradeUsdNotLive");
+        }
+        if (vm.keyExistsJson(json, ".staleRailMaxAge")) cfg.staleRailMaxAge = json.readUint(".staleRailMaxAge");
         for (uint256 i; i < n; ++i) {
             string memory entry = string.concat(".assets[", vm.toString(i), "]");
+            if (vm.keyExistsJson(json, string.concat(entry, ".maxTradeUsd"))) {
+                cfg.maxTradeUsd[i] = json.readUint(string.concat(entry, ".maxTradeUsd"));
+            }
             cfg.assets[i].token = json.readAddress(string.concat(entry, ".token"));
             if (vm.keyExistsJson(json, string.concat(entry, ".feedDescription"))) {
                 cfg.feedDescriptions[i] = json.readString(string.concat(entry, ".feedDescription"));

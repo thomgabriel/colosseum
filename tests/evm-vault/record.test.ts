@@ -133,6 +133,59 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     expect(new Set(stocks.map((a) => lower(a.feed))).size).toBe(stocks.length);
   });
 
+  it('state the bound to the feed and a largest trade for every token, the thinnest the tightest', () => {
+    const file = contracts as ContractsFile & { priceBoundBps?: number };
+    // 2%: the bound the fork test holds every listed token's fill to (MAX_COST_BPS).
+    expect(file.priceBoundBps).toBe(200);
+    const [, ...stocks] = contracts.assets as (ContractsFile['assets'][number] & {
+      maxTradeUsd?: number;
+      feedDescription?: string;
+    })[];
+    for (const a of stocks) {
+      expect(Number.isInteger(a.maxTradeUsd), a.token).toBe(true);
+      expect(a.maxTradeUsd, a.token).toBeGreaterThanOrEqual(1_000);
+    }
+    const least = Math.min(...stocks.map((a) => a.maxTradeUsd ?? 0));
+    // GLD, whose feed is itself made from pools, has the tightest limit of all.
+    expect(stocks.find((a) => a.feedDescription === 'GLD / USD')?.maxTradeUsd).toBe(least);
+    expect(least).toBe(1_000);
+  });
+
+  it('state what stands in for a stale feed: the rail, and an average pool per token that says whether it can be used', () => {
+    const file = contracts as ContractsFile & {
+      staleRailBps?: number;
+      maxTradeUsdNotLive?: number;
+      staleRailMaxAge?: number;
+      sessionPriceAge?: number;
+    };
+    expect(file.staleRailBps).toBe(1_000);
+    // A feed is live for an hour; past it one trade is $20,000 at most; the rail leans on a feed's
+    // last answer for four days and no longer.
+    expect(file.sessionPriceAge).toBe(3_600);
+    expect(file.maxTradeUsdNotLive).toBe(20_000);
+    expect(file.staleRailMaxAge).toBe(4 * 86_400);
+    const [, ...stocks] = contracts.assets as (ContractsFile['assets'][number] & {
+      feedDescription?: string;
+      average?: { pool: string; fee: number; minLiquidity: string; usable: boolean };
+    })[];
+    // The pool and its floor are the ones the keeper's pool-average file names for the token.
+    const feeds = JSON.parse(
+      readFileSync(join(ROOT, 'contracts', 'script', 'config', 'pool-feeds', '4663.json'), 'utf8'),
+    ) as { assets: { token: string; pool: string; fee: number; minLiquidity: string }[] };
+    for (const a of stocks) {
+      const named = feeds.assets.find((f) => lower(f.token) === lower(a.token));
+      expect(a.average, a.token).toEqual({
+        pool: named?.pool,
+        fee: named?.fee,
+        minLiquidity: named?.minLiquidity,
+        usable: expect.any(Boolean),
+      });
+    }
+    // The two whose pools keep under an hour of history say so, and are not traded on a stale feed.
+    const unusable = stocks.filter((a) => !a.average?.usable).map((a) => a.feedDescription);
+    expect(unusable.sort()).toEqual(['GLD / USD', 'Robinhood META / USD']);
+  });
+
   it('the builder writes each mainnet token the pool the guard would hold it to', () => {
     const [, ...stocks] = contracts.assets;
     const pools = v4Pools(

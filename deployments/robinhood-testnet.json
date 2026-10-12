@@ -20,6 +20,11 @@
     "tokenIssuer": "0xf474920851f97dc8797e78470095206dfd8367d8"
   },
   "sequencerFeed": null,
+  "priceBoundBps": null,
+  "staleRailBps": null,
+  "sessionPriceAge": null,
+  "maxTradeUsdNotLive": null,
+  "staleRailMaxAge": null,
   "routers": [
     {
       "address": "0xd290cfe0738e1ab9cea9dc138bbec024dc3bd127",
@@ -56,7 +61,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tqqq",
@@ -80,7 +87,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tnvda",
@@ -104,7 +113,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:taapl",
@@ -128,7 +139,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tmsft",
@@ -152,7 +165,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tgoogl",
@@ -176,7 +191,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tamzn",
@@ -200,7 +217,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tmeta",
@@ -224,7 +243,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:ttsla",
@@ -248,7 +269,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tgld",
@@ -272,7 +295,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     },
     {
       "id": "robinhood:tsgov",
@@ -296,7 +321,9 @@
       "pool": {
         "fee": 500,
         "tickSpacing": 10
-      }
+      },
+      "maxTradeUsd": null,
+      "average": null
     }
   ],
   "retired": []

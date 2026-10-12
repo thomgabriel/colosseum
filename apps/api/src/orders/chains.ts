@@ -1,4 +1,9 @@
-import { createEvmVaultAdapter, type EvmRpc, type V4Pools } from '@colosseum/chain-evm/vault';
+import {
+  createEvmVaultAdapter,
+  type EvmRpc,
+  type TradeLimits,
+  type V4Pools,
+} from '@colosseum/chain-evm/vault';
 import { createMockAdapter, type MockControl } from '@colosseum/chain-mock';
 import {
   createSolanaVaultAdapter,
@@ -68,6 +73,8 @@ export type EvmInputs = {
   assets: BasketAsset[];
   /** Each asset's own pool against cash, from the deploy's record: the pool its trades go through. */
   pools: V4Pools;
+  /** What an owner's trade is held to: the bound to the feed and each asset's largest trade, from the record. */
+  limits: TradeLimits;
 };
 
 export type RegistryOptions = {
@@ -171,6 +178,7 @@ function realEntry(
         rpc: options.robinhood.rpc,
         assets: options.robinhood.assets,
         pools: options.robinhood.pools,
+        limits: options.robinhood.limits,
         trade: mode,
         autoFollow: flags.autoFollow[chain],
         ...(options.now ? { now: options.now } : {}),

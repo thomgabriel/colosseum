@@ -10,6 +10,7 @@ import {
   EvmDeploymentRecord,
   deploymentAddresses as evmAddresses,
   deploymentAssets as evmAssets,
+  deploymentLimits as evmLimits,
   deploymentPools as evmPools,
 } from '@colosseum/chain-evm/vault';
 import { loadKeypair, signBase64 } from '@colosseum/chain-solana/server';
@@ -187,6 +188,7 @@ async function robinhood(): Promise<Wired> {
     rpc,
     assets: evmAssets(record),
     pools: evmPools(record),
+    limits: evmLimits(record),
     trade: 'live',
     autoFollow: true,
   });

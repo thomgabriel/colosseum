@@ -235,6 +235,9 @@ contract DeployMainnetTest is Test {
         cfg.routers[0] = Deploy.Router(UNIVERSAL_ROUTER, 2);
         cfg.closedDays = new uint32[](1);
         cfg.closedDays[0] = 20_813;
+        cfg.priceBoundBps = 200;
+        cfg.maxTradeUsd = new uint256[](2);
+        cfg.maxTradeUsd[1] = 50_000;
     }
 
     function _stockConfig() internal view returns (AssetConfig memory a) {
@@ -892,6 +895,65 @@ contract DeployMainnetTest is Test {
                 assertEq(vm.indexOf(sources[j], "mocks/"), type(uint256).max, sources[j]);
             }
         }
+    }
+
+    // ---- the app's limits on an owner's trade: a mainnet file states them
+
+    /// No contract reads the bound to the feed or an asset's largest trade, and the script writes neither.
+    /// A mainnet file that leaves one out is refused all the same: the deploy record is written from it,
+    /// and a record with none is a mainnet whose owner trades are checked against nothing.
+    function test_mainnet_refusesAFileThatLeavesAnOwnersTradeUnchecked() public {
+        Deploy.Config memory cfg = _good();
+        cfg.priceBoundBps = 0;
+        _refused(cfg, "no priceBoundBps of 1 to 1000: an owner's trade would be checked against no price");
+        cfg.priceBoundBps = 1001;
+        _refused(cfg, "no priceBoundBps of 1 to 1000: an owner's trade would be checked against no price");
+
+        cfg = _good();
+        cfg.maxTradeUsd[1] = 0;
+        _refused(cfg, "an asset states no maxTradeUsd: a trade of any size would be built");
+        cfg = _good();
+        cfg.maxTradeUsd = new uint256[](0);
+        _refused(cfg, "an asset states no maxTradeUsd: a trade of any size would be built");
+
+        // A rail brings two limits with it: the largest trade while a feed is not live, and the rail's age.
+        cfg = _good();
+        cfg.staleRailBps = 1000;
+        _refused(cfg, "a rail with no maxTradeUsdNotLive: a trade of any size would lean on the pools alone");
+        cfg.maxTradeUsdNotLive = 20_000;
+        _refused(cfg, "a rail with no staleRailMaxAge: a feed that died would anchor trades for ever");
+        cfg.staleRailMaxAge = 4 days;
+        script.deploy(cfg, deployer);
+
+        // The cash needs none, and with both stated the file deploys.
+        cfg = _good();
+        assertEq(cfg.maxTradeUsd[0], 0, "the cash states no largest trade");
+        script.deploy(cfg, deployer);
+    }
+
+    /// The committed file states both, and the script reads them: 2%, and a largest trade for every token.
+    function test_theCommittedMainnetFile_statesTheBoundAndALargestTradeForEveryToken() public view {
+        Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
+        assertEq(cfg.priceBoundBps, 200);
+        assertEq(cfg.maxTradeUsd.length, cfg.assets.length);
+        assertEq(cfg.maxTradeUsd[0], 0, "the cash");
+        uint256 least = type(uint256).max;
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            assertGe(cfg.maxTradeUsd[i], 1000);
+            if (cfg.maxTradeUsd[i] < least) least = cfg.maxTradeUsd[i];
+        }
+        assertEq(least, 1000, "the thinnest token's");
+        assertEq(cfg.staleRailBps, 1000);
+        assertEq(cfg.maxTradeUsdNotLive, 20_000);
+        assertEq(cfg.staleRailMaxAge, 4 days);
+    }
+
+    /// A test network states neither and deploys: its record says null for both.
+    function test_testNetwork_needsNoLimits() public {
+        vm.chainId(31_337);
+        Deploy.Config memory cfg = script.readConfig("script/config/31337.json");
+        assertEq(cfg.priceBoundBps, 0);
+        script.deploy(cfg, deployer);
     }
 
     // ---- the committed mainnet file

@@ -2,6 +2,7 @@ import { BasketAsset, ChainError, type EvmAddress, normalizeAddress } from '@col
 import { z } from 'zod';
 import { type V4Pools, v4Pools } from './routes';
 import { ask, type EvmRpc } from './rpc';
+import { type TradeLimits, unlimitedOnMainnet } from './trade-limits';
 
 // The record an EVM deploy writes (`deployments/<chain>-<network>.json`: `robinhood-testnet`,
 // `robinhood-local`), the EVM twin of Solana's `deployments/solana-devnet.json`. It is committed and
@@ -66,6 +67,41 @@ export const EvmDeploymentRecord = z
     }),
     /** The chain's sequencer uptime feed as the factory names it (`sequencerFeed()`); null for none. */
     sequencerFeed: Address.nullable(),
+    /**
+     * How far a pool's quote for an owner's trade may be from the asset's Chainlink price, in basis
+     * points, pool fee included, before the builder refuses the trade (trade-limits.ts). Null: not
+     * checked on this network. The test network's is null: its pools are kept at its feeds by our own
+     * market maker and its feeds are written by our own copier, so the check would add nothing but a
+     * way for a stopped copier to stop deposits on a demo. A mainnet's is a number.
+     */
+    priceBoundBps: z.number().int().min(1).max(1_000).nullable(),
+    /**
+     * While an asset's feed is stale: how far a pool's quote may be from the feed's last answer,
+     * however old, in basis points; and with it the asset's one-hour pool average (`average` below)
+     * takes the feed's place as the witness. Null: a stale feed refuses the trade.
+     */
+    staleRailBps: z.number().int().min(1).max(5_000).nullable(),
+    /**
+     * How young a feed's answer is while the feed itself is the witness of an owner's trade, in
+     * seconds: the chain's `sessionPriceAge` (3,600 on Robinhood Chain). Past it an asset whose
+     * `average` is usable is held to the average instead. Null: a feed is the witness to its `maxAge`.
+     */
+    sessionPriceAge: z.number().int().min(60).max(86_400).nullable(),
+    /**
+     * The largest single trade of any asset, in dollars, while its witness is not the live feed: the
+     * smaller of this and the asset's own `maxTradeUsd`. Null: none.
+     */
+    maxTradeUsdNotLive: z.number().int().positive().nullable(),
+    /**
+     * How old a feed's last answer may be and still anchor the rail, in seconds. Past it an asset is
+     * not traded against its average. Null: no limit.
+     */
+    staleRailMaxAge: z
+      .number()
+      .int()
+      .min(3_600)
+      .max(30 * 86_400)
+      .nullable(),
     /** `pull` 1 takes the input with `transferFrom`, 2 through Permit2. */
     routers: z.array(
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
@@ -96,6 +132,22 @@ export const EvmDeploymentRecord = z
           fee: z.number().int().min(0).max(1_000_000),
           tickSpacing: z.number().int().min(1).max(32_767),
         }),
+        /**
+         * The largest single trade of the asset the builder makes, in dollars: the size its pool was
+         * measured to fill near its price. Null: no limit (the test network, whose pools hold a
+         * million dollars a side).
+         */
+        maxTradeUsd: z.number().int().positive().nullable(),
+        /**
+         * The pool the asset's one-hour average is read from while its feed is stale: a Uniswap v3
+         * pool of the asset and the cash, the least liquidity in range it may hold (its own units),
+         * and whether its history is long enough to use. `usable` is stated by whoever writes the
+         * record, from the pool's observation cardinality: nothing guesses it when a trade is built.
+         * Null: the asset has none, and is not traded on a stale feed.
+         */
+        average: z
+          .strictObject({ pool: Address, minLiquidity: Raw, usable: z.boolean() })
+          .nullable(),
       }),
     ),
     /** Listed once and taken off the list: vaults may still hold them. */
@@ -114,6 +166,13 @@ export const EvmDeploymentRecord = z
   .refine((r) => [r.cash, ...r.assets].every((t) => t.id.startsWith(`${r.chain}:`)), {
     message: "every token's id is on the record's chain",
     path: ['assets'],
+  })
+  // Null is "not checked", and that is a test network's to say. A record of a mainnet, by its chain's
+  // number or by its name, states the bound and every asset's largest trade. Today a mainnet record
+  // is refused before this is reached; the day that is lifted, this is already here.
+  .superRefine((r, ctx) => {
+    const missing = unlimitedOnMainnet(r);
+    if (missing) ctx.addIssue({ code: 'custom', message: missing, path: ['priceBoundBps'] });
   })
   .refine((r) => r.assets.every((a) => !a.keeperOn || a.range !== null), {
     message: 'the keeper is on only for an asset with a range',
@@ -134,6 +193,34 @@ export function deploymentAddresses(record: EvmDeploymentRecord) {
 /** The pools the adapter trades in, from the record: each asset's own, against the record's cash. */
 export function deploymentPools(record: EvmDeploymentRecord): V4Pools {
   return v4Pools(record.cash.address, record.assets);
+}
+
+/** What the adapter holds an owner's trade to, from the record: the bound to the feed and each asset's largest trade. */
+export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
+  // Held here too, where the limits are handed to the adapter: a record that came by another way than
+  // the schema above still cannot run a mainnet unchecked.
+  const missing = unlimitedOnMainnet(record);
+  if (missing) throw new ChainError('NotSupported', missing);
+  return {
+    priceBoundBps: record.priceBoundBps,
+    maxTradeUsd: Object.fromEntries(record.assets.map((a) => [a.address, a.maxTradeUsd])),
+    staleRailBps: record.staleRailBps,
+    liveFeedSeconds: record.sessionPriceAge,
+    maxTradeUsdNotLive: record.maxTradeUsdNotLive,
+    staleRailMaxAgeSeconds: record.staleRailMaxAge,
+    average: Object.fromEntries(
+      record.assets.map((a) => [
+        a.address,
+        a.average
+          ? {
+              pool: a.average.pool,
+              minLiquidity: BigInt(a.average.minLiquidity),
+              usable: a.average.usable,
+            }
+          : null,
+      ]),
+    ),
+  };
 }
 
 /**
