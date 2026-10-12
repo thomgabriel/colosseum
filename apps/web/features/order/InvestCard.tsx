@@ -25,9 +25,8 @@ import {
 } from './order-api';
 import { acceptTrust, forgetUnapproved, trustAccepted } from './order-record';
 import { displayName } from './plain';
-import { gasUnitsFor } from './readiness';
+import { chainIsLive, gasUnitsFor } from './readiness';
 import { TrustNotice } from './TrustNotice';
-import { chainIsLive } from './trust-points';
 import { unitsFor } from './units';
 import { FundsWait } from './waits';
 

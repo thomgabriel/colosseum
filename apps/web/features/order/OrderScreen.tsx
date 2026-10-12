@@ -61,11 +61,10 @@ import {
 import { legsInOrder, type NextStep, type OutcomeView, outcomeView, stepOf } from './order-view';
 import { readStoredPlan } from './plan-store';
 import { targetsOfPlan } from './plan-terms';
-import { chainReady, explorerUrlFor, onMock } from './readiness';
+import { chainIsLive, chainReady, explorerUrlFor, onMock } from './readiness';
 import { planNumberOf, type RunOutcome, useOrderRunner } from './run-order';
 import { TrustNotice } from './TrustNotice';
 import { tradeLine } from './trade-line';
-import { chainIsLive } from './trust-points';
 import { type ChainUnits, unitsFor } from './units';
 import { OrderScreenWait, StepsWait } from './waits';
 import { useStayed } from './withdraw-stayed';

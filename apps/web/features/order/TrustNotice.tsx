@@ -4,7 +4,8 @@ import { useId } from 'react';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { formatBps } from './amounts';
-import { chainIsLive, trustPoints } from './trust-points';
+import { chainIsLive } from './readiness';
+import { trustPoints } from './trust-points';
 
 // The trust notice, from the one TRUST_STATUS constant (DESIGN-VAULT section 13), before the first
 // deposit. First the four points in short: unaudited, the team's upgrade keys, the keeper's limits in

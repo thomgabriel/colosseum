@@ -141,3 +141,15 @@ export function explorerAddressTemplateFor(chain: ChainId, mock: boolean): strin
   const SLOT = 'ADDRESS-SLOT';
   return explorerAddressUrlFor(chain, SLOT, mock)?.replace(SLOT, '{address}') ?? null;
 }
+
+/**
+ * Whether a chain's figures are live in this app: its network variable says mainnet. This app's own
+ * word, as every label's is, never the API's. False when the table cannot be read.
+ */
+export function chainIsLive(chain: ChainId): boolean {
+  try {
+    return walletChains(publicWalletEnv())[chain].provenance === 'live';
+  } catch {
+    return false;
+  }
+}

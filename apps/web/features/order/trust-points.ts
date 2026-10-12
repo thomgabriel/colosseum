@@ -1,6 +1,5 @@
 import { type ChainId, TRUST_STATUS } from '@colosseum/schemas';
 import type { Dictionary } from '../../i18n';
-import { publicWalletEnv, walletChains } from '../wallet/chains';
 
 // What the trust notice says, as two lists: the short points and the whole notice. Pure, so that what a
 // person reads on a live network is held by a test. On a test network or the mock the text is the one
@@ -10,18 +9,6 @@ import { publicWalletEnv, walletChains } from '../wallet/chains';
 // nothing is offered for signing without one.
 
 export type TrustPoints = { short: string[]; items: string[] };
-
-/**
- * Whether a chain's figures are live in this app: its network variable says mainnet. This app's own
- * word, as every label's is, never the API's. False when the table cannot be read.
- */
-export function chainIsLive(chain: ChainId): boolean {
-  try {
-    return walletChains(publicWalletEnv())[chain].provenance === 'live';
-  } catch {
-    return false;
-  }
-}
 
 export function trustPoints(
   t: Dictionary,
