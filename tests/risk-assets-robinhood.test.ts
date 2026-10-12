@@ -35,6 +35,7 @@ import {
   isLaunchpadPlatform,
   isMeme,
   isMemeCategory,
+  isOwnPage,
   NATIVE_ADDRESS,
   PROTOCOL_CATEGORIES,
   poolCount,
@@ -546,23 +547,54 @@ describe('the review of e5b6b656', () => {
     ]);
   });
 
-  it('has no row CoinGecko files as a memecoin, but by its own verdict', () => {
+  it('has no row CoinGecko files as a memecoin, by rule or verdict, and refuses a verdict for one', () => {
     for (const r of rows) {
       if (r.issuerRegistry || r.address === NATIVE_ADDRESS) continue;
-      if (isMeme(cg, r.address)) expect([r.address, own.has(r.address)]).toEqual([r.address, true]);
+      expect([r.symbol, r.address, isMeme(cg, r.address)]).toEqual([r.symbol, r.address, false]);
     }
+    // the AMD copy CoinGecko files under Meme and Dog-Themed, read every run as a row of a committed list
+    const meme = '0x1c2a482970ae6b6e5052a7a184c8aef19e0840be';
+    expect(isMeme(cg, meme)).toBe(true);
+    const v = UniverseVerdicts.parse(JSON.parse(JSON.stringify(verdicts)));
+    const usdcCopy = v.verdicts.find(
+      (x) => x.address === '0x11d04a2491ab485a54da3817c10c2a9178c7991e',
+    );
+    v.verdicts.push({ ...(usdcCopy as (typeof v.verdicts)[number]), address: meme, symbol: 'AMD' });
+    expect(() => robinhoodList(fx.reads, { ...files, verdicts: v })).toThrow(
+      /verdicts for tokens CoinGecko files as memecoins \(a memecoin is not a row\): AMD 0x1c2a4829/,
+    );
+  });
+
+  it("reads a page as a project's own only off listings, aggregators, directories and explorers", () => {
+    for (const url of [
+      'https://www.coingecko.com/en/coins/longbow-2',
+      'https://tokens.coingecko.com/robinhood/all.json',
+      'https://jup.ag/tokens/x',
+      'https://api.dexscreener.com/tokens/v1/robinhood',
+      'https://defillama.com/protocol/x',
+      'https://api.llama.fi/protocol/x',
+      'https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet',
+      'https://chain.link',
+      'https://reference-data-directory.vercel.app/feeds-robinhood-mainnet.json',
+      'https://www.geckoterminal.com/robinhood/pools/x',
+      'https://etherscan.io/token/0x0',
+      'https://arbiscan.io/token/0x0',
+      'https://explorer.robinhood.example/token/0x0',
+      'https://robinhood.blockscout.com/token/0x0',
+      'docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv',
+      'http://example-project.xyz',
+      'not a url',
+      'https://localhost/x',
+    ])
+      expect([url, isOwnPage(url)]).toEqual([url, false]);
+    for (const url of ['https://example-project.xyz', 'https://docs.example-project.xyz/token'])
+      expect([url, isOwnPage(url)]).toEqual([url, true]);
   });
 
   it('makes a governance row only by a protocol category, a launch pad of its own, or its own page', () => {
     const governance = rows.filter((r) => r.category === 'governance');
     expect(governance.length).toBeGreaterThan(0);
     for (const r of governance) {
-      const v = own.get(r.address);
-      if (v) {
-        // its own verdict cites a page that is not CoinGecko's
-        expect(v.sources.some((s) => !/coingecko/.test(s.url))).toBe(true);
-        continue;
-      }
       const coin = coins.get(r.address);
       const cats = coin?.categories ?? [];
       const byCategory = cats.some((c) =>
@@ -571,7 +603,56 @@ describe('the review of e5b6b656', () => {
       const pad =
         cats.some((c) => c.trim().toLowerCase() === 'launchpad') &&
         isLaunchpadPlatform(coin?.name ?? null, cg.categoryNames);
-      expect([r.symbol, byCategory || pad]).toEqual([r.symbol, true]);
+      // else its own verdict cites its project's own page (never a listing, a directory or a repo path)
+      const ownPage = (own.get(r.address)?.sources ?? []).some((s) => isOwnPage(s.url));
+      expect([r.symbol, byCategory || pad || ownPage]).toEqual([r.symbol, true]);
+    }
+  });
+
+  it('refuses a governance verdict that cites no own page of a token with no protocol category', () => {
+    // BOW (Longbow): CoinGecko files it under DeFi and Robinhood Ecosystem only
+    const bow = '0x451b42a15100c340ca12f7c66de06fac5ea2d751';
+    expect(coinKind(cg, bow)).toBe('no_protocol_category');
+    const v = UniverseVerdicts.parse(JSON.parse(JSON.stringify(verdicts)));
+    const link = v.verdicts.find((x) => x.symbol === 'LINK') as (typeof v.verdicts)[number];
+    v.verdicts.push({
+      ...link,
+      address: bow,
+      symbol: 'BOW',
+      issuer: 'Longbow',
+      underlying: 'BOW',
+      sources: [
+        {
+          url: 'docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv',
+          title: "The screening note's input list",
+          readOn: '2026-10-06',
+        },
+        {
+          url: 'https://www.coingecko.com/en/coins/longbow-2',
+          title: 'CoinGecko: Longbow',
+          readOn: '2026-10-11',
+        },
+      ],
+    });
+    expect(() => robinhoodList(fx.reads, { ...files, verdicts: v })).toThrow(
+      /governance rows with no protocol category and no own page of the project: BOW 0x451b42a1/,
+    );
+  });
+
+  it('takes out UP, BOW, GAGE and FLOCK, governance by verdict on no own page, and says why', () => {
+    for (const a of [
+      '0x57c0e45cb534413d1c20a4240955d6bb250bb4f1', // UP
+      '0x451b42a15100c340ca12f7c66de06fac5ea2d751', // BOW
+      '0x7163ae1b5aea2f09ebc609c52b4dcac0a7a4bc2d', // GAGE
+      '0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691', // FLOCK
+    ]) {
+      expect(coinKind(cg, a)).toBe('no_protocol_category');
+      expect([a, rows.some((r) => r.address === a), own.has(a)]).toEqual([a, false, false]);
+      expect(list.stated.leftTheList).toMatch(
+        new RegExp(
+          `${a} \\([A-Z]+, candidate in [0-9a-f]{8}\\): CoinGecko files it under no category of PROTOCOL_CATEGORIES`,
+        ),
+      );
     }
   });
 
@@ -597,11 +678,17 @@ describe('the review of e5b6b656', () => {
     expect(reserved.has('robinhood:usdg')).toBe(true);
     for (const r of rows.filter((x) => reserved.has(x.id)))
       expect([r.id, r.status]).toEqual([r.id, 'listed']);
-    const usdc = rows.find((r) => r.id === 'robinhood:usdc');
-    if (usdc) expect(usdc.address).toBe(files.mainnetConfig.cashToken.toLowerCase());
-    expect(rows.find((r) => r.address === '0x11d04a2491ab485a54da3817c10c2a9178c7991e')?.id).toBe(
-      'robinhood:usdc-11d04a',
-    );
+    // robinhood:usdc is the product's cash id: no row of this list holds it
+    expect(rows.filter((r) => r.id === 'robinhood:usdc')).toEqual([]);
+    // the two tokens that answer USDC are copies, each at an id suffixed with its address
+    const usdcs = rows
+      .filter((r) => r.symbol === 'USDC')
+      .map((r) => [r.address, r.id])
+      .sort();
+    expect(usdcs).toEqual([
+      ['0x11d04a2491ab485a54da3817c10c2a9178c7991e', 'robinhood:usdc-11d04a'],
+      ['0x8dffab0c883818963b97f37a5792952296621f77', 'robinhood:usdc-8dffab'],
+    ]);
   });
 
   it('keeps every id of a committed list with its address, and names every row that left', () => {
@@ -640,10 +727,21 @@ describe('the review of e5b6b656', () => {
     const net = '0xca9c78dd337a67f6e0077f65f5e9218719d30edf';
     const r = rows.find((x) => x.address === net);
     const kind = coinKind(cg, net);
+    // NetNet does not claim Cloudflare's stock: its symbol alone excludes nothing
+    expect(claimsStock(r?.name ?? null, 'NET', 'Cloudflare, Inc. • Robinhood Token')).toBe(false);
+    expect(r?.decidedBy ?? []).not.toContain('rule:not-the-issuers-stock-token');
     if (kind === 'protocol') {
       expect(r?.decidedBy).toContain('rule:crypto-protocol');
+      expect(r?.decidedBy).not.toContain('rule:registry-symbol-not-a-protocol');
       expect([r?.category, r?.status]).toEqual(['governance', 'candidate']);
-    } else expect(r?.decidedBy ?? []).not.toContain('rule:not-the-issuers-stock-token');
+    } else if (kind === 'meme') expect(r).toBeUndefined();
+    else {
+      // no protocol by its categories: the registry's symbol excludes it
+      expect(r?.decidedBy).toContain('rule:registry-symbol-not-a-protocol');
+      expect([r?.category, r?.status]).toEqual(['other', 'excluded']);
+    }
+    // what CoinGecko filed it under when read: Lending/Borrowing Protocols
+    expect(kind).toBe('protocol');
   });
 
   it('cuts a symbol of thousands of characters to 64, and says so', () => {
