@@ -28,12 +28,12 @@ The ledger marks most build rows `in-review` even where the pull request has mer
 
 ## What it looks like
 
-Taken on Oct 12 from a local run against the hosted API, on Solana devnet with a passkey wallet. Every figure is a test-network read.
+Taken on Oct 12 from a local run against the hosted API, on Solana devnet with a passkey wallet. The figures are test-network reads, plus mainnet readings (yields, exit costs) applied to the stand-in tokens and labelled so.
 
 | | |
 |---|---|
 | ![The goal conversation with its draft vault](docs/screens/goal-conversation.png) | ![The deposit, signed step by step in the same pane](docs/screens/deposit-done.png) |
-| Say a goal; the draft vault and its sourced projection sit beside the chat | The deposit is signed in the same pane, each step with its transaction |
+| Say a goal; the draft vault sits beside the chat, and the sourced projection in it | The deposit is signed in the same pane, each step with its transaction |
 | ![A vault's page](docs/screens/vault.png) | ![A change of targets proposed in the vault's chat](docs/screens/vault-change.png) |
 | A vault read from its chain, against its targets | "all in Google" becomes a draft; nothing changes until it is reviewed and signed |
 
