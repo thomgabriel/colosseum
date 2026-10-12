@@ -26,6 +26,17 @@ The product runs on test networks. Nothing below is live on mainnet unless the l
 
 The ledger marks most build rows `in-review` even where the pull request has merged; the deployment records and the code are the firmer source.
 
+## What it looks like
+
+Taken on Oct 12 from a local run against the hosted API, on Solana devnet with a passkey wallet. The figures are test-network reads, plus mainnet readings (yields, exit costs) applied to the stand-in tokens and labelled so.
+
+| | |
+|---|---|
+| ![The goal conversation with its draft vault](docs/screens/goal-conversation.png) | ![The deposit, signed step by step in the same pane](docs/screens/deposit-done.png) |
+| Say a goal; the draft vault sits beside the chat, and the sourced projection in it | The deposit is signed in the same pane, each step with its transaction |
+| ![A vault's page](docs/screens/vault.png) | ![A change of targets proposed in the vault's chat](docs/screens/vault-change.png) |
+| A vault read from its chain, against its targets | "all in Google" becomes a draft; nothing changes until it is reviewed and signed |
+
 ## Try it
 
 Hosted, on the test networks: <https://www.tenonfi.xyz>, with the API at <https://tenonfi-api.onrender.com> (`/docs` for the OpenAPI pages, `/v1/config` for the chains and flags it runs with). The API host sleeps when idle, so the first request can be slow. Sign in with a passkey and say a goal. Where the test faucet is configured, the deposit step offers "Get test funds" for the test dollars and gas it needs.
