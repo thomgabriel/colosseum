@@ -18055,5 +18055,19 @@
       "fetchedAt": "2026-10-11T03:54:35.945Z",
       "provenance": "live"
     }
+  ],
+  "yieldAsked": [
+    "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+    "3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7",
+    "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
+    "59obFNBzyTBGowrkif5uK7ojS58vsuWz3ZCvg6tfZAGw"
+  ],
+  "yieldReadings": [
+    {
+      "address": "AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj",
+      "assetId": "syrupusdc",
+      "source": "https://yields.llama.fi/pools#43641cf5-a92e-416b-bce9-27113d3c0db6",
+      "fetchedAt": "2026-09-30T21:49:36.804Z"
+    }
   ]
 }

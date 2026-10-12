@@ -171,7 +171,8 @@ export function shelfEntries(args: {
       decimals: a.decimals,
       cls: a.cls,
       underlying: a.underlying ?? a.symbol,
-      issuer: a.issuer ?? 'not stated in the list',
+      // a placeholder of its own per token: one shared string would read as one issuer in a plan's roll-up
+      issuer: a.issuer ?? `${a.symbol}: issuer not stated in the list`,
       tier: 'C',
       priceKind,
       priceRef: priceKind === 'none' ? '' : (oracle?.ref ?? ''),
@@ -206,6 +207,12 @@ export function shelfEntries(args: {
       eligibility:
         "By class, the engine's (packages/engine/src/personal/registry.ts on staging): no entry carries profiles of its own.",
       autoFollowEligible: 'false on every entry until a person turns it on.',
+      issuer:
+        "The list's issuer; where the list states none, a placeholder naming the token, so that no two such tokens read as one issuer.",
+      underlying:
+        "The list's underlying; where the list states none, the token's own symbol (a liquid staking token then reads as itself, not SOL).",
+      provenance:
+        'live: only live readings are cut (asset_observations and yield_observations with provenance live).',
     },
     entries,
     waiting,

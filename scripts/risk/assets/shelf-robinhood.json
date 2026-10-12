@@ -4,16 +4,16 @@
   "floorUsd": 100000,
   "list": {
     "file": "scripts/risk/assets/robinhood.json",
-    "commit": "3f5d0113"
+    "commit": "87c23615"
   },
   "reading": {
     "from": "2026-10-11T02:43:34.000Z",
     "to": "2026-10-12T18:35:38.395Z"
   },
   "counts": {
-    "considered": 219,
-    "onShelf": 48,
-    "belowFloor": 109,
+    "considered": 215,
+    "onShelf": 45,
+    "belowFloor": 108,
     "nullReading": 62,
     "noReading": 0
   },
@@ -461,19 +461,6 @@
       "provenance": "live"
     },
     {
-      "id": "robinhood:up",
-      "address": "0x57c0e45cb534413d1c20a4240955d6bb250bb4f1",
-      "symbol": "UP",
-      "cls": "crypto",
-      "category": "governance",
-      "status": "candidate",
-      "volume24hUsd": 287393.36,
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "fetched_at": "2026-10-12T18:34:45.974Z",
-      "method": "dexscreener_token_pairs_h24",
-      "provenance": "live"
-    },
-    {
       "id": "robinhood:dual",
       "address": "0xca6f20e241c73de4eeb873107b217ce2463c3b1d",
       "symbol": "DUAL",
@@ -565,19 +552,6 @@
       "provenance": "live"
     },
     {
-      "id": "robinhood:bow",
-      "address": "0x451b42a15100c340ca12f7c66de06fac5ea2d751",
-      "symbol": "BOW",
-      "cls": "crypto",
-      "category": "governance",
-      "status": "candidate",
-      "volume24hUsd": 121845.6,
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "fetched_at": "2026-10-12T18:34:38.069Z",
-      "method": "dexscreener_token_pairs_h24",
-      "provenance": "live"
-    },
-    {
       "id": "robinhood:dell",
       "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
       "symbol": "DELL",
@@ -626,19 +600,6 @@
       "volume24hUsd": 102655.19999999998,
       "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
       "fetched_at": "2026-10-12T18:34:30.569Z",
-      "method": "dexscreener_token_pairs_h24",
-      "provenance": "live"
-    },
-    {
-      "id": "robinhood:flock",
-      "address": "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
-      "symbol": "FLOCK",
-      "cls": "crypto",
-      "category": "governance",
-      "status": "candidate",
-      "volume24hUsd": 101201.01999999999,
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "fetched_at": "2026-10-12T18:34:47.630Z",
       "method": "dexscreener_token_pairs_h24",
       "provenance": "live"
     }

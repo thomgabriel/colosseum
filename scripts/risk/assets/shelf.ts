@@ -45,6 +45,7 @@ try {
     const res = await db.execute(
       sql`select distinct on (address) address, value, observed_at, source, method, fetched_at, provenance
           from asset_observations where chain = ${chain} and metric = 'dex_volume_24h_usd'
+          and provenance = 'live'
           order by address, observed_at desc`,
     );
     const readings: StampedReading[] = (res as unknown as Array<Record<string, unknown>>).map(
@@ -67,13 +68,28 @@ try {
       floorUsd,
     });
     // a dollar-yield token's yield reading: a yield_observations row of a registry asset at its address
-    const y = await db.execute(
-      sql`select distinct a.mint from yield_observations y join assets a on a.id = y.asset_id
-          where a.mint is not null`,
-    );
-    const withYield = new Set(
-      (y as unknown as Array<{ mint: string }>).map((r) => r.mint.toLowerCase()),
-    );
+    // (live only), frozen with the shelf's dollar-yield tokens so the test reads the same answer
+    const y = (await db.execute(
+      sql`select distinct on (a.mint) a.mint, a.id, y.source, y.fetched_at
+          from yield_observations y join assets a on a.id = y.asset_id
+          where a.mint is not null and y.provenance = 'live' order by a.mint, y.fetched_at desc`,
+    )) as unknown as Array<{ mint: string; id: string; source: string; fetched_at: string }>;
+    const yieldOf = new Map(y.map((r) => [r.mint.toLowerCase(), r]));
+    const dollarYield = shelf.rows.filter((r) => r.cls === 'dollar_yield');
+    const yieldReadings = dollarYield.flatMap((r) => {
+      const hit = yieldOf.get(r.address.toLowerCase());
+      return hit
+        ? [
+            {
+              address: r.address,
+              assetId: hit.id,
+              source: hit.source,
+              fetchedAt: new Date(hit.fetched_at).toISOString(),
+            },
+          ]
+        : [];
+    });
+    const withYield = new Set(yieldReadings.map((r) => r.address.toLowerCase()));
     const shelfPath = `${dir}/shelf-${chain}.json`;
     const entries = shelfEntries({
       shelf,
@@ -92,7 +108,10 @@ try {
       listed.has(chain === 'solana' ? r.address : r.address.toLowerCase()),
     );
     const fixture = `fixtures/risk/assets/shelf-readings-${chain}.json`;
-    writeFileSync(fixture, `${JSON.stringify({ chain, readings: frozen }, null, 1)}\n`);
+    writeFileSync(
+      fixture,
+      `${JSON.stringify({ chain, readings: frozen, yieldAsked: dollarYield.map((r) => r.address), yieldReadings }, null, 1)}\n`,
+    );
     writeFileSync(shelfPath, `${JSON.stringify({ ...shelf, readingsFrozen: fixture }, null, 2)}\n`);
     writeFileSync(`${dir}/shelf-entries-${chain}.json`, `${JSON.stringify(entries, null, 2)}\n`);
     const byCls: Record<string, number> = {};

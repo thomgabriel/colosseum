@@ -237,9 +237,9 @@ pnpm risk:assets-backfill <series> --fetch --all      # the whole series: Rodrig
 - `shelf-entries-<chain>.json`: one `basket_assets` row per token (`BasketAsset`), its class taken from the list. Eligibility is the engine's, by class. The tier is **C, a labelled fallback** (`tierFrom: "fallback"`, gate `EXIT-SOURCE`) until Bearing measures the token's exit. `maxWeightBps` is 0 and the deploy-only fields are named under `toSet`, for Thom's asset entries (OPS-4). `priceKind` and `priceRef` come from the list's oracle (the tracked list's for a tracked stock), else `none`. A dollar-yield token without its leg types or a yield reading (a `yield_observations` row of a registry asset at its address) is under `waiting` with what it lacks.
 - `fixtures/risk/assets/shelf-readings-<chain>.json`: every reading the cut considered, frozen so `tests/risk-assets-shelf.test.ts` re-cuts the shelf and remakes the entries.
 
-The command refuses a list with uncommitted changes. It reads only the local database and the committed files.
+The command refuses a list with uncommitted changes. It reads only the local database and the committed files. It takes only `live` readings. A reading's time is the first of equal readings, as the metrics job rewrites a value only when it changes: the shelf's reading window runs from the oldest such time (a null first read on Oct 11) to the newest.
 
 ### The cut of 2026-10-12 (readings up to 18:35 UTC)
 
 - **Solana:** 97 rows on the shelf (of 2,006 listed or candidate; 148 below the floor, 1,761 with a null reading): stock 41, crypto 36, cash 8, etf 5, dollar_yield 4, gold 3. 94 entries (Scope price 15, none 79); waiting: PRIME, AUTO and PST, which have no yield reading.
-- **Robinhood Chain:** 48 rows (of 219; 109 below the floor, 62 null): stock 30, crypto 11, cash 2, etf 2, commodity 2, gold 1. 48 entries (Chainlink 25, none 23).
+- **Robinhood Chain:** 45 rows (of 215; 108 below the floor, 62 null): stock 30, crypto 8, cash 2, etf 2, commodity 2, gold 1. 45 entries (Chainlink 25, none 20).

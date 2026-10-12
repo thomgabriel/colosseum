@@ -6,7 +6,10 @@
     "maxWeightBps": "0 until the asset entry of a deploy sets it (ledger OPS-4): a cap is never guessed here.",
     "session": "us_equity for stocks and funds of shares, always for every other class: stated, not chosen (the program's session flag).",
     "eligibility": "By class, the engine's (packages/engine/src/personal/registry.ts on staging): no entry carries profiles of its own.",
-    "autoFollowEligible": "false on every entry until a person turns it on."
+    "autoFollowEligible": "false on every entry until a person turns it on.",
+    "issuer": "The list's issuer; where the list states none, a placeholder naming the token, so that no two such tokens read as one issuer.",
+    "underlying": "The list's underlying; where the list states none, the token's own symbol (a liquid staking token then reads as itself, not SOL).",
+    "provenance": "live: only live readings are cut (asset_observations and yield_observations with provenance live)."
   },
   "entries": [
     {
@@ -18,7 +21,7 @@
         "decimals": 18,
         "cls": "crypto",
         "underlying": "ETH",
-        "issuer": "not stated in the list",
+        "issuer": "WETH: issuer not stated in the list",
         "tier": "C",
         "priceKind": "none",
         "priceRef": "",
@@ -897,7 +900,7 @@
         "decimals": 18,
         "cls": "cash",
         "underlying": "USDe",
-        "issuer": "not stated in the list",
+        "issuer": "USDe: issuer not stated in the list",
         "tier": "C",
         "priceKind": "none",
         "priceRef": "",
@@ -987,36 +990,6 @@
         "cls": "crypto",
         "underlying": "TAO",
         "issuer": "ForeverMoney",
-        "tier": "C",
-        "priceKind": "none",
-        "priceRef": "",
-        "session": "always",
-        "autoFollowEligible": false,
-        "maxWeightBps": 0,
-        "blockedCountries": [],
-        "sheet": "",
-        "provenance": "live"
-      },
-      "tierFrom": "fallback",
-      "toSet": [
-        "feed",
-        "pairs",
-        "maxWeightBps",
-        "keeperOn",
-        "a price source (priceKind none: the keeper never trades it)",
-        "sheet (the risk sheet under content/risk-sheets/)"
-      ]
-    },
-    {
-      "asset": {
-        "id": "robinhood:up",
-        "chain": "robinhood",
-        "address": "0x57c0e45cb534413d1c20a4240955d6bb250bb4f1",
-        "symbol": "UP",
-        "decimals": 18,
-        "cls": "crypto",
-        "underlying": "UP",
-        "issuer": "up",
         "tier": "C",
         "priceKind": "none",
         "priceRef": "",
@@ -1247,36 +1220,6 @@
     },
     {
       "asset": {
-        "id": "robinhood:bow",
-        "chain": "robinhood",
-        "address": "0x451b42a15100c340ca12f7c66de06fac5ea2d751",
-        "symbol": "BOW",
-        "decimals": 18,
-        "cls": "crypto",
-        "underlying": "BOW",
-        "issuer": "Longbow",
-        "tier": "C",
-        "priceKind": "none",
-        "priceRef": "",
-        "session": "always",
-        "autoFollowEligible": false,
-        "maxWeightBps": 0,
-        "blockedCountries": [],
-        "sheet": "",
-        "provenance": "live"
-      },
-      "tierFrom": "fallback",
-      "toSet": [
-        "feed",
-        "pairs",
-        "maxWeightBps",
-        "keeperOn",
-        "a price source (priceKind none: the keeper never trades it)",
-        "sheet (the risk sheet under content/risk-sheets/)"
-      ]
-    },
-    {
-      "asset": {
         "id": "robinhood:dell",
         "chain": "robinhood",
         "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
@@ -1378,36 +1321,6 @@
         "priceKind": "none",
         "priceRef": "",
         "session": "us_equity",
-        "autoFollowEligible": false,
-        "maxWeightBps": 0,
-        "blockedCountries": [],
-        "sheet": "",
-        "provenance": "live"
-      },
-      "tierFrom": "fallback",
-      "toSet": [
-        "feed",
-        "pairs",
-        "maxWeightBps",
-        "keeperOn",
-        "a price source (priceKind none: the keeper never trades it)",
-        "sheet (the risk sheet under content/risk-sheets/)"
-      ]
-    },
-    {
-      "asset": {
-        "id": "robinhood:flock",
-        "chain": "robinhood",
-        "address": "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
-        "symbol": "FLOCK",
-        "decimals": 18,
-        "cls": "crypto",
-        "underlying": "FLOCK",
-        "issuer": "FLock.io",
-        "tier": "C",
-        "priceKind": "none",
-        "priceRef": "",
-        "session": "always",
         "autoFollowEligible": false,
         "maxWeightBps": 0,
         "blockedCountries": [],

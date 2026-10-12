@@ -20,7 +20,12 @@ for (const chain of ['solana', 'robinhood'] as const) {
   describe(`the ${chain} shelf`, () => {
     const committed = json<ShelfFile>(`scripts/risk/assets/shelf-${chain}.json`);
     const list = UniverseList.parse(json(`scripts/risk/assets/${chain}.json`));
-    const { readings } = json<{ readings: StampedReading[] }>(committed.readingsFrozen as string);
+    const { readings, yieldAsked, yieldReadings } = json<{
+      readings: StampedReading[];
+      yieldAsked: string[];
+      yieldReadings: Array<{ address: string }>;
+    }>(committed.readingsFrozen as string);
+    const frozenYield = new Set(yieldReadings.map((r) => r.address));
     const recut = () =>
       shelfFile({
         chain,
@@ -42,11 +47,29 @@ for (const chain of ['solana', 'robinhood'] as const) {
       for (const r of committed.rows) {
         expect(['listed', 'candidate']).toContain(byId.get(r.id)?.status);
         expect(r.volume24hUsd).toBeGreaterThanOrEqual(committed.floorUsd);
-        for (const k of ['source', 'fetched_at', 'method', 'provenance'] as const)
-          expect(r[k]).toBeTruthy();
+        for (const k of ['source', 'fetched_at', 'method'] as const) expect(r[k]).toBeTruthy();
+        expect(r.provenance).toBe('live');
       }
       expect(committed.reading?.from).toBeTruthy();
       expect(committed.counts.onShelf).toBe(committed.rows.length);
+      expect(
+        readings.every((r) => r.provenance === 'live' && !Number.isNaN(Date.parse(r.observedAt))),
+      ).toBe(true);
+      // every dollar-yield token of the shelf was asked for its yield reading
+      expect(yieldAsked.sort()).toEqual(
+        committed.rows
+          .filter((r) => r.cls === 'dollar_yield')
+          .map((r) => r.address)
+          .sort(),
+      );
+    });
+
+    it('keeps a dollar-yield token without a yield reading out of the entries', () => {
+      const entries = json<EntriesFile>(`scripts/risk/assets/shelf-entries-${chain}.json`);
+      for (const r of committed.rows.filter((x) => x.cls === 'dollar_yield')) {
+        const isEntry = entries.entries.some((e) => e.asset.id === r.id);
+        if (!frozenYield.has(r.address)) expect(isEntry).toBe(false);
+      }
     });
 
     it('leaves out a held-out row and a row under the floor, whatever they trade', () => {
@@ -82,13 +105,8 @@ for (const chain of ['solana', 'robinhood'] as const) {
         shelfPath: entries.shelf,
         assets: list.assets,
         trackedOracle: (id) => tracked.assets.find((t) => t.id === id)?.oracle ?? null,
-        // the yield readings are the database's: the committed file says which tokens had none
-        hasYieldReading: (a) =>
-          !entries.waiting.some(
-            (w) =>
-              w.missing.includes('a yield reading') &&
-              list.assets.find((x) => x.id === w.id)?.address === a,
-          ),
+        // the yield readings the command read, frozen beside the volume readings
+        hasYieldReading: (a) => frozenYield.has(a),
       });
       expect(remade).toEqual(entries);
       expect(entries.entries.length + entries.waiting.length).toBe(committed.rows.length);

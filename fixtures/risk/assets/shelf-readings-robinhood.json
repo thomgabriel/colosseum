@@ -515,15 +515,6 @@
       "provenance": "live"
     },
     {
-      "address": "0x451b42a15100c340ca12f7c66de06fac5ea2d751",
-      "value": 121845.6,
-      "observedAt": "2026-10-12T18:34:38.069Z",
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "method": "dexscreener_token_pairs_h24",
-      "fetchedAt": "2026-10-12T18:34:38.069Z",
-      "provenance": "live"
-    },
-    {
       "address": "0x47f93d52cbec7c6d2cfc080e154002370a60daea",
       "value": 6401.5599999999995,
       "observedAt": "2026-10-12T18:34:38.475Z",
@@ -686,15 +677,6 @@
       "provenance": "live"
     },
     {
-      "address": "0x57c0e45cb534413d1c20a4240955d6bb250bb4f1",
-      "value": 287393.36,
-      "observedAt": "2026-10-12T18:34:45.974Z",
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "method": "dexscreener_token_pairs_h24",
-      "fetchedAt": "2026-10-12T18:34:45.974Z",
-      "provenance": "live"
-    },
-    {
       "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
       "value": 555992.9500000001,
       "observedAt": "2026-10-12T18:34:46.416Z",
@@ -719,15 +701,6 @@
       "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
       "method": "dexscreener_token_pairs_h24",
       "fetchedAt": "2026-10-12T18:34:47.227Z",
-      "provenance": "live"
-    },
-    {
-      "address": "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
-      "value": 101201.01999999999,
-      "observedAt": "2026-10-12T18:34:47.630Z",
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "method": "dexscreener_token_pairs_h24",
-      "fetchedAt": "2026-10-12T18:34:47.630Z",
       "provenance": "live"
     },
     {
@@ -863,15 +836,6 @@
       "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
       "method": "dexscreener_token_pairs_h24",
       "fetchedAt": "2026-10-12T18:34:55.603Z",
-      "provenance": "live"
-    },
-    {
-      "address": "0x7163ae1b5aea2f09ebc609c52b4dcac0a7a4bc2d",
-      "value": 48257.18000000001,
-      "observedAt": "2026-10-12T18:34:56.007Z",
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "method": "dexscreener_token_pairs_h24",
-      "fetchedAt": "2026-10-12T18:34:56.007Z",
       "provenance": "live"
     },
     {
@@ -1972,5 +1936,7 @@
       "fetchedAt": "2026-10-12T18:35:38.395Z",
       "provenance": "live"
     }
-  ]
+  ],
+  "yieldAsked": [],
+  "yieldReadings": []
 }
