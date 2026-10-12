@@ -1673,4 +1673,34 @@ describe('a figure is read with what stands around it', () => {
     expect(message).toContain('5%');
     expect(message).not.toContain(FIGURE_CUT);
   });
+
+  // The last review of #242: a caveat's opener spares its own clause, not the sentence.
+  it.each([
+    'Its quoted yield is [Y] a year. I can’t promise more than that it stays forever.',
+    'Its quoted yield is [Y] a year. I can’t tell you how safe it is: always, forever.',
+    'Its quoted yield is [Y] a year. I cannot say it loudly enough: it is safe for life.',
+    'Its quoted yield is [Y] a year. I would not say this lightly, but it is steady forever.',
+    'Its quoted yield is [Y] a year. Should I tell you it never goes down?',
+    'Its quoted yield is [Y] a year. I can’t know the future, but you will keep earning that.',
+    'Its quoted yield is [Y] a year. Shall I lock that in for life?',
+    'Its quoted yield is [Y] a year. Would you like that every year for life?',
+    'Its quoted yield is [Y] a year. Do you want a rate that is fixed forever?',
+    'Its quoted yield is [Y] a year. Would you like to keep earning that forever?',
+    'O rendimento cotado é [Y] ao ano. Quer travar isso para sempre?',
+  ])('cuts a yield promised after a caveat’s opener or inside an offer: %s', async (text) => {
+    expect(await shown(text)).not.toContain('5%');
+  });
+
+  it.each([
+    'The reserve’s quoted yield is [Y] a year. I can’t tell you what happens next.',
+    'The reserve’s quoted yield is [Y] a year. I can’t promise it stays there.',
+    'The reserve’s quoted yield is [Y] a year. I would not count on it staying fixed.',
+    'The reserve’s quoted yield is [Y] a year. Would you like the figure after the haircut?',
+    'The reserve’s quoted yield is [Y] a year. Shall I show you the stocks?',
+    'The reserve’s quoted yield is [Y] a year. Do you want to keep the reserve where it is?',
+  ])('still serves a yield whole beside a plain caveat or offer: %s', async (text) => {
+    const message = await shown(text);
+    expect(message).toContain('5%');
+    expect(message).not.toContain(FIGURE_CUT);
+  });
 });

@@ -238,12 +238,16 @@ const YOU_WILL_GET =
 const HEDGED = lone(
   'may\\s+not|might\\s+not|(?:can|could|may|might|will)\\s+(?:change|vary|move)|not\\s+(?:a\\s+|an\\s+|any\\s+)?(?:guarante\\p{L}*|promis\\p{L}*|forecast\\p{L}*)|never\\s+stands?\\s+still|pode\\s+(?:mudar|variar)|n[aã]o\\s+[eé]\\s+(?:uma?\\s+)?(?:promessa|garantia|previs[aã]o)|n[aã]o\\s+[eé]\\s+garantid[oa]',
 );
-/** The agent saying what it cannot tell, promise or count on: a caveat, whatever follows the verb. */
+/**
+ * The agent saying what it cannot tell, promise or count on. Its own clause is the caveat: from the
+ * opener to the first comma, colon, "but", "than" or "how". What comes after that is read like any
+ * other words ("I can't tell you how safe it is: always, forever." promises).
+ */
 const OWN_CAVEAT =
-  /^\s*(?:I|Eu)\s+(?:can['’]?t|cannot|can\s+not|would\s+not|wouldn['’]?t|n[aã]o\s+(?:posso|consigo|contaria))\s+(?:tell|promise|say|know|predict|count\s+on|rely\s+on|guarantee|prometer|dizer|garantir|saber|contar)(?![\p{L}\p{N}])/iu;
+  /^\s*(?:I|Eu)\s+(?:can['’]?t|cannot|can\s+not|would\s+not|wouldn['’]?t|n[aã]o\s+(?:posso|consigo|contaria))\s+(?:tell|promise|say|know|predict|count\s+on|rely\s+on|guarantee|prometer|dizer|garantir|saber|contar)(?![\p{L}\p{N}])(?:(?!\s+(?:but|than|how|mas|como)(?![\p{L}\p{N}]))[^,;:—–])*/iu;
 /** A question that offers the person something; only its own words are spared, not what it offers. */
 const OFFER =
-  /^\s*(?:would\s+you\s+(?:like|prefer)|do\s+you\s+want|shall\s+I|should\s+I|want\s+me\s+to|quer|gostaria)(?![\p{L}\p{N}])[^?]*\?\s*$/iu;
+  /^\s*(?:would\s+you\s+(?:like|prefer)|do\s+you\s+want|want\s+me\s+to|quer|gostaria)(?![\p{L}\p{N}])[^?]*\?\s*$/iu;
 const OFFER_WORDS = /(?<![\p{L}\p{N}'’])(?:would|should|keep|can['’]?t)(?![\p{L}\p{N}])/giu;
 /**
  * Whether a sentence beside a yield promises it. It is read only when it speaks of the yield; a
@@ -620,13 +624,15 @@ export function figureResolver(input: {
       // of the yield (`promisesTheYield`); one about anything else, or one that hedges, is served.
       const after = plainly(withoutReferences(next));
       // Every neighbour is read against the promise list, whoever speaks and question or not. Two
-      // honest shapes are spared: the agent saying what it cannot tell or would not count on, and
-      // the words of an offer to the person ("Would you like…?", "Do you want to keep…?").
-      const worded = [lead, after]
-        .filter((neighbour) => !OWN_CAVEAT.test(neighbour))
-        .map((neighbour) =>
-          OFFER.test(neighbour) ? neighbour.replace(OFFER_WORDS, ' ') : neighbour,
-        );
+      // honest shapes are spared, each only in its own words: the clause in which the agent says what
+      // it cannot tell or would not count on, and the words of an offer to the person ("Would you
+      // like…?", "Do you want to keep…?"). The rest of either sentence is read.
+      const worded = [lead, after].map((neighbour) =>
+        (OFFER.test(neighbour) ? neighbour.replace(OFFER_WORDS, ' ') : neighbour).replace(
+          OWN_CAVEAT,
+          ' ',
+        ),
+      );
       if (
         PROMISE.test(`${worded.join(' ').replace(DISCLAIMED, ' ')} ${all}`) ||
         [lead, after].some(promisesTheYield)
