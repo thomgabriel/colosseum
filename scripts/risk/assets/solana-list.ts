@@ -286,10 +286,11 @@ export function isLaunchpadPlatform(
 
 /**
  * A project's own page: an https page whose host is no listing, aggregator, directory or explorer, and not a
- * file of this repository. Only such a page admits a token as governance outside a protocol category.
+ * file of this repository (the same hosts as Robinhood Chain's isOwnPage; a project's GitHub counts as its own).
+ * Only such a page admits a token as governance outside a protocol category.
  */
 const NOT_OWN_HOSTS =
-  /(^|\.)(coingecko\.com|jup\.ag|dexscreener\.com|defillama\.com|llama\.fi|chain\.link|vercel\.app|geckoterminal\.com|solscan\.io|solana\.fm|explorer\.solana\.com|birdeye\.so|github\.com)$/;
+  /(^|\.)(coingecko\.com|geckoterminal\.com|coinmarketcap\.com|jup\.ag|dexscreener\.com|dextools\.io|birdeye\.so|defillama\.com|llama\.fi|chain\.link|reference-data-directory\.vercel\.app|solscan\.io|solana\.fm|explorer\.solana\.com)$/;
 export function isOwnPage(url: string): boolean {
   try {
     const u = new URL(url);
