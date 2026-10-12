@@ -27,11 +27,16 @@ import { LEG_TYPES } from '../packages/engine/src/personal/leg-types';
 import { loadFiles, readGz } from '../scripts/risk-evm/assets-files';
 import {
   type AssetFiles,
+  claimsStock,
   coinKind,
   cryptoFeedBases,
   cryptoSelection,
   type FrozenReads,
+  isLaunchpadPlatform,
+  isMeme,
+  isMemeCategory,
   NATIVE_ADDRESS,
+  PROTOCOL_CATEGORIES,
   poolCount,
   registryTokens,
   robinhoodList,
@@ -52,7 +57,7 @@ const committed = () =>
 const frozenOf = (list: { inputs: Record<string, string> }) =>
   readGz<FrozenReads>(join(ROOT, list.inputs.frozen as string));
 const filesFor = (fx: FrozenReads, list: { inputs: Record<string, string> }): AssetFiles => ({
-  ...loadFiles(fx.discovery, ROOT),
+  ...loadFiles(fx.discovery, ROOT, fx.previous),
   frozenPath: list.inputs.frozen as string,
 });
 const codeFixture = (list: { inputs: Record<string, string> }) =>
@@ -177,13 +182,13 @@ describe('the verdict table', () => {
       JSON.parse(readFileSync(join(ROOT, 'scripts/risk/assets/robinhood.verdicts.json'), 'utf8')),
     );
 
-  it('stops the build on a verdict for an address no read named', () => {
+  it('stops the build on a verdict for an address the reads did not ask, naming it', () => {
     const v = table();
-    // Multicall3: a real contract no listing names as a token
+    // Multicall3: a real contract no listing names as a token; every verdict's address is read, every run
     const extra = { ...v.verdicts[1], address: '0xca11bde05977b3631167028862be2a173976ca11' };
     v.verdicts.push(extra as (typeof v.verdicts)[number]);
     expect(() => robinhoodList(fx.reads, { ...files, verdicts: v })).toThrow(
-      /verdicts for addresses no read named/,
+      /the reads did not ask 1 named addresses: 0xca11bde05977b3631167028862be2a173976ca11/,
     );
   });
 
@@ -221,13 +226,31 @@ describe('the verdict table', () => {
   it('excludes by rule only tokens with a registry symbol and an address the registry does not hold', () => {
     const { tokens } = registryTokens(fx.reads);
     const symbols = new Set([...tokens.values()].map((t) => t.row.tokenSymbol));
-    const ruled = rows.filter((r) => r.decidedBy.includes('rule:not-the-issuers-stock-token'));
-    expect(ruled.length).toBeGreaterThan(0);
-    for (const r of ruled) {
-      expect(symbols.has(r.symbol)).toBe(true);
-      expect(tokens.has(r.address)).toBe(false);
-      expect(r.status).toBe('excluded');
+    const nameOf = new Map([...tokens.values()].map((t) => [t.row.tokenSymbol, t.row.tokenName]));
+    for (const rule of ['not-the-issuers-stock-token', 'registry-symbol-not-a-protocol']) {
+      const ruled = rows.filter(
+        (r) => r.decidedBy.includes(`rule:${rule}`) && !r.decidedBy.includes('verdict'),
+      );
+      expect(ruled.length).toBeGreaterThan(0);
+      for (const r of ruled) {
+        expect(symbols.has(r.symbol)).toBe(true);
+        expect(tokens.has(r.address)).toBe(false);
+        expect(r.status).toBe('excluded');
+        // the symbol excludes only a token that claims the stock, or one no protocol category names
+        const claims = claimsStock(r.name, r.symbol, nameOf.get(r.symbol) ?? null);
+        expect(claims).toBe(rule === 'not-the-issuers-stock-token');
+        if (!claims)
+          expect(['protocol', 'liquid_staking']).not.toContain(
+            coinKind(fx.reads.coingecko, r.address),
+          );
+      }
     }
+    // the names that claim a stock, and those that do not
+    expect(claimsStock('Apple (Robinhood)', 'AAPL', 'Apple • Robinhood Token')).toBe(true);
+    expect(claimsStock('GAMESTOP', 'GME', 'GameStop • Robinhood Token')).toBe(true);
+    expect(claimsStock('AMC', 'AMC', 'AMC Entertainment • Robinhood Token')).toBe(true);
+    expect(claimsStock('Pawlantir', 'PLTR', 'Palantir Technologies • Robinhood Token')).toBe(false);
+    expect(claimsStock('NetNet', 'NET', 'Cloudflare, Inc. • Robinhood Token')).toBe(false);
   });
 
   it('holds out what is not shown to be the asset it names, and ties it no feed', () => {
@@ -448,21 +471,23 @@ describe('crypto beyond the listings', () => {
       if (t.why.includes('feed')) expect(bases.has(t.symbol.toUpperCase())).toBe(true);
     }
     expect(JSON.stringify(list)).not.toMatch(/"(?:h24|volume|volumeUsd)"/);
-    // every selected token was looked up on CoinGecko
-    for (const a of selected.keys()) expect(coins.has(a)).toBe(true);
+    // every selected token was looked up on CoinGecko (its page, or the chain's memecoin category)
+    for (const a of selected.keys())
+      expect(coins.has(a) || isMeme(fx.reads.coingecko, a)).toBe(true);
   });
 
-  it('rows a selected token only by its own verdict or as a protocol by CoinGecko, never a memecoin', () => {
+  it('rows a selected token only by its own verdict or by its categories, never a memecoin', () => {
+    const previous = new Set((fx.previous?.assets ?? []).map((a) => a.address));
     const ruled = rows.filter((r) => r.decidedBy.includes('rule:crypto-protocol'));
     expect(ruled.length).toBeGreaterThan(0);
     for (const r of ruled) {
-      expect(selected.has(r.address)).toBe(true);
-      expect(coinKind(coins.get(r.address), r.address)).toBe('protocol');
-      if (r.status !== 'excluded')
+      expect(selected.has(r.address) || previous.has(r.address)).toBe(true);
+      expect(coinKind(fx.reads.coingecko, r.address)).toBe('protocol');
+      if (!r.decidedBy.includes('verdict') && r.status !== 'excluded')
         expect([r.category, r.status]).toEqual(['governance', 'candidate']);
     }
     for (const a of selected.keys()) {
-      const kind = coinKind(coins.get(a), a);
+      const kind = coinKind(fx.reads.coingecko, a);
       if (kind !== 'protocol' && !own.has(a) && !registry.has(a)) {
         const r = rows.find((x) => x.address === a);
         // a row only by another path (a class name that must be decided), never by the selection
@@ -470,7 +495,7 @@ describe('crypto beyond the listings', () => {
       }
     }
     const memes = [...selected.keys()].filter(
-      (a) => coinKind(coins.get(a), a) === 'meme' && !rowSet.has(a),
+      (a) => coinKind(fx.reads.coingecko, a) === 'meme' && !rowSet.has(a),
     ).length;
     expect(list.stated.cryptoLeftOut).toContain(`meme ${memes}`);
   });
@@ -489,5 +514,144 @@ describe('crypto beyond the listings', () => {
       expect(r.listingTags).toContain('chainlink_ccip');
     }
     expect(byId('robinhood:wsteth').oracleReason).toBe('feed_named_in_other_case_not_tied');
+  });
+});
+
+// The review of e5b6b656 (ASSET-1, 2026-10-12): one rule for memecoins and protocols, the launch pads
+// decided by it, ids that stay with their address, no row dropped unsaid, NET by its categories, and the
+// long symbol cut.
+describe('the review of e5b6b656', () => {
+  const cg = fx.reads.coingecko;
+  const coins = new Map(cg.coins.map((c) => [c.address, c]));
+  const verdicts = UniverseVerdicts.parse(
+    JSON.parse(readFileSync(join(ROOT, 'scripts/risk/assets/robinhood.verdicts.json'), 'utf8')),
+  );
+  const own = new Map(verdicts.verdicts.map((v) => [v.address, v]));
+
+  it('reads memecoin categories by name, and names nine protocol categories', () => {
+    for (const c of ['Meme', 'Robinhood Chain Meme', 'Dog-Themed', 'Wall Street Bets Themed'])
+      expect(isMemeCategory(c)).toBe(true);
+    for (const c of ['Meme Ecosystem', 'Decentralized Finance (DeFi)', 'Launchpad'])
+      expect(isMemeCategory(c)).toBe(false);
+    expect(PROTOCOL_CATEGORIES).toEqual([
+      'Decentralized Exchange (DEX)',
+      'Lending/Borrowing Protocols',
+      'Perpetuals',
+      'Derivatives',
+      'Oracle',
+      'Bridge Governance Tokens',
+      'Infrastructure',
+      'Liquid Staking Governance Tokens',
+      'Yield Aggregator',
+    ]);
+  });
+
+  it('has no row CoinGecko files as a memecoin, but by its own verdict', () => {
+    for (const r of rows) {
+      if (r.issuerRegistry || r.address === NATIVE_ADDRESS) continue;
+      if (isMeme(cg, r.address)) expect([r.address, own.has(r.address)]).toEqual([r.address, true]);
+    }
+  });
+
+  it('makes a governance row only by a protocol category, a launch pad of its own, or its own page', () => {
+    const governance = rows.filter((r) => r.category === 'governance');
+    expect(governance.length).toBeGreaterThan(0);
+    for (const r of governance) {
+      const v = own.get(r.address);
+      if (v) {
+        // its own verdict cites a page that is not CoinGecko's
+        expect(v.sources.some((s) => !/coingecko/.test(s.url))).toBe(true);
+        continue;
+      }
+      const coin = coins.get(r.address);
+      const cats = coin?.categories ?? [];
+      const byCategory = cats.some((c) =>
+        PROTOCOL_CATEGORIES.some((p) => p.toLowerCase() === c.trim().toLowerCase()),
+      );
+      const pad =
+        cats.some((c) => c.trim().toLowerCase() === 'launchpad') &&
+        isLaunchpadPlatform(coin?.name ?? null, cg.categoryNames);
+      expect([r.symbol, byCategory || pad]).toEqual([r.symbol, true]);
+    }
+  });
+
+  it('decides the launch-pad tokens by the same rule', () => {
+    for (const a of [
+      '0x2cc0fac44b8252f6b10208b091aff2c94b4da77d', // INJOH
+      '0xe02c53d448a62067b2ac10ed70f5bc6c29471386', // NOSH
+      '0x6b1d42927b1a84ec28fa88d4fc6fa7af404966be', // PAIR
+      '0x39dbed3a2bd333467115de45665cc57f813c4571', // PONS
+      '0xf24f8f6b08fe87cf062e833a732ad7f636064bc8', // PRM
+      '0x507b6f349a80114097a67b8b4677367acc15b220', // par
+    ]) {
+      const r = rows.find((x) => x.address === a);
+      const kind = coinKind(cg, a);
+      expect([a, r !== undefined && r.category === 'governance']).toEqual([a, kind === 'protocol']);
+      if (!r) expect(list.stated.leftTheList).toContain(a);
+    }
+  });
+
+  it("keeps the product's ids for its own rows: robinhood:usdc is not a memecoin's", () => {
+    const reserved = new Set(files.reservedIds);
+    expect(reserved.has('robinhood:usdc')).toBe(true);
+    expect(reserved.has('robinhood:usdg')).toBe(true);
+    for (const r of rows.filter((x) => reserved.has(x.id)))
+      expect([r.id, r.status]).toEqual([r.id, 'listed']);
+    const usdc = rows.find((r) => r.id === 'robinhood:usdc');
+    if (usdc) expect(usdc.address).toBe(files.mainnetConfig.cashToken.toLowerCase());
+    expect(rows.find((r) => r.address === '0x11d04a2491ab485a54da3817c10c2a9178c7991e')?.id).toBe(
+      'robinhood:usdc-11d04a',
+    );
+  });
+
+  it('keeps every id of a committed list with its address, and names every row that left', () => {
+    const prev = fx.previous?.assets ?? [];
+    expect(prev.length).toBeGreaterThanOrEqual(274);
+    const byAddress = new Map(rows.map((r) => [r.address, r]));
+    const reserved = new Set(files.reservedIds);
+    for (const p of prev) {
+      const r = byAddress.get(p.address);
+      if (!r) {
+        expect([p.address, list.stated.leftTheList.includes(p.address)]).toEqual([p.address, true]);
+        continue;
+      }
+      // the one change allowed: an id the schema refuses, or a product id on a row that is not listed
+      if (p.id.length > 96 || (reserved.has(p.id) && r.status !== 'listed')) continue;
+      expect([p.address, r.id]).toEqual([p.address, p.id]);
+    }
+    // the rows and verdicts e5b6b656 dropped because that day's search did not name them
+    for (const a of [
+      '0x208092689248d96aa7f30aab09ff6a7e05b41e18', // SOL, verdict
+      '0x8dffab0c883818963b97f37a5792952296621f77', // USDC, verdict
+      '0x4f11d7603d1b0d0f021db552d8a6d88d7fa38ecf', // aUSD, verdict
+      '0xac43fa9ca5aa669f650f1fbd3be1aedf67838b19', // AMD copy
+      '0x37144e56f481e23a5a1ebf2c4ff0a82408441e18', // CRCL copy
+      '0xd07b2001d0713ba95c9b89eef3d6c672cf35e12f', // FLY copy
+      '0xc40a8118fd33330772de5be4c6e2587a07489ba3', // SPCX copy
+      '0x38d6254bcea24cdcd327d99a0d4e50b8403b2ea1', // USAR copy
+    ]) {
+      expect(prev.some((p) => p.address === a)).toBe(true);
+      expect([a, byAddress.has(a) || list.stated.leftTheList.includes(a)]).toEqual([a, true]);
+    }
+    for (const v of verdicts.verdicts) expect(byAddress.has(v.address)).toBe(true);
+  });
+
+  it('decides NET, a lending protocol by CoinGecko, by its categories and not by its symbol', () => {
+    const net = '0xca9c78dd337a67f6e0077f65f5e9218719d30edf';
+    const r = rows.find((x) => x.address === net);
+    const kind = coinKind(cg, net);
+    if (kind === 'protocol') {
+      expect(r?.decidedBy).toContain('rule:crypto-protocol');
+      expect([r?.category, r?.status]).toEqual(['governance', 'candidate']);
+    } else expect(r?.decidedBy ?? []).not.toContain('rule:not-the-issuers-stock-token');
+  });
+
+  it('cuts a symbol of thousands of characters to 64, and says so', () => {
+    const r = rows.find((x) => x.address === '0x94035f1d8932130464f5a55c11a7f80c8accb801');
+    expect(r?.symbol.length).toBe(64);
+    expect(r?.id.length).toBeLessThanOrEqual(96);
+    expect(r?.unverified.join(' ')).toMatch(
+      /the symbol: the contract answers \d+ characters; the first 64 are kept/,
+    );
   });
 });
