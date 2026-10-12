@@ -88,6 +88,7 @@ import {
   gateWholeSeries,
   MAX_SAMPLE_WINDOW,
   newestCount,
+  requireWindowInScope,
   scopeKey,
   scopeOptions,
   type TradingSeries,
@@ -457,12 +458,14 @@ async function robinhoodLogs() {
       throw new Error('--window <fromBlock>-<toBlock>');
     from = a as number;
     to = b as number;
-    // a window wider than a sample is a series run: the same gate as --all
-    if (windowNeedsGate('robinhood-logs', from, to))
-      requireCountThatFits(
-        ctx.key,
-        `a window of ${to - from + 1} blocks (wider than ${MAX_SAMPLE_WINDOW['robinhood-logs'].size})`,
-      );
+    // a window wider than a sample is a series run: the same gate as --all, and inside the counted scope
+    if (windowNeedsGate('robinhood-logs', from, to)) {
+      const what = `a window of ${to - from + 1} blocks (wider than ${MAX_SAMPLE_WINDOW['robinhood-logs'].size})`;
+      requireCountThatFits(ctx.key, what);
+      const start =
+        ctx.days === null ? null : (await blockDaysBack(deps, await head(deps), ctx.days)).block;
+      requireWindowInScope(from, start, what, ctx.key);
+    }
   }
   const res = await fetchLogs(deps, {
     out: join(OUT, 'robinhood'),
@@ -1142,11 +1145,13 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
     .map((x) => Math.floor(Date.parse(x) / 1000));
   if (!a || !b || b <= a) throw new Error('--window <fromISO>..<toISO>');
   const series2 = kind === 'swaps' ? 'solana-swaps' : 'solana-mints';
-  if (windowNeedsGate(series2, a, b))
-    requireCountThatFits(
-      kind === 'swaps' ? (ctx?.exactKey as string) : 'mint',
-      `a window of ${((b - a + 1) / DAY).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series2].size / DAY})`,
-    );
+  if (windowNeedsGate(series2, a, b)) {
+    const what = `a window of ${((b - a + 1) / DAY).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series2].size / DAY})`;
+    requireCountThatFits(kind === 'swaps' ? (ctx?.exactKey as string) : 'mint', what);
+    // inside the counted scope: its last `days`, back from now
+    if (ctx && ctx.days !== null)
+      requireWindowInScope(a, Math.floor(Date.now() / 1000) - ctx.days * DAY, what, ctx.key);
+  }
   const p = pools.find((x) => x.address === address);
   if (kind === 'swaps' && !p)
     throw new Error(`${address} is not a registry pool of the scope (${ctx?.key})`);
@@ -1473,11 +1478,20 @@ if (mode === 'fetch' && !all && opt('--window')) {
   }
   if (series === 'solana-swaps' || series === 'solana-mints') {
     const [a, b] = w.split('..').map((x) => Math.floor(Date.parse(x) / 1000));
-    if (a && b && windowNeedsGate(series, a, b))
+    if (a && b && windowNeedsGate(series, a, b)) {
+      const what = `a window of ${((b - a + 1) / 86_400).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series].size / 86_400})`;
       requireCountThatFits(
         series === 'solana-swaps' ? (trading?.exactKey ?? 'pools-exact') : 'mint',
-        `a window of ${((b - a + 1) / 86_400).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series].size / 86_400})`,
+        what,
       );
+      if (series === 'solana-swaps' && trading && trading.days !== null)
+        requireWindowInScope(
+          a,
+          Math.floor(Date.now() / 1000) - trading.days * 86_400,
+          what,
+          trading.key,
+        );
+    }
   }
 }
 

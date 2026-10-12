@@ -39,6 +39,7 @@ import {
   scopeKey,
   scopeOptions,
   windowNeedsGate,
+  requireWindowInScope,
 } from '../../scripts/risk/assets/backfill-gate';
 import { dayPieces, fetchWindow } from '../../scripts/risk/assets/backfill-solana';
 import {
@@ -859,6 +860,17 @@ describe('the trading scope: the shelf’s 30 days by default, the list’s by f
     expect(g(shelfB).reasons[0]).toMatch(/no count of scope shelf-d30-f100000-/);
     expect(g(shelfA.replace('-d30-', '-d90-')).reasons[0]).toMatch(/no count/);
     expect(g('logs-d30').reasons[0]).toMatch(/no count/);
+  });
+});
+
+describe('a wide window stays inside the scope its count covers', () => {
+  it('refuses a window that starts before the scope, and holds one inside it or any under a whole-life scope', () => {
+    const key = 'shelf-d30-f100000-3d63aab8';
+    expect(() => requireWindowInScope(1_000, 5_000, 'a window', key)).toThrow(
+      /before the scope shelf-d30-f100000-3d63aab8 begins \(5000\)/,
+    );
+    expect(() => requireWindowInScope(5_000, 5_000, 'a window', key)).not.toThrow();
+    expect(() => requireWindowInScope(0, null, 'a window', 'logs')).not.toThrow();
   });
 });
 
