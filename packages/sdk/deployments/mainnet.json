@@ -1,14 +1,12 @@
 {
   "format": "guard-deployment/1",
   "network": "mainnet",
-  "placeholder": true,
-  "todo": "Robinhood Chain mainnet (4663) is not deployed to. Fill in the factory, the beacon and the registry from the deploy's record, have a person confirm every listed asset's token, decimals and pool (each asset's own Uniswap v4 pool against USDG, the same as contracts/script/config/4663.json states; read on chain on 2026-10-12, confirmed by nobody yet), then take out `placeholder` and `todo` and run `pnpm --filter @colosseum/sdk tables`.",
   "chains": {
     "robinhood": {
       "family": "evm",
       "evmChainId": 4663,
-      "factory": "0x0000000000000000000000000000000000000000",
-      "beacon": "0x0000000000000000000000000000000000000000",
+      "factory": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "beacon": "0xac27328a77962cd0b6095e7c4074946622d6d77d",
       "routers": ["0x204FAca1764B154221e35c0d20aBb3c525710498"],
       "routes": {
         "0x204FAca1764B154221e35c0d20aBb3c525710498": {
@@ -16,7 +14,7 @@
           "hooks": "0x0000000000000000000000000000000000000000"
         }
       },
-      "registry": "0x0000000000000000000000000000000000000000",
+      "registry": "0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc",
       "cash": "robinhood:usdg",
       "assets": {
         "robinhood:usdg": {

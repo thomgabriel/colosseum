@@ -306,13 +306,13 @@ describe('a deployment is only what the loader read from a file', () => {
       refusalOf(() => guardTransaction({ step: approveStep, tx, deployment: read }))?.code,
     ).toBe('deployment');
     // The one way to a deployment reads only the files the package carries, which cannot be added to.
-    for (const network of ['mainnet', '__proto__', 'constructor', 'toString'])
+    for (const network of ['__proto__', 'constructor', 'toString'])
       expect(refusalOf(() => deploymentsOf(network as never))?.code, network).toBe('deployment');
     expect(Object.isFrozen(DEPLOYMENT_FILES) && Object.isFrozen(DEPLOYMENT_FILES.mock)).toBe(true);
     expect(() => {
       (DEPLOYMENT_FILES as Record<string, unknown>).mainnet = fromApi;
     }).toThrow(TypeError);
-    // Mainnet's entry is still the committed placeholder, or none: never the file handed over.
+    // Mainnet's entry is still the committed file: never the file handed over.
     expect(DEPLOYMENT_FILES.mainnet).toEqual(readDeploymentFiles().mainnet);
   });
 });
@@ -841,21 +841,14 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     expect(readDeploymentFile(none).robinhood).toMatchObject({ routers: [], routes: {} });
   });
 
-  it("mainnet's committed file is a placeholder: nothing loads it, and no deployment comes of it", () => {
+  it("mainnet's committed file is the deployment of 2026-10-12; marked a placeholder or with a zero address it loads nothing", () => {
     const committed = readDeploymentFiles().mainnet as DeploymentFile;
-    expect(committed.placeholder).toBe(true);
-    for (const refusal of [
-      refusalOf(() => readDeploymentFile(committed)),
-      refusalOf(() => deploymentsOf('mainnet')),
-    ]) {
-      expect(refusal?.code).toBe('deployment');
-      expect(refusal?.message).toContain('it is a placeholder for mainnet, not a deployment');
-      expect(refusal?.message).toContain(committed.todo);
-    }
-    // What it does state is what the repository already holds: the chain's number, Universal Router
-    // as the shared presets name it, and the pool shape routes.ts trades mainnet's pools in.
+    expect(committed.placeholder).toBeUndefined();
+    expect(isLoadedDeployment(deploymentsOf('mainnet').robinhood)).toBe(true);
+    // What it states beside the contracts is what the repository already holds: the chain's number,
+    // Universal Router as the shared presets name it, and the pool shape routes.ts trades in.
     const rh = committed.chains.robinhood;
-    if (rh?.family !== 'evm') throw new Error('the placeholder has no Robinhood Chain');
+    if (rh?.family !== 'evm') throw new Error('the file has no Robinhood Chain');
     expect(rh.evmChainId).toBe(CHAIN_PRESETS.robinhood.networks.mainnet.evmChainId);
     expect(rh.routers.map((r) => r.toLowerCase())).toEqual([
       CHAIN_PRESETS.robinhood.networks.mainnet.router,
@@ -875,30 +868,38 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     expect(shapes).not.toContain('undefined/undefined');
     expect(new Set(shapes).size).toBeGreaterThan(1);
     for (const address of [rh.factory, rh.beacon, rh.registry])
-      expect(address).toBe(e.ZERO_ADDRESS);
-    // With the mark still in, real addresses change nothing.
-    const filled = (): DeploymentFile => ({
+      expect(address).not.toBe(e.ZERO_ADDRESS);
+    // With a placeholder's mark on it, real addresses change nothing.
+    const marked: DeploymentFile = {
+      ...structuredClone(committed),
+      placeholder: true,
+      todo: 'not deployed',
+    };
+    const refusal = refusalOf(() => readDeploymentFile(marked));
+    expect(refusal?.code).toBe('deployment');
+    expect(refusal?.message).toContain('it is a placeholder for mainnet, not a deployment');
+    expect(refusal?.message).toContain('not deployed');
+    // And with no mark but a zero address in a contract's place, it is refused for that.
+    const zeroed: DeploymentFile = {
       ...structuredClone(committed),
       chains: {
         robinhood: {
           ...structuredClone(rh),
-          factory: e.FACTORY,
-          beacon: e.BEACON,
-          registry: e.anyone('registry'),
+          factory: e.ZERO_ADDRESS,
+          beacon: e.ZERO_ADDRESS,
+          registry: e.ZERO_ADDRESS,
         },
       },
-    });
-    expect(refusalOf(() => readDeploymentFile(filled()))?.message).toMatch(/placeholder/);
-    // And with the mark out but the zero addresses left, it is refused for those.
-    const { placeholder: _mark, todo: _note, ...unmarked } = committed;
-    expect(refusalOf(() => readDeploymentFile(unmarked))?.message).toMatch(/zero address/);
+    };
+    expect(refusalOf(() => readDeploymentFile(zeroed))?.message).toMatch(/zero address/);
   });
 
-  it('the placeholder filled in, with its mark taken out, loads as mainnet', () => {
+  it('another file put in mainnet’s place loads as mainnet, and the committed one is back after', () => {
     const committed = readDeploymentFiles().mainnet as DeploymentFile;
-    const { placeholder: _mark, todo: _note, ...file } = structuredClone(committed);
+    const file = structuredClone(committed);
     const rh = file.chains.robinhood;
-    if (rh?.family !== 'evm') throw new Error('the placeholder has no Robinhood Chain');
+    if (rh?.family !== 'evm') throw new Error('the file has no Robinhood Chain');
+    const deployed = rh.factory;
     Object.assign(rh, { factory: e.FACTORY, beacon: e.BEACON, registry: e.anyone('registry') });
     const router = CHAIN_PRESETS.robinhood.networks.mainnet.router as string;
     expect(readDeploymentFile(file).robinhood).toMatchObject({
@@ -911,8 +912,8 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     });
     const loaded = withFile(file, () => deploymentsOf('mainnet')).robinhood;
     expect(isLoadedDeployment(loaded)).toBe(true);
-    // And the committed placeholder is back in its place after.
-    expect(refusalOf(() => deploymentsOf('mainnet'))?.message).toMatch(/placeholder/);
+    // And the committed file is back in its place after.
+    expect(deploymentsOf('mainnet').robinhood).toMatchObject({ factory: deployed });
   });
 
   it("carries a proxy's creation code the file states, and derives the vault from it", () => {

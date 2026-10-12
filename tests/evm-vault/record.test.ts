@@ -201,9 +201,14 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     ).toBeGreaterThan(1);
   });
 
-  it("the guard's file still holds its place; the contracts' file holds no unconfirmed value", () => {
-    // Nothing is deployed, so the guard has no factory to name and refuses mainnet.
-    expect(() => deploymentsOf('mainnet')).toThrow(/placeholder for mainnet/);
+  it("the guard's file names the deployed contracts; the contracts' file holds no unconfirmed value", () => {
+    // Deployed on 2026-10-12: the guard loads mainnet, and its three addresses are the record's.
+    const record = JSON.parse(
+      readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8'),
+    ) as { contracts: { factory: string; beacon: string; registry: string } };
+    const loaded = deploymentsOf('mainnet').robinhood as unknown as Record<string, string>;
+    for (const name of ['factory', 'beacon', 'registry'] as const)
+      expect(loaded[name]?.toLowerCase(), name).toBe(record.contracts[name]);
     // Every value of the contracts' file was confirmed by a person on 2026-10-12: the marker word the
     // deploy script refuses on is gone, and every note that stood beside a proposed value says who
     // confirmed it and when.
