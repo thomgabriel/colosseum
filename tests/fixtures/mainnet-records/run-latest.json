@@ -1,0 +1,408 @@
+{
+  "about": "What forge wrote after contracts/script/Deploy.s.sol ran with --broadcast against a LOCAL fork of Robinhood Chain mainnet (anvil at 127.0.0.1, 2026-10-12), cut down to the fields scripts/ops/mainnet-records.ts reads. Nothing in it was sent to any network: the addresses exist on that fork only.",
+  "chain": 4663,
+  "transactions": [
+    {
+      "transactionType": "CREATE",
+      "contractName": "BasketVault",
+      "contractAddress": "0x16c06e495bd685ac55502f1c699a52762e32d855",
+      "hash": "0xf489df008505f05587517c89c3d00261d3c57d0b32defffffef101befbd08b7e"
+    },
+    {
+      "transactionType": "CREATE",
+      "contractName": "VaultBeacon",
+      "contractAddress": "0xac27328a77962cd0b6095e7c4074946622d6d77d",
+      "hash": "0x5ac2c83b69d3b2ee47eb70ea27eb6054f9c024a93f38722dd4553badeca8f800"
+    },
+    {
+      "transactionType": "CREATE",
+      "contractName": "VaultFactory",
+      "contractAddress": "0x95c04d3f271b901784ee19997e7dbe4bf1dbba16",
+      "hash": "0xb74644daada70cd92e47fcefff24c43ce2f8abf830124efaa089d89e5abeabf3"
+    },
+    {
+      "transactionType": "CREATE",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xe04d6356355d5ee9ab557bc01e0a14ef94eb5f8b4a219bf250c58c9c7383b817"
+    },
+    {
+      "transactionType": "CREATE",
+      "contractName": "IndexRegistry",
+      "contractAddress": "0x666439873b2b4121b290dc91fb82308e1e760646",
+      "hash": "0x2e896011137e438ebf27a0f78af41534521dfc9f673a561d71c8f978f0fbd02b"
+    },
+    {
+      "transactionType": "CREATE",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc",
+      "hash": "0x47f3cfe29fba9b49dbdf96901d6ad0d80c79b35194cd1381d5769cf2b975ad7f"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x21ab6122a2a7e1a02fe4ba0927e995b1706d8b0bb9a3088c0bcae1a1e40281dc"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xd0de6b06fd27cd6a8331e51ab39fd25e7ce6e4238b18ab6ff4b99e48684952b0"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x24952058764472d2f781b784129adbed65afcd1da891d398b58b298ee9c8ac58"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x18f04748d135ce6a67adf72cbf16652bc907f8d2e6ee43f24bf1bbb2aff26617"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x260de04abe284c7d8b89a1e20adf93c699f8a062f3de9367b4342ef5b7000e7d"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x096f6bfbbc7593ba8ebda86ec9233be039857e497b25fb3bdc1e81e7d851efa8"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x50e8d08385994b4473a2ce4aecd63a330639dc4959116b116e902aaa4e7b7960"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x28cea7c24b45366249c200589b3a170f57c4c5ab0b7ad146e7594a0a91a472c4"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x982e61d4960e045a51eaaf12db4fe947eb1ae144a73a47c60bc67874429642e9"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xe212a6bf03ff376d9dce51d8682e74e78bcf2449ebc452560312a7995967a792"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xd9804ef0bbcbd1459b8bd98a102a650a974f08ffe0abe2d88c5786e939bd564d"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xe6559c3214ccd30c425324c91adfe4e312163a7215e2a874697611d7d0778259"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x9458a6f1a35053008cec59f03a9a9fd235ed73cbba60886aa72daf3d6dd7197e"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x3e6c7fd6c78009181f8198c62ed49561da2cfebc6d2eba7b54f32ad94c4022ea"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x4996ef38812e7bc5fc09cd415893b64d16e6f67568dbf49b8c5689f547ed5b7f"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xa968bd01eaef2dfd347c7536846fbd44fee6b68876a4967d8595e6233655ec87"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x186b429c808b3efb6bb60a613b1111e3e882eee01b1c4caaf9b1e454ad6daad9"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x43a09105f647d90a56c621a4f51ef203527b8b9ab53b69e9a29402c6a1af3dfd"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x210ce6be2283bf3a629d33acb3abc66421dc97fd4e5cd07e5166b2495cb95e0c"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x3d7205e6e69b9c0944b92b6f0629e171b82457aa7e21c0d8470a223c1af73b68"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x6e8982c75647503981b2055a16e1a0bd05af37b66baef48e1a0ebd500eefcd10"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x663dbc327a2c9c07a6ff473b4bfec0ef758c3961b33c5b2123e4d4fa2860b761"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x8ede56fc5dbb88117022facf474f1357f268c4fe1fd168642bc43fc61de69d47"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xd31fc09f681271bcaa9e5f1f6ed0cb407729fa905ddd4c263d2264db28286d24"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x7e5f270ffef07e0acc66e4d84f5289d6b9923e8ef91e756f6ad59d36dc951ef5"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x0f2469ff8677696d784550a65b9873454876d6c72d15bf14976d08e697cd3930"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0xab5f6c20880b0f82e2a106b5db4dafd4ce8c6d54c251cf83b1c8f7b4bf7616ae"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x8bdd5556497f208715c55c9d79f54a249b901b4b9fb7648e512c5872308e672a"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x790da3df4c836285dbdbf71b529d4831e2bc7ddeb9354f50a9c7ed0e6d0924b9"
+    },
+    {
+      "transactionType": "CREATE",
+      "contractName": "TimelockController",
+      "contractAddress": "0x749f6aeb956b9f490e316599068ba8a6bd248342",
+      "hash": "0x6e1fc153ce0fb1a8c2672c4f49920ac96a1386daadc0418e5bd1f1bc76ce9975"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
+      "hash": "0x875d0f34e70b07b02a0a32f94422f15a00020e041a3eccdf231f1166f1e431eb"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "VaultBeacon",
+      "contractAddress": "0xac27328a77962cd0b6095e7c4074946622d6d77d",
+      "hash": "0x13f8f0f42a0c0b9f0f1982012d9280f1a2323256a6182cb1593bdba6c84da55c"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "TimelockController",
+      "contractAddress": "0x749f6aeb956b9f490e316599068ba8a6bd248342",
+      "hash": "0x302a00a88af2c383b64f22c477546bdd708e715563d9c5ea25bd6153d03110b3"
+    },
+    {
+      "transactionType": "CALL",
+      "contractName": "TimelockController",
+      "contractAddress": "0x749f6aeb956b9f490e316599068ba8a6bd248342",
+      "hash": "0xc5127d8d69b5af0fb80cf43a31f282775b2a9510f570fd25fda8cbcccd7f6a89"
+    }
+  ],
+  "receipts": [
+    {
+      "blockNumber": "0x52d359f",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a0",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a0",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a0",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a0",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a0",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a0",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a1",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a2",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a2",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a3",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a3",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a3",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a3",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a3",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a4",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a5",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a6",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a6",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a6",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a6",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a6",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a7",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a8",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a9",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a9",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a9",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a9",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35a9",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35aa",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35ab",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35ab",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35ac",
+      "status": "0x1"
+    },
+    {
+      "blockNumber": "0x52d35ac",
+      "status": "0x1"
+    }
+  ]
+}
