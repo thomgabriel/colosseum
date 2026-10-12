@@ -1,10 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
 import { readDeploymentFile } from '@colosseum/sdk';
 import { describe, expect, it } from 'vitest';
 import { parseRecord } from '../scripts/ops/authority';
-import { buildRecords, validate } from '../scripts/ops/mainnet-records';
+import { buildRecords, validate, writeBoth } from '../scripts/ops/mainnet-records';
 
 // The two files the app runs on after a mainnet deploy, written from what the deploy left behind. The
 // broadcast here is forge's own, from a run of the deploy script against a local fork of Robinhood
@@ -101,40 +102,184 @@ describe('the records of a mainnet deploy', () => {
     expect(loaded).toMatchObject({ family: 'evm', provenance: 'live', evmChainId: 4663 });
   });
 
-  it('refuse rather than guess', () => {
-    const refused = (
-      input: Partial<{ broadcast: string; config: string; guard: string }>,
-      why: RegExp,
-    ) => expect(() => buildRecords({ broadcast, config, guard, ...input })).toThrow(why);
-    // The committed deploy file, with its unconfirmed values still marked.
-    refused({ config: committed }, /still holds a TODO/);
-    refused({ broadcast: edit(broadcast, (b) => (b.chain = 46_630)) }, /both must be 4663/);
+  const isCreate = (name: string) => (t: Json) =>
+    t.transactionType === 'CREATE' && t.contractName === name;
+  /** Takes a transaction out of the broadcast together with its receipt. */
+  const drop = (b: Json, at: number) => {
+    const [gone] = b.transactions.splice(at, 1);
+    b.receipts = b.receipts.filter((r: Json) => r.transactionHash !== gone.hash);
+  };
+  const callOnFactory = (b: Json, selector: string) =>
+    b.transactions.find(
+      (t: Json) => t.transactionType === 'CALL' && t.transaction.input?.startsWith(selector),
+    );
+  const refused = (
+    input: Partial<{ broadcast: string; config: string; guard: string }>,
+    why: RegExp,
+  ) => expect(() => buildRecords({ broadcast, config, guard, ...input })).toThrow(why);
+
+  it('tell the two proxies apart by the logic each was created for, not by which came first', () => {
+    const straight = buildRecords({ broadcast, config, guard }).record as Json;
+    const swapped = edit(broadcast, (b) => {
+      const [first, second] = b.transactions
+        .map((t: Json, i: number) => (isCreate('ERC1967Proxy')(t) ? i : -1))
+        .filter((i: number) => i !== -1);
+      [b.transactions[first], b.transactions[second]] = [
+        b.transactions[second],
+        b.transactions[first],
+      ];
+    });
+    expect(JSON.parse(swapped).transactions).not.toEqual(JSON.parse(broadcast).transactions);
+    expect((buildRecords({ broadcast: swapped, config, guard }).record as Json).contracts).toEqual(
+      straight.contracts,
+    );
+    const b = JSON.parse(broadcast);
+    const factoryProxy = b.transactions.find(
+      (t: Json) => t.contractAddress?.toLowerCase() === straight.contracts.factory,
+    );
+    expect(factoryProxy.arguments[0].toLowerCase()).toBe(straight.contracts.factoryLogic);
+
+    // Both proxies made for one logic, or one that does not say what it was made for.
+    refused(
+      {
+        broadcast: edit(broadcast, (b) => {
+          const proxies = b.transactions.filter(isCreate('ERC1967Proxy'));
+          proxies[1].arguments[0] = proxies[0].arguments[0];
+        }),
+      },
+      /2 proxies were created for the factory logic/,
+    );
+    refused(
+      {
+        broadcast: edit(broadcast, (b) => {
+          b.transactions.find(isCreate('ERC1967Proxy')).arguments = null;
+        }),
+      },
+      /0 proxies were created for the factory logic/,
+    );
+  });
+
+  it('take a transaction as done only on its own receipt saying so', () => {
     refused(
       { broadcast: edit(broadcast, (b) => (b.receipts[3].status = '0x0')) },
       /did not succeed/,
     );
-    refused({ broadcast: edit(broadcast, (b) => b.receipts.pop()) }, /did not finish/);
+    refused({ broadcast: edit(broadcast, (b) => delete b.receipts[3].status) }, /does not say/);
+    refused({ broadcast: edit(broadcast, (b) => b.receipts.pop()) }, /has 0 receipts, not one/);
+    // As many receipts as transactions, but one transaction has two and another none.
     refused(
       {
         broadcast: edit(broadcast, (b) => {
-          b.transactions = b.transactions.filter(
-            (t: Json) =>
-              !(t.transactionType === 'CREATE' && t.contractName === 'TimelockController'),
-          );
-          b.receipts.pop();
+          b.receipts[5].transactionHash = b.receipts[4].transactionHash;
         }),
+      },
+      /has 2 receipts, not one/,
+    );
+    refused(
+      {
+        broadcast: edit(broadcast, (b) =>
+          b.receipts.push({ ...b.receipts[0], transactionHash: `0x${'ab'.repeat(32)}` }),
+        ),
+      },
+      /1 receipts are of no transaction/,
+    );
+    refused(
+      { broadcast: edit(broadcast, (b) => (b.transactions[2].hash = null)) },
+      /has no hash: it was not sent/,
+    );
+    refused(
+      { broadcast: edit(broadcast, (b) => delete b.receipts[0].transactionHash) },
+      /names no/,
+    );
+  });
+
+  it('take the guardian, the routers and the timelock from what the deploy did, and refuse another deploy file', () => {
+    const { record } = buildRecords({ broadcast, config, guard }) as Json;
+    const b = JSON.parse(broadcast);
+    const timelock = b.transactions.find(isCreate('TimelockController'));
+    expect(timelock.arguments[1].toLowerCase()).toContain(record.timelock.proposers[0]);
+    expect(callOnFactory(b, '0x8a0dac4a').transaction.input).toContain(
+      record.roles.guardian.slice(2),
+    );
+    expect(record.routers.length).toBeGreaterThan(0);
+
+    const other = `0x${'7'.repeat(40)}`;
+    const not = (what: string) => new RegExp(`not the one this deploy ran from: ${what}`);
+    refused({ config: edit(config, (c) => (c.guardian = other)) }, not('the guardian'));
+    refused({ config: edit(config, (c) => (c.keeper = other)) }, not('the keeper'));
+    refused({ config: edit(config, (c) => (c.timelock.delay += 1)) }, not("the timelock's delay"));
+    refused(
+      { config: edit(config, (c) => (c.timelock.owner = other)) },
+      not("the timelock's proposers"),
+    );
+    refused({ config: edit(config, (c) => (c.routers[0].router = other)) }, not('the routers'));
+    refused({ config: edit(config, (c) => c.routers.pop()) }, not('the routers'));
+    refused({ config: edit(config, (c) => c.assets.pop()) }, not('the listed tokens'));
+    // The same from the other side: a broadcast that set another guardian than the file names.
+    refused(
+      {
+        broadcast: edit(broadcast, (b) => {
+          const call = callOnFactory(b, '0x8a0dac4a');
+          call.transaction.input = `0x8a0dac4a${'0'.repeat(24)}${other.slice(2)}`;
+        }),
+      },
+      not('the guardian'),
+    );
+    refused(
+      {
+        broadcast: edit(broadcast, (b) => {
+          const batch = b.transactions.find((t: Json) => t.function?.startsWith('executeBatch('));
+          batch.arguments[2] = '[]';
+        }),
+      },
+      /did not set the timelock's delay/,
+    );
+  });
+
+  it('write both files or neither', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mainnet-records-'));
+    const one = join(dir, 'record.json');
+    const two = join(dir, 'guard.json');
+    writeFileSync(one, 'old record');
+    writeFileSync(two, 'old guard');
+    // The second cannot be written: its folder is not there.
+    expect(() =>
+      writeBoth([
+        [one, 'new record'],
+        [join(dir, 'absent', 'guard.json'), 'new guard'],
+      ]),
+    ).toThrow();
+    expect(readFileSync(one, 'utf8')).toBe('old record');
+    expect(readdirSync(dir).sort()).toEqual(['guard.json', 'record.json']);
+
+    writeBoth([
+      [one, 'new record'],
+      [two, 'new guard'],
+    ]);
+    expect([readFileSync(one, 'utf8'), readFileSync(two, 'utf8')]).toEqual([
+      'new record',
+      'new guard',
+    ]);
+    expect(existsSync(`${one}.writing`)).toBe(false);
+  });
+
+  it('refuse rather than guess', () => {
+    // The committed deploy file, with its unconfirmed values still marked.
+    refused({ config: committed }, /still holds a TODO/);
+    refused({ broadcast: edit(broadcast, (b) => (b.chain = 46_630)) }, /both must be 4663/);
+    refused(
+      {
+        broadcast: edit(broadcast, (b) =>
+          drop(b, b.transactions.findIndex(isCreate('TimelockController'))),
+        ),
       },
       /created 0 TimelockController/,
     );
     refused(
       {
-        broadcast: edit(broadcast, (b) => {
-          const proxy = b.transactions.findIndex(
-            (t: Json) => t.transactionType === 'CREATE' && t.contractName === 'ERC1967Proxy',
-          );
-          b.transactions.splice(proxy, 1);
-          b.receipts.pop();
-        }),
+        broadcast: edit(broadcast, (b) =>
+          drop(b, b.transactions.findIndex(isCreate('ERC1967Proxy'))),
+        ),
       },
       /created 1 proxies/,
     );
