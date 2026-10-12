@@ -1,5 +1,6 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createDb, riskLendingPools } from '@colosseum/db';
 import { decodeMint, METAPLEX_METADATA_PROGRAM } from '@colosseum/risk';
@@ -9,17 +10,18 @@ import { rpc, rpcStats } from '../lib-pools';
 import {
   type B64Account,
   type Built,
+  type CategoryMembers,
   type ChainRead,
   candidates,
   ISSUER_MINTS_FILE,
   type IssuerPage,
+  isSelected,
   type JupiterRow,
   LEFT_OUT_FILE,
   LeftOut,
   type LendingRow,
   type NamedBy,
   readsFileName,
-  SELECTION_FLOOR_USD,
   type SolanaReads,
   solanaList,
   VERDICTS_FILE,
@@ -95,10 +97,17 @@ async function timed<T>(
   return r.value;
 }
 
+/** One GET; a keyless source refusing for rate (429) is asked again after a minute, up to four times. */
 async function getJson(url: string): Promise<unknown> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`GET ${url}: ${res.status}`);
-  return res.json();
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    if (res.status === 429 && attempt < 4) {
+      await new Promise((r) => setTimeout(r, 70_000));
+      continue;
+    }
+    if (!res.ok) throw new Error(`GET ${url}: ${res.status}`);
+    return res.json();
+  }
 }
 
 export async function readAll(args: string[], verdicts: UniverseVerdicts): Promise<SolanaReads> {
@@ -121,12 +130,14 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
         tags?: string[];
         stats24h?: { buyVolume?: number; sellVolume?: number };
       }>;
-      // the volume picks a token for the crypto selection and is dropped here: no figure is saved
-      const picked = (t: (typeof rows)[number]) =>
-        (t.tags ?? []).some((g) => g === 'major' || g === 'strict') ||
-        (t.stats24h?.buyVolume ?? 0) + (t.stats24h?.sellVolume ?? 0) >= SELECTION_FLOOR_USD;
+      // the 24 h volume decides the crypto selection: kept in the reads (a fixture), never on a row
       const value = rows
-        .map((t) => ({ id: t.id, symbol: t.symbol ?? '', tags: t.tags ?? [], selected: picked(t) }))
+        .map((t) => ({
+          id: t.id,
+          symbol: t.symbol ?? '',
+          tags: t.tags ?? [],
+          volume24hUsd: (t.stats24h?.buyVolume ?? 0) + (t.stats24h?.sellVolume ?? 0),
+        }))
         .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       return { value, calls: 1, rows: value.length };
     },
@@ -271,7 +282,7 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
         platforms?: Record<string, string | null>;
       }>;
       const wanted = new Set([
-        ...jupiter.filter((t) => t.selected).map((t) => t.id),
+        ...jupiter.filter(isSelected).map((t) => t.id),
         ...verdicts.verdicts.map((v) => v.address),
       ]);
       const byMint: SolanaReads['coingecko']['byMint'] = {};
@@ -287,7 +298,26 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     log,
   );
 
-  // 7. every candidate's mint, then the Metaplex account of each mint holding no metadata of its own
+  // 7. the members of CoinGecko's meme and protocol categories, read beforehand by
+  //    coingecko-categories.ts (keyless and slow), and the ids of the list committed before this run
+  const categoriesPath = arg(args, '--categories');
+  if (!categoriesPath)
+    throw new Error(
+      '--categories <coingecko-category-members-*.json> is needed: run scripts/risk/assets/coingecko-categories.ts first',
+    );
+  const categories = json(categoriesPath) as CategoryMembers;
+  log.push({
+    name: 'coingecko_categories',
+    what: `${categories.what} (scripts/risk/assets/coingecko-categories.ts, run beforehand; file ${basename(categoriesPath)})`,
+    at: categories.at,
+    calls: categories.calls,
+    durationMs: categories.durationMs,
+    rows: Object.values(categories.categories).reduce((n, c) => n + c.members.length, 0),
+    errors: categories.errors,
+  });
+  const previousIds = previousListIds();
+
+  // 8. every candidate's mint, then the Metaplex account of each mint holding no metadata of its own
   const namedSorted = Object.fromEntries(
     Object.entries(named)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -338,7 +368,7 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     log,
   );
 
-  // 8. the pools the registry file knows for each candidate
+  // 9. the pools the registry file knows for each candidate
   const registryPath = arg(args, '--registry') ?? REGISTRY_DEFAULT;
   const registryName = `data/risk/${registryPath.split('/').pop()}`;
   const registry = await timed(
@@ -398,7 +428,49 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     llama: { stablecoins, protocols },
     issuerPages,
     coingecko,
+    categories,
+    previousIds,
     repo,
+  };
+}
+
+/**
+ * The ids of every list committed before this run (scripts/risk/assets/solana.json in each commit of the
+ * branch that changed it), by address: an id once committed stays with its address. Oldest first: where
+ * an address held several ids, or two addresses one id, the first committed holds.
+ */
+function previousListIds(): SolanaReads['previousIds'] {
+  const file = 'scripts/risk/assets/solana.json';
+  let commits: string[];
+  try {
+    commits = execFileSync('git', ['log', '--reverse', '--format=%h', 'HEAD', '--', file], {
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    commits = [];
+  }
+  if (commits.length === 0)
+    return { file: `${file} (none committed before this run)`, byAddress: {} };
+  const byAddress = new Map<string, string>();
+  const owner = new Map<string, string>();
+  for (const c of commits) {
+    const text = execFileSync('git', ['show', `${c}:${file}`], {
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+    });
+    for (const a of (JSON.parse(text) as { assets: Array<{ id: string; address: string }> })
+      .assets) {
+      if (byAddress.has(a.address) || owner.has(a.id)) continue;
+      byAddress.set(a.address, a.id);
+      owner.set(a.id, a.address);
+    }
+  }
+  const pairs = [...byAddress].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return {
+    file: `${file} in its ${commits.length} commits to ${commits.at(-1)}`,
+    byAddress: Object.fromEntries(pairs),
   };
 }
 
