@@ -1215,6 +1215,15 @@ function stockAsks(
         ),
       );
     for (const sentence of sentences) {
+      // "Forget Tesla", "ignore Tesla and Nvidia": the sentence that withdraws a share (`WITHDRAWS`)
+      // takes the request back too, for the stocks it names. One about a share or a limit is read
+      // here and nowhere else, so the refusal reader below never takes its "share" for stocks.
+      const forgotten = questioned ? null : forgottenNames(sentence.trim(), namer);
+      if (forgotten) {
+        at += 1;
+        for (const id of forgotten) if (stockIds.has(id)) latest.set(id, { at, asked: false });
+        continue;
+      }
       // What a bare list of names continues: an ask (true), a refusal (false) or neither.
       let carried: boolean | null = null;
       let wanted = false;
@@ -1226,11 +1235,29 @@ function stockAsks(
           continue;
         }
         at += 1;
+        // The same form as one piece of a longer sentence ("forget Tesla, keep Nvidia"): it only ever
+        // takes a request back, and a bare list after it goes with it.
+        const gone = forgottenNames(piece, namer);
+        if (gone) {
+          for (const id of gone) if (stockIds.has(id)) latest.set(id, { at, asked: false });
+          carried = gone.length ? false : null;
+          continue;
+        }
+        // "The gold share", "Tesla shares": a share of a named asset is that asset's, not the class
+        // of stocks, so the word is not read as "stocks" there.
+        const ownShares = namer(piece)
+          .filter((span) => !general.test(piece.slice(span.start, span.end)))
+          .reduce(
+            (text, span) =>
+              text.slice(0, span.end) +
+              text.slice(span.end).replace(SHARE_OF_NAME, (word) => ' '.repeat(word.length)),
+            piece,
+          );
         // Where each name first stands in the piece.
         const found = named.flatMap(([key, patterns]) => {
           const first = patterns
             .flatMap((pattern) => {
-              const match = pattern.exec(piece);
+              const match = pattern.exec(key === '*' ? ownShares : piece);
               return match ? [match] : [];
             })
             .sort((a, b) => a.index - b.index)[0];
@@ -1247,6 +1274,9 @@ function stockAsks(
           // "I want no stocks, just AAPL": the exception to a refusal the person wanted is asked for.
           const except = wanted ? piece.replace(EXCEPT, '') : piece;
           if (carried === null || !found.length || !bareList(except)) carried = null;
+          // "Forget gold, just Tesla": the exception to a refusal with no asking word is not refused
+          // with it, and not asked for either.
+          else if (!carried && !wanted && EXCEPT.test(piece)) carried = null;
           else
             for (const { key } of found)
               latest.set(key, { at, asked: carried || except !== piece });
@@ -1661,10 +1691,84 @@ function oneRequest(text: string, named: (text: string) => Named[]): OneRequest 
   if (!quote || /[;!?"“”]|\.(?!\d)|(?<!\d)\./u.test(quote)) return null;
   const one = wholeAsk(quote, named);
   if (one) return { kind: one.share ? 'whole' : 'only', name: one.name, quote };
-  const pieces = quote.split(/(?<!\d),|,(?!\d)/u).map((piece) => piece.trim());
-  return pieces.every((piece) => plainShares(piece, named).length > 0)
-    ? { kind: 'shares', quote }
-    : null;
+  // Each piece is shares, shares and where the rest goes, or where the rest goes alone; one at least
+  // holds a share.
+  const pieces = quote
+    .split(/(?<!\d),|,(?!\d)/u)
+    .map((piece) => piece.trim())
+    .map((piece) => {
+      const rest = REST_GOES.exec(piece);
+      if (!rest) return plainShares(piece, named).length > 0 ? 'shares' : null;
+      const where = piece.slice(rest.index + rest[0].length);
+      const [name, ...others] = named(where);
+      if (!name || others.length || name.start !== 0 || name.end !== where.length) return null;
+      const head = piece.slice(0, rest.index).trim();
+      if (!head) return 'rest';
+      return plainShares(head, named).length > 0 ? 'shares' : null;
+    });
+  return pieces.every(Boolean) && pieces.includes('shares') ? { kind: 'shares', quote } : null;
+}
+// Where the rest goes, after the shares of a piece or as a piece of its own: "and the rest in cash",
+// "and keep the remainder in jlUSDC", "the rest in cash". One listed name follows it, to the end. The
+// rest is never a share and asks for nothing; `personShares` says it back unless it went there.
+const REST_GOES =
+  /(?:^|\s+)(?:and\s+)?(?:(?:put|keep|leave|hold)\s+)?the\s+(?:rest|remainder)\s+(?:in|into|to|as)\s+/iu;
+
+// Words that may trail a withdrawal and change nothing of it: "forget Tesla after all", "forget Tesla lol".
+const FORGET_TAIL =
+  /(?:\s+(?:after\s+all|for\s+now|lol|then|now|too|entirely|completely|altogether))+$/iu;
+/** "share" or "shares" straight after a name: that asset's share. */
+const SHARE_OF_NAME = /^\s+shares?(?![\p{L}\p{N}])/iu;
+const LIMIT_WORDS = LIMIT_KINDS.map(([, words]) => words).join('|');
+const LIMIT_AFTER = new RegExp(`^(?:(.+?)\\s+)?(${LIMIT_WORDS})$`, 'iu');
+const LIMIT_BEFORE = new RegExp(`^(${LIMIT_WORDS})\\s+(?:of|on|for|in)\\s+(.+)$`, 'iu');
+const FORGOTTEN_BESIDES = /^(?:\s|,|(?<![\p{L}\p{N}])(?:and|or|the)(?![\p{L}\p{N}]))*$/iu;
+
+/**
+ * What a sentence or a piece takes back by one of the withdrawal forms (`WITHDRAWS`), as the ids of the
+ * assets it names; null when it is no such form, so it is read as any other.
+ *
+ * "Forget Tesla", "ignore Tesla and Nvidia", "forget about Tesla", "forget Tesla after all": the names,
+ * when it holds nothing else. "Forget the Tesla share", "the share of Tesla": the share's own asset;
+ * the word "share" is never the class of stocks here. "Drop the Tesla limit", "the minimum", "the
+ * share": a limit lifted or a share with no name takes back no asset, so the list is empty, and the
+ * sentence is still read here and not as a refusal.
+ */
+function forgottenNames(text: string, named: (text: string) => Named[]): string[] | null {
+  const said = WITHDRAWS.exec(text.replace(COURTESY_BEFORE, '').replace(COURTESY_AFTER, ''))?.[1];
+  if (!said) return null;
+  const body = said
+    .trim()
+    .replace(FORGET_TAIL, '')
+    .replace(/^about\s+(?:(?:the|that|this|my)\s+)?/iu, '');
+  const only = (target: string) => {
+    const names = named(target);
+    const besides = names.reduceRight(
+      (rest, name) => `${rest.slice(0, name.start)} ${rest.slice(name.end)}`,
+      target,
+    );
+    return names.length && FORGOTTEN_BESIDES.test(besides)
+      ? names.flatMap((name) => name.ids)
+      : null;
+  };
+  const after = LIMIT_AFTER.exec(body);
+  const before = after ? null : LIMIT_BEFORE.exec(body);
+  const [target, word] = after ? [after[1], after[2]] : before ? [before[2], before[1]] : [];
+  if (word === undefined) return only(body);
+  // A share or a limit with no name ("drop the limit") takes back no asset. Of a named asset: a
+  // share, the asset; a limit lifted, none. With anything else in it, the sentence is not this form:
+  // it is read piece by piece ("remove Tesla and drop the gold limit", "drop gold and add Tesla shares").
+  if (!target) return [];
+  // The share or the limit is one asset's, named alone before the word: with a second name or a
+  // joiner ("drop Tesla and the gold limit", "remove Tesla and the limit") the pieces tell them apart.
+  const [name, ...others] = named(target);
+  const alone =
+    name &&
+    !others.length &&
+    /^(?:the\s+)?$/iu.test(target.slice(0, name.start)) &&
+    name.end === target.length;
+  const ids = alone ? name.ids : null;
+  return ids && (/^shares?$/iu.test(word) ? ids : []);
 }
 /** A share of the whole vault leaves no room for a floor or a share on assets it does not cover. */
 const noRoomFor = (earlier: PersonShare, whole: PersonShare) =>
@@ -1816,8 +1920,12 @@ export function personShares(
     for (const [, sentence = '', end = ''] of text.matchAll(
       /((?:[^.;!?\n]|(?<=\d)\.(?=\d))+)([.;!?\n]*)/gu,
     )) {
-      if (!quoted && !end.includes('?') && withdraws(sentence.trim())) {
-        const said = sentence.trim().slice(0, 400);
+      // "Forget Tesla after all" is "forget Tesla": the words after it are no quantity to say back.
+      const forgets = WITHDRAWS.test(sentence.trim())
+        ? sentence.trim().replace(FORGET_TAIL, '')
+        : sentence.trim();
+      if (!quoted && !end.includes('?') && withdraws(forgets)) {
+        const said = forgets.slice(0, 400);
         if (noticed(said) && !unread.includes(said)) unread.push(said);
         continue;
       }
