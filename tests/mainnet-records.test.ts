@@ -9,14 +9,12 @@ import { buildRecords, validate, writeBoth } from '../scripts/ops/mainnet-record
 
 // The two files the app runs on after a mainnet deploy, written from what the deploy left behind. The
 // broadcast here is forge's own, from a run of the deploy script against a local fork of Robinhood
-// Chain mainnet: nothing in it reached a network. The deploy file is the committed one with its
-// unconfirmed marks taken out, as a person will have done before deploying.
+// Chain mainnet: nothing in it reached a network. The deploy file is the committed one.
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 const broadcast = read('tests/fixtures/mainnet-records/run-latest.json');
-const committed = read('contracts/script/config/4663.json');
-const config = committed.replaceAll('TODO', 'confirmed');
+const config = read('contracts/script/config/4663.json');
 const guard = read('packages/sdk/deployments/mainnet.json');
 // biome-ignore lint/suspicious/noExplicitAny: files as they are read, edited field by field
 type Json = any;
@@ -264,8 +262,8 @@ describe('the records of a mainnet deploy', () => {
   });
 
   it('refuse rather than guess', () => {
-    // The committed deploy file, with its unconfirmed values still marked.
-    refused({ config: committed }, /still holds a TODO/);
+    // A deploy file with a value nobody confirmed still marked.
+    refused({ config: edit(config, (c) => (c.guardian = 'TODO')) }, /still holds a TODO/);
     refused({ broadcast: edit(broadcast, (b) => (b.chain = 46_630)) }, /both must be 4663/);
     refused(
       {
