@@ -42,6 +42,8 @@ cd contracts && forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.c
   --sender <deployer address>
 ```
 
+`pnpm --filter @colosseum/contracts test:script` runs the same script with no node, on forge's in-memory chain, down the path a mainnet takes (the admin handed to a timelock; `test/fixtures/deploy-timelock-31337.json`). CI's forge job runs it: `forge script` refuses a script that calls itself, which `forge test` allows, and on Oct 12 that failed the mainnet dry run at its last printout, after all 40 transactions had simulated. `--block-timestamp` is there because the in-memory chain starts at time 1, which the timelock reads as an operation already done.
+
 It simulates against the chain the URL answers for and prints every transaction it would send, numbered, with its target and what it does (`tx 1 ... create the vault logic`, ..., `setClosedDay(20783, closed)`), then what it deployed. Nothing is sent without `--broadcast`, and sending is a person's to do. The settings come from `script/config/<chain id>.json`; `example.json` shows every field. A file is refused on any chain but the one it names.
 
 The deployer is the admin while the script runs and proposes the file's admin at the end. Until that key calls `acceptAdmin()` on the factory and `acceptOwnership()` on the beacon, the deployer still holds both. A file with `"adminIsDeployer": true` keeps them with the deployer, as on a test network with one key: `46630.json` does, with no guardian (the admin makes the guardian's calls) and no keeper yet.
