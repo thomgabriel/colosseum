@@ -469,3 +469,11 @@ Thom, in chat on Oct 12: "we should launch with as many tokens as we can". The v
 | **POOL-PER-ASSET**, SPY — which pool | DECIDED (Thom, 2026-10-12) | SPY trades in its deepest pool, fee 3000 / tick spacing 60 | 0.35% each way up to $50,000, 0.53% at $250,000. Passed over: the 100 / 1 pool, 0.01% to 0.08% up to $10,000, a ninth of the liquidity, no fill at $250,000. Noted in `4663.json` |
 | **MAINNET-KEYS** — the Safe's threshold | DECIDED (Thom, 2026-10-12) | The Safe stays two of two | One lost key locks it (`docs/vault/SECURITY.md`) |
 
+## Confirmed on 2026-10-12 (Thom, the nine-token mainnet file)
+
+Thom, in chat on Oct 12, on every proposed value of the nine-token deploy: "ok lets follow the recommendations so confirmed as proposed". Relayed to the session that wrote this by its coordinator.
+
+| Gate | Status | Decision | Facts |
+|---|---|---|---|
+| **MAINNET-FILE-CONFIRMED** — the values of `contracts/script/config/4663.json` | DECIDED (Thom, 2026-10-12) | Every value that was proposed is confirmed as proposed, and the marker word is out of the file: the eight tokens added that day with their feeds and descriptions; every pool; `maxWeightBps` 5000 for SPY and META, 2500 for NVDA, AAPL and TSLA, 500 for GOOGL and MSFT, 50 for AMZN and GLD; each `maxTradeUsd`; `priceBoundBps` 200; `staleRailBps` 1000; `sessionPriceAge` 3600 in both its uses; `maxTradeUsdNotLive` 20000; `staleRailMaxAge` 345600; each `average` block as it stands (META and GLD not usable). GLD is confirmed knowing its feed reads pools and that this was not measured: an accepted, unmeasured risk, his decision; the measurement is still owed | The deploy script no longer refuses the file for the marker. It does not say a deploy may happen: `SPEND` and `SPEND-FIRST-MAINNET-DEPOSIT` stand until a person sends it. Every address was re-read on chain at block 86,843,924 before the marker was lifted and matched. The ceilings rest on one reading of each token's own pool, not on Bearing's numbers (`EXIT-SOURCE`): the Safe sets them again through the timelock when those can be read for the pool the vault trades in. The guard's `mainnet.json` stays a placeholder until there is a factory to name |
+
