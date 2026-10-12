@@ -28,23 +28,32 @@ describe('the trust notice’s points', () => {
     if (!facts) throw new Error('no mainnet facts for Robinhood Chain');
     const points = trustPoints(en, 'robinhood', { live: true, keeperTrades: true, limits });
     const m = en.trust.mainnet;
+    const checks = TRUST_STATUS.openChecks.filter((c) => c !== 'second_rehearsal');
     expect(points?.items).toEqual([
       m.real,
+      m.loss,
       en.trust.unaudited,
       m.governance(48, 2),
       m.safe(facts.safe),
       m.guardian,
+      m.withdraw,
       m.noKeeper,
       m.noCap,
       m.trades,
       m.issuers,
       en.trust.notUnitedStates,
       en.trust.passkey,
-      en.trust.openChecks(TRUST_STATUS.openChecks.map((c) => en.trust.checks[c]).join('; ')),
+      en.trust.openChecks(checks.map((c) => en.trust.checks[c]).join('; ')),
     ]);
+    // In sight above the tick, not behind "Read the full list": real money, that it can be lost, who can
+    // change the code, who can pause, and what checks a trade.
     expect(points?.short).toEqual([
+      m.real,
+      m.loss,
       en.trust.short.unaudited,
       m.short.governance(48, 2),
+      m.guardian,
+      m.trades,
       m.short.noKeeper,
       m.short.noCap,
       m.short.issuers,
@@ -54,6 +63,12 @@ describe('the trust notice’s points', () => {
     expect(all).not.toContain(TRUST_STATUS.admin.robinhood ?? 'x');
     expect(all).not.toContain(en.trust.keeper(...limits));
     expect(all).not.toMatch(/test network/i);
+    // It says plainly what can be lost and what a withdrawal is, and nothing of an admin key.
+    expect(m.loss).toBe('You can lose money, including all of it.');
+    expect(all).not.toContain('at any time');
+    expect(all).toContain('the vault contracts never block it');
+    expect(all).toContain('checked by this app');
+    expect(all).not.toContain(en.trust.checks.second_rehearsal);
   });
 
   it('on mainnet, promises no return and names no licence', () => {

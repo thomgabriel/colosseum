@@ -1149,15 +1149,18 @@ export const en = {
     /** The same notice where the money is real: a chain on mainnet (TRUST_STATUS.mainnet). */
     mainnet: {
       real: 'This is real money on a live network. Nothing here promises a return, and this is not licensed advice.',
+      loss: 'You can lose money, including all of it.',
       governance: (hours: number, signatures: number) =>
-        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds. You can withdraw at any time.`,
+        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
+      withdraw:
+        'A withdrawal sends you the tokens themselves, and the vault contracts never block it. The issuer can pause the stock tokens and freeze the dollar token, which would stop those tokens moving, in your vault or out of it.',
       safe: (address: string) => `The Safe: ${address}.`,
       guardian:
         'One founder holds a guardian key. It can pause new deposits at once. It cannot move funds, change the contracts or stop a withdrawal.',
       noKeeper: 'No keeper runs here: nothing trades your vault but you.',
       noCap: 'Nothing limits how much you can deposit. How much you put in is your decision.',
       trades:
-        'Each trade you sign is checked against a reference price and limited in size before it is built. A trade outside those limits is not built.',
+        'Each trade you sign is checked by this app against a reference price and limited in size before it is built. A trade outside those limits is not built. The contracts themselves hold a trade only to the minimum you sign.',
       issuers:
         'The issuer of the stock tokens can replace their code, and can pause them. The issuer of the dollar token can freeze it.',
       short: {
