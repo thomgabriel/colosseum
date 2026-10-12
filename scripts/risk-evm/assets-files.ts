@@ -1,6 +1,6 @@
 // The repository's files the Robinhood Chain asset list reads (PLAN-ASSETS AS.3), and where its reads are
 // frozen. File reads only: no network, no environment, so a test may import it.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { defaultRegimeParams } from '@colosseum/risk';
@@ -21,7 +21,30 @@ export const PATHS = {
   noteInputs: 'docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv',
   calendar: 'fixtures/risk/us-market-holidays.json',
   fixtures: 'fixtures/risk-evm/assets',
+  list: 'scripts/risk/assets/robinhood.json',
+  deployments: 'packages/sdk/deployments',
 } as const;
+
+/**
+ * The ids the product's own deploy records give on this chain (packages/sdk/deployments/*.json: each
+ * chain's cash id and its assets' keys): a bare id the product uses goes only to a listed row.
+ */
+export function reservedIds(root = '.'): string[] {
+  const dir = join(root, PATHS.deployments);
+  const out = new Set<string>();
+  for (const f of readdirSync(dir)
+    .filter((x) => x.endsWith('.json'))
+    .sort()) {
+    const d = json(join(dir, f)) as {
+      chains?: Record<string, { cash?: unknown; assets?: Record<string, unknown> }>;
+    };
+    const c = d.chains?.robinhood;
+    if (!c) continue;
+    if (typeof c.cash === 'string') out.add(c.cash);
+    for (const id of Object.keys(c.assets ?? {})) out.add(id);
+  }
+  return [...out].filter((id) => id.startsWith('robinhood:')).sort();
+}
 
 /** Where a run's frozen reads go, by the time of the block they were read at. */
 export const frozenPath = (reads: AssetReads) =>
@@ -33,7 +56,11 @@ const json = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 export const readGz = <T>(path: string): T => JSON.parse(gunzipSync(readFileSync(path)).toString());
 
 /** The repository's files the list reads, and the discovery cut it counts pools from. */
-export function loadFiles(discovery: DiscoveryCut, root = '.'): Omit<AssetFiles, 'frozenPath'> {
+export function loadFiles(
+  discovery: DiscoveryCut,
+  root = '.',
+  previous: AssetFiles['previous'] = null,
+): Omit<AssetFiles, 'frozenPath'> {
   const at = (p: string) => join(root, p);
   const tracked = json(at(PATHS.tracked)) as {
     inputs: { cut: string };
@@ -60,5 +87,7 @@ export function loadFiles(discovery: DiscoveryCut, root = '.'): Omit<AssetFiles,
     discovery,
     regime: defaultRegimeParams(json(at(PATHS.calendar))),
     calendarPath: PATHS.calendar,
+    previous,
+    reservedIds: reservedIds(root),
   };
 }

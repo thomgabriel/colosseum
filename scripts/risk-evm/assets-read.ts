@@ -32,6 +32,7 @@ import {
   dexNames,
   dexToRead,
   listedCrypto,
+  NATIVE_ADDRESS,
   NATIVE_IN_POOLS,
   namesAClass,
   type Phase,
@@ -60,6 +61,8 @@ export type ReadInput = {
   notes: string[];
   /** The addresses the verdict table names: a DexScreener name among them is read on chain. */
   verdictAddresses: string[];
+  /** Every address of a committed list of the chain: each is read again, every run (no silent drop). */
+  previous?: string[];
   /** How many RPC requests were answered with a challenge so far (the caller's fetch counts them). */
   challenged?: () => number;
   /** Awaited before each attempt at the chain: the caller keeps it out of the collector's minutes. */
@@ -430,11 +433,43 @@ export async function readListings(deps: ReadDeps, input: ReadInput) {
     parseDirectory(entries).feeds.map((f) => f.name),
     registry.rows.map((r) => r.tokenSymbol ?? ''),
   );
+  // the page of every selected token, every verdict's and every row of a committed list outside the
+  // registry: what CoinGecko says of each decides it the same way, whether or not today's volume selected it
+  const lookedUp = new Set([
+    ...selected.keys(),
+    ...[...input.verdictAddresses, ...(input.previous ?? [])]
+      .map(lower)
+      .filter((a) => !registrySet0.has(a) && a !== NATIVE_IN_POOLS && a !== NATIVE_ADDRESS),
+  ]);
+  const coingecko = await readCoinGecko(deps, {
+    base: cgBase,
+    at: cgList.at,
+    durationMs: cgList.durationMs,
+    selected: [...lookedUp],
+    log,
+  });
+  return { registry, directory, dexscreener, coingecko, ccip, volume };
+}
+
+/**
+ * CoinGecko, keyless and slow: its category names, the coins of the chain's memecoin category, every
+ * coin's address on the chain, and the page of each selected token outside that category. Pages already
+ * read (`cache`, from a run's saved listings) are not asked again.
+ */
+export async function readCoinGecko(
+  deps: ReadDeps,
+  args: {
+    base: { listUrl: string; list: AssetReads['coingecko']['list'] };
+    at: string;
+    durationMs: number;
+    selected: string[];
+    cache?: CoinCut[];
+    log?: (line: string) => void;
+  },
+): Promise<AssetReads['coingecko']> {
   const cgStart = deps.now();
-  const cgAt = isoNow(deps);
   let cgCalls = 0;
   let cgErrors = 0;
-  /** One keyless CoinGecko call: spaced, and asked again after a minute when refused for rate. */
   const cg = async (url: string): Promise<{ status: number; json: unknown }> => {
     for (let attempt = 0; attempt < 4; attempt++) {
       await deps.sleep(attempt === 0 ? COINGECKO_SPACING_MS : 60_000);
@@ -449,7 +484,11 @@ export async function readListings(deps: ReadDeps, input: ReadInput) {
     }
     return { status: 429, json: null };
   };
-  // the chain's memecoin category, by CoinGecko's own list of it, and every coin's address on the chain
+  const cats = await cg(`${COINGECKO_API}/coins/categories/list`);
+  if (cats.status !== 200) cgErrors++;
+  const categoryNames = (Array.isArray(cats.json) ? (cats.json as Array<{ name?: unknown }>) : [])
+    .flatMap((c) => (typeof c.name === 'string' ? [c.name] : []))
+    .sort();
   const memeIds = new Set<string>();
   for (let page = 1; page <= 20; page++) {
     const r = await cg(
@@ -465,7 +504,7 @@ export async function readListings(deps: ReadDeps, input: ReadInput) {
     for (const id of ids) memeIds.add(id);
     if (ids.length < 250) break;
   }
-  const idOf = new Map<string, string>();
+  const idByAddress: Record<string, string> = {};
   const all = await cg(`${COINGECKO_API}/coins/list?include_platform=true`);
   if (all.status !== 200) cgErrors++;
   for (const c of Array.isArray(all.json)
@@ -473,11 +512,14 @@ export async function readListings(deps: ReadDeps, input: ReadInput) {
     : []) {
     const a = c.platforms?.robinhood;
     if (typeof c.id === 'string' && typeof a === 'string' && a !== '')
-      idOf.set(a.toLowerCase(), c.id);
+      idByAddress[a.toLowerCase()] = c.id;
   }
+  const cached = new Map(
+    (args.cache ?? []).filter((c) => c.via === 'page').map((c) => [c.address, c]),
+  );
   const coins: CoinCut[] = [];
-  for (const a of [...selected.keys()].sort()) {
-    const id = idOf.get(a);
+  for (const a of [...args.selected].sort()) {
+    const id = idByAddress[a];
     if (id && memeIds.has(id)) {
       coins.push(
         cutCoin(
@@ -489,26 +531,35 @@ export async function readListings(deps: ReadDeps, input: ReadInput) {
       );
       continue;
     }
+    const hit = cached.get(a);
+    if (hit && (hit.status === 200 || hit.status === 404)) {
+      coins.push(hit);
+      continue;
+    }
     const r = await cg(
       `${COINGECKO_API}/coins/robinhood/contract/${a}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`,
     );
     if (r.status !== 200 && r.status !== 404) cgErrors++;
     coins.push(cutCoin(a, r.status, r.status === 200 ? (r.json as Record<string, unknown>) : null));
-    input.log?.(`CoinGecko page ${coins.length} of ${selected.size}: ${a} ${r.status}`);
+    args.log?.(`CoinGecko page ${coins.length} of ${args.selected.length}: ${a} ${r.status}`);
   }
-  const coingecko: AssetReads['coingecko'] = {
-    ...cgBase,
-    at: cgList.at,
-    durationMs: cgList.durationMs + Math.round(deps.now() - cgStart),
+  args.log?.(
+    `CoinGecko: ${args.base.list.length} listed, ${args.selected.length} selected, ${cgCalls} calls, ${cgErrors} errors`,
+  );
+  return {
+    ...args.base,
+    at: args.at,
+    durationMs: args.durationMs + Math.round(deps.now() - cgStart),
     calls: 1 + cgCalls,
     httpRequests: 1 + cgCalls,
     errors: cgErrors,
+    categoryNames,
+    memeIds: [...memeIds].sort(),
+    idByAddress: Object.fromEntries(
+      Object.entries(idByAddress).sort(([x], [y]) => (x < y ? -1 : 1)),
+    ),
     coins,
   };
-  log(
-    `CoinGecko: ${cgBase.list.length} listed, ${selected.size} selected, ${cgCalls} pages, ${cgErrors} errors (from ${cgAt})`,
-  );
-  return { registry, directory, dexscreener, coingecko, ccip, volume };
 }
 
 /** Every read on chain, pinned to one block. Throws on any refusal of the endpoint. */
@@ -547,6 +598,9 @@ async function readOnchain(deps: ReadDeps, input: ReadInput, listings: Listings)
           listings.registry.rows.map((r) => r.tokenSymbol ?? ''),
           input.verdictAddresses,
         ),
+        // every verdict's address and every row of a committed list, every run
+        ...input.verdictAddresses,
+        ...(input.previous ?? []),
       ],
       weth9: weth,
     });

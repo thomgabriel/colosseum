@@ -33,6 +33,10 @@ import { CLASS_BY_UNDERLYING } from '../risk/universe/list';
 import { fundRow, type MatchContext, matchToken, parseDirectory, readFeeds } from './feeds';
 
 export const ASSETS_METHOD = 'assets-list-0.1';
+/** The longest symbol and name a row holds (the schema's); a longer chain answer is cut there. */
+export const SYMBOL_MAX = 64;
+export const NAME_MAX = 256;
+export const ID_MAX = 96;
 /** The chain's gas coin has no contract; the list writes it at the address wallets use for it. */
 export const NATIVE_ADDRESS = `0x${'e'.repeat(40)}`;
 /** Uniswap v4 and DexScreener write the native coin as the zero address. */
@@ -93,6 +97,12 @@ export type AssetReads = {
   coingecko: Phase & {
     listUrl: string;
     list: Array<{ address: string; symbol: string; name: string; decimals: number | null }>;
+    /** The names of every CoinGecko category: where a launch pad's own category is found. */
+    categoryNames: string[];
+    /** The coins of the chain's memecoin category (robinhood-chain-meme), by CoinGecko id. */
+    memeIds: string[];
+    /** Every coin CoinGecko gives an address on the chain, lower case, with its id. */
+    idByAddress: Record<string, string>;
     coins: CoinCut[];
   };
   /** Chainlink CCIP's token directory, cut to the tokens it lists on this chain. */
@@ -172,6 +182,17 @@ export type AssetFiles = {
   calendarPath: string;
   /** Where the reads of this list are frozen (fixtures/risk-evm/assets/). */
   frozenPath: string;
+  /**
+   * Every row of every committed version of the list (git history of `path`, oldest first; for an address
+   * in several, the newest): each keeps its id, and each is read again every run.
+   */
+  previous: {
+    path: string;
+    commits: string[];
+    assets: Array<{ address: string; id: string; symbol: string; status: string; commit: string }>;
+  } | null;
+  /** Ids the product's own files use on this chain (packages/sdk/deployments): a bare one goes only to a listed row. */
+  reservedIds: string[];
 };
 
 // ───────────────────────────── names ─────────────────────────────
@@ -338,29 +359,33 @@ export type CoinCut = {
 export const VOLUME_FLOOR_USD = 10_000;
 
 /**
- * CoinGecko categories that name a protocol, a chain or a product, each matched whole: a category such
- * as "Pons Launchpad" (launched there) or "Bridged-Tokens" (carried there) names no project of the token,
- * and "Decentralized Finance (DeFi)" or "Artificial Intelligence (AI)" alone are tags, not a protocol.
+ * The CoinGecko categories that make a token a protocol's (`governance`), each matched whole by its name
+ * (ASSET-1 review, 2026-10-12): exchanges, lending, perpetuals, derivatives, oracles, bridges' and liquid
+ * staking protocols' governance tokens, infrastructure and yield aggregators. Nothing else admits a token:
+ * not a tag such as "Decentralized Finance (DeFi)" or "Artificial Intelligence (AI)", not a chain (layer 1
+ * or 2), not "Governance" alone, not a category of what the token was launched on or carried by ("Pons
+ * Launchpad", "Bridged-Tokens"). "Launchpad" admits only the launch pad's own token (`isLaunchpadPlatform`).
+ * The Solana list reads the same names by CoinGecko's category ids.
  */
 export const PROTOCOL_CATEGORIES = [
-  /^decentralized exchange \(dex\)$/i,
-  /^lending\/borrowing protocols$/i,
-  /^perpetuals$/i,
-  /^derivatives$/i,
-  /^yield aggregator$/i,
-  /^launchpad$/i,
-  /^governance$/i,
-  /^infrastructure$/i,
-  /^oracle$/i,
-  /^bridge$/i,
-  /^cross-chain communication$/i,
-  /^layer 1 \(l1\)$/i,
-  /^layer 2 \(l2\)$/i,
-  /^prediction markets$/i,
-  /^gaming \(gamefi\)$/i,
-  /^ai framework$/i,
-  /^depin$/i,
+  'Decentralized Exchange (DEX)',
+  'Lending/Borrowing Protocols',
+  'Perpetuals',
+  'Derivatives',
+  'Oracle',
+  'Bridge Governance Tokens',
+  'Infrastructure',
+  'Liquid Staking Governance Tokens',
+  'Yield Aggregator',
 ];
+const LAUNCHPAD_CATEGORY = 'Launchpad';
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+/**
+ * A CoinGecko category of memecoins: its name holds "Meme" and not "Ecosystem" ("Meme", "Robinhood Chain
+ * Meme", "Cat-Themed" no; "Dog-Themed" by "Themed"), or holds "Themed" ("Wall Street Bets Themed").
+ */
+export const isMemeCategory = (name: string) =>
+  (/meme/i.test(name) && !/ecosystem/i.test(name)) || /themed/i.test(name);
 /** Categories of a dollar: such a token is a row only by its own verdict (not screened, held out). */
 export const STABLECOIN_CATEGORIES = [/^stablecoins$/i, /^usd stablecoin$/i];
 /** Categories of a product that is not a protocol's token: never a row by the rule. */
@@ -427,24 +452,65 @@ export function cryptoSelection(
   return out;
 }
 
-/** What CoinGecko's page says a selected token is, by its categories. */
+/** CoinGecko categories of a liquid staking token: such a token is `liquid_staking`, not `governance`. */
+export const LIQUID_STAKING_CATEGORIES = [
+  /^liquid staking( tokens)?$/i,
+  /^liquid staked eth$/i,
+  /^liquid restaking( tokens)?$/i,
+];
+
+type CoinGeckoReads = Pick<
+  AssetReads['coingecko'],
+  'coins' | 'memeIds' | 'idByAddress' | 'categoryNames'
+>;
+
+/** A memecoin by CoinGecko: in the chain's memecoin category, or carrying a memecoin category on its page. */
+export function isMeme(cg: CoinGeckoReads, address: string): boolean {
+  const a = lower(address);
+  const id = cg.idByAddress[a];
+  if (id && cg.memeIds.includes(id)) return true;
+  const coin = cg.coins.find((c) => c.address === a);
+  return !!coin && coin.categories.some(isMemeCategory);
+}
+
+/**
+ * The token of a launch pad: CoinGecko files it under Launchpad and keeps a category of the tokens
+ * launched on it named after it ("Pons Launchpad" for Pons, "Pools Launchpad" for pools.trade). A token
+ * launched on a pad is in that pad's category and is not the pad's own token.
+ */
+export function isLaunchpadPlatform(name: string | null, categoryNames: string[]): boolean {
+  const first = (name ?? '').toLowerCase().split(/[^a-z0-9]+/)[0] ?? '';
+  return first !== '' && categoryNames.some((c) => c.toLowerCase() === `${first} launchpad`);
+}
+
+/** What CoinGecko says a selected token is, by its categories. */
 export type CoinKind =
   | 'protocol'
+  | 'liquid_staking'
   | 'stablecoin'
   | 'meme'
   | 'no_protocol_category'
   | 'not_on_coingecko';
-export function coinKind(coin: CoinCut | undefined, address: string): CoinKind {
-  if (coin?.status !== 200 || coin.platformAddress !== lower(address)) return 'not_on_coingecko';
+export function coinKind(cg: CoinGeckoReads, address: string): CoinKind {
+  const a = lower(address);
+  if (isMeme(cg, a)) return 'meme';
+  const coin = cg.coins.find((c) => c.address === a);
+  if (coin?.status !== 200 || coin.platformAddress !== a) return 'not_on_coingecko';
   const has = (res: RegExp[]) => coin.categories.some((c) => res.some((re) => re.test(c.trim())));
-  if (coin.categories.some((c) => /meme/i.test(c))) return 'meme';
   if (has(STABLECOIN_CATEGORIES)) return 'stablecoin';
   if (has(NOT_A_PROTOCOL_TOKEN)) return 'no_protocol_category';
-  if (has(PROTOCOL_CATEGORIES)) return 'protocol';
+  if (has(LIQUID_STAKING_CATEGORIES)) return 'liquid_staking';
+  if (coin.categories.some((c) => PROTOCOL_CATEGORIES.some((p) => sameName(c, p))))
+    return 'protocol';
+  if (
+    coin.categories.some((c) => sameName(c, LAUNCHPAD_CATEGORY)) &&
+    isLaunchpadPlatform(coin.name, cg.categoryNames)
+  )
+    return 'protocol';
   return 'no_protocol_category';
 }
 
-/** The selected tokens read on chain: those a verdict names, and those CoinGecko files as a protocol's. */
+/** The selected tokens read on chain: those a verdict names, and those CoinGecko may make a row of. */
 export function cryptoToRead(
   reads: Pick<AssetReads, 'coingecko' | 'ccip' | 'volume'>,
   registry: Set<string>,
@@ -453,9 +519,10 @@ export function cryptoToRead(
   verdictAddresses: Iterable<string>,
 ): string[] {
   const withVerdict = new Set([...verdictAddresses].map(lower));
-  const coins = new Map(reads.coingecko.coins.map((c) => [lower(c.address), c]));
   return [...cryptoSelection(reads, registry, directoryNames, registrySymbols).keys()].filter(
-    (a) => withVerdict.has(a) || ['protocol', 'stablecoin'].includes(coinKind(coins.get(a), a)),
+    (a) =>
+      withVerdict.has(a) ||
+      ['protocol', 'liquid_staking', 'stablecoin'].includes(coinKind(reads.coingecko, a)),
   );
 }
 
@@ -532,6 +599,27 @@ export const slugOf = (symbol: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'token';
 
+/**
+ * Whether a token named `name` with the symbol of a registry stock claims that stock: its name names the
+ * issuer ("Apple (Robinhood)", "NVIDIA • Robinhood Token"), is the symbol ("AMC"), or begins with the first
+ * word of the stock's name in the registry ("GameStop", "Palantir", "SpaceX" for Space Exploration
+ * Technologies), compared in lower case on letters and digits. "Pawlantir", "A Meme Dog" or "NetNet" do not.
+ */
+export function claimsStock(
+  name: string | null,
+  symbol: string,
+  stockName: string | null,
+): boolean {
+  if (name === null) return false;
+  if (/robinhood/i.test(name)) return true;
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const n = norm(name);
+  if (n === '') return false;
+  if (n === norm(symbol)) return true;
+  const first = norm((stockName ?? '').replace(/\s*•.*$/, '').split(/\s+/)[0] ?? '');
+  return first.length >= 3 && n.startsWith(first);
+}
+
 const day = (iso: string) => iso.slice(0, 10);
 const iso = (seconds: number) => new Date(seconds * 1000).toISOString();
 
@@ -540,16 +628,16 @@ export const STATED = {
   enumeration:
     "Names come from four reads, in this order: the issuer's registry (every row, not only the cut); Chainlink's directory (its feeds, and the names of the assets they price); the screening note of the dollar and yield tokens (docs/vault/research/yield-shelf/robinhood.md with its input list and its shelf fixture: every full address written there), with WETH9() of the Uniswap v4 position manager; DexScreener (searched as 'robinhood <name>' for every class name, then the pairs of each address the note names and of each name a search gave that names a class). Every address any of them named is read on chain.",
   cryptoSelection:
-    "Crypto beyond the listings above (Rodrigo, 2026-10-11): every token CoinGecko's token list for Robinhood Chain (tokens.coingecko.com/robinhood/all.json) or Chainlink CCIP's token directory names on the chain, outside the issuer's registry, whose DexScreener pairs (tokens/v1, read the same day) traded ten thousand US dollars or more over 24 hours together, or whose symbol, in upper case, is the base asset of a Chainlink feed of the directory. The volume selects only and is never written in a row. Each selected token is looked up on CoinGecko by its address: a token CoinGecko files under a memecoin category is not a row; one with a category naming a protocol, a chain or a product, matched whole (PROTOCOL_CATEGORIES in scripts/risk-evm/assets-list.ts: a category of what the token was launched on, carried by, or a tag such as DeFi or AI alone does not count; a leveraged token never does) is read on chain and is a row by the rule crypto-protocol (category governance, its project as issuer, its CoinGecko page as source); a dollar CoinGecko files as a stablecoin is read and must have its own verdict; any token may have its own verdict instead (a wrapped coin of another chain, a staking token, a protocol a note names); any other is not a row. cryptoLeftOut counts them.",
+    "Crypto beyond the listings above (Rodrigo, 2026-10-11): every token CoinGecko's token list for Robinhood Chain (tokens.coingecko.com/robinhood/all.json) or Chainlink CCIP's token directory names on the chain, outside the issuer's registry, whose DexScreener pairs (tokens/v1, read the same day) traded ten thousand US dollars or more over 24 hours together, or whose symbol, in upper case, is the base asset of a Chainlink feed of the directory. The volume selects only and is never written in a row. Each selected token, each verdict's token and each row of a committed list is looked up on CoinGecko by its address, and one rule decides it (ASSET-1 review, 2026-10-12). A memecoin is never a row: a token in the chain's memecoin category (robinhood-chain-meme) or with a category whose name holds Meme (and not Ecosystem) or Themed. A token is governance only when CoinGecko files it, by the category's whole name, under one of: Decentralized Exchange (DEX), Lending/Borrowing Protocols, Perpetuals, Derivatives, Oracle, Bridge Governance Tokens, Infrastructure, Liquid Staking Governance Tokens, Yield Aggregator; or under Launchpad when it is the launch pad's own token (CoinGecko keeps a category '<its name> Launchpad' of the tokens launched on it); or its own verdict cites its project's page. A tag such as DeFi or AI, a chain, Governance alone, or what it was launched on or carried by admits nothing; a leveraged token never. Such a token is a row by the rule crypto-protocol (its project as issuer, its CoinGecko page as source). A liquid staking token by its categories (Liquid Staking Tokens, Liquid Staked ETH, Liquid Restaking Tokens) is a row by crypto-liquid-staking, category liquid_staking. A dollar CoinGecko files as a stablecoin must have its own verdict; any token may have its own verdict instead, which wins over every rule; any other is not a row. cryptoLeftOut counts them",
   classNames:
     "A DexScreener name names one of the product's classes when its symbol holds USD or EUR, or is, in upper case, a name of PROMPT_NAMES in scripts/risk-evm/assets-list.ts (the prompt's names for both chains), a base asset of Chainlink's directory or a symbol of the issuer's registry. Such names are read on chain, with any other the verdict table names; every one of them, and every token the screening note names, must be decided by a verdict or a rule, or the build stops. Other names are neither read nor enumerated: memecoins and launch tokens are not (DA6).",
   rules:
-    "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's. `coingecko`, what CoinGecko's page says a selected token is (protocol, meme, no_protocol_category, not_on_coingecko; see cryptoSelection). The registry's tokens match issuer-registry and the class rule of their underlying; a selected token CoinGecko files as a protocol's matches crypto-protocol; a token named after a stock of the registry and not in it matches not-the-issuers-stock-token, which comes after and wins.",
+    "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener, coingecko, chainlink_ccip, previous_list, verdict_table); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's; `claims`, issuer_product where such a token's name names the issuer or the stock (claimsStock: it holds Robinhood, is the symbol, or begins with the first word of the stock's registry name), none where it does not; `coingecko`, what CoinGecko says of a token outside the registry (protocol, liquid_staking, stablecoin, meme, no_protocol_category, not_on_coingecko; see cryptoSelection); `protocol`, yes where that is protocol or liquid_staking, else no; `inUniverse`, yes for a token the crypto selection kept or a row of a committed list. The registry's tokens match issuer-registry and the class rule of their underlying; crypto-protocol and crypto-liquid-staking make a row of a token in the universe by its categories; a token with a registry stock's symbol that claims the stock matches not-the-issuers-stock-token, and one that does not claim it and is no protocol by its categories matches registry-symbol-not-a-protocol; both exclude it and come after the crypto rules, so they win. A symbol alone never excludes a protocol's token (NET, a lending protocol's, is decided by its categories). A memecoin by CoinGecko is no row whatever rule it matches, unless its own verdict makes it one",
   derived:
     "For a registry token the builder derives: underlying, the registry's symbol; status, listed for a tracked stock of scripts/risk/universe/robinhood.json (and the model of a deploy record's token) and candidate with 'outside the cut that names the tracked stocks (gate UNIVERSE)' for every other (DA16); leg types, from packages/engine/src/personal/leg-types.ts at the symbol for a dollar-yield token, none for the others; and a source naming the registry row. Rules and a token's own verdict are applied over these.",
   listed:
     "listed = on today's shelf: a tracked stock (tracked_stock), or a token a deploy record names (deploy_record): the model of an asset of deployments/robinhood-testnet.json by its modelOf, matched to the registry token of that symbol, or the cash token contracts/script/config/4663.json names by address (cashToken). No structurer registry row is on Robinhood Chain.",
-  ids: "id: the tracked list's id, else the shelf fixture's (packages/engine/src/personal/fixtures/shelves/robinhood-yield.json), else robinhood:eth for the gas coin, else robinhood:<slug of the symbol>. A slug several rows share goes to the one of them that is not excluded where there is exactly one; every other row with it, and a row whose slug an earlier rule took, gets the first six hex digits of its address after a dash.",
+  ids: "id: the tracked list's id, else the shelf fixture's (packages/engine/src/personal/fixtures/shelves/robinhood-yield.json), else robinhood:eth for the gas coin, else the id the address held in the newest committed list that held it (git history of scripts/risk/assets/robinhood.json; ids once given stay with their address), else robinhood:<slug of the symbol>. A kept id is dropped only where another row took it first, where it is over 96 characters (the schema's limit), or where it is an id the product's deploy records use (packages/sdk/deployments/*.json: robinhood:usdc, robinhood:usdg, robinhood:spy and the test network's) on a row that is not listed. A bare slug goes only to a listed row or to the one row whose symbol gives it, where no deploy record uses it; every other row takes a dash and the first six hex digits of its address (eight or more where six are taken)",
   identity:
     "symbol, name and decimals are what the contract answered at the block of `read.height` (name null where name() gives no text). The registry's own symbol, name, decimals, status, ISIN and multiplier are kept beside them in `issuerRegistry`, as the registry wrote them; nothing is applied. listingTags names the listings that named the token (issuer_registry, screening_note, position_manager_weth9, dexscreener).",
   standard:
@@ -590,8 +678,15 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
   const registrySymbolList = [...registry.values()].map((r) => r.row.tokenSymbol ?? '');
   const selected = cryptoSelection(reads, registryKeys, directoryNames, registrySymbolList);
   const coins = new Map(reads.coingecko.coins.map((c) => [lower(c.address), c]));
+  const previous = new Map((files.previous?.assets ?? []).map((r) => [lower(r.address), r]));
+  /** What CoinGecko says of a token outside the registry; null for the registry's own tokens. */
   const kindOf = (a: string): CoinKind | null =>
-    selected.has(a) ? coinKind(coins.get(a), a) : null;
+    registryKeys.has(a) || a === NATIVE_ADDRESS ? null : coinKind(reads.coingecko, a);
+  /** A token the crypto selection kept today, or a row of the previous list: the universe is every token, not today's search. */
+  const inUniverse = (a: string) => selected.has(a) || previous.has(a);
+  const verdictAddresses = verdicts.verdicts
+    .map((v) => lower(v.address))
+    .filter((a) => a !== NATIVE_ADDRESS);
   const wanted = addressesToRead({
     registry: [...registry.keys()],
     notes,
@@ -608,6 +703,9 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         registrySymbolList,
         verdicts.verdicts.map((v) => v.address),
       ),
+      // every verdict's address and every row of the previous list, every run: the universe is every token
+      ...verdictAddresses,
+      ...[...previous.keys()].filter((a) => a !== NATIVE_ADDRESS),
     ],
     weth9,
   });
@@ -643,11 +741,14 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       dex.has(a) || volume.has(a) ? 'dexscreener' : null,
       reads.coingecko.list.some((t) => lower(t.address) === a) ? 'coingecko' : null,
       reads.ccip.tokens.some((t) => lower(t.address) === a) ? 'chainlink_ccip' : null,
+      previous.has(a) ? 'previous_list' : null,
+      verdictAddresses.includes(a) ? 'verdict_table' : null,
     ].filter((x): x is string => x !== null);
   const volume = volumeByToken(reads);
 
   // identity of every address asked
   type Read = { address: string; identity: IdentityRead; symbol: string };
+  const cutOf = new Map<string, string[]>();
   const tokensRead: Read[] = [];
   const notTokens: Array<{ address: string; reason: string; by: string[] }> = [];
   for (const a of wanted) {
@@ -679,14 +780,30 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         routes.length > 0 ? Object.fromEntries(routes.map((f) => [f.selector, f.reply])) : null,
     };
     const reg = registry.get(a)?.row ?? null;
+    // a symbol of at most 64 characters and a name of at most 256: a longer answer is cut, and said
+    const symbol = basics.symbol.slice(0, SYMBOL_MAX);
+    const name = basics.name === null ? null : basics.name.slice(0, NAME_MAX);
+    const cut = [
+      ...(symbol !== basics.symbol
+        ? [
+            `the symbol: the contract answers ${basics.symbol.length} characters; the first ${SYMBOL_MAX} are kept`,
+          ]
+        : []),
+      ...(basics.name !== null && name !== basics.name
+        ? [
+            `the name: the contract answers ${basics.name.length} characters; the first ${NAME_MAX} are kept`,
+          ]
+        : []),
+    ];
+    if (cut.length > 0) cutOf.set(a, cut);
     tokensRead.push({
       address: a,
-      symbol: basics.symbol,
+      symbol,
       identity: {
         address: a,
-        symbol: basics.symbol,
-        name: basics.name,
-        nameReason: basics.name === null ? 'no_text_from_name' : null,
+        symbol,
+        name,
+        nameReason: name === null ? 'no_text_from_name' : null,
         decimals: basics.decimals,
         standard: evmStandard(answers.asset, answers.convertToAssets),
         standardNote: null,
@@ -730,6 +847,10 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
 
   // the facts a rule's match is read against
   const registrySymbols = new Set([...registry.values()].map((r) => r.row.tokenSymbol ?? ''));
+  const byAddressRead = new Map(tokensRead.map((t) => [t.address, t]));
+  const stockNameOf = new Map(
+    [...registry.values()].map((r) => [r.row.tokenSymbol ?? '', r.row.tokenName ?? null]),
+  );
   const classTableOf = (a: string): string | null => {
     const reg = registry.get(a)?.row;
     if (!reg) return null;
@@ -744,6 +865,29 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       !registry.has(t.address) && registrySymbols.has(t.symbol) ? ['issuer_registry'] : [],
     ),
     coingecko: new Set(kindOf(t.address) === null ? [] : [kindOf(t.address) as string]),
+    // a token outside the registry with a registry token's symbol claims that stock when its name names
+    // the issuer or the stock (claimsStock); otherwise CoinGecko's categories decide it
+    claims: new Set(
+      !registry.has(t.address) && registrySymbols.has(t.symbol)
+        ? [
+            claimsStock(
+              byAddressRead.get(t.address)?.identity.name ?? null,
+              t.symbol,
+              stockNameOf.get(t.symbol) ?? null,
+            )
+              ? 'issuer_product'
+              : 'none',
+          ]
+        : [],
+    ),
+    protocol: new Set(
+      kindOf(t.address) === null
+        ? []
+        : ['protocol', 'liquid_staking'].includes(kindOf(t.address) as string)
+          ? ['yes']
+          : ['no'],
+    ),
+    inUniverse: new Set(inUniverse(t.address) ? ['yes'] : []),
   });
   const rulesOf = (t: { address: string; symbol: string }): string[] => {
     const facts = factsOf(t);
@@ -757,8 +901,11 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       )
       .map((r) => r.name);
   };
+  /** A memecoin by CoinGecko with no verdict of its own: never a row, whatever rule it matches. */
+  const memeOut = (t: { address: string }) =>
+    kindOf(t.address) === 'meme' && !verdictOfAddress.has(t.address);
   const decided = (t: { address: string; symbol: string }) =>
-    verdictOfAddress.has(t.address) || rulesOf(t).length > 0;
+    verdictOfAddress.has(t.address) || (!memeOut(t) && rulesOf(t).length > 0);
   /** The issuer (or the chain, for its own coin) a token's own verdict or its last matching rule names; null where none does. */
   const issuer0 = (t: { address: string; symbol: string }): string | null => {
     const matched = new Set(rulesOf(t));
@@ -790,7 +937,8 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         namesAClass(dex.get(t.address)?.symbol ?? '', names) ||
         kindOf(t.address) === 'stablecoin'),
   );
-  const noVerdict = mustHave.filter((t) => !decided(t));
+  // a memecoin by CoinGecko is decided: it is not a row
+  const noVerdict = mustHave.filter((t) => !decided(t) && !memeOut(t));
   if (noVerdict.length > 0)
     throw new Error(
       `tokens a listing names in the product's classes with no verdict in ${files.verdictsPath}:\n${noVerdict
@@ -831,34 +979,6 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
   };
   const all = [...rowsRead, native];
 
-  // ids
-  const trackedById = new Map(files.tracked.assets.map((t) => [lower(t.address), t.id]));
-  const shelfById = new Map(files.shelf.rows.map((r) => [lower(r.asset.address), r.asset.id]));
-  const ids = new Map<string, string>();
-  for (const t of all) {
-    const fixed =
-      trackedById.get(t.address) ??
-      shelfById.get(t.address) ??
-      (t.address === NATIVE_ADDRESS ? NATIVE_ID : null);
-    if (fixed) ids.set(t.address, fixed);
-  }
-  const taken = new Set(ids.values());
-  const byAddress = new Map(all.map((t) => [t.address, t]));
-  const bySlug = new Map<string, string[]>();
-  for (const t of all.filter((x) => !ids.has(x.address))) {
-    const id = `robinhood:${slugOf(t.symbol)}`;
-    bySlug.set(id, [...(bySlug.get(id) ?? []), t.address]);
-  }
-  for (const [id, addresses] of bySlug) {
-    // a slug rows share goes to the one of them that is not excluded, where there is exactly one
-    const kept = addresses.filter((a) => status0(byAddress.get(a) as Read) !== 'excluded');
-    const owner =
-      !taken.has(id) && (addresses.length === 1 || kept.length === 1)
-        ? (kept[0] ?? addresses[0])
-        : null;
-    for (const a of addresses) ids.set(a, a === owner ? id : `${id}-${a.slice(2, 8)}`);
-  }
-
   // listed
   // listed by a deploy record: the model of a test-network asset (its modelOf), or the cash token the
   // mainnet deploy config names by address
@@ -872,6 +992,53 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     if (!test || !registry.has(t.address)) return null;
     return `the model of ${test} in ${files.deploy.path}`;
   };
+
+  // ids: fixed by the tracked list, the shelf fixture and the gas coin; else kept from the previous
+  // committed list; else the symbol's slug. A reserved id (the product's own files) and a bare id that
+  // several rows' symbols share go only to a listed row; every other row takes a suffix of its address.
+  const isListed = (t: Read) => trackedById.has(t.address) || deployModel(t) !== null;
+  const reserved = new Set(files.reservedIds);
+  const trackedById = new Map(files.tracked.assets.map((t) => [lower(t.address), t.id]));
+  const shelfById = new Map(files.shelf.rows.map((r) => [lower(r.asset.address), r.asset.id]));
+  const ids = new Map<string, string>();
+  const taken = new Set<string>();
+  const give = (a: string, id: string) => {
+    ids.set(a, id);
+    taken.add(id);
+  };
+  for (const t of all) {
+    const fixed =
+      trackedById.get(t.address) ??
+      shelfById.get(t.address) ??
+      (t.address === NATIVE_ADDRESS ? NATIVE_ID : null);
+    if (fixed) give(t.address, fixed);
+  }
+  for (const t of all) {
+    if (ids.has(t.address)) continue;
+    const kept = previous.get(t.address)?.id;
+    // an id the schema refuses (over 96 characters) is not kept: the row takes one from its cut symbol
+    if (kept && kept.length <= ID_MAX && !taken.has(kept) && !(reserved.has(kept) && !isListed(t)))
+      give(t.address, kept);
+  }
+  const slugCount = new Map<string, number>();
+  for (const t of all) {
+    const id = `robinhood:${slugOf(t.symbol)}`;
+    slugCount.set(id, (slugCount.get(id) ?? 0) + 1);
+  }
+  const suffixed = (id: string, a: string) => {
+    for (let n = 6; n <= 40; n += 2) {
+      const candidate = `${id}-${a.slice(2, 2 + n)}`;
+      if (!taken.has(candidate)) return candidate;
+    }
+    throw new Error(`no free id for ${a}`);
+  };
+  for (const t of all) {
+    if (ids.has(t.address)) continue;
+    const id = `robinhood:${slugOf(t.symbol)}`;
+    const bareAllowed =
+      !taken.has(id) && (isListed(t) || (!reserved.has(id) && (slugCount.get(id) ?? 0) === 1));
+    give(t.address, bareAllowed ? id : suffixed(id, t.address));
+  }
 
   // oracles: Chainlink's directory, confirmed at the block
   const onchainFeeds = readFeeds(directory.feeds, reads.onchain.feeds);
@@ -976,11 +1143,14 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
           },
         ],
       };
-    } else if (kindOf(t.address) === 'protocol') {
-      // a protocol's token CoinGecko files at this address: its project, ticker and page, by that page
+    } else if (
+      (kindOf(t.address) === 'protocol' || kindOf(t.address) === 'liquid_staking') &&
+      inUniverse(t.address)
+    ) {
+      // a token CoinGecko files at this address under a protocol's or a staking category: its project,
+      // ticker and page, by that page (the category is the rule's: crypto-protocol or crypto-liquid-staking)
       const coin = coins.get(t.address) as CoinCut;
       derived = {
-        category: 'governance',
         issuer: coin.name ?? t.symbol,
         issuerReason: null,
         issuerKind: 'defi_protocol',
@@ -999,6 +1169,8 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         ],
       };
     }
+    const cut = cutOf.get(t.address);
+    if (cut) derived = { ...(derived ?? {}), unverified: [...(derived?.unverified ?? []), ...cut] };
     const pools = tracked
       ? null
       : poolCount({
@@ -1077,7 +1249,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     },
     {
       name: 'coingecko',
-      what: `GET ${reads.coingecko.listUrl}, then keyless api.coingecko.com: the coins of the category robinhood-chain-meme, every coin with its addresses, and the page of each selected token outside that category; rows are the tokens the list names`,
+      what: `GET ${reads.coingecko.listUrl}, then keyless api.coingecko.com: every category's name, the coins of the category robinhood-chain-meme, every coin with its addresses, and the page of each token outside that category and the registry that the selection kept, a verdict names or a committed list holds; rows are the tokens the list names`,
       at: reads.coingecko.at,
       calls: reads.coingecko.calls,
       durationMs: reads.coingecko.durationMs,
@@ -1136,6 +1308,24 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       .map(([why, syms]) => `${why} ${syms.length}`)
       .join(', ') || 'none'
   } (meme: a category of memecoins; no_protocol_category: no category that names a protocol, a chain or a product, matched whole; not_on_coingecko: no page for the address).`;
+  // rows of a committed list that are not rows now, each with why: none leaves unsaid
+  const memeCategories = (a: string) =>
+    (coins.get(a)?.categories ?? []).filter(isMemeCategory).join(', ') ||
+    "the chain's memecoin category (robinhood-chain-meme)";
+  const left = (files.previous?.assets ?? [])
+    .filter((p) => !rowAddresses.has(p.address))
+    .map((p) => {
+      const nt = notTokens.find((n) => n.address === p.address);
+      const why = nt
+        ? `does not answer as a token at block ${block} (${nt.reason})`
+        : memeOut({ address: p.address })
+          ? `CoinGecko files it as a memecoin (${memeCategories(p.address)}): a memecoin is not a row`
+          : kindOf(p.address) === 'no_protocol_category'
+            ? `CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: ${(coins.get(p.address)?.categories ?? []).join(', ') || 'none'}), and no verdict or rule makes it a row`
+            : `no verdict or rule decides it (CoinGecko: ${kindOf(p.address) ?? 'not read'})`;
+      return `${p.id} ${p.address} (${p.symbol}, ${p.status} in ${p.commit.slice(0, 8)}): ${why}`;
+    });
+  const leftText = `Of the ${previous.size} rows of the committed lists (${files.previous?.path ?? 'none'}, ${files.previous?.commits.length ?? 0} commits), every one is read again; ${previous.size - left.length} are rows here. ${left.length === 0 ? 'None left.' : `Left (${left.length}): ${left.join('; ')}.`}`;
   const list = universeList({
     chain: 'robinhood',
     rows,
@@ -1158,7 +1348,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       calendar: files.calendarPath,
       frozen: files.frozenPath,
     },
-    stated: { ...STATED, cryptoLeftOut: leftOutText },
+    stated: { ...STATED, cryptoLeftOut: leftOutText, leftTheList: leftText },
     stamp,
   });
 
@@ -1190,7 +1380,12 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
 }
 
 /** What --freeze writes beside the list, and the test reads. */
-export type FrozenReads = { reads: AssetReads; discovery: DiscoveryCut };
+export type FrozenReads = {
+  reads: AssetReads;
+  discovery: DiscoveryCut;
+  /** The committed lists the run started from (AssetFiles.previous), frozen so a test rebuilds the ids. */
+  previous: AssetFiles['previous'];
+};
 
 /** The names of the run, for the scratch folder: every token read, with its symbol and whether it is a row. */
 export function namesTable(reads: AssetReads, files: AssetFiles, list: UniverseList | null) {
