@@ -1182,8 +1182,6 @@ export const en = {
     },
     funding: {
       title: 'What your wallet needs',
-      /** The need in one line: the deposit, and the fees. */
-      needs: (cash: string, gas: string) => `You need ${cash} and ${gas} for fees.`,
       /** A short wallet, in plain words and no figure (Thom, Oct 12): the heading, then what to add. */
       insufficient: 'Insufficient balance.',
       addToken: (symbol: string) => `Add ${symbol} to your wallet to deposit.`,

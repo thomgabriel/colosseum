@@ -1009,7 +1009,6 @@ export const pt: Dictionary = {
     },
     funding: {
       title: 'O que sua carteira precisa',
-      needs: (cash: string, gas: string) => `Você precisa de ${cash} e ${gas} para as taxas.`,
       insufficient: 'Saldo insuficiente.',
       addToken: (symbol: string) => `Adicione ${symbol} à sua carteira para depositar.`,
       addGas: (symbol: string) => `Adicione um pouco de ${symbol} para as taxas de rede.`,

@@ -108,17 +108,10 @@ export function FundingStep({
                   ? t.buy.failure.noChain
                   : t.buy.funding.failure.refused;
 
-  // A wallet that holds enough: the need in one line. A short one: which token to add, the deposit's
-  // first and the fee's after, each named by its symbol from the read and never by an amount.
-  const [cashRow, gasRow] = rows;
-  const need =
-    read?.ok && cashRow && gasRow
-      ? t.buy.funding.needs(
-          words(cashRow.figure.needRaw, cashRow.units),
-          words(gasRow.figure.needRaw, gasRow.units),
-        )
-      : null;
-  const add = rows
+  // A short wallet: which token to add, the deposit's first and the fee's after, each named by its
+  // symbol from the read and never by an amount. On the sample chain nothing can be sent, so nothing
+  // is asked for and no address is shown: the heading and the sample-cash button alone.
+  const add = (mock ? [] : rows)
     .filter((r) => r.figure.missingRaw !== '0')
     .map((r) => {
       const symbol = r.units?.symbol ?? r.figure.symbol;
@@ -168,17 +161,17 @@ export function FundingStep({
 
   return (
     <div data-ui="funding-step" className="flex flex-col gap-4">
-      <div aria-live="polite" className="flex flex-col gap-3">
-        {funding.kind === 'reading' || funding.kind === 'idle' ? (
-          <Wait label={t.buy.funding.reading} skeleton={<FundsWait />} />
-        ) : null}
-        {read?.ok && (
-          <p data-ui="funding-line" className="max-w-(--tf-measure-body) text-body">
-            {need} {t.buy.funding.ok}
-          </p>
-        )}
-        {read && !read.ok && (
-          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+        <div aria-live="polite" className="flex flex-col gap-3">
+          {funding.kind === 'reading' || funding.kind === 'idle' ? (
+            <Wait label={t.buy.funding.reading} skeleton={<FundsWait />} />
+          ) : null}
+          {read?.ok && (
+            <p data-ui="funding-line" className="max-w-(--tf-measure-body) text-body">
+              {t.buy.funding.ok}
+            </p>
+          )}
+          {read && !read.ok && (
             <div data-ui="funding-line" className="flex max-w-(--tf-measure-body) flex-col gap-1">
               <p className="text-body font-medium">{t.buy.funding.insufficient}</p>
               {add.map((a) => (
@@ -187,43 +180,44 @@ export function FundingStep({
                 </p>
               ))}
             </div>
-            {owner && (
-              // Where to send it: the short address with the account menu's copy beside it; the
-              // whole one is what is copied, what a screen reader hears and what the pointer shows.
-              <p className="flex min-h-10 items-center gap-x-1">
-                <span data-ui="funding-address" title={owner} className="font-mono text-source">
-                  <span aria-hidden="true">{shorten(owner)}</span>
-                  <span className="sr-only">
-                    {chainName}: {owner}
-                  </span>
-                </span>
-                <CopyButton
-                  value={owner}
-                  title={`${t.shell.copyAddress}: ${owner}`}
-                  labels={{ copy: t.shell.copyAddress, copied: t.shell.copied }}
-                />
-              </p>
-            )}
-          </div>
-        )}
-        {read?.newVault && (
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {t.buy.funding.newVault}
-          </p>
-        )}
-        {sentence && <p className="max-w-(--tf-measure-body) text-body-sm">{sentence}</p>}
-        {sent && (
-          <p data-ui="test-funds-sent" className="max-w-(--tf-measure-body) text-body-sm">
-            {sent}
-          </p>
-        )}
-        {failed && (
-          <p
-            role="alert"
-            className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-          >
-            <StatusMark status="off-track" size={12} className="mt-1.5" />
-            <span>{failed}</span>
+          )}
+          {read?.newVault && (
+            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+              {t.buy.funding.newVault}
+            </p>
+          )}
+          {sentence && <p className="max-w-(--tf-measure-body) text-body-sm">{sentence}</p>}
+          {sent && (
+            <p data-ui="test-funds-sent" className="max-w-(--tf-measure-body) text-body-sm">
+              {sent}
+            </p>
+          )}
+          {failed && (
+            <p
+              role="alert"
+              className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
+            >
+              <StatusMark status="off-track" size={12} className="mt-1.5" />
+              <span>{failed}</span>
+            </p>
+          )}
+        </div>
+        {read && !read.ok && !mock && owner && (
+          // Where to send it, outside the live region so a new read does not say it again: the short
+          // address with the account menu's copy beside it; the whole one is what is copied, what a
+          // screen reader hears and what the pointer shows.
+          <p className="flex min-h-10 items-center gap-x-1">
+            <span data-ui="funding-address" title={owner} className="font-mono text-source">
+              <span aria-hidden="true">{shorten(owner)}</span>
+              <span className="sr-only">
+                {chainName}: {owner}
+              </span>
+            </span>
+            <CopyButton
+              value={owner}
+              title={`${t.shell.copyAddress}: ${owner}`}
+              labels={{ copy: t.shell.copyAddress, copied: t.shell.copied }}
+            />
           </p>
         )}
       </div>

@@ -288,6 +288,14 @@ describe('the card', () => {
     expect(find(host, '[data-ui="sample-note"]').textContent).toBe(en.shell.mockAnnounce);
     expect(host.querySelector('[data-ui="data-note"]')).toBeNull();
     expect(button(host, en.buy.funding.mockFund)).toBeDefined();
+    // nothing can be sent to the sample chain: the heading alone, no token to add and no address
+    expect([...find(host, '[data-ui="funding-line"]').children].map((c) => c.textContent)).toEqual([
+      en.buy.funding.insufficient,
+    ]);
+    expect(host.querySelector('[data-ui="funding-address"]')).toBeNull();
+    expect(
+      find(host, '[data-ui="funding-step"]').querySelector('[data-ui="copy-button"]'),
+    ).toBeNull();
     expect(host.textContent).not.toMatch(/MOCK/);
   });
 });
@@ -348,7 +356,9 @@ describe('the funds, shown because the wallet is short', () => {
     expect(find(host, '[data-ui="test-funds-sent"]').textContent).toBe(
       en.buy.funding.testSent('40,400 USDC and 0.012625 SOL'),
     );
-    expect(find(host, '[data-ui="funding-line"]').textContent).toContain(en.buy.funding.ok);
+    // a wallet that holds enough is said without its amounts
+    expect(find(host, '[data-ui="funding-line"]').textContent).toBe(en.buy.funding.ok);
+    expect(dictionary('pt').buy.funding.ok).not.toMatch(/\d/);
     expect(host.textContent).not.toContain(en.buy.blocked.funding);
   });
 
@@ -378,6 +388,9 @@ describe('the funds, shown because the wallet is short', () => {
     expect(address.textContent).toContain(SOLANA);
     expect(copyOf(host, SOLANA)).toBeDefined();
     expect(said(host)).not.toMatch(/\d/);
+    // the heading and lines are announced on a new read; the address is not said again each time
+    expect(find(host, '[data-ui="funding-line"]').closest('[aria-live]')).not.toBeNull();
+    expect(address.closest('[aria-live]')).toBeNull();
   });
 
   it('asks for the fee token alone where only it is short', async () => {

@@ -449,6 +449,8 @@ describe('the buy screen', () => {
     );
     expect(host.textContent).toContain(en.buy.funding.insufficient);
     expect(host.textContent).toContain(en.buy.funding.addToken('USDC'));
+    // the address to fund is the Solana wallet's, the plan's chain
+    expect(find(host, '[data-ui="funding-address"]').getAttribute('title')).toBe(SOLANA);
     // in whole units, with the units the test network's deployment committed
     expect(host.textContent).toContain('40,000 USDC');
     const button = find(host, SIGN);
@@ -567,6 +569,9 @@ describe('the buy screen', () => {
     expect(host.textContent).toContain(en.buy.funding.insufficient);
     expect(host.textContent).toContain(en.buy.funding.addToken('tUSDG'));
     expect(host.textContent).toContain(en.buy.funding.addGas('ETH'));
+    // the address to fund is the wallet of the plan's chain
+    expect(find(host, '[data-ui="funding-address"]').getAttribute('title')).toBe(EVM);
+    expect(host.querySelector(`[data-ui="funding-step"] [title="${SOLANA}"]`)).toBeNull();
     expect(host.textContent).toContain('40,000 tUSDG');
     expect(host.textContent).toContain('ETH');
     expect(find(host, SIGN).getAttribute('aria-disabled')).toBe('true');
