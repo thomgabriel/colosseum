@@ -18,8 +18,12 @@ import { toScaled } from './amounts';
 //   v3 pool the keeper's `PoolAverageFeed` is designed around, read here off chain with the same
 //   arithmetic), held to the same bound, inside an outer rail: the quote is within `staleRailBps` of
 //   the feed's last answer, however old;
-// - an asset whose average cannot be used (too little history, too thin) keeps the feed as its
-//   witness up to the asset's own `maxAge`, the only one it has, and past that is not traded;
+// - an asset whose record says its average cannot be used yet (too little history) keeps the feed
+//   as its witness up to the asset's own `maxAge`, the only one it has, and past that is not traded.
+//   An average the record calls usable that reads thin, short or unreadable refuses at once: the
+//   witness is never chosen by thinning a pool;
+// - while the witness is not the live feed, one trade is at most `maxTradeUsdNotLive`, and the
+//   feed's last answer anchors the rail for `staleRailMaxAgeSeconds` and no longer;
 // - `minOut` is never under the feed's worth less the bound, so the fill itself is held to it on the
 //   chain, whatever the pool does between the quote and the block;
 // - one trade is at most the asset's `maxTradeUsd`, the size its pool was measured to fill.
@@ -54,6 +58,18 @@ export type TradeLimits = {
    * absent: a feed is the witness until its `maxAge`.
    */
   liveFeedSeconds?: number | null;
+  /**
+   * The largest single trade of any asset while its witness is not the live feed, in dollars: the
+   * smaller of this and the asset's own. What a trade can lose to someone who moves both pools is the
+   * rail times its size, so the size is held down while the pools are all there is. Null or absent: none.
+   */
+  maxTradeUsdNotLive?: number | null;
+  /**
+   * How old the feed's last answer may be and still anchor the rail, in seconds. Past it an asset is
+   * not traded against its average: a feed that has died does not leave the pool as the only witness.
+   * Null or absent: no limit.
+   */
+  staleRailMaxAgeSeconds?: number | null;
 };
 
 /**
@@ -104,6 +120,10 @@ export type HeldTrade = {
 
 const SCALE = 10n ** 18n;
 const pct = (bps: bigint) => `${(Number(bps) / 100).toFixed(2)}%`;
+const days = (seconds: number) => {
+  const d = Math.round(seconds / 86_400);
+  return d <= 1 ? 'a day' : `${d} days`;
+};
 const hours = (seconds: number) => {
   const h = Math.round(seconds / 3600);
   return h < 1 ? 'under an hour' : h === 1 ? '1 hour' : `${h} hours`;
@@ -118,12 +138,22 @@ export function unlimitedOnMainnet(record: {
   network: string;
   evmChainId: number;
   priceBoundBps: number | null;
+  staleRailBps?: number | null;
+  maxTradeUsdNotLive?: number | null;
+  staleRailMaxAge?: number | null;
   assets: readonly { symbol: string; maxTradeUsd: number | null }[];
 }): string | null {
   const mainnet = [1, 4663, 8453].includes(record.evmChainId) || /-mainnet$/.test(record.network);
   if (!mainnet) return null;
   if (record.priceBoundBps === null)
     return 'a mainnet record states no priceBoundBps: an owner trade would be checked against no price';
+  // Where the average may stand in for the feed, its two limits are stated with it.
+  if ((record.staleRailBps ?? null) !== null) {
+    if ((record.maxTradeUsdNotLive ?? null) === null)
+      return 'a mainnet record with a rail states no maxTradeUsdNotLive: a trade of any size would lean on the pools alone';
+    if ((record.staleRailMaxAge ?? null) === null)
+      return 'a mainnet record with a rail states no staleRailMaxAge: a feed that died would anchor trades for ever';
+  }
   const open = record.assets.filter((a) => a.maxTradeUsd === null).map((a) => a.symbol);
   return open.length
     ? `a mainnet record states no maxTradeUsd for ${open.join(', ')}: a trade of any size would be built`
@@ -152,7 +182,7 @@ export function worthAtFeed(
  * may fill at by the feed (`feedFloor`, raw output), or null where the network does not check.
  */
 export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): bigint | null {
-  const max = limits.maxTradeUsd[token.toLowerCase()] ?? null;
+  const assetMax = limits.maxTradeUsd[token.toLowerCase()] ?? null;
   const checked = limits.priceBoundBps !== null;
   if (checked && !t.price)
     throw new ChainError(
@@ -177,8 +207,17 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
         ? `no fresh reference price for ${t.symbol}: the market is closed; trades of ${t.symbol} resume when it opens`
         : `no fresh reference price for ${t.symbol}: the last one is ${hours(t.price.ageSeconds)} old, and it may be ${hours(t.price.maxAgeSeconds)} at most; trades of ${t.symbol} resume when a new one arrives`,
     );
+  // An average the record says can be used, and that cannot be read as one now: refused, whatever
+  // the feed's age. Falling back to the feed here would let whoever thins the average pool choose
+  // the witness: an answer many hours old in place of the pool's last hour.
+  const broken =
+    !live &&
+    rail !== null &&
+    t.average != null &&
+    t.average.state !== 'ok' &&
+    t.average.state !== 'unusable';
   // A second witness that cannot be used: said plainly, and not traded.
-  if (stale && t.average && t.average.state !== 'ok')
+  if ((stale || broken) && t.average && t.average.state !== 'ok')
     throw new ChainError(
       'PriceStale',
       `${t.symbol} trades only while its market is open, for now: ${
@@ -192,6 +231,26 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
       }`,
     );
 
+  // The rail has an age: a feed silent for longer than the network allows no longer anchors
+  // anything, and the pool is not left as the only witness for ever.
+  const railMaxAge = limits.staleRailMaxAgeSeconds ?? null;
+  if (
+    !live &&
+    rail !== null &&
+    t.price &&
+    t.average?.state === 'ok' &&
+    railMaxAge !== null &&
+    t.price.ageSeconds > railMaxAge
+  )
+    throw new ChainError(
+      'PriceStale',
+      `the reference price of ${t.symbol} has been silent for ${days(t.price.ageSeconds)}, longer than the ${days(railMaxAge)} a trade may lean on its last answer: not trading ${t.symbol} until it speaks again`,
+    );
+
+  // While the witness is not the live feed, one trade is at most the network's smaller limit.
+  const quiet = checked && t.price !== null && !live ? (limits.maxTradeUsdNotLive ?? null) : null;
+  const lower = quiet !== null && (assetMax === null || quiet < assetMax);
+  const max = lower ? quiet : assetMax;
   if (max !== null) {
     // In dollars by the feed where there is one, so a pushed pool cannot make a sale look small;
     // by the cash side otherwise.
@@ -205,7 +264,9 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
     if (soFar > max)
       throw new ChainError(
         'BadTrade',
-        `${dollars(soFar)} of ${t.symbol} in one go is more than its pool is trusted to fill: at most ${dollars(max)} at a time. Trade less, or in parts`,
+        lower
+          ? `${dollars(soFar)} of ${t.symbol} in one go is more than is traded ${t.price?.market === 'closed' ? `while ${t.symbol}'s market is closed` : `while ${t.symbol} has no live reference price`}: at most ${dollars(max)} at a time. Trade less, or in parts`
+          : `${dollars(soFar)} of ${t.symbol} in one go is more than its pool is trusted to fill: at most ${dollars(max)} at a time. Trade less, or in parts`,
       );
   }
 

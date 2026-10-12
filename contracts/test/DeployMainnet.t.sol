@@ -916,6 +916,15 @@ contract DeployMainnetTest is Test {
         cfg.maxTradeUsd = new uint256[](0);
         _refused(cfg, "an asset states no maxTradeUsd: a trade of any size would be built");
 
+        // A rail brings two limits with it: the largest trade while a feed is not live, and the rail's age.
+        cfg = _good();
+        cfg.staleRailBps = 1000;
+        _refused(cfg, "a rail with no maxTradeUsdNotLive: a trade of any size would lean on the pools alone");
+        cfg.maxTradeUsdNotLive = 20_000;
+        _refused(cfg, "a rail with no staleRailMaxAge: a feed that died would anchor trades for ever");
+        cfg.staleRailMaxAge = 4 days;
+        script.deploy(cfg, deployer);
+
         // The cash needs none, and with both stated the file deploys.
         cfg = _good();
         assertEq(cfg.maxTradeUsd[0], 0, "the cash states no largest trade");
@@ -934,6 +943,9 @@ contract DeployMainnetTest is Test {
             if (cfg.maxTradeUsd[i] < least) least = cfg.maxTradeUsd[i];
         }
         assertEq(least, 1000, "the thinnest token's");
+        assertEq(cfg.staleRailBps, 1000);
+        assertEq(cfg.maxTradeUsdNotLive, 20_000);
+        assertEq(cfg.staleRailMaxAge, 4 days);
     }
 
     /// A test network states neither and deploys: its record says null for both.

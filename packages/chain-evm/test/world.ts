@@ -539,6 +539,8 @@ export async function buildWorld(forkUrl: string, port: number): Promise<Fork> {
       priceBoundBps: 200,
       staleRailBps: null,
       sessionPriceAge: null,
+      maxTradeUsdNotLive: null,
+      staleRailMaxAge: null,
       routers: [],
       sequencerFeed: null,
       cash: {

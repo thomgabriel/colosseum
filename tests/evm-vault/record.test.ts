@@ -152,8 +152,18 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
   });
 
   it('state what stands in for a stale feed: the rail, and an average pool per token that says whether it can be used', () => {
-    const file = contracts as ContractsFile & { staleRailBps?: number };
+    const file = contracts as ContractsFile & {
+      staleRailBps?: number;
+      maxTradeUsdNotLive?: number;
+      staleRailMaxAge?: number;
+      sessionPriceAge?: number;
+    };
     expect(file.staleRailBps).toBe(1_000);
+    // A feed is live for an hour; past it one trade is $20,000 at most; the rail leans on a feed's
+    // last answer for four days and no longer.
+    expect(file.sessionPriceAge).toBe(3_600);
+    expect(file.maxTradeUsdNotLive).toBe(20_000);
+    expect(file.staleRailMaxAge).toBe(4 * 86_400);
     const [, ...stocks] = contracts.assets as (ContractsFile['assets'][number] & {
       feedDescription?: string;
       average?: { pool: string; fee: number; minLiquidity: string; usable: boolean };

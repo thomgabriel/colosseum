@@ -87,6 +87,21 @@ export const EvmDeploymentRecord = z
      * `average` is usable is held to the average instead. Null: a feed is the witness to its `maxAge`.
      */
     sessionPriceAge: z.number().int().min(60).max(86_400).nullable(),
+    /**
+     * The largest single trade of any asset, in dollars, while its witness is not the live feed: the
+     * smaller of this and the asset's own `maxTradeUsd`. Null: none.
+     */
+    maxTradeUsdNotLive: z.number().int().positive().nullable(),
+    /**
+     * How old a feed's last answer may be and still anchor the rail, in seconds. Past it an asset is
+     * not traded against its average. Null: no limit.
+     */
+    staleRailMaxAge: z
+      .number()
+      .int()
+      .min(3_600)
+      .max(30 * 86_400)
+      .nullable(),
     /** `pull` 1 takes the input with `transferFrom`, 2 through Permit2. */
     routers: z.array(
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
@@ -191,6 +206,8 @@ export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
     maxTradeUsd: Object.fromEntries(record.assets.map((a) => [a.address, a.maxTradeUsd])),
     staleRailBps: record.staleRailBps,
     liveFeedSeconds: record.sessionPriceAge,
+    maxTradeUsdNotLive: record.maxTradeUsdNotLive,
+    staleRailMaxAgeSeconds: record.staleRailMaxAge,
     average: Object.fromEntries(
       record.assets.map((a) => [
         a.address,

@@ -11,6 +11,7 @@ import {
   buildMainnetTradeWorld,
   MAINNET,
   MAX_TRADE_USD,
+  MAX_TRADE_USD_NOT_LIVE,
   type MainnetTradeWorld,
 } from './mainnet-trade-world';
 
@@ -397,10 +398,47 @@ describe.skipIf(!FORK_URL)(
       await w.push(MAINNET.tsla, MAINNET.usdg, got);
     });
 
+    it('while the feed is not live, one trade is at most the smaller limit, and the person is told why', async () => {
+      const w = await start();
+      // NVDA's own largest trade is $50,000. Six hours after its feed last spoke it is $20,000.
+      await expect(
+        w.adapter.quote(buy(NVDA, BigInt(MAX_TRADE_USD_NOT_LIVE)), ACCOUNTS.owner),
+      ).resolves.toBeDefined();
+      const over = await refusal(() =>
+        w.adapter.quote(buy(NVDA, BigInt(MAX_TRADE_USD_NOT_LIVE) + 1n), ACCOUNTS.owner),
+      );
+      expect(over.code).toBe('BadTrade');
+      expect(over.message).toMatch(
+        /^\$20,001 of NVDA in one go is more than is traded while NVDA('s market is closed| has no live reference price): at most \$20,000 at a time/,
+      );
+    });
+
+    it('the witness is not chosen by thinning the average pool: with the feed twenty hours old, the trade is refused, not passed against it', async () => {
+      const w = await start();
+      await w.later(14 * 3600);
+      const [price] = await w.adapter.getPrices([MSFT]);
+      // Twenty hours old: not live, and still inside its 26 hours. The pool sits on that answer, so held
+      // to the feed alone this trade would pass.
+      expect(price?.ageSeconds).toBeGreaterThan(20 * 3600);
+      expect(price?.ageSeconds).toBeLessThan(price?.maxAgeSeconds ?? 0);
+      const before = await w.adapter.quote(buy(MSFT, 100n), ACCOUNTS.owner);
+      expect(Math.abs(before.costBps)).toBeLessThan(BOUND_BPS);
+      // A stranger buys MSFT in its average pool: $60,000 moves it about 4% and uses up what is in range.
+      for (let i = 0; i < 12; i += 1)
+        await w.pushAverage(MAINNET.usdg, MAINNET.msft, AVERAGE_FEE.msft, 5_000n * USD);
+      expect((await average(w, 'msft')).reason).toBe('ThinPool');
+      // The trade pool has not moved and the feed's answer is where it was. It is refused all the same.
+      const refused = await refusal(() => w.adapter.quote(buy(MSFT, 100n), ACCOUNTS.owner));
+      expect(refused.code).toBe('PriceStale');
+      expect(refused.message).toBe(
+        "MSFT trades only while its market is open, for now: the pool its hour's average price comes from is too thin to trust",
+      );
+    });
+
     it('the feeds are stale, and an honest trade is built against the last hour of the pool and lands', async () => {
       const w = await start();
       // A day and a half from the fork's block: every feed is now past its 26 hours.
-      await w.later(30 * 3600);
+      await w.later(16 * 3600);
       const [price] = await w.adapter.getPrices([NVDA]);
       expect(price?.ageSeconds).toBeGreaterThan(price?.maxAgeSeconds ?? 0);
       const reading = await average(w, 'nvda');
@@ -441,12 +479,11 @@ describe.skipIf(!FORK_URL)(
         minimum,
       );
     });
-
-    it('the size limit holds while the feed is stale', async () => {
+    it('the size limit holds while the feed is stale: the smaller one', async () => {
       const w = await start();
-      const over = await refusal(() => w.adapter.quote(buy(NVDA, 50_001n), ACCOUNTS.owner));
+      const over = await refusal(() => w.adapter.quote(buy(NVDA, 20_001n), ACCOUNTS.owner));
       expect(over.code).toBe('BadTrade');
-      expect(over.message).toMatch(/at most \$50,000 at a time/);
+      expect(over.message).toMatch(/at most \$20,000 at a time/);
     });
 
     it("a one-block push of the trade pool is refused against the last hour's average", async () => {
@@ -494,18 +531,14 @@ describe.skipIf(!FORK_URL)(
       );
     });
 
-    it('pushing the average pool itself runs it under its floor, and the token stops trading rather than follow it', async () => {
+    it('the rail has an age: a feed silent past four days anchors nothing, and the token stops', async () => {
       const w = await start();
-      await expect(w.adapter.quote(buy(MSFT, 100n), ACCOUNTS.owner)).resolves.toBeDefined();
-      // A stranger buys MSFT in its average pool: $60,000 moves it about 4% and uses up what is in range.
-      for (let i = 0; i < 12; i += 1)
-        await w.pushAverage(MAINNET.usdg, MAINNET.msft, AVERAGE_FEE.msft, 5_000n * USD);
-      const pushed = await average(w, 'msft');
-      expect(pushed.reason).toBe('ThinPool');
-      const refused = await refusal(() => w.adapter.quote(buy(MSFT, 100n), ACCOUNTS.owner));
+      await expect(w.adapter.quote(buy(NVDA, 500n), ACCOUNTS.owner)).resolves.toBeDefined();
+      await w.later(4 * 86_400);
+      const refused = await refusal(() => w.adapter.quote(buy(NVDA, 500n), ACCOUNTS.owner));
       expect(refused.code).toBe('PriceStale');
-      expect(refused.message).toBe(
-        "MSFT trades only while its market is open, for now: the pool its hour's average price comes from is too thin to trust",
+      expect(refused.message).toMatch(
+        /^the reference price of NVDA has been silent for \d+ days, longer than the 4 days a trade may lean on its last answer: not trading NVDA until it speaks again$/,
       );
     });
   },

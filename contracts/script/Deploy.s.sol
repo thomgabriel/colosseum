@@ -109,6 +109,12 @@ contract Deploy is Script {
         /// file and a record with none is a mainnet whose trades are checked against nothing.
         uint256 priceBoundBps;
         uint256[] maxTradeUsd;
+        /// While a feed is not live the app leans on a pool's average inside a rail around the feed's last
+        /// answer (`staleRailBps`; zero is no rail). With a rail a mainnet file also states the largest
+        /// trade then and how old that answer may be: the same reason as above, and the script writes none.
+        uint256 staleRailBps;
+        uint256 maxTradeUsdNotLive;
+        uint256 staleRailMaxAge;
     }
 
     struct Deployed {
@@ -548,6 +554,16 @@ contract Deploy is Script {
                 MainnetRefused("an asset states no maxTradeUsd: a trade of any size would be built")
             );
         }
+        if (cfg.staleRailBps != 0) {
+            require(
+                cfg.maxTradeUsdNotLive != 0,
+                MainnetRefused("a rail with no maxTradeUsdNotLive: a trade of any size would lean on the pools alone")
+            );
+            require(
+                cfg.staleRailMaxAge != 0,
+                MainnetRefused("a rail with no staleRailMaxAge: a feed that died would anchor trades for ever")
+            );
+        }
     }
 
     /// Holds the timelock's owner to being a Safe more than one person must sign for. "Has code" is not
@@ -792,6 +808,11 @@ contract Deploy is Script {
         cfg.feedDescriptions = new string[](n);
         cfg.maxTradeUsd = new uint256[](n);
         if (vm.keyExistsJson(json, ".priceBoundBps")) cfg.priceBoundBps = json.readUint(".priceBoundBps");
+        if (vm.keyExistsJson(json, ".staleRailBps")) cfg.staleRailBps = json.readUint(".staleRailBps");
+        if (vm.keyExistsJson(json, ".maxTradeUsdNotLive")) {
+            cfg.maxTradeUsdNotLive = json.readUint(".maxTradeUsdNotLive");
+        }
+        if (vm.keyExistsJson(json, ".staleRailMaxAge")) cfg.staleRailMaxAge = json.readUint(".staleRailMaxAge");
         for (uint256 i; i < n; ++i) {
             string memory entry = string.concat(".assets[", vm.toString(i), "]");
             if (vm.keyExistsJson(json, string.concat(entry, ".maxTradeUsd"))) {

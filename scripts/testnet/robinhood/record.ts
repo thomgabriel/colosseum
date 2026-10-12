@@ -123,6 +123,8 @@ export function buildRecord(
     priceBoundBps: null,
     staleRailBps: null,
     sessionPriceAge: null,
+    maxTradeUsdNotLive: null,
+    staleRailMaxAge: null,
     routers: [{ address: kit.router, pull: 2 as const }],
     cash: {
       id: idOf(kit.cashSymbol),

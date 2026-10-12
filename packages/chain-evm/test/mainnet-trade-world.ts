@@ -73,6 +73,9 @@ export const BOUND_BPS = 200;
 export const RAIL_BPS = 1_000;
 /** 4663.json's `sessionPriceAge`: a feed's answer is live for an hour. */
 export const LIVE_SECONDS = 3_600;
+/** 4663.json's `maxTradeUsdNotLive` and `staleRailMaxAge`: $20,000 a trade, four days. */
+export const MAX_TRADE_USD_NOT_LIVE = 20_000;
+export const RAIL_MAX_AGE = 4 * 86_400;
 /**
  * Each token's average pool, from contracts/script/config/pool-feeds/4663.json: its Uniswap v3 pool
  * against USDG and the floor on its liquidity. NVDA's keeps 7,200 observations and is usable; GLD's
@@ -381,6 +384,8 @@ export async function buildMainnetTradeWorld(
       priceBoundBps: BOUND_BPS,
       staleRailBps: RAIL_BPS,
       sessionPriceAge: LIVE_SECONDS,
+      maxTradeUsdNotLive: MAX_TRADE_USD_NOT_LIVE,
+      staleRailMaxAge: RAIL_MAX_AGE,
       routers: [{ address: MAINNET.router, pull: 2 }],
       cash: {
         id: 'robinhood:usdg',
