@@ -15,7 +15,13 @@ const ROOT = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 const broadcast = read('tests/fixtures/mainnet-records/run-latest.json');
 const config = read('contracts/script/config/4663.json');
-const guard = read('packages/sdk/deployments/mainnet.json');
+// The guard's file as it stood before the deploy: marked a placeholder, with no contract named.
+const guard = (() => {
+  const g = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
+  const zero = `0x${'0'.repeat(40)}`;
+  Object.assign(g.chains.robinhood, { factory: zero, beacon: zero, registry: zero });
+  return JSON.stringify({ placeholder: true, todo: 'not deployed', ...g });
+})();
 // biome-ignore lint/suspicious/noExplicitAny: files as they are read, edited field by field
 type Json = any;
 const edit = (text: string, change: (j: Json) => void) => {
@@ -232,6 +238,19 @@ describe('the records of a mainnet deploy', () => {
       },
       /did not set the timelock's delay/,
     );
+  });
+
+  it('carry the Safe as it was read from the chain, when given', () => {
+    const owners = [`0x${'A'.repeat(40)}`, `0x${'b'.repeat(40)}`];
+    const built = buildRecords({ broadcast, config, guard, safe: { threshold: 2, owners } });
+    validate(built);
+    expect(parseRecord(JSON.stringify(built.record)).timelock?.safe).toEqual({
+      threshold: 2,
+      owners: owners.map((a) => a.toLowerCase()),
+    });
+    expect(
+      (buildRecords({ broadcast, config, guard }).record as Json).timelock.safe,
+    ).toBeUndefined();
   });
 
   it('write both files or neither', () => {

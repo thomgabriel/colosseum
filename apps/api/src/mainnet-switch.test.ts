@@ -175,7 +175,7 @@ describe('Robinhood Chain on mainnet', () => {
     );
   });
 
-  it('looks for the mainnet record under its own name, and finds none committed', () => {
+  it('looks for the mainnet record under its own name, and finds the one committed', () => {
     const dir = join(import.meta.dirname, '..', '..', '..', 'deployments');
     expect(evmRecordFile('robinhood', 'mainnet', dir)).toBe(join(dir, 'robinhood-mainnet.json'));
     expect(evmRecordFile('robinhood', 'testnet', dir)).toBe(join(dir, 'robinhood-testnet.json'));
@@ -185,7 +185,11 @@ describe('Robinhood Chain on mainnet', () => {
       undefined,
       dir,
     );
-    expect(found.record).toBeNull();
+    expect(found.record).toMatchObject({
+      network: 'robinhood-mainnet',
+      provenance: 'live',
+      evmChainId: 4663,
+    });
   });
 
   it('has an explorer for a mainnet transaction, so a step is never logged without its link', () => {

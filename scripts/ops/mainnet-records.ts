@@ -11,6 +11,7 @@ import { parseRecord } from './authority';
 //
 //   pnpm ops:mainnet-records            fills both files, validates them, regenerates the guard's tables
 //   pnpm ops:mainnet-records --check    the same without writing: prints what it would write
+//   --safe 2:0x…,0x…                    the Safe's threshold and owners as read from the chain, for the record
 //
 // It reads forge's own record of the transactions it sent
 // (contracts/broadcast/Deploy.s.sol/4663/run-latest.json), the deploy file they were made from
@@ -100,7 +101,13 @@ export type Built = {
  * Pure: the deploy record and the guard's file, from the three inputs as text. Throws with what is
  * wrong; never fills a gap with a guess.
  */
-export function buildRecords(input: { broadcast: string; config: string; guard: string }): Built {
+export function buildRecords(input: {
+  broadcast: string;
+  config: string;
+  guard: string;
+  /** The Safe's threshold and owners as a person read them from the chain; the authority check holds them to it. */
+  safe?: { threshold: number; owners: string[] };
+}): Built {
   if (/TODO/.test(input.config))
     fail('the deploy file still holds a TODO: a deploy from it would have been refused');
   const broadcast = JSON.parse(input.broadcast) as Broadcast;
@@ -365,6 +372,9 @@ export function buildRecords(input: { broadcast: string; config: string; guard: 
       proposers: [safe],
       cancellers: [safe],
       executors: [safe],
+      ...(input.safe
+        ? { safe: { threshold: input.safe.threshold, owners: input.safe.owners.map(lower) } }
+        : {}),
     },
     expected: {
       launched: false,
@@ -438,6 +448,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     guard: value('--guard', DEFAULTS.guard),
     record: value('--record', DEFAULTS.record),
   };
+  // --safe 2:0xowner,0xowner — what getThreshold() and getOwners() of the Safe answered.
+  const safeArg = value('--safe', '');
+  const [threshold, owners] = safeArg.split(':');
   try {
     if (!existsSync(paths.broadcast))
       fail(`there is no broadcast at ${paths.broadcast}: nothing was deployed from this checkout`);
@@ -445,6 +458,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       broadcast: readFileSync(paths.broadcast, 'utf8'),
       config: readFileSync(paths.config, 'utf8'),
       guard: readFileSync(paths.guard, 'utf8'),
+      ...(safeArg
+        ? {
+            safe: {
+              threshold: Number(threshold),
+              owners: addressesIn(owners ?? ''),
+            },
+          }
+        : {}),
     });
     validate(built);
     for (const note of built.notes) console.log(`LOOK\t${note}`);
