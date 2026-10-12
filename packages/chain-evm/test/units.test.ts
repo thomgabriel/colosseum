@@ -65,6 +65,7 @@ const RECORD = {
       maxWeightBps: 2500,
       keeperOn: true,
       range: { minPrice: '15000000000', maxPrice: '30000000000' },
+      pool: { fee: 100, tickSpacing: 1 },
     },
   ],
   retired: [],

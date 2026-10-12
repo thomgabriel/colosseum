@@ -5,6 +5,7 @@ import {
   type EvmDeploymentRecord,
   type EvmRpc,
   deploymentAssets as evmDeploymentAssets,
+  deploymentPools as evmPools,
 } from '@colosseum/chain-evm/vault';
 import {
   assertNode,
@@ -453,5 +454,5 @@ export async function robinhoodFromEnv(
   const rpc = connect(url);
   // The node is asked what chain it is: a test label on a mainnet node does not start.
   await assertEvmNode(rpc, record);
-  return { rpc, assets: holdToEvmRecord(assets, record) };
+  return { rpc, assets: holdToEvmRecord(assets, record), pools: evmPools(record) };
 }

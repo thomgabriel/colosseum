@@ -2,13 +2,13 @@
 
 `import { createEvmVaultAdapter } from '@colosseum/chain-evm/vault'` for the whole `ChainAdapter` (reads, builders, quotes, the probe; ADE-2), and `buildCancelPending` beside it; `createEvmVaultReader` for the read side alone (ADE-1). The root entry does not re-export either, and nothing here holds a key.
 
-One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network, its router, and the factory and the registry under `contracts`), a viem public client the caller makes (`createEvmRpc(url)`), the asset list, and the pools it trades in (`V4Pools`; `ROBINHOOD_TESTNET_POOLS` for 46630). It reads no environment and no file. The cash token, the keeper, the pause, the keeper's limits and each asset's feed come from the factory, so what it reports is what the contracts enforce.
+One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network, its router, and the factory and the registry under `contracts`), a viem public client the caller makes (`createEvmRpc(url)`), the asset list, and the pools it trades in (`V4Pools`: each asset's own pool against the cash, from the deploy record with `deploymentPools(record)`). It reads no environment and no file. The cash token, the keeper, the pause, the keeper's limits and each asset's feed come from the factory, so what it reports is what the contracts enforce.
 
 | File | What it holds |
 |---|---|
 | `adapter.ts` | `createEvmVaultAdapter`: every builder of DESIGN-VAULT 3.2, `quote`, and `buildCancelPending` |
 | `compose.ts` | One transaction from a builder's call: `eth_simulateV1` with its transfers traced, the refusal a revert maps to, gas, fee, nonce, preview, message hash |
-| `routes.ts` | The route: Uniswap's v4 Quoter for a quote, Universal Router call data for a swap (`V4Pools`) |
+| `routes.ts` | The route: Uniswap's v4 Quoter for a quote, Universal Router call data for a swap, each in the traded asset's own pool (`V4Pools`, `poolOf`) |
 | `send.ts` | The probe (`TxProbe`): `messageHashOf`, `relay`, `carries`, `fate`, `nonceOf`. Key-free |
 | `reader.ts` | `createEvmVaultReader`: vaults, prices, holdings, funding, `track`, the platform's settings, each asset's settings |
 | `deployment.ts` | The record an EVM deploy commits (`deployments/<chain>-<network>.json`), the assets it lists, and `assertNode` |
@@ -62,11 +62,12 @@ One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network
   routers: [{ address, pull: 1 | 2 }], sequencerFeed | null,
   cash: { id, symbol, name, address, decimals },
   assets: [{ id, symbol, name, address, decimals, modelOf, kind, feed, feedDecimals, averageFeed (zero address for none),
-             maxAge, session: 0 | 1, maxWeightBps, keeperOn, range: { minPrice, maxPrice } | null }],
+             maxAge, session: 0 | 1, maxWeightBps, keeperOn, range: { minPrice, maxPrice } | null,
+             pool: { fee, tickSpacing } }],
   retired: [{ id | null, symbol | null, address }] }
 ```
 
-`priceWriter` is who writes the test price feeds, `tokenIssuer` who mints, schedules multipliers on and pauses the test tokens, `sequencerFeed` what the factory's `sequencerFeed()` names; each is null where the network's own are used.
+`pool` is the asset's own Uniswap v4 pool against the cash, hookless: the one pool its trades go through (`deploymentPools(record)`), stated for each asset even where a network's pools are all one shape, as on 46630 (fee 500, tick spacing 10). `priceWriter` is who writes the test price feeds, `tokenIssuer` who mints, schedules multipliers on and pauses the test tokens, `sequencerFeed` what the factory's `sequencerFeed()` names; each is null where the network's own are used.
 
 `assertNode(rpc, record)` at start: the node's chain id is the record's and never a mainnet's, and the factory has code. A local copy of an EVM mainnet runs under its own chain id: the `local` presets are 31337 for Robinhood Chain and 31338 for Base (`LOCAL_EVM_CHAIN_IDS`), started with `anvil --chain-id`. A signature made for 4663 or 8453 is good on mainnet.
 
@@ -90,7 +91,7 @@ Every builder returns one unsigned transaction (`BuiltTx`) and refuses with a `C
 | Publish | `create(familyId, components, metaHash, 0, 0)` the first time, `publish(id, components, metaHash)` after; `cancel(id)` by `buildCancelPending` |
 | Adopt, keeper leg | `adoptVersion()` and `keeperSwap(swap)`, signed by the factory's keeper; the keeper's `minOut` is the quote less 100 bps |
 
-A trade is an exact-input swap in one hookless Uniswap v4 pool through Universal Router 2.1.x (`SWAP_EXACT_IN_SINGLE`, `SETTLE_ALL`, `TAKE_ALL`, so the output goes to the vault), quoted by Uniswap's v4 Quoter. Its `minOut` is the quote less the slippage asked for. The router's own minimum is zero: the vault holds the swap to `minOut` by its own balances, so a price that moved is refused as the vault's `ReceivedTooLittle`, not wrapped as `RouterFailed`. Two trades in one pool are quoted one after the other (the cumulative amount less what came before), a unit lower for the pool's rounding; a pool traded both ways in one transaction is refused (`BadTrade`). An owner's trade carries a deadline `DEADLINE_S` (900 s) after the block's time, which the guard holds to at most 1,800 s ahead of its own clock; the adapter states it as the attempt's `validUntil` (`lastValidBlockHeight`). Calls that do not trade carry none.
+A trade is an exact-input swap in one hookless Uniswap v4 pool, the one recorded for the traded asset against the cash (`poolOf`; two assets, or an asset with no pool recorded, are `BadTrade` before the node is asked), through Universal Router 2.1.x (`SWAP_EXACT_IN_SINGLE`, `SETTLE_ALL`, `TAKE_ALL`, so the output goes to the vault), quoted by Uniswap's v4 Quoter. Its `minOut` is the quote less the slippage asked for. The router's own minimum is zero: the vault holds the swap to `minOut` by its own balances, so a price that moved is refused as the vault's `ReceivedTooLittle`, not wrapped as `RouterFailed`. Two trades in one pool are quoted one after the other (the cumulative amount less what came before), a unit lower for the pool's rounding; a pool traded both ways in one transaction is refused (`BadTrade`). An owner's trade carries a deadline `DEADLINE_S` (900 s) after the block's time, which the guard holds to at most 1,800 s ahead of its own clock; the adapter states it as the attempt's `validUntil` (`lastValidBlockHeight`). Calls that do not trade carry none.
 
 Every owner step is the shape the guard of `packages/sdk` takes: one call, no value, to the cash token, the factory or the person's own vault, at most the deployment's gas and fee. Each passed the guard with the test network's deployment on Oct 6. The guard's deployment for 46630 is committed in `packages/sdk/deployments/testnet.json` (WEB-RH-BUY), with its registry since AGT-4, and `tests/evm-vault/guard.test.ts` holds every step to it. Since AGT-4 the guard signs a `publish` step on EVM too: `create`, `publish` or `cancel` on the registry the deployment names, held to the creator's id (`indexIdOf`, keccak256(abi.encode(creator, familyId))), the weights and the hash of the text shown.
 

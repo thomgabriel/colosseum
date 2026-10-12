@@ -10,8 +10,7 @@ import {
   EvmDeploymentRecord,
   deploymentAddresses as evmAddresses,
   deploymentAssets as evmAssets,
-  ROBINHOOD_MAINNET_POOLS,
-  ROBINHOOD_TESTNET_POOLS,
+  deploymentPools as evmPools,
 } from '@colosseum/chain-evm/vault';
 import { loadKeypair, signBase64 } from '@colosseum/chain-solana/server';
 import {
@@ -187,7 +186,7 @@ async function robinhood(): Promise<Wired> {
     config,
     rpc,
     assets: evmAssets(record),
-    pools: network === 'local' ? ROBINHOOD_MAINNET_POOLS : ROBINHOOD_TESTNET_POOLS,
+    pools: evmPools(record),
     trade: 'live',
     autoFollow: true,
   });

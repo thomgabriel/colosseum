@@ -1,5 +1,6 @@
 import { BasketAsset, ChainError, type EvmAddress, normalizeAddress } from '@colosseum/schemas';
 import { z } from 'zod';
+import { type V4Pools, v4Pools } from './routes';
 import { ask, type EvmRpc } from './rpc';
 
 // The record an EVM deploy writes (`deployments/<chain>-<network>.json`: `robinhood-testnet`,
@@ -86,6 +87,15 @@ export const EvmDeploymentRecord = z
         keeperOn: z.boolean(),
         /** In the feed's units; null where the asset has no range (and so no keeper). */
         range: z.strictObject({ minPrice: Raw, maxPrice: Raw }).nullable(),
+        /**
+         * The asset's own Uniswap v4 pool against the cash token, hookless: its fee in hundredths of a
+         * basis point and its tick spacing, within Uniswap's bounds. Every trade of the asset goes
+         * through this pool and no other, and the guard's deployment file says the same pool.
+         */
+        pool: z.strictObject({
+          fee: z.number().int().min(0).max(1_000_000),
+          tickSpacing: z.number().int().min(1).max(32_767),
+        }),
       }),
     ),
     /** Listed once and taken off the list: vaults may still hold them. */
@@ -119,6 +129,11 @@ export function deploymentAddresses(record: EvmDeploymentRecord) {
     beacon: record.contracts.beacon,
     router: record.routers[0]?.address ?? null,
   };
+}
+
+/** The pools the adapter trades in, from the record: each asset's own, against the record's cash. */
+export function deploymentPools(record: EvmDeploymentRecord): V4Pools {
+  return v4Pools(record.cash.address, record.assets);
 }
 
 /**

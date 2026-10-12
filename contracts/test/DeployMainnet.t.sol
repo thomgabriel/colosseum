@@ -904,8 +904,10 @@ contract DeployMainnetTest is Test {
         assertFalse(cfg.adminIsDeployer);
         assertFalse(cfg.keeperEnabled);
         assertEq(cfg.keeper, address(0));
-        assertEq(cfg.timelockOwner, address(0), "a placeholder");
-        assertEq(cfg.guardian, address(0), "a placeholder");
+        // Two values a person has confirmed since (Thom, 2026-10-12): the Safe and the guardian.
+        assertEq(cfg.timelockOwner, 0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc, "the Safe on Robinhood Chain");
+        assertEq(cfg.guardian, 0x0a1c3312c808b23D019bF241028f6B5624f4cc98, "the guardian");
+        assertGt(cfg.assets.length, 2, "more than NVDA is listed");
         assertEq(cfg.timelockDelay, 48 hours);
         assertEq(cfg.publishDelay, 172_800);
         assertEq(cfg.cashToken, USDG);
@@ -919,30 +921,44 @@ contract DeployMainnetTest is Test {
         }
         _refused(cfg, "the file still holds a TODO: every value must be confirmed by a person");
 
-        // Taking the marker out is not enough: the two addresses it stood beside are still missing.
+        // Taking the marker out is not enough where the Safe is not: on a chain that has no contract at the
+        // address the file names, the owner is refused as a key would be. And neither address may be missing.
         cfg.placeholders = false;
+        _refused(cfg, "the timelock owner has no code: it must be a contract (a Safe), not a key");
+        cfg.timelockOwner = address(0);
         _refused(cfg, "no timelock owner");
         cfg.timelockOwner = safe;
+        address named = cfg.guardian;
+        cfg.guardian = address(0);
         _refused(cfg, "no guardian");
-        cfg.guardian = guardian;
+        cfg.guardian = deployer;
+        _refused(cfg, "the guardian is the deployer");
+        cfg.guardian = named;
         assertEq(cfg.safeMinThreshold, 2);
     }
 
-    /// With its placeholders filled, and stand-ins at the addresses it names, the committed file deploys.
+    /// With its unconfirmed values taken as confirmed, a stand-in for the Safe (no chain here holds the real
+    /// one) and stand-ins at the token and feed addresses it names, the committed file deploys.
     /// The same file against the chain's real token, feed and router is `test/fork/RobinhoodForkDeploy.t.sol`.
     function test_theCommittedMainnetFile_deploysOnceItsPlaceholdersAreFilled() public {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
         cfg.timelockOwner = safe;
-        cfg.guardian = guardian;
-        vm.etch(cfg.assets[1].token, address(stock).code);
-        vm.etch(cfg.assets[1].config.feed, address(feed).code);
-        vm.store(cfg.assets[1].config.feed, bytes32(0), vm.load(address(feed), bytes32(0)));
-        vm.store(cfg.assets[1].config.feed, bytes32(uint256(1)), vm.load(address(feed), bytes32(uint256(1))));
-        vm.store(cfg.assets[1].config.feed, bytes32(uint256(2)), vm.load(address(feed), bytes32(uint256(2))));
+        // The guardian is the file's own.
+        // Every listed token and its feed, as stand-ins that answer what the file says of them.
+        assertGt(cfg.assets.length, 2, "more than NVDA is listed");
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            ChainlinkLikeFeed like = new ChainlinkLikeFeed(8, cfg.feedDescriptions[i], address(new Aggregator()));
+            vm.etch(cfg.assets[i].token, address(stock).code);
+            vm.etch(cfg.assets[i].config.feed, address(like).code);
+            for (uint256 slot; slot < 3; ++slot) {
+                vm.store(cfg.assets[i].config.feed, bytes32(slot), vm.load(address(like), bytes32(slot)));
+            }
+        }
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
         assertEq(VaultFactory(d.factory).admin(), d.timelock);
-        assertEq(VaultFactory(d.factory).assets().length, 2);
+        assertEq(VaultFactory(d.factory).assets().length, cfg.assets.length);
+        assertEq(VaultFactory(d.factory).guardian(), 0x0a1c3312c808b23D019bF241028f6B5624f4cc98);
     }
 
     // ---- the rest of the script on a mainnet

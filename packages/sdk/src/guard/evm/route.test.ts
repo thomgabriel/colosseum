@@ -11,6 +11,7 @@ import {
   type EvmCallOf,
   evmDeployment,
   evmTx,
+  GOLD_POOL,
   now,
   OWNER,
   POOL,
@@ -203,6 +204,51 @@ const negatives: Negative[] = [
     tickSpacing: vectors.pools.mainnet.tickSpacing,
   })),
   on('a pool of another tick spacing', 'route', () => ({ tickSpacing: 60 })),
+  // ---- each asset has its own pool: one recorded for another asset is not this one's
+  on('SPY through the pool shape recorded for gold', 'route', () => ({ ...GOLD_POOL })),
+  {
+    name: 'gold through the pool shape recorded for SPY, in the second trade of two',
+    check: 'route',
+    input: () =>
+      input(swapStep, {
+        to: VAULT,
+        data: calls.ownerSwap([
+          swapOf(SPY),
+          swapOf(GOLD, { route: { fee: POOL.fee, tickSpacing: POOL.tickSpacing } }),
+        ]),
+      }),
+  },
+  {
+    name: "SPY and gold each through the other's pool",
+    check: 'route',
+    input: () =>
+      input(swapStep, {
+        to: VAULT,
+        data: calls.ownerSwap([
+          swapOf(SPY, { route: { ...GOLD_POOL } }),
+          swapOf(GOLD, { route: { fee: POOL.fee, tickSpacing: POOL.tickSpacing } }),
+        ]),
+      }),
+  },
+  // Two assets have no pool between them in the deployment, whatever shape the route names.
+  ...[POOL, GOLD_POOL].map(
+    (shape): Negative => ({
+      name: `one asset for another, through a pool of fee ${shape.fee}`,
+      check: 'route',
+      input: () => {
+        const across = { sell: 'robinhood:spy', buy: 'robinhood:gold', inRaw: '5', minOutRaw: '1' };
+        return input(
+          { ...swapStep, trades: [across] },
+          {
+            to: VAULT,
+            data: calls.ownerSwap([
+              swapOf(across, { route: { fee: shape.fee, tickSpacing: shape.tickSpacing } }),
+            ]),
+          },
+        );
+      },
+    }),
+  ),
   on('a pool with hooks', 'route', () => ({ hooks: tokenOf('a hook') })),
   on('data handed to a hook', 'route', () => ({ hookData: Uint8Array.of(1) })),
   on('the pool swapped the other way', 'route', () => ({
@@ -431,6 +477,25 @@ describe("the guard on EVM: a trade's route is the one the builder writes", () =
       ).toBeNull();
   });
 
+  it('each asset trades in its own pool: two trades of one step, in two pools of two shapes', () => {
+    const shape = (trade: typeof SPY) => {
+      const read = readV4SingleSwap(swapOf(trade)[5] as Uint8Array);
+      return { fee: Number(read.fee), tickSpacing: Number(read.tickSpacing) };
+    };
+    expect(shape(SPY)).toEqual(EVM.assets['robinhood:spy']?.pool);
+    expect(shape(GOLD)).toEqual(EVM.assets['robinhood:gold']?.pool);
+    expect(shape(GOLD)).toEqual(GOLD_POOL);
+    expect(shape(SPY)).not.toEqual(shape(GOLD));
+    // A sale goes through the same pool as the buy: the asset's, whichever side it is on.
+    const sale = { ...GOLD, sell: GOLD.buy, buy: GOLD.sell };
+    expect(shape(sale)).toEqual(GOLD_POOL);
+    const both: EvmCallOf = { to: VAULT, data: calls.ownerSwap([swapOf(SPY), swapOf(sale)]) };
+    expect(
+      refusalOf(() => guardTransaction(input({ ...swapStep, trades: [SPY, sale] }, both)))
+        ?.message ?? null,
+    ).toBeNull();
+  });
+
   eachBites(negatives);
 
   it('covers every way a route is held: its shape, its tokens, its amount, its minimums, its deadline', () => {
@@ -442,8 +507,23 @@ describe("the guard on EVM: a trade's route is the one the builder writes", () =
     const message = (route: Uint8Array | Partial<RouteOf>) =>
       refusalOf(() => guardTransaction(input(swapStep, swapWith(route))))?.message;
     expect(message({ fee: 3000 })).toMatch(
-      /fee 3000 and tick spacing 10.*deployment's is 500 and 10/,
+      /fee 3000 and tick spacing 10.*records for robinhood:spy is 500 and 10/,
     );
+    // Gold's own shape, on SPY: the pool named is SPY's, by its asset.
+    expect(message({ ...GOLD_POOL })).toMatch(
+      /fee 3000 and tick spacing 60.*records for robinhood:spy is 500 and 10/,
+    );
+    const across = { sell: 'robinhood:spy', buy: 'robinhood:gold', inRaw: '5', minOutRaw: '1' };
+    expect(
+      refusalOf(() =>
+        guardTransaction(
+          input(
+            { ...swapStep, trades: [across] },
+            { to: VAULT, data: calls.ownerSwap([swapOf(across)]) },
+          ),
+        ),
+      )?.message,
+    ).toMatch(/records no pool for a trade of robinhood:spy for robinhood:gold/);
     expect(message({ commands: [0x00] })).toMatch(/commands are 0x00, not the one v4 swap/);
     expect(message({ actions: [0x06, 0x0c, 0x0e] })).toMatch(/actions are 0x060c0e/);
     expect(message({ signature: 'run(bytes,bytes[],uint256)' })).toMatch(
@@ -509,7 +589,7 @@ describe('the guard on EVM: a router whose call data is not read says so in the 
       );
     }
     expect(
-      loading(file('mainnet', { [ROUTER]: { kind: 'universal-router-v4', ...POOL } })),
+      loading(file('mainnet', { [ROUTER]: { kind: 'universal-router-v4', hooks: POOL.hooks } })),
     ).toBeNull();
   });
 });
@@ -529,8 +609,12 @@ describe("the guard on EVM: the builder's own bytes, against the committed deplo
     const [router] = rh.routers;
     expect(rh.routes[router ?? '']).toEqual({
       kind: 'universal-router-v4',
-      ...vectors.pools.testnet,
+      hooks: vectors.pools.testnet.hooks,
     });
+    // Every asset but the cash states its own pool, and on the test network they are all one shape.
+    const { fee, tickSpacing } = vectors.pools.testnet;
+    for (const [id, asset] of Object.entries(rh.assets))
+      expect(asset.pool, id).toEqual(id === rh.cash ? undefined : { fee, tickSpacing });
     const mine = vectors.routes.filter((v) => v.pools === 'testnet');
     expect(mine.length).toBeGreaterThanOrEqual(3);
     for (const v of mine) {
@@ -576,7 +660,8 @@ describe("the guard on EVM: the builder's own bytes, against the committed deplo
       beacon: EVM.beacon,
       registry: tokenOf('registry'),
     });
-    entry.assets['robinhood:nvda'] = { address: v.tokenOut, decimals: 18 };
+    // The file lists NVDA with the pool the builder's own bytes go through.
+    expect(entry.assets['robinhood:nvda']?.address.toLowerCase()).toBe(v.tokenOut);
     const live = withFile(file, () => deploymentsOf('mainnet')).robinhood as Loaded<EvmDeployment>;
     expect(live.provenance).toBe('live');
     const [router] = live.routers;
@@ -602,6 +687,50 @@ describe("the guard on EVM: the builder's own bytes, against the committed deplo
       consents: [],
     };
     expect(refusalOf(() => guardTransaction(given))?.message ?? null).toBeNull();
+
+    // Every other token mainnet's file lists: its own pool passes, and where its pool is not NVDA's
+    // shape, NVDA's shape is refused for it. One chain, a pool per asset.
+    const nvda = live.assets['robinhood:nvda']?.pool;
+    const others = Object.entries(live.assets).filter(
+      ([id]) => id !== live.cash && id !== 'robinhood:nvda',
+    );
+    expect(others.length).toBeGreaterThan(0);
+    let differing = 0;
+    for (const [id, asset] of others) {
+      const through = (pool: { fee: number; tickSpacing: number } | undefined) => {
+        const own = { sell: 'robinhood:usdg', buy: id, inRaw: v.amountIn, minOutRaw: '1' };
+        const ownStep: ApprovedStep = { ...base, kind: 'swap', trades: [own] };
+        const bytes = routeOf({
+          tokenIn: v.tokenIn,
+          tokenOut: asset.token,
+          amountIn: BigInt(v.amountIn),
+          deadline: BigInt(v.deadline),
+          ...pool,
+        });
+        const ownTx = evmTx(ownStep, {
+          to: evmVaultAddress(live, OWNER, BASKET_ID),
+          data: calls.ownerSwap(
+            [[router ?? '', v.tokenIn, asset.token, BigInt(v.amountIn), 1n, bytes]],
+            BigInt(v.deadline),
+          ),
+          chainId: 4663,
+        });
+        return refusalOf(() =>
+          guardTransaction({
+            step: ownStep,
+            tx: { ...ownTx, provenance: 'live', preview: { ...ownTx.preview, provenance: 'live' } },
+            deployment: live,
+            consents: [],
+          }),
+        );
+      };
+      expect(through(asset.pool)?.message ?? null, id).toBeNull();
+      if (asset.pool?.fee !== nvda?.fee || asset.pool?.tickSpacing !== nvda?.tickSpacing) {
+        differing += 1;
+        expect(through(nvda)?.code, id).toBe('route');
+      }
+    }
+    expect(differing).toBeGreaterThan(0);
 
     // The test network's file names another pool shape: the same route is not its route.
     const rh = deploymentsOf('testnet').robinhood as Loaded<EvmDeployment>;

@@ -214,11 +214,15 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
    * between the quote and the minimum; this takes that away too. The route is exactly what the builder
    * makes (packages/chain-evm/src/vault/routes.ts): `execute` with one `V4_SWAP` of
    * `SWAP_EXACT_IN_SINGLE`, `SETTLE_ALL`, `TAKE_ALL`, in the pool of the trade's two tokens at the
-   * deployment's fee, tick spacing and hooks, for the trade's amount, under the trade's deadline. The
+   * fee and tick spacing the deployment records for the trade's asset and with the route's hooks, for
+   * the trade's amount, under the trade's deadline. A trade is cash for one asset or one asset for
+   * cash, and the asset's pool is the only one it may go through: another pool of the same two
+   * tokens, at another fee, is refused, and so is a trade of an asset with no pool recorded. The
    * router's own minimums are zero, as built: the vault's `minOut` is the one that binds.
    */
   const checkRoute = (
     router: string,
+    trade: ApprovedTrade,
     tokenIn: string,
     tokenOut: string,
     amountIn: bigint,
@@ -268,10 +272,27 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
       route.settle.currency === tokenIn && route.take.currency === tokenOut,
       `a trade's route pays in ${route.settle.currency} and takes ${route.take.currency}, and the trade is ${tokenIn} for ${tokenOut}`,
     );
+    // The asset of a trade is its side that is not cash. Two assets, or cash for cash, have no pool.
+    const traded =
+      trade.sell === deployment.cash
+        ? trade.buy
+        : trade.buy === deployment.cash
+          ? trade.sell
+          : undefined;
+    const pool =
+      traded !== undefined && traded !== deployment.cash && Object.hasOwn(deployment.assets, traded)
+        ? deployment.assets[traded]?.pool
+        : undefined;
     need(
       'route',
-      route.fee === BigInt(rule.fee) && route.tickSpacing === BigInt(rule.tickSpacing),
-      `a trade's route is in a pool of fee ${route.fee} and tick spacing ${route.tickSpacing}, and the deployment's is ${rule.fee} and ${rule.tickSpacing}`,
+      pool !== undefined,
+      `the deployment records no pool for a trade of ${trade.sell} for ${trade.buy}: a trade is between cash and one asset whose pool is recorded`,
+    );
+    if (!pool) return;
+    need(
+      'route',
+      route.fee === BigInt(pool.fee) && route.tickSpacing === BigInt(pool.tickSpacing),
+      `a trade's route is in a pool of fee ${route.fee} and tick spacing ${route.tickSpacing}, and the pool the deployment records for ${traded} is ${pool.fee} and ${pool.tickSpacing}`,
     );
     need(
       'route',
@@ -324,7 +345,7 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
       minOut === BigInt(trade.minOutRaw),
       `a trade accepts ${minOut} at the least, and the step ${trade.minOutRaw}`,
     );
-    checkRoute(router, tokenIn, tokenOut, amountIn, data, deadline);
+    checkRoute(router, trade, tokenIn, tokenOut, amountIn, data, deadline);
   };
   const checkSwaps = (swaps: AbiValue[][], trades: ApprovedTrade[], deadline: bigint) => {
     need(

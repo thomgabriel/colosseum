@@ -35,8 +35,11 @@ export const ZERO32 = `0x${'0'.repeat(64)}`;
 export const PLAN_ID = `0x${BigInt(BASKET_ID).toString(16).padStart(64, '0')}`;
 export const MAX = (1n << 256n) - 1n;
 export const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
-/** The pool shape of the test deployment's router: the test network's, as routes.ts has it. */
+/** The pool of the test deployment's SPY, with the route's hooks: the test network's shape. */
 export const POOL = { fee: 500, tickSpacing: 10, hooks: ZERO_ADDRESS } as const;
+/** The pool of its gold, of another shape: each asset trades in its own pool and no other. */
+export const GOLD_POOL = { fee: 3000, tickSpacing: 60 } as const;
+const SPY_POOL = { fee: POOL.fee, tickSpacing: POOL.tickSpacing } as const;
 
 /** A deployment file for the test network, as a deploy would write it, with `change` on top. */
 export function evmDeployment(change: Partial<EvmEntry> = {}): Loaded<EvmDeployment> {
@@ -50,12 +53,12 @@ export function evmDeployment(change: Partial<EvmEntry> = {}): Loaded<EvmDeploym
         factory: FACTORY,
         beacon: BEACON,
         routers: [ROUTER],
-        routes: { [ROUTER]: { kind: 'universal-router-v4', ...POOL } },
+        routes: { [ROUTER]: { kind: 'universal-router-v4', hooks: POOL.hooks } },
         cash: 'robinhood:usdc',
         assets: {
           'robinhood:usdc': { address: anyone('token usdc'), decimals: 6 },
-          'robinhood:spy': { address: anyone('token spy'), decimals: 18 },
-          'robinhood:gold': { address: anyone('token gold'), decimals: 18 },
+          'robinhood:spy': { address: anyone('token spy'), decimals: 18, pool: SPY_POOL },
+          'robinhood:gold': { address: anyone('token gold'), decimals: 18, pool: GOLD_POOL },
         },
         ...change,
       },
@@ -129,6 +132,7 @@ const types = (...list: string[]) => list.map(parseType);
 /**
  * Universal Router call data for one exact-input swap in one v4 pool, as `swapCalldata` of
  * packages/chain-evm builds it (route.test.ts holds this to that builder's own bytes), with `o` on top.
+ * Left unsaid, the pool is SPY's.
  */
 export function routeOf(o: RouteOf): Uint8Array {
   const [currency0, currency1] =
@@ -154,14 +158,14 @@ export function routeOf(o: RouteOf): Uint8Array {
     ],
   );
   const pair = types('address', 'uint256');
-  const own = [
+  const params = [
     swap,
     encodeArgs(pair, o.settle ?? [o.tokenIn, o.amountIn]),
     encodeArgs(pair, o.take ?? [o.tokenOut, 0n]),
   ];
   const plan = encodeArgs(types('bytes', 'bytes[]'), [
     Uint8Array.from(o.actions ?? [0x06, 0x0c, 0x0f]),
-    o.params ? o.params(own) : own,
+    o.params ? o.params(params) : params,
   ]);
   return call(o.signature ?? 'execute(bytes,bytes[],uint256)', [
     Uint8Array.from(o.commands ?? [0x10]),
@@ -172,7 +176,8 @@ export function routeOf(o: RouteOf): Uint8Array {
 
 /**
  * A trade as the vault takes it, with the route the builder writes for it: through the test
- * deployment's router, in its pool, good until `DEADLINE`. `route` changes fields of the route, or is
+ * deployment's router, in the pool of the trade's asset (gold's for gold, SPY's otherwise), good until
+ * `DEADLINE`. `route` changes fields of the route, or is
  * the bytes themselves.
  */
 export const swapOf = (
@@ -187,13 +192,16 @@ export const swapOf = (
   const tokenIn = o.tokenIn ?? tokenOf(trade.sell);
   const tokenOut = o.tokenOut ?? tokenOf(trade.buy);
   const amountIn = BigInt(trade.inRaw);
+  const own = [trade.sell, trade.buy].includes('robinhood:gold') ? GOLD_POOL : SPY_POOL;
   return [
     o.router ?? ROUTER,
     tokenIn,
     tokenOut,
     amountIn,
     BigInt(trade.minOutRaw),
-    o.route instanceof Uint8Array ? o.route : routeOf({ tokenIn, tokenOut, amountIn, ...o.route }),
+    o.route instanceof Uint8Array
+      ? o.route
+      : routeOf({ tokenIn, tokenOut, amountIn, ...own, ...o.route }),
   ];
 };
 
