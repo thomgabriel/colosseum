@@ -1022,13 +1022,13 @@ export const pt: Dictionary = {
         busy: 'Você já recebeu fundos de teste quantas vezes um dia permite. Tente amanhã, ou coloque fundos na carteira você mesmo.',
         tooMuch:
           'Este valor precisa de mais do que um envio de fundos de teste dá. Escolha um valor menor e peça de novo.',
-        enough: 'Sua carteira já tem o que esta compra precisa.',
+        enough: 'Sua carteira já tem o que este depósito precisa.',
         lowCash:
           'Nossos fundos de teste estão baixos. Peça à equipe para completar, ou coloque fundos na carteira você mesmo.',
         lowGas:
           'Nosso gás de teste está baixo. Peça à equipe para completar, ou coloque fundos na carteira você mesmo.',
         refused:
-          'Nosso servidor não enviou fundos de teste para esta compra. Leia sua carteira de novo e tente outra vez.',
+          'Nosso servidor não enviou fundos de teste para este depósito. Leia sua carteira de novo e tente outra vez.',
         unreachable:
           'A rede de teste não aceitou a transferência, ou nosso servidor não respondeu. Leia sua carteira de novo: parte pode ter chegado.',
       },
@@ -1036,12 +1036,12 @@ export const pt: Dictionary = {
       cash: (symbol: string) => `Dinheiro para depositar (${symbol})`,
       gas: (symbol: string) => `Taxas da rede (${symbol})`,
       have: 'Você tem',
-      need: 'Esta compra precisa',
+      need: 'Este depósito precisa',
       missing: 'Faltam',
-      ok: 'Sua carteira tem o que esta compra precisa.',
+      ok: 'Sua carteira tem o que este depósito precisa.',
       address: (address: string) => `Seu endereço lá: ${address}`,
       newVault:
-        'Esta compra abre o seu cofre para este plano, o que custa um pouco mais de taxa na primeira vez.',
+        'Este depósito abre o seu cofre para este plano, o que custa um pouco mais de taxa na primeira vez.',
       readAgain: 'Ler minha carteira de novo',
       mockFund: 'Adicionar dinheiro e taxas de exemplo',
       mockFunding: 'Adicionando…',

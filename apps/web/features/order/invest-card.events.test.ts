@@ -358,7 +358,7 @@ describe('the funds, shown because the wallet is short', () => {
     );
     // a wallet that holds enough is said without its amounts
     expect(find(host, '[data-ui="funding-line"]').textContent).toBe(en.buy.funding.ok);
-    expect(dictionary('pt').buy.funding.ok).not.toMatch(/\d/);
+    expect(dictionary('pt').buy.funding.ok).toBe('Sua carteira tem o que este depósito precisa.');
     expect(host.textContent).not.toContain(en.buy.blocked.funding);
   });
 
@@ -409,6 +409,16 @@ describe('the funds, shown because the wallet is short', () => {
   it('says it in Portuguese with the same symbols', () => {
     const pt = dictionary('pt').buy.funding;
     expect(pt.insufficient).toBe('Saldo insuficiente.');
+    // nothing this card says in Portuguese calls a deposit a buy (WORDS-VAULT-DEPOSIT)
+    const read = (v: unknown): string =>
+      typeof v === 'string'
+        ? v
+        : typeof v === 'function'
+          ? String(v('x', 'y'))
+          : Object.values(v as object)
+              .map(read)
+              .join(' ');
+    expect(read(pt)).not.toMatch(/compra/i);
     expect(pt.addToken('USDG')).toBe('Adicione USDG à sua carteira para depositar.');
     expect(pt.addGas('ETH')).toBe('Adicione um pouco de ETH para as taxas de rede.');
     expect(en.buy.funding.insufficient).toBe('Insufficient balance.');
