@@ -202,6 +202,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
               usdPerToken: price.usdPerToken,
               ageSeconds: price.ageSeconds,
               maxAgeSeconds: price.maxAgeSeconds,
+              market: price.market,
             }
           : null,
     });
@@ -314,7 +315,16 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         // worth, so the fill itself is never further from the feed than the bound.
         const feedFloor = held(prices, leg.t, { ...leg, amountInSoFar: prior + leg.amountIn }, out);
         const floor = feedFloor !== null && feedFloor > quoteFloor ? feedFloor : quoteFloor;
-        const minOut = statedMinimum(stated, trades, i, out) ?? (floor > 0n ? floor : 1n);
+        const least = statedMinimum(stated, trades, i, out);
+        // An order's steps carry the minimums the order stated. Where the feed has since moved in the
+        // person's favour, that minimum sits under the feed's floor of now, and a push between this
+        // build and the block could fill down to it: refused, and the order is quoted again.
+        if (least != null && feedFloor !== null && least < feedFloor)
+          refuse(
+            'PriceMoved',
+            `the reference price has moved since the order was made: its minimum for ${leg.t.amountInRaw} raw ${leg.t.sell} is ${least} raw ${leg.t.buy}, under the ${feedFloor} the reference price now allows at least. Ask for a new quote`,
+          );
+        const minOut = least ?? (floor > 0n ? floor : 1n);
         const { tokenIn, tokenOut, amountIn, t } = leg;
         return {
           swap: {

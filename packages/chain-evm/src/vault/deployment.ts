@@ -2,7 +2,7 @@ import { BasketAsset, ChainError, type EvmAddress, normalizeAddress } from '@col
 import { z } from 'zod';
 import { type V4Pools, v4Pools } from './routes';
 import { ask, type EvmRpc } from './rpc';
-import type { TradeLimits } from './trade-limits';
+import { type TradeLimits, unlimitedOnMainnet } from './trade-limits';
 
 // The record an EVM deploy writes (`deployments/<chain>-<network>.json`: `robinhood-testnet`,
 // `robinhood-local`), the EVM twin of Solana's `deployments/solana-devnet.json`. It is committed and
@@ -130,6 +130,13 @@ export const EvmDeploymentRecord = z
     message: "every token's id is on the record's chain",
     path: ['assets'],
   })
+  // Null is "not checked", and that is a test network's to say. A record of a mainnet, by its chain's
+  // number or by its name, states the bound and every asset's largest trade. Today a mainnet record
+  // is refused before this is reached; the day that is lifted, this is already here.
+  .superRefine((r, ctx) => {
+    const missing = unlimitedOnMainnet(r);
+    if (missing) ctx.addIssue({ code: 'custom', message: missing, path: ['priceBoundBps'] });
+  })
   .refine((r) => r.assets.every((a) => !a.keeperOn || a.range !== null), {
     message: 'the keeper is on only for an asset with a range',
     path: ['assets'],
@@ -153,6 +160,10 @@ export function deploymentPools(record: EvmDeploymentRecord): V4Pools {
 
 /** What the adapter holds an owner's trade to, from the record: the bound to the feed and each asset's largest trade. */
 export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
+  // Held here too, where the limits are handed to the adapter: a record that came by another way than
+  // the schema above still cannot run a mainnet unchecked.
+  const missing = unlimitedOnMainnet(record);
+  if (missing) throw new ChainError('NotSupported', missing);
   return {
     priceBoundBps: record.priceBoundBps,
     maxTradeUsd: Object.fromEntries(record.assets.map((a) => [a.address, a.maxTradeUsd])),

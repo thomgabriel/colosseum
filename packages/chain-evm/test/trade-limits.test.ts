@@ -8,6 +8,7 @@ import {
   holdTrade,
   NO_TRADE_LIMITS,
   type TradeLimits,
+  unlimitedOnMainnet,
   worthAtFeed,
 } from '../src/vault/trade-limits';
 
@@ -96,12 +97,60 @@ describe('the bound to the feed', () => {
     );
   });
 
+  it('compares the gap exactly: a fraction of a basis point past the bound is past it', () => {
+    // 2.0099% under the feed. Floored to whole basis points it would read 2.00% and pass.
+    const justPast = buyOf((ONE * 979_901n) / 1_000_000n);
+    const refused = refusalOf(() => holdTrade(LIMITS, GLD_AT, justPast));
+    expect(refused.code).toBe('PriceDeviation');
+    // Shown rounded up, so it never reads as the bound itself; and as a moment's thing, not an error.
+    expect(refused.message).toBe(
+      "the pool's price for GLD is 2.01% worse than the reference price right now, just past the 2.00% allowed: try again shortly",
+    );
+    // The same on the other side, and one raw unit past the bound is enough.
+    expect(
+      refusalOf(() => holdTrade(LIMITS, GLD_AT, buyOf((ONE * 102n) / 100n + 1n))).message,
+    ).toMatch(/2\.01% better than the reference price right now, just past the 2\.00% allowed/);
+    expect(refusalOf(() => holdTrade(LIMITS, GLD_AT, buyOf((ONE * 98n) / 100n - 1n))).code).toBe(
+      'PriceDeviation',
+    );
+    // Exactly at the bound still passes, to the unit.
+    expect(holdTrade(LIMITS, GLD_AT, buyOf((ONE * 98n) / 100n))).not.toBeNull();
+    // Up to half the bound again past it reads as "try again"; further reads as a pool that is off.
+    expect(refusalOf(() => holdTrade(LIMITS, GLD_AT, buyOf((ONE * 97n) / 100n))).message).toMatch(
+      /3\.00% worse .* just past the 2\.00% allowed: try again shortly/,
+    );
+    expect(
+      refusalOf(() => holdTrade(LIMITS, GLD_AT, buyOf((ONE * 9_699n) / 10_000n))).message,
+    ).toMatch(/3\.01% worse .* more than the 2\.00% allowed: not trading/);
+  });
+
   it('refuses where there is no witness: a stale feed, or no feed at all', () => {
     const stale = refusalOf(() =>
       holdTrade(LIMITS, GLD_AT, buyOf(ONE, { price: { ...FRESH, ageSeconds: 93_601 } })),
     );
     expect(stale.code).toBe('PriceStale');
-    expect(stale.message).toMatch(/GLD is 93601 s old, more than the 93600 s it may be/);
+    expect(stale.retryable).toBe(true);
+    // In hours, never in seconds: a person reads this.
+    expect(stale.message).toBe(
+      'no fresh reference price for GLD: the last one is 26 hours old, and it may be 26 hours at most; trades of GLD resume when a new one arrives',
+    );
+    expect(stale.message).not.toMatch(/93600|93601/);
+    // A stock over a weekend: its market is closed, and that is what the person is told.
+    const weekend = refusalOf(() =>
+      holdTrade(
+        LIMITS,
+        GLD_AT,
+        buyOf(ONE, { symbol: 'NVDA', price: { ...FRESH, ageSeconds: 150_000, market: 'closed' } }),
+      ),
+    );
+    expect(weekend.code).toBe('PriceStale');
+    expect(weekend.message).toBe(
+      'no fresh reference price for NVDA: the market is closed; trades of NVDA resume when it opens',
+    );
+    // A closed market with a price still inside its age is a price: nothing is refused for the hour.
+    expect(
+      holdTrade(LIMITS, GLD_AT, buyOf(ONE, { price: { ...FRESH, market: 'closed' } })),
+    ).not.toBeNull();
     // At its limit to the second it is still a price.
     expect(
       holdTrade(LIMITS, GLD_AT, buyOf(ONE, { price: { ...FRESH, ageSeconds: 93_600 } })),
@@ -211,5 +260,59 @@ describe("a network's limits, from its record", () => {
       priceBoundBps: 200,
       maxTradeUsd: { [record.assets[0]?.address ?? '']: 1_000 },
     });
+  });
+
+  it('a mainnet may not run unchecked: a null bound or a null largest trade is refused, by number and by name', () => {
+    const nvda = { symbol: 'NVDA', maxTradeUsd: 50_000 as number | null };
+    const of = (over: Partial<Parameters<typeof unlimitedOnMainnet>[0]>) =>
+      unlimitedOnMainnet({
+        network: 'robinhood-mainnet',
+        evmChainId: 4663,
+        priceBoundBps: 200,
+        assets: [nvda, { symbol: 'GLD', maxTradeUsd: 1_000 }],
+        ...over,
+      });
+    expect(of({})).toBeNull();
+    expect(of({ priceBoundBps: null })).toMatch(/states no priceBoundBps/);
+    expect(of({ assets: [nvda, { symbol: 'GLD', maxTradeUsd: null }] })).toMatch(
+      /states no maxTradeUsd for GLD/,
+    );
+    // The chain's number alone says mainnet, whatever the record calls itself: Robinhood Chain, Ethereum, Base.
+    for (const evmChainId of [4663, 1, 8453])
+      expect(
+        of({ network: 'robinhood-local', evmChainId, priceBoundBps: null }),
+        String(evmChainId),
+      ).toMatch(/priceBoundBps/);
+    // And so does the name alone.
+    expect(of({ evmChainId: 31_337, priceBoundBps: null })).toMatch(/priceBoundBps/);
+    // A test network and a local copy say null and are taken at their word.
+    expect(
+      of({ network: 'robinhood-testnet', evmChainId: 46_630, priceBoundBps: null }),
+    ).toBeNull();
+    expect(
+      of({
+        network: 'robinhood-local',
+        evmChainId: 31_337,
+        assets: [{ symbol: 'GLD', maxTradeUsd: null }],
+      }),
+    ).toBeNull();
+
+    // Through the record itself: the test network's own, given a mainnet's number, is refused for
+    // its nulls as well as for the number, so lifting the one refusal leaves the other standing.
+    const copied = structuredClone(raw);
+    copied.evmChainId = 4663;
+    const parsed = EvmDeploymentRecord.safeParse(copied);
+    expect(parsed.success).toBe(false);
+    const said = parsed.success ? [] : parsed.error.issues.map((i) => i.message);
+    expect(said.some((m) => /states no priceBoundBps/.test(m))).toBe(true);
+    // And where the limits are handed to the adapter, whatever way the record came.
+    const record = EvmDeploymentRecord.parse(raw);
+    expect(() => deploymentLimits({ ...record, evmChainId: 4663 })).toThrow(
+      /states no priceBoundBps/,
+    );
+    expect(() =>
+      deploymentLimits({ ...record, network: 'robinhood-mainnet', priceBoundBps: 200 }),
+    ).toThrow(/states no maxTradeUsd for tSPY/);
+    expect(deploymentLimits(record).priceBoundBps).toBeNull();
   });
 });

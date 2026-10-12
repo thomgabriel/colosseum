@@ -36,7 +36,13 @@ export type TradeLimits = {
 export const NO_TRADE_LIMITS: TradeLimits = { priceBoundBps: null, maxTradeUsd: {} };
 
 /** The feed's answer for the asset, as the reader gives it. */
-export type FeedPrice = { usdPerToken: string; ageSeconds: number; maxAgeSeconds: number };
+export type FeedPrice = {
+  usdPerToken: string;
+  ageSeconds: number;
+  maxAgeSeconds: number;
+  /** Whether the asset's market is open by the vault's own calendar, where it has one. */
+  market?: 'open' | 'closed' | 'unknown';
+};
 
 export type HeldTrade = {
   symbol: string;
@@ -56,6 +62,31 @@ export type HeldTrade = {
 
 const SCALE = 10n ** 18n;
 const pct = (bps: bigint) => `${(Number(bps) / 100).toFixed(2)}%`;
+const hours = (seconds: number) => {
+  const h = Math.round(seconds / 3600);
+  return h < 1 ? 'under an hour' : h === 1 ? '1 hour' : `${h} hours`;
+};
+
+/**
+ * A network whose money is real states both limits: null means unchecked, and on a mainnet nothing
+ * may be unchecked. Said of the chain's number and of the record's own name, so it holds whichever
+ * way a record comes to be admitted. Returns what is missing, or null.
+ */
+export function unlimitedOnMainnet(record: {
+  network: string;
+  evmChainId: number;
+  priceBoundBps: number | null;
+  assets: readonly { symbol: string; maxTradeUsd: number | null }[];
+}): string | null {
+  const mainnet = [1, 4663, 8453].includes(record.evmChainId) || /-mainnet$/.test(record.network);
+  if (!mainnet) return null;
+  if (record.priceBoundBps === null)
+    return 'a mainnet record states no priceBoundBps: an owner trade would be checked against no price';
+  const open = record.assets.filter((a) => a.maxTradeUsd === null).map((a) => a.symbol);
+  return open.length
+    ? `a mainnet record states no maxTradeUsd for ${open.join(', ')}: a trade of any size would be built`
+    : null;
+}
 const dollars = (usd: number) =>
   `$${usd.toLocaleString('en-US', { maximumFractionDigits: usd < 100 ? 2 : 0 })}`;
 
@@ -89,7 +120,9 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
   if (checked && t.price && t.price.ageSeconds > t.price.maxAgeSeconds)
     throw new ChainError(
       'PriceStale',
-      `the reference price of ${t.symbol} is ${t.price.ageSeconds} s old, more than the ${t.price.maxAgeSeconds} s it may be: not trading until it is fresh`,
+      t.price.market === 'closed'
+        ? `no fresh reference price for ${t.symbol}: the market is closed; trades of ${t.symbol} resume when it opens`
+        : `no fresh reference price for ${t.symbol}: the last one is ${hours(t.price.ageSeconds)} old, and it may be ${hours(t.price.maxAgeSeconds)} at most; trades of ${t.symbol} resume when a new one arrives`,
     );
 
   if (max !== null) {
@@ -115,11 +148,19 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
   if (fair <= 0n)
     throw new ChainError('BadTrade', `a trade of ${t.symbol} too small to price: not trading`);
   const gap = t.out > fair ? t.out - fair : fair - t.out;
-  const gapBps = (gap * 10_000n) / fair;
-  if (gapBps > bound)
+  // Compared without rounding to whole basis points: 2.0099% is past a bound of 2%.
+  if (gap * 10_000n > bound * fair) {
+    // Shown rounded up, so a gap just past the bound never reads as the bound itself.
+    const shown = (gap * 10_000n + fair - 1n) / fair;
+    const way = t.out < fair ? 'worse' : 'better';
+    // Just past the bound is most often an ordinary move, and passes in a moment; far past it is a
+    // pool that is thin for this size, or pushed.
     throw new ChainError(
       'PriceDeviation',
-      `the pool's price for ${t.symbol} is ${pct(gapBps)} ${t.out < fair ? 'worse' : 'better'} than the reference price, more than the ${pct(bound)} allowed: not trading. The pool may be thin or pushed; try a smaller amount, or later`,
+      gap * 10_000n <= bound * fair + (bound * fair) / 2n
+        ? `the pool's price for ${t.symbol} is ${pct(shown)} ${way} than the reference price right now, just past the ${pct(bound)} allowed: try again shortly`
+        : `the pool's price for ${t.symbol} is ${pct(shown)} ${way} than the reference price, more than the ${pct(bound)} allowed: not trading. The pool may be thin or pushed; try a smaller amount, or later`,
     );
+  }
   return (fair * (10_000n - bound)) / 10_000n;
 }

@@ -104,6 +104,35 @@ describe.skipIf(!FORK_URL)("an owner's trade, held to the feed, on a copy of mai
     }
   });
 
+  it("an order's stated minimum under the feed's floor of now is refused: ask for a new quote", async () => {
+    const w = await start();
+    const vault = await w.vaultOf('501');
+    const price = await priceOf(w, GLD);
+    const feedFloor =
+      (worthAtFeed(
+        { side: 'buy', cashDecimals: 6, assetDecimals: 18 },
+        100n * USD,
+        price.usdPerToken,
+      ) *
+        BigInt(10_000 - BOUND_BPS)) /
+      10_000n;
+    const swap = (minimum: bigint) =>
+      w.adapter.buildOwnerSwap({
+        vault,
+        trades: [buy(GLD, 100n)],
+        slippageBps: 100,
+        minimums: [minimum.toString()],
+      });
+    // As if the feed had moved in the person's favour since the order: its minimum is under the floor.
+    const under = await refusal(() => swap(feedFloor - 1n));
+    expect(under.code).toBe('PriceMoved');
+    expect(under.message).toMatch(/the reference price has moved since the order was made/);
+    expect(under.message).toMatch(/Ask for a new quote$/);
+    // At the floor, the order's own minimum is the one built.
+    const built = await swap(feedFloor);
+    expect(built.preview.minimums[0]?.minOutRaw).toBe(feedFloor.toString());
+  });
+
   it("a trade above the asset's largest is refused with its limit, whichever way it goes", async () => {
     const w = await start();
     const over = await refusal(() =>
@@ -229,8 +258,9 @@ describe.skipIf(!FORK_URL)("an owner's trade, held to the feed, on a copy of mai
     await w.later((price.maxAgeSeconds ?? 0) + 60);
     const stale = await refusal(() => w.adapter.quote(buy(GLD, 100n), ACCOUNTS.owner));
     expect(stale.code).toBe('PriceStale');
+    // In hours or by the market, never in seconds.
     expect(stale.message).toMatch(
-      /reference price of GLD is \d+ s old.*not trading until it is fresh/,
+      /^no fresh reference price for GLD: (the market is closed; trades of GLD resume when it opens|the last one is \d+ hours old, and it may be 26 hours at most; trades of GLD resume when a new one arrives)$/,
     );
     const vault = await w.vaultOf('501');
     expect(
