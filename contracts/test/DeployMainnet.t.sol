@@ -103,18 +103,63 @@ contract PoolAverageLike {
 /// A router, or any contract that is not a Safe: an address with code.
 contract Anything {}
 
-/// What a Safe says of itself: who its owners are and how many must sign.
+/// What a Safe says of itself: who its owners are, how many must sign, and which modules it has enabled.
+/// `answers` is which of the two module calls it has: bit 1 `getModulesPaginated` (Safe 1.1.1 and later),
+/// bit 0 `getModules()` (1.0.0 to 1.2.0); 3 is both, 0 neither. A call it does not know goes to its fallback
+/// handler, as a real Safe's does, and comes back empty and successful. The two lists are kept apart so
+/// that a contract answering one way with a module and the other way with none can be made.
 contract SafeLike {
     address[] internal owners;
+    address[] internal paged;
+    address[] internal listed;
     uint256 public getThreshold;
+    uint8 internal answers = 3;
+    address internal next = address(1);
 
     constructor(address[] memory owners_, uint256 threshold_) {
         owners = owners_;
         getThreshold = threshold_;
     }
 
+    function enableModule(address module) external {
+        paged.push(module);
+        listed.push(module);
+    }
+
+    function enableOnlyPaged(address module) external {
+        paged.push(module);
+    }
+
+    function enableOnlyListed(address module) external {
+        listed.push(module);
+    }
+
+    function setAnswers(uint8 answers_) external {
+        answers = answers_;
+    }
+
+    function setNext(address next_) external {
+        next = next_;
+    }
+
     function getOwners() external view returns (address[] memory) {
         return owners;
+    }
+
+    fallback() external {
+        bytes4 asked = msg.sig;
+        if (asked == bytes4(keccak256("getModulesPaginated(address,uint256)")) && answers & 2 != 0) {
+            bytes memory out = abi.encode(paged, next);
+            assembly ("memory-safe") {
+                return(add(out, 0x20), mload(out))
+            }
+        }
+        if (asked == bytes4(keccak256("getModules()")) && answers & 1 != 0) {
+            bytes memory out = abi.encode(listed);
+            assembly ("memory-safe") {
+                return(add(out, 0x20), mload(out))
+            }
+        }
     }
 }
 
@@ -425,6 +470,86 @@ contract DeployMainnetTest is Test {
         d = script.deploy(cfg, deployer);
         assertFalse(VaultFactory(d.factory).creationRestricted());
         assertTrue(VaultFactory(d.factory).mayCreate(keeper));
+    }
+
+    /// A module can make a Safe act with no signature of its owners, so two of three means nothing beside
+    /// one. The script reads the Safe's modules and refuses any, by either way a Safe lists them, and
+    /// refuses a Safe that lists them by neither: what cannot be read cannot be ruled out.
+    function test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike current = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(current);
+        (uint256 threshold, address[] memory owners) = script.checkSafe(address(current), 2);
+        assertEq(threshold, 2, "no module: it passes");
+        assertEq(owners.length, 3);
+
+        current.enableModule(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Safe 1.0.0: `getModules()` and no paginated call.
+        SafeLike old = SafeLike(payable(_safe(3, 2)));
+        old.setAnswers(1);
+        cfg.timelockOwner = address(old);
+        script.checkSafe(address(old), 2);
+        old.enableModule(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Neither call answered: the fallback handler returns nothing, and succeeds.
+        SafeLike silent = SafeLike(payable(_safe(3, 2)));
+        silent.setAnswers(0);
+        cfg.timelockOwner = address(silent);
+        _refused(cfg, "the Safe does not say which modules it has enabled: they cannot be ruled out");
+
+        // More modules than one page holds is still "has a module".
+        SafeLike many = SafeLike(payable(_safe(3, 2)));
+        for (uint160 i = 1; i <= 12; ++i) {
+            many.enableModule(address(i + 0xD00D00));
+        }
+        cfg.timelockOwner = address(many);
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+    }
+
+    /// An empty page of modules ends the list: `next` is the list's sentinel, or zero. One that is empty
+    /// and names a next module is a list that says two things, and is not taken at its word.
+    function test_mainnet_refusesASafeWhoseEmptyModulePageNamesANextOne() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike odd = SafeLike(payable(_safe(3, 2)));
+        odd.setAnswers(2);
+        cfg.timelockOwner = address(odd);
+        odd.setNext(makeAddr("a-module"));
+        _refused(cfg, "the Safe lists no module and names a next one: its list cannot be trusted");
+        odd.setNext(address(0));
+        script.checkSafe(address(odd), 2);
+        odd.setNext(address(1));
+        script.checkSafe(address(odd), 2);
+    }
+
+    /// Both ways of listing modules are asked, and a module under either refuses: a contract that says
+    /// "none" one way and names one the other way is not passed on the answer that suits it. A Safe that
+    /// has only one of the two calls passes when that one is empty.
+    function test_mainnet_asksASafeBothWaysForItsModules_andEitherListingOneRefuses() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike split = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(split);
+        split.enableOnlyListed(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        split = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(split);
+        split.enableOnlyPaged(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Only one of the two calls, and empty: it passes, whichever it is.
+        SafeLike onlyPaged = SafeLike(payable(_safe(3, 2)));
+        onlyPaged.setAnswers(2);
+        script.checkSafe(address(onlyPaged), 2);
+        SafeLike onlyListed = SafeLike(payable(_safe(3, 2)));
+        onlyListed.setAnswers(1);
+        script.checkSafe(address(onlyListed), 2);
+        // And a module there is still a module.
+        onlyPaged.enableModule(makeAddr("a-module"));
+        cfg.timelockOwner = address(onlyPaged);
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
     }
 
     function test_mainnet_refusesADelayUnder48Hours_orOver30Days() public {

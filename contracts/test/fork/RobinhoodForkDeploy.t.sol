@@ -28,6 +28,10 @@ contract SafeStandIn {
         owners[1] = address(0x5AFE02);
         owners[2] = address(0x5AFE03);
     }
+
+    function getModulesPaginated(address, uint256) external pure returns (address[] memory array, address next) {
+        return (array, address(1));
+    }
 }
 
 /// The committed mainnet file (`script/config/4663.json`) against Robinhood Chain itself: the real dollar

@@ -533,8 +533,9 @@ contract Deploy is Script {
     /// enough: a contract one key controls has code, and so does a plain key that has delegated its code
     /// (EIP-7702: 23 bytes that start 0xef0100). It must answer as a Safe does, `getThreshold()` and
     /// `getOwners()`, need at least `minThreshold` signatures, and have at least two owners and no fewer
-    /// than it needs. This reads what the contract says of itself; that it is a real Safe with these
-    /// people behind it is for a person to compare with the owners the run prints.
+    /// than it needs, and no module enabled: a module can make a Safe act with no signature of its owners,
+    /// so with one the threshold says nothing. This reads what the contract says of itself; that it is a
+    /// real Safe with these people behind it is for a person to compare with the owners the run prints.
     function checkSafe(address safe, uint256 minThreshold)
         public
         view
@@ -566,6 +567,58 @@ contract Deploy is Script {
         require(threshold >= minThreshold, MainnetRefused("the Safe needs fewer signatures than safeMinThreshold"));
         require(owners.length >= 2, MainnetRefused("the Safe has fewer than two owners"));
         require(owners.length >= threshold, MainnetRefused("the Safe needs more signatures than it has owners"));
+        // Both ways a Safe lists its modules are asked. Neither answered is refused, and so is a module under
+        // either: a contract that says "none" one way and names one the other is not passed on the answer
+        // that suits it.
+        (bool paged, uint256 inPage, bool pageEnds) = _pagedModules(safe);
+        (bool listed, uint256 inList) = _listedModules(safe);
+        require(
+            paged || listed,
+            MainnetRefused("the Safe does not say which modules it has enabled: they cannot be ruled out")
+        );
+        require(
+            !paged || inPage != 0 || pageEnds,
+            MainnetRefused("the Safe lists no module and names a next one: its list cannot be trusted")
+        );
+        require(
+            inPage == 0 && inList == 0,
+            MainnetRefused("the Safe has a module enabled: a module can move it without its signers")
+        );
+    }
+
+    /// `getModulesPaginated(start, pageSize)` from the list's sentinel, as Safe 1.1.1 and later answer:
+    /// whether it answered, how many modules the page holds, and whether an empty page says the list ends
+    /// there (`next` is the sentinel, or zero). The answer is `(address[] array, address next)` and is held
+    /// to that exact shape: the array's offset, `next`, the length, the entries and nothing more. Anything
+    /// else is no answer: a Safe hands a call it does not know to its fallback handler, which may return
+    /// nothing at all and still succeed. `scripts/ops/authority.ts` holds the answer to the same shape.
+    function _pagedModules(address safe) private view returns (bool answered, uint256 count, bool ends) {
+        (bool ok, bytes memory ret) = safe.staticcall(
+            abi.encodeWithSelector(bytes4(keccak256("getModulesPaginated(address,uint256)")), address(1), uint256(10))
+        );
+        if (!ok || ret.length < 96) return (false, 0, false);
+        uint256 offset;
+        uint256 next;
+        assembly ("memory-safe") {
+            offset := mload(add(ret, 0x20))
+            next := mload(add(ret, 0x40))
+            count := mload(add(ret, 0x60))
+        }
+        if (offset != 64 || count > 10 || ret.length != 96 + count * 32) return (false, 0, false);
+        return (true, count, next <= 1);
+    }
+
+    /// `getModules()`, as Safe 1.0.0 to 1.2.0 answer: whether it answered, and how many modules it lists.
+    function _listedModules(address safe) private view returns (bool answered, uint256 count) {
+        (bool ok, bytes memory ret) = safe.staticcall(abi.encodeWithSelector(bytes4(keccak256("getModules()"))));
+        if (!ok || ret.length < 64) return (false, 0);
+        uint256 offset;
+        assembly ("memory-safe") {
+            offset := mload(add(ret, 0x20))
+            count := mload(add(ret, 0x40))
+        }
+        if (offset != 32 || count >= 1 << 32 || ret.length != 64 + count * 32) return (false, 0);
+        return (true, count);
     }
 
     /// A feed on a mainnet has code and is not one of ours: `TestPriceFeed` answers `writer()` and
@@ -808,9 +861,12 @@ contract Deploy is Script {
             for (uint256 i; i < owners.length; ++i) {
                 console2.log("   ", owners[i]);
             }
+            console2.log("  modules enabled: none");
             console2.log("  compare these owners and this threshold with the Safe you mean, before anything else");
         } catch {
-            console2.log("  it does not answer as a Safe of two or more owners (allowed on a test network only)");
+            console2.log(
+                "  it does not answer as a Safe of two or more owners with no module (allowed on a test network only)"
+            );
         }
     }
 
