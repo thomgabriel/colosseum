@@ -958,11 +958,25 @@ contract DeployMainnetTest is Test {
 
     // ---- the committed mainnet file
 
-    /// As committed it deploys nowhere: it still holds values nobody has confirmed.
-    function test_theCommittedMainnetFile_isRefusedWhileItHoldsPlaceholders() public {
+    /// As committed it holds no value a person has not confirmed (Thom, 2026-10-12), so the marker rule no
+    /// longer stops it. Every other rule still does: here, with no Safe at the address it names, it is
+    /// refused for that. And the marker rule itself still bites on the same file with the word put back.
+    function test_theCommittedMainnetFile_holdsNoPlaceholder_andIsStillHeldToEveryRule() public {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
         assertEq(cfg.chainId, ROBINHOOD);
-        assertTrue(cfg.placeholders);
+        assertFalse(cfg.placeholders, "every value is confirmed");
+        string memory file = vm.readFile("script/config/4663.json");
+        Deploy.Config memory marked =
+            script.parseConfig(vm.replace(file, '"guardianNote": "', '"guardianNote": "TODO: '));
+        assertTrue(marked.placeholders, "the word put back");
+        _refused(marked, "the file still holds a TODO: every value must be confirmed by a person");
+        // The ceilings as confirmed: none left at zero, none above the contract's own 5000.
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            assertGt(cfg.assets[i].config.maxWeightBps, 0, "a confirmed ceiling");
+            assertLe(cfg.assets[i].config.maxWeightBps, 5000);
+        }
+        assertEq(cfg.assets[1].config.maxWeightBps, 2500, "NVDA");
+        assertEq(cfg.assets[2].config.maxWeightBps, 5000, "SPY");
         assertFalse(cfg.adminIsDeployer);
         assertFalse(cfg.keeperEnabled);
         assertEq(cfg.keeper, address(0));
@@ -981,11 +995,8 @@ contract DeployMainnetTest is Test {
             assertEq(cfg.assets[i].config.flags, 0, "no keeper switch");
             assertEq(cfg.assets[i].config.averageFeed, address(0));
         }
-        _refused(cfg, "the file still holds a TODO: every value must be confirmed by a person");
-
-        // Taking the marker out is not enough where the Safe is not: on a chain that has no contract at the
-        // address the file names, the owner is refused as a key would be. And neither address may be missing.
-        cfg.placeholders = false;
+        // With no marker the file is still held to the Safe: on a chain that has no contract at the address
+        // it names, the owner is refused as a key would be. And neither address may be missing.
         _refused(cfg, "the timelock owner has no code: it must be a contract (a Safe), not a key");
         cfg.timelockOwner = address(0);
         _refused(cfg, "no timelock owner");
