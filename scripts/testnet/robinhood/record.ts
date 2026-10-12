@@ -122,6 +122,7 @@ export function buildRecord(
     // are written by our own copier (packages/chain-evm/src/vault/deployment.ts).
     priceBoundBps: null,
     staleRailBps: null,
+    sessionPriceAge: null,
     routers: [{ address: kit.router, pull: 2 as const }],
     cash: {
       id: idOf(kit.cashSymbol),

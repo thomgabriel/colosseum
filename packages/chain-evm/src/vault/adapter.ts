@@ -181,10 +181,13 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
       return new Map();
     const priced = [...new Set(ids)].filter((id) => byId.get(id)?.priceKind === 'chainlink');
     const prices = priced.length ? await reader.getPrices(priced) : [];
-    // A stale feed, on a network with a rail: the asset's one-hour pool average is read beside it.
+    // A feed that is no longer live, on a network with a rail: the asset's one-hour pool average is
+    // read beside it. Live is younger than the network's `liveFeedSeconds`; with none, up to `maxAge`.
     const stale = prices.filter(
       (p) =>
-        limits.priceBoundBps !== null && isStalePrice(p) && (limits.staleRailBps ?? null) !== null,
+        limits.priceBoundBps !== null &&
+        (limits.staleRailBps ?? null) !== null &&
+        (isStalePrice(p) || p.ageSeconds > (limits.liveFeedSeconds ?? p.maxAgeSeconds)),
     );
     const block = stale.length
       ? await ask('eth_getBlockByNumber', () => rpc.getBlock({ blockTag: 'latest' }))

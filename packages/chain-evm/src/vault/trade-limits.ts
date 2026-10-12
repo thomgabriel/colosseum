@@ -11,12 +11,15 @@ import { toScaled } from './amounts';
 // - the pool's quote is within `priceBoundBps` of what the feed says the trade is worth, either way,
 //   pool fee included, or the step is refused (`PriceDeviation`);
 // - a feed that gives no price refuses (`AssetNotPriced`): no witness is not a pass;
-// - a feed that is stale by the asset's own `maxAge` (a stock's, from Saturday evening to Sunday
-//   evening) is not dropped and does not stop every trade either. The witness becomes the one-hour
-//   average of the asset's average pool (the Uniswap v3 pool the keeper's `PoolAverageFeed` is
-//   designed around, read here off chain with the same arithmetic), held to the same bound, inside an
-//   outer rail: the quote is within `staleRailBps` of the feed's last answer, however old. An asset
-//   whose average pool keeps too little history, or is too thin, is not traded on a stale feed;
+// - a feed is the witness only while it is live: its answer younger than the network's
+//   `liveFeedSeconds` (the chain's `sessionPriceAge`, an hour). A stock's feed is not live overnight
+//   or over a weekend, and holding a Saturday trade to 2% of Friday's close would refuse an honest
+//   move. Past that age the witness is the one-hour average of the asset's average pool (the Uniswap
+//   v3 pool the keeper's `PoolAverageFeed` is designed around, read here off chain with the same
+//   arithmetic), held to the same bound, inside an outer rail: the quote is within `staleRailBps` of
+//   the feed's last answer, however old;
+// - an asset whose average cannot be used (too little history, too thin) keeps the feed as its
+//   witness up to the asset's own `maxAge`, the only one it has, and past that is not traded;
 // - `minOut` is never under the feed's worth less the bound, so the fill itself is held to it on the
 //   chain, whatever the pool does between the quote and the block;
 // - one trade is at most the asset's `maxTradeUsd`, the size its pool was measured to fill.
@@ -44,6 +47,13 @@ export type TradeLimits = {
   staleRailBps?: number | null;
   /** Each asset's average pool, by token address in lower case. Null or absent: it has none. */
   average?: Readonly<Record<string, AveragePool | null>>;
+  /**
+   * How young a feed's answer is while the feed is the witness: the network's `sessionPriceAge`, an
+   * hour on Robinhood Chain. Older than that, an asset whose hour average can be used is held to the
+   * average instead; one whose average cannot be used keeps the feed up to its `maxAge`. Null or
+   * absent: a feed is the witness until its `maxAge`.
+   */
+  liveFeedSeconds?: number | null;
 };
 
 /**
@@ -149,7 +159,15 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
       'AssetNotPriced',
       `${t.symbol} has no reference price to check the pool against: not trading`,
     );
+  // Three ages of a feed. Live: younger than the network's `liveFeedSeconds`, and the feed is the
+  // witness. Past that, the asset's hour average is the witness wherever it can be used, inside the
+  // rail. Stale: past the asset's own `maxAge`, and with no average to use the trade is refused;
+  // between the two the feed is still the only witness there is, and it is kept.
   const stale = checked && t.price !== null && t.price.ageSeconds > t.price.maxAgeSeconds;
+  const live =
+    t.price !== null &&
+    !stale &&
+    t.price.ageSeconds <= (limits.liveFeedSeconds ?? t.price.maxAgeSeconds);
   const rail = limits.staleRailBps ?? null;
   // A stale feed with no second witness for the network or the asset: nothing to check against.
   if (stale && t.price && (rail === null || !t.average))
@@ -195,7 +213,7 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
   const bound = BigInt(limits.priceBoundBps as number);
   // The witness: the feed while it is fresh; the last hour's average of the asset's pool while it is
   // stale, inside an outer rail around the feed's last answer.
-  const average = stale && t.average?.state === 'ok' ? t.average : null;
+  const average = !live && rail !== null && t.average?.state === 'ok' ? t.average : null;
   if (average && rail !== null) {
     const last = worthAtFeed(t, t.amountIn, t.price.usdPerToken);
     const off = t.out > last ? t.out - last : last - t.out;

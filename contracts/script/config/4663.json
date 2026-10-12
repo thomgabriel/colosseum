@@ -25,6 +25,7 @@
   },
   "priceDevBps": 0,
   "sessionPriceAge": 3600,
+  "sessionPriceAgeNote": "TODO: a person confirms the second use of this value. For the contracts it is how fresh a price must be for the keeper in session. The app also reads it from the deploy record as how young a feed's answer is while the feed itself is the witness of an owner's trade: an hour. Older than that, a token whose `average` is usable is held to its pool's last hour instead (inside staleRailBps of the feed's last answer), so an honest move overnight or over a weekend is not refused against a price from the last close; a token whose `average` is not usable keeps the feed up to its maxAge.",
   "priceBoundBps": 200,
   "priceBoundNote": "TODO: a person confirms the bound. How far a pool's quote for an owner's trade may be from the token's Chainlink price, pool fee included, before the app refuses to build the trade: 2%, the bound test/fork/RobinhoodForkDeploy.t.sol holds every listed token's fill to (MAX_COST_BPS). Source: the listed pools cost 0.01% to 0.97% at their largest trade and sat at most 0.35% from their feeds at block 86735800, so 2% leaves room for a moving market and refuses a pushed pool. The deploy script does not read it (the contract checks an owner's swap against its minimum only); the app's builder does, from the deploy record, and never sets a minimum under the feed's price less this bound.",
   "staleRailBps": 1000,

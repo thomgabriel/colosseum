@@ -81,6 +81,12 @@ export const EvmDeploymentRecord = z
      * takes the feed's place as the witness. Null: a stale feed refuses the trade.
      */
     staleRailBps: z.number().int().min(1).max(5_000).nullable(),
+    /**
+     * How young a feed's answer is while the feed itself is the witness of an owner's trade, in
+     * seconds: the chain's `sessionPriceAge` (3,600 on Robinhood Chain). Past it an asset whose
+     * `average` is usable is held to the average instead. Null: a feed is the witness to its `maxAge`.
+     */
+    sessionPriceAge: z.number().int().min(60).max(86_400).nullable(),
     /** `pull` 1 takes the input with `transferFrom`, 2 through Permit2. */
     routers: z.array(
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
@@ -184,6 +190,7 @@ export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
     priceBoundBps: record.priceBoundBps,
     maxTradeUsd: Object.fromEntries(record.assets.map((a) => [a.address, a.maxTradeUsd])),
     staleRailBps: record.staleRailBps,
+    liveFeedSeconds: record.sessionPriceAge,
     average: Object.fromEntries(
       record.assets.map((a) => [
         a.address,

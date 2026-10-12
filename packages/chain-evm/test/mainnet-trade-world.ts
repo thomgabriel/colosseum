@@ -51,6 +51,8 @@ export const MAINNET = {
   gldFeed: '0x470a51258068043bd43dc0a56245625c9fe86eb0',
   aapl: '0xaf3d76f1834a1d425780943c99ea8a608f8a93f9',
   aaplFeed: '0x6b22a786baa607d76728168703a39ea9c99f2cd0',
+  tsla: '0x322f0929c4625ed5bad873c95208d54e1c003b2d',
+  tslaFeed: '0x4a1166a659a55625345e9515b32adecea5547c38',
   msft: '0xe93237c50d904957cf27e7b1133b510c669c2e74',
   msftFeed: '0x45c3c877c15e6ba2ebb19ea114ea508d14c1af2e',
   router: '0x204faca1764b154221e35c0d20abb3c525710498',
@@ -69,6 +71,8 @@ export const ACCOUNTS = {
 /** The bound and the limits of contracts/script/config/4663.json, for the two tokens listed here. */
 export const BOUND_BPS = 200;
 export const RAIL_BPS = 1_000;
+/** 4663.json's `sessionPriceAge`: a feed's answer is live for an hour. */
+export const LIVE_SECONDS = 3_600;
 /**
  * Each token's average pool, from contracts/script/config/pool-feeds/4663.json: its Uniswap v3 pool
  * against USDG and the floor on its liquidity. NVDA's keeps 7,200 observations and is usable; GLD's
@@ -95,10 +99,21 @@ export const AVERAGE = {
     minLiquidity: '200000000000000000',
     usable: true,
   },
+  tsla: {
+    pool: '0xf4acdaeeb7022862a763c9b1b885e11191c889e3',
+    minLiquidity: '130000000000000000',
+    usable: true,
+  },
 } as const;
 /** The fee of each average pool (Uniswap v3), for a stranger's trade in it. */
-export const AVERAGE_FEE = { nvda: 500, gld: 500, msft: 3000, aapl: 500 } as const;
-export const MAX_TRADE_USD = { nvda: 50_000, gld: 1_000, msft: 5_000, aapl: 50_000 } as const;
+export const AVERAGE_FEE = { nvda: 500, gld: 500, msft: 3000, aapl: 500, tsla: 3000 } as const;
+export const MAX_TRADE_USD = {
+  nvda: 50_000,
+  gld: 1_000,
+  msft: 5_000,
+  aapl: 50_000,
+  tsla: 50_000,
+} as const;
 const MAX_AGE = 93_600;
 export const OWNER_CASH = 20_000_000_000n;
 const PUSHER_CASH = 400_000_000_000n;
@@ -289,20 +304,28 @@ export async function buildMainnetTradeWorld(
     await listed(MAINNET.nvda, MAINNET.nvdaFeed, 18, true);
     await listed(MAINNET.gld, MAINNET.gldFeed, 18, true);
     await listed(MAINNET.msft, MAINNET.msftFeed, 18, true);
-    // AAPL with a feed of our own (the contracts' MockFeed): the real feed's last answer less 12%, at
-    // the real feed's own time. It stands for a feed that last spoke before the market moved.
-    const real = (await client.readContract({
-      address: MAINNET.aaplFeed,
-      abi: parseAbi([
-        'function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)',
-      ]),
-      functionName: 'latestRoundData',
-    })) as readonly [bigint, bigint, bigint, bigint, bigint];
-    const aaplFeed = await deploy('Feeds.sol', 'MockFeed');
-    await call(ACCOUNTS.deployer, aaplFeed, parseAbi(['function set(int256, uint256)']), 'set', [
-      (real[1] * 88n) / 100n,
-      real[3],
+    // Two tokens with a feed of our own (the contracts' MockFeed), each the real feed's last answer
+    // moved, at the real feed's own time: a feed that last spoke before the market moved. AAPL's is
+    // 12% under the real one, past the rail; TSLA's is 3% under, an ordinary move overnight.
+    const ROUND = parseAbi([
+      'function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)',
     ]);
+    const behind = async (feed: Address, times: bigint, over: bigint) => {
+      const real = (await client.readContract({
+        address: feed,
+        abi: ROUND,
+        functionName: 'latestRoundData',
+      })) as readonly [bigint, bigint, bigint, bigint, bigint];
+      const ours = await deploy('Feeds.sol', 'MockFeed');
+      await call(ACCOUNTS.deployer, ours, parseAbi(['function set(int256, uint256)']), 'set', [
+        (real[1] * times) / over,
+        real[3],
+      ]);
+      return ours;
+    };
+    const aaplFeed = await behind(MAINNET.aaplFeed, 88n, 100n);
+    const tslaFeed = await behind(MAINNET.tslaFeed, 100n, 103n);
+    await listed(MAINNET.tsla, tslaFeed, 18, true);
     await listed(MAINNET.aapl, aaplFeed, 18, true);
     await onFactory('setCashToken', [MAINNET.usdg]);
     await onFactory('setRouter', [MAINNET.router, 2]);
@@ -315,7 +338,7 @@ export async function buildMainnetTradeWorld(
     await test.stopImpersonatingAccount({ address: MAINNET.usdgHolder });
 
     const stock = (
-      slug: 'nvda' | 'gld' | 'msft' | 'aapl',
+      slug: 'nvda' | 'gld' | 'msft' | 'aapl' | 'tsla',
       address: Address,
       feed: Address,
       kind: 'stock' | 'gold',
@@ -357,6 +380,7 @@ export async function buildMainnetTradeWorld(
       sequencerFeed: null,
       priceBoundBps: BOUND_BPS,
       staleRailBps: RAIL_BPS,
+      sessionPriceAge: LIVE_SECONDS,
       routers: [{ address: MAINNET.router, pull: 2 }],
       cash: {
         id: 'robinhood:usdg',
@@ -370,6 +394,7 @@ export async function buildMainnetTradeWorld(
         stock('gld', MAINNET.gld, MAINNET.gldFeed, 'gold', { fee: 2100, tickSpacing: 21 }),
         stock('msft', MAINNET.msft, MAINNET.msftFeed, 'stock', { fee: 3000, tickSpacing: 60 }),
         stock('aapl', MAINNET.aapl, aaplFeed, 'stock', { fee: 3000, tickSpacing: 60 }),
+        stock('tsla', MAINNET.tsla, tslaFeed, 'stock', { fee: 3000, tickSpacing: 60 }),
       ],
       retired: [],
     };
@@ -408,7 +433,13 @@ export async function buildMainnetTradeWorld(
         args: [holder],
       });
     // The stranger's standing approvals, as any trader of the router has them.
-    for (const token of [MAINNET.usdg, MAINNET.nvda, MAINNET.gld, MAINNET.msft] as const) {
+    for (const token of [
+      MAINNET.usdg,
+      MAINNET.nvda,
+      MAINNET.gld,
+      MAINNET.msft,
+      MAINNET.tsla,
+    ] as const) {
       await call(ACCOUNTS.pusher, token, ERC20, 'approve', [MAINNET.permit2, (1n << 256n) - 1n]);
       await call(ACCOUNTS.pusher, MAINNET.permit2, PERMIT2, 'approve', [
         token,

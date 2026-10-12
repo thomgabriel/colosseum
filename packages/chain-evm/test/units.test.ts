@@ -47,6 +47,7 @@ const RECORD = {
   roles: { admin: A(7), guardian: A(8), keeper: A(9), priceWriter: A(14), tokenIssuer: null },
   priceBoundBps: 200,
   staleRailBps: null,
+  sessionPriceAge: null,
   routers: [{ address: '0x204FAca1764B154221e35c0d20aBb3c525710498', pull: 2 }],
   sequencerFeed: null,
   cash: { id: 'robinhood:usdg', symbol: 'USDG', name: 'Test dollar', address: A(10), decimals: 6 },

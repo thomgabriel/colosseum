@@ -275,6 +275,87 @@ describe('a stale feed: the last hour of the pool stands in, inside a rail', () 
   });
 });
 
+describe('a feed is the witness only while it is live', () => {
+  // An hour, as the chain's sessionPriceAge; the rail and the average as on a mainnet.
+  const NIGHT: TradeLimits = { ...LIMITS, staleRailBps: 1_000, liveFeedSeconds: 3_600 };
+  const sixHours = { ...FRESH, ageSeconds: 6 * 3600, market: 'closed' as const };
+  // The feed last said $400. Both pools have stood at $412 for the last hour: 3% up.
+  const at412 = (400n * USD * ONE * ONE) / (USD * 412n * ONE);
+  const steady = { state: 'ok' as const, usdPerToken: '412' };
+
+  it('an honest move overnight lands: 3% above a six-hour-old answer, steady for an hour', () => {
+    const trade = buyOf(at412, { price: sixHours, average: steady });
+    // Held to the average: at it, so the floor is 2% under the average, not under the old answer.
+    expect(holdTrade(NIGHT, GLD_AT, trade)).toBe((at412 * 98n) / 100n);
+    // The same trade with the feed as the witness to its maxAge is refused at 2%: the weekend stop.
+    const before = refusalOf(() => holdTrade({ ...NIGHT, liveFeedSeconds: null }, GLD_AT, trade));
+    expect(before.code).toBe('PriceDeviation');
+    expect(before.message).toMatch(/2\.92% worse than the reference price/);
+  });
+
+  it('to the second: at the live age the feed decides, a second past it the average does', () => {
+    const edge = (ageSeconds: number) =>
+      buyOf(at412, { price: { ...FRESH, ageSeconds }, average: steady });
+    expect(refusalOf(() => holdTrade(NIGHT, GLD_AT, edge(3_600))).message).toMatch(
+      /than the reference price/,
+    );
+    expect(holdTrade(NIGHT, GLD_AT, edge(3_601))).not.toBeNull();
+  });
+
+  it('past the live age a push of the trade pool is refused against the average, inside the rail', () => {
+    const pushed = buyOf((at412 * 95n) / 100n, { price: sixHours, average: steady });
+    expect(refusalOf(() => holdTrade(NIGHT, GLD_AT, pushed)).message).toMatch(
+      /5\.01% worse than the last hour's average price/,
+    );
+    // And the rail still stands: both pools 12% from the last answer.
+    const far = buyOf((ONE * 100n) / 112n, {
+      price: sixHours,
+      average: { state: 'ok', usdPerToken: '448' },
+    });
+    expect(refusalOf(() => holdTrade(NIGHT, GLD_AT, far)).message).toMatch(
+      /worse than its last reference price, from 6 hours ago, more than the 10\.00% allowed/,
+    );
+  });
+
+  it('an asset whose average cannot be used keeps the feed, the only witness it has, up to maxAge', () => {
+    for (const state of ['unusable', 'thin', 'short', 'unreadable'] as const) {
+      // Inside 2% of the six-hour-old answer: traded, against the feed.
+      expect(
+        holdTrade(
+          NIGHT,
+          GLD_AT,
+          buyOf((ONE * 99n) / 100n, { price: sixHours, average: { state } }),
+        ),
+        state,
+      ).toBe((ONE * 98n) / 100n);
+      // 3% from it: refused against the feed, since nothing better can speak.
+      expect(
+        refusalOf(() =>
+          holdTrade(NIGHT, GLD_AT, buyOf(at412, { price: sixHours, average: { state } })),
+        ).message,
+        state,
+      ).toMatch(/worse than the reference price/);
+    }
+    // With no average pool at all, the same.
+    expect(holdTrade(NIGHT, GLD_AT, buyOf((ONE * 99n) / 100n, { price: sixHours }))).not.toBeNull();
+    // Past maxAge it is refused, as before.
+    const past = { ...sixHours, ageSeconds: 93_601 };
+    expect(
+      refusalOf(() =>
+        holdTrade(NIGHT, GLD_AT, buyOf(ONE, { price: past, average: { state: 'unusable' } })),
+      ).message,
+    ).toMatch(/^GLD trades only while its market is open, for now/);
+  });
+
+  it('a feed that keeps speaking stays the witness: a 24/7 feed, minutes old', () => {
+    const live = buyOf(ONE, {
+      price: { ...FRESH, ageSeconds: 600, market: 'open' },
+      average: steady,
+    });
+    expect(holdTrade(NIGHT, GLD_AT, live)).toBe((ONE * 98n) / 100n);
+  });
+});
+
 describe("the asset's largest trade", () => {
   const big = (usd: bigint) =>
     buyOf((ONE * usd) / 400n, { amountIn: usd * USD, amountInSoFar: usd * USD });
