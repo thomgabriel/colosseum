@@ -1,10 +1,4 @@
-import {
-  createEvmVaultAdapter,
-  type EvmRpc,
-  ROBINHOOD_MAINNET_POOLS,
-  ROBINHOOD_TESTNET_POOLS,
-  type V4Pools,
-} from '@colosseum/chain-evm/vault';
+import { createEvmVaultAdapter, type EvmRpc, type V4Pools } from '@colosseum/chain-evm/vault';
 import { createMockAdapter, type MockControl } from '@colosseum/chain-mock';
 import {
   createSolanaVaultAdapter,
@@ -72,8 +66,8 @@ export type EvmInputs = {
   rpc: EvmRpc;
   /** The assets of the network, with their token contracts and feeds. */
   assets: BasketAsset[];
-  /** The pools trades go through. Default: by network, the test network's or mainnet's. */
-  pools?: V4Pools;
+  /** Each asset's own pool against cash, from the deploy's record: the pool its trades go through. */
+  pools: V4Pools;
 };
 
 export type RegistryOptions = {
@@ -176,10 +170,7 @@ function realEntry(
         config,
         rpc: options.robinhood.rpc,
         assets: options.robinhood.assets,
-        // The test network's pools on `testnet`; mainnet's on `local`, a copy of mainnet.
-        pools:
-          options.robinhood.pools ??
-          (config.network === 'local' ? ROBINHOOD_MAINNET_POOLS : ROBINHOOD_TESTNET_POOLS),
+        pools: options.robinhood.pools,
         trade: mode,
         autoFollow: flags.autoFollow[chain],
         ...(options.now ? { now: options.now } : {}),

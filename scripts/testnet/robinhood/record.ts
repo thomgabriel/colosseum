@@ -40,6 +40,9 @@ export type KitState = {
   cash: string;
   cashSymbol: string;
   router: string;
+  /** The shape of every pool the kit opened: one pool per token against the cash, all alike. */
+  fee: number;
+  tickSpacing: number;
   tokens: { symbol: string; modelOf: string; address: string }[];
 };
 
@@ -145,6 +148,8 @@ export function buildRecord(
         maxWeightBps: a.maxWeightBps,
         keeperOn: (a.flags & 1) === 1,
         range: ranged ? { minPrice: a.minPrice.toString(), maxPrice: a.maxPrice.toString() } : null,
+        // Stated for each asset, though the kit's pools are all one shape: on a mainnet they are not.
+        pool: { fee: kit.fee, tickSpacing: kit.tickSpacing },
       };
     }),
     retired: chain.removed.map((address) => {

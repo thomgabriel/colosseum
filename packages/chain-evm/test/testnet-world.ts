@@ -20,11 +20,11 @@ import { createEvmVaultAdapter, type EvmVaultAdapter } from '../src/vault/adapte
 import {
   deploymentAddresses,
   deploymentAssets,
+  deploymentPools,
   EvmDeploymentRecord,
 } from '../src/vault/deployment';
 import { revertDataOf, revertToChainError } from '../src/vault/errors';
 import { INDEX_REGISTRY_ABI, VAULT_FACTORY_ABI } from '../src/vault/generated/abi';
-import { ROBINHOOD_TESTNET_POOLS } from '../src/vault/routes';
 import { createEvmRpc } from '../src/vault/rpc';
 
 // A world of vaults on a local copy of Robinhood Chain's test network (46630), as TNET-1 and TNET-2
@@ -249,7 +249,7 @@ export async function buildTestnetWorld(forkUrl: string, port: number): Promise<
       config: { ...config, router: deploymentAddresses(TESTNET_RECORD).router },
       rpc: createEvmRpc(rpcUrl),
       assets: deploymentAssets(TESTNET_RECORD),
-      pools: ROBINHOOD_TESTNET_POOLS,
+      pools: deploymentPools(TESTNET_RECORD),
       trade: 'live',
       autoFollow: true,
     });

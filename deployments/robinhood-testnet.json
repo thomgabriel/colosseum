@@ -52,6 +52,10 @@
       "range": {
         "minPrice": "60152912311",
         "maxPrice": "97020826308"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -72,6 +76,10 @@
       "range": {
         "minPrice": "58600425405",
         "maxPrice": "94516815170"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -92,6 +100,10 @@
       "range": {
         "minPrice": "18524836073",
         "maxPrice": "29878767861"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -112,6 +124,10 @@
       "range": {
         "minPrice": "25893344787",
         "maxPrice": "41763459335"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -132,6 +148,10 @@
       "range": {
         "minPrice": "40752139253",
         "maxPrice": "65729256861"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -152,6 +172,10 @@
       "range": {
         "minPrice": "26803921926",
         "maxPrice": "43232132138"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -172,6 +196,10 @@
       "range": {
         "minPrice": "19513329750",
         "maxPrice": "31473112500"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -192,6 +220,10 @@
       "range": {
         "minPrice": "57726502168",
         "maxPrice": "93107261562"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -212,6 +244,10 @@
       "range": {
         "minPrice": "29319490000",
         "maxPrice": "47289500000"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -232,6 +268,10 @@
       "range": {
         "minPrice": "29419116768",
         "maxPrice": "47450188336"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     },
     {
@@ -252,6 +292,10 @@
       "range": {
         "minPrice": "7840434077",
         "maxPrice": "12645861415"
+      },
+      "pool": {
+        "fee": 500,
+        "tickSpacing": 10
       }
     }
   ],

@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
+import {
+  deploymentAssets,
+  deploymentPools,
+  EvmDeploymentRecord,
+  poolOf,
+  v4Pools,
+} from '@colosseum/chain-evm/vault';
 import { deploymentsOf } from '@colosseum/sdk';
 import { describe, expect, it } from 'vitest';
 
@@ -30,5 +36,122 @@ describe("the guard's Robinhood Chain test network", () => {
     ).toEqual(
       Object.fromEntries(deploymentAssets(record).map((a) => [a.id, [a.address, a.decimals]])),
     );
+  });
+
+  it("names each asset's pool as the record does: what the builder trades through is what the guard holds it to", () => {
+    const guard = deploymentsOf('testnet').robinhood;
+    if (guard?.family !== 'evm') throw new Error('the guard has no EVM entry for robinhood');
+    const pools = deploymentPools(record);
+    expect(guard.assets[guard.cash]?.pool).toBeUndefined();
+    const listed = Object.entries(guard.assets).filter(([id]) => id !== guard.cash);
+    expect(listed.length).toBe(record.assets.length);
+    for (const [id, asset] of listed) {
+      const built = poolOf(
+        pools,
+        record.cash.address as `0x${string}`,
+        asset.token.toLowerCase() as `0x${string}`,
+      );
+      expect(asset.pool, id).toEqual(built);
+      expect(asset.pool, id).toEqual(record.assets.find((a) => a.id === id)?.pool);
+    }
+    // The router's route names no pool of its own: the shape is each asset's.
+    expect(Object.values(guard.routes)).toEqual([
+      { kind: 'universal-router-v4', hooks: `0x${'0'.repeat(40)}` },
+    ]);
+  });
+});
+
+// Mainnet is not deployed to: the guard's file is a placeholder and the contracts' file is refused
+// while it holds an unconfirmed value. What both can already say is which tokens are listed and which
+// pool each trades in, and they have to say the same, token for token.
+describe("Robinhood Chain mainnet, before a deploy: the guard's file and the contracts' file", () => {
+  type GuardFile = {
+    placeholder?: boolean;
+    chains: {
+      robinhood: {
+        evmChainId: number;
+        cash: string;
+        routers: string[];
+        routes: Record<string, { kind: string; hooks: string }>;
+        assets: Record<
+          string,
+          { address: string; decimals: number; pool?: { fee: number; tickSpacing: number } }
+        >;
+      };
+    };
+  };
+  type ContractsFile = {
+    chainId: number;
+    cashToken: string;
+    routers: { router: string }[];
+    assets: {
+      token: string;
+      tokenDecimals: number;
+      feed: string;
+      feedDescription?: string;
+      pool?: { fee: number; tickSpacing: number };
+    }[];
+  };
+  const guard = (
+    JSON.parse(
+      readFileSync(join(ROOT, 'packages', 'sdk', 'deployments', 'mainnet.json'), 'utf8'),
+    ) as GuardFile
+  ).chains.robinhood;
+  const contracts = JSON.parse(
+    readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8'),
+  ) as ContractsFile;
+  const lower = (s: string) => s.toLowerCase();
+
+  it('list the same tokens, with the same decimals and the same pool for each', () => {
+    expect(guard.evmChainId).toBe(contracts.chainId);
+    expect(lower(guard.assets[guard.cash]?.address ?? '')).toBe(lower(contracts.cashToken));
+    expect(guard.routers.map(lower)).toEqual(contracts.routers.map((r) => lower(r.router)));
+    const [cash, ...stocks] = contracts.assets;
+    expect(lower(cash?.token ?? '')).toBe(lower(contracts.cashToken));
+    expect(cash?.pool).toBeUndefined();
+    expect(guard.assets[guard.cash]?.pool).toBeUndefined();
+    // More than NVDA: the launch lists every token that has a pool which quotes.
+    expect(stocks.length).toBeGreaterThan(1);
+    const fromGuard = Object.fromEntries(
+      Object.entries(guard.assets)
+        .filter(([id]) => id !== guard.cash)
+        .map(([, a]) => [lower(a.address), { decimals: a.decimals, pool: a.pool }]),
+    );
+    const fromContracts = Object.fromEntries(
+      stocks.map((a) => [lower(a.token), { decimals: a.tokenDecimals, pool: a.pool }]),
+    );
+    expect(fromGuard).toEqual(fromContracts);
+    for (const a of stocks) {
+      expect(a.pool, a.token).toMatchObject({
+        fee: expect.any(Number),
+        tickSpacing: expect.any(Number),
+      });
+      expect(a.feedDescription, a.token).toBeTruthy();
+    }
+    // One token, one entry, one feed.
+    expect(new Set(stocks.map((a) => lower(a.token))).size).toBe(stocks.length);
+    expect(new Set(stocks.map((a) => lower(a.feed))).size).toBe(stocks.length);
+  });
+
+  it('the builder writes each mainnet token the pool the guard would hold it to', () => {
+    const [, ...stocks] = contracts.assets;
+    const pools = v4Pools(
+      contracts.cashToken,
+      stocks.map((a) => ({ address: a.token, pool: a.pool ?? { fee: -1, tickSpacing: -1 } })),
+    );
+    for (const [id, a] of Object.entries(guard.assets)) {
+      if (id === guard.cash) continue;
+      expect(poolOf(pools, pools.cash, lower(a.address) as `0x${string}`), id).toEqual(a.pool);
+    }
+    expect(
+      new Set(Object.values(pools.byToken).map((p) => `${p.fee}/${p.tickSpacing}`)).size,
+    ).toBeGreaterThan(1);
+  });
+
+  it('are both still refused: nothing is deployed, and a person has confirmed nothing', () => {
+    expect(() => deploymentsOf('mainnet')).toThrow(/placeholder for mainnet/);
+    expect(
+      readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8'),
+    ).toContain('TODO');
   });
 });

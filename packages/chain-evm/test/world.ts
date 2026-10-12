@@ -611,5 +611,8 @@ function stock(
     maxWeightBps: 5000,
     keeperOn,
     range: keeperOn ? { minPrice: '15000000000', maxPrice: '30000000000' } : null,
+    // The reader trades nothing; the shape is the record's to state. NVDA's is the pool the vault's
+    // own fork test trades in.
+    pool: slug === 'nvda' ? { fee: 100, tickSpacing: 1 } : { fee: 3000, tickSpacing: 60 },
   };
 }

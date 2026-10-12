@@ -854,20 +854,53 @@ contract Deploy is Script {
     }
 
     /// What the timelock's owner says of itself, for a person to hold against the Safe they expect.
+    ///
+    /// It reads the owner directly and never calls this contract (`this.checkSafe`): `forge script` refuses
+    /// a script that calls itself, so that call failed the whole run after every transaction had simulated,
+    /// and nothing could have been broadcast. `forge test` allows it, which is why no test saw it; the
+    /// script is now also run as a script, on the timelock path (`test/fixtures/deploy-timelock-31337.json`).
+    /// The rules are `checkSafe`'s own, which a mainnet run has already passed before anything was created.
     function _printSafe(address safe) private view {
-        try this.checkSafe(safe, 0) returns (uint256 threshold, address[] memory owners) {
-            console2.log("  signatures it needs:", threshold);
-            console2.log("  owners:", owners.length);
-            for (uint256 i; i < owners.length; ++i) {
-                console2.log("   ", owners[i]);
-            }
-            console2.log("  modules enabled: none");
-            console2.log("  compare these owners and this threshold with the Safe you mean, before anything else");
-        } catch {
+        (bool answers, uint256 threshold, address[] memory owners) = _safeSays(safe);
+        (bool paged, uint256 inPage, bool pageEnds) = _pagedModules(safe);
+        (bool listed, uint256 inList) = _listedModules(safe);
+        bool noModule = (paged || listed) && (!paged || inPage != 0 || pageEnds) && inPage == 0 && inList == 0;
+        if (!answers || owners.length < 2 || owners.length < threshold || threshold == 0 || !noModule) {
             console2.log(
                 "  it does not answer as a Safe of two or more owners with no module (allowed on a test network only)"
             );
+            return;
         }
+        console2.log("  signatures it needs:", threshold);
+        console2.log("  owners:", owners.length);
+        for (uint256 i; i < owners.length; ++i) {
+            console2.log("   ", owners[i]);
+        }
+        console2.log("  modules enabled: none");
+        console2.log("  compare these owners and this threshold with the Safe you mean, before anything else");
+    }
+
+    /// `getThreshold()` and `getOwners()` of `safe`, read without reverting: whether both answered in the
+    /// shape a Safe answers in, and what they said. A key, or a contract that is no Safe, answers neither.
+    function _safeSays(address safe) private view returns (bool answers, uint256 threshold, address[] memory owners) {
+        bytes memory code = safe.code;
+        if (code.length == 0 || (code.length == 23 && code[0] == 0xef && code[1] == 0x01 && code[2] == 0x00)) {
+            return (false, 0, owners);
+        }
+        bool ok;
+        (ok, threshold) = _word(safe, bytes4(keccak256("getThreshold()")));
+        if (!ok) return (false, 0, owners);
+        bytes memory ret;
+        (ok, ret) = safe.staticcall(abi.encodeWithSelector(bytes4(keccak256("getOwners()"))));
+        if (!ok || ret.length < 64) return (false, 0, owners);
+        uint256 offset;
+        uint256 count;
+        assembly ("memory-safe") {
+            offset := mload(add(ret, 0x20))
+            count := mload(add(ret, 0x40))
+        }
+        if (offset != 32 || count >= 1 << 32 || ret.length != 64 + count * 32) return (false, 0, owners);
+        return (true, threshold, abi.decode(ret, (address[])));
     }
 
     function _print(Config memory cfg, Deployed memory d, address deployer) private view {

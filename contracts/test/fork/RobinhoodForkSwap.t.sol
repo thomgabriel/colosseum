@@ -9,6 +9,7 @@ import {IVaultConfig} from "../../src/interfaces/IVaultConfig.sol";
 import {AssetConfig, Swap, Weight} from "../../src/interfaces/Types.sol";
 import {VaultFactory} from "../../src/VaultFactory.sol";
 import {VaultFixture} from "../helpers/VaultFixture.sol";
+import {ForkBlock} from "./ForkBlock.sol";
 import {UniV4Calldata} from "./UniV4Calldata.sol";
 
 interface IRealToken {
@@ -27,14 +28,13 @@ interface IFeed {
 ///
 /// Opt-in: every test here is skipped unless `RH_FORK_URL` is set, for example
 ///   RH_FORK_URL=https://robinhood.drpc.org pnpm test:contracts
-/// It reads a fork at the block the rig pinned and sends nothing to any network.
+/// It reads a fork at one block (`ForkBlock`: `RH_FORK_BLOCK`, or its default) and sends nothing to any network.
 ///
 /// What it settles that the mocks cannot: that the factory accepts the real router (the probe that refuses
 /// tokens does not misfire on it) and the real tokens, that the vault's exact approval through Permit2 is
 /// what the router needs, that the vault's own balance checks agree with a real fill, and that nothing is
 /// left approved on the real token or inside the real Permit2. It prints the gas each call used.
 contract RobinhoodForkSwapTest is VaultFixture {
-    uint256 internal constant PINNED_BLOCK = 77_417_307;
     address internal constant NVDA = 0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC;
     address internal constant USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
     address internal constant NVDA_FEED = 0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15;
@@ -58,7 +58,7 @@ contract RobinhoodForkSwapTest is VaultFixture {
         string memory url = vm.envOr("RH_FORK_URL", string(""));
         if (bytes(url).length == 0) return;
         forked = true;
-        vm.createSelectFork(url, PINNED_BLOCK);
+        vm.createSelectFork(url, ForkBlock.number());
         _deployPlatform();
 
         // The platform as it would be configured on this chain: the two real tokens with their real

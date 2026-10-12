@@ -35,7 +35,7 @@ import { type Composed, compose } from './compose';
 import { firstShort } from './funds';
 import { BASKET_VAULT_ABI, INDEX_REGISTRY_ABI, VAULT_FACTORY_ABI } from './generated/abi';
 import { createEvmVaultReader, type EvmVaultReader, type EvmVaultReaderOptions } from './reader';
-import { quoteExactIn, swapCalldata, type V4Pools } from './routes';
+import { poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
 import { ask } from './rpc';
 import { createEvmProbe } from './send';
 import { unlistedAssetId, unlistedToken } from './unlisted';
@@ -75,7 +75,7 @@ const ERC20 = parseAbi([
 ]);
 
 export type EvmVaultAdapterOptions = EvmVaultReaderOptions & {
-  /** The pools trades are routed through and priced in. */
+  /** Each asset's pool against cash: what trades are routed through and priced in. */
   pools: V4Pools;
   /** The slippage `quote()` takes off the quoted output for its `minOutRaw`. Default 100 bps. */
   quoteSlippageBps?: number;
@@ -381,6 +381,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         buyable(t.buy);
         const [tokenIn, tokenOut] = [tokenOf(t.sell), tokenOf(t.buy)];
         const amountIn = BigInt(t.amountInRaw);
+        const pool = poolOf(pools, tokenIn, tokenOut);
         const out = await quoteExactIn(rpc, pools, { tokenIn, tokenOut, amountIn });
         const fetchedAt = now().toISOString();
         const minOut = (out * BigInt(10_000 - quoteSlippageBps)) / 10_000n;
@@ -398,7 +399,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const reference = costBps !== null;
         return {
           source: `Uniswap v4 Quoter ${pools.quoter} on ${config.networkName}`,
-          method: `quoteExactInputSingle in the pool of fee ${pools.fee} and tick spacing ${pools.tickSpacing}, no hooks; minimum ${quoteSlippageBps} bps under the quote${
+          method: `quoteExactInputSingle in the asset's pool, of fee ${pool.fee} and tick spacing ${pool.tickSpacing}, no hooks; minimum ${quoteSlippageBps} bps under the quote${
             reference
               ? "; cost against the factory's Chainlink-interface feeds, cash at a dollar"
               : ''
@@ -410,7 +411,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           minOutRaw: minOut.toString(),
           costBps: costBps ?? 0,
           against: reference ? 'reference' : 'pool_mid',
-          venue: `Uniswap v4 (fee ${pools.fee}) through Universal Router ${router ?? 'unset'}`,
+          venue: `Uniswap v4 (fee ${pool.fee}) through Universal Router ${router ?? 'unset'}`,
         };
       }),
 
