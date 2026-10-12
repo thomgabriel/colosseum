@@ -1347,7 +1347,7 @@ function Step({
           <span className="ml-auto inline-flex items-center gap-2">
             <ExplorerLink
               signature={now.txId}
-              href={explorerUrlFor(leg.chain, now.txId, mock)}
+              href={explorerUrlFor(leg.chain, now.txId, mock, mock ? undefined : leg.provenance)}
               explorer={explorer}
               labels={t.order.link}
             />

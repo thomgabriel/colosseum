@@ -407,6 +407,9 @@ function holdTo(
     'priceRef',
     'maxWeightBps',
     'autoFollowEligible',
+    // A row says whose figures it carries: a test network's row on a live chain would be shown as a
+    // test network's, and a live one on a test network as real. The record decides, not the row.
+    'provenance',
   ] as const;
   // A token the deploy retired stays listed on chain and may still be in a vault: its row does not stop
   // the start, and is left out of what the adapter lists.

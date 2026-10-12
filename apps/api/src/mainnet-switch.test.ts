@@ -1,10 +1,12 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
 import { parseChainConfigs, parseFlags } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { evmDeployment, evmRecordFile } from './deployments';
 import { FAUCET_KEY_ENV, faucetKeysFrom, onTestNetwork } from './faucet/test-funds';
 import { createChainRegistry, MAINNET_SWITCH, mainnetAllowed } from './orders/chains';
-import { robinhoodFromEnv } from './routes/v1/index';
+import { holdToEvmRecord, robinhoodFromEnv } from './routes/v1/index';
 
 // Robinhood Chain on mainnet is off unless three things are all there: the network is asked for
 // (`CHAIN_NETWORK_ROBINHOOD=mainnet`), the second switch says so in words (`CHAIN_MAINNET_ROBINHOOD`),
@@ -130,6 +132,47 @@ describe('Robinhood Chain on mainnet', () => {
         active: () => [entry],
       } as never),
     ).toBeNull();
+  });
+
+  it('holds every token row to the record’s own label: a test row on a live chain refuses, and a live row on a test network', () => {
+    const dir = join(import.meta.dirname, '..', '..', '..', 'deployments');
+    const record = EvmDeploymentRecord.parse(
+      JSON.parse(readFileSync(join(dir, 'robinhood-testnet.json'), 'utf8')),
+    );
+    const rows = deploymentAssets(record);
+    expect(holdToEvmRecord(rows, record)).toHaveLength(rows.length);
+    const liveRow = rows.map((r, i) => (i === 1 ? { ...r, provenance: 'live' as const } : r));
+    expect(() => holdToEvmRecord(liveRow, record)).toThrow(
+      /has provenance live, and robinhood-testnet says sandbox/,
+    );
+
+    // The same on a live chain: its record's rows are live, and one left as a test network's refuses.
+    const mainnet = EvmDeploymentRecord.parse({
+      ...JSON.parse(readFileSync(join(dir, 'robinhood-testnet.json'), 'utf8')),
+      network: 'robinhood-mainnet',
+      provenance: 'live',
+      evmChainId: 4663,
+      roles: {
+        admin: `0x${'71'.padStart(40, '0')}`,
+        guardian: `0x${'60'.padStart(40, '0')}`,
+        keeper: `0x${'0'.repeat(40)}`,
+        priceWriter: null,
+        tokenIssuer: null,
+      },
+      priceBoundBps: 200,
+      assets: JSON.parse(readFileSync(join(dir, 'robinhood-testnet.json'), 'utf8')).assets.map(
+        (a: Record<string, unknown>) => ({ ...a, maxTradeUsd: 1000 }),
+      ),
+      timelock: { address: `0x${'71'.padStart(40, '0')}`, minDelay: 172_800 },
+      expected: { launched: false, publishDelay: 172_800, keeperEnabled: true },
+    });
+    const live = deploymentAssets(mainnet);
+    expect(live.every((r) => r.provenance === 'live')).toBe(true);
+    expect(holdToEvmRecord(live, mainnet)).toHaveLength(live.length);
+    const testRow = live.map((r, i) => (i === 0 ? { ...r, provenance: 'sandbox' as const } : r));
+    expect(() => holdToEvmRecord(testRow, mainnet)).toThrow(
+      /has provenance sandbox, and robinhood-mainnet says live/,
+    );
   });
 
   it('looks for the mainnet record under its own name, and finds none committed', () => {

@@ -114,6 +114,35 @@ describe('a mainnet record', () => {
     expect(refused((r) => (r.roles.admin = A(0x99)))).toBe(true);
   });
 
+  it('is refused while it is not whole: a blank token, feed or router, no tokens, a short or missing delay, nothing expected', () => {
+    expect(refused((r) => (r.assets[0].address = A(0)))).toBe(true);
+    expect(refused((r) => (r.assets[0].feed = A(0)))).toBe(true);
+    expect(refused((r) => (r.routers[0].address = A(0)))).toBe(true);
+    expect(refused((r) => (r.assets = []))).toBe(true);
+    expect(refused((r) => delete r.timelock.minDelay)).toBe(true);
+    expect(refused((r) => (r.timelock.minDelay = 172_799))).toBe(true);
+    expect(refused((r) => (r.expected = {}))).toBe(true);
+    for (const key of ['launched', 'publishDelay', 'keeperEnabled'])
+      expect(
+        refused((r) => delete r.expected[key]),
+        key,
+      ).toBe(true);
+  });
+
+  it('is Robinhood Chain’s alone: Base has no mainnet here, under its own number or any other', () => {
+    const base = (r: Json) => {
+      r.chain = 'base';
+      r.network = 'base-mainnet';
+      r.evmChainId = 8453;
+      r.cash.id = 'base:usdg';
+      r.assets[0].id = 'base:nvda';
+    };
+    expect(refused(base)).toBe(true);
+    expect(refused((r) => (r.evmChainId = 1))).toBe(true);
+    // Ethereum's number is a mainnet's too, in a test network's record.
+    expect(EvmDeploymentRecord.safeParse({ ...TESTNET, evmChainId: 1 }).success).toBe(false);
+  });
+
   it('is refused with anything of a test network in it: a price writer, a token issuer of ours', () => {
     expect(refused((r) => (r.roles.priceWriter = A(0x77)))).toBe(true);
     expect(refused((r) => (r.roles.tokenIssuer = A(0x78)))).toBe(true);

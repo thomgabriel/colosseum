@@ -19,7 +19,16 @@ const Raw = z.string().regex(/^\d+$/);
 const Kind = z.enum(['stock', 'etf', 'gold', 'commodity', 'dollar_yield', 'crypto']);
 
 /** The mainnets' chain ids: a node that answers one is mainnet, whatever it is called. */
-export const MAINNET_CHAIN_IDS: Readonly<Record<string, number>> = { robinhood: 4663, base: 8453 };
+export const MAINNET_CHAIN_IDS: Readonly<Record<string, number>> = {
+  ethereum: 1,
+  robinhood: 4663,
+  base: 8453,
+};
+
+/** The one chain a mainnet record is admitted for: the others have no mainnet in this app. */
+const MAINNET_CHAINS: readonly string[] = ['robinhood'];
+/** The least a mainnet's timelock waits, in seconds: 48 hours, as the deploy script holds it. */
+const MIN_MAINNET_DELAY = 172_800;
 
 // Strict throughout: a field the record does not have is a record of another shape, refused.
 const Token = z.strictObject({
@@ -165,8 +174,14 @@ export const EvmDeploymentRecord = z
      * (scripts/ops/authority.ts), which owns their shape; here only the timelock's address is read,
      * to hold `roles.admin` to it. A mainnet's record has both; a test network's need not.
      */
-    timelock: z.looseObject({ address: Address }).optional(),
-    expected: z.looseObject({}).optional(),
+    timelock: z.looseObject({ address: Address, minDelay: z.number().int().optional() }).optional(),
+    expected: z
+      .looseObject({
+        launched: z.boolean().optional(),
+        publishDelay: z.number().int().optional(),
+        keeperEnabled: z.boolean().optional(),
+      })
+      .optional(),
   })
   .superRefine((r, ctx) => {
     const wrong = incompleteMainnet(r);
@@ -218,10 +233,17 @@ function incompleteMainnet(r: {
     priceWriter: string | null;
     tokenIssuer: string | null;
   };
-  routers: readonly unknown[];
+  routers: readonly { address: string }[];
   cash: { address: string };
-  timelock?: { address: string } | undefined;
-  expected?: unknown;
+  assets: readonly { symbol: string; address: string; feed: string }[];
+  timelock?: { address: string; minDelay?: number | undefined } | undefined;
+  expected?:
+    | {
+        launched?: boolean | undefined;
+        publishDelay?: number | undefined;
+        keeperEnabled?: boolean | undefined;
+      }
+    | undefined;
 }): string | null {
   const named = isMainnetRecord(r);
   const numbered = Object.values(MAINNET_CHAIN_IDS).includes(r.evmChainId);
@@ -232,6 +254,7 @@ function incompleteMainnet(r: {
       ? "a mainnet's chain id in a record that is not a mainnet's"
       : 'live is a mainnet record’s to say';
   if (!live) return 'a mainnet record is live, not sandbox';
+  if (!MAINNET_CHAINS.includes(r.chain)) return `${r.chain} has no mainnet in this app`;
   if (r.evmChainId !== MAINNET_CHAIN_IDS[r.chain])
     return `a mainnet record of ${r.chain} carries its mainnet's chain id, ${MAINNET_CHAIN_IDS[r.chain]}`;
   if (r.deployBlock === null) return 'a mainnet record states the block it was deployed in';
@@ -240,12 +263,24 @@ function incompleteMainnet(r: {
   if (r.roles.guardian === ZERO_ADDRESS) return 'a mainnet record states its guardian';
   if (r.roles.priceWriter !== null || r.roles.tokenIssuer !== null)
     return 'a mainnet record has no price writer and no token issuer of ours: its feeds and tokens are real';
-  if (!r.timelock || r.expected === undefined)
+  if (!r.timelock || !r.expected)
     return 'a mainnet record carries its timelock and what the deploy is expected to hold';
   if (r.timelock.address === ZERO_ADDRESS || r.roles.admin !== r.timelock.address)
     return 'the admin of a mainnet record is its timelock';
-  if (r.routers.length === 0) return 'a mainnet record states its router';
+  if (r.timelock.minDelay === undefined || r.timelock.minDelay < MIN_MAINNET_DELAY)
+    return `a mainnet record's timelock waits at least ${MIN_MAINNET_DELAY} s`;
+  if (
+    r.expected.launched === undefined ||
+    r.expected.publishDelay === undefined ||
+    r.expected.keeperEnabled === undefined
+  )
+    return 'a mainnet record says what the deploy is expected to hold: launched, publishDelay, keeperEnabled';
+  if (r.routers.length === 0 || r.routers.some((x) => x.address === ZERO_ADDRESS))
+    return 'a mainnet record states its router';
   if (r.cash.address === ZERO_ADDRESS) return 'a mainnet record states its cash token';
+  if (r.assets.length === 0) return 'a mainnet record lists the tokens it was deployed with';
+  const blank = r.assets.find((a) => a.address === ZERO_ADDRESS || a.feed === ZERO_ADDRESS);
+  if (blank) return `a mainnet record states the token and the feed of ${blank.symbol}`;
   return null;
 }
 

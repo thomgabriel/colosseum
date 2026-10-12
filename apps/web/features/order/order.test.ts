@@ -146,6 +146,25 @@ describe('which chains can be signed on', () => {
     expect(explorerUrlFor('robinhood', null, false)).toBeNull();
   });
 
+  it('gives no link for a step of another network than this app’s: a test step under a mainnet build, or the other way', () => {
+    // This app on the test network: a step labelled live is not on its explorer.
+    expect(explorerUrlFor('robinhood', '0xab', false, 'sandbox')).toBe(
+      'https://explorer.testnet.chain.robinhood.com/tx/0xab',
+    );
+    expect(explorerUrlFor('robinhood', '0xab', false, 'live')).toBeNull();
+    vi.stubEnv('NEXT_PUBLIC_CHAIN_NETWORK_ROBINHOOD', 'mainnet');
+    try {
+      expect(explorerUrlFor('robinhood', '0xab', false, 'live')).toBe(
+        'https://robinhoodchain.blockscout.com/tx/0xab',
+      );
+      // A test network's step left in the database must not get mainnet's explorer for its hash.
+      expect(explorerUrlFor('robinhood', '0xab', false, 'sandbox')).toBeNull();
+      expect(explorerUrlFor('robinhood', '0xab', false, 'mock')).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('signs nothing on mainnet, which has no deployment file', () => {
     vi.stubEnv('NEXT_PUBLIC_CHAIN_NETWORK_SOLANA', 'mainnet');
     try {

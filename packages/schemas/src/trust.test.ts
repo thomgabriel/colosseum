@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { TRUST_STATUS } from './trust';
 
@@ -46,6 +46,29 @@ describe('TRUST_STATUS, on mainnet', () => {
   it('has no mainnet facts for a chain that is not deployed there', () => {
     expect(TRUST_STATUS.mainnet.solana).toBeUndefined();
     expect(TRUST_STATUS.mainnet.base).toBeUndefined();
+  });
+});
+
+// The deploy's own record, once a person has deployed and written it. Until the file exists there is
+// nothing to hold the notice to but the deploy file above; from then on this runs and must pass.
+const recordUrl = new URL('../../../deployments/robinhood-mainnet.json', import.meta.url);
+
+describe.skipIf(!existsSync(recordUrl))('TRUST_STATUS, against the mainnet deploy record', () => {
+  it('names the Safe, the guardian and the delay the record names', () => {
+    const record = JSON.parse(readFileSync(recordUrl, 'utf8')) as {
+      roles: { admin: string; guardian: string; keeper: string };
+      timelock: { address: string; minDelay: number; proposers: string[] };
+      expected: { keeperEnabled: boolean; depositCaps?: unknown };
+    };
+    const facts = TRUST_STATUS.mainnet.robinhood;
+    expect(record.timelock.proposers.map((a) => a.toLowerCase())).toEqual([
+      facts?.safe.toLowerCase(),
+    ]);
+    expect(record.roles.guardian.toLowerCase()).toBe(facts?.guardian.toLowerCase());
+    expect(record.timelock.minDelay / 3600).toBe(facts?.delayHours);
+    expect(record.roles.admin.toLowerCase()).toBe(record.timelock.address.toLowerCase());
+    expect(record.expected.keeperEnabled).toBe(facts?.keeper);
+    expect(record.expected.depositCaps !== undefined).toBe(facts?.depositCap);
   });
 });
 
