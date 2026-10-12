@@ -81,12 +81,23 @@ export const basketOfPlan = (proposalId: string, buyer: string | null = null): s
  * table, never the API's word: a link the API sent could point anywhere, mainnet's explorer included.
  * On the mock, whose transactions are no network's, the mock's own `mock://` link (packages/chain-mock's
  * rule). Null on a network with no explorer, and where there is no transaction.
+ *
+ * `provenance` is the step's own label, where the caller has it: a step of another network of the chain
+ * than this app's has no page on this app's explorer, and gets no link. A test network's step left in
+ * the database must never be handed mainnet's explorer for its hash, nor the other way round.
  */
-export function explorerUrlFor(chain: ChainId, txId: string | null, mock: boolean): string | null {
+export function explorerUrlFor(
+  chain: ChainId,
+  txId: string | null,
+  mock: boolean,
+  provenance?: string,
+): string | null {
   if (!txId) return null;
   if (mock) return `mock://${chain}/tx/${txId}`;
   try {
-    return explorerLink(walletChains(publicWalletEnv())[chain].config, txId);
+    const mine = walletChains(publicWalletEnv())[chain];
+    if (provenance !== undefined && provenance !== mine.provenance) return null;
+    return explorerLink(mine.config, txId);
   } catch {
     return null;
   }
@@ -129,4 +140,16 @@ export function explorerAddressUrlFor(
 export function explorerAddressTemplateFor(chain: ChainId, mock: boolean): string | null {
   const SLOT = 'ADDRESS-SLOT';
   return explorerAddressUrlFor(chain, SLOT, mock)?.replace(SLOT, '{address}') ?? null;
+}
+
+/**
+ * Whether a chain's figures are live in this app: its network variable says mainnet. This app's own
+ * word, as every label's is, never the API's. False when the table cannot be read.
+ */
+export function chainIsLive(chain: ChainId): boolean {
+  try {
+    return walletChains(publicWalletEnv())[chain].provenance === 'live';
+  } catch {
+    return false;
+  }
 }

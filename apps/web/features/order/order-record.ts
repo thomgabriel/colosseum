@@ -286,11 +286,19 @@ export function trustAccepted(
   version: string,
   /** This buy's vault may be traded by the keeper: the acceptance must have shown its limits. */
   keeper = true,
+  /**
+   * This buy is on a live network, with real money: the acceptance must have been of the live notice,
+   * which says other things than a test network's. One kept before this was recorded was not.
+   */
+  live = false,
 ): boolean {
   if (!userId) return false;
   try {
     const raw = window.localStorage.getItem(TRUST_KEY(userId));
-    const read = raw ? (JSON.parse(raw) as { textVersion?: unknown; keeperShown?: unknown }) : null;
+    const read = raw
+      ? (JSON.parse(raw) as { textVersion?: unknown; keeperShown?: unknown; liveShown?: unknown })
+      : null;
+    if (live && read?.liveShown !== true) return false;
     // An acceptance kept before this was recorded was of the notice with every point.
     return read?.textVersion === version && (!keeper || read.keeperShown !== false);
   } catch {
@@ -302,16 +310,21 @@ export function acceptTrust(
   userId: string,
   version: (typeof TRUST_STATUS)['textVersion'],
   keeperShown = true,
+  /** The notice accepted was the live network's. */
+  liveShown = false,
 ): void {
   try {
-    // An acceptance that showed the keeper's limits is not written over by one that did not.
+    // An acceptance that showed the keeper's limits is not written over by one that did not, and one
+    // of the live notice is not written over by a test network's.
     const before = keeperShown ? false : trustAccepted(userId, version, true);
+    const liveBefore = liveShown ? false : trustAccepted(userId, version, false, true);
     window.localStorage.setItem(
       TRUST_KEY(userId),
       JSON.stringify({
         textVersion: version,
         acceptedAt: new Date().toISOString(),
         keeperShown: keeperShown || before,
+        liveShown: liveShown || liveBefore,
       }),
     );
   } catch {

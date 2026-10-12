@@ -61,7 +61,7 @@ import {
 import { legsInOrder, type NextStep, type OutcomeView, outcomeView, stepOf } from './order-view';
 import { readStoredPlan } from './plan-store';
 import { targetsOfPlan } from './plan-terms';
-import { chainReady, explorerUrlFor, onMock } from './readiness';
+import { chainIsLive, chainReady, explorerUrlFor, onMock } from './readiness';
 import { planNumberOf, type RunOutcome, useOrderRunner } from './run-order';
 import { TrustNotice } from './TrustNotice';
 import { tradeLine } from './trade-line';
@@ -769,7 +769,7 @@ export function OrderScreen({
     !embed &&
     buying &&
     !record.approved &&
-    !trustAccepted(userId, TRUST_STATUS.textVersion, keeperTrades);
+    !trustAccepted(userId, TRUST_STATUS.textVersion, keeperTrades, chainIsLive(chain));
   // What holds the first press back: in the invest card, the host's reasons; here, the notice.
   const held = record.approved
     ? []
@@ -1076,7 +1076,13 @@ export function OrderScreen({
                     accepts.current = embed
                       ? embed.onStarted
                       : trustAsked && userId
-                        ? () => acceptTrust(userId, TRUST_STATUS.textVersion, keeperTrades)
+                        ? () =>
+                            acceptTrust(
+                              userId,
+                              TRUST_STATUS.textVersion,
+                              keeperTrades,
+                              chainIsLive(chain),
+                            )
                         : null;
                   }
                   go(
@@ -1340,7 +1346,7 @@ function Step({
           <span className="ml-auto inline-flex items-center gap-2">
             <ExplorerLink
               signature={now.txId}
-              href={explorerUrlFor(leg.chain, now.txId, mock)}
+              href={explorerUrlFor(leg.chain, now.txId, mock, mock ? undefined : leg.provenance)}
               explorer={explorer}
               labels={t.order.link}
             />
