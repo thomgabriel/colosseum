@@ -726,6 +726,395 @@
       "unverified": ["the holding"]
     },
     {
+      "address": "J6pQQ3FAcJQeWPPGppWRb4nM8jU3wLyYbRrLh7feMfvd",
+      "symbol": "2Z",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "DoubleZero",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "2Z",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/doublezero",
+          "title": "CoinGecko, DoubleZero: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "a11bdAAuV8iB2fu7X6AxAvDTo1QZ8FXB3kk5eecdasp",
+      "symbol": "ABR",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Allbridge Zero",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ABR",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/allbridge",
+          "title": "CoinGecko, Allbridge Zero: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "BLZEEuZUBVqFhj8adcCFPJvPVCiCyVmh3hkJMrU8KuJA",
+      "symbol": "BLZE",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Blaze",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "BLZE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/solblaze",
+          "title": "CoinGecko, Blaze: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "6dKCoWjpj5MFU5gWDEFdpUUeBasBLK3wLEwhUzQPAa1e",
+      "symbol": "CHEX",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Chintai",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "CHEX",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/chex-token",
+          "title": "CoinGecko, Chintai: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "DBRiDgJAMsM95moTzJs7M9LnkGErpbv9v6CUR1DXnUu5",
+      "symbol": "DBR",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "deBridge",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "DBR",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/debridge",
+          "title": "CoinGecko, deBridge: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "DriFtupJYLTosbwoN8koMbEYSx54aFAVLddWsbksjwg7",
+      "symbol": "DRIFT",
+      "category": "governance",
+      "status": "excluded",
+      "statusReason": "exploit-linked: Drift was exploited on 2026-04-01 (the research note, section 3.2, USDC+)",
+      "verdictSource": "docs/vault/research/yield-shelf/solana.md, section 3.2, USDC+",
+      "issuer": "Drift",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "DRIFT",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/drift-protocol",
+          "title": "CoinGecko, Drift Protocol: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "docs/vault/research/yield-shelf/solana.md",
+          "title": "The yield shelf on Solana, section 3.2, USDC+ (the Drift exploit)",
+          "readOn": "2026-10-06"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "72QvBVwpxqmheEPfaCwWSWqEFsUy3rhWt6JhQBMNTwD1",
+      "symbol": "ENA",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Ethena",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ENA",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/ethena",
+          "title": "CoinGecko, Ethena: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+          "title": "Ethena docs, Key Addresses (Solana row)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "EchesyfXePKdLtoiZSL8pBe8Myagyy8ZRqsACNCFGnvp",
+      "symbol": "FIDA",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Bonfida",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "FIDA",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/bonfida",
+          "title": "CoinGecko, Bonfida: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "31k88G5Mq7ptbRDf3AM13HAq6wRQHXHikR8hik7wPygk",
+      "symbol": "GP",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Graphite Protocol",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "GP",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/graphite-protocol",
+          "title": "CoinGecko, Graphite Protocol: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "HxhWkVpk5NS4Ltg5nij2G671CKXFRKPK8vy271Ub4uEK",
+      "symbol": "HXRO",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "HXRO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/hxro",
+          "title": "CoinGecko, HXRO: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
       "address": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
       "symbol": "JTO",
       "category": "governance",
@@ -842,6 +1231,310 @@
       ]
     },
     {
+      "address": "LFNTYraetVioAPnGJht4yNg2aUZFXR776cMeN9VMjXp",
+      "symbol": "LFNTY",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Lifinity",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "LFNTY",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/lifinity",
+          "title": "CoinGecko, Lifinity: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "symbol": "MET",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Meteora",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "MET",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/meteora",
+          "title": "CoinGecko, Meteora: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "METAwkXcqyXKy1AtsSgJ8JiUHwGCafnZL38n3vYmeta",
+      "symbol": "META",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "MetaDAO",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "META",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/meta-2-2",
+          "title": "CoinGecko, MetaDAO: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "MNDEFzGvMt87ueuHvVU9VcTqsAP5b3fTGPsHuuPA5ey",
+      "symbol": "MNDE",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Marinade",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "MNDE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/marinade",
+          "title": "CoinGecko, Marinade: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac",
+      "symbol": "MNGO",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Mango",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "MNGO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/mango-markets",
+          "title": "CoinGecko, Mango: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "mb1eu7TzEc71KxDpsmsKoucSSuuoGLv1drys1oP2jh6",
+      "symbol": "MOBILE",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Helium Mobile",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "MOBILE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/helium-mobile",
+          "title": "CoinGecko, Helium Mobile: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+      "symbol": "ORCA",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Orca",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ORCA",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/orca",
+          "title": "CoinGecko, Orca: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "4LLbsb5ReP3yEtYzmXewyGjcir5uXtKFURtaEUVC2AHs",
+      "symbol": "PRCL",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Parcl",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "PRCL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/parcl",
+          "title": "CoinGecko, Parcl: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
       "address": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
       "symbol": "PYTH",
       "category": "governance",
@@ -915,6 +1608,386 @@
       "unverified": [
         "the mint on an issuer page",
         "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "8SMMso8Muv8d6i4WmMDthKt6TN1ysN6937sx3DKLXZqB",
+      "symbol": "RHEA",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "RHEA",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "RHEA",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/rhea-2",
+          "title": "CoinGecko, RHEA: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "CLoUDKc4Ane7HeQcPpE3YHnznRxhMimJ4MyaUqyHFzAu",
+      "symbol": "SANC",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Sanctum",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SANC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/sanctum-2",
+          "title": "CoinGecko, Sanctum: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "SarosY6Vscao718M4A778z4CGtvcwcGef5M9MEH1LGL",
+      "symbol": "SAROS",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Saros",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SAROS",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/saros-finance",
+          "title": "CoinGecko, Saros: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "Saber2gLauYim4Mvftnrasomsv6NvAuncvMEZwcLpD1",
+      "symbol": "SBR",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Saber",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SBR",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/saber",
+          "title": "CoinGecko, Saber: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "symbol": "SKR",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Seeker",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SKR",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/seeker",
+          "title": "CoinGecko, Seeker: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "AT79ReYU9XtHUTF5vM6Q4oa9K8w7918Fp5SU7G1MDMQY",
+      "symbol": "SPDR",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "SpiderSwap",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SPDR",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/spiderswap",
+          "title": "CoinGecko, SpiderSwap: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
+      "symbol": "SRM",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Serum",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SRM",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/serum",
+          "title": "CoinGecko, Serum: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "GTH3wG3NErjwcf7VGCoXEXkgXSHvYhx5gtATeeM5JAS1",
+      "symbol": "WHALES",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Whales Market",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "WHALES",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/whales-market",
+          "title": "CoinGecko, Whales Market: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "ZEUS1aR7aX8DFFJf5QjWj2ftDDdNTroMNGo8YoQm3Gq",
+      "symbol": "ZEUS",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Zeus Network",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ZEUS",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/zeus-network",
+          "title": "CoinGecko, Zeus Network: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "ZEXy1pqteRu3n13kdyh4LwPQknkFk3GzmMYMuNadWPo",
+      "symbol": "ZEX",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Zeta",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ZEX",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/zeta",
+          "title": "CoinGecko, Zeta: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
       ]
     },
     {
@@ -1244,6 +2317,43 @@
       ]
     },
     {
+      "address": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+      "symbol": "LBTC",
+      "category": "liquid_staking",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Lombard",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/lombard-staked-btc",
+          "title": "CoinGecko, Lombard BTC: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
       "address": "Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ",
       "symbol": "dSOL",
       "category": "liquid_staking",
@@ -1355,6 +2465,43 @@
       ]
     },
     {
+      "address": "yso11zxLbHA3wBJ9HAtVu6wnesqz9A2qxnhxanasZ4N",
+      "symbol": "ySOL",
+      "category": "liquid_staking",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Synatra",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "SOL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/synatra-staked-sol",
+          "title": "CoinGecko, Synatra Staked SOL: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
       "address": "So11111111111111111111111111111111111111112",
       "symbol": "SOL",
       "category": "native",
@@ -1388,6 +2535,43 @@
         }
       ],
       "unverified": []
+    },
+    {
+      "address": "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+      "symbol": "JLP",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "a fungible share of a perps pool: no class takes it yet",
+      "verdictSource": null,
+      "issuer": "Jupiter",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "JLP",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/jupiter-perpetuals-liquidity-provider-token",
+          "title": "CoinGecko, Jupiter Perpetuals Liquidity Provider Token: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
     },
     {
       "address": "5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5",
@@ -1462,6 +2646,117 @@
         }
       ],
       "unverified": ["the mint on an issuer page", "what backs it in full", "geo-blocks"]
+    },
+    {
+      "address": "2uxaYT1fVrp6Fg2BrxQcyKSW91hefM6dG9krpbeDiirT",
+      "symbol": "reUSD",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "a dollar of a reinsurance protocol: none of the four leg types fits as read, as with ONyc",
+      "verdictSource": null,
+      "issuer": "Re Protocol",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "reUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/re-protocol-reusd",
+          "title": "CoinGecko, Re Protocol reUSD: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "7ga6rtE9qSb3wdEiDCpTu2kHqoGVfT52jD8ign1rYTvx",
+      "symbol": "xHYPE",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "a leveraged token: no class takes it",
+      "verdictSource": null,
+      "issuer": "Hylo",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "xHYPE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/xhype-3",
+          "title": "CoinGecko, Hylo 3x Leveraged HYPE: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "4sWNB8zGWHkh6UnmwiEtzNxL4XrN7uK9tosbESbJFfVs",
+      "symbol": "xSOL",
+      "category": "other",
+      "status": "held_out",
+      "statusReason": "a leveraged token: no class takes it",
+      "verdictSource": null,
+      "issuer": "Hylo",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "xSOL",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/hylo-leveraged-sol",
+          "title": "CoinGecko, Hylo Leveraged SOL: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
     },
     {
       "address": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
@@ -1800,6 +3095,120 @@
       "unverified": ["what backs MEX"]
     },
     {
+      "address": "AhhdRu5YZdjVkKR3wbnUDaymVQL2ucjMQ63sZ3LFHsch",
+      "symbol": "VCHF",
+      "category": "stablecoin_other",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "VNX",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "VCHF",
+      "underlyingReason": null,
+      "currency": "CHF",
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/vnx-swiss-franc",
+          "title": "CoinGecko, VNX Swiss Franc: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
+      "address": "9mV4WUukVsva5wYcYW4veo34CNDiF44sh3Ji65JNdvh5",
+      "symbol": "TRUNK",
+      "category": "stablecoin_synthetic",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Elephant Money",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "TRUNK",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/elephant-money-trunk",
+          "title": "CoinGecko, Elephant Money (TRUNK): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
+      "address": "USDH1SM1ojwWUga67PGrgFWUHibbjqMvuMaDkRJTgkX",
+      "symbol": "USDH",
+      "category": "stablecoin_synthetic",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Hubble",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USDH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/usdh",
+          "title": "CoinGecko, USDH: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
       "address": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
       "symbol": "USDS",
       "category": "stablecoin_synthetic",
@@ -1873,6 +3282,197 @@
       "unverified": ["how USDe reaches Solana (the bridge) and how it is redeemed there"]
     },
     {
+      "address": "USDvUSpnhCr9yBgj3UyVrD239HRUv4RsHwH2FxsWuMk",
+      "symbol": "USDv",
+      "category": "stablecoin_synthetic",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Solomon",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "USDv",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/solomon-usdv",
+          "title": "CoinGecko, Solomon USDv: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
+      "address": "9vMJfxuKxXBoEa7rM12mYLMwTacLMLDJqHozw96WQL8i",
+      "symbol": "UST",
+      "category": "stablecoin_synthetic",
+      "status": "excluded",
+      "statusReason": "defunct as a dollar: TerraUSD lost its peg in May 2022 and never regained it",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "UST",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/terrausd-wormhole",
+          "title": "CoinGecko, TerraUSD (Wormhole): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the depeg of 2022: not read on a page today"
+      ]
+    },
+    {
+      "address": "7kbnvuGBxxj8AG9qp8Scn56muWGaRaFqxg1FsRp3PaFT",
+      "symbol": "UXD",
+      "category": "stablecoin_synthetic",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "UXD",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "UXD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/uxd-stablecoin",
+          "title": "CoinGecko, UXD Stablecoin: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
+      "address": "HAYQtfJEQ9DbDbaHEhxfGsWbSZ3ywthdsVB3PuB72DYe",
+      "symbol": "apxUSD",
+      "category": "stablecoin_synthetic",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "apxUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/apxusd",
+          "title": "CoinGecko, apxUSD: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it",
+        "the issuer"
+      ]
+    },
+    {
+      "address": "5YMkXAYccHSGnHn9nob9xEvv6Pvka9DZWH7nTbotTu9E",
+      "symbol": "hyUSD",
+      "category": "stablecoin_synthetic",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Hylo",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "hyUSD",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/hylo-usd",
+          "title": "CoinGecko, Hylo USD: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
       "address": "AUSD1jCcCyPLybk1YnvPWsHQSrZ46dxwoMniN4N2UEB9",
       "symbol": "AUSD",
       "category": "stablecoin_usd",
@@ -1906,6 +3506,45 @@
         }
       ],
       "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
+    },
+    {
+      "address": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
+      "symbol": "CASH",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "CASH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/cash-4",
+          "title": "CoinGecko, CASH: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it",
+        "the issuer"
+      ]
     },
     {
       "address": "9zNQRsGLjNKwCUU5Gq5LR8beUCPzQMVMqKAi3SSZh54u",
@@ -2050,6 +3689,44 @@
       "unverified": ["the mint on an issuer page"]
     },
     {
+      "address": "A9mUU4qviSctJVPJdBJWkb28deg915LYJKrzQ19ji3FM",
+      "symbol": "USDC",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "USDC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/usd-coin-wormhole-from-ethereum",
+          "title": "CoinGecko, Bridged USD Coin (Wormhole Ethereum): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "symbol": "USDC",
       "category": "stablecoin_usd",
@@ -2123,6 +3800,82 @@
         }
       ],
       "unverified": []
+    },
+    {
+      "address": "HVbpJAQGNpkgBaYBZQBR1t7yFdvaYVp2vCQQfKKEN4tM",
+      "symbol": "USDP",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Paxos",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "USDP",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/paxos-standard",
+          "title": "CoinGecko, Pax Dollar: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
+    },
+    {
+      "address": "Dn4noZ5jgGfkntzcQSUZ8czkreiZ1ForXYoV2H8Dm7S1",
+      "symbol": "USDT",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "USDT",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/tether-usd-wormhole-from-ethereum",
+          "title": "CoinGecko, Wormhole Bridged USDT: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it"
+      ]
     },
     {
       "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
@@ -2204,6 +3957,45 @@
       ]
     },
     {
+      "address": "xoUSDq85Rjsb6SbUwJyreFgeWQvxdkT7R3c3g7s6p5Y",
+      "symbol": "XO",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "a stablecoin no research note has screened: held out until one does",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "XO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/xo-cash",
+          "title": "CoinGecko, XO Cash: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "what backs it",
+        "the issuer"
+      ]
+    },
+    {
       "address": "5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW",
       "symbol": "PAXG",
       "category": "tokenized_gold",
@@ -2242,6 +4034,43 @@
         }
       ],
       "unverified": []
+    },
+    {
+      "address": "AymATz4TCL9sWNEEV9Kvyz45CHVhDZ6kUgjTJPzLpU9P",
+      "symbol": "XAUt0",
+      "category": "tokenized_gold",
+      "status": "candidate",
+      "statusReason": "gold, not the shelf's: gate GOLD-PAXG names PAXG for gold on Solana; not decided",
+      "verdictSource": "docs/GATES.md, GOLD-PAXG",
+      "issuer": "Tether",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "XAUt0",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/tether-gold-tokens",
+          "title": "CoinGecko, Tether Gold Tokens: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
     },
     {
       "address": "A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6",
@@ -2453,6 +4282,43 @@
       "unverified": []
     },
     {
+      "address": "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E",
+      "symbol": "BTC",
+      "category": "wrapped_btc",
+      "status": "excluded",
+      "statusReason": "a Sollet-bridged token: Sollet's bridge, run by FTX, stopped in November 2022 (not read on a page today)",
+      "verdictSource": null,
+      "issuer": "Sollet",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wrapped-bitcoin-sollet",
+          "title": "CoinGecko, Wrapped Bitcoin (Sollet): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
       "address": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
       "symbol": "WBTC",
       "category": "wrapped_btc",
@@ -2484,6 +4350,43 @@
         "a wrapped token of a wrapped token: Ethereum's WBTC carried by the Wormhole bridge, as the on-chain name says",
         "the mint on an issuer page",
         "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "5XZw2LKTyrfvfiskJ78AMpackRjPcyCif1WhUsPDuVqQ",
+      "symbol": "WBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "BitGo",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wrapped-bitcoin",
+          "title": "CoinGecko, Wrapped Bitcoin: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
       ]
     },
     {
@@ -2525,6 +4428,80 @@
       ]
     },
     {
+      "address": "6DNSN2BJsaPFdFFc1zP37kkeNe4Usc1Sqkzr9C9vPWcU",
+      "symbol": "tBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Threshold",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/tbtc",
+          "title": "CoinGecko, tBTC: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "CtzPWv73Sn1dMGVU3ZtLv9yWSyUAanBni19YWDaznnkn",
+      "symbol": "xBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "OKX",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/okx-wrapped-btc",
+          "title": "CoinGecko, OKX Wrapped BTC: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
       "address": "zBTCug3er3tLyffELcvDNrKkCymbPWysGcWihESYfLg",
       "symbol": "zBTC",
       "category": "wrapped_btc",
@@ -2553,6 +4530,80 @@
         }
       ],
       "unverified": ["the issuer and the bridge behind it", "the mint on an issuer page"]
+    },
+    {
+      "address": "9hX59xHHnaZXLU6quvm5uGY2iDiT3jczaReHy6A6TYKw",
+      "symbol": "zenBTC",
+      "category": "wrapped_btc",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Zenrock",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "BTC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wrapped-zenbtc",
+          "title": "CoinGecko, Zenrock BTC: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk",
+      "symbol": "ETH",
+      "category": "wrapped_eth",
+      "status": "excluded",
+      "statusReason": "a Sollet-bridged token: Sollet's bridge, run by FTX, stopped in November 2022 (not read on a page today)",
+      "verdictSource": null,
+      "issuer": "Sollet",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "ETH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wrapped-ethereum-sollet",
+          "title": "CoinGecko, Wrapped Ethereum (Sollet): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
     },
     {
       "address": "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
@@ -2585,6 +4636,530 @@
       "unverified": [
         "the mint on an issuer page",
         "the issuer: from the token's name on chain, not read on an issuer page"
+      ]
+    },
+    {
+      "address": "98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g",
+      "symbol": "HYPE",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Wormhole",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "HYPE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wormhole-bridged-hype",
+          "title": "CoinGecko, Wormhole Bridged HYPE: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "1NJMqVM4PadjuzYmeB7zV7q7DV8oB3ExaQCd9x6KsLz",
+      "symbol": "INJ",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "INJ",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/injective-protocol",
+          "title": "CoinGecko, Injective: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the bridge or issuer behind it"
+      ]
+    },
+    {
+      "address": "F6v4wfAdJB8D8p77bMXZgYt8TDKsYxLYxH5AFhUkYx9W",
+      "symbol": "LUNA",
+      "category": "wrapped_other",
+      "status": "held_out",
+      "statusReason": "Terra Classic after its 2022 collapse; not screened",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "LUNC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/luna-wormhole",
+          "title": "CoinGecko, Terra Classic (Wormhole): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the collapse of 2022: not read on a page today"
+      ]
+    },
+    {
+      "address": "CrAr4RRJMBVwRsZtT62pEhfA9H5utymC2mVx8e7FreP2",
+      "symbol": "MON",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "MON",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wrapped-monad",
+          "title": "CoinGecko, Wrapped MON: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the bridge or issuer behind it"
+      ]
+    },
+    {
+      "address": "PEAQjk7SRS6rXHVFFmpRr7zrC4g5ZuEebpwTxvaLr3b",
+      "symbol": "PEAQ",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "PEAQ",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/peaq-2",
+          "title": "CoinGecko, peaq: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the bridge or issuer behind it"
+      ]
+    },
+    {
+      "address": "HsRpHQn6VbyMs5b5j5SV6xQ2VvpvvCCzu19GjytVSCoz",
+      "symbol": "STRK",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "STRK",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/starknet",
+          "title": "CoinGecko, Starknet: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the bridge or issuer behind it"
+      ]
+    },
+    {
+      "address": "GbbesPbaYh5uiAZSYNXTc7w9jty1rpg3P9L4JeN4LkKc",
+      "symbol": "TRX",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "not_read",
+      "issuerKind": null,
+      "underlying": "TRX",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/solana-bridged-trx-solana",
+          "title": "CoinGecko, Solana Bridged TRX (Solana): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page",
+        "the bridge or issuer behind it"
+      ]
+    },
+    {
+      "address": "9gP2kCy3wA1ctvYWQk75guqXuHfrEomqydHLtcTCqiLa",
+      "symbol": "WBNB",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Wormhole (Portal)",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "BNB",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/binance-coin-wormhole",
+          "title": "CoinGecko, Wrapped BNB (Wormhole): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+      "symbol": "ZEC",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "OmniBridge",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "ZEC",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/omnibridge-bridged-zcash-solana",
+          "title": "CoinGecko, OmniBridge Bridged Zcash (Solana): its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "6UpQcMAb5xMzxc7ZfPaVMgx3KqsvKZdT5U718BzD5We2",
+      "symbol": "wXRP",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Hex Trust",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
+      "underlying": "XRP",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/hex-trust-wrapped-xrp",
+          "title": "CoinGecko, Hex Trust Wrapped XRP: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "4qQeZ5LwSz6HuupUu8jCtgXyW1mYQcNbFAW1sWZp89HL",
+      "symbol": "Cake",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "PancakeSwap",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "Cake",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-12"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/pancakeswap-token",
+          "title": "CoinGecko, PancakeSwap: its coin list names this Solana mint; its categories decentralized-exchange, decentralized-perpetuals",
+          "readOn": "2026-10-12"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "61V8vBaqAGMpgDQi4JcAwo1dmBGHsyhzodcPqnEVpump",
+      "symbol": "arc",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "AI Rig Complex",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "arc",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-12"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/ai-rig-complex",
+          "title": "CoinGecko, AI Rig Complex: its coin list names this Solana mint; its categories infrastructure",
+          "readOn": "2026-10-12"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "AavE1kKKnesPw4MuRJmJ9jZs9QzEE8CPxQ3ViczUDfc1",
+      "symbol": "AAVE",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Aave",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "AAVE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-12"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/aave",
+          "title": "CoinGecko, Aave: its coin list names this Solana mint; its categories lending-borrowing",
+          "readOn": "2026-10-12"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L",
+      "symbol": "LINK",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Chainlink",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "LINK",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-12"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/chainlink",
+          "title": "CoinGecko, Chainlink: its coin list names this Solana mint; its categories oracle, infrastructure",
+          "readOn": "2026-10-12"
+        }
+      ],
+      "unverified": [
+        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
       ]
     }
   ]

@@ -10,8 +10,15 @@ import { UniverseList, UniverseVerdicts } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import {
   ASSETS_METHOD,
+  categoryCall,
+  isLaunchpadPlatform,
+  isSelected,
   kindOfName,
+  LEFT_OUT_FILE,
+  LeftOut,
   MATCH_KEYS,
+  MEME_CATEGORIES,
+  PROTOCOL_CATEGORIES,
   ruleMatches,
   type SolanaReads,
   solanaList,
@@ -29,6 +36,7 @@ import { repoInputs } from '../scripts/risk/assets/solana-repo';
 const LIST = 'scripts/risk/assets/solana.json';
 const committed = () => JSON.parse(readFileSync(LIST, 'utf8'));
 const verdicts = () => UniverseVerdicts.parse(JSON.parse(readFileSync(VERDICTS_FILE, 'utf8')));
+const leftOut = () => LeftOut.parse(JSON.parse(readFileSync(LEFT_OUT_FILE, 'utf8')));
 const fixtureOf = (list: { inputs: Record<string, string> }) => {
   const stamp = list.inputs.reads?.match(/solana-reads-(\d{8}T\d{4}Z)\.json/)?.[1];
   if (!stamp) throw new Error('the committed list names no reads file');
@@ -171,7 +179,7 @@ describe('the committed list', () => {
     const list = UniverseList.parse(file);
     expect(list.chain).toBe('solana');
     expect(list.method).toBe(ASSETS_METHOD);
-    expect(file).toEqual(JSON.parse(JSON.stringify(solanaList(reads, verdicts()).list)));
+    expect(file).toEqual(JSON.parse(JSON.stringify(solanaList(reads, verdicts(), leftOut()).list)));
   });
 
   it('reads every row on chain at a recorded slot and gives each a source', () => {
@@ -276,7 +284,7 @@ describe('the rules and the name method', () => {
         t.id === PENGU ? { ...t, tags: [...t.tags, 'xstocks'] } : t,
       ),
     };
-    const list = solanaList(tagged, verdicts()).list;
+    const list = solanaList(tagged, verdicts(), leftOut()).list;
     expect(list.assets.some((a) => a.address === PENGU)).toBe(false);
     expect(list.counts.rows).toBe(committed().counts.rows);
   });
@@ -336,9 +344,119 @@ describe('the rules and the name method', () => {
         },
       ],
     });
-    const list = solanaList(reads, partial).list;
+    // PENGU is a meme by CoinGecko and would leave before its rules are read: the test reads it unnamed there
+    const { [PENGU]: _pengu, ...byMint } = reads.coingecko.byMint;
+    const unnamed = { ...reads, coingecko: { ...reads.coingecko, byMint } };
+    const list = solanaList(unnamed, partial, leftOut()).list;
     expect(list.assets.some((a) => a.address === PENGU)).toBe(false);
     expect(list.stated.rules).toContain('PENGU: category');
+  });
+});
+
+describe('the crypto selection', () => {
+  it('reviews every token it picks: a row, or left out with the reason and its source', () => {
+    const list = UniverseList.parse(committed());
+    expect(list.stated.crypto).not.toMatch(/not_reviewed \(\d/);
+    const rows = new Set(list.assets.map((a) => a.address));
+    const left = leftOut().tokens;
+    expect(left.filter((t) => rows.has(t.address))).toEqual([]);
+    const picked = new Set(reads.jupiter.filter(isSelected).map((t) => t.id));
+    expect(left.filter((t) => !picked.has(t.address))).toEqual([]);
+    expect(left.filter((t) => t.reason === 'memecoin').length).toBeGreaterThan(0);
+  });
+
+  it("names each new crypto row's mint on CoinGecko's list, as the reads hold it", () => {
+    const list = UniverseList.parse(committed());
+    const cg = list.assets.filter((a) =>
+      a.sources.some((s) => s.url.startsWith('https://www.coingecko.com/en/coins/')),
+    );
+    // 68 on 2026-10-12, after the category rule took out the tokens no protocol category holds
+    expect(cg.length).toBeGreaterThan(60);
+    for (const a of cg) {
+      const id = a.sources
+        .find((s) => s.url.startsWith('https://www.coingecko.com/en/coins/'))
+        ?.url.split('/')
+        .pop();
+      expect(reads.coingecko.byMint[a.address]?.id).toBe(id);
+    }
+    const jlp = list.assets.find((a) => a.symbol === 'JLP');
+    expect([jlp?.category, jlp?.status, jlp?.statusReason]).toEqual([
+      'other',
+      'held_out',
+      'a fungible share of a perps pool: no class takes it yet',
+    ]);
+    expect(list.assets.find((a) => a.address === USDC)?.id).toBe('solana:usdc');
+  });
+
+  it('keeps every id of the list committed before the run with its address', () => {
+    const list = UniverseList.parse(committed());
+    const byAddress = new Map(list.assets.map((a) => [a.address, a.id]));
+    const moved = Object.entries(reads.previousIds.byAddress)
+      .filter(([a, id]) => byAddress.has(a) && byAddress.get(a) !== id)
+      .map(([a, id]) => `${id} -> ${byAddress.get(a)}`);
+    expect(moved).toEqual([]);
+    // the four ids the crypto additions had moved to suffixed ones (review of 9aa2a8d7)
+    for (const [id, address] of [
+      ['solana:arx', 'Xscms1jQDud7fsxLTKibMVxSTSQz3JFeJ1HDshRkPwc'],
+      ['solana:chex', 'Xso4JpBFSzQe6cpGR4yCqgi9x1dkC8BNyJ2gyMe2B5C'],
+      ['solana:xsol', 'B5GgNAZQDN8vPrQ15jPrXmJxVtManHLqHogj9B9i4zSs'],
+      ['solana:wbtc', '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh'],
+    ] as const)
+      expect(list.assets.find((a) => a.id === id)?.address).toBe(address);
+  });
+
+  it("makes the meme and protocol calls from CoinGecko's frozen categories", () => {
+    const list = UniverseList.parse(committed());
+    const coinOf = (a: string) => reads.coingecko.byMint[a];
+    for (const a of list.assets) {
+      const cg = coinOf(a.address);
+      if (cg) expect(categoryCall(reads.categories, cg).meme).toEqual([]);
+    }
+    const gov = list.assets.filter((a) => a.category === 'governance' && coinOf(a.address));
+    expect(gov.length).toBeGreaterThan(30);
+    for (const a of gov) {
+      const call = categoryCall(
+        reads.categories,
+        coinOf(a.address) as { id: string; name: string },
+      );
+      const ownPage = a.sources.some((s) => !/coingecko\.com|jup\.ag/.test(s.url));
+      expect(call.protocol.length > 0 || ownPage).toBe(true);
+    }
+    // a token CoinGecko files as a meme is not a row, whatever Jupiter tags it
+    const memes = leftOut().tokens.filter((t) => t.reason === 'memecoin');
+    expect(memes.length).toBeGreaterThan(0);
+    for (const c of [...MEME_CATEGORIES, ...PROTOCOL_CATEGORIES])
+      expect(reads.categories.categories[c]?.complete).toBe(true);
+    // the review's cases: BELIEVE and MADE are in solana-meme-coins; PUMP is a meme and a DEX's, and
+    // the meme call wins; bonkSOL is taken by the lst rule and is a meme
+    for (const a of [
+      'BLVxek8YMXUQhcKmMvrFTrzh5FXg8ec88Crp6otEaCMf',
+      'EpXtn6xGoZ4Y45vRjiDUHSCGbBoJD5FaEqZbF98YswH1',
+      'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn',
+      'BonK1YhkXEGLZzwtcvRTip3gAL9nCeQD7ppZBLXhtTs',
+    ])
+      expect(list.assets.some((r) => r.address === a)).toBe(false);
+    expect(list.stated.crypto).toContain('bonkSOL (bonk-staked-sol; lst)');
+  });
+
+  it('holds Launchpad to a launchpad platform its own token', () => {
+    const names = ['Pons Launchpad', 'Meteora Launchpad'];
+    expect(isLaunchpadPlatform('Pons', names)).toBe(true);
+    expect(isLaunchpadPlatform('StarLaunch', names)).toBe(false);
+    const cats = {
+      ...reads.categories,
+      categoryNames: names,
+      categories: { launchpad: { members: ['pons', 'starlaunch'], pages: 1, complete: true } },
+    };
+    expect(categoryCall(cats, { id: 'pons', name: 'Pons' }).protocol).toEqual(['launchpad']);
+    expect(categoryCall(cats, { id: 'starlaunch', name: 'StarLaunch' }).protocol).toEqual([]);
+  });
+
+  it('decides UST and LUNA as the review asked', () => {
+    const list = UniverseList.parse(committed());
+    const at = (a: string) => list.assets.find((r) => r.address === a)?.status;
+    expect(at('9vMJfxuKxXBoEa7rM12mYLMwTacLMLDJqHozw96WQL8i')).toBe('excluded');
+    expect(at('F6v4wfAdJB8D8p77bMXZgYt8TDKsYxLYxH5AFhUkYx9W')).toBe('held_out');
   });
 });
 
@@ -351,7 +469,7 @@ describe('the builder refuses', () => {
       ...v,
       verdicts: [...v.verdicts, { ...own, address: KAMINO_MAIN_MARKET, symbol: 'MARKET' }],
     });
-    expect(() => solanaList(reads, bad)).toThrow(
+    expect(() => solanaList(reads, bad, leftOut())).toThrow(
       `verdicts for addresses no read saw as a mint: MARKET ${KAMINO_MAIN_MARKET}`,
     );
   });
@@ -364,7 +482,7 @@ describe('the builder refuses', () => {
       ...v,
       rules: [{ ...rule, name: 'misspelt', match: { jupitertag: 'xstocks' } }, ...v.rules],
     });
-    expect(() => solanaList(reads, bad)).toThrow(
+    expect(() => solanaList(reads, bad, leftOut())).toThrow(
       `rule misspelt: match key jupitertag; the Solana builder reads ${MATCH_KEYS.join(', ')}`,
     );
   });

@@ -1,5 +1,6 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createDb, riskLendingPools } from '@colosseum/db';
 import { decodeMint, METAPLEX_METADATA_PROGRAM } from '@colosseum/risk';
@@ -9,11 +10,15 @@ import { rpc, rpcStats } from '../lib-pools';
 import {
   type B64Account,
   type Built,
+  type CategoryMembers,
   type ChainRead,
   candidates,
   ISSUER_MINTS_FILE,
   type IssuerPage,
+  isSelected,
   type JupiterRow,
+  LEFT_OUT_FILE,
+  LeftOut,
   type LendingRow,
   type NamedBy,
   readsFileName,
@@ -36,6 +41,7 @@ const JUPITER = 'https://lite-api.jup.ag/tokens/v2/tag?query=verified';
 const LLAMA_STABLES = 'https://stablecoins.llama.fi/stablecoins?includePrices=false';
 const LLAMA_PROTOCOLS = 'https://api.llama.fi/protocols';
 const LLAMA_CATEGORIES = new Set(['RWA', 'Yield', 'Yield Aggregator']);
+const COINGECKO_LIST = 'https://api.coingecko.com/api/v3/coins/list?include_platform=true';
 const LOCAL_DB = 'postgres://colosseum:colosseum@localhost:5433/colosseum';
 const REGISTRY_DEFAULT = 'data/risk/registry-20261001T0139.json';
 const arg = (args: string[], name: string) => {
@@ -52,18 +58,20 @@ export function loadReads(path: string): SolanaReads {
 }
 
 export const loadVerdicts = () => UniverseVerdicts.parse(json(VERDICTS_FILE));
+export const loadLeftOut = () => LeftOut.parse(json(LEFT_OUT_FILE));
 
 export async function buildList(args: string[]): Promise<Built> {
   const verdicts = loadVerdicts();
   const from = arg(args, '--from');
-  if (from) return solanaList(loadReads(from), verdicts);
+  const leftOut = loadLeftOut();
+  if (from) return solanaList(loadReads(from), verdicts, leftOut);
   const reads = await readAll(args, verdicts);
   const dir = arg(args, '--reads-dir') ?? 'data/assets/solana';
   mkdirSync(dir, { recursive: true });
   const out = join(dir, readsFileName(reads.startedAt));
   writeFileSync(`${out}.tmp`, JSON.stringify(reads));
   renameSync(`${out}.tmp`, out);
-  const built = solanaList(reads, verdicts);
+  const built = solanaList(reads, verdicts, leftOut);
   return { list: built.list, lines: [`reads saved: ${out}`, ...built.lines] };
 }
 
@@ -89,10 +97,17 @@ async function timed<T>(
   return r.value;
 }
 
+/** One GET; a keyless source refusing for rate (429) is asked again after a minute, up to four times. */
 async function getJson(url: string): Promise<unknown> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`GET ${url}: ${res.status}`);
-  return res.json();
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    if (res.status === 429 && attempt < 4) {
+      await new Promise((r) => setTimeout(r, 70_000));
+      continue;
+    }
+    if (!res.ok) throw new Error(`GET ${url}: ${res.status}`);
+    return res.json();
+  }
 }
 
 export async function readAll(args: string[], verdicts: UniverseVerdicts): Promise<SolanaReads> {
@@ -113,9 +128,16 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
         id: string;
         symbol?: string;
         tags?: string[];
+        stats24h?: { buyVolume?: number; sellVolume?: number };
       }>;
+      // the 24 h volume decides the crypto selection: kept in the reads (a fixture), never on a row
       const value = rows
-        .map((t) => ({ id: t.id, symbol: t.symbol ?? '', tags: t.tags ?? [] }))
+        .map((t) => ({
+          id: t.id,
+          symbol: t.symbol ?? '',
+          tags: t.tags ?? [],
+          volume24hUsd: (t.stats24h?.buyVolume ?? 0) + (t.stats24h?.sellVolume ?? 0),
+        }))
         .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       return { value, calls: 1, rows: value.length };
     },
@@ -248,7 +270,54 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
   );
   for (const p of issuerPages) name(p.address, 'issuer_page');
 
-  // 6. every candidate's mint, then the Metaplex account of each mint holding no metadata of its own
+  // 6. CoinGecko's coin list: the coin it names for each Solana mint (the source of a new crypto row's mint)
+  const coingecko = await timed<SolanaReads['coingecko']>(
+    'coingecko_coins_list',
+    `GET ${COINGECKO_LIST}`,
+    async () => {
+      const list = (await getJson(COINGECKO_LIST)) as Array<{
+        id: string;
+        symbol: string;
+        name: string;
+        platforms?: Record<string, string | null>;
+      }>;
+      const wanted = new Set([
+        ...jupiter.filter(isSelected).map((t) => t.id),
+        ...verdicts.verdicts.map((v) => v.address),
+      ]);
+      const byMint: SolanaReads['coingecko']['byMint'] = {};
+      for (const c of list) {
+        const mint = c.platforms?.solana;
+        if (mint && wanted.has(mint)) byMint[mint] = { id: c.id, symbol: c.symbol, name: c.name };
+      }
+      const sorted = Object.fromEntries(
+        Object.entries(byMint).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+      );
+      return { value: { what: COINGECKO_LIST, byMint: sorted }, calls: 1, rows: list.length };
+    },
+    log,
+  );
+
+  // 7. the members of CoinGecko's meme and protocol categories, read beforehand by
+  //    coingecko-categories.ts (keyless and slow), and the ids of the list committed before this run
+  const categoriesPath = arg(args, '--categories');
+  if (!categoriesPath)
+    throw new Error(
+      '--categories <coingecko-category-members-*.json> is needed: run scripts/risk/assets/coingecko-categories.ts first',
+    );
+  const categories = json(categoriesPath) as CategoryMembers;
+  log.push({
+    name: 'coingecko_categories',
+    what: `${categories.what} (scripts/risk/assets/coingecko-categories.ts, run beforehand; file ${basename(categoriesPath)})`,
+    at: categories.at,
+    calls: categories.calls,
+    durationMs: categories.durationMs,
+    rows: Object.values(categories.categories).reduce((n, c) => n + c.members.length, 0),
+    errors: categories.errors,
+  });
+  const previousIds = previousListIds();
+
+  // 8. every candidate's mint, then the Metaplex account of each mint holding no metadata of its own
   const namedSorted = Object.fromEntries(
     Object.entries(named)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -299,7 +368,7 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     log,
   );
 
-  // 7. the pools the registry file knows for each candidate
+  // 9. the pools the registry file knows for each candidate
   const registryPath = arg(args, '--registry') ?? REGISTRY_DEFAULT;
   const registryName = `data/risk/${registryPath.split('/').pop()}`;
   const registry = await timed(
@@ -358,7 +427,50 @@ export async function readAll(args: string[], verdicts: UniverseVerdicts): Promi
     registry,
     llama: { stablecoins, protocols },
     issuerPages,
+    coingecko,
+    categories,
+    previousIds,
     repo,
+  };
+}
+
+/**
+ * The ids of every list committed before this run (scripts/risk/assets/solana.json in each commit of the
+ * branch that changed it), by address: an id once committed stays with its address. Oldest first: where
+ * an address held several ids, or two addresses one id, the first committed holds.
+ */
+function previousListIds(): SolanaReads['previousIds'] {
+  const file = 'scripts/risk/assets/solana.json';
+  let commits: string[];
+  try {
+    commits = execFileSync('git', ['log', '--reverse', '--format=%h', 'HEAD', '--', file], {
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    commits = [];
+  }
+  if (commits.length === 0)
+    return { file: `${file} (none committed before this run)`, byAddress: {} };
+  const byAddress = new Map<string, string>();
+  const owner = new Map<string, string>();
+  for (const c of commits) {
+    const text = execFileSync('git', ['show', `${c}:${file}`], {
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+    });
+    for (const a of (JSON.parse(text) as { assets: Array<{ id: string; address: string }> })
+      .assets) {
+      if (byAddress.has(a.address) || owner.has(a.id)) continue;
+      byAddress.set(a.address, a.id);
+      owner.set(a.id, a.address);
+    }
+  }
+  const pairs = [...byAddress].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return {
+    file: `${file} in its ${commits.length} commits to ${commits.at(-1)}`,
+    byAddress: Object.fromEntries(pairs),
   };
 }
 

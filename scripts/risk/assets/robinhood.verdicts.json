@@ -1,6 +1,6 @@
 {
   "chain": "robinhood",
-  "reviewedOn": "2026-10-11",
+  "reviewedOn": "2026-10-12",
   "note": "The verdicts of the Robinhood Chain asset universe (PLAN-ASSETS AS.3), reviewed by hand. The rules cover every token of the issuer's registry; every other token a listing names has its own verdict. Read by scripts/risk-evm/assets-list.ts, which says in scripts/risk/assets/README.md how a rule's match is read.",
   "rules": [
     {
@@ -131,15 +131,124 @@
       ]
     },
     {
-      "name": "not-the-issuers-stock-token",
+      "name": "crypto-protocol",
       "match": {
-        "listing": "dexscreener",
-        "symbolOf": "issuer_registry"
+        "coingecko": "protocol",
+        "inUniverse": "yes"
+      },
+      "fields": {
+        "status": "candidate",
+        "statusReason": "a protocol's token by CoinGecko's categories (one of PROTOCOL_CATEGORIES, matched whole, or a launch pad's own token), selected by its trading on the chain or a Chainlink feed or a row of a committed list; crypto is enumerated and not decided (DA6)",
+        "verdictSource": null,
+        "currency": null,
+        "legTypes": null,
+        "legTypesReason": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read",
+        "category": "governance"
+      },
+      "sources": [
+        {
+          "url": "https://tokens.coingecko.com/robinhood/all.json",
+          "title": "CoinGecko's token list for Robinhood Chain: names and addresses",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://api.dexscreener.com/tokens/v1/robinhood",
+          "title": "DexScreener's pairs of each listed token on Robinhood Chain, which select it by its trading",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "crypto-liquid-staking",
+      "match": {
+        "coingecko": "liquid_staking",
+        "inUniverse": "yes"
+      },
+      "fields": {
+        "status": "candidate",
+        "statusReason": "a liquid staking token by CoinGecko's categories (LIQUID_STAKING_CATEGORIES), selected by its trading on the chain or a Chainlink feed or a row of a committed list; crypto is enumerated and not decided (DA6)",
+        "verdictSource": null,
+        "currency": null,
+        "legTypes": null,
+        "legTypesReason": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read",
+        "category": "liquid_staking"
+      },
+      "sources": [
+        {
+          "url": "https://tokens.coingecko.com/robinhood/all.json",
+          "title": "CoinGecko's token list for Robinhood Chain: names and addresses",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://api.dexscreener.com/tokens/v1/robinhood",
+          "title": "DexScreener's pairs of each listed token on Robinhood Chain, which select it by its trading",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "registry-symbol-not-a-protocol",
+      "match": {
+        "symbolOf": "issuer_registry",
+        "claims": "none",
+        "protocol": "no"
       },
       "fields": {
         "category": "other",
         "status": "excluded",
-        "statusReason": "not the asset it claims: its symbol is that of a stock token of the issuer's registry, and the registry, which lists every token the issuer deploys on the chain, does not hold its address",
+        "statusReason": "not a token of the list's classes: it carries the symbol of a stock token of the issuer's registry without claiming that stock by its name, the registry does not hold its address, and CoinGecko files it under no protocol category",
+        "verdictSource": null,
+        "issuer": null,
+        "issuerReason": "not the issuer's: the registry does not hold its address",
+        "issuerKind": null,
+        "underlying": null,
+        "underlyingReason": "not the stock its symbol names, and no protocol by CoinGecko's categories",
+        "currency": null,
+        "legTypes": null,
+        "legTypesReason": null,
+        "yieldMechanism": null,
+        "yieldMechanismReason": "not_read",
+        "access": null,
+        "accessReason": "not_read",
+        "mintRedeem": null,
+        "mintRedeemReason": "not_read",
+        "unverified": ["who deployed it"]
+      },
+      "sources": [
+        {
+          "url": "https://api.robinhood.com/rhj/assets",
+          "title": "Robinhood's stock token registry: every token the issuer deploys on Robinhood Chain, by address",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://api.dexscreener.com/latest/dex/search?q=robinhood%20NVDA",
+          "title": "DexScreener's pairs on Robinhood Chain, which name the token with a stock's symbol",
+          "readOn": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "name": "not-the-issuers-stock-token",
+      "match": {
+        "symbolOf": "issuer_registry",
+        "claims": "issuer_product"
+      },
+      "fields": {
+        "category": "other",
+        "status": "excluded",
+        "statusReason": "not the asset it claims: its symbol is that of a stock token of the issuer's registry and its name names the issuer or that stock, and the registry, which lists every token the issuer deploys on the chain, does not hold its address",
         "verdictSource": null,
         "issuer": null,
         "issuerReason": "not the issuer's: the registry does not hold its address",
@@ -436,12 +545,12 @@
       "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
       "symbol": "cbBTC",
       "category": "wrapped_btc",
-      "status": "held_out",
-      "statusReason": "identity not confirmed: only DexScreener names it, and nothing read ties this address to Coinbase",
+      "status": "candidate",
+      "statusReason": "Coinbase's wrapped bitcoin, as Chainlink CCIP's token directory and CoinGecko list it at this address; crypto is enumerated and not decided (DA6)",
       "verdictSource": null,
-      "issuer": null,
-      "issuerReason": "not confirmed: DexScreener calls it Coinbase Wrapped BTC",
-      "issuerKind": null,
+      "issuer": "Coinbase",
+      "issuerReason": null,
+      "issuerKind": "tokenization_issuer",
       "underlying": "BTC",
       "underlyingReason": null,
       "currency": null,
@@ -455,14 +564,17 @@
       "mintRedeemReason": "not_read",
       "sources": [
         {
-          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
-          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "url": "https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet",
+          "title": "Chainlink CCIP's token directory: the tokens it moves, with their address on each chain",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://tokens.coingecko.com/robinhood/all.json",
+          "title": "CoinGecko's token list for Robinhood Chain: names and addresses",
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "that Coinbase issues this contract; Chainlink lists a CBBTC / USD feed on the chain, which names no address"
-      ]
+      "unverified": ["Coinbase's own page for this address was not read"]
     },
     {
       "address": "0xbeeff033f34c046626b8d0a041844c5d1a5409dd",
@@ -1173,7 +1285,7 @@
     },
     {
       "address": "0xae2df3c1749daee721c1bfcbbfdde5d61ae7cb99",
-      "symbol": "BTCETHUSDTBNBUSDCXRPSOLTRXHYPEDOGERAINZECDELLEOXLMXMRLINKADACCDAIBCHUSD1USDEGRAMLTCUSDGSUIDEXEHBARPYUSDAVAXCRONEARXAUTSHIBUNITAOUSDYWLFIPAXGOKBASTERONDOMHTXRLUSDUSDDSKYDOTMNTAAVEWLDUSDFICPBGBPEPEETCUMORPHOUSDGOPIKCSCTMSTABLEPOLJLPJSTATOMQNTENARENDERKASALGOBEATGT币安人生PUMPBDXJUPGHOFILXDCTBLLXFLRVVVLITARBUSD0USXINJAPTUSDAITUSDNEXONIGHTCAKEETHFIDASHAEROEURCVETVIRTUALTRUMPPENGUPYTHFETSUNFDUSDSEITIACRVSPXLUNCLDOSTXGNOZROJTOBSVBTTDUCKYPENDLENFTIMXMONXTZCFXBONKJASMYFRAXUB2ZDCRVELVETOPSTRCXKOGEXPLSYRUPKAIAKITEAUSDKAITOSTRKAPEPEFLOKIZBCNEIGENXECUSATGRTENSHWFIRAYFFPIEVERSECOMPTELAAPLXBIOTACHZAXSSPYXAKTWIFMXEDGEBORGMUXZANOGUSDTSLAXEURCVRUNEHOODXQQQXTWTAPETHETANEOXCNSANDMANABTWFARTCOININTCXRIFGOOGLXNVDAXTRACALEVSNARTBKBPCVXWEMIXCRCLXBATAWEAGOMININGTIBBIRUDSTAGSHFLFRXUSDRLBUSSFPGENIUSDUSDMRVLX1INCHNEXDYDXSOSOBMXEUSXGALAGLMREALSENTEGLDSMILEKABJSMCFGDATAAVVGLDXDEEPZKKMNOOCRCLONVCNTMETAXALLOSOONDRVYZYATHAMDXGRASSCHEEMSMSFTXGEODQUSDONSPCXBUAIFLUIDWOULDLIGHTMELANIASNDKBBANKRAVECSCOXBEAMSNXCOWZAMANMRANTFUNORDIRSRYFIZENKOXQTUMLISUSDZBUANSEMVTXLPTBANMSTRXLURMETXPRLINXLBTNXPCCOINXZRXORCAPLTRXWALHUMAARCBANANAS31MUBGASSFORMIVVONKTABASDGBGMXFTTCARDSMAXNILAUSDSUIRIVERBILLCVXXSHXIEMGXAIOZFIDDQFISAFEUSELESSHOTCHIPVXPLUMERVNGSXPFEXREDOGQUBICVBUSDPRESPCXZIGXPINAIHKSMLABVELOTFUELGCOINPGXSCHFXCOAIMINATURBOBIOWCASHCATMAGMAZILABBVXENJVTIXEWUXBERAAVGOXDHNBABYDOGEIOSUPERJELLYJELLYLINEAAPRDIEMGWEISYNHDXAZNXXPNPCZETASPKBRETTXOMXUNHXELFBRK.BXBABYTONXXGPSPROSGMEXIDHONXKUBMEGABRAXLTOSHISKHYXCYSSOXXXKAVAXNOCRCLBUPOPENLIONHOLOXVSSUSHISN4AKEIWMXSN51CCDOMIJCTCKBTQQQXXAUMREDVVSCOPXXMNGOMOVECTCONTASTRTROLLBLURBTBTXELGCRWDXTCELOSMHXAPPXFLOWREQPURRASSETACHROSEBDCATRBARRRDHRXSRXMRKXRONZCHFALTMUONPOPCATAPEXIBITONXYOBARDSUTJNJXEWYXSPYONNOCKPNUTLLYXRPLYUSDSKRFUNAGTPEAQPCIPMXBACXICNTAMZNXXUSDNVDAONMOGSENTISMYMASKJPMXEURIPOLYXAMPGHNTFBBUSDAZTECSTARVTHOPROVEESPMOODENGNOTMEVAMGLIDRMMTBIMORCLXAMBRXGOHOMEBNKRKGENB2ATAMPLCUSD0GMOCAANKRTMOXSOXLXWMTXPRONVOXKLACXSNTFOGOMEMETGBPNFLXXPEPXREKTBURNMANTRAUMAVANAXVGWAVESAIATSCQQQONZEREBRODUSKCOINONLOCUSCROSSHIMSONPMLUNASPACEDBRELONIRYSATOSZBTSSVBSBCMCSAXHSKUSDPOREMEWZESTNESSAHARAABTXDEGENARXKNTQACNXSQDCSPRSTORJLAYERAISN44MANTALUSDWKCCOREPRLHOMEUPCNOWACXUSTCMBGSKYAIDFDVXCAPBOLDAVNTBANDBMNRXBNTPLAYXANMCDXSUSDOPENXSERVUSDKDEPWHITETORNZORAMYXESPORTSEUSDHIVEBOMEUNSUQCLITEXB3PEOPLEBORASMARTTRUTHCATITAKLKWUSDMDTXGIGGLEETHWORBSFOLKSOSMOIBMXSWFTCSN9SLXAITCOLLECTASTEROIDCRMXICXRAILVRNEIRORLCUNPVANTAOPGSIRENPOWRAIOPROMAOPORBRATMARKMWOOSKLSOMICYBERALEONAORISMVLQANXHANAROBOHYPERCALCHAINEDUONGISIKCAUCTIONMERLKNCDAGSNEKEULIOSTGMTIOTXLCXSLVONGOOGLONWINSTEEMEVSLVXCOTIBBILVBASEDMUSDSLTFAIPREOPAIPUNDIXDODOFIDALONCOINDEPOSTRAXCTSIPYTHIAGIGAARKCHEELARDRMTLMLKPHAMETISROGLISTASIGNNOSSLPSATSREZCVCPYBOBOWOJAKSTGIQTLTONSNCYGGAIOTCLOAUDIOPMTANTTPTDKABLASTTXCNEETDOGSCARVXCHXYMLSKABTCPOOLAPI3TRIAMSTRONRIZEBREVPOKTSN3SAPIENERGAIXBTWAXPWBXCGOCBKSTRXIDOLAPTMLRCDRAMBPPLTXRTXWCTYNGFLUXCETUSCGPTOHOSOXLBBIGTIMESONICTACGAMEFULPOWERPIPPINAEVOKMDONEIEFAONSPELLACUEDENEGL1BLESSTAIKOMEDMOVRCTKGCBBOXNILUSUALMOBBTGOXBFCTNSRADSARARAABEYMGOMRVLON龙虾TOKAMAKBIRBPIXELOXTLQTYZENTPARTIETNWETGOLDGRTSLAONXNYINAOCHRSTBLEPICFTRBXAIINTCONQUAISCRTONRMUHEZANIMEFRSNDKBTRSTNYMEVAAAGLDENSOXAUT0AGGONBLUAIRUJIGNSSN56MAGICQKCNMCBICOINXMETAAURORAMBLDFGGOATCLANKERCHEXELSABANANAMEYPDDONARROW哈基米CELRIBSFLOCKUSDHZKCSTRCONSOFIONINTCBNEWTC98DESOZKPMMUIARPAQIELUCICWXTRADORDERITOTONHPGYENJOECTRRECALLUSDCVBITCOINMPLXUFDVANRYUSDBSLNDOGCORNSBBTCMIRADIAYBDIAMIAUONLUMIASAUCEBLENDHMSTRFIROIXSBCDXSGDBROCCOLIMUBARAKXRDISLMALICEOSAKOPNFUSDOGNAVATLMFELYREIKATTIPONKISHUDOODAVAILSOLVTUTMSFTONEFAONKCTPONKEWECANKAIOVENOMAMZNONALIAERGOINITREPWANMAVGLMRFARSXTBONEMWXTSFIAIARSCRAREACNBULLAABELESETSTHUNTSN62GODSMSTRBNSTGUNVEREMRBNTBOBAFARTBOYLAERATGCCWUCOLXKERNELSN5CATDOLONXAAPXRCRCLMANIFESTBERTHEGICCOLAMDONPORTALUSDMLYNARIAPROMPTIEMGONCHILLGUYNCTFHESTOFCTEVEREPSYELLOWCETBUTTCOINCLASHSOPHGLEECDESUHEIBOBAAPLONMETAONOWBIWFONVOWXIONLMTSROLLTT4VINEEWTAURATXRESOLVPSGCHECKPRIMEREPPOSANTOSTRUSTXU3O8EURRADXWALLETDYMGRIFFAINBELIAGGRSSPCXSHELLRAMPTAITRADOORDRIFTMOCUCNQQQBPPCWILDBMTQIAVICIREADYAICSPCXONUSDQDEXTSDACTHONEYGRNDDORASPCXX我踏马来了BEEAGRSFORTGUAMCOINGALSKHYBNVDABSTCINVTKOBOUNTYASRASMPNKBARDADDYAGIBALHFTDEODIKAAHTNIMSOILNETXOMGLYXLOANSOLOVDAISLERFTHEMCBARTXEEMONDXIHAEDALPEPBTCLESQGROWSUPRAOLASMBXTSMONTAKETOWNSNUMIBADGERMAPOESIMSWARMSALPINEXSGOVONOUSDCREPECOOKIEACEWRXLOOMACSOGYFIGHTPIKAPEPECOINMNSRYPUFFERMAVIAREDOQUICKMUSNDKONWENKNNBISONELAAUKIL3ELKONETKGSTMPCBGSCPORTOPONDDIVIANYONENAVXBRISEUSDRBETATLOSRACAUSDPTKANAPUFUELGTCANTHROPICBTRSDEXTREETQQQONPOLSMAMOPAALUTKRIONARGAMOBTXIWNONVULTVATRENIDAOZRCSAVESPARKLETAVGOONMOBILECITYVNXAUBFGAQTEDELASPMAMEPHNIXJUVVLINKPPTCAWGPHDNMINTURTLESAGALLYONZKJCOQPITEWYBPOPMCDULLORCLONRIOXWCARMONSUREETHDYDXVCHFALPHRHEADNTKRLUSDUCARENAPNGWEXOBLUECRETAOMIKAMITOKEALCXLMWRRSS3LVLADYSPDTLAZIOATSPYRVICHOPRDEUSKYVEATLASSPAODOSDOGINMEBCNMLNXPLAMORIGSTMONANEONMIMGEARKOMACOREUMRMRVLANONPTBSPCMPAYAIBMNRONSCRSPSHEMIFWOGNOMGBYTESIXLINGOBOSONM87PZMWOLFREFWAIGALEONROAMHOODONSKIPIBDMDAUDDKEYCATELIZAOSTONICSWAPLAVASUNDOGSYMMPKOINBTSEGFALPORKOLORAIACMXEM$PURPEVLTCQCOMONLATRSPCXSCORSPACEXSNANDYVESTGMMTDGMAMITOQUQLMTONPIVXGHXSHAREASMLONEURQKLVPBTCMNTXTSLABSBDGRINLQKOONSEND哭哭马CATEAFCKEKIUSIHCSWELLSPECTREPUSSBNBTIGERCRTSLOFIPOLISFEISWEATSTNKCESSWOLFONRMSTRFARMBTGNSJAGERGFIRINTCIWMONAVLSPCDRAMONWENDRGNBLZAIVMETFIALUVTCWODPUNDIAIRENVITABTSDJEDDMCRLS客服小何DSYNCOCTAGEMSMVCFOXPALMIJHONWSPPXCPDIMOBUYPFEONNEURALA8CXTUBTBIFIRNBWBABAONNOBODYSN88XBGZTCOVPPMEASHDWKENDUIDIASUKUUSOONGROKASTSONWNCGFLMCOLSPROPCFREYAGMETETCULTCARDINGOVOOIGAIBMAJORMEVREEFBFMANYUYEEEMTIBMONRMETAQAITDENTXFCNBISBCSCOONNAKAMIGGLESJPMONALTSZNAVTPGONXEPPLTRONBELLSZYPTOUSDC(WORMHOLE)NATIXCTXCLVTSMBNIZAMATHGOLDAOPXPAINA47PEIPEIABBCALEPHINTERCVXONROAOASIMPTPRCLRAMDIRFEGVARAMINIMA雪球NVOONOBSRMYROUSDVPANWONLOTRDRAMOFCKOSYSMCDONCLOAKVALFORESTQSTRNVDANEXASHIDOVFYGHSTHEARTLEASHVAIDMTRBOOEFORTHVOLTLNQARWOORTWMTONLIBERTYAECOOKGMEESWCHKARRATDJI6930RTSLABAYNODLTRUAZEROSNSSTREAMZEUSPORNROCKETLQRIDRTPEPONSTATUSAVONDLHEROEURTMRVLBALTTTOKENBZZSBUXONCEEKPARTPBRONTRUFRWALUCKYCAFOXSYBIDDOBOSISSHARPSDTTRUUHIGHGLWBBORGYSTUFFMANEKISRMRTSMTAROTPLUDCEATYURUPXCFTRDRXAMDBPINRUSSELLRQQQKIBSHIRYULMBRNFTYECCEURXTNJESUSCUBERMSFTPUPSNXRAVNOMDTEPTBLKONTMONMYSTXSWAPVERSEMYTHDEUROJOBYAIDOGESOLCEXNUMGOALASKPAPARAZZIKUJIAURYMSFTBTAOBOTMCMBXNWHALEBOTTORAVGORGOOGLLINONBIOTBOTGMCOINTEMCOMOBYOBTXPMGOOGLBLIBRAKINDBIDZHOOKEQIXONLIMEMTADNNUBINDYTHQREGENTRARIGEONHOLDBOOPRZRCSWAPKWENTAIDEXCOPXONVERTAIADPLUCA401JKPROPSKDABENJIMIABITCIP2PWHITEWHALETTNSTIKHIUOSCWEBHAROLDQCOMBVEURTRIASSTRIKEVEXTRA0X0AST67WINRXTERHOSKYSNOWONMETAVGOATEDBTC2TRWARBNNOWONSOULCHATMOEWCUMMIESBFICSMTOPENAIDAMMCHCRYPTOZCLHOGESAROSCRPTMAYCRPNMTMONKYTAVAUNHONKORIALXELNOKBDEVVEBILLYEGGZTXOVROCICATDOPUCAGAQUACKFANCBYTESHPINGCEREHTREVDCSCAABTONRVFNYACTPXFIRETARDIOMLCPALUMERYLUMINTAXMXDBAREAIOTRISEWFCONGAFIPENGUINHODLSOXXONRENECMULTICAMP$HACHIXMNGSONCOINBCROWN10SETSTORMTRADESCSSKEYMCADEMDAOBAONABNBONSPURSGHUBNKEONBIDUONAIXDDXSNDKOGPUBULLSHIBDOGESMCIONPERPDHTRICEBSAIRSOXLSHRBABYASTEROIDHACHIKOHOUSERNBISCYCHGPTSERAPHASTRACHEQRHOODBABYSHARKSIGMAPYPLONADMMAONEURAUANDURILSIGNACOHRONMETABCOSALONHIPPOIRENONCOSTONPUBLICVRTONECHOGHOSTLXVLXJDONGAIXQCADBCOINRKLBONNAPMAIGAPIPESLRSRXDATTSTARLAACDLLUXCRWVONHASHAIPORHOPPYKARATEAZITHAIGOGAEURRAIVADERAOL一KAITKPALEXGOCHUIZIROBOTSRDDTONDEFXDTECPLTRBWELFPXL1PHOTONSKHYPEPEONTRONXPASSBEB1MGXACMGONBLOCKWEPE3ULLLITEBMCNPANDORAXAVIERBUILDOUTXTPJMPTIDRXSKHYONWARDAAOIBCRMONFLQLONINCEONCELLNIBIPSYOPANIMENEOCLOUDMYRIATOPEWYONAXPONSPGIONSOV人生K线KIMAEQBJAILSTOOLARIA20WAGMIGAMESTSUKAOPUSUNCXROARYFIIHELLOOBOLHYGONLITKEYMAGAWIKENNRGARIOGRGRWAINCIMUNODESQQQONBSTSOXLONPHBPAWSSLXMEZOVSYSWUFTEAGORKPIGGYMGPDBCNOICENIKOTPTUHNSXDAGGPUSHOGGOTHSWASHFUTUONSOGNISALTADBEONFRICURANUSHEHEBXEDISONSBETVRAICHIGROWACNONDASHONRNOKITABESTSTCREAMSLAPCHKNVINUFIONFLXONSTRDCPHRMVXRPHSHRAPOPTIGAIATOWERHYDRANTXDNXUBERONSPYBPUNCHAARTMOTHERDEROCBRSBHOSICOCORALLRDSFACTVOXELNOKONZFISAMOGLDONCASPWEASEGRACYRDNTMOCHILOBOHTDBUNKERVISTAETNONSAITOCOCOROPSPSUPSHILITEONXCLFLIXMANCUDISSCPGLWONA2ZSOLVEXPEPUWCOTCOMRKLBBZKMLAPOONWDCBNFPFISQOMTXNONPXPMELIONCAHCOINBERRYPIRATEATRSHIRODUREVBCAAARKPEPE2.0NBT修仙OXYONAIPONBXXHYPCVBCHBOTONUFOUXLINKSLOTHWOZXKILOWHYROOT$1CLORESNDKXJYAIKATATMXUNIBOTAVGOBKOMPETEINTUONZEXTURBOSSHRUBKINICMATAWCFUSETERMINUSSHOPONCPRUSDNEMCMEMEFIBASEYOOSHITSPACEXCWIFRTQQQBABABIMGNIBMBHINTPVTKEXMOONGLQEXAAEROBUDGMRXSQTRRKLBFNCTPDAIRISASEQBTSONUNA老子CHIRPHEGEJEWELNRNNAFTSCAMFLIXXMNWRASMLAGIALPHABNBHOLDERABYSSEXRDARMBBTC.ℏRORCLZOONCHIATAWARXRPHAIBTCBAMSHFTTITDRTRBCRWSPKTGGRCOHRAXOLPUSHDPRBONDOKLOONKOINRINGSHMSGTHOODBENXAI3AMATONMAIVNURARSPYWSIMAKOSCARSPECRIFT1DEFIPACEMEFAISLAYSPOTONPOOHAAOIONFIGONEQTYIDNGBAXBNCLNWBAIMTVCEGONMSTRLKYNUTUSDSFOXYCHOXNACREOTOTOLMCSWAPQORPOGMMPNICPEPONKTC$MICHIFLHYONLOOKAPPONGAINMADREMXONMDXBCUTSDAOANOMEPATRIOTJETTONDFIGTAI安DUCKSLIMBC2WEFIFFOGONCIRCLEMEMESEAIBXCRAMZNVSGISLANDPINOCHAMPDOLANALLNITROFLTAIKEKSLC4EVERWDCONGOUTKMCELBCRASHOIIAOIIASNAIKPOPCAPTAINBNBBOSSWYACLVNCAPSU2UGOZENPHONHEMULEEFI42SMURFCATNOTHINGMNTCSTUPIDRAAOISTMXLOLXELSGEVONKEYCELRFOXBASEDAIFGDLONURAONRDWONARTYVKORABGLPLNSOLAMAHTSHAKKAMTRGFROGBABYPEPERIOTONISKNULSSTRMXPRTDEMOWL$WAFFLESFAIR3CREDIDELABSBOSTHLMENGOGMEONMIDASMLZSWAPCANNMSQHAPPYMUBARAKAHEFCLC黑马KP3RBADRAAPLRFCRIBMNUXBUCKAZOIDSTROGLABUBUNPCSJAMDEGOSBETONDUKOHMNDDIPMBOXBCCOINBZRPORT3ENDVERTCKPTIMEGZONEBEONRITEPOXALPHARABITRVLMASQSAMBUZZSSGXCXSFUNDBRGOVLSABAIBHCBUBBLEEDGENMTDKUNCIRVVORCSIPHERVCFLUCEACAESBDOGITOHOODBEERDCDRBABAHOLYRPLTRMRXMYSTERYMCRTHONKXMONEYNAVINBLUTITNCARRXRBIOFIGLXYONGENEALVAVTIONTBULLHORDVDOT$TOADPOOLXAKITALTXLISATIMIROOBEEMILLIBUSYMPONSCFJUNODFSAUBERCHONKYONDSON",
+      "symbol": "BTCETHUSDTBNBUSDCXRPSOLTRXHYPEDOGERAINZECDELLEOXLMXMRLINKADACCDA",
       "category": "other",
       "status": "excluded",
       "statusReason": "a launch token whose symbol strings the names of hundreds of coins together; not any of them",
@@ -1260,6 +1372,331 @@
         }
       ],
       "unverified": []
+    },
+    {
+      "address": "0x492641f648a4986844848e0befe66d14817bce34",
+      "symbol": "LINK",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "Chainlink's token, as Chainlink CCIP's token directory lists it at this address; a Chainlink feed names it (LINK / USD); crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Chainlink",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "LINK",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet",
+          "title": "Chainlink CCIP's token directory: the tokens it moves, with their address on each chain",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://tokens.coingecko.com/robinhood/all.json",
+          "title": "CoinGecko's token list for Robinhood Chain: names and addresses",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://reference-data-directory.vercel.app/feeds-robinhood-mainnet.json",
+          "title": "Chainlink's directory of feeds on Robinhood Chain",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "how CCIP moves it here (burn and mint, or lock and release): the directory says, the list did not keep it"
+      ]
+    },
+    {
+      "address": "0x2dc99af320bc317c567f24ee95811dcbd5983dfd",
+      "symbol": "wstETH",
+      "category": "liquid_staking",
+      "status": "candidate",
+      "statusReason": "Lido's wrapped staked ether, as Chainlink CCIP's token directory lists it at this address; a Chainlink feed names it (WSTETH / USD); crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Lido",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "ETH",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "exchange_rate",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet",
+          "title": "Chainlink CCIP's token directory: the tokens it moves, with their address on each chain",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://reference-data-directory.vercel.app/feeds-robinhood-mainnet.json",
+          "title": "Chainlink's directory of feeds on Robinhood Chain",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "that it accrues by an exchange rate against stETH: the directory lists a WSTETH / STETH exchange rate; the contract was not read for it"
+      ]
+    },
+    {
+      "address": "0xf3081494b87e8d5fb7960f066e931d1d0e6e3d67",
+      "symbol": "TAO",
+      "category": "wrapped_other",
+      "status": "candidate",
+      "statusReason": "Bittensor's TAO in wrapped form, as Chainlink CCIP's token directory (Bittensor) and CoinGecko (ForeverMoney Wrapped TAO) list it at this address; selected by its trading; crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "ForeverMoney",
+      "issuerReason": null,
+      "issuerKind": "bridge",
+      "underlying": "TAO",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet",
+          "title": "Chainlink CCIP's token directory: the tokens it moves, with their address on each chain",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://tokens.coingecko.com/robinhood/all.json",
+          "title": "CoinGecko's token list for Robinhood Chain: names and addresses",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/forevermoney-wrapped-tao",
+          "title": "CoinGecko: ForeverMoney Wrapped TAO, at this address on Robinhood Chain; category Wrapped-Tokens",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["who holds the TAO behind it, and how it is redeemed"]
+    },
+    {
+      "address": "0x94035f1d8932130464f5a55c11a7f80c8accb801",
+      "symbol": "AAAP,AACG,AACI,AACIU,AACIW,AACO,AACOU,AACOW,AACP,AACPR,AACPU,AAC",
+      "category": "other",
+      "status": "excluded",
+      "statusReason": "a launch token whose symbol strings thousands of stock tickers together; not any of them",
+      "verdictSource": null,
+      "issuer": null,
+      "issuerReason": "no issuer is named for it in anything read",
+      "issuerKind": null,
+      "underlying": null,
+      "underlyingReason": "not the asset its name claims",
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x94035f1d8932130464f5a55c11a7f80c8accb801",
+          "title": "DexScreener's pairs of the token on Robinhood Chain, with the name and symbol it gives",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": []
+    },
+    {
+      "address": "0xce24439f2d9c6a2289f741120fe202248b666666",
+      "symbol": "U",
+      "category": "stablecoin_usd",
+      "status": "held_out",
+      "statusReason": "not screened: a dollar CoinGecko files as a stablecoin of United Stables, which no note names",
+      "verdictSource": null,
+      "issuer": "United Stables",
+      "issuerReason": null,
+      "issuerKind": "stablecoin_issuer",
+      "underlying": "U",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://www.coingecko.com/en/coins/united-stables",
+          "title": "CoinGecko: United Stables, at this address on Robinhood Chain; categories Stablecoins, USD Stablecoin",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what backs it, and who may mint and redeem it: its own pages (u.tech) were not read"
+      ]
+    },
+    {
+      "address": "0x57c0e45cb534413d1c20a4240955d6bb250bb4f1",
+      "symbol": "UP",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "the token of up, a vote-escrow exchange on the chain the screening note's input list names (up LP); selected by its trading; crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "up",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "UP",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, rows up LP and Small lenders: up (ve(3,3)), Longbow, Gage",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/up-2",
+          "title": "CoinGecko: up, at this address on Robinhood Chain; categories Decentralized Finance (DeFi)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["what the token does in the exchange: its own pages (up33.xyz) were not read"]
+    },
+    {
+      "address": "0x451b42a15100c340ca12f7c66de06fac5ea2d751",
+      "symbol": "BOW",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "the token of Longbow, a lender on the chain the screening note's input list names (Small lenders); selected by its trading; crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Longbow",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "BOW",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, rows up LP and Small lenders: up (ve(3,3)), Longbow, Gage",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/longbow-2",
+          "title": "CoinGecko: Longbow, at this address on Robinhood Chain; categories Decentralized Finance (DeFi)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the token does in the protocol: its own pages (longbow.cash) were not read"
+      ]
+    },
+    {
+      "address": "0x7163ae1b5aea2f09ebc609c52b4dcac0a7a4bc2d",
+      "symbol": "GAGE",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "the token of Gage, a lender on the chain the screening note's input list names (Small lenders); selected by its trading; crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "Gage",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "GAGE",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv",
+          "title": "The screening note's input list, rows up LP and Small lenders: up (ve(3,3)), Longbow, Gage",
+          "readOn": "2026-10-06"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/gage",
+          "title": "CoinGecko: GAGE, at this address on Robinhood Chain; categories Decentralized Finance (DeFi)",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": ["what the token does in the protocol: its own pages (gage.cash) were not read"]
+    },
+    {
+      "address": "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
+      "symbol": "FLOCK",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "the token of FLock.io, as Chainlink CCIP's token directory lists it at this address; selected by its trading; crypto is enumerated and not decided (DA6)",
+      "verdictSource": null,
+      "issuer": "FLock.io",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "FLOCK",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": null,
+      "yieldMechanismReason": "not_read",
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://docs.chain.link/api/ccip/v1/tokens?environment=mainnet",
+          "title": "Chainlink CCIP's token directory: the tokens it moves, with their address on each chain",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/flock-2",
+          "title": "CoinGecko: FLOCK, at this address on Robinhood Chain; categories Artificial Intelligence (AI), AI Applications",
+          "readOn": "2026-10-11"
+        }
+      ],
+      "unverified": [
+        "what the project is: CCIP lists the token and CoinGecko files it under AI; its own pages (flock.io) were not read"
+      ]
     }
   ]
 }

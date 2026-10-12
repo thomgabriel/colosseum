@@ -8,6 +8,7 @@
 // Every live run writes its reads and the names it saw to RISK_ASSETS_DIR (default data/assets/robinhood),
 // which is never committed. Read-only: public GETs, eth_call, eth_getStorageAt, eth_getCode.
 import 'dotenv/config';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -80,6 +81,47 @@ function codeSamples(reads: AssetReads, code: Map<string, string>, dollar: strin
   return out;
 }
 
+/**
+ * Every row of every committed version of the list, from git (oldest first; an address keeps the newest
+ * version's id and symbol). Only committed history is read: the working copy is what this run writes.
+ */
+export function previousLists(): AssetFiles['previous'] {
+  const commits = execFileSync('git', ['log', '--format=%H', '--reverse', '--', PATHS.list], {
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter((c) => c !== '');
+  if (commits.length === 0) return null;
+  const byAddress = new Map<string, NonNullable<AssetFiles['previous']>['assets'][number]>();
+  for (const commit of commits) {
+    let text: string;
+    try {
+      text = execFileSync('git', ['show', `${commit}:${PATHS.list}`], {
+        encoding: 'utf8',
+        maxBuffer: 256 * 1024 * 1024,
+      });
+    } catch {
+      continue; // the commit deleted the file
+    }
+    const list = JSON.parse(text) as {
+      assets?: Array<{ address: string; id: string; symbol: string; status: string }>;
+    };
+    for (const a of list.assets ?? [])
+      byAddress.set(a.address.toLowerCase(), {
+        address: a.address.toLowerCase(),
+        id: a.id,
+        symbol: a.symbol.slice(0, 64),
+        status: a.status,
+        commit,
+      });
+  }
+  return {
+    path: PATHS.list,
+    commits,
+    assets: [...byAddress.values()].sort((x, y) => (x.address < y.address ? -1 : 1)),
+  };
+}
+
 export async function buildList(args: string[]) {
   const option = (name: string) => {
     const i = args.indexOf(name);
@@ -97,8 +139,11 @@ export async function buildList(args: string[]) {
   let frozen: FrozenReads & { samples?: Array<{ address: string; why: string; code: string }> };
   if (from) {
     frozen = readGz(from);
+    // reads made before the committed lists were frozen with them take them from git now
+    if (frozen.previous === undefined) frozen = { ...frozen, previous: previousLists() };
     lines.push(`built from ${from}, with no network`);
   } else {
+    const previous = previousLists();
     const base = loadFiles({ file: '', fetchedAt: '', groups: [] });
     const notes = noteAddresses(base.notes);
     const { url: rpcUrl, label } = rpcFor(chain);
@@ -154,6 +199,7 @@ export async function buildList(args: string[]) {
       rpcLabel: label,
       notes,
       verdictAddresses: base.verdicts.verdicts.map((v) => v.address),
+      previous: (previous?.assets ?? []).map((a) => a.address),
       challenged: () => challenged,
       log: (l: string) => console.error(l),
     };
@@ -177,7 +223,12 @@ export async function buildList(args: string[]) {
       JSON.parse(readFileSync(discoveryFile, 'utf8')),
       reads.onchain.tokens.map((t) => t.address),
     );
-    frozen = { reads, discovery, samples: codeSamples(reads, code, chain.dollar.address) };
+    frozen = {
+      reads,
+      discovery,
+      previous,
+      samples: codeSamples(reads, code, chain.dollar.address),
+    };
     mkdirSync(scratch, { recursive: true });
     const out = join(scratch, `reads-${stamp(new Date(reads.onchain.blockTime * 1000))}.json.gz`);
     writeFileSync(out, gzipSync(JSON.stringify(frozen)));
@@ -185,7 +236,7 @@ export async function buildList(args: string[]) {
   }
 
   const files: AssetFiles = {
-    ...loadFiles(frozen.discovery),
+    ...loadFiles(frozen.discovery, '.', frozen.previous),
     frozenPath: frozenPath(frozen.reads),
   };
   const namesOut = join(
