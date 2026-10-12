@@ -201,10 +201,30 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     ).toBeGreaterThan(1);
   });
 
-  it('are both still refused: nothing is deployed, and a person has confirmed nothing', () => {
+  it("the guard's file still holds its place; the contracts' file holds no unconfirmed value", () => {
+    // Nothing is deployed, so the guard has no factory to name and refuses mainnet.
     expect(() => deploymentsOf('mainnet')).toThrow(/placeholder for mainnet/);
-    expect(
-      readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8'),
-    ).toContain('TODO');
+    // Every value of the contracts' file was confirmed by a person on 2026-10-12: the marker word the
+    // deploy script refuses on is gone, and every note that stood beside a proposed value says who
+    // confirmed it and when.
+    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8');
+    expect(text).not.toContain('TODO');
+    const file = JSON.parse(text) as Record<string, unknown> & {
+      assets: Record<string, unknown>[];
+    };
+    const notes = [file, ...file.assets.slice(1)].flatMap((o) =>
+      Object.entries(o).filter(
+        ([k, v]) =>
+          /Note$|^note$/.test(k) &&
+          typeof v === 'string' &&
+          k !== 'ownerNote' &&
+          k !== 'guardianNote',
+      ),
+    );
+    expect(notes.length).toBeGreaterThan(40);
+    for (const [key, note] of notes)
+      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-12/);
+    // A ceiling for every token, none at zero.
+    for (const a of file.assets.slice(1)) expect(a.maxWeightBps).toBeGreaterThan(0);
   });
 });

@@ -167,15 +167,35 @@ contract RobinhoodForkDeployTest is Test {
         assertEq(timelock.getMinDelay(), 48 hours);
     }
 
-    function test_fork_theChainIsMainnet_andTheCommittedFileIsRefusedAsItStands() public onFork {
+    /// The committed file as it stands, nothing filled in and nothing stood in for: every value in it is
+    /// confirmed (Thom, 2026-10-12), so it passes every mainnet rule against the real chain and deploys,
+    /// the real Safe behind the timelock and the guardian it names. With the marker word put back into
+    /// it, it is refused as before: the rule is not gone, the file no longer trips it.
+    function test_fork_theChainIsMainnet_andTheCommittedFileDeploysAsItStands() public onFork {
         assertEq(block.chainid, 4663);
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
+        assertFalse(cfg.placeholders, "no value is left unconfirmed");
+        Deploy.Config memory marked = script.readConfig("script/config/4663.json");
+        marked.placeholders = true;
         vm.expectRevert(
             abi.encodeWithSelector(
                 Deploy.MainnetRefused.selector, "the file still holds a TODO: every value must be confirmed by a person"
             )
         );
-        script.deploy(cfg, deployer);
+        script.deploy(marked, deployer);
+
+        Deploy.Deployed memory d = script.deploy(cfg, deployer);
+        VaultFactory factory = VaultFactory(d.factory);
+        assertEq(factory.admin(), d.timelock);
+        assertEq(factory.guardian(), cfg.guardian);
+        assertEq(factory.assets().length, cfg.assets.length);
+        assertTrue(TimelockController(payable(d.timelock)).hasRole(keccak256("PROPOSER_ROLE"), REAL_SAFE));
+        // The ceilings a shared portfolio is held to, as confirmed.
+        assertEq(factory.asset(NVDA).maxWeightBps, 2500);
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            assertEq(factory.asset(cfg.assets[i].token).maxWeightBps, cfg.assets[i].config.maxWeightBps);
+            assertGt(cfg.assets[i].config.maxWeightBps, 0);
+        }
     }
 
     /// Every rule passes on the real token, feed and router, and the run ends with the timelock holding
