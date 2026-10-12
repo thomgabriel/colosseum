@@ -20,6 +20,7 @@ import { createEvmVaultAdapter, type EvmVaultAdapter } from '../src/vault/adapte
 import {
   deploymentAddresses,
   deploymentAssets,
+  deploymentLimits,
   deploymentPools,
   EvmDeploymentRecord,
 } from '../src/vault/deployment';
@@ -250,6 +251,7 @@ export async function buildTestnetWorld(forkUrl: string, port: number): Promise<
       rpc: createEvmRpc(rpcUrl),
       assets: deploymentAssets(TESTNET_RECORD),
       pools: deploymentPools(TESTNET_RECORD),
+      limits: deploymentLimits(TESTNET_RECORD),
       trade: 'live',
       autoFollow: true,
     });

@@ -11,6 +11,7 @@ import {
   EvmAddress,
   type LegKind,
   OwnerSwapArgs,
+  type Price,
   PublishRecipeArgs,
   type Quote,
   referenceCostBps,
@@ -38,6 +39,7 @@ import { createEvmVaultReader, type EvmVaultReader, type EvmVaultReaderOptions }
 import { poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
 import { ask } from './rpc';
 import { createEvmProbe } from './send';
+import { holdTrade, type TradeLimits } from './trade-limits';
 import { unlistedAssetId, unlistedToken } from './unlisted';
 
 // The EVM adapter whole (DESIGN-VAULT 3.2): the reader of ADE-1, every builder, the quotes and the
@@ -77,6 +79,11 @@ const ERC20 = parseAbi([
 export type EvmVaultAdapterOptions = EvmVaultReaderOptions & {
   /** Each asset's pool against cash: what trades are routed through and priced in. */
   pools: V4Pools;
+  /**
+   * What an owner's trade is held to beside the vault's own minimum: how far the pool's quote may be
+   * from the asset's Chainlink price, and the largest single trade of each asset (trade-limits.ts).
+   */
+  limits: TradeLimits;
   /** The slippage `quote()` takes off the quoted output for its `minOutRaw`. Default 100 bps. */
   quoteSlippageBps?: number;
   /** The slippage a keeper leg allows under the quote. Default 100 bps. */
@@ -121,7 +128,7 @@ const lower = (a: string) => a.toLowerCase() as Address;
 const IndexId = z.string().regex(/^0x[0-9a-f]{64}$/, 'expected 32 bytes as lower-case 0x hex');
 
 export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVaultAdapter {
-  const { config, rpc, pools } = options;
+  const { config, rpc, pools, limits } = options;
   const reader = createEvmVaultReader(options);
   const probe = createEvmProbe({ config, rpc });
   const now = options.now ?? (() => new Date());
@@ -157,6 +164,48 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         `${id} is not listed on ${config.name}: it can be sold, not bought`,
       );
   };
+
+  /**
+   * The feed's price of each asset the trades touch, where the network checks the pool against it. An
+   * asset with no feed has none here, and `holdTrade` refuses it; a feed that gives no price is
+   * refused by the read itself (`AssetNotPriced`).
+   */
+  async function feedPrices(ids: AssetId[]) {
+    if (limits.priceBoundBps === null && Object.values(limits.maxTradeUsd).every((v) => v === null))
+      return new Map<AssetId, Price>();
+    const priced = [...new Set(ids)].filter((id) => byId.get(id)?.priceKind === 'chainlink');
+    const prices = priced.length ? await reader.getPrices(priced) : [];
+    return new Map(prices.map((p) => [p.asset, p]));
+  }
+  /** One trade against the network's limits: throws the refusal, or gives the feed's floor for `minOut`. */
+  function held(
+    prices: Map<AssetId, Price>,
+    t: Trade,
+    leg: { tokenIn: Address; tokenOut: Address; amountIn: bigint; amountInSoFar: bigint },
+    out: bigint,
+  ): bigint | null {
+    const side = t.sell === cash?.id ? 'buy' : 'sell';
+    const id = side === 'buy' ? t.buy : t.sell;
+    const asset = byId.get(id);
+    const price = prices.get(id);
+    return holdTrade(limits, side === 'buy' ? leg.tokenOut : leg.tokenIn, {
+      symbol: asset?.symbol ?? id,
+      side,
+      amountIn: leg.amountIn,
+      amountInSoFar: leg.amountInSoFar,
+      out,
+      cashDecimals: cash?.decimals ?? 6,
+      assetDecimals: asset?.decimals ?? 18,
+      price:
+        price && price.ageSeconds !== undefined && price.maxAgeSeconds !== undefined
+          ? {
+              usdPerToken: price.usdPerToken,
+              ageSeconds: price.ageSeconds,
+              maxAgeSeconds: price.maxAgeSeconds,
+            }
+          : null,
+    });
+  }
 
   const evm = (value: unknown, what: string) => input(EvmAddress, value, what) as Address;
   const builds = () => {
@@ -246,6 +295,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
       amountIn === 0n
         ? Promise.resolve(0n)
         : quoteExactIn(rpc, pools, { tokenIn: leg.tokenIn, tokenOut: leg.tokenOut, amountIn });
+    const prices = await feedPrices(legs.flatMap((leg) => [leg.t.sell, leg.t.buy]));
     const routed = await Promise.all(
       legs.map(async (leg, i) => {
         const prior = cumulative[i] ?? 0n;
@@ -258,7 +308,12 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           refuse('BadTrade', `the pool pays nothing for ${leg.t.amountInRaw} raw ${leg.t.sell}`);
         // A trade after another in the same pool can fill one unit under the difference of the two
         // quotes, by the pool's rounding: its floor is set that much lower.
-        const floor = (out * BigInt(10_000 - slippageBps)) / 10_000n - (prior > 0n ? 1n : 0n);
+        const quoteFloor = (out * BigInt(10_000 - slippageBps)) / 10_000n - (prior > 0n ? 1n : 0n);
+        // Held to the feed and to the asset's largest trade before anything is built. The minimum is
+        // the higher of the two floors: the slippage under the quote, and the bound under the feed's
+        // worth, so the fill itself is never further from the feed than the bound.
+        const feedFloor = held(prices, leg.t, { ...leg, amountInSoFar: prior + leg.amountIn }, out);
+        const floor = feedFloor !== null && feedFloor > quoteFloor ? feedFloor : quoteFloor;
         const minOut = statedMinimum(stated, trades, i, out) ?? (floor > 0n ? floor : 1n);
         const { tokenIn, tokenOut, amountIn, t } = leg;
         return {
@@ -384,7 +439,15 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const pool = poolOf(pools, tokenIn, tokenOut);
         const out = await quoteExactIn(rpc, pools, { tokenIn, tokenOut, amountIn });
         const fetchedAt = now().toISOString();
-        const minOut = (out * BigInt(10_000 - quoteSlippageBps)) / 10_000n;
+        // The same hold a built trade gets: a quote the builder would refuse is refused here.
+        const feedFloor = held(
+          await feedPrices([t.sell, t.buy]),
+          t,
+          { tokenIn, tokenOut, amountIn, amountInSoFar: amountIn },
+          out,
+        );
+        const quoteFloor = (out * BigInt(10_000 - quoteSlippageBps)) / 10_000n;
+        const minOut = feedFloor !== null && feedFloor > quoteFloor ? feedFloor : quoteFloor;
         // The cost against the reference prices where both sides have one; cash is a dollar.
         const priced = [t.sell, t.buy].filter((id) => byId.get(id)?.priceKind === 'chainlink');
         const prices = priced.length ? await reader.getPrices(priced) : [];

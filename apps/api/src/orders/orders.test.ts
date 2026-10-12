@@ -118,6 +118,7 @@ describe('the chain registry', () => {
         cash: cash.address as `0x${string}`,
         byToken: {},
       },
+      limits: { priceBoundBps: null, maxTradeUsd: {} },
     };
     for (const mode of ['live', 'readonly'] as const)
       for (const network of ['testnet', 'local']) {

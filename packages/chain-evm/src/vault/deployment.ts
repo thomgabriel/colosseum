@@ -2,6 +2,7 @@ import { BasketAsset, ChainError, type EvmAddress, normalizeAddress } from '@col
 import { z } from 'zod';
 import { type V4Pools, v4Pools } from './routes';
 import { ask, type EvmRpc } from './rpc';
+import type { TradeLimits } from './trade-limits';
 
 // The record an EVM deploy writes (`deployments/<chain>-<network>.json`: `robinhood-testnet`,
 // `robinhood-local`), the EVM twin of Solana's `deployments/solana-devnet.json`. It is committed and
@@ -66,6 +67,14 @@ export const EvmDeploymentRecord = z
     }),
     /** The chain's sequencer uptime feed as the factory names it (`sequencerFeed()`); null for none. */
     sequencerFeed: Address.nullable(),
+    /**
+     * How far a pool's quote for an owner's trade may be from the asset's Chainlink price, in basis
+     * points, pool fee included, before the builder refuses the trade (trade-limits.ts). Null: not
+     * checked on this network. The test network's is null: its pools are kept at its feeds by our own
+     * market maker and its feeds are written by our own copier, so the check would add nothing but a
+     * way for a stopped copier to stop deposits on a demo. A mainnet's is a number.
+     */
+    priceBoundBps: z.number().int().min(1).max(1_000).nullable(),
     /** `pull` 1 takes the input with `transferFrom`, 2 through Permit2. */
     routers: z.array(
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
@@ -96,6 +105,12 @@ export const EvmDeploymentRecord = z
           fee: z.number().int().min(0).max(1_000_000),
           tickSpacing: z.number().int().min(1).max(32_767),
         }),
+        /**
+         * The largest single trade of the asset the builder makes, in dollars: the size its pool was
+         * measured to fill near its price. Null: no limit (the test network, whose pools hold a
+         * million dollars a side).
+         */
+        maxTradeUsd: z.number().int().positive().nullable(),
       }),
     ),
     /** Listed once and taken off the list: vaults may still hold them. */
@@ -134,6 +149,14 @@ export function deploymentAddresses(record: EvmDeploymentRecord) {
 /** The pools the adapter trades in, from the record: each asset's own, against the record's cash. */
 export function deploymentPools(record: EvmDeploymentRecord): V4Pools {
   return v4Pools(record.cash.address, record.assets);
+}
+
+/** What the adapter holds an owner's trade to, from the record: the bound to the feed and each asset's largest trade. */
+export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
+  return {
+    priceBoundBps: record.priceBoundBps,
+    maxTradeUsd: Object.fromEntries(record.assets.map((a) => [a.address, a.maxTradeUsd])),
+  };
 }
 
 /**

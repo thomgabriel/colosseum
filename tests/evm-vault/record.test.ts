@@ -133,6 +133,24 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     expect(new Set(stocks.map((a) => lower(a.feed))).size).toBe(stocks.length);
   });
 
+  it('state the bound to the feed and a largest trade for every token, the thinnest the tightest', () => {
+    const file = contracts as ContractsFile & { priceBoundBps?: number };
+    // 2%: the bound the fork test holds every listed token's fill to (MAX_COST_BPS).
+    expect(file.priceBoundBps).toBe(200);
+    const [, ...stocks] = contracts.assets as (ContractsFile['assets'][number] & {
+      maxTradeUsd?: number;
+      feedDescription?: string;
+    })[];
+    for (const a of stocks) {
+      expect(Number.isInteger(a.maxTradeUsd), a.token).toBe(true);
+      expect(a.maxTradeUsd, a.token).toBeGreaterThanOrEqual(1_000);
+    }
+    const least = Math.min(...stocks.map((a) => a.maxTradeUsd ?? 0));
+    // GLD, whose feed is itself made from pools, has the tightest limit of all.
+    expect(stocks.find((a) => a.feedDescription === 'GLD / USD')?.maxTradeUsd).toBe(least);
+    expect(least).toBe(1_000);
+  });
+
   it('the builder writes each mainnet token the pool the guard would hold it to', () => {
     const [, ...stocks] = contracts.assets;
     const pools = v4Pools(
