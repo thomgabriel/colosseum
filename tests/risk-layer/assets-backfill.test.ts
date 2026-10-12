@@ -13,7 +13,9 @@ import { gunzipSync } from 'node:zlib';
 import {
   type AnchoredPage,
   addToManifest,
+  blockAtTime,
   collapsedSpread,
+  cutShelf,
   estimateSampled,
   estimateSignatures,
   extrapolate,
@@ -24,6 +26,8 @@ import {
   pageRate,
   quietWaitMs,
   requestSlot,
+  SHELF_FLOOR_USD,
+  shelfHash,
   strata,
 } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
@@ -32,6 +36,8 @@ import {
   budgetGuard,
   gateWholeSeries,
   newestCount,
+  scopeKey,
+  scopeOptions,
   windowNeedsGate,
 } from '../../scripts/risk/assets/backfill-gate';
 import { dayPieces, fetchWindow } from '../../scripts/risk/assets/backfill-solana';
@@ -683,7 +689,8 @@ describe('the command refuses a whole series, or a wide window, without a count 
     });
   it('no count: refused; an over-budget count of its scope: refused; nothing asked of the network', () => {
     const out = mkdtempSync(join(tmpdir(), 'gate-'));
-    const none = run(['robinhood-logs', '--fetch', '--all'], out);
+    // the scope of 2026-10-10 (every pool of the list, whole life): its keys are the ones counted then
+    const none = run(['robinhood-logs', '--fetch', '--all', '--scope', 'list'], out);
     expect(none.status).toBe(1);
     expect(none.stderr).toMatch(/--all refused: no count of scope logs/);
     const dir = join(out, 'robinhood', 'robinhood-logs');
@@ -696,7 +703,10 @@ describe('the command refuses a whole series, or a wide window, without a count 
         estimate: { gzBytes: 38.6 * GB },
       }),
     );
-    const over = run(['robinhood-logs', '--fetch', '--window', '0-85526375'], out);
+    const over = run(
+      ['robinhood-logs', '--fetch', '--window', '0-85526375', '--scope', 'list'],
+      out,
+    );
     expect(over.status).toBe(1);
     expect(over.stderr).toMatch(
       /a window of 85526376 blocks .* refused: new data 38\.6\d GB would pass the 35 GB budget/,
@@ -708,4 +718,222 @@ describe('the command refuses a whole series, or a wide window, without a count 
       runs.map((l) => ((JSON.parse(l) as { refused?: string[] }).refused?.length ?? 0) > 0),
     ).toEqual([true, true]);
   }, 120_000);
+});
+
+// Gate ASSET-HISTORY-2: the trading series take, by default, the pools of the shelf's tokens (ASSET-SHELF) over
+// the last 30 days; the list's scope of 2026-10-10 stays reachable with --scope list, and a count of one scope
+// never gates a fetch of another.
+describe('the shelf: list rows at or above the floor by their newest volume reading', () => {
+  const rows = [
+    { address: '0xAAaa', symbol: 'NVDA', status: 'listed' },
+    { address: '0xbbbb', symbol: 'USDG', status: 'candidate' },
+    { address: '0xcccc', symbol: 'THIN', status: 'candidate' },
+    { address: '0xdddd', symbol: 'FUND', status: 'held_out' },
+    { address: '0xeeee', symbol: 'COPY', status: 'excluded' },
+    { address: '0xffff', symbol: 'GONE', status: 'candidate' },
+    { address: '0x1111', symbol: 'NONE', status: 'candidate' },
+  ];
+  const readings = [
+    { address: '0xaaaa', value: 2_500_000, observedAt: '2026-10-12T18:34:21Z' },
+    // the newest reading decides: an older one below the floor does not
+    { address: '0xaaaa', value: 50, observedAt: '2026-10-11T03:57:08Z' },
+    { address: '0xbbbb', value: 100_000, observedAt: '2026-10-12T18:35:38Z' },
+    { address: '0xcccc', value: 99_999.99, observedAt: '2026-10-12T18:34:30Z' },
+    // a held-out or excluded row never joins, whatever it trades
+    { address: '0xdddd', value: 9e9, observedAt: '2026-10-12T18:34:40Z' },
+    { address: '0xeeee', value: 9e9, observedAt: '2026-10-12T18:34:41Z' },
+    // a passing reading followed by a null one: off the shelf
+    { address: '0xffff', value: 5e6, observedAt: '2026-10-11T03:57:08Z' },
+    { address: '0xffff', value: null, observedAt: '2026-10-12T18:34:50Z' },
+  ];
+  const lower = (a: string) => a.toLowerCase();
+  it('takes listed and candidate rows at or above $100,000, the newest reading deciding', () => {
+    const s = cutShelf(rows, readings, SHELF_FLOOR_USD, lower);
+    expect(SHELF_FLOOR_USD).toBe(100_000);
+    expect(s.tokens.map((t) => [t.symbol, t.volume24hUsd])).toEqual([
+      ['NVDA', 2_500_000],
+      ['USDG', 100_000],
+    ]);
+    // the list's own spelling of the address is kept
+    expect(s.tokens[0]?.address).toBe('0xAAaa');
+    expect(s.counts).toEqual({
+      considered: 5,
+      onShelf: 2,
+      belowFloor: 1,
+      nullReading: 1,
+      noReading: 1,
+    });
+    // the reading the shelf names: the newest readings of the rows considered, oldest to newest
+    expect(s.reading).toEqual({ from: '2026-10-12T18:34:21Z', to: '2026-10-12T18:35:38Z' });
+    // without the EVM key, 0xAAaa has no reading
+    expect(cutShelf(rows, readings).tokens.map((t) => t.symbol)).toEqual(['USDG']);
+    expect(cutShelf(rows, readings, 1e9, lower).tokens).toEqual([]);
+  });
+  it('names a token set the same way whatever its order or case, and differently when a token moves', () => {
+    const a = shelfHash(['0xAAaa', '0xbbbb'], lower);
+    expect(a).toMatch(/^[0-9a-f]{8}$/);
+    expect(shelfHash(['0xbbbb', '0xaaaa', '0xaaaa'], lower)).toBe(a);
+    expect(shelfHash(['0xaaaa'], lower)).not.toBe(a);
+    expect(shelfHash(['0xaaaa', '0xbbbb', '0xcccc'], lower)).not.toBe(a);
+    expect(shelfHash(['ab', 'c'])).not.toBe(shelfHash(['a', 'bc']));
+  });
+});
+
+describe('the trading scope: the shelf’s 30 days by default, the list’s by flag', () => {
+  it('defaults to the shelf, 30 days, $100,000; the list keeps its whole life and its 90 days', () => {
+    expect(scopeOptions('robinhood-logs', {})).toEqual({
+      kind: 'shelf',
+      days: 30,
+      floorUsd: 100_000,
+    });
+    expect(scopeOptions('solana-swaps', { floor: '250000' })).toEqual({
+      kind: 'shelf',
+      days: 30,
+      floorUsd: 250_000,
+    });
+    expect(scopeOptions('robinhood-logs', { scope: 'list' })).toEqual({
+      kind: 'list',
+      days: null,
+      floorUsd: null,
+    });
+    expect(scopeOptions('solana-swaps', { scope: 'list' })).toEqual({
+      kind: 'list',
+      days: 90,
+      floorUsd: null,
+    });
+    expect(scopeOptions('solana-swaps', { scope: 'list', days: '30' }).days).toBe(30);
+    expect(() => scopeOptions('solana-swaps', { scope: 'all' })).toThrow(/shelf or list/);
+    expect(() => scopeOptions('solana-swaps', { days: '0' })).toThrow(/at least 1/);
+    expect(() => scopeOptions('solana-swaps', { days: '2.5' })).toThrow(/whole number/);
+    expect(() => scopeOptions('robinhood-logs', { scope: 'list', floor: '1' })).toThrow(/--floor/);
+  });
+  it('keys the list’s scopes as counted on 2026-10-11, and every other scope by its kind, days, floor and tokens', () => {
+    const list = { kind: 'list' as const, days: null };
+    expect(scopeKey('robinhood-logs', list)).toBe('logs');
+    expect(scopeKey('robinhood-logs', { kind: 'list', days: 30 })).toBe('logs-d30');
+    expect(scopeKey('solana-swaps', { kind: 'list', days: 90 })).toBe('pools');
+    expect(scopeKey('solana-swaps', { kind: 'list', days: 90 }, true)).toBe('pools-exact');
+    expect(scopeKey('solana-swaps', { kind: 'list', days: 30 }, true)).toBe('pools-d30-exact');
+    const shelf = { kind: 'shelf' as const, days: 30, floorUsd: 100_000, tokensHash: '277c1bfd' };
+    expect(scopeKey('robinhood-logs', shelf)).toBe('shelf-d30-f100000-277c1bfd');
+    expect(scopeKey('solana-swaps', shelf, true)).toBe('shelf-d30-f100000-277c1bfd-exact');
+    expect(scopeKey('solana-swaps', { ...shelf, days: 90 })).toBe('shelf-d90-f100000-277c1bfd');
+    expect(() => scopeKey('robinhood-logs', shelf, true)).toThrow(/no exact pass/);
+  });
+  it('a count of one scope never gates a fetch of another', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'scoped-counts-'));
+    const shelfA = scopeKey('robinhood-logs', {
+      kind: 'shelf',
+      days: 30,
+      floorUsd: 100_000,
+      tokensHash: shelfHash(['0xaaaa', '0xbbbb']),
+    });
+    const shelfB = scopeKey('robinhood-logs', {
+      kind: 'shelf',
+      days: 30,
+      floorUsd: 100_000,
+      tokensHash: shelfHash(['0xaaaa', '0xbbbb', '0xcccc']),
+    });
+    // a small count of the shelf A and an over-budget count of the list's whole life
+    writeFileSync(
+      join(dir, 'count-shelf.json'),
+      JSON.stringify({
+        scope: shelfA,
+        countedAt: '2026-10-12T19:00:00Z',
+        estimate: { gzBytes: 2 * GB },
+      }),
+    );
+    writeFileSync(
+      join(dir, 'count-logs.json'),
+      JSON.stringify({
+        scope: 'logs',
+        countedAt: '2026-10-11T04:29:00Z',
+        estimate: { gzBytes: 38.3 * GB },
+      }),
+    );
+    const g = (scope: string) =>
+      gateWholeSeries({ dir, scope, usedBytes: 0, freeBytes: 63.7 * GB });
+    expect(g(shelfA).ok).toBe(true);
+    expect(g('logs').ok).toBe(false);
+    // another shelf (one token more), the shelf at 90 days, the list at 30 days: no count of theirs
+    expect(g(shelfB).reasons[0]).toMatch(/no count of scope shelf-d30-f100000-/);
+    expect(g(shelfA.replace('-d30-', '-d90-')).reasons[0]).toMatch(/no count/);
+    expect(g('logs-d30').reasons[0]).toMatch(/no count/);
+  });
+});
+
+describe('the start of a 30-day window: the block nearest a time', () => {
+  it('finds it by the secant on block times within a minute, in a few reads', async () => {
+    // a chain whose blocks come every 0.1 s, then every 0.08 s after block 60M; head 85M
+    const timeOf = async (b: number) =>
+      1_750_000_000 + Math.min(b, 60_000_000) * 0.1 + Math.max(0, b - 60_000_000) * 0.08;
+    const head = 85_000_000;
+    const headT = await timeOf(head);
+    const t = headT - 30 * 86_400;
+    const at = await blockAtTime(timeOf, head, t, { blocksPerDay: 855_000 });
+    expect(Math.abs(at.time - t)).toBeLessThanOrEqual(60);
+    expect(at.reads).toBeLessThanOrEqual(6);
+    // a time at or after the head is the head; a time before block 0 is block 0
+    expect((await blockAtTime(timeOf, head, headT + 5, { blocksPerDay: 855_000 })).block).toBe(
+      head,
+    );
+    expect((await blockAtTime(timeOf, head, 0, { blocksPerDay: 855_000 })).block).toBe(0);
+  });
+});
+
+describe('the command’s default scope is the shelf’s, and its gate is the shelf’s count', () => {
+  const run = (args: string[], out: string) =>
+    spawnSync('npx', ['tsx', 'scripts/risk/assets/backfill.ts', ...args], {
+      env: { ...process.env, ASSETS_DATA_DIR: out, DOTENV_CONFIG_PATH: '/nonexistent' },
+      encoding: 'utf8',
+      timeout: 60_000,
+    });
+  it('cuts the shelf from the list and the readings, and refuses without a count of that shelf', () => {
+    const out = mkdtempSync(join(tmpdir(), 'shelf-gate-'));
+    const list = join(out, 'list.json');
+    writeFileSync(
+      list,
+      JSON.stringify({
+        assets: [
+          { address: '0xAAaa', symbol: 'NVDA', status: 'listed' },
+          { address: '0xbbbb', symbol: 'THIN', status: 'candidate' },
+        ],
+      }),
+    );
+    const readings = join(out, 'readings.json');
+    writeFileSync(
+      readings,
+      JSON.stringify([
+        { chain: 'robinhood', address: '0xaaaa', value: 2e6, observedAt: '2026-10-12T18:34:21Z' },
+        { chain: 'robinhood', address: '0xbbbb', value: 5e4, observedAt: '2026-10-12T18:35:38Z' },
+        // another chain's reading is not this chain's
+        { chain: 'solana', address: '0xbbbb', value: 5e9, observedAt: '2026-10-12T18:35:00Z' },
+      ]),
+    );
+    const key = `shelf-d30-f100000-${shelfHash(['0xaaaa'])}`;
+    const base = ['robinhood-logs', '--list', list, '--readings', readings];
+    const none = run([...base, '--fetch', '--all'], out);
+    expect(none.status).toBe(1);
+    expect(none.stderr).toContain(`--all refused: no count of scope ${key}`);
+    // a count of the list's scope that fits does not open the shelf's gate
+    const dir = join(out, 'robinhood', 'robinhood-logs');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'count-list.json'),
+      JSON.stringify({
+        scope: 'logs',
+        countedAt: '2026-10-12T19:00:00Z',
+        estimate: { gzBytes: 1 },
+      }),
+    );
+    const other = run([...base, '--fetch', '--window', '0-85526375'], out);
+    expect(other.status).toBe(1);
+    expect(other.stderr).toMatch(
+      new RegExp(`a window of 85526376 blocks .* refused: no count of scope ${key}`),
+    );
+    // a higher floor is another shelf: here an empty one, refused before anything is asked
+    const empty = run([...base, '--fetch', '--all', '--floor', '1e9'], out);
+    expect(empty.status).not.toBe(0);
+    expect(empty.stderr).toMatch(/the shelf of robinhood is empty/);
+  }, 180_000);
 });

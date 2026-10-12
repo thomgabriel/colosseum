@@ -5,6 +5,7 @@ export * from './assets/evm';
 export * from './assets/metric-prices';
 export * from './assets/metric-rows';
 export * from './assets/metrics';
+export * from './assets/shelf';
 export * from './assets/spl-mint';
 export * from './assets/universe';
 export * from './breach';

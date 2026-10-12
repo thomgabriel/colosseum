@@ -5,6 +5,11 @@
 // walker's rate; `--fetch --all` runs the whole series, and refuses unless the newest count fits the budget.
 // The full ingestion is Rodrigo's to start (AS.8): this session never passes --all.
 //
+// The trading series (robinhood-logs, solana-swaps) take by default the pools of the shelf's tokens over the
+// last 30 days (gate ASSET-HISTORY-2; the shelf of ASSET-SHELF: listed or candidate rows at or above --floor,
+// default 100000 dollars, by the newest dex_volume_24h_usd reading in asset_observations, or --readings <file>);
+// --scope list [--days <n>] is the list's scope of 2026-10-10. Counts and gates key on the scope (scopeKey).
+//
 //   robinhood-logs    --window <fromBlock>-<toBlock> [--pool <v3 pool | v4 id> | --token <address>] [--kind swaps|supply|liquidity]
 //                     count: [--strata 16] [--window-blocks 100000]
 //   chainlink-rounds  --feed <proxy>
@@ -31,16 +36,24 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { createDb } from '@colosseum/db';
 import {
   type AnchoredPage,
   BACKFILL_METHOD_VERSION,
   BACKFILL_SERIES,
   type BackfillSeries,
+  blockAtTime,
+  cutShelf,
   estimateSampled,
   estimateSignatures,
   fitsBudget,
   GB,
+  type Shelf,
+  type ShelfListRow,
+  shelfHash,
+  type VolumeReading,
 } from '@colosseum/risk';
+import { sql } from 'drizzle-orm';
 import {
   ask,
   type Created,
@@ -69,11 +82,15 @@ import {
   writeSeries,
 } from './backfill-external';
 import {
+  type BackfillScope,
   BudgetStop,
   budgetGuard,
   gateWholeSeries,
   MAX_SAMPLE_WINDOW,
   newestCount,
+  scopeKey,
+  scopeOptions,
+  type TradingSeries,
   windowNeedsGate,
 } from './backfill-gate';
 import {
@@ -199,42 +216,6 @@ if (
   );
   process.exit(1);
 }
-/** The scope of the count a whole series of this run needs (see backfill-gate.ts). */
-const gateScope = (): string =>
-  ({
-    'robinhood-logs': 'logs',
-    'chainlink-rounds': 'feeds',
-    // the sampled count first; --all then runs the exact pass and gates again on its count
-    'solana-swaps': 'pools',
-    'solana-mints': opt('--via') ?? 'mint',
-    'external-daily': 'rows',
-  })[series];
-if (mode === 'fetch' && all) requireCountThatFits(gateScope(), '--all');
-// a window wider than a sample is a series run: the same gate as --all, before anything is read or asked
-if (mode === 'fetch' && !all && opt('--window')) {
-  const w = opt('--window') as string;
-  if (series === 'robinhood-logs') {
-    const [a, b] = w.split('-').map(Number);
-    if (
-      Number.isInteger(a) &&
-      Number.isInteger(b) &&
-      windowNeedsGate(series, a as number, b as number)
-    )
-      requireCountThatFits(
-        'logs',
-        `a window of ${(b as number) - (a as number) + 1} blocks (wider than ${MAX_SAMPLE_WINDOW[series].size})`,
-      );
-  }
-  if (series === 'solana-swaps' || series === 'solana-mints') {
-    const [a, b] = w.split('..').map((x) => Math.floor(Date.parse(x) / 1000));
-    if (a && b && windowNeedsGate(series, a, b))
-      requireCountThatFits(
-        series === 'solana-swaps' ? 'pools-exact' : 'mint',
-        `a window of ${((b - a + 1) / 86_400).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series].size / 86_400})`,
-      );
-  }
-}
-
 // ---------------------------------------------------------------------------------------------------------------
 // Robinhood Chain
 
@@ -287,10 +268,36 @@ async function head(deps: Deps) {
   return Number(BigInt(r.result));
 }
 
+/** The block nearest `days` before the head (the start of a trading window), read like every other request. */
+async function blockDaysBack(deps: Deps, h: number, days: number) {
+  const timeOf = async (b: number) => {
+    const r = await ask(deps, {
+      method: 'eth_getBlockByNumber',
+      params: [`0x${b.toString(16)}`, false],
+    });
+    const ts = (r.result as { timestamp?: string } | null)?.timestamp;
+    if (r.error || !ts) throw new Error(`header of block ${b}: ${r.error?.message ?? 'no result'}`);
+    return Number(BigInt(ts));
+  };
+  const headT = await timeOf(h);
+  const at = await blockAtTime(timeOf, h, headT - days * DAY, { blocksPerDay: 855_000 });
+  log({
+    event: 'window_start',
+    days,
+    block: at.block,
+    time: new Date(at.time * 1000).toISOString(),
+    reads: at.reads + 1,
+  });
+  return at;
+}
+
 async function robinhoodLogs() {
   const deps = evmDeps();
-  const { file, rows } = robinhoodList();
-  const tokens = new Set(rows.map((r) => r.address.toLowerCase()));
+  const ctx = trading as TradingCtx;
+  const { file: listFile, rows } = robinhoodList();
+  // the list's rows (--scope list), or the shelf's tokens (the default)
+  const tokens = ctx.tokens ?? new Set(rows.map((r) => r.address.toLowerCase()));
+  const file = ctx.shelf?.list ?? listFile;
   const erc20 = [...tokens].filter((a) => a !== ZERO_ADDRESS);
   const creation = JSON.parse(readFileSync(join(EVM, 'creation-logs-robinhood.json'), 'utf8')) as {
     scannedTo: number;
@@ -303,7 +310,21 @@ async function robinhoodLogs() {
     const h = await head(deps);
     const k = Number(opt('--strata') ?? 16);
     const size = Number(opt('--window-blocks') ?? 100_000);
-    const from = Number.isFinite(cls.firstBlock) ? cls.firstBlock : 0;
+    // whole life from the first pool of the list's (--scope list), else the block `days` before the head
+    const from =
+      ctx.days === null
+        ? Number.isFinite(cls.firstBlock)
+          ? cls.firstBlock
+          : 0
+        : (await blockDaysBack(deps, h, ctx.days)).block;
+    // the shelf's tokens no pool of RU.2's creation logs holds: their pools are only those a log names and the
+    // resolver ties to them (stated in the count)
+    const inCreated = new Set(
+      creation.created.flatMap((c) => [c.token0.toLowerCase(), c.token1.toLowerCase()]),
+    );
+    const noCreationPool = ctx.shelf
+      ? ctx.shelf.tokens.filter((t) => !inCreated.has(t.address.toLowerCase()))
+      : [];
     const res = await countLogs(deps, {
       chain: robinhood,
       filters: seriesFilters(robinhood, erc20),
@@ -341,13 +362,26 @@ async function robinhoodLogs() {
     const budget = budgetNow(gzBytes);
     const body = {
       series,
-      scope: 'logs',
+      scope: ctx.key,
+      scopeOf: scopeOf(ctx),
       chain: 'robinhood',
       countedAt: new Date().toISOString(),
       methodVersion: BACKFILL_METHOD_VERSION,
       rpc: label,
       list: file,
-      tokens: { listRows: rows.length, erc20: erc20.length },
+      tokens: {
+        [ctx.shelf ? 'shelfRows' : 'listRows']: tokens.size,
+        erc20: erc20.length,
+        ...(ctx.shelf
+          ? {
+              noPoolInCreationLogs: noCreationPool.map((t) => ({
+                address: t.address,
+                symbol: t.symbol,
+                note: "no pool of RU.2's creation logs holds it: its pools are those the sampled logs name and the resolver ties to it (token0/token1/factory, the v4 position manager's poolKeys)",
+              })),
+            }
+          : {}),
+      },
       pools: {
         creationLogsTo: creation.scannedTo,
         created: creation.created.length,
@@ -355,7 +389,7 @@ async function robinhoodLogs() {
         firstBlock: from,
       },
       window: { fromBlock: from, head: h, blocks: h - from + 1, windows, windowBlocks: size },
-      method: `stratified sample: ${res.strata} strata of the span, one ${size}-block window at the middle of each, every log of the six filters (v3 Swap and Mint/Burn by topic over every contract, v4 Swap and ModifyLiquidity of the pool manager, Transfer from and to the zero address of the list's ${erc20.length} ERC-20 tokens), each stratum's count × its length ÷ the window's`,
+      method: `stratified sample: ${res.strata} strata of the span, one ${size}-block window at the middle of each, every log of the six filters (v3 Swap and Mint/Burn by topic over every contract, v4 Swap and ModifyLiquidity of the pool manager, Transfer from and to the zero address of the ${ctx.shelf ? "shelf's" : "list's"} ${erc20.length} ERC-20 tokens), each stratum's count × its length ÷ the window's; a pool is counted when a token of the ${ctx.shelf ? 'shelf' : 'list'} is on either side`,
       estimate: {
         listLogs,
         allLogs: logsAll,
@@ -386,6 +420,7 @@ async function robinhoodLogs() {
     const f = writeCount(body);
     return finish({
       count: f,
+      scope: ctx.key,
       listLogs,
       gzGB: body.estimate.gzGB,
       gzSpread: {
@@ -412,9 +447,10 @@ async function robinhoodLogs() {
   let from: number;
   let to: number;
   if (all) {
-    // the chain's first block: a token's first mint can come before its first pool
-    from = 0;
     to = await head(deps);
+    // whole life (--scope list): the chain's first block, as a token's first mint can come before its first
+    // pool; else the block `days` before the head
+    from = ctx.days === null ? 0 : (await blockDaysBack(deps, to, ctx.days)).block;
   } else {
     const [a, b] = (opt('--window') as string).split('-').map(Number);
     if (!Number.isInteger(a) || !Number.isInteger(b) || (b as number) < (a as number))
@@ -424,14 +460,16 @@ async function robinhoodLogs() {
     // a window wider than a sample is a series run: the same gate as --all
     if (windowNeedsGate('robinhood-logs', from, to))
       requireCountThatFits(
-        'logs',
+        ctx.key,
         `a window of ${to - from + 1} blocks (wider than ${MAX_SAMPLE_WINDOW['robinhood-logs'].size})`,
       );
   }
   const res = await fetchLogs(deps, {
     out: join(OUT, 'robinhood'),
     filters: seriesFilters(robinhood, erc20, { kind, subject, subjectKind }),
-    scope: subject ? subject.toLowerCase() : '*',
+    // the list's every pool and token is `*`; the shelf's fetch is recorded under its own key, so a list-wide
+    // fetch never takes the shelf's blocks as covered (the shelf's fetch takes the list's: the shelf is in it)
+    scope: subject ? subject.toLowerCase() : ctx.shelf ? ctx.key : '*',
     guard: fetchGuard(),
     from,
     to,
@@ -447,6 +485,7 @@ async function robinhoodLogs() {
   });
   return finish({
     fetched: res,
+    scope: ctx.key,
     window: { from, to },
     subject: subject ?? null,
     kind: kind ?? 'all',
@@ -577,6 +616,24 @@ function solanaSubjects() {
   const mints = listed ? [...listed].filter((m) => !DA15_NOT_WALKED.has(m)) : [...registryMints];
   return { regFile, pools, mints, registryMints, trackedMints, list: listed ? solList : null };
 }
+/**
+ * The pools of the trading scope: the list's (`--scope list`, as `solanaSubjects`), or the registry's pools of
+ * the shelf's tokens, with the shelf's tokens that have no pool in the registry named.
+ */
+function solanaPools() {
+  const sub = solanaSubjects();
+  const ctx = trading as TradingCtx;
+  if (!ctx.tokens) return { ...sub, noKnownPool: [] as Array<{ address: string; symbol: string }> };
+  const reg = JSON.parse(readFileSync(sub.regFile, 'utf8')) as Reg;
+  const shelf = ctx.tokens;
+  const pools = reg.pools.filter((p) => shelf.has(p.assetMint));
+  const withPool = new Set(pools.map((p) => p.assetMint));
+  const noKnownPool = (ctx.shelf?.tokens ?? [])
+    .filter((t) => !withPool.has(t.address))
+    .map((t) => ({ address: t.address, symbol: t.symbol }));
+  return { ...sub, pools, list: ctx.shelf?.list ?? sub.list, noKnownPool };
+}
+
 /** USDC and USDT on Solana: their supply comes from the external daily series, their mints are not walked (DA15). */
 const DA15_NOT_WALKED = new Set([
   'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -607,14 +664,23 @@ function authoritiesOf(file: string) {
 
 async function solanaCount(kind: 'swaps' | 'mints') {
   const { regFile, pools, mints, registryMints, trackedMints, list } = solanaSubjects();
+  // the swaps' pools and window by the trading scope (the shelf's 30 days by default); the mints' as before
+  const ctx = kind === 'swaps' ? (trading as TradingCtx) : null;
+  const scoped = ctx ? solanaPools() : null;
+  const windowDays = ctx?.days ?? 90;
+  const swapPools = scoped?.pools ?? pools;
   // the mints outside the registry's stock tokens are sampled one in `--mint-every` and scaled
   const mintEvery = Number(opt('--mint-every') ?? 10);
   const otherMints = mints.filter((m) => !registryMints.has(m));
   const nowT = Math.floor(Date.now() / 1000);
-  const anc = anchors(RISK, nowT, { windowDays: 90, stepDays: 15, oldest: '2025-06-25' });
+  const anc = anchors(RISK, nowT, {
+    windowDays,
+    stepDays: Number(opt('--step-days') ?? 15),
+    oldest: '2025-06-25',
+  });
   const dustEvery = Number(opt('--dust-every') ?? 20);
-  const live = pools.filter((p) => p.tier !== 'X');
-  const dust = pools.filter((p) => p.tier === 'X');
+  const live = swapPools.filter((p) => p.tier !== 'X');
+  const dust = swapPools.filter((p) => p.tier === 'X');
   const dustSample = dust.filter((_, i) => i % dustEvery === 0);
   const subjects =
     kind === 'swaps'
@@ -685,7 +751,9 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const callSeconds = (Date.now() - tc) / 1000;
   const byAddr = new Map<string, AnchoredPage[]>();
   for (const r of pages) byAddr.set(r.address, [...(byAddr.get(r.address) ?? []), r.page]);
-  const d90 = nowT - 90 * DAY;
+  // the start of the window: day 90 of the list's scope, day 30 of the shelf's (the `…90` keys below hold the
+  // window's figures, whatever its days: `window.days` names them)
+  const d90 = nowT - windowDays * DAY;
   // Step 5b's measured bytes a transaction (decoded rows, data/risk/history-full/events), gzipped as the
   // fetch writes them: from three day files of different pools
   const sample = [
@@ -782,14 +850,17 @@ async function solanaCount(kind: 'swaps' | 'mints') {
     : null;
   const tx90 = ok('sigs90');
   const txLife = ok('sigsLife');
-  const sampledBeyond = tot('sampledBeyond90');
+  // the sampled walk beyond the window is the list's scope only (series 3b): the shelf's is out of the MVP depth
+  const walkBeyond = !ctx || ctx.beyond;
+  const sampledBeyond = walkBeyond ? tot('sampledBeyond90') : 0;
+  const pagesBeyond = walkBeyond ? tot('sigsBeyond90') / 1000 : 0;
   // calls: signature pages of 1,000, and one getTransaction per successful signature fetched
   const calls =
     kind === 'swaps'
       ? {
           sigPages90: tot('sigs90') / 1000,
           getTransaction90: tx90,
-          sigPagesBeyond90: tot('sigsBeyond90') / 1000,
+          sigPagesBeyond90: pagesBeyond,
           getTransactionSampled: sampledBeyond,
         }
       : { sigPagesLife: tot('sigsLife') / 1000, getTransactionLife: txLife };
@@ -801,7 +872,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
       ? {
           at: { txPerSecond: txRate, sigPagesPerSecond: pageRate },
           days90: (tx90 / txRate + tot('sigs90') / 1000 / pageRate) / 3600,
-          beyond90: (sampledBeyond / txRate + tot('sigsBeyond90') / 1000 / pageRate) / 3600,
+          beyond90: (sampledBeyond / txRate + pagesBeyond / pageRate) / 3600,
         }
       : {
           at: { txPerSecond: txRate, sigPagesPerSecond: pageRate },
@@ -810,7 +881,19 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const budget = budgetNow(gzBytes);
   const body = {
     series: kind === 'swaps' ? 'solana-swaps' : 'solana-mints',
-    scope: kind === 'swaps' ? 'pools' : (opt('--via') ?? 'mint'),
+    scope: ctx ? ctx.key : (opt('--via') ?? 'mint'),
+    ...(ctx
+      ? {
+          scopeOf: {
+            ...scopeOf(ctx),
+            beyondWindow: ctx.beyond ? 'sampled walk to inception' : 'not walked',
+          },
+          noKnownPool: (scoped?.noKnownPool ?? []).map((t) => ({
+            ...t,
+            note: 'no pool of the registry has it as its asset: not counted',
+          })),
+        }
+      : {}),
     via: kind === 'mints' ? (opt('--via') ?? 'mint') : 'pool',
     chain: 'solana',
     countedAt: new Date().toISOString(),
@@ -819,7 +902,10 @@ async function solanaCount(kind: 'swaps' | 'mints') {
       ? 'SOLANA_RPC_URL (the risk scripts’ RPC)'
       : 'the public mainnet-beta endpoint',
     registry: regFile,
-    list: list ?? 'none committed: every stock token of the registry, tracked or candidate (DA16)',
+    list:
+      scoped?.list ??
+      list ??
+      'none committed: every stock token of the registry, tracked or candidate (DA16)',
     subjects: {
       pools:
         kind === 'swaps'
@@ -841,10 +927,14 @@ async function solanaCount(kind: 'swaps' | 'mints') {
             }
           : undefined,
     },
-    window: { now: new Date(nowT * 1000).toISOString(), day90: new Date(d90 * 1000).toISOString() },
+    window: {
+      now: new Date(nowT * 1000).toISOString(),
+      day90: new Date(d90 * 1000).toISOString(),
+      days: windowDays,
+    },
     anchors: anc,
     deepAnchors: { subjects: older.length, anchors: deep },
-    method: `anchored pages: getSignaturesForAddress(address, { before: <anchor>, limit: ${SOL_LIMIT} }) at ${anc.length} anchors (now, every 15 days to day 90, monthly to 2025-06-25), each page's mean rate at the middle of what it covers, linear between pages, nothing before an exhausted page's oldest signature (estimateSignatures); the dust pools (tier X) sampled one in ${dustEvery} and the mints outside the registry's stock tokens one in ${mintEvery}, each scaled; successful transactions are the signatures less the pages' failed share; bytes are Step 5b's decoded rows gzipped (${rowBytes.toFixed(0)} B a row, ${gzPerTx.toFixed(0)} B gzipped, from three day files)`,
+    method: `anchored pages: getSignaturesForAddress(address, { before: <anchor>, limit: ${SOL_LIMIT} }) at ${anc.length} anchors (now, every ${Number(opt('--step-days') ?? 15)} days to day ${windowDays}, monthly to 2025-06-25), each page's mean rate at the middle of what it covers, linear between pages, nothing before an exhausted page's oldest signature (estimateSignatures); the dust pools (tier X) sampled one in ${dustEvery} and the mints outside the registry's stock tokens one in ${mintEvery}, each scaled; successful transactions are the signatures less the pages' failed share; bytes are Step 5b's decoded rows gzipped (${rowBytes.toFixed(0)} B a row, ${gzPerTx.toFixed(0)} B gzipped, from three day files)`,
     estimate: {
       signatures90: Math.round(tot('sigs90')),
       transactions90: Math.round(tx90),
@@ -878,6 +968,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const f = writeCount(body);
   return finish({
     count: f,
+    scope: body.scope,
     estimate: { ...body.estimate, byGroup: undefined },
     hours,
     calibration: calibration && { ...calibration, perPool: undefined },
@@ -936,9 +1027,10 @@ async function solanaPieces(inp: {
 
 /** The exact pass over the 90 days of every pool: its count (scope pools-exact) replaces the sampled one. */
 async function solanaExactCount() {
-  const { pools, regFile, list } = solanaSubjects();
+  const ctx = trading as TradingCtx;
+  const { pools, regFile, list, noKnownPool } = solanaPools();
   const nowT = Math.floor(Date.now() / 1000);
-  const d90 = nowT - 90 * DAY;
+  const d90 = nowT - (ctx.days ?? 90) * DAY;
   const t1 = Date.now();
   const walks = await exactWalk(
     solRpc as never,
@@ -950,27 +1042,29 @@ async function solanaExactCount() {
   );
   const sigs = walks.reduce((a, w) => a + w.signatures, 0);
   const ok = walks.reduce((a, w) => a + w.signatures - w.failed, 0);
-  // beyond day 90 the sampled count stands (the exact pass does not walk it); Step 5b's bytes a row
-  const sampled = newestCount(seriesDir, 'pools');
+  // beyond the window the sampled count of the same scope stands (the exact pass does not walk it; the shelf's
+  // scope takes nothing beyond it); Step 5b's bytes a row
+  const sampled = newestCount(seriesDir, ctx.key);
   const sampledBody = sampled
     ? (JSON.parse(readFileSync(sampled.file, 'utf8')) as {
         estimate: { sampledBeyond90: number; bytesPerTx: { gz: number } };
       })
     : null;
   const gzPerTx = sampledBody?.estimate.bytesPerTx.gz ?? 109.2;
-  const beyond = sampledBody?.estimate.sampledBeyond90 ?? 0;
+  const beyond = ctx.beyond ? (sampledBody?.estimate.sampledBeyond90 ?? 0) : 0;
   const gzBytes = (ok + beyond) * gzPerTx;
   const body = {
     series,
-    scope: 'pools-exact',
+    scope: ctx.exactKey as string,
+    scopeOf: scopeOf(ctx),
+    noKnownPool,
     chain: 'solana',
     countedAt: new Date().toISOString(),
     methodVersion: BACKFILL_METHOD_VERSION,
     registry: regFile,
     list,
     window: { from: new Date(d90 * 1000).toISOString(), to: new Date(nowT * 1000).toISOString() },
-    method:
-      'exact: every signature of every pool from the head back to day 90, getSignaturesForAddress 1,000 a page, counted by day and failed or not (history-full-measure.ts walk, counting only); beyond day 90 the sampled count stands',
+    method: `exact: every signature of every pool from the head back to day ${ctx.days ?? 90}, getSignaturesForAddress 1,000 a page, counted by day and failed or not (history-full-measure.ts walk, counting only); ${ctx.beyond ? 'beyond it the sampled count stands' : 'nothing beyond it'}`,
     estimate: {
       signatures90: sigs,
       transactions90: ok,
@@ -986,7 +1080,8 @@ async function solanaExactCount() {
 }
 
 async function solanaFetch(kind: 'swaps' | 'mints') {
-  const { pools } = solanaSubjects();
+  const ctx = kind === 'swaps' ? (trading as TradingCtx) : null;
+  const { pools } = kind === 'swaps' ? solanaPools() : solanaSubjects();
   const guardFn = fetchGuard();
   const written = { bytes: 0, largest: 0 };
   if (all) {
@@ -997,9 +1092,9 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
     // step 1, the exact pass, then the gate on its count, then the fetch
     const exact = await solanaExactCount();
     log({ event: 'exact_pass', count: exact.file, estimate: exact.body.estimate });
-    requireCountThatFits('pools-exact', '--all after the exact pass');
+    requireCountThatFits(ctx?.exactKey as string, '--all after the exact pass');
     const nowT = Math.floor(Date.now() / 1000);
-    const d90 = nowT - 90 * DAY;
+    const d90 = nowT - (ctx?.days ?? 90) * DAY;
     const order = [...exact.body.perPool].sort((x, y) => y.signatures - x.signatures);
     let done = 0;
     for (const w of order) {
@@ -1014,8 +1109,9 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
         written,
       });
       const below = recent.at(-1)?.lastSignature ?? undefined;
-      // the sampled walk from day 91 back to the pool's first transaction, 30 transactions an hour
-      if (!recent.at(-1)?.exhausted)
+      // the sampled walk from day 91 back to the pool's first transaction, 30 transactions an hour (the
+      // list's scope only: the shelf's is its window)
+      if (ctx?.beyond && !recent.at(-1)?.exhausted)
         await solanaPieces({
           kind,
           address: p.address,
@@ -1048,11 +1144,12 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
   const series2 = kind === 'swaps' ? 'solana-swaps' : 'solana-mints';
   if (windowNeedsGate(series2, a, b))
     requireCountThatFits(
-      kind === 'swaps' ? 'pools-exact' : 'mint',
+      kind === 'swaps' ? (ctx?.exactKey as string) : 'mint',
       `a window of ${((b - a + 1) / DAY).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series2].size / DAY})`,
     );
   const p = pools.find((x) => x.address === address);
-  if (kind === 'swaps' && !p) throw new Error(`${address} is not a registry pool of the list`);
+  if (kind === 'swaps' && !p)
+    throw new Error(`${address} is not a registry pool of the scope (${ctx?.key})`);
   const res = await solanaPieces({
     kind,
     address,
@@ -1232,6 +1329,156 @@ async function externalDaily() {
     return finish({ fetched: { protocol, first: r.first, last: r.last, ...w, ms: r.ms } });
   }
   throw new Error('--coin or --protocol (a whole series needs --all, not run by this session)');
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The scope of the trading series (gate ASSET-HISTORY-2) and the gates
+
+/**
+ * The trading series' scope: by default the pools of the shelf's tokens (ASSET-SHELF: the list's `listed` and
+ * `candidate` rows whose newest DexScreener 24 h volume reading is at least `--floor`, default $100,000) over the
+ * last `--days` (30); `--scope list` is the scope of 2026-10-10 (every row of the list, whole life on Robinhood
+ * Chain, 90 days and the sampled walk beyond on Solana), `--days` narrowing it. The readings come from
+ * `asset_observations` in the local database, or from `--readings <file>` (a JSON array of
+ * { chain?, address, value, observedAt }), and the count file names their time.
+ */
+type TradingCtx = {
+  scope: BackfillScope;
+  key: string;
+  /** Solana: the key of the exact pass's count. */
+  exactKey: string | null;
+  days: number | null;
+  /** The list's whole scope on Solana walks beyond the window, sampled (series 3b); the shelf never does. */
+  beyond: boolean;
+  shelf: (Shelf & { list: string; readingsFrom: string }) | null;
+  /** The tokens whose pools the series takes (EVM addresses in lower case). */
+  tokens: Set<string> | null;
+};
+async function volumeReadings(chain: 'robinhood' | 'solana'): Promise<VolumeReading[]> {
+  const file = opt('--readings');
+  if (file)
+    return (
+      JSON.parse(readFileSync(file, 'utf8')) as Array<VolumeReading & { chain?: string }>
+    ).filter((r) => !r.chain || r.chain === chain);
+  const { db, client } = createDb();
+  try {
+    const r = (await db.execute(
+      sql`select distinct on (address) address, value, observed_at from asset_observations where chain = ${chain} and metric = 'dex_volume_24h_usd' order by address, observed_at desc`,
+    )) as unknown as Array<{ address: string; value: number | null; observed_at: Date | string }>;
+    return [...r].map((x) => ({
+      address: x.address,
+      value: x.value === null ? null : Number(x.value),
+      observedAt: new Date(x.observed_at).toISOString(),
+    }));
+  } finally {
+    await client.end();
+  }
+}
+async function tradingScope(s: TradingSeries): Promise<TradingCtx> {
+  const o = scopeOptions(s, { scope: opt('--scope'), days: opt('--days'), floor: opt('--floor') });
+  if (o.kind === 'list') {
+    const scope: BackfillScope = { kind: 'list', days: o.days };
+    return {
+      scope,
+      key: scopeKey(s, scope),
+      exactKey: s === 'solana-swaps' ? scopeKey(s, scope, true) : null,
+      days: o.days,
+      beyond: s === 'solana-swaps',
+      shelf: null,
+      tokens: null,
+    };
+  }
+  const chain = chainOf(s) as 'robinhood' | 'solana';
+  const evm = chain === 'robinhood';
+  const key = (a: string) => (evm ? a.toLowerCase() : a);
+  const listFile = (evm ? opt('--list') : opt('--sol-list')) ?? `scripts/risk/assets/${chain}.json`;
+  const rows = (JSON.parse(readFileSync(listFile, 'utf8')) as { assets: ShelfListRow[] }).assets;
+  const cut = cutShelf(rows, await volumeReadings(chain), o.floorUsd, key);
+  if (!cut.tokens.length)
+    throw new Error(
+      `the shelf of ${chain} is empty: no listed or candidate row of ${listFile} has a dex_volume_24h_usd reading of at least ${o.floorUsd} (${JSON.stringify(cut.counts)})`,
+    );
+  const scope: BackfillScope = {
+    kind: 'shelf',
+    days: o.days,
+    floorUsd: o.floorUsd,
+    tokensHash: shelfHash(
+      cut.tokens.map((t) => t.address),
+      key,
+    ),
+  };
+  return {
+    scope,
+    key: scopeKey(s, scope),
+    exactKey: s === 'solana-swaps' ? scopeKey(s, scope, true) : null,
+    days: o.days,
+    beyond: false,
+    shelf: {
+      ...cut,
+      list: listFile,
+      readingsFrom:
+        opt('--readings') ?? 'asset_observations (local database), metric dex_volume_24h_usd',
+    },
+    tokens: new Set(cut.tokens.map((t) => key(t.address))),
+  };
+}
+const trading: TradingCtx | null =
+  series === 'robinhood-logs' || series === 'solana-swaps' ? await tradingScope(series) : null;
+/** What the count file of a trading series says of its scope. */
+const scopeOf = (ctx: TradingCtx) => ({
+  key: ctx.key,
+  kind: ctx.scope.kind,
+  days: ctx.days,
+  ...(ctx.shelf
+    ? {
+        shelf: {
+          rule: 'ASSET-SHELF: listed or candidate rows of the list at or above the floor by the newest dex_volume_24h_usd reading',
+          list: ctx.shelf.list,
+          floorUsd: ctx.shelf.floorUsd,
+          reading: ctx.shelf.reading,
+          readingsFrom: ctx.shelf.readingsFrom,
+          counts: ctx.shelf.counts,
+          tokensHash: (ctx.scope as { tokensHash: string }).tokensHash,
+          tokens: ctx.shelf.tokens,
+        },
+      }
+    : {}),
+});
+
+/** The scope of the count a whole series of this run needs (see backfill-gate.ts). */
+const gateScope = (): string =>
+  ({
+    'robinhood-logs': trading?.key ?? 'logs',
+    'chainlink-rounds': 'feeds',
+    // the sampled count first; --all then runs the exact pass and gates again on its count
+    'solana-swaps': trading?.key ?? 'pools',
+    'solana-mints': opt('--via') ?? 'mint',
+    'external-daily': 'rows',
+  })[series];
+if (mode === 'fetch' && all) requireCountThatFits(gateScope(), '--all');
+// a window wider than a sample is a series run: the same gate as --all, before anything is read or asked
+if (mode === 'fetch' && !all && opt('--window')) {
+  const w = opt('--window') as string;
+  if (series === 'robinhood-logs') {
+    const [a, b] = w.split('-').map(Number);
+    if (
+      Number.isInteger(a) &&
+      Number.isInteger(b) &&
+      windowNeedsGate(series, a as number, b as number)
+    )
+      requireCountThatFits(
+        trading?.key ?? 'logs',
+        `a window of ${(b as number) - (a as number) + 1} blocks (wider than ${MAX_SAMPLE_WINDOW[series].size})`,
+      );
+  }
+  if (series === 'solana-swaps' || series === 'solana-mints') {
+    const [a, b] = w.split('..').map((x) => Math.floor(Date.parse(x) / 1000));
+    if (a && b && windowNeedsGate(series, a, b))
+      requireCountThatFits(
+        series === 'solana-swaps' ? (trading?.exactKey ?? 'pools-exact') : 'mint',
+        `a window of ${((b - a + 1) / 86_400).toFixed(1)} days (wider than ${MAX_SAMPLE_WINDOW[series].size / 86_400})`,
+      );
+  }
 }
 
 const run = {

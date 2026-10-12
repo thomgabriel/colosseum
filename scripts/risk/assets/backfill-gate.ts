@@ -3,7 +3,7 @@
 // pieces when the next one could pass it. File reads only; the clock and the disk are passed in.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Budget, DEFAULT_BUDGET, fitsBudget } from '@colosseum/risk';
+import { type Budget, DEFAULT_BUDGET, fitsBudget, SHELF_FLOOR_USD } from '@colosseum/risk';
 
 /**
  * The widest window a fetch may take without a count that fits, per series: a day of Robinhood Chain is about
@@ -82,6 +82,66 @@ export function gateWholeSeries(inp: {
     inp.budget ?? DEFAULT_BUDGET,
   );
   return { ok: b.fits, reasons: b.reasons, count: c.file };
+}
+
+/**
+ * The scope of a trading series (gate ASSET-HISTORY-2): `shelf`, the default, is the pools of the shelf's tokens
+ * (ASSET-SHELF) over the last `days` (30); `list` is the scope of 2026-10-10 (ASSET-HISTORY), every pool of the
+ * list's rows over each pool's whole life on Robinhood Chain (`days` null) or 90 days and the sampled walk
+ * beyond on Solana. `tokensHash` names the shelf's token set (`shelfHash`), so a count of one shelf never gates
+ * a fetch of another.
+ */
+export type TradingSeries = 'robinhood-logs' | 'solana-swaps';
+export type BackfillScope =
+  | { kind: 'list'; days: number | null }
+  | { kind: 'shelf'; days: number; floorUsd: number; tokensHash: string };
+export const SHELF_DAYS = 30;
+export const LIST_DAYS: Record<TradingSeries, number | null> = {
+  'robinhood-logs': null,
+  'solana-swaps': 90,
+};
+
+/** `--scope`, `--days` and `--floor` read and checked; the shelf's hash is filled in once the shelf is cut. */
+export function scopeOptions(
+  series: TradingSeries,
+  o: { scope?: string | undefined; days?: string | undefined; floor?: string | undefined },
+):
+  | { kind: 'list'; days: number | null; floorUsd: null }
+  | { kind: 'shelf'; days: number; floorUsd: number } {
+  const kind = o.scope ?? 'shelf';
+  if (kind !== 'shelf' && kind !== 'list') throw new Error(`--scope ${kind}: shelf or list`);
+  const days =
+    o.days === undefined ? (kind === 'shelf' ? SHELF_DAYS : LIST_DAYS[series]) : Number(o.days);
+  if (days !== null && (!Number.isInteger(days) || days < 1))
+    throw new Error(`--days ${o.days}: a whole number of days, at least 1`);
+  if (kind === 'list') {
+    if (o.floor !== undefined)
+      throw new Error('--floor cuts the shelf: it has no meaning with --scope list');
+    return { kind, days, floorUsd: null };
+  }
+  const floorUsd = Number(o.floor ?? SHELF_FLOOR_USD);
+  if (!(floorUsd >= 0)) throw new Error(`--floor ${o.floor}: dollars, at least 0`);
+  return { kind, days: days as number, floorUsd };
+}
+
+/**
+ * The key a count is written under and a fetch is gated on. The list's scopes of 2026-10-10 keep their keys
+ * (`logs`; `pools` sampled and `pools-exact` walked), so the counts already on disk gate what they gated; every
+ * other scope names its kind, days and, for the shelf, the floor and the token set.
+ */
+export function scopeKey(series: TradingSeries, s: BackfillScope, exact = false): string {
+  if (exact && series !== 'solana-swaps') throw new Error(`${series}: no exact pass`);
+  const base =
+    s.kind === 'shelf'
+      ? `shelf-d${s.days}-f${s.floorUsd}-${s.tokensHash}`
+      : series === 'robinhood-logs'
+        ? s.days === null
+          ? 'logs'
+          : `logs-d${s.days}`
+        : s.days === 90
+          ? 'pools'
+          : `pools-d${s.days ?? 'life'}`;
+  return exact ? `${base}-exact` : base;
 }
 
 /** True when a fetch window is wider than a sample of its series may be. */
