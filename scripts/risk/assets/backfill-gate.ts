@@ -149,6 +149,23 @@ export function windowNeedsGate(series: keyof typeof MAX_SAMPLE_WINDOW, from: nu
   return to - from + 1 > MAX_SAMPLE_WINDOW[series].size;
 }
 
+/**
+ * A wide window (one `windowNeedsGate` sends to a count) must lie inside the scope it is gated by: a count of
+ * the scope's last `days` does not stand for a window that starts before them. `scopeStart` is the scope's first
+ * block (Robinhood Chain) or second (Solana); null for a whole-life scope, which holds every window.
+ */
+export function requireWindowInScope(
+  from: number,
+  scopeStart: number | null,
+  what: string,
+  key: string,
+): void {
+  if (scopeStart !== null && from < scopeStart)
+    throw new Error(
+      `${what} starts at ${from}, before the scope ${key} begins (${scopeStart}): its count does not cover it; count the wider scope (--scope list or --days) first`,
+    );
+}
+
 /** Thrown between pieces when the budget would be crossed; the command ends cleanly with the reasons. */
 export class BudgetStop extends Error {
   constructor(readonly reasons: string[]) {
