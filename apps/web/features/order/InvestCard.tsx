@@ -25,7 +25,7 @@ import {
 } from './order-api';
 import { acceptTrust, forgetUnapproved, trustAccepted } from './order-record';
 import { displayName } from './plain';
-import { gasUnitsFor } from './readiness';
+import { chainIsLive, gasUnitsFor } from './readiness';
 import { TrustNotice } from './TrustNotice';
 import { unitsFor } from './units';
 import { FundsWait } from './waits';
@@ -387,7 +387,7 @@ export function InvestCard({
   const provenance = read?.provenance ?? said ?? (mock ? 'mock' : port.network(chain)?.provenance);
   const sample = mock || said === 'mock';
 
-  const accepted = trustAccepted(userId, TRUST_STATUS.textVersion, keeper);
+  const accepted = trustAccepted(userId, TRUST_STATUS.textVersion, keeper, chainIsLive(chain));
   const trustHeld = !accepted && !ticked;
 
   async function addMock() {
@@ -642,7 +642,8 @@ export function InvestCard({
                 },
                 // Kept only once the run has begun: a press that could not start accepted nothing.
                 onStarted: () => {
-                  if (!accepted && userId) acceptTrust(userId, TRUST_STATUS.textVersion, keeper);
+                  if (!accepted && userId)
+                    acceptTrust(userId, TRUST_STATUS.textVersion, keeper, chainIsLive(chain));
                 },
                 onAgain: () => {
                   // asked for by the person: made whatever the card has made by itself

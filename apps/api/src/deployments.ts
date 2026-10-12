@@ -78,9 +78,14 @@ export function solanaDeployment(
   };
 }
 
-/** An EVM chain's record for a network: `deployments/robinhood-testnet.json`, `robinhood-local.json`. */
+/**
+ * An EVM chain's record for a network: `deployments/robinhood-testnet.json`, `robinhood-local.json`,
+ * and `robinhood-mainnet.json` once a person has deployed there and written it. Looking for the file
+ * runs nothing: a mainnet also needs its switch (orders/chains.ts, `MAINNET_SWITCH`).
+ */
 export function evmRecordFile(chain: 'robinhood' | 'base', network: string, dir = DEPLOYMENTS_DIR) {
-  if (network === 'testnet' || network === 'local') return join(dir, `${chain}-${network}.json`);
+  if (network === 'testnet' || network === 'local' || network === 'mainnet')
+    return join(dir, `${chain}-${network}.json`);
   return null;
 }
 

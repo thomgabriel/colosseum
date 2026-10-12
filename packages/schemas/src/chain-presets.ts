@@ -36,8 +36,9 @@ const solanaMainnet: ChainPreset = {
 const robinhoodMainnet: ChainPreset = {
   networkName: 'Robinhood Chain',
   evmChainId: 4663,
-  // No explorer address for mainnet is recorded in this repo yet.
-  explorerTx: null,
+  // Blockscout's instance for the chain. On 2026-10-12 `/tx/<hash>` answered for a transaction of that
+  // day's head with the page "Robinhood Chain transaction".
+  explorerTx: 'https://robinhoodchain.blockscout.com/tx/{txId}',
   router: ROBINHOOD_UNIVERSAL_ROUTER,
   priceSource: { kind: 'chainlink', address: null },
 };

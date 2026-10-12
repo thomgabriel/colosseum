@@ -976,6 +976,31 @@ export const pt: Dictionary = {
       robinhood_fork: 'uma execução numa cópia da Robinhood Chain',
       second_rehearsal: 'um segundo ensaio na rede principal com a chave de administração',
     },
+    mainnet: {
+      real: 'Isto é dinheiro de verdade em uma rede ao vivo. Nada aqui promete retorno, e isto não é aconselhamento licenciado.',
+      loss: 'Você pode perder dinheiro, inclusive tudo.',
+      governance: (hours: number, signatures: number) =>
+        `Os contratos dos cofres pertencem a um timelock. Um Safe que exige ${signatures} assinaturas, dos dois fundadores, propõe cada mudança a ele, e uma mudança passa a valer ${hours} horas depois de aparecer na rede. Uma mudança pode alterar o que um cofre faz, então depois dessa espera a equipe poderia mover fundos.`,
+      withdraw:
+        'Um saque envia a você os próprios tokens, e os contratos dos cofres nunca o bloqueiam. O emissor pode pausar os tokens de ações e congelar o token de dólar, o que impediria esses tokens de se moverem, dentro ou fora do seu cofre.',
+      safe: (address: string) => `O Safe: ${address}.`,
+      guardian:
+        'Um fundador tem uma chave de guardião. Ela pode pausar novos depósitos na hora. Ela não move fundos, não muda os contratos e não impede um saque.',
+      noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
+      noCap: 'Nada limita quanto você pode depositar. Quanto você coloca é decisão sua.',
+      trades:
+        'Cada negociação que você assina é conferida por este aplicativo com um preço de referência e limitada em tamanho antes de ser montada. Uma negociação fora desses limites não é montada. Os próprios contratos só seguram uma negociação ao mínimo que você assina.',
+      issuers:
+        'O emissor dos tokens de ações pode substituir o código deles e pausá-los. O emissor do token de dólar pode congelá-lo.',
+      short: {
+        governance: (hours: number, signatures: number) =>
+          `Um Safe de ${signatures} assinaturas, dos fundadores, pode mudar o código dos cofres ${hours} horas depois de avisar na rede.`,
+        noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
+        noCap: 'Nada limita quanto você pode depositar.',
+        issuers:
+          'Os emissores podem mudar ou pausar os tokens de ações e congelar o token de dólar.',
+      },
+    },
     accept: 'Li e aceito',
     accepted: 'Você aceitou este aviso neste navegador.',
     short: {

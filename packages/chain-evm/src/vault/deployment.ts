@@ -19,7 +19,16 @@ const Raw = z.string().regex(/^\d+$/);
 const Kind = z.enum(['stock', 'etf', 'gold', 'commodity', 'dollar_yield', 'crypto']);
 
 /** The mainnets' chain ids: a node that answers one is mainnet, whatever it is called. */
-export const MAINNET_CHAIN_IDS: Readonly<Record<string, number>> = { robinhood: 4663, base: 8453 };
+export const MAINNET_CHAIN_IDS: Readonly<Record<string, number>> = {
+  ethereum: 1,
+  robinhood: 4663,
+  base: 8453,
+};
+
+/** The one chain a mainnet record is admitted for: the others have no mainnet in this app. */
+const MAINNET_CHAINS: readonly string[] = ['robinhood'];
+/** The least a mainnet's timelock waits, in seconds: 48 hours, as the deploy script holds it. */
+const MIN_MAINNET_DELAY = 172_800;
 
 // Strict throughout: a field the record does not have is a record of another shape, refused.
 const Token = z.strictObject({
@@ -32,20 +41,21 @@ const Token = z.strictObject({
 
 export const EvmDeploymentRecord = z
   .strictObject({
-    /** The record's own name for its network, which is its file's: `robinhood-testnet`, `robinhood-local`. */
-    network: z.string().regex(/^(?:robinhood|base)-(?:testnet|local)$/),
-    chain: z.enum(['robinhood', 'base']),
-    provenance: z.literal('sandbox'),
     /**
-     * The number the node answers `eth_chainId` with. Never a mainnet's: this record is for a test
-     * network or a local copy, and a local copy runs under its own number (31337), since a signature
-     * made for a mainnet's number is good on that mainnet.
+     * The record's own name for its network, which is its file's: `robinhood-testnet`,
+     * `robinhood-local`, and `robinhood-mainnet` for a mainnet, which is admitted only when the record
+     * is complete (`incompleteMainnet` below).
      */
-    evmChainId: z
-      .number()
-      .int()
-      .positive()
-      .refine((id) => !Object.values(MAINNET_CHAIN_IDS).includes(id), "a mainnet's chain id"),
+    network: z.string().regex(/^(?:robinhood|base)-(?:testnet|local|mainnet)$/),
+    chain: z.enum(['robinhood', 'base']),
+    /** `live` on a mainnet and nowhere else; `sandbox` on a test network or a local copy. */
+    provenance: z.enum(['sandbox', 'live']),
+    /**
+     * The number the node answers `eth_chainId` with. A mainnet's only in a mainnet's record: a test
+     * network has its own, and a local copy runs under its own number (31337), since a signature made
+     * for a mainnet's number is good on that mainnet.
+     */
+    evmChainId: z.number().int().positive(),
     /** The block the factory was deployed in, where known: nothing of ours is older. */
     deployBlock: z.number().int().nonnegative().nullable(),
     contracts: z.strictObject({
@@ -158,6 +168,24 @@ export const EvmDeploymentRecord = z
         address: Address,
       }),
     ),
+    /**
+     * The timelock that is the admin of a mainnet's factory and the owner of its beacon, and what the
+     * deploy is expected to hold. Both are read and held to the chain by `pnpm ops:authority-check`
+     * (scripts/ops/authority.ts), which owns their shape; here only the timelock's address is read,
+     * to hold `roles.admin` to it. A mainnet's record has both; a test network's need not.
+     */
+    timelock: z.looseObject({ address: Address, minDelay: z.number().int().optional() }).optional(),
+    expected: z
+      .looseObject({
+        launched: z.boolean().optional(),
+        publishDelay: z.number().int().optional(),
+        keeperEnabled: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .superRefine((r, ctx) => {
+    const wrong = incompleteMainnet(r);
+    if (wrong) ctx.addIssue({ code: 'custom', message: wrong, path: ['network'] });
   })
   .refine((r) => r.network.startsWith(`${r.chain}-`), {
     message: "the network is the record's own chain",
@@ -168,8 +196,7 @@ export const EvmDeploymentRecord = z
     path: ['assets'],
   })
   // Null is "not checked", and that is a test network's to say. A record of a mainnet, by its chain's
-  // number or by its name, states the bound and every asset's largest trade. Today a mainnet record
-  // is refused before this is reached; the day that is lifted, this is already here.
+  // number or by its name, states the bound and every asset's largest trade.
   .superRefine((r, ctx) => {
     const missing = unlimitedOnMainnet(r);
     if (missing) ctx.addIssue({ code: 'custom', message: missing, path: ['priceBoundBps'] });
@@ -179,6 +206,83 @@ export const EvmDeploymentRecord = z
     path: ['assets'],
   });
 export type EvmDeploymentRecord = z.infer<typeof EvmDeploymentRecord>;
+
+/** Whether a record is a mainnet's, by what it says of itself: its name. */
+export const isMainnetRecord = (record: { network: string }) => /-mainnet$/.test(record.network);
+
+const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
+
+/**
+ * A mainnet's record says what it is in three places that go together, and is complete: `-mainnet` in
+ * its name, `live`, and the chain's own mainnet number, all three or none; every contract the deploy
+ * made, the block it was made in, an admin that is the timelock, a guardian, a router and the cash
+ * token; the timelock and what the deploy is expected to hold, for the authority check; and nothing of
+ * a test network (a price writer, a token issuer of ours). Returns what is wrong, or null. The trade
+ * limits are held beside it (`unlimitedOnMainnet`).
+ */
+function incompleteMainnet(r: {
+  network: string;
+  chain: string;
+  provenance: string;
+  evmChainId: number;
+  deployBlock: number | null;
+  contracts: Record<string, string>;
+  roles: {
+    admin: string;
+    guardian: string;
+    priceWriter: string | null;
+    tokenIssuer: string | null;
+  };
+  routers: readonly { address: string }[];
+  cash: { address: string };
+  assets: readonly { symbol: string; address: string; feed: string }[];
+  timelock?: { address: string; minDelay?: number | undefined } | undefined;
+  expected?:
+    | {
+        launched?: boolean | undefined;
+        publishDelay?: number | undefined;
+        keeperEnabled?: boolean | undefined;
+      }
+    | undefined;
+}): string | null {
+  const named = isMainnetRecord(r);
+  const numbered = Object.values(MAINNET_CHAIN_IDS).includes(r.evmChainId);
+  const live = r.provenance === 'live';
+  if (!named && !numbered && !live) return null;
+  if (!named)
+    return numbered
+      ? "a mainnet's chain id in a record that is not a mainnet's"
+      : 'live is a mainnet record’s to say';
+  if (!live) return 'a mainnet record is live, not sandbox';
+  if (!MAINNET_CHAINS.includes(r.chain)) return `${r.chain} has no mainnet in this app`;
+  if (r.evmChainId !== MAINNET_CHAIN_IDS[r.chain])
+    return `a mainnet record of ${r.chain} carries its mainnet's chain id, ${MAINNET_CHAIN_IDS[r.chain]}`;
+  if (r.deployBlock === null) return 'a mainnet record states the block it was deployed in';
+  const empty = Object.entries(r.contracts).find(([, address]) => address === ZERO_ADDRESS);
+  if (empty) return `a mainnet record states ${empty[0]}`;
+  if (r.roles.guardian === ZERO_ADDRESS) return 'a mainnet record states its guardian';
+  if (r.roles.priceWriter !== null || r.roles.tokenIssuer !== null)
+    return 'a mainnet record has no price writer and no token issuer of ours: its feeds and tokens are real';
+  if (!r.timelock || !r.expected)
+    return 'a mainnet record carries its timelock and what the deploy is expected to hold';
+  if (r.timelock.address === ZERO_ADDRESS || r.roles.admin !== r.timelock.address)
+    return 'the admin of a mainnet record is its timelock';
+  if (r.timelock.minDelay === undefined || r.timelock.minDelay < MIN_MAINNET_DELAY)
+    return `a mainnet record's timelock waits at least ${MIN_MAINNET_DELAY} s`;
+  if (
+    r.expected.launched === undefined ||
+    r.expected.publishDelay === undefined ||
+    r.expected.keeperEnabled === undefined
+  )
+    return 'a mainnet record says what the deploy is expected to hold: launched, publishDelay, keeperEnabled';
+  if (r.routers.length === 0 || r.routers.some((x) => x.address === ZERO_ADDRESS))
+    return 'a mainnet record states its router';
+  if (r.cash.address === ZERO_ADDRESS) return 'a mainnet record states its cash token';
+  if (r.assets.length === 0) return 'a mainnet record lists the tokens it was deployed with';
+  const blank = r.assets.find((a) => a.address === ZERO_ADDRESS || a.feed === ZERO_ADDRESS);
+  if (blank) return `a mainnet record states the token and the feed of ${blank.symbol}`;
+  return null;
+}
 
 /** What a chain config takes from the record: the factory and the registry, and the one router. */
 export function deploymentAddresses(record: EvmDeploymentRecord) {
@@ -225,18 +329,21 @@ export function deploymentLimits(record: EvmDeploymentRecord): TradeLimits {
 
 /**
  * The network's assets as the adapter lists them, from the record. What the record does not say is
- * set to the careful side and says it is a test network's: tier C, the issuer "test network", no risk
- * sheet of its own. The keeper's eligibility is the asset's switch. Cash is priced at a dollar by the
- * vault and never by a feed.
+ * set to the careful side: tier C and no risk sheet of its own. On a test network they say they are a
+ * test network's (the issuer "test network", `sandbox`). On a mainnet they are `live` and say nothing
+ * of a test network: the issuer is not in the record, so it is named as unknown rather than guessed.
+ * The keeper's eligibility is the asset's switch. Cash is priced at a dollar by the vault and never by
+ * a feed.
  */
 export function deploymentAssets(record: EvmDeploymentRecord): BasketAsset[] {
+  const live = isMainnetRecord(record);
   const common = {
     chain: record.chain,
-    issuer: 'test network',
+    issuer: live ? 'issuer not recorded' : 'test network',
     tier: 'C' as const,
     blockedCountries: [],
-    sheet: 'test-network',
-    provenance: 'sandbox' as const,
+    sheet: live ? 'unrated' : 'test-network',
+    provenance: live ? ('live' as const) : ('sandbox' as const),
   };
   const cash = record.cash;
   return [
@@ -277,8 +384,8 @@ export function deploymentAssets(record: EvmDeploymentRecord): BasketAsset[] {
 export const NODE_CHECK_TIMEOUT_MS = 10_000;
 
 /**
- * The node is the network the record is for: never a mainnet, the record's own chain id, and the
- * record's factory deployed there. Asked once, at start, of the node the server will read through. A
+ * The node is the network the record is for: a mainnet only for a mainnet's own record, the record's
+ * own chain id, and the record's factory deployed there. Asked once, at start, of the node the server will read through. A
  * node that does not answer in `timeoutMs` fails the start rather than hang it. A local copy of mainnet
  * keeps mainnet's chain id unless it is started with another (`anvil --chain-id 31337`), and is
  * refused as mainnet until it is: a signature for mainnet's id is good on mainnet.
@@ -305,10 +412,15 @@ export async function assertNode(
     ]),
     late,
   ]).finally(() => clearTimeout(timer));
-  if (Object.values(MAINNET_CHAIN_IDS).includes(chainId))
+  // Not left to the schema: a record that came another way is held here too.
+  const mainnetRecord =
+    isMainnetRecord(record) &&
+    record.provenance === 'live' &&
+    record.evmChainId === MAINNET_CHAIN_IDS[record.chain];
+  if (Object.values(MAINNET_CHAIN_IDS).includes(chainId) && !mainnetRecord)
     throw new ChainError(
       'NotSupported',
-      `the EVM RPC answers chain id ${chainId}, a mainnet's, and this server runs a test network only`,
+      `the EVM RPC answers chain id ${chainId}, a mainnet's, and the record ${record.network} is not a mainnet's`,
     );
   if (chainId !== record.evmChainId)
     throw new ChainError(
