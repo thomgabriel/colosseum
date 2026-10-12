@@ -65,6 +65,7 @@ import { chainReady, explorerUrlFor, onMock } from './readiness';
 import { planNumberOf, type RunOutcome, useOrderRunner } from './run-order';
 import { TrustNotice } from './TrustNotice';
 import { tradeLine } from './trade-line';
+import { chainIsLive } from './trust-points';
 import { type ChainUnits, unitsFor } from './units';
 import { OrderScreenWait, StepsWait } from './waits';
 import { useStayed } from './withdraw-stayed';
@@ -769,7 +770,7 @@ export function OrderScreen({
     !embed &&
     buying &&
     !record.approved &&
-    !trustAccepted(userId, TRUST_STATUS.textVersion, keeperTrades);
+    !trustAccepted(userId, TRUST_STATUS.textVersion, keeperTrades, chainIsLive(chain));
   // What holds the first press back: in the invest card, the host's reasons; here, the notice.
   const held = record.approved
     ? []
@@ -1076,7 +1077,13 @@ export function OrderScreen({
                     accepts.current = embed
                       ? embed.onStarted
                       : trustAsked && userId
-                        ? () => acceptTrust(userId, TRUST_STATUS.textVersion, keeperTrades)
+                        ? () =>
+                            acceptTrust(
+                              userId,
+                              TRUST_STATUS.textVersion,
+                              keeperTrades,
+                              chainIsLive(chain),
+                            )
                         : null;
                   }
                   go(

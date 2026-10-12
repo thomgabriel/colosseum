@@ -37,6 +37,9 @@ import {
   type ChainRegistry,
   createChainRegistry,
   type EvmInputs,
+  MAINNET_SWITCH,
+  MAINNET_SWITCH_VALUE,
+  mainnetAllowed,
   type SolanaInputs,
 } from '../../orders/chains';
 import { Refusal, refusalFromChainError } from '../../orders/errors';
@@ -445,6 +448,13 @@ export async function robinhoodFromEnv(
     throw new Error(
       `CHAIN_MODE_ROBINHOOD is ${mode}, and there is no deploy record for its network in deployments/`,
     );
+  // A mainnet's record runs only with the second switch, in its exact words. The record and the
+  // network variable are not enough: real money is never one inherited variable away.
+  const mainnet = record.provenance === 'live';
+  if (mainnet && !mainnetAllowed(env))
+    throw new Error(
+      `CHAIN_MODE_ROBINHOOD is ${mode} and the record is ${record.network}'s: set ${MAINNET_SWITCH} to ${MAINNET_SWITCH_VALUE} to run on mainnet with real money`,
+    );
   // As written: a URL can carry a key, and keys are case-sensitive (readEnv lower-cases).
   const url = env.ROBINHOOD_RPC_URL?.trim();
   if (!url) throw new Error(`CHAIN_MODE_ROBINHOOD is ${mode}, and ROBINHOOD_RPC_URL is not set`);
@@ -460,5 +470,6 @@ export async function robinhoodFromEnv(
     assets: holdToEvmRecord(assets, record),
     pools: evmPools(record),
     limits: evmLimits(record),
+    ...(mainnet ? { mainnet: true } : {}),
   };
 }

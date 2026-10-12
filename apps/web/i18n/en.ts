@@ -1146,6 +1146,28 @@ export const en = {
       robinhood_fork: 'a run on a copy of Robinhood Chain',
       second_rehearsal: 'a second rehearsal on mainnet with the admin key',
     },
+    /** The same notice where the money is real: a chain on mainnet (TRUST_STATUS.mainnet). */
+    mainnet: {
+      real: 'This is real money on a live network. Nothing here promises a return, and this is not licensed advice.',
+      governance: (hours: number, signatures: number) =>
+        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds. You can withdraw at any time.`,
+      safe: (address: string) => `The Safe: ${address}.`,
+      guardian:
+        'One founder holds a guardian key. It can pause new deposits at once. It cannot move funds, change the contracts or stop a withdrawal.',
+      noKeeper: 'No keeper runs here: nothing trades your vault but you.',
+      noCap: 'Nothing limits how much you can deposit. How much you put in is your decision.',
+      trades:
+        'Each trade you sign is checked against a reference price and limited in size before it is built. A trade outside those limits is not built.',
+      issuers:
+        'The issuer of the stock tokens can replace their code, and can pause them. The issuer of the dollar token can freeze it.',
+      short: {
+        governance: (hours: number, signatures: number) =>
+          `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
+        noKeeper: 'No keeper runs here: only you trade your vault.',
+        noCap: 'Nothing limits how much you can deposit.',
+        issuers: 'The issuers can change or pause the stock tokens and freeze the dollar token.',
+      },
+    },
     accept: 'I’ve read this and I accept it',
     accepted: 'You’ve accepted this notice in this browser.',
     /** The four points of the notice in short, with the whole notice one click away. */

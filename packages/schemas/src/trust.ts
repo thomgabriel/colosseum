@@ -9,7 +9,7 @@ import type { ChainId } from './chain';
  * that a person must read again comes with a new version.
  */
 export const TRUST_STATUS = {
-  textVersion: '2026-10-05',
+  textVersion: '2026-10-12',
   /** No outside audit of the vault programs or contracts has been made. */
   audited: false,
   /** Who holds the keys that upgrade the vault code. The team: it could change the code, so it could move funds. */
@@ -35,6 +35,44 @@ export const TRUST_STATUS = {
     solana: { toleranceBps: 75, weeklyLossCapBps: 100 },
     robinhood: { toleranceBps: 125, weeklyLossCapBps: 100 },
   } as Partial<Record<ChainId, { toleranceBps: number; weeklyLossCapBps: number }>>,
+  /**
+   * The same facts for a chain on MAINNET, where the money is real and the keys are held differently:
+   * the contracts' admin is a timelock, a Safe proposes to it, and a guardian can only pause. Only a
+   * chain with a mainnet deploy file is listed, and trust.test.ts holds each value to that file
+   * (`contracts/script/config/4663.json`). `keeper` and `depositCap` say whether there is one.
+   * `tradesChecked`: each trade a person signs is held to a reference price and a largest size by the
+   * app before it is built. `issuerCanUpgradeStocks` and `cashCanBeFrozen` are what the tokens'
+   * contracts answered on 2026-10-12: every stock token is a proxy its issuer can replace the code of,
+   * and the dollar token has a freeze.
+   */
+  mainnet: {
+    robinhood: {
+      safe: '0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc',
+      safeSignatures: 2,
+      delayHours: 48,
+      guardian: '0x0a1c3312c808b23D019bF241028f6B5624f4cc98',
+      keeper: false,
+      depositCap: false,
+      tradesChecked: true,
+      issuerCanUpgradeStocks: true,
+      cashCanBeFrozen: true,
+    },
+  } as Partial<
+    Record<
+      ChainId,
+      {
+        safe: string;
+        safeSignatures: number;
+        delayHours: number;
+        guardian: string;
+        keeper: boolean;
+        depositCap: boolean;
+        tradesChecked: boolean;
+        issuerCanUpgradeStocks: boolean;
+        cashCanBeFrozen: boolean;
+      }
+    >
+  >,
   /** Issuers of stock tokens can pause, freeze or seize them. */
   issuersCanFreeze: true,
   /** The product is not offered to people in the United States. */

@@ -16,6 +16,39 @@ const robinhoodConfig = JSON.parse(
   readFileSync(new URL('../../../contracts/script/config/46630.json', import.meta.url), 'utf8'),
 ) as { params: { toleranceBps: number; lossCapBps: number } };
 
+const robinhoodMainnet = JSON.parse(
+  readFileSync(new URL('../../../contracts/script/config/4663.json', import.meta.url), 'utf8'),
+) as {
+  timelock: { owner: string; delay: number };
+  safeMinThreshold: number;
+  guardian: string;
+  keeperEnabled: boolean;
+  caps?: string;
+  depositCaps?: unknown;
+};
+
+describe('TRUST_STATUS, on mainnet', () => {
+  it('states who can change the Robinhood Chain contracts as the mainnet deploy file sets it', () => {
+    const facts = TRUST_STATUS.mainnet.robinhood;
+    expect(facts?.safe.toLowerCase()).toBe(robinhoodMainnet.timelock.owner.toLowerCase());
+    expect(facts?.safeSignatures).toBe(robinhoodMainnet.safeMinThreshold);
+    expect(facts?.delayHours).toBe(robinhoodMainnet.timelock.delay / 3600);
+    expect(facts?.guardian.toLowerCase()).toBe(robinhoodMainnet.guardian.toLowerCase());
+  });
+
+  it('says there is no keeper and no deposit cap there only while the deploy file says so', () => {
+    const facts = TRUST_STATUS.mainnet.robinhood;
+    expect(facts?.keeper).toBe(robinhoodMainnet.keeperEnabled);
+    expect(facts?.depositCap).toBe(robinhoodMainnet.depositCaps !== undefined);
+    expect(robinhoodMainnet.caps).toBe('none');
+  });
+
+  it('has no mainnet facts for a chain that is not deployed there', () => {
+    expect(TRUST_STATUS.mainnet.solana).toBeUndefined();
+    expect(TRUST_STATUS.mainnet.base).toBeUndefined();
+  });
+});
+
 describe('TRUST_STATUS', () => {
   it('names the admin of the Robinhood Chain deployment and the keeper’s limits there, as its deploy set them', () => {
     expect(TRUST_STATUS.admin.robinhood).toBe(robinhood.roles.admin);

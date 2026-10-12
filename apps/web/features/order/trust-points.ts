@@ -1,0 +1,92 @@
+import { type ChainId, TRUST_STATUS } from '@colosseum/schemas';
+import type { Dictionary } from '../../i18n';
+import { publicWalletEnv, walletChains } from '../wallet/chains';
+
+// What the trust notice says, as two lists: the short points and the whole notice. Pure, so that what a
+// person reads on a live network is held by a test. On a test network or the mock the text is the one
+// it always was. On mainnet (`live`) it states that chain's own facts from TRUST_STATUS.mainnet: who can
+// change the contracts and how long a change waits, the guardian, no keeper, no deposit cap, the checks
+// on a trade, and what the issuers can do. A chain with no mainnet facts has no live notice: `null`, and
+// nothing is offered for signing without one.
+
+export type TrustPoints = { short: string[]; items: string[] };
+
+/**
+ * Whether a chain's figures are live in this app: its network variable says mainnet. This app's own
+ * word, as every label's is, never the API's. False when the table cannot be read.
+ */
+export function chainIsLive(chain: ChainId): boolean {
+  try {
+    return walletChains(publicWalletEnv())[chain].provenance === 'live';
+  } catch {
+    return false;
+  }
+}
+
+export function trustPoints(
+  t: Dictionary,
+  chain: ChainId,
+  o: {
+    /** The chain's figures are live: it runs on mainnet. */
+    live: boolean;
+    /** The keeper may trade the vault this is shown for (a test network's short points only). */
+    keeperTrades: boolean;
+    /** The keeper's two limits as text, for a test network; null where none are set. */
+    limits: readonly [string, string] | null;
+  },
+): TrustPoints | null {
+  const unaudited = TRUST_STATUS.audited ? [] : [t.trust.unaudited];
+  const unauditedShort = TRUST_STATUS.audited ? [] : [t.trust.short.unaudited];
+  const tail = [
+    ...(TRUST_STATUS.usPersons === 'blocked' ? [t.trust.notUnitedStates] : []),
+    ...(TRUST_STATUS.passkeyLoss ? [t.trust.passkey] : []),
+    ...(TRUST_STATUS.openChecks.length
+      ? [t.trust.openChecks(TRUST_STATUS.openChecks.map((c) => t.trust.checks[c]).join('; '))]
+      : []),
+  ];
+  if (o.live) {
+    const facts = TRUST_STATUS.mainnet[chain];
+    if (!facts) return null;
+    const m = t.trust.mainnet;
+    return {
+      short: [
+        ...unauditedShort,
+        m.short.governance(facts.delayHours, facts.safeSignatures),
+        ...(facts.keeper ? [] : [m.short.noKeeper]),
+        ...(facts.depositCap ? [] : [m.short.noCap]),
+        ...(facts.issuerCanUpgradeStocks || facts.cashCanBeFrozen ? [m.short.issuers] : []),
+      ],
+      items: [
+        m.real,
+        ...unaudited,
+        m.governance(facts.delayHours, facts.safeSignatures),
+        m.safe(facts.safe),
+        m.guardian,
+        ...(facts.keeper ? [] : [m.noKeeper]),
+        ...(facts.depositCap ? [] : [m.noCap]),
+        ...(facts.tradesChecked ? [m.trades] : []),
+        ...(facts.issuerCanUpgradeStocks || facts.cashCanBeFrozen ? [m.issuers] : []),
+        ...tail,
+      ],
+    };
+  }
+  const admin = TRUST_STATUS.admin[chain];
+  return {
+    short: [
+      ...unauditedShort,
+      t.trust.short.keys,
+      ...(o.keeperTrades
+        ? [o.limits ? t.trust.short.keeper(...o.limits) : t.trust.short.keeperUnset]
+        : []),
+      ...(TRUST_STATUS.issuersCanFreeze ? [t.trust.short.issuers] : []),
+    ],
+    items: [
+      ...unaudited,
+      t.trust.keys,
+      ...(admin ? [t.trust.admin(admin)] : []),
+      o.limits ? t.trust.keeper(...o.limits) : t.trust.keeperUnset,
+      ...(TRUST_STATUS.issuersCanFreeze ? [t.trust.issuers] : []),
+      ...tail,
+    ],
+  };
+}
