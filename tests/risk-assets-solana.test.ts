@@ -12,6 +12,7 @@ import {
   ASSETS_METHOD,
   categoryCall,
   isLaunchpadPlatform,
+  isOwnPage,
   isSelected,
   kindOfName,
   LEFT_OUT_FILE,
@@ -419,7 +420,7 @@ describe('the crypto selection', () => {
         reads.categories,
         coinOf(a.address) as { id: string; name: string },
       );
-      const ownPage = a.sources.some((s) => !/coingecko\.com|jup\.ag/.test(s.url));
+      const ownPage = a.sources.some((s) => isOwnPage(s.url));
       expect(call.protocol.length > 0 || ownPage).toBe(true);
     }
     // a token CoinGecko files as a meme is not a row, whatever Jupiter tags it
@@ -437,6 +438,19 @@ describe('the crypto selection', () => {
     ])
       expect(list.assets.some((r) => r.address === a)).toBe(false);
     expect(list.stated.crypto).toContain('bonkSOL (bonk-staked-sol; lst)');
+  });
+
+  it("admits as a project's own page no listing, directory or repository file", () => {
+    expect(isOwnPage('https://docs.ethena.fi/')).toBe(true);
+    for (const u of [
+      'https://www.coingecko.com/en/coins/x',
+      'https://lite-api.jup.ag/tokens/v2/tag?query=verified',
+      'https://docs.chain.link/ccip/directory',
+      'https://reference-data-directory.vercel.app/feeds.json',
+      'docs/vault/research/yield-shelf/inputs/robinhood_chain_yield_assets.csv',
+      'http://example.org',
+    ])
+      expect(isOwnPage(u)).toBe(false);
   });
 
   it('holds Launchpad to a launchpad platform its own token', () => {

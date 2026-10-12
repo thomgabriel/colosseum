@@ -464,6 +464,49 @@ type CoinGeckoReads = Pick<
   'coins' | 'memeIds' | 'idByAddress' | 'categoryNames'
 >;
 
+/**
+ * Hosts that list, aggregate or index tokens: a page on one of them (or on a subdomain of one) is never a
+ * project's own page (ASSET-1 review, 2026-10-12). Block explorers are refused by `isExplorerHost` besides.
+ */
+export const NOT_OWN_PAGE_HOSTS = [
+  'coingecko.com',
+  'geckoterminal.com',
+  'coinmarketcap.com',
+  'jup.ag',
+  'dexscreener.com',
+  'dextools.io',
+  'birdeye.so',
+  'defillama.com',
+  'llama.fi',
+  'chain.link',
+  'reference-data-directory.vercel.app',
+  'robinhood.com',
+];
+/** A block explorer's host: a label that is or begins with "explorer", ends with "scan" (etherscan, arbiscan, routescan), or is "blockscout". */
+const isExplorerHost = (host: string) =>
+  host.split('.').some((l) => /^explorer/.test(l) || /scan$/.test(l) || /blockscout/.test(l));
+
+/**
+ * Whether a source's url is a project's own page: an https URL whose host is not a listing, an
+ * aggregator, a directory or an explorer (NOT_OWN_PAGE_HOSTS, `isExplorerHost`). A repository path, a
+ * text that is not a URL, or a URL of another scheme is not. A governance row stands on a protocol
+ * category of CoinGecko or on such a page cited by its own verdict; nothing else.
+ */
+export function isOwnPage(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:' || u.username !== '' || u.password !== '') return false;
+  const host = u.hostname.toLowerCase().replace(/\.$/, '');
+  // a host with no dot, or an address, is no project's site
+  if (!host.includes('.') || /^[0-9.]+$/.test(host) || host.startsWith('[')) return false;
+  if (NOT_OWN_PAGE_HOSTS.some((d) => host === d || host.endsWith(`.${d}`))) return false;
+  return !isExplorerHost(host);
+}
+
 /** A memecoin by CoinGecko: in the chain's memecoin category, or carrying a memecoin category on its page. */
 export function isMeme(cg: CoinGeckoReads, address: string): boolean {
   const a = lower(address);
@@ -628,11 +671,11 @@ export const STATED = {
   enumeration:
     "Names come from four reads, in this order: the issuer's registry (every row, not only the cut); Chainlink's directory (its feeds, and the names of the assets they price); the screening note of the dollar and yield tokens (docs/vault/research/yield-shelf/robinhood.md with its input list and its shelf fixture: every full address written there), with WETH9() of the Uniswap v4 position manager; DexScreener (searched as 'robinhood <name>' for every class name, then the pairs of each address the note names and of each name a search gave that names a class). Every address any of them named is read on chain.",
   cryptoSelection:
-    "Crypto beyond the listings above (Rodrigo, 2026-10-11): every token CoinGecko's token list for Robinhood Chain (tokens.coingecko.com/robinhood/all.json) or Chainlink CCIP's token directory names on the chain, outside the issuer's registry, whose DexScreener pairs (tokens/v1, read the same day) traded ten thousand US dollars or more over 24 hours together, or whose symbol, in upper case, is the base asset of a Chainlink feed of the directory. The volume selects only and is never written in a row. Each selected token, each verdict's token and each row of a committed list is looked up on CoinGecko by its address, and one rule decides it (ASSET-1 review, 2026-10-12). A memecoin is never a row: a token in the chain's memecoin category (robinhood-chain-meme) or with a category whose name holds Meme (and not Ecosystem) or Themed. A token is governance only when CoinGecko files it, by the category's whole name, under one of: Decentralized Exchange (DEX), Lending/Borrowing Protocols, Perpetuals, Derivatives, Oracle, Bridge Governance Tokens, Infrastructure, Liquid Staking Governance Tokens, Yield Aggregator; or under Launchpad when it is the launch pad's own token (CoinGecko keeps a category '<its name> Launchpad' of the tokens launched on it); or its own verdict cites its project's page. A tag such as DeFi or AI, a chain, Governance alone, or what it was launched on or carried by admits nothing; a leveraged token never. Such a token is a row by the rule crypto-protocol (its project as issuer, its CoinGecko page as source). A liquid staking token by its categories (Liquid Staking Tokens, Liquid Staked ETH, Liquid Restaking Tokens) is a row by crypto-liquid-staking, category liquid_staking. A dollar CoinGecko files as a stablecoin must have its own verdict; any token may have its own verdict instead, which wins over every rule; any other is not a row. cryptoLeftOut counts them",
+    "Crypto beyond the listings above (Rodrigo, 2026-10-11): every token CoinGecko's token list for Robinhood Chain (tokens.coingecko.com/robinhood/all.json) or Chainlink CCIP's token directory names on the chain, outside the issuer's registry, whose DexScreener pairs (tokens/v1, read the same day) traded ten thousand US dollars or more over 24 hours together, or whose symbol, in upper case, is the base asset of a Chainlink feed of the directory. The volume selects only and is never written in a row. Each selected token, each verdict's token and each row of a committed list is looked up on CoinGecko by its address, and one rule decides it (ASSET-1 review, 2026-10-12). A memecoin is never a row, by verdict or rule: a token in the chain's memecoin category (robinhood-chain-meme) or with a category whose name holds Meme (and not Ecosystem) or Themed. A token is governance only when CoinGecko files it, by the category's whole name, under one of: Decentralized Exchange (DEX), Lending/Borrowing Protocols, Perpetuals, Derivatives, Oracle, Bridge Governance Tokens, Infrastructure, Liquid Staking Governance Tokens, Yield Aggregator; or under Launchpad when it is the launch pad's own token (CoinGecko keeps a category '<its name> Launchpad' of the tokens launched on it); or its own verdict cites its project's own page (isOwnPage: an https URL whose host is not a listing, an aggregator, a directory or an explorer; CoinGecko, Jupiter, DexScreener, DefiLlama, Chainlink's directories, GeckoTerminal, an explorer or a repository path never is), or the build stops. A tag such as DeFi or AI, a chain, Governance alone, or what it was launched on or carried by admits nothing; a leveraged token never. Such a token is a row by the rule crypto-protocol (its project as issuer, its CoinGecko page as source). A liquid staking token by its categories (Liquid Staking Tokens, Liquid Staked ETH, Liquid Restaking Tokens) is a row by crypto-liquid-staking, category liquid_staking. A dollar CoinGecko files as a stablecoin must have its own verdict; any token but a memecoin may have its own verdict instead, which wins over every rule; any other is not a row. cryptoLeftOut counts them",
   classNames:
     "A DexScreener name names one of the product's classes when its symbol holds USD or EUR, or is, in upper case, a name of PROMPT_NAMES in scripts/risk-evm/assets-list.ts (the prompt's names for both chains), a base asset of Chainlink's directory or a symbol of the issuer's registry. Such names are read on chain, with any other the verdict table names; every one of them, and every token the screening note names, must be decided by a verdict or a rule, or the build stops. Other names are neither read nor enumerated: memecoins and launch tokens are not (DA6).",
   rules:
-    "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener, coingecko, chainlink_ccip, previous_list, verdict_table); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's; `claims`, issuer_product where such a token's name names the issuer or the stock (claimsStock: it holds Robinhood, is the symbol, or begins with the first word of the stock's registry name), none where it does not; `coingecko`, what CoinGecko says of a token outside the registry (protocol, liquid_staking, stablecoin, meme, no_protocol_category, not_on_coingecko; see cryptoSelection); `protocol`, yes where that is protocol or liquid_staking, else no; `inUniverse`, yes for a token the crypto selection kept or a row of a committed list. The registry's tokens match issuer-registry and the class rule of their underlying; crypto-protocol and crypto-liquid-staking make a row of a token in the universe by its categories; a token with a registry stock's symbol that claims the stock matches not-the-issuers-stock-token, and one that does not claim it and is no protocol by its categories matches registry-symbol-not-a-protocol; both exclude it and come after the crypto rules, so they win. A symbol alone never excludes a protocol's token (NET, a lending protocol's, is decided by its categories). A memecoin by CoinGecko is no row whatever rule it matches, unless its own verdict makes it one",
+    "A rule matches a token when every key of its `match` holds for it: `listing`, a listing that named it (issuer_registry, screening_note, position_manager_weth9, dexscreener, coingecko, chainlink_ccip, previous_list, verdict_table); `classTable`, CLASS_BY_UNDERLYING of scripts/risk/universe/list.ts at the registry's symbol (SPY and QQQ etf, GLD gold, SLV and USO commodity, SGOV dollar_yield) and stock for every other symbol of the registry; `symbolOf`, issuer_registry for a token outside the registry whose symbol is a registry token's; `claims`, issuer_product where such a token's name names the issuer or the stock (claimsStock: it holds Robinhood, is the symbol, or begins with the first word of the stock's registry name), none where it does not; `coingecko`, what CoinGecko says of a token outside the registry (protocol, liquid_staking, stablecoin, meme, no_protocol_category, not_on_coingecko; see cryptoSelection); `protocol`, yes where that is protocol or liquid_staking, else no; `inUniverse`, yes for a token the crypto selection kept or a row of a committed list. The registry's tokens match issuer-registry and the class rule of their underlying; crypto-protocol and crypto-liquid-staking make a row of a token in the universe by its categories; a token with a registry stock's symbol that claims the stock matches not-the-issuers-stock-token, and one that does not claim it and is no protocol by its categories matches registry-symbol-not-a-protocol; both exclude it and come after the crypto rules, so they win. A symbol alone never excludes a protocol's token (NET, a lending protocol's, is decided by its categories). A memecoin by CoinGecko is no row whatever rule or verdict names it: a verdict for one stops the build",
   derived:
     "For a registry token the builder derives: underlying, the registry's symbol; status, listed for a tracked stock of scripts/risk/universe/robinhood.json (and the model of a deploy record's token) and candidate with 'outside the cut that names the tracked stocks (gate UNIVERSE)' for every other (DA16); leg types, from packages/engine/src/personal/leg-types.ts at the symbol for a dollar-yield token, none for the others; and a source naming the registry row. Rules and a token's own verdict are applied over these.",
   listed:
@@ -901,11 +944,16 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       )
       .map((r) => r.name);
   };
-  /** A memecoin by CoinGecko with no verdict of its own: never a row, whatever rule it matches. */
-  const memeOut = (t: { address: string }) =>
-    kindOf(t.address) === 'meme' && !verdictOfAddress.has(t.address);
+  /** A memecoin by CoinGecko: never a row, whatever rule or verdict names it (as the Solana list). */
+  const memeOut = (t: { address: string }) => kindOf(t.address) === 'meme';
+  // a verdict cannot make a memecoin a row: the build stops, naming it
+  const memeVerdicts = verdicts.verdicts.filter((v) => memeOut({ address: lower(v.address) }));
+  if (memeVerdicts.length > 0)
+    throw new Error(
+      `verdicts for tokens CoinGecko files as memecoins (a memecoin is not a row): ${memeVerdicts.map((v) => `${v.symbol} ${lower(v.address)}`).join(', ')}`,
+    );
   const decided = (t: { address: string; symbol: string }) =>
-    verdictOfAddress.has(t.address) || (!memeOut(t) && rulesOf(t).length > 0);
+    !memeOut(t) && (verdictOfAddress.has(t.address) || rulesOf(t).length > 0);
   /** The issuer (or the chain, for its own coin) a token's own verdict or its last matching rule names; null where none does. */
   const issuer0 = (t: { address: string; symbol: string }): string | null => {
     const matched = new Set(rulesOf(t));
@@ -1199,6 +1247,24 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     );
   }
 
+  // a governance row stands on a protocol category of CoinGecko (or the launch pad's own token) or on its
+  // project's own page (isOwnPage) among its sources; any other is refused, naming it
+  const ungrounded = rows.filter(
+    (r) =>
+      r.category === 'governance' &&
+      kindOf(r.address) !== 'protocol' &&
+      !r.sources.some((x) => isOwnPage(x.url)),
+  );
+  if (ungrounded.length > 0)
+    throw new Error(
+      `governance rows with no protocol category and no own page of the project: ${ungrounded
+        .map(
+          (r) =>
+            `${r.symbol} ${r.address} (CoinGecko: ${kindOf(r.address)}; sources ${r.sources.map((x) => x.url).join(', ')})`,
+        )
+        .join('; ')}`,
+    );
+
   // the reads, each with its calls and time
   const o = reads.onchain;
   const readRows: UniverseRead[] = [
@@ -1321,7 +1387,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
         : memeOut({ address: p.address })
           ? `CoinGecko files it as a memecoin (${memeCategories(p.address)}): a memecoin is not a row`
           : kindOf(p.address) === 'no_protocol_category'
-            ? `CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: ${(coins.get(p.address)?.categories ?? []).join(', ') || 'none'}), and no verdict or rule makes it a row`
+            ? `CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: ${(coins.get(p.address)?.categories ?? []).join(', ') || 'none'}), and no rule, and no verdict citing its project's own page, makes it a row`
             : `no verdict or rule decides it (CoinGecko: ${kindOf(p.address) ?? 'not read'})`;
       return `${p.id} ${p.address} (${p.symbol}, ${p.status} in ${p.commit.slice(0, 8)}): ${why}`;
     });

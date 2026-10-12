@@ -284,6 +284,22 @@ export function isLaunchpadPlatform(
   return first !== '' && categoryNames.some((c) => c.toLowerCase() === `${first} launchpad`);
 }
 
+/**
+ * A project's own page: an https page whose host is no listing, aggregator, directory or explorer, and not a
+ * file of this repository (the same hosts as Robinhood Chain's isOwnPage; a project's GitHub counts as its own).
+ * Only such a page admits a token as governance outside a protocol category.
+ */
+const NOT_OWN_HOSTS =
+  /(^|\.)(coingecko\.com|geckoterminal\.com|coinmarketcap\.com|jup\.ag|dexscreener\.com|dextools\.io|birdeye\.so|defillama\.com|llama\.fi|chain\.link|reference-data-directory\.vercel\.app|solscan\.io|solana\.fm|explorer\.solana\.com)$/;
+export function isOwnPage(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && !NOT_OWN_HOSTS.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** What CoinGecko's categories say of a coin: a meme, a protocol's token, both, or neither. */
 export function categoryCall(members: CategoryMembers, coin: { id: string; name?: string | null }) {
   const inAny = (ids: readonly string[]) =>
@@ -845,17 +861,20 @@ export function solanaList(
   const coinOf = (a: string) => reads.coingecko.byMint[a];
   for (const r of rows) {
     const cg = coinOf(r.address);
-    if (!cg) continue;
+    const ownPage = r.sources.some((x) => isOwnPage(x.url));
+    if (!cg) {
+      if (r.category === 'governance' && !ownPage)
+        throw new Error(
+          `${r.symbol} ${r.address}: governance, and neither CoinGecko nor a project page of its own names it`,
+        );
+      continue;
+    }
     const call = categoryCall(reads.categories, cg);
     if (call.meme.length > 0)
       throw new Error(
         `${r.symbol} ${r.address}: CoinGecko files ${cg.id} in ${call.meme.join(', ')}`,
       );
-    if (
-      r.category === 'governance' &&
-      call.protocol.length === 0 &&
-      !r.sources.some((x) => !x.url.includes('coingecko.com') && !x.url.includes('jup.ag'))
-    )
+    if (r.category === 'governance' && call.protocol.length === 0 && !ownPage)
       throw new Error(
         `${r.symbol} ${r.address}: ${cg.id} is in no protocol category and no project page names its protocol`,
       );
