@@ -73,6 +73,7 @@ import { registerPortfolioHistoryRoute } from './portfolio-history';
 import { registerPortfolioPlansRoute } from './portfolio-plans';
 import { registerPortfolioRebalancesRoute } from './portfolio-rebalances';
 import { registerSharedRoutes } from './shared';
+import { registerStatsRoute } from './stats';
 import { registerTestnetRoute } from './testnet';
 import { registerThreadRoutes } from './thread';
 import { registerVaultRoute } from './vault';
@@ -286,6 +287,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       return reply.code(500).send({ error: `the server failed on this request (${req.id})` });
     });
     registerConfigRoute(scope, config);
+    registerStatsRoute(scope, orderDeps);
     registerMeRoutes(scope, orderDeps);
     registerFundingRoute(scope, orderDeps, testFunds ?? undefined);
     registerTestnetRoute(scope, orderDeps, testFunds);

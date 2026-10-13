@@ -14,8 +14,7 @@ export const shell: Shell = {
   reading: 'Lendo seus planos…',
   signedOut:
     'Entre para ver seus planos ao longo do tempo. Cada um fica em um cofre na rede da sua carteira, e só você pode sacar dele.',
-  empty:
-    'Você ainda não tem plano em um cofre. Um cofre é criado quando você compra seu primeiro plano.',
+  empty: 'Você ainda não tem plano em um cofre. Um cofre é criado com o seu primeiro depósito.',
   startGoal: 'Comece pelo seu objetivo',
   again: 'Ler de novo',
   againBusy: 'Lendo…',

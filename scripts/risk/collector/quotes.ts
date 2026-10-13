@@ -23,8 +23,12 @@ type RegPool = {
   decimals0: number;
   decimals1: number;
   assetIsToken0: number;
+  set?: 'stocks' | 'shelf';
 };
 const reg = JSON.parse(readFileSync(join(HOME, 'registry.json'), 'utf8')) as { pools: RegPool[] };
+// the stock pools only: the shelf's pools of a merged registry (PLAN-ASSETS AS.12, set `shelf`) would move the quote
+// set to the shelf's larger dollars and take stocks out of it
+reg.pools = reg.pools.filter((p) => p.set !== 'shelf');
 const tvlByAsset = new Map<string, { symbol: string; tvl: number; decimals: number }>();
 for (const p of reg.pools) {
   const v = tvlByAsset.get(p.assetMint) ?? {

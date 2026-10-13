@@ -19,6 +19,7 @@ import {
   chainProvenance,
   envKey,
   type Flags,
+  MAINNET_SWITCH,
   type Provenance,
 } from '@colosseum/schemas';
 import { Refusal } from './errors';
@@ -82,15 +83,9 @@ export type EvmInputs = {
   mainnet?: boolean;
 };
 
-/**
- * The second switch a mainnet needs, beside `CHAIN_NETWORK_ROBINHOOD=mainnet` and the committed deploy
- * record: its value is the words below, exactly. Real money is never one typo, or one inherited
- * variable, away.
- */
-export const MAINNET_SWITCH = 'CHAIN_MAINNET_ROBINHOOD';
-export const MAINNET_SWITCH_VALUE = 'real-money';
-export const mainnetAllowed = (env: Record<string, string | undefined>): boolean =>
-  env[MAINNET_SWITCH]?.trim() === MAINNET_SWITCH_VALUE;
+// The second switch a mainnet needs, beside `CHAIN_NETWORK_ROBINHOOD=mainnet` and the committed deploy
+// record, is packages/schemas' (`MAINNET_SWITCH`): the snapshot worker is held to the same one.
+export { MAINNET_SWITCH, MAINNET_SWITCH_VALUE, mainnetAllowed } from '@colosseum/schemas';
 
 export type RegistryOptions = {
   /**

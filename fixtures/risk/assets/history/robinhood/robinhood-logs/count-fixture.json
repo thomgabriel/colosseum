@@ -1,0 +1,298 @@
+{
+  "scope": "shelf-d30-f100000-a65990cc",
+  "scopeOf": {
+    "key": "shelf-d30-f100000-a65990cc",
+    "kind": "shelf",
+    "days": 30,
+    "shelf": {
+      "rule": "ASSET-SHELF: listed or candidate rows of the list at or above the floor by the newest dex_volume_24h_usd reading",
+      "list": "scripts/risk/assets/robinhood.json",
+      "floorUsd": 100000,
+      "reading": {
+        "from": "2026-10-11T02:43:34.000Z",
+        "to": "2026-10-12T18:35:38.395Z"
+      },
+      "readingsFrom": "asset_observations (local database), metric dex_volume_24h_usd",
+      "counts": {
+        "considered": 215,
+        "onShelf": 45,
+        "belowFloor": 108,
+        "nullReading": 62,
+        "noReading": 0
+      },
+      "tokensHash": "a65990cc",
+      "tokens": [
+        {
+          "address": "0xca6f20e241c73de4eeb873107b217ce2463c3b1d",
+          "symbol": "DUAL",
+          "volume24hUsd": 248428.33,
+          "observedAt": "2026-10-12T18:35:23.706Z"
+        },
+        {
+          "address": "0xeeca2e7dc194a320d349122d88259bb9595a4cb0",
+          "symbol": "LIT",
+          "volume24hUsd": 106542.03,
+          "observedAt": "2026-10-12T18:35:32.974Z"
+        },
+        {
+          "address": "0xca9c78dd337a67f6e0077f65f5e9218719d30edf",
+          "symbol": "NET",
+          "volume24hUsd": 1703337.2700000003,
+          "observedAt": "2026-10-12T18:35:24.158Z"
+        },
+        {
+          "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
+          "symbol": "PONS",
+          "volume24hUsd": 21360871.249999993,
+          "observedAt": "2026-10-12T18:34:33.056Z"
+        },
+        {
+          "address": "0xb9972ca7188e511174947e3936a5315ac7073277",
+          "symbol": "PROLOGUE",
+          "volume24hUsd": 216569.29000000004,
+          "observedAt": "2026-10-12T18:35:19.191Z"
+        },
+        {
+          "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+          "symbol": "USDe",
+          "volume24hUsd": 471955.38999999996,
+          "observedAt": "2026-10-12T18:34:49.734Z"
+        },
+        {
+          "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "symbol": "USDG",
+          "volume24hUsd": 30794366.359999992,
+          "observedAt": "2026-10-12T18:34:50.973Z"
+        },
+        {
+          "address": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+          "symbol": "SLV",
+          "volume24hUsd": 136152.12999999998,
+          "observedAt": "2026-10-12T18:34:35.611Z"
+        },
+        {
+          "address": "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344",
+          "symbol": "USO",
+          "volume24hUsd": 1981601.76,
+          "observedAt": "2026-10-12T18:35:12.945Z"
+        },
+        {
+          "address": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+          "symbol": "QQQ",
+          "volume24hUsd": 1725139.8900000001,
+          "observedAt": "2026-10-12T18:35:27.455Z"
+        },
+        {
+          "address": "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+          "symbol": "SPY",
+          "volume24hUsd": 12336124.660000002,
+          "observedAt": "2026-10-12T18:34:24.742Z"
+        },
+        {
+          "address": "0xc9a981fee1f9dec688bb123ccdecc63d0debfc4e",
+          "symbol": "GLD",
+          "volume24hUsd": 2944899.1699999995,
+          "observedAt": "2026-10-12T18:35:23.300Z"
+        },
+        {
+          "address": "0xaf3d76f1834a1d425780943c99ea8a608f8a93f9",
+          "symbol": "AAPL",
+          "volume24hUsd": 2470628.0199999986,
+          "observedAt": "2026-10-12T18:35:17.125Z"
+        },
+        {
+          "address": "0x05a3d1cd21d0c88145e82600e62e7e496e0f222b",
+          "symbol": "AMC",
+          "volume24hUsd": 2129921.559999999,
+          "observedAt": "2026-10-12T18:34:21.405Z"
+        },
+        {
+          "address": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+          "symbol": "AMD",
+          "volume24hUsd": 1162951.5300000007,
+          "observedAt": "2026-10-12T18:35:02.710Z"
+        },
+        {
+          "address": "0x12f190a9f9d7d37a250758b26824b97ce941bf54",
+          "symbol": "AMZN",
+          "volume24hUsd": 485519.20999999996,
+          "observedAt": "2026-10-12T18:34:25.573Z"
+        },
+        {
+          "address": "0x6330d8c3178a418788df01a47479c0ce7ccf450b",
+          "symbol": "COIN",
+          "volume24hUsd": 764881.8200000001,
+          "observedAt": "2026-10-12T18:34:53.058Z"
+        },
+        {
+          "address": "0x4ea005168d7f09a7a0ba9d1def21a479950e44c2",
+          "symbol": "COST",
+          "volume24hUsd": 318485.17999999993,
+          "observedAt": "2026-10-12T18:34:42.656Z"
+        },
+        {
+          "address": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+          "symbol": "CRCL",
+          "volume24hUsd": 4762771.2299999995,
+          "observedAt": "2026-10-12T18:35:30.009Z"
+        },
+        {
+          "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
+          "symbol": "DELL",
+          "volume24hUsd": 119566.82,
+          "observedAt": "2026-10-12T18:35:07.775Z"
+        },
+        {
+          "address": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+          "symbol": "DJT",
+          "volume24hUsd": 103382.06999999996,
+          "observedAt": "2026-10-12T18:34:28.498Z"
+        },
+        {
+          "address": "0x2d427692e928fa156ec22acfabafa0447c5805b7",
+          "symbol": "GLXY",
+          "volume24hUsd": 102655.19999999998,
+          "observedAt": "2026-10-12T18:34:30.569Z"
+        },
+        {
+          "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+          "symbol": "GME",
+          "volume24hUsd": 1159543.1500000004,
+          "observedAt": "2026-10-12T18:34:27.677Z"
+        },
+        {
+          "address": "0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3",
+          "symbol": "GOOGL",
+          "volume24hUsd": 3427354.6700000004,
+          "observedAt": "2026-10-12T18:34:30.981Z"
+        },
+        {
+          "address": "0xccee82fe024c36fa15e1005ede3e9e4787e23d09",
+          "symbol": "HIMS",
+          "volume24hUsd": 3445100.620000001,
+          "observedAt": "2026-10-12T18:35:24.568Z"
+        },
+        {
+          "address": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+          "symbol": "INTC",
+          "volume24hUsd": 803139.6799999997,
+          "observedAt": "2026-10-12T18:35:22.895Z"
+        },
+        {
+          "address": "0x8005d266423c7ea827372c9c864491e5786600ea",
+          "symbol": "LLY",
+          "volume24hUsd": 700457.26,
+          "observedAt": "2026-10-12T18:35:01.075Z"
+        },
+        {
+          "address": "0xc0d6457c16cc70d6790dd43521c899c87ce02f35",
+          "symbol": "META",
+          "volume24hUsd": 5126634.720000002,
+          "observedAt": "2026-10-12T18:35:22.082Z"
+        },
+        {
+          "address": "0x43b07d15ce533bec5476d70c22a78a1b2b662155",
+          "symbol": "MRNA",
+          "volume24hUsd": 511371.44000000006,
+          "observedAt": "2026-10-12T18:34:36.842Z"
+        },
+        {
+          "address": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+          "symbol": "MSFT",
+          "volume24hUsd": 437376.7899999999,
+          "observedAt": "2026-10-12T18:35:31.284Z"
+        },
+        {
+          "address": "0xec262a75e413fafd0df80480274532c79d42da09",
+          "symbol": "MSTR",
+          "volume24hUsd": 2398273.6900000004,
+          "observedAt": "2026-10-12T18:35:32.107Z"
+        },
+        {
+          "address": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+          "symbol": "MU",
+          "volume24hUsd": 1709459.9200000002,
+          "observedAt": "2026-10-12T18:35:38.395Z"
+        },
+        {
+          "address": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+          "symbol": "NVDA",
+          "volume24hUsd": 18713456.810000002,
+          "observedAt": "2026-10-12T18:35:26.637Z"
+        },
+        {
+          "address": "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a",
+          "symbol": "PLTR",
+          "volume24hUsd": 1305030.24,
+          "observedAt": "2026-10-12T18:35:03.118Z"
+        },
+        {
+          "address": "0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8",
+          "symbol": "RBLX",
+          "volume24hUsd": 130303.12000000004,
+          "observedAt": "2026-10-12T18:35:33.802Z"
+        },
+        {
+          "address": "0x05b37fb53a299a1b874a619e1c4c404d52c36f4c",
+          "symbol": "RDDT",
+          "volume24hUsd": 763004.8600000005,
+          "observedAt": "2026-10-12T18:34:21.828Z"
+        },
+        {
+          "address": "0xf6589f11bc40b669e584073f428b05562f568733",
+          "symbol": "SNAP",
+          "volume24hUsd": 159281.26000000004,
+          "observedAt": "2026-10-12T18:35:36.315Z"
+        },
+        {
+          "address": "0xb90a19ff0af67f7779aff50a882a9cff42446400",
+          "symbol": "SNDK",
+          "volume24hUsd": 230568.11000000004,
+          "observedAt": "2026-10-12T18:35:18.765Z"
+        },
+        {
+          "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+          "symbol": "SPCX",
+          "volume24hUsd": 6158127.719999999,
+          "observedAt": "2026-10-12T18:34:40.149Z"
+        },
+        {
+          "address": "0x322f0929c4625ed5bad873c95208d54e1c003b2d",
+          "symbol": "TSLA",
+          "volume24hUsd": 1408486.11,
+          "observedAt": "2026-10-12T18:34:31.387Z"
+        },
+        {
+          "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
+          "symbol": "TSM",
+          "volume24hUsd": 555992.9500000001,
+          "observedAt": "2026-10-12T18:34:46.416Z"
+        },
+        {
+          "address": "0x5e81213613b6b86eab4c6c50d718d34359459786",
+          "symbol": "TTWO",
+          "volume24hUsd": 130735.19999999994,
+          "observedAt": "2026-10-12T18:34:50.159Z"
+        },
+        {
+          "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+          "symbol": "cbBTC",
+          "volume24hUsd": 1265122.8299999998,
+          "observedAt": "2026-10-12T18:35:25.389Z"
+        },
+        {
+          "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "symbol": "WETH",
+          "volume24hUsd": 215153944.67,
+          "observedAt": "2026-10-12T18:34:22.647Z"
+        },
+        {
+          "address": "0xf3081494b87e8d5fb7960f066e931d1d0e6e3d67",
+          "symbol": "TAO",
+          "volume24hUsd": 300088.73,
+          "observedAt": "2026-10-12T18:35:34.629Z"
+        }
+      ]
+    }
+  }
+}

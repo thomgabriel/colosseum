@@ -21,12 +21,51 @@ export const rpcStats = { calls: 0, retries429: 0, errors: 0 };
  * JSON-RPC with backoff on 429 (Chainstack limits some methods per second, e.g. getProgramAccounts).
  * Waits 0.5 s, 1 s, 2 s ... up to 8 attempts, then throws. Never loops tightly.
  */
+/**
+ * The endpoints a call may go to: SOLANA_RPC_URLS ("<url>|<weight>,…", set by the backfill when it spreads its
+ * load over several), else RPC_URL alone. Each call picks one at random by weight; a retry picks again.
+ */
+const ENDPOINTS = (process.env.SOLANA_RPC_URLS ?? '')
+  .split(',')
+  .filter(Boolean)
+  .map((e) => {
+    const i = e.lastIndexOf('|');
+    return i > 0 ? { url: e.slice(0, i), w: Number(e.slice(i + 1)) || 1 } : { url: e, w: 1 };
+  });
+const pickUrl = () => {
+  if (ENDPOINTS.length === 0) return RPC_URL;
+  let r = Math.random() * ENDPOINTS.reduce((a, e) => a + e.w, 0);
+  for (const e of ENDPOINTS) {
+    r -= e.w;
+    if (r < 0) return e.url;
+  }
+  return (ENDPOINTS.at(-1) as { url: string }).url;
+};
+
+/**
+ * A client bound to one endpoint, picked once by weight: a walk of signatures pages with `before` = the last
+ * signature of the previous page, and an endpoint that has not seen that signature answers an empty page, not an
+ * error, which would read as the address's first transaction. One walk, one endpoint (found 2026-10-13).
+ */
+export function stickyRpc(): <T = unknown>(method: string, params: unknown[]) => Promise<T> {
+  const url = pickUrl();
+  return <T>(method: string, params: unknown[]) => rpcAt<T>(url, method, params);
+}
+
 export async function rpc<T = unknown>(method: string, params: unknown[]): Promise<T> {
+  return rpcAt<T>(undefined, method, params);
+}
+
+async function rpcAt<T = unknown>(
+  fixed: string | undefined,
+  method: string,
+  params: unknown[],
+): Promise<T> {
   for (let attempt = 0; attempt < 8; attempt++) {
     rpcStats.calls++;
     let j: { result?: T; error?: { code?: number; message?: string } };
     try {
-      const res = await fetch(RPC_URL, {
+      const res = await fetch(fixed ?? pickUrl(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -41,7 +80,10 @@ export async function rpc<T = unknown>(method: string, params: unknown[]): Promi
     } catch (e) {
       rpcStats.errors++;
       await sleep(500 * 2 ** attempt);
-      if (attempt === 7) throw e;
+      if (attempt === 7)
+        throw new Error(
+          `rpc ${method}: ${e instanceof Error ? e.message : String(e)} (8 attempts)`,
+        );
       continue;
     }
     if (j.error?.code === 429) {

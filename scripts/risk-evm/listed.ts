@@ -23,6 +23,8 @@ export type ListedPool = {
   reachable: boolean;
   /** As the cut measured it, at the cut's time. Used to order the pools, and carried on the pool row. */
   tvlUsd: number | null;
+  /** When `tvlUsd` was read, where it is not the cut's time: a shelf token's pool (shelf.ts), DexScreener's figure. */
+  tvlAt?: string;
 };
 
 /** What a list run reads of a cut file. */
@@ -60,6 +62,11 @@ export type ListRun = {
   feeds: Record<string, ListedFeed>;
   /** Tokens of the hand list in config.ts that the asset list does not track: not read in a list run. */
   handListNotTracked: string[];
+  /**
+   * `--shelf`: the shelf's pool file whose tokens were added to the list's (PLAN-ASSETS AS.12, shelf.ts), and those
+   * tokens' symbols. Absent on a run of the list alone.
+   */
+  shelf?: { file: string; tokens: string[] };
 };
 
 const lower = (s: string) => s.toLowerCase();
@@ -280,7 +287,7 @@ export function poolRows(r: PoolRowsInput): PoolSnapshotRow[] {
         otherSymbol: p.otherSymbol,
         otherIsStock: p.otherIsStock,
         listTvlUsd: p.tvlUsd,
-        listTvlAt: r.listed.cutFetchedAt,
+        listTvlAt: p.tvlAt ?? r.listed.cutFetchedAt,
         midUsd: priced.get(lower(p.id)) ?? null,
         quoted: reason === null,
         reason,

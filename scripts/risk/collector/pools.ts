@@ -80,7 +80,15 @@ type RegPool = {
   transferFeeBps1: number;
   tvlUsd: number;
   tier: 'A' | 'B';
+  /** `shelf` on the shelf's pools of a merged registry (PLAN-ASSETS AS.12); absent or `stocks` on the stock pools. */
+  set?: 'stocks' | 'shelf';
 };
+/**
+ * The stock pools. A merged registry adds the shelf's pools (scripts/risk/lib-registry-merge.ts): they get snapshots and
+ * routed asset curves like any pool, and none of the extras below (raw captures, position scans, the lending-market
+ * snapshot), which stay on the stock pools as before the merge.
+ */
+const isStockSet = (p: RegPool) => p.set !== 'shelf';
 type Cache = {
   children: Record<string, string[]>;
   childrenAt: Record<string, string>;
@@ -480,10 +488,12 @@ async function main() {
   cache.lastDepth ??= {};
   const hourly = now.getUTCMinutes() < 5 || process.env.RISK_FORCE_ALL === '1';
   const due = reg.pools.filter((p) => p.tier === 'A' || hourly);
-  const totalTvl = reg.pools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);
+  // raw captures and position scans: the stock pools holding RAW_TOP_SHARE of the stock pools' TVL, as before a merge
+  const stockPools = reg.pools.filter(isStockSet);
+  const totalTvl = stockPools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);
   let cum = 0;
   const rawSet = new Set<string>();
-  for (const p of [...reg.pools].sort((a, b) => b.tvlUsd - a.tvlUsd)) {
+  for (const p of [...stockPools].sort((a, b) => b.tvlUsd - a.tvlUsd)) {
     if (cum >= RAW_TOP_SHARE * totalTvl) break;
     cum += p.tvlUsd;
     rawSet.add(p.address);
@@ -722,7 +732,7 @@ async function main() {
   writeFileSync(cachePath, JSON.stringify(cache));
   const routed = writeRoutedCurves(exits, now, slot);
   const markets = hourly
-    ? await snapshotMarkets(now, new Set(reg.pools.map((p) => p.assetMint))).catch((e) => ({
+    ? await snapshotMarkets(now, new Set(stockPools.map((p) => p.assetMint))).catch((e) => ({
         error: String(e).slice(0, 120),
       }))
     : null;
@@ -733,6 +743,7 @@ async function main() {
     fetchedAt: now.toISOString(),
     slot,
     due: due.length,
+    dueShelf: due.filter((p) => !isStockSet(p)).length,
     hourly,
     rows,
     refetched,

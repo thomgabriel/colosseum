@@ -107,6 +107,7 @@ const WRITTEN: ReadonlyArray<readonly [source: string, from: string]> = [
   ['server registry', 'this app’s list of assets'],
   ['policy input platformFeeBps', 'this app’s fee setting'],
   ['tenonfi API /stats', 'this app’s own counts'],
+  ['tenonfi API /v1/stats', 'this app’s own counts'],
   // apps/api/src/portfolio
   [
     "the person's confirmed deposits in this app's order record on Solana",

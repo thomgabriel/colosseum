@@ -355,6 +355,94 @@ function tradesFor(targets: Target[], cashRaw: bigint) {
 type Body = Record<string, unknown> & { type: string };
 
 /**
+ * A withdrawal in dollars, as apps/api plans one (`planDollars` of orders/withdraw.ts, gate
+ * WITHDRAW-DOLLARS): the share of each holding sold for the cash token, a step per sale on Solana
+ * and one for all on an EVM chain, then the cash out, stating the least it pays: the share of the
+ * cash held plus each sale's minimum, at the 1% the double plans every trade with.
+ */
+async function placeDollars(
+  body: Body,
+  state: NonNullable<Awaited<ReturnType<typeof world.adapter.getVault>>>,
+): Promise<OrderDetail> {
+  const { adapter } = world;
+  const shareBps = typeof body.shareBps === 'number' ? body.shareBps : 10_000;
+  const shareOf = (raw: bigint) => (shareBps >= 10_000 ? raw : (raw * BigInt(shareBps)) / 10_000n);
+  const cash = state.cash.asset;
+  const trades = state.positions
+    .map((p) => ({ sell: p.asset, buy: cash, amountInRaw: shareOf(BigInt(p.raw)).toString() }))
+    .filter((t) => BigInt(t.amountInRaw) > 0n);
+  let least = shareOf(BigInt(state.cash.raw));
+  let quoted = 0n;
+  for (const trade of trades) {
+    const out = BigInt((await adapter.quote(trade, state.owner)).outRaw);
+    least += (out * 9_900n) / 10_000n;
+    quoted += out;
+  }
+  const most = shareOf(BigInt(state.cash.raw)) + quoted + (quoted * 300n) / 10_000n;
+  if (least === 0n)
+    throw new ApiRefusal(409, {
+      error: 'nothing this vault holds can be withdrawn in dollars now',
+    });
+  const keep = BigInt(state.cash.raw) - shareOf(BigInt(state.cash.raw));
+  const groups = CHAIN === 'solana' ? trades.map((t) => [t]) : trades.length ? [trades] : [];
+  return doubleFor(state.owner).place({
+    type: 'withdraw',
+    summary: `Withdraw from your vault on ${CHAIN_NAME} in dollars, to your own wallet`,
+    needsConsent: [],
+    steps: [
+      ...(state.autoFollow
+        ? [{ kind: 'set_auto_follow' as const, description: 'Switch auto-follow off', trades: [] }]
+        : []),
+      ...groups.map((group) => ({
+        kind: 'swap' as const,
+        description: 'Sell for cash',
+        trades: group,
+      })),
+      {
+        kind: 'withdraw' as const,
+        description: 'Withdraw the cash to your own wallet',
+        trades: [],
+        withdrawals: [
+          {
+            asset: cash,
+            amountRaw: null,
+            heldRaw: state.cash.raw,
+            leastRaw: least.toString(),
+            mostRaw: most.toString(),
+          },
+        ],
+      },
+    ],
+    build: async (leg, nonce) => {
+      const at = nonce === undefined ? {} : { nonce };
+      if (leg.kind === 'set_auto_follow')
+        return adapter.buildSetAutoFollow({ vault: state.address, on: false, ...at });
+      if (leg.kind === 'swap')
+        return adapter.buildOwnerSwap({
+          vault: state.address,
+          trades: leg.trades,
+          slippageBps: 100,
+          minimums: leg.expected.map((e) => e.minOutRaw),
+          ...at,
+        });
+      const now = await adapter.getVault(state.address);
+      const there = BigInt(now?.cash.raw ?? '0') - keep;
+      const amount = there > most ? most : there;
+      if (amount < least)
+        throw new ApiRefusal(409, { error: 'the vault holds less cash than the order stated' });
+      const [tx] = await adapter.buildWithdrawInKind({
+        vault: state.address,
+        assets: [cash],
+        amounts: { [cash]: amount.toString() },
+        ...at,
+      });
+      if (!tx) throw new ApiRefusal(409, { error: 'the vault holds none of it any more' });
+      return tx;
+    },
+  });
+}
+
+/**
  * POST /v1/orders for a withdrawal, as apps/api plans one (orders/withdraw.ts): the vault's tokens, all
  * of them or the ones named, each in full or by amount, a step per token on Solana and one for all on
  * an EVM chain. Built for the vault's owner, from the vault as it is when the step is built.
@@ -363,12 +451,8 @@ async function placeWithdraw(body: Body): Promise<OrderDetail> {
   const { adapter } = world;
   const [address] = body.vaults as string[];
   const state = await adapter.getVault(String(address));
-  if (!state || body.sellToCash)
-    throw new ApiRefusal(state ? 422 : 404, {
-      error: state
-        ? 'Selling to cash before withdrawing isn’t offered yet; you can withdraw the tokens themselves'
-        : 'no vault of yours at that address',
-    });
+  if (!state) throw new ApiRefusal(404, { error: 'no vault of yours at that address' });
+  if (body.sellToCash) return placeDollars(body, state);
   const held = new Map(
     [state.cash, ...state.positions]
       .filter((h) => BigInt(h.raw) > 0n)

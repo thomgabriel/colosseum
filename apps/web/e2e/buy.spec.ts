@@ -403,6 +403,89 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
   await check(page, 'monitor-emptied');
 });
 
+test('a withdrawal in dollars: half of the vault is sold and paid out, then all of it, each step passed by the guard', async ({
+  page,
+}) => {
+  await (await toReview(page)).click();
+  await expect(page.locator('[data-ui="order-status"]')).toHaveText(
+    en.order.outcome.done('Solana'),
+    { timeout: 90_000 },
+  );
+  const w = en.withdraw;
+  const d = w.check.dollars;
+  /** The vault's details on the portfolio, where its way to withdraw is, opened. */
+  const openDetails = async () => {
+    await expect(page).toHaveURL(/\/monitor$/);
+    const details = page.locator('[data-ui="vault-read-details"]');
+    await expect(details).toHaveCount(1);
+    if ((await details.getAttribute('open')) === null)
+      await details.locator(':scope > summary').click();
+    await expect(details).toHaveAttribute('open', '');
+  };
+  const open = async () => {
+    await openDetails();
+    await page.locator('a[data-ui="vault-withdraw"]').click();
+    await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+\/withdraw$/);
+    // the two ways, the tokens themselves chosen first
+    await expect(page.getByLabel(w.way.tokens)).toBeChecked();
+    await page.getByLabel(w.way.dollars('USDC')).check();
+  };
+  /** The review confirmed, the order made, every step signed, and back to the portfolio. */
+  const through = async (emptied: boolean) => {
+    await page.getByRole('button', { name: w.steps.next }).click();
+    await expect(page.locator('[data-ui="withdraw-dollars"] tbody tr:visible')).toHaveCount(3);
+    await expect(page.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
+    // all of it: no promise of an empty vault, since what can't be sold now and dust stay
+    await expect(page.getByText(emptied ? d.emptied : d.stays)).toBeVisible();
+    await expect(page.getByText(w.check.emptied)).toHaveCount(0);
+    await expect(page.locator('[data-ui="withdraw-not-sold"]:visible')).toHaveText(d.notSold);
+    await check(page, emptied ? 'withdraw-dollars-all' : 'withdraw-dollars-share');
+    await page.getByLabel(d.confirm).check();
+    await page.getByRole('button', { name: w.steps.next }).click();
+    await page.getByRole('button', { name: w.confirm.button }).click();
+    await expect(page).toHaveURL(/\/orders\/[^/]+$/);
+    // a sale per holding, then the cash; the least received is said over the steps
+    await expect(page.locator('[data-ui="order-step"]')).toHaveCount(4);
+    await expect(page.locator('[data-ui="withdraw-least"]')).toHaveText(/^[\d.,]+ USDC$/);
+    await expect(page.locator('[data-ui="order-withdrawal"]')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: en.order.shared.signWithdraw })).toHaveCount(1);
+    await check(page, emptied ? 'withdraw-dollars-order-all' : 'withdraw-dollars-order');
+    await page.getByRole('button', { name: en.order.shared.signWithdraw }).click();
+    const done = page.locator('[data-ui="withdraw-done"]');
+    await expect(done).toBeVisible({ timeout: 90_000 });
+    for (let i = 0; i < 4; i += 1)
+      await expect(page.locator('[data-ui="order-step"]').nth(i)).toHaveAttribute(
+        'data-status',
+        'confirmed',
+      );
+    await expect(page.locator('[data-ui="withdraw-stayed"]')).toHaveCount(0);
+    await done.getByRole('link', { name: w.back }).click();
+  };
+
+  await page
+    .locator('[data-ui="order-next"]')
+    .getByRole('link', { name: en.order.outcome.seePortfolio })
+    .click();
+  // 1. Half of it: a share typed in percent.
+  await open();
+  await page.getByLabel(w.share.part).check();
+  await page.getByLabel(w.share.label).fill('500');
+  await expect(page.getByText(w.share.error)).toBeVisible();
+  await page.getByLabel(w.share.label).fill('50');
+  await through(false);
+  // half of the vault stays, so it still has a way to withdraw, in its details
+  await openDetails();
+  await expect(page.locator('a[data-ui="vault-withdraw"]')).toBeVisible();
+
+  // 2. All that is left: the vault is empty afterwards, with nothing but dollars in the wallet.
+  await open();
+  await through(true);
+  await expect(page).toHaveURL(/\/monitor$/);
+  await expect(page.locator('[data-ui="vault-summary"]')).toContainText(
+    en.shared.vault.conversation.noHoldings,
+  );
+});
+
 test('a step the server lies about is refused by the guard, and nothing is signed for it', async ({
   page,
 }) => {

@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -602,5 +604,114 @@ export const riskPoolFlow = pgTable(
       columns: [t.pool, t.regime, t.window, t.dataTo],
     }),
     index('risk_pool_flow_asset_idx').on(t.assetMint, t.dataTo),
+  ],
+);
+
+/**
+ * A fact about one token at one time, from one source (docs/risk/PLAN-ASSETS.md AS.4, gate ASSET-METRICS): its
+ * supply, the share of its twenty largest holders, the dollars in its pools, its DEX volume, the protocol's TVL,
+ * an exchange rate or a yield reading. One narrow table for every metric, so a new metric is a new `metric` value
+ * and not a migration. `value` is null exactly when `null_reason` says why: a missing fact is never zero. Prices
+ * are not here: a price is a `risk_price_observations` row under its own source (ORACLE-VS-DEX). `observed_at` is
+ * the time the state refers to (block time, or the source's own stamp); `fetched_at` is when it was read.
+ */
+export const assetObservations = pgTable(
+  'asset_observations',
+  {
+    chain: text('chain').notNull(),
+    /** The token's address as the universe list writes it (lower case on EVM). */
+    address: text('address').notNull(),
+    /** supply_total | supply_issuer | holders_top20_share | pool_tvl_usd | dex_volume_24h_usd | protocol_tvl_usd | exchange_rate | yield_<method> */
+    metric: text('metric').notNull(),
+    value: doublePrecision('value'),
+    unit: text('unit').notNull(),
+    nullReason: text('null_reason'),
+    observedAt: ts('observed_at').notNull(),
+    /** The slot or block the state was read at; null for a source off chain. */
+    height: doublePrecision('height'),
+    /** The parts a derived figure was made of: the pools summed, the window of a realised yield, the call made. */
+    detail: jsonb('detail').notNull().default({}),
+    methodVersion: text('method_version').notNull(),
+    ...provenanceCols,
+  },
+  (t) => [
+    primaryKey({
+      name: 'asset_observations_pk',
+      columns: [t.chain, t.address, t.metric, t.source, t.observedAt],
+    }),
+    index('asset_observations_metric_idx').on(t.metric, t.observedAt),
+    check(
+      'asset_observations_value_or_reason',
+      sql`(${t.value} is null) <> (${t.nullReason} is null)`,
+    ),
+    check(
+      'asset_observations_unit',
+      sql`${t.unit} in ('usd', 'tokens', 'fraction', 'count', 'ratio')`,
+    ),
+  ],
+);
+
+/**
+ * One hour of one pool, or of one token across its pools (`pool` = 'asset'), built from the swap history (AS.7):
+ * open, high, low and close in the pool's quote token and in dollars, the volume-weighted price, the swaps by side,
+ * and the volume. A swap whose hour has no dollar price for the quote is counted in `swaps` and `unpriced_swaps` and
+ * left out of every dollar figure, which are null when no swap of the hour was priced; nothing is priced at par by
+ * this table (D20). Prices in the quote are the pool's own, never blended with an oracle (ORACLE-VS-DEX). Daily
+ * figures are derived from these hours, not stored twice. `risk_pool_flow` keeps its windowed aggregates.
+ */
+export const marketBars = pgTable(
+  'market_bars',
+  {
+    chain: text('chain').notNull(),
+    /** The token the bar is of, as the universe list writes it. */
+    address: text('address').notNull(),
+    /** The pool's address, or 'asset' for the token across its pools. */
+    pool: text('pool').notNull(),
+    hour: ts('hour').notNull(),
+    /** The pool's quote token; null on an 'asset' row. */
+    quoteAddress: text('quote_address'),
+    openQuote: doublePrecision('open_quote'),
+    highQuote: doublePrecision('high_quote'),
+    lowQuote: doublePrecision('low_quote'),
+    closeQuote: doublePrecision('close_quote'),
+    vwapQuote: doublePrecision('vwap_quote'),
+    openUsd: doublePrecision('open_usd'),
+    highUsd: doublePrecision('high_usd'),
+    lowUsd: doublePrecision('low_usd'),
+    closeUsd: doublePrecision('close_usd'),
+    vwapUsd: doublePrecision('vwap_usd'),
+    swaps: integer('swaps').notNull(),
+    buySwaps: integer('buy_swaps').notNull(),
+    sellSwaps: integer('sell_swaps').notNull(),
+    unpricedSwaps: integer('unpriced_swaps').notNull(),
+    /** The token's volume in its own units: known for every swap. */
+    volumeTokens: doublePrecision('volume_tokens').notNull(),
+    /** Dollars of the priced swaps; null when none was priced. */
+    volumeUsd: doublePrecision('volume_usd'),
+    /** The same, by side: dollars of the priced purchases and of the priced sales of the token. */
+    buyVolumeUsd: doublePrecision('buy_volume_usd'),
+    sellVolumeUsd: doublePrecision('sell_volume_usd'),
+    /** How the quote was put in dollars this hour (`usdc_at_source`, `implied_from_<pool>`), or why it was not. */
+    quoteUsdMethod: text('quote_usd_method'),
+    /** Which layer the bar was built from (`raw_events`, `collector`), the pools of an 'asset' row and each one's share. */
+    detail: jsonb('detail').notNull().default({}),
+    methodVersion: text('method_version').notNull(),
+    ...provenanceCols,
+  },
+  (t) => [
+    primaryKey({
+      name: 'market_bars_pk',
+      columns: [t.chain, t.address, t.pool, t.hour, t.methodVersion],
+    }),
+    index('market_bars_hour_idx').on(t.hour),
+    check(
+      'market_bars_swaps',
+      sql`${t.buySwaps} + ${t.sellSwaps} = ${t.swaps} and ${t.unpricedSwaps} between 0 and ${t.swaps}`,
+    ),
+    check('market_bars_priced', sql`(${t.volumeUsd} is null) = (${t.unpricedSwaps} = ${t.swaps})`),
+    check(
+      'market_bars_sides_priced',
+      sql`(${t.buyVolumeUsd} is null) = (${t.volumeUsd} is null) and (${t.sellVolumeUsd} is null) = (${t.volumeUsd} is null)`,
+    ),
   ],
 );
