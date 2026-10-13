@@ -4,7 +4,7 @@
 
 How this was made: nine research notes (`docs/vault/research/design-v2/*.md`) merged with the product (`docs/vault/HANDOFF-VAULT.md`), the first version, the audit (`docs/vault/AUDIT-VAULT.md`) and the convergence blueprint (`docs/vault/CONVERGENCE-VAULT.md`), then revised after three reviews: scope against time, security, and seams. What each review changed is in `docs/vault/research/design-v2/review-log.md`. Marks: **[C n]** means checked on Oct 1 against source n in the last section, by a stream note, a reviewer or this revision; **(memory)** means not re-checked. Other numbers come from the stream notes, which carry their own source lists.
 
-Nothing here has run on mainnet. The three $10 runs come first in time.
+When this was written nothing here had run on mainnet. Since 2026-10-12 the EVM vault contracts are deployed on Robinhood Chain mainnet (`MAINNET-DEPLOY.md`), with no deposit made yet; the Solana program runs on devnet only. The three $10 runs were dropped (gate `SPEND`).
 
 **Changed on Oct 1, night:** the delay between an author publishing a new version and a vault applying it is 48 hours after launch, up from 12. The person has two days to see the change and refuse it.
 

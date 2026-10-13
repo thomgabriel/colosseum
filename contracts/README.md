@@ -57,7 +57,7 @@ FACTORY=<factory proxy> forge script script/Deploy.s.sol --sig "settings()" \
 
 ## Mainnet: what stands in front of the admin, and how a deploy is held to it
 
-Written for a first, small, owner-signed deployment on Robinhood Chain (4663). Nothing is deployed there. `docs/vault/SECURITY.md` says who can do what; `docs/vault/INCIDENT.md` what to do when something is wrong.
+Written for a first, small, owner-signed deployment on Robinhood Chain (4663), which was made on 2026-10-12: `docs/vault/MAINNET-DEPLOY.md` has every address and transaction. No deposit has been made there yet. `docs/vault/SECURITY.md` says who can do what; `docs/vault/INCIDENT.md` what to do when something is wrong.
 
 - **The admin is a timelock.** With a `timelock` block in its file, `Deploy.s.sol` creates OpenZeppelin's `TimelockController`, hands it the factory's admin and the beacon, and finishes the hand-over itself: the timelock starts with no delay and the deployer as a second proposer, for one batch (accept both keys, set the delay, remove the deployer's three roles), and the script then reads everything back and fails if the deployer still holds anything. After it, `timelock.owner` (a Safe) is the only proposer, canceller and executor, and every `onlyAdmin` call, both UUPS upgrades and the beacon's `upgradeTo` wait out the delay. 48 hours on a mainnet, the notice a follower gets for a new portfolio version.
 - **The guardian stops, at once, and only stops**: `pauseKeeper`, `pauseDeposits` (new), `haltAsset`, `extendClosedUntil`, `addClosedDay`. Lifting any of them is the admin's, so it waits. `pauseDeposits` stops `deposit` and the first deposit of a create; `withdraw` and `withdrawAll` still call nothing and read no pause.

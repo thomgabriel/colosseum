@@ -2,7 +2,7 @@
 
 *Written 2026-10-01 by Thom, and rewritten the same day in the words of the brand strategy on the `design` branch. Companion to `docs/structurer/HANDOFF-IDEA1.md` (the structurer) and `docs/risk/HANDOFF-RISK.md` (the liquidity and risk layer, "Bearing" in the brand). Thom and Rodrigo spoke on Oct 1 and the work continues on this basis; the decisions are listed below and in `docs/GATES.md`. Technical design: `DESIGN-VAULT.md`. How it maps onto the code in this repo: `CONVERGENCE-VAULT.md`. Review of the current code: `AUDIT-VAULT.md`. Research behind it: `research/`.*
 
-> Changed since this was written, each by a gate in `docs/GATES.md`: the product is built and shown on test networks, not mainnet (`SHOW`, `SPEND`), and Base is off (`BASE`); it is English only (`ENGLISH-ONLY`); the goal is said in a chat (`RELAXED-INTAKE`) and the deposit opens in place on `/goal` (`DEPOSIT-STEP`); a person's own vault may hold any composition of listed assets (`ANY-COMPOSITION`). Where the MVP list and the demo outline below say mainnet, read the test networks.
+> Changed since this was written, each by a gate in `docs/GATES.md`: the product was built and shown on test networks first (`SHOW`, `SPEND`), and since Oct 12 to 13 Robinhood Chain runs on mainnet with no deposit made yet (`MAINNET-DEPLOYED`, `APP-MAINNET-BESIDE-TESTNET`) while Solana stays on devnet; Base is off (`BASE`); it is English only (`ENGLISH-ONLY`); the goal is said in a chat (`RELAXED-INTAKE`) and the deposit opens in place on `/goal` (`DEPOSIT-STEP`); a person's own vault may hold any composition of listed assets (`ANY-COMPOSITION`). Where the MVP list and the demo outline below say mainnet, read the test networks.
 
 The positioning stays as it is: tell us what your money needs to do, and the product builds the portfolio that gets it there, with an exit plan before it invests and every joint in sight. This document is about what it takes to make each part of that sentence hold on chain, for every asset, on more than one chain.
 
@@ -179,7 +179,7 @@ What agents can't do, and what therefore sets the pace: funding and testing real
 - When an author adds a new asset, each follower approves it with a tap. A new version takes effect for followers 48 hours after it is published.
 - On Robinhood Chain, only the stock tokens with a price feed (about 36 of 195) can be rebalanced automatically. The rest are one-tap only.
 - The team holds the upgrade keys for the vault contracts for now, one disclosed key per chain, and the product says so.
-- Free tiers only, apart from about $10 of model credit for reading the goal sentence. No money goes onto mainnet for now: the product is built and shown on test networks first, with test tokens labelled as such (Oct 2). On Solana mainnet the price reference is Kamino's free onchain prices.
+- Free tiers only, apart from about $10 of model credit for reading the goal sentence. No money goes onto mainnet for now: the product is built and shown on test networks first, with test tokens labelled as such (Oct 2; amended on Oct 12 for one deployment and deposits on Robinhood Chain, gate `SPEND-FIRST-MAINNET-DEPOSIT`). On Solana mainnet the price reference is Kamino's free onchain prices.
 - Four limits on authors, simpler than the research note proposed (Oct 2); they are in section 6 of the design.
 - The sign-in button says "Sign in" and opens a choice of passkey or wallet.
 - The keeper runs on a founder's machine while testing, and on a small VM at deploy.
