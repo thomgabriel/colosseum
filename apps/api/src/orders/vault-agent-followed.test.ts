@@ -28,8 +28,12 @@ function world(
     /** A tGOOGLx target of this weight, in place of the gold one. */
     stockBps?: number;
     familyName?: string;
-    /** Whether the vault's page has the rebalance action (off until its route lands). */
+    /** Whether the vault's page has the rebalance action (it does since #265: on by default). */
     rebalanceOnPage?: boolean;
+    /** What the vault holds, in place of Thom's balances: units of each and cash. */
+    holds?: { jl: string; syrup: string; cash: string };
+    /** Leave out the price of syrupUSDC. */
+    noSyrupPrice?: boolean;
     keeperEnabled?: boolean;
     autoFollow?: boolean;
     autoFollowOffered?: boolean;
@@ -75,10 +79,15 @@ function world(
     recipeOnchainId: follows ? RECIPE : null,
     acceptedVersion: follows ? 1 : 0,
     autoFollow: options.autoFollow ?? false,
-    cash: { asset: cash.id, raw: '20050000000', display: '20050', multiplier: '1' },
+    cash: {
+      asset: cash.id,
+      raw: String(Math.round(Number(options.holds?.cash ?? '20050') * 1e6)),
+      display: options.holds?.cash ?? '20050',
+      multiplier: '1',
+    },
     positions: [
-      held(jl, '37702.63444', 5000),
-      held(syrup, '16888.138676', 3000),
+      held(jl, options.holds?.jl ?? '37702.63444', 5000),
+      held(syrup, options.holds?.syrup ?? '16888.138676', 3000),
       ...(options.stockBps
         ? [held(googl, '0', options.stockBps)]
         : goldTarget
@@ -101,7 +110,11 @@ function world(
     market: 'open',
   });
   // The chain gives no price row for cash, as on the hosted app: the page shows a dash there.
-  const prices = [price(jl, '1.06'), price(syrup, '1.19'), price(gold, '4153.51')];
+  const prices = [
+    price(jl, '1.06'),
+    ...(options.noSyrupPrice ? [] : [price(syrup, '1.19')]),
+    price(gold, '4153.51'),
+  ];
   const recipe: Recipe = {
     schemaVersion: 1,
     familyId: 'a'.repeat(64),
@@ -137,7 +150,7 @@ function world(
     prepared: { shelf: { ...shelf, assets }, figures: {} },
     currentGoals: [{ goal: 'income', risk: 'low' }],
     keeperEnabled: options.keeperEnabled ?? false,
-    rebalanceOnPage: options.rebalanceOnPage ?? false,
+    rebalanceOnPage: options.rebalanceOnPage ?? true,
     ...(follows
       ? {
           followed: {
@@ -501,18 +514,88 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
       expect(fact).toMatchObject({ source: expect.any(String), fetchedAt: expect.any(String) });
   });
 
-  it('names no control while the page has none, and says so plainly', async () => {
-    const off = world();
+  it.each([
+    [
+      'en',
+      'rebalance',
+      REBALANCE_ACTION.en,
+      /To bring them in line, use “Rebalance” on this vault's page/u,
+    ],
+    ['pt', 'quero rebalancear', REBALANCE_ACTION.pt, /use “Rebalancear” na página deste cofre/u],
+  ] as const)(
+    'points at the page’s action where the page offers it (%s)',
+    async (language, text, label, said) => {
+      const out = await replyToVaultConversation(
+        { version: 1, language, messageId: 'turn', messages: [{ who: 'person', text }] },
+        w.context,
+        { read: vi.fn() },
+      );
+      if (out.kind !== 'reply') throw new Error('refused');
+      expect(out.reply.message).toMatch(said);
+      expect(out.reply.message).toContain(`“${label}”`);
+      const asked = await w.reply(['what can you do'], w.talking('Here it is.'));
+      expect(asked.prompt?.facts?.rebalanceAction).toBe(REBALANCE_ACTION.en);
+    },
+  );
+
+  // On its targets (inside the owner's band), auto-follow on with no keeper here, or a holding with no
+  // price: the page shows no action, and the chat names none.
+  const hidden = [
+    [
+      'on its targets',
+      {
+        follows: false,
+        goldTarget: false,
+        holds: { jl: '5000', syrup: '2672.268908', cash: '2120' },
+      },
+      /on their targets, so there is nothing to rebalance now/u,
+      /nos alvos, então não há o que rebalancear agora/u,
+    ],
+    [
+      'auto-follow on, no keeper',
+      { autoFollow: true, autoFollowOffered: true, keeperEnabled: false },
+      /not at their targets yet/u,
+      /ainda não está nos alvos/u,
+    ],
+    [
+      'a holding with no price',
+      { noSyrupPrice: true },
+      /not at their targets yet/u,
+      /ainda não está nos alvos/u,
+    ],
+  ] as const;
+  it.each(hidden)(
+    'names no action where the page offers none: %s',
+    async (_case, options, en, pt) => {
+      const vault = world(options);
+      for (const [language, text, said] of [
+        ['en', 'rebalance', en],
+        ['pt', 'quero rebalancear', pt],
+      ] as const) {
+        const out = await replyToVaultConversation(
+          { version: 1, language, messageId: 'turn', messages: [{ who: 'person', text }] },
+          vault.context,
+          { read: vi.fn() },
+        );
+        if (out.kind !== 'reply') throw new Error('refused');
+        expect(out.reply.message).toMatch(said);
+        expect(out.reply.message).not.toMatch(
+          /Rebalance”|Rebalancear”|button|botão|keeper|operador/iu,
+        );
+        expect(out.reply.message).not.toMatch(/(?:this vault's|deste cofre) page|página/iu);
+      }
+      const asked = await vault.reply(['what can you do'], vault.talking('Here it is.'));
+      expect(asked.prompt?.facts?.rebalanceAction).toBeNull();
+    },
+  );
+
+  it('names no action where the route says the page has none', async () => {
+    const off = world({ rebalanceOnPage: false });
     const out = await off.reply(['rebalance'], off.talking('unused'));
     expect(out.calls).toBe(0);
-    expect(out.prompt).toBeUndefined();
     expect(out.reply.message).not.toContain(REBALANCE_ACTION.en);
-    expect(out.reply.message).not.toMatch(/button|page/iu);
-    expect(out.reply.message).toMatch(/not at their targets/u);
-    expect(out.reply.message).toMatch(/not available from this conversation yet/u);
+    expect(out.reply.message).toMatch(/not at their targets yet/u);
     expect(out.reply.message).toMatch(/GLDx: 0% of the vault, target 20%/u);
-    const asked = await off.reply(['what can you do'], off.talking('Here it is.'));
-    expect(asked.prompt?.facts?.rebalanceAction).toBeNull();
   });
 
   it('speaks of a keeper only where auto-follow is on, offered and the keeper runs', async () => {
