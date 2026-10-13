@@ -1922,14 +1922,10 @@ export const pt: Dictionary = {
       addCashNote: 'Este cofre não tem metas, então o valor inteiro fica nele como caixa.',
       publishNote:
         'Sua carteira só é chamada para assinar uma transação que publique exatamente este nome, esta descrição e estes pesos, com este identificador.',
-      signPublish: 'Assinar e publicar',
-      signFollow: 'Assinar e seguir',
-      signRebalance: 'Assinar e rebalancear',
       followDone:
         'Seu cofre segue o portfólio agora, e tem os pesos dele como metas. O que ele guarda ainda não foi negociado.',
       followRebalance: 'Rebalancear este cofre',
       withdrawTitle: 'O que você saca',
-      signWithdraw: 'Assinar e sacar',
       withdraws: (amount: string) => `${amount} para a sua própria carteira`,
       withdrawsAll: (held: string) => `Tudo, ${held} na revisão, para a sua própria carteira`,
       withdrawsAtLeast: (amount: string) => `Pelo menos ${amount}, para a sua própria carteira`,
@@ -1955,7 +1951,6 @@ export const pt: Dictionary = {
           : `Feito em ${chain}, exceto ${n} passos que foram pulados: o que eles moveriam ficou no cofre.`,
       resume: 'Continuar',
     },
-    signAndBuy: (amount: string) => `Assinar e depositar ${amount}`,
     resume: (amount: string) => `Continuar o depósito de ${amount}`,
     signing: (n: number, total: number) => `Assinando o passo ${n} de ${total}…`,
     stepsTitle: 'Passos',
@@ -2463,7 +2458,6 @@ export const pt: Dictionary = {
     },
     order: {
       title: 'Novos pesos-alvo do seu cofre',
-      signTargets: 'Assinar e aplicar os pesos-alvo',
       cash: (share: string) => `O restante fica em caixa: ${share}.`,
       fromConversation: 'Proposto na sua conversa e confirmado por você.',
       fromPerson: 'Escolhido por você.',

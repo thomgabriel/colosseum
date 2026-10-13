@@ -448,7 +448,7 @@ describe('an order that does not move what the person asked for', () => {
     const host = await screen();
     expect(host.querySelector('[data-ui="stat"]')?.textContent).toContain('40,000 USDC');
     expect(host.querySelector('[data-variant="primary"]')).toBeNull();
-    expect(host.textContent).not.toContain(en.order.signAndBuy('$40'));
+    expect(host.textContent).not.toContain(en.order.flow.press.deposit('$40'));
     expect(find(host, '[role="alert"]').textContent).toBe(en.order.mismatch.deposit);
     expect(run.calls).toHaveLength(0);
   });

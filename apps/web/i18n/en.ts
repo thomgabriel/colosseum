@@ -2141,16 +2141,12 @@ export const en = {
       addCashNote: 'This vault has no targets, so the whole amount stays in it as cash.',
       publishNote:
         'Your wallet is asked to sign only a transaction that publishes exactly this name, description and these weights, under this id.',
-      signPublish: 'Sign and publish',
-      signFollow: 'Sign and follow',
-      signRebalance: 'Sign and rebalance',
       /** Under a follow that is done: its targets are set, and the trades to them are the next press. */
       followDone:
         'Your vault follows the portfolio now, and has its weights as targets. What it holds hasn’t been traded yet.',
       followRebalance: 'Rebalance this vault',
       resume: 'Continue',
       withdrawTitle: 'What you withdraw',
-      signWithdraw: 'Sign and withdraw',
       /** One line of a withdraw step: what leaves, for the owner's own wallet. */
       withdraws: (amount: string) => `${amount} to your own wallet`,
       withdrawsAll: (held: string) => `All of it, ${held} when reviewed, to your own wallet`,
@@ -2181,7 +2177,6 @@ export const en = {
           ? `Done on ${chain}, except one step that was skipped: what it would have moved stayed in the vault.`
           : `Done on ${chain}, except ${n} steps that were skipped: what they would have moved stayed in the vault.`,
     },
-    signAndBuy: (amount: string) => `Sign and deposit ${amount}`,
     resume: (amount: string) => `Continue the deposit of ${amount}`,
     signing: (n: number, total: number) => `Signing step ${n} of ${total}…`,
     stepsTitle: 'Steps',
@@ -2713,7 +2708,6 @@ export const en = {
     },
     order: {
       title: 'New targets for your vault',
-      signTargets: 'Sign and apply the targets',
       cash: (share: string) => `The rest stays in cash: ${share}.`,
       fromConversation: 'Proposed in your conversation, and confirmed by you.',
       fromPerson: 'Chosen by you.',
