@@ -1,9 +1,10 @@
 'use client';
-import type { ChainId, Provenance } from '@colosseum/schemas';
+import { type ChainId, FundingResponse, type Provenance } from '@colosseum/schemas';
 import { useEffect, useState } from 'react';
 import type { PinSource } from '../../components/ui/provenance';
+import type { ApiFetch } from '../account/person';
 import { MIN_USD } from '../order/limits';
-import { type BuyOf, readFunding } from '../order/order-api';
+import { type BuyOf, type FundingOutcome, readFunding } from '../order/order-api';
 import { unitsFor } from '../order/units';
 import { useApiFetch } from '../wallet/WalletProvider';
 
@@ -38,10 +39,23 @@ export type WalletBalance =
       testFunds: boolean;
     };
 
+/** GET /v1/funding with the wallet alone: its balances on the person's current chain, nothing planned. */
+async function readBalance(apiFetch: ApiFetch, wallet: string): Promise<FundingOutcome> {
+  try {
+    const res = await apiFetch(`/v1/funding?${new URLSearchParams({ wallet })}`);
+    if (!res.ok) return { kind: 'unreadable' };
+    const read = FundingResponse.safeParse(await res.json());
+    return read.success ? { kind: 'read', funding: read.data } : { kind: 'unreadable' };
+  } catch {
+    return { kind: 'unreachable' };
+  }
+}
+
 const whole = (raw: string, decimals: number) => Number(BigInt(raw)) / 10 ** decimals;
 
 export function useWalletBalance(
-  buyOf: BuyOf | null,
+  /** What is deposited into; `wallet` reads the balance alone, before there is anything to name. */
+  buyOf: BuyOf | 'wallet' | null,
   owner: string | null,
   chain: ChainId,
   mock: boolean,
@@ -55,9 +69,15 @@ export function useWalletBalance(
     if (!buyOf || !owner) return setBalance({ kind: 'idle' });
     let mine = true;
     setBalance({ kind: 'reading' });
-    readFunding(apiFetch, { ...buyOf, amountUsd: MIN_USD, wallet: owner }).then((read) => {
+    const asked =
+      buyOf === 'wallet'
+        ? readBalance(apiFetch, owner)
+        : readFunding(apiFetch, { ...buyOf, amountUsd: MIN_USD, wallet: owner });
+    asked.then((read) => {
       if (!mine) return;
-      if (read.kind !== 'read') return setBalance({ kind: 'failed' });
+      // a read of another chain than this deposit's (the person's current one moved) is not shown
+      if (read.kind !== 'read' || read.funding.chain !== chain)
+        return setBalance({ kind: 'failed' });
       const f = read.funding;
       const units = unitsFor(chain, mock);
       const cashDecimals = units?.tokens[f.cash.asset]?.decimals ?? f.cash.decimals;

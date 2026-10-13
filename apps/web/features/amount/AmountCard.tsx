@@ -5,14 +5,11 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Select } from '../../components/ui/Field';
-import { ProvenancePin } from '../../components/ui/ProvenancePin';
-import type { PinSource } from '../../components/ui/provenance';
-import { StatusMark } from '../../components/ui/StatusMark';
 import { useT } from '../../i18n/I18nProvider';
 import { acceptTrust, trustAccepted } from '../order/order-record';
-import { AssetMark } from '../order/PlanView';
 import { chainIsLive } from '../order/readiness';
 import { TrustNotice } from '../order/TrustNotice';
+import { type AmountBalance, type AmountChip, AmountWell } from './AmountWell';
 
 // The amount card (gate AMOUNT-CARD, Thom, Oct 13): where a deposit or a withdrawal starts, as the
 // familiar deposit card of a DeFi app. One card: Deposit | Withdraw where both apply, where the money
@@ -34,19 +31,7 @@ export const SETTLE_MS = 500;
 
 export type IntoOption = { value: string; label: string };
 
-export type AmountBalance =
-  | { state: 'reading' }
-  | { state: 'failed' }
-  | {
-      state: 'read';
-      /** The figure as shown: "1,234.56 USDC". */
-      figure: string;
-      obs: PinSource;
-      /** Types the whole of it. Left out: no Max. */
-      onMax?: () => void;
-    };
-
-export type AmountChip = { key: string; label: string; on: boolean; onPick: () => void };
+export type { AmountBalance, AmountChip } from './AmountWell';
 
 export type AmountCardProps = {
   mode: AmountMode;
@@ -132,8 +117,6 @@ export function AmountCard({
   const a = t.amount;
   const titleId = useId();
   const amountId = useId();
-  const balanceId = useId();
-  const problemId = useId();
   const reasonsId = useId();
   const trustId = useId();
   const intoId = useId();
@@ -162,7 +145,7 @@ export function AmountCard({
   const held = action.held === true || action.reasons.length > 0 || trustHeld || locked;
   const describedBy =
     [
-      problem ? problemId : null,
+      problem ? `${amountId}-problem` : null,
       action.reasons.length > 0 ? reasonsId : null,
       trustHeld ? trustId : null,
     ]
@@ -274,128 +257,22 @@ export function AmountCard({
           )}
 
           {field && (
-            <div className="flex min-w-0 flex-col gap-2">
-              <div
-                data-ui="amount-well"
-                className={cn(
-                  'flex min-w-0 flex-col gap-2 rounded-md border bg-muted p-4',
-                  'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring',
-                  problem ? 'border-destructive' : 'border-input',
-                )}
-              >
-                <label
-                  htmlFor={amountId}
-                  className="text-caption font-medium text-muted-foreground"
-                >
-                  {field.label}
-                </label>
-                <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="shrink-0 font-display text-h3 text-muted-foreground"
-                  >
-                    {t.mix.deposit.currency}
-                  </span>
-                  <input
-                    id={amountId}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    placeholder="0"
-                    disabled={locked}
-                    value={field.text}
-                    aria-invalid={problem ? true : undefined}
-                    aria-describedby={
-                      [field.balance ? balanceId : null, problem ? problemId : null]
-                        .filter(Boolean)
-                        .join(' ') || undefined
-                    }
-                    onChange={(e) => {
-                      setLeft(false);
-                      field.onText(e.currentTarget.value);
-                    }}
-                    onBlur={() => setLeft(true)}
-                    className="h-12 min-w-0 flex-1 bg-transparent font-display text-[2rem] leading-10 font-semibold tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
-                  />
-                  {field.token && (
-                    <span
-                      data-ui="amount-token"
-                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card pr-3 pl-1 text-body-sm font-semibold"
-                    >
-                      <AssetMark asset={field.token.asset} className="size-7" />
-                      <span aria-hidden="true">{field.token.symbol}</span>
-                      <span className="sr-only">{field.token.name}</span>
-                    </span>
-                  )}
-                </div>
-                {field.balance && (
-                  <p
-                    id={balanceId}
-                    data-ui="amount-balance"
-                    data-state={field.balance.state}
-                    className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body-sm text-muted-foreground"
-                  >
-                    {field.balance.state === 'read' ? (
-                      <>
-                        <span>{field.balance.label}:</span>
-                        <ProvenancePin
-                          value={field.balance.figure}
-                          obs={field.balance.obs}
-                          what={field.balance.label}
-                          className="text-foreground tabular-nums"
-                        />
-                        {field.balance.onMax && (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <Button
-                              variant="link"
-                              disabled={locked}
-                              aria-label={a.balance.maxLabel(field.balance.figure)}
-                              onClick={field.balance.onMax}
-                            >
-                              {a.balance.max}
-                            </Button>
-                          </>
-                        )}
-                      </>
-                    ) : field.balance.state === 'reading' ? (
-                      <span>{a.balance.reading}</span>
-                    ) : (
-                      <span>{a.balance.failed}</span>
-                    )}
-                  </p>
-                )}
-              </div>
-              {field.chips && field.chips.length > 0 && (
-                <div data-ui="amount-chips" className="flex flex-wrap gap-2">
-                  {field.chips.map((chip) => (
-                    <Button
-                      key={chip.key}
-                      variant="chip"
-                      pressed={chip.on}
-                      disabled={locked}
-                      onClick={chip.onPick}
-                    >
-                      {chip.label}
-                    </Button>
-                  ))}
-                </div>
-              )}
-              {!problem && field.note && (settled || left) && (
-                <p data-ui="amount-note" className="text-body-sm text-muted-foreground">
-                  {field.note}
-                </p>
-              )}
-              {problem && (
-                <p
-                  id={problemId}
-                  data-ui="amount-problem"
-                  className="flex items-start gap-1.5 text-body-sm text-destructive"
-                >
-                  <StatusMark status="off-track" size={12} className="mt-1.5" />
-                  <span>{problem}</span>
-                </p>
-              )}
-            </div>
+            <AmountWell
+              id={amountId}
+              label={field.label}
+              text={field.text}
+              onText={(next) => {
+                setLeft(false);
+                field.onText(next);
+              }}
+              onBlur={() => setLeft(true)}
+              token={field.token}
+              balance={field.balance}
+              chips={field.chips}
+              problem={problem}
+              note={!problem && field.note && (settled || left) ? field.note : null}
+              locked={locked}
+            />
           )}
 
           {choice}

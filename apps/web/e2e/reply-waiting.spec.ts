@@ -406,7 +406,7 @@ for (const width of [1440, 375] as const)
     };
 
     // the press before the amount's own check has answered: it asks, and says what it asks
-    await page.getByLabel(en.buy.amount.label, { exact: true }).fill('100');
+    await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
     const review = step.locator('[data-action="deposit-review"]');
     await review.scrollIntoViewIfNeeded();
     const resting = await boxOf(review);

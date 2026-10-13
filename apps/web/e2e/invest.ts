@@ -14,7 +14,20 @@ export async function readyToInvest(
   page: Page,
   o: { amount?: string; fund?: 'mock' | 'test'; dollars?: string } = {},
 ) {
-  if (o.amount !== undefined)
+  // Where the deposit starts on the amount card (gate AMOUNT-CARD): the amount there, the trust
+  // notice ticked on it (a first deposit in this browser), and its press, which hands the amount to
+  // the invest card. A plan's own buy page still types it over the invest card.
+  const entry = page.locator('[data-ui="amount-card"]');
+  let trusted = false;
+  if (o.amount !== undefined && (await entry.count()) > 0) {
+    await entry.getByLabel(en.amount.field.deposit, { exact: true }).fill(o.amount);
+    const press = entry.locator('[data-action="amount-deposit"]');
+    await expect(press).toHaveAttribute('aria-disabled', 'true');
+    await entry.getByLabel(en.trust.accept).check();
+    await expect(press).toHaveText(en.amount.press.deposit(o.dollars ?? '$40'));
+    await press.click();
+    trusted = true;
+  } else if (o.amount !== undefined)
     await page.getByLabel(en.buy.amount.label, { exact: true }).fill(o.amount);
   const card = page.locator('[data-ui="invest-card"]');
   const press = card.getByRole('button', { name: en.invest.press(o.dollars ?? '$40') });
@@ -32,9 +45,12 @@ export async function readyToInvest(
   // test funds that were sent are still said; sample cash on the mock leaves nothing to say
   if (o.fund === 'test') await expect(card.locator('[data-ui="test-funds-sent"]')).toBeVisible();
   else await expect(card.locator('[data-ui="funding-step"]')).toHaveCount(0);
-  // a first buy in this browser: the notice is on the card, and holds the press until it is ticked
-  await expect(press).toHaveAttribute('aria-disabled', 'true');
-  await page.getByLabel(en.trust.accept).check();
+  // a first buy in this browser: the notice is on the card, and holds the press until it is ticked;
+  // ticked on the amount card, it was kept as that card was pressed, and is not asked again
+  if (!trusted) {
+    await expect(press).toHaveAttribute('aria-disabled', 'true');
+    await page.getByLabel(en.trust.accept).check();
+  } else await expect(page.getByLabel(en.trust.accept)).toHaveCount(0);
   await expect(press).not.toHaveAttribute('aria-disabled', 'true');
   return press;
 }
