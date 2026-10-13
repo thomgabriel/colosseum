@@ -9,6 +9,7 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { dictionary } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { VaultMixFlow } from '../mix/VaultMixFlow';
+import { onOrderDone } from '../order/order-done';
 import { AssetMark } from '../order/PlanView';
 import { displayName } from '../order/plain';
 import { dollars, share } from '../portfolio/figures';
@@ -110,6 +111,19 @@ export function VaultConversation({
   const [reply, setReply] = useState<VaultAgentReply | null>(null);
   // The preview the person chose to apply: its editor stays only while that preview is the one shown.
   const [applying, setApplying] = useState<VaultAgentReply | null>(null);
+  // A change applied and signed is over: back on the vault, its draft and its review are gone and the
+  // holdings show again (UI audit V2). Another kind of order (a deposit) leaves a draft as it is.
+  const changing = useRef(false);
+  changing.current = applying !== null;
+  useEffect(
+    () =>
+      onOrderDone(() => {
+        if (!changing.current) return;
+        setApplying(null);
+        setReply(null);
+      }),
+    [],
+  );
   // The chat folds away so the plan can take the whole width, as on the invest page.
   const [chatOpen, setChatOpen] = useState(true);
   const generation = useRef(0);
@@ -624,7 +638,8 @@ export function VaultConversation({
               </CardBody>
             </Card>
           ))}
-        {aside}
+        {/* the vault's details wait too, while a change has the pane */}
+        {!(reply && applying === reply) && aside}
       </div>
     </section>
   );

@@ -257,7 +257,7 @@ describe('a follow by a vault, on the order screen', () => {
     expect(primary(host).textContent).toContain(en.order.flow.continue);
     await tick(host);
     await onward(host);
-    expect(primary(host).textContent).toContain(en.order.flow.press.version);
+    expect(primary(host).textContent).toContain(en.order.flow.press.follow);
     await click(primary(host));
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({
@@ -324,7 +324,7 @@ describe('a rebalance to a vault’s targets, on the order screen', () => {
     expect(primary(host).textContent).toContain(en.order.flow.continue);
     await onward(host);
     // the first swap alone, with a button that names it and its amount
-    expect(primary(host).textContent).toMatch(/^Sign: swap \$[\d,]+ for /);
+    expect(primary(host).textContent).toContain(en.order.flow.press.rebalance);
     await click(primary(host));
     await settle();
     // the targets and the reviewed trades: the guard refuses any other step or trade

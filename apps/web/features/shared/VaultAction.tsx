@@ -183,6 +183,13 @@ export function VaultAction({
     onStopped: () => onPhase('stopped'),
   };
 
+  const backToVault = (
+    <div data-ui="vault-action-done" className="flex flex-col gap-3">
+      <Button variant="primary" className="w-full" data-action="back-to-vault" onClick={onFinished}>
+        {p.backToVault}
+      </Button>
+    </div>
+  );
   let body: ReactNode;
   if (open.kind === 'deposit')
     body = (
@@ -289,6 +296,7 @@ export function VaultAction({
               </p>
             )}
             <OrderScreen key={open.orderId} id={open.orderId} embed={embed} />
+            {phase === 'done' && backToVault}
           </CardBody>
         </Card>
       </>
@@ -296,6 +304,8 @@ export function VaultAction({
   }
 
   const done = phase === 'done';
+  // Done, the one way on: inside the order's card, or under the deposit's card, which is not this pane's.
+  const doneInCard = open.kind !== 'deposit' && open.orderId !== null;
   return (
     <section
       data-ui="vault-action-pane"
@@ -310,9 +320,11 @@ export function VaultAction({
           id={titleId}
           tabIndex={-1}
           className={
-            open.orderId
-              ? 'text-body-sm font-medium text-muted-foreground outline-none'
-              : 'font-display text-h4 font-semibold outline-none'
+            phase === 'done' && open.orderId
+              ? 'sr-only'
+              : open.orderId
+                ? 'text-body-sm font-medium text-muted-foreground outline-none'
+                : 'font-display text-h4 font-semibold outline-none'
           }
         >
           {done
@@ -335,18 +347,7 @@ export function VaultAction({
       {/* The end, under what the order did (gate SIGN-ONE-STEP: a short screen, not a long card). How
           it ended is the order's own sentence, above, which never says plainly done of a step that
           was skipped or a token that stayed (OrderScreen): nothing here says more than it does. */}
-      {done && (
-        <div data-ui="vault-action-done" className="flex flex-col gap-3">
-          <Button
-            variant="primary"
-            className="w-full"
-            data-action="back-to-vault"
-            onClick={onFinished}
-          >
-            {p.backToVault}
-          </Button>
-        </div>
-      )}
+      {done && !doneInCard && backToVault}
       {/* the way back, whenever no step is being signed; what was sent stays sent */}
       {/* Before the first signature the steps have "Back to the review" of their own: one way back. */}
       {phase !== 'signing' &&

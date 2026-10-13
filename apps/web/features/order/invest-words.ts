@@ -148,6 +148,8 @@ export type OrderEmbed = {
    * order's screen opens on its first step, with no review of its own to go back to.
    */
   reviewed?: boolean;
+  /** Where the end of the steps leads, in place of the portfolio: the vault the money went into. */
+  endsAt?: { href: string; label: string };
   /** The order's screen moved: its review, its steps, or its end (gate SIGN-ONE-STEP). */
   onStage?: (stage: 'review' | 'steps' | 'done') => void;
 };

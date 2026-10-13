@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { click, find, fire, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { withAccount } from '../account/test/screen';
+import { announceOrderDone } from '../order/order-done';
 import { recallOrder } from '../order/order-record';
 import { deploymentsFor } from '../order/readiness';
 import { retargetOrder } from '../shared/test/fixtures';
@@ -301,7 +302,9 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     });
     // Every figure of the review carries its pin; the confirm waits for the tick.
     const lines = find(host, '[data-ui="mix-review-lines"]');
-    expect(lines.textContent).toContain('tGLDx');
+    // named as the rest of the screen names it (audit I4), not by the server's symbol
+    expect(lines.textContent).toContain('GLDx');
+    expect(lines.textContent).not.toContain('tGLDx');
     expect(find(host, '[data-ui="exit-ceiling"]').textContent).toContain(en.mix.review.measured);
     const confirm = find<HTMLButtonElement>(host, '[data-action="mix-confirm"]');
     expect(confirm.getAttribute('aria-disabled')).toBe('true');
@@ -515,6 +518,16 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
   const answered = () =>
     json({ status: 'ordered', review: reviewOf({ unconfirmed: [] }), order: retargetOrder() });
 
+  it('forgets the draft and its review once the change is signed: back on the vault, the holdings (audit V2)', async () => {
+    const host = await page(async () => answered());
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(host.querySelector('[data-ui="change-review"]')).not.toBeNull();
+    await act(async () => announceOrderDone());
+    await settle();
+    expect(host.querySelector('[data-ui="change-review"]')).toBeNull();
+    expect(host.querySelector('[data-ui="vault-proposal"]')).toBeNull();
+  });
+
   it('takes the pane with the order’s steps, and opens no other page', async () => {
     const host = await page(async () => answered());
     for (let i = 0; i < 4; i += 1) await settle(30);
@@ -524,9 +537,10 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     // button names it; the way back is the pane's own, and there is no second review
     const pane = find(host, '[data-ui="vault-action-pane"]');
     expect(find(pane, '[data-ui="order-screen"]').dataset.stage).toBe('steps');
-    expect(find(pane, '[data-ui="sign-step"] h3').textContent).toBe(en.order.flow.hero.targets);
+    // one press of the passkey wallet signs every step: the screen is the whole change's
+    expect(find(pane, '[data-ui="sign-step"] h3').textContent).toBe('More GLDx');
     expect(find(pane, '[data-ui="sign-step"] [data-variant="primary"]').textContent).toContain(
-      en.order.flow.press.targets,
+      en.order.flow.press.change,
     );
     expect(pane.querySelector('[data-action="order-back"]')).toBeNull();
     expect(pane.querySelector('[data-action="leave-action"]')).not.toBeNull();

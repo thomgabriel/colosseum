@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 // An order whose every step is confirmed changes what the person holds: whatever shows their figures
 // reads them again. Said in this tab with a window event, and to the person's other tabs through a
 // storage key they hear change. Nothing of the order travels: only that one ended.
@@ -28,4 +30,11 @@ export function onOrderDone(heard: () => void): () => void {
     window.removeEventListener(ORDER_DONE_EVENT, heard);
     window.removeEventListener('storage', fromStorage);
   };
+}
+
+/** How many orders have ended since the screen opened: a read that depends on it is made again. */
+export function useOrdersEnded(): number {
+  const [ended, setEnded] = useState(0);
+  useEffect(() => onOrderDone(() => setEnded((n) => n + 1)), []);
+  return ended;
 }

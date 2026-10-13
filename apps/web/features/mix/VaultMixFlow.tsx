@@ -33,7 +33,7 @@ export function VaultMixFlow({
     basketId: string;
     cash: { asset: string };
     /** The vault's holdings with their targets, where the host read them: the review's before. */
-    positions?: readonly { asset: string; targetBps: number }[];
+    positions?: readonly { asset: string; targetBps: number; weightBps?: number }[];
   };
   /** The weights the fields start with; a cash line among them is left out, as cash is the rest. */
   seed: readonly MixLine[];
@@ -61,6 +61,14 @@ export function VaultMixFlow({
   );
   const shown = weights ?? weightsOf(start);
   const lines = linesOf(shown, cash);
+  const holds: Target[] | null = vault.positions?.every(
+    (position) => position.weightBps !== undefined,
+  )
+    ? vault.positions.map((position) => ({
+        asset: position.asset,
+        weightBps: position.weightBps ?? 0,
+      }))
+    : null;
   const before: Target[] | null = vault.positions
     ? vault.positions
         .filter((position) => position.targetBps > 0)
@@ -77,6 +85,7 @@ export function VaultMixFlow({
         onBack={() => setReviewing(null)}
         onOrder={onOrder}
         before={before}
+        holds={holds}
       />
     );
   return (

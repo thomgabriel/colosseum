@@ -146,7 +146,14 @@ function useReviewWords() {
 }
 
 /** Every line of a review: the share, the amount, the price it was counted at and its exit, each pinned. */
-export function MixReviewLines({ review }: { review: MixReview }) {
+export function MixReviewLines({
+  review,
+  named,
+}: {
+  review: MixReview;
+  /** A holding's name as the screen around it writes it; left out, the server's symbol. */
+  named?: (assetId: string) => string;
+}) {
   const { t, lang, r, share, usd } = useReviewWords();
   return (
     <table data-ui="mix-review-lines" className="w-full table-fixed border-collapse text-body-sm">
@@ -171,7 +178,7 @@ export function MixReviewLines({ review }: { review: MixReview }) {
               <span className="flex min-w-0 items-center gap-2">
                 <AssetMark asset={line.assetId} />
                 <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {line.cls === 'cash' ? r.cash : line.symbol}
+                  {line.cls === 'cash' ? r.cash : (named?.(line.assetId) ?? line.symbol)}
                 </span>
               </span>
               <span className="mt-2 flex flex-col gap-1 text-caption text-muted-foreground">
@@ -266,6 +273,72 @@ export function MixReviewWarnings({
       <p aria-live="polite" className="text-caption text-muted-foreground">
         {left === 0 ? r.allTicked : r.left(left)}
       </p>
+    </fieldset>
+  );
+}
+
+/**
+ * A review's warnings as one short list with one box for all of them (gate SIGN-ONE-STEP): each
+ * warning's sentence with its figures pinned, then "I understand these", which ticks every one. The
+ * server's symbol in a sentence is written as the screen around it names the holding.
+ */
+export function MixReviewAck({
+  review,
+  ticked,
+  onTick,
+  named,
+}: {
+  review: MixReview;
+  ticked: ReadonlySet<string>;
+  onTick: (id: string, on: boolean) => void;
+  named: (assetId: string) => string;
+}) {
+  const { t, r, share, usd } = useReviewWords();
+  if (review.warnings.length === 0) return null;
+  const all = unticked(review, ticked).length === 0;
+  const said = (text: string, assetId: string | undefined) => {
+    const symbol = assetId ? review.lines.find((l) => l.assetId === assetId)?.symbol : undefined;
+    return assetId && symbol ? text.split(symbol).join(named(assetId)) : text;
+  };
+  return (
+    <fieldset data-ui="mix-review-warnings" className="flex min-w-0 flex-col gap-2">
+      <legend className="sr-only">{r.warnings}</legend>
+      <ul className="flex flex-col gap-1.5 text-body-sm">
+        {review.warnings.map((warning) => (
+          <li key={warning.id} data-warning={warning.code} className="flex items-start gap-1.5">
+            <StatusMark status="watch" className="mt-1.5" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {said(warning.text, warning.assetId)}
+              {warning.figures.map((figure) => (
+                <span
+                  key={`${figure.label}:${figure.fetchedAt}`}
+                  className="ml-1.5 text-caption text-muted-foreground"
+                >
+                  {figure.label}:{' '}
+                  <ProvenancePin
+                    value={figure.unit === 'USD' ? usd(figure.value) : share(figure.value)}
+                    obs={figure}
+                    labels={t.pin}
+                  />
+                </span>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <label className="inline-flex items-center gap-2 text-body-sm font-medium">
+        <input
+          type="checkbox"
+          data-ui="warnings-ack"
+          className="size-4 shrink-0 accent-primary"
+          checked={all}
+          onChange={(e) => {
+            const on = e.currentTarget.checked;
+            for (const warning of review.warnings) onTick(warning.id, on);
+          }}
+        />
+        {t.order.flow.understand}
+      </label>
     </fieldset>
   );
 }

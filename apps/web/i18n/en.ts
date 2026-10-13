@@ -2211,6 +2211,11 @@ export const en = {
       /** Under a change's large line, before anything is made: what comes next. */
       changeLead: 'Nothing is signed yet. Next you sign each step on its own.',
       changeWeights: 'Change the weights',
+      /** One box for every warning of a change. */
+      understand: 'I understand these',
+      /** What a change trades and its worst cost, before its order is made. */
+      cost: (swapped: string, worst: string, pct: string) =>
+        `About ${swapped} is swapped; at worst the swaps cost ${worst}, ${pct} under today’s price.`,
       /** Before the first signature: back to what changes. */
       back: 'Back to the review',
       /** The progress strip's name, read by a screen reader. */
@@ -2237,6 +2242,7 @@ export const en = {
         swap: 'Swap',
         swapN: (n: number) => `Swap ${n}`,
         sell: (what: string) => `Sell ${what}`,
+        into: (what: string) => `Swap to ${what}`,
         targets: 'Set targets',
         version: 'Accept version',
         autoFollow: 'Auto-follow',
@@ -2287,6 +2293,10 @@ export const en = {
         swap: (amount: string, into: string) => `swap ${amount} for ${into}`,
         swapInto: (into: string) => `swap for ${into}`,
         targets: 'Sign: set the new targets',
+        /** The one press that signs a whole order, with the passkey wallet. */
+        change: 'Sign the change',
+        rebalance: 'Sign the rebalance',
+        follow: 'Sign: follow',
         version: 'Sign: accept the new version',
         autoFollow: 'Sign: switch auto-follow',
         withdraw: (what: string) => `Sign: withdraw ${what}`,

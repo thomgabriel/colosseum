@@ -2,6 +2,7 @@ import { type Leg, OrderDetail } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { dictionary } from '../../i18n';
 import {
+  changeCost,
   changeHero,
   costSentence,
   depositPicture,
@@ -164,7 +165,7 @@ describe('each step, by what it does', () => {
     expect(sale?.name).toBe('Sell TSLAx');
     expect(sale?.title).toBe('Sell 0.5 TSLAx');
     expect(sale?.press).toBe('Sign: sell 0.5 TSLAx');
-    expect(swap?.name).toBe('GOOGLx');
+    expect(swap?.name).toBe('Swap to GOOGLx');
   });
 
   it('says a deposit with its amount, and the swap that rides in it', () => {
@@ -335,6 +336,26 @@ describe('a least in dollars', () => {
       },
     ]);
     expect(stepWordsOf(small, words)[0]?.press).toBe('Sign: withdraw at least $5.67');
+  });
+});
+
+describe('what a change of targets trades', () => {
+  const holds = [
+    { asset: SPY, weightBps: 6000 },
+    { asset: TSLA, weightBps: 4000 },
+  ];
+  const after = [
+    { asset: SPY, weightBps: 7000 },
+    { asset: TSLA, weightBps: 3000 },
+  ];
+  it('says the dollars swapped and the worst they cost, the cost rounded up', () => {
+    expect(changeCost(after, holds, 99.9, words)).toBe(
+      'About $19.98 is swapped; at worst the swaps cost $0.20, 1% under today’s price.',
+    );
+  });
+  it('says nothing where nothing moves or what the vault holds is not known', () => {
+    expect(changeCost(holds, holds, 99.9, words)).toBeNull();
+    expect(changeCost(after, null, 99.9, words)).toBeNull();
   });
 });
 

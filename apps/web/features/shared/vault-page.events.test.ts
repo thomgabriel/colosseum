@@ -1320,7 +1320,8 @@ describe('a vault away from its targets is offered one press that trades it to t
     await click(button(pane(host), en.order.flow.continue));
     await settle();
     const press = find(pane(host), '[data-ui="sign-step"] [data-variant="primary"]');
-    expect(press.textContent).toMatch(/^Sign: swap \$16,022 for /);
+    // the passkey wallet signs both swaps on one press: the button is the rebalance's
+    expect(press.textContent).toContain(en.order.flow.press.rebalance);
     await click(press);
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);

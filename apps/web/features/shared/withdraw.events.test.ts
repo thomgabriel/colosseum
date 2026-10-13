@@ -514,7 +514,10 @@ describe('a withdrawal on the order screen', () => {
     // the review leads on to the first step, whose button names what it takes out
     expect(sign(host)?.textContent).toContain(en.order.flow.continue);
     await onward(host);
-    expect(sign(host)?.textContent).toContain(en.order.flow.press.withdraw('$250'));
+    // one press signs both steps: the button names everything that leaves
+    expect(sign(host)?.textContent).toContain(
+      en.order.flow.press.withdraw('$250 and all of your SPYx'),
+    );
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls).toHaveLength(1);
@@ -992,10 +995,10 @@ describe('a withdrawal in dollars on the order screen', () => {
     expect(find(host, '[data-ui="withdraw-least"]').textContent).toBe('995 USDC');
     expect(sign(host)?.textContent).toContain(en.order.flow.continue);
     expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
-    // the first step sells: its button names the sale
+    // one press sells and pays out: the button names the least that leaves
     await onward(host);
     expect(sign(host)?.textContent).toContain(
-      en.order.flow.press.of(en.order.flow.press.sell('2.5 SPYx')),
+      en.order.flow.press.withdraw(en.order.flow.atLeast('$995')),
     );
     expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
     await click(sign(host) as HTMLElement);

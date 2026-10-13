@@ -463,7 +463,8 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await page.locator('[data-action="order-continue"]').click();
     // the first sale alone on the screen, with a button that names it
     const press = page.locator('[data-ui="sign-step"] [data-variant="primary"]');
-    await expect(press).toContainText(en.order.flow.press.of(en.order.flow.press.sell('')));
+    // one press sells and pays out: the button names the least that leaves
+    await expect(press).toContainText(en.order.flow.press.withdraw(en.order.flow.atLeast('')));
     await check(page, emptied ? 'withdraw-dollars-sign-all' : 'withdraw-dollars-sign');
     await press.click();
     const done = page.locator('[data-ui="withdraw-done"]');

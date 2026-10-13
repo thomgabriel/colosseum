@@ -934,6 +934,30 @@ export function OrderScreen({
         : [];
   // The passkey wallet signs with no window of its own; any other wallet confirms each step in its own.
   const quiet = port.active(chainFamily(chain))?.kind === 'embedded';
+  // The passkey wallet signs every step on one press: before it, the screen is the whole order's, its
+  // large line the review's and its button the order's ("Sign the change"); the strip says what will
+  // happen. Another wallet confirms each step in its own window: each step keeps its own screen.
+  const wholeOrder =
+    stage === 'steps' && next.kind === 'first' && quiet && !running && !onePress && legs.length > 1;
+  const withdrawn = new Intl.ListFormat(locale, { type: 'conjunction' }).format(
+    words.flatMap((w) => (w.subject ? [w.subject] : [])),
+  );
+  const wholePress =
+    terms?.kind === 'retarget'
+      ? flow.press.change
+      : terms?.kind === 'rebalance'
+        ? flow.press.rebalance
+        : terms?.kind === 'withdraw'
+          ? flow.press.withdraw(
+              terms.dollars && leastFigure ? flow.atLeast(leastFigure.shown) : withdrawn,
+            )
+          : terms?.kind === 'publish'
+            ? flow.press.publish
+            : terms?.kind === 'follow'
+              ? flow.press.follow
+              : buying
+                ? flow.press.deposit(amount)
+                : flow.press.step;
 
   // A withdrawal in dollars: the least its cash step pays, which the check held to the share of the
   // cash reviewed plus every sale's minimum.
@@ -1095,7 +1119,7 @@ export function OrderScreen({
   );
   // The way on from wherever the order stands: one primary button, the stops and the ends.
   const actions = (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-2 empty:hidden">
       {!check.ok && (
         <p
           role="alert"
@@ -1214,7 +1238,7 @@ export function OrderScreen({
                 {flow.continue}
               </Button>
             )}
-            {embed && next.kind === 'first' && (stage !== 'review' || onePress) && (
+            {next.kind === 'first' && (stage !== 'review' || onePress) && (
               // Said once before the press: who is asked to sign, and how many times.
               <p
                 data-ui="invest-signing"
@@ -1256,7 +1280,7 @@ export function OrderScreen({
                   );
                 }}
               >
-                {primaryLabel}
+                {wholeOrder ? wholePress : primaryLabel}
               </Button>
             )}
             {embed && running && (
@@ -1398,8 +1422,12 @@ export function OrderScreen({
       {/* The order is done: the next step is the portfolio it filled, and another buy beside it. */}
       {done && !running && terms?.kind !== 'publish' && !embed?.hostEnds && (
         <div data-ui="order-next" className="flex flex-wrap items-center gap-3">
-          <Link href={portfolioHref} className={buttonClass({ variant: 'primary' })}>
-            {t.order.outcome.seePortfolio}
+          <Link
+            href={embed?.endsAt?.href ?? portfolioHref}
+            data-action={embed?.endsAt ? 'open-vault' : undefined}
+            className={buttonClass({ variant: 'primary' })}
+          >
+            {embed?.endsAt?.label ?? t.order.outcome.seePortfolio}
           </Link>
           {buying && !embed && (
             <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
@@ -1528,8 +1556,8 @@ export function OrderScreen({
         />
         <StepPanel
           place={flow.stepOf(at + 1, legs.length)}
-          hero={words[at]?.hero ?? t.order.title}
-          note={words[at]?.note ?? null}
+          hero={wholeOrder ? reviewHero : (words[at]?.hero ?? t.order.title)}
+          note={wholeOrder ? null : (words[at]?.note ?? null)}
           title={words[at]?.title ?? t.order.title}
           status={statusBlock}
         >

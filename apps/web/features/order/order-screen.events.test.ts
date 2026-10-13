@@ -20,7 +20,7 @@ import type { Person } from '../account/person';
 import { inShell, withAccount } from '../account/test/screen';
 import { dollars } from '../goal/sheet';
 import { utc } from '../portfolio/figures';
-import { EMBEDDED, json, signedInPort } from '../wallet/test/fake-port';
+import { EMBEDDED, json, PHANTOM, signedInPort } from '../wallet/test/fake-port';
 import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { holds } from '../wallet/test/mock-signing';
@@ -1640,8 +1640,8 @@ describe('a buy on Robinhood Chain', () => {
     expect(label(primary(host))).toBe(en.order.flow.continue);
     await click(find(host, '[data-action="order-continue"]'));
     await settle();
-    // the first step opens the vault: its button says so; the next allows the deposit
-    expect(label(primary(host))).toBe(en.order.flow.press.open);
+    // one press of the passkey wallet signs the three steps: the button is the deposit's
+    expect(label(primary(host))).toBe(en.order.flow.press.deposit('$10'));
     expect(host.textContent).toContain(en.shell.testNetworkLine);
     expect(host.querySelector('[role="alert"]')).toBeNull();
     expect(run.calls).toHaveLength(0);
@@ -1811,6 +1811,8 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
   });
 
   it('leads to the first step alone, with the focus on it, and back to the review without approving', async () => {
+    // a wallet that confirms each step in its own window: each step has its own screen
+    portStore.set(signedInPort(PHANTOM, { userId: USER }));
     api(orderOn());
     seed();
     const host = await screen();
@@ -1836,6 +1838,21 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     expect(stage(host)).toBe('review');
     expect(document.activeElement).toBe(find(host, '[data-action="order-continue"]'));
     expect(run.calls).toHaveLength(0);
+  });
+
+  it('says the whole order where one press of the passkey wallet signs every step', async () => {
+    api(orderOn());
+    seed();
+    const host = await screen();
+    await click(find(host, '[data-action="order-continue"]'));
+    await settle();
+    // the order's large line and button, the strip as what will happen, the note that one press signs all
+    const step = find(host, '[data-ui="sign-step"]');
+    expect(find(step, 'h3').textContent).toBe(en.order.flow.hero.deposit('$10'));
+    expect(label(primary(host))).toBe(en.order.flow.press.deposit('$10'));
+    expect(find(host, '[data-ui="invest-signing"]').textContent).toBe(en.invest.signs.passkey(2));
+    expect(strip(host).map((s) => s.current)).toEqual(['step', null, null]);
+    expect(step.querySelector('[data-ui="sign-worst"]')).toBeNull();
   });
 
   it('moves on by itself as each step confirms, the signed one kept as a line with its transaction', async () => {

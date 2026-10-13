@@ -155,6 +155,8 @@ export type StepWords = {
   hero: string;
   /** Small under it, where the step trades: "at least 3.76 GOOGLx · 1% under today's price". */
   note: string | null;
+  /** What a withdraw step takes out: "$250 and all of your SPYx". */
+  subject?: string;
   /** What it may give up at worst, where it trades: "At worst you get 3.76 GOOGLx, 1% under today's price." */
   worst: string | null;
 };
@@ -260,7 +262,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
             : sells
               ? f.short.sell(of(leg.trades.map((x) => x.sell)))
               : buys
-                ? of(leg.trades.map((x) => x.buy))
+                ? f.short.into(of(leg.trades.map((x) => x.buy)))
                 : f.short.swapN(swap);
         if (parts.title.length === 0) return { ...plain(name, fallback, f.press.step), worst };
         const title = capitalise(listOf(parts.title, r.locale), r.locale);
@@ -300,6 +302,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
           withdraws > 1 ? of((leg.withdrawals ?? []).map((w) => w.asset)) : f.short.withdraw;
         return {
           ...plain(name, f.title.withdraw(what), f.press.withdraw(what)),
+          subject: what,
           hero: f.hero.arrow(capitalise(what, r.locale), f.hero.yourWallet),
         };
       }
@@ -542,4 +545,38 @@ export function costSentence(
   // a withdrawal that sells says its least already: what reaches the wallet
   const worst = least ? null : (worstOf(trades, r)?.sentence ?? null);
   return worst ? `${head} ${worst}` : head;
+}
+
+/** The slippage a change of targets is built with, which its review states as the worst case. */
+export const CHANGE_SLIPPAGE_BPS = 100;
+
+/**
+ * What a change of targets trades and what that may cost at worst, in one line, before its order is
+ * made: the dollars that change hands (every holding's move from what the vault holds now to its new
+ * target, at the review's prices) and that times the slippage the order is built with, rounded up
+ * since it is a cost. Null where nothing moves or what the vault holds is not known.
+ */
+export function changeCost(
+  after: readonly { asset: string; weightBps: number }[],
+  holds: readonly { asset: string; weightBps: number }[] | null,
+  valueUsd: number,
+  words: SummaryWords,
+  slippageBps = CHANGE_SLIPPAGE_BPS,
+): string | null {
+  if (!holds || !(valueUsd > 0)) return null;
+  const r = reader(words);
+  const assets = [...new Set([...holds, ...after].map((x) => x.asset))].filter(
+    (asset) => asset !== r.cash,
+  );
+  const of = (list: readonly { asset: string; weightBps: number }[], asset: string) =>
+    list.find((x) => x.asset === asset)?.weightBps ?? 0;
+  const movedBps = assets.reduce((n, a) => n + Math.abs(of(after, a) - of(holds, a)), 0);
+  if (movedBps === 0) return null;
+  const swapped = (valueUsd * movedBps) / 10_000;
+  const worstCents = Math.ceil(Math.round(swapped * slippageBps * 100) / 10_000);
+  return r.t.order.flow.cost(
+    readDollars(swapped, r.locale),
+    exactDollars(worstCents / 100, r.locale).replace(/[.,]00$/, ''),
+    formatBps(slippageBps, r.locale),
+  );
 }

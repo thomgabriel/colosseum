@@ -31,6 +31,7 @@ import { formatBps, tokenName } from '../order/amounts';
 import { Invest } from '../order/Invest';
 import { AmountField, MAX_USD, MIN_USD } from '../order/InvestCard';
 import type { CallFailure } from '../order/order-api';
+import { useOrdersEnded } from '../order/order-done';
 import { keepOrder, type OrderRecord, recallOrders } from '../order/order-record';
 import { AssetMark, PlanView } from '../order/PlanView';
 import { goalLine } from '../order/plain';
@@ -551,7 +552,11 @@ function RecipeSection({
                       }}
                       amount={amount}
                       onProgress={() => setPressed(true)}
-                      onDone={() => setPressed(false)}
+                      onDone={() => {
+                        // done: the field is for the next deposit; the card keeps what this one did
+                        setPressed(false);
+                        setAmountText('');
+                      }}
                       onStopped={() => setPressed(false)}
                       onVersionChanged={() => {
                         // The amount is cleared with it: no order is made for the new version
@@ -616,6 +621,9 @@ function VaultsElsewhere({
   const f = t.shared.family;
   const apiFetch = useApiFetch();
   const [following, setFollowing] = useState<ChainId[]>([]);
+  // an order that ends may open a vault that follows this portfolio: read them again
+  const ended = useOrdersEnded();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `ended` reads the vaults again
   useEffect(() => {
     let mine = true;
     const recipeOn = new Map(family.recipes.map((r) => [r.chain, r.onchainId]));
@@ -634,7 +642,7 @@ function VaultsElsewhere({
     return () => {
       mine = false;
     };
-  }, [apiFetch, family]);
+  }, [apiFetch, family, ended]);
   const elsewhere = following.filter((other) => other !== chain && among.includes(other));
   if (elsewhere.length === 0) return null;
   return (
@@ -736,7 +744,10 @@ function VaultsPanel({
   // Our server said the portfolio is another version now: reading it again is offered.
   const [changed, setChanged] = useState(false);
   const titleId = useId();
+  // an order that ends may open a vault that follows this portfolio: the list is read again
+  const ended = useOrdersEnded();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `ended` reads the vaults again
   useEffect(() => {
     let mine = true;
     setVaults(null);
@@ -756,7 +767,7 @@ function VaultsPanel({
       mine = false;
       generation.current += 1;
     };
-  }, [apiFetch, person.chain]);
+  }, [apiFetch, person.chain, ended]);
 
   /** A follow order for this vault, kept with its terms, then the order screen. */
   async function follow(vault: VaultView, autoFollow: boolean, accept: boolean) {

@@ -297,9 +297,9 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
   );
   await expect(page).toHaveURL(here);
   // reviewed already: the pane opens on the first step, with a button that names it
-  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText(en.order.flow.hero.targets);
+  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText('More SPY, less NVDA');
   await check(page, 'vault-order');
-  await pane.getByRole('button', { name: en.order.flow.press.targets }).click();
+  await pane.getByRole('button', { name: en.order.flow.press.change }).click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(
     en.order.outcome.done('Solana'),

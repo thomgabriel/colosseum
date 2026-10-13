@@ -608,8 +608,9 @@ test('a change proposed in the conversation is applied in place, and the weights
   await expect(page).toHaveURL(here);
   await expect(title).toHaveText(p.panes.change.signTitle);
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.change);
-  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText(en.order.flow.hero.targets);
-  const targetsPress = pane.getByRole('button', { name: en.order.flow.press.targets });
+  // one press of the passkey wallet signs every step: the screen is the whole change's
+  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText('More SPY, less NVDA');
+  const targetsPress = pane.getByRole('button', { name: en.order.flow.press.change });
   await expect(targetsPress).toBeVisible();
   await expect(pane.getByRole('region', { name: en.mix.order.title })).toBeHidden();
   await check(page, 'apply-sign');
