@@ -295,17 +295,19 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   expect(after - before).toBeLessThan(41);
   await expect(actions.locator('[data-action="vault-deposit"]')).toBeFocused();
 
-  // 2. A withdrawal of everything, in the pane: what leaves, the review, then the steps to sign.
-  const w = en.withdraw;
+  // 2. A withdrawal of everything, in the pane: the amount card (gate AMOUNT-CARD) with Max, what
+  // reaches the wallet, then the steps to sign.
   await actions.locator('[data-action="vault-withdraw"]').click();
   await expect(screen).toHaveAttribute('data-pane', 'withdraw');
   await expect(title).toHaveText(p.panes.withdraw.title);
   await check(page, 'withdraw-what');
-  await pane.getByRole('button', { name: w.steps.next }).click();
+  await pane
+    .locator('[data-ui="amount-chips"]')
+    .getByRole('button', { name: en.amount.out.max })
+    .click();
+  await pane.locator('[data-ui="amount-details"] > summary').click();
   await expect(pane.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
-  await pane.getByLabel(w.check.confirm).check();
-  await pane.getByRole('button', { name: w.steps.next }).click();
-  await pane.getByRole('button', { name: w.confirm.button }).click();
+  await pane.getByRole('button', { name: en.amount.press.withdrawAll }).click();
   await expect(title).toHaveText(p.panes.withdraw.signTitle);
   await expect(page).toHaveURL(here);
   await expect(pane.locator('[data-ui="order-step"]')).toHaveCount(2);
