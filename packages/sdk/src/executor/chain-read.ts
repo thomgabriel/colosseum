@@ -36,6 +36,11 @@ export type ChainRead = {
     proof: ReportLegRequest;
     height: number | null;
   }): Promise<Fate>;
+  /**
+   * EVM: whether a contract answers at `address`, asked of the caller's own node before an approval
+   * is built (gate CREATE-BEFORE-APPROVE). Throws when the node cannot say: nothing is approved then.
+   */
+  hasCode(at: { chain: ChainId; address: string }): Promise<boolean>;
 };
 
 /**
@@ -148,6 +153,15 @@ export function chainReadOf(rpcs: { solana?: RpcCall; evm?: RpcCall }): ChainRea
       // In this order: a node that has the blockhash is at least at its height when asked after.
       if (!(await node.knows(blockhash))) return null;
       return node.height('processed');
+    },
+    async hasCode({ chain, address }) {
+      if (familyOf(chain) !== 'evm')
+        throw new Error(`${chain} keeps no contract code to ask about`);
+      if (!rpcs.evm) throw new Error('no node was given to read the chain from');
+      const code = await rpcs.evm('eth_getCode', [address, 'latest']);
+      if (typeof code !== 'string' || !/^0x(?:[0-9a-fA-F]{2})*$/.test(code))
+        throw new Error('the node gave no answer about the code at that address');
+      return code !== '0x';
     },
     async fateOf({ chain, owner, proof, height: before }) {
       if (familyOf(chain) === 'solana') {

@@ -508,8 +508,11 @@ async function planVaultBuy(
 }
 
 /**
- * The steps of a buy of these targets into the vault `basketId`: an approval where the chain needs
- * one, the create or the deposit with the whole amount, then the swaps.
+ * The steps of a buy of these targets into the vault `basketId`: the create or the deposit with the
+ * whole amount, then the swaps. Where the chain needs an approval, the vault is there before the
+ * approval that names it (gate `CREATE-BEFORE-APPROVE`): a first deposit opens the vault empty, then
+ * approves it, then deposits as into any open vault. A wallet reads an approval to an address with no
+ * code as an approval to a stranger's account, and says so in red.
  */
 async function buySteps(
   entry: ChainEntry,
@@ -533,30 +536,45 @@ async function buySteps(
   const riding = caps.tradesInCreate ? (groups.shift() ?? []) : [];
   const symbols = (list: Trade[]) => list.map((t) => byId.get(t.buy)?.symbol ?? t.buy).join(', ');
   const deposit = String(cashRaw);
-  const steps: Step[] = [];
-  if (caps.needsApprove)
-    steps.push({
-      kind: 'approve',
-      description: `Allow your vault to take ${usd(cents)} of cash`,
-      cashRaw: deposit,
-      trades: [],
-    });
   const andBuy = riding.length ? ` and swap into ${symbols(riding)}` : '';
-  steps.push(
-    existing
-      ? {
-          kind: 'deposit',
-          description: `Add ${usd(cents)} to the vault${andBuy}`,
-          cashRaw: deposit,
-          trades: riding,
-        }
-      : {
-          kind: 'create_vault',
-          description: `Open the vault for this plan with ${usd(cents)}${andBuy}`,
-          cashRaw: deposit,
-          trades: riding,
-        },
-  );
+  const approve: Step = {
+    kind: 'approve',
+    description: `Allow your vault to take ${usd(cents)} of cash`,
+    cashRaw: deposit,
+    trades: [],
+  };
+  const steps: Step[] = [];
+  if (existing)
+    steps.push(...(caps.needsApprove ? [approve] : []), {
+      kind: 'deposit',
+      description: `Add ${usd(cents)} to the vault${andBuy}`,
+      cashRaw: deposit,
+      trades: riding,
+    });
+  else if (caps.needsApprove)
+    // The create moves no cash and trades nothing, so it carries neither: the order's deposit is on
+    // the step that makes it, once.
+    steps.push(
+      {
+        kind: 'create_vault',
+        description: 'Open the vault for this plan',
+        trades: [],
+      },
+      approve,
+      {
+        kind: 'deposit',
+        description: `Deposit ${usd(cents)} into the vault${andBuy}`,
+        cashRaw: deposit,
+        trades: riding,
+      },
+    );
+  else
+    steps.push({
+      kind: 'create_vault',
+      description: `Open the vault for this plan with ${usd(cents)}${andBuy}`,
+      cashRaw: deposit,
+      trades: riding,
+    });
   for (const group of groups)
     steps.push({ kind: 'swap', description: `Swap cash into ${symbols(group)}`, trades: group });
 
@@ -759,13 +777,15 @@ async function prepareBuy(
   const slippageBps = slippageOf(req);
   const id = randomUUID();
 
-  // The legs of a buy, all on the one chain, in the order they are signed:
+  // The legs of a buy, all on the one chain, in the order they are signed (`buySteps`):
+  //   create_vault     when the owner has no vault for this plan yet. With the deposit where the chain
+  //                    needs no approval; empty where it does, so the approval names a vault that is
+  //                    there (gate CREATE-BEFORE-APPROVE)
   //   approve          where the chain needs one, for the whole deposit
-  //   create_vault     with the deposit, when the owner has no vault for this plan yet; or
-  //   deposit          the same amount into the vault that is there
+  //   deposit          the amount into the vault that is there, or was just opened empty
   //   swap             the trades that buy each asset with the invested share, as many per leg as the
-  //                    chain takes. Where the chain can trade inside the create, the first of them
-  //                    ride in the create or the deposit.
+  //                    chain takes. Where the chain can trade inside the step that deposits, the first
+  //                    of them ride in it.
   const { legs, closed } = await refusing(async () => {
     const legs: Leg[] = [];
     for (const [seq, step] of plan.steps.entries())

@@ -1594,18 +1594,21 @@ describe('what a run is handed after a reload', () => {
 });
 
 describe('a buy on Robinhood Chain', () => {
-  it('reviews the approval of the deposit, then the create that buys, in the record’s units', async () => {
+  it('reviews the opening of the vault, the approval of the deposit, then the deposit that swaps, in the record’s units', async () => {
     api(orderOn('robinhood'), 'robinhood');
     seed(recordOf('robinhood'));
     const host = await screen();
     const steps = [...host.querySelectorAll('[data-ui="order-step"]')].map((s) => s.textContent);
-    expect(steps).toHaveLength(2);
-    expect(steps[0]).toContain(en.order.kind.approve);
-    expect(steps[0]).toContain('10 tUSDG');
-    // the step that also buys says so: nothing on this chain is called only "deposit"
-    expect(steps[1]).toContain(en.order.kind.create_vault_buy);
+    expect(steps).toHaveLength(3);
+    // the vault is opened empty first, so the approval names a vault that is there
+    expect(steps[0]).toContain(en.order.kind.open_vault);
+    expect(steps[0]).not.toContain('tUSDG');
+    expect(steps[1]).toContain(en.order.kind.approve);
     expect(steps[1]).toContain('10 tUSDG');
-    expect(steps[1]).toContain(en.order.review.spend('6 tUSDG', 'SPY'));
+    // the step that also swaps says so
+    expect(steps[2]).toContain(en.order.kind.deposit_buy);
+    expect(steps[2]).toContain('10 tUSDG');
+    expect(steps[2]).toContain(en.order.review.spend('6 tUSDG', 'SPY'));
     expect(label(primary(host))).toBe(en.order.signAndBuy('$10'));
     expect(host.textContent).toContain(en.shell.testNetworkLine);
     expect(host.querySelector('[role="alert"]')).toBeNull();
@@ -1650,7 +1653,7 @@ describe('a buy on Robinhood Chain', () => {
         '[data-ui="order-step"] a[href^="https://explorer.testnet.chain.robinhood.com/tx/"]',
       ),
     ];
-    expect(links).toHaveLength(2);
+    expect(links).toHaveLength(done.legs.length);
     expect(host.querySelector('a[href^="https://explorer.chain.robinhood.com/"]')).toBeNull();
   });
 });
@@ -1697,7 +1700,7 @@ describe.each([
     await settle();
     const names = [...host.querySelectorAll('[data-ui="explorer-name"]')].map((n) => n.textContent);
     // a link per step
-    expect(names).toHaveLength(2);
+    expect(names).toHaveLength(doneOrder(chain).legs.length);
     expect(new Set(names)).toEqual(new Set([explorer]));
     if (chain === 'robinhood') expect(host.textContent).not.toMatch(/usdc/i);
   });

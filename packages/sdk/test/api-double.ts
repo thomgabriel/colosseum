@@ -181,8 +181,8 @@ export function apiDouble(
           basketId,
           targets,
           autoFollow: false,
-          depositRaw: cashRaw,
-          trades,
+          // Opened empty where a later step deposits (gate CREATE-BEFORE-APPROVE).
+          ...(leg.cashRaw === undefined ? {} : { depositRaw: cashRaw, trades }),
           slippageBps,
           ...shared,
         });
@@ -442,19 +442,23 @@ export function apiDouble(
     const riding = caps.tradesInCreate ? (groups.shift() ?? []) : [];
     const deposit = cashRaw.toString();
     const steps: Pick<Leg, 'kind' | 'description' | 'trades' | 'cashRaw'>[] = [];
-    if (caps.needsApprove)
-      steps.push({
-        kind: 'approve',
-        description: 'Allow your vault to take the cash',
-        cashRaw: deposit,
-        trades: [],
-      });
-    steps.push({
-      kind: (await vaultOf()) ? 'deposit' : 'create_vault',
-      description: 'Move the cash into the vault',
+    const approve = {
+      kind: 'approve' as const,
+      description: 'Allow your vault to take the cash',
       cashRaw: deposit,
-      trades: riding,
-    });
+      trades: [],
+    };
+    const move = { description: 'Move the cash into the vault', cashRaw: deposit, trades: riding };
+    // Where the chain needs an approval the vault is opened first, empty, so the approval names a
+    // vault that is there (gate CREATE-BEFORE-APPROVE).
+    if (await vaultOf())
+      steps.push(...(caps.needsApprove ? [approve] : []), { kind: 'deposit', ...move });
+    else if (caps.needsApprove)
+      steps.push({ kind: 'create_vault', description: 'Open the vault', trades: [] }, approve, {
+        kind: 'deposit',
+        ...move,
+      });
+    else steps.push({ kind: 'create_vault', ...move });
     for (const group of groups) steps.push({ kind: 'swap', description: 'Buy', trades: group });
 
     const legs: Leg[] = [];
