@@ -1492,6 +1492,13 @@ export const pt: Dictionary = {
           'Para mudar o que este cofre guarda, diga na conversa: mais de um ativo, menos de outro.',
         details: 'Detalhes',
         priceSources: 'Fontes dos preços',
+        priceEntries: (count: number, list: string) =>
+          count === 1 ? `índice ${list}` : `índices ${list}`,
+        priceOwner: 'do programa',
+        copyPriceAccount: 'endereço da conta de preços',
+        copyPriceOwner: 'endereço do programa de preços',
+        sourcesAsWritten: (count: number) =>
+          count === 1 ? '1 fonte, como foi escrita' : `${count} fontes, como foram escritas`,
         read: 'Lido da rede',
         copyVault: 'endereço do cofre',
         copyOwner: 'endereço de quem é dono',

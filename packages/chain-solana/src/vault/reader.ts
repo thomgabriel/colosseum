@@ -62,6 +62,7 @@ import {
   ask,
   getAccounts,
   getProgramAccounts,
+  MAX_TX_VERSION,
   type Memcmp,
   type RawAccount,
   type VaultRpc,
@@ -1027,7 +1028,7 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
             .getTransaction(signature, {
               commitment: commitment === 'processed' ? 'confirmed' : commitment,
               encoding: 'json',
-              maxSupportedTransactionVersion: 0,
+              maxSupportedTransactionVersion: MAX_TX_VERSION,
             })
             .send(),
         );
