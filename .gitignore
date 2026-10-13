@@ -39,3 +39,18 @@ try/mine/
 try/out/
 # Test-network keys belong outside the checkout (scripts/testnet/make-faucet-keys.ts refuses to write in it).
 testnet-keys/
+
+# The analytics prototype's offline copy of the risk API: capture.mjs writes it, and it stays local
+.design/branding/working-brand/patterns/prototypes/assets/analytics/snapshot/
+.design/branding/working-brand/patterns/prototypes/assets/analytics/manifest.json
+# Scratch folders, local tool state and logs
+.scratch/
+.vercel/
+.turbo/
+.idea/
+.vscode/
+*.log
+# Playwright's default report folders, if a run sets no output folder of its own
+test-results/
+playwright-report/
+blob-report/
