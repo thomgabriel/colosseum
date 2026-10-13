@@ -1806,8 +1806,8 @@ export const pt: Dictionary = {
     signs: {
       passkey: (n: number) =>
         n === 1
-          ? 'Um toque assina o único passo com sua carteira de chave de acesso. Nenhuma outra janela abre.'
-          : `Um toque assina os ${n} passos com sua carteira de chave de acesso, um depois do outro. Nenhuma outra janela abre, e você pode parar entre os passos.`,
+          ? 'Um toque assina com sua carteira de chave de acesso.'
+          : `Um toque assina os ${n} passos com sua carteira de chave de acesso.`,
       wallet: (n: number) =>
         n === 1
           ? 'Sua carteira pede que você confirme o único passo na janela dela.'
@@ -1952,7 +1952,6 @@ export const pt: Dictionary = {
         n === 1
           ? `Feito em ${chain}, exceto um passo que foi pulado: o que ele moveria ficou no cofre.`
           : `Feito em ${chain}, exceto ${n} passos que foram pulados: o que eles moveriam ficou no cofre.`,
-      resume: 'Continuar',
     },
     resume: (amount: string) => `Continuar o depósito de ${amount}`,
     signing: (n: number, total: number) => `Assinando o passo ${n} de ${total}…`,
@@ -1978,6 +1977,8 @@ export const pt: Dictionary = {
       continue: 'Continuar',
       details: 'Detalhes',
       back: 'Voltar à revisão',
+      changeLead: 'Nada é assinado ainda. Depois você assina cada passo, um de cada vez.',
+      changeWeights: 'Mudar os pesos',
       progress: 'Onde você está nos passos',
       done: 'Pronto',
       doneWord: 'feito',
@@ -2013,6 +2014,25 @@ export const pt: Dictionary = {
         version: 'Aceitar a nova versão do portfólio',
         withdraw: (what: string) => `Enviar ${what} para a sua própria carteira`,
         publish: 'Publicar seu portfólio',
+      },
+      hero: {
+        arrow: (from: string, to: string) => `${from} → ${to}`,
+        yourVault: 'seu cofre',
+        yourWallet: 'sua carteira',
+        cash: 'caixa',
+        allow: (amount: string) => `Autorizar ${amount}`,
+        targets: 'Novas metas',
+        moreLess: (more: string, less: string) => `Mais ${more}, menos ${less}`,
+        more: (more: string) => `Mais ${more}`,
+        less: (less: string) => `Menos ${less}`,
+        rebalance: 'De volta às suas metas',
+        deposit: (amount: string) => `${amount} no seu cofre`,
+        withdraw: (what: string) => `${what} para a sua carteira`,
+        finish: 'Termine seu depósito',
+      },
+      note: {
+        least: (amount: string, pct: string) =>
+          `pelo menos ${amount} · ${pct} abaixo do preço de hoje`,
       },
       press: {
         of: (what: string) => `Assinar: ${what}`,
@@ -2054,7 +2074,8 @@ export const pt: Dictionary = {
         cash: 'Caixa',
         amount: 'Valor',
         now: 'Agora',
-        next: 'Nova',
+        next: 'Depois',
+        unchanged: 'igual',
         holdsNow: 'Tem agora',
         target: 'Meta',
         targets: 'As metas do seu cofre',

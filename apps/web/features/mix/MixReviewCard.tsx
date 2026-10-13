@@ -78,14 +78,8 @@ export function MixReviewCard({
   changed?: boolean;
 }) {
   const t = useT();
-  const lang = useLang();
   const r = t.mix.review;
   const titleId = useId();
-  const share = (bps: number) =>
-    new Intl.NumberFormat(LOCALE[lang], { style: 'percent', maximumFractionDigits: 2 }).format(
-      bps / 10_000,
-    );
-  const usd = (value: number) => dollars(lang, value.toFixed(2));
   const left = unticked(review, ticked).length;
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the review opens
   useEffect(() => {
@@ -117,112 +111,8 @@ export function MixReviewCard({
             <span>{r.changed}</span>
           </p>
         )}
-        <table
-          data-ui="mix-review-lines"
-          className="w-full table-fixed border-collapse text-body-sm"
-        >
-          <caption className="sr-only">{r.title}</caption>
-          <thead className="text-caption text-muted-foreground">
-            <tr className="border-b border-border">
-              <th scope="col" className="py-2 text-start font-normal">
-                {r.asset}
-              </th>
-              <th scope="col" className="w-16 py-2 text-end font-normal">
-                {r.weight}
-              </th>
-              <th scope="col" className="w-24 py-2 text-end font-normal">
-                {r.amount}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {review.lines.map((line) => (
-              <tr key={line.assetId} className="border-b border-border align-top">
-                <th scope="row" className="py-3 pr-2 text-start font-normal">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <AssetMark asset={line.assetId} />
-                    <span className="min-w-0 [overflow-wrap:anywhere]">
-                      {line.cls === 'cash' ? r.cash : line.symbol}
-                    </span>
-                  </span>
-                  <span className="mt-2 flex flex-col gap-1 text-caption text-muted-foreground">
-                    <span>
-                      {r.price}:{' '}
-                      {line.price ? (
-                        <ProvenancePin
-                          value={dollars(lang, line.price.usdPerToken)}
-                          obs={line.price}
-                          labels={t.pin}
-                        />
-                      ) : (
-                        r.cashPrice
-                      )}
-                    </span>
-                    {line.exitCeiling && (
-                      <span data-ui="exit-ceiling">
-                        {r.exit}:{' '}
-                        <ProvenancePin
-                          value={usd(line.exitCeiling.usd)}
-                          obs={line.exitCeiling}
-                          labels={t.pin}
-                        />{' '}
-                        ({line.exitCeiling.measured ? r.measured : r.tier})
-                      </span>
-                    )}
-                  </span>
-                </th>
-                <td className="py-3 text-end tabular-nums">{share(line.weightBps)}</td>
-                <td className="py-3 text-end tabular-nums">{usd(line.amountUsd)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr data-ui="mix-review-total">
-              <th scope="row" colSpan={2} className="py-3 text-start font-medium">
-                {r.total}
-              </th>
-              <td className="py-3 text-end font-medium tabular-nums">{usd(review.amountUsd)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        {review.warnings.length > 0 && (
-          <fieldset data-ui="mix-review-warnings" className="flex min-w-0 flex-col gap-3">
-            <legend className="text-caption font-medium">{r.warnings}</legend>
-            {review.warnings.map((warning) => (
-              <label
-                key={warning.id}
-                data-warning={warning.code}
-                className="flex max-w-(--tf-measure-body) items-start gap-2 text-body-sm"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0 accent-primary"
-                  checked={ticked.has(warning.id)}
-                  onChange={(e) => onTick(warning.id, e.currentTarget.checked)}
-                />
-                <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {warning.text}
-                  {warning.figures.map((figure) => (
-                    <span
-                      key={`${figure.label}:${figure.fetchedAt}`}
-                      className="block text-caption text-muted-foreground"
-                    >
-                      {figure.label}:{' '}
-                      <ProvenancePin
-                        value={figure.unit === 'USD' ? usd(figure.value) : share(figure.value)}
-                        obs={figure}
-                        labels={t.pin}
-                      />
-                    </span>
-                  ))}
-                </span>
-              </label>
-            ))}
-            <p aria-live="polite" className="text-caption text-muted-foreground">
-              {left === 0 ? r.allTicked : r.left(left)}
-            </p>
-          </fieldset>
-        )}
+        <MixReviewLines review={review} />
+        <MixReviewWarnings review={review} ticked={ticked} onTick={onTick} />
         <div className="flex flex-wrap gap-3">
           <Button
             variant="primary"
@@ -240,5 +130,142 @@ export function MixReviewCard({
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+/** The words and figures a review's parts are written with. */
+function useReviewWords() {
+  const t = useT();
+  const lang = useLang();
+  const share = (bps: number) =>
+    new Intl.NumberFormat(LOCALE[lang], { style: 'percent', maximumFractionDigits: 2 }).format(
+      bps / 10_000,
+    );
+  const usd = (value: number) => dollars(lang, value.toFixed(2));
+  return { t, lang, r: t.mix.review, share, usd };
+}
+
+/** Every line of a review: the share, the amount, the price it was counted at and its exit, each pinned. */
+export function MixReviewLines({ review }: { review: MixReview }) {
+  const { t, lang, r, share, usd } = useReviewWords();
+  return (
+    <table data-ui="mix-review-lines" className="w-full table-fixed border-collapse text-body-sm">
+      <caption className="sr-only">{r.title}</caption>
+      <thead className="text-caption text-muted-foreground">
+        <tr className="border-b border-border">
+          <th scope="col" className="py-2 text-start font-normal">
+            {r.asset}
+          </th>
+          <th scope="col" className="w-16 py-2 text-end font-normal">
+            {r.weight}
+          </th>
+          <th scope="col" className="w-24 py-2 text-end font-normal">
+            {r.amount}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {review.lines.map((line) => (
+          <tr key={line.assetId} className="border-b border-border align-top">
+            <th scope="row" className="py-3 pr-2 text-start font-normal">
+              <span className="flex min-w-0 items-center gap-2">
+                <AssetMark asset={line.assetId} />
+                <span className="min-w-0 [overflow-wrap:anywhere]">
+                  {line.cls === 'cash' ? r.cash : line.symbol}
+                </span>
+              </span>
+              <span className="mt-2 flex flex-col gap-1 text-caption text-muted-foreground">
+                <span>
+                  {r.price}:{' '}
+                  {line.price ? (
+                    <ProvenancePin
+                      value={dollars(lang, line.price.usdPerToken)}
+                      obs={line.price}
+                      labels={t.pin}
+                    />
+                  ) : (
+                    r.cashPrice
+                  )}
+                </span>
+                {line.exitCeiling && (
+                  <span data-ui="exit-ceiling">
+                    {r.exit}:{' '}
+                    <ProvenancePin
+                      value={usd(line.exitCeiling.usd)}
+                      obs={line.exitCeiling}
+                      labels={t.pin}
+                    />{' '}
+                    ({line.exitCeiling.measured ? r.measured : r.tier})
+                  </span>
+                )}
+              </span>
+            </th>
+            <td className="py-3 text-end tabular-nums">{share(line.weightBps)}</td>
+            <td className="py-3 text-end tabular-nums">{usd(line.amountUsd)}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr data-ui="mix-review-total">
+          <th scope="row" colSpan={2} className="py-3 text-start font-medium">
+            {r.total}
+          </th>
+          <td className="py-3 text-end font-medium tabular-nums">{usd(review.amountUsd)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+}
+
+/** Each warning of a review with its box: the person ticks them one by one. */
+export function MixReviewWarnings({
+  review,
+  ticked,
+  onTick,
+}: {
+  review: MixReview;
+  ticked: ReadonlySet<string>;
+  onTick: (id: string, on: boolean) => void;
+}) {
+  const { t, r, share, usd } = useReviewWords();
+  const left = unticked(review, ticked).length;
+  if (review.warnings.length === 0) return null;
+  return (
+    <fieldset data-ui="mix-review-warnings" className="flex min-w-0 flex-col gap-3">
+      <legend className="text-caption font-medium">{r.warnings}</legend>
+      {review.warnings.map((warning) => (
+        <label
+          key={warning.id}
+          data-warning={warning.code}
+          className="flex max-w-(--tf-measure-body) items-start gap-2 text-body-sm"
+        >
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 accent-primary"
+            checked={ticked.has(warning.id)}
+            onChange={(e) => onTick(warning.id, e.currentTarget.checked)}
+          />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            {warning.text}
+            {warning.figures.map((figure) => (
+              <span
+                key={`${figure.label}:${figure.fetchedAt}`}
+                className="block text-caption text-muted-foreground"
+              >
+                {figure.label}:{' '}
+                <ProvenancePin
+                  value={figure.unit === 'USD' ? usd(figure.value) : share(figure.value)}
+                  obs={figure}
+                  labels={t.pin}
+                />
+              </span>
+            ))}
+          </span>
+        </label>
+      ))}
+      <p aria-live="polite" className="text-caption text-muted-foreground">
+        {left === 0 ? r.allTicked : r.left(left)}
+      </p>
+    </fieldset>
   );
 }

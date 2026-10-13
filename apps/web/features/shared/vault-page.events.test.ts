@@ -876,7 +876,8 @@ describe('a reload in the middle of signing', () => {
     expect(pane(host).textContent).toContain(p.panes.withdraw.resumed);
     expect(pane(host).querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
     // the same order goes on: no new one is made
-    expect(button(pane(host), en.order.shared.resume)).toBeTruthy();
+    // its button names the step it goes on with, never the review's "Continue"
+    expect(button(pane(host), en.order.flow.press.withdraw(''))).toBeTruthy();
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.withdraw);
     expect(router.push).not.toHaveBeenCalled();
   });
@@ -1027,7 +1028,7 @@ describe('a reload in the middle of signing', () => {
     keepAction(USER, 'solana', MY_VAULT, { kind: 'withdraw', orderId: ORDER_ID });
     const host = await show();
     expect(pane(host).querySelector('[data-action="leave-action"]')).not.toBeNull();
-    await click(button(pane(host), en.order.shared.resume));
+    await click(button(pane(host), en.order.flow.press.withdraw('')));
     await settle();
     // before any step answers: the pane is signing, the box says so, and Back is gone
     expect(pane(host).dataset.state).toBe('signing');
@@ -1310,10 +1311,11 @@ describe('a vault away from its targets is offered one press that trades it to t
 
     // reviewed in the pane (gate SIGN-ONE-STEP): what the vault holds beside its targets, then
     // "Continue", then the first swap's own button
-    const heads = [...pane(host).querySelectorAll('[data-ui="sign-picture"] thead th')].map(
-      (th) => th.textContent,
-    );
-    expect(heads.slice(1)).toEqual([en.order.flow.picture.holdsNow, en.order.flow.picture.target]);
+    const share = pane(host).querySelector(
+      '[data-ui="sign-picture"] [data-ui="sign-share"]',
+    ) as HTMLElement;
+    expect(share.textContent).toContain(`${en.order.flow.picture.holdsNow} `);
+    expect(share.textContent).toContain(`${en.order.flow.picture.target} `);
     const before = server.reads();
     await click(button(pane(host), en.order.flow.continue));
     await settle();

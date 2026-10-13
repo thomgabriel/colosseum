@@ -2,11 +2,12 @@ import { type Leg, OrderDetail } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { dictionary } from '../../i18n';
 import {
+  changeHero,
   costSentence,
   depositPicture,
   readDollars,
+  shareItems,
   stepWordsOf,
-  targetsPicture,
   withdrawPicture,
 } from './order-summary';
 import { ORDER_ID, orderOn } from './test/fixtures';
@@ -140,12 +141,17 @@ describe('each step, by what it does', () => {
       name: 'Set targets',
       title: 'Set your vault’s new targets on chain',
       press: 'Sign: set the new targets',
+      hero: 'New targets',
+      note: null,
       worst: null,
     });
+    // the amount large, what it may give up small under it
     expect(swap).toEqual({
       name: 'Swap',
       title: 'Swap $1,354 of cash for GOOGLx',
       press: 'Sign: swap $1,354 for GOOGLx',
+      hero: '$1,354 → GOOGLx',
+      note: 'at least 3.76 GOOGLx · 1% under today’s price',
       worst: 'At worst you get 3.76 GOOGLx, 1% under today’s price.',
     });
   });
@@ -202,32 +208,48 @@ describe('each step, by what it does', () => {
 });
 
 describe('the picture of what changes', () => {
-  it('sets the targets before beside the targets after, with cash last', () => {
-    const picture = targetsPicture(
+  it('lists the targets before beside the targets after, with cash last', () => {
+    const items = shareItems(
       [{ asset: GOOGL, weightBps: 6000 }],
       [
         { asset: TSLA, weightBps: 5000 },
         { asset: GOOGL, weightBps: 2500 },
       ],
       words,
-      { caption: 'c', before: 'Now', after: 'New' },
     );
-    expect(picture.columns).toEqual(['Now', 'New']);
-    expect(picture.rows.map((r) => [r.name, ...r.cells.map((c) => c?.shown)])).toEqual([
-      ['TSLAx', '50%', '0%'],
-      ['GOOGLx', '25%', '60%'],
-      ['Cash', '25%', '40%'],
+    expect(items.map((x) => [x.name, x.beforeBps, x.bps])).toEqual([
+      ['TSLAx', 5000, 0],
+      ['GOOGLx', 2500, 6000],
+      ['Cash', 2500, 4000],
+    ]);
+    // nothing before is known (the order's own page): the new targets alone
+    expect(shareItems([{ asset: GOOGL, weightBps: 3333 }], null, words)).toEqual([
+      { key: GOOGL, name: 'GOOGLx', asset: GOOGL, bps: 3333 },
+      { key: 'cash', name: 'Cash', cash: true, bps: 6667 },
     ]);
   });
 
-  it('shows the new targets alone where the vault is not known, the exact share on hover', () => {
-    const picture = targetsPicture([{ asset: GOOGL, weightBps: 3333 }], null, words, {
-      caption: 'c',
-      before: 'Now',
-      after: 'New',
-    });
-    expect(picture.columns).toEqual(['New']);
-    expect(picture.rows[0]?.cells[0]).toEqual({ shown: '33%', exact: '33.33%' });
+  it('says a change of targets in a few words', () => {
+    const before = [
+      { asset: SPY, weightBps: 6000 },
+      { asset: TSLA, weightBps: 4000 },
+    ];
+    expect(
+      changeHero(
+        [
+          { asset: SPY, weightBps: 7000 },
+          { asset: TSLA, weightBps: 3000 },
+        ],
+        before,
+        words,
+      ),
+    ).toBe('More SPYx, less TSLAx');
+    expect(changeHero([{ asset: SPY, weightBps: 6000 }], before, words)).toBe('Less TSLAx');
+    expect(changeHero(before, before, words)).toBe('New targets');
+    expect(changeHero(before, null, words)).toBe('New targets');
+    expect(
+      changeHero([{ asset: SPY, weightBps: 9000 }], before, { units, t: pt, locale: 'pt-BR' }),
+    ).toBe('Mais SPYx, menos TSLAx');
   });
 
   it('says where a deposit goes, and the cash that stays', () => {

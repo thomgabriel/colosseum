@@ -1,7 +1,6 @@
 import type { Leg, OrderDetail, Trade, TradeExpected } from '@colosseum/schemas';
 import type { Dictionary } from '../../i18n';
 import { formatBps, formatRaw, shortfallBps, shownRaw, tokenName } from './amounts';
-import { legsInOrder } from './order-view';
 import type { ChainUnits } from './units';
 
 // What the order screen says in plain words, one screen at a time (gate SIGN-ONE-STEP): before the
@@ -22,6 +21,11 @@ export type SummaryWords = {
   /** For a withdrawal: each token's multiplier at the review, which its amounts are shown with. */
   multipliers?: Readonly<Record<string, string>>;
 };
+
+// The steps in order, as order-view.ts sorts them: not imported from there, whose types reach the
+// runner, since a change's review (ChangeReview, on the /targets route) reads these words too.
+const legsInOrder = (order: Pick<OrderDetail, 'legs'>): Leg[] =>
+  [...order.legs].sort((a, b) => a.seq - b.seq);
 
 const listOf = (names: readonly string[], locale: string) =>
   new Intl.ListFormat(locale, { type: 'conjunction' }).format(names);
@@ -111,13 +115,14 @@ const sumRaw = (raws: readonly string[]) =>
   raws.reduce((n, raw) => n + (/^\d+$/.test(raw) ? BigInt(raw) : 0n), 0n).toString();
 
 /**
- * At worst, in one sentence: what the one trade receives at its least and how far under the quote,
- * or, for several, how far under the quote the worst of them may land. Null where no trade is quoted.
+ * At worst: what the one trade receives at its least and how far under the quote, or, for several,
+ * how far under the quote the worst of them may land, as a sentence and as the step's small line.
+ * Null where no trade is quoted.
  */
 function worstOf(
   trades: readonly { trade: Trade; expected: TradeExpected | undefined }[],
   r: Reader,
-): string | null {
+): { sentence: string; note: string } | null {
   const w = r.t.order.flow.worst;
   const quoted = trades.filter(
     (x): x is { trade: Trade; expected: TradeExpected } => x.expected !== undefined,
@@ -129,9 +134,13 @@ function worstOf(
   const [one] = quoted;
   if (quoted.length === 1 && trades.length === 1 && one) {
     const least = r.amount(one.expected.minOutRaw, one.trade.buy);
-    if (least) return w.one(least.shown, pct);
+    if (least)
+      return {
+        sentence: w.one(least.shown, pct),
+        note: r.t.order.flow.note.least(least.shown, pct),
+      };
   }
-  return w.each(pct);
+  return { sentence: w.each(pct), note: w.each(pct) };
 }
 
 /** One step, said to the person signing it. */
@@ -142,6 +151,10 @@ export type StepWords = {
   title: string;
   /** What the button that signs it says: "Sign: swap $1,354 for GOOGLx". */
   press: string;
+  /** The step's one large line: "$1,354 → GOOGLx", "Set the new targets". */
+  hero: string;
+  /** Small under it, where the step trades: "at least 3.76 GOOGLx · 1% under today's price". */
+  note: string | null;
   /** What it may give up at worst, where it trades: "At worst you get 3.76 GOOGLx, 1% under today's price." */
   worst: string | null;
 };
@@ -186,31 +199,37 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
   const f = r.t.order.flow;
   const legs = legsInOrder(order);
   const swaps = legs.filter((leg) => leg.kind === 'swap').length;
+  const of = (assets: string[]) => listOf([...new Set(assets.map(r.symbol))], r.locale);
   let swap = 0;
-  return legs.map((leg) => {
-    const trades = tradesOf([leg]);
-    const worst = worstOf(trades, r);
+  return legs.map((leg): StepWords => {
+    const at = worstOf(tradesOf([leg]), r);
+    const worst = at?.sentence ?? null;
+    const note = at?.note ?? null;
     const deposit = leg.cashRaw ? r.money(leg.cashRaw) : null;
     const parts = tradeParts(leg, r);
     const fallback = r.t.order.kind[leg.kind];
+    const plain = (name: string, title: string, press: string): StepWords => ({
+      name,
+      title,
+      press,
+      hero: title,
+      note: null,
+      worst: null,
+    });
     switch (leg.kind) {
       case 'approve':
         return {
-          name: f.short.approve,
-          title: deposit ? f.title.approve(deposit.shown) : fallback,
-          press: deposit ? f.press.approve(deposit.shown) : f.press.step,
-          worst: null,
+          ...plain(
+            f.short.approve,
+            deposit ? f.title.approve(deposit.shown) : fallback,
+            deposit ? f.press.approve(deposit.shown) : f.press.step,
+          ),
+          hero: deposit ? f.hero.allow(deposit.shown) : fallback,
         };
       case 'create_vault':
       case 'deposit': {
         // A step that opens the vault and moves no cash: one only opens it (EVM, before the approval).
-        if (!leg.cashRaw)
-          return {
-            name: f.short.open,
-            title: f.title.open,
-            press: f.press.open,
-            worst: null,
-          };
+        if (!leg.cashRaw) return plain(f.short.open, f.title.open, f.press.open);
         const opens = leg.kind === 'create_vault';
         // no units for the cash: the step is named, and no amount is made up
         const head = !deposit
@@ -218,16 +237,20 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
           : opens
             ? f.title.openDeposit(deposit.shown)
             : f.title.deposit(deposit.shown);
-        const button = deposit ? f.press.deposit(deposit.shown) : f.press.step;
-        const then = parts.title.length > 0 ? f.andThen(head, listOf(parts.title, r.locale)) : head;
-        return { name: f.short.deposit, title: then, press: button, worst };
+        return {
+          name: f.short.deposit,
+          title: parts.title.length > 0 ? f.andThen(head, listOf(parts.title, r.locale)) : head,
+          press: deposit ? f.press.deposit(deposit.shown) : f.press.step,
+          hero: deposit ? f.hero.arrow(deposit.shown, f.hero.yourVault) : head,
+          note,
+          worst,
+        };
       }
       case 'swap': {
         swap += 1;
         // Several swaps are told apart by what they sell or receive: "Sell SPY", "GOOGLx".
         const sells = leg.trades.every((x) => r.cash !== null && x.buy === r.cash);
         const buys = leg.trades.every((x) => r.cash === null || x.sell === r.cash);
-        const of = (assets: string[]) => listOf([...new Set(assets.map(r.symbol))], r.locale);
         const name =
           swaps === 1 || leg.trades.length === 0
             ? swaps > 1
@@ -238,55 +261,129 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
               : buys
                 ? of(leg.trades.map((x) => x.buy))
                 : f.short.swapN(swap);
-        if (parts.title.length === 0) return { name, title: fallback, press: f.press.step, worst };
+        if (parts.title.length === 0) return { ...plain(name, fallback, f.press.step), worst };
+        const title = capitalise(listOf(parts.title, r.locale), r.locale);
+        const spent = buys ? r.money(sumRaw(leg.trades.map((x) => x.amountInRaw))) : null;
+        const sold = sells
+          ? listOf(
+              leg.trades.map((x) => r.tokens(x.amountInRaw, x.sell)?.shown ?? r.symbol(x.sell)),
+              r.locale,
+            )
+          : null;
         return {
           name,
-          title: capitalise(listOf(parts.title, r.locale), r.locale),
+          title,
           press: f.press.of(listOf(parts.press, r.locale)),
+          hero: spent
+            ? f.hero.arrow(spent.shown, of(leg.trades.map((x) => x.buy)))
+            : sold
+              ? f.hero.arrow(sold, f.hero.cash)
+              : title,
+          note,
           worst,
         };
       }
       case 'set_targets':
         return {
-          name: f.short.targets,
-          title: f.title.targets,
-          press: f.press.targets,
-          worst: null,
+          ...plain(f.short.targets, f.title.targets, f.press.targets),
+          hero: f.hero.targets,
         };
       case 'accept_version':
-        return {
-          name: f.short.version,
-          title: f.title.version,
-          press: f.press.version,
-          worst: null,
-        };
+        return plain(f.short.version, f.title.version, f.press.version);
       case 'set_auto_follow':
-        return {
-          name: f.short.autoFollow,
-          title: fallback,
-          press: f.press.autoFollow,
-          worst: null,
-        };
+        return plain(f.short.autoFollow, fallback, f.press.autoFollow);
       case 'withdraw': {
         const what = listOf(withdrawn(leg, r), r.locale);
         return {
-          name: f.short.withdraw,
-          title: f.title.withdraw(what),
-          press: f.press.withdraw(what),
-          worst: null,
+          ...plain(f.short.withdraw, f.title.withdraw(what), f.press.withdraw(what)),
+          hero: f.hero.arrow(capitalise(what, r.locale), f.hero.yourWallet),
         };
       }
       case 'publish':
-        return {
-          name: f.short.publish,
-          title: f.title.publish,
-          press: f.press.publish,
-          worst: null,
-        };
+        return plain(f.short.publish, f.title.publish, f.press.publish);
       default:
-        return { name: fallback, title: fallback, press: f.press.step, worst };
+        return { ...plain(fallback, fallback, f.press.step), worst };
     }
   });
+}
+
+/**
+ * A change of targets in a few words: "More SPY, less NVDA". The assets whose share goes up, then
+ * those whose share goes down (cash is the rest, and is not named); "New targets" where neither is
+ * known or nothing moves.
+ */
+export function changeHero(
+  after: readonly { asset: string; weightBps: number }[],
+  before: readonly { asset: string; weightBps: number }[] | null,
+  words: SummaryWords,
+): string {
+  const r = reader(words);
+  const h = r.t.order.flow.hero;
+  if (!before) return h.targets;
+  const assets = [...new Set([...before, ...after].map((x) => x.asset))].filter(
+    (asset) => asset !== r.cash,
+  );
+  const share = (list: readonly { asset: string; weightBps: number }[], asset: string) =>
+    list.find((x) => x.asset === asset)?.weightBps ?? 0;
+  const more = assets.filter((a) => share(after, a) > share(before, a)).map(r.symbol);
+  const less = assets.filter((a) => share(after, a) < share(before, a)).map(r.symbol);
+  const list = (names: string[]) => listOf(names, r.locale);
+  if (more.length > 0 && less.length > 0) return h.moreLess(list(more), list(less));
+  if (more.length > 0) return h.more(list(more));
+  if (less.length > 0) return h.less(list(less));
+  return h.targets;
+}
+
+/** One holding of a picture of targets, in the shape the shared composition takes. */
+export type ShareItem = {
+  key: string;
+  name: string;
+  asset?: string;
+  cash?: boolean;
+  /** The share after, in basis points. */
+  bps: number;
+  /** The share before; left out where the holding is new, or nothing before is known. */
+  beforeBps?: number;
+};
+
+/**
+ * Targets before and after as one list: every asset either names, in the order the vault had them
+ * and then the new ones, then cash with what is left of 100% on each side.
+ */
+export function shareItems(
+  after: readonly { asset: string; weightBps: number }[],
+  before: readonly { asset: string; weightBps: number }[] | null,
+  words: SummaryWords,
+): ShareItem[] {
+  const r = reader(words);
+  const assets = [...new Set([...(before ?? []), ...after].map((x) => x.asset))].filter(
+    (asset) => asset !== r.cash,
+  );
+  const of = (list: readonly { asset: string; weightBps: number }[], asset: string) =>
+    list.find((x) => x.asset === asset)?.weightBps;
+  const left = (list: readonly { weightBps: number }[]) =>
+    Math.max(0, 10_000 - list.reduce((n, x) => n + x.weightBps, 0));
+  const items: ShareItem[] = assets.map((asset) => {
+    const was = before ? (of(before, asset) ?? 0) : undefined;
+    return {
+      key: asset,
+      name: r.symbol(asset),
+      asset,
+      bps: of(after, asset) ?? 0,
+      ...(was !== undefined && was > 0 ? { beforeBps: was } : {}),
+    };
+  });
+  const cashBefore = before ? left(before) : 0;
+  const cashAfter = left(after);
+  if (cashBefore > 0 || cashAfter > 0)
+    items.push({
+      key: 'cash',
+      name: r.t.order.flow.picture.cash,
+      cash: true,
+      bps: cashAfter,
+      ...(before && cashBefore > 0 ? { beforeBps: cashBefore } : {}),
+    });
+  return items;
 }
 
 const capitalise = (text: string, locale: string) =>
@@ -308,57 +405,6 @@ export type Picture = {
   columns: string[];
   rows: PictureRow[];
 };
-
-const share = (bps: number, locale: string): Figure => ({
-  shown: new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(
-    bps / 10_000,
-  ),
-  exact: formatBps(bps, locale),
-});
-
-/**
- * Targets before and after: every asset either names, then cash, with what is left of 100% on each
- * side. `before` is left out where the screen does not know the vault (the order's own page): the
- * picture is then the new targets alone.
- */
-export function targetsPicture(
-  after: readonly { asset: string; weightBps: number }[],
-  before: readonly { asset: string; weightBps: number }[] | null,
-  words: SummaryWords,
-  labels: { caption: string; before: string; after: string },
-): Picture {
-  const r = reader(words);
-  const assets = [
-    ...new Set([...(before ?? []).map((x) => x.asset), ...after.map((x) => x.asset)]),
-  ].filter((asset) => asset !== r.cash);
-  const of = (list: readonly { asset: string; weightBps: number }[], asset: string) =>
-    list.find((x) => x.asset === asset)?.weightBps ?? 0;
-  const left = (list: readonly { weightBps: number }[]) =>
-    Math.max(0, 10_000 - list.reduce((n, x) => n + x.weightBps, 0));
-  const cell = (list: readonly { asset: string; weightBps: number }[] | null, asset: string) =>
-    list === null ? null : share(of(list, asset), r.locale);
-  const rows: PictureRow[] = assets.map((asset) => ({
-    key: asset,
-    name: r.symbol(asset),
-    cells: before === null ? [cell(after, asset)] : [cell(before, asset), cell(after, asset)],
-  }));
-  const cashBefore = before === null ? 0 : left(before);
-  const cashAfter = left(after);
-  if (cashBefore > 0 || cashAfter > 0)
-    rows.push({
-      key: 'cash',
-      name: r.t.order.flow.picture.cash,
-      cells:
-        before === null
-          ? [share(cashAfter, r.locale)]
-          : [share(cashBefore, r.locale), share(cashAfter, r.locale)],
-    });
-  return {
-    caption: labels.caption,
-    columns: before === null ? [labels.after] : [labels.before, labels.after],
-    rows,
-  };
-}
 
 /**
  * Where a deposit goes: each asset its trades spend on, with what is spent, and the cash that stays.
@@ -467,6 +513,6 @@ export function costSentence(
   const [first = s.noTrade, second] = parts;
   const head = second ? s.and(first.replace(/\.$/, ''), lowerFirst(second, r.locale)) : first;
   // a withdrawal that sells says its least already: what reaches the wallet
-  const worst = least ? null : worstOf(trades, r);
+  const worst = least ? null : (worstOf(trades, r)?.sentence ?? null);
   return worst ? `${head} ${worst}` : head;
 }

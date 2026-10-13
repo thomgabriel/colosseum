@@ -143,4 +143,11 @@ export type OrderEmbed = {
    * sets it beside the new targets. Left out where the host has no read of the vault.
    */
   before?: readonly { asset: string; weightBps: number }[];
+  /**
+   * The host reviewed what the order does before it was made (a vault's change of targets): the
+   * order's screen opens on its first step, with no review of its own to go back to.
+   */
+  reviewed?: boolean;
+  /** The order's screen moved: its review, its steps, or its end (gate SIGN-ONE-STEP). */
+  onStage?: (stage: 'review' | 'steps' | 'done') => void;
 };

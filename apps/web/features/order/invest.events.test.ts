@@ -342,7 +342,7 @@ describe('investing with one press, with the passkey wallet', () => {
     const current = () => find(host, '[data-ui="sign-progress"] [aria-current="step"]').textContent;
     const panel = () => find(host, '[data-ui="sign-step"]');
     expect(current()).toContain(en.order.flow.short.deposit);
-    expect(find(panel(), 'h3').textContent).toBe(en.order.flow.title.openDeposit('$10'));
+    expect(find(panel(), 'h3').textContent).toBe('$10 → your vault');
     expect(find(panel(), '[data-ui="sign-phase"]').textContent).toBe(en.order.phase.signing);
     first.open();
     await settle();
@@ -351,7 +351,7 @@ describe('investing with one press, with the passkey wallet', () => {
       en.order.flow.title.openDeposit('$10'),
     );
     expect(current()).toContain(en.order.flow.short.swap);
-    expect(find(panel(), 'h3').textContent).toBe('Swap $6 of cash for SPYx');
+    expect(find(panel(), 'h3').textContent).toBe('$6 → SPYx');
     expect(panel().textContent).toContain(en.order.flow.stepOf(2, 2));
     second.open();
     await settle();

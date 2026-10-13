@@ -64,11 +64,12 @@ import {
   trustAccepted,
 } from './order-record';
 import {
+  changeHero,
   costSentence,
   depositPicture,
   type Picture,
+  shareItems,
   stepWordsOf,
-  targetsPicture,
   withdrawPicture,
 } from './order-summary';
 import { legsInOrder, type NextStep, type OutcomeView, outcomeView, stepOf } from './order-view';
@@ -76,7 +77,16 @@ import { readStoredPlan } from './plan-store';
 import { targetsOfPlan } from './plan-terms';
 import { chainIsLive, chainReady, explorerNameFor, explorerUrlFor, onMock } from './readiness';
 import { planNumberOf, type RunOutcome, useOrderRunner } from './run-order';
-import { ChangeTable, Fold, type SignedStep, SignedSteps, StepPanel, StepStrip } from './SignFlow';
+import {
+  AmountList,
+  Fold,
+  Hero,
+  ShareList,
+  type SignedStep,
+  SignedSteps,
+  StepPanel,
+  StepStrip,
+} from './SignFlow';
 import { TrustNotice } from './TrustNotice';
 import { tradeLine } from './trade-line';
 import { type ChainUnits, unitsFor } from './units';
@@ -160,19 +170,35 @@ export function OrderScreen({
   const [consents, setConsents] = useState<ConsentKind[]>([]);
   const [round, setRound] = useState(0);
   // The person read the review and went on to the steps: nothing is approved until the first is signed.
-  const [onward, setOnward] = useState(false);
-  // Moving between the review and the first step takes the focus along: to the step's heading, or
-  // back to "Continue". The press that moved it is gone from the screen.
+  const [onward, setOnward] = useState(embed?.reviewed === true);
+  // Moving between screens takes the focus along, since what was pressed is gone from the screen:
+  // "Continue" to the step's large line and "Back" to "Continue"; and where the focus was lost as the
+  // screen changed by itself (the one press of the invest card, the last step confirmed), to the new
+  // screen's large line.
   const [focusTo, setFocusTo] = useState<'step' | 'review' | null>(null);
   const shell = useRef<HTMLDivElement>(null);
+  const seenStage = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!focusTo) return;
-    shell.current
-      ?.querySelector<HTMLElement>(
-        focusTo === 'step' ? '[data-ui="sign-step"] h3' : '[data-action="order-continue"]',
-      )
-      ?.focus();
-    setFocusTo(null);
+    const root = shell.current;
+    const stageNow = root?.dataset.stage;
+    const stageBefore = seenStage.current;
+    seenStage.current = stageNow;
+    if (!root) return;
+    if (stageNow && stageNow !== stageBefore)
+      embed?.onStage?.(stageNow as 'review' | 'steps' | 'done');
+    const hero = () => root.querySelector<HTMLElement>('[data-ui="sign-hero"]');
+    if (focusTo) {
+      (focusTo === 'step'
+        ? hero()
+        : root.querySelector<HTMLElement>('[data-action="order-continue"]')
+      )?.focus();
+      setFocusTo(null);
+      return;
+    }
+    if (!stageNow || !stageBefore || stageNow === stageBefore) return;
+    const at = document.activeElement;
+    const lost = !at || at === document.body || !at.isConnected;
+    if (lost && (stageNow === 'steps' || stageNow === 'done')) hero()?.focus();
   });
   const stop = useRef({ aborted: false });
   // The person asked to stop between steps: the step under way is finished, the next is not begun.
@@ -794,9 +820,13 @@ export function OrderScreen({
     return open < 0 ? Math.max(0, legs.length - 1) : open;
   })();
   const mock = onMock(port, chain);
+  // A skipped step moved nothing: it is never listed as signed, and the strip marks it skipped.
+  const skippedAt = legs.flatMap((leg, i) =>
+    (now.legs.find((l) => l.id === leg.id) ?? leg).status === 'skipped' ? [i] : [],
+  );
   const signed: SignedStep[] = legs.slice(0, at).flatMap((leg, i) => {
     const standing = now.legs.find((l) => l.id === leg.id) ?? leg;
-    if (standing.status !== 'confirmed' && standing.status !== 'skipped') return [];
+    if (standing.status !== 'confirmed') return [];
     return [
       {
         key: leg.id,
@@ -808,35 +838,55 @@ export function OrderScreen({
       },
     ];
   });
-  // What changes, as one picture: the targets before and after, where a deposit goes, what leaves.
-  const picture: Picture | null =
-    terms?.kind === 'retarget'
-      ? targetsPicture(terms.targets, embed?.before ?? null, summary, {
-          caption: flow.picture.targets,
-          before: flow.picture.now,
-          after: flow.picture.next,
-        })
-      : terms?.kind === 'rebalance'
-        ? // what the vault holds now beside the targets the trades bring it to
-          targetsPicture(terms.targets, embed?.before ?? null, summary, {
-            caption: flow.picture.targets,
-            before: flow.picture.holdsNow,
-            after: flow.picture.target,
-          })
-        : terms?.kind === 'withdraw'
-          ? withdrawPicture(shown, summary)
-          : buying
-            ? depositPicture(shown, summary)
-            : null;
-  // At the end, the vault's targets as the order set them, or brought it to.
-  const ended: Picture | null =
+  // What changes, at a glance: the order's one large line, then the targets before and after (a
+  // change, a rebalance), where a deposit goes, or what leaves.
+  const before = embed?.before ?? null;
+  const shares =
     terms?.kind === 'retarget' || terms?.kind === 'rebalance'
-      ? targetsPicture(terms.targets, null, summary, {
-          caption: flow.ended.targets,
-          before: '',
-          after: flow.picture.target,
-        })
+      ? shareItems(terms.targets, before, summary)
       : null;
+  const picture: Picture | null =
+    terms?.kind === 'withdraw'
+      ? withdrawPicture(shown, summary)
+      : buying
+        ? depositPicture(shown, summary)
+        : null;
+  const leastFigure = picture && terms?.kind === 'withdraw' ? picture.rows[0]?.cells[0] : null;
+  const reviewHero =
+    terms?.kind === 'retarget'
+      ? changeHero(terms.targets, before, summary)
+      : terms?.kind === 'rebalance'
+        ? flow.hero.rebalance
+        : terms?.kind === 'withdraw'
+          ? flow.hero.withdraw(
+              terms.dollars && leastFigure
+                ? leastFigure.shown.charAt(0).toLocaleUpperCase(locale) + leastFigure.shown.slice(1)
+                : new Intl.ListFormat(locale, { type: 'conjunction' }).format(
+                    (picture?.rows ?? []).map((row) => row.name),
+                  ),
+            )
+          : terms?.kind === 'publish'
+            ? t.order.shared.publishTitle
+            : terms?.kind === 'follow'
+              ? t.order.shared.followTitle
+              : record.continues
+                ? flow.hero.finish
+                : buying && shown.depositRaw !== undefined
+                  ? flow.hero.deposit(amount)
+                  : t.order.review.title;
+  const shareOf = (bps: number) =>
+    new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(
+      bps / 10_000,
+    );
+  // a rebalance sets what the vault holds now beside its targets; a change, its targets now and after
+  const shareLabels =
+    terms?.kind === 'rebalance'
+      ? {
+          before: flow.picture.holdsNow,
+          after: flow.picture.target,
+          unchanged: flow.picture.unchanged,
+        }
+      : { before: flow.picture.now, after: flow.picture.next, unchanged: flow.picture.unchanged };
 
   // The one primary button of the view: sign, carry on, approve a step again, or nothing.
   const next: NextStep | { kind: 'first' } =
@@ -858,7 +908,7 @@ export function OrderScreen({
                 ? // taken up again after a reload: a deposit names its amount, anything else goes on
                   buying
                   ? t.order.resume(amount)
-                  : t.order.shared.resume
+                  : (words[at]?.press ?? flow.press.step)
                 : record.continues
                   ? // the invest card's one press, of an order that deposits nothing
                     t.order.outcome.finishSign
@@ -981,7 +1031,7 @@ export function OrderScreen({
     <div data-ui="order-status" className="flex flex-col gap-2">
       {running && phase && (
         // Where the step under way is: the strip and the panel say which step it is.
-        <p data-ui="sign-phase" className="text-body">
+        <p data-ui="sign-phase" className="text-body-sm text-muted-foreground">
           {t.order.phase[phase.phase as keyof Dictionary['order']['phase']]}
         </p>
       )}
@@ -1150,6 +1200,7 @@ export function OrderScreen({
               <Button
                 variant="primary"
                 data-action="order-continue"
+                className={embed ? 'w-full' : 'sm:min-w-64'}
                 disabled={consentMissing || held.length > 0}
                 aria-describedby={consentMissing || held.length > 0 ? reasonId : undefined}
                 onClick={() => {
@@ -1162,13 +1213,17 @@ export function OrderScreen({
             )}
             {embed && next.kind === 'first' && (stage !== 'review' || onePress) && (
               // Said once before the press: who is asked to sign, and how many times.
-              <p data-ui="invest-signing" className="max-w-(--tf-measure-body) text-body-sm">
+              <p
+                data-ui="invest-signing"
+                className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground"
+              >
                 {quiet ? t.invest.signs.passkey(legs.length) : t.invest.signs.wallet(legs.length)}
               </p>
             )}
             {(stage !== 'review' || onePress) && (
               <Button
                 variant="primary"
+                className={embed ? 'w-full' : 'sm:min-w-64'}
                 busy={running}
                 busyLabel={t.order.signing(current, legs.length)}
                 disabled={consentMissing || held.length > 0}
@@ -1214,19 +1269,24 @@ export function OrderScreen({
                 {t.invest.stop}
               </Button>
             )}
-            {stage === 'steps' && !record.approved && !running && !view && !onePress && (
-              // Before the first signature, the review is one press back.
-              <Button
-                variant="link"
-                data-action="order-back"
-                onClick={() => {
-                  setOnward(false);
-                  setFocusTo('review');
-                }}
-              >
-                {flow.back}
-              </Button>
-            )}
+            {stage === 'steps' &&
+              !record.approved &&
+              !running &&
+              !view &&
+              !onePress &&
+              !embed?.reviewed && (
+                // Before the first signature, the review is one press back.
+                <Button
+                  variant="link"
+                  data-action="order-back"
+                  onClick={() => {
+                    setOnward(false);
+                    setFocusTo('review');
+                  }}
+                >
+                  {flow.back}
+                </Button>
+              )}
           </>
         )}
       {held.length > 0 && !consentMissing && (
@@ -1362,6 +1422,17 @@ export function OrderScreen({
       {/* Inside the invest card the host shows what the buy is held to, over the card. */}
       {terms && !onePress && stage === 'review' && <SharedReview terms={terms} chain={chain} />}
       {stepsBody}
+      {embed && (
+        <p data-ui="invest-fee" className="text-body-sm text-muted-foreground">
+          {shown.fees.length === 0
+            ? t.invest.fee.none
+            : t.invest.fee.some(
+                new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
+                  shown.fees.map((fee) => `${fee.kind} ${formatBps(fee.bps, LOCALE[lang])}`),
+                ),
+              )}
+        </p>
+      )}
     </Fold>
   );
   const strip = (
@@ -1370,47 +1441,63 @@ export function OrderScreen({
       at={stage === 'done' ? legs.length : at}
       label={flow.progress}
       doneWord={flow.doneWord}
+      skipped={skippedAt}
+      skippedWord={t.order.status.skipped.toLowerCase()}
     />
   );
+  const sharesOf = (caption: string, items: ReturnType<typeof shareItems>) => (
+    <ShareList caption={caption} items={items} share={shareOf} labels={shareLabels} />
+  );
+  // What a screen reader is told as the order moves, from one region that stays on the screen in
+  // every stage: the step under way and its phase, the last answer, the end.
+  const phaseWord =
+    running && phase ? t.order.phase[phase.phase as keyof Dictionary['order']['phase']] : null;
+  const announce = phaseWord
+    ? `${flow.stepOf(at + 1, legs.length)}: ${phaseWord}`
+    : view
+      ? done && !plainlyDone
+        ? doneSentence
+        : view.sentence
+      : done && !running
+        ? doneSentence
+        : '';
 
   const stageBody =
     stage === 'review' ? (
       <>
-        <p data-ui="sign-sentence" className="max-w-(--tf-measure-body) text-body">
-          {costSentence(shown, summary)}
-        </p>
-        {picture && picture.rows.length > 0 && <ChangeTable picture={picture} />}
-        {allSteps(flow.details)}
-        {embed && (
-          <p data-ui="invest-fee" className="text-body-sm text-muted-foreground">
-            {shown.fees.length === 0
-              ? t.invest.fee.none
-              : t.invest.fee.some(
-                  new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
-                    shown.fees.map((fee) => `${fee.kind} ${formatBps(fee.bps, LOCALE[lang])}`),
-                  ),
-                )}
+        <div className="flex flex-col gap-2">
+          <Hero>{reviewHero}</Hero>
+          <p
+            data-ui="sign-sentence"
+            className="max-w-(--tf-measure-body) text-body text-muted-foreground"
+          >
+            {costSentence(shown, summary)}
           </p>
-        )}
+        </div>
+        {shares && sharesOf(flow.picture.targets, shares)}
+        {picture && picture.rows.length > 0 && <AmountList picture={picture} />}
         {shown.warnings.length > 0 && (
-          <section aria-label={t.order.review.warnings} className="flex flex-col gap-2">
-            <h2 className="text-h4 font-semibold">{t.order.review.warnings}</h2>
-            <ul className="flex max-w-(--tf-measure-body) list-disc flex-col gap-1 pl-5 text-body-sm">
-              {shown.warnings.map((w) => (
-                <li key={w.code}>{w.text}</li>
-              ))}
-            </ul>
-          </section>
+          <ul
+            aria-label={t.order.review.warnings}
+            data-ui="order-warnings"
+            className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm"
+          >
+            {shown.warnings.map((w) => (
+              <li key={w.code} className="flex items-start gap-1.5">
+                <StatusMark status="watch" className="mt-1.5" />
+                <span>{w.text}</span>
+              </li>
+            ))}
+          </ul>
         )}
-
         {!record.approved && needed.length > 0 && (
           <fieldset className="flex flex-col gap-2">
-            <legend className="pb-2 text-h4 font-semibold">{t.order.review.consents}</legend>
+            <legend className="pb-1 text-body-sm font-medium">{t.order.review.consents}</legend>
             {needed.map((kind) => (
-              <label key={kind} className="inline-flex items-start gap-2 text-body">
+              <label key={kind} className="inline-flex items-start gap-2 text-body-sm">
                 <input
                   type="checkbox"
-                  className="mt-1.5 size-4 accent-primary"
+                  className="mt-1 size-4 accent-primary"
                   checked={consents.includes(kind)}
                   onChange={(e) => {
                     const on = e.currentTarget.checked;
@@ -1425,6 +1512,7 @@ export function OrderScreen({
           </fieldset>
         )}
         {actions}
+        {allSteps(flow.details)}
       </>
     ) : stage === 'steps' ? (
       <>
@@ -1437,8 +1525,9 @@ export function OrderScreen({
         />
         <StepPanel
           place={flow.stepOf(at + 1, legs.length)}
+          hero={words[at]?.hero ?? t.order.title}
+          note={words[at]?.note ?? null}
           title={words[at]?.title ?? t.order.title}
-          worst={words[at]?.worst ?? null}
           status={statusBlock}
         >
           {actions}
@@ -1448,12 +1537,14 @@ export function OrderScreen({
     ) : (
       <>
         {strip}
-        <div aria-live="polite" data-ui="sign-status" className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
+          <Hero>{flow.ended.title}</Hero>
           {statusBlock}
         </div>
-        {ended && <ChangeTable picture={ended} />}
-        {allSteps(flow.transactions)}
+        {(terms?.kind === 'retarget' || terms?.kind === 'rebalance') &&
+          sharesOf(flow.ended.targets, shareItems(terms.targets, null, summary))}
         {actions}
+        {allSteps(flow.transactions)}
       </>
     );
 
@@ -1464,6 +1555,9 @@ export function OrderScreen({
       data-stage={stage}
       className={embed ? 'flex flex-col gap-5' : 'flex flex-col gap-8'}
     >
+      <p aria-live="polite" data-ui="order-announce" className="sr-only">
+        {announce}
+      </p>
       {!embed && (
         <header className="flex flex-col items-start gap-3">
           <ChainBadge chain={chain} />
@@ -1491,7 +1585,7 @@ export function OrderScreen({
         <section
           aria-label={t.order.stepsTitle}
           data-ui="invest-steps"
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-6"
         >
           {stageBody}
         </section>
@@ -1505,7 +1599,7 @@ export function OrderScreen({
           }}
         >
           <CardHeader title={t.order.stepsTitle} level={2} />
-          <CardBody className="flex flex-col gap-4">{stageBody}</CardBody>
+          <CardBody className="flex flex-col gap-6">{stageBody}</CardBody>
         </Card>
       )}
     </div>

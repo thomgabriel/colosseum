@@ -540,13 +540,10 @@ describe('what the executor answers', () => {
     expect(support.textContent).toContain(en.order.outcome.check('minimum'));
     // nothing was deposited yet, so nothing is said about a deposit
     expect(host.querySelector('[data-ui="order-deposit-kept"]')).toBeNull();
-    // the region that says it is read out as it changes: the step's own panel (gate SIGN-ONE-STEP)
-    expect(
-      host
-        .querySelector('[data-ui="order-status"]')
-        ?.closest('[aria-live]')
-        ?.getAttribute('aria-live'),
-    ).toBe('polite');
+    // said aloud from the order's one region, which stays on the screen in every stage
+    const announce = find(host, '[data-ui="order-announce"]');
+    expect(announce.getAttribute('aria-live')).toBe('polite');
+    expect(announce.textContent).toContain(en.order.outcome.refused(2));
     const next = primary(host);
     expect(label(next)).toBe(en.order.outcome.newOrder);
     expect(next.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
@@ -1788,8 +1785,14 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     expect(find(host, '[data-ui="sign-sentence"]').textContent).toBe(
       'Your $10 goes into your vault, and about $6 of it into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
     );
-    const rows = [...host.querySelectorAll('[data-ui="sign-picture"] tbody tr')].map((tr) =>
-      [...tr.querySelectorAll('th, td')].map((cell) => cell.textContent),
+    // the large line, then where the deposit goes, as short rows with no table
+    expect(find(host, '[data-ui="sign-hero"]').textContent).toBe(en.order.flow.hero.deposit('$10'));
+    expect(host.querySelector('table:not([data-ui] table)')).toBeNull();
+    const rows = [...host.querySelectorAll('[data-ui="sign-picture"] [data-ui="sign-share"]')].map(
+      (li) => [
+        li.querySelector('.truncate')?.textContent,
+        li.querySelector(':scope > span:last-child')?.textContent,
+      ],
     );
     expect(rows).toEqual([
       ['SPYx', '$6'],
@@ -1820,7 +1823,9 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
       { done: 'false', current: null },
     ]);
     const step = find(host, '[data-ui="sign-step"]');
-    expect(find(step, 'h3').textContent).toBe(en.order.flow.title.openDeposit('$10'));
+    // the step's large line is what it moves; its sentence names the panel
+    expect(find(step, 'h3').textContent).toBe('$10 → your vault');
+    expect(step.getAttribute('aria-label')).toBe(en.order.flow.title.openDeposit('$10'));
     expect(step.textContent).toContain(en.order.flow.stepOf(1, 2));
     expect(document.activeElement).toBe(find(step, 'h3'));
     expect(label(primary(host))).toBe(en.order.flow.press.deposit('$10'));
@@ -1841,8 +1846,10 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     await sign(host);
     await settle();
     // the first step under way: its phase in its panel, the button busy
-    expect(find(host, '[data-ui="sign-step"] h3').textContent).toBe(
-      en.order.flow.title.openDeposit('$10'),
+    expect(find(host, '[data-ui="sign-step"] h3').textContent).toBe('$10 → your vault');
+    // and said aloud with its place: "Step 1 of 2: Signing…"
+    expect(find(host, '[data-ui="order-announce"]').textContent).toBe(
+      `${en.order.flow.stepOf(1, 2)}: ${en.order.phase.signing}`,
     );
     expect(find(host, '[data-ui="sign-phase"]').textContent).toBe(en.order.phase.signing);
     expect(primary(host).getAttribute('aria-busy')).toBe('true');
@@ -1851,10 +1858,10 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     await settle();
     // the second has the screen; the first is one line with a check and its link
     expect(strip(host).map((s) => s.done)).toEqual(['true', 'false', 'false']);
-    expect(find(host, '[data-ui="sign-step"] h3').textContent).toBe('Swap $6 of cash for SPYx');
+    expect(find(host, '[data-ui="sign-step"] h3').textContent).toBe('$6 → SPYx');
     expect(find(host, '[data-ui="sign-step"]').textContent).toContain(en.order.flow.stepOf(2, 2));
     expect(find(host, '[data-ui="sign-step"] [data-ui="sign-worst"]').textContent).toBe(
-      'At worst you get 0.0099 SPYx, 1% under today’s price.',
+      'at least 0.0099 SPYx · 1% under today’s price',
     );
     const past = find(host, '[data-ui="sign-past"]');
     expect(past.textContent).toContain(en.order.flow.title.openDeposit('$10'));
@@ -1865,6 +1872,12 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     await settle();
     // done: every place of the strip done, what the order did, the transactions folded
     expect(stage(host)).toBe('done');
+    // the end is said aloud, and the focus, lost with the busy button, is on the end's large line
+    expect(find(host, '[data-ui="order-announce"]').textContent).toBe(
+      en.order.outcome.done('Solana'),
+    );
+    expect(document.activeElement).toBe(find(host, '[data-ui="sign-hero"]'));
+    expect(find(host, '[data-ui="sign-hero"]').textContent).toBe(en.order.flow.ended.title);
     expect(strip(host).map((s) => s.done)).toEqual(['true', 'true', 'true']);
     expect(status(host)).toBe(en.order.outcome.done('Solana'));
     const fold = find<HTMLDetailsElement>(host, '[data-ui="order-details"]');
@@ -1887,8 +1900,11 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     await sign(host);
     await settle();
     const step = find(host, '[data-ui="sign-step"]');
-    expect(find(step, 'h3').textContent).toBe('Swap $6 of cash for SPYx');
+    expect(find(step, 'h3').textContent).toBe('$6 → SPYx');
     expect(find(step, '[data-ui="sign-status"]').textContent).toContain(
+      en.order.outcome.cancelled(2),
+    );
+    expect(find(host, '[data-ui="order-announce"]').textContent).toBe(
       en.order.outcome.cancelled(2),
     );
     expect(label(find(step, '[data-variant="primary"]'))).toBe(en.order.outcome.tryAgain);

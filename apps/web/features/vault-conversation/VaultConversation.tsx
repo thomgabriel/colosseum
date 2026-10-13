@@ -519,17 +519,20 @@ export function VaultConversation({
         )}
         {proposal && (
           <section data-ui="vault-proposal">
-            <StrategyPreview
-              proposal={proposal}
-              {...(reply?.figures ? { figures: reply.figures, now } : {})}
-              targets={targets}
-              onDiscuss={() => draftMessage(copy.discussPrompt)}
-              {...(applying !== reply && reply
-                ? { use: { label: t.mix.preview.apply, onUse: () => setApplying(reply) } }
-                : {})}
-            />
+            {/* Applied, the draft gives the pane to the change's review (gate SIGN-ONE-STEP). */}
+            {!(reply && applying === reply) && (
+              <StrategyPreview
+                proposal={proposal}
+                {...(reply?.figures ? { figures: reply.figures, now } : {})}
+                targets={targets}
+                onDiscuss={() => draftMessage(copy.discussPrompt)}
+                {...(applying !== reply && reply
+                  ? { use: { label: t.mix.preview.apply, onUse: () => setApplying(reply) } }
+                  : {})}
+              />
+            )}
             {reply && applying === reply && (
-              <div className="mt-4">
+              <div>
                 <VaultMixFlow
                   chain={read.chain}
                   vault={read.vault}

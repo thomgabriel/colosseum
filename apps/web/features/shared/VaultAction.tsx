@@ -165,6 +165,8 @@ export function VaultAction({
   // An order that finishes a deposit that stopped took the card: it deposits nothing, so the amount
   // typed for the first one is not said of it, now or after a reload.
   const [followed, setFollowed] = useState(false);
+  // Which screen of the order is on the pane: its review, its steps, or its end (SIGN-ONE-STEP).
+  const [orderStage, setOrderStage] = useState<'review' | 'steps' | 'done' | null>(null);
   const finishes =
     followed || (record ? latestOf(record, recallOrders(userId)).continues !== undefined : false);
   const told = {
@@ -253,6 +255,9 @@ export function VaultAction({
       onStarted: () => {},
       onAgain: onRestart,
       hostEnds: true,
+      onStage: setOrderStage,
+      // a change was reviewed before its order was made (ChangeReview): its steps come next
+      ...(paneOf(open.kind) === 'change' && !open.resumed ? { reviewed: true } : {}),
       // what the vault aims at, or holds, as this page read it: the review sets the order's targets
       // beside it (gate SIGN-ONE-STEP)
       ...(paneOf(open.kind) === 'change'
@@ -300,7 +305,16 @@ export function VaultAction({
       className="flex min-w-0 flex-col gap-4"
     >
       <header className="flex min-w-0 flex-col gap-2">
-        <h2 id={titleId} tabIndex={-1} className="font-display text-h4 font-semibold outline-none">
+        {/* a quiet label over the order's own large line, as the portfolio's overview labels its figure */}
+        <h2
+          id={titleId}
+          tabIndex={-1}
+          className={
+            open.orderId
+              ? 'text-body-sm font-medium text-muted-foreground outline-none'
+              : 'font-display text-h4 font-semibold outline-none'
+          }
+        >
           {done
             ? p.ended
             : finishes
@@ -309,7 +323,8 @@ export function VaultAction({
                 ? words.signTitle
                 : words.title}
         </h2>
-        {!done && (
+        {/* once the order is on the pane, its screens say what it does: no lead over them */}
+        {!done && (!open.orderId || open.resumed || finishes) && (
           <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
             {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
             {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
@@ -321,21 +336,34 @@ export function VaultAction({
           it ended is the order's own sentence, above, which never says plainly done of a step that
           was skipped or a token that stayed (OrderScreen): nothing here says more than it does. */}
       {done && (
-        <div data-ui="vault-action-done" className="flex flex-col items-start gap-3">
-          <Button variant="primary" data-action="back-to-vault" onClick={onFinished}>
+        <div data-ui="vault-action-done" className="flex flex-col gap-3">
+          <Button
+            variant="primary"
+            className="w-full"
+            data-action="back-to-vault"
+            onClick={onFinished}
+          >
             {p.backToVault}
           </Button>
         </div>
       )}
       {/* the way back, whenever no step is being signed; what was sent stays sent */}
-      {phase !== 'signing' && !done && (
-        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
-          {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
-          <Button variant="link" data-action="leave-action" onClick={onLeave}>
-            {p.backToHoldings}
-          </Button>
-        </p>
-      )}
+      {/* Before the first signature the steps have "Back to the review" of their own: one way back. */}
+      {phase !== 'signing' &&
+        !done &&
+        !(
+          phase === 'open' &&
+          orderStage === 'steps' &&
+          !open.resumed &&
+          paneOf(open.kind) !== 'change'
+        ) && (
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
+            {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
+            <Button variant="link" data-action="leave-action" onClick={onLeave}>
+              {p.backToHoldings}
+            </Button>
+          </p>
+        )}
     </section>
   );
 }

@@ -53,16 +53,16 @@ async function check(page: Page, name: string) {
  * One screen of an order in the pane, whole at a desk (gate SIGN-ONE-STEP): at 1440x900 the pane's
  * own scroller holds it with nothing to scroll. Back to the phone after.
  */
-async function fitsPane(page: Page, name: string) {
+async function fitsPane(page: Page, name: string, selector = '[data-ui="vault-action"]') {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const m = await page.evaluate(() => {
-    const pane = document.querySelector<HTMLElement>('[data-ui="vault-action"]');
+  const m = await page.evaluate((selector) => {
+    const pane = document.querySelector<HTMLElement>(selector);
     const doc = document.scrollingElement as HTMLElement;
     return {
       over: pane ? pane.scrollHeight - pane.clientHeight : -1,
       page: doc.scrollHeight - doc.clientHeight,
     };
-  });
+  }, selector);
   expect(m.over, `${name}: the screen fits the pane at 1440x900`).toBeLessThanOrEqual(1);
   expect(m.page, `${name}: the page does not scroll at 1440x900`).toBeLessThanOrEqual(1);
   await page.setViewportSize(PHONE);
@@ -589,31 +589,29 @@ test('a change proposed in the conversation is applied in place, and the weights
   await fixedWorkbench(page, '[data-ui="vault-plan"]');
   await expect(page.locator('[data-ui="vault-transcript"]')).toHaveCSS('overflow-y', 'auto');
   await proposal.getByRole('button', { name: en.mix.preview.apply }).click();
-  await proposal.getByRole('button', { name: en.mix.vault.review }).click();
-  await expect(page.locator('[data-ui="mix-review-lines"]')).toContainText('SPY');
+  // Thom's case (gate SIGN-ONE-STEP): "Apply" leads straight to the change's review, in the draft's
+  // place: a few words, the targets now beside the new ones, the warnings to tick, one "Continue";
+  // every line's figures are folded
+  const review = page.locator('[data-ui="change-review"]');
+  await expect(review.locator('[data-ui="sign-hero"]')).toHaveText('More SPY, less NVDA');
+  const picture = review.locator('[data-ui="sign-picture"]');
+  await expect(picture).toContainText('60%');
+  await expect(picture).toContainText('70%');
+  await expect(page.locator('[data-ui="mix-review-lines"]')).toBeHidden();
   const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
   for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
   await check(page, 'apply-review');
-  await page.getByRole('button', { name: en.mix.vault.confirm }).click();
-  // the order's steps take the pane: no other page
+  await fitsPane(page, 'change review', '[data-ui="vault-plan"]');
+  await review.getByRole('button', { name: en.order.flow.continue }).click();
+  // the order's steps take the pane, on the first step: no other page and no second review
   await expect(screen).toHaveAttribute('data-pane', 'apply');
   await expect(page).toHaveURL(here);
   await expect(title).toHaveText(p.panes.change.signTitle);
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.change);
-  // Thom's case (gate SIGN-ONE-STEP): what changes as one picture, the targets now beside the new
-  // ones, one sentence, and "Continue"; the vault's address and every step's figures are folded
-  const picture = pane.locator('[data-ui="sign-picture"]');
-  await expect(picture).toContainText('60%');
-  await expect(picture).toContainText('70%');
-  await expect(pane.locator('[data-ui="sign-sentence"]')).toBeVisible();
-  await expect(pane.getByRole('region', { name: en.mix.order.title })).toBeHidden();
-  await check(page, 'apply-steps');
-  await fitsPane(page, 'change review');
-  await pane.locator('[data-action="order-continue"]').click();
-  // one step on the screen: the strip, the step in plain words, a button that names it
-  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText(en.order.flow.title.targets);
+  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText(en.order.flow.hero.targets);
   const targetsPress = pane.getByRole('button', { name: en.order.flow.press.targets });
   await expect(targetsPress).toBeVisible();
+  await expect(pane.getByRole('region', { name: en.mix.order.title })).toBeHidden();
   await check(page, 'apply-sign');
   await fitsPane(page, 'change step');
   await targetsPress.click();

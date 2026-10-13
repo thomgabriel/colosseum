@@ -279,11 +279,14 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
     await settle();
-    // The preview's weights are where the fields start; nothing is asked of the server yet.
-    expect(calls.filter((c) => c.url.endsWith('/targets'))).toEqual([]);
-    expect(find<HTMLInputElement>(host, '[data-ui="targets-lines"] input').value).toBe('40');
-    await click(find(host, '[data-action="targets-review"]'));
-    await settle();
+    // Applied, the preview's weights go straight to their review (gate SIGN-ONE-STEP): the draft
+    // gives its place to it, which says the change in a few words.
+    expect(
+      host.querySelector('[data-ui="vault-proposal"] [data-ui="change-review"]'),
+    ).not.toBeNull();
+    expect(find(host, '[data-ui="change-review"] [data-ui="sign-hero"]').textContent).toBe(
+      'More GLDx',
+    );
     const asked = calls.find((c) => c.url.endsWith('/targets'));
     expect(asked?.url).toBe(`/v1/vaults/solana/${read.vault.address}/targets`);
     expect(asked?.body).toMatchObject({
@@ -355,10 +358,14 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
     await settle();
+    // the review's way to the fields, which start at the preview's weights
+    await click(buttonNamed(host, en.order.flow.changeWeights));
+    await settle();
+    expect(find<HTMLInputElement>(host, '[data-ui="targets-lines"] input').value).toBe('40');
     await type(find<HTMLInputElement>(host, '[data-ui="targets-lines"] input'), '55');
     await click(find(host, '[data-action="targets-review"]'));
     await settle();
-    expect(calls.find((c) => c.url.endsWith('/targets'))?.body).toMatchObject({
+    expect(calls.filter((c) => c.url.endsWith('/targets')).at(-1)?.body).toMatchObject({
       origin: 'person',
       confirm: false,
       allocations: [
@@ -370,7 +377,7 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     expect(find(host, '[data-ui="mix-review-total"]').textContent).toContain('$100.00');
   });
 
-  /** The conversation with a preview shown, its editor opened and the review asked for. */
+  /** The conversation with a preview shown and applied: its review asked for. */
   const reviewing = async (targetsAnswer: (body: Call['body'], n: number) => Response) => {
     let n = 0;
     portStore.setApi(async (url, init) => {
@@ -387,8 +394,6 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     await click(find(host, '[data-ui="composer-send"]'));
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
-    await settle();
-    await click(find(host, '[data-action="targets-review"]'));
     await settle();
     return host;
   };
@@ -502,8 +507,6 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
     await settle();
-    await click(find(host, '[data-action="targets-review"]'));
-    await settle();
     await click(box(host));
     await click(find(host, '[data-action="mix-confirm"]'));
     await settle();
@@ -517,14 +520,16 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('apply');
     expect(router.push).not.toHaveBeenCalled();
-    // reviewed in the pane first (gate SIGN-ONE-STEP): the vault's targets now beside the new ones
+    // reviewed before its order was made (ChangeReview): the pane opens on the first step, whose
+    // button names it; the way back is the pane's own, and there is no second review
     const pane = find(host, '[data-ui="vault-action-pane"]');
-    expect(find(pane, '[data-ui="order-screen"]').dataset.stage).toBe('review');
-    const heads = [...pane.querySelectorAll('[data-ui="sign-picture"] thead th')].map(
-      (th) => th.textContent,
+    expect(find(pane, '[data-ui="order-screen"]').dataset.stage).toBe('steps');
+    expect(find(pane, '[data-ui="sign-step"] h3').textContent).toBe(en.order.flow.hero.targets);
+    expect(find(pane, '[data-ui="sign-step"] [data-variant="primary"]').textContent).toContain(
+      en.order.flow.press.targets,
     );
-    expect(heads.slice(1)).toEqual([en.order.flow.picture.now, en.order.flow.picture.next]);
-    expect(pane.querySelectorAll('[data-ui="sign-picture"] tbody tr').length).toBeGreaterThan(0);
+    expect(pane.querySelector('[data-action="order-back"]')).toBeNull();
+    expect(pane.querySelector('[data-action="leave-action"]')).not.toBeNull();
   });
 
   it('does not replace a deposit opened before its order answers', async () => {

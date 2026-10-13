@@ -1,5 +1,5 @@
 'use client';
-import type { ChainId, MixLine, MixOrigin, MixReview } from '@colosseum/schemas';
+import type { ChainId, MixLine, MixOrigin, MixReview, Target } from '@colosseum/schemas';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CardWait } from '../../components/shell/Wait';
@@ -12,8 +12,9 @@ import { onMock } from '../order/readiness';
 import { isVaultOf } from '../shared/chain-recipe';
 import type { SharedTerms } from '../shared/terms';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
+import { ChangeReview } from './ChangeReview';
 import { useFailureText } from './failure';
-import { MixReviewCard, useTicks } from './MixReviewCard';
+import { useTicks } from './MixReviewCard';
 import { acceptedOf } from './mix';
 import { applyVaultMix } from './mix-api';
 
@@ -29,12 +30,15 @@ export function ApplyVaultMix({
   origin,
   onBack,
   onOrder,
+  before = null,
 }: {
   chain: ChainId;
   vault: { address: string; owner: string; basketId: string };
   lines: readonly MixLine[];
   origin: MixOrigin;
   onBack: () => void;
+  /** The vault's targets as its page read them, for the review's before and after. */
+  before?: readonly Target[] | null;
   /** A host that shows the order's steps itself (the vault's own page): handed the order, no page is opened. */
   onOrder?: (orderId: string) => void;
 }) {
@@ -155,17 +159,17 @@ export function ApplyVaultMix({
     );
   return (
     <div data-ui="apply-vault-mix" className="flex flex-col gap-3">
-      <MixReviewCard
+      <ChangeReview
+        chain={chain}
         review={review}
+        before={before}
         ticked={ticked}
         onTick={tick}
-        confirmLabel={busy ? v.confirming : v.confirm}
         onConfirm={confirm}
         onBack={onBack}
         busy={busy}
         changed={changed}
       />
-      <p className="max-w-(--tf-measure-body) text-caption text-muted-foreground">{v.after}</p>
       {said}
     </div>
   );

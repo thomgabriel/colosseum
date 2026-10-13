@@ -2019,8 +2019,8 @@ export const en = {
     signs: {
       passkey: (n: number) =>
         n === 1
-          ? 'One press signs the one step with your passkey wallet. No other window opens.'
-          : `One press signs the ${n} steps with your passkey wallet, one after another. No other window opens, and you can stop between steps.`,
+          ? 'One press signs it with your passkey wallet.'
+          : `One press signs all ${n} steps with your passkey wallet.`,
       wallet: (n: number) =>
         n === 1
           ? 'Your wallet asks you to confirm the one step in its own window.'
@@ -2148,7 +2148,6 @@ export const en = {
       followDone:
         'Your vault follows the portfolio now, and has its weights as targets. What it holds hasn’t been traded yet.',
       followRebalance: 'Rebalance this vault',
-      resume: 'Continue',
       withdrawTitle: 'What you withdraw',
       /** One line of a withdraw step: what leaves, for the owner's own wallet. */
       withdraws: (amount: string) => `${amount} to your own wallet`,
@@ -2209,6 +2208,9 @@ export const en = {
     flow: {
       continue: 'Continue',
       details: 'Details',
+      /** Under a change's large line, before anything is made: what comes next. */
+      changeLead: 'Nothing is signed yet. Next you sign each step on its own.',
+      changeWeights: 'Change the weights',
       /** Before the first signature: back to what changes. */
       back: 'Back to the review',
       /** The progress strip's name, read by a screen reader. */
@@ -2254,6 +2256,27 @@ export const en = {
         withdraw: (what: string) => `Send ${what} to your own wallet`,
         publish: 'Publish your portfolio',
       },
+      /** The one large line of a screen: what the order or the step does, at a glance. */
+      hero: {
+        /** "$1,354 → GOOGLx": what goes in, and where it goes. */
+        arrow: (from: string, to: string) => `${from} → ${to}`,
+        yourVault: 'your vault',
+        yourWallet: 'your wallet',
+        cash: 'cash',
+        allow: (amount: string) => `Allow ${amount}`,
+        targets: 'New targets',
+        moreLess: (more: string, less: string) => `More ${more}, less ${less}`,
+        more: (more: string) => `More ${more}`,
+        less: (less: string) => `Less ${less}`,
+        rebalance: 'Back to your targets',
+        deposit: (amount: string) => `${amount} into your vault`,
+        withdraw: (what: string) => `${what} to your wallet`,
+        finish: 'Finish your deposit',
+      },
+      /** Small under a step's large line. */
+      note: {
+        least: (amount: string, pct: string) => `at least ${amount} · ${pct} under today’s price`,
+      },
       /** A button that signs names the action and the amount. */
       press: {
         of: (what: string) => `Sign: ${what}`,
@@ -2295,7 +2318,8 @@ export const en = {
         cash: 'Cash',
         amount: 'Amount',
         now: 'Now',
-        next: 'New',
+        next: 'After',
+        unchanged: 'unchanged',
         holdsNow: 'Holds now',
         target: 'Target',
         targets: 'Your vault’s targets',

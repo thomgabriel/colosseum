@@ -470,7 +470,7 @@ describe('the deposit signed in place on /goal', () => {
     const current = () => find(host, '[data-ui="sign-progress"] [aria-current="step"]').textContent;
     const step = () => find(host, '[data-ui="sign-step"] h3').textContent;
     expect(current()).toContain(en.order.flow.short.deposit);
-    expect(step()).toBe(en.order.flow.title.openDeposit('$10'));
+    expect(step()).toBe('$10 → your vault');
     // the amount is no longer changed, the box is inert and says why, and the deposit is kept
     expect(pane(host).textContent).not.toContain(en.mix.deposit.signing.change);
     expect(box(host).disabled).toBe(true);
@@ -488,7 +488,7 @@ describe('the deposit signed in place on /goal', () => {
       en.order.flow.title.openDeposit('$10'),
     );
     expect(current()).toContain(en.order.flow.short.swap);
-    expect(step()).toBe('Swap $6 of cash for SPYx');
+    expect(step()).toBe('$6 → SPYx');
     second.open();
     await settle();
     await settle();
