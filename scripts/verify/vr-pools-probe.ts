@@ -56,7 +56,7 @@ for (const [pool, what] of pools) {
     try {
       const tx = await rpc<{ meta: { preTokenBalances: unknown[] } } | null>('getTransaction', [
         oldest.signature,
-        { encoding: 'json', maxSupportedTransactionVersion: 0 },
+        { encoding: 'json', maxSupportedTransactionVersion: 1 },
       ]);
       oldestTx = tx ? `ok, ${tx.meta.preTokenBalances.length} token balances` : 'null';
     } catch (e) {

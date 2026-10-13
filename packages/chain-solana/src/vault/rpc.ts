@@ -57,6 +57,15 @@ export type VaultWriteRpc = Rpc<
     GetSignaturesForAddressApi
 >;
 
+/**
+ * The highest transaction version a `getTransaction` here accepts. Mainnet carries version-1
+ * transactions since October 2026, and a node refuses to return one to a client that asks with 0
+ * ("Transaction version (1) is not supported by the requesting client"). The reads here only take
+ * `meta` (logs, error) or the wire bytes, which a version-1 answer carries the same way. The kit's
+ * types know only `legacy` and 0, hence the cast; the node takes the number as it is.
+ */
+export const MAX_TX_VERSION = 1 as unknown as 0;
+
 export type RawAccount = { address: Address; owner: Address; lamports: bigint; data: Uint8Array };
 
 /** How long one call to the node may take before it counts as not answered. */
