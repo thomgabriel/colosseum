@@ -469,4 +469,79 @@ describe('private model-led vault reply route', () => {
     ).toBe(400);
     expect(s.model.read).not.toHaveBeenCalled();
   });
+  it('reads the followed portfolio for the reply, and answers a rebalance request itself', async () => {
+    const s = await setup();
+    const [first, second] = s.listed.filter((asset) => asset.cls !== 'cash');
+    if (!first || !second) throw new Error('listed fixture missing');
+    const recipeId = 'Fo11owedRecipe1111111111111111111';
+    const held = (asset: typeof first, targetBps: number) => ({
+      asset: asset.id,
+      raw: '0',
+      display: '0',
+      multiplier: '1',
+      targetBps,
+      lastKeeperAt: null,
+    });
+    s.read.mockImplementation(async () => ({
+      ...s.state,
+      recipeOnchainId: recipeId,
+      acceptedVersion: 2,
+      cash: { ...s.state.cash, raw: '1000000', display: '1' },
+      positions: [held(first, 6000), held(second, 4000)],
+    }));
+    const recipe = vi.spyOn(s.chains.get('solana').adapter, 'getRecipe').mockResolvedValue({
+      active: {
+        schemaVersion: 1,
+        familyId: 'a'.repeat(64),
+        chain: 'solana',
+        onchainId: recipeId,
+        creator: s.b.solana,
+        kind: 'community',
+        version: 2,
+        effectiveAt: 0,
+        components: [
+          { kind: 'asset', asset: first.id, weightBps: 6000 },
+          { kind: 'asset', asset: second.id, weightBps: 4000 },
+        ],
+        metaHash: 'b'.repeat(64),
+        maxFeeBps: 0,
+        flags: 0,
+      },
+      pending: null,
+    });
+    // The model is handed what the vault follows; the family's name is not held here (no database).
+    expect((await s.post()).statusCode).toBe(200);
+    expect(recipe).toHaveBeenCalledWith(recipeId);
+    const prompt = vi.mocked(s.model.read).mock.calls[0]?.[1];
+    expect(prompt?.facts?.follows).toMatchObject({
+      name: null,
+      acceptedVersion: 'version 2',
+      newerVersion: false,
+      lines: [
+        { assetId: first.id, weight: `recipe:${first.id}:weight` },
+        { assetId: second.id, weight: `recipe:${second.id}:weight` },
+      ],
+    });
+    expect(prompt?.facts?.targets.origin).toBe('followed_portfolio');
+    expect(prompt?.facts?.autoFollow.offeredOnThisServer).toBe(
+      s.chains.get('solana').adapter.capabilities.autoFollow,
+    );
+    // "Match the targets" is answered by the server: no second model call, no draft.
+    const res = await s.post(s.a, s.path, {
+      ...s.body,
+      messages: [{ who: 'person', text: 'match the targets' }],
+    });
+    expect(res.statusCode).toBe(200);
+    expect(vi.mocked(s.model.read)).toHaveBeenCalledTimes(1);
+    expect(res.json()).toMatchObject({ proposal: null, question: null });
+    // The page has no rebalance action until its route lands: no control is named.
+    expect(res.json().message).not.toMatch(/Rebalance|button|page/u);
+    expect(res.json().message).toContain('not available from this conversation yet');
+    // A portfolio that cannot be read costs the reply nothing: the model is told it is unknown.
+    recipe.mockRejectedValue(new Error('rpc down'));
+    expect((await s.post()).statusCode).toBe(200);
+    const blind = vi.mocked(s.model.read).mock.calls.at(-1)?.[1];
+    expect(blind?.facts?.follows).toMatchObject({ lines: null, activeVersion: null });
+    expect(blind?.unknowns.join(' ')).toMatch(/could not be read/u);
+  });
 });
