@@ -286,12 +286,15 @@ export function VaultAction({
                 ? words.signTitle
                 : words.title}
         </h2>
-        {!done && (
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
-            {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
-          </p>
-        )}
+        {/* the amount card says what a deposit and a withdrawal do: no line over it (gate AMOUNT-CARD),
+            only one that says the pane was taken up again or finishes another */}
+        {!done &&
+          (finishes || open.resumed || !(open.kind === 'deposit' || open.kind === 'withdraw')) && (
+            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+              {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
+              {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
+            </p>
+          )}
       </header>
       {/* The end, over the steps: the one way on is not under a long card. How it ended is the order's
           own sentence, below, which never says plainly done of a step that was skipped or a token that

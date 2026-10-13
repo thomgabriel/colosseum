@@ -260,14 +260,15 @@ describe('the amount card on a deposit', () => {
     expect(host.querySelector('button[data-action="amount-change"]')).toBeNull();
   });
 
-  it('folds the details: least and most, slippage, the network fee with its pin, and where it was read', async () => {
+  it('sets the details as labelled figures: least and most, slippage, the network fee with its pin, and where it was read', async () => {
     api();
     const host = await mount(
       inLanguage('en', deposit({ source: createElement('span', { 'data-ui': 'src' }, 'read') })),
     );
     await settle(10);
-    const details = find<HTMLDetailsElement>(host, '[data-ui="amount-details"]');
-    expect(details.open).toBe(false);
+    const details = find(host, '[data-ui="amount-details"]');
+    // in sight, as the portfolio board sets its figures: a label over each
+    expect(details.querySelectorAll('dt').length).toBeGreaterThanOrEqual(4);
     const text = details.textContent ?? '';
     expect(text).toContain(en.amount.details.least);
     expect(text).toContain('$10');

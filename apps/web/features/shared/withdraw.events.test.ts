@@ -165,8 +165,16 @@ const choose = async (host: HTMLElement) =>
   click(find(host, 'button[data-action="withdraw-pick"]'));
 const pick = (host: HTMLElement, asset: string) =>
   find(host, `[data-ui="withdraw-picks"] li[data-asset="${asset}"]`);
+/** Each token that leaves, by the amount in its row of the table. */
 const tokens = (host: HTMLElement) =>
-  [...gets(host).querySelectorAll('[data-ui="withdraw-tokens"] li')].map((li) => li.textContent);
+  [...gets(host).querySelectorAll('[data-ui="withdraw-tokens"] tbody tr')].map(
+    (tr) => tr.querySelector('td:last-child')?.textContent,
+  );
+/** Each holding sold, as its row reads: the holding, the amount sold, the cost to sell. */
+const sales = (host: HTMLElement) =>
+  [...gets(host).querySelectorAll('[data-ui="withdraw-sales"] tbody tr')].map((tr) =>
+    [...tr.querySelectorAll('th, td')].map((cell) => cell.textContent).join(' | '),
+  );
 
 /** The press, and the answer it waits for. */
 async function through(host: HTMLElement) {
@@ -808,8 +816,7 @@ describe('the withdraw screen, in dollars', () => {
     const host = await show();
     await click(way(host, 'dollars'));
     await click(chip(host, en.amount.out.max));
-    const sales = [...gets(host).querySelectorAll('[data-ui="withdraw-sales"] li')];
-    expect(sales.map((li) => li.textContent)).toEqual([`2.5 SPYx${w.check.dollars.notMeasured}`]);
+    expect(sales(host)).toEqual([`SPYx | 2.5 SPYx | ${w.check.dollars.notMeasured}`]);
     expect(find(gets(host), '[data-ui="withdraw-cash"]').textContent).toBe(
       w.check.dollars.cash('600 USDC'),
     );
@@ -848,9 +855,7 @@ describe('the withdraw screen, in dollars', () => {
     await click(way(host, 'dollars'));
     // $333.30 of $1,000: 33.33% of each
     await type(field(host), '333.3');
-    expect(
-      [...gets(host).querySelectorAll('[data-ui="withdraw-sales"] li')].map((li) => li.textContent),
-    ).toEqual([`0.83325 SPYx${w.check.dollars.notMeasured}`]);
+    expect(sales(host)).toEqual([`SPYx | 0.83325 SPYx | ${w.check.dollars.notMeasured}`]);
     expect(find(gets(host), '[data-ui="withdraw-cash"]').textContent).toBe(
       w.check.dollars.cash('199.98 USDC'),
     );
@@ -928,7 +933,7 @@ describe('the withdraw screen, in dollars', () => {
     await click(way(host, 'dollars'));
     await settle();
     await click(chip(host, en.amount.out.max));
-    const sale = find(gets(host), '[data-ui="withdraw-sales"] li');
+    const sale = find(gets(host), '[data-ui="withdraw-sales"] tbody tr');
     expect(sale.textContent).toContain(w.check.dollars.costBps('12.5'));
     expect(sale.textContent).not.toContain(w.check.dollars.notMeasured);
     expect(details(host).textContent).toContain(w.check.dollars.costNote);
@@ -940,7 +945,7 @@ describe('the withdraw screen, in dollars', () => {
     await click(way(bare, 'dollars'));
     await settle();
     await click(chip(bare, en.amount.out.max));
-    expect(find(gets(bare), '[data-ui="withdraw-sales"] li').textContent).toContain(
+    expect(find(gets(bare), '[data-ui="withdraw-sales"] tbody tr').textContent).toContain(
       w.check.dollars.notMeasured,
     );
   });

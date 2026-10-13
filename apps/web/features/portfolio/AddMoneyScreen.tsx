@@ -277,7 +277,7 @@ export function AddMoneyScreen({
     />
   );
 
-  // Where the vault's targets were read: over the card, never folded, before the press and after it.
+  // Where the vault's targets were read: on the card, never folded; over its button while it is wrong.
   const sourceLine = owner && (
     <p
       data-ui="source-mark"
@@ -323,6 +323,7 @@ export function AddMoneyScreen({
         options: [
           {
             value: vault.address,
+            title: vault.address,
             // its name, "Vault #N", or "Your vault": the vault's one name wherever it is said
             label: vaultTitle(
               vault,
@@ -335,12 +336,18 @@ export function AddMoneyScreen({
       {...(embedded?.entry?.onMode ? { onMode: embedded.entry.onMode } : {})}
       blocked={blocked}
       notice={
-        vault.pending && (
-          <p data-ui="add-newer-version" className="max-w-(--tf-measure-body) text-body-sm">
-            {words.newerVersion(vault.pending.version)}
-          </p>
-        )
+        <>
+          {/* wrong or not read: over the button, never folded */}
+          {alarm && sourceLine}
+          {vault.pending && (
+            <p data-ui="add-newer-version" className="max-w-(--tf-measure-body) text-body-sm">
+              {words.newerVersion(vault.pending.version)}
+            </p>
+          )}
+        </>
       }
+      // read, or said to be our server's word: a quiet line at the card's foot, with its mark
+      foot={alarm ? undefined : sourceLine}
       running={locked}
       pressed={embedded?.entry?.pressed ?? null}
       fact={embedded?.entry?.fact ?? true}
@@ -393,7 +400,6 @@ export function AddMoneyScreen({
     return (
       <div data-ui="vault-invest" className="flex flex-col gap-3">
         {!embedded.bare && <PlanParts vault={vault} />}
-        {sourceLine}
         {entry}
       </div>
     );
@@ -439,7 +445,6 @@ export function AddMoneyScreen({
           <h2 className="text-h3">{words.strategy}</h2>
           <div className="flex max-w-3xl flex-col gap-3">
             <PlanParts vault={vault} />
-            {sourceLine}
             {held?.keeper && (
               <p data-ui="add-keeper" className="max-w-(--tf-measure-body) text-body-sm">
                 {words.keeper}

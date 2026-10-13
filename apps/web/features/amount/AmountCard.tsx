@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
+import { Hint } from '../../components/ui/Hint';
 import { Icon } from '../../components/ui/Icon';
 import { useT } from '../../i18n/I18nProvider';
 import { acceptTrust, trustAccepted } from '../order/order-record';
@@ -29,7 +30,8 @@ export type AmountMode = 'deposit' | 'withdraw';
 /** How long the amount has to be still before what is wrong with it is said. */
 export const SETTLE_MS = 500;
 
-export type IntoOption = { value: string; label: string };
+/** `title`: what a pointer resting on it shows, such as the vault's address under its name. */
+export type IntoOption = { value: string; label: string; title?: string };
 
 export type { AmountBalance, AmountChip } from './AmountWell';
 
@@ -72,7 +74,15 @@ export type AmountCardProps = {
   /** What the deposit leads to or what the withdrawal pays: "Your vault will hold", "You get". */
   preview?: { title: string; body: ReactNode } | null;
   /** The compact details, folded. */
-  details?: readonly { term: string; value: ReactNode }[];
+  /**
+   * The labelled figures, in sight as a grid (label over figure, as the portfolio board sets them).
+   * `wide` takes a whole row (an address).
+   */
+  details?: readonly { term: string; value: ReactNode; wide?: boolean }[];
+  /** What the details do not say as figures, in words, behind one fold. */
+  more?: { label: string; body: ReactNode } | null;
+  /** A quiet line under the button: where what the card is held to was read. */
+  foot?: ReactNode;
   /** Said over the button and never folded: a read that failed, a vault that differs. */
   notice?: ReactNode;
   /** The trust notice, where this action needs it: a deposit. Left out: none. */
@@ -111,6 +121,8 @@ export function AmountCard({
   choice,
   preview,
   details,
+  more,
+  foot,
   notice,
   trust,
   action,
@@ -177,7 +189,7 @@ export function AmountCard({
       aria-labelledby={titleId}
       mock={sample}
       mockLabels={{ announce: t.shell.mockAnnounce }}
-      className={cn('mx-auto w-full max-w-[30rem]', className)}
+      className={cn('mx-auto w-full max-w-[32.5rem]', className)}
     >
       <CardBody className="flex flex-col gap-4">
         <div data-ui="amount-card" data-mode={mode} className="flex min-w-0 flex-col gap-4">
@@ -262,9 +274,7 @@ export function AmountCard({
                     />
                   </span>
                 ) : (
-                  <span className="min-w-0 truncate text-body-sm font-medium">
-                    {into.options.find((o) => o.value === into.value)?.label ?? into.value}
-                  </span>
+                  <IntoValue option={into.options.find((o) => o.value === into.value)} />
                 )}
               </div>
               {into.hint && (
@@ -300,24 +310,38 @@ export function AmountCard({
           )}
 
           {details && details.length > 0 && (
-            <details data-ui="amount-details" className="group border-t border-border pt-3">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-body-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                <span className="font-medium">{a.details.summary}</span>
-                <Icon
-                  name="ChevronDown"
-                  size={16}
-                  className="transition-transform group-open:rotate-180"
-                />
-              </summary>
-              <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-body-sm">
+            <section
+              data-ui="amount-details"
+              aria-label={a.details.summary}
+              className="border-t border-border pt-4"
+            >
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {details.map((d) => (
-                  <div key={d.term} className="contents">
-                    <dt className="text-muted-foreground">{d.term}</dt>
-                    <dd className="min-w-0 text-right [overflow-wrap:anywhere]">{d.value}</dd>
+                  <div
+                    key={d.term}
+                    className={cn('flex min-w-0 flex-col gap-0.5', d.wide && 'col-span-2')}
+                  >
+                    <dt className="text-body-sm text-muted-foreground">{d.term}</dt>
+                    <dd className="min-w-0 text-body-sm font-medium tabular-nums [overflow-wrap:anywhere]">
+                      {d.value}
+                    </dd>
                   </div>
                 ))}
               </dl>
-            </details>
+              {more && (
+                <details data-ui="amount-more" className="group mt-3">
+                  <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-sm text-body-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                    {more.label}
+                    <Icon
+                      name="ChevronDown"
+                      size={16}
+                      className="transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="mt-2 text-body-sm">{more.body}</div>
+                </details>
+              )}
+            </section>
           )}
 
           {notice}
@@ -391,9 +415,27 @@ export function AmountCard({
                 ))}
               </ul>
             )}
+            {foot && (
+              <div data-ui="amount-foot" className="pt-1 text-body-sm">
+                {foot}
+              </div>
+            )}
           </div>
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+/** The one place money goes or comes from, by name, with what lies under the name on hover. */
+function IntoValue({ option }: { option: IntoOption | undefined }) {
+  if (!option) return null;
+  const name = <span className="min-w-0 truncate text-body-sm font-medium">{option.label}</span>;
+  return option.title ? (
+    <Hint tip={<span className="font-mono text-source break-all">{option.title}</span>}>
+      {name}
+    </Hint>
+  ) : (
+    name
   );
 }

@@ -2,6 +2,7 @@
 import { type ChainId, ORDER_LIMITS, type Provenance, type Target } from '@colosseum/schemas';
 import { type ReactNode, useState } from 'react';
 import { Button } from '../../components/ui/Button';
+import { DataTable } from '../../components/ui/DataTable';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -53,6 +54,8 @@ export type DepositCardProps = {
   notice?: ReactNode;
   /** Where what is deposited into was read, in the details. */
   source?: ReactNode;
+  /** A quiet line under the button, and under the order once pressed: where the vault was read. */
+  foot?: ReactNode;
   /** The amount the card opens with, as typed. */
   initialText?: string;
   /**
@@ -97,6 +100,7 @@ export function DepositCard({
   blocked,
   notice,
   source,
+  foot,
   initialText = '',
   entry,
   running,
@@ -169,6 +173,7 @@ export function DepositCard({
             )}
           </p>
         )}
+        {foot}
         {flow(pressed, (next) => {
           setText(maxText(next, lang));
           press(next);
@@ -190,6 +195,7 @@ export function DepositCard({
             : []),
         ]
       : [];
+  // What the vault will hold at this amount, as a table: the asset, its weight, and its dollars.
   const preview =
     keeperInvests || lines.length > 0
       ? {
@@ -197,20 +203,40 @@ export function DepositCard({
           body: keeperInvests ? (
             <p className="text-body-sm">{a.preview.keeper}</p>
           ) : (
-            <ul data-ui="deposit-holds" className="flex flex-col gap-1.5">
-              {lines.map((line) => (
-                <li key={line.asset} className="flex min-w-0 items-center gap-2 text-body-sm">
-                  <AssetMark asset={line.asset} className="size-5" />
-                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{line.name}</span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {formatBps(line.weightBps, locale)}
-                  </span>
-                  <span className="w-24 text-right font-medium tabular-nums">
-                    {amount !== null ? dollars((amount * line.weightBps) / 10_000, lang) : '—'}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <DataTable
+              className="w-full min-w-0"
+              caption={a.preview.deposit}
+              captionHidden
+              dense
+              rows={lines}
+              rowKey={(line) => line.asset}
+              columns={[
+                {
+                  key: 'asset',
+                  header: a.preview.asset,
+                  rowHeader: true,
+                  cell: (line) => (
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <AssetMark asset={line.asset} className="size-5" />
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{line.name}</span>
+                    </span>
+                  ),
+                },
+                {
+                  key: 'weight',
+                  header: a.preview.weight,
+                  numeric: true,
+                  cell: (line) => formatBps(line.weightBps, locale),
+                },
+                {
+                  key: 'amount',
+                  header: a.preview.amount,
+                  numeric: true,
+                  cell: (line) =>
+                    amount !== null ? dollars((amount * line.weightBps) / 10_000, lang) : '—',
+                },
+              ]}
+            />
           ),
         }
       : null;
@@ -244,7 +270,7 @@ export function DepositCard({
           },
         ]
       : []),
-    ...(source ? [{ term: a.details.source, value: source }] : []),
+    ...(source ? [{ term: a.details.source, value: source, wide: true }] : []),
   ];
 
   const balanceFigure = read
@@ -290,6 +316,7 @@ export function DepositCard({
       preview={preview}
       details={details}
       notice={notice}
+      foot={foot}
       trust={{
         userId,
         keeper,

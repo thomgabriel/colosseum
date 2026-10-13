@@ -305,7 +305,6 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
     .locator('[data-ui="amount-chips"]')
     .getByRole('button', { name: en.amount.out.max })
     .click();
-  await pane.locator('[data-ui="amount-details"] > summary').click();
   await expect(pane.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
   await pane.getByRole('button', { name: en.amount.press.withdrawAll }).click();
   await expect(title).toHaveText(p.panes.withdraw.signTitle);

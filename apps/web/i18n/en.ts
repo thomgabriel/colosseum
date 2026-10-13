@@ -2092,6 +2092,9 @@ export const en = {
     },
     preview: {
       deposit: 'Your vault will hold',
+      asset: 'Asset',
+      weight: 'Weight',
+      amount: 'Amount',
       add: 'Your deposit goes into',
       withdraw: 'You get',
       cash: 'Cash',
@@ -2109,10 +2112,9 @@ export const en = {
       least: 'Least',
       most: 'Most',
       slippage: 'Slippage',
-      slippageValue: (most: string) =>
-        `At most ${most} a trade. Each step states the least it may receive.`,
+      slippageValue: (most: string) => `At most ${most} a trade`,
       fee: 'Network fee',
-      feeValue: (amount: string) => `Up to ${amount}, paid from your wallet`,
+      feeValue: (amount: string) => `Up to ${amount}`,
       source: 'Read from',
       to: 'To',
     },

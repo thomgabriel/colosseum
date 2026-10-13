@@ -1874,6 +1874,9 @@ export const pt: Dictionary = {
     },
     preview: {
       deposit: 'Seu cofre vai ter',
+      asset: 'Ativo',
+      weight: 'Peso',
+      amount: 'Valor',
       add: 'Seu depósito vai para',
       withdraw: 'Você recebe',
       cash: 'Dinheiro',
@@ -1892,10 +1895,9 @@ export const pt: Dictionary = {
       least: 'Mínimo',
       most: 'Máximo',
       slippage: 'Variação de preço',
-      slippageValue: (most: string) =>
-        `No máximo ${most} por troca. Cada etapa informa o mínimo que pode receber.`,
+      slippageValue: (most: string) => `No máximo ${most} por troca`,
       fee: 'Taxa da rede',
-      feeValue: (amount: string) => `Até ${amount}, paga pela sua carteira`,
+      feeValue: (amount: string) => `Até ${amount}`,
       source: 'Lido de',
       to: 'Para',
     },
