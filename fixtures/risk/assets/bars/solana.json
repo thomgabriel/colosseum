@@ -1,0 +1,179 @@
+{
+  "about": "Real rows of Step 5b's history (data/risk/history-full, history-full-0.1) for one hour of two NVDAx pools, each row cut to the pool's own swap events, and each pool's hourly row (history-replay-0.1) for that hour. Frozen for tests/risk-layer/assets-bars.test.ts.",
+  "hour": "2026-09-05T06:00:00.000Z",
+  "pools": [
+    {
+      "meta": {
+        "address": "38rXq2BuwdNcfnwydw6S2srpNK9N4gVzf39f69suPMsF",
+        "assetMint": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+        "assetSymbol": "NVDAx",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "assetIsToken0": false,
+        "decimals0": 9,
+        "decimals1": 8
+      },
+      "hourly": {
+        "hour": "2026-09-05T06:00:00.000Z",
+        "regime": "weekend",
+        "quoteUsd": 101.9639,
+        "quoteUsdMethod": "implied_from_49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+        "provenance": "live"
+      },
+      "rows": [
+        {
+          "s": "5dFB53svW9oK8t4J3RWcGHTNPNC4p44h5572yLBo6gJTbhfbQSsE1GjnAVS7aFnKrjvrevo23bp2vghncVLbfTqK",
+          "q": 3812281,
+          "sl": 444454827,
+          "t": 1788590996,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "38rXq2BuwdNcfnwydw6S2srpNK9N4gVzf39f69suPMsF",
+              "ixIndex": 5,
+              "amount0": "1957043831",
+              "amount1": "86752841",
+              "zeroForOne": false,
+              "sqrtPriceX64": "3880079371461072557",
+              "liquidity": "727345411914",
+              "tick": -31183
+            }
+          ]
+        },
+        {
+          "s": "3WbNXg4AW2yEV3fGDqtoLJUb6Jh1var88NzPqjqXKdzr1sUYE3h8TGfLxsoGNrngkAyf2W1fxCCcvU4Ab1wXJfBj",
+          "q": 3812280,
+          "sl": 444456507,
+          "t": 1788591524,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "38rXq2BuwdNcfnwydw6S2srpNK9N4gVzf39f69suPMsF",
+              "ixIndex": 10,
+              "amount0": "157590807",
+              "amount1": "6990039",
+              "zeroForOne": false,
+              "sqrtPriceX64": "3880256207779954876",
+              "liquidity": "727345411914",
+              "tick": -31182
+            }
+          ]
+        },
+        {
+          "s": "3psRF5g1RnrsDjDKoGyf9Lao5L5LaXW3xuML7377nWFFR7wnSKZKqgPfbh2sUzcg8Loh3Y6EVuzF5wPw2vkvL25M",
+          "q": 3812285,
+          "sl": 444445836,
+          "t": 1788588166,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "38rXq2BuwdNcfnwydw6S2srpNK9N4gVzf39f69suPMsF",
+              "ixIndex": 4,
+              "amount0": "42579883",
+              "amount1": "1886413",
+              "zeroForOne": false,
+              "sqrtPriceX64": "3877884669130856961",
+              "liquidity": "727345411914",
+              "tick": -31194
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "meta": {
+        "address": "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+        "assetMint": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+        "assetSymbol": "NVDAx",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "assetIsToken0": true,
+        "decimals0": 8,
+        "decimals1": 6
+      },
+      "hourly": {
+        "hour": "2026-09-05T06:00:00.000Z",
+        "regime": "weekend",
+        "quoteUsd": 1,
+        "quoteUsdMethod": "usdc_at_par",
+        "provenance": "live"
+      },
+      "rows": [
+        {
+          "s": "4FrcDpY2DEnuAs5kXgnVoM7U73qRZnC1Q21kRq5uvuZuer3ym9UTJgf9gbzM3VB8pUF4wTxJCgXH7WQQuuL4Gvvk",
+          "q": 2726839,
+          "sl": 444453711,
+          "t": 1788590642,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+              "ixIndex": 6,
+              "amount0": "254970",
+              "amount1": "587706",
+              "zeroForOne": true,
+              "sqrtPriceX64": "28020287781670029524",
+              "liquidity": "3712104429739",
+              "tick": 8361
+            }
+          ]
+        },
+        {
+          "s": "4mACPmSve35ddkVEWc8ZZNQUBWfHPEeWQRJVoZjV5uJbYoE8XLpHEeHeeBTawvbLMTyCKTnDP37AedvgnqRkrgWe",
+          "q": 2726841,
+          "sl": 444448827,
+          "t": 1788589103,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+              "ixIndex": 3,
+              "amount0": "2546122",
+              "amount1": "5868821",
+              "zeroForOne": true,
+              "sqrtPriceX64": "28020292639419499929",
+              "liquidity": "3712104429739",
+              "tick": 8361
+            }
+          ]
+        },
+        {
+          "s": "2CT5h8AJwpMwmNPWfepuXf4ee9tYqreDxMPnTyaPRXEjkLgwvzdcsFs4UXeHXAEk2mDU1KJKv8AxJfoDZJhHL1NN",
+          "q": 2726840,
+          "sl": 444451705,
+          "t": 1788590009,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+              "ixIndex": 6,
+              "amount0": "169127",
+              "amount1": "389836",
+              "zeroForOne": true,
+              "sqrtPriceX64": "28020290702187719644",
+              "liquidity": "3712104429739",
+              "tick": 8361
+            }
+          ]
+        },
+        {
+          "s": "5zcX8YM1H2cofxLmgoFrwwUVcd2Tn3FpzvFoDpsfvbmhVpjcSA8WY4PLYwB2cTHf617pTPWYbsSorgKGw9iAR62i",
+          "q": 2726837,
+          "sl": 444454324,
+          "t": 1788590836,
+          "ev": [
+            {
+              "kind": "swap",
+              "pool": "49iMatQtoyabsYAQc8GafVq6aeBFVDxSRH44oiatyyw6",
+              "ixIndex": 6,
+              "amount0": "555123",
+              "amount1": "1279557",
+              "zeroForOne": true,
+              "sqrtPriceX64": "28020281423103798603",
+              "liquidity": "3712104429739",
+              "tick": 8361
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "about": "Real Swap events of RU.14's walk (history-evm-0.1) for one hour of each of four pools, with the hour's row the flow import wrote (hourly/<pool>.jsonl: quoteUsd and its method), the pool as the cut gives it and its decimals as the issuer registry gives them. Frozen for tests/risk-layer/assets-bars.test.ts.",
+  "universe": "universe-robinhood-20261005T1805.json",
+  "cut": "cut-robinhood-20261005T1947.json",
+  "pools": [
+    {
+      "why": "v4 pool against USDG with a swap that logged nothing going in",
+      "hour": "2026-09-22T22:00:00.000Z",
+      "pool": {
+        "address": "0x98dbe86895a576f964c039c9e35c50a24f02de508e308207ec38efbe8b63f35e",
+        "kind": "v4",
+        "asset": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+        "symbol": "NVDA",
+        "venue": "uniswap-v4",
+        "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "otherSymbol": "USDG",
+        "otherIsStock": false,
+        "tvlUsd": 1954.5288634075166,
+        "reachable": false,
+        "assetIsToken0": false
+      },
+      "decimals": {
+        "decimals0": 6,
+        "decimals1": 18
+      },
+      "assetDecimals": 18,
+      "hourly": {
+        "quoteUsd": 1,
+        "quoteUsdMethod": "usdg_at_par"
+      },
+      "swaps": [
+        {
+          "pool": "0x98dbe86895a576f964c039c9e35c50a24f02de508e308207ec38efbe8b63f35e",
+          "kind": "v4",
+          "block": 70005016,
+          "logIndex": 10,
+          "tx": "0xd7a03900bd5be145b9c7b1ee483e05140f87bf341319e8d9278c96fd6f8171fe",
+          "t": 1790115295,
+          "amount0": "-281728",
+          "amount1": "1231539033826186",
+          "sqrtPriceX96": "5245452300442115901277722475356448",
+          "liquidity": "130395223668315078",
+          "tick": 222021,
+          "fee": 2733,
+          "sender": "0x6aa80dbbed9ae5ab45fbf61f9644fada3b29326e"
+        },
+        {
+          "pool": "0x98dbe86895a576f964c039c9e35c50a24f02de508e308207ec38efbe8b63f35e",
+          "kind": "v4",
+          "block": 70006901,
+          "logIndex": 30,
+          "tx": "0x11f421111e81d4e6d1b0d8de094be3b88c38f476e011151b2a042d443408ace7",
+          "t": 1790115484,
+          "amount0": "0",
+          "amount1": "0",
+          "sqrtPriceX96": "5242301885953135653096389374475541",
+          "liquidity": "0",
+          "tick": 222009,
+          "fee": 2165,
+          "sender": "0xe2f57f59c42406fb8005524cba3bf4d9177ac4fa"
+        }
+      ]
+    },
+    {
+      "why": "v4 pool whose quote's decimals the issuer registry does not give",
+      "hour": "2026-09-19T01:00:00.000Z",
+      "pool": {
+        "address": "0x70acec10bf24e34d490f4562e642bf1dd389378344e98b1f49a2d4f171490c23",
+        "kind": "v4",
+        "asset": "0xec262a75e413fAfD0dF80480274532C79D42da09",
+        "symbol": "MSTR",
+        "venue": "uniswap-v4",
+        "other": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+        "otherSymbol": null,
+        "otherIsStock": false,
+        "tvlUsd": 362973.4198733303,
+        "reachable": true,
+        "assetIsToken0": false
+      },
+      "decimals": null,
+      "assetDecimals": 18,
+      "hourly": {
+        "quoteUsd": null,
+        "quoteUsdMethod": null
+      },
+      "swaps": [
+        {
+          "pool": "0x70acec10bf24e34d490f4562e642bf1dd389378344e98b1f49a2d4f171490c23",
+          "kind": "v4",
+          "block": 66695187,
+          "logIndex": 55,
+          "tx": "0x4497bd06041ac539bd83b9e85d369cffec4c37e63fbd3bd8fa5fec8c8e9b8e48",
+          "t": 1789781863,
+          "amount0": "-19110",
+          "amount1": "100499254397397920",
+          "sqrtPriceX96": "181827536550155293050287889401138666",
+          "liquidity": "43775161665838",
+          "tick": 292939,
+          "fee": 2500,
+          "sender": "0x6aa80dbbed9ae5ab45fbf61f9644fada3b29326e"
+        },
+        {
+          "pool": "0x70acec10bf24e34d490f4562e642bf1dd389378344e98b1f49a2d4f171490c23",
+          "kind": "v4",
+          "block": 66708214,
+          "logIndex": 12,
+          "tx": "0xa7a4f01443118aeaf9c0819412886b6ced73a5bc42c6fc81564af7db4c71b19a",
+          "t": 1789783175,
+          "amount0": "-24473",
+          "amount1": "128407462421842248",
+          "sqrtPriceX96": "181595133358170250845989623555958330",
+          "liquidity": "43775161665838",
+          "tick": 292913,
+          "fee": 2500,
+          "sender": "0x36dc95f1f088e11c0066dc19173f745655002bc2"
+        }
+      ]
+    },
+    {
+      "why": "SPY against USDG, the same hour as SPY's NVDA-quoted pool",
+      "hour": "2026-09-06T02:00:00.000Z",
+      "pool": {
+        "address": "0xcb410a0728986ba05737420556d5fe128ffd6739823cc92fc745d37bad4b313f",
+        "kind": "v4",
+        "asset": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+        "symbol": "SPY",
+        "venue": "uniswap-v4",
+        "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "otherSymbol": "USDG",
+        "otherIsStock": false,
+        "tvlUsd": 1330.3141775904962,
+        "reachable": false,
+        "assetIsToken0": true
+      },
+      "decimals": {
+        "decimals0": 18,
+        "decimals1": 6
+      },
+      "assetDecimals": 18,
+      "hourly": {
+        "quoteUsd": 1,
+        "quoteUsdMethod": "usdg_at_par"
+      },
+      "swaps": [
+        {
+          "pool": "0xcb410a0728986ba05737420556d5fe128ffd6739823cc92fc745d37bad4b313f",
+          "kind": "v4",
+          "block": 55631478,
+          "logIndex": 122,
+          "tx": "0xda79a1932cacec2b73bc8ddbf3789b7a7d015a8f63cac72870cb7fa630010ed0",
+          "t": 1788662805,
+          "amount0": "-18037127844807336",
+          "amount1": "13956470",
+          "sqrtPriceX96": "2203877647511119489038302",
+          "liquidity": "8713320513777650",
+          "tick": -209808,
+          "fee": 75,
+          "sender": "0x39b38686a19836ac10162c490e4558e120cbbe5f"
+        }
+      ]
+    },
+    {
+      "why": "SPY against NVDA: the quote priced from NVDA’s own dollar pool that hour",
+      "hour": "2026-09-06T02:00:00.000Z",
+      "pool": {
+        "address": "0xbc732a1a0baabce2574ec2bca24fccad8e2c38a061a37cefc17a2fd12809394f",
+        "kind": "v4",
+        "asset": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+        "symbol": "SPY",
+        "venue": "uniswap-v4",
+        "other": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+        "otherSymbol": "NVDA",
+        "otherIsStock": true,
+        "tvlUsd": 540836.7099735829,
+        "reachable": true,
+        "assetIsToken0": true
+      },
+      "decimals": {
+        "decimals0": 18,
+        "decimals1": 18
+      },
+      "assetDecimals": 18,
+      "hourly": {
+        "quoteUsd": 231.3159285985732,
+        "quoteUsdMethod": "implied_from_0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3"
+      },
+      "swaps": [
+        {
+          "pool": "0xbc732a1a0baabce2574ec2bca24fccad8e2c38a061a37cefc17a2fd12809394f",
+          "kind": "v4",
+          "block": 55631438,
+          "logIndex": 152,
+          "tx": "0x3e981809cc2b02bf82d3c139af06f0f0fa1785d62d7fa908abb7af2c10dae2d6",
+          "t": 1788662801,
+          "amount0": "-203310288782991301",
+          "amount1": "679530850491819647",
+          "sqrtPriceX96": "144890138700119682483058691460",
+          "liquidity": "56598832776754664324833",
+          "tick": 12073,
+          "fee": 625,
+          "sender": "0x8876789976decbfcbbbe364623c63652db8c0904"
+        },
+        {
+          "pool": "0xbc732a1a0baabce2574ec2bca24fccad8e2c38a061a37cefc17a2fd12809394f",
+          "kind": "v4",
+          "block": 55637197,
+          "logIndex": 61,
+          "tx": "0xe5025b4f93d4bbdd245bd3f4fb5a1eeed1a1230e55415f49d47ab0d88deca46a",
+          "t": 1788663382,
+          "amount0": "38254947585098817",
+          "amount1": "-128020097738143330",
+          "sqrtPriceX96": "144890317328182202846835227907",
+          "liquidity": "56746166965457215205526",
+          "tick": 12073,
+          "fee": 625,
+          "sender": "0x39b38686a19836ac10162c490e4558e120cbbe5f"
+        },
+        {
+          "pool": "0xbc732a1a0baabce2574ec2bca24fccad8e2c38a061a37cefc17a2fd12809394f",
+          "kind": "v4",
+          "block": 55637569,
+          "logIndex": 67,
+          "tx": "0xcc28dbd560a6d1a3c226a147d571e65c8db62895584aa5c42c65c3749d8dab49",
+          "t": 1788663419,
+          "amount0": "2209932385420494453",
+          "amount1": "-7396069720726328001",
+          "sqrtPriceX96": "144900637157863798530460890318",
+          "liquidity": "56746166965457215205526",
+          "tick": 12074,
+          "fee": 625,
+          "sender": "0x8876789976decbfcbbbe364623c63652db8c0904"
+        }
+      ]
+    }
+  ]
+}
