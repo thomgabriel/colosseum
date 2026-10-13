@@ -137,7 +137,7 @@ export async function blockAnchors(
       try {
         const b = await rpc<{ blockTime: number | null; signatures?: string[] }>('getBlock', [
           guess + k,
-          { transactionDetails: 'signatures', rewards: false, maxSupportedTransactionVersion: 0 },
+          { transactionDetails: 'signatures', rewards: false, maxSupportedTransactionVersion: 1 },
         ]);
         const sig = b.signatures?.[0];
         if (!sig || !b.blockTime) continue;
