@@ -218,7 +218,20 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
       }
       case 'swap': {
         swap += 1;
-        const name = swaps > 1 ? f.short.swapN(swap) : f.short.swap;
+        // Several swaps are told apart by what they sell or receive: "Sell SPY", "GOOGLx".
+        const sells = leg.trades.every((x) => r.cash !== null && x.buy === r.cash);
+        const buys = leg.trades.every((x) => r.cash === null || x.sell === r.cash);
+        const of = (assets: string[]) => listOf([...new Set(assets.map(r.symbol))], r.locale);
+        const name =
+          swaps === 1 || leg.trades.length === 0
+            ? swaps > 1
+              ? f.short.swapN(swap)
+              : f.short.swap
+            : sells
+              ? f.short.sell(of(leg.trades.map((x) => x.sell)))
+              : buys
+                ? of(leg.trades.map((x) => x.buy))
+                : f.short.swapN(swap);
         if (parts.title.length === 0) return { name, title: fallback, press: f.press.step, worst };
         return {
           name,

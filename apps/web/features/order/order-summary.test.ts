@@ -150,13 +150,14 @@ describe('each step, by what it does', () => {
     });
   });
 
-  it('numbers the swaps when there are several, and says a sale with its amount', () => {
+  it('names several swaps by what each sells or receives, and says a sale with its amount', () => {
     const two = order([{ trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }] }, googl]);
     const [sale, swap] = stepWordsOf(two, words);
-    expect(sale?.name).toBe('Swap 1');
+    // the strip tells them apart by what each sells or receives
+    expect(sale?.name).toBe('Sell TSLAx');
     expect(sale?.title).toBe('Sell 0.5 TSLAx');
     expect(sale?.press).toBe('Sign: sell 0.5 TSLAx');
-    expect(swap?.name).toBe('Swap 2');
+    expect(swap?.name).toBe('GOOGLx');
   });
 
   it('says a deposit with its amount, and the swap that rides in it', () => {

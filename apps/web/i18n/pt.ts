@@ -1854,7 +1854,7 @@ export const pt: Dictionary = {
     elsewhere:
       'Esta ordem foi criada em outro navegador, então o plano dela não está aqui para conferir os passos. Abra onde você a criou ou crie uma nova ordem.',
     review: {
-      title: 'Revise cada passo',
+      title: 'Revise sua ordem',
       lead: 'Cada passo é montado na hora, conferido com o que você vê aqui, e só então assinado pela sua carteira. Um passo que não confere não é assinado.',
       continuesLead:
         'Esta ordem termina um depósito que parou: troca o caixa que já está no seu cofre pelo que faltou e não adiciona dinheiro novo. Cada passo é montado na hora, conferido com o que você vê aqui e só então assinado pela sua carteira.',
@@ -1995,6 +1995,7 @@ export const pt: Dictionary = {
         deposit: 'Depositar',
         swap: 'Trocar',
         swapN: (n: number) => `Troca ${n}`,
+        sell: (what: string) => `Vender ${what}`,
         targets: 'Definir metas',
         version: 'Aceitar versão',
         autoFollow: 'Seguir automático',

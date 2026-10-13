@@ -2066,7 +2066,7 @@ export const en = {
     elsewhere:
       'This order was made in another browser, so its plan isn’t here to check the steps against. Open it where you made it, or make a new order.',
     review: {
-      title: 'Review every step',
+      title: 'Review your order',
       lead: 'Each step is built fresh when its turn comes, checked against what you see here, and only then signed by your wallet. A step that doesn’t match is not signed.',
       /** An order that finishes another with the cash in its vault. */
       continuesLead:
@@ -2234,6 +2234,7 @@ export const en = {
         deposit: 'Deposit',
         swap: 'Swap',
         swapN: (n: number) => `Swap ${n}`,
+        sell: (what: string) => `Sell ${what}`,
         targets: 'Set targets',
         version: 'Accept version',
         autoFollow: 'Auto-follow',
