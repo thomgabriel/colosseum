@@ -253,14 +253,18 @@ export function VaultAction({
       onStarted: () => {},
       onAgain: onRestart,
       hostEnds: true,
-      // the vault's targets as this page read them: the review sets the new ones beside them
+      // what the vault aims at, or holds, as this page read it: the review sets the order's targets
+      // beside it (gate SIGN-ONE-STEP)
       ...(paneOf(open.kind) === 'change'
-        ? {
-            before: vault.positions
-              .filter((position) => position.targetBps > 0)
-              .map((position) => ({ asset: position.asset, weightBps: position.targetBps })),
-          }
-        : {}),
+        ? { before: targetsOfVault(vault) }
+        : open.kind === 'rebalance'
+          ? {
+              before: vault.positions.map((position) => ({
+                asset: position.asset,
+                weightBps: position.weightBps,
+              })),
+            }
+          : {}),
       ...told,
     };
     body = (

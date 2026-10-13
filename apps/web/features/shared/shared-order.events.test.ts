@@ -321,7 +321,10 @@ describe('a rebalance to a vault’s targets, on the order screen', () => {
     api(rebalanceOrder());
     seed(REBALANCE);
     const host = await screen();
-    expect(primary(host).textContent).toContain(en.order.shared.signRebalance);
+    expect(primary(host).textContent).toContain(en.order.flow.continue);
+    await onward(host);
+    // the first swap alone, with a button that names it and its amount
+    expect(primary(host).textContent).toMatch(/^Sign: swap \$[\d,]+ for /);
     await click(primary(host));
     await settle();
     // the targets and the reviewed trades: the guard refuses any other step or trade

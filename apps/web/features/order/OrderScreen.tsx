@@ -815,14 +815,21 @@ export function OrderScreen({
           before: flow.picture.now,
           after: flow.picture.next,
         })
-      : terms?.kind === 'withdraw'
-        ? withdrawPicture(shown, summary)
-        : buying
-          ? depositPicture(shown, summary)
-          : null;
-  // At the end, the vault's targets as the order set them.
+      : terms?.kind === 'rebalance'
+        ? // what the vault holds now beside the targets the trades bring it to
+          targetsPicture(terms.targets, embed?.before ?? null, summary, {
+            caption: flow.picture.targets,
+            before: flow.picture.holdsNow,
+            after: flow.picture.target,
+          })
+        : terms?.kind === 'withdraw'
+          ? withdrawPicture(shown, summary)
+          : buying
+            ? depositPicture(shown, summary)
+            : null;
+  // At the end, the vault's targets as the order set them, or brought it to.
   const ended: Picture | null =
-    terms?.kind === 'retarget'
+    terms?.kind === 'retarget' || terms?.kind === 'rebalance'
       ? targetsPicture(terms.targets, null, summary, {
           caption: flow.ended.targets,
           before: '',

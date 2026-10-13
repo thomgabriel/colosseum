@@ -1308,8 +1308,18 @@ describe('a vault away from its targets is offered one press that trades it to t
     });
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
 
+    // reviewed in the pane (gate SIGN-ONE-STEP): what the vault holds beside its targets, then
+    // "Continue", then the first swap's own button
+    const heads = [...pane(host).querySelectorAll('[data-ui="sign-picture"] thead th')].map(
+      (th) => th.textContent,
+    );
+    expect(heads.slice(1)).toEqual([en.order.flow.picture.holdsNow, en.order.flow.picture.target]);
     const before = server.reads();
-    await click(button(pane(host), en.order.shared.signRebalance));
+    await click(button(pane(host), en.order.flow.continue));
+    await settle();
+    const press = find(pane(host), '[data-ui="sign-step"] [data-variant="primary"]');
+    expect(press.textContent).toMatch(/^Sign: swap \$16,022 for /);
+    await click(press);
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(run.calls[0]?.order.legs.map((l) => l.kind)).toEqual(['swap', 'swap']);
@@ -1350,8 +1360,10 @@ describe('a vault away from its targets is offered one press that trades it to t
     await click(find(host, '[data-action="vault-rebalance"]'));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(
-      [...pane(host).querySelectorAll('button')].some((b) =>
-        b.textContent?.includes(en.order.shared.signRebalance),
+      [...pane(host).querySelectorAll('button')].some(
+        (b) =>
+          b.textContent?.includes(en.order.flow.continue) ||
+          b.textContent?.startsWith(en.order.flow.press.of('')),
       ),
     ).toBe(false);
     expect(pane(host).querySelector('[role="alert"]')).not.toBeNull();
