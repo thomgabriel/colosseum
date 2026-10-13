@@ -215,10 +215,10 @@ export function AmountCard({
             )}
             {provenance === 'sandbox' && (
               // A test network's figures are real reads, not samples: one tag says where they are
-              // from (BUY-STEPS), never a plate on a figure.
+              // from (BUY-STEPS), never a plate on a figure; drawn as the portfolio board's plate.
               <span
                 data-ui="data-note"
-                className="rounded-sm border border-border px-2 py-0.5 text-caption text-muted-foreground [overflow-wrap:anywhere]"
+                className="rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground [overflow-wrap:anywhere]"
               >
                 {t.buy.steps.note.testNetwork(chainName)}
               </span>

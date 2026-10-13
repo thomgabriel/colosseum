@@ -85,12 +85,12 @@ export function AmountWell({
       <div
         data-ui="amount-well"
         className={cn(
-          'flex min-w-0 flex-col gap-2 rounded-md border bg-muted p-4',
+          'flex min-w-0 flex-col gap-2 rounded-md border bg-card px-4 py-3.5',
           'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring',
           problem ? 'border-destructive' : 'border-input',
         )}
       >
-        <label htmlFor={amountId} className="text-caption font-medium text-muted-foreground">
+        <label htmlFor={amountId} className="text-body-sm text-muted-foreground">
           {label}
         </label>
         <div className="flex min-w-0 items-center gap-2">
