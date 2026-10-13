@@ -75,7 +75,7 @@ import { CHAINS, type ChainConfig, rpcFor } from '../../risk-evm/config';
 import { requestKey, rpcOver } from '../../risk-evm/replay';
 import { createRpc, type Rpc, type RpcReply } from '../../risk-evm/rpc';
 import { latestRegistryFile, type RegistryPool } from '../lib-history';
-import { rpcStats, rpc as solRpc } from '../lib-pools';
+import { rpcStats, rpc as solRpc, stickyRpc } from '../lib-pools';
 import { meteredBatch } from './backfill-cost';
 import { BACKFILL_ENDPOINTS, KEEP_QUIET_MINUTES } from './backfill-env';
 import {
@@ -941,7 +941,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
     countedAt: new Date().toISOString(),
     methodVersion: BACKFILL_METHOD_VERSION,
     rpc: BACKFILL_ENDPOINTS.solana
-      ? 'SOLANA_BACKFILL_RPC_URL (the backfill’s own endpoint)'
+      ? BACKFILL_ENDPOINTS.solana
       : process.env.SOLANA_RPC_URL
         ? 'SOLANA_RPC_URL (the risk scripts’ RPC)'
         : 'the public mainnet-beta endpoint',
@@ -1052,7 +1052,8 @@ async function solanaPieces(inp: {
     }
     inp.guard({ nextBytes: inp.written.largest, writtenBytes: inp.written.bytes });
     const r = await fetchWindow({
-      rpc: solRpc as never,
+      // one endpoint for the whole window: its walk pages with `before` (stickyRpc)
+      rpc: stickyRpc() as never,
       out: join(OUT, 'solana'),
       kind: inp.kind,
       address: inp.address,
@@ -1075,6 +1076,8 @@ async function solanaPieces(inp: {
       from: r.window.from,
       fetched: r.fetched,
       errors: r.errors,
+      // the walk ended on a short or empty page: the address's first transaction, or an endpoint that lacked it
+      exhausted: r.exhausted,
     });
     if (inp.untilExhausted && r.exhausted) break;
   }
@@ -1142,6 +1145,10 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
   const guardFn = fetchGuard();
   const written = { bytes: 0, largest: 0 };
   if (all) {
+    if (kind === 'mints' && !has('--decided'))
+      throw new Error(
+        '--all on Solana mints is Rodrigo’s call (182M transactions, 18.6 GB over 30 days, counted 2026-10-13): pass --decided <gate> once docs/GATES.md records it',
+      );
     if (kind === 'mints' && !(mintShelf && has('--skip-exact')))
       throw new Error(
         "--all on Solana mints takes the shelf's mints (--shelf --skip-exact); the list's whole mints or their authorities are Rodrigo’s choice (DA20); fetch a mint with --mint and --window",
