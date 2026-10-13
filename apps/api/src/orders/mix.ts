@@ -358,9 +358,14 @@ export function reviewMix(
       // Outside the goal's list, a stock or a fund of stocks is the person's choice, with a warning
       // (gate ANY-COMPOSITION); crypto, gold and any other class stay out of an income or protect plan.
       // The cash token has no ceiling, so it never reaches here; `goalFit` lets it pass all the same.
+      // A target the vault already has is its own (accepted when it followed, or set by its owner):
+      // keeping it is no change of what the vault may hold, so it is warned about, never refused
+      // (ANY-COMPOSITION, amended Oct 13). Only a new target of a barred class is refused.
       const fit = a.goal ? goalFit(asset, a.goal) : 'fits';
+      const own =
+        a.vault?.positions.some((held) => held.asset === asset.id && held.targetBps > 0) ?? false;
       if (a.goal && fit !== 'fits') {
-        if (fit === 'stock_outside')
+        if (fit === 'stock_outside' || own)
           warn(
             'NOT_FOR_GOAL',
             reason('MIX_NOT_FOR_GOAL', { asset: asset.symbol, goal: a.goal }, a.language).text,

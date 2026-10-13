@@ -44,7 +44,9 @@ const state: VaultState = {
       raw: '10000000',
       display: '10',
       multiplier: '1',
-      targetBps: 2000,
+      // Held, with no target: a target the vault already has is its own and is never left out for the
+      // goal (amended Oct 13), and these tests are about a stock nobody asked for.
+      targetBps: 0,
       lastKeeperAt: null,
     },
   ],
