@@ -6,6 +6,7 @@ import { Language, Provenance } from './enums';
 import { ORDER_LIMITS } from './order';
 import { OrderDetail } from './order-api';
 import { Target } from './recipe';
+import { Price } from './vault';
 
 // A mix a person takes from the vault or new-goal conversation, or chooses themselves, made into
 // something that can be bought (gate ANY-COMPOSITION, Thom, Oct 8). The client sends the lines
@@ -216,3 +217,89 @@ export const ApplyVaultMixResponse = z.discriminatedUnion('status', [
   z.strictObject({ status: z.literal('ordered'), review: MixReview, order: OrderDetail }),
 ]);
 export type ApplyVaultMixResponse = z.infer<typeof ApplyVaultMixResponse>;
+
+/**
+ * `POST /v1/vaults/{chain}/{address}/rebalance`: bring what a vault the person owns holds to the
+ * targets it has on chain now. It names no target: the vault's own are read from the chain.
+ */
+export const RebalanceVaultRequest = z.strictObject({
+  /** The slippage each trade is built with. Left out, the server's own figure. */
+  maxSlippageBps: Bps.max(ORDER_LIMITS.maxSlippageBps).optional(),
+});
+export type RebalanceVaultRequest = z.infer<typeof RebalanceVaultRequest>;
+
+/**
+ * `on_target`: nothing to trade, and nothing built or stored. `ordered`: an order of swaps only, the
+ * sales then the purchases, signed and reported as any order (`/v1/orders/{id}/...`). `targets` are the
+ * vault's own as the chain had them, which the order is held to.
+ */
+export const RebalanceVaultResponse = z.discriminatedUnion('status', [
+  z.strictObject({ status: z.literal('on_target'), targets: z.array(Target) }),
+  z.strictObject({ status: z.literal('ordered'), targets: z.array(Target), order: OrderDetail }),
+]);
+export type RebalanceVaultResponse = z.infer<typeof RebalanceVaultResponse>;
+
+/**
+ * `POST /v1/vaults/{chain}/{address}/rebalance/quote`: what a rebalance of a vault the person owns
+ * would trade now, and nothing stored. With `family`, against the weights of that shared portfolio's
+ * version in effect on the vault's chain, which is what following it would then trade to; without,
+ * against the targets the vault has.
+ */
+export const RebalanceQuoteRequest = z.strictObject({
+  family: z.string().min(1).max(64).optional(),
+  /** With `family`: the version the person is looking at. Another in effect answers `VERSION_CHANGED`. */
+  version: z.number().int().min(1).optional(),
+  maxSlippageBps: Bps.max(ORDER_LIMITS.maxSlippageBps).optional(),
+});
+export type RebalanceQuoteRequest = z.infer<typeof RebalanceQuoteRequest>;
+
+/** One trade of a quote: what goes in, what the quote says comes out, and the least the order would take. */
+export const RebalanceQuoteTrade = z.strictObject({
+  sell: AssetId,
+  buy: AssetId,
+  amountInRaw: z.string().regex(/^\d+$/),
+  /** What goes in, in dollars at the reference price: cash at one dollar. */
+  valueUsd: DecimalString,
+  expectedOutRaw: z.string().regex(/^\d+$/),
+  minOutRaw: z.string().regex(/^\d+$/),
+  /** The quote against the reference price, in bps of what goes in. */
+  costBps: z.number(),
+});
+export type RebalanceQuoteTrade = z.infer<typeof RebalanceQuoteTrade>;
+
+/**
+ * `quoted`: the trades, sales first. `on_target`: there is nothing to trade. `unavailable`: no order
+ * could be made now, and `unavailable` says why (`issues` as the rebalance route's `details.issues`).
+ * The figures are indicative: the order is planned and quoted again when it is made. Every share is
+ * of the vault's value at `prices`, which carry their source; `after` counts each trade at its quote.
+ */
+export const RebalanceQuoteResponse = z.strictObject({
+  status: z.enum(['quoted', 'on_target', 'unavailable']),
+  chain: ChainId,
+  provenance: Provenance,
+  /** The version of the shared portfolio the quote is against. Null: the vault's own targets. */
+  version: z.number().int().min(1).nullable(),
+  targets: z.array(Target),
+  slippageBps: Bps,
+  valueUsd: DecimalString.nullable(),
+  trades: z.array(RebalanceQuoteTrade),
+  /** Cash first, then each asset held or targeted. */
+  holdings: z.array(
+    z.strictObject({
+      asset: AssetId,
+      cash: z.boolean(),
+      targetBps: Bps,
+      beforeBps: Bps,
+      afterBps: Bps,
+    }),
+  ),
+  /** What the trades together are quoted to cost against the reference prices, in dollars. */
+  costUsd: DecimalString.nullable(),
+  prices: z.array(Price),
+  /** Where the trades' own figures come from (what comes out, the minimum, the cost): the chain's quote. */
+  quote: Sourced,
+  unavailable: z.strictObject({ reason: z.string(), issues: z.array(z.string()) }).nullable(),
+  quotedAt: z.string().datetime(),
+  disclaimer: z.string(),
+});
+export type RebalanceQuoteResponse = z.infer<typeof RebalanceQuoteResponse>;

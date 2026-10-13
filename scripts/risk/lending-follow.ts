@@ -113,7 +113,7 @@ const getTx = (s: string): Promise<RpcTx | null> => {
   if (!p) {
     p = rpc<RpcTx | null>('getTransaction', [
       s,
-      { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' },
+      { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' },
     ]).then((tx) => {
       fetched++;
       cache.set(s, tx);

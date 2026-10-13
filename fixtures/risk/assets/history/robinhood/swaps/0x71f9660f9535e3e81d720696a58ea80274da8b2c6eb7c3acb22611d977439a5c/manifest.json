@@ -1,0 +1,52 @@
+{
+  "series": "robinhood-logs",
+  "chain": "robinhood",
+  "subject": "0x71f9660f9535e3e81d720696a58ea80274da8b2c6eb7c3acb22611d977439a5c",
+  "methodVersion": "backfill-0.1",
+  "source": "Robinhood Chain eth_getLogs through ROBINHOOD_BACKFILL_RPC_URL: Swap, Mint/Burn, ModifyLiquidity and Transfer at the zero address (backfill-0.1)",
+  "provenance": "live",
+  "covered": [
+    {
+      "from": 84090531,
+      "to": 87646274,
+      "unit": "block"
+    }
+  ],
+  "days": {
+    "2026-10-13": {
+      "rows": 2832,
+      "bytes": 269801
+    },
+    "2026-10-12": {
+      "rows": 3029,
+      "bytes": 290775
+    },
+    "2026-10-11": {
+      "rows": 1470,
+      "bytes": 139816
+    },
+    "2026-10-10": {
+      "rows": 1564,
+      "bytes": 143365
+    },
+    "2026-10-09": {
+      "rows": 2641,
+      "bytes": 255779
+    }
+  },
+  "rows": 11536,
+  "bytes": 1099536,
+  "checks": [
+    {
+      "name": "one_row_per_log",
+      "passed": true,
+      "detail": "a (block, log index) is written once: 0 already in the day files dropped from the last piece"
+    },
+    {
+      "name": "times_inside_headers",
+      "passed": true,
+      "detail": "block times linear between headers every 10000 blocks"
+    }
+  ],
+  "updatedAt": "2026-10-13T18:11:11.645Z"
+}

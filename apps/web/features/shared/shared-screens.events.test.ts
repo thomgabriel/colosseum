@@ -138,6 +138,8 @@ function api(o: {
   funded?: boolean;
   /** The person's chain; Solana unless said. */
   chain?: Person['chain'];
+  /** Answers POST /v1/vaults/{chain}/{address}/rebalance/quote. */
+  quote?: () => Response;
 }) {
   const calls: Call[] = [];
   portStore.setApi(async (path, init) => {
@@ -176,6 +178,7 @@ function api(o: {
       // an answer the test wrote whole (a refusal), or an order
       return made instanceof Response ? made : json(made);
     }
+    if (path.endsWith('/rebalance/quote') && method === 'POST' && o.quote) return o.quote();
     if (path.startsWith('/v1/funding?') && o.funded) return json(FUNDED);
     return json({ error: 'not found' }, 404);
   });
@@ -585,6 +588,158 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
     expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
+  });
+
+  describe('the review of a follow quotes what following would trade (Thom, Oct 13)', () => {
+    const JL = 'solana:jlusdc';
+    const SYRUP = 'solana:syrupusdc';
+    const PAXG = 'solana:paxg';
+    const stamp = {
+      source: 'Solana devnet, read over RPC by the vault adapter',
+      fetchedAt: '2026-10-13T17:00:00.000Z',
+      method: 'the reference price',
+      provenance: 'sandbox',
+    };
+    const price = (asset: string, usdPerToken: string) => ({
+      ...stamp,
+      asset,
+      usdPerToken,
+      ageSeconds: 5,
+      maxAgeSeconds: 120,
+      market: 'open',
+    });
+    const quote = (over: object = {}) => ({
+      status: 'quoted',
+      chain: 'solana',
+      provenance: 'sandbox',
+      version: 2,
+      targets: [
+        { asset: JL, weightBps: 5_000 },
+        { asset: SYRUP, weightBps: 3_000 },
+        { asset: PAXG, weightBps: 2_000 },
+      ],
+      slippageBps: 100,
+      valueUsd: '80111.68',
+      trades: [
+        {
+          sell: 'solana:usdc',
+          buy: PAXG,
+          amountInRaw: '15862000000',
+          valueUsd: '15862',
+          expectedOutRaw: '3815000000',
+          minOutRaw: '3776850000',
+          costBps: 10,
+        },
+        {
+          sell: 'solana:usdc',
+          buy: SYRUP,
+          amountInRaw: '3897000000',
+          valueUsd: '3897',
+          expectedOutRaw: '3271000000',
+          minOutRaw: '3238290000',
+          costBps: 10,
+        },
+      ],
+      holdings: [
+        { asset: 'solana:usdc', cash: true, targetBps: 0, beforeBps: 2_503, afterBps: 36 },
+        { asset: JL, cash: false, targetBps: 5_000, beforeBps: 4_989, afterBps: 4_989 },
+        { asset: SYRUP, cash: false, targetBps: 3_000, beforeBps: 2_508, afterBps: 2_995 },
+        { asset: PAXG, cash: false, targetBps: 2_000, beforeBps: 0, afterBps: 1_980 },
+      ],
+      costUsd: '19.76',
+      prices: [price(JL, '1.06'), price(SYRUP, '1.19'), price(PAXG, '4153.51')],
+      quote: { ...stamp, method: 'each trade quoted by the chain adapter' },
+      unavailable: null,
+      quotedAt: '2026-10-13T17:00:00.000Z',
+      disclaimer: 'd',
+      ...over,
+    });
+    const q = en.shared.vaults.quote;
+    const toReview = async (answer: () => Response) => {
+      const calls = api({
+        family: familyOf(FAMILY_ID),
+        vaults: [vaultOf({ address: MY_VAULT, recipeOnchainId: null })],
+        quote: answer,
+      });
+      const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+      await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
+      await click(button(host, en.shared.vaults.choose) as HTMLElement);
+      for (let i = 0; i < 4; i += 1) await settle(30);
+      return { calls, review: find(host, '[data-ui="review-follow"]') };
+    };
+
+    it('each trade with what it gives at least and what it costs, the vault before and after, and the total, on the test network’s line', async () => {
+      const { calls, review } = await toReview(() => json(quote()));
+      // asked of our server for this vault and the version on the page; nothing is ordered
+      expect(calls.find((c) => c.path.endsWith('/rebalance/quote'))).toMatchObject({
+        method: 'POST',
+        path: `/v1/vaults/solana/${MY_VAULT}/rebalance/quote`,
+        body: { family: SLUG, version: 2 },
+      });
+      expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
+      const card = find(review, `section[aria-label="${q.title}"]`);
+      expect(find(card, '[data-ui="data-note"]').textContent).toBe(
+        en.buy.steps.note.testNetwork('Solana'),
+      );
+      const trades = [...card.querySelectorAll<HTMLElement>('[data-ui="follow-quote-trade"]')];
+      expect(trades.map((li) => li.dataset.asset)).toEqual([PAXG, SYRUP]);
+      expect(trades[0]?.textContent).toContain('15,862 USDC');
+      expect(trades[0]?.textContent).toContain(q.minimum);
+      expect(find(trades[0] as HTMLElement, '[data-row="worth"]').textContent).toContain('$15,862');
+      expect(find(trades[0] as HTMLElement, '[data-row="cost"]').textContent).toContain('10 bps');
+      // every figure of a trade carries its pin
+      for (const li of trades)
+        for (const row of li.querySelectorAll('dd'))
+          expect(row.querySelector('[data-ui="pin"], button, [aria-haspopup]')).not.toBeNull();
+      expect(find(card, '[data-ui="follow-quote-total"]').textContent).toContain('$19.76');
+      const rows = [
+        ...card.querySelectorAll<HTMLElement>('[data-ui="follow-quote-holdings"] tbody tr'),
+      ];
+      expect(rows.map((r) => r.dataset.asset)).toEqual(['solana:usdc', JL, SYRUP, PAXG]);
+      expect(find(rows[0] as HTMLElement, '[data-col="before"]').textContent).toContain('25');
+      expect(find(rows[3] as HTMLElement, '[data-col="after"]').textContent).toContain('19.8');
+      expect(find(rows[3] as HTMLElement, '[data-col="target"]').textContent).toContain('20');
+      // the copy no longer says nothing is traded and stops there
+      expect(review.textContent).toContain(en.shared.vaults.followNote);
+      expect(review.textContent).not.toMatch(/Nothing is traded/);
+      expect(review.textContent).not.toMatch(/\b(mix|buy)\b/i);
+      // the follow itself is still the one press of the review
+      expect(button(review, en.shared.vaults.reviewFollow)).toBeDefined();
+    });
+
+    it('says which asset cannot be quoted and why, and the follow can still be reviewed', async () => {
+      const { review } = await toReview(() =>
+        json(
+          quote({
+            status: 'unavailable',
+            trades: [],
+            costUsd: null,
+            unavailable: { reason: 'no price', issues: ['NO_PRICE:solana:paxg'] },
+          }),
+        ),
+      );
+      expect(find(review, '[data-ui="follow-quote-unavailable"]').textContent).toBe(
+        q.unavailable(en.shared.vault.page.rebalancing.why.noPrice('PAXG')),
+      );
+      expect(review.querySelector('[data-ui="follow-quote-trade"]')).toBeNull();
+      // the holdings as they are, against the targets: no "After" without trades
+      expect(review.querySelector('[data-col="after"]')).toBeNull();
+      expect(review.querySelector('[data-col="before"]')).not.toBeNull();
+      expect(button(review, en.shared.vaults.reviewFollow)).toBeDefined();
+    });
+
+    it('says so where our server does not answer, or answers for another version, and shows no figure', async () => {
+      for (const answer of [
+        () => json({ error: 'down' }, 503),
+        () => json(quote({ version: 3 })),
+      ]) {
+        const { review } = await toReview(answer);
+        expect(find(review, '[data-ui="follow-quote-failed"]').textContent).toBe(q.failed);
+        expect(review.querySelector('[data-ui="follow-quote-trade"]')).toBeNull();
+        expect(button(review, en.shared.vaults.reviewFollow)).toBeDefined();
+        await unmountAll();
+      }
+    });
   });
 
   it('holds the selection and makes only one order while following is busy', async () => {

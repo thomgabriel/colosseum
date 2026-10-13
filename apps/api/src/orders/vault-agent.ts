@@ -8,6 +8,7 @@ import type {
   FactUnit,
   Price,
   Provenance,
+  Recipe,
   Shelf,
   VaultAgentStatedPurpose,
   VaultState,
@@ -35,6 +36,7 @@ import {
   type FigureResolver,
   figureResolver,
   NULL_REASONS,
+  targetFacts,
   vaultFacts,
   withoutMark,
   withoutReferences,
@@ -151,6 +153,89 @@ type AgentContextData = {
   references?: FigureReferences;
   /** Only a separately confirmed, server-owned goal change can replace existing eligibility. */
   confirmedGoal?: 'grow' | 'income' | 'protect';
+  /** The shared portfolio the vault follows, as the server read it for this reply; absent when it follows none. */
+  followed?: FollowedPortfolio;
+  /** Where this server stands: the network's name, whether auto-follow is offered and the keeper runs. */
+  /** Whether the vault's page has the rebalance action (off until its route lands). */
+  rebalanceOnPage?: boolean;
+  server?: {
+    network: string | null;
+    autoFollowOffered: boolean | null;
+    keeperEnabled: boolean | null;
+  };
+};
+/**
+ * The shared portfolio a vault follows, read on the server for one reply: the recipe as its chain has
+ * it now (null when that read failed) and the family's name where the server holds one. Never taken
+ * from the request or from the person's words.
+ */
+export type FollowedPortfolio = {
+  recipe: { active: Recipe; pending: Recipe | null } | null;
+  family: { name: string; slug: string } | null;
+  /** When the recipe was read. */
+  readAt: string;
+};
+/**
+ * What the server knows of the vault, written for the model so it never asks the person for it
+ * (MODEL-LED-VAULT-CONVERSATION, amended Oct 13). Every number in it is an evidence id, never a value:
+ * the model states it by reference. The strings may be said exactly as written.
+ */
+export type VaultStandingFacts = {
+  chain: {
+    /** The network as a person names it ("Solana devnet"). */
+    network: string | null;
+    /** `sandbox`: a test network, real reads, not live. `mock`: sample figures. */
+    provenance: Provenance | null;
+    /** When the vault was read from the chain. */
+    readAt: string;
+    vault: string;
+    owner: string;
+    /** Cash is one dollar a unit; these are its evidence ids. */
+    cash: { amount: string; share: string; target: string };
+  };
+  follows: {
+    /** The portfolio's id on the chain, as the page shows it. */
+    portfolioId: string;
+    /** Null where the server holds none, or where it holds a digit or a sign: the id names it then. */
+    name: string | null;
+    author: string | null;
+    /** The version the vault accepted: its targets were set from it. */
+    acceptedVersion: string;
+    /** The version in effect on the chain now, or null when the portfolio could not be read. */
+    activeVersion: string | null;
+    /** True when the chain has a version later than the one the vault accepted, in effect or waiting. */
+    newerVersion: boolean | null;
+    /** The lines of the version in effect, each weight an evidence id; null when it could not be read. */
+    lines: Array<{ assetId: string; name: string; weight: string }> | null;
+    /** True when the portfolio holds a line that is not among `lines`: they are not the whole of it. */
+    partial: boolean | null;
+    authorLimits: string;
+  } | null;
+  targets: {
+    /** Whose the targets are: the followed portfolio's, or the vault's own (set by its owner). */
+    origin: 'followed_portfolio' | 'vault_own';
+    /** Each target with the ids of its figures. */
+    lines: Array<{ assetId: string; name: string; target: string; share: string; gap: string }>;
+    /**
+     * Targets the vault already has that a plan for its goal would not admit as a new target. They
+     * are the vault's own and are never refused; the state is said plainly, once.
+     */
+    outsideGoalAlreadyHeld: string[];
+  };
+  autoFollow: {
+    onThisVault: boolean;
+    offeredOnThisServer: boolean | null;
+    keeperRunsOnThisServer: boolean | null;
+  };
+  /**
+   * The action on the vault's page that brings the holdings to the targets, or null while the page
+   * has none: then it cannot be done from the app yet, and no control is named.
+   */
+  rebalanceAction: string | null;
+  /** What the server read the latest message as, where it read one. */
+  latest: 'ambiguous_confirmation' | null;
+  /** What earlier replies already told the person: not restated unless they ask. */
+  alreadySaid: Array<'goal_rule' | 'goal_differs_from_followed'>;
 };
 export type VaultAgentContext = AgentContextData & { kind?: 'vault'; state: VaultState };
 export type GoalAgentContext = AgentContextData & { kind: 'new_goal'; chain: ChainId; state: null };
@@ -204,7 +289,11 @@ export type VaultAgentPrompt = {
       largerSize?: string[];
     }>;
     unknowns: string[];
+    /** By asset, the ids of the figures Bearing's sheet has and does not measure. */
+    notMeasured?: Record<string, string[]>;
   } | null;
+  /** The server's facts about the vault; null for a new goal. */
+  facts?: VaultStandingFacts | null;
   /** The cost tolerance behind every capacity figure, as a fraction. */
   exitCostTolerance: number;
   /** Measured exit capacity as a share of the vault; above it is allowed and warned, not refused. */
@@ -237,15 +326,28 @@ type ContextInput = {
   currentGoals?: readonly unknown[];
   confirmedGoal?: 'grow' | 'income' | 'protect';
   analytics?: AgentAnalyticsResult | null;
+  followed?: FollowedPortfolio | null;
+  /** KEEPER_ENABLED as this server read it; left out where the caller does not know. */
+  keeperEnabled?: boolean;
+  /** Whether the vault's page has the rebalance action; off unless the caller says so. */
+  rebalanceOnPage?: boolean;
 };
 
-/** The vault's value at the reference prices, or null when a holding has no usable price. */
+/**
+ * The vault's value at the reference prices, or null when something it holds has no usable price.
+ * Cash is one dollar, whatever a feed says and whether or not the chain prices it, as the vaults count
+ * it and as `view()` does; a target with nothing held is worth nothing and needs no price.
+ */
 export function vaultNotionalUsd(state: VaultState, prices: Price[]): number | null {
   const byAsset = new Map(prices.map((price) => [price.asset, Number(price.usdPerToken)]));
-  const values = [state.cash, ...state.positions].map((holding) => {
-    const price = byAsset.get(holding.asset);
-    return price === undefined ? null : Number(holding.display) * price;
-  });
+  const values = [
+    Number(state.cash.display),
+    ...state.positions.map((holding) => {
+      if (/^0+$/.test(holding.raw)) return 0;
+      const price = byAsset.get(holding.asset);
+      return price === undefined ? null : Number(holding.display) * price;
+    }),
+  ];
   return values.every((value) => value !== null && Number.isFinite(value))
     ? values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
     : null;
@@ -344,6 +446,9 @@ function analyticsEvidence(
   const read: string[] = [];
   const missing = new Map<string, string[]>();
   const assets: NonNullable<NonNullable<VaultAgentPrompt['analytics']>['assets']> = [];
+  // Beside each asset, the ids its sheet does not measure: one statement per figure, so the model
+  // never reads a figure as measured from the legend and as unknown from the list of unknowns.
+  const absent: Record<string, string[]> = {};
   // An id names one figure: a second row for an asset, or a second figure under an id, is left out, since
   // the reply refuses a context whose evidence repeats an id.
   const taken = new Set<string>();
@@ -411,8 +516,10 @@ function analyticsEvidence(
       }
       const reason =
         figure.value === null ? NULL_REASONS[figure.reason] : 'the stored figure could not be read';
-      if (figure.value === null)
+      if (figure.value === null) {
         notMeasured[id] = { assetId: asset.id, label: `${label}${twin}`, reason: figure.reason };
+        absent[asset.id] = [...(absent[asset.id] ?? []), id];
+      }
       const line = `${label}: unknown (${reason})`;
       missing.set(line, [...(missing.get(line) ?? []), asset.symbol]);
     }
@@ -449,6 +556,7 @@ function analyticsEvidence(
       ),
       assets,
       unknowns,
+      ...(Object.keys(absent).length ? { notMeasured: absent } : {}),
     },
   };
 }
@@ -624,7 +732,49 @@ function buildAgentContext(
     }
     Object.assign(references.missing, own.references.missing);
     Object.assign(references.staleAgeSec, own.references.staleAgeSec);
+    // The target of cash, each holding's gap, and the weights of the portfolio the vault follows.
+    const active = input.followed?.recipe?.active;
+    const standing = targetFacts({
+      state,
+      prices: input.prices,
+      assets,
+      chainSource: entry.source,
+      chainProvenance: entry.provenance,
+      ...(active && input.followed
+        ? {
+            followed: {
+              version: active.version,
+              readAt: input.followed.readAt,
+              lines: active.components.flatMap((line) =>
+                line.kind === 'asset' ? [{ asset: line.asset, weightBps: line.weightBps }] : [],
+              ),
+            },
+          }
+        : {}),
+    });
+    for (const source of standing.sources) {
+      const parsed = VaultAgentSource.safeParse(source);
+      if (parsed.success && !taken.has(parsed.data.id)) {
+        taken.add(parsed.data.id);
+        evidence.push(parsed.data);
+      }
+    }
+    Object.assign(references.missing, standing.references.missing);
+    if (active?.components.some((line) => line.kind !== 'asset' || !listed.has(line.asset)))
+      unknowns.push(
+        "The shared portfolio this vault follows holds a line the server cannot show here (another portfolio inside it, or an asset not on this chain's list): facts.follows.lines is not all of its lines.",
+      );
+    if (state.recipeOnchainId && !active)
+      unknowns.push(
+        'The shared portfolio this vault follows could not be read from the chain for this reply; its lines are unknown here, and the vault’s targets are still the ones it accepted from it.',
+      );
   }
+  const config = entry.config as ChainEntry['config'] | undefined;
+  const network = config
+    ? config.networkName.startsWith(config.name)
+      ? config.networkName
+      : `${config.name} ${config.networkName}`
+    : null;
   if (
     liquidity.some(
       (item) =>
@@ -662,6 +812,18 @@ function buildAgentContext(
     caps,
     references,
     ...(input.confirmedGoal ? { confirmedGoal: input.confirmedGoal } : {}),
+    ...(state && input.followed ? { followed: input.followed } : {}),
+    ...(state && input.rebalanceOnPage ? { rebalanceOnPage: true } : {}),
+    ...(state
+      ? {
+          server: {
+            network,
+            autoFollowOffered:
+              (entry.adapter as ChainEntry['adapter'] | undefined)?.capabilities.autoFollow ?? null,
+            keeperEnabled: input.keeperEnabled ?? null,
+          },
+        }
+      : {}),
   } as ConversationAgentContext;
 }
 
@@ -854,6 +1016,8 @@ const REPAIR_HINTS: Record<string, string> = {
     'The picks cannot meet a share the person stated, which the server read in their own words (allocationConstraints). Pick the assets it covers, with room for the rest, so the server can meet it, or ask the person about it in question. The share is theirs and still stands until they say "forget" or "drop" it, or ask for an equal split.',
   stated_ungrounded:
     'A share in stated is not one the server read in the person\'s words, so it is not applied. The server reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "at least 40% stocks", "70/30 TSLA and NVDA"), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; allocationConstraints lists what it read. Remove the share, do not describe it as applied, and ask the person in question to say it as a percentage beside the asset name.',
+  confirmation_ambiguous:
+    "The person's latest message is a bare confirmation, and the app's turn before it did not ask exactly one yes-or-no question, so the server cannot tell what it confirms (facts.latest is ambiguous_confirmation). Return proposal null. Say in message, in one sentence, that it could answer more than one thing; restate no rule and no earlier refusal. Ask in question which they mean, naming the choices in a few words. Do not draft an earlier request.",
   reply_shape:
     'The proposal did not fit the final preview limits once the server added its own unknowns and sources: keep fields shorter and lists smaller.',
 };
@@ -2015,6 +2179,174 @@ export function personShares(
   return { standing, read, withdrawn, unread, rest };
 }
 
+/**
+ * The action on a vault's page that brings its holdings to its targets, as the page labels it. One
+ * constant until the web's dictionary entry lands with the owner's rebalance route; then it is read
+ * from there, not kept as a second copy.
+ */
+export const REBALANCE_ACTION = { en: 'Rebalance', pt: 'Rebalancear' } as const;
+/**
+ * How far from its target a holding may be and still be on it, in basis points. The owner's rebalance
+ * route has the same band (`OWNER_REBALANCE_BAND_BPS` on its branch): import that once it lands.
+ */
+const REBALANCE_BAND_BPS = 50;
+
+/**
+ * THE SEAM (Thom, Oct 13): where the conversation's rebalance is planned. The order is built by the
+ * owner's route, `POST /v1/vaults/{chain}/{address}/rebalance` (its `/quote` gives each trade with its
+ * cost, sourced), which trades to the targets the vault has on chain with owner-signed steps. The
+ * conversation builds no order and drafts no targets. `onPage` says whether the vault's page has the
+ * action yet: it is off until that route and the web's control are merged (the route passes it,
+ * `rebalanceOnPage`), and while it is off no control is named. When the chat is to place or quote the
+ * rebalance itself, this is the one function that calls that planner.
+ */
+export function rebalanceFor(options: {
+  language: 'en' | 'pt';
+  onPage: boolean;
+}): { kind: 'page_action'; label: string } | { kind: 'unavailable' } {
+  return options.onPage
+    ? { kind: 'page_action', label: REBALANCE_ACTION[options.language] }
+    : { kind: 'unavailable' };
+}
+
+/** An address or an id as the page shows it: its first and last six characters. */
+const shortId = (id: string) => (id.length > 14 ? `${id.slice(0, 6)}…${id.slice(-6)}` : id);
+/** A read time as the page says it, in UTC: "Oct 13 2026 17:00 UTC". */
+function saidTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const part = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...options }).format(at);
+  const clock = part({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  return `${part({ month: 'short' })} ${part({ day: 'numeric' })} ${part({ year: 'numeric' })} ${clock} UTC`;
+}
+
+// A rebalance request, matched whole (Thom's ruling on the review of #261): the message is one of a
+// short list of shapes from its first word to its last, and anything else in it sends it to the model,
+// which has the facts and the instruction. `F` stands where the followed portfolio was named.
+const F = '\u0002';
+const RB_LEAD =
+  "(?:(?:please|pls|ok|okay|yes|hey|bro|so|just|now)[\\s,]+)*(?:(?:i\\s+(?:want|wanna|need|would\\s+like|'?d\\s+like)(?:\\s+you)?\\s+to|can\\s+you|could\\s+you|let'?s|quero|queria|gostaria\\s+de|pode|por\\s+favor)\\s+)?";
+// A courtesy, and at most a reason that names nothing ("because current they are different").
+const RB_TAIL =
+  '(?:[\\s,]+(?:please|pls|bro|man|now|thanks|por\\s+favor|agora))*[\\s.!]*(?:because(?:\\s+(?:current|currently|they|are|is|it|different|off|not|aligned|the|same|now|right|holdings))+)?[\\s.!]*';
+// "Rebalance", however it is typed ("reblance", "rebalancear", "re-balancing"), and nothing after it.
+const RB_WORD = 're-?b[ae]?l[ae]?n[cs](?:e|ear|eie|eia|ing)?';
+const RB_TARGETS =
+  '(?:(?:the|my|its|os|as|aos|meus|o)\\s+)?(?:current\\s+)?(?:targets?|planned|plan|strategy|alvos?|metas?|planejado|plano)';
+const RB_HELD =
+  '(?:(?:(?:the|my|its|this|o|meu|este)\\s+)?(?:current\\s+|curent\\s+)?(?:holdings|vault|balance|assets|cofre|saldo)|it)';
+const RB_EXACTLY = '(?:\\s+(?:exactly|exatamente))?';
+const RB_SHAPES = [
+  // "rebalance", "rebalance it", "rebalance my vault to the targets", "reblance to follow exactly the planned"
+  `${RB_WORD}(?:\\s+${RB_HELD})?(?:\\s+(?:to|toward|towards|back\\s+to|to\\s+(?:follow|match)|para|para\\s+seguir)${RB_EXACTLY}\\s+${RB_TARGETS})?`,
+  // "match the targets", "follow exactly the planned"
+  `(?:match|follow|seguir|igualar)${RB_EXACTLY}\\s+${RB_TARGETS}`,
+  // "bring my holdings to my targets", "change the current holdings to match the targets"
+  `(?:bring|move|get|put|change|make|align|levar|trazer|alinhar)\\s+${RB_HELD}\\s+(?:to|with|in\\s+line\\s+with|back\\s+to|to\\s+match|to\\s+follow|para|com|a)${RB_EXACTLY}\\s+${RB_TARGETS}`,
+  // "be the same as <the portfolio it follows>"
+  `(?:be|make\\s+(?:it|my\\s+vault))${RB_EXACTLY}\\s+(?:the\\s+same\\s+as|like)\\s+${F}`,
+];
+const REBALANCE_REQUEST = new RegExp(`^${RB_LEAD}(?:${RB_SHAPES.join('|')})${RB_TAIL}$`, 'iu');
+// An id as a person pastes it from the page: its two ends with an ellipsis between.
+const SHORT_ID = /([A-Za-z0-9]{4,})(?:…|\.{3})([A-Za-z0-9]{4,})/gu;
+
+/**
+ * Whether a message asks to bring the vault's holdings to the targets it already has (a rebalance),
+ * which is no change of targets (VAULT-CHAT-KNOWS-ITS-VAULT). The whole message is the request, in
+ * one of the shapes above, courtesies aside: "rebalance", "rebalance it", "rebalance to the targets",
+ * "match the targets", "bring my holdings to my targets", "be the same as" the portfolio it follows
+ * (by its id or its name). A message with anything else in it (an asset, "equally", "and remove", a
+ * question, "no", "cancel", a button, another strategy) is not read here: the model answers it.
+ */
+export function rebalanceRequest(
+  text: string,
+  followed?: { id: string; names: readonly string[] } | null,
+): boolean {
+  const said = text.trim();
+  if (!said || said.length > 400 || /[?"“”\n]/u.test(said) || said.includes(F)) return false;
+  let rest = said.replace(SHORT_ID, (whole, head: string, tail: string) =>
+    followed?.id.startsWith(head) && followed.id.endsWith(tail) ? F : whole,
+  );
+  for (const name of [followed?.id ?? '', ...(followed?.names ?? [])])
+    if (name.length > 2) rest = rest.replace(new RegExp(literal(name), 'giu'), F);
+  return REBALANCE_REQUEST.test(rest.replace(/\s+/gu, ' '));
+}
+
+// A message that is a confirmation and nothing else: "yes", "ok", "yeah, do it", "sim".
+const CONFIRMS =
+  /^(?:(?:yes|yeah|yep|yup|ya|ok|okay|sure|please|pls|do\s+it|go\s+ahead|go\s+for\s+it|right|correct|exactly|sim|claro|isso|pode|certo|bora|bro|man)(?![\p{L}\p{N}])[\s,.!]*)+$/iu;
+const AFFIRMS = word(
+  'yes|yeah|yep|yup|ya|ok|okay|sure|do\\s+it|go\\s+ahead|sim|claro|isso|pode',
+  'iu',
+);
+const EITHER_OR = /(?<![\p{L}\p{N}])(?:or|ou)(?![\p{L}\p{N}])/iu;
+
+/**
+ * Whether the latest message is a bare confirmation that the server cannot tie to one thing: the app's
+ * turn before it did not ask exactly one question, or asked the person to choose between two. Such a
+ * "yes" confirms nothing, so nothing is drafted on it and no earlier request stands in for it.
+ */
+export function ambiguousConfirmation(messages: VaultAgentRequest['messages']): boolean {
+  const latest = messages.at(-1);
+  if (latest?.who !== 'person' || !CONFIRMS.test(latest.text.trim())) return false;
+  if (!AFFIRMS.test(latest.text)) return false;
+  const asked: string[] = [];
+  for (let at = messages.length - 2; at >= 0 && messages[at]?.who === 'app'; at -= 1)
+    asked.push(...((messages[at]?.text ?? '').match(/[^.!?\n]*\?/gu) ?? []));
+  // "…, yes or no?" asks one thing: its "or" offers no second choice.
+  const one = (asked[0] ?? '').replace(/(?:yes\s+or\s+no|sim\s+ou\s+n[aã]o)/giu, ' ');
+  return asked.length !== 1 || EITHER_OR.test(one);
+}
+
+// That nothing changes until the person confirms is said every time it applies.
+const ALWAYS_SAID =
+  /nothing\s+(?:changes|is\s+applied|was\s+applied)|nada\s+(?:muda|foi\s+aplicado)/iu;
+const sameWords = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}%$]+/gu, ' ')
+    .trim();
+
+/**
+ * A reply without what the reply just before it already said, word for word: a sentence of the
+ * message (a long one; a short one may well recur) and the closing question. The model re-reads the
+ * same facts every turn and tends to restate them; said once is enough. Never left empty: a message
+ * that is nothing but repeats stays as it is.
+ */
+export function withoutSaidBefore(
+  reply: { message: string; question: string | null },
+  before: readonly string[],
+  catalogNames: string[],
+): { message: string; question: string | null } {
+  const said = new Set(
+    before.flatMap((text) =>
+      text.split('\n').flatMap((line) => sentencesOf(line, catalogNames).map(sameWords)),
+    ),
+  );
+  if (!said.size) return reply;
+  const lines = reply.message.split('\n').map((line) =>
+    sentencesOf(line, catalogNames)
+      .filter(
+        (sentence) =>
+          sentence.trim().length < 40 ||
+          ALWAYS_SAID.test(sentence) ||
+          !said.has(sameWords(sentence)),
+      )
+      .join('')
+      .trim(),
+  );
+  const rest = lines.filter(Boolean).join('\n').trim();
+  const question = reply.question && said.has(sameWords(reply.question)) ? null : reply.question;
+  return { message: rest || reply.message, question };
+}
+
+// What earlier replies told the person, read in the app's own turns of the history.
+const SAID_GOAL_RULE =
+  /(?:plan|goal|plano|objetivo)[^.?!\n]*(?:cannot|can['’]?t|can\s+not|não\s+pode|nao\s+pode)\s+(?:hold|ter)/iu;
+const SAID_GOAL_DIFFERS =
+  /already\s+a\s+target\s+of\s+this\s+vault|já\s+é\s+um\s+alvo\s+deste\s+cofre|(?:target|alvo)[^.?!\n]*(?:outside|fora)[^.?!\n]*(?:goal|objetivo)/iu;
+
 export async function replyToVaultConversation(
   request: VaultAgentRequest,
   context: ConversationAgentContext,
@@ -2063,13 +2395,61 @@ export async function replyToVaultConversation(
       if (asset.symbol === row.symbol) companies.set(asset.id, [row.company]);
   // Read once, from the person's messages alone: the same shares whatever the model replies.
   const shelf = [...catalog.values()];
-  const { messages, language } = parsed.data;
+  const namer = assetNamer(shelf, companies);
+  const namedIn = (text: string) => namer(text).flatMap((span) => span.ids);
+  const vault = context.kind === 'new_goal' ? null : context.state;
+  // The targets the vault has now, each with its weight.
+  const ownTargets = new Map(
+    (vault?.positions ?? [])
+      .filter((held) => held.targetBps > 0)
+      .map((held) => [held.asset, held.targetBps]),
+  );
+  const followedNames = context.followed?.family
+    ? [context.followed.family.name, context.followed.family.slug]
+    : [];
+  const asksRebalance = (text: string) =>
+    vault !== null &&
+    ownTargets.size > 0 &&
+    rebalanceRequest(
+      text,
+      vault.recipeOnchainId ? { id: vault.recipeOnchainId, names: followedNames } : null,
+    );
+  // A rebalance request closes the talk of new targets before it: the shares and the stocks asked
+  // for until then no longer stand, and a later "yes" does not bring them back.
+  const everyone = parsed.data.messages;
+  const closed = everyone.reduce(
+    (found, message, at) => (message.who === 'person' && asksRebalance(message.text) ? at : found),
+    -1,
+  );
+  const messages = everyone.slice(closed + 1);
+  const { language } = parsed.data;
   const stated = personShares(messages, language, shelf, companies);
   const { asked: requested, refused } = stockAsks(messages, language, shelf, companies);
   // What a plan for the goal cannot hold, by the rule the review of a mix reads (`eligibleForGoal`).
   const outside = new Set(
     goal ? shelf.filter((asset) => !eligibleForGoal(asset, goal)).map(({ id }) => id) : [],
   );
+  // Eligibility is about changing what a vault may hold (VAULT-CHAT-KNOWS-ITS-VAULT). A target the
+  // vault already has, accepted when it followed or set by its owner, may be kept in a draft at its
+  // current weight or below: `keepable` holds that weight. Above it, the pick is a new one and the
+  // goal's rule applies as to any other (a stock only when the person asks, with the warning; any
+  // other class never). Nor is it kept once the person's latest word on it refuses it ("No
+  // stocks.", "I want it removed"): then it is left out as before.
+  const latestSaid = everyone.at(-1)?.who === 'person' ? (everyone.at(-1)?.text ?? '') : '';
+  const latestNames = new Set(namedIn(latestSaid));
+  const spokenAgainst = (id: string) =>
+    latestNames.has(id) &&
+    (REFUSES.test(latestSaid) ||
+      /(?<![\p{L}\p{N}])(?:removed|dropped|sold|excluded|gone)(?![\p{L}\p{N}])/iu.test(
+        latestSaid,
+      ) ||
+      (isStock(catalog.get(id) ?? { cls: 'cash' }) && !requested.has(id)));
+  const keepable = new Map(
+    [...ownTargets].filter(([id]) => outside.has(id) && !refused.has(id) && !spokenAgainst(id)),
+  );
+  // Every target the vault has that the goal would not admit as new: a state to say, once.
+  const outsideHeld = [...ownTargets.keys()].filter((id) => outside.has(id));
+  const ambiguous = vault !== null && ambiguousConfirmation(everyone);
   // A share on stocks the goal cannot hold stands only while the person asks for them: once their
   // latest word on those stocks is a refusal ("No stocks."), the share is withdrawn with the request,
   // and said on the turn that refused. A share on any other class the goal bars is not a stock's and
@@ -2114,6 +2494,113 @@ export async function replyToVaultConversation(
           )
           .filter((share) => share.assetIds.every((id) => outside.has(id) && requested.has(id)))
       : [];
+  // What the server knows of the vault, for the model, and the strings of it that hold digits and may
+  // be said exactly as written (a portfolio's id, a version, a read time): never a measured figure.
+  const pt = language === 'pt';
+  const appTurns = everyone.filter((message) => message.who === 'app').map(({ text }) => text);
+  const alreadySaid: VaultStandingFacts['alreadySaid'] = [
+    ...(appTurns.some((text) => SAID_GOAL_RULE.test(text)) ? (['goal_rule'] as const) : []),
+    ...(appTurns.some((text) => SAID_GOAL_DIFFERS.test(text))
+      ? (['goal_differs_from_followed'] as const)
+      : []),
+  ];
+  const versionSaid = (version: number) => `${pt ? 'versão' : 'version'} ${version}`;
+  const nameOf = (id: string) => {
+    const asset = catalog.get(id);
+    return asset ? shownName(asset) : id;
+  };
+  const active = context.followed?.recipe?.active ?? null;
+  // The name is its author's free text. One with a digit, a percent or a currency sign is not handed
+  // to the model or written into a reply: no name is ever a way to state a number.
+  const familyName = context.followed?.family?.name ?? null;
+  const followedName = familyName && !/[\p{N}\p{Sc}%]/u.test(familyName) ? familyName : null;
+  const followedLines = active
+    ? active.components.flatMap((line) =>
+        line.kind === 'asset' && sourceById.has(`recipe:${line.asset}:weight`)
+          ? [
+              {
+                assetId: line.asset,
+                name: nameOf(line.asset),
+                weight: `recipe:${line.asset}:weight`,
+              },
+            ]
+          : [],
+      )
+    : null;
+  const action = rebalanceFor({ language, onPage: context.rebalanceOnPage === true });
+  const facts: VaultStandingFacts | null = vault
+    ? {
+        chain: {
+          network: context.server?.network ?? null,
+          provenance: sourceById.get(`catalog:${vault.cash.asset}`)?.provenance ?? null,
+          readAt: saidTime(vault.observedAt),
+          vault: shortId(vault.address),
+          owner: shortId(vault.owner),
+          cash: {
+            amount: `holding:${vault.cash.asset}:amount`,
+            share: `holding:${vault.cash.asset}:share`,
+            target: `holding:${vault.cash.asset}:target`,
+          },
+        },
+        follows: vault.recipeOnchainId
+          ? {
+              portfolioId: shortId(vault.recipeOnchainId),
+              name: followedName,
+              author: active ? shortId(active.creator) : null,
+              acceptedVersion: versionSaid(vault.acceptedVersion),
+              activeVersion: active ? versionSaid(active.version) : null,
+              newerVersion: active
+                ? active.version > vault.acceptedVersion ||
+                  vault.pending !== null ||
+                  (context.followed?.recipe?.pending ?? null) !== null
+                : vault.pending !== null
+                  ? true
+                  : null,
+              lines: followedLines,
+              partial:
+                active && followedLines ? followedLines.length < active.components.length : null,
+              authorLimits:
+                'The author publishes versions under fixed limits on how many assets, how much of each, how much a version may move and how much notice followers get. They bind the author, not this vault.',
+            }
+          : null,
+        targets: {
+          origin: vault.recipeOnchainId ? 'followed_portfolio' : 'vault_own',
+          lines: vault.positions
+            .filter((held) => held.targetBps > 0)
+            .map((held) => ({
+              assetId: held.asset,
+              name: nameOf(held.asset),
+              target: `holding:${held.asset}:target`,
+              share: `holding:${held.asset}:share`,
+              gap: `holding:${held.asset}:gap`,
+            })),
+          outsideGoalAlreadyHeld: outsideHeld,
+        },
+        autoFollow: {
+          onThisVault: vault.autoFollow,
+          offeredOnThisServer: context.server?.autoFollowOffered ?? null,
+          keeperRunsOnThisServer: context.server?.keeperEnabled ?? null,
+        },
+        rebalanceAction: action.kind === 'page_action' ? action.label : null,
+        latest: ambiguous ? 'ambiguous_confirmation' : null,
+        alreadySaid,
+      }
+    : null;
+  const sayable = facts
+    ? [
+        facts.chain.readAt,
+        facts.chain.vault,
+        facts.chain.owner,
+        ...(facts.follows
+          ? [
+              facts.follows.portfolioId,
+              facts.follows.author ?? '',
+              facts.follows.acceptedVersion,
+              facts.follows.activeVersion ?? '',
+            ]
+          : []),
+      ].filter(Boolean)
+    : [];
   const prompt: VaultAgentPrompt = {
     version: 1,
     kind: context.kind ?? 'vault',
@@ -2156,6 +2643,7 @@ export async function replyToVaultConversation(
     liquidity: context.liquidity,
     unknowns: context.unknowns,
     analytics: context.analytics ?? null,
+    facts,
     exitCostTolerance: PERSONAL_PARAMS.tau,
     exitCapacityBps: caps,
     eligibilityGoal: goal,
@@ -2205,6 +2693,7 @@ export async function replyToVaultConversation(
     ...(context.stockAttributes?.stocks ?? [])
       .filter((row) => [...catalog.values()].some((asset) => asset.symbol === row.symbol))
       .map((row) => row.company),
+    ...sayable,
   ].map(withoutMark);
   // Figures by reference (vault-figures.ts): only the vault's own conversation states one.
   const references = conversationFigures({
@@ -2279,6 +2768,109 @@ export async function replyToVaultConversation(
       counts,
     };
   };
+  // A rebalance request is answered by the server from its own facts: the gap of each holding, by
+  // reference, and the action on the page. No model is asked, nothing is drafted, and no target the
+  // vault already has is held against its goal.
+  const latestPerson = everyone.at(-1);
+  if (vault && facts && latestPerson?.who === 'person' && asksRebalance(latestPerson.text)) {
+    const gapOf = (id: string) => sourceById.get(`holding:${id}:gap`)?.value;
+    const held = vault.positions.filter(
+      (position) => position.targetBps > 0 || !/^0+$/.test(position.raw),
+    );
+    const gaps = [
+      ...held.map((position) => gapOf(position.asset)),
+      // cash under its target is no reason to trade: only cash over it is
+      Math.max(0, gapOf(vault.cash.asset) ?? Number.NaN),
+    ];
+    const measured = gaps.every((gap) => typeof gap === 'number' && Number.isFinite(gap));
+    const onTarget =
+      measured && gaps.every((gap) => Math.abs(gap as number) * 10_000 <= REBALANCE_BAND_BPS);
+    const fact = (id: string) => `{{fact:${id}}}`;
+    const line = (name: string, id: string) =>
+      pt
+        ? `- ${name}: ${fact(`holding:${id}:share`)} do cofre, alvo ${fact(`holding:${id}:target`)}.`
+        : `- ${name}: ${fact(`holding:${id}:share`)} of the vault, target ${fact(`holding:${id}:target`)}.`;
+    const follows = facts.follows;
+    const portfolio = follows
+      ? follows.name
+        ? `${follows.name} (${follows.portfolioId})`
+        : follows.portfolioId
+      : '';
+    // The keeper is spoken of only where it does rebalance this vault: auto-follow on, offered on
+    // this chain, and the keeper running on this server.
+    const auto =
+      vault.autoFollow &&
+      context.server?.autoFollowOffered === true &&
+      context.server.keeperEnabled === true;
+    const differs =
+      outsideHeld.length && !alreadySaid.includes('goal_differs_from_followed')
+        ? outsideHeld.map(nameOf).join(', ')
+        : '';
+    const goalSaid = pt
+      ? { income: 'renda', protect: 'proteção', grow: 'crescimento' }
+      : { income: 'income', protect: 'protect', grow: 'growth' };
+    const where = [facts.chain.network, facts.chain.readAt].filter(Boolean);
+    const template = [
+      follows
+        ? pt
+          ? `Este cofre segue o portfólio compartilhado ${portfolio}, ${follows.acceptedVersion}, e os alvos dele são os desse portfólio.`
+          : `This vault follows the shared portfolio ${portfolio}, ${follows.acceptedVersion}, and its targets are that portfolio's.`
+        : pt
+          ? 'Os alvos deste cofre são os dele mesmo.'
+          : "This vault's targets are its own.",
+      pt
+        ? 'Levar o que o cofre tem aos alvos é um rebalanceamento: nenhum alvo muda, então nada é proposto aqui.'
+        : 'Bringing the holdings to those targets is a rebalance: no target changes, so nothing is drafted here.',
+      pt
+        ? `Como o cofre está${where.length ? `, lido em ${where.join(', ')}` : ''}:`
+        : `Where the vault stands${where.length ? `, read from ${where.join(' on ')}` : ''}:`,
+      ...held.map((position) => line(nameOf(position.asset), position.asset)),
+      line(pt ? 'Caixa' : 'Cash', vault.cash.asset),
+      ...(differs && goal
+        ? [
+            pt
+              ? `${differs} já é um alvo deste cofre. O objetivo de ${goalSaid[goal]} do plano não o aceitaria como alvo novo, e isso não impede rebalancear até ele.`
+              : `${differs} is already a target of this vault. The ${goalSaid[goal]} goal of its plan would not admit it as a new target, and that does not stop a rebalance toward it.`,
+          ]
+        : []),
+      auto
+        ? pt
+          ? 'O seguir automático está ativado neste cofre, então o nosso operador o rebalanceia.'
+          : 'Auto-follow is on for this vault, so our keeper rebalances it.'
+        : action.kind === 'page_action'
+          ? onTarget
+            ? pt
+              ? `O cofre está nos alvos, então não há o que rebalancear agora. Quando sair deles, use “${action.label}” na página deste cofre.`
+              : `The holdings are on their targets, so there is nothing to rebalance now. When they drift, use “${action.label}” on this vault's page.`
+            : pt
+              ? `Para levá-lo aos alvos, use “${action.label}” na página deste cofre: ela mostra as trocas e você as assina. Esta conversa não faz nenhuma ordem.`
+              : `To bring them in line, use “${action.label}” on this vault's page: it shows the trades and you sign them. This conversation places no order.`
+          : onTarget
+            ? pt
+              ? 'O cofre está nos alvos, então não há o que rebalancear agora.'
+              : 'The holdings are on their targets, so there is nothing to rebalance now.'
+            : pt
+              ? 'O cofre ainda não está nos alvos. Levá-lo até eles ainda não está disponível a partir desta conversa, e ela não faz nenhuma ordem.'
+              : 'The holdings are not at their targets yet. Bringing them there is not available from this conversation yet, and it places no order.',
+    ].join('\n');
+    const filled = withFigures({
+      version: 1,
+      messageId: request.messageId,
+      message: template,
+      question: null,
+      proposal: null,
+      warnings: [],
+      weightNotes: [],
+    });
+    const served = filled && VaultAgentReply.safeParse(filled.reply);
+    // A reply the server cannot write whole (a figure it does not hold) is left to the model.
+    if (filled && served?.success)
+      return { kind: 'reply', reply: served.data, figures: { ...filled.counts, unknown: 0 } };
+  }
+  // The app's turn just before this one, for what need not be said again.
+  const saidBefore: string[] = [];
+  for (let at = everyone.length - 2; at >= 0 && everyone[at]?.who === 'app'; at -= 1)
+    saidBefore.push(everyone[at]?.text ?? '');
   // `final` is the repair attempt: a share it still reports without the person's words is ignored.
   const check = (output: Output, final = false): Checked => {
     if ('why' in output)
@@ -2369,6 +2961,22 @@ export async function replyToVaultConversation(
     }
     // A question is asked once: the end of the message that asks what `question` asks goes.
     model = { ...model, ...withoutRepeatedQuestion(model.message, model.question, catalogNames) };
+    // Only in a vault's conversation, and never on a draft: a new draft is said whole.
+    if (vault && !model.proposal)
+      model = { ...model, ...withoutSaidBefore(model, saidBefore, catalogNames) };
+    // A bare "yes" the server cannot tie to one question drafts nothing: the model is asked once to
+    // ask which, and failing that the server asks. No earlier request stands in for it.
+    if (ambiguous && model.proposal) {
+      if (!final) return rejected('confirmation_ambiguous');
+      const quote = (everyone.at(-1)?.text ?? '').trim().slice(0, 80);
+      model = {
+        message: pt
+          ? `Seu “${quote}” pode responder a mais de uma coisa, então nada foi proposto e nada mudou.`
+          : `Your “${quote}” could answer more than one thing, so nothing is drafted and nothing changed.`,
+        question: pt ? 'O que você quer que eu faça?' : 'Which did you mean?',
+        proposal: null,
+      };
+    }
     const unheld = askedNow.filter(
       (share) =>
         !model.proposal?.allocations.some(({ assetId }) => share.assetIds.includes(assetId)),
@@ -2426,12 +3034,42 @@ export async function replyToVaultConversation(
       // Any listed composition may be proposed (ANY-COMPOSITION), but for the goal: a pick outside it
       // is left out, as the review of the mix would refuse it, unless it is a stock the person asked
       // for (`requested` holds stocks only), which warns below, as exit capacity does.
-      if (outside.has(asset.id) && !requested.has(asset.id)) leftOut.push(asset.id);
+      // A target the vault already has is weighed below: it stays at its current weight or under.
+      if (outside.has(asset.id) && !requested.has(asset.id) && !keepable.has(asset.id))
+        leftOut.push(asset.id);
       ids.add(asset.id);
       for (const id of allocation.evidenceIds) {
         const source = sourceById.get(id);
         if (!source || (source.assetId !== undefined && source.assetId !== asset.id))
           return rejected('allocation_evidence');
+      }
+    }
+    // A target the vault already has, picked with nobody asking for it, is kept only where the
+    // weights the server sets leave it at its current weight or below; raised, it is a new pick and
+    // is left out like one. The weights are set again without it, until none is raised.
+    const weighed = (picked: typeof proposal.allocations) =>
+      personWeights(
+        picked.length,
+        person.standing.map((share) => ({
+          members: picked.flatMap(({ assetId }, i) =>
+            share.assetIds.includes(assetId) ? [i] : [],
+          ),
+          min: share.kind === 'max' ? 0 : share.bps,
+          max: share.kind === 'min' ? 10_000 : share.bps,
+        })),
+      ).weights;
+    const raised: string[] = [];
+    for (;;) {
+      const picked = proposal.allocations.filter(({ assetId }) => !leftOut.includes(assetId));
+      const weights = weighed(picked);
+      const over = picked.filter(({ assetId }, i) => {
+        const current = keepable.get(assetId);
+        return current !== undefined && !requested.has(assetId) && (weights[i] ?? 0) > current;
+      });
+      if (!over.length) break;
+      for (const { assetId } of over) {
+        leftOut.push(assetId);
+        raised.push(assetId);
       }
     }
     const kept = proposal.allocations.filter(({ assetId }) => !leftOut.includes(assetId));
@@ -2490,10 +3128,11 @@ export async function replyToVaultConversation(
       gone.length ? withoutSentencesNaming(text, naming, catalogNames) : text;
     // A stock is left out because the person did not ask for it; any other class because the goal
     // cannot hold it whoever asks.
-    const pt = request.language === 'pt';
     const listed = (of: BasketAsset[]) => of.slice(0, 16).map(shownName).join(', ');
     const unasked = gone.filter(isStock);
-    const barred = gone.filter((asset) => !isStock(asset));
+    const barred = gone.filter((asset) => !isStock(asset) && !raised.includes(asset.id));
+    // A target the vault has, of a class the goal bars, that the draft would have raised.
+    const lifted = gone.filter((asset) => !isStock(asset) && raised.includes(asset.id));
     const leftOutSaid = [
       unasked.length
         ? pt
@@ -2504,6 +3143,11 @@ export async function replyToVaultConversation(
         ? pt
           ? `Esta proposta deixa de fora ${listed(barred)}: um plano com o seu objetivo não pode ter ${barred.length === 1 ? 'esse ativo' : 'esses ativos'}.`
           : `This draft leaves out ${listed(barred)}: a plan with your goal cannot hold ${barred.length === 1 ? 'it' : 'them'}.`
+        : '',
+      lifted.length
+        ? pt
+          ? `Esta proposta deixa de fora ${listed(lifted)}: fica fora do objetivo do seu plano, então uma proposta pode mantê-lo no alvo atual ou abaixo, não aumentá-lo.`
+          : `This draft leaves out ${listed(lifted)}: it is outside your plan's goal, so a draft may keep it at its current target or lower, not raise it.`
         : '',
     ]
       .filter(Boolean)
@@ -2629,7 +3273,7 @@ export async function replyToVaultConversation(
         });
         sources.add(`liquidity:${asset.id}`);
       }
-      if (outside.has(asset.id)) {
+      if (outside.has(asset.id) && (requested.has(asset.id) || !keepable.has(asset.id))) {
         const listed = sourceById.has(`catalog:${asset.id}`)
           ? `catalog:${asset.id}`
           : allocation.evidenceIds[0];

@@ -2,7 +2,7 @@ import { ChainError, OrderDetail, PersonWithdrawalsResponse } from '@colosseum/s
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ChainRegistry } from '../../orders/chains';
-import { SELL_TO_CASH_NOT_OFFERED } from '../../orders/withdraw';
+import { DOLLARS_TAKE_A_SHARE, notSold } from '../../orders/withdraw';
 import { orderFlow, walletOf } from '../../testing/flow';
 import {
   type HomeChain,
@@ -181,12 +181,98 @@ describe.each(CHAINS)('POST /v1/orders, a withdrawal on %s', (chain) => {
     expect((await vaultOf(a, chain)).cash.raw).toBe(vault.cash.raw);
   });
 
-  it('refuses selling to cash with the sentence the screen shows', async () => {
+  it('in dollars: sells every holding for cash, then withdraws the cash to the owner, and the order is done', async () => {
     const a = await someone(chain);
     await openVault(a);
-    const res = await withdraw(a, (await vaultOf(a, chain)).address, { sellToCash: true });
-    expect(res.statusCode).toBe(422);
-    expect(res.json().error).toBe(SELL_TO_CASH_NOT_OFFERED);
+    const vault = await vaultOf(a, chain);
+    const positions = vault.positions.filter((p) => BigInt(p.raw) > 0n);
+    expect(positions.length).toBeGreaterThan(0);
+    const cash = vault.cash.asset;
+    const before = await held(a, chain, cash);
+
+    const res = await withdraw(a, vault.address, { sellToCash: true });
+    expect(res.statusCode, res.body).toBe(200);
+    const order = OrderDetail.parse(res.json());
+    expect(order.type).toBe('withdraw');
+    expect(order.summary).toMatch(/in dollars/);
+    expect(order.depositRaw).toBeUndefined();
+    expect(order.warnings).toEqual([]);
+    const kinds = order.legs.map((l) => l.kind);
+    expect(kinds.at(-1)).toBe('withdraw');
+    expect(kinds.slice(0, -1).every((k) => k === 'swap')).toBe(true);
+    // every holding once, in full, into the cash token, each with its quote and its minimum
+    const trades = order.legs.flatMap((l) => l.trades);
+    expect(trades.map((t) => [t.sell, t.buy, t.amountInRaw]).sort()).toEqual(
+      positions.map((p) => [p.asset, cash, p.raw]).sort(),
+    );
+    const figures = order.legs.flatMap((l) => l.expected);
+    expect(figures).toHaveLength(trades.length);
+    for (const f of figures) expect(BigInt(f.minOutRaw)).toBeGreaterThan(0n);
+    // as many sales per step as the chain takes
+    const per = registry.get(chain).adapter.capabilities.maxTradesPerTx;
+    expect(order.legs.every((l) => l.trades.length <= per)).toBe(true);
+    // the last step is the cash, alone, with the least it pays: the cash held plus the minimums
+    const out = order.legs.at(-1)?.withdrawals;
+    const least = figures.reduce((n, f) => n + BigInt(f.minOutRaw), BigInt(vault.cash.raw));
+    expect(out).toMatchObject([
+      { asset: cash, amountRaw: null, heldRaw: vault.cash.raw, leastRaw: least.toString() },
+    ]);
+    expect(out?.[0]?.valued).toMatchObject({ provenance: 'mock' });
+    // read back as it was stored
+    expect((await read(a, order)).legs.map((l) => [l.trades, l.expected, l.withdrawals])).toEqual(
+      order.legs.map((l) => [l.trades, l.expected, l.withdrawals]),
+    );
+
+    const done = await settleAll(a, order);
+    expect(done.status).toBe('done');
+    const after = await vaultOf(a, chain);
+    expect([after.cash, ...after.positions].every((h) => BigInt(h.raw) === 0n)).toBe(true);
+    expect((await held(a, chain, cash)) - before).toBeGreaterThanOrEqual(least);
+    for (const p of positions) expect(await held(a, chain, p.asset)).toBe(0n);
+  });
+
+  it('in dollars: a share sells that share of each holding and leaves the rest in the vault', async () => {
+    const a = await someone(chain);
+    await openVault(a);
+    const vault = await vaultOf(a, chain);
+    const res = await withdraw(a, vault.address, { sellToCash: true, shareBps: 5_000 });
+    expect(res.statusCode, res.body).toBe(200);
+    const order = OrderDetail.parse(res.json());
+    const sold = new Map(order.legs.flatMap((l) => l.trades).map((t) => [t.sell, t.amountInRaw]));
+    for (const p of vault.positions.filter((x) => BigInt(x.raw) > 1n))
+      expect(sold.get(p.asset)).toBe((BigInt(p.raw) / 2n).toString());
+    await settleAll(a, order);
+    const after = await vaultOf(a, chain);
+    for (const p of vault.positions)
+      expect(BigInt(after.positions.find((x) => x.asset === p.asset)?.raw ?? '0')).toBe(
+        BigInt(p.raw) - BigInt(p.raw) / 2n,
+      );
+    expect(BigInt(after.cash.raw)).toBe(BigInt(vault.cash.raw) - BigInt(vault.cash.raw) / 2n);
+  });
+
+  it('in dollars: names no tokens, takes a share of at least one basis point, and no looser slippage than the limit', async () => {
+    const a = await someone(chain);
+    await openVault(a);
+    const vault = await vaultOf(a, chain);
+    const tokens = await withdraw(a, vault.address, {
+      sellToCash: true,
+      withdrawals: [{ asset: vault.cash.asset }],
+    });
+    expect(tokens.statusCode).toBe(422);
+    expect(tokens.json().error).toBe(DOLLARS_TAKE_A_SHARE);
+    for (const more of [{ shareBps: 0 }, { shareBps: 10_001 }, { maxSlippageBps: 301 }])
+      expect((await withdraw(a, vault.address, { sellToCash: true, ...more })).statusCode).toBe(
+        400,
+      );
+  });
+
+  it('in dollars: another person’s vault is a vault that is not there', async () => {
+    const [a, b] = [await someone(chain), await someone(chain)];
+    await openVault(a);
+    const vault = await vaultOf(a, chain);
+    const theirs = await withdraw(b, vault.address, { sellToCash: true });
+    expect(theirs.statusCode).toBe(404);
+    expect(theirs.body).not.toContain(walletOf(a));
   });
 
   it('switches auto-follow off as the first step where the vault has it on', async () => {
@@ -358,5 +444,58 @@ describe('a withdrawal with a token that cannot move', () => {
     await build(a, order, leg.id, dry);
     const done = await report(a, order, leg.id, { txId: await land(a, order, leg.id, dry) }, dry);
     expect(done.legs.find((l) => l.id === leg.id)?.status).toBe('confirmed');
+  });
+});
+
+describe('a withdrawal in dollars with a holding that cannot be sold now', () => {
+  it('leaves that holding in the vault with the chain’s sentence on the order, sells the rest and pays out the cash', async () => {
+    const a = await someone('robinhood');
+    let closed: string | undefined;
+    const said =
+      'no fresh reference price for it: the market is closed; trades of it resume when it opens';
+    const { app: weekend, registry: chain } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      wrap: (inner) => ({
+        ...inner,
+        get: (c) => {
+          const entry = inner.get(c);
+          const quote: typeof entry.adapter.quote = async (trade, taker) => {
+            if (closed && trade.sell === closed) throw new ChainError('PriceStale', said);
+            return entry.adapter.quote(trade, taker);
+          };
+          return { ...entry, adapter: { ...entry.adapter, quote } };
+        },
+      }),
+    });
+    undo.push(() => weekend.close());
+    await openVault(a, weekend);
+    const vaultNow = async () => {
+      const [v] = await chain.get('robinhood').adapter.getVaults(walletOf(a));
+      if (!v) throw new Error('no vault');
+      return v;
+    };
+    const vault = await vaultNow();
+    const positions = vault.positions.filter((p) => BigInt(p.raw) > 0n);
+    closed = positions[0]?.asset;
+    if (!closed) throw new Error('the vault holds no position');
+    const res = await post(
+      a,
+      '/v1/orders',
+      { type: 'withdraw', vaults: [vault.address], sellToCash: true },
+      weekend,
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    const order = OrderDetail.parse(res.json());
+    expect(order.warnings).toEqual([
+      { code: notSold(closed), text: expect.stringContaining(said) },
+    ]);
+    expect(order.warnings[0]?.text).toMatch(/withdraw the tokens themselves/);
+    expect(order.legs.flatMap((l) => l.trades).map((t) => t.sell)).not.toContain(closed);
+    const done = await settleAll(a, order, weekend);
+    expect(done.status).toBe('done');
+    const after = await vaultNow();
+    expect(after.positions.find((p) => p.asset === closed)?.raw).toBe(positions[0]?.raw);
+    expect(BigInt(after.cash.raw)).toBe(0n);
   });
 });

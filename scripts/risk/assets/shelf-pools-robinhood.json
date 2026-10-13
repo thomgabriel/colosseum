@@ -1,0 +1,1081 @@
+{
+  "chain": "robinhood",
+  "chainId": 4663,
+  "methodVersion": "evm-shelf-pools-0.1",
+  "method": "dexscreener_pairs_against_the_dollar_token",
+  "source": "https://api.dexscreener.com/token-pairs/v1/robinhood/{token} (public, no key)",
+  "fetchedAt": "2026-10-13T18:11:40.840Z",
+  "provenance": "live",
+  "shelf": {
+    "file": "scripts/risk/assets/shelf-robinhood.json",
+    "method": "shelf-0.1",
+    "reading": {
+      "from": "2026-10-11T02:43:34.000Z",
+      "to": "2026-10-12T18:35:38.395Z"
+    }
+  },
+  "list": "scripts/risk/universe/robinhood.json",
+  "dollar": {
+    "symbol": "USDG",
+    "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
+  },
+  "minLiquidityUsd": 10000,
+  "counts": {
+    "shelf": 44,
+    "tracked": 29,
+    "added": 14,
+    "notAdded": 30,
+    "pools": 65,
+    "reachable": 41
+  },
+  "tokens": [
+    {
+      "symbol": "WETH",
+      "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "decimals": 18,
+      "cls": "crypto",
+      "pools": [
+        {
+          "id": "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 20276997.92,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x69BfaF19C9f377BB306a89aEd9F6B07e2c1a8d9a",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 4876875.24,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x9B050cb1F265094b0977160a2BD7dA8C9E529c3C",
+          "kind": "cl",
+          "venue": "sushiswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 3243291.33,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xa9188730Fe85Be88ad499D7d52B099e800fB0334",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 1679534.27,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xFAE65eAa11943f45E83D5B45DC7A7C801C51bfB0",
+          "kind": "cl",
+          "venue": "ramses",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 739169.02,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x8803c117ccae7B5146297876c2A25DF135141C4d",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 431125.86,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x16679e2ac1A798865eCf1c1639e67693ddB1C220",
+          "kind": "cl",
+          "venue": "up",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 294642.96,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x84bd4e2d8be11aeb0afc1195b38f587b61e90068548f1063fdbe448fb8cad0b6",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 275733.99,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xF4D0171f995D576b972Aa982080eAf4dA456Cf9e",
+          "kind": "cl",
+          "venue": "giga",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 253522.37,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x7A35168956F129c032eC035cC47383A605a71dF0",
+          "kind": "cl",
+          "venue": "alandale",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 247220.18,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x5f009E071F07e92B6C624e83F52F17bBDa34680D",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 172799.78,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xfcfae8fa0bd6da961bcf5d990f27690932deac4f093e99bf3e871691c6586593",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 168615.22,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x14f8cf472104b8823340025c004d022de12ab0e4d7e8112a6dc73c1979e044ad",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 103174.29,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x88A8E96E7785d378825e8B5D7FC0e6f62487061E",
+          "kind": "cl",
+          "venue": "pancakeswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 67528.25,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xE163485CaBfB8B1c2D9922cC410bFC77a50714Fc",
+          "kind": "cl",
+          "venue": "0xCeFc5Da47d766Fb6b48Da92D75d66b3264593d0f",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 55887.18,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x49FFa9B5cb6C94b2fc99E8649C3e4c18F619E149",
+          "kind": "cl",
+          "venue": "kittenswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 35956.56,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xd8d4383140295276815125fB1886cc3F5d6FBFe2",
+          "kind": "cl",
+          "venue": "0x9a8442cb89fE713ce7C2f22852e61fBFFeE97EcF",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 34654.37,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x6ba18d461bfe3df70a80b50a4700e330e49efdaf597901b931f210554a5035d2",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 28828.68,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x8132252bd65E7C03F7B57739E1DB1c58d6Ee792F",
+          "kind": "cl",
+          "venue": "topaz",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 22837.17,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x77c25b9386d47de62e0155c393696e9f43f7e6d036c6ca52f66735ccbb8808a7",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 21681.32,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x5C919AcB310764E27b1Dd09541f3f63D4de4C701",
+          "kind": "cl",
+          "venue": "ramses",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 20471.41,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x0759985D218520B758d257D17C8b1e8050adf42C",
+          "kind": "cl",
+          "venue": "0x5481864ddd46a2D798Df0925C23B7846e776E5E3",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 13151.69,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xC5A01C57b2851202dCF8507a0F2Bd08a8025E2C8",
+          "kind": "cl",
+          "venue": "sushiswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 12121.86,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xb2a6aD51b3ea3CDc8D3508Cca147A43471382e53",
+          "kind": "cl",
+          "venue": "giga",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 11419.1,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x5fC1BBd0e147433f217931c746301F91d16B509e",
+          "kind": "cl",
+          "venue": "0x9a8442cb89fE713ce7C2f22852e61fBFFeE97EcF",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 10856.04,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0xC619Dec28A6c68dd2bE8AEB62499059D1A138f09",
+          "kind": "cl",
+          "venue": "0swap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 10304.92,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 30,
+        "againstDollar": 30,
+        "kept": 26
+      }
+    },
+    {
+      "symbol": "NET",
+      "address": "0xca9c78dd337a67f6e0077f65f5e9218719d30edf",
+      "decimals": 9,
+      "cls": "crypto",
+      "pools": [
+        {
+          "id": "0x59F95461E68e0c77605299791E1449f175165B54",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 333241.46,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
+        },
+        {
+          "id": "0x99e70A5b06215e5D2F3BeC773b4f59c008fc1673",
+          "kind": "cl",
+          "venue": "up",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 307530.49,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
+        },
+        {
+          "id": "0x0d662a58507a46cd6a22632228306dc0d9c26f5fce90c37ced3b8358db33deb3",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 221038.63,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
+        },
+        {
+          "id": "0x4030f646babe7643c33ee0b9a5123e04ee97a8820a26d0d9dec8b0265f31170d",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 165518.7,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
+        },
+        {
+          "id": "0xdbe41dc9d12ae4ad528fd2f9b2bd5736ba5fb7eaf7ebb1fca86ff1646430a301",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 33945.68,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
+        },
+        {
+          "id": "0x146a67CAa3Ff12cB019B2E46d5fb8a1bedDC18D3",
+          "kind": "cl",
+          "venue": "alandale",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 24619.21,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 26,
+        "againstDollar": 11,
+        "kept": 6
+      }
+    },
+    {
+      "symbol": "cbBTC",
+      "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+      "decimals": 8,
+      "cls": "crypto",
+      "pools": [
+        {
+          "id": "0x94c62eebf6454231b2fcd0259ede448ae3c6ad8617718cd88dab20b30cfae48a",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 834442.34,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        },
+        {
+          "id": "0x9664D869540E9D0a76f12C6623946C6D5d201e09",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 139014.03,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        },
+        {
+          "id": "0x78B4382721830f573916858c3fF10f6072D09897",
+          "kind": "cl",
+          "venue": "ramses",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 68881.11,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        },
+        {
+          "id": "0xf50a897ae1b4dfdac5a8d573f0d0f59c75832b7832b7e631e1192d1e64019039",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 37582.12,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        },
+        {
+          "id": "0x60141f4ffd92764ad226092c8664b163d6e674c31236e67c981435c8c069ff0a",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 34474.74,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        },
+        {
+          "id": "0xfb5b2e3f28ae233984713db2501beea100310042a5de27df44b1d98403384698",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 21970.21,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        },
+        {
+          "id": "0x778b859d2ee4a49dd7985887f2154df5d3b1740d756eef5658145571b48a63b0",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 17704.63,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 30,
+        "againstDollar": 9,
+        "kept": 7
+      }
+    },
+    {
+      "symbol": "TSM",
+      "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
+      "decimals": 18,
+      "cls": "stock",
+      "pools": [
+        {
+          "id": "0x0ba5d53d2f6255f334b7c8ead4f56b6aef5af3402c5e4d11180afd38c6b85fb1",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 165076.06,
+          "tvlAt": "2026-10-13T18:11:26.885Z"
+        },
+        {
+          "id": "0x07e8Ea83D4C1340774c8965125e26e12bf943bf1",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 89067.88,
+          "tvlAt": "2026-10-13T18:11:26.885Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 18,
+        "againstDollar": 6,
+        "kept": 2
+      }
+    },
+    {
+      "symbol": "MRNA",
+      "address": "0x43b07d15ce533bec5476d70c22a78a1b2b662155",
+      "decimals": 18,
+      "cls": "stock",
+      "pools": [
+        {
+          "id": "0xB40196272A6d2EB5edF6d93bc4DC39856AD95E0E",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 204030.9,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
+        },
+        {
+          "id": "0xf78846addED5CfcAF90649900feE804c42976D67",
+          "kind": "cl",
+          "venue": "ramses",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 64076.45,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
+        },
+        {
+          "id": "0xA34d0667334074DF2d5BfD259e79E6B9cf1fA8Bf",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 59787.35,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
+        },
+        {
+          "id": "0x5fb00968834d782603b244e705a130058bf6cc4c0f53a1da98d5e392988db6aa",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 10643.11,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 19,
+        "againstDollar": 5,
+        "kept": 4
+      }
+    },
+    {
+      "symbol": "USDe",
+      "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+      "decimals": 18,
+      "cls": "cash",
+      "pools": [
+        {
+          "id": "0xa5f23cae4e5c3388c5a8a6b08a83f53e56df8f1a63757e606b362994b68a2361",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 998796.27,
+          "tvlAt": "2026-10-13T18:11:29.458Z"
+        },
+        {
+          "id": "0x1156162C2170DcAd64979F575ba91f23A47150Af",
+          "kind": "cl",
+          "venue": "giga",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 35673.28,
+          "tvlAt": "2026-10-13T18:11:29.458Z"
+        },
+        {
+          "id": "0x00e7c2cC7A9e92425C9A995b11B2eE85645C2010",
+          "kind": "cl",
+          "venue": "alandale",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 30932.19,
+          "tvlAt": "2026-10-13T18:11:29.458Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 16,
+        "againstDollar": 7,
+        "kept": 3
+      }
+    },
+    {
+      "symbol": "TAO",
+      "address": "0xf3081494b87e8d5fb7960f066e931d1d0e6e3d67",
+      "decimals": 18,
+      "cls": "crypto",
+      "pools": [
+        {
+          "id": "0x3f048149F291f459A38FE1d937a361B153CbA43E",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 422405.84,
+          "tvlAt": "2026-10-13T18:11:30.717Z"
+        },
+        {
+          "id": "0x129b392490Aac7B4320aeAdE8d1054C06C2cE224",
+          "kind": "cl",
+          "venue": "giga",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 80982.9,
+          "tvlAt": "2026-10-13T18:11:30.717Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 10,
+        "againstDollar": 2,
+        "kept": 2
+      }
+    },
+    {
+      "symbol": "DUAL",
+      "address": "0xca6f20e241c73de4eeb873107b217ce2463c3b1d",
+      "decimals": 18,
+      "cls": "crypto",
+      "pools": [],
+      "dexscreener": {
+        "pairs": 1,
+        "againstDollar": 0,
+        "kept": 0
+      }
+    },
+    {
+      "symbol": "PROLOGUE",
+      "address": "0xb9972ca7188e511174947e3936a5315ac7073277",
+      "decimals": 18,
+      "cls": "crypto",
+      "pools": [
+        {
+          "id": "0x341443c3b31edb1e146e4bd400e8cb12cde5bd25c349d640eb610cf163c50971",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 66433.17,
+          "tvlAt": "2026-10-13T18:11:33.265Z"
+        },
+        {
+          "id": "0xe49787db40b23478bd1c2210d81cc80f87d271adbe25e5e1b5a10ed83d988ad6",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 26813.9,
+          "tvlAt": "2026-10-13T18:11:33.265Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 17,
+        "againstDollar": 6,
+        "kept": 2
+      }
+    },
+    {
+      "symbol": "SNAP",
+      "address": "0xf6589f11bc40b669e584073f428b05562f568733",
+      "decimals": 18,
+      "cls": "stock",
+      "pools": [
+        {
+          "id": "0x0EbD4650C9e641E9745b5A508A2D46935DFE753E",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 95113.05,
+          "tvlAt": "2026-10-13T18:11:34.524Z"
+        },
+        {
+          "id": "0x2e4cc4c65587faca7a08b69a13c86ca8c86599d90ad818ceaa1a875176f5fb52",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 92335.33,
+          "tvlAt": "2026-10-13T18:11:34.524Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 20,
+        "againstDollar": 6,
+        "kept": 2
+      }
+    },
+    {
+      "symbol": "TTWO",
+      "address": "0x5e81213613b6b86eab4c6c50d718d34359459786",
+      "decimals": 18,
+      "cls": "stock",
+      "pools": [
+        {
+          "id": "0xD9Ab4b7fAe6DC2f7020134Ec744A8F53Ef3E5E24",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 153599.05,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
+        },
+        {
+          "id": "0xc9dad63b6fb9afe1fe888ebc7b023c587c58b9498f5bd17166226c0995dbc4eb",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 124748.65,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
+        },
+        {
+          "id": "0xd5850279c17e422d8ad108691254df010af9c6f8fcec0b586b89133100096556",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 17526.35,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
+        },
+        {
+          "id": "0x445016B5b50f836684227ea6b46571672236EeFB",
+          "kind": "cl",
+          "venue": "ramses",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 11869.94,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 30,
+        "againstDollar": 9,
+        "kept": 4
+      }
+    },
+    {
+      "symbol": "RBLX",
+      "address": "0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8",
+      "decimals": 18,
+      "cls": "stock",
+      "pools": [
+        {
+          "id": "0x2ef5945cd5664876b6481FdacFaA2942995a4DA8",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 131091.16,
+          "tvlAt": "2026-10-13T18:11:37.049Z"
+        },
+        {
+          "id": "0x1BDB8e3A79Cb1a7F228808739311E23098D33d43",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 105020.88,
+          "tvlAt": "2026-10-13T18:11:37.049Z"
+        },
+        {
+          "id": "0x8e0915e4860ad0426dd2f740f44cf6f4f675ae8c9f6a0ad42e323aba809a6149",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 16607.27,
+          "tvlAt": "2026-10-13T18:11:37.049Z"
+        },
+        {
+          "id": "0xf807376333cd408c36d48a11a96309b92c5bd2bca9ba9f0b21800636cb3a30da",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 12151.88,
+          "tvlAt": "2026-10-13T18:11:37.049Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 22,
+        "againstDollar": 6,
+        "kept": 4
+      }
+    },
+    {
+      "symbol": "LIT",
+      "address": "0xeeca2e7dc194a320d349122d88259bb9595a4cb0",
+      "decimals": 18,
+      "cls": "crypto",
+      "pools": [
+        {
+          "id": "0xecc90c8bd08ff7138856f4205e30ae38adfd529578ee925f010b0134f2c91f6a",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 532583.75,
+          "tvlAt": "2026-10-13T18:11:38.316Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 3,
+        "againstDollar": 1,
+        "kept": 1
+      }
+    },
+    {
+      "symbol": "GLXY",
+      "address": "0x2d427692e928fa156ec22acfabafa0447c5805b7",
+      "decimals": 18,
+      "cls": "stock",
+      "pools": [
+        {
+          "id": "0xC67C2D200E0b7E5D99F4CFBede8CB09B48892f2c",
+          "kind": "cl",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 136180.08,
+          "tvlAt": "2026-10-13T18:11:39.575Z"
+        },
+        {
+          "id": "0x0487ff1150bbbc8fefb6e1e3fc5c33265e08e6454d9cb43b74c7000da3238c9e",
+          "kind": "v4",
+          "venue": "uniswap",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": true,
+          "tvlUsd": 11895.23,
+          "tvlAt": "2026-10-13T18:11:39.575Z"
+        }
+      ],
+      "dexscreener": {
+        "pairs": 13,
+        "againstDollar": 7,
+        "kept": 2
+      }
+    }
+  ],
+  "notAdded": [
+    {
+      "symbol": "USDG",
+      "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+      "reason": "the_dollar_token: every quote is in it, counted as one dollar"
+    },
+    {
+      "symbol": "NVDA",
+      "address": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "SPY",
+      "address": "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "SPCX",
+      "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "META",
+      "address": "0xc0d6457c16cc70d6790dd43521c899c87ce02f35",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "CRCL",
+      "address": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "HIMS",
+      "address": "0xccee82fe024c36fa15e1005ede3e9e4787e23d09",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "GOOGL",
+      "address": "0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "GLD",
+      "address": "0xc9a981fee1f9dec688bb123ccdecc63d0debfc4e",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "AAPL",
+      "address": "0xaf3d76f1834a1d425780943c99ea8a608f8a93f9",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "MSTR",
+      "address": "0xec262a75e413fafd0df80480274532c79d42da09",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "AMC",
+      "address": "0x05a3d1cd21d0c88145e82600e62e7e496e0f222b",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "USO",
+      "address": "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "QQQ",
+      "address": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "MU",
+      "address": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "TSLA",
+      "address": "0x322f0929c4625ed5bad873c95208d54e1c003b2d",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "PLTR",
+      "address": "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "AMD",
+      "address": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "GME",
+      "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "INTC",
+      "address": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "COIN",
+      "address": "0x6330d8c3178a418788df01a47479c0ce7ccf450b",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "RDDT",
+      "address": "0x05b37fb53a299a1b874a619e1c4c404d52c36f4c",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "LLY",
+      "address": "0x8005d266423c7ea827372c9c864491e5786600ea",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "AMZN",
+      "address": "0x12f190a9f9d7d37a250758b26824b97ce941bf54",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "MSFT",
+      "address": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "COST",
+      "address": "0x4ea005168d7f09a7a0ba9d1def21a479950e44c2",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "SNDK",
+      "address": "0xb90a19ff0af67f7779aff50a882a9cff42446400",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "SLV",
+      "address": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "DELL",
+      "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    },
+    {
+      "symbol": "DJT",
+      "address": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+      "reason": "tracked_by_the_list: measured with the cut’s pools"
+    }
+  ]
+}

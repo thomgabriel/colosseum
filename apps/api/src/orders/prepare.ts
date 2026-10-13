@@ -52,9 +52,9 @@ export const ORDER_POLICY = {
   maxLines: 16,
 } as const;
 
-/** The slippage every trade of an order is built with: the buy's or the rebalance's own figure, or the server's. */
+/** The slippage every trade of an order is built with: the order's own figure where it names one, or the server's. */
 export function slippageOf(request: IntentRequest): number {
-  return (request.type === 'buy' || request.type === 'rebalance') &&
+  return (request.type === 'buy' || request.type === 'rebalance' || request.type === 'withdraw') &&
     request.maxSlippageBps !== undefined
     ? request.maxSlippageBps
     : ORDER_POLICY.slippageBps;
@@ -687,10 +687,13 @@ export async function prepareOrder(req: IntentRequest, ctx: PrepareContext): Pro
         ctx,
         { [chainFamily(plan.entry.chain)]: plan.owner },
         'withdraw',
-        `Withdraw from your vault on ${plan.entry.config.name} to your own wallet`,
+        req.sellToCash
+          ? `Withdraw from your vault on ${plan.entry.config.name} in dollars, to your own wallet`
+          : `Withdraw from your vault on ${plan.entry.config.name} to your own wallet`,
         plan.steps,
         [],
         plan.entry.provenance,
+        plan.warnings,
       ),
       request: req,
     };
@@ -698,7 +701,10 @@ export async function prepareOrder(req: IntentRequest, ctx: PrepareContext): Pro
   throw new Refusal(501, `a ${req.type} order is not built yet`);
 }
 
-/** An order of steps that trade nothing: a publish, a follow or a withdrawal. */
+/**
+ * An order of steps that trade nothing: a publish, a follow or a withdrawal. The one exception is a
+ * withdrawal in dollars, whose steps carry their sales, each with its figure (orders/withdraw.ts).
+ */
 function sharedOrder(
   ctx: PrepareContext,
   owner: Order['owner'],
@@ -709,6 +715,8 @@ function sharedOrder(
     kind: Leg['kind'];
     description: string;
     withdrawals?: Leg['withdrawals'];
+    trades?: Leg['trades'];
+    expected?: Leg['expected'];
   }[],
   needsConsent: Order['needsConsent'],
   provenance?: Leg['provenance'],
@@ -727,9 +735,9 @@ function sharedOrder(
       kind: step.kind,
       description: step.description,
       ...(step.withdrawals ? { withdrawals: step.withdrawals } : {}),
-      trades: [],
+      trades: step.trades ?? [],
       signer: 'owner',
-      expected: [],
+      expected: step.expected ?? [],
       status: 'planned',
       attempt: 0,
       txId: null,

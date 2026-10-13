@@ -142,7 +142,9 @@ export function useVaultHistory(): VaultHistory {
                             ? t.activity.publish(when)
                             : record.terms?.kind === 'retarget'
                               ? t.mix.activity(when)
-                              : t.activity.order(when),
+                              : record.terms?.kind === 'rebalance'
+                                ? t.activity.rebalance(when)
+                                : t.activity.order(when),
                     executions,
                   },
                 ];

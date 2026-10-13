@@ -337,3 +337,97 @@ describe('the approved steps of an order that adds to a vault', () => {
     expect(refusalOf(() => approvedSteps(twice as never, terms, w.deployment))?.code).toBe('order');
   });
 });
+
+// A rebalance to the targets a vault has: swaps only, every trade through the chain's cash, every
+// purchase one of the targets, each with a minimum above zero, and each trade the one reviewed.
+describe('the approved steps of a rebalance', () => {
+  async function rebalancing(chain: 'solana' | 'robinhood') {
+    const { w, order } = await bought(chain);
+    const template = order.legs.find((l) => l.kind === 'swap' || l.kind === 'create_vault');
+    if (!template) throw new Error('a step');
+    const cash = w.deployment.cash;
+    const spy = `${chain}:spy`;
+    const gold = `${chain}:gold`;
+    const swap = (seq: number, sell: string, buy: string, inRaw: string, minOutRaw = '1000') => ({
+      ...template,
+      id: `leg-${seq}`,
+      seq,
+      kind: 'swap' as const,
+      cashRaw: undefined,
+      trades: [{ sell, buy, amountInRaw: inRaw }],
+      expected: [{ inRaw, outRaw: '2000', minOutRaw, costBps: 10 }],
+    });
+    const legs = [swap(0, spy, cash, '300'), swap(1, cash, gold, '400')];
+    const rebalance = {
+      ...order,
+      depositRaw: undefined,
+      legs,
+    } as unknown as typeof order;
+    const terms: PlanTerms = {
+      basketId: '42',
+      rebalance: {
+        targets: [
+          { asset: spy, weightBps: 5_000 },
+          { asset: gold, weightBps: 5_000 },
+        ],
+        trades: legs.flatMap((l) => l.trades),
+      },
+    };
+    const refused = (change: (legs: ReturnType<typeof swap>[]) => unknown[], plan = terms) =>
+      refusalOf(() =>
+        approvedSteps({ ...rebalance, legs: change(legs) } as never, plan, w.deployment),
+      )?.code ?? null;
+    return { w, cash, spy, gold, swap, legs, rebalance, terms, refused };
+  }
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s signs the reviewed swaps and nothing else',
+    async (chain) => {
+      const { w, rebalance, terms } = await rebalancing(chain);
+      expect(approvedSteps(rebalance, terms, w.deployment).map((s) => s.kind)).toEqual([
+        'swap',
+        'swap',
+      ]);
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses a withdrawal and a zero minimum riding along (the review of #265)',
+    async (chain) => {
+      const { swap, cash, gold, refused } = await rebalancing(chain);
+      const withdraw = { ...swap(2, cash, gold, '1'), kind: 'withdraw', trades: [], expected: [] };
+      expect(refused((legs) => [...legs, withdraw])).toBe('order');
+      expect(refused(([a]) => [a, swap(1, cash, gold, '400', '0')])).toBe('order');
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses any step but a swap, a trade with no cash side, a purchase that is no target, and a trade not as reviewed',
+    async (chain) => {
+      const { swap, spy, cash, gold, refused, legs } = await rebalancing(chain);
+      for (const kind of ['set_targets', 'accept_version', 'set_auto_follow', 'deposit'])
+        expect(
+          refused((ls) => [...ls, { ...swap(2, cash, gold, '1'), kind, trades: [], expected: [] }]),
+          kind,
+        ).toBe('order');
+      // straight from one asset into another
+      expect(refused(([, b]) => [swap(0, spy, gold, '300'), b])).toBe('order');
+      // a purchase of something the vault has no target in
+      expect(refused(([a]) => [a, swap(1, cash, `${chain}:nvda`, '400')])).toBe('order');
+      // another amount than reviewed, and a step the review did not have
+      expect(refused(([a]) => [a, swap(1, cash, gold, '401')])).toBe('order');
+      expect(refused((ls) => [...ls, swap(2, cash, gold, '5')])).toBe('order');
+      // a missing minimum
+      expect(refused(([a, b]) => [a, { ...b, expected: [] }])).toBe('order');
+      expect(refused(() => legs)).toBeNull();
+      // and no withdrawal in dollars rides with a rebalance's terms
+      expect(
+        refused(() => legs, {
+          basketId: '42',
+          rebalance: { targets: [{ asset: gold, weightBps: 10_000 }], trades: [] },
+          dollars: { cashRaw: '1', sales: [] },
+        }),
+      ).toBe('order');
+    },
+  );
+});

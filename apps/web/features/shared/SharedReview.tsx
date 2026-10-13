@@ -83,32 +83,66 @@ export function SharedReview({ terms, chain }: { terms: SharedTerms; chain: Chai
       return u && figure !== null ? `${figure} ${u.symbol}` : `${raw} ${tokenName(asset)}`;
     };
     const w = t.withdraw.check;
+    const { dollars } = terms;
+    const cashName = units ? (units.tokens[units.cash]?.symbol ?? tokenName(units.cash)) : '';
     return (
       <Card as="section" aria-label={s.withdrawTitle}>
         <CardHeader title={s.withdrawTitle} level={2} meta={t.chain.names[chain]} />
         <CardBody className="flex flex-col gap-4">
-          <DataTable<WithdrawItem>
-            caption={w.leaves}
-            rows={terms.items}
-            rowKey={(r) => r.asset}
-            columns={[
-              {
-                key: 'asset',
-                header: w.token,
-                rowHeader: true,
-                cell: (r) => units?.tokens[r.asset]?.symbol ?? tokenName(r.asset),
-              },
-              {
-                key: 'amount',
-                header: w.amount,
-                numeric: true,
-                cell: (r) =>
-                  r.amountRaw === null
-                    ? w.all(whole(r.heldRaw, r.asset))
-                    : whole(r.amountRaw, r.asset),
-              },
-            ]}
-          />
+          {dollars ? (
+            // In dollars: what is sold, as its review showed it, and the cash that leaves with it.
+            <>
+              {dollars.sales.length > 0 && (
+                <DataTable<(typeof dollars.sales)[number]>
+                  caption={w.dollars.sold}
+                  rows={dollars.sales}
+                  rowKey={(r) => r.asset}
+                  columns={[
+                    {
+                      key: 'asset',
+                      header: w.dollars.holding,
+                      rowHeader: true,
+                      cell: (r) => units?.tokens[r.asset]?.symbol ?? tokenName(r.asset),
+                    },
+                    {
+                      key: 'amount',
+                      header: w.dollars.amount,
+                      numeric: true,
+                      cell: (r) => whole(r.amountRaw, r.asset),
+                    },
+                  ]}
+                />
+              )}
+              <p data-ui="withdraw-cash" className="max-w-(--tf-measure-body) text-body-sm">
+                {BigInt(dollars.cashRaw) > 0n
+                  ? w.dollars.cash(whole(dollars.cashRaw, terms.items[0]?.asset ?? ''))
+                  : w.dollars.noCash}
+              </p>
+            </>
+          ) : (
+            <DataTable<WithdrawItem>
+              caption={w.leaves}
+              rows={terms.items}
+              rowKey={(r) => r.asset}
+              columns={[
+                {
+                  key: 'asset',
+                  header: w.token,
+                  rowHeader: true,
+                  cell: (r) => units?.tokens[r.asset]?.symbol ?? tokenName(r.asset),
+                },
+                {
+                  key: 'amount',
+                  header: w.amount,
+                  numeric: true,
+                  cell: (r) =>
+                    r.amountRaw === null
+                      ? w.all(whole(r.heldRaw, r.asset))
+                      : whole(r.amountRaw, r.asset),
+                },
+              ]}
+            />
+          )}
           <dl className="grid gap-x-6 gap-y-1 text-body-sm sm:grid-cols-[auto_1fr]">
             <dt className="text-muted-foreground">{w.to}</dt>
             <dd>
@@ -126,7 +160,7 @@ export function SharedReview({ terms, chain }: { terms: SharedTerms; chain: Chai
             </p>
           )}
           <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {w.onlyOwner}
+            {dollars ? w.dollars.onlyOwner(cashName) : w.onlyOwner}
           </p>
         </CardBody>
       </Card>
@@ -147,6 +181,26 @@ export function SharedReview({ terms, chain }: { terms: SharedTerms; chain: Chai
           {cash > 0 && <p className="text-body-sm">{m.cash(share(cash))}</p>}
           <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
             {terms.origin === 'model' ? m.fromConversation : m.fromPerson} {m.note}
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
+  if (terms.kind === 'rebalance') {
+    const r = t.shared.vault.page.rebalancing;
+    const cash = 10_000 - terms.targets.reduce((n, x) => n + x.weightBps, 0);
+    return (
+      <Card as="section" aria-label={r.reviewTitle}>
+        <CardHeader title={r.reviewTitle} level={2} meta={t.chain.names[chain]} />
+        <CardBody className="flex flex-col gap-4">
+          <dl className="grid gap-x-6 gap-y-1 text-body-sm sm:grid-cols-[auto_1fr]">
+            <dt className="text-muted-foreground">{s.vault}</dt>
+            <dd className="break-all font-mono text-source">{terms.vault}</dd>
+          </dl>
+          {weights(terms.targets)}
+          {cash > 0 && <p className="text-body-sm">{r.cash(share(cash))}</p>}
+          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+            {r.reviewNote}
           </p>
         </CardBody>
       </Card>

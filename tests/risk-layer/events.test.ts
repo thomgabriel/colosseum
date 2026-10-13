@@ -12,10 +12,12 @@ import {
   rewind,
   type TickMap,
   tokenBalances,
+  txAccountKeys,
 } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
 
-// Step 5b — event decoders on frozen mainnet transactions (fixtures/risk/txs, fetched 2026-10-01).
+// Step 5b — event decoders on frozen mainnet transactions (fixtures/risk/txs, fetched 2026-10-01; the Raydium AMM
+// v4, Meteora DAMM v1 and v2 and PumpSwap ones 2026-10-13, ASSET-3, worked by hand in asset-venues.test.ts).
 type Fx = {
   venue: string;
   label: string;
@@ -42,7 +44,17 @@ function vaultFlow(e: PoolEvent): [bigint, bigint] {
 describe('pool event decoders (live transactions)', () => {
   it('has fixtures for every decoded venue', () => {
     const venues = new Set(fixtures.map((f) => f.venue));
-    for (const v of ['raydium_clmm', 'orca_whirlpool', 'raydium_cpmm', 'meteora_dlmm'])
+    for (const v of [
+      'raydium_clmm',
+      'orca_whirlpool',
+      'raydium_cpmm',
+      'meteora_dlmm',
+      // ASSET-3, frozen 2026-10-13
+      'raydium_amm_v4',
+      'meteora_damm_v1',
+      'meteora_damm_v2',
+      'pumpswap',
+    ])
       expect(venues).toContain(v);
   });
   for (const fx of fixtures)
@@ -141,5 +153,51 @@ describe('replay', () => {
       },
     ];
     expect(chainBreaks(rows)).toHaveLength(1);
+  });
+});
+
+describe('a version-1 transaction (getTransaction with maxSupportedTransactionVersion 1)', () => {
+  // The json shape mainnet returned for a version-1 swap on 2026-10-13: the message carries
+  // `transactionConfig` and no `addressTableLookups`, and `meta.loadedAddresses` is still present.
+  // Keys and balances are read the same way as from a version-0 answer.
+  const tx = {
+    slot: 1,
+    blockTime: 1_760_000_000,
+    version: 1,
+    transaction: {
+      signatures: ['sig'],
+      message: {
+        header: {
+          numRequiredSignatures: 1,
+          numReadonlySignedAccounts: 0,
+          numReadonlyUnsignedAccounts: 1,
+        },
+        accountKeys: ['payer', 'vaultA', 'program'],
+        recentBlockhash: 'hash',
+        instructions: [{ programIdIndex: 2, accounts: [0, 1, 3], data: '' }],
+        transactionConfig: {},
+      },
+    },
+    meta: {
+      err: null,
+      logMessages: [],
+      loadedAddresses: { writable: ['vaultB'], readonly: [] },
+      preTokenBalances: [
+        { accountIndex: 1, uiTokenAmount: { amount: '100' } },
+        { accountIndex: 3, uiTokenAmount: { amount: '7' } },
+      ],
+      postTokenBalances: [
+        { accountIndex: 1, uiTokenAmount: { amount: '90' } },
+        { accountIndex: 3, uiTokenAmount: { amount: '8' } },
+      ],
+    },
+  };
+
+  it('lists static keys then loaded ones, and reads the token balances by them', () => {
+    expect(txAccountKeys(tx)).toEqual(['payer', 'vaultA', 'program', 'vaultB']);
+    expect(tokenBalances(tx, ['vaultA', 'vaultB'])).toEqual({
+      pre: ['100', '7'],
+      post: ['90', '8'],
+    });
   });
 });

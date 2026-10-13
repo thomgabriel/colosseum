@@ -214,11 +214,11 @@ export const bearingPt: BearingDictionary = {
     capacity: {
       title: 'Capacidade de saída com custo ≤ 1%',
       note: (from: string) =>
-        `lados de venda e compra, somados nos ativos selecionados, um ponto por hora UTC desde ${from}, quando as curvas roteadas começaram`,
+        `os dois lados, a saída e os dólares que entram, somados nos ativos selecionados, um ponto por hora UTC desde ${from}, quando as curvas roteadas começaram`,
       firstCurve: 'a primeira curva roteada',
       sell: 'venda (para sair)',
-      buy: 'compra (para entrar)',
-      aria: 'Capacidade de saída e de compra ao longo do tempo para os ativos selecionados',
+      buy: 'dólares que entram',
+      aria: 'Capacidade de saída e dos dólares que entram, ao longo do tempo, para os ativos selecionados',
       src: 'gráfico de capacidade',
       partial: (k: number, n: number) => `(${k} de ${n} ativos)`,
     },
@@ -267,7 +267,7 @@ export const bearingPt: BearingDictionary = {
       recordedAt: (at: string) => `a partir do registro mais recente do pool, ${at}`,
       liveAt: (at: string) => `a partir da leitura ao vivo das ${at} UTC`,
       note: (when: string) =>
-        `guardada a até ±30% do preço, ${when}; o ativo espera acima do preço (vendido conforme sobe), a moeda de cotação abaixo (usada para comprar conforme cai); + e − para zoom`,
+        `guardada a até ±30% do preço, ${when}; o ativo espera acima do preço (vendido conforme sobe), a moeda de cotação abaixo (gasta no ativo conforme cai); + e − para zoom`,
       aria: (pool: string) =>
         `Liquidez do pool ${pool} por faixa de preço em torno do preço do pool`,
       src: 'gráfico de distribuição',
@@ -341,7 +341,7 @@ export const bearingPt: BearingDictionary = {
     table: {
       title: 'Pools de empréstimo',
       note: (tol: string, regime: string) =>
-        `Coberto é a fatia da garantia de um pool que os pools de swap poderiam comprar com custo de no máximo ${tol} no horário atual da semana (${regime}); o resto seria vendido com perda maior. A perda se tudo for vendido é a venda roteada de cada ativo de garantia no tamanho inteiro, de uma vez. Numa linha, cada pool de empréstimo conta sozinho; nos contadores e no gráfico, cada posição numa ação é somada primeiro e vendida nos pools dessa ação uma vez, já que usam a mesma profundidade. A Kamino informa a garantia por mercado, então as reservas de um mercado mostram a mesma garantia; os contadores e o gráfico a contam uma vez.`,
+        `Coberto é a fatia da garantia de um pool que os pools de swap poderiam absorver com custo de no máximo ${tol} no horário atual da semana (${regime}); o resto seria vendido com perda maior. A perda se tudo for vendido é a venda roteada de cada ativo de garantia no tamanho inteiro, de uma vez. Numa linha, cada pool de empréstimo conta sozinho; nos contadores e no gráfico, cada posição numa ação é somada primeiro e vendida nos pools dessa ação uma vez, já que usam a mesma profundidade. A Kamino informa a garantia por mercado, então as reservas de um mercado mostram a mesma garantia; os contadores e o gráfico a contam uma vez.`,
       caption: 'Pools de empréstimo com a cobertura da garantia',
       pool: 'Pool',
       explorer: (pool: string) => `Ver ${pool} no Solscan`,
@@ -544,7 +544,7 @@ export const bearingPt: BearingDictionary = {
   methodology: {
     measured: 'O que é medido',
     measuredText:
-      'A cada 5 minutos lemos o estado na rede de cada pool de DEX que negocia uma ação tokenizada (Raydium CLMM, Orca Whirlpool, Meteora DLMM, Raydium CPMM) e simulamos vender e comprar a ação por dólares em tamanhos de US$ 100 a US$ 5 milhões. A simulação reproduz a matemática de swap de cada plataforma a partir das próprias contas do pool: a liquidez em cada nível de preço, as taxas e as taxas de transferência do Token-2022. Ela é conferida com cotações da Jupiter roteadas pelo mesmo pool; a tolerância por plataforma faz parte da suíte de testes.',
+      'A cada 5 minutos lemos o estado na rede de cada pool de DEX que negocia uma ação tokenizada (Raydium CLMM, Orca Whirlpool, Meteora DLMM, Raydium CPMM) e simulamos trocar a ação por dólares, e dólares pela ação, em tamanhos de US$ 100 a US$ 5 milhões. A simulação reproduz a matemática de swap de cada plataforma a partir das próprias contas do pool: a liquidez em cada nível de preço, as taxas e as taxas de transferência do Token-2022. Ela é conferida com cotações da Jupiter roteadas pelo mesmo pool; a tolerância por plataforma faz parte da suíte de testes.',
     means: 'O que um número quer dizer',
     meansItems: [
       [

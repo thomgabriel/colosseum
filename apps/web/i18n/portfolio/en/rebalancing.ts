@@ -111,7 +111,7 @@ export const rebalancing = {
       'When a step of yours confirmed on the chain. The time shown is when the step was built.',
       'What a trade paid. The cost shown is a quote, in basis points: 100 bps is 1%.',
       'Our keeper’s trades one by one. Each is worked out from two readings of a vault in the last thirty days, so it has no transaction, no quote and no reason, and several trades of one asset between two readings show as one.',
-      'A version our keeper adopted for you, and your own rebalances, withdrawals and changes of settings: those orders aren’t built yet.',
+      'A version our keeper adopted for you, and your own withdrawals and changes of settings: those orders aren’t built yet.',
     ],
     more: 'Read how these pages work, and what else they can’t say yet',
   },

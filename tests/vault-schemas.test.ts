@@ -78,6 +78,7 @@ import {
   WalletAccount,
   WalletError,
   WalletErrorCode,
+  WITHDRAW_DOLLARS_MARGIN_BPS,
   WithdrawInKindArgs,
 } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
@@ -389,6 +390,10 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
   it('caps what a buy may ask for: its amount and its slippage', () => {
     const buy = { type: 'buy', owner: { solana: SOL }, amountUsd: 500, proposalId: 'p' };
     expect(ORDER_LIMITS).toEqual({ maxAmountUsd: 1_000_000, maxSlippageBps: 300 });
+    // A withdrawal in dollars's cash step may pay at most this far over its sales' quotes, in bps
+    // (gate WITHDRAW-DOLLARS): the same distance a trade may be built under its quote. Pinned here
+    // as the caps are; it is not one of them, since no request asks for it.
+    expect(WITHDRAW_DOLLARS_MARGIN_BPS).toBe(300);
     expect(IntentRequest.safeParse({ ...buy, amountUsd: 1_000_000 }).success).toBe(true);
     const over = IntentRequest.safeParse({ ...buy, amountUsd: 1_000_000.01 });
     expect(over.success).toBe(false);
@@ -1075,6 +1080,8 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
         'RouterFailed',
         'Expired',
         'Unavailable',
+        // The smaller limit of a closed market lifts once the reference price is live again.
+        'TradeOverClosedLimit',
       ].sort(),
     );
     for (const code of ChainErrorCode.options)

@@ -545,6 +545,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           trade: t,
           outRaw: out.toString(),
           minOutRaw: minOut.toString(),
+          ...(feedFloor !== null ? { floorRaw: feedFloor.toString() } : {}),
           costBps: costBps ?? 0,
           against: reference ? 'reference' : 'pool_mid',
           venue: `Uniswap v4 (fee ${pool.fee}) through Universal Router ${router ?? 'unset'}`,

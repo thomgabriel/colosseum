@@ -263,7 +263,7 @@ export function holdTrade(limits: TradeLimits, token: string, t: HeldTrade): big
           : (Number(t.out) / cash) * (Number(t.amountInSoFar) / Number(t.amountIn));
     if (soFar > max)
       throw new ChainError(
-        'BadTrade',
+        lower ? 'TradeOverClosedLimit' : 'TradeOverAssetLimit',
         lower
           ? `${dollars(soFar)} of ${t.symbol} in one go is more than is traded ${t.price?.market === 'closed' ? `while ${t.symbol}'s market is closed` : `while ${t.symbol} has no live reference price`}: at most ${dollars(max)} at a time. Trade less, or in parts`
           : `${dollars(soFar)} of ${t.symbol} in one go is more than its pool is trusted to fill: at most ${dollars(max)} at a time. Trade less, or in parts`,
