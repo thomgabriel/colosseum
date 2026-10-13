@@ -42,8 +42,17 @@ import {
 import { GoalCard } from '../../../../components/ui/GoalCard';
 import { type HeatmapState, HeatmapTile } from '../../../../components/ui/HeatmapTile';
 import { Icon, type IconName } from '../../../../components/ui/Icon';
+import { KIT_CELL, KIT_PINNED, KIT_ROW, KitTable, KitTh } from '../../../../components/ui/KitTable';
 import { LatticeStatus } from '../../../../components/ui/Lattice';
 import { MockFrame, MockPlate, StalePlate } from '../../../../components/ui/MockPlate';
+import {
+  HeroFigure,
+  Panel,
+  PanelHead,
+  PanelStat,
+  Plate,
+  StatGrid,
+} from '../../../../components/ui/Panel';
 import { PlanLegs } from '../../../../components/ui/PlanLegs';
 import { ProvenancePin } from '../../../../components/ui/ProvenancePin';
 import type { PinSource } from '../../../../components/ui/provenance';
@@ -807,6 +816,53 @@ export function Showcase() {
         </Specimen>
         <Specimen state="“Why this plan?”: the segments part and the reasons show" wide>
           <WhyThisPlan />
+        </Specimen>
+      </Section>
+
+      <Section
+        spec="house-kit.md"
+        title="The house kit"
+        note="The pieces of the portfolio overview, for every screen: a panel, its head, a hero figure, small figures, the quiet pill and the table. Made-up figures."
+      >
+        <Specimen state="panel: hero figure, small figures, the pill" wide>
+          <Panel aria-label="Made-up board">
+            <div className="flex flex-col gap-4 p-5">
+              <HeroFigure label="Total value" plate={<Plate>Sample figures</Plate>}>
+                $12,345.67
+              </HeroFigure>
+              <StatGrid>
+                <PanelStat label="Vaults">3</PanelStat>
+                <PanelStat label="Net deposited">$12,000.00</PanelStat>
+              </StatGrid>
+            </div>
+          </Panel>
+        </Specimen>
+        <Specimen state="panel head and table" wide>
+          <Panel aria-labelledby="kit-sample-head">
+            <PanelHead
+              id="kit-sample-head"
+              title="Holdings"
+              stats={[{ label: 'Assets', value: <span className="font-medium">2</span> }]}
+            />
+            <KitTable
+              minWidth="min-w-[480px]"
+              head={
+                <>
+                  <KitTh>Asset</KitTh>
+                  <KitTh numeric>Weight</KitTh>
+                </>
+              }
+            >
+              <tr className={KIT_ROW}>
+                <td className={KIT_CELL}>Treasury token</td>
+                <td className={`${KIT_CELL} ${KIT_PINNED}`}>60%</td>
+              </tr>
+              <tr className={KIT_ROW}>
+                <td className={KIT_CELL}>Dollar lending</td>
+                <td className={`${KIT_CELL} ${KIT_PINNED}`}>40%</td>
+              </tr>
+            </KitTable>
+          </Panel>
         </Specimen>
       </Section>
 

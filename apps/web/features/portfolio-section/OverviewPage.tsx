@@ -6,6 +6,15 @@ import { ChainBadge } from '../../components/ui/ChainBadge';
 import { cn } from '../../components/ui/cn';
 import { Hint } from '../../components/ui/Hint';
 import { PAGE_TITLE } from '../../components/ui/heading';
+import { KIT_CELL, KIT_PINNED, KIT_ROW, KitTable, KitTh } from '../../components/ui/KitTable';
+import {
+  HeroFigure,
+  Panel,
+  PanelHead,
+  PanelStat,
+  Plate,
+  StatGrid,
+} from '../../components/ui/Panel';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import type { PinSource } from '../../components/ui/provenance';
 import { Status } from '../../components/ui/StatusMark';
@@ -158,11 +167,10 @@ function Board({ answer }: { answer: PlansAnswer }) {
       <ChainsOut unavailable={answer.unavailable} />
       {/* No hatch down the edge here (Rodrigo, Oct 8): a board that is not live says so in words,
           in the plate at its top, and every figure on it keeps its hatched pin. */}
-      <section
+      <Panel
         aria-label={w.overview.board.total}
         data-ui="overview-board"
         data-provenance={provenance ?? undefined}
-        className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
       >
         <div className="grid min-w-0 lg:grid-cols-[minmax(0,5fr)_minmax(0,9fr)]">
           <Figures
@@ -203,7 +211,7 @@ function Board({ answer }: { answer: PlansAnswer }) {
             />
           </div>
         </div>
-      </section>
+      </Panel>
       <Vaults
         answer={answer}
         flows={flows}
@@ -351,16 +359,6 @@ function PeriodSelect({
   );
 }
 
-/** A figure of the board, with its label over it. */
-function Figure({ label, children, ui }: { label: string; children: ReactNode; ui: string }) {
-  return (
-    <div data-ui={ui} className="flex min-w-0 flex-col gap-1">
-      <dt className="text-caption text-muted-foreground">{label}</dt>
-      <dd className="m-0 text-body font-medium tabular-nums">{children}</dd>
-    </div>
-  );
-}
-
 /**
  * What the vaults of the kind the sums hold are worth together, how many there are, what went into
  * them and the difference, each with its stamp: the board and the vaults' card say the same figures.
@@ -458,42 +456,35 @@ function Figures({
   return (
     <div className="flex min-w-0 flex-col">
       <div className="flex flex-col gap-4 p-5">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-body-sm text-muted-foreground">{words.total}</p>
-            {provenance && provenance !== 'live' && (
+        <HeroFigure
+          label={words.total}
+          ui="board-total"
+          plate={
+            provenance &&
+            provenance !== 'live' && (
               // the board's figures are not live: said in words, as the hatch band would have
-              <span
-                data-ui="board-plate"
-                className="rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground"
-              >
-                {sampleLine(t.shell, provenance)}
-              </span>
-            )}
-          </div>
-          <p
-            data-ui="board-total"
-            className="font-display text-[2rem]/10 font-semibold tracking-[-0.02em] tabular-nums"
-          >
-            {total ? (
-              <ProvenancePin value={dollars(lang, total.usd)} obs={total.obs} labels={t.pin} />
-            ) : (
-              w.overview.table.neverRead
-            )}
-          </p>
-        </div>
-        <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4">
-          <Figure ui="board-vaults" label={words.vaults}>
+              <Plate ui="board-plate">{sampleLine(t.shell, provenance)}</Plate>
+            )
+          }
+        >
+          {total ? (
+            <ProvenancePin value={dollars(lang, total.usd)} obs={total.obs} labels={t.pin} />
+          ) : (
+            w.overview.table.neverRead
+          )}
+        </HeroFigure>
+        <StatGrid>
+          <PanelStat ui="board-vaults" label={words.vaults}>
             {vaults}
-          </Figure>
-          <Figure ui="board-net-in" label={words.netIn}>
+          </PanelStat>
+          <PanelStat ui="board-net-in" label={words.netIn}>
             {netObs ? (
               <ProvenancePin value={dollars(lang, netIn.toFixed(2))} obs={netObs} labels={t.pin} />
             ) : (
               '—'
             )}
-          </Figure>
-          <Figure ui="board-all-time" label={words.allTime}>
+          </PanelStat>
+          <PanelStat ui="board-all-time" label={words.allTime}>
             {allTime === null ? (
               '—'
             ) : (
@@ -504,8 +495,8 @@ function Figures({
                 className={allTime >= 0 ? UP : DOWN}
               />
             )}
-          </Figure>
-        </dl>
+          </PanelStat>
+        </StatGrid>
         {others.map((kind) => (
           <p key={kind} className="text-caption text-muted-foreground">
             {words.leftOut(words.kinds[kind])}
@@ -552,12 +543,12 @@ function Figures({
                 </span>
               )}
             </p>
-            <dl className="m-0 grid grid-cols-2 gap-4">
-              <Figure ui="board-gaining" label={words.gaining}>
+            <StatGrid spacing="gap-4">
+              <PanelStat ui="board-gaining" label={words.gaining}>
                 {gaining} / {periods.length}
-              </Figure>
+              </PanelStat>
               {best && bestName && (
-                <Figure ui="board-best" label={words.best}>
+                <PanelStat ui="board-best" label={words.best}>
                   <Hint
                     tip={bestName}
                     className="flex min-w-0"
@@ -572,9 +563,9 @@ function Figures({
                     labels={t.pin}
                     className={best.pnlUsd >= 0 ? UP : DOWN}
                   />
-                </Figure>
+                </PanelStat>
               )}
-            </dl>
+            </StatGrid>
           </>
         )}
       </div>
@@ -681,117 +672,100 @@ function Vaults({
   const lang = useLang();
   const board = w.overview.board;
   const { vaults, total, netIn, netObs, allTime } = useSums(answer, chains, flows);
-  const head = 'px-5 py-3 font-medium';
-  const stat = 'flex items-baseline gap-2 text-body-sm';
   return (
-    <section
-      aria-labelledby="overview-vaults"
-      className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
-    >
+    <Panel aria-labelledby="overview-vaults">
       {/* The card's head, as a portfolio board has it: what it lists and its figures in one line. */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border px-5 py-4">
-        <h2
-          id="overview-vaults"
-          className="flex items-center gap-2.5 text-body-lg font-semibold whitespace-nowrap"
-        >
-          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-honey-tint text-foreground">
-            <VaultIcon />
-          </span>
-          {words.heading}
-        </h2>
-        {allTime !== null && total && (
-          <p data-ui="vaults-pnl" className={stat}>
-            <span className="text-muted-foreground">{board.allTime}</span>
-            <ProvenancePin
-              value={signed(lang, allTime)}
-              obs={{ ...total.obs, method: board.allTimeMethod }}
-              labels={t.pin}
-              className={cn('font-medium', allTime >= 0 ? UP : DOWN)}
-            />
-          </p>
-        )}
-        {netObs && (
-          <p data-ui="vaults-net-in" className={stat}>
-            <span className="text-muted-foreground">{board.netIn}</span>
-            <ProvenancePin
-              value={dollars(lang, netIn.toFixed(2))}
-              obs={netObs}
-              labels={t.pin}
-              className="font-medium"
-            />
-          </p>
-        )}
-        <p data-ui="vaults-count" className={stat}>
-          <span className="text-muted-foreground">{board.vaults}</span>
-          <span className="font-medium">{vaults}</span>
-        </p>
-        <div className="ml-auto flex items-center gap-2">
-          <ReadAgain className="h-9 rounded-full px-4" />
-          {/* Honey, so the way to a new plan stands out on the page: a honey edge on its tint, ink text (IDENTITY-2). */}
-          <Link
-            data-ui="new-plan"
-            href="/goal"
-            className="inline-flex h-9 items-center justify-center rounded-full border border-primary bg-honey-tint px-4 text-body-sm font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            {words.newPlan}
-          </Link>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table
-          data-ui="overview-vaults"
-          className="w-full min-w-[760px] border-collapse text-body-sm"
-        >
-          <thead className="text-left text-caption text-muted-foreground">
-            <tr>
-              <th scope="col" className={head}>
-                {words.vault}
-              </th>
-              <th scope="col" className={head}>
-                {words.chain}
-              </th>
-              <th scope="col" className={cn(head, 'text-right')}>
-                {words.value}
-              </th>
-              <th scope="col" className={cn(head, 'text-right')}>
-                {words.netIn}
-              </th>
-              <th scope="col" className={cn(head, 'text-right')}>
-                {words.allTime}
-              </th>
-              <th scope="col" className={cn(head, 'text-right')}>
-                {words.period(periodWord)}
-              </th>
-              <th scope="col" className={head}>
-                {words.status}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ entry, plan }) => (
-              <VaultRow
-                key={`${entry.chain}:${plan.address}`}
-                entry={entry}
-                plan={plan}
-                netIn={
-                  plan.putIn ||
-                  flows.some((f) => f.chain === entry.chain && sameVault(f.address, plan.address))
-                    ? netOf(flows, entry.chain, plan.address)
-                    : null
-                }
-                period={
-                  chains.has(entry.chain)
-                    ? periods.find(
-                        (v) => v.chain === entry.chain && sameVault(v.address, plan.address),
-                      )
-                    : undefined
-                }
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <PanelHead
+        id="overview-vaults"
+        icon={<VaultIcon />}
+        title={words.heading}
+        stats={[
+          ...(allTime !== null && total
+            ? [
+                {
+                  label: board.allTime,
+                  ui: 'vaults-pnl',
+                  value: (
+                    <ProvenancePin
+                      value={signed(lang, allTime)}
+                      obs={{ ...total.obs, method: board.allTimeMethod }}
+                      labels={t.pin}
+                      className={cn('font-medium', allTime >= 0 ? UP : DOWN)}
+                    />
+                  ),
+                },
+              ]
+            : []),
+          ...(netObs
+            ? [
+                {
+                  label: board.netIn,
+                  ui: 'vaults-net-in',
+                  value: (
+                    <ProvenancePin
+                      value={dollars(lang, netIn.toFixed(2))}
+                      obs={netObs}
+                      labels={t.pin}
+                      className="font-medium"
+                    />
+                  ),
+                },
+              ]
+            : []),
+          {
+            label: board.vaults,
+            ui: 'vaults-count',
+            value: <span className="font-medium">{vaults}</span>,
+          },
+        ]}
+        actions={
+          <>
+            <ReadAgain className="h-9 rounded-full px-4" />
+            {/* Honey, so the way to a new plan stands out on the page: a honey edge on its tint, ink text (IDENTITY-2). */}
+            <Link
+              data-ui="new-plan"
+              href="/goal"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-primary bg-honey-tint px-4 text-body-sm font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {words.newPlan}
+            </Link>
+          </>
+        }
+      />
+      <KitTable
+        ui="overview-vaults"
+        head={
+          <>
+            <KitTh>{words.vault}</KitTh>
+            <KitTh>{words.chain}</KitTh>
+            <KitTh numeric>{words.value}</KitTh>
+            <KitTh numeric>{words.netIn}</KitTh>
+            <KitTh numeric>{words.allTime}</KitTh>
+            <KitTh numeric>{words.period(periodWord)}</KitTh>
+            <KitTh>{words.status}</KitTh>
+          </>
+        }
+      >
+        {rows.map(({ entry, plan }) => (
+          <VaultRow
+            key={`${entry.chain}:${plan.address}`}
+            entry={entry}
+            plan={plan}
+            netIn={
+              plan.putIn ||
+              flows.some((f) => f.chain === entry.chain && sameVault(f.address, plan.address))
+                ? netOf(flows, entry.chain, plan.address)
+                : null
+            }
+            period={
+              chains.has(entry.chain)
+                ? periods.find((v) => v.chain === entry.chain && sameVault(v.address, plan.address))
+                : undefined
+            }
+          />
+        ))}
+      </KitTable>
+    </Panel>
   );
 }
 
@@ -821,9 +795,9 @@ function VaultRow({
   const { newest } = plan;
   const allTime = newest && netIn !== null ? Number(newest.valueUsd) - netIn : null;
   const share = period ? shareOf(period.pnlUsd, period.baseUsd) : null;
-  const cell = 'px-5 py-4';
+  const cell = KIT_CELL;
   // A pinned cell sits over the row's link, so its pin opens rather than the vault.
-  const pinned = 'relative z-10 text-right tabular-nums';
+  const pinned = KIT_PINNED;
   const valuePin = newest ? snapshotPin(newest, entry.provenance, plan.provenance) : null;
   const netPin: PinSource | null = plan.putIn
     ? {
@@ -838,7 +812,7 @@ function VaultRow({
       data-ui="overview-vault"
       data-chain={entry.chain}
       data-address={plan.address}
-      className="relative border-t border-border focus-within:bg-muted/60 hover:bg-muted/60"
+      className={KIT_ROW}
     >
       <td className={cn(cell, 'max-w-[22rem]')}>
         {/* The whole row opens the vault: the link's box covers it. */}

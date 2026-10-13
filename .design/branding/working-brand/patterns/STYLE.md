@@ -22,6 +22,12 @@ These are product rules expressed as design. A screen that breaks one of them is
 
 ---
 
+## The house kit (read before building a screen)
+
+Every screen is built from the pieces of the portfolio overview (`features/portfolio-section/OverviewPage.tsx`, Rodrigo), taken out into `apps/web/components/ui/Panel.tsx` and `KitTable.tsx` (gate `HOUSE-KIT`, Thom, Oct 13): `Panel`, `PanelHead` (icon tile, title, its figures in one line, actions), `HeroFigure` (muted label over a 2rem Inter Tight figure, the `Plate` beside the label), `StatGrid` / `PanelStat` (a muted label over each small figure), `Plate` (the quiet "not live" pill) and `KitTable` (small muted heads, hairline rows, right-aligned tabular figures). Pins, `Status` pills and `ChainBadge` chips sit in them as on the overview. A screen that needs something the kit does not have adds it to the kit, with a showcase specimen; it does not style its own. Spec: [components/house-kit.md](./components/house-kit.md).
+
+---
+
 ## Intensity
 
 | Dial | Value | Meaning |
