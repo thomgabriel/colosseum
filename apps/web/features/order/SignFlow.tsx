@@ -167,7 +167,7 @@ export function StepPanel({
   worst: string | null;
   /** Where the step stands, said in a polite live region. */
   status: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <section data-ui="sign-step" aria-label={title} className="flex flex-col gap-3">
@@ -189,7 +189,7 @@ export function StepPanel({
 }
 
 /** What is one press away: the exact figures, every step, the transactions. */
-export function Fold({ ui, label, children }: { ui: string; label: string; children: ReactNode }) {
+export function Fold({ ui, label, children }: { ui: string; label: string; children?: ReactNode }) {
   return (
     <details data-ui={ui} className="group/fold">
       <summary className="w-fit cursor-pointer text-body-sm font-medium text-honey-text underline decoration-1 underline-offset-4 hover:decoration-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
