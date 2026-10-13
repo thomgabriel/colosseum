@@ -68,6 +68,8 @@ describe.skipIf(!existsSync(recordUrl))('TRUST_STATUS, against the mainnet deplo
     expect(record.timelock.minDelay / 3600).toBe(facts?.delayHours);
     expect(record.roles.admin.toLowerCase()).toBe(record.timelock.address.toLowerCase());
     expect(record.expected.keeperEnabled).toBe(facts?.keeper);
+    // No keeper is no keeper's key either: the role is the zero address.
+    expect(/^0x0{40}$/.test(record.roles.keeper)).toBe(!facts?.keeper);
     expect(record.expected.depositCaps !== undefined).toBe(facts?.depositCap);
   });
 });
