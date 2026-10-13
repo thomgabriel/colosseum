@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createDb, riskPools } from '@colosseum/db';
 import { eq } from 'drizzle-orm';
+import { shelfReplacedWarning } from './lib-installed';
 import { tierByShare } from './lib-tiers';
 
 // Re-tiers the latest registry without re-reading the chain. Tiers (policy inputs):
@@ -60,6 +61,10 @@ writeFileSync(file, JSON.stringify(reg, null, 1));
 const home = join(homedir(), '.colosseum', 'risk');
 mkdirSync(home, { recursive: true });
 // the collector only needs pools it will read
+{
+  const warning = shelfReplacedWarning(join(home, 'registry.json'));
+  if (warning) console.error(warning);
+}
 writeFileSync(
   join(home, 'registry.json'),
   JSON.stringify({ ...reg, pools: reg.pools.filter((p) => p.tier !== 'X') }),

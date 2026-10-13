@@ -1,8 +1,12 @@
 // The pool collector's registry with the shelf's pools beside the stock pools (PLAN-ASSETS AS.12, ledger ASSET-3).
 // No I/O: registry-merge.ts reads the two files and writes the result.
 //
-// - The stock registry's pools are kept as they are, tier and all: the merge changes nothing the collector measures
-//   today. A pool of the shelf that the stock registry already holds is that registry's (`duplicates`).
+// - The stock registry's pools are kept as they are, tier and all, and no stock asset gains a pool: a shelf pool whose
+//   asset is a stock-set asset (SPCXx's DLMM pool, AVGOx's CLMM pool on 2026-10-13) is left out, since pools.ts routes
+//   every dollar and SOL pool of an asset into its curve. A pool of the shelf that the stock registry already holds is
+//   that registry's (`duplicates`). The merge still changes what the collector does: more pools a run (RPC calls and
+//   run time, and the shared cap on re-listing tick and bin arrays), and new assets downstream (routed rows imported
+//   into risk_asset_snapshots, curves fitted by compute, reference prices written by the price job).
 // - The shelf's other pools are tiered by the rule of retier.ts (lib-tiers.ts) over the shelf's pools alone, so the
 //   shelf's much larger dollars (cbBTC, WETH, JitoSOL...) never push a stock pool from tier A to B. A shelf pool of
 //   tier X (dust) is left out of the file, as retier.ts leaves dust out of the collector's copy. A shelf pool on a
@@ -132,6 +136,32 @@ export function checkCollectorRegistry(file: unknown): string[] {
   return problems;
 }
 
+/**
+ * How a merged file's stock set differs from an installed registry's stock set (its pools that are not shelf pools),
+ * pool by pool, every field compared: empty when they are the same. The installer refuses on any difference.
+ */
+export function stockSetDifference(merged: unknown, installed: unknown): string[] {
+  const stocksOf = (f: unknown) =>
+    new Map(
+      (((f as { pools?: unknown } | null)?.pools ?? []) as Array<Record<string, unknown>>)
+        .filter((p) => isStockSetPool(p))
+        .map((p) => {
+          const { set: _set, ...rest } = p;
+          return [String(p.address), JSON.stringify(rest, Object.keys(rest).sort())] as const;
+        }),
+    );
+  const m = stocksOf(merged);
+  const i = stocksOf(installed);
+  const out: string[] = [];
+  for (const a of i.keys())
+    if (!m.has(a)) out.push(`stock pool ${a} is installed and not in the file`);
+  for (const a of m.keys())
+    if (!i.has(a)) out.push(`stock pool ${a} is in the file and not installed`);
+  for (const [a, v] of m)
+    if (i.has(a) && i.get(a) !== v) out.push(`stock pool ${a} differs from the installed one`);
+  return out;
+}
+
 const count = <T>(xs: T[], key: (x: T) => string) =>
   xs.reduce<Record<string, number>>((m, x) => {
     m[key(x)] = (m[key(x)] ?? 0) + 1;
@@ -176,6 +206,7 @@ export function mergeRegistries(
     inBase.set(p.address, p);
     stocks.push({ ...p, set: 'stocks', tier: p.tier });
   }
+  const stockAssets = new Set(stocks.map((p) => p.assetMint));
   const duplicates: MergedRegistry['duplicates'] = [];
   const fresh: CollectorPool[] = [];
   const seenShelf = new Set<string>();
@@ -189,6 +220,13 @@ export function mergeRegistries(
         assetSymbol: p.assetSymbol,
         stockTier: b.tier,
         shelfTier: p.tier,
+      });
+    else if (stockAssets.has(p.assetMint))
+      shelfLeftOut.push({
+        address: p.address,
+        assetSymbol: p.assetSymbol,
+        reason:
+          "asset of the stock set: its pools are the stock registry's, and adding one would move that stock's routed curve",
       });
     else fresh.push(p);
   }

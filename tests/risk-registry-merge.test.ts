@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+import { shelfReplacedWarning } from '../scripts/risk/lib-installed';
 import {
   addedCallsPerHour,
   type CollectorPool,
@@ -20,7 +21,7 @@ import {
   mergeRegistries,
   type RegistryFile,
 } from '../scripts/risk/lib-registry-merge';
-import { selectSplitPools } from '../scripts/risk/lib-split';
+import { SPLIT_FILTER_MARK, selectSplitPools } from '../scripts/risk/lib-split';
 import { DEFAULT_TIER_RULE, tierByShare } from '../scripts/risk/lib-tiers';
 
 // PLAN-ASSETS AS.12 (ledger ASSET-3): the pool collector's registry with the Solana shelf's pools beside the stock pools.
@@ -161,6 +162,23 @@ describe('the merge', () => {
     // the round trip through JSON keeps every field the collector needs
     expect(checkCollectorRegistry(JSON.parse(JSON.stringify(m)))).toEqual([]);
   });
+  it('leaves out a shelf pool of a stock-set asset: no stock gains a pool in its routed curve', () => {
+    const more = { ...shelf, pools: [...shelf.pools, pool('s1b', 3e6, { assetMint: 'mint-s1' })] };
+    const r = mergeRegistries(base, more, {
+      baseFile: 'b',
+      shelfFile: 's',
+      now: new Date(0),
+      rule: DEFAULT_TIER_RULE,
+    });
+    expect(r.pools.some((p) => p.address === 's1b')).toBe(false);
+    expect(r.shelfLeftOut.find((x) => x.address === 's1b')?.reason).toMatch(
+      /asset of the stock set/,
+    );
+    const stockAssets = new Set(r.pools.filter((p) => p.set === 'stocks').map((p) => p.assetMint));
+    expect(r.pools.filter((p) => p.set === 'shelf').some((p) => stockAssets.has(p.assetMint))).toBe(
+      false,
+    );
+  });
   it('leaves out a shelf pool on a venue the collector cannot read, with the reason', () => {
     const more = {
       ...shelf,
@@ -240,6 +258,51 @@ describe('the jobs keep their extras to the stock pools', () => {
   });
 });
 
+describe('the split job built from this code carries the mark the installer looks for', () => {
+  it('bundles scripts/risk/jobs/facts-split.ts with splitKeepsTheStockSetOnly in it', () => {
+    const pnpmDir = 'node_modules/.pnpm';
+    const esbuild = readdirSync(pnpmDir)
+      .filter((d) => d.startsWith('esbuild@'))
+      .map((d) => join(pnpmDir, d, 'node_modules/esbuild/bin/esbuild'))
+      .find((f) => existsSync(f));
+    expect(esbuild).toBeDefined();
+    const out = join(mkdtempSync(join(tmpdir(), 'split-bundle-')), 'split.mjs');
+    const r = spawnSync(
+      esbuild as string,
+      [
+        'scripts/risk/jobs/facts-split.ts',
+        '--bundle',
+        '--platform=node',
+        '--format=esm',
+        '--target=node22',
+        '--tsconfig=tsconfig.json',
+        `--outfile=${out}`,
+        '--log-level=error',
+      ],
+      { encoding: 'utf8' },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(out, 'utf8')).toContain(SPLIT_FILTER_MARK);
+  });
+});
+
+describe('retier.ts and build-registry.ts warn before writing over a merged registry', () => {
+  it('names the shelf pools the installed file holds, and says nothing for a stock registry', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'installed-'));
+    const f = join(dir, 'registry.json');
+    expect(shelfReplacedWarning(f)).toBeNull();
+    writeFileSync(f, JSON.stringify(base));
+    expect(shelfReplacedWarning(f)).toBeNull();
+    writeFileSync(f, JSON.stringify(merge()));
+    expect(shelfReplacedWarning(f)).toMatch(/holds 3 shelf pools/);
+    for (const script of ['scripts/risk/retier.ts', 'scripts/risk/build-registry.ts'])
+      expect(readFileSync(script, 'utf8')).toContain(
+        "const warning = shelfReplacedWarning(join(home, 'registry.json'));",
+      );
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 describe('the estimate of the added calls', () => {
   it('counts batches of 100, one discovery a concentrated pool (two on Orca) and the stale re-reads', () => {
     const e = addedCallsPerHour(
@@ -297,17 +360,31 @@ describe.skipIf(!hasZsh)('the installer: install.sh registry <file>', { timeout:
           .sort()
       : [];
 
-  it('a rehearsal puts the registry and the two bundles under the folder given, keeps the old registry, loads nothing', () => {
-    const dir = join(root, 'rehearsal');
+  // a folder as the collectors leave it: the stock registry retier.ts installed (its dust out) and a split bundle,
+  // with the stock-set filter or without it
+  const SPLIT_OLD = 'export const x = (p) => ["A", "B"].includes(p.tier);\n';
+  const SPLIT_NEW = 'function splitKeepsTheStockSetOnly(p) { return p.set !== "shelf"; }\n';
+  const installed = { ...base, pools: base.pools.filter((p) => p.tier !== 'X') };
+  const folder = (name: string, split: string | null, registry: unknown = installed) => {
+    const dir = join(root, name);
     mkdirSync(dir);
-    writeFileSync(join(dir, 'registry.json'), JSON.stringify({ pools: [] }));
+    writeFileSync(join(dir, 'registry.json'), JSON.stringify(registry));
+    if (split !== null) writeFileSync(join(dir, 'risk-facts-split.mjs'), split);
+    return dir;
+  };
+  const without = (dir: string, ...names: string[]) => tree(dir).filter((f) => !names.includes(f));
+
+  it('a rehearsal puts the registry and the two bundles under the folder given, keeps the old registry, loads nothing', () => {
+    const dir = folder('rehearsal', SPLIT_NEW);
     const r = install(['registry', file, '--no-load'], { COLOSSEUM_HOME: dir });
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain('nothing is loaded');
     expect(r.out).toContain('registry checked: 6 pools');
+    expect(r.out).toContain('its stock set is the installed one');
     const files = tree(dir);
     expect(files.filter((f) => !f.startsWith('registry.before-'))).toEqual([
       'registry.json',
+      'risk-facts-split.mjs',
       'risk-pools.mjs',
       'risk-quotes.mjs',
     ]);
@@ -317,15 +394,41 @@ describe.skipIf(!hasZsh)('the installer: install.sh registry <file>', { timeout:
     expect(tree(join(home, '.colosseum'))).toEqual([]);
     expect(tree(join(home, 'Library', 'LaunchAgents'))).toEqual([]);
   });
+  it('refuses while the installed split bundle lacks the stock-set filter, or is absent, and changes nothing', () => {
+    for (const [name, split] of [
+      ['rehearsal-old-split', SPLIT_OLD],
+      ['rehearsal-no-split', null],
+    ] as const) {
+      const dir = folder(name, split);
+      const before = tree(dir);
+      const r = install(['registry', file, '--no-load'], { COLOSSEUM_HOME: dir });
+      expect(r.status).not.toBe(0);
+      expect(r.out).toContain('does not leave the shelf');
+      expect(r.out).toContain('scripts/risk/jobs/install.sh facts-split');
+      expect(tree(dir)).toEqual(before);
+      expect(JSON.parse(readFileSync(join(dir, 'registry.json'), 'utf8'))).toEqual(installed);
+    }
+  });
+  it('refuses a file whose stock set is not the installed one, and changes nothing', () => {
+    const other = {
+      ...installed,
+      pools: installed.pools.map((p) => (p.address === 's2' ? { ...p, tier: 'B' } : p)),
+    };
+    const dir = folder('rehearsal-other-stocks', SPLIT_NEW, other);
+    const r = install(['registry', file, '--no-load'], { COLOSSEUM_HOME: dir });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain('stock pool s2 differs from the installed one');
+    expect(r.out).toContain('nothing was changed');
+    expect(without(dir, 'registry.json', 'risk-facts-split.mjs')).toEqual([]);
+  });
   it('refuses a file that fails the check, and changes nothing', () => {
-    const dir = join(root, 'rehearsal-bad');
-    mkdirSync(dir);
+    const dir = folder('rehearsal-bad', SPLIT_NEW);
     const bad = join(root, 'bad.json');
     writeFileSync(bad, JSON.stringify({ pools: [pool('a', 1, { tier: 'X' })] }));
     const r = install(['registry', bad, '--no-load'], { COLOSSEUM_HOME: dir });
     expect(r.status).not.toBe(0);
     expect(r.out).toContain('nothing was changed');
-    expect(tree(dir)).toEqual([]);
+    expect(without(dir, 'registry.json', 'risk-facts-split.mjs')).toEqual([]);
   });
   it('refuses --no-load at the live folder, and a rehearsal folder inside ~/.colosseum', () => {
     const live = install(['registry', file, '--no-load']);

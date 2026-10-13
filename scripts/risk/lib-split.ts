@@ -66,13 +66,23 @@ export type SplitSelection = {
  * list); which direction of such a pool is routed is decided when the pools are built, by whether the other stock is
  * tracked and has a dollar or SOL pool in the same run.
  */
+/**
+ * Whether a registry pool is one the split reads: not a shelf pool of a merged registry (PLAN-ASSETS AS.12). Its name
+ * is the mark scripts/risk/collector/install.sh looks for in the installed split bundle before it installs a merged
+ * registry (SPLIT_FILTER_MARK): a bundle built before this filter would route the shelf's pools.
+ */
+export function splitKeepsTheStockSetOnly(p: object): boolean {
+  return (p as { set?: unknown }).set !== 'shelf';
+}
+export const SPLIT_FILTER_MARK = 'splitKeepsTheStockSetOnly';
+
 export function selectSplitPools(
   registryPools: readonly RawRegPool[],
   opts: { twoHop: boolean; tracked: ReadonlySet<string> },
 ): SplitSelection {
   // the stock pools: a merged registry's shelf pools (set `shelf`, PLAN-ASSETS AS.12) are not split here
   const ab = registryPools
-    .filter((p) => ['A', 'B'].includes(p.tier) && (p as { set?: unknown }).set !== 'shelf')
+    .filter((p) => ['A', 'B'].includes(p.tier) && splitKeepsTheStockSetOnly(p))
     .map((p) => ({ ...p, assetIsToken0: Boolean(p.assetIsToken0) })) as RegPool[];
   const direct = ab.filter((p) => p.exitPath === 'direct_usd' || p.exitPath === 'via_sol');
   if (!opts.twoHop) return { direct, twoHop: [], listed: null };

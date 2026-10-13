@@ -12,8 +12,10 @@
 # dependency-free file because launchd agents cannot read ~/Documents. Re-run after code changes.
 #
 # `install.sh registry <file>` (PLAN-ASSETS AS.12): puts a merged registry (`pnpm risk:registry-merge`: the stock pools
-# and the shelf's) in place of <home>/registry.json, with the pools and quotes bundles that read it. The file is checked
-# first (scripts/risk/registry-check.ts: every pool readable by the collector, tier A or B, no address twice); the two
+# and the shelf's) in place of <home>/registry.json, with the pools and quotes bundles that read it. It refuses unless
+# the installed split bundle (<home>/risk-facts-split.mjs) carries the stock-set filter, and unless the file's stock set
+# is the installed registry's, pool for pool. The file is checked first (scripts/risk/registry-check.ts: every pool
+# readable by the collector, tier A or B, no address twice); the two
 # bundles are built and checked beside the old ones; then the old registry and bundles are kept as *.before-<stamp>,
 # the bundles moved in, the registry last. Nothing is loaded or unloaded and no plist is written: launchd starts the
 # same agents on the same minutes, and their next run reads the new files. The env file is neither written nor
@@ -113,7 +115,17 @@ install_job() {
 install_registry() {
   local src="${REG_FILE:a}" stamp name
   [ -f "$src" ] || { echo "no such file: $REG_FILE"; exit 1; }
-  (cd "$REPO" && "$REPO/node_modules/.bin/tsx" scripts/risk/registry-check.ts "$src") \
+  # the split snapshot reads the same registry.json: its installed bundle must leave the shelf's pools out first
+  # (lib-split.ts splitKeepsTheStockSetOnly), or they would enter its cost-breakdown medians. Read only.
+  local split="$HOME_DIR/risk-facts-split.mjs"
+  if [ ! -f "$split" ] || ! grep -q 'splitKeepsTheStockSetOnly' "$split"; then
+    echo "refusing: $split does not leave the shelf's pools out (built before the stock-set filter, or absent)."
+    echo "Install the split job from this code first: scripts/risk/jobs/install.sh facts-split; nothing was changed"
+    exit 1
+  fi
+  # the file's stock set must be the installed registry's, pool for pool: the merge reads data/risk, not the install
+  [ -f "$HOME_DIR/registry.json" ] || { echo "refusing: no $HOME_DIR/registry.json to compare the stock set with; nothing was changed"; exit 1; }
+  (cd "$REPO" && "$REPO/node_modules/.bin/tsx" scripts/risk/registry-check.ts "$src" --stocks-of "$HOME_DIR/registry.json") \
     || { echo "the registry fails its check; nothing was changed"; exit 1; }
   stamp="$(date +%Y%m%d-%H%M%S)"
   trap 'rm -f "$HOME_DIR/risk-pools.new.mjs" "$HOME_DIR/risk-quotes.new.mjs" "$HOME_DIR/registry.json.new"' EXIT
