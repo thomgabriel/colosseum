@@ -2077,6 +2077,7 @@ export const pt: Dictionary = {
         targets: 'As metas do seu cofre',
         deposit: (amount: string) => `Para onde vão seus ${amount}`,
         withdraw: 'O que sai do seu cofre',
+        sold: 'O que é vendido',
         all: 'Tudo',
       },
       ended: {

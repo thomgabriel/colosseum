@@ -441,6 +441,20 @@ export function depositPicture(
 export function withdrawPicture(order: Pick<OrderDetail, 'legs'>, words: SummaryWords): Picture {
   const r = reader(words);
   const f = r.t.order.flow.picture;
+  // In dollars: what is sold, each holding with its amount; the least that leaves is the large line.
+  const sales = legsInOrder(order).flatMap((leg) =>
+    leg.trades.filter((x) => r.cash !== null && x.buy === r.cash && x.sell !== r.cash),
+  );
+  if (sales.length > 0)
+    return {
+      caption: f.sold,
+      columns: [f.amount],
+      rows: sales.map((x) => ({
+        key: x.sell,
+        name: r.symbol(x.sell),
+        cells: [r.tokens(x.amountInRaw, x.sell)],
+      })),
+    };
   const rows: PictureRow[] = legsInOrder(order).flatMap((leg) =>
     (leg.withdrawals ?? []).map((w) => {
       const least = w.leastRaw;
@@ -460,6 +474,18 @@ export function withdrawPicture(order: Pick<OrderDetail, 'legs'>, words: Summary
     }),
   );
   return { caption: f.withdraw, columns: [f.amount], rows };
+}
+
+/** The least a withdrawal in dollars pays into the owner's wallet, cut down; null for one in tokens. */
+export function withdrawLeast(
+  order: Pick<OrderDetail, 'legs'>,
+  words: SummaryWords,
+): Figure | null {
+  const r = reader(words);
+  const w = legsInOrder(order)
+    .flatMap((leg) => leg.withdrawals ?? [])
+    .find((x) => x.leastRaw !== undefined);
+  return w?.leastRaw ? r.amount(w.leastRaw, w.asset) : null;
 }
 
 /**
@@ -489,9 +515,9 @@ export function costSentence(
   const least = out.find((w) => w.leastRaw !== undefined);
   const parts: string[] = [];
   if (out.length > 0) {
+    // the screen's large line says the least that leaves: the sentence says what is sold for it
     if (sells.length > 0) parts.push(brings ? s.sell(brings.shown, sold) : s.sellSome(sold));
-    const receives = least?.leastRaw ? r.amount(least.leastRaw, least.asset) : null;
-    parts.push(receives ? s.receive(receives.shown) : s.withdraw);
+    else parts.push(s.withdraw);
   } else if (deposit)
     parts.push(
       // the screen's large line says the deposit: the sentence says where it goes

@@ -2321,6 +2321,7 @@ export const en = {
         targets: 'Your vault’s targets',
         deposit: (amount: string) => `Where your ${amount} goes`,
         withdraw: 'What leaves your vault',
+        sold: 'What is sold',
         all: 'All of it',
       },
       /** The last screen: what the order did, and the vault as it is now. */

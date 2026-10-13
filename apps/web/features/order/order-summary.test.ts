@@ -8,6 +8,7 @@ import {
   readDollars,
   shareItems,
   stepWordsOf,
+  withdrawLeast,
   withdrawPicture,
 } from './order-summary';
 import { ORDER_ID, orderOn } from './test/fixtures';
@@ -285,12 +286,8 @@ describe('the picture of what changes', () => {
         ],
       },
     ]);
-    expect(costSentence(inDollars, words)).toBe(
-      'About $400 of TSLAx is sold for cash, and you receive at least $996 in your own wallet.',
-    );
-    expect(withdrawPicture(inDollars, words).rows).toEqual([
-      { key: CASH, name: 'USDC', cells: [{ shown: 'at least $996', exact: '$996.00' }] },
-    ]);
+    expect(costSentence(inDollars, words)).toBe('About $400 of TSLAx is sold for cash.');
+    expect(withdrawLeast(inDollars, words)).toEqual({ shown: '$996', exact: '$996.00' });
   });
 
   it('lists what a withdrawal takes out', () => {
@@ -321,11 +318,11 @@ describe('a least in dollars', () => {
         ],
       },
     ]);
-    expect(costSentence(out, words)).toContain('you receive at least $996 in your own wallet');
-    expect(withdrawPicture(out, words).rows[0]?.cells[0]).toEqual({
-      shown: 'at least $996',
-      exact: '$996.70',
-    });
+    expect(withdrawLeast(out, words)).toEqual({ shown: '$996', exact: '$996.70' });
+    // the picture is what is sold for it, in its own units
+    expect(withdrawPicture(out, words).rows).toEqual([
+      { key: TSLA, name: 'TSLAx', cells: [{ shown: '0.5 TSLAx', exact: '0.5 TSLAx' }] },
+    ]);
     const [sale, cash] = stepWordsOf(out, words);
     expect(sale?.worst).toBe('At worst you get $395, 1.09% under today’s price.');
     expect(cash?.press).toBe('Sign: withdraw at least $996');

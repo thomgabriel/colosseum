@@ -70,6 +70,7 @@ import {
   type Picture,
   shareItems,
   stepWordsOf,
+  withdrawLeast,
   withdrawPicture,
 } from './order-summary';
 import { legsInOrder, type NextStep, type OutcomeView, outcomeView, stepOf } from './order-view';
@@ -851,7 +852,7 @@ export function OrderScreen({
       : buying
         ? depositPicture(shown, summary)
         : null;
-  const leastFigure = picture && terms?.kind === 'withdraw' ? picture.rows[0]?.cells[0] : null;
+  const leastFigure = terms?.kind === 'withdraw' ? withdrawLeast(shown, summary) : null;
   const reviewHero =
     terms?.kind === 'retarget'
       ? changeHero(terms.targets, before, summary)
@@ -860,7 +861,7 @@ export function OrderScreen({
         : terms?.kind === 'withdraw'
           ? flow.hero.withdraw(
               terms.dollars && leastFigure
-                ? leastFigure.shown.charAt(0).toLocaleUpperCase(locale) + leastFigure.shown.slice(1)
+                ? flow.atLeast(leastFigure.shown).replace(/^./, (c) => c.toLocaleUpperCase(locale))
                 : new Intl.ListFormat(locale, { type: 'conjunction' }).format(
                     (picture?.rows ?? []).map((row) => row.name),
                   ),
