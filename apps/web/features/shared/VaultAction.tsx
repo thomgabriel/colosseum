@@ -196,7 +196,10 @@ export function VaultAction({
         <WithdrawScreen
           chain={chain}
           address={vault.address}
-          embedded={{ onOrder: (orderId) => onOrder(orderId, false) }}
+          embedded={{
+            onOrder: (orderId) => onOrder(orderId, false),
+            ...(onMode ? { onMode } : {}),
+          }}
         />
       ) : (
         <VaultMixFlow

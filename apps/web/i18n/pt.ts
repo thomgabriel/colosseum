@@ -1839,6 +1839,18 @@ export const pt: Dictionary = {
       deposit: (amount: string) => `Depositar ${amount}`,
       withdraw: (amount: string) => `Sacar ${amount}`,
       withdrawAll: 'Sacar tudo',
+      withdrawShare: (share: string) => `Sacar ${share} do seu cofre`,
+      withdrawPicked: (n: number) => (n === 1 ? 'Sacar 1 token' : `Sacar ${n} tokens`),
+    },
+    out: {
+      chips: 'Partes rápidas',
+      max: 'Máx.',
+      choose: 'Escolher os tokens você mesmo',
+      byShare: 'Sacar uma parte em vez disso',
+      noValue:
+        'Alguns ativos estão sem preço agora, então o valor do cofre não é conhecido: escolha uma parte dele.',
+      what: 'O que acontece',
+      to: 'Para a sua própria carteira',
     },
     change: 'Alterar',
     busy: 'Preparando sua ordem…',

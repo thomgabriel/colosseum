@@ -199,19 +199,14 @@ const button = (host: Element, name: string) => {
   if (!found) throw new Error(`no button "${name}"`);
   return found;
 };
-/** From the page through the withdrawal's choice and review to its order, in the pane. */
+/** From the page through the withdrawal's amount card to its order, in the pane. */
 async function toSteps(host: HTMLElement) {
   await click(find(host, '[data-action="vault-withdraw"]'));
   await settle();
   await settle();
-  await click(button(pane(host), w.steps.next));
-  await click(
-    find(pane(host), '[data-ui="withdraw-step"][data-step="check"] input[type="checkbox"]'),
-  );
-  await click(
-    button(find(pane(host), '[data-ui="withdraw-step"][data-step="check"]'), w.steps.next),
-  );
-  await click(button(pane(host), w.confirm.button));
+  // the amount card (gate AMOUNT-CARD): everything, by Max, then its one button
+  await click(button(find(pane(host), '[data-ui="amount-chips"]'), en.amount.out.max));
+  await click(find(pane(host), 'button[data-action="amount-withdraw"]'));
   for (let i = 0; i < 4; i += 1) await settle(30);
 }
 
@@ -521,6 +516,36 @@ describe('who is offered the actions', () => {
   });
 });
 
+describe('Deposit | Withdraw on the amount card (gate AMOUNT-CARD)', () => {
+  it('switches the pane between the two, where the vault holds something to withdraw', async () => {
+    api();
+    const host = await show();
+    await click(find(host, '[data-action="vault-deposit"]'));
+    await settle();
+    const modes = () => find(pane(host), '[data-ui="amount-modes"]');
+    expect(
+      [...modes().querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')),
+    ).toEqual(['true', 'false']);
+    await click(button(modes(), en.amount.modes.withdraw));
+    await settle();
+    await settle();
+    expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('withdraw');
+    expect(find(pane(host), '[data-ui="amount-card"]').dataset.mode).toBe('withdraw');
+    await click(button(modes(), en.amount.modes.deposit));
+    await settle();
+    expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('deposit');
+  });
+
+  it('offers no Withdraw on an empty vault: the deposit alone', async () => {
+    api({ vault: nothing(4_000) });
+    const host = await show();
+    await click(find(host, '[data-action="vault-deposit"]'));
+    await settle();
+    expect(pane(host).querySelector('[data-ui="amount-modes"]')).toBeNull();
+    expect(find(pane(host), '[data-ui="amount-card"]').dataset.mode).toBe('deposit');
+  });
+});
+
 describe('an empty vault', () => {
   it('with targets: says so once, shows what a deposit goes into, and has Deposit as its one action', async () => {
     api({ vault: nothing(4_000) });
@@ -692,16 +717,13 @@ describe('an order that answers late', () => {
     });
     return { placing, release };
   };
-  /** In the withdraw pane: chosen, reviewed, and the order asked for (not yet answered). */
+  /** In the withdraw pane: chosen on the amount card, and the order asked for (not yet answered). */
   async function confirmWithdraw(host: HTMLElement) {
     await click(find(host, '[data-action="vault-withdraw"]'));
     await settle();
     await settle();
-    await click(button(pane(host), w.steps.next));
-    const check = find(pane(host), '[data-ui="withdraw-step"][data-step="check"]');
-    await click(find(check, 'input[type="checkbox"]'));
-    await click(button(check, w.steps.next));
-    await click(button(pane(host), w.confirm.button));
+    await click(button(find(pane(host), '[data-ui="amount-chips"]'), en.amount.out.max));
+    await click(find(pane(host), 'button[data-action="amount-withdraw"]'));
     await settle();
   }
 

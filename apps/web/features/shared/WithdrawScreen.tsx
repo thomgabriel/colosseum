@@ -1,24 +1,28 @@
 'use client';
-import { ChainId, chainFamily, type VaultResponse } from '@colosseum/schemas';
+import { ChainId, chainFamily, ORDER_LIMITS, type VaultResponse } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { DataTable } from '../../components/ui/DataTable';
 import { Field, Input } from '../../components/ui/Field';
+import { shorten } from '../../components/ui/format';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
-import { formatRaw, parseRaw, rawOfShown, shownRaw, tokenName } from '../order/amounts';
+import { AmountCard, type AmountMode } from '../amount/AmountCard';
+import { maxText, readAmount } from '../amount/amount-check';
+import { dollars as wholeDollars } from '../goal/sheet';
+import { formatBps, formatRaw, parseRaw, rawOfShown, shownRaw, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
 import { keepOrder } from '../order/order-record';
+import { AssetMark } from '../order/PlanView';
 import { chainReady, onMock } from '../order/readiness';
-import { StepCard } from '../order/StepCard';
 import { unitsFor } from '../order/units';
+import { unpriced, vaultValueSource } from '../portfolio/portfolio';
 import { type ExposureChain, readExposure } from '../portfolio-section/api';
 import { basisPoints } from '../portfolio-section/list-figures';
 import { exitPin } from '../portfolio-section/pins';
@@ -28,20 +32,19 @@ import { placeShared, readVault } from './shared-api';
 import { type DollarsTerms, type SharedTerms, shareOfRaw, type WithdrawItem } from './terms';
 import { WithdrawWait } from './waits';
 
-// Taking money out of a vault (WITHDRAW, Oct 6), for its owner only, in the buy's step pattern: what
-// leaves (everything, or chosen tokens, each in full or by amount), a review of exactly that and of
-// where it goes, which is the owner's own wallet and nowhere else, then the order (POST /v1/orders,
-// type `withdraw`) and its screen, where every step is checked by the guard before it is signed. The
-// tokens leave as they are: nothing is sold. Or in dollars (WITHDRAW-DOLLARS, Oct 13): the same share
+// Taking money out of a vault (WITHDRAW, Oct 6), for its owner only, on the amount card (gate
+// AMOUNT-CARD): how much leaves (a share of the vault, in dollars of its value or 25% · 50% · 75% · Max,
+// or chosen tokens, each in full or by amount), what reaches the wallet and where it goes, which is the
+// owner's own wallet and nowhere else, then the order (POST /v1/orders, type `withdraw`) and its
+// screen, where every step is checked by the guard before it is signed. The tokens leave as they are:
+// nothing is sold. Or in dollars (WITHDRAW-DOLLARS, Oct 13): the same share
 // of every holding is sold for the chain's cash token and the cash leaves, as one order whose steps
 // state each sale's minimum; the tokens themselves stay the way that needs no market. Nothing is
 // signed here. With `embedded` the vault's own
-// page holds it in its pane: the same choice and review under the page's heading, and the order's id
-// handed to the page, which shows the steps there, in place of the order's own page.
+// page holds it in its pane: the same card under the page's heading, and the order's id handed to the
+// page, which shows the steps there, in place of the order's own page.
 
 type Load = { kind: 'loading' } | { kind: 'read'; read: VaultResponse } | { kind: CallFailure };
-type StepId = 'what' | 'check' | 'confirm';
-const STEPS: readonly StepId[] = ['what', 'check', 'confirm'];
 type Pick = { on: boolean; text: string };
 type Way = 'tokens' | 'dollars';
 
@@ -60,36 +63,36 @@ export function WithdrawScreen({
 }: {
   chain: string;
   address: string;
-  /** Held in another screen's pane: no title of its own, and the order made is handed to the host. */
-  embedded?: { onOrder: (orderId: string) => void };
+  /**
+   * Held in another screen's pane: no title of its own, and the order made is handed to the host.
+   * `onMode`: Deposit | Withdraw on the amount card.
+   */
+  embedded?: { onOrder: (orderId: string) => void; onMode?: (mode: AmountMode) => void };
 }) {
   const t = useT();
   const lang = useLang();
   const w = t.withdraw;
+  const a = t.amount;
   const router = useRouter();
   const port = useWalletPort();
   const apiFetch = useApiFetch();
   const known = ChainId.safeParse(chainText);
   const chain = known.success ? known.data : null;
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
-  const [everything, setEverything] = useState(true);
   const [way, setWay] = useState<Way>('tokens');
-  const [wholeVault, setWholeVault] = useState(true);
-  const [shareText, setShareText] = useState('');
+  // The share as typed in dollars of the vault's value, or Max; a share picked where the value is
+  // not known; and the tokens chosen one by one, behind their own control.
+  const [text, setText] = useState('');
+  const [all, setAll] = useState(false);
+  const [chipShare, setChipShare] = useState<number | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [choices, setChoices] = useState<Record<string, Pick>>({});
   // Bearing's measured cost of selling each holding, read only once the person looks at dollars.
   const [exits, setExits] = useState<ExposureChain | null>(null);
-  const [picks, setPicks] = useState<Record<string, Pick>>({});
-  const [open, setOpen] = useState<StepId>('what');
-  const [chosen, setChosen] = useState(false);
-  const [seen, setSeen] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const titleId = useId();
-  const groupId = useId();
   const wayId = useId();
-  const shareId = useId();
-  const reasonId = useId();
-  const seenId = useId();
 
   useEffect(() => {
     if (!chain) return setLoad({ kind: 'no-plan' });
@@ -176,15 +179,10 @@ export function WithdrawScreen({
   // What the person chose, as raw amounts: null for all of a token. An amount that is not one of this
   // token, or is more than the vault holds, is said beside its field and holds the step.
   const errors: Record<string, string> = {};
-  const items: WithdrawItem[] = everything
-    ? holdings.map((h) => ({
-        asset: h.asset,
-        amountRaw: null,
-        heldRaw: h.raw,
-        multiplier: h.multiplier,
-      }))
+  const picked: WithdrawItem[] = !picking
+    ? []
     : holdings.flatMap((h) => {
-        const pick = picks[h.asset];
+        const pick = choices[h.asset];
         if (!pick?.on) return [];
         const decimals = units?.tokens[h.asset]?.decimals;
         const item = { asset: h.asset, heldRaw: h.raw, multiplier: h.multiplier };
@@ -200,10 +198,33 @@ export function WithdrawScreen({
           errors[h.asset] = w.what.errors.over(whole(h.raw, h.asset));
         return [{ ...item, amountRaw: raw === null || raw === 0n ? null : raw.toString() }];
       });
-  // In dollars: the same share of every holding is sold and that share of the cash leaves, each
-  // rounded down as the server rounds it. The one token that leaves is the cash.
+  // How much leaves (gate AMOUNT-CARD): one share of the whole vault, typed in dollars of its value or
+  // picked as 25% · 50% · 75% · Max, and the same share of every holding leaves: as the tokens
+  // themselves, or sold for the cash token (WITHDRAW-DOLLARS). Each amount is rounded down as the
+  // server rounds it. Or, the tokens themselves, chosen one by one with an amount for each.
+  const value = Number(vault.valueUsd);
+  const priced = Number.isFinite(value) && value > 0 && unpriced(vault) === 0;
+  const valueObs = vaultValueSource(
+    { ...load.read, vaults: [vault] },
+    vault,
+    t.portfolio.vault.valueMethod,
+  );
+  const typed = readAmount(
+    text,
+    lang,
+    { least: 0.01, most: Number.MAX_SAFE_INTEGER, available: priced ? value : null, of: 'vault' },
+    t,
+  );
+  const shareBps: number | null = picking
+    ? null
+    : all
+      ? 10_000
+      : !priced
+        ? chipShare
+        : typed.amount === null || typed.over
+          ? null
+          : Math.max(1, Math.min(10_000, Math.floor((typed.amount / value) * 10_000)));
   const cashSymbol = symbol(vault.cash.asset);
-  const shareBps = wholeVault ? 10_000 : shareBpsOf(shareText);
   const dollars: DollarsTerms | null =
     way === 'dollars' && shareBps !== null
       ? {
@@ -217,33 +238,47 @@ export function WithdrawScreen({
           cashRaw: shareOfRaw(BigInt(vault.cash.raw), shareBps).toString(),
         }
       : null;
+  // The tokens themselves: everything, that share of each, or the ones chosen.
+  const everything = !picking && shareBps === 10_000;
+  const items: WithdrawItem[] = picking
+    ? picked
+    : everything
+      ? holdings.map((h) => ({
+          asset: h.asset,
+          amountRaw: null,
+          heldRaw: h.raw,
+          multiplier: h.multiplier,
+        }))
+      : shareBps === null
+        ? []
+        : holdings
+            .map((h) => ({
+              asset: h.asset,
+              amountRaw: shareOfRaw(BigInt(h.raw), shareBps).toString(),
+              heldRaw: h.raw,
+              multiplier: h.multiplier,
+            }))
+            .filter((i) => BigInt(i.amountRaw) > 0n);
   const valid =
     way === 'dollars' ? dollars !== null : items.length > 0 && Object.keys(errors).length === 0;
   // Everything a token holds, taken by amount, empties it as taking all of it does.
   const emptied =
-    items.length === holdings.length &&
-    items.every((i) => i.amountRaw === null || i.amountRaw === i.heldRaw);
+    way === 'dollars'
+      ? shareBps === 10_000
+      : items.length === holdings.length &&
+        items.every((i) => i.amountRaw === null || i.amountRaw === i.heldRaw);
 
-  /** Any change to what leaves is reviewed again. */
+  /** Any change to what leaves takes back what was said of the last press. */
   const change = (apply: () => void) => {
     apply();
-    setSeen(false);
     setFailure(null);
-  };
-  const go = (step: StepId) => {
-    if (open === 'what' && valid) setChosen(true);
-    setOpen(step);
   };
 
   const signable = chainReady(chain, mock) && port.network(chain)?.on !== false;
-  const blocked = [
-    ...(!signable ? [w.confirm.blocked.chain(chainName)] : []),
-    ...(!valid ? [w.confirm.blocked.what] : []),
-    ...(valid && !seen ? [w.confirm.blocked.check] : []),
-  ];
+  const blocked = !signable ? [w.confirm.blocked.chain(chainName)] : [];
 
   async function review() {
-    if (!chain || !owner || !port.userId || !valid || !seen) return;
+    if (!chain || !owner || !port.userId || !valid) return;
     setPlacing(true);
     setFailure(null);
     // The plan number the steps name has to be this vault's own, as the guard derives its address.
@@ -252,8 +287,8 @@ export function WithdrawScreen({
       setFailure(w.confirm.blocked.vault);
       return;
     }
-    // What the withdrawal is held to: the tokens and the amounts reviewed here, for this owner.
-    // In dollars: the sales reviewed here and that share of the cash; the one token that leaves is the cash.
+    // What the withdrawal is held to: the tokens and the amounts shown here, for this owner.
+    // In dollars: the sales shown here and that share of the cash; the one token that leaves is the cash.
     const terms: SharedTerms = dollars
       ? {
           kind: 'withdraw',
@@ -337,180 +372,29 @@ export function WithdrawScreen({
     router.push(`/orders/${encodeURIComponent(placed.order.id)}`);
   }
 
-  const next = (step: StepId, ready: boolean) => (
-    <Button
-      variant="primary"
-      disabled={!ready}
-      onClick={() => go(STEPS[STEPS.indexOf(step) + 1] ?? step)}
-    >
-      {w.steps.next}
-    </Button>
-  );
-
-  const radios = <T,>(
-    name: string,
-    legend: string,
-    value: T,
-    options: readonly (readonly [T, string, string?])[],
-    pick: (to: T) => void,
-    ui: string,
-  ) => (
-    <fieldset data-ui={ui} className="flex flex-col gap-2">
-      <legend className="pb-2 text-body font-medium">{legend}</legend>
-      {options.map(([option, label, hint]) => (
-        <label key={String(option)} className="flex flex-col gap-0.5 text-body">
-          <span className="inline-flex items-center gap-2">
-            <input
-              type="radio"
-              name={name}
-              className="size-4 accent-primary"
-              checked={value === option}
-              onChange={() => change(() => pick(option))}
-            />
-            {label}
-          </span>
-          {hint && <span className="pl-6 text-body-sm text-muted-foreground">{hint}</span>}
-        </label>
-      ))}
-    </fieldset>
-  );
-
-  const whatDollars = (
-    <>
-      {radios(
-        shareId,
-        w.share.legend,
-        wholeVault,
-        [
-          [true, w.share.all],
-          [false, w.share.part],
-        ] as const,
-        setWholeVault,
-        'withdraw-share',
-      )}
-      {!wholeVault && (
-        <Field
-          label={w.share.label}
-          hint={w.share.hint}
-          error={shareText.trim() && shareBps === null ? w.share.error : undefined}
-        >
-          {(control) => (
-            <Input
-              {...control}
-              inputMode="decimal"
-              width="10ch"
-              value={shareText}
-              onChange={(e) => {
-                const text = e.currentTarget.value;
-                change(() => setShareText(text));
-              }}
-            />
-          )}
-        </Field>
-      )}
-    </>
-  );
-
-  const what = (
-    <div className="flex flex-col items-start gap-4">
-      {radios(
-        wayId,
-        w.way.legend,
-        way,
-        [
-          ['tokens', w.way.tokens, w.way.tokensHint],
-          ['dollars', w.way.dollars(cashSymbol), w.way.dollarsHint(cashSymbol)],
-        ] as const,
-        setWay,
-        'withdraw-way',
-      )}
-      {way === 'dollars' ? (
-        whatDollars
-      ) : (
-        <>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="pb-2 text-body font-medium">{w.what.legend}</legend>
-            {(
-              [
-                [true, w.what.everything],
-                [false, w.what.some],
-              ] as const
-            ).map(([all, label]) => (
-              <label key={String(all)} className="inline-flex items-center gap-2 text-body">
-                <input
-                  type="radio"
-                  name={groupId}
-                  className="size-4 accent-primary"
-                  checked={everything === all}
-                  onChange={() => change(() => setEverything(all))}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          {!everything && (
-            <ul data-ui="withdraw-picks" className="flex w-full flex-col divide-y divide-border">
-              {holdings.map((h) => {
-                const pick = picks[h.asset] ?? { on: false, text: '' };
-                const set = (to: Partial<Pick>) =>
-                  change(() => setPicks((all) => ({ ...all, [h.asset]: { ...pick, ...to } })));
-                const byAmount = units?.tokens[h.asset] !== undefined;
-                return (
-                  <li key={h.asset} data-asset={h.asset} className="flex flex-col gap-2 py-3">
-                    <label className="inline-flex items-center gap-2 text-body">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
-                        checked={pick.on}
-                        onChange={(e) => set({ on: e.currentTarget.checked })}
-                      />
-                      {w.what.take(symbol(h.asset))}
-                    </label>
-                    <p className="text-body-sm text-muted-foreground tabular-nums">
-                      {w.what.holds(whole(h.raw, h.asset))}
-                    </p>
-                    {pick.on &&
-                      (byAmount ? (
-                        <Field
-                          label={w.what.amount(symbol(h.asset))}
-                          hint={w.what.amountHint}
-                          error={errors[h.asset]}
-                        >
-                          {(control) => (
-                            <Input
-                              {...control}
-                              inputMode="decimal"
-                              width="18ch"
-                              value={pick.text}
-                              onChange={(e) => set({ text: e.currentTarget.value })}
-                            />
-                          )}
-                        </Field>
-                      ) : (
-                        <p className="text-body-sm text-muted-foreground">{w.what.wholeOnly}</p>
-                      ))}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {!everything && items.length === 0 && (
-            <p className="text-body-sm">{w.what.errors.none}</p>
-          )}
-        </>
-      )}
-      {next('what', valid)}
-    </div>
+  const locale = LOCALE[lang];
+  const percent = (bps: number) => formatBps(bps, locale);
+  const usd = (n: number) => wholeDollars(n, lang);
+  // What the share is worth, by the prices the vault's value is read with: said "about".
+  const worth = shareBps !== null && priced ? (value * shareBps) / 10_000 : null;
+  const pin = (n: number) => (
+    <ProvenancePin
+      value={a.preview.about(usd(n))}
+      labelValue={usd(n)}
+      obs={valueObs}
+      what={t.shared.vault.value}
+      labels={t.pin}
+    />
   );
 
   const d = w.check.dollars;
   const costOf = (asset: string) => {
     const exit = exits?.exit.find((x) => x.asset === asset);
-    const pin = exit && exits ? exitPin(exit, exits.provenance) : null;
-    return exit?.measured && exit.costBps !== null && pin ? (
+    const exitObs = exit && exits ? exitPin(exit, exits.provenance) : null;
+    return exit?.measured && exit.costBps !== null && exitObs ? (
       <ProvenancePin
         value={d.costBps(basisPoints(lang, exit.costBps))}
-        obs={pin}
+        obs={exitObs}
         what={d.cost}
         labels={t.pin}
       />
@@ -518,171 +402,316 @@ export function WithdrawScreen({
       d.notMeasured
     );
   };
-  const text = 'max-w-(--tf-measure-body) text-body-sm';
-  const checkDollars = dollars && (
-    <div data-ui="withdraw-dollars" className="flex flex-col items-start gap-4">
-      {dollars.sales.length === 0 ? (
-        <p className={text}>{d.nothing}</p>
-      ) : (
-        <>
-          <DataTable<DollarsTerms['sales'][number]>
-            // the width of the pane and no wider: a table wider than a phone scrolls inside itself
-            className="w-full min-w-0"
-            caption={d.sold}
-            rows={dollars.sales}
-            rowKey={(r) => r.asset}
-            columns={[
-              { key: 'asset', header: d.holding, rowHeader: true, cell: (r) => symbol(r.asset) },
-              {
-                key: 'amount',
-                header: d.amount,
-                numeric: true,
-                cell: (r) => whole(r.amountRaw, r.asset),
-              },
-              { key: 'cost', header: d.costHeader, numeric: true, cell: (r) => costOf(r.asset) },
-            ]}
-          />
-          <p className={`${text} text-muted-foreground`}>{d.costNote}</p>
-        </>
-      )}
-      <p data-ui="withdraw-cash" className={`${text} tabular-nums`}>
-        {BigInt(dollars.cashRaw) > 0n ? d.cash(whole(dollars.cashRaw, vault.cash.asset)) : d.noCash}
-      </p>
-      <dl className="grid gap-x-6 gap-y-1 text-body-sm sm:grid-cols-[auto_1fr]">
-        <dt className="text-muted-foreground">{w.check.to}</dt>
-        <dd>
-          {w.check.own}{' '}
-          <span data-ui="withdraw-to" className="break-all font-mono text-source">
-            {owner}
-          </span>
-        </dd>
-        <dt className="text-muted-foreground">{w.check.from}</dt>
-        <dd className="break-all font-mono text-source">{vault.address}</dd>
-      </dl>
-      <p className={text}>{dollars.shareBps >= 10_000 ? d.emptied : d.stays}</p>
-      <p className={text}>{d.quotes}</p>
-      <p data-ui="withdraw-not-sold" className={text}>
-        {d.notSold}
-      </p>
-      {vault.autoFollow && (
-        <p data-ui="withdraw-keeper" className={`flex items-start gap-1.5 ${text}`}>
-          <StatusMark status="watch" size={12} className="mt-1.5" />
-          <span>{w.check.autoFollow}</span>
-        </p>
-      )}
-      <p className={`${text} text-muted-foreground`}>{d.targets}</p>
-      <p className={`${text} text-muted-foreground`}>{d.onlyOwner(cashSymbol)}</p>
-      <label htmlFor={seenId} className="inline-flex items-center gap-2 text-body">
-        <input
-          id={seenId}
-          type="checkbox"
-          className="size-4 accent-primary"
-          checked={seen}
-          disabled={!valid}
-          onChange={(e) => setSeen(e.currentTarget.checked)}
-        />
-        {d.confirm}
-      </label>
-      {next('check', valid && seen)}
-    </div>
+
+  // The tokens one by one, each in full or by amount: the way it always was, behind its own control.
+  const picks = (
+    <ul data-ui="withdraw-picks" className="flex w-full flex-col divide-y divide-border">
+      {holdings.map((h) => {
+        const pick = choices[h.asset] ?? { on: false, text: '' };
+        const set = (to: Partial<Pick>) =>
+          change(() => setChoices((all) => ({ ...all, [h.asset]: { ...pick, ...to } })));
+        const byAmount = units?.tokens[h.asset] !== undefined;
+        return (
+          <li key={h.asset} data-asset={h.asset} className="flex flex-col gap-2 py-3">
+            <label className="inline-flex items-center gap-2 text-body">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={pick.on}
+                onChange={(e) => set({ on: e.currentTarget.checked })}
+              />
+              {w.what.take(symbol(h.asset))}
+            </label>
+            <p className="text-body-sm text-muted-foreground tabular-nums">
+              {w.what.holds(whole(h.raw, h.asset))}
+            </p>
+            {pick.on &&
+              (byAmount ? (
+                <Field
+                  label={w.what.amount(symbol(h.asset))}
+                  hint={w.what.amountHint}
+                  error={errors[h.asset]}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      inputMode="decimal"
+                      width="18ch"
+                      value={pick.text}
+                      onChange={(e) => set({ text: e.currentTarget.value })}
+                    />
+                  )}
+                </Field>
+              ) : (
+                <p className="text-body-sm text-muted-foreground">{w.what.wholeOnly}</p>
+              ))}
+          </li>
+        );
+      })}
+    </ul>
   );
 
-  const check = checkDollars || (
-    <div className="flex flex-col items-start gap-4">
-      <DataTable<WithdrawItem>
-        caption={w.check.leaves}
-        rows={items}
-        rowKey={(r) => r.asset}
-        columns={[
-          { key: 'asset', header: w.check.token, rowHeader: true, cell: (r) => symbol(r.asset) },
-          {
-            key: 'amount',
-            header: w.check.amount,
-            numeric: true,
-            cell: (r) =>
-              r.amountRaw === null
-                ? w.check.all(whole(r.heldRaw, r.asset))
-                : whole(r.amountRaw, r.asset),
-          },
-        ]}
-      />
-      <dl className="grid gap-x-6 gap-y-1 text-body-sm sm:grid-cols-[auto_1fr]">
-        <dt className="text-muted-foreground">{w.check.to}</dt>
-        <dd>
-          {w.check.own}{' '}
-          <span data-ui="withdraw-to" className="break-all font-mono text-source">
-            {owner}
+  // The two ways out, as the card's own choice: the tokens themselves by default.
+  const ways = (
+    <fieldset data-ui="withdraw-way" className="flex flex-col gap-2">
+      <legend className="pb-2 text-body-sm font-medium">{w.way.legend}</legend>
+      {(
+        [
+          ['tokens', w.way.tokens, w.way.tokensHint],
+          ['dollars', w.way.dollars(cashSymbol), w.way.dollarsHint(cashSymbol)],
+        ] as const
+      ).map(([option, label, hint]) => (
+        <label key={option} className="flex flex-col gap-0.5 text-body">
+          <span className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name={wayId}
+              className="size-4 accent-primary"
+              checked={way === option}
+              disabled={placing}
+              onChange={() =>
+                change(() => {
+                  setWay(option);
+                  if (option === 'dollars') setPicking(false);
+                })
+              }
+            />
+            {label}
           </span>
-        </dd>
-        <dt className="text-muted-foreground">{w.check.from}</dt>
-        <dd className="break-all font-mono text-source">{vault.address}</dd>
-      </dl>
-      <p className="max-w-(--tf-measure-body) text-body-sm">
-        {emptied ? w.check.emptied : w.check.stays}
-      </p>
-      {vault.autoFollow && (
-        <p
-          data-ui="withdraw-keeper"
-          className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm"
+          <span className="pl-6 text-body-sm text-muted-foreground">{hint}</span>
+        </label>
+      ))}
+      {way === 'tokens' && (
+        <Button
+          variant="link"
+          className="self-start"
+          data-action="withdraw-pick"
+          aria-expanded={picking}
+          onClick={() => change(() => setPicking((open) => !open))}
         >
-          <StatusMark status="watch" size={12} className="mt-1.5" />
-          <span>{w.check.autoFollow}</span>
-        </p>
+          {picking ? a.out.byShare : a.out.choose}
+        </Button>
       )}
-      <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-        {w.check.onlyOwner}
-      </p>
-      <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-        {w.check.noSale}
-      </p>
-      <label htmlFor={seenId} className="inline-flex items-center gap-2 text-body">
-        <input
-          id={seenId}
-          type="checkbox"
-          className="size-4 accent-primary"
-          checked={seen}
-          disabled={!valid}
-          onChange={(e) => setSeen(e.currentTarget.checked)}
-        />
-        {w.check.confirm}
-      </label>
-      {next('check', valid && seen)}
-    </div>
+      {picking && picks}
+      {picking && items.length === 0 && <p className="text-body-sm">{w.what.errors.none}</p>}
+    </fieldset>
   );
 
-  const confirm = (
-    <div className="flex flex-col items-start gap-3">
-      <p className="max-w-(--tf-measure-body) text-body">{w.confirm.lead}</p>
-      <Button
-        variant="primary"
-        busy={placing}
-        busyLabel={w.confirm.busy}
-        disabled={blocked.length > 0}
-        aria-describedby={blocked.length > 0 ? reasonId : undefined}
-        onClick={review}
-      >
-        {w.confirm.button}
-      </Button>
-      {blocked.length > 0 && (
-        <ul id={reasonId} className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm">
-          {blocked.map((reason) => (
-            <li key={reason}>{reason}</li>
+  // What reaches the wallet: about what the share is worth, then the tokens or the sales.
+  const preview = !valid ? (
+    <p className="text-body-sm text-muted-foreground">{a.preview.emptyWithdraw}</p>
+  ) : (
+    <div data-ui="withdraw-gets" className="flex flex-col gap-2 text-body-sm">
+      {worth !== null && (
+        <p data-ui="withdraw-worth" className="font-medium">
+          {way === 'dollars' ? (
+            <>
+              {pin(worth)} <span className="text-muted-foreground">{cashSymbol}</span>
+            </>
+          ) : (
+            pin(worth)
+          )}
+        </p>
+      )}
+      {way === 'dollars' && dollars ? (
+        <>
+          {dollars.sales.length === 0 ? (
+            <p>{d.nothing}</p>
+          ) : (
+            <ul data-ui="withdraw-sales" className="flex flex-col gap-1.5">
+              {dollars.sales.map((sale) => (
+                <li key={sale.asset} className="flex min-w-0 flex-wrap items-center gap-x-2">
+                  <AssetMark asset={sale.asset} className="size-5" />
+                  <span className="min-w-0 flex-1 tabular-nums">
+                    {whole(sale.amountRaw, sale.asset)}
+                  </span>
+                  <span className="text-muted-foreground">{costOf(sale.asset)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p data-ui="withdraw-cash" className="tabular-nums">
+            {BigInt(dollars.cashRaw) > 0n
+              ? d.cash(whole(dollars.cashRaw, vault.cash.asset))
+              : d.noCash}
+          </p>
+        </>
+      ) : (
+        <ul data-ui="withdraw-tokens" className="flex flex-col gap-1.5">
+          {items.map((item) => (
+            <li key={item.asset} className="flex min-w-0 items-center gap-2">
+              <AssetMark asset={item.asset} className="size-5" />
+              <span className="min-w-0 tabular-nums [overflow-wrap:anywhere]">
+                {item.amountRaw === null
+                  ? w.check.all(whole(item.heldRaw, item.asset))
+                  : whole(item.amountRaw, item.asset)}
+              </span>
+            </li>
           ))}
         </ul>
       )}
-      {failure && (
-        <p
-          role="alert"
-          className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-        >
-          <StatusMark status="off-track" size={12} className="mt-1.5" />
-          <span>{failure}</span>
-        </p>
-      )}
     </div>
   );
 
+  const text2 = 'max-w-(--tf-measure-body)';
+  const details = [
+    {
+      term: w.check.to,
+      value: (
+        <>
+          {w.check.own}{' '}
+          <span data-ui="withdraw-to" className="break-all font-mono text-source">
+            {owner}
+          </span>
+        </>
+      ),
+    },
+    {
+      term: w.check.from,
+      value: <span className="break-all font-mono text-source">{vault.address}</span>,
+    },
+    ...(way === 'dollars'
+      ? [
+          {
+            term: a.details.slippage,
+            value: a.details.slippageValue(percent(ORDER_LIMITS.maxSlippageBps)),
+          },
+        ]
+      : []),
+    {
+      term: a.out.what,
+      value: (
+        <div className="flex flex-col gap-2">
+          {way === 'dollars' ? (
+            <>
+              <p className={text2}>{emptied ? d.emptied : d.stays}</p>
+              <p className={text2}>{d.quotes}</p>
+              <p data-ui="withdraw-not-sold" className={text2}>
+                {d.notSold}
+              </p>
+              <p className={`${text2} text-muted-foreground`}>{d.costNote}</p>
+              <p className={`${text2} text-muted-foreground`}>{d.targets}</p>
+              <p className={`${text2} text-muted-foreground`}>{d.onlyOwner(cashSymbol)}</p>
+            </>
+          ) : (
+            <>
+              <p className={text2}>{emptied ? w.check.emptied : w.check.stays}</p>
+              <p className={text2}>{w.check.noSale}</p>
+              <p className={`${text2} text-muted-foreground`}>{w.check.onlyOwner}</p>
+            </>
+          )}
+          <p className={`${text2} text-muted-foreground`}>{w.confirm.lead}</p>
+        </div>
+      ),
+    },
+  ];
+
+  const shareChips = [2500, 5000, 7500, 10_000].map((bps) => ({
+    key: String(bps),
+    label: bps === 10_000 ? a.out.max : percent(bps),
+    on: shareBps === bps,
+    onPick: () =>
+      change(() => {
+        setPicking(false);
+        setAll(bps === 10_000);
+        if (priced) setText(maxText((value * bps) / 10_000, lang));
+        else setChipShare(bps);
+      }),
+  }));
+
   const provenance = load.read.provenance;
+  const card = (
+    <AmountCard
+      mode="withdraw"
+      {...(embedded?.onMode ? { onMode: embedded.onMode } : {})}
+      headingLevel={embedded ? 3 : 2}
+      chain={chain}
+      chainName={chainName}
+      provenance={provenance}
+      into={{
+        label: t.amount.into.from,
+        value: vault.address,
+        options: [{ value: vault.address, label: shorten(vault.address) }],
+      }}
+      field={
+        picking
+          ? null
+          : {
+              label: t.amount.field.withdraw,
+              text: priced ? text : '',
+              onText: (next) =>
+                change(() => {
+                  setAll(false);
+                  setText(next);
+                }),
+              token:
+                way === 'dollars'
+                  ? {
+                      asset: vault.cash.asset,
+                      symbol: cashSymbol,
+                      name: t.amount.tokenOut(cashSymbol),
+                    }
+                  : null,
+              balance: priced
+                ? {
+                    label: t.amount.balance.vault,
+                    state: 'read',
+                    figure: usd(value),
+                    obs: valueObs,
+                  }
+                : undefined,
+              chips: shareChips,
+              problem: priced ? (all ? null : typed.problem) : null,
+              note: priced ? null : a.out.noValue,
+            }
+      }
+      choice={ways}
+      preview={{ title: a.preview.withdraw, body: preview }}
+      details={details}
+      notice={
+        <>
+          {vault.autoFollow && (
+            <p
+              data-ui="withdraw-keeper"
+              className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm"
+            >
+              <StatusMark status="watch" size={12} className="mt-1.5" />
+              <span>{w.check.autoFollow}</span>
+            </p>
+          )}
+          {failure && (
+            <p
+              role="alert"
+              className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
+            >
+              <StatusMark status="off-track" size={12} className="mt-1.5" />
+              <span>{failure}</span>
+            </p>
+          )}
+        </>
+      }
+      action={{
+        label: !valid
+          ? picking
+            ? w.action
+            : t.amount.enter
+          : picking
+            ? a.press.withdrawPicked(items.length)
+            : everything || (way === 'dollars' && shareBps === 10_000)
+              ? a.press.withdrawAll
+              : priced && typed.amount !== null
+                ? a.press.withdraw(usd(typed.amount))
+                : a.press.withdrawShare(percent(shareBps ?? 0)),
+        held: !valid,
+        reasons: blocked,
+        busy: placing,
+        busyLabel: w.confirm.busy,
+        onPress: () => void review(),
+      }}
+      locked={placing}
+    />
+  );
+
   return (
     <div
       data-ui="withdraw-screen"
@@ -701,45 +730,7 @@ export function WithdrawScreen({
           <p className="max-w-(--tf-measure-body) text-body-lg">{w.lead(chainName)}</p>
         </header>
       )}
-      <StepCard
-        ui="withdraw"
-        label={w.steps.label}
-        doneWord={w.steps.done}
-        steps={[
-          {
-            id: 'what',
-            name: w.steps.names.what,
-            done: chosen && valid,
-            summary: !valid
-              ? null
-              : dollars
-                ? dollars.shareBps >= 10_000
-                  ? w.share.summaryAll
-                  : w.share.summaryPart(
-                      new Intl.NumberFormat(LOCALE[lang], { maximumFractionDigits: 2 }).format(
-                        dollars.shareBps / 100,
-                      ),
-                    )
-                : everything
-                  ? w.what.summaryAll
-                  : w.what.summarySome(items.length),
-            panel: what,
-          },
-          {
-            id: 'check',
-            name: w.steps.names.check,
-            done: valid && seen,
-            summary: valid && seen ? w.check.seen : null,
-            panel: check,
-          },
-          { id: 'confirm', name: w.steps.names.confirm, done: false, panel: confirm },
-        ]}
-        open={open}
-        onOpen={go}
-        mock={provenance === 'mock'}
-        mockAnnounce={t.shell.mockAnnounce}
-        note={provenance === 'sandbox' ? t.buy.steps.note.testNetwork(chainName) : null}
-      />
+      {card}
     </div>
   );
 }

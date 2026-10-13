@@ -2051,6 +2051,19 @@ export const en = {
       deposit: (amount: string) => `Deposit ${amount}`,
       withdraw: (amount: string) => `Withdraw ${amount}`,
       withdrawAll: 'Withdraw everything',
+      withdrawShare: (share: string) => `Withdraw ${share} of your vault`,
+      withdrawPicked: (n: number) => (n === 1 ? 'Withdraw 1 token' : `Withdraw ${n} tokens`),
+    },
+    /** The withdrawal on the amount card: a share of the whole vault, or tokens chosen one by one. */
+    out: {
+      chips: 'Quick shares',
+      max: 'Max',
+      choose: 'Choose tokens yourself',
+      byShare: 'Withdraw a share instead',
+      noValue:
+        'Some holdings have no price now, so the vault’s value isn’t known: choose a share of it.',
+      what: 'What happens',
+      to: 'To your own wallet',
     },
     change: 'Change',
     busy: 'Making your order…',
