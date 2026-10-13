@@ -41,7 +41,7 @@ export const methodology = {
       'A snapshot is one read of a vault, kept whole: what it held, what each part was worth, its share and its planned share, and every price the values stood on. Each price keeps its source, its time and its method.',
       'We read every vault we know about every ten minutes, from its own chain, and keep each read. A vault made outside this app is found within the hour.',
       'The reader holds no key. It reads and keeps: it can’t sign, trade or move anything.',
-      'For now it reads test networks and our sample chain only. Every figure here carries that label, and none is shown as live.',
+      'It reads Robinhood Chain on its mainnet, Solana on its test network, and our sample chain. Every figure carries the label of where it was read: only a mainnet figure is shown as live, and a test network’s or a sample’s is marked as such.',
       'A snapshot more than an hour old is called stale, with its age beside it.',
     ],
   },

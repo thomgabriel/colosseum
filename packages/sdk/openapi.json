@@ -14094,6 +14094,16 @@
                                         "maxLength": 78,
                                         "pattern": "^(?:0|[1-9]\\d*)$"
                                       },
+                                      "leastRaw": {
+                                        "type": "string",
+                                        "maxLength": 78,
+                                        "pattern": "^(?:0|[1-9]\\d*)$"
+                                      },
+                                      "mostRaw": {
+                                        "type": "string",
+                                        "maxLength": 78,
+                                        "pattern": "^(?:0|[1-9]\\d*)$"
+                                      },
                                       "valued": {
                                         "type": "object",
                                         "properties": {
@@ -14629,6 +14639,16 @@
                       "sellToCash": {
                         "type": "boolean"
                       },
+                      "shareBps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
+                      },
+                      "maxSlippageBps": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 300
+                      },
                       "withdrawals": {
                         "minItems": 1,
                         "type": "array",
@@ -14821,6 +14841,16 @@
                                   ]
                                 },
                                 "heldRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -15479,6 +15509,16 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -16129,6 +16169,16 @@
                                   ]
                                 },
                                 "heldRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -17292,6 +17342,16 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -17985,6 +18045,16 @@
                                   ]
                                 },
                                 "heldRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -26998,6 +27068,16 @@
                                           "maxLength": 78,
                                           "pattern": "^(?:0|[1-9]\\d*)$"
                                         },
+                                        "leastRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "mostRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
                                         "valued": {
                                           "type": "object",
                                           "properties": {
@@ -28933,6 +29013,16 @@
                                           ]
                                         },
                                         "heldRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "leastRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "mostRaw": {
                                           "type": "string",
                                           "maxLength": 78,
                                           "pattern": "^(?:0|[1-9]\\d*)$"

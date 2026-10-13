@@ -378,6 +378,14 @@ describe('the approved steps of a rebalance', () => {
       // a missing minimum
       expect(refused(([a, b]) => [a, { ...b, expected: [] }])).toBe('order');
       expect(refused(() => legs)).toBeNull();
+      // and no withdrawal in dollars rides with a rebalance's terms
+      expect(
+        refused(() => legs, {
+          basketId: '42',
+          rebalance: { targets: [{ asset: gold, weightBps: 10_000 }], trades: [] },
+          dollars: { cashRaw: '1', sales: [] },
+        }),
+      ).toBe('order');
     },
   );
 });

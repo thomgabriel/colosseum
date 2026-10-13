@@ -18,7 +18,8 @@ import { runSnapshots } from './run';
 //   ... --dry-run                  reads and prints, writes nothing
 //
 // It reads and never signs: it holds no key, loads no signing entry, and makes a reader of each real
-// chain, never an adapter (chains.ts). It runs on the test networks until a person says otherwise:
+// chain, never an adapter (chains.ts). It runs on the test networks, and on Robinhood Chain's mainnet
+// only under CHAIN_MAINNET_ROBINHOOD=real-money (gate SNAPSHOT-WORKER-MAINNET): any other
 // CHAIN_NETWORK_<CHAIN>=mainnet stops it here, before a node or the database is touched. What is wrong at
 // start is said on stderr and ends it with 1 before any pass. No line carries a node's address, the
 // database's or the ping's (hide.ts).

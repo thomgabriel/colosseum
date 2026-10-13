@@ -910,7 +910,7 @@ export const pt: Dictionary = {
     exitUnmeasured: 'Ainda não foi medido, então nenhum custo é mostrado.',
     exitCost: (cost: string) => `≤ ${cost}`,
     inKind:
-      'Você pode tirar os próprios tokens do seu cofre a qualquer momento. Vendê-los por dinheiro para você ainda não é oferecido.',
+      'Você pode tirar os próprios tokens do seu cofre a qualquer momento. Também pode sacar em dólares: seu cofre vende seus ativos e os dólares vão para a sua carteira.',
     risk: {
       notKept:
         'Como este plano se divide, e quanto custa vendê-lo, é calculado quando um plano é montado e não fica guardado com ele. Monte o plano de novo a partir do seu objetivo para ver.',
@@ -1671,7 +1671,7 @@ export const pt: Dictionary = {
     meta: 'Sacar',
     title: 'Sacar do seu cofre',
     lead: (chain: string) =>
-      `Os tokens saem do seu cofre como estão e vão para a sua própria carteira em ${chain}. Nada é vendido.`,
+      `O que sai do seu cofre vai para a sua própria carteira em ${chain}: os próprios tokens, ou dólares depois que seus ativos são vendidos.`,
     loading: 'Lendo seu cofre…',
     failed: 'Não consegui ler seus cofres: nosso servidor não respondeu. Tente de novo.',
     notYours: 'Este cofre não é seu, então não há nada para sacar aqui.',
@@ -1683,6 +1683,24 @@ export const pt: Dictionary = {
       names: { what: 'O quê', check: 'Revisar', confirm: 'Assinar' },
       done: 'feito',
       next: 'Continuar',
+    },
+    way: {
+      legend: 'Como você quer receber?',
+      tokens: 'Os próprios tokens',
+      tokensHint: 'Nada é vendido. Este caminho está sempre aberto: não precisa de mercado.',
+      dollars: (cash: string) => `Em dólares, como ${cash}`,
+      dollarsHint: (cash: string) =>
+        `Seu cofre vende seus ativos por ${cash}, e o ${cash} vai para a sua carteira. Você assina cada passo.`,
+    },
+    share: {
+      legend: 'Quanto do cofre?',
+      all: 'Tudo',
+      part: 'Uma parte',
+      label: 'Parte do cofre, em porcentagem',
+      hint: 'De 0,01 a 100. Essa parte de cada ativo é vendida, e essa parte do caixa sai.',
+      error: 'Digite uma parte de 0,01 a 100.',
+      summaryAll: 'Tudo, em dólares',
+      summaryPart: (percent: string) => `${percent}% do cofre, em dólares`,
     },
     what: {
       legend: 'O que você quer tirar?',
@@ -1715,10 +1733,36 @@ export const pt: Dictionary = {
       emptied: 'O cofre ficará vazio depois.',
       autoFollow:
         'O seguir automático para neste cofre. Ele está ativado, e o primeiro passo o desativa, para que nosso operador não negocie o cofre enquanto você saca nem depois. Para ativar de novo, abra o portfólio compartilhado que este cofre segue; a página do cofre leva até lá.',
-      noSale:
-        'Vender por dinheiro antes de sacar ainda não é oferecido; você pode sacar os próprios tokens.',
+      noSale: 'Nada é vendido: os tokens saem como estão.',
       seen: 'Revisado',
       confirm: 'É isto que quero sacar',
+      dollars: {
+        sold: 'O que é vendido',
+        holding: 'Ativo',
+        amount: 'Quantidade vendida',
+        cost: 'Custo medido de vender',
+        costHeader: 'Custo de venda',
+        costBps: (bps: string) => `${bps} bps`,
+        notMeasured: 'Não medido',
+        costNote:
+          'Cada custo é a medida do Bearing para vender, sozinha, toda a posição do seu cofre naquele ativo. Um ponto-base é um centésimo de um por cento. A venda em si fica presa ao mínimo que ela declara.',
+        nothing: 'Este cofre só tem caixa: nada é vendido.',
+        cash: (amount: string) =>
+          `${amount} do caixa do cofre sai junto com o que as vendas trazem.`,
+        noCash: 'O cofre não tem caixa agora: o que sai é o que as vendas trazem.',
+        quotes:
+          'A próxima tela diz, para cada venda, o mínimo que ela aceita, e o mínimo que você recebe no total. Nenhuma venda é feita abaixo do seu mínimo.',
+        notSold:
+          'Um ativo que não pode ser vendido agora fica no seu cofre, e a ordem diz qual e por quê: um mercado fechado, um pool longe demais do preço de referência, ou uma venda maior do que o pool comporta. Você pode sacar os próprios tokens dessa parte.',
+        targets:
+          'As metas do seu cofre não mudam. Vender a mesma parte de tudo deixa os pesos onde estão.',
+        stays: 'O resto fica no cofre.',
+        emptied:
+          'Depois o cofre só guarda o que não pode ser vendido agora e quantias pequenas demais para vender.',
+        onlyOwner: (cash: string) =>
+          `Um cofre só paga ao seu dono. Sua carteira só é chamada a assinar vendas destes ativos por ${cash}, e o saque desse ${cash} para este endereço.`,
+        confirm: 'É isto que quero vender e sacar',
+      },
     },
     confirm: {
       lead: 'Em seguida você revisa cada passo da ordem e assina na sua carteira. A taxa da rede é paga pela sua carteira.',
@@ -1889,6 +1933,13 @@ export const pt: Dictionary = {
       signWithdraw: 'Assinar e sacar',
       withdraws: (amount: string) => `${amount} para a sua própria carteira`,
       withdrawsAll: (held: string) => `Tudo, ${held} na revisão, para a sua própria carteira`,
+      withdrawsAtLeast: (amount: string) => `Pelo menos ${amount}, para a sua própria carteira`,
+      receiveAtLeast: 'Você recebe pelo menos',
+      soldBefore: (what: string, least: string) =>
+        `Vendido antes de parar: ${what}. Os dólares dessas vendas, pelo menos ${least}, estão no seu cofre agora.`,
+      notAgain:
+        'Sacar a mesma parte em dólares de novo venderia esses ativos de novo. Para tirar só os dólares que já estão lá, saque os próprios tokens e escolha o token de dólar.',
+      tokensInstead: 'Sacar os próprios tokens',
       withdrawDone: 'O que você sacou está na sua carteira agora.',
       autoFollowStops: 'O seguir automático para neste cofre: o primeiro passo o desativa.',
       skipped: (what: string) =>

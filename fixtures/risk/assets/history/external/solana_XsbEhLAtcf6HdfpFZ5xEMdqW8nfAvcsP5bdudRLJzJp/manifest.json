@@ -1,0 +1,31 @@
+{
+  "series": "external-daily",
+  "chain": "solana",
+  "subject": "solana:XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+  "methodVersion": "backfill-0.1",
+  "source": "DefiLlama coins solana:XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp /chart period=1d",
+  "provenance": "live",
+  "covered": [
+    {
+      "from": 1751057931,
+      "to": 1791899430,
+      "unit": "second"
+    }
+  ],
+  "days": {
+    "all": {
+      "rows": 469,
+      "bytes": 6164
+    }
+  },
+  "rows": 469,
+  "bytes": 6164,
+  "checks": [
+    {
+      "name": "non_empty",
+      "passed": true,
+      "detail": "469 daily points"
+    }
+  ],
+  "updatedAt": "2026-10-13T13:46:27.016Z"
+}

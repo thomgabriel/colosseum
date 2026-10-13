@@ -43,7 +43,8 @@ export type ChainSource = {
   name: string;
   /**
    * The label on every row this source gives: `mock` on packages/chain-mock, `sandbox` on a test
-   * network. Never `live`: mainnet is refused before a source is made.
+   * network or a local copy, and `live` on Robinhood Chain's mainnet, the one mainnet the worker reads
+   * (chains.ts). The rows a pass reads from the database, and the run it opens, are of this label.
    */
   provenance: Provenance;
   /** Where a row's figures came from, in words: the row's `source`. */

@@ -1,0 +1,34 @@
+{
+  "chain": "robinhood",
+  "source": "Robinhood Chain eth_call by Multicall3 through ROBINHOOD_BACKFILL_RPC_URL (metered): token0(), token1() and factory() of each v3-style pool, poolKeys(id) of the v4 position manager 0x58daec3116aae6d93017baaea7749052e8a04fa7",
+  "method": "pool_tokens_by_multicall_at_head (PoolResolver, poolTokensOf)",
+  "provenance": "live",
+  "updatedAt": "2026-10-13T18:10:35.772Z",
+  "pools": {
+    "0x000a39528af58044217c5bd618648a4b8d51af67": {
+      "kind": "cl",
+      "token0": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "token1": "0xe0d495b61c6db42bff853bf99a904be57f9b0f85",
+      "uniswap": true,
+      "factory": "0x1f7d7550b1b028f7571e69a784071f0205fd2efa",
+      "resolvedAt": "2026-10-13T18:09:17.094Z"
+    },
+    "0x3daec59627656f66048c7c2bcfd4d582d293d43f3fa85a57d093882edb8c997a": {
+      "kind": "v4",
+      "token0": "0xab093def657f15df31b33922a95e047add645b29",
+      "token1": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+      "uniswap": true,
+      "fee": 9000,
+      "tickSpacing": 90,
+      "hooks": "0x58a6ef29ddcdb064a72b550a78d84a8e065994c0",
+      "resolvedAt": "2026-10-13T18:09:42.185Z"
+    },
+    "0x001ded79b93e9a3306207fe0645de2ddee5747aee6a8938a220e6adc35cad53c": {
+      "kind": "v4",
+      "token0": null,
+      "token1": null,
+      "uniswap": null,
+      "resolvedAt": "2026-10-13T18:09:17.094Z"
+    }
+  }
+}

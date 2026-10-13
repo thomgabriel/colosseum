@@ -1,0 +1,1811 @@
+{
+  "source": "https://api.dexscreener.com/token-pairs/v1/solana/<mint>, the answers of `pnpm risk:shelf-pools-solana` on 2026-10-13 (data/risk/shelf-dexscreener-solana-20261013T1349.jsonl)",
+  "note": "real answers, frozen: the venues, prices, liquidity and volume as DexScreener gave them; every address is a low-entropy placeholder (mint-<symbol> for a shelf token, mint-other-<n> and symbol OTHER<n> for any other, pool-<symbol>-<n>) and only the fields the rule reads are kept",
+  "provenance": "live",
+  "tokens": [
+    {
+      "symbol": "JitoSOL",
+      "mint": "mint-JitoSOL",
+      "fetchedAt": "2026-10-13T13:49:20.079Z",
+      "status": 200,
+      "pairs": [
+        {
+          "pairAddress": "pool-JitoSOL-01",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "139.72",
+          "priceNative": "139.7281",
+          "liquidity": {
+            "usd": 308060.12
+          },
+          "volume": {
+            "h24": 400589.9
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-02",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "139.60",
+          "priceNative": "1.3053",
+          "liquidity": {
+            "usd": 6104065.29
+          },
+          "volume": {
+            "h24": 404965.24
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-03",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-JupSOL",
+            "symbol": "JupSOL"
+          },
+          "priceUsd": "684966.43",
+          "priceNative": "1.07518",
+          "liquidity": {
+            "usd": 2415084025.49
+          },
+          "volume": {
+            "h24": 1477748.48
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-04",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "139.75",
+          "priceNative": "139.7571",
+          "liquidity": {
+            "usd": 83474.55
+          },
+          "volume": {
+            "h24": 78990.68
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-05",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "139.58",
+          "priceNative": "1.3051",
+          "liquidity": {
+            "usd": 1748185.63
+          },
+          "volume": {
+            "h24": 207106.64
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-06",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "138.96",
+          "priceNative": "1.3052",
+          "liquidity": {
+            "usd": 1315536.3
+          },
+          "volume": {
+            "h24": 118742.01
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-07",
+          "dexId": "meteora",
+          "labels": ["DYN"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "139.95",
+          "priceNative": "1.3050",
+          "liquidity": {
+            "usd": 2821846.71
+          },
+          "volume": {
+            "h24": 21957.34
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-08",
+          "dexId": "meteora",
+          "labels": ["DYN"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "139.98",
+          "priceNative": "1.3053",
+          "liquidity": {
+            "usd": 94563.57
+          },
+          "volume": {
+            "h24": 1430.11
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-09",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-WETH",
+            "symbol": "WETH"
+          },
+          "priceUsd": "138.30",
+          "priceNative": "0.05535",
+          "liquidity": {
+            "usd": 39966.58
+          },
+          "volume": {
+            "h24": 12418.73
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-10",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-other-01",
+            "symbol": "OTHER01"
+          },
+          "priceUsd": "136.76",
+          "priceNative": "866.2677",
+          "liquidity": {
+            "usd": 21477.21
+          },
+          "volume": {
+            "h24": 256.42
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-11",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "140.072",
+          "priceNative": "140.07231",
+          "liquidity": {
+            "usd": 12388.93
+          },
+          "volume": {
+            "h24": 499.21
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-12",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "138.30",
+          "priceNative": "1.3083",
+          "liquidity": {
+            "usd": 15537.26
+          },
+          "volume": {
+            "h24": 636.39
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-13",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-PYUSD",
+            "symbol": "PYUSD"
+          },
+          "priceUsd": "139.66",
+          "priceNative": "139.6322",
+          "liquidity": {
+            "usd": 5972.54
+          },
+          "volume": {
+            "h24": 2639.65
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-14",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "138.89",
+          "priceNative": "138.8969",
+          "liquidity": {
+            "usd": 2741.19
+          },
+          "volume": {
+            "h24": 3691.4
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-15",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "144.26",
+          "priceNative": "1.3062",
+          "liquidity": {
+            "usd": 2853.9
+          },
+          "volume": {
+            "h24": 2.17
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-16",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "140.081",
+          "priceNative": "1.3066",
+          "liquidity": {
+            "usd": 2334.37
+          },
+          "volume": {
+            "h24": 4.71
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-17",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "138.96",
+          "priceNative": "1.3049",
+          "liquidity": {
+            "usd": 139.24
+          },
+          "volume": {
+            "h24": 13.31
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-18",
+          "dexId": "pumpswap",
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "143.99",
+          "priceNative": "1.3038",
+          "liquidity": {
+            "usd": 279.58
+          },
+          "volume": {
+            "h24": 9.28
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-19",
+          "dexId": "meteora",
+          "labels": ["DYN"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "138.84",
+          "priceNative": "138.8499",
+          "liquidity": {
+            "usd": 126.4
+          },
+          "volume": {
+            "h24": 3.9
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-20",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-cbBTC",
+            "symbol": "cbBTC"
+          },
+          "priceUsd": "138.75",
+          "priceNative": "0.001664",
+          "liquidity": {
+            "usd": 186.64
+          },
+          "volume": {
+            "h24": 0.22
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-21",
+          "dexId": "meteora",
+          "labels": ["DYN2"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "142.68",
+          "priceNative": "1.2999",
+          "liquidity": {
+            "usd": 60.99
+          },
+          "volume": {
+            "h24": 0.09
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-22",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "139.38",
+          "priceNative": "139.3805",
+          "liquidity": {
+            "usd": 33.74
+          },
+          "volume": {
+            "h24": 3.01
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-23",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-syrupUSDC",
+            "symbol": "syrupUSDC"
+          },
+          "priceUsd": "139.45",
+          "priceNative": "117.4054",
+          "liquidity": {
+            "usd": 26.49
+          },
+          "volume": {
+            "h24": 4.44
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-24",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDG",
+            "symbol": "USDG"
+          },
+          "priceUsd": "139.75",
+          "priceNative": "139.7544",
+          "liquidity": {
+            "usd": 36.65
+          },
+          "volume": {
+            "h24": 5.22
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-25",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-PYUSD",
+            "symbol": "PYUSD"
+          },
+          "priceUsd": "138.65",
+          "priceNative": "138.6468",
+          "liquidity": {
+            "usd": 49.76
+          },
+          "volume": {
+            "h24": 1.7
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-26",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "140.039",
+          "priceNative": "140.03917",
+          "liquidity": {
+            "usd": 0.1
+          },
+          "volume": {
+            "h24": 0.01
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-27",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "139.33",
+          "priceNative": "1.3052",
+          "liquidity": {
+            "usd": 43.61
+          },
+          "volume": {
+            "h24": 2.49
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-28",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-RAY",
+            "symbol": "RAY"
+          },
+          "priceUsd": "139.74",
+          "priceNative": "65.6029",
+          "liquidity": {
+            "usd": 3.51
+          },
+          "volume": {
+            "h24": 0.03
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-29",
+          "dexId": "meteora",
+          "labels": ["DYN"],
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "139.57",
+          "priceNative": "139.5716",
+          "liquidity": {
+            "usd": 2.21
+          },
+          "volume": {
+            "h24": 0.05
+          }
+        },
+        {
+          "pairAddress": "pool-JitoSOL-30",
+          "dexId": "fluxbeam",
+          "baseToken": {
+            "address": "mint-JitoSOL",
+            "symbol": "JitoSOL"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "131.57",
+          "priceNative": "131.5789",
+          "liquidity": {
+            "usd": 2.06
+          },
+          "volume": {
+            "h24": 0.01
+          }
+        }
+      ]
+    },
+    {
+      "symbol": "GRND",
+      "mint": "mint-GRND",
+      "fetchedAt": "2026-10-13T13:49:35.325Z",
+      "status": 200,
+      "pairs": [
+        {
+          "pairAddress": "pool-GRND-01",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "15.28",
+          "priceNative": "15.2835",
+          "liquidity": {
+            "usd": 18719.67
+          },
+          "volume": {
+            "h24": 125093.54
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-02",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "15.18",
+          "priceNative": "0.1426",
+          "liquidity": {
+            "usd": 9962.04
+          },
+          "volume": {
+            "h24": 21067.2
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-03",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "15.26",
+          "priceNative": "15.2667",
+          "liquidity": {
+            "usd": 6370.5
+          },
+          "volume": {
+            "h24": 31965.88
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-04",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "15.087",
+          "priceNative": "0.1426",
+          "liquidity": {
+            "usd": 6241.25
+          },
+          "volume": {
+            "h24": 3771.82
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-05",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "15.23",
+          "priceNative": "15.2304",
+          "liquidity": {
+            "usd": 447.08
+          },
+          "volume": {
+            "h24": 68.25
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-06",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "15.067",
+          "priceNative": "0.1456",
+          "liquidity": {
+            "usd": 84.74
+          },
+          "volume": {
+            "h24": 0.97
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-07",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "15.21",
+          "priceNative": "15.2120",
+          "liquidity": {
+            "usd": 542.37
+          },
+          "volume": {
+            "h24": 416.05
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-08",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "15.16",
+          "priceNative": "0.1423",
+          "liquidity": {
+            "usd": 161.51
+          },
+          "volume": {
+            "h24": 94.04
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-09",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-02",
+            "symbol": "OTHER02"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000007433",
+          "priceNative": "0.0000004956",
+          "volume": {
+            "h24": 1024.37
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-10",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-03",
+            "symbol": "OTHER03"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000005527",
+          "priceNative": "0.0000003642",
+          "volume": {
+            "h24": 1407.75
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-11",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-04",
+            "symbol": "OTHER04"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.00002197",
+          "priceNative": "0.000001442",
+          "liquidity": {
+            "usd": 13060.44
+          },
+          "volume": {
+            "h24": 60235.99
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-12",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-05",
+            "symbol": "OTHER05"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003543",
+          "priceNative": "0.0000002341",
+          "liquidity": {
+            "usd": 5333.95
+          },
+          "volume": {
+            "h24": 21.6
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-13",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-06",
+            "symbol": "OTHER06"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003024",
+          "priceNative": "0.0000001991",
+          "liquidity": {
+            "usd": 4903.73
+          },
+          "volume": {
+            "h24": 7.95
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-14",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-07",
+            "symbol": "OTHER07"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000002153",
+          "priceNative": "0.0000001421",
+          "liquidity": {
+            "usd": 3958.63
+          },
+          "volume": {
+            "h24": 1.16
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-15",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-08",
+            "symbol": "OTHER08"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003591",
+          "priceNative": "0.0000002377",
+          "volume": {
+            "h24": 2200.76
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-16",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-09",
+            "symbol": "OTHER09"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003438",
+          "priceNative": "0.0000002269",
+          "volume": {
+            "h24": 1462.53
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-17",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-10",
+            "symbol": "OTHER10"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003083",
+          "priceNative": "0.0000002035",
+          "volume": {
+            "h24": 2011.06
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-18",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-11",
+            "symbol": "OTHER11"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000001878",
+          "priceNative": "0.0000001247",
+          "liquidity": {
+            "usd": 3697.19
+          },
+          "volume": {
+            "h24": 6.56
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-19",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-12",
+            "symbol": "OTHER12"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003070",
+          "priceNative": "0.0000002035",
+          "volume": {
+            "h24": 1748.07
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-20",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-13",
+            "symbol": "OTHER13"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003083",
+          "priceNative": "0.0000002035",
+          "volume": {
+            "h24": 1415.82
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-21",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-14",
+            "symbol": "OTHER14"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003270",
+          "priceNative": "0.0000002168",
+          "volume": {
+            "h24": 106.26
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-22",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-15",
+            "symbol": "OTHER15"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003057",
+          "priceNative": "0.0000002035",
+          "volume": {
+            "h24": 1021.27
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-23",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-16",
+            "symbol": "OTHER16"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003040",
+          "priceNative": "0.0000002035",
+          "volume": {
+            "h24": 1014.79
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-24",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-17",
+            "symbol": "OTHER17"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceUsd": "0.000003072",
+          "priceNative": "0.0000002052",
+          "volume": {
+            "h24": 0.19
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-25",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-18",
+            "symbol": "OTHER18"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceNative": "0.0000",
+          "volume": {
+            "h24": 0
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-26",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-19",
+            "symbol": "OTHER19"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceNative": "0.0000",
+          "volume": {
+            "h24": 0
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-27",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-20",
+            "symbol": "OTHER20"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceNative": "0.0000",
+          "volume": {
+            "h24": 0
+          }
+        },
+        {
+          "pairAddress": "pool-GRND-28",
+          "dexId": "pumpfun",
+          "baseToken": {
+            "address": "mint-other-21",
+            "symbol": "OTHER21"
+          },
+          "quoteToken": {
+            "address": "mint-GRND",
+            "symbol": "GRND"
+          },
+          "priceNative": "0.0000",
+          "volume": {
+            "h24": 0
+          }
+        }
+      ]
+    },
+    {
+      "symbol": "GLDx",
+      "mint": "mint-GLDx",
+      "fetchedAt": "2026-10-13T13:49:26.625Z",
+      "status": 200,
+      "pairs": [
+        {
+          "pairAddress": "pool-GLDx-01",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "383.044",
+          "priceNative": "383.04473",
+          "liquidity": {
+            "usd": 917428.06
+          },
+          "volume": {
+            "h24": 344094.63
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-02",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "380.10",
+          "priceNative": "3.5700",
+          "liquidity": {
+            "usd": 139433.58
+          },
+          "volume": {
+            "h24": 187492.32
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-03",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "384.15",
+          "priceNative": "384.1593",
+          "liquidity": {
+            "usd": 124076.36
+          },
+          "volume": {
+            "h24": 4430.49
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-04",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "382.88",
+          "priceNative": "382.8863",
+          "liquidity": {
+            "usd": 40409.5
+          },
+          "volume": {
+            "h24": 15300.76
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-05",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SPYx",
+            "symbol": "SPYx"
+          },
+          "priceUsd": "384.10",
+          "priceNative": "0.4914",
+          "liquidity": {
+            "usd": 31805.73
+          },
+          "volume": {
+            "h24": 1267.61
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-06",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "381.046",
+          "priceNative": "3.5789",
+          "liquidity": {
+            "usd": 27355.79
+          },
+          "volume": {
+            "h24": 32700.02
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-07",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "381.27",
+          "priceNative": "3.5844",
+          "liquidity": {
+            "usd": 12107.06
+          },
+          "volume": {
+            "h24": 8571.49
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-08",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-NVDAx",
+            "symbol": "NVDAx"
+          },
+          "priceUsd": "382.33",
+          "priceNative": "1.7062",
+          "liquidity": {
+            "usd": 16235.16
+          },
+          "volume": {
+            "h24": 1267.24
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-09",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "383.52",
+          "priceNative": "383.5247",
+          "liquidity": {
+            "usd": 4379.45
+          },
+          "volume": {
+            "h24": 20.91
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-10",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-cbBTC",
+            "symbol": "cbBTC"
+          },
+          "priceUsd": "384.033",
+          "priceNative": "0.004609",
+          "liquidity": {
+            "usd": 537.53
+          },
+          "volume": {
+            "h24": 126.63
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-11",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-WBTC",
+            "symbol": "WBTC"
+          },
+          "priceUsd": "383.94",
+          "priceNative": "0.004584",
+          "liquidity": {
+            "usd": 99.47
+          },
+          "volume": {
+            "h24": 3.22
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-12",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "383.24",
+          "priceNative": "383.2471",
+          "liquidity": {
+            "usd": 34.5
+          },
+          "volume": {
+            "h24": 8.85
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-13",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-GOOGLx",
+            "symbol": "GOOGLx"
+          },
+          "priceUsd": "383.82",
+          "priceNative": "1.07631",
+          "liquidity": {
+            "usd": 17.76
+          },
+          "volume": {
+            "h24": 13.23
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-14",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "383.14",
+          "priceNative": "383.1433",
+          "liquidity": {
+            "usd": 80587.56
+          },
+          "volume": {
+            "h24": 228368.52
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-15",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-MU",
+            "symbol": "MU"
+          },
+          "priceUsd": "383.38",
+          "priceNative": "0.4032",
+          "liquidity": {
+            "usd": 57663.22
+          },
+          "volume": {
+            "h24": 9937.1
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-16",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-MU",
+            "symbol": "MU"
+          },
+          "priceUsd": "383.93",
+          "priceNative": "0.3998",
+          "liquidity": {
+            "usd": 12418.61
+          },
+          "volume": {
+            "h24": 146.39
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-17",
+          "dexId": "meteora",
+          "labels": ["DLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-USDC",
+            "symbol": "USDC"
+          },
+          "priceUsd": "382.79",
+          "priceNative": "382.7928",
+          "liquidity": {
+            "usd": 7357.44
+          },
+          "volume": {
+            "h24": 4223.23
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-18",
+          "dexId": "meteora",
+          "labels": ["DYN2"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-other-22",
+            "symbol": "OTHER22"
+          },
+          "priceUsd": "375.13",
+          "priceNative": "1148088.7090",
+          "liquidity": {
+            "usd": 325.91
+          },
+          "volume": {
+            "h24": 89.61
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-19",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SPYx",
+            "symbol": "SPYx"
+          },
+          "priceUsd": "383.55",
+          "priceNative": "0.4904",
+          "liquidity": {
+            "usd": 3463.93
+          },
+          "volume": {
+            "h24": 967.5
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-20",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SPCXx",
+            "symbol": "SPCXx"
+          },
+          "priceUsd": "382.52",
+          "priceNative": "2.3925",
+          "liquidity": {
+            "usd": 29.46
+          },
+          "volume": {
+            "h24": 13.29
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-21",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-other-23",
+            "symbol": "OTHER23"
+          },
+          "priceUsd": "373.11",
+          "priceNative": "74.4945",
+          "liquidity": {
+            "usd": 0.99
+          },
+          "volume": {
+            "h24": 0.44
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-22",
+          "dexId": "meteora",
+          "labels": ["DYN2"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-SOL",
+            "symbol": "SOL"
+          },
+          "priceUsd": "383.016",
+          "priceNative": "3.5846",
+          "liquidity": {
+            "usd": 0.48
+          },
+          "volume": {
+            "h24": 0.01
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-23",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-other-24",
+            "symbol": "OTHER24"
+          },
+          "priceUsd": "382.45",
+          "priceNative": "386.3348",
+          "liquidity": {
+            "usd": 50.56
+          },
+          "volume": {
+            "h24": 2.07
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-24",
+          "dexId": "orca",
+          "labels": ["wp"],
+          "baseToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "quoteToken": {
+            "address": "mint-QQQx",
+            "symbol": "QQQx"
+          },
+          "priceUsd": "382.31",
+          "priceNative": "0.5140",
+          "liquidity": {
+            "usd": 9.97
+          },
+          "volume": {
+            "h24": 1.39
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-25",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-25",
+            "symbol": "OTHER25"
+          },
+          "quoteToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "priceUsd": "0.001555",
+          "priceNative": "0.000004055",
+          "liquidity": {
+            "usd": 137085.47
+          },
+          "volume": {
+            "h24": 144933.07
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-26",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-26",
+            "symbol": "OTHER26"
+          },
+          "quoteToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "priceUsd": "0.0005524",
+          "priceNative": "0.000001442",
+          "liquidity": {
+            "usd": 74298.56
+          },
+          "volume": {
+            "h24": 10012.54
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-27",
+          "dexId": "raydium",
+          "labels": ["CLMM"],
+          "baseToken": {
+            "address": "mint-other-27",
+            "symbol": "OTHER27"
+          },
+          "quoteToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "priceUsd": "0.001809",
+          "priceNative": "0.000004721",
+          "liquidity": {
+            "usd": 49669.5
+          },
+          "volume": {
+            "h24": 7944.96
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-28",
+          "dexId": "pumpswap",
+          "baseToken": {
+            "address": "mint-other-28",
+            "symbol": "OTHER28"
+          },
+          "quoteToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "priceUsd": "0.00003723",
+          "priceNative": "0.00000009717",
+          "liquidity": {
+            "usd": 16298.23
+          },
+          "volume": {
+            "h24": 13314.3
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-29",
+          "dexId": "pumpswap",
+          "baseToken": {
+            "address": "mint-other-29",
+            "symbol": "OTHER29"
+          },
+          "quoteToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "priceUsd": "0.00006274",
+          "priceNative": "0.0000001643",
+          "liquidity": {
+            "usd": 51075.38
+          },
+          "volume": {
+            "h24": 0.75
+          }
+        },
+        {
+          "pairAddress": "pool-GLDx-30",
+          "dexId": "raydium",
+          "labels": ["CPMM"],
+          "baseToken": {
+            "address": "mint-other-30",
+            "symbol": "OTHER30"
+          },
+          "quoteToken": {
+            "address": "mint-GLDx",
+            "symbol": "GLDx"
+          },
+          "priceUsd": "0.00006594",
+          "priceNative": "0.0000001720",
+          "liquidity": {
+            "usd": 24257.25
+          },
+          "volume": {
+            "h24": 1402.68
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1071,7 +1071,7 @@ export const en = {
     exitUnmeasured: 'Not measured yet, so no cost is shown.',
     exitCost: (cost: string) => `≤ ${cost}`,
     inKind:
-      'You can take the tokens themselves out of your vault at any time. Selling them to cash for you isn’t offered yet.',
+      'You can take the tokens themselves out of your vault at any time. You can also withdraw in dollars: your vault sells its holdings and the dollars go to your wallet.',
     risk: {
       /** On a plan read back from the server, which keeps the plan and not this summary. */
       notKept:
@@ -1880,7 +1880,7 @@ export const en = {
     meta: 'Withdraw',
     title: 'Withdraw from your vault',
     lead: (chain: string) =>
-      `The tokens leave your vault as they are and go to your own wallet on ${chain}. Nothing is sold.`,
+      `What leaves your vault goes to your own wallet on ${chain}: the tokens themselves, or dollars after your holdings are sold.`,
     loading: 'Reading your vault…',
     failed: 'I couldn’t read your vaults: our server didn’t answer. Try again.',
     notYours: 'This isn’t a vault of yours, so there is nothing to withdraw here.',
@@ -1892,6 +1892,25 @@ export const en = {
       names: { what: 'What', check: 'Review', confirm: 'Sign' },
       done: 'done',
       next: 'Continue',
+    },
+    /** The two ways out (gate WITHDRAW-DOLLARS): the tokens as they are, or sold for the chain's cash token. */
+    way: {
+      legend: 'How do you want it?',
+      tokens: 'The tokens themselves',
+      tokensHint: 'Nothing is sold. This way is always open: it needs no market.',
+      dollars: (cash: string) => `In dollars, as ${cash}`,
+      dollarsHint: (cash: string) =>
+        `Your vault sells its holdings for ${cash}, then the ${cash} goes to your wallet. You sign each step.`,
+    },
+    share: {
+      legend: 'How much of the vault?',
+      all: 'All of it',
+      part: 'A share of it',
+      label: 'Share of the vault, in percent',
+      hint: 'From 0.01 to 100. That share of each holding is sold, and that share of the cash leaves.',
+      error: 'Enter a share from 0.01 to 100.',
+      summaryAll: 'All of it, in dollars',
+      summaryPart: (percent: string) => `${percent}% of it, in dollars`,
     },
     what: {
       legend: 'What do you want to take out?',
@@ -1924,10 +1943,37 @@ export const en = {
       emptied: 'The vault will be empty afterwards.',
       autoFollow:
         'Automatic following stops for this vault. Auto-follow is on, and the first step switches it off, so our keeper doesn’t trade the vault while you withdraw or afterwards. To switch it on again, open the shared portfolio this vault follows; the vault’s page links there.',
-      noSale:
-        'Selling to cash before withdrawing isn’t offered yet; you can withdraw the tokens themselves.',
+      noSale: 'Nothing is sold: the tokens leave as they are.',
       seen: 'Reviewed',
       confirm: 'This is what I want to withdraw',
+      /** The review of a withdrawal in dollars. */
+      dollars: {
+        sold: 'What is sold',
+        holding: 'Holding',
+        amount: 'Amount sold',
+        cost: 'Measured cost of selling',
+        /** The column's heading: short, so three columns fit a phone. */
+        costHeader: 'Cost to sell',
+        costBps: (bps: string) => `${bps} bps`,
+        notMeasured: 'Not measured',
+        costNote:
+          'Each cost is Bearing’s measure of selling your vault’s whole holding of that asset, alone. A basis point is a hundredth of a percent. The sale itself is held to the minimum it states.',
+        nothing: 'This vault holds only cash: nothing is sold.',
+        cash: (amount: string) => `${amount} of the vault’s cash leaves with what the sales bring.`,
+        noCash: 'The vault holds no cash now: what leaves is what the sales bring.',
+        quotes:
+          'The next view states, for each sale, the least it accepts, and the least you receive in total. No sale is made below its minimum.',
+        notSold:
+          'A holding that can’t be sold now stays in your vault, and the order says which and why: a closed market, a pool too far from the reference price, or a sale larger than its pool is trusted to fill. You can withdraw the tokens themselves for that part.',
+        targets:
+          'Your vault’s targets don’t change. Selling the same share of everything leaves its weights where they are.',
+        stays: 'The rest stays in the vault.',
+        emptied:
+          'Afterwards the vault holds only what can’t be sold now and amounts too small to sell.',
+        onlyOwner: (cash: string) =>
+          `A vault pays only its owner. Your wallet is asked to sign only sales of these holdings for ${cash}, and the withdrawal of that ${cash} to this address.`,
+        confirm: 'This is what I want to sell and withdraw',
+      },
     },
     confirm: {
       lead: 'Next you review each step of the order, then sign it in your wallet. The network fee is paid from your wallet.',
@@ -2109,6 +2155,17 @@ export const en = {
       /** One line of a withdraw step: what leaves, for the owner's own wallet. */
       withdraws: (amount: string) => `${amount} to your own wallet`,
       withdrawsAll: (held: string) => `All of it, ${held} when reviewed, to your own wallet`,
+      /** The cash step of a withdrawal in dollars: the least it pays, whatever the sales bring. */
+      withdrawsAtLeast: (amount: string) => `At least ${amount}, to your own wallet`,
+      /** Over the steps of a withdrawal in dollars: the least its cash step pays out. */
+      receiveAtLeast: 'You receive at least',
+      /** A withdrawal in dollars that stopped after some of its sales landed. */
+      soldBefore: (what: string, least: string) =>
+        `Sold before this stopped: ${what}. Their dollars, at least ${least}, are in your vault now.`,
+      notAgain:
+        'Withdrawing the same share in dollars again would sell those holdings again. To take out only the dollars already there, withdraw the tokens themselves and choose the dollar token.',
+      /** After a withdrawal in dollars that left a holding unsold: the other way out. */
+      tokensInstead: 'Withdraw the tokens themselves',
       withdrawDone: 'What you withdrew is in your wallet now.',
       autoFollowStops: 'Automatic following stops for this vault: the first step switches it off.',
       /** A step whose token could not be moved: it stayed in the vault, and the others went on. */

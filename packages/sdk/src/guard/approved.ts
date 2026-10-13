@@ -24,6 +24,23 @@ const SIGNED_HERE: readonly string[] = [
   'publish',
 ];
 
+/**
+ * How far above the sum of its sales' quotes the cash step of a withdrawal in dollars may pay, in bps
+ * of those quotes: `WITHDRAW_DOLLARS_MARGIN_BPS` of packages/schemas, which this package imports for
+ * types only (dollars.test.ts holds the two equal). A fill can land above its quote when the price
+ * moves the person's way; past this the step would be taking cash the order did not bring.
+ */
+export const DOLLARS_MARGIN_BPS = 300;
+
+/** `ORDER_LIMITS.maxSlippageBps` of packages/schemas: the furthest a minimum is under its quote. */
+export const MAX_SLIPPAGE_BPS = 300;
+
+/** The most a quote can be over a minimum stated at most `MAX_SLIPPAGE_BPS` under it, rounded down. */
+export const quoteCeiling = (minimum: bigint): bigint => {
+  const keep = BigInt(10_000 - MAX_SLIPPAGE_BPS);
+  return ((minimum + 1n) * 10_000n + keep - 1n) / keep;
+};
+
 const refuse = (message: string, legId?: string) =>
   new GuardRefusal('order', message, legId ?? null);
 
@@ -47,7 +64,8 @@ function heldToRebalance(
     plan.autoFollow !== undefined ||
     plan.withdrawals ||
     plan.held ||
-    plan.publish
+    plan.publish ||
+    plan.dollars
   )
     throw refuse('a rebalance is reviewed as trades alone, and other terms came with it');
   if (order.depositRaw !== undefined) throw refuse('a rebalance deposits nothing');
@@ -177,7 +195,77 @@ export function approvedSteps(
       if (!isRawAmount(t.amountInRaw)) throw refuse('a trade has no amount', leg.id);
 
   const withdrawLegs = legs.filter((l) => l.kind === 'withdraw');
+  // A withdrawal in dollars is exactly this and nothing else: at most one switch (off) first, sales of
+  // a holding into the cash token, each token once, and the cash out last. A purchase, a sale into
+  // another token, a second withdrawal or a withdrawal of anything but the cash is not that order.
+  const { dollars } = plan;
+  let cashLeast: string | null = null;
+  let cashMost: string | null = null;
+  if (dollars) {
+    const { cash } = deployment;
+    if (!isRawAmount(dollars.cashRaw))
+      throw refuse('the share of the cash a withdrawal in dollars takes is not an amount');
+    const reviewed = new Map((dollars.sales ?? []).map((s) => [s.asset, s.amountRaw]));
+    if (plan.withdrawals || plan.held)
+      throw refuse(
+        'a withdrawal in dollars names no tokens: it takes out the cash and nothing else',
+      );
+    const last = legs.at(-1) as Leg;
+    if (withdrawLegs.length !== 1 || last.kind !== 'withdraw')
+      throw refuse('a withdrawal in dollars ends with one withdrawal of the cash', last.id);
+    const sold = new Set<string>();
+    let least = BigInt(dollars.cashRaw);
+    let quoted = 0n;
+    for (const [i, leg] of legs.entries()) {
+      if (leg === last) continue;
+      if (leg.kind === 'set_auto_follow' && i === 0 && plan.autoFollow === false) continue;
+      if (leg.kind !== 'swap' || !leg.trades.length)
+        throw refuse(
+          `a withdrawal in dollars sells holdings for cash and withdraws the cash: a ${leg.kind} step is neither`,
+          leg.id,
+        );
+      for (const trade of tradesOf(leg)) {
+        if (trade.buy !== cash || trade.sell === cash)
+          throw refuse(
+            `a withdrawal in dollars sells a holding for the cash token: this step trades ${trade.sell} for ${trade.buy}`,
+            leg.id,
+          );
+        if (sold.has(trade.sell)) throw refuse(`${trade.sell} is sold twice`, leg.id);
+        if (reviewed.get(trade.sell) !== trade.inRaw)
+          throw refuse(
+            `this step sells ${trade.inRaw} of ${trade.sell}, and the review sold ${reviewed.get(trade.sell) ?? 'none'}`,
+            leg.id,
+          );
+        sold.add(trade.sell);
+        if (!isRawAmount(trade.minOutRaw) || trade.minOutRaw === '0')
+          throw refuse('a sale states no minimum', leg.id);
+        least += BigInt(trade.minOutRaw);
+        const figure = leg.expected[leg.trades.findIndex((t) => t.sell === trade.sell)];
+        if (!figure || !isRawAmount(figure.outRaw))
+          throw refuse('a sale was shown with no quote', leg.id);
+        // The quote is no figure the person reads, and it sets the most the cash step may pay: it is
+        // held to its minimum. A minimum is at most `MAX_SLIPPAGE_BPS` under its quote, rounded down,
+        // so the quote is at most (minimum + 1) / (1 - that), rounded up.
+        if (BigInt(figure.outRaw) > quoteCeiling(BigInt(trade.minOutRaw)))
+          throw refuse(
+            `a sale's quote, ${figure.outRaw}, is further above its minimum, ${trade.minOutRaw}, than any slippage an order may have`,
+            leg.id,
+          );
+        quoted += BigInt(figure.outRaw);
+      }
+    }
+    if (last.trades.length) throw refuse('the cash step of a withdrawal trades nothing', last.id);
+    if (least === 0n) throw refuse('a withdrawal in dollars that pays out nothing', last.id);
+    cashLeast = least.toString();
+    cashMost = (
+      BigInt(dollars.cashRaw) +
+      quoted +
+      (quoted * BigInt(DOLLARS_MARGIN_BPS)) / 10_000n
+    ).toString();
+  }
   const withdrawalsOf = (leg: Leg): Withdrawal[] | 'all' => {
+    if (cashLeast !== null && cashMost !== null)
+      return [{ asset: deployment.cash, amountRaw: null, minRaw: cashLeast, maxRaw: cashMost }];
     const listed = plan.withdrawals;
     if (!listed) return 'all';
     if (withdrawLegs.length === 1) return listed;

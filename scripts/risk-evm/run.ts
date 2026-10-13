@@ -167,6 +167,8 @@ export type RunSummary = {
     poolRowsByReason: Record<string, number>;
     poolsFile: string;
     handListNotTracked: string[];
+    /** `--shelf`: the shelf's pool file and the tokens it added (PLAN-ASSETS AS.12). */
+    shelf?: { file: string; tokens: string[] };
     /** The oracle read of the run (RU.7): rows written, how many carry a price, and why not when it failed. */
     oracleRows: number;
     oracleRowsRead: number;
@@ -437,7 +439,7 @@ export async function collectOnce(chain: ChainConfig, opts: RunOptions): Promise
 
   // 3. per token: the pools' prices and their quotes, both at one block, then the row
   const sourceAt = (p: Pin) =>
-    `eth_call at block ${p.number} on ${chain.name} (chain ${chain.chainId}) through ${label}: Uniswap-v3-style pools by an injected quoter (state override), Uniswap v4 pools by the deployed Quoter; pool list from ${listed ? `${listed.cut} through ${listed.list}` : 'DexScreener'}`;
+    `eth_call at block ${p.number} on ${chain.name} (chain ${chain.chainId}) through ${label}: Uniswap-v3-style pools by an injected quoter (state override), Uniswap v4 pools by the deployed Quoter; pool list from ${listed ? `${listed.cut} through ${listed.list}${listed.shelf ? `, and for ${listed.shelf.tokens.join(', ')} DexScreener's pairs through ${listed.shelf.file}` : ''}` : 'DexScreener'}`;
   const fileAt = (p: Pin) => join(opts.dir, 'assets', `${p.time.toISOString().slice(0, 10)}.jsonl`);
   mkdirSync(join(opts.dir, 'assets'), { recursive: true });
   const poolsFileAt = (p: Pin) =>
@@ -668,6 +670,7 @@ export async function collectOnce(chain: ChainConfig, opts: RunOptions): Promise
             poolRowsByReason: poolTally.byReason,
             poolsFile: poolsFileAt(first),
             handListNotTracked: listed.handListNotTracked,
+            ...(listed.shelf ? { shelf: listed.shelf } : {}),
             oracleRows: oracle.rows,
             oracleRowsRead: oracle.read,
             oracleFile: oracleFileAt(first),
@@ -703,7 +706,7 @@ async function confirmListed(
     chain: chain.id,
     chainId: chain.chainId,
     discoveredAt: at.toISOString(),
-    source: `${listed.cut} through ${listed.list}, then token0(), token1(), the factory's getPool() and the position manager's poolKeys() on chain`,
+    source: `${listed.cut} through ${listed.list}${listed.shelf ? ` and ${listed.shelf.file}` : ''}, then token0(), token1(), the factory's getPool() and the position manager's poolKeys() on chain`,
     method: 'cut_candidates_confirmed_onchain',
     maxPools,
     cut: listed.cut,

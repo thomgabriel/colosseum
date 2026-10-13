@@ -171,7 +171,8 @@ async function buildFor(
   const { request, order } = stored;
   if (request.type === 'publish' || request.type === 'follow')
     return buildShared(deps, stored, leg, entry, owner, nonce);
-  if (request.type === 'withdraw') return buildWithdraw(request, leg, entry, owner, nonce);
+  if (request.type === 'withdraw')
+    return buildWithdraw(request, leg, entry, owner, nonce, order.legs);
   // A vault's own targets, from a mix the person confirmed (orders/mix.ts).
   // ... or the vault's holdings brought to the targets it has, by an order that sets none.
   if (request.type === 'rebalance')

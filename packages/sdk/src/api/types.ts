@@ -2473,6 +2473,8 @@ export type GetMeWithdrawalsResponse = {
         asset: string;
         amountRaw: string | null;
         heldRaw: string;
+        leastRaw?: string;
+        mostRaw?: string;
         valued?: {
           source: string;
           method: string;
@@ -2553,6 +2555,8 @@ export type PostOrdersBody =
       type: 'withdraw';
       vaults: (string | string)[];
       sellToCash: boolean;
+      shareBps?: number;
+      maxSlippageBps?: number;
       withdrawals?: {
         asset: string;
         amountRaw?: string | null;
@@ -2600,6 +2604,8 @@ export type PostOrdersResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2703,6 +2709,8 @@ export type GetOrdersByIdResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2806,6 +2814,8 @@ export type PostOrdersByIdContinueResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2984,6 +2994,8 @@ export type PostOrdersByIdLegsByLegIdCancelResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -3097,6 +3109,8 @@ export type PostOrdersByIdLegsByLegIdReportResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -4426,6 +4440,8 @@ export type PostVaultsByChainByAddressRebalanceResponse =
             asset: string;
             amountRaw: string | null;
             heldRaw: string;
+            leastRaw?: string;
+            mostRaw?: string;
             valued?: {
               source: string;
               method: string;
@@ -4737,6 +4753,8 @@ export type PostVaultsByChainByAddressTargetsResponse =
             asset: string;
             amountRaw: string | null;
             heldRaw: string;
+            leastRaw?: string;
+            mostRaw?: string;
             valued?: {
               source: string;
               method: string;

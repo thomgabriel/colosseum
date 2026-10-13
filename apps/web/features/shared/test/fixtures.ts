@@ -216,6 +216,62 @@ export const withdrawOrder = (
 };
 
 /**
+ * A withdrawal in dollars, as POST /v1/orders answers it (gate WITHDRAW-DOLLARS): a `swap` step per
+ * sale into the cash token, each with its figure, then one `withdraw` step of the cash, which states
+ * the least it pays: `cashRaw` plus the minimum of every sale, unless `leastRaw` says otherwise.
+ */
+export const dollarsOrder = (
+  sales: { sell: string; amountInRaw: string; minOutRaw: string; buy?: string; outRaw?: string }[],
+  cash: { heldRaw: string; cashRaw: string; leastRaw?: string; mostRaw?: string },
+  over: Record<string, unknown> = {},
+  autoFollowOff = false,
+) => {
+  const first = autoFollowOff ? [{ ...leg, id: LEG_C, seq: 0, kind: 'set_auto_follow' }] : [];
+  const least = sales.reduce((n, s) => n + BigInt(s.minOutRaw), BigInt(cash.cashRaw));
+  // The most the cash step pays: the cash reviewed, each sale's quote, and 3% of the quotes.
+  const outOf = (s: (typeof sales)[number]) => BigInt(s.outRaw ?? BigInt(s.minOutRaw) + 1_000n);
+  const outs = sales.reduce((n, s) => n + outOf(s), 0n);
+  const most = BigInt(cash.cashRaw) + outs + (outs * 300n) / 10_000n;
+  return order({
+    type: 'withdraw',
+    legs: [
+      ...first,
+      ...sales.map((s, i) => ({
+        ...leg,
+        id: [LEG_A, '66666666-6666-4666-8666-666666666666'][i],
+        seq: i + first.length,
+        kind: 'swap',
+        trades: [{ sell: s.sell, buy: s.buy ?? 'solana:usdc', amountInRaw: s.amountInRaw }],
+        expected: [
+          {
+            inRaw: s.amountInRaw,
+            outRaw: outOf(s).toString(),
+            minOutRaw: s.minOutRaw,
+            costBps: 10,
+          },
+        ],
+      })),
+      {
+        ...leg,
+        id: LEG_B,
+        seq: sales.length + first.length,
+        kind: 'withdraw',
+        withdrawals: [
+          {
+            asset: 'solana:usdc',
+            amountRaw: null,
+            heldRaw: cash.heldRaw,
+            leastRaw: cash.leastRaw ?? least.toString(),
+            mostRaw: cash.mostRaw ?? most.toString(),
+          },
+        ],
+      },
+    ],
+    ...over,
+  });
+};
+
+/**
  * A rebalance to the targets a vault has, as POST /v1/vaults/{chain}/{address}/rebalance answers it:
  * swaps only, one trade a step on Solana, each with its minimum.
  */

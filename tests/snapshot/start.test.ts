@@ -21,10 +21,14 @@ const QUIET = {
   CHAIN_NETWORK_SOLANA: '',
   CHAIN_NETWORK_ROBINHOOD: '',
   CHAIN_NETWORK_BASE: '',
+  CHAIN_MAINNET_ROBINHOOD: '',
   SOLANA_RPC_URL: '',
   ROBINHOOD_RPC_URL: '',
   DATABASE_URL: 'postgres://nobody:nothing@127.0.0.1:9/nowhere',
 };
+
+const TEST_ONLY =
+  'and the snapshot worker reads the test networks only until a person says otherwise';
 
 type Ended = { code: number; stdout: string; stderr: string };
 
@@ -53,19 +57,22 @@ describe('the snapshot worker at start, as a process', () => {
       CHAIN_NETWORK_BASE: 'mainnet',
       SNAPSHOT_CHAINS: 'solana',
     });
+    // Robinhood Chain is the one mainnet the worker reads (gate SNAPSHOT-WORKER, Oct 13), and only
+    // with the second switch: without it, it stops the same way.
     const looped = await start(['--loop'], {
       CHAIN_NETWORK_ROBINHOOD: 'mainnet',
-      CHAIN_MODE_ROBINHOOD: 'mock',
+      CHAIN_MODE_ROBINHOOD: 'readonly',
+      SOLANA_RPC_URL: 'http://127.0.0.1:9',
+      CHAIN_MODE_SOLANA: 'readonly',
     });
-    for (const [ended, key] of [
-      [read, 'CHAIN_NETWORK_SOLANA'],
-      [unread, 'CHAIN_NETWORK_BASE'],
-      [looped, 'CHAIN_NETWORK_ROBINHOOD'],
+    for (const [ended, key, said] of [
+      [read, 'CHAIN_NETWORK_SOLANA', TEST_ONLY],
+      [unread, 'CHAIN_NETWORK_BASE', TEST_ONLY],
+      [looped, 'CHAIN_NETWORK_ROBINHOOD', 'set CHAIN_MAINNET_ROBINHOOD to real-money'],
     ] as const) {
       expect(ended.code, key).not.toBe(0);
-      expect(ended.stderr, key).toContain(
-        `${key} is mainnet, and the snapshot worker reads the test networks only until a person says otherwise`,
-      );
+      expect(ended.stderr, key).toContain(`${key} is mainnet`);
+      expect(ended.stderr, key).toContain(said);
       // No line of a pass, a vault or a run: nothing was read.
       expect(lines(ended.stdout), key).toEqual([]);
       // And it never reached for the database.
