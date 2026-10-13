@@ -31,6 +31,7 @@ import {
   coinKind,
   cryptoFeedBases,
   cryptoSelection,
+  DECIDED_OUT,
   type FrozenReads,
   isLaunchpadPlatform,
   isMeme,
@@ -667,9 +668,20 @@ describe('the review of e5b6b656', () => {
     ]) {
       const r = rows.find((x) => x.address === a);
       const kind = coinKind(cg, a);
-      expect([a, r !== undefined && r.category === 'governance']).toEqual([a, kind === 'protocol']);
+      // a token a person took out (DECIDED_OUT) is no row whatever the rule says of it
+      const admitted = kind === 'protocol' && DECIDED_OUT[a] === undefined;
+      expect([a, r !== undefined && r.category === 'governance']).toEqual([a, admitted]);
       if (!r) expect(list.stated.leftTheList).toContain(a);
     }
+  });
+
+  it('takes out PONS by Rodrigo’s decision though the launch-pad rule admits it (SHELF-CRYPTO-1)', () => {
+    const pons = '0x39dbed3a2bd333467115de45665cc57f813c4571';
+    expect(coinKind(cg, pons)).toBe('protocol');
+    expect(rows.some((r) => r.address === pons)).toBe(false);
+    expect(list.stated.leftTheList).toContain(
+      `taken out by a person's decision: ${DECIDED_OUT[pons]}`,
+    );
   });
 
   it("keeps the product's ids for its own rows: robinhood:usdc is not a memecoin's", () => {

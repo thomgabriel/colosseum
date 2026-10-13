@@ -75,7 +75,7 @@ import { CHAINS, type ChainConfig, rpcFor } from '../../risk-evm/config';
 import { requestKey, rpcOver } from '../../risk-evm/replay';
 import { createRpc, type Rpc, type RpcReply } from '../../risk-evm/rpc';
 import { latestRegistryFile, type RegistryPool } from '../lib-history';
-import { rpcStats, rpc as solRpc } from '../lib-pools';
+import { rpcStats, rpc as solRpc, stickyRpc } from '../lib-pools';
 import { meteredBatch } from './backfill-cost';
 import { BACKFILL_ENDPOINTS, KEEP_QUIET_MINUTES } from './backfill-env';
 import {
@@ -687,7 +687,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   // the swaps' pools and window by the trading scope (the shelf's 30 days by default); the mints' as before
   const ctx = kind === 'swaps' ? (trading as TradingCtx) : null;
   const scoped = ctx ? solanaPools() : null;
-  const windowDays = ctx?.days ?? 90;
+  const windowDays = ctx?.days ?? (kind === 'mints' && mintShelf ? mintShelf.days : 90);
   const swapPools = scoped?.pools ?? pools;
   // the mints outside the registry's stock tokens are sampled one in `--mint-every` and scaled
   const mintEvery = Number(opt('--mint-every') ?? 10);
@@ -695,7 +695,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const nowT = Math.floor(Date.now() / 1000);
   // a scope without the sampled walk beyond its window (the shelf's 30 days) is anchored within its window only,
   // weekly: an anchor a year back sizes nothing it fetches, and a deep `before` on a busy pool can time out
-  const inWindowOnly = !!ctx && !ctx.beyond;
+  const inWindowOnly = (!!ctx && !ctx.beyond) || (kind === 'mints' && !!mintShelf);
   const anc = anchors(RISK, nowT, {
     windowDays,
     stepDays: Number(opt('--step-days') ?? (inWindowOnly ? 7 : 15)),
@@ -713,25 +713,27 @@ async function solanaCount(kind: 'swaps' | 'mints') {
           ...live.map((p) => ({ address: p.address, group: 'live' as const, p })),
           ...dustSample.map((p) => ({ address: p.address, group: 'dust' as const, p })),
         ]
-      : opt('--via') === 'authority'
-        ? authoritiesOf(opt('--sol-list') ?? 'scripts/risk/assets/solana.json').map((a) => ({
-            address: a.holder,
-            group: 'mint_authority' as const,
-            p: null,
-            tokens: a.tokens,
-          }))
-        : [
-            ...mints
-              .filter((m) => registryMints.has(m))
-              .map((m) => ({
-                address: m,
-                group: trackedMints.has(m) ? ('tracked' as const) : ('registry_stock' as const),
-                p: null,
-              })),
-            ...otherMints
-              .filter((_, i) => i % mintEvery === 0)
-              .map((m) => ({ address: m, group: 'other_sampled' as const, p: null })),
-          ];
+      : mintShelf
+        ? mintShelf.mints.map((m) => ({ address: m, group: 'shelf' as const, p: null }))
+        : opt('--via') === 'authority'
+          ? authoritiesOf(opt('--sol-list') ?? 'scripts/risk/assets/solana.json').map((a) => ({
+              address: a.holder,
+              group: 'mint_authority' as const,
+              p: null,
+              tokens: a.tokens,
+            }))
+          : [
+              ...mints
+                .filter((m) => registryMints.has(m))
+                .map((m) => ({
+                  address: m,
+                  group: trackedMints.has(m) ? ('tracked' as const) : ('registry_stock' as const),
+                  p: null,
+                })),
+              ...otherMints
+                .filter((_, i) => i % mintEvery === 0)
+                .map((m) => ({ address: m, group: 'other_sampled' as const, p: null })),
+            ];
   const parallel = Number(opt('--parallel') ?? 12);
   const jobs = subjects.flatMap((s) => anc.map((a) => ({ s, a })));
   const tc = Date.now();
@@ -921,7 +923,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const budget = budgetNow(gzBytes);
   const body = {
     series: kind === 'swaps' ? 'solana-swaps' : 'solana-mints',
-    scope: ctx ? ctx.key : (opt('--via') ?? 'mint'),
+    scope: ctx ? ctx.key : (mintShelf?.key ?? opt('--via') ?? 'mint'),
     ...(ctx
       ? {
           scopeOf: {
@@ -939,7 +941,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
     countedAt: new Date().toISOString(),
     methodVersion: BACKFILL_METHOD_VERSION,
     rpc: BACKFILL_ENDPOINTS.solana
-      ? 'SOLANA_BACKFILL_RPC_URL (the backfill’s own endpoint)'
+      ? BACKFILL_ENDPOINTS.solana
       : process.env.SOLANA_RPC_URL
         ? 'SOLANA_RPC_URL (the risk scripts’ RPC)'
         : 'the public mainnet-beta endpoint',
@@ -1050,7 +1052,8 @@ async function solanaPieces(inp: {
     }
     inp.guard({ nextBytes: inp.written.largest, writtenBytes: inp.written.bytes });
     const r = await fetchWindow({
-      rpc: solRpc as never,
+      // one endpoint for the whole window: its walk pages with `before` (stickyRpc)
+      rpc: stickyRpc() as never,
       out: join(OUT, 'solana'),
       kind: inp.kind,
       address: inp.address,
@@ -1073,6 +1076,8 @@ async function solanaPieces(inp: {
       from: r.window.from,
       fetched: r.fetched,
       errors: r.errors,
+      // the walk ended on a short or empty page: the address's first transaction, or an endpoint that lacked it
+      exhausted: r.exhausted,
     });
     if (inp.untilExhausted && r.exhausted) break;
   }
@@ -1140,17 +1145,33 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
   const guardFn = fetchGuard();
   const written = { bytes: 0, largest: 0 };
   if (all) {
-    if (kind === 'mints')
+    if (kind === 'mints' && !has('--decided'))
       throw new Error(
-        '--all on Solana mints: walking the mints or their mint authorities is Rodrigo’s choice (DA20); fetch a mint with --mint and --window',
+        '--all on Solana mints is Rodrigo’s call (182M transactions, 18.6 GB over 30 days, counted 2026-10-13): pass --decided <gate> once docs/GATES.md records it',
+      );
+    if (kind === 'mints' && !(mintShelf && has('--skip-exact')))
+      throw new Error(
+        "--all on Solana mints takes the shelf's mints (--shelf --skip-exact); the list's whole mints or their authorities are Rodrigo’s choice (DA20); fetch a mint with --mint and --window",
       );
     const nowT = Math.floor(Date.now() / 1000);
-    const d90 = nowT - (ctx?.days ?? 90) * DAY;
+    const d90 = nowT - (ctx?.days ?? (kind === 'mints' && mintShelf ? mintShelf.days : 90)) * DAY;
     // the shelf's scope with --skip-exact: gated on the sampled count of the same scope (the budget is checked
     // after every day all the same), and fetched in passes over time, the newest days of every pool first, so a
     // run cut short (an endpoint's trial ending) leaves every pool its most recent days (stated, not chosen)
-    if (has('--skip-exact') && ctx && !ctx.beyond) {
-      requireCountThatFits(ctx.key, '--all --skip-exact (the sampled count of the scope)');
+    const passScope: {
+      key: string;
+      subjects: Array<{ address: string; p?: RegistryPool }>;
+    } | null =
+      kind === 'swaps' && ctx && !ctx.beyond
+        ? { key: ctx.key, subjects: pools.map((p) => ({ address: p.address, p })) }
+        : kind === 'mints' && mintShelf
+          ? {
+              key: mintShelf.key,
+              subjects: mintShelf.mints.map((m) => ({ address: m, p: undefined })),
+            }
+          : null;
+    if (has('--skip-exact') && passScope) {
+      requireCountThatFits(passScope.key, '--all --skip-exact (the sampled count of the scope)');
       const passDays = Number(opt('--pass-days') ?? 7);
       const windows: Array<[number, number]> = [];
       for (let end = nowT; end > d90; end -= passDays * DAY)
@@ -1160,12 +1181,12 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
       // pools fetched `--pool-parallel` at a time (default 6), each pool's days in order
       const poolParallel = Number(opt('--pool-parallel') ?? 6);
       for (const [i, [from, to]] of windows.entries()) {
-        await pool(pools, poolParallel, async (p) => {
+        await pool(passScope.subjects, poolParallel, async (p) => {
           const before = lastSig.get(p.address);
           const r = await solanaPieces({
             kind,
             address: p.address,
-            p,
+            ...(p.p ? { p: p.p } : {}),
             from,
             to,
             ...(before ? { before } : {}),
@@ -1192,7 +1213,7 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
         });
       }
       return finish({
-        pools: pools.length,
+        subjects: passScope.subjects.length,
         passes: windows.length,
         writtenBytes: written.bytes,
         rpc: rpcStats,
@@ -1609,6 +1630,25 @@ async function tradingScope(s: TradingSeries): Promise<TradingCtx> {
 }
 const trading: TradingCtx | null =
   series === 'robinhood-logs' || series === 'solana-swaps' ? await tradingScope(series) : null;
+/**
+ * `solana-mints --shelf`: the mints of the shelf's Solana tokens over the shelf's days (AS.8 step 5, gate
+ * ASSET-HISTORY-2), walked by mint (DA20's choice of mint over authority: stated, not chosen). The cash tokens and
+ * wrapped SOL are not walked: their transfers are most of the chain's, and their supply comes from the daily
+ * series (DA15 for USDC and USDT, the same reason for the rest).
+ */
+const WSOL = 'So11111111111111111111111111111111111111112';
+const mintShelf: { key: string; days: number; mints: string[] } | null =
+  series === 'solana-mints' && has('--shelf')
+    ? await (async () => {
+        const ctx = await tradingScope('solana-swaps');
+        const list = JSON.parse(
+          readFileSync(opt('--sol-list') ?? 'scripts/risk/assets/solana.json', 'utf8'),
+        ) as { assets: Array<{ address: string; cls: string | null }> };
+        const cash = new Set(list.assets.filter((a) => a.cls === 'cash').map((a) => a.address));
+        const mints = [...(ctx.tokens ?? [])].filter((m) => !cash.has(m) && m !== WSOL).sort();
+        return { key: `mints-${ctx.key}`, days: ctx.days ?? 30, mints };
+      })()
+    : null;
 /** What the count file of a trading series says of its scope. */
 const scopeOf = (ctx: TradingCtx) => ({
   key: ctx.key,
@@ -1637,7 +1677,7 @@ const gateScope = (): string =>
     'chainlink-rounds': 'feeds',
     // the sampled count first; --all then runs the exact pass and gates again on its count
     'solana-swaps': trading?.key ?? 'pools',
-    'solana-mints': opt('--via') ?? 'mint',
+    'solana-mints': mintShelf?.key ?? opt('--via') ?? 'mint',
     'external-daily': 'rows',
   })[series];
 if (mode === 'fetch' && all) requireCountThatFits(gateScope(), '--all');

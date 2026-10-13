@@ -42,12 +42,30 @@ const pickUrl = () => {
   return (ENDPOINTS.at(-1) as { url: string }).url;
 };
 
+/**
+ * A client bound to one endpoint, picked once by weight: a walk of signatures pages with `before` = the last
+ * signature of the previous page, and an endpoint that has not seen that signature answers an empty page, not an
+ * error, which would read as the address's first transaction. One walk, one endpoint (found 2026-10-13).
+ */
+export function stickyRpc(): <T = unknown>(method: string, params: unknown[]) => Promise<T> {
+  const url = pickUrl();
+  return <T>(method: string, params: unknown[]) => rpcAt<T>(url, method, params);
+}
+
 export async function rpc<T = unknown>(method: string, params: unknown[]): Promise<T> {
+  return rpcAt<T>(undefined, method, params);
+}
+
+async function rpcAt<T = unknown>(
+  fixed: string | undefined,
+  method: string,
+  params: unknown[],
+): Promise<T> {
   for (let attempt = 0; attempt < 8; attempt++) {
     rpcStats.calls++;
     let j: { result?: T; error?: { code?: number; message?: string } };
     try {
-      const res = await fetch(pickUrl(), {
+      const res = await fetch(fixed ?? pickUrl(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),

@@ -220,6 +220,7 @@ export async function fetchWindow(inp: FetchSolana) {
   let walked = 0;
   /** The walk reached the address's first transaction (a page shorter than its limit). */
   let exhausted = false;
+  let emptyBelowCursor = false;
   for (;;) {
     const page = await inp.rpc<Sig[]>('getSignaturesForAddress', [
       inp.address,
@@ -229,6 +230,9 @@ export async function fetchWindow(inp: FetchSolana) {
     walked += page.length;
     if (!page.length) {
       exhausted = true;
+      // an empty page below a cursor: the address's first transaction was the last page's, or the endpoint does
+      // not hold the cursor; either way the window is not taken as whole (it is asked again)
+      if (pages > 1 || inp.startBefore) emptyBelowCursor = true;
       break;
     }
     for (const s of page) {
@@ -376,7 +380,10 @@ export async function fetchWindow(inp: FetchSolana) {
   // and not written twice)
   const m = addToManifest(
     m0,
-    errors === 0 ? { from: inp.from, to: inp.to, unit: 'second' } : null,
+    // a sampled window (--per-hour) or a walk that ended on an empty page below a cursor is never whole
+    errors === 0 && !inp.perHour && !emptyBelowCursor
+      ? { from: inp.from, to: inp.to, unit: 'second' }
+      : null,
     days,
     [
       {
@@ -411,7 +418,7 @@ export async function fetchWindow(inp: FetchSolana) {
     successful: ok.length,
     fetched: kept.length,
     errors,
-    covered: errors === 0,
+    covered: errors === 0 && !inp.perHour && !emptyBelowCursor,
     duplicatesDropped: duplicates,
     exhausted,
     walkSeconds: walkS,

@@ -73,36 +73,6 @@
     },
     {
       "asset": {
-        "id": "robinhood:pons",
-        "chain": "robinhood",
-        "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
-        "symbol": "PONS",
-        "decimals": 18,
-        "cls": "crypto",
-        "underlying": "PONS",
-        "issuer": "Pons",
-        "tier": "C",
-        "priceKind": "none",
-        "priceRef": "",
-        "session": "always",
-        "autoFollowEligible": false,
-        "maxWeightBps": 0,
-        "blockedCountries": [],
-        "sheet": "",
-        "provenance": "live"
-      },
-      "tierFrom": "fallback",
-      "toSet": [
-        "feed",
-        "pairs",
-        "maxWeightBps",
-        "keeperOn",
-        "a price source (priceKind none: the keeper never trades it)",
-        "sheet (the risk sheet under content/risk-sheets/)"
-      ]
-    },
-    {
-      "asset": {
         "id": "robinhood:nvda",
         "chain": "robinhood",
         "address": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
