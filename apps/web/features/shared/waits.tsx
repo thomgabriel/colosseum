@@ -150,7 +150,26 @@ function HeadWait({
   );
 }
 
-/** Withdraw (WithdrawScreen): its head, then the card of its three steps, the first one open. */
+/**
+ * The amount card in outline (gate AMOUNT-CARD): its frame where the card lands, the title, the
+ * amount's well, what it leads to, and the one button. Its height is its data's.
+ */
+export function AmountCardWait({ wait }: { wait: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-wait={wait}
+      className="mx-auto flex w-full max-w-[30rem] flex-col gap-4 rounded-lg border border-border bg-card p-6"
+    >
+      <SkeletonLine className="text-h4" width="w-24" />
+      <Skeleton className="h-28 w-full rounded-md" />
+      <Skeleton className="h-20 w-full rounded-md" />
+      <Skeleton className="h-10 w-full rounded-md" />
+    </div>
+  );
+}
+
+/** Withdraw (WithdrawScreen): its head, then the amount card. */
 export function WithdrawWait({ chain }: { chain: ChainId | null }) {
   const t = useT();
   const w = t.withdraw;
@@ -164,40 +183,14 @@ export function WithdrawWait({ chain }: { chain: ChainId | null }) {
             title={w.title}
             lead={chain ? w.lead(t.chain.names[chain]) : null}
           />
-          <div
-            aria-hidden="true"
-            data-wait="steps"
-            className="max-w-3xl rounded-lg border border-border bg-card"
-          >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-6 text-body-sm sm:gap-x-5">
-              {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-[22px] w-16" />
-              ))}
-            </div>
-            <div className="border-t border-border">
-              <div className="flex items-center gap-3 px-6 py-4">
-                <SkeletonLine className="text-h4" width="w-24" />
-              </div>
-              <div className="flex flex-col gap-3 px-6 pb-6">
-                <SkeletonLine className="text-body-sm" width="w-56" />
-                <SkeletonLine className="text-body-sm" width="w-48" />
-                <SkeletonLine className="text-body-sm" width="w-52" />
-                <Skeleton className="h-10 w-24 rounded-md" />
-              </div>
-            </div>
-            {[0, 1].map((i) => (
-              <div key={i} className="flex items-center gap-3 border-t border-border px-6 py-4">
-                <SkeletonLine className="text-h4" width="w-24" />
-              </div>
-            ))}
-          </div>
+          <AmountCardWait wait="card" />
         </div>
       }
     />
   );
 }
 
-/** Add money (AddMoneyScreen): its head, the amount and its card, and where the deposit goes. */
+/** Add money (AddMoneyScreen): its head, the amount card, and where the deposit goes. */
 export function AddMoneyWait({ chain }: { chain: ChainId | null }) {
   const t = useT();
   const words = t.portfolio.add;
@@ -221,18 +214,7 @@ export function AddMoneyWait({ chain }: { chain: ChainId | null }) {
             className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div className="flex min-w-0 flex-col gap-5">
-              <div data-wait="amount" className="flex flex-col items-start gap-1.5">
-                <p className="text-caption font-medium">{t.buy.amount.label}</p>
-                <Skeleton className="h-10 w-44 rounded-md" />
-                <SkeletonLine className="text-caption" width="w-40" />
-              </div>
-              <div
-                data-wait="card"
-                className="flex max-w-3xl flex-col gap-5 rounded-lg border border-border bg-card p-6"
-              >
-                <SkeletonLine className="text-body-sm" width="w-full" lines={3} />
-                <Skeleton className="h-10 w-32 rounded-md" />
-              </div>
+              <AmountCardWait wait="card" />
             </div>
             <div
               data-wait="strategy"

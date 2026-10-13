@@ -207,11 +207,17 @@ test('the deposit step by keyboard', async ({ page }) => {
   await page.keyboard.type('100.50');
   await expect(dollarsOf(step, 'spy')).toHaveText(/50\.25/);
   await check(page, 'deposit-keyboard');
-  // from the amount: the three quick amounts, then the press, which Enter takes to the review (the
-  // plan bar is a picture with its labels, not a stop)
+  // from the amount: the balance's pin (and Max, where the wallet holds enough), the three quick
+  // amounts, then the press, which Enter takes to the review (the plan bar is a picture with its
+  // labels, not a stop)
   const press = page.getByRole('button', { name: en.mix.deposit.reviewOf('$100.50') });
-  for (let i = 0; i < 4; i += 1) await page.keyboard.press('Tab');
+  let tabs = 0;
+  while (tabs < 8 && !(await press.evaluate((el) => el === document.activeElement))) {
+    await page.keyboard.press('Tab');
+    tabs += 1;
+  }
   await expect(press).toBeFocused();
+  expect(tabs).toBeLessThanOrEqual(6);
   await page.keyboard.press('Enter');
   // the review's heading takes focus, and it says what the mix was checked for
   await expect(page.getByRole('heading', { name: en.mix.review.title })).toBeFocused();
