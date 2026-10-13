@@ -1120,4 +1120,94 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
       expect(quote).toMatchObject({ status: 'on_target', trades: [], costUsd: '0' });
     });
   });
+
+  describe("on EVM, where a quote's minimum carries the feed's floor (priceBoundBps)", () => {
+    const priceBoundBps = 200;
+    const SPY = 'robinhood:spy';
+    /**
+     * An EVM vault all in SPY with targets of half SPY, half NVDA: its rebalance sells SPY. The
+     * chain's quote of that sale is the pool's, `under` bps below what the feed says it is worth, and
+     * its minimum is the feed's floor, `priceBoundBps` under that worth, as the EVM adapter's is.
+     */
+    async function evmVault(under: number) {
+      const s = await setup();
+      const entry = s.chains.get('robinhood');
+      const mock = entry.mock;
+      if (!mock) throw new Error('the test chain is the mock');
+      const owner = s.evmOnly.evm as Address;
+      mock.fund(owner, {
+        gasRaw: '1000000000000000000',
+        assets: { 'robinhood:usdc': '1000000000' },
+      });
+      await mock.send(
+        await entry.adapter.buildApprove({ owner, basketId: '31', amountRaw: '1000000000' }),
+      );
+      await mock.send(
+        await entry.adapter.buildCreateVault({
+          owner,
+          basketId: '31',
+          targets: [
+            { asset: SPY, weightBps: 5000 },
+            { asset: 'robinhood:nvda', weightBps: 5000 },
+          ],
+          autoFollow: false,
+          depositRaw: '1000000000',
+          trades: [{ sell: 'robinhood:usdc', buy: SPY, amountInRaw: '1000000000' }],
+          slippageBps: 100,
+        }),
+      );
+      const [vault] = await entry.adapter.getVaults(owner);
+      if (!vault) throw new Error('no vault');
+      const quote = entry.adapter.quote.bind(entry.adapter);
+      vi.spyOn(entry.adapter, 'quote').mockImplementation(async (trade, taker) => {
+        const q = await quote(trade, taker);
+        if (trade.sell !== SPY) return q;
+        const worth = BigInt(q.outRaw);
+        const out = (worth * BigInt(10_000 - under)) / 10_000n;
+        const floor = (worth * BigInt(10_000 - priceBoundBps)) / 10_000n;
+        const slipped = (out * 9_900n) / 10_000n;
+        return {
+          ...q,
+          outRaw: out.toString(),
+          minOutRaw: (floor > slipped ? floor : slipped).toString(),
+        };
+      });
+      return { ...s, entry, owner, vault, url: `/v1/vaults/robinhood/${vault.address}/rebalance` };
+    }
+
+    it("states the feed's floor as the sale's minimum where it is above the slippage, in the order and in the quote", async () => {
+      const s = await evmVault(150);
+      const res = await s.post(s.url, {}, s.evmOnly);
+      expect(res.statusCode, res.body).toBe(200);
+      const ordered = RebalanceVaultResponse.parse(res.json());
+      if (ordered.status !== 'ordered') throw new Error(res.body);
+      const legs = ordered.order.legs;
+      const at = legs.flatMap((l) => l.trades.map((t, i) => ({ t, e: l.expected[i] })));
+      const sale = at.find(({ t }) => t.sell === SPY);
+      if (!sale?.e) throw new Error('no sale');
+      const quoted = await s.entry.adapter.quote(sale.t, s.owner);
+      // the floor, not the quote less 100 bps, and never over what the pool gives
+      expect(sale.e.minOutRaw).toBe(quoted.minOutRaw);
+      expect(BigInt(sale.e.minOutRaw) > (BigInt(sale.e.outRaw) * 9_900n) / 10_000n).toBe(true);
+      expect(BigInt(sale.e.minOutRaw) <= BigInt(sale.e.outRaw)).toBe(true);
+      const quote = RebalanceQuoteResponse.parse(
+        (await s.post(`${s.url}/quote`, {}, s.evmOnly)).json(),
+      );
+      expect(quote.trades.find((t) => t.sell === SPY)?.minOutRaw).toBe(quoted.minOutRaw);
+    });
+
+    it("does not order a sale whose pool gives less than the feed's floor, and the quote says which and why", async () => {
+      const s = await evmVault(250);
+      const res = await s.post(s.url, {}, s.evmOnly);
+      expect(res.statusCode, res.body).toBe(409);
+      expect(OrderError.parse(res.json()).details?.issues).toEqual([`PRICE_BOUND:${SPY}`]);
+      expect(s.store.saveOrder).not.toHaveBeenCalled();
+      const quote = RebalanceQuoteResponse.parse(
+        (await s.post(`${s.url}/quote`, {}, s.evmOnly)).json(),
+      );
+      expect(quote.status).toBe('unavailable');
+      expect(quote.unavailable?.issues).toEqual([`PRICE_BOUND:${SPY}`]);
+      expect(quote.unavailable?.reason).toMatch(/reference price/);
+    });
+  });
 });

@@ -575,6 +575,54 @@ export function vaultValueUsd(vault: VaultState, prices: Map<string, Price>): nu
   return cents / 100;
 }
 
+/**
+ * The minimums of a leg's trades, as `expectedOf` states them, held to the chain's own floor where the
+ * chain has one. On EVM a quote's `minOutRaw` is the higher of the quote less its slippage and the
+ * feed's floor (what the reference price says the trade is worth, less `priceBoundBps`), and the
+ * builder refuses a stated minimum under that floor (`PriceMoved`). So a trade's minimum is the higher
+ * of the order's and the quote's, and a trade the pool pays less for than the floor is not ordered:
+ * every build of it would be refused. A pair traded twice in one leg keeps `expectedOf`'s minimum,
+ * since its quote is of the two together; a rebalance never trades a pair twice. Solana's quote has
+ * no feed floor, and its minimum is the order's slippage alone, so nothing is changed there.
+ */
+async function expectedHeld(
+  entry: ChainEntry,
+  trades: Trade[],
+  taker: Address,
+  slippageBps: number,
+  a: { symbol: (id: string) => string; cash: string },
+): Promise<Leg['expected']> {
+  const { symbol } = a;
+  const expected = await expectedOf(entry, trades, taker, slippageBps);
+  if (entry.config.family !== 'evm') return expected;
+  const pairs = new Map<string, number>();
+  for (const t of trades)
+    pairs.set(`${t.sell}>${t.buy}`, (pairs.get(`${t.sell}>${t.buy}`) ?? 0) + 1);
+  const held: Leg['expected'] = [];
+  for (const [i, t] of trades.entries()) {
+    const e = expected[i];
+    if (!e || pairs.get(`${t.sell}>${t.buy}`) !== 1) {
+      if (e) held.push(e);
+      continue;
+    }
+    const floor = BigInt((await entry.adapter.quote(t, taker)).minOutRaw);
+    if (floor > BigInt(e.outRaw)) {
+      const asset = t.sell === a.cash ? t.buy : t.sell;
+      throw new Refusal(
+        409,
+        `${symbol(t.sell)} into ${symbol(t.buy)} can't be traded now: the pool gives less than the reference price allows`,
+        {
+          code: 'PRICE_MOVED',
+          fix: 'Try again later, once the pool is back near the reference price.',
+          details: { retryable: true, issues: [`PRICE_BOUND:${asset}`] },
+        },
+      );
+    }
+    held.push(floor > BigInt(e.minOutRaw) ? { ...e, minOutRaw: floor.toString() } : e);
+  }
+  return held;
+}
+
 const pct = (bps: number) =>
   `${(bps / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}%`;
 
@@ -666,7 +714,10 @@ export async function planRetarget(
       seq,
       ...step,
       signer: 'owner',
-      expected: await expectedOf(entry, step.trades, owner, a.slippageBps),
+      expected: await expectedHeld(entry, step.trades, owner, a.slippageBps, {
+        symbol,
+        cash: ctx.cash.id,
+      }),
       status: 'planned',
       attempt: 0,
       txId: null,
