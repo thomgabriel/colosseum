@@ -22,22 +22,6 @@ import {
 // fetched from another origin.
 
 /**
- * What was written before the design system and still breaks it. WEB-2 rebuilds these pages on the
- * primitives, and each entry comes out with its page. An entry that no longer matches anything fails
- * the test, so the list can only shrink. Nothing is added here: new code follows the rules.
- * WEB-1 moved the pages into their own route group, app/(structurer), as they were, and took the
- * sign-in control off the list: it is built on the primitives now.
- */
-const LEGACY: Record<string, readonly Kind[]> = {
-  // Rodrigo's pages and components: blue links, 4px corners, and two uppercase labels
-  // (Tailwind's cool greys are no longer a finding: the rule for blue reads them as the cool greys
-  // of night, IDENTITY-2)
-  'app/(structurer)/layout.tsx': ['hue'],
-  'components/PlanView.tsx': ['hue'],
-  'components/Provenance.tsx': ['radius', 'case'],
-};
-
-/**
  * Pictures drawn at build by `next/og`, which reads no stylesheet and so no `var(--font-…)`: each
  * names the brand's face itself, and that finding alone is excused. So are the two files where the faces
  * are defined (app/fonts.ts, app/fonts-mono.ts): each face is told its own name there, since
@@ -47,22 +31,6 @@ const DRAWN: Record<string, readonly string[]> = {
   'app/opengraph-image.tsx': ["fontFamily: 'Inter Tight'", "fontFamily: 'Inter'"],
   'app/fonts.ts': ['font-family'],
   'app/fonts-mono.ts': ['font-family'],
-};
-
-/** The product's own routes and what they are built from: none of it may ever be on the list above. */
-const PRODUCT =
-  /^(app\/\((app|marketing|embed)\)|components\/shell|features\/(account|goal|portfolio|landing|order|embed)|i18n)\//;
-
-/**
- * The stylesheet of @solana/wallet-adapter-react-ui, which the layout of the pages not yet rebuilt
- * imports (app/(structurer)/providers.tsx): violet, shadows, rounded corners, and DM Sans fetched from
- * Google when a page loads. It is not part of globals.css, so it shows only in the output of a build.
- * The product's routes do not import it. It goes with the last of those pages (WEB-2).
- */
-const ADAPTER = {
-  importedBy: 'app/(structurer)/providers.tsx',
-  stylesheet: '@solana/wallet-adapter-react-ui/styles.css',
-  kinds: ['hue', 'shadow', 'radius', 'font', 'host', 'align'] as readonly Kind[],
 };
 
 /**
@@ -112,8 +80,6 @@ const CENTRED: Record<string, string> = {
  * Tailwind's own fonts are gone), so neither is a finding any more.
  */
 const BASE_FONT_RULES = ['html, :host', 'code, kbd, samp, pre'];
-/** The class that keeps the system's faces for the pages not yet rebuilt, and the one file that asks for it. */
-const SYSTEM_FACES = { utility: 'tf-system-faces', usedBy: 'app/(structurer)/layout.tsx' };
 
 /** Test files and what only they load are not shipped, and hold forbidden things on purpose. */
 const notScanned = (file: string) =>
@@ -156,7 +122,7 @@ const popover = (b: Blame) =>
 const caption = (b: Blame) =>
   b.finding.kind === 'case' &&
   b.files.length > 0 &&
-  b.files.every((file) => LEGACY[file]?.includes('case') || loudStrings(file).length === 0);
+  b.files.every((file) => loudStrings(file).length === 0);
 
 /** Centred text that a spec allows: every file that uses the class is on the list. */
 const centred = (b: Blame) =>
@@ -331,22 +297,15 @@ describe('the forbidden things', () => {
     it('reads the app: the pages, the primitives and the showcase', () => {
       expect(files).toContain('app/globals.css');
       expect(files).toContain('components/ui/Button.tsx');
-      expect(files).toContain('app/(structurer)/plans/[id]/page.tsx');
       expect(files).toContain('app/(marketing)/page.tsx');
       expect(files).toContain('app/(app)/monitor/page.tsx');
       expect(files).toContain('components/shell/AppNav.tsx');
       expect(files.some(notScanned)).toBe(false);
     });
 
-    it('lists no file of the product as legacy', () => {
-      expect(files.filter((file) => PRODUCT.test(file)).length).toBeGreaterThan(10);
-      expect(Object.keys(LEGACY).filter((file) => PRODUCT.test(file))).toEqual([]);
-    });
-
-    it('finds nothing forbidden outside the pages listed as legacy', () => {
+    it('finds nothing forbidden', () => {
       const fresh = found.filter(
         (f) =>
-          !LEGACY[f.file]?.includes(f.kind) &&
           !(f.kind === 'font' && DRAWN[f.file]?.includes(f.what)) &&
           !(f.kind === 'radius' && DRAWINGS.has(f.file) && /^r[xy]=/.test(f.what)),
       );
@@ -358,10 +317,6 @@ describe('the forbidden things', () => {
             `${file}: ${what}`,
           ).toBe(true);
       expect(fresh.map((f) => `${f.file}: ${f.kind}: ${f.what}`)).toEqual([]);
-    });
-
-    it('still imports the wallet adapter’s stylesheet, which is why that stylesheet is excused', () => {
-      expect(read(ADAPTER.importedBy)).toContain(ADAPTER.stylesheet);
     });
 
     it('uses the typing box’s corner only in the composer, and the token mark only in AssetMark', () => {
@@ -383,9 +338,7 @@ describe('the forbidden things', () => {
     });
 
     it('sets uppercase only on captions and column heads, at 12px or less', () => {
-      const loud = scripts
-        .filter((file) => !LEGACY[file]?.includes('case'))
-        .flatMap((file) => loudStrings(file).map((s) => `${file}: ${s}`));
+      const loud = scripts.flatMap((file) => loudStrings(file).map((s) => `${file}: ${s}`));
       expect(loud).toEqual([]);
     });
 
@@ -400,8 +353,6 @@ describe('the forbidden things', () => {
     const blamed = blame(scanCss(root, vars), root);
     const base = (b: Blame) =>
       b.finding.kind === 'font' && BASE_FONT_RULES.some((rule) => b.finding.where.endsWith(rule));
-    const legacy = (b: Blame) =>
-      b.files.length > 0 && b.files.every((file) => LEGACY[file]?.includes(b.finding.kind));
 
     it('compiles, with the tokens and the utilities the primitives use', () => {
       expect(vars.get('--radius')).toBe('8px');
@@ -412,21 +363,19 @@ describe('the forbidden things', () => {
       expect(selectors).toEqual(expect.arrayContaining(['.bg-card', '.rounded-md', '.tf-hatch']));
     });
 
-    it('finds nothing forbidden that a legacy page does not account for', () => {
+    it('finds nothing forbidden', () => {
       expect(
-        blamed
-          .filter((b) => !base(b) && !legacy(b) && !centred(b) && !popover(b) && !caption(b))
-          .map(say),
+        blamed.filter((b) => !base(b) && !centred(b) && !popover(b) && !caption(b)).map(say),
       ).toEqual([]);
     });
 
-    it('sets uppercase in one utility, asked for beside a caption’s size or by a legacy label', () => {
+    it('sets uppercase in one utility, asked for beside a caption’s size', () => {
       const upper: string[] = [];
       root.walkDecls('text-transform', (decl) => {
         if (/uppercase/.test(decl.value)) upper.push((decl.parent as postcss.Rule).selector);
       });
       expect(upper.sort()).toEqual(['.uppercase']);
-      expect(users('uppercase')).toContain('components/Provenance.tsx');
+      expect(users('uppercase')).toContain('features/landing/Landing.tsx');
       // the boxed MOCK is gone (MOCK-QUIET): no utility for it
       expect(upper).not.toContain('.tf-mock-plate');
     });
@@ -460,7 +409,7 @@ describe('the forbidden things', () => {
         expect(selectors.has(name), name).toBe(false);
     });
 
-    it('sets the base fonts from the tokens, and keeps the system’s faces only for the pages not yet rebuilt', () => {
+    it('sets the base fonts from the tokens', () => {
       // no base rule is a finding any more: both resolve to the faces of the design system
       expect(blamed.filter(base)).toEqual([]);
       const families = new Map<string, string>();
@@ -472,14 +421,6 @@ describe('the forbidden things', () => {
       expect(mono).toMatch(/^var\(--default-mono-font-family\b/);
       expect(vars.get('--default-font-family')).toBe('var(--tf-font-sans)');
       expect(vars.get('--default-mono-font-family')).toBe('var(--tf-font-mono)');
-      // the pages in app/(structurer) keep the system's own faces, named from the allowed fallbacks
-      expect(families.get(`.${SYSTEM_FACES.utility}`)).toBe(
-        'system-ui, -apple-system, "Segoe UI", Arial, sans-serif',
-      );
-      expect(families.get(`.${SYSTEM_FACES.utility} :is(code, kbd, samp, pre)`)).toBe(
-        'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-      );
-      expect(users(SYSTEM_FACES.utility)).toEqual([SYSTEM_FACES.usedBy]);
       // and the base class of the design system goes on the product's <body> and the landing's
       expect(users('tf-app').filter((file) => !file.startsWith('app/(app)/dev/'))).toEqual([
         'app/(marketing)/layout.tsx',
@@ -507,18 +448,6 @@ describe('the forbidden things', () => {
       expect(
         scanCss(postcss.parse('.card { border-radius: 20px }'), vars).map((f) => f.kind),
       ).toEqual(['radius']);
-    });
-
-    it('has no legacy entry that could be deleted', () => {
-      const sourceKinds = new Map<string, Set<Kind>>();
-      const note = (file: string, kind: Kind) =>
-        sourceKinds.set(file, (sourceKinds.get(file) ?? new Set()).add(kind));
-      for (const file of scripts) for (const f of scanSource(file, read(file))) note(file, f.kind);
-      for (const b of blamed) for (const file of b.files) note(file, b.finding.kind);
-      const stale = Object.entries(LEGACY).flatMap(([file, kinds]) =>
-        kinds.filter((kind) => !sourceKinds.get(file)?.has(kind)).map((kind) => `${file}: ${kind}`),
-      );
-      expect(stale).toEqual([]);
     });
   });
 
@@ -554,37 +483,23 @@ describe('the forbidden things', () => {
       expect(fresh, 'the build in apps/web/.next is older than the source').toBe(true);
     });
 
-    it.skipIf(!fresh && !required)(
-      'finds nothing forbidden beyond the legacy pages and the wallet adapter’s stylesheet',
-      async () => {
-        expect(css.length).toBeGreaterThan(0);
-        const source = await builtCss();
-        const problems: string[] = [];
-        const excused = new Set<Kind>();
-        for (const path of css) {
-          const root = postcss.parse(readFileSync(path, 'utf8'), { from: path });
-          const vars = variables(root, (s) => s === ':root' || s === ':host' || s === '.light');
-          for (const b of blame(scanCss(root, vars), root)) {
-            // the stylesheet of @solana/wallet-adapter-react-ui, imported by app/providers.tsx
-            const adapter =
-              b.finding.where.includes('.wallet-adapter-') || /DM\+Sans/.test(b.finding.what);
-            const known = adapter && ADAPTER.kinds.includes(b.finding.kind);
-            if (known) excused.add(b.finding.kind);
-            const base =
-              b.finding.kind === 'font' &&
-              /(^|,)\s*(html|:host|code|kbd|samp|pre)\b/.test(b.finding.where);
-            const legacy =
-              b.files.length > 0 && b.files.every((f) => LEGACY[f]?.includes(b.finding.kind));
-            if (!known && !base && !legacy && !centred(b) && !popover(b) && !caption(b))
-              problems.push(say(b));
-          }
+    it.skipIf(!fresh && !required)('finds nothing forbidden', async () => {
+      expect(css.length).toBeGreaterThan(0);
+      const source = await builtCss();
+      const problems: string[] = [];
+      for (const path of css) {
+        const root = postcss.parse(readFileSync(path, 'utf8'), { from: path });
+        const vars = variables(root, (s) => s === ':root' || s === ':host' || s === '.light');
+        for (const b of blame(scanCss(root, vars), root)) {
+          const base =
+            b.finding.kind === 'font' &&
+            /(^|,)\s*(html|:host|code|kbd|samp|pre)\b/.test(b.finding.where);
+          if (!base && !centred(b) && !popover(b) && !caption(b)) problems.push(say(b));
         }
-        expect(source).toBeDefined();
-        expect(problems).toEqual([]);
-        // every kind the adapter is excused for is still there to excuse
-        expect([...excused].sort()).toEqual([...ADAPTER.kinds].sort());
-      },
-    );
+      }
+      expect(source).toBeDefined();
+      expect(problems).toEqual([]);
+    });
 
     it.skipIf(!fresh && !required)(
       'serves the three typefaces from this origin, each with a metric-matched fallback',

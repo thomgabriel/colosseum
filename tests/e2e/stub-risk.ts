@@ -2,16 +2,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // The risk routes of the e2e stub (/risk/*), answered from Rodrigo's snapshot of the risk API: the
-// recording his Analytics 2.0 prototype falls back to (.design/…/prototypes/assets/analytics/, captured
-// 2026-10-03 against the live collectors). It is a fixture for the spec and the side-by-side screens
-// only: the app never reads it, and in the app these routes come from apps/api. Every recorded answer
-// is served as it was recorded, its status included; a route that was not recorded answers 404, as the
-// API answers a route it does not have.
+// recording his Analytics 2.0 prototype falls back to, captured 2026-10-03 against the live collectors,
+// cut to the answers the app asks for (fixtures/risk/analytics). It is a fixture for the spec and the
+// side-by-side screens only: the app never reads it, and in the app these routes come from apps/api.
+// Every recorded answer is served as it was recorded, its status included; a route that was not
+// recorded answers 404, as the API answers a route it does not have.
 
-const SNAPSHOT = join(
-  import.meta.dirname,
-  '../../.design/branding/working-brand/patterns/prototypes/assets/analytics',
-);
+const SNAPSHOT = join(import.meta.dirname, '../../fixtures/risk/analytics');
 
 type Manifest = { captured_at: string; files: Record<string, string> };
 let manifest: Manifest | null = null;

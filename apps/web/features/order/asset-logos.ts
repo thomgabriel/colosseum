@@ -57,6 +57,8 @@ export const ASSET_LOGOS: ReadonlyMap<string, string> = new Map([
 
 const BLOCKED = "the company's site refuses automated fetches; a person can save its mark";
 const WORDMARK = "the sponsor's only mark is a wide wordmark, unreadable in the round frame";
+const UNSAVED =
+  'scheduled for Robinhood Chain mainnet on 2026-10-13 before anyone saved its mark; a person adds the file';
 
 /** Tokens that keep their ticker, each with why. A token leaves this list when a file is added for it. */
 export const NO_ARTWORK: ReadonlyMap<string, string> = new Map([
@@ -70,4 +72,11 @@ export const NO_ARTWORK: ReadonlyMap<string, string> = new Map([
   ['spcx', "SpaceX's site serves its mark only as an .ico and inline drawing"],
   ['spy', WORDMARK],
   ['sgov', WORDMARK],
+  // Robinhood Chain mainnet's second list (docs/vault/MAINNET-WIDER-LIST.md)
+  ['uso', UNSAVED],
+  ['dell', UNSAVED],
+  ['coin', UNSAVED],
+  ['pltr', UNSAVED],
+  ['weth', UNSAVED],
+  ['baba', UNSAVED],
 ]);
