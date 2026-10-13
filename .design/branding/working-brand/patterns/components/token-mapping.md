@@ -298,5 +298,5 @@ Contrast is the partner's responsibility for their own colours, but the embed's 
 | Display line, big number | `font-display font-semibold text-display text-balance max-w-[16ch]` / `font-display font-semibold text-figure-lg tabular-nums` |
 | Figures | `tabular-nums` in Inter everywhere; `font-mono` only for provenance, hashes, timestamps and code |
 | Delta | `text-b-delta font-medium text-leaf` (up) / `text-madder` (down) / `text-muted-foreground` (flat); signed, true minus |
-| Sample marking | `SampleTag` (`rounded-sm border border-border text-caption text-sample-foreground`), once per card in its top-right corner (see [mock-plate.md](./mock-plate.md)) |
+| Sample marking | `SampleTag` (`rounded-full border border-primary/60 bg-honey-tint text-caption text-foreground`, as the overview's plate), once per card with figures in its top-right corner (see [mock-plate.md](./mock-plate.md)) |
 | Light | `bg-glow` behind a hero or the composer; `bg-curve-fill` under the base-case line. Nothing else |

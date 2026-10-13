@@ -15,10 +15,10 @@ The P4 hatch is still a word, not a texture: it means *not finished*, and it app
 ```
 
 Two parts, together, always:
-1. **The tag** `SampleTag` (`components/ui/internal/mock-parts.tsx`), drawn by the card itself (`Card mock`, `GoalCard mock`): Inter 500, `text-caption` (12px / 16px), colour `--tf-sample-fg` (muted-l / muted, 5.39 on white / 6.77 on night-2), a 1px `--border` edge, `--radius-sm` (6px) corners, `px-1.5 py-px`, the size of a chain badge. No fill, no icon, sentence case. One per card, in its top-right corner: at the right of the header's row, after the meta, when the card opens with a `CardHeader`; otherwise in a line of its own at the top right, tucked into the content's top padding. Its words are its screen-reader name. Wording by context:
+1. **The tag** `SampleTag` (`components/ui/internal/mock-parts.tsx`), drawn by the card itself (`Card mock`, `GoalCard mock`): the portfolio overview's plate for figures that are not live (`board-plate` in `OverviewPage.tsx`, the house style, Thom, Oct 13): Inter 500, `text-caption` (12px / 16px), `--foreground` on `--honey-tint`, a 1px `--primary` edge at 60%, a pill, `px-2.5 py-0.5`. No icon, sentence case. One per card that holds figures; a card with none (a sign-in card, a form) has no tag. One per card, in its top-right corner: at the right of the header's row, after the meta, when the card opens with a `CardHeader`; otherwise in a line of its own at the top right, tucked into the content's top padding. Its words are its screen-reader name. Wording by context:
    - app, plan, risk, charts, Bearing: "Sample figures";
    - test network (`"provenance": "sandbox"`): "Test network" / "Rede de teste";
-   - never "MOCK", never "demo", never honey, a status hue or a tint. Muted, not chalk.
+   - never "MOCK", never "demo", never a status hue, never chalk.
 
    Lines that stay as text inside the card, never on a hatch: the buy card on a test network, "Test network · Solana · not live" (gates `BUY-STEPS`, `DEPOSIT-IN-PLACE`); the landing's cases, "sample rates, not live"; a whole mocked panel or the embed, the quiet line `SampleNote` (Inter 400, `text-sample-line`, muted).
 3. **The figure's mark**: every sample yield, price or FX figure keeps the hatched pin ([provenance-pin.md](./provenance-pin.md) sample state, `aria-label="Source for 5.20%, sample figure"`). A sample figure that carries no pin (a count, an amount with no source line) gets the 12 × 12 hatched glyph `<SampleGlyph>` (`viewBox 0 0 12 12`, outline `rx 2` in `--tf-pin-outline`, 45° hatch at 3px pitch in `--tf-hatch`, `role="img" aria-label="sample figure"`).
@@ -63,15 +63,15 @@ A DOM test in `apps/web` fails if:
 </Card>
 
 // the tag (components/ui/internal/mock-parts.tsx)
-<span data-ui="sample-tag" className="inline-flex shrink-0 items-center rounded-sm border border-border px-1.5 py-px text-caption font-medium text-sample-foreground">Test network</span>
+<span data-ui="sample-tag" className="inline-flex shrink-0 items-center rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground">Test network</span>
 ```
 
 ## Do / don't
 
 | Do | Don't |
 |---|---|
-| One quiet neutral tag per card, top right | A boxed MOCK, a plate, a stamp, a hatched card edge, a tag in honey or a status hue |
+| One tag per card with figures, top right, as the overview's plate | A boxed MOCK, a stamp, a hatched card edge, a tag in a status hue, a tag on a card with no figure |
 | "Sample figures" or "Test network" in Inter, muted | "MOCK" in Plex Mono, uppercase, anywhere a person reads |
 | Hatched pin or hatched glyph on every sample figure, named "sample figure" | A solid pin, or no mark, on a sample figure |
 | Hatch only for sample or stale, each with its words | Hatch as decoration, a section divider, an empty-state fill or a "no data" cell |
-| Muted strokes, muted tag | Clay, honey, chalk or yellow styling for sample |
+| Muted strokes; the tag on the honey tint, as the overview's plate | Clay, chalk or yellow styling for sample |

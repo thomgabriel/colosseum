@@ -327,7 +327,7 @@ patterns:
     shape: "pill, 22px tall, 14% tint of its colour as fill, the colour as text; leads with its square glyph"
     text: "Inter 600 11.5-12px, sentence case"
     status: "on track = solid square leaf · watch = half square clay · off track = notched outline madder"
-    sample-tag: "Inter 500 12px muted-foreground, 1px border edge, 6px corners, no fill: 'Sample figures' or 'Test network', once per card in its top-right corner; no hatched card edge, no uppercase word (gate MOCK-QUIET, Thom, Oct 13)"
+    sample-tag: "Inter 500 12px foreground on honey-tint, 1px honey edge at 60%, a pill, as the portfolio overview's plate: 'Sample figures' or 'Test network', once per card in its top-right corner; no hatched card edge, no uppercase word (gate MOCK-QUIET, Thom, Oct 13)"
     chip: "filter chips are pills; selected = honey-tint fill + honey text, no border"
   nav:
     style: "plain horizontal bar on {color.background}, 1px hairline bottom; mark + wordmark left; the primary action right; no glass, no blur"
