@@ -2204,7 +2204,7 @@ export const en = {
     },
     stats: {
       label: 'The platform in numbers',
-      plans: 'Plans made',
+      vaults: 'Vaults',
       wallets: 'Wallets',
       value: 'In vaults',
       running: 'Plans running',

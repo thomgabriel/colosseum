@@ -22566,6 +22566,289 @@
         }
       }
     },
+    "/v1/stats": {
+      "get": {
+        "summary": "The platform in numbers: vaults, the wallets that own them, what they hold",
+        "tags": ["portfolio"],
+        "description": "One block per label the active chains carry (`live` for a mainnet, `sandbox` for a test network, `mock`), so figures of different networks are never added together. Every figure carries `source`, `fetchedAt` and `method`. A vault is counted when the server’s cache names it or the snapshot worker read it in the last 7 days. `valueUsd` is the sum of each vault’s newest snapshot, and null when the snapshot worker has not finished a pass in the last hour on every chain of the block or a vault counted has no snapshot in that hour: an unknown value is null, never 0 and never a partial sum. An answer is kept for 60 seconds.",
+        "security": [],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "provenance": {
+                            "type": "string",
+                            "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                          },
+                          "chains": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": ["solana", "base", "robinhood"]
+                            }
+                          },
+                          "vaults": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "fetchedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "method": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["value", "source", "fetchedAt", "method"],
+                            "additionalProperties": false
+                          },
+                          "wallets": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "fetchedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "method": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["value", "source", "fetchedAt", "method"],
+                            "additionalProperties": false
+                          },
+                          "valueUsd": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["value", "source", "fetchedAt", "method"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["provenance", "chains", "vaults", "wallets", "valueUsd"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "disclaimer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["networks", "disclaimer"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/testnet/fund": {
       "post": {
         "summary": "Test network only: send the signed-in wallet the test tokens and gas a buy is missing",

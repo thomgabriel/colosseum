@@ -85,7 +85,7 @@ export const methodology: Methodology = {
       ],
       [
         'O que você colocou',
-        'o caixa de cada compra sua por este app cujo depósito foi confirmado, contado uma vez por ordem. É o valor bruto: um saque não é descontado, e dinheiro que chegou ao cofre por outro caminho não está nele.',
+        'o caixa de cada depósito seu por este app que foi confirmado, contado uma vez por ordem. É o valor bruto: um saque não é descontado, e dinheiro que chegou ao cofre por outro caminho não está nele.',
       ],
       [
         'A situação',
@@ -117,7 +117,7 @@ export const methodology: Methodology = {
       'Quanto uma operação pagou. O custo ao lado de um passo é o da cotação com que ele foi montado, e pode aparecer como zero onde não havia preço de referência.',
       'As operações do nosso operador, uma por uma. O diário dele não está nos nossos dados, então cada linha dele é deduzida dos retratos, sem id da transação, sem cotação e sem motivo. Várias operações de um ativo entre dois retratos aparecem como uma só.',
       'Uma versão de um portfólio compartilhado que nosso operador adotou para você.',
-      'Seus próprios rebalanceamentos, saques e mudanças de configuração. Essas ordens ainda não existem, então seus passos aqui são compras e versões que você aceitou manualmente.',
+      'Seus próprios rebalanceamentos, saques e mudanças de configuração. Essas ordens ainda não existem, então seus passos aqui são depósitos e versões que você aceitou manualmente.',
       'O que você tirou. O que você colocou é o valor bruto, e a hora de um depósito é a de quando nosso servidor soube dele.',
       'O custo de vender tudo de uma vez. Cada custo de venda é o de um ativo vendido sozinho.',
       'De quais pools, ou de qual hora da semana, um custo de venda veio.',
