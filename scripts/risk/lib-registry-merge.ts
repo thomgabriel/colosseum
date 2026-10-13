@@ -5,7 +5,9 @@
 //   today. A pool of the shelf that the stock registry already holds is that registry's (`duplicates`).
 // - The shelf's other pools are tiered by the rule of retier.ts (lib-tiers.ts) over the shelf's pools alone, so the
 //   shelf's much larger dollars (cbBTC, WETH, JitoSOL...) never push a stock pool from tier A to B. A shelf pool of
-//   tier X (dust) is left out of the file, as retier.ts leaves dust out of the collector's copy.
+//   tier X (dust) is left out of the file, as retier.ts leaves dust out of the collector's copy. A shelf pool on a
+//   venue the collector has no reader for (Raydium AMM v4, Meteora DAMM v1 and v2, PumpSwap: lib-venues.ts confirms
+//   and the backfill decodes their events, but pools.ts cannot simulate them) is left out too, with its reason.
 // - Every pool says which set it is from (`set`): the collector's raw captures and position scans, the Jupiter
 //   cross-check, the lending-market snapshot, the split snapshot and the raw-arrays job keep to the stock set
 //   (`isStockSetPool`), so the shelf adds pool snapshots and routed asset curves and nothing else.
@@ -146,15 +148,25 @@ export function mergeRegistries(
   shelf: RegistryFile,
   opts: { baseFile: string; shelfFile: string; now: Date; rule: TierRule },
 ): MergedRegistry {
-  for (const [name, reg] of [
-    ['stock registry', base],
-    ['shelf registry', shelf],
-  ] as const) {
-    if (!Array.isArray(reg?.pools)) fail(`the ${name} has no pools array`);
-    for (const p of reg.pools) {
-      const why = collectorPoolProblem(p);
-      if (why) fail(`the ${name}'s pool ${p?.address ?? '?'}: ${why}`);
-    }
+  if (!Array.isArray(base?.pools)) fail('the stock registry has no pools array');
+  if (!Array.isArray(shelf?.pools)) fail('the shelf registry has no pools array');
+  for (const p of base.pools) {
+    const why = collectorPoolProblem(p);
+    if (why) fail(`the stock registry's pool ${p?.address ?? '?'}: ${why}`);
+  }
+  const shelfLeftOut: MergedRegistry['shelfLeftOut'] = [];
+  const readable: CollectorPool[] = [];
+  for (const p of shelf.pools) {
+    const why = collectorPoolProblem(p);
+    if (why && (COLLECTOR_VENUES as readonly string[]).includes(p?.venue as string))
+      fail(`the shelf registry's pool ${p?.address ?? '?'}: ${why}`);
+    if (why)
+      shelfLeftOut.push({
+        address: p.address,
+        assetSymbol: p.assetSymbol,
+        reason: `venue ${p.venue}: the pool collector has no reader for it (the backfill fetches it)`,
+      });
+    else readable.push(p);
   }
   const stocks: MergedPool[] = [];
   const inBase = new Map<string, CollectorPool>();
@@ -167,7 +179,7 @@ export function mergeRegistries(
   const duplicates: MergedRegistry['duplicates'] = [];
   const fresh: CollectorPool[] = [];
   const seenShelf = new Set<string>();
-  for (const p of shelf.pools) {
+  for (const p of readable) {
     if (seenShelf.has(p.address)) fail(`the shelf registry holds ${p.address} twice`);
     seenShelf.add(p.address);
     const b = inBase.get(p.address);
@@ -182,7 +194,6 @@ export function mergeRegistries(
   }
   const tiers = tierByShare(fresh, opts.rule);
   const shareText = `${Math.round(opts.rule.tierAShare * 1000) / 10}%`;
-  const shelfLeftOut: MergedRegistry['shelfLeftOut'] = [];
   const shelfPools: MergedPool[] = [];
   for (const p of [...fresh].sort((a, b) => b.tvlUsd - a.tvlUsd)) {
     const t = tiers.get(p.address) as Tier;

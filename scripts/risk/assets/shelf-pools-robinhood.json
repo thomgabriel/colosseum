@@ -4,7 +4,7 @@
   "methodVersion": "evm-shelf-pools-0.1",
   "method": "dexscreener_pairs_against_the_dollar_token",
   "source": "https://api.dexscreener.com/token-pairs/v1/robinhood/{token} (public, no key)",
-  "fetchedAt": "2026-10-13T17:50:13.375Z",
+  "fetchedAt": "2026-10-13T18:11:40.840Z",
   "provenance": "live",
   "shelf": {
     "file": "scripts/risk/assets/shelf-robinhood.json",
@@ -25,7 +25,7 @@
     "tracked": 29,
     "added": 14,
     "notAdded": 30,
-    "pools": 64,
+    "pools": 65,
     "reachable": 41
   },
   "tokens": [
@@ -43,8 +43,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 20252962.96,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 20276997.92,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x69BfaF19C9f377BB306a89aEd9F6B07e2c1a8d9a",
@@ -54,8 +54,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 4872853.69,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 4876875.24,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x9B050cb1F265094b0977160a2BD7dA8C9E529c3C",
@@ -65,8 +65,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 3239648.59,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 3243291.33,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xa9188730Fe85Be88ad499D7d52B099e800fB0334",
@@ -76,8 +76,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 1681407.88,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 1679534.27,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xFAE65eAa11943f45E83D5B45DC7A7C801C51bfB0",
@@ -87,8 +87,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 738130.72,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 739169.02,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x8803c117ccae7B5146297876c2A25DF135141C4d",
@@ -98,8 +98,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 431689.25,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 431125.86,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x16679e2ac1A798865eCf1c1639e67693ddB1C220",
@@ -109,8 +109,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 294167.9,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 294642.96,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x84bd4e2d8be11aeb0afc1195b38f587b61e90068548f1063fdbe448fb8cad0b6",
@@ -120,8 +120,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 275385.15,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 275733.99,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xF4D0171f995D576b972Aa982080eAf4dA456Cf9e",
@@ -131,8 +131,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 253193.43,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 253522.37,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x7A35168956F129c032eC035cC47383A605a71dF0",
@@ -142,8 +142,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 246843.86,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 247220.18,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x5f009E071F07e92B6C624e83F52F17bBDa34680D",
@@ -154,7 +154,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 172799.78,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xfcfae8fa0bd6da961bcf5d990f27690932deac4f093e99bf3e871691c6586593",
@@ -164,8 +164,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 168356.33,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 168615.22,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x14f8cf472104b8823340025c004d022de12ab0e4d7e8112a6dc73c1979e044ad",
@@ -175,8 +175,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 103074.97,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 103174.29,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x88A8E96E7785d378825e8B5D7FC0e6f62487061E",
@@ -186,8 +186,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 67526.78,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 67528.25,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xE163485CaBfB8B1c2D9922cC410bFC77a50714Fc",
@@ -197,8 +197,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 55793.45,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 55887.18,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x49FFa9B5cb6C94b2fc99E8649C3e4c18F619E149",
@@ -208,8 +208,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 35894.89,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 35956.56,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xd8d4383140295276815125fB1886cc3F5d6FBFe2",
@@ -219,8 +219,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 34664.22,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 34654.37,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x6ba18d461bfe3df70a80b50a4700e330e49efdaf597901b931f210554a5035d2",
@@ -230,8 +230,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 28809.31,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 28828.68,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x8132252bd65E7C03F7B57739E1DB1c58d6Ee792F",
@@ -241,8 +241,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 22811.38,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 22837.17,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x77c25b9386d47de62e0155c393696e9f43f7e6d036c6ca52f66735ccbb8808a7",
@@ -252,8 +252,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 21719.87,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 21681.32,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x5C919AcB310764E27b1Dd09541f3f63D4de4C701",
@@ -263,8 +263,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 20510.42,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 20471.41,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0x0759985D218520B758d257D17C8b1e8050adf42C",
@@ -274,8 +274,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 13136.78,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 13151.69,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xC5A01C57b2851202dCF8507a0F2Bd08a8025E2C8",
@@ -285,8 +285,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 12140.09,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 12121.86,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xb2a6aD51b3ea3CDc8D3508Cca147A43471382e53",
@@ -296,8 +296,19 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 11405.97,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 11419.1,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
+        },
+        {
+          "id": "0x5fC1BBd0e147433f217931c746301F91d16B509e",
+          "kind": "cl",
+          "venue": "0x9a8442cb89fE713ce7C2f22852e61fBFFeE97EcF",
+          "other": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "otherSymbol": "USDG",
+          "otherIsStock": false,
+          "reachable": false,
+          "tvlUsd": 10856.04,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         },
         {
           "id": "0xC619Dec28A6c68dd2bE8AEB62499059D1A138f09",
@@ -307,14 +318,14 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 10300.82,
-          "tvlAt": "2026-10-13T17:49:53.486Z"
+          "tvlUsd": 10304.92,
+          "tvlAt": "2026-10-13T18:11:22.776Z"
         }
       ],
       "dexscreener": {
         "pairs": 30,
         "againstDollar": 30,
-        "kept": 25
+        "kept": 26
       }
     },
     {
@@ -331,8 +342,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 333491.82,
-          "tvlAt": "2026-10-13T17:49:55.358Z"
+          "tvlUsd": 333241.46,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
         },
         {
           "id": "0x99e70A5b06215e5D2F3BeC773b4f59c008fc1673",
@@ -342,8 +353,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 307848.48,
-          "tvlAt": "2026-10-13T17:49:55.358Z"
+          "tvlUsd": 307530.49,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
         },
         {
           "id": "0x0d662a58507a46cd6a22632228306dc0d9c26f5fce90c37ced3b8358db33deb3",
@@ -353,8 +364,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 221095.25,
-          "tvlAt": "2026-10-13T17:49:55.358Z"
+          "tvlUsd": 221038.63,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
         },
         {
           "id": "0x4030f646babe7643c33ee0b9a5123e04ee97a8820a26d0d9dec8b0265f31170d",
@@ -364,8 +375,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 165637.98,
-          "tvlAt": "2026-10-13T17:49:55.358Z"
+          "tvlUsd": 165518.7,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
         },
         {
           "id": "0xdbe41dc9d12ae4ad528fd2f9b2bd5736ba5fb7eaf7ebb1fca86ff1646430a301",
@@ -376,7 +387,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 33945.68,
-          "tvlAt": "2026-10-13T17:49:55.358Z"
+          "tvlAt": "2026-10-13T18:11:24.347Z"
         },
         {
           "id": "0x146a67CAa3Ff12cB019B2E46d5fb8a1bedDC18D3",
@@ -386,8 +397,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 24642.03,
-          "tvlAt": "2026-10-13T17:49:55.358Z"
+          "tvlUsd": 24619.21,
+          "tvlAt": "2026-10-13T18:11:24.347Z"
         }
       ],
       "dexscreener": {
@@ -410,8 +421,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 834957.46,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlUsd": 834442.34,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         },
         {
           "id": "0x9664D869540E9D0a76f12C6623946C6D5d201e09",
@@ -421,8 +432,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 138985.23,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlUsd": 139014.03,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         },
         {
           "id": "0x78B4382721830f573916858c3fF10f6072D09897",
@@ -432,8 +443,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 68866.25,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlUsd": 68881.11,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         },
         {
           "id": "0xf50a897ae1b4dfdac5a8d573f0d0f59c75832b7832b7e631e1192d1e64019039",
@@ -443,8 +454,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 36144.69,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlUsd": 37582.12,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         },
         {
           "id": "0x60141f4ffd92764ad226092c8664b163d6e674c31236e67c981435c8c069ff0a",
@@ -454,8 +465,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 34476.27,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlUsd": 34474.74,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         },
         {
           "id": "0xfb5b2e3f28ae233984713db2501beea100310042a5de27df44b1d98403384698",
@@ -465,8 +476,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 21983.47,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlUsd": 21970.21,
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         },
         {
           "id": "0x778b859d2ee4a49dd7985887f2154df5d3b1740d756eef5658145571b48a63b0",
@@ -477,7 +488,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 17704.63,
-          "tvlAt": "2026-10-13T17:49:56.803Z"
+          "tvlAt": "2026-10-13T18:11:25.619Z"
         }
       ],
       "dexscreener": {
@@ -501,7 +512,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 165076.06,
-          "tvlAt": "2026-10-13T17:49:58.157Z"
+          "tvlAt": "2026-10-13T18:11:26.885Z"
         },
         {
           "id": "0x07e8Ea83D4C1340774c8965125e26e12bf943bf1",
@@ -511,8 +522,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 89078.13,
-          "tvlAt": "2026-10-13T17:49:58.157Z"
+          "tvlUsd": 89067.88,
+          "tvlAt": "2026-10-13T18:11:26.885Z"
         }
       ],
       "dexscreener": {
@@ -535,8 +546,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 202574.51,
-          "tvlAt": "2026-10-13T17:49:59.497Z"
+          "tvlUsd": 204030.9,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
         },
         {
           "id": "0xf78846addED5CfcAF90649900feE804c42976D67",
@@ -546,8 +557,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 63994.47,
-          "tvlAt": "2026-10-13T17:49:59.497Z"
+          "tvlUsd": 64076.45,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
         },
         {
           "id": "0xA34d0667334074DF2d5BfD259e79E6B9cf1fA8Bf",
@@ -557,8 +568,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 59748.15,
-          "tvlAt": "2026-10-13T17:49:59.497Z"
+          "tvlUsd": 59787.35,
+          "tvlAt": "2026-10-13T18:11:28.180Z"
         },
         {
           "id": "0x5fb00968834d782603b244e705a130058bf6cc4c0f53a1da98d5e392988db6aa",
@@ -569,7 +580,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 10643.11,
-          "tvlAt": "2026-10-13T17:49:59.497Z"
+          "tvlAt": "2026-10-13T18:11:28.180Z"
         }
       ],
       "dexscreener": {
@@ -592,8 +603,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 998783.03,
-          "tvlAt": "2026-10-13T17:50:00.804Z"
+          "tvlUsd": 998796.27,
+          "tvlAt": "2026-10-13T18:11:29.458Z"
         },
         {
           "id": "0x1156162C2170DcAd64979F575ba91f23A47150Af",
@@ -603,8 +614,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 35673.21,
-          "tvlAt": "2026-10-13T17:50:00.804Z"
+          "tvlUsd": 35673.28,
+          "tvlAt": "2026-10-13T18:11:29.458Z"
         },
         {
           "id": "0x00e7c2cC7A9e92425C9A995b11B2eE85645C2010",
@@ -615,7 +626,7 @@
           "otherIsStock": false,
           "reachable": false,
           "tvlUsd": 30932.19,
-          "tvlAt": "2026-10-13T17:50:00.804Z"
+          "tvlAt": "2026-10-13T18:11:29.458Z"
         }
       ],
       "dexscreener": {
@@ -638,8 +649,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 422443.1,
-          "tvlAt": "2026-10-13T17:50:02.158Z"
+          "tvlUsd": 422405.84,
+          "tvlAt": "2026-10-13T18:11:30.717Z"
         },
         {
           "id": "0x129b392490Aac7B4320aeAdE8d1054C06C2cE224",
@@ -649,8 +660,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 81072.96,
-          "tvlAt": "2026-10-13T17:50:02.158Z"
+          "tvlUsd": 80982.9,
+          "tvlAt": "2026-10-13T18:11:30.717Z"
         }
       ],
       "dexscreener": {
@@ -686,7 +697,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 66433.17,
-          "tvlAt": "2026-10-13T17:50:04.816Z"
+          "tvlAt": "2026-10-13T18:11:33.265Z"
         },
         {
           "id": "0xe49787db40b23478bd1c2210d81cc80f87d271adbe25e5e1b5a10ed83d988ad6",
@@ -697,7 +708,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 26813.9,
-          "tvlAt": "2026-10-13T17:50:04.816Z"
+          "tvlAt": "2026-10-13T18:11:33.265Z"
         }
       ],
       "dexscreener": {
@@ -720,8 +731,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 95112.43,
-          "tvlAt": "2026-10-13T17:50:06.162Z"
+          "tvlUsd": 95113.05,
+          "tvlAt": "2026-10-13T18:11:34.524Z"
         },
         {
           "id": "0x2e4cc4c65587faca7a08b69a13c86ca8c86599d90ad818ceaa1a875176f5fb52",
@@ -731,8 +742,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 92343.58,
-          "tvlAt": "2026-10-13T17:50:06.162Z"
+          "tvlUsd": 92335.33,
+          "tvlAt": "2026-10-13T18:11:34.524Z"
         }
       ],
       "dexscreener": {
@@ -755,8 +766,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 152812.14,
-          "tvlAt": "2026-10-13T17:50:07.462Z"
+          "tvlUsd": 153599.05,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
         },
         {
           "id": "0xc9dad63b6fb9afe1fe888ebc7b023c587c58b9498f5bd17166226c0995dbc4eb",
@@ -766,8 +777,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 124749.7,
-          "tvlAt": "2026-10-13T17:50:07.462Z"
+          "tvlUsd": 124748.65,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
         },
         {
           "id": "0xd5850279c17e422d8ad108691254df010af9c6f8fcec0b586b89133100096556",
@@ -777,8 +788,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 17403.93,
-          "tvlAt": "2026-10-13T17:50:07.462Z"
+          "tvlUsd": 17526.35,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
         },
         {
           "id": "0x445016B5b50f836684227ea6b46571672236EeFB",
@@ -788,8 +799,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": false,
-          "tvlUsd": 11814.85,
-          "tvlAt": "2026-10-13T17:50:07.462Z"
+          "tvlUsd": 11869.94,
+          "tvlAt": "2026-10-13T18:11:35.788Z"
         }
       ],
       "dexscreener": {
@@ -813,7 +824,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 131091.16,
-          "tvlAt": "2026-10-13T17:50:08.797Z"
+          "tvlAt": "2026-10-13T18:11:37.049Z"
         },
         {
           "id": "0x1BDB8e3A79Cb1a7F228808739311E23098D33d43",
@@ -823,8 +834,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 104993.83,
-          "tvlAt": "2026-10-13T17:50:08.797Z"
+          "tvlUsd": 105020.88,
+          "tvlAt": "2026-10-13T18:11:37.049Z"
         },
         {
           "id": "0x8e0915e4860ad0426dd2f740f44cf6f4f675ae8c9f6a0ad42e323aba809a6149",
@@ -835,7 +846,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 16607.27,
-          "tvlAt": "2026-10-13T17:50:08.797Z"
+          "tvlAt": "2026-10-13T18:11:37.049Z"
         },
         {
           "id": "0xf807376333cd408c36d48a11a96309b92c5bd2bca9ba9f0b21800636cb3a30da",
@@ -845,8 +856,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 12145.22,
-          "tvlAt": "2026-10-13T17:50:08.797Z"
+          "tvlUsd": 12151.88,
+          "tvlAt": "2026-10-13T18:11:37.049Z"
         }
       ],
       "dexscreener": {
@@ -870,7 +881,7 @@
           "otherIsStock": false,
           "reachable": true,
           "tvlUsd": 532583.75,
-          "tvlAt": "2026-10-13T17:50:10.149Z"
+          "tvlAt": "2026-10-13T18:11:38.316Z"
         }
       ],
       "dexscreener": {
@@ -893,8 +904,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 135177.51,
-          "tvlAt": "2026-10-13T17:50:11.812Z"
+          "tvlUsd": 136180.08,
+          "tvlAt": "2026-10-13T18:11:39.575Z"
         },
         {
           "id": "0x0487ff1150bbbc8fefb6e1e3fc5c33265e08e6454d9cb43b74c7000da3238c9e",
@@ -904,8 +915,8 @@
           "otherSymbol": "USDG",
           "otherIsStock": false,
           "reachable": true,
-          "tvlUsd": 11864.82,
-          "tvlAt": "2026-10-13T17:50:11.812Z"
+          "tvlUsd": 11895.23,
+          "tvlAt": "2026-10-13T18:11:39.575Z"
         }
       ],
       "dexscreener": {

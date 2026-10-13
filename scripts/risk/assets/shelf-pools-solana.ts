@@ -1,10 +1,11 @@
 import 'dotenv/config';
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDb } from '@colosseum/db';
 import {
   cutShelf,
   SHELF_FLOOR_USD,
+  type Shelf,
   type ShelfListRow,
   shelfHash,
   type VolumeReading,
@@ -23,14 +24,18 @@ import {
   type TokenPick,
 } from './shelf-pools';
 
-// `pnpm risk:shelf-pools-solana [--floor <dollars>] [--readings <file>] [--pairs <jsonl>]` (PLAN-ASSETS AS.12,
+// `pnpm risk:shelf-pools-solana [--shelf-file <shelf.json> | --floor <dollars> --readings <file>] [--pairs <jsonl>]`
+// (PLAN-ASSETS AS.12,
 // ledger ASSET-3): the registry of the Solana shelf's pools, for the backfill's shelf scope
 // (`pnpm risk:assets-backfill solana-swaps --registry <file>`). It
-//   1. cuts the shelf as the backfill does (cutShelf over scripts/risk/assets/solana.json and the newest
+//   1. takes the committed shelf with --shelf-file (scripts/risk/assets/shelf-solana.json: its rows, as cut and
+//      committed; the database's readings move every hour, the registry follows the shelf the repo holds), or cuts
+//      the shelf as the backfill does (cutShelf over scripts/risk/assets/solana.json and the newest
 //      dex_volume_24h_usd reading per address in asset_observations, or --readings <file>);
 //   2. asks DexScreener's token-pairs/v1/solana/<mint> for each shelf token (at most 30 pairs a token), one call
-//      every 300 ms, waiting out a 429; the answers are written to <RISK_DATA_DIR>/shelf-dexscreener-solana-<stamp>.jsonl
-//      (--pairs <that file> reuses them instead of asking again);
+//      every 300 ms, waiting out a 429; the answers are written to a new <RISK_DATA_DIR>/shelf-dexscreener-solana-<stamp>.jsonl
+//      (--pairs <file> reuses that file's answers, asks only the tokens it lacks, and copies both into the new file:
+//      a file given is only read, never appended to);
 //   3. keeps per token the pools of SHELF_POOL_RULE (shelf-pools.ts);
 //   4. confirms each kept pool on chain with getMultipleAccounts (owner program the venue's, decoded mints hold the
 //      token: lib-venues.ts, the code of build-registry.ts); a pool that fails is left out and the token re-picked;
@@ -78,7 +83,33 @@ async function volumeReadings(): Promise<VolumeReading[]> {
     await client.end();
   }
 }
-const shelf = cutShelf(rows, await volumeReadings(), floorUsd);
+const shelfFile = opt('--shelf-file');
+/** The committed shelf, as the repo holds it: its rows are the tokens, in its order. */
+function committedShelf(file: string): Shelf {
+  const f = JSON.parse(readFileSync(file, 'utf8')) as {
+    chain?: string;
+    floorUsd: number;
+    reading: Shelf['reading'];
+    counts: Shelf['counts'];
+    rows: Array<{ address: string; symbol: string; volume24hUsd: number; fetched_at: string }>;
+  };
+  if (f.chain !== undefined && f.chain !== 'solana')
+    throw new Error(`${file} is a ${f.chain} shelf`);
+  return {
+    floorUsd: f.floorUsd,
+    reading: f.reading,
+    counts: f.counts,
+    tokens: f.rows.map((r) => ({
+      address: r.address,
+      symbol: r.symbol,
+      volume24hUsd: r.volume24hUsd,
+      observedAt: r.fetched_at,
+    })),
+  };
+}
+const shelf = shelfFile
+  ? committedShelf(shelfFile)
+  : cutShelf(rows, await volumeReadings(), floorUsd);
 if (!shelf.tokens.length)
   throw new Error(`the Solana shelf is empty (${JSON.stringify(shelf.counts)})`);
 const committed = JSON.parse(readFileSync('scripts/risk/assets/shelf-solana.json', 'utf8')) as {
@@ -110,7 +141,13 @@ if (pairsFile) {
     answers.set(a.assetMint, a);
   }
 }
-const dsFile = pairsFile ?? join(OUT, `shelf-dexscreener-solana-${stamp}.jsonl`);
+// always a new file: the answers reused from --pairs are copied in first, so the file holds every answer the run used
+const dsFile = join(OUT, `shelf-dexscreener-solana-${stamp}.jsonl`);
+if (existsSync(dsFile)) throw new Error(`${dsFile} exists: run again in a minute`);
+for (const t of subjects) {
+  const a = answers.get(t.address);
+  if (a?.status === 200) appendFileSync(dsFile, `${JSON.stringify(a)}\n`);
+}
 for (const [i, t] of subjects.entries()) {
   if (answers.has(t.address) && answers.get(t.address)?.status === 200) continue;
   const url = `https://api.dexscreener.com/token-pairs/v1/solana/${t.address}`;
@@ -342,8 +379,7 @@ const registry = {
   confirmedAt,
   source:
     'DexScreener api.dexscreener.com/token-pairs/v1/solana/<mint> (discovery) + Solana RPC getMultipleAccounts (confirmation)',
-  method:
-    'cutShelf over the list and the newest dex_volume_24h_usd readings; pickPools (scripts/risk/assets/shelf-pools.ts) per subject; confirmPool (scripts/risk/lib-venues.ts) per kept pool',
+  method: `${shelfFile ? `the committed shelf ${shelfFile}` : 'cutShelf over the list and the newest dex_volume_24h_usd readings'}; pickPools (scripts/risk/assets/shelf-pools.ts) per subject; confirmPool (scripts/risk/lib-venues.ts) per kept pool`,
   provenance: 'live',
   rule: SHELF_POOL_RULE,
   stated: {
@@ -364,14 +400,16 @@ const registry = {
     list: listFile,
     floorUsd: shelf.floorUsd,
     reading: shelf.reading,
-    readingsFrom:
-      opt('--readings') ?? 'asset_observations (local database), metric dex_volume_24h_usd',
+    readingsFrom: shelfFile
+      ? `${shelfFile} (the committed shelf, taken as it is)`
+      : (opt('--readings') ?? 'asset_observations (local database), metric dex_volume_24h_usd'),
     counts: shelf.counts,
     tokensHash,
     committedShelf: { file: 'scripts/risk/assets/shelf-solana.json', tokensHash: committedHash },
     subjects: subjects.length,
   },
   dexscreenerAnswers: dsFile,
+  dexscreenerReused: pairsFile ?? null,
   byVenue,
   pools,
   tokens,

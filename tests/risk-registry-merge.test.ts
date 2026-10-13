@@ -161,16 +161,43 @@ describe('the merge', () => {
     // the round trip through JSON keeps every field the collector needs
     expect(checkCollectorRegistry(JSON.parse(JSON.stringify(m)))).toEqual([]);
   });
+  it('leaves out a shelf pool on a venue the collector cannot read, with the reason', () => {
+    const more = {
+      ...shelf,
+      pools: [...shelf.pools, pool('amm', 9e6, { venue: 'raydium_amm_v4' })],
+    };
+    const r = mergeRegistries(base, more, {
+      baseFile: 'b',
+      shelfFile: 's',
+      now: new Date(0),
+      rule: DEFAULT_TIER_RULE,
+    });
+    expect(r.pools.some((p) => p.address === 'amm')).toBe(false);
+    expect(r.shelfLeftOut.find((x) => x.address === 'amm')?.reason).toMatch(
+      /raydium_amm_v4: the pool collector has no reader/,
+    );
+    // its TVL takes no part in the shelf's tiers: the same tiers as without it
+    expect(r.pools.map((p) => p.tier)).toEqual(merge().pools.map((p) => p.tier));
+  });
   it('refuses a pool the collector could not read, and a pool twice', () => {
-    const bad = { ...shelf, pools: [pool('x', 5_000, { venue: 'byreal_clmm' })] };
+    const bad = { ...base, pools: [pool('x', 5_000, { venue: 'byreal_clmm', tier: 'A' })] };
     expect(() =>
-      mergeRegistries(base, bad, {
+      mergeRegistries(bad, shelf, {
         baseFile: 'b',
         shelfFile: 's',
         now: new Date(0),
         rule: DEFAULT_TIER_RULE,
       }),
     ).toThrow(/venue byreal_clmm/);
+    const broken = { ...shelf, pools: [{ ...pool('y', 5_000), vault0: '' }] };
+    expect(() =>
+      mergeRegistries(base, broken, {
+        baseFile: 'b',
+        shelfFile: 's',
+        now: new Date(0),
+        rule: DEFAULT_TIER_RULE,
+      }),
+    ).toThrow(/vault0/);
     const twice = { ...shelf, pools: [pool('x', 5_000), pool('x', 5_000)] };
     expect(() =>
       mergeRegistries(base, twice, {
