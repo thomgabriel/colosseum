@@ -150,8 +150,13 @@ describe('the structurer’s writes outside /v1', () => {
     };
   };
 
-  it('are the six that store a row or sign, and no read', () => {
-    expect(OPEN_WRITES).toHaveLength(6);
+  it('are the four that store a row, and no read: the monitor’s revoke and rebalance went on Oct 13', () => {
+    expect([...OPEN_WRITES].sort()).toEqual([
+      'POST /executions/:id/report',
+      'POST /goals',
+      'POST /plans',
+      'POST /plans/:id/transactions',
+    ]);
     expect(OPEN_WRITES.every((route) => route.startsWith('POST /'))).toBe(true);
     expect(OPEN_WRITES.some((route) => /\/v1|\/risk/.test(route))).toBe(false);
   });

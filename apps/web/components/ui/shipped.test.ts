@@ -46,7 +46,7 @@ describe('nothing the product ships imports the showcase or its sample content',
 
   it('reads the app: its pages and the primitives', () => {
     expect(shipped).toContain('app/(app)/layout.tsx');
-    expect(shipped).toContain('app/(structurer)/layout.tsx');
+    expect(shipped).toContain('app/(marketing)/layout.tsx');
     expect(shipped).toContain('components/ui/ProvenancePin.tsx');
     expect(shipped).not.toContain('components/ui/fixtures/mock.ts');
     expect(shipped).not.toContain('app/(app)/dev/ui/Showcase.tsx');

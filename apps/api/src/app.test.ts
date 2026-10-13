@@ -22,6 +22,15 @@ describe('api skeleton', () => {
     await app.close();
   });
 
+  it('starts where the removed LEGACY_STRUCTURER is still set, and serves no route of the monitor', async () => {
+    const app = await buildApp({ env: { LEGACY_STRUCTURER: 'on' } });
+    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+    const rebalance = await app.inject({ method: 'POST', url: '/policies/x/rebalance' });
+    expect(rebalance.statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/stats' })).statusCode).toBe(404);
+    await app.close();
+  });
+
   it('rejects invalid bodies with 400', async () => {
     const app = await buildApp();
     const bad = await app.inject({ method: 'POST', url: '/goals', payload: { text: 'x' } });
@@ -54,8 +63,7 @@ describe('api skeleton', () => {
   });
 
   it('counts every write outside /v1 and /risk: the list of open writes is the app’s own POST routes', async () => {
-    // with the structurer's signing route switched on, so the list is the longest it can be
-    const app = await buildApp({ env: { LEGACY_STRUCTURER: 'on' } });
+    const app = await buildApp();
     await app.ready();
     const paths = (app.swagger() as { paths: Record<string, Record<string, unknown>> }).paths;
     const writes = Object.entries(paths)

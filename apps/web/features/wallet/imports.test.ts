@@ -59,8 +59,7 @@ describe('nothing the product ships imports the dev page or the throwaway wallet
   it('reads the files of the app, the provider among them', () => {
     expect(shipped).toContain('features/wallet/WalletProvider.tsx');
     expect(shipped).toContain('app/(app)/layout.tsx');
-    expect(shipped).toContain('app/(structurer)/layout.tsx');
-    expect(shipped).toContain('components/Nav.tsx');
+    expect(shipped).toContain('app/(marketing)/layout.tsx');
     expect(shipped).not.toContain('features/wallet/dev/rpc.ts');
     expect(shipped).not.toContain('app/(app)/dev/wallet/page.dev.tsx');
   });
@@ -87,9 +86,9 @@ describe('nothing the product ships imports the dev page or the throwaway wallet
     const cases: Array<[string, string, string[]]> = [
       // What the review shipped unnoticed: a product page that reads a balance with the dev page's RPC.
       [
-        'app/(structurer)/monitor/page.tsx',
+        'app/(app)/monitor/page.tsx',
         "import { evmRpc } from '@/features/wallet/dev/rpc';",
-        ['app/(structurer)/monitor/page.tsx -> features/wallet/dev/rpc'],
+        ['app/(app)/monitor/page.tsx -> features/wallet/dev/rpc'],
       ],
       [
         'features/wallet/SignIn.tsx',
@@ -97,9 +96,9 @@ describe('nothing the product ships imports the dev page or the throwaway wallet
         ['features/wallet/SignIn.tsx -> features/wallet/test/test-driver'],
       ],
       [
-        'components/Nav.tsx',
-        "const load = () => import('../features/wallet/dev/DevWallet');",
-        ['components/Nav.tsx -> features/wallet/dev/DevWallet'],
+        'components/shell/AppNav.tsx',
+        "const load = () => import('../../features/wallet/dev/DevWallet');",
+        ['components/shell/AppNav.tsx -> features/wallet/dev/DevWallet'],
       ],
       [
         'features/wallet/index.ts',

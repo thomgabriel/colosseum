@@ -19,9 +19,7 @@ import { hideServerErrors } from './plugins/errors';
 import { registerOpenWriteLimit, requireDeclared } from './plugins/limits';
 import { logForwardedHops, proxyTrust } from './plugins/proxy';
 import { loggerOptions } from './redact';
-import { registerMonitorRoutes } from './routes/monitor';
 import { registerPlanRoutes } from './routes/plans';
-import { registerReadRoutes } from './routes/read';
 import { registerRiskRoutes } from './routes/risk';
 import { registerTransactionRoutes } from './routes/transactions';
 import { registerV1Routes, type V1Deps } from './routes/v1';
@@ -63,7 +61,7 @@ export async function buildApp(
       : { env: solana.env, contracts: {}, record: null };
   const env = robinhood.env;
   // Stops here on a flag it cannot read.
-  const flags = parseFlags(env);
+  parseFlags(env);
   const app = Fastify({
     // No node's URL in a log line (redact.ts): the configured ones, and any a library's error names.
     logger: deps.logTo
@@ -118,17 +116,6 @@ export async function buildApp(
 
   await registerPlanRoutes(app);
   await registerTransactionRoutes(app);
-  await registerReadRoutes(app);
-  const monitor = await registerMonitorRoutes(app);
-  // One route of the structurer's monitor loads a key file and signs with it on the server: the
-  // rebalance. It is switched off, not deleted: with LEGACY_STRUCTURER off (the default) its file is
-  // never loaded, so no route that reaches a signer is registered and no code that reads a key is in
-  // the process. The monitor's reads and its unsigned revoke are always served.
-  // tests/boundaries.test.ts holds this import to this `if`.
-  if (flags.legacyStructurer) {
-    const { registerMonitorRebalanceRoute } = await import('./routes/monitor-rebalance');
-    registerMonitorRebalanceRoute(app, monitor);
-  }
   await registerRiskRoutes(app);
   await registerV1Routes(app, env, {
     ...deps.v1,
