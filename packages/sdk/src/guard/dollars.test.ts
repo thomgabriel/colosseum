@@ -1,4 +1,11 @@
-import { type BuiltTx, type ChainId, type Leg, ORDER_LIMITS, type Order } from '@colosseum/schemas';
+import {
+  type BuiltTx,
+  type ChainId,
+  type Leg,
+  ORDER_LIMITS,
+  type Order,
+  WITHDRAW_DOLLARS_MARGIN_BPS,
+} from '@colosseum/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import { refusalOf } from '../../test/bites';
 import { mockWorld, stamped, tampered, usd } from '../../test/mock';
@@ -163,7 +170,7 @@ const orderRefusal = (x: World, order: Picked, plan: PlanTerms = x.plan) =>
   refusalOf(() => approvedSteps(order, plan, x.w.deployment));
 
 it('holds the cash step to the margin the API plans it with', () => {
-  expect(DOLLARS_MARGIN_BPS).toBe(ORDER_LIMITS.dollarsMarginBps);
+  expect(DOLLARS_MARGIN_BPS).toBe(WITHDRAW_DOLLARS_MARGIN_BPS);
   expect(MAX_SLIPPAGE_BPS).toBe(ORDER_LIMITS.maxSlippageBps);
 });
 

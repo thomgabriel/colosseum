@@ -26,7 +26,7 @@ const SIGNED_HERE: readonly string[] = [
 
 /**
  * How far above the sum of its sales' quotes the cash step of a withdrawal in dollars may pay, in bps
- * of those quotes: `ORDER_LIMITS.dollarsMarginBps` of packages/schemas, which this package imports for
+ * of those quotes: `WITHDRAW_DOLLARS_MARGIN_BPS` of packages/schemas, which this package imports for
  * types only (dollars.test.ts holds the two equal). A fill can land above its quote when the price
  * moves the person's way; past this the step would be taking cash the order did not bring.
  */

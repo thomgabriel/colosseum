@@ -12,11 +12,11 @@ import {
   isAddressOf,
   type Leg,
   type LegWithdrawal,
-  ORDER_LIMITS,
   type Order,
   type Principal,
   type Trade,
   type VaultState,
+  WITHDRAW_DOLLARS_MARGIN_BPS,
 } from '@colosseum/schemas';
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
 import { Refusal } from './errors';
@@ -377,9 +377,7 @@ async function planDollars(
     shareOf(cashHeld, shareBps) + sales.reduce((n, x) => n + BigInt(x.expected.minOutRaw), 0n);
   const quoted = sales.reduce((n, x) => n + BigInt(x.expected.outRaw), 0n);
   const most =
-    shareOf(cashHeld, shareBps) +
-    quoted +
-    (quoted * BigInt(ORDER_LIMITS.dollarsMarginBps)) / 10_000n;
+    shareOf(cashHeld, shareBps) + quoted + (quoted * BigInt(WITHDRAW_DOLLARS_MARGIN_BPS)) / 10_000n;
   if (least === 0n)
     throw new Refusal(409, 'nothing this vault holds can be withdrawn in dollars now', {
       fix: 'Withdraw the tokens themselves: that needs no sale.',

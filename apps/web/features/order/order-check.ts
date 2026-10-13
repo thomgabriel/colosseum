@@ -1,4 +1,10 @@
-import { ORDER_LIMITS, type OrderDetail, type Target, type Trade } from '@colosseum/schemas';
+import {
+  ORDER_LIMITS,
+  type OrderDetail,
+  type Target,
+  type Trade,
+  WITHDRAW_DOLLARS_MARGIN_BPS,
+} from '@colosseum/schemas';
 import { type SharedTerms, tradesOf } from '../shared/terms';
 import type { ChainUnits } from './units';
 
@@ -339,9 +345,9 @@ export function dollarsShapeOk(
   const said = new Set(order.warnings.map((x) => x.code));
   if ([...may.keys()].some((asset) => !said.has(`NOT_SOLD:${asset}`))) return false;
   // The most the cash step pays: the cash reviewed, every sale's quote, and the margin for a fill
-  // above its quote (ORDER_LIMITS.dollarsMarginBps), which the guard holds the bytes to as well.
+  // above its quote (WITHDRAW_DOLLARS_MARGIN_BPS), which the guard holds the bytes to as well.
   const most =
-    BigInt(dollars.cashRaw) + quoted + (quoted * BigInt(ORDER_LIMITS.dollarsMarginBps)) / 10_000n;
+    BigInt(dollars.cashRaw) + quoted + (quoted * BigInt(WITHDRAW_DOLLARS_MARGIN_BPS)) / 10_000n;
   const [out, ...more] = last?.withdrawals ?? [];
   return (
     last?.kind === 'withdraw' &&

@@ -413,12 +413,17 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
   );
   const w = en.withdraw;
   const d = w.check.dollars;
-  const open = async () => {
+  /** The vault's details on the portfolio, where its way to withdraw is, opened. */
+  const openDetails = async () => {
     await expect(page).toHaveURL(/\/monitor$/);
     const details = page.locator('[data-ui="vault-read-details"]');
     await expect(details).toHaveCount(1);
     if ((await details.getAttribute('open')) === null)
       await details.locator(':scope > summary').click();
+    await expect(details).toHaveAttribute('open', '');
+  };
+  const open = async () => {
+    await openDetails();
     await page.locator('a[data-ui="vault-withdraw"]').click();
     await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+\/withdraw$/);
     // the two ways, the tokens themselves chosen first
@@ -466,6 +471,8 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
   await expect(page.getByText(w.share.error)).toBeVisible();
   await page.getByLabel(w.share.label).fill('50');
   await through(false);
+  // half of the vault stays, so it still has a way to withdraw, in its details
+  await openDetails();
   await expect(page.locator('a[data-ui="vault-withdraw"]')).toBeVisible();
 
   // 2. All that is left: the vault is empty afterwards, with nothing but dollars in the wallet.
