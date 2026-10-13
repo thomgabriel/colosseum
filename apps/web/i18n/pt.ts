@@ -1363,7 +1363,8 @@ export const pt: Dictionary = {
       privacy:
         'Só esta estratégia revisada, o nome e a descrição ficam públicos. A conversa do cofre permanece privada.',
       holdings: 'Tokens mantidos agora · separados dos pesos-alvo',
-      strategySource: (source: string) => `Estratégia lida de ${source}.`,
+      strategySource: (chain: string) => `Metas lidas do seu cofre na ${chain}.`,
+      strategySample: 'Metas lidas do seu cofre na rede de exemplo.',
       strategyChanged:
         'A estratégia do cofre mudou. As metas atuais estão na tela. Revise antes de compartilhar novamente.',
       sourceProblems: {

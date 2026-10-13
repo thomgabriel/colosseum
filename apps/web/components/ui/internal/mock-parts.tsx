@@ -73,15 +73,16 @@ export function SampleNote({
 }
 
 /**
- * A sample card's one tag, in its top-right corner: "Sample figures" or "Test network", quiet and
- * neutral, with a tag's 6px corners (MOCK-QUIET, Thom, Oct 13). Its words are its screen-reader name.
+ * A sample card's one tag, in its top-right corner: "Sample figures" or "Test network" (MOCK-QUIET,
+ * Thom, Oct 13). Drawn as the portfolio overview's own plate for figures that are not live
+ * (`board-plate` in OverviewPage.tsx), the house style. Its words are its screen-reader name.
  */
 export function SampleTag({ label, className }: { label?: string; className?: string }) {
   return (
     <span
       data-ui="sample-tag"
       className={cn(
-        'inline-flex shrink-0 items-center rounded-sm border border-border px-1.5 py-px font-sans text-caption font-medium whitespace-nowrap text-sample-foreground',
+        'inline-flex shrink-0 items-center rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 font-sans text-caption font-medium whitespace-nowrap text-foreground',
         className,
       )}
     >

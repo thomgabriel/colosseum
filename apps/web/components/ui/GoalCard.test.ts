@@ -104,7 +104,9 @@ describe('GoalCard (goal-card.md)', () => {
     const c = one(render(goalCard.watch), ui('goal-card'));
     const tag = one(c, ui('sample-tag'));
     expect(text(tag)).toBe('Sample figures');
-    expect(classes(tag)).toEqual(expect.arrayContaining(['rounded-sm', 'self-end']));
+    expect(classes(tag)).toEqual(
+      expect.arrayContaining(['rounded-full', 'bg-honey-tint', 'self-end']),
+    );
     // first in the card, above the sentence
     expect(tag.parent?.children[0]).toBe(tag);
     expect(all(c, (e) => classes(e).includes('tf-hatch'))).toHaveLength(0);

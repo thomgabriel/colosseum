@@ -205,14 +205,10 @@ export function SignIn({ onAttempt, onFailed, onSignedIn, silent }: SignInProps)
     );
 
   const resting = (what: Exclude<Busy, null>) => busy !== null && busy !== what;
-  // The two cards are as tall as each other. The mock card of the throwaway wallet keeps its band and
-  // body in a row: its body column is the one that stretches.
-  const column = port.test
-    ? '[&>div]:flex [&>div]:flex-col [&>div>[data-ui=mock-plate]]:self-end'
-    : 'flex flex-col';
+  // The two cards are as tall as each other. Neither holds a figure, so neither carries the sample tag,
+  // the throwaway wallet's included (the UI audit, G9).
+  const column = 'flex flex-col';
   const body = 'flex flex-1 flex-col gap-4';
-  // What a screen reader hears after MOCK, in the language of the view.
-  const mockLabels = { announce: t.shell.mockAnnounce };
   const choices = walletChoices(port.found);
   const chainName = (chain: ChainId) => port.network(chain)?.name ?? t.chain.names[chain];
   /** Where a plan made with a wallet lives, from the families it signs on that are on here. */
@@ -252,13 +248,7 @@ export function SignIn({ onAttempt, onFailed, onSignedIn, silent }: SignInProps)
   return (
     <div data-ui="sign-in" data-state="ready" className="flex flex-col gap-4">
       <div className="grid gap-6 min-[820px]:grid-cols-2">
-        <Card
-          as="section"
-          aria-labelledby={passkeyId}
-          mock={port.test}
-          mockLabels={mockLabels}
-          className={column}
-        >
+        <Card as="section" aria-labelledby={passkeyId} className={column}>
           <CardHeader title={t.signIn.passkey.title} level={2} id={passkeyId} />
           <CardBody className={body}>
             {/* The pair: someone new first, then someone who has one. Equal, unless this browser has
@@ -334,13 +324,7 @@ export function SignIn({ onAttempt, onFailed, onSignedIn, silent }: SignInProps)
           </CardBody>
         </Card>
 
-        <Card
-          as="section"
-          aria-labelledby={walletId}
-          mock={port.test}
-          mockLabels={mockLabels}
-          className={column}
-        >
+        <Card as="section" aria-labelledby={walletId} className={column}>
           <CardHeader title={t.signIn.wallet.title} level={2} id={walletId} />
           <CardBody className={body}>
             {asking ? (

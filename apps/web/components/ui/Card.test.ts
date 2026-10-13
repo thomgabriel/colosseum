@@ -13,8 +13,9 @@ describe('Card (card.md)', () => {
     expect(list).toEqual(
       expect.arrayContaining(['bg-card', 'border', 'border-border', 'rounded-lg']),
     );
+    // the sample tag is the portfolio overview's plate, not part of the card's face
     for (const node of Object.values(card))
-      for (const el of all(render(node)))
+      for (const el of all(render(node), (e) => !ui('sample-tag')(e)))
         expect(classes(el).join(' ')).not.toMatch(
           /shadow|rounded-(md|xl|2xl|full|none)\b|backdrop|\b(bg|border)-[a-z0-9-]+\/\d+/,
         );
@@ -55,12 +56,22 @@ describe('Card (card.md)', () => {
     const { tree, card: c } = root(card.mock);
     const tag = one(tree, ui('sample-tag'));
     expect(text(tag)).toBe('Sample figures');
-    // a tag: 6px corners, a hairline, caption size, the muted sample ink; nothing in honey or a status hue
+    // drawn as the portfolio overview's plate for figures that are not live (OverviewPage's
+    // `board-plate`): a pill on the honey tint with a honey edge, ink text at caption size; no status hue
     expect(classes(tag)).toEqual(
-      expect.arrayContaining(['rounded-sm', 'border', 'border-border', 'text-caption']),
+      expect.arrayContaining([
+        'rounded-full',
+        'border',
+        'border-primary/60',
+        'bg-honey-tint',
+        'px-2.5',
+        'py-0.5',
+        'text-caption',
+        'font-medium',
+        'text-foreground',
+      ]),
     );
-    expect(classes(tag)).toContain('text-sample-foreground');
-    expect(classes(tag).join(' ')).not.toMatch(/honey|primary|status|leaf|clay|madder/);
+    expect(classes(tag).join(' ')).not.toMatch(/status|leaf|clay|madder/);
     // in the header's row, at its right, after the meta
     const header = one(tree, ui('card-header'));
     expect(all(header, ui('sample-tag'))).toHaveLength(1);

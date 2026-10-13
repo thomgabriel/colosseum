@@ -1547,7 +1547,9 @@ export const en = {
       privacy:
         'Only these reviewed targets, the name and the description become public. Your vault conversation stays private.',
       holdings: 'Tokens held now · separate from target weights',
-      strategySource: (source: string) => `Targets read from ${source}.`,
+      strategySource: (chain: string) => `Targets read from your vault on ${chain}.`,
+      /** The vault was read from the sample chain, not from a network. */
+      strategySample: 'Targets read from your vault on the sample chain.',
       strategyChanged:
         'The vault’s targets changed. The latest are now shown. Review them before publishing again.',
       sourceProblems: {
