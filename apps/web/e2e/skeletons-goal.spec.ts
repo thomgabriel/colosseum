@@ -69,7 +69,8 @@ for (const width of WIDTHS) {
       const tagLine = await page
         .locator('[data-ui="goal-strategy"] [data-ui="sample-tag-row"]')
         .evaluate(
-          (row) => row.offsetHeight + Number.parseFloat(getComputedStyle(row).marginBottom),
+          (row: HTMLElement) =>
+            row.offsetHeight + Number.parseFloat(getComputedStyle(row).marginBottom),
         );
       expect.soft([drawn.x, drawn.width], 'the card').toEqual([card.x, card.width]);
       if (width >= 768) {
