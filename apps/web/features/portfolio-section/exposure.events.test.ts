@@ -354,7 +354,7 @@ describe('the exposure page, for a person who holds on two chains', () => {
     const host = await page();
     const robinhood = block(host, 'robinhood');
     expect(part(robinhood, 'sample-tag')).toBe(t.shell.mockAnnounce);
-    expect(robinhood.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
+    expect(robinhood.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
     expect(robinhood.querySelector('[data-ui="shares"][data-by="issuer"]')).toBeNull();
     expect(part(robinhood, 'issuer-stand-ins')).toBe(
       'On our sample chain every issuer and tier is a stand-in, so there is no split by issuer to show.',

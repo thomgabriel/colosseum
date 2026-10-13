@@ -36,7 +36,7 @@ export function StepCard<Id extends string>({
   steps: readonly StepDef<Id>[];
   open: Id;
   onOpen: (step: Id) => void;
-  /** On the mock: the card's hatch band and its one quiet line at the foot (MOCK-QUIET). A card labelled
+  /** On the mock: the card's sample tag in its top-right corner (MOCK-QUIET). A card labelled
    * so draws its steps inside another element, so a caller keeps this steady while it reads: a label
    * that came and went would make every step again and drop the focus.
    */

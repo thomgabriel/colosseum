@@ -633,7 +633,7 @@ export function Showcase() {
       <Section
         spec="mock-plate.md"
         title="Sample mark"
-        note="Sample is never shown as live, and never by a boxed word: a hatched glyph named for a screen reader, and one quiet tag per card. Text never sits on the hatch."
+        note="Sample is never shown as live, and never by the word MOCK: a hatched glyph named for a screen reader, and one tag per card that holds figures. Text never sits on the hatch."
       >
         <Specimen state="inline: after a figure and its hatched pin">
           <p className="text-h4 font-medium">

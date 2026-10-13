@@ -488,7 +488,7 @@ export function InvestCard({
     <Card
       as="section"
       aria-label={t.invest.label}
-      // On the mock: the hatch band and its one quiet line at the card's foot (MOCK-QUIET).
+      // On the mock: the card's sample tag in its top-right corner (MOCK-QUIET).
       mock={sample}
       mockLabels={{ announce: t.shell.mockAnnounce }}
       className="max-w-3xl"

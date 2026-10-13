@@ -153,7 +153,7 @@ describe('the numbers', () => {
     expect(strip.hasAttribute('data-sample')).toBe(true);
     expect(strip.querySelectorAll('dt')).toHaveLength(3);
     expect(strip.querySelectorAll('[data-ui="pin-glyph"][data-state="mock"]')).toHaveLength(3);
-    expect(strip.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
+    expect(strip.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
     expect(find(strip, '[data-ui="sample-tag"]').textContent).toBe(en.shell.mockAnnounce);
     // the word MOCK never shows (MOCK-QUIET)
     expect(host.textContent).not.toContain('MOCK');

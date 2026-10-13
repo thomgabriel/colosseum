@@ -488,7 +488,7 @@ describe('the figures of the rebalancing page', () => {
       [RH_SILENT, t.shell.mockAnnounce],
     ] as const) {
       const g = group(host, vault);
-      expect(g.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
+      expect(g.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
       expect(part(g, 'sample-tag')).toBe(line);
     }
     expect(text(host)).not.toContain('MOCK');

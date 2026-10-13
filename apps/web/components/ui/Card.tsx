@@ -11,6 +11,12 @@ import { LatticeGlyph, LatticeStatus } from './Lattice';
 export type CardDensity = 'default' | 'dense';
 
 const PAD: Record<CardDensity, string> = { default: 'p-6', dense: 'p-4' };
+// The line of a sample card's tag when no header holds it: tucked into the top padding of what
+// follows, so the tag adds a line, not a band.
+const TAG_LINE: Record<CardDensity, string> = {
+  default: 'flex justify-end -mb-3 px-6 pt-4',
+  dense: 'flex justify-end -mb-2 px-4 pt-3',
+};
 
 export type CardProps = {
   density?: CardDensity;
@@ -83,19 +89,24 @@ export function Card({
       )}
     >
       {sample !== undefined && header === null && (
-        // tucked into the top padding of what follows, so the tag adds a line, not a band
-        <div
-          data-ui="sample-tag-row"
-          className={cn(
-            'flex justify-end',
-            density === 'dense' ? '-mb-2 px-4 pt-3' : '-mb-3 px-6 pt-4',
-          )}
-        >
+        <div data-ui="sample-tag-row" className={TAG_LINE[density]}>
           <SampleTag label={sample} />
         </div>
       )}
       {header ? [cloneElement(header, { sample }), ...rest] : children}
     </Tag>
+  );
+}
+
+/**
+ * The room a sample card's tag line takes, for an outline drawn before the card it stands for (the
+ * draft on /goal), so nothing moves when the card lands. It holds no words and is not read.
+ */
+export function CardSampleRoom({ density = 'default' }: { density?: CardDensity }) {
+  return (
+    <div aria-hidden="true" data-ui="sample-tag-room" className={TAG_LINE[density]}>
+      <SampleTag room />
+    </div>
   );
 }
 
@@ -128,7 +139,13 @@ export function CardHeader({
   return (
     <div
       data-ui="card-header"
-      className={cn('flex items-baseline justify-between gap-4', PAD[density], className)}
+      className={cn(
+        'flex items-baseline justify-between gap-4',
+        // with a sample tag, what sits at the right goes under the title when both do not fit
+        sample !== undefined && 'flex-wrap gap-y-2',
+        PAD[density],
+        className,
+      )}
     >
       <Heading
         id={id}
@@ -145,7 +162,7 @@ export function CardHeader({
       {sample === undefined ? (
         meta && <div className="shrink-0 text-caption text-muted-foreground">{meta}</div>
       ) : (
-        <div className="flex shrink-0 items-baseline gap-2">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           {meta && <div className="text-caption text-muted-foreground">{meta}</div>}
           <SampleTag label={sample} />
         </div>

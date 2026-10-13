@@ -22,7 +22,7 @@ import { displayName } from './plain';
 // the yield with its pin where the holding has one), with the reason behind a fold. The caller's
 // chart. The way out as a meter per tier, with the cost and its pin, and "not measured yet" said once.
 // Then the caller's details and its invest step. Nothing here is worked out: every figure is handed
-// in. Anything not live is hatched and says so once. Motion is one short settle, and none where the
+// in. Anything not live says so once, in the card's sample tag. Motion is one short settle, and none where the
 // person asks for less.
 
 export type PlanViewHolding = {
@@ -72,7 +72,7 @@ export type PlanViewProps = {
   /** The answer in one line. A figure in it carries its own pin. */
   answer: ReactNode;
   chain: ChainId;
-  /** How the figures are run: anything but `live` hatches the card and says so in one quiet line. */
+  /** How the figures are run: anything but `live` gives the card its sample tag. */
   provenance: Provenance;
   /** An income plan may hold no stock. Kept for the callers that say it; nothing is drawn from it. */
   profile?: 'income';
@@ -200,7 +200,7 @@ export function PlanView({
           announce: provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
         }}
       >
-        {/* The head, then the rest; a sample card says so once at its foot. */}
+        {/* The head, then the rest; a sample card says so once, in its tag. */}
         <div className="px-6 pt-6">
           <Title id={paneId} className="text-[1.125rem]/7 font-medium">
             {title}

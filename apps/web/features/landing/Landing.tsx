@@ -70,8 +70,8 @@ export function Landing({
             </div>
           </div>
         </section>
-        {/* A sample or test-network strip is a card marked as one (MOCK-QUIET): the hatch down its
-            edge and one quiet line at its foot, drawn by the primitive. Edge to edge under the hero. */}
+        {/* A sample or test-network strip is a card marked as one (MOCK-QUIET): its sample tag at the
+            top right, drawn by the primitive. Edge to edge under the hero. */}
         <div data-ui="landing-stats" data-sample={marked ? '' : undefined}>
           <Card
             as="section"

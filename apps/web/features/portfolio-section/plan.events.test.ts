@@ -276,7 +276,7 @@ describe('a plan’s page, for a plan made to measure with two deposits', () => 
     // a test network: the one quiet tag
     const card = head.closest('[data-ui="card"]') as Element;
     expect(card.getAttribute('aria-label')).toBe(en.plan.head.label);
-    expect(card.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
+    expect(card.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
     expect(part(card, 'sample-tag')).toBe(t.shell.testNetworkLine);
   });
 

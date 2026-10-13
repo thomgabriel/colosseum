@@ -77,12 +77,22 @@ export function SampleNote({
  * Thom, Oct 13). Drawn as the portfolio overview's own plate for figures that are not live
  * (`board-plate` in OverviewPage.tsx), the house style. Its words are its screen-reader name.
  */
-export function SampleTag({ label, className }: { label?: string; className?: string }) {
+export function SampleTag({
+  label,
+  room = false,
+  className,
+}: {
+  label?: string;
+  /** Its room only, unseen and unread: for an outline drawn before the card it stands for. */
+  room?: boolean;
+  className?: string;
+}) {
   return (
     <span
-      data-ui="sample-tag"
+      {...(room ? { 'aria-hidden': true } : { 'data-ui': 'sample-tag' })}
       className={cn(
         'inline-flex shrink-0 items-center rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 font-sans text-caption font-medium whitespace-nowrap text-foreground',
+        room && 'invisible',
         className,
       )}
     >
