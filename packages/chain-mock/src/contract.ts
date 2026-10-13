@@ -614,6 +614,26 @@ group('builds', {
     expect(delta(tx, 'vault', c.cash.id)).toBe(BigInt(c.f.depositRaw));
   },
 
+  'a create with no deposit moves nothing': async (c) => {
+    // Where the chain needs an approval, a first deposit opens the vault empty and approves it after
+    // (gate CREATE-BEFORE-APPROVE). Solana's create can be empty too: its deposit instruction is left
+    // out, though the app's Solana buy always opens with the cash.
+    const tx = await c.a.buildCreateVault({
+      owner: c.f.owner,
+      basketId: c.f.freshBasketId,
+      targets: c.targets,
+      autoFollow: false,
+      slippageBps: 100,
+    });
+    checkTx(c, tx, 'create_vault', c.f.owner);
+    expect(delta(tx, 'wallet', c.cash.id)).toBe(0n);
+    expect(delta(tx, 'vault', c.cash.id)).toBe(0n);
+    expect(tx.preview.changes.filter((x) => x.deltaRaw !== '0')).toEqual([]);
+    expect(tx.preview.minimums).toEqual([]);
+    // No trade, so nothing it has to land by.
+    if (chainFamily(c.a.chain) === 'evm') expect(tx.lastValidBlockHeight).toBeUndefined();
+  },
+
   'opens a vault that follows a recipe at the version the person saw, and no other': async (c) => {
     const args = {
       owner: c.f.owner,
