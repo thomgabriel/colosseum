@@ -24,6 +24,9 @@
 // for Solana's registry, lending history and Step 5b; Solana calls go through SOLANA_RPC_URL (run with
 // DOTENV_CONFIG_PATH pointing at the main checkout's .env; this file never reads it).
 import 'dotenv/config';
+// the backfill's own endpoints, set before any module below reads the RPC from the env (a side-effect
+// import, which the import sorter does not move)
+import './backfill-env';
 import {
   appendFileSync,
   existsSync,
@@ -73,6 +76,7 @@ import { requestKey, rpcOver } from '../../risk-evm/replay';
 import { createRpc, type Rpc, type RpcReply } from '../../risk-evm/rpc';
 import { latestRegistryFile, type RegistryPool } from '../lib-history';
 import { rpcStats, rpc as solRpc } from '../lib-pools';
+import { BACKFILL_ENDPOINTS, KEEP_QUIET_MINUTES } from './backfill-env';
 import {
   CHART_SPAN_DAYS,
   coinKey,
@@ -247,6 +251,7 @@ const evmDeps = (): Deps => {
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     now: () => new Date(),
     log,
+    quietMinutes: KEEP_QUIET_MINUTES,
   };
 };
 type ListRow = {
@@ -306,7 +311,7 @@ async function robinhoodLogs() {
   };
   const cls = classifyPools(creation.created, tokens);
   const resolver = new PoolResolver(robinhood, tokens, cls.classOf);
-  const label = rpcFor(robinhood).label;
+  const label = BACKFILL_ENDPOINTS.robinhood ?? rpcFor(robinhood).label;
   if (mode === 'count') {
     const h = await head(deps);
     const k = Number(opt('--strata') ?? 16);
@@ -508,7 +513,7 @@ async function chainlinkRounds() {
       seen.add(r.oracle.ref.toLowerCase());
       feeds.push({ feed: r.oracle.ref.toLowerCase(), symbol: r.symbol });
     }
-  const label = rpcFor(robinhood).label;
+  const label = BACKFILL_ENDPOINTS.robinhood ?? rpcFor(robinhood).label;
   const counted = await countRounds(deps, robinhood, feeds);
   recordExtra.feeds = feeds;
   if (opt('--feed')) recordExtra.feed = opt('--feed')?.toLowerCase();
@@ -901,9 +906,11 @@ async function solanaCount(kind: 'swaps' | 'mints') {
     chain: 'solana',
     countedAt: new Date().toISOString(),
     methodVersion: BACKFILL_METHOD_VERSION,
-    rpc: process.env.SOLANA_RPC_URL
-      ? 'SOLANA_RPC_URL (the risk scripts’ RPC)'
-      : 'the public mainnet-beta endpoint',
+    rpc: BACKFILL_ENDPOINTS.solana
+      ? 'SOLANA_BACKFILL_RPC_URL (the backfill’s own endpoint)'
+      : process.env.SOLANA_RPC_URL
+        ? 'SOLANA_RPC_URL (the risk scripts’ RPC)'
+        : 'the public mainnet-beta endpoint',
     registry: regFile,
     list:
       scoped?.list ??
@@ -1008,7 +1015,7 @@ async function solanaPieces(inp: {
       parallel: Number(opt('--parallel') ?? 32),
       ...(inp.perHour ? { perHour: inp.perHour } : {}),
       ...(before ? { startBefore: before } : {}),
-      source: `Solana RPC getSignaturesForAddress and getTransaction (${process.env.SOLANA_RPC_URL ? 'SOLANA_RPC_URL' : 'public'})${inp.p ? `, decoded by @colosseum/risk's ${inp.p.venue} decoder` : ''}`,
+      source: `Solana RPC getSignaturesForAddress and getTransaction (${BACKFILL_ENDPOINTS.solana ?? (process.env.SOLANA_RPC_URL ? 'SOLANA_RPC_URL' : 'public')})${inp.p ? `, decoded by @colosseum/risk's ${inp.p.venue} decoder` : ''}`,
       now: () => new Date(),
     });
     before = r.lastSignature ?? before;

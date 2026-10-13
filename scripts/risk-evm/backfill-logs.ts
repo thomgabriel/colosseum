@@ -184,6 +184,8 @@ export type Deps = {
   sleep: (ms: number) => Promise<unknown>;
   now: () => Date;
   log: (e: Record<string, unknown>) => void;
+  /** False on an endpoint the live loop does not share: its minutes 1 to 14 are not waited out. */
+  quietMinutes?: boolean;
 };
 /** The longest a request may take; less when the loop's minutes are closer. */
 export const MAX_REQUEST_MS = 120_000;
@@ -199,7 +201,10 @@ export async function ask(
 ): Promise<RpcReply> {
   for (let attempt = 0; ; attempt++) {
     // checked before every try: the first and each retry after a wait
-    const slot = requestSlot(deps.now(), MAX_REQUEST_MS);
+    const slot =
+      deps.quietMinutes === false
+        ? { waitMs: 0, timeoutMs: MAX_REQUEST_MS }
+        : requestSlot(deps.now(), MAX_REQUEST_MS);
     if (slot.waitMs > 0) {
       deps.log({ event: 'quiet', waitS: Math.round(slot.waitMs / 1000) });
       await deps.sleep(slot.waitMs);
