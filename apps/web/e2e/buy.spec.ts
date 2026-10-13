@@ -435,7 +435,9 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await page.getByRole('button', { name: w.steps.next }).click();
     await expect(page.locator('[data-ui="withdraw-dollars"] tbody tr:visible')).toHaveCount(3);
     await expect(page.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
-    await expect(page.getByText(emptied ? w.check.emptied : d.stays)).toBeVisible();
+    // all of it: no promise of an empty vault, since what can't be sold now and dust stay
+    await expect(page.getByText(emptied ? d.emptied : d.stays)).toBeVisible();
+    await expect(page.getByText(w.check.emptied)).toHaveCount(0);
     await expect(page.locator('[data-ui="withdraw-not-sold"]:visible')).toHaveText(d.notSold);
     await check(page, emptied ? 'withdraw-dollars-all' : 'withdraw-dollars-share');
     await page.getByLabel(d.confirm).check();
