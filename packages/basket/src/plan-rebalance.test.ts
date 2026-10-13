@@ -576,6 +576,57 @@ const plan = (w: World) => planRebalance(w.v, w.targets, w.prices, w.policy, w.a
 const large = (w: World) => model(w).total() >= 1000n * 10n ** 36n;
 
 // Generated cases take a second or two alone and several when the machine is busy.
+describe('planRebalance, a vault that just followed a shared portfolio (Thom, Oct 13)', () => {
+  // The vault as its page showed it: jlUSDC 37,702.63444 at $1.06, syrupUSDC 16,888.138676 at $1.19,
+  // no PAXG at $4,153.51, $20,050 of cash; the followed targets are 50%, 30%, 20%, and no cash.
+  const LIST = [
+    USDC,
+    asset('solana:jlusdc', { decimals: 6 }),
+    asset('solana:syrupusdc', { decimals: 6 }),
+    asset('solana:paxg', { decimals: 9 }),
+  ];
+  const AT = [
+    price('solana:jlusdc', '1.06'),
+    price('solana:syrupusdc', '1.19'),
+    price('solana:paxg', '4153.51'),
+  ];
+  const followed = targets({ jlusdc: 5000, syrupusdc: 3000, paxg: 2000 });
+  const held = vault('20050000000', {
+    'solana:jlusdc': ['37702634440', 5000],
+    'solana:syrupusdc': ['16888138676', 3000],
+    'solana:paxg': ['0', 2000],
+  });
+  // $39,964.79 + $20,096.89 + $20,050 of cash.
+  const total = 80_111.68;
+
+  it('spends the idle cash on what is under its target, and sells nothing', () => {
+    const plan = planRebalance(held, followed, AT, { bandBps: 0, minTradeUsd: 1 }, LIST);
+    expect(plan.every((t) => t.sell === CASH)).toBe(true);
+    const spent = Object.fromEntries(plan.map((t) => [t.buy, Number(t.amountInRaw) / 1e6]));
+    // PAXG from nothing to 20%, syrupUSDC from 25% to 30%, and the hair jlUSDC is under 50%.
+    expect(spent['solana:paxg']).toBeCloseTo(total * 0.2, 0);
+    expect(spent['solana:syrupusdc']).toBeCloseTo(total * 0.3 - 20_096.89, 0);
+    expect(spent['solana:jlusdc']).toBeCloseTo(total * 0.5 - 39_964.79, 0);
+    const all = plan.reduce((n, t) => n + BigInt(t.amountInRaw), 0n);
+    expect(all <= 20_050_000_000n && all >= 20_049_000_000n).toBe(true);
+    // the largest first, as a batch is sent
+    expect(plan.map((t) => t.buy)).toEqual(['solana:paxg', 'solana:syrupusdc', 'solana:jlusdc']);
+  });
+
+  it("with the order's slippage as its cost, still has the cash for every purchase", () => {
+    const plan = planRebalance(
+      held,
+      followed,
+      AT,
+      { bandBps: 0, minTradeUsd: 1, costBps: 100 },
+      LIST,
+    );
+    expect(plan.every((t) => t.sell === CASH)).toBe(true);
+    expect(plan.reduce((n, t) => n + BigInt(t.amountInRaw), 0n) <= 20_050_000_000n).toBe(true);
+    expect(plan.map((t) => t.buy)).toContain('solana:paxg');
+  });
+});
+
 describe('planRebalance, on generated vaults', { timeout: 60_000 }, () => {
   it('never trades away from a target and never past one, and always has the cash', () => {
     let traded = 0;

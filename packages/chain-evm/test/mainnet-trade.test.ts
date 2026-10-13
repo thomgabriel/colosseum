@@ -143,7 +143,7 @@ describe.skipIf(!FORK_URL)("an owner's trade, held to the feed, on a copy of mai
     const over = await refusal(() =>
       w.adapter.quote(buy(GLD, BigInt(MAX_TRADE_USD.gld) + 1n), ACCOUNTS.owner),
     );
-    expect(over.code).toBe('BadTrade');
+    expect(over.code).toBe('TradeOverAssetLimit');
     expect(over.message).toMatch(/GLD in one go is more than its pool is trusted to fill/);
     expect(over.message).toMatch(/at most \$1,000 at a time/);
     // At the limit it is quoted.
@@ -173,7 +173,7 @@ describe.skipIf(!FORK_URL)("an owner's trade, held to the feed, on a copy of mai
         slippageBps: 100,
       }),
     );
-    expect(twice.code).toBe('BadTrade');
+    expect(twice.code).toBe('TradeOverAssetLimit');
     expect(twice.message).toMatch(/\$1,200 of GLD/);
 
     // A sale is measured by the feed: 4 GLD is about $1,500 whatever the pool would pay for it.
@@ -183,7 +183,7 @@ describe.skipIf(!FORK_URL)("an owner's trade, held to the feed, on a copy of mai
         ACCOUNTS.owner,
       ),
     );
-    expect(sale.code).toBe('BadTrade');
+    expect(sale.code).toBe('TradeOverAssetLimit');
     expect(sale.message).toMatch(/at most \$1,000 at a time/);
   });
 
@@ -407,7 +407,7 @@ describe.skipIf(!FORK_URL)(
       const over = await refusal(() =>
         w.adapter.quote(buy(NVDA, BigInt(MAX_TRADE_USD_NOT_LIVE) + 1n), ACCOUNTS.owner),
       );
-      expect(over.code).toBe('BadTrade');
+      expect(over.code).toBe('TradeOverClosedLimit');
       expect(over.message).toMatch(
         /^\$20,001 of NVDA in one go is more than is traded while NVDA('s market is closed| has no live reference price): at most \$20,000 at a time/,
       );
@@ -482,7 +482,7 @@ describe.skipIf(!FORK_URL)(
     it('the size limit holds while the feed is stale: the smaller one', async () => {
       const w = await start();
       const over = await refusal(() => w.adapter.quote(buy(NVDA, 20_001n), ACCOUNTS.owner));
-      expect(over.code).toBe('BadTrade');
+      expect(over.code).toBe('TradeOverClosedLimit');
       expect(over.message).toMatch(/at most \$20,000 at a time/);
     });
 

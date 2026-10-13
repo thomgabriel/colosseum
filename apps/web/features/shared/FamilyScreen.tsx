@@ -39,6 +39,7 @@ import { unpriced, holdingsOf as vaultHoldingsOf } from '../portfolio/portfolio'
 import { goalOfVault } from '../portfolio/vault-goal';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { type ChainCheck, familyIdFor, isVaultOf, useChainRecipe } from './chain-recipe';
+import { FollowQuote } from './FollowQuote';
 import { HoldingsBar } from './HoldingsBar';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, kindShares } from './product-figures';
@@ -1039,8 +1040,19 @@ function VaultsPanel({
                 {v.reviewTarget(nameOf(selected), family.name, followed.follow.version)}
               </p>
               <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-                {v.followNote}
+                {keep(selected) ? v.followNoteKeeper : v.followNote}
               </p>
+              {/* what following would trade, quoted now: our keeper's to make where auto-follow stays on */}
+              {!keep(selected) && (
+                <FollowQuote
+                  key={`${selected.address}:${followed.follow.version}`}
+                  chain={person.chain}
+                  mock={person.mock}
+                  address={selected.address}
+                  slug={family.slug}
+                  version={followed.follow.version}
+                />
+              )}
               <Button
                 variant="secondary"
                 disabled={busy !== null}

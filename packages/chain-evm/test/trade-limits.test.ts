@@ -271,7 +271,7 @@ describe('a stale feed: the last hour of the pool stands in, inside a rail', () 
       amountIn: 1_001n * USD,
       amountInSoFar: 1_001n * USD,
     });
-    expect(refusalOf(() => holdTrade(WEEKEND, GLD_AT, big)).code).toBe('BadTrade');
+    expect(refusalOf(() => holdTrade(WEEKEND, GLD_AT, big)).code).toBe('TradeOverAssetLimit');
   });
 });
 
@@ -390,7 +390,7 @@ describe('a feed is the witness only while it is live', () => {
     // Not live: $20,000 passes, a dollar more does not, and the person is told which limit it is.
     expect(holdTrade(limits, NVDA_AT, of(20_000n, sixHours))).not.toBeNull();
     const refused = refusalOf(() => holdTrade(limits, NVDA_AT, of(20_001n, sixHours)));
-    expect(refused.code).toBe('BadTrade');
+    expect(refused.code).toBe('TradeOverClosedLimit');
     expect(refused.message).toBe(
       "$20,001 of NVDA in one go is more than is traded while NVDA's market is closed: at most $20,000 at a time. Trade less, or in parts",
     );
@@ -445,7 +445,7 @@ describe("the asset's largest trade", () => {
   it('passes a trade at the limit and refuses a dollar more, with the limit named', () => {
     expect(holdTrade(LIMITS, GLD_AT, big(1_000n))).not.toBeNull();
     const over = refusalOf(() => holdTrade(LIMITS, GLD_AT, big(1_001n)));
-    expect(over.code).toBe('BadTrade');
+    expect(over.code).toBe('TradeOverAssetLimit');
     expect(over.message).toBe(
       '$1,001 of GLD in one go is more than its pool is trusted to fill: at most $1,000 at a time. Trade less, or in parts',
     );
@@ -460,14 +460,14 @@ describe("the asset's largest trade", () => {
     // Three tokens are $1,200 at the feed, though this pool would pay $600 for them.
     const cheap = sellOf(600n * USD, { amountIn: 3n * ONE, amountInSoFar: 3n * ONE });
     const refused = refusalOf(() => holdTrade(LIMITS, GLD_AT, cheap));
-    expect(refused.code).toBe('BadTrade');
+    expect(refused.code).toBe('TradeOverAssetLimit');
     expect(refused.message).toMatch(/\$1,200 of GLD/);
   });
 
   it('holds a network that checks no feed by the cash side', () => {
     const sized: TradeLimits = { priceBoundBps: null, maxTradeUsd: { [GLD_AT]: 1_000 } };
     expect(holdTrade(sized, GLD_AT, big(1_000n))).toBeNull();
-    expect(refusalOf(() => holdTrade(sized, GLD_AT, big(1_001n))).code).toBe('BadTrade');
+    expect(refusalOf(() => holdTrade(sized, GLD_AT, big(1_001n))).code).toBe('TradeOverAssetLimit');
     const sale = sellOf(1_100n * USD, { amountIn: 3n * ONE, amountInSoFar: 3n * ONE, price: null });
     expect(refusalOf(() => holdTrade(sized, GLD_AT, sale)).message).toMatch(/\$1,100 of GLD/);
   });
@@ -479,7 +479,7 @@ describe("the asset's largest trade", () => {
     expect(
       refusalOf(() => holdTrade(LIMITS, GLD_AT.toUpperCase().replace('0X', '0x'), big(2_000n)))
         .code,
-    ).toBe('BadTrade');
+    ).toBe('TradeOverAssetLimit');
   });
 });
 

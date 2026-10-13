@@ -479,6 +479,7 @@ export const pt: Dictionary = {
     order: (when: string) => `Ordem · ${when}`,
     follow: (when: string) => `Seguir um portfólio compartilhado · ${when}`,
     withdraw: (when: string) => `Saque · ${when}`,
+    rebalance: (when: string) => `Rebalanceamento para as metas do cofre · ${when}`,
     publish: (when: string) => `Publicar um portfólio · ${when}`,
     noneVault:
       'Nada dos seus depósitos chegou à rede ainda. As operações do agente, e as ordens sobre um portfólio compartilhado feitas em outro navegador, ainda não aparecem aqui.',
@@ -1297,7 +1298,34 @@ export const pt: Dictionary = {
       reviewTarget: (vault: string, portfolio: string, version: number) =>
         `“${vault}” seguirá ${portfolio}, versão ${version}. Revise a mudança antes de assinar.`,
       followNote:
-        'Seu cofre assume os pesos deste portfólio. Nada é negociado nesse passo: você rebalanceia depois, ou o operador faz isso com o seguir automático ativado.',
+        'O primeiro passo dá ao seu cofre os pesos deste portfólio como metas. As trocas abaixo levam o que ele guarda até elas: assinado o seguir, você rebalanceia com um toque e assina cada troca.',
+      followNoteKeeper:
+        'O primeiro passo dá ao seu cofre os pesos deste portfólio como metas. O seguir automático está ativado, então nosso operador troca o que ele guarda até elas.',
+      quote: {
+        title: 'O que seguir negocia',
+        lead: 'Uma cotação, feita agora. As trocas são planejadas e cotadas de novo quando você rebalanceia, e cada uma é assinada com o mínimo mostrado nessa hora.',
+        reading: 'Cotando as trocas…',
+        sell: (amount: string, asset: string) => `Vender ${amount} de ${asset} por caixa`,
+        into: (amount: string, asset: string) => `Trocar ${amount} de caixa por ${asset}`,
+        sellPlain: (asset: string) => `Vender ${asset} por caixa`,
+        intoPlain: (asset: string) => `Trocar caixa por ${asset}`,
+        worth: 'Vale',
+        receive: 'Cotado para render',
+        minimum: 'No mínimo',
+        cost: 'Custo cotado',
+        costOf: (bps: string, usd: string) => `${bps} bps, cerca de ${usd}`,
+        total: 'Custo cotado de todas as trocas',
+        slippage: (bps: string) =>
+          `Cada mínimo é a cotação menos ${bps} bps. Uma troca que renderia menos não é feita.`,
+        holdings: 'Seu cofre antes e depois',
+        columns: { asset: 'Ativo', before: 'Agora', after: 'Depois', target: 'Meta' },
+        cash: 'Caixa',
+        onTarget: 'Seu cofre já guarda estes pesos, então seguir não negocia nada.',
+        unavailable: (reason: string) =>
+          `As trocas não podem ser cotadas agora: ${reason}. Você ainda pode seguir, e rebalancear na página do cofre quando elas puderem ser feitas.`,
+        failed:
+          'Não consegui cotar as trocas: nosso servidor não respondeu. Você ainda pode revisar o seguir.',
+      },
       autoOn: 'Ativar o seguir automático',
       autoOff: 'Desativar o seguir automático',
       autoIs: (on: boolean): string =>
@@ -1484,6 +1512,43 @@ export const pt: Dictionary = {
         deposit: 'Depositar',
         more: 'Mais',
         editWeights: 'Editar pesos à mão',
+        rebalance: 'Rebalancear',
+        offTarget:
+          'O que este cofre guarda está fora das metas, e nada o negocia por você. Rebalancear troca até elas: você vê cada troca com o mínimo que ela pode render, e assina cada passo aqui.',
+        rebalancing: {
+          preparing: 'Calculando as trocas…',
+          onTarget: 'Este cofre está nas metas. Não há nada a negociar.',
+          keeper:
+            'O seguir automático está ativado, então nosso operador rebalanceia este cofre. Desative o seguir automático para rebalancear você mesmo.',
+          noTargets: 'Este cofre ainda não tem metas. Diga na conversa o que ele deve guardar.',
+          notYours: 'Este cofre não é seu, então não consigo rebalanceá-lo.',
+          readOnly: 'Esta rede só lê por enquanto, então nenhuma ordem pode ser feita.',
+          cannot: (why: string) => `Não consigo rebalancear agora: ${why}.`,
+          why: {
+            tooLarge: (asset: string, chain: string) =>
+              `precisa de uma troca de ${asset} acima do limite de ${chain}`,
+            waitsForOpen: (asset: string) =>
+              `o mercado de ${asset} está fechado; trocas deste tamanho esperam a abertura`,
+            overLimit: 'negociaria mais do que uma ordem pode mover',
+            priceBound: (asset: string) =>
+              `o pool de ${asset} está longe demais do preço de referência`,
+            priceStale: 'um preço de referência não está atualizado, talvez com o mercado fechado',
+            priceDeviation: 'um pool está longe demais do preço de referência',
+            targetsChanged: 'as metas do cofre mudaram desde que a ordem foi feita',
+            pastTarget: 'o cofre mudou desde que a ordem foi feita',
+            noPrice: (assets: string) => `${assets} não tem preço em que o cofre possa negociar`,
+            keeper: 'o seguir automático está ativado, então nosso operador faz as trocas',
+            noTargets: 'o cofre não tem metas',
+            other: 'a rede recusou uma das trocas',
+          },
+          unreachable: 'Não consegui fazer a ordem: nosso servidor não respondeu. Tente de novo.',
+          noStore: 'Não consegui guardar a ordem neste navegador, então não a abri.',
+          again: 'Tentar de novo',
+          reviewTitle: 'Para onde este rebalanceamento negocia',
+          reviewNote:
+            'Estas são as metas que seu cofre tem agora. Cada passo é uma troca com seu mínimo. As metas, e o que o cofre segue, ficam como estão.',
+          cash: (share: string) => `O resto fica em caixa: ${share}.`,
+        },
         holdings: 'O que ele guarda',
         others: (count: number) => `${count} outros`,
         against: (difference: string) => `${difference} em relação ao plano`,
@@ -1540,6 +1605,14 @@ export const pt: Dictionary = {
               'Você aprovou este saque antes de esta página ser aberta de novo. Os passos estão onde estavam.',
             stopped: 'Este saque parou, e a ordem dele está guardada.',
           },
+          rebalance: {
+            title: 'Rebalancear seu cofre',
+            signTitle: 'Assine seu rebalanceamento',
+            lead: 'Os passos trocam o que seu cofre guarda para chegar às metas. Nada mais muda no cofre. Você assina cada passo aqui.',
+            resumed:
+              'Você aprovou este rebalanceamento antes de esta página ser aberta de novo. Os passos estão onde estavam.',
+            stopped: 'Este rebalanceamento parou, e a ordem dele está guardada.',
+          },
           change: {
             title: 'Editar pesos à mão',
             signTitle: 'Assine a mudança no seu cofre',
@@ -1556,6 +1629,8 @@ export const pt: Dictionary = {
             'A conversa espera enquanto este saque está aberto. Termine, ou volte ao que você tem.',
           change:
             'A conversa espera enquanto esta mudança está aberta. Termine, ou volte ao que você tem.',
+          rebalance:
+            'A conversa espera enquanto este rebalanceamento está aberto. Termine, ou volte ao que você tem.',
           signing: 'A conversa espera enquanto os passos são assinados.',
           done: 'Volte ao seu cofre para continuar a conversa.',
         },
@@ -1850,6 +1925,10 @@ export const pt: Dictionary = {
         'Sua carteira só é chamada para assinar uma transação que publique exatamente este nome, esta descrição e estes pesos, com este identificador.',
       signPublish: 'Assinar e publicar',
       signFollow: 'Assinar e seguir',
+      signRebalance: 'Assinar e rebalancear',
+      followDone:
+        'Seu cofre segue o portfólio agora, e tem os pesos dele como metas. O que ele guarda ainda não foi negociado.',
+      followRebalance: 'Rebalancear este cofre',
       withdrawTitle: 'O que você saca',
       signWithdraw: 'Assinar e sacar',
       withdraws: (amount: string) => `${amount} para a sua própria carteira`,
