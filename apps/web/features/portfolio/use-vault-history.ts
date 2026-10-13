@@ -102,14 +102,7 @@ export function useVaultHistory(): VaultHistory {
       setDeposited(
         new Set(
           read.flatMap((answer) =>
-            answer.kind === 'read' &&
-            answer.order.legs.some(
-              (leg) =>
-                (leg.kind === 'create_vault' || leg.kind === 'deposit') &&
-                leg.status === 'confirmed',
-            )
-              ? [answer.order.id]
-              : [],
+            answer.kind === 'read' && depositLanded(answer.order) ? [answer.order.id] : [],
           ),
         ),
       );

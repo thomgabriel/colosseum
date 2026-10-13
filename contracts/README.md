@@ -208,7 +208,7 @@ On a mainnet the admin is a timelock a Safe proposes to, so what follows takes 4
 
 The admin key can replace the factory's logic. Through that it can reach two things a vault that exists is safe from: cash a person has approved to a vault not yet created, and tokens sent to that address in advance (`test_trust_theFactoryAdminReachesAVaultNotYetCreated_andNoVaultThatExists`). The beacon's key can replace every vault's code. So:
 
-- **Approve the exact amount, in the same step as the create.** The approval to `vaultOf(owner, planId)` and `createVaultAndBuy` go out together, the first for exactly `cashAmount`.
+- **Approve only a vault that exists, for the exact amount.** The app opens the vault with `createVault` first, then approves exactly the deposit, then deposits (gate `CREATE-BEFORE-APPROVE`, Oct 13): no cash is ever approved to an address the factory's logic could still decide. The signing client holds this whatever the API says: the guard refuses an order whose approval comes before its create or whose create takes the cash, and the executor builds no approval until its own node shows code at the vault's address (`ChainRead.hasCode`). `createVaultAndBuy` after an approval made in advance still works, and the app does not use it.
 - **Never send tokens to a vault's address before the vault exists.** Create it first.
 - **Never leave a standing allowance to a vault.** Each `deposit` gets its own approval for its own amount.
 - **Never create a vault through a shared helper contract.** The owner is `msg.sender` of the factory call: a helper that calls the factory owns the vault, for good.

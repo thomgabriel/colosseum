@@ -173,6 +173,19 @@ export function approvedSteps(
     const [approval] = approvals;
     if (approval && approval.seq > mover.seq)
       throw refuse('the approval comes after the step it is for', approval.id);
+    // Where the chain needs an approval, it names a vault that is there (gate CREATE-BEFORE-APPROVE):
+    // the vault is opened first, empty, and the cash goes in by a deposit after the approval. A create
+    // that takes the cash would have the cash approved to an address with no code yet.
+    if (approval)
+      for (const create of legs.filter((l) => l.kind === 'create_vault')) {
+        if (create === mover)
+          throw refuse(
+            'the vault is opened with the cash it was approved before it existed',
+            create.id,
+          );
+        if (approval.seq < create.seq)
+          throw refuse('the approval comes before the vault it names is opened', approval.id);
+      }
     for (const leg of legs) {
       const about = leg === mover || leg === approval;
       if (about ? leg.cashRaw !== depositRaw : leg.cashRaw !== undefined && leg.cashRaw !== '0')

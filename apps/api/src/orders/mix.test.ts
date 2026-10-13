@@ -556,7 +556,7 @@ describe('mixProposal: a stored plan the buy takes unchanged', () => {
 
   it.each([
     ['solana', ['create_vault', 'swap', 'swap']],
-    ['robinhood', ['approve', 'create_vault']],
+    ['robinhood', ['create_vault', 'approve', 'deposit']],
   ] as const)(
     'is bought by the existing buy on %s, into legs that buy exactly its targets',
     async (chain, kinds) => {

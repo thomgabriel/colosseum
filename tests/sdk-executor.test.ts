@@ -207,28 +207,39 @@ describe('the executor on the real order routes: a server that lies at one step'
   });
 
   const lies: [string, HomeChain, number, string, Parameters<typeof tampered>[1]][] = [
+    // Robinhood Chain: the vault opened empty, its approval, then the deposit that trades (gate
+    // CREATE-BEFORE-APPROVE).
     [
-      'an approval of another spender',
+      'a create that takes cash after all',
       'robinhood',
       0,
-      'spender',
-      (m) => {
-        m.op.a.spender = `0x${'66'.repeat(20)}`;
-      },
-    ],
-    [
-      'a create that deposits more',
-      'robinhood',
-      1,
       'amount',
       (m) => {
         m.op.a.depositRaw = '2000000000';
       },
     ],
     [
-      'a create with a lower minimum on its trades',
+      'an approval of another spender',
       'robinhood',
       1,
+      'spender',
+      (m) => {
+        m.op.a.spender = `0x${'66'.repeat(20)}`;
+      },
+    ],
+    [
+      'a deposit of more',
+      'robinhood',
+      2,
+      'amount',
+      (m) => {
+        m.op.a.amountRaw = '2000000000';
+      },
+    ],
+    [
+      'a deposit with a lower minimum on its trades',
+      'robinhood',
+      2,
       'minimum',
       (m) => {
         m.mins = m.mins.map(() => '1');

@@ -65,6 +65,8 @@ export function mockChainRead(w: MockWorld, asked: () => BasketTx[]): ChainRead 
   return {
     // The mock's transactions carry their lifetime in the mock's own clock, which `fate` reads.
     heightBefore: async () => 0,
+    // The mock has no code: a vault answers at its address once it is opened.
+    hasCode: async ({ address }) => (await w.adapter.getVault(address)) !== null,
     async fateOf({ owner, proof }) {
       if ('txId' in proof) {
         const { status } = await w.adapter.track(proof.txId);
