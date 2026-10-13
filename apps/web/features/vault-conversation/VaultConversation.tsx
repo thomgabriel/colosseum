@@ -551,77 +551,79 @@ export function VaultConversation({
             )}
           </section>
         )}
-        {current ?? (
-          <Card
-            as="section"
-            aria-labelledby={`${id}-held`}
-            mock={read.provenance !== 'live'}
-            mockLabels={{
-              announce:
-                read.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
-            }}
-          >
-            <CardHeader id={`${id}-held`} title={copy.current} />
-            <CardBody className="flex min-w-0 flex-col gap-4">
-              {showValue && (
-                <ProvenancePin
-                  value={dollars(language, read.vault.valueUsd)}
-                  obs={vaultValueSource(
-                    { ...read, vaults: [read.vault] },
-                    read.vault,
-                    t.portfolio.vault.valueMethod,
-                  )}
-                  labels={t.pin}
-                />
-              )}
-              {unpriced(read.vault) > 0 && (
-                <p className="text-caption text-muted-foreground">
-                  {t.portfolio.vault.unpriced(unpriced(read.vault))}
-                </p>
-              )}
-              {shares.length > 0 && (
-                <HoldingsBar
-                  shares={shares.map((row) => ({ key: row.asset, shareBps: row.weightBps }))}
-                />
-              )}
-              {rows.length === 0 ? (
-                <p>{copy.noHoldings}</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {rows.map((row) => (
-                    <li key={row.asset} className="flex min-w-0 items-center gap-2 text-body-sm">
-                      <AssetMark asset={row.asset} />
-                      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                        {displayName(row.asset, t.plan)}
-                      </span>
-                      <span className="shrink-0 tabular-nums">
-                        {row.valueUsd === null ? '—' : share(language, row.weightBps)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <details className="border-t border-border pt-4">
-                <summary className="cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                  {copy.targets}
-                </summary>
-                <div className="flex flex-col gap-2 pt-3">
-                  <p className="text-caption text-muted-foreground">{copy.targetsNote}</p>
-                  <ul className="flex flex-col gap-1 text-body-sm">
-                    {targets.map((row) => (
-                      <li key={row.asset} className="flex min-w-0 gap-2">
+        {/* a change under review has the pane to itself: one screen, one thing to read */}
+        {!(reply && applying === reply) &&
+          (current ?? (
+            <Card
+              as="section"
+              aria-labelledby={`${id}-held`}
+              mock={read.provenance !== 'live'}
+              mockLabels={{
+                announce:
+                  read.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
+              }}
+            >
+              <CardHeader id={`${id}-held`} title={copy.current} />
+              <CardBody className="flex min-w-0 flex-col gap-4">
+                {showValue && (
+                  <ProvenancePin
+                    value={dollars(language, read.vault.valueUsd)}
+                    obs={vaultValueSource(
+                      { ...read, vaults: [read.vault] },
+                      read.vault,
+                      t.portfolio.vault.valueMethod,
+                    )}
+                    labels={t.pin}
+                  />
+                )}
+                {unpriced(read.vault) > 0 && (
+                  <p className="text-caption text-muted-foreground">
+                    {t.portfolio.vault.unpriced(unpriced(read.vault))}
+                  </p>
+                )}
+                {shares.length > 0 && (
+                  <HoldingsBar
+                    shares={shares.map((row) => ({ key: row.asset, shareBps: row.weightBps }))}
+                  />
+                )}
+                {rows.length === 0 ? (
+                  <p>{copy.noHoldings}</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {rows.map((row) => (
+                      <li key={row.asset} className="flex min-w-0 items-center gap-2 text-body-sm">
+                        <AssetMark asset={row.asset} />
                         <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                           {displayName(row.asset, t.plan)}
                         </span>
-                        <span className="tabular-nums">{share(language, row.targetBps)}</span>
+                        <span className="shrink-0 tabular-nums">
+                          {row.valueUsd === null ? '—' : share(language, row.weightBps)}
+                        </span>
                       </li>
                     ))}
                   </ul>
-                </div>
-              </details>
-            </CardBody>
-          </Card>
-        )}
+                )}
+                <details className="border-t border-border pt-4">
+                  <summary className="cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                    {copy.targets}
+                  </summary>
+                  <div className="flex flex-col gap-2 pt-3">
+                    <p className="text-caption text-muted-foreground">{copy.targetsNote}</p>
+                    <ul className="flex flex-col gap-1 text-body-sm">
+                      {targets.map((row) => (
+                        <li key={row.asset} className="flex min-w-0 gap-2">
+                          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                            {displayName(row.asset, t.plan)}
+                          </span>
+                          <span className="tabular-nums">{share(language, row.targetBps)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </details>
+              </CardBody>
+            </Card>
+          ))}
         {aside}
       </div>
     </section>

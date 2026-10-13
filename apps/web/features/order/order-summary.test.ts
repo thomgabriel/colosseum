@@ -104,12 +104,12 @@ describe('what an order does, in one sentence', () => {
     );
   });
 
-  it('says a deposit first, and what of it is swapped', () => {
+  it('says where a deposit goes, the deposit itself being the screen’s large line', () => {
     expect(costSentence(orderOn('solana'), words)).toBe(
-      'Your $10 goes into your vault, and about $6 of it into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
+      'About $6 of cash goes into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
     );
     const cash = order([{ kind: 'deposit', cashRaw: '250000000' }], '250000000');
-    expect(costSentence(cash, words)).toBe('Your $250 goes into your vault as cash.');
+    expect(costSentence(cash, words)).toBe('Your $250 stays in your vault as cash.');
   });
 
   it('says so when nothing is swapped, and gives no worst case where no swap is quoted', () => {
@@ -272,9 +272,7 @@ describe('the picture of what changes', () => {
         ],
       },
     ]);
-    expect(costSentence(inKind, words)).toBe(
-      'To your own wallet: TSLAx and USDC. Nothing is sold.',
-    );
+    expect(costSentence(inKind, words)).toBe('Nothing is sold: the tokens themselves leave.');
     const inDollars = order([
       {
         trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }],

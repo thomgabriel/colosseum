@@ -1783,7 +1783,7 @@ describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
     const host = await screen();
     expect(stage(host)).toBe('review');
     expect(find(host, '[data-ui="sign-sentence"]').textContent).toBe(
-      'Your $10 goes into your vault, and about $6 of it into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
+      'About $6 of cash goes into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
     );
     // the large line, then where the deposit goes, as short rows with no table
     expect(find(host, '[data-ui="sign-hero"]').textContent).toBe(en.order.flow.hero.deposit('$10'));

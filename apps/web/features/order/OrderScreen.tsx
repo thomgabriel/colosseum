@@ -1027,7 +1027,9 @@ export function OrderScreen({
   );
 
   // Where the step stands, what the last answer said and what is kept: said in the step's own panel.
-  const statusBlock = (
+  const saysSomething =
+    (running && (phase !== null || stopping)) || (!running && done) || over || view !== null;
+  const statusBlock = saysSomething && (
     <div data-ui="order-status" className="flex flex-col gap-2">
       {running && phase && (
         // Where the step under way is: the strip and the panel say which step it is.

@@ -199,6 +199,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
   const f = r.t.order.flow;
   const legs = legsInOrder(order);
   const swaps = legs.filter((leg) => leg.kind === 'swap').length;
+  const withdraws = legs.filter((leg) => leg.kind === 'withdraw').length;
   const of = (assets: string[]) => listOf([...new Set(assets.map(r.symbol))], r.locale);
   let swap = 0;
   return legs.map((leg): StepWords => {
@@ -294,8 +295,11 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
         return plain(f.short.autoFollow, fallback, f.press.autoFollow);
       case 'withdraw': {
         const what = listOf(withdrawn(leg, r), r.locale);
+        // several are told apart by what each takes out: "SPY", "NVDA"
+        const name =
+          withdraws > 1 ? of((leg.withdrawals ?? []).map((w) => w.asset)) : f.short.withdraw;
         return {
-          ...plain(f.short.withdraw, f.title.withdraw(what), f.press.withdraw(what)),
+          ...plain(name, f.title.withdraw(what), f.press.withdraw(what)),
           hero: f.hero.arrow(capitalise(what, r.locale), f.hero.yourWallet),
         };
       }
@@ -487,18 +491,15 @@ export function costSentence(
   if (out.length > 0) {
     if (sells.length > 0) parts.push(brings ? s.sell(brings.shown, sold) : s.sellSome(sold));
     const receives = least?.leastRaw ? r.amount(least.leastRaw, least.asset) : null;
-    parts.push(
-      receives
-        ? s.receive(receives.shown)
-        : s.withdraw(listOf([...new Set(out.map((w) => r.symbol(w.asset)))], r.locale)),
-    );
+    parts.push(receives ? s.receive(receives.shown) : s.withdraw);
   } else if (deposit)
     parts.push(
+      // the screen's large line says the deposit: the sentence says where it goes
       spends.length === 0
         ? s.depositCash(deposit.shown)
         : spent
-          ? s.depositSwap(deposit.shown, spent.shown, into)
-          : s.depositInto(deposit.shown, into),
+          ? s.spend(spent.shown, into)
+          : s.spendSome(into),
     );
   else {
     if (sells.length > 0)

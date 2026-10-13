@@ -2055,18 +2055,14 @@ export const pt: Dictionary = {
         each: (pct: string) => `No pior caso cada troca fica ${pct} abaixo do preço de hoje.`,
       },
       sentence: {
-        depositCash: (amount: string) => `Seus ${amount} vão para o seu cofre como caixa.`,
-        depositSwap: (amount: string, spent: string, into: string) =>
-          `Seus ${amount} vão para o seu cofre, e cerca de ${spent} deles para ${into}.`,
-        depositInto: (amount: string, into: string) =>
-          `Seus ${amount} vão para o seu cofre, e de lá para ${into}.`,
+        depositCash: (amount: string) => `Seus ${amount} ficam no seu cofre como caixa.`,
         sell: (amount: string, what: string) =>
           `Cerca de ${amount} de ${what} é vendido por caixa.`,
         sellSome: (what: string) => `Parte do seu ${what} é vendida por caixa.`,
         spend: (amount: string, into: string) => `Cerca de ${amount} em caixa vão para ${into}.`,
         spendSome: (into: string) => `Caixa vai para ${into}.`,
         noTrade: 'Nada é trocado nesta ordem.',
-        withdraw: (what: string) => `Para a sua própria carteira: ${what}. Nada é vendido.`,
+        withdraw: 'Nada é vendido: saem os próprios tokens.',
         receive: (amount: string) => `Você recebe pelo menos ${amount} na sua própria carteira.`,
         and: (a: string, b: string) => `${a}, e ${b}`,
       },
@@ -2080,7 +2076,7 @@ export const pt: Dictionary = {
         target: 'Meta',
         targets: 'As metas do seu cofre',
         deposit: (amount: string) => `Para onde vão seus ${amount}`,
-        withdraw: 'O que sai do seu cofre para a sua própria carteira',
+        withdraw: 'O que sai do seu cofre',
         all: 'Tudo',
       },
       ended: {
@@ -2114,8 +2110,7 @@ export const pt: Dictionary = {
       unavailable: 'link indisponível',
     },
     outcome: {
-      done: (chain: string) =>
-        `Todos os passos estão confirmados em ${chain}. A transação de cada passo está em Transações.`,
+      done: (chain: string) => `Todos os passos estão confirmados em ${chain}.`,
       seePortfolio: 'Ver seu portfólio',
       buyMore: 'Depositar mais',
       depositKept:

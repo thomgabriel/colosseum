@@ -2300,17 +2300,13 @@ export const en = {
       },
       /** What the order does to the money; two are joined by `and`. */
       sentence: {
-        depositCash: (amount: string) => `Your ${amount} goes into your vault as cash.`,
-        depositSwap: (amount: string, spent: string, into: string) =>
-          `Your ${amount} goes into your vault, and about ${spent} of it into ${into}.`,
-        depositInto: (amount: string, into: string) =>
-          `Your ${amount} goes into your vault, and from there into ${into}.`,
+        depositCash: (amount: string) => `Your ${amount} stays in your vault as cash.`,
         sell: (amount: string, what: string) => `About ${amount} of ${what} is sold for cash.`,
         sellSome: (what: string) => `Some of your ${what} is sold for cash.`,
         spend: (amount: string, into: string) => `About ${amount} of cash goes into ${into}.`,
         spendSome: (into: string) => `Cash goes into ${into}.`,
         noTrade: 'Nothing is swapped in this order.',
-        withdraw: (what: string) => `To your own wallet: ${what}. Nothing is sold.`,
+        withdraw: 'Nothing is sold: the tokens themselves leave.',
         receive: (amount: string) => `You receive at least ${amount} in your own wallet.`,
         and: (a: string, b: string) => `${a}, and ${b}`,
       },
@@ -2324,7 +2320,7 @@ export const en = {
         target: 'Target',
         targets: 'Your vault’s targets',
         deposit: (amount: string) => `Where your ${amount} goes`,
-        withdraw: 'What leaves your vault for your own wallet',
+        withdraw: 'What leaves your vault',
         all: 'All of it',
       },
       /** The last screen: what the order did, and the vault as it is now. */
@@ -2359,8 +2355,7 @@ export const en = {
       unavailable: 'link unavailable',
     },
     outcome: {
-      done: (chain: string) =>
-        `Every step is confirmed on ${chain}. Each step’s transaction is under Transactions.`,
+      done: (chain: string) => `Every step is confirmed on ${chain}.`,
       seePortfolio: 'See your portfolio',
       buyMore: 'Deposit more',
       /** After a step failed or was refused once the deposit had landed. */
