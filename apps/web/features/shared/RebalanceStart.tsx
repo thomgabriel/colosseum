@@ -92,6 +92,10 @@ export function RebalanceStart({
         vault: vault.address,
         basketId: vault.basketId,
         targets,
+        trades: answer.value.order.legs
+          .slice()
+          .sort((a, b) => a.seq - b.seq)
+          .flatMap((leg) => leg.trades),
       };
       const kept = keepOrder({
         orderId: answer.value.order.id,

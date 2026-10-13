@@ -303,15 +303,20 @@ describe('a rebalance to a vault’s targets, on the order screen', () => {
       { asset: 'solana:paxg', weightBps: 2_000 },
       { asset: 'solana:syrupusdc', weightBps: 3_000 },
     ],
+    trades: rebalanceOrder().legs.flatMap((l) => l.trades),
   };
-  it('hands the guard the vault’s number and nothing that could change the vault', async () => {
+  it('hands the guard the targets and the reviewed trades, and nothing that could change the vault', async () => {
     api(rebalanceOrder());
     seed(REBALANCE);
     const host = await screen();
     expect(primary(host).textContent).toContain(en.order.shared.signRebalance);
     await click(primary(host));
     await settle();
-    expect(run.calls[0]?.deps.plan).toEqual({ basketId: '42' });
+    // the targets and the reviewed trades: the guard refuses any other step or trade
+    expect(run.calls[0]?.deps.plan).toEqual({
+      basketId: '42',
+      rebalance: { targets: REBALANCE.targets, trades: REBALANCE.trades },
+    });
     expect(run.calls[0]?.deps.consents).toEqual([]);
   });
 

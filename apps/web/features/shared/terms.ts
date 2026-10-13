@@ -97,10 +97,10 @@ export type SharedTerms =
       origin: 'model' | 'person';
     }
   /**
-   * A rebalance of a vault the person owns to the targets it has (HANDOFF-VAULT, MVP item 6): the
-   * order only swaps. No target is set and nothing else about the vault changes, so the guard is
-   * handed the vault's number alone and refuses a step that sets targets, follows, switches or
-   * withdraws. The targets are the vault's as the page read them, which the trades are held to.
+   * A rebalance of a vault the person owns to the targets it has (HANDOFF-VAULT, MVP item 6). The
+   * guard is handed the targets and every trade as reviewed (`PlanTerms.rebalance`), and refuses any
+   * step that is not a swap, a trade without the cash on exactly one side, a purchase that is not one
+   * of these targets, a minimum of zero, and a trade that is not the reviewed one.
    */
   | {
       kind: 'rebalance';
@@ -109,6 +109,8 @@ export type SharedTerms =
       basketId: string;
       /** The vault's targets above zero; cash is what they leave. */
       targets: Target[];
+      /** Every trade of the order as the person was shown it, in the order signed. */
+      trades: { sell: string; buy: string; amountInRaw: string }[];
     };
 
 /**
@@ -270,7 +272,28 @@ export function readTerms(value: unknown): SharedTerms | null {
       targets.data.reduce((n, x) => n + x.weightBps, 0) > 10_000
     )
       return null;
-    return { kind: 'rebalance', vault: t.vault, basketId: t.basketId, targets: targets.data };
+    const trades = Array.isArray(t.trades) ? t.trades : null;
+    const read = trades?.every(
+      (x) =>
+        typeof x === 'object' &&
+        x !== null &&
+        isText((x as Record<string, unknown>).sell) &&
+        isText((x as Record<string, unknown>).buy) &&
+        isText((x as Record<string, unknown>).amountInRaw) &&
+        RAW.test((x as Record<string, string>).amountInRaw),
+    );
+    if (!trades?.length || !read) return null;
+    return {
+      kind: 'rebalance',
+      vault: t.vault,
+      basketId: t.basketId,
+      targets: targets.data,
+      trades: (trades as Record<string, string>[]).map(({ sell, buy, amountInRaw }) => ({
+        sell: sell as string,
+        buy: buy as string,
+        amountInRaw: amountInRaw as string,
+      })),
+    };
   }
   if (t.kind === 'publish') {
     const components = targetsOf(t.components);

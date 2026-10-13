@@ -1268,6 +1268,7 @@ describe('a vault away from its targets is offered one press that trades it to t
       vault: MY_VAULT,
       basketId: '42',
       targets: TARGETS,
+      trades: (rebalanceOrder() as OrderDetail).legs.flatMap((l) => l.trades),
     });
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
 
