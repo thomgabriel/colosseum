@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
-import { Card, CardBody, CardHeader, Stat, StatRow } from '../../components/ui/Card';
+import { Card, CardBody, Stat, StatRow } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { CopyButton } from '../../components/ui/CopyButton';
 import { ExplorerLink } from '../../components/ui/ExplorerLink';
@@ -1564,9 +1564,9 @@ export function OrderScreen({
         <header className="flex flex-col items-start gap-3">
           <ChainBadge chain={chain} />
           <h1 id={titleId} className={PAGE_TITLE}>
-            {record.approved ? t.order.title : t.order.review.title}
+            {stage === 'review' ? t.order.review.title : t.order.title}
           </h1>
-          {!record.approved && (
+          {stage === 'review' && (
             <p
               data-ui={record.continues ? 'order-continues' : undefined}
               className="max-w-(--tf-measure-body) text-body-lg"
@@ -1600,7 +1600,6 @@ export function OrderScreen({
             announce: testNetwork ? t.shell.testNetworkLine : t.shell.mockAnnounce,
           }}
         >
-          <CardHeader title={t.order.stepsTitle} level={2} />
           <CardBody className="flex flex-col gap-6">{stageBody}</CardBody>
         </Card>
       )}
