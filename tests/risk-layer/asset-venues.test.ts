@@ -16,8 +16,10 @@ import {
   decodeAmmV4Pool,
   decodeDammV1Pool,
   decodeDammV2Pool,
+  decodePumpSwapEvents,
   decodePumpSwapPool,
   decoders,
+  dlmmEventPayloads,
   framesWithInvocations,
   METEORA_DAMM_V1_PROGRAM,
   METEORA_DAMM_V2_PROGRAM,
@@ -26,6 +28,7 @@ import {
   Reader,
   type RpcTx,
   tokenBalances,
+  txAccountKeys,
 } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
 import { supportedVenue } from '../../scripts/risk/assets/shelf-pools';
@@ -241,16 +244,83 @@ describe('Raydium AMM v4: ray_log, paired with its instruction', () => {
     ]);
   });
 
-  it('a route through two AMM v4 pools reads only the asked pool’s frame', () => {
-    const f = fx('raydium_amm_v4-SwapBaseInV2');
-    const { pairs, aligned } = framesWithInvocations(f.tx, RAYDIUM_AMM_V4_PROGRAM);
+  it('two AMM v4 frames on two pools in one transaction: each pool reads its own', () => {
+    // No live transaction through two AMM v4 pools turned up in 75 more read (RAY/USDC, RAY/USDT), so two real
+    // ones are stitched into one, in order: the arc/SOL SwapBaseIn (4 outer instructions) then the RAY/USDC
+    // Deposit, every account index of the second shifted past the first's keys. The logs then hold two AMM v4
+    // frames, each with its own ray_log, and only the instruction accounts say which pool each belongs to.
+    const one = fx('raydium_amm_v4-SwapBaseIn').tx;
+    const two = fx('raydium_amm_v4-Deposit').tx;
+    const keysOf = (t: RpcTx) => [
+      ...t.transaction.message.accountKeys,
+      ...(t.meta?.loadedAddresses?.writable ?? []),
+      ...(t.meta?.loadedAddresses?.readonly ?? []),
+    ];
+    const k1 = keysOf(one);
+    const shift = k1.length;
+    const outer1 = one.transaction.message.instructions.length;
+    const ix = (i: { programIdIndex: number; accounts: number[]; data: string }) => ({
+      ...i,
+      programIdIndex: i.programIdIndex + shift,
+      accounts: i.accounts.map((a) => a + shift),
+    });
+    const bal = (rows: NonNullable<RpcTx['meta']>['preTokenBalances']) =>
+      (rows ?? []).map((r) => ({ ...r, accountIndex: r.accountIndex + shift }));
+    const m1 = one.meta as NonNullable<RpcTx['meta']>;
+    const m2 = two.meta as NonNullable<RpcTx['meta']>;
+    const tx: RpcTx = {
+      slot: one.slot,
+      blockTime: one.blockTime,
+      transaction: {
+        signatures: one.transaction.signatures,
+        message: {
+          accountKeys: [...k1, ...keysOf(two)],
+          instructions: [
+            ...one.transaction.message.instructions,
+            ...two.transaction.message.instructions.map(ix),
+          ],
+        },
+      },
+      meta: {
+        err: null,
+        logMessages: [...(m1.logMessages ?? []), ...(m2.logMessages ?? [])],
+        innerInstructions: [
+          ...(m1.innerInstructions ?? []),
+          ...(m2.innerInstructions ?? []).map((g) => ({
+            index: g.index + outer1,
+            instructions: g.instructions.map(ix),
+          })),
+        ],
+        preTokenBalances: [...(m1.preTokenBalances ?? []), ...bal(m2.preTokenBalances)],
+        postTokenBalances: [...(m1.postTokenBalances ?? []), ...bal(m2.postTokenBalances)],
+      },
+    };
+    const { pairs, aligned } = framesWithInvocations(tx, RAYDIUM_AMM_V4_PROGRAM);
     expect(aligned).toBe(true);
-    // every AMM v4 frame is paired with an AMM v4 instruction; only those on J3b6dv… are decoded
-    expect(pairs.every((x) => x.inv.program === RAYDIUM_AMM_V4_PROGRAM)).toBe(true);
-    const { d } = run(f);
-    expect(d.events).toHaveLength(
-      pairs.filter((x) => x.inv.accounts[1] === Object.keys(f.pools)[0]).length,
-    );
+    expect(pairs.map((x) => x.inv.accounts[1])).toEqual([
+      'J3b6dvheS2Y1cbMtVz5TCWXNegSjJDbUKxdUVDPoqmS7',
+      '6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg',
+    ]);
+    // arc/SOL: the swap of the first transaction alone (outer instruction 3, as there)
+    expect(
+      decoders.raydium_amm_v4?.(tx, 'J3b6dvheS2Y1cbMtVz5TCWXNegSjJDbUKxdUVDPoqmS7').events,
+    ).toEqual([
+      {
+        kind: 'swap',
+        pool: 'J3b6dvheS2Y1cbMtVz5TCWXNegSjJDbUKxdUVDPoqmS7',
+        ixIndex: 3,
+        amount0: '1149140194',
+        amount1: '3667553000',
+        zeroForOne: false,
+      },
+    ]);
+    // RAY/USDC: the deposit of the second alone, its outer instruction 2 now 2 + 4 = 6
+    expect(
+      decoders.raydium_amm_v4?.(tx, '6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg').events,
+    ).toMatchObject([
+      { kind: 'liquidity', action: 'increase', ixIndex: 6, amount0: '19818', amount1: '43614' },
+    ]);
+    expect(outer1).toBe(4);
   });
 
   it('logs that do not pair with the instructions are flagged, not guessed', () => {
@@ -323,6 +393,26 @@ describe('Meteora DAMM v1: amounts from the dynamic vaults’ own events', () =>
     ]);
   });
 
+  it('a vault flow whose side the balances do not say is flagged, not netted into the other side', () => {
+    const f = fx('meteora_damm_v1-Swap');
+    const strip = (rows: NonNullable<RpcTx['meta']>['preTokenBalances']) =>
+      (rows ?? []).map(({ mint: _m, ...r }) => r);
+    const m = f.tx.meta as NonNullable<RpcTx['meta']>;
+    const tx = {
+      ...f.tx,
+      meta: {
+        ...m,
+        preTokenBalances: strip(m.preTokenBalances),
+        postTokenBalances: strip(m.postTokenBalances),
+      },
+    };
+    const d = decoders.meteora_damm_v1?.(tx, Object.keys(f.pools)[0] as string, {
+      mint0: 'DBRiDgJAMsM95moTzJs7M9LnkGErpbv9v6CUR1DXnUu5',
+    });
+    expect(d?.events).toEqual([]);
+    expect(d?.truncated).toBe(true);
+  });
+
   it('needs the pool’s token 0', () => {
     const f = fx('meteora_damm_v1-Swap');
     expect(() => decoders.meteora_damm_v1?.(f.tx, Object.keys(f.pools)[0] as string)).toThrow(
@@ -384,6 +474,38 @@ describe('PumpSwap: BuyEvent, SellEvent and the fees the v2 instructions hold', 
     expect(d.events).toMatchObject([
       { kind: 'swap', amount0: '3524216799', amount1: '5982', zeroForOne: false },
     ]);
+  });
+
+  it('an older, shorter Buy or Sell decodes when it names its fee recipient, else goes to unknown', () => {
+    const sellFx = fx('pumpswap-Sell'); // a v1 SellEvent, 449 bytes, protocol_fee_recipient @256 non-zero
+    const v2Fx = fx('pumpswap-SellV2'); // v2 SellEvents, protocol_fee_recipient the zero key
+    const pay = (f: Fx) => dlmmEventPayloads(f.tx, txAccountKeys(f.tx), PUMPSWAP_PROGRAM);
+    const sell = pay(sellFx).find(([, d]) => d.length === 449) as [number, Uint8Array];
+    const pool = 'ComiecDMCEQg1xyoGzVt6B8xGNdGgvvYRuwzbtDb6FY';
+    // cut to 320 or 352 bytes (a layout before coin_creator_fee @360): the recipient @256..288 is still there and
+    // non-zero, so nothing is held and the amounts are the 449-byte event's: 64,606,563 in, 21,134,545 out
+    for (const n of [320, 352]) {
+      const und: string[] = [];
+      expect(decodePumpSwapEvents([[sell[0], sell[1].subarray(0, n)]], pool, und)).toMatchObject([
+        { kind: 'swap', amount0: '64606563', amount1: '21134545', zeroForOne: true },
+      ]);
+      expect(und).toEqual([]);
+    }
+    // a v2 SellEvent cut to 352: the zero recipient says fees were held, but coin_creator_fee @360 is gone, so the
+    // vault flow cannot be said; the payload goes to unknown rather than vanishing
+    const v2Pool = 'ioaDGkQUh6h5nNTmcv8k3NvAgSTiS3xMFNaN3j11KzV';
+    const v2 = pay(v2Fx).find(([, d]) => new Reader(d).pubkey(128) === v2Pool) as [
+      number,
+      Uint8Array,
+    ];
+    const und: string[] = [];
+    expect(decodePumpSwapEvents([[v2[0], v2[1].subarray(0, 352)]], v2Pool, und)).toEqual([]);
+    expect(und).toHaveLength(1);
+    expect(und[0]).toMatch(/^3e2f370aa503dc2a\/352:/);
+    // and one too short to name its pool (under 160 bytes) too
+    const und2: string[] = [];
+    expect(decodePumpSwapEvents([[sell[0], sell[1].subarray(0, 150)]], pool, und2)).toEqual([]);
+    expect(und2).toHaveLength(1);
   });
 
   it('a sweep pays the held fees out of the quote vault', () => {

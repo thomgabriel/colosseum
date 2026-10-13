@@ -6,7 +6,7 @@ import type { RpcTx } from './tx';
 
 // Raydium AMM v4 is not an Anchor program: it writes one `ray_log: <base64>` line per pool instruction, a bincode
 // struct whose first byte is its type (github.com/raydium-io/raydium-amm, program/src/log.rs):
-//   0 Init (51)        time@1 pc_decimals@9 coin_decimals@10 pc_lot_size@11 coin_lot_size@19 pc_amount@27
+//   0 Init (75)        time@1 pc_decimals@9 coin_decimals@10 pc_lot_size@11 coin_lot_size@19 pc_amount@27
 //                      coin_amount@35 market@43
 //   1 Deposit (105)    max_coin@1 max_pc@9 base@17 pool_coin@25 pool_pc@33 pool_lp@41 calc_pnl_x(u128)@49
 //                      calc_pnl_y(u128)@65 deduct_coin@81 deduct_pc@89 mint_lp@97
@@ -97,7 +97,7 @@ export function decodeAmmV4Logs(
           amount1: u64(81).toString(),
           lpDelta: (-u64(1)).toString(),
         });
-      else if (t === 0 && d.length >= 51)
+      else if (t === 0 && d.length >= 75)
         out.push({
           kind: 'liquidity',
           pool,

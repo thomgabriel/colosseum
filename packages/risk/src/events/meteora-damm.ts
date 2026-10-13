@@ -74,6 +74,7 @@ export function decodeDammV1(
   const unknown: string[] = [];
   const ix: string[] = [];
   const paired = !a.misaligned.has(program) && !a.misaligned.has(vaultProgram);
+  let unresolved = false;
   for (const f of paired ? a.frames : []) {
     if (f.frame.program !== program || !f.frame.ok || f.inv?.accounts[0] !== pool) continue;
     ix.push(...f.frame.ix);
@@ -86,7 +87,13 @@ export function decodeDammV1(
     let seen = 0;
     for (const c of childFrames(a.frames, f.index)) {
       if (c.frame.program !== vaultProgram || !c.inv) continue;
-      const side = mintOf.get(c.inv.accounts[1] as string) === mint0 ? 0 : 1;
+      // the side is the vault token account's mint; one the balances do not name is not guessed (the row is flagged)
+      const mint = mintOf.get(c.inv.accounts[1] as string);
+      if (mint === undefined) {
+        unresolved = true;
+        continue;
+      }
+      const side = mint === mint0 ? 0 : 1;
       for (const d of c.frame.data) {
         if (d.length < 24) continue;
         const r = new Reader(d);
@@ -126,7 +133,8 @@ export function decodeDammV1(
         amount1: abs(flow[1]),
       });
   }
-  return { events, unknown, ix, truncated: a.truncated || !paired };
+  // `truncated` also flags a vault flow whose side could not be read: its event, if any, nets only what was read
+  return { events, unknown, ix, truncated: a.truncated || !paired || unresolved };
 }
 
 // ---------------------------------------------------------------------------------------------------- DAMM v2

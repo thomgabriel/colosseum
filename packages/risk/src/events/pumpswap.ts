@@ -9,10 +9,12 @@ import type { RpcTx } from './tx';
 //   BuyEvent  timestamp@16 base_amount_out@24 max_quote_amount_in@32 user_base_token_reserves@40
 //     user_quote_token_reserves@48 pool_base_token_reserves@56 pool_quote_token_reserves@64 quote_amount_in@72
 //     lp_fee_basis_points@80 lp_fee@88 protocol_fee_basis_points@96 protocol_fee@104
-//     quote_amount_in_with_lp_fee@112 user_quote_amount_in@120 pool@128 … coin_creator_fee@328
+//     quote_amount_in_with_lp_fee@112 user_quote_amount_in@120 pool@128 user@160 … protocol_fee_recipient@256
+//     protocol_fee_recipient_token_account@288 coin_creator@320 coin_creator_fee_basis_points@352
+//     coin_creator_fee@360
 //   SellEvent timestamp@16 base_amount_in@24 min_quote_amount_out@32 (reserves as Buy) quote_amount_out@72
 //     lp_fee_basis_points@80 lp_fee@88 protocol_fee_basis_points@96 protocol_fee@104
-//     quote_amount_out_without_lp_fee@112 user_quote_amount_out@120 pool@128 … coin_creator_fee@328
+//     quote_amount_out_without_lp_fee@112 user_quote_amount_out@120 pool@128 … (as Buy to) coin_creator_fee@360
 //   DepositEvent / WithdrawEvent timestamp@16 lp_token_amount@24 … pool_base_token_reserves@64
 //     pool_quote_token_reserves@72 base_amount@80 quote_amount@88 lp_mint_supply@96 pool@104
 //   SweepPoolFeeEvent (193) timestamp@16 pool@24 base_mint@56 quote_mint@88 recipient@120 payer@152 amount@184
@@ -21,8 +23,10 @@ import type { RpcTx } from './tx';
 //     quote_mint_decimals@123 base_amount_in@124 quote_amount_in@132 … pool@181
 //   InitBoostEvent (144) timestamp@16 mint@24 bonding_curve@56 pool@88 virtual_quote_reserves(i128)@120
 //     real_quote_reserves_after@136
-// The events grow with the program (BuyEvent and SellEvent are past 400 bytes now); every offset read here is in
-// their oldest part. Base is token 0. A buy puts quote_amount_in_with_lp_fee into the quote vault and pays
+// The events grow with the program (BuyEvent and SellEvent are past 400 bytes now). A Buy or Sell long enough to name
+// its protocol fee recipient (288 bytes) and naming one is a v1 trade and decodes with nothing held; one that names
+// the zero key needs the later fee fields, and one too short to say either way is not guessed: its payload goes to
+// `unknown` (`ux` in the backfill's rows), to be decoded when its layout is known. Base is token 0. A buy puts quote_amount_in_with_lp_fee into the quote vault and pays
 // base_amount_out from the base vault; a sell puts base_amount_in into the base vault and pays
 // quote_amount_out_without_lp_fee from the quote vault (the lp fee stays in the pool; the protocol and creator fees
 // are paid to their recipients from what leaves or are held in the vault until a sweep). A sweep pays fees held in
@@ -73,10 +77,10 @@ export const PUMPSWAP_KNOWN = new Set([
  *  creator_fees and protocol_fees) until a sweep. Found on live trades, not stated by the IDL: a v2 buy of
  *  quote_amount_in_with_lp_fee 5,920 with coin_creator_fee 60, protocol_fee 3 and buyback_fee 1 raised the quote
  *  vault by 5,982 = 5,920 + 60 + 3 − 1. null when the event is too short to say. */
-function heldFees(d: Uint8Array, sell: boolean): bigint | null {
+export function heldFees(d: Uint8Array, sell: boolean): bigint | null {
   const r = new Reader(d);
+  if (d.length >= 288 && d.subarray(256, 288).some((b) => b !== 0)) return 0n;
   if (d.length < 368) return null;
-  if (d.subarray(256, 288).some((b) => b !== 0)) return 0n;
   // SellEvent: … coin_creator_fee@360 cashback_fee_basis_points@368 cashback@376 buyback_fee_basis_points@384
   // buyback_fee@392. BuyEvent: … coin_creator_fee@360 track_volume@368 … min_base_amount_out@401 ix_name (u32
   // length + bytes)@409, then cashback_fee_basis_points, cashback, buyback_fee_basis_points, buyback_fee.
@@ -89,19 +93,32 @@ function heldFees(d: Uint8Array, sell: boolean): bigint | null {
   return r.u64(360) + r.u64(104) - r.u64(o);
 }
 
+const payloadText = (d: Uint8Array) =>
+  `${discOf(d.subarray(8))}/${d.length}:${Buffer.from(d).toString('base64')}`;
+
+/** The pool's events; a Buy or Sell of a known discriminator that cannot be read (too short to name its pool, or to
+ *  say which fees it holds) is pushed to `undecoded` instead of being dropped. */
 export function decodePumpSwapEvents(
   payloads: ReadonlyArray<[number, Uint8Array]>,
   pool: string,
+  undecoded: string[] = [],
 ): PoolEvent[] {
   const out: PoolEvent[] = [];
   for (const [ixIndex, d] of payloads) {
     const k = discOf(d.subarray(8));
     const r = new Reader(d);
-    if ((k === PUMPSWAP_EVENTS.buy || k === PUMPSWAP_EVENTS.sell) && d.length >= 160) {
+    if (k === PUMPSWAP_EVENTS.buy || k === PUMPSWAP_EVENTS.sell) {
+      if (d.length < 160) {
+        undecoded.push(payloadText(d));
+        continue;
+      }
       if (r.pubkey(128) !== pool) continue;
       const sell = k === PUMPSWAP_EVENTS.sell;
       const held = heldFees(d, sell);
-      if (held === null) continue;
+      if (held === null) {
+        undecoded.push(payloadText(d));
+        continue;
+      }
       out.push({
         kind: 'swap',
         pool,
@@ -151,10 +168,15 @@ export function decodePumpSwap(
   program = PUMPSWAP_PROGRAM,
 ) {
   const payloads = dlmmEventPayloads(tx, keys, program);
+  const undecoded: string[] = [];
+  const events = decodePumpSwapEvents(payloads, pool, undecoded);
   return {
-    events: decodePumpSwapEvents(payloads, pool),
-    unknown: payloads
-      .filter(([, d]) => !PUMPSWAP_KNOWN.has(discOf(d.subarray(8))))
-      .map(([, d]) => `${discOf(d.subarray(8))}/${d.length}:${Buffer.from(d).toString('base64')}`),
+    events,
+    unknown: [
+      ...payloads
+        .filter(([, d]) => !PUMPSWAP_KNOWN.has(discOf(d.subarray(8))))
+        .map(([, d]) => payloadText(d)),
+      ...undecoded,
+    ],
   };
 }
