@@ -371,6 +371,127 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await check(page, 'visitor');
 });
 
+// The workbench full, as Thom met it on Oct 13: a conversation longer than its pane and the details
+// open with their price sources. At desk sizes the page itself never scrolls, each pane is one scroll
+// area at most, and the panes keep most of the room under the head. A screen reader's line inside a
+// pane (`sr-only`, absolute) once escaped the pane and made the page scroll under it.
+test('a long conversation with the details open: one scroll per pane, none for the page', async ({
+  page,
+}) => {
+  // Each price as the Solana reader writes it (packages/chain-solana/src/vault/reader.ts): one price
+  // account, read at a different entry for each asset.
+  const account = 'HSk67BDSrh8486PHxqVgyHMHCbwrnstLbcGfKYdG3q9g';
+  const owner = '2ticePjZZ6e34bNUgUXz7v3uHm3jS8jvV13gesdvKn4f';
+  await page.route('**/v1/vaults/solana/*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const response = await route.fetch();
+    const read = await response.json();
+    read.prices = read.prices.map((price: { source: string }, i: number) => ({
+      ...price,
+      source: `price account ${account} (Scope layout, owner ${owner}), entry ${[482, 484, 454][i % 3]}`,
+    }));
+    await route.fulfill({ response, json: read });
+  });
+  const address = await toVault(page);
+  let replies = 0;
+  await page.route('**/conversation/reply', async (route) => {
+    const asked = route.request().postDataJSON() as { messageId: string };
+    replies += 1;
+    await route.fulfill({
+      json: {
+        version: 1,
+        chain: 'solana',
+        address,
+        messageId: asked.messageId,
+        message: `Reply ${replies}. ${'This vault holds two stock tokens and some cash, each priced from the chain. '.repeat(4)}`,
+        question: null,
+        proposal: null,
+      },
+    });
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (let i = 1; i <= 4; i += 1) {
+    await page.locator('[data-ui="vault-chat"] textarea').fill(`What does it hold, ${i}?`);
+    await page.locator('[data-ui="composer-send"]').click();
+    await expect(page.locator('[data-ui="vault-transcript"] > li')).toHaveCount(i * 2);
+  }
+  const details = page.locator('[data-ui="vault-details"]');
+  await details.locator('> summary').click();
+
+  // The price sources: the one account once, shortened, with its three entries and its owner.
+  const sources = details.locator('[data-ui="vault-price-sources"]');
+  await expect(sources.locator('[data-ui="vault-price-account"]')).toHaveCount(1);
+  await expect(sources).toContainText('Scope');
+  await expect(sources).toContainText(/entries 454, 482,? and 484/);
+  await expect(sources).not.toContainText(account);
+  await expect(sources.locator('[data-ui="copy-button"]')).toHaveCount(2);
+  await expect(sources.locator('[data-ui="vault-price-sources-written"]')).toHaveCount(0);
+
+  for (const size of [
+    { width: 2000, height: 784 },
+    { width: 1440, height: 900 },
+    { width: 1280, height: 720 },
+  ]) {
+    await page.setViewportSize(size);
+    const at = `${size.width}x${size.height}`;
+    const m = await page.evaluate(() => {
+      const doc = document.scrollingElement as HTMLElement;
+      doc.scrollTop = 500;
+      const head = document.querySelector<HTMLElement>('[data-ui="vault-conversation"] > header');
+      const under = head ? head.getBoundingClientRect().bottom : 0;
+      const pane = (selector: string) => {
+        const el = document.querySelector<HTMLElement>(selector);
+        if (!el) return { height: -1, bottom: -1, scrolls: -1 };
+        const box = el.getBoundingClientRect();
+        return {
+          height: Math.round(box.height),
+          bottom: Math.round(box.bottom),
+          // the pane and everything in it that scrolls now
+          scrolls: [el, ...el.querySelectorAll<HTMLElement>('*')].filter((one) => {
+            const y = getComputedStyle(one).overflowY;
+            return (y === 'auto' || y === 'scroll') && one.scrollHeight > one.clientHeight + 1;
+          }).length,
+        };
+      };
+      return {
+        pageScrolled: doc.scrollTop,
+        pageTall: doc.scrollHeight - doc.clientHeight,
+        room: Math.round(window.innerHeight - under),
+        window: window.innerHeight,
+        chat: pane('[data-ui="vault-chat"]'),
+        plan: pane('[data-ui="vault-plan"]'),
+      };
+    });
+    expect(m.pageScrolled, `${at}: the page does not scroll`).toBe(0);
+    expect(m.pageTall, `${at}: nothing under the fold`).toBeLessThanOrEqual(0);
+    for (const [name, pane] of [
+      ['chat', m.chat],
+      ['plan', m.plan],
+    ] as const) {
+      expect(pane.scrolls, `${at}: the ${name} pane scrolls, once`).toBe(1);
+      expect(pane.bottom, `${at}: the ${name} pane ends in the window`).toBeLessThanOrEqual(
+        m.window,
+      );
+      expect(pane.height, `${at}: the ${name} pane has the room under the head`).toBeGreaterThan(
+        m.room * 0.6,
+      );
+    }
+    if (SHOTS)
+      for (const theme of ['light', 'dark'] as const) {
+        await inTheme(page, theme);
+        await page.evaluate(() => {
+          (document.scrollingElement as HTMLElement).scrollTop = 99999;
+          const plan = document.querySelector<HTMLElement>('[data-ui="vault-plan"]');
+          if (plan) plan.scrollTop = 99999;
+        });
+        await page.screenshot({ path: `${SHOTS}/vault-long-${at}-${theme}.png` });
+      }
+  }
+  await inTheme(page, 'light');
+  await page.setViewportSize(PHONE);
+  await check(page, 'long-conversation');
+});
+
 test('a change proposed in the conversation is applied in place, and the weights by hand too', async ({
   page,
 }) => {
