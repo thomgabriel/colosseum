@@ -43,6 +43,7 @@ import {
   checkVaultAdd,
   type DepositCheck,
   depositLanded,
+  dollarsShapeOk,
   leftOfApproved,
   leftOfPlan,
   retargetShapeOk,
@@ -104,6 +105,10 @@ function checkOf(order: OrderDetail, record: OrderRecord, units: ChainUnits | nu
     return retargetShapeOk(order, terms, units)
       ? { ok: true, depositRaw: 0n, decimals: 0 }
       : { ok: false, why: 'shape' };
+  if (terms.kind === 'withdraw' && terms.dollars)
+    return dollarsShapeOk(order, terms, units)
+      ? { ok: true, depositRaw: 0n, decimals: 0 }
+      : { ok: false, why: 'withdraw' };
   return sharedShapeOk(order, terms)
     ? { ok: true, depositRaw: 0n, decimals: 0 }
     : { ok: false, why: terms.kind === 'withdraw' ? 'withdraw' : 'shape' };
@@ -781,12 +786,30 @@ export function OrderScreen({
   // The passkey wallet signs with no window of its own; any other wallet confirms each step in its own.
   const quiet = port.active(chainFamily(chain))?.kind === 'embedded';
 
+  // A withdrawal in dollars: the least its cash step pays, which the check held to the share of the
+  // cash reviewed plus every sale's minimum.
+  const leastRaw =
+    terms?.kind === 'withdraw' && terms.dollars && check.ok
+      ? legs.at(-1)?.withdrawals?.[0]?.leastRaw
+      : undefined;
+  const leastOut =
+    leastRaw === undefined
+      ? null
+      : cash
+        ? `${formatRaw(leastRaw, cash.decimals, LOCALE[lang]) ?? leastRaw} ${cash.symbol}`
+        : leastRaw;
+
   const stepsBody = (
     <>
       <StatRow>
         {/* an order that finishes another deposits nothing */}
         {buying && !record.continues && <Stat label={t.order.review.deposit}>{depositShown}</Stat>}
         {record.continues && check.ok && <Stat label={t.order.review.fromVault}>{amount}</Stat>}
+        {leastOut && (
+          <Stat label={t.order.shared.receiveAtLeast}>
+            <span data-ui="withdraw-least">{leastOut}</span>
+          </Stat>
+        )}
         <Stat label={t.order.review.steps}>{legs.length}</Stat>
         {!record.approved && (
           <Stat label={t.order.review.expires} className="max-[620px]:col-span-2">
@@ -1015,6 +1038,16 @@ export function OrderScreen({
                   new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(stayedNames),
                 )}
               </p>
+            )}
+            {/* in dollars with a holding left unsold: the tokens themselves, for that part */}
+            {terms.dollars && shown.warnings.some((x) => x.code.startsWith('NOT_SOLD:')) && (
+              <Link
+                data-ui="withdraw-tokens-instead"
+                href={newOrder}
+                className={buttonClass({ variant: 'secondary' })}
+              >
+                {t.order.shared.tokensInstead}
+              </Link>
             )}
             {/* a host that holds this screen (the vault's own page) has its own way back */}
             {!embed?.hostEnds && (
@@ -1364,15 +1397,20 @@ function Step({
         <ul className="flex flex-col gap-0.5 text-body-sm text-muted-foreground">
           {leg.withdrawals.map((w) => (
             <li key={w.asset} data-ui="order-withdrawal" className="tabular-nums">
-              {w.amountRaw === null
-                ? t.order.shared.withdrawsAll(
-                    whole(shown(w.heldRaw, w.asset), w.asset, 18) ??
-                      `${w.heldRaw} ${tokenName(w.asset)}`,
+              {w.leastRaw !== undefined
+                ? // the cash of a withdrawal in dollars: the least it pays, whatever the sales bring
+                  t.order.shared.withdrawsAtLeast(
+                    whole(w.leastRaw, w.asset, 18) ?? `${w.leastRaw} ${tokenName(w.asset)}`,
                   )
-                : t.order.shared.withdraws(
-                    whole(shown(w.amountRaw, w.asset), w.asset, 18) ??
-                      `${w.amountRaw} ${tokenName(w.asset)}`,
-                  )}
+                : w.amountRaw === null
+                  ? t.order.shared.withdrawsAll(
+                      whole(shown(w.heldRaw, w.asset), w.asset, 18) ??
+                        `${w.heldRaw} ${tokenName(w.asset)}`,
+                    )
+                  : t.order.shared.withdraws(
+                      whole(shown(w.amountRaw, w.asset), w.asset, 18) ??
+                        `${w.amountRaw} ${tokenName(w.asset)}`,
+                    )}
             </li>
           ))}
         </ul>

@@ -14,8 +14,10 @@ import { type ChainEntry, type ChainRegistry, createChainRegistry } from './chai
 import { Refusal } from './errors';
 import {
   buildWithdraw,
+  DOLLARS_TAKE_A_SHARE,
+  notSold,
   planWithdraw,
-  SELL_TO_CASH_NOT_OFFERED,
+  SHARE_IS_FOR_DOLLARS,
   SkippedStep,
   WHOLE_TOKEN_ONLY,
   type WithdrawRequest,
@@ -109,7 +111,14 @@ const refusal = async (p: Promise<unknown>) => {
 
 /** A planned step as a stored leg, as far as a build reads it. */
 const legOf = (step: Awaited<ReturnType<typeof planWithdraw>>['steps'][number]): Leg =>
-  ({ id: 'leg', kind: step.kind, chain: step.chain, withdrawals: step.withdrawals }) as Leg;
+  ({
+    id: 'leg',
+    kind: step.kind,
+    chain: step.chain,
+    withdrawals: step.withdrawals,
+    trades: step.trades ?? [],
+    expected: step.expected ?? [],
+  }) as Leg;
 
 const holds = async (w: World, who: string, asset: string) =>
   BigInt((await w.entry.adapter.getWalletHoldings(who)).find((h) => h.asset === asset)?.raw ?? 0);
@@ -156,12 +165,13 @@ describe.each(CHAINS)('a withdrawal on %s', (chain) => {
     expect(theirs.body().error).toBe(none.body().error);
   });
 
-  it('refuses selling to cash, with the sentence the screen shows, and a second vault', async () => {
-    const sell = await refusal(
-      planWithdraw({ ...everything(w), sellToCash: true }, { principal: w.me, chains: w.chains }),
-    );
-    expect(sell.status).toBe(422);
-    expect(sell.body().error).toBe(SELL_TO_CASH_NOT_OFFERED);
+  it('refuses a second vault, and a share or a slippage on a withdrawal of the tokens themselves', async () => {
+    const ctx = { principal: w.me, chains: w.chains };
+    for (const more of [{ shareBps: 5_000 }, { maxSlippageBps: 50 }]) {
+      const no = await refusal(planWithdraw({ ...everything(w), ...more }, ctx));
+      expect(no.status).toBe(422);
+      expect(no.body().error).toBe(SHARE_IS_FOR_DOLLARS);
+    }
     const two = await refusal(
       planWithdraw(
         { ...everything(w), vaults: [w.vault, w.vault] },
@@ -513,5 +523,305 @@ describe.each(CHAINS)('a withdrawal on %s', (chain) => {
     const empty = await refusal(planWithdraw(request, ctx));
     expect(empty.status).toBe(409);
     expect(empty.body().error).toBe('the vault holds nothing to withdraw');
+  });
+});
+
+// In dollars (gate WITHDRAW-DOLLARS): the holdings are sold for the cash token by the owner's own
+// swap, then the cash is withdrawn. The same world: $600 of cash and $400 worth of one stock token.
+describe.each(CHAINS)('a withdrawal in dollars on %s', (chain) => {
+  let w: World;
+  let ctx: { principal: Principal; chains: ChainRegistry; now: string };
+  const now = '2026-10-13T12:00:00.000Z';
+  beforeEach(async () => {
+    w = await world(chain);
+    ctx = { principal: w.me, chains: w.chains, now };
+  });
+  const dollars = (w: World, more: Partial<WithdrawRequest> = {}): WithdrawRequest => ({
+    type: 'withdraw',
+    vaults: [w.vault],
+    sellToCash: true,
+    ...more,
+  });
+  /** Builds and lands every step of a plan, in order, as the owner. */
+  const run = async (request: WithdrawRequest, plan: Awaited<ReturnType<typeof planWithdraw>>) => {
+    for (const step of plan.steps) {
+      const tx = await buildWithdraw(request, legOf(step), w.entry, w.owner, undefined);
+      expect(tx.signer).toBe(w.owner);
+      await w.entry.mock?.send(tx);
+    }
+  };
+  const sales = (plan: Awaited<ReturnType<typeof planWithdraw>>) =>
+    plan.steps.filter((s) => s.kind === 'swap');
+  const cashStep = (plan: Awaited<ReturnType<typeof planWithdraw>>) => {
+    const last = plan.steps.at(-1);
+    const [out, ...more] = last?.withdrawals ?? [];
+    if (last?.kind !== 'withdraw' || !out || more.length) throw new Error('no cash step');
+    return out;
+  };
+
+  it('plans the sales first, each into cash with its quote and its minimum, then one withdrawal of the cash', async () => {
+    const held = await inVault(w, w.spy);
+    const plan = await planWithdraw(dollars(w), ctx);
+    expect(plan.steps.map((s) => s.kind)).toEqual(['swap', 'withdraw']);
+    const [sale] = sales(plan);
+    expect(sale?.trades).toEqual([{ sell: w.spy, buy: w.cash, amountInRaw: held.toString() }]);
+    const [figure] = sale?.expected ?? [];
+    if (!figure) throw new Error('a sale with no figure');
+    expect(figure.inRaw).toBe(held.toString());
+    expect(BigInt(figure.outRaw)).toBeGreaterThan(0n);
+    // the minimum is the quote less the order's slippage, and never the quote itself
+    expect(BigInt(figure.minOutRaw)).toBe((BigInt(figure.outRaw) * 9_900n) / 10_000n);
+    expect(sale?.description).toMatch(/^Sell .* for /);
+    expect(sale?.withdrawals).toBeUndefined();
+    // the cash step names the cash token only, and the least it pays: the cash held plus the minimum
+    const out = cashStep(plan);
+    expect(out).toMatchObject({ asset: w.cash, amountRaw: null, heldRaw: usd(600) });
+    expect(BigInt(out.leastRaw ?? 0)).toBe(BigInt(usd(600)) + BigInt(figure.minOutRaw));
+    expect(out.valued).toMatchObject({
+      source: w.entry.source,
+      fetchedAt: now,
+      provenance: w.entry.provenance,
+      method: expect.stringContaining('least'),
+    });
+    expect(out.valued?.usd).toMatch(/^\d+\.\d{2}$/);
+    expect(plan.steps.at(-1)?.description).toContain(w.owner);
+    expect(plan.warnings).toEqual([]);
+    // nothing moved
+    expect(await inVault(w, w.spy)).toBe(held);
+  });
+
+  it('lands: the holding is sold, the cash reaches the owner’s wallet and nobody else’s, at least what the order stated', async () => {
+    const before = {
+      mine: await holds(w, w.owner, w.cash),
+      theirs: await holds(w, w.stranger, w.cash),
+    };
+    const request = dollars(w);
+    const plan = await planWithdraw(request, ctx);
+    await run(request, plan);
+    expect(await inVault(w, w.spy)).toBe(0n);
+    expect(await inVault(w, w.cash)).toBe(0n);
+    const got = (await holds(w, w.owner, w.cash)) - before.mine;
+    expect(got).toBeGreaterThanOrEqual(BigInt(cashStep(plan).leastRaw ?? 0));
+    expect(await holds(w, w.owner, w.spy)).toBe(0n);
+    expect(await holds(w, w.stranger, w.cash)).toBe(before.theirs);
+  });
+
+  it('a share sells that share of each holding, rounded down, and leaves the rest and its cash', async () => {
+    const held = await inVault(w, w.spy);
+    const before = await holds(w, w.owner, w.cash);
+    const request = dollars(w, { shareBps: 2_500 });
+    const plan = await planWithdraw(request, ctx);
+    const [sale] = sales(plan);
+    const sold = (held * 2_500n) / 10_000n;
+    expect(sale?.trades).toEqual([{ sell: w.spy, buy: w.cash, amountInRaw: sold.toString() }]);
+    const out = cashStep(plan);
+    const min = BigInt(sale?.expected?.[0]?.minOutRaw ?? 0);
+    expect(BigInt(out.leastRaw ?? 0)).toBe(BigInt(usd(150)) + min);
+    await run(request, plan);
+    expect(await inVault(w, w.spy)).toBe(held - sold);
+    // exactly the cash that was to stay stays: three quarters of the $600
+    expect(await inVault(w, w.cash)).toBe(BigInt(usd(450)));
+    expect((await holds(w, w.owner, w.cash)) - before).toBeGreaterThanOrEqual(
+      BigInt(out.leastRaw ?? 0),
+    );
+  });
+
+  it('rounds a share down to the unit, and sells nothing of a holding whose share is under one unit', async () => {
+    const held = await inVault(w, w.spy);
+    // one basis point of an odd amount: the share is floored, never rounded up
+    const plan = await planWithdraw(dollars(w, { shareBps: 3_333 }), ctx);
+    expect(sales(plan)[0]?.trades?.[0]?.amountInRaw).toBe(((held * 3_333n) / 10_000n).toString());
+
+    // a vault that holds three raw units of the token: a tenth of it is no unit at all
+    const { adapter, mock } = w.entry;
+    await mock?.send(
+      (
+        await adapter.buildWithdrawInKind({
+          vault: w.vault,
+          assets: [w.spy],
+          amounts: { [w.spy]: (held - 3n).toString() },
+        })
+      )[0] as never,
+    );
+    expect(await inVault(w, w.spy)).toBe(3n);
+    const dust = await planWithdraw(dollars(w, { shareBps: 1_000 }), ctx);
+    expect(dust.steps.map((s) => s.kind)).toEqual(['withdraw']);
+    expect(dust.warnings.map((x) => x.code)).toEqual([notSold(w.spy)]);
+    expect(dust.warnings[0]?.text).toMatch(/withdraw the tokens themselves/);
+    expect(BigInt(cashStep(dust).leastRaw ?? 0)).toBe(BigInt(usd(60)));
+  });
+
+  it('leaves dust it cannot hold to a minimum in the vault, and says so', async () => {
+    const held = await inVault(w, w.spy);
+    await w.entry.mock?.send(
+      (
+        await w.entry.adapter.buildWithdrawInKind({
+          vault: w.vault,
+          assets: [w.spy],
+          amounts: { [w.spy]: (held - 1n).toString() },
+        })
+      )[0] as never,
+    );
+    const plan = await planWithdraw(dollars(w), ctx);
+    expect(sales(plan)).toEqual([]);
+    expect(plan.warnings.map((x) => x.code)).toEqual([notSold(w.spy)]);
+    expect(plan.warnings[0]?.text).toMatch(/too small/);
+  });
+
+  it.each([
+    [
+      'PriceStale',
+      'no fresh reference price for SPY: the market is closed; trades of SPY resume when it opens',
+    ],
+    [
+      'PriceDeviation',
+      'the pool’s price for SPY is 4.10% worse than the reference price, more than the 2.00% allowed: not trading',
+    ],
+    [
+      'BadTrade',
+      '$60,000 of SPY in one go is more than its pool is trusted to fill: at most $50,000 at a time. Trade less, or in parts',
+    ],
+    ['AssetNotPriced', 'SPY has no reference price to check the pool against: not trading'],
+  ] as const)(
+    'a sale the chain refuses with %s is not made: the holding stays, named with the chain’s sentence, and the cash still leaves',
+    async (code, message) => {
+      const held = await inVault(w, w.spy);
+      vi.spyOn(w.entry.adapter, 'quote').mockRejectedValue(new ChainError(code, message));
+      const request = dollars(w);
+      const plan = await planWithdraw(request, ctx);
+      expect(plan.steps.map((s) => s.kind)).toEqual(['withdraw']);
+      expect(plan.warnings).toEqual([
+        { code: notSold(w.spy), text: expect.stringContaining(message) },
+      ]);
+      expect(plan.warnings[0]?.text).toMatch(
+        /It stays in your vault, and you can withdraw the tokens themselves\.$/,
+      );
+      expect(BigInt(cashStep(plan).leastRaw ?? 0)).toBe(BigInt(usd(600)));
+      vi.restoreAllMocks();
+      await run(request, plan);
+      expect(await inVault(w, w.spy)).toBe(held);
+      expect(await inVault(w, w.cash)).toBe(0n);
+    },
+  );
+
+  it('a holding the app does not list has no pool here: it stays, and is said', async () => {
+    const unlisted: ChainRegistry = {
+      ...w.chains,
+      get: (c) => {
+        const entry = w.chains.get(c);
+        return {
+          ...entry,
+          adapter: {
+            ...entry.adapter,
+            listAssets: async () =>
+              (await entry.adapter.listAssets()).filter((a) => a.id !== w.spy),
+          },
+        };
+      },
+    };
+    const plan = await planWithdraw(dollars(w), { ...ctx, chains: unlisted });
+    expect(plan.steps.map((s) => s.kind)).toEqual(['withdraw']);
+    expect(plan.warnings.map((x) => x.code)).toEqual([notSold(w.spy)]);
+    expect(plan.warnings[0]?.text).toMatch(/no pool/);
+  });
+
+  it('a node that does not answer refuses the order: a holding is never left out on a guess', async () => {
+    vi.spyOn(w.entry.adapter, 'quote').mockRejectedValue(
+      new ChainError('Unavailable', 'the node did not answer'),
+    );
+    const err = await planWithdraw(dollars(w), ctx).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ChainError);
+    expect((err as ChainError).code).toBe('Unavailable');
+    vi.restoreAllMocks();
+  });
+
+  it('refuses when nothing can leave in dollars, and names no tokens', async () => {
+    const tokens = await refusal(
+      planWithdraw(dollars(w, { withdrawals: [{ asset: w.spy }] }), ctx),
+    );
+    expect(tokens.status).toBe(422);
+    expect(tokens.body().error).toBe(DOLLARS_TAKE_A_SHARE);
+
+    // no cash and a holding that cannot be sold: nothing to pay out
+    const cashOut: WithdrawRequest = {
+      type: 'withdraw',
+      vaults: [w.vault],
+      sellToCash: false,
+      withdrawals: [{ asset: w.cash }],
+    };
+    const first = await planWithdraw(cashOut, ctx);
+    for (const step of first.steps)
+      await w.entry.mock?.send(
+        await buildWithdraw(cashOut, legOf(step), w.entry, w.owner, undefined),
+      );
+    vi.spyOn(w.entry.adapter, 'quote').mockRejectedValue(new ChainError('PriceStale', 'closed'));
+    const none = await refusal(planWithdraw(dollars(w), ctx));
+    vi.restoreAllMocks();
+    expect(none.status).toBe(409);
+    expect(none.body().fix).toMatch(/tokens themselves/);
+  });
+
+  it('refuses a vault that is another person’s, as a vault that is not there', async () => {
+    const theirs = await refusal(planWithdraw(dollars(w), { ...ctx, principal: w.them }));
+    expect(theirs.status).toBe(404);
+  });
+
+  it('switches auto-follow off first, then sells, then withdraws', async () => {
+    const { adapter, mock } = w.entry;
+    await mock?.send(await adapter.buildSetAutoFollow({ vault: w.vault, on: true }));
+    const request = dollars(w);
+    const plan = await planWithdraw(request, ctx);
+    expect(plan.steps.map((s) => s.kind)).toEqual(['set_auto_follow', 'swap', 'withdraw']);
+    await run(request, plan);
+    expect((await adapter.getVault(w.vault))?.autoFollow).toBe(false);
+    expect(await inVault(w, w.cash)).toBe(0n);
+  });
+
+  it('builds a sale at the minimum the order stated, and never a trade that is not a sale into cash', async () => {
+    const request = dollars(w);
+    const plan = await planWithdraw(request, ctx);
+    const [sale] = sales(plan);
+    if (!sale) throw new Error('no sale');
+    const tx = await buildWithdraw(request, legOf(sale), w.entry, w.owner, undefined);
+    expect(tx.legKind).toBe('swap');
+    expect(tx.preview.minimums).toEqual([
+      {
+        sell: w.spy,
+        buy: w.cash,
+        inRaw: sale.trades?.[0]?.amountInRaw,
+        minOutRaw: sale.expected?.[0]?.minOutRaw,
+      },
+    ]);
+    // a step that spends the vault's cash on a token, or sells into another token, is no withdrawal's
+    for (const trade of [
+      { sell: w.cash, buy: w.spy, amountInRaw: usd(10) },
+      { sell: w.spy, buy: `${chain}:nvda`, amountInRaw: '1000' },
+    ]) {
+      const leg = { ...legOf(sale), trades: [trade] } as Leg;
+      const no = await refusal(buildWithdraw(request, leg, w.entry, w.owner, undefined));
+      expect(no.status).toBe(501);
+    }
+    // nor is any trade a step of a withdrawal of the tokens themselves
+    const kind = await refusal(
+      buildWithdraw({ ...request, sellToCash: false }, legOf(sale), w.entry, w.owner, undefined),
+    );
+    expect(kind.status).toBe(501);
+    // and never for an owner who is not the vault's
+    const other = await refusal(
+      buildWithdraw(request, legOf(sale), w.entry, w.stranger, undefined),
+    );
+    expect(other.status).toBe(404);
+  });
+
+  it('builds no cash step that would pay less than the order stated: a sale that did not land leaves it short', async () => {
+    const request = dollars(w);
+    const plan = await planWithdraw(request, ctx);
+    const last = plan.steps.at(-1);
+    if (!last) throw new Error('no cash step');
+    // the sale was never sent: the vault holds its $600 and no more
+    const short = await refusal(buildWithdraw(request, legOf(last), w.entry, w.owner, undefined));
+    expect(short.status).toBe(409);
+    expect(short.body().error).toMatch(/less than the .* the order stated: nothing was built/);
+    expect(await inVault(w, w.cash)).toBe(BigInt(usd(600)));
   });
 });

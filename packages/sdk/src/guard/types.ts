@@ -55,8 +55,12 @@ export type Publication = {
   version: number;
 };
 
-/** One token leaving the vault for the owner's wallet. `amountRaw` null means whatever the vault holds. */
-export type Withdrawal = { asset: AssetId; amountRaw: RawAmount | null };
+/**
+ * One token leaving the vault for the owner's wallet. `amountRaw` null means whatever the vault holds.
+ * `minRaw`, on the cash step of a withdrawal in dollars: the bytes name an amount, and it is at least
+ * this, so a step that pays out less than the review stated is never signed.
+ */
+export type Withdrawal = { asset: AssetId; amountRaw: RawAmount | null; minRaw?: RawAmount };
 
 /**
  * A token the vault is known to hold that the deployment does not list: one sent in from outside. It
@@ -230,4 +234,12 @@ export type PlanTerms = {
   held?: HeldToken[];
   /** For a `publish` step: the shared portfolio as the creator saw it. */
   publish?: Publication;
+  /**
+   * A withdrawal in dollars (gate `WITHDRAW-DOLLARS`): the order may then be only the switch that
+   * turns auto-follow off, sales of the vault's holdings into the deployment's cash token, each token
+   * once, and one last step that withdraws the cash token and nothing else, to the owner. `cashRaw`
+   * is the person's share of the cash the vault held, as their review showed it: the cash step pays
+   * at least that plus the minimum of every sale. `withdrawals` is then left out.
+   */
+  dollars?: { cashRaw: RawAmount };
 };

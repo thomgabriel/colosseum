@@ -124,7 +124,51 @@ export function approvedSteps(
       if (!isRawAmount(t.amountInRaw)) throw refuse('a trade has no amount', leg.id);
 
   const withdrawLegs = legs.filter((l) => l.kind === 'withdraw');
+  // A withdrawal in dollars is exactly this and nothing else: at most one switch (off) first, sales of
+  // a holding into the cash token, each token once, and the cash out last. A purchase, a sale into
+  // another token, a second withdrawal or a withdrawal of anything but the cash is not that order.
+  const { dollars } = plan;
+  let cashLeast: string | null = null;
+  if (dollars) {
+    const { cash } = deployment;
+    if (!isRawAmount(dollars.cashRaw))
+      throw refuse('the share of the cash a withdrawal in dollars takes is not an amount');
+    if (plan.withdrawals || plan.held)
+      throw refuse(
+        'a withdrawal in dollars names no tokens: it takes out the cash and nothing else',
+      );
+    const last = legs.at(-1) as Leg;
+    if (withdrawLegs.length !== 1 || last.kind !== 'withdraw')
+      throw refuse('a withdrawal in dollars ends with one withdrawal of the cash', last.id);
+    const sold = new Set<string>();
+    let least = BigInt(dollars.cashRaw);
+    for (const [i, leg] of legs.entries()) {
+      if (leg === last) continue;
+      if (leg.kind === 'set_auto_follow' && i === 0 && plan.autoFollow === false) continue;
+      if (leg.kind !== 'swap' || !leg.trades.length)
+        throw refuse(
+          `a withdrawal in dollars sells holdings for cash and withdraws the cash: a ${leg.kind} step is neither`,
+          leg.id,
+        );
+      for (const trade of tradesOf(leg)) {
+        if (trade.buy !== cash || trade.sell === cash)
+          throw refuse(
+            `a withdrawal in dollars sells a holding for the cash token: this step trades ${trade.sell} for ${trade.buy}`,
+            leg.id,
+          );
+        if (sold.has(trade.sell)) throw refuse(`${trade.sell} is sold twice`, leg.id);
+        sold.add(trade.sell);
+        if (!isRawAmount(trade.minOutRaw) || trade.minOutRaw === '0')
+          throw refuse('a sale states no minimum', leg.id);
+        least += BigInt(trade.minOutRaw);
+      }
+    }
+    if (last.trades.length) throw refuse('the cash step of a withdrawal trades nothing', last.id);
+    if (least === 0n) throw refuse('a withdrawal in dollars that pays out nothing', last.id);
+    cashLeast = least.toString();
+  }
   const withdrawalsOf = (leg: Leg): Withdrawal[] | 'all' => {
+    if (cashLeast !== null) return [{ asset: deployment.cash, amountRaw: null, minRaw: cashLeast }];
     const listed = plan.withdrawals;
     if (!listed) return 'all';
     if (withdrawLegs.length === 1) return listed;

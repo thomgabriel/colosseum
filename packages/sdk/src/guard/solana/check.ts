@@ -352,6 +352,18 @@ export function checkSolana(ctx: Context, deployment: SolanaDeployment, table: P
             amount === null || v === BigInt(amount),
             `the bytes withdraw ${v}, and the step ${amount}`,
           );
+        const least = slot.withdrawal?.minRaw;
+        if (least !== undefined) {
+          const exact = args.amount;
+          args.amount = (v) => {
+            exact?.(v);
+            need(
+              'amount',
+              typeof v === 'bigint' && v >= BigInt(least),
+              `the bytes withdraw ${v}, less than the ${least} the step pays at least`,
+            );
+          };
+        }
         break;
       }
       case 'set_targets': {

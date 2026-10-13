@@ -333,6 +333,17 @@ export function checkMock(ctx: Context, deployment: MockDeployment): void {
       if (step.withdrawals !== 'all')
         for (const w of step.withdrawals) {
           const stated = amounts[w.asset];
+          // The cash of a withdrawal in dollars: an amount is named, and it is at least the step's.
+          if (w.minRaw !== undefined) {
+            need(
+              'amount',
+              typeof stated === 'string' &&
+                /^\d+$/.test(stated) &&
+                BigInt(stated) >= BigInt(w.minRaw),
+              `the bytes withdraw ${String(stated ?? 'all')} of ${w.asset}, less than the ${w.minRaw} the step pays at least`,
+            );
+            continue;
+          }
           need(
             'amount',
             w.amountRaw === null ? stated === undefined : stated === w.amountRaw,

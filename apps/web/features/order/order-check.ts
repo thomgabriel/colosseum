@@ -229,6 +229,8 @@ export function sharedShapeOk(
   if (order.legs.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;
   const kinds = order.legs.map((l) => l.kind);
   if (terms.kind === 'withdraw') {
+    // In dollars it trades: that order has a check of its own (`dollarsShapeOk`), never this one.
+    if (terms.dollars) return false;
     // Only withdrawals, of the tokens and the amounts the review showed, in its order, each once;
     // before them, the switch that turns auto-follow off, exactly where the review said there is one.
     const inOrder = order.legs.slice().sort((a, b) => a.seq - b.seq);
@@ -281,5 +283,58 @@ export function retargetShapeOk(
       l.kind === 'swap' &&
       l.trades.length > 0 &&
       l.trades.every((t) => t.sell !== t.buy && buys.has(t.buy)),
+  );
+}
+
+/**
+ * A withdrawal in dollars (gate WITHDRAW-DOLLARS): nothing deposited; the switch that turns auto-follow
+ * off first, exactly where the review said there is one; then only sales, each of a holding the review
+ * named, of exactly the amount it named, into the chain's cash token, each holding at most once and
+ * each with its minimum; and last one withdrawal of the cash token alone, which states the least it
+ * pays: the share of the cash the review showed plus the minimum of every sale, and not a unit less.
+ * A holding the server left unsold is not in the order, and that is no fault: selling less is the
+ * person's own to decide, and the order says which. The guard holds every step's bytes to the same
+ * (`PlanTerms.dollars`); this holds the order's shape to the review before anything is offered.
+ */
+export function dollarsShapeOk(
+  order: Pick<OrderDetail, 'depositRaw' | 'legs'>,
+  terms: Extract<SharedTerms, { kind: 'withdraw' }>,
+  units: Pick<ChainUnits, 'cash'> | null,
+): boolean {
+  const dollars = terms.dollars;
+  if (!dollars || !units || order.depositRaw !== undefined || order.legs.length === 0) return false;
+  const legs = order.legs.slice().sort((a, b) => a.seq - b.seq);
+  if (legs.some((l) => l.cashRaw !== undefined)) return false;
+  const first = legs[0]?.kind === 'set_auto_follow' ? legs[0] : null;
+  if ((first !== null) !== terms.autoFollowOff) return false;
+  if (first && (first.trades.length > 0 || first.withdrawals !== undefined)) return false;
+  const last = legs.at(-1);
+  const sales = legs.slice(first ? 1 : 0, -1);
+  const may = new Map(dollars.sales.map((s) => [s.asset, s.amountRaw]));
+  let least = BigInt(dollars.cashRaw);
+  for (const leg of sales) {
+    if (leg.kind !== 'swap' || leg.withdrawals !== undefined || leg.trades.length === 0)
+      return false;
+    if (leg.expected.length !== leg.trades.length) return false;
+    for (const [i, trade] of leg.trades.entries()) {
+      if (trade.buy !== units.cash || trade.sell === units.cash) return false;
+      if (may.get(trade.sell) !== trade.amountInRaw) return false;
+      may.delete(trade.sell);
+      const min = leg.expected[i]?.minOutRaw;
+      if (min === undefined || !RAW.test(min) || BigInt(min) === 0n) return false;
+      least += BigInt(min);
+    }
+  }
+  const [out, ...more] = last?.withdrawals ?? [];
+  return (
+    last?.kind === 'withdraw' &&
+    last !== first &&
+    last.trades.length === 0 &&
+    out !== undefined &&
+    more.length === 0 &&
+    out.asset === units.cash &&
+    out.amountRaw === null &&
+    least > 0n &&
+    out.leastRaw === least.toString()
   );
 }

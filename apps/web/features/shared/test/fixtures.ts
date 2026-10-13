@@ -216,6 +216,57 @@ export const withdrawOrder = (
 };
 
 /**
+ * A withdrawal in dollars, as POST /v1/orders answers it (gate WITHDRAW-DOLLARS): a `swap` step per
+ * sale into the cash token, each with its figure, then one `withdraw` step of the cash, which states
+ * the least it pays: `cashRaw` plus the minimum of every sale, unless `leastRaw` says otherwise.
+ */
+export const dollarsOrder = (
+  sales: { sell: string; amountInRaw: string; minOutRaw: string; buy?: string }[],
+  cash: { heldRaw: string; cashRaw: string; leastRaw?: string },
+  over: Record<string, unknown> = {},
+  autoFollowOff = false,
+) => {
+  const first = autoFollowOff ? [{ ...leg, id: LEG_C, seq: 0, kind: 'set_auto_follow' }] : [];
+  const least = sales.reduce((n, s) => n + BigInt(s.minOutRaw), BigInt(cash.cashRaw));
+  return order({
+    type: 'withdraw',
+    legs: [
+      ...first,
+      ...sales.map((s, i) => ({
+        ...leg,
+        id: [LEG_A, '66666666-6666-4666-8666-666666666666'][i],
+        seq: i + first.length,
+        kind: 'swap',
+        trades: [{ sell: s.sell, buy: s.buy ?? 'solana:usdc', amountInRaw: s.amountInRaw }],
+        expected: [
+          {
+            inRaw: s.amountInRaw,
+            outRaw: (BigInt(s.minOutRaw) + 1_000n).toString(),
+            minOutRaw: s.minOutRaw,
+            costBps: 10,
+          },
+        ],
+      })),
+      {
+        ...leg,
+        id: LEG_B,
+        seq: sales.length + first.length,
+        kind: 'withdraw',
+        withdrawals: [
+          {
+            asset: 'solana:usdc',
+            amountRaw: null,
+            heldRaw: cash.heldRaw,
+            leastRaw: cash.leastRaw ?? least.toString(),
+          },
+        ],
+      },
+    ],
+    ...over,
+  });
+};
+
+/**
  * New targets for a vault, as POST /v1/vaults/{chain}/{address}/targets answers a confirm (#191): the
  * step that sets them, then a swap into them.
  */

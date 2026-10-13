@@ -90,6 +90,12 @@ const withdrawStep: Step<'withdraw'> = {
   withdrawals: [{ asset: 'solana:spy', amountRaw: '5000000' }],
 };
 const withdrawAllStep: Step<'withdraw'> = { ...base, kind: 'withdraw', withdrawals: 'all' };
+/** The cash step of a withdrawal in dollars: any amount of the cash token, and at least this much. */
+const cashOutStep: Step<'withdraw'> = {
+  ...base,
+  kind: 'withdraw',
+  withdrawals: [{ asset: 'solana:usdc', amountRaw: null, minRaw: '700' }],
+};
 const targetsStep: Step<'set_targets'> = { ...base, kind: 'set_targets', targets: TARGETS };
 const acceptStep: Step<'accept_version'> = {
   ...base,
@@ -162,6 +168,9 @@ describe('the guard on Solana: an honest transaction passes', () => {
       [swapStep, await honest.swap()],
       [withdrawStep, await honest.withdraw(BASKET_PROGRAM)],
       [withdrawAllStep, await honest.withdraw(BASKET_PROGRAM, '123')],
+      // The cash of a withdrawal in dollars: the least the review stated, or more.
+      [cashOutStep, [await withdrawIx(BASKET_PROGRAM, 'solana:usdc', '700')]],
+      [cashOutStep, [await withdrawIx(BASKET_PROGRAM, 'solana:usdc', '9000')]],
       [
         targetsStep,
         [
@@ -887,6 +896,25 @@ const negatives: Negative[] = [
     name: 'a larger withdrawal than the step names',
     check: 'amount',
     input: async () => input(withdrawStep, wire(await honest.withdraw(BASKET_PROGRAM, '5000001'))),
+  },
+  {
+    name: 'a cash step that pays out less than the review stated',
+    check: 'amount',
+    input: async () =>
+      input(cashOutStep, wire([await withdrawIx(BASKET_PROGRAM, 'solana:usdc', '699')])),
+  },
+  {
+    name: "the cash of a withdrawal in dollars to a stranger's token account",
+    check: 'recipient',
+    input: async () =>
+      input(
+        cashOutStep,
+        wire([
+          await withdrawIx(BASKET_PROGRAM, 'solana:usdc', '700', {
+            accounts: { destination: await tokenAccountOf(STRANGER, 'solana:usdc') },
+          }),
+        ]),
+      ),
   },
   {
     name: 'a larger deposit inside a create',

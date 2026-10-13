@@ -1,6 +1,8 @@
+import { batchTrades } from '@colosseum/basket';
 import {
   type Address,
   type AssetId,
+  type BasketAsset,
   type BuiltTx,
   type Chain,
   ChainError,
@@ -10,24 +12,57 @@ import {
   isAddressOf,
   type Leg,
   type LegWithdrawal,
+  type Order,
   type Principal,
+  type Trade,
   type VaultState,
 } from '@colosseum/schemas';
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
 import { Refusal } from './errors';
 import { HOME_CHAIN } from './person';
+import { expectedOf, ORDER_POLICY } from './prepare';
 
 // A withdrawal: tokens leave a vault as they are, for the wallet of the vault's owner and nobody
 // else (DESIGN-VAULT section 5: the owner can always withdraw every token in kind). The program and
 // the contract pay only the owner; here the order is refused before anything is built unless the
 // vault is the signed-in person's, and no step is built for more of a token than the vault holds at
-// that moment. Selling to cash first is not offered: no builder chains the sales to the withdrawal.
+// that moment.
+//
+// Or in dollars (gate WITHDRAW-DOLLARS, Thom, Oct 13): `sellToCash` sells the vault's holdings for the
+// chain's cash token with the owner's own swap, each sale stating its minimum, and then withdraws the
+// cash, to the owner as before. No program or contract knows of it: it is the owner's swap and the
+// owner's withdrawal, one after the other, and each is signed by the owner. A holding that cannot be
+// sold now is left in the vault and said, never forced; the tokens themselves always leave in kind.
 
 export type WithdrawRequest = Extract<IntentRequest, { type: 'withdraw' }>;
 
-/** Said to a person, as it is: the screen shows this sentence. */
-export const SELL_TO_CASH_NOT_OFFERED =
-  'Selling to cash before withdrawing isn’t offered yet; you can withdraw the tokens themselves';
+/** Said to a person, as it is: a withdrawal in dollars names no tokens. */
+export const DOLLARS_TAKE_A_SHARE =
+  'A withdrawal in dollars takes a share of everything the vault holds: name a share, not tokens';
+
+/** Said to a person, as it is: only a withdrawal in dollars takes a share or a slippage. */
+export const SHARE_IS_FOR_DOLLARS =
+  'A share of the vault is for a withdrawal in dollars: name the tokens and amounts instead';
+
+/**
+ * The refusals of a quote that say this one holding cannot be sold now: its market is closed with no
+ * usable average, its pool is too far from the reference, the sale is larger than its pool is trusted
+ * to fill, it has no price or no pool. The holding is left in the vault and the rest goes on. Anything
+ * else (a node that did not answer, an error with no name) refuses the whole order: a holding is never
+ * left out on a guess.
+ */
+const NOT_SOLD_NOW: ReadonlySet<string> = new Set([
+  'BadTrade',
+  'PriceStale',
+  'PriceDeviation',
+  'PriceOutOfRange',
+  'AssetNotPriced',
+  'MarketClosed',
+  'MintNotAccepted',
+  'HookNotAllowed',
+  'BalanceUnreadable',
+  'NotSupported',
+]);
 
 /** Said to a person, as it is, for an amount of a token whose units the app does not list. */
 export const WHOLE_TOKEN_ONLY = 'All of it or none: this app doesn’t know this token’s units';
@@ -130,7 +165,6 @@ async function ownVault(
   req: WithdrawRequest,
   ctx: Context,
 ): Promise<{ entry: ChainEntry; family: Chain; vault: VaultState }> {
-  if (req.sellToCash) throw new Refusal(422, SELL_TO_CASH_NOT_OFFERED);
   const [address, ...more] = req.vaults;
   if (!address || more.length)
     throw new Refusal(422, 'one vault per withdrawal: make an order for each');
@@ -218,11 +252,151 @@ function namer(assets: { id: AssetId; symbol: string; decimals: number }[]) {
 
 export type WithdrawStep = {
   chain: ChainId;
-  kind: 'withdraw' | 'set_auto_follow';
+  kind: 'withdraw' | 'set_auto_follow' | 'swap';
   description: string;
   /** What a `withdraw` step takes out. Absent on the step that switches auto-follow off. */
   withdrawals?: LegWithdrawal[];
+  /** The sales of a `swap` step of a withdrawal in dollars, each into the cash token. */
+  trades?: Trade[];
+  /** One figure per sale, from a quote taken as the order is planned: its minimum is the order's. */
+  expected?: Leg['expected'];
 };
+
+export type WithdrawPlan = {
+  entry: ChainEntry;
+  owner: Address;
+  vault: Address;
+  steps: WithdrawStep[];
+  /** What the order says beside its steps: each holding a withdrawal in dollars leaves unsold, and why. */
+  warnings: Order['warnings'];
+};
+
+/** `NOT_SOLD:<asset>`: the code of the warning for a holding a withdrawal in dollars does not sell. */
+export const notSold = (asset: AssetId) => `NOT_SOLD:${asset}`;
+
+/** The share of an amount, rounded down; all of it for the whole. Never through a float. */
+export const shareOf = (raw: bigint, shareBps: number) =>
+  shareBps >= 10_000 ? raw : (raw * BigInt(shareBps)) / 10_000n;
+
+const AUTO_FOLLOW_OFF =
+  'Switch auto-follow off: automatic following stops for this vault, so the keeper does not trade it while you withdraw or afterwards';
+
+/**
+ * A withdrawal in dollars, planned and not built: the share of each holding sold for the cash token,
+ * as many sales per step as the chain takes, then one withdrawal of the cash.
+ *
+ * - Pro rata: the same share of every holding and of the cash, each rounded down. A share that rounds
+ *   to nothing of a holding sells none of it.
+ * - Each sale is quoted now through the chain's own quote, which holds it to what the chain holds an
+ *   owner's trade to (on Robinhood Chain the price bound and the asset's largest trade). A sale it
+ *   refuses is not made, split or forced: the holding stays, with the chain's sentence.
+ * - The cash step states the least it pays (`leastRaw`): the share of the cash held now plus the least
+ *   each sale accepts. What it pays is fixed when it is built, from the cash then in the vault.
+ */
+async function planDollars(
+  req: WithdrawRequest,
+  ctx: Context,
+  own: { entry: ChainEntry; vault: VaultState },
+  assets: BasketAsset[],
+): Promise<WithdrawPlan> {
+  const { entry, vault } = own;
+  if (req.withdrawals) throw new Refusal(422, DOLLARS_TAKE_A_SHARE);
+  const shareBps = req.shareBps ?? 10_000;
+  const slippageBps = req.maxSlippageBps ?? ORDER_POLICY.slippageBps;
+  const now = ctx.now ?? new Date().toISOString();
+  const cash = assets.find((a) => a.id === vault.cash.asset);
+  if (!cash) throw new Error(`${entry.chain} does not list the vault's cash token`);
+  const listed = new Map(assets.map((a) => [a.id, a]));
+  const name = namer(assets);
+  const symbol = (id: AssetId) => listed.get(id)?.symbol ?? id;
+
+  const sales: { trade: Trade; expected: Leg['expected'][number] }[] = [];
+  const warnings: Order['warnings'] = [];
+  const stays = (asset: AssetId, why: string) =>
+    warnings.push({
+      code: notSold(asset),
+      text: `${symbol(asset)} is not sold: ${why}. It stays in your vault, and you can withdraw the tokens themselves.`,
+    });
+  for (const held of vault.positions) {
+    const has = BigInt(held.raw);
+    if (has === 0n) continue;
+    const sell = shareOf(has, shareBps);
+    if (!listed.has(held.asset)) {
+      stays(
+        held.asset,
+        `this app does not list it on ${entry.config.name}, so it has no pool to sell it in`,
+      );
+      continue;
+    }
+    if (sell === 0n) {
+      stays(held.asset, 'your share of it is less than its smallest unit');
+      continue;
+    }
+    const trade: Trade = { sell: held.asset, buy: cash.id, amountInRaw: sell.toString() };
+    try {
+      const [expected] = await expectedOf(entry, [trade], vault.owner, slippageBps);
+      if (!expected) throw new Error('a sale was quoted with no figure');
+      sales.push({ trade, expected });
+    } catch (e) {
+      if (e instanceof ChainError && NOT_SOLD_NOW.has(e.code)) stays(held.asset, e.message);
+      // Too little to be held to a minimum: dust, which a sale would give away at any price.
+      else if (e instanceof Refusal && e.status === 422)
+        stays(held.asset, 'the amount is too small to sell at a stated minimum');
+      else throw e;
+    }
+  }
+
+  const cashHeld = BigInt(vault.cash.raw);
+  const least =
+    shareOf(cashHeld, shareBps) + sales.reduce((n, x) => n + BigInt(x.expected.minOutRaw), 0n);
+  if (least === 0n)
+    throw new Refusal(409, 'nothing this vault holds can be withdrawn in dollars now', {
+      fix: 'Withdraw the tokens themselves: that needs no sale.',
+      details: { retryable: false, issues: warnings.map((x) => x.code) },
+    });
+  const cents = (least * 100n) / 10n ** BigInt(cash.decimals);
+  const out: LegWithdrawal = {
+    asset: cash.id,
+    amountRaw: null,
+    heldRaw: cashHeld.toString(),
+    leastRaw: least.toString(),
+    valued: {
+      usd: `${cents / 100n}.${(cents % 100n).toString().padStart(2, '0')}`,
+      source: entry.source,
+      method:
+        'the least this withdrawal pays: the share of the cash the vault held plus the least each sale accepts, the dollar token counted at one dollar as the vault counts it',
+      fetchedAt: now,
+      provenance: entry.provenance,
+    },
+  };
+  const part = shareBps >= 10_000 ? 'all' : `${(shareBps / 100).toLocaleString('en-US')}%`;
+  const steps: WithdrawStep[] = [
+    ...(vault.autoFollow
+      ? [{ chain: entry.chain, kind: 'set_auto_follow' as const, description: AUTO_FOLLOW_OFF }]
+      : []),
+    ...batchTrades(
+      sales.map((x) => x.trade),
+      entry.adapter.capabilities.maxTradesPerTx,
+    ).map((group) => ({
+      chain: entry.chain,
+      kind: 'swap' as const,
+      description: group
+        .map((t) => `Sell ${name(t.sell, BigInt(t.amountInRaw))} for ${cash.symbol}`)
+        .join(', '),
+      trades: group,
+      expected: group.map(
+        (t) => (sales.find((x) => x.trade === t) as (typeof sales)[number]).expected,
+      ),
+    })),
+    {
+      chain: entry.chain,
+      kind: 'withdraw',
+      description: `Withdraw ${part} of the ${cash.symbol} in your vault to your own wallet, ${vault.owner}: at least ${name(cash.id, least)}`,
+      withdrawals: [out],
+    },
+  ];
+  return { entry, owner: vault.owner, vault: vault.address, steps, warnings };
+}
 
 /**
  * The steps of a withdrawal, planned and not built. Solana's program takes one token per call, so a
@@ -233,12 +407,12 @@ export type WithdrawStep = {
  * it would sell what stayed to buy again what had just gone out (tests/keeper/withdrawal.test.ts). The
  * owner switches it on again when they want it.
  */
-export async function planWithdraw(
-  req: WithdrawRequest,
-  ctx: Context,
-): Promise<{ entry: ChainEntry; owner: Address; vault: Address; steps: WithdrawStep[] }> {
+export async function planWithdraw(req: WithdrawRequest, ctx: Context): Promise<WithdrawPlan> {
   const { entry, family, vault } = await ownVault(req, ctx);
   const assets = await entry.adapter.listAssets();
+  if (req.sellToCash) return planDollars(req, ctx, { entry, vault }, assets);
+  if (req.shareBps !== undefined || req.maxSlippageBps !== undefined)
+    throw new Refusal(422, SHARE_IS_FOR_DOLLARS);
   const name = namer(assets);
   const taken = held(req, holdingsOf(vault), name, new Set(assets.map((a) => a.id)));
   const value = await valuer(entry, assets, taken, ctx.now ?? new Date().toISOString());
@@ -261,8 +435,7 @@ export async function planWithdraw(
         {
           chain: entry.chain,
           kind: 'set_auto_follow',
-          description:
-            'Switch auto-follow off: automatic following stops for this vault, so the keeper does not trade it while you withdraw or afterwards',
+          description: AUTO_FOLLOW_OFF,
         },
       ]
     : [];
@@ -271,6 +444,7 @@ export async function planWithdraw(
     owner: vault.owner,
     vault: vault.address,
     steps: [...off, ...(family === 'solana' ? all.map((w) => [w]).map(step) : [step(all)])],
+    warnings: [],
   };
 }
 
@@ -297,11 +471,62 @@ export async function buildWithdraw(
       on: false,
       ...(nonce === undefined ? {} : { nonce }),
     });
+  const again = { fix: 'Make the withdrawal again.', details: { retryable: false } };
+  const at = nonce === undefined ? {} : { nonce };
+  // A sale of a withdrawal in dollars: the vault's own holding into its cash token, at the minimum
+  // the order stated and never another. No other trade is a step of a withdrawal.
+  if (leg.kind === 'swap') {
+    const cash = vault.cash.asset;
+    if (
+      !request.sellToCash ||
+      !leg.trades.length ||
+      leg.trades.some((t) => t.buy !== cash || t.sell === cash)
+    )
+      throw new Refusal(501, 'a withdrawal trades only to sell a holding for cash');
+    if (leg.expected.length !== leg.trades.length)
+      throw new Refusal(409, 'this step states no minimum for its sales: nothing was built', again);
+    return entry.adapter.buildOwnerSwap({
+      vault: vault.address,
+      trades: leg.trades,
+      slippageBps: request.maxSlippageBps ?? ORDER_POLICY.slippageBps,
+      minimums: leg.expected.map((e) => e.minOutRaw),
+      ...at,
+    });
+  }
   if (leg.kind !== 'withdraw' || !leg.withdrawals)
     throw new Refusal(501, `a ${leg.kind} step of a withdrawal cannot be built`);
   const holdings = holdingsOf(vault);
   const name = namer(await entry.adapter.listAssets());
-  const again = { fix: 'Make the withdrawal again.', details: { retryable: false } };
+  if (request.sellToCash) {
+    // The cash of a withdrawal in dollars, once its sales have settled: what the vault holds now less
+    // the cash that was to stay (the cash at planning less the share taken). Never less than the
+    // order stated: a sale that did not go through leaves the order short, and it is made again.
+    const [w, ...more] = leg.withdrawals;
+    if (!w || more.length || w.asset !== vault.cash.asset || w.leastRaw === undefined)
+      throw new Refusal(501, 'a withdrawal in dollars takes out the cash token, in one step');
+    const planned = BigInt(w.heldRaw);
+    const keep = planned - shareOf(planned, request.shareBps ?? 10_000);
+    const has = holdings.get(w.asset) ?? 0n;
+    const amount = has - keep;
+    if (amount < BigInt(w.leastRaw) || amount <= 0n)
+      throw new Refusal(
+        409,
+        `the vault now holds ${name(w.asset, has)}, so this step would pay less than the ${name(w.asset, BigInt(w.leastRaw))} the order stated: nothing was built`,
+        {
+          fix: 'A sale of this order did not go through, or cash left the vault since. Make the withdrawal again.',
+          details: { retryable: false },
+        },
+      );
+    const [tx, ...rest] = await entry.adapter.buildWithdrawInKind({
+      vault: vault.address,
+      assets: [w.asset],
+      amounts: { [w.asset]: amount.toString() },
+      ...at,
+    });
+    if (!tx || rest.length)
+      throw new Refusal(409, 'this step cannot be built as one transaction now', again);
+    return tx;
+  }
   for (const w of leg.withdrawals) {
     const has = holdings.get(w.asset) ?? 0n;
     if (has === 0n)

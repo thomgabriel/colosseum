@@ -77,6 +77,12 @@ const withdrawStep: Step<'withdraw'> = {
   withdrawals: [{ asset: 'robinhood:spy', amountRaw: '500' }],
 };
 const withdrawAllStep: Step<'withdraw'> = { ...base, kind: 'withdraw', withdrawals: 'all' };
+/** The cash step of a withdrawal in dollars: any amount of the cash token, and at least this much. */
+const cashOutStep: Step<'withdraw'> = {
+  ...base,
+  kind: 'withdraw',
+  withdrawals: [{ asset: 'robinhood:usdc', amountRaw: null, minRaw: '700' }],
+};
 const acceptStep: Step<'accept_version'> = {
   ...base,
   kind: 'accept_version',
@@ -164,6 +170,9 @@ describe('the guard on EVM: an honest call passes', () => {
       [targetsStep, { to: VAULT, data: calls.setTargets(weights(TARGETS)) }],
       [withdrawStep, honest.withdraw()],
       [withdrawAllStep, { to: VAULT, data: calls.withdrawAll() }],
+      // The cash of a withdrawal in dollars: the least the review stated, or more.
+      [cashOutStep, honest.withdraw(USDC, '700')],
+      [cashOutStep, honest.withdraw(USDC, '9000')],
       // Everything, token by token: one the deployment lists, and one the caller knows the vault holds.
       [
         { ...withdrawAllStep, held: [{ address: STRANGER }] },
@@ -552,6 +561,12 @@ const negatives: Negative[] = [
   ),
   on(withdrawStep, 'a larger withdrawal than the step names', 'amount', () =>
     honest.withdraw(tokenOf('robinhood:spy'), '501'),
+  ),
+  on(cashOutStep, 'a cash step that pays out less than the review stated', 'amount', () =>
+    honest.withdraw(USDC, '699'),
+  ),
+  on(cashOutStep, 'a withdrawal of a holding in place of the cash', 'asset', () =>
+    honest.withdraw(tokenOf('robinhood:spy'), '700'),
   ),
 
   // ---- an extra call
