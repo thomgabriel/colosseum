@@ -102,7 +102,7 @@ export function HeroFigure({
   return (
     <div data-ui="hero-figure" className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-body-sm text-muted-foreground">{label}</p>
+        <div className="text-body-sm text-muted-foreground">{label}</div>
         {plate}
       </div>
       <p
