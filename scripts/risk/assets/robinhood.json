@@ -115,11 +115,11 @@
     }
   ],
   "counts": {
-    "rows": 273,
+    "rows": 272,
     "byCategory": {
       "basis_strategy": 1,
       "fixed_maturity": 1,
-      "governance": 11,
+      "governance": 10,
       "lending_deposit": 1,
       "liquid_staking": 2,
       "lp_share": 1,
@@ -140,7 +140,7 @@
       "yield_claim": 1
     },
     "byStatus": {
-      "candidate": 184,
+      "candidate": 183,
       "excluded": 45,
       "held_out": 13,
       "listed": 31
@@ -148,7 +148,7 @@
     "byClass": {
       "cash": 6,
       "commodity": 2,
-      "crypto": 17,
+      "crypto": 16,
       "dollar_yield": 8,
       "etf": 2,
       "gold": 3,
@@ -156,8 +156,8 @@
       "stock": 188
     },
     "byDecider": {
-      "derived": 206,
-      "rule:crypto-protocol": 12,
+      "derived": 205,
+      "rule:crypto-protocol": 11,
       "rule:issuer-registry": 194,
       "rule:not-the-issuers-stock-token": 19,
       "rule:registry-class-commodity": 2,
@@ -171,7 +171,7 @@
     "nulls": {
       "access": {
         "hybrid: minting and redemption need KYC/AML eligibility and a greenlisted address, and holders transfer freely (the note, section 3.1); neither open nor permissioned as read": 1,
-        "not_read": 73,
+        "not_read": 72,
         "not_read_on_an_issuer_source": 194
       },
       "authorities": {
@@ -180,11 +180,11 @@
       "authorities.admin": {
         "admin_slot_empty_code_delegates": 3,
         "no_owner_function": 194,
-        "none": 63,
+        "none": 62,
         "uups_upgrade_in_implementation": 2
       },
       "authorities.owner": {
-        "no_owner_function": 231
+        "no_owner_function": 230
       },
       "cls": {
         "no class takes lp_share": 1,
@@ -224,7 +224,7 @@
       "mintRedeem": {
         "none on this chain (the note, section 3.1)": 1,
         "none on this chain: the exit is the pool (the note, section 3.1)": 1,
-        "not_read": 67,
+        "not_read": 66,
         "not_read: Paxos mints and redeems for its customers; its terms were not read": 1,
         "not_read: how ether reaches the chain (its bridges) was not read": 1,
         "not_read: the input list says it is bought on the chain's exchanges or bridged as a LayerZero OFT": 1,
@@ -239,7 +239,7 @@
         "feed_named_in_other_case_not_tied": 4,
         "in_tracked_row": 30,
         "issuer_not_confirmed": 1,
-        "no_feed": 174,
+        "no_feed": 173,
         "symbol_shared_by_tokens": 4
       },
       "pools": {
@@ -253,7 +253,7 @@
         "not the stock its symbol names, and no protocol by CoinGecko's categories": 15
       },
       "yieldMechanism": {
-        "not_read": 63,
+        "not_read": 62,
         "not_read: on this chain it is a bridged token; how it accrues here was not read": 1,
         "not_read_on_an_issuer_source": 194
       }
@@ -275,8 +275,8 @@
     "oracle": "A Chainlink feed of the directory, tied to a token and confirmed on chain at the block by the rule of the oracle map (scripts/risk-evm/feeds.ts matchToken: the name and the contract's description() must read as a US dollar price of the symbol, letters as written; decimals() as the directory says; a positive answer not after the block). The twins check is over the rows not excluded; an excluded row gets no feed (excluded_row). A feed names an asset, not an address: it is not tied to a token whose issuer no verdict or rule names (issuer_not_confirmed). Where the directory names the symbol in another case only, the reason says so (feed_named_in_other_case_not_tied). A tracked stock's oracle is in its tracked row. prices is what the directory says the feed prices (token_with_multiplier for a primaryTokenizedPrice product, token_from_pools for dex_state_price), else null. No answer of a feed is stored.",
     "pools": "pools.confirmed and pools.unconfirmed: see poolCount. A pool with a stock token of the issuer registry is counted from the discovery file of RU.2 (confirmed by the v3 factory or the v4 pool manager, unconfirmed when only DexScreener named it: the venues that are not Uniswap v3 or v4 are not read, D4, BYREAL-D4); a pool with none is counted from this run's DexScreener answers, unconfirmed. The gas coin is the zero address in pools. no_known_pool where neither knows one. A tracked stock's pools are in its tracked row.",
     "noFigures": "Nothing in a row is a price, a TVL, a supply or a yield. The registry multiplier is its text, applied to nothing.",
-    "cryptoLeftOut": "Of the 207 tokens the crypto selection kept, 21 are rows; the others are not, by CoinGecko's page of each: meme 72, no_protocol_category 113, not_on_coingecko 1 (meme: a category of memecoins; no_protocol_category: no category that names a protocol, a chain or a product, matched whole; not_on_coingecko: no page for the address).",
-    "leftTheList": "Of the 282 rows of the committed lists (scripts/risk/assets/robinhood.json, 4 commits), every one is read again; 265 are rows here. Left (17): robinhood:amd-1c2a48 0x1c2a482970ae6b6e5052a7a184c8aef19e0840be (AMD, excluded in e5b6b656): CoinGecko files it as a memecoin (Meme, Dog-Themed, Stock market-themed): a memecoin is not a row; robinhood:injoh 0x2cc0fac44b8252f6b10208b091aff2c94b4da77d (INJOH, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:paws 0x3183d125610725e1b507fc78ae5a16376609495f (PAWS, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Gaming (GameFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:bow 0x451b42a15100c340ca12f7c66de06fac5ea2d751 (BOW, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:par 0x507b6f349a80114097a67b8b4677367acc15b220 (par, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:up 0x57c0e45cb534413d1c20a4240955d6bb250bb4f1 (UP, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:flock 0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691 (FLOCK, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Artificial Intelligence (AI), BNB Chain Ecosystem, Solana Ecosystem, Ethereum Ecosystem, Base Ecosystem, AI Applications, Binance Alpha Spotlight, HyperEVM Ecosystem, x402 Ecosystem, Base Native, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:pair 0x6b1d42927b1a84ec28fa88d4fc6fa7af404966be (PAIR, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:gage 0x7163ae1b5aea2f09ebc609c52b4dcac0a7a4bc2d (GAGE, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:aur-b0788f 0xb0788f5f65a9f4c0d8a634c45c391234f46221ab (AUR, excluded in e5b6b656): CoinGecko files it as a memecoin (Meme, AI Meme): a memecoin is not a row; robinhood:bucket 0xbc9e7b1c5c0081f4ae85e71ec95703d3dec9ffad (Bucket, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:virtual 0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31 (VIRTUAL, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Artificial Intelligence (AI), Solana Ecosystem, Launchpad, Ethereum Ecosystem, Base Ecosystem, AI Agents, Virtuals Protocol Ecosystem, AI Agent Launchpad, Binance Alpha Spotlight, AI Framework, Robotics, Base Native, Arc Ecosystem, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:nosh 0xe02c53d448a62067b2ac10ed70f5bc6c29471386 (NOSH, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:stonkbroker 0xe934e36a439c94017b64a3fece66af12099abf50 (STONKBROKER, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Automated Market Maker (AMM), Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:gme-ef67e3 0xef67e3064bef1a27e81925ec7132f23e533bd5f6 (GME, excluded in e5b6b656): CoinGecko files it as a memecoin (Robinhood Chain Meme): a memecoin is not a row; robinhood:prm 0xf24f8f6b08fe87cf062e833a732ad7f636064bc8 (PRM, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:wood 0xf8bc08092c06db6148114dcf82af881f1085f92b (WOOD, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Governance, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row."
+    "cryptoLeftOut": "Of the 207 tokens the crypto selection kept, 20 are rows; the others are not, by CoinGecko's page of each: meme 72, no_protocol_category 113, not_on_coingecko 1, protocol 1 (meme: a category of memecoins; no_protocol_category: no category that names a protocol, a chain or a product, matched whole; not_on_coingecko: no page for the address).",
+    "leftTheList": "Of the 282 rows of the committed lists (scripts/risk/assets/robinhood.json, 4 commits), every one is read again; 264 are rows here. Left (18): robinhood:amd-1c2a48 0x1c2a482970ae6b6e5052a7a184c8aef19e0840be (AMD, excluded in e5b6b656): CoinGecko files it as a memecoin (Meme, Dog-Themed, Stock market-themed): a memecoin is not a row; robinhood:injoh 0x2cc0fac44b8252f6b10208b091aff2c94b4da77d (INJOH, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:paws 0x3183d125610725e1b507fc78ae5a16376609495f (PAWS, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Gaming (GameFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:pons 0x39dbed3a2bd333467115de45665cc57f813c4571 (PONS, candidate in e5b6b656): taken out by a person's decision: PONS, gate SHELF-CRYPTO-1 (Rodrigo, 2026-10-13): the token of a launch pad whose launches are mostly memes, the closest to a meme though the CoinGecko rule admits it; robinhood:bow 0x451b42a15100c340ca12f7c66de06fac5ea2d751 (BOW, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:par 0x507b6f349a80114097a67b8b4677367acc15b220 (par, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:up 0x57c0e45cb534413d1c20a4240955d6bb250bb4f1 (UP, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:flock 0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691 (FLOCK, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Artificial Intelligence (AI), BNB Chain Ecosystem, Solana Ecosystem, Ethereum Ecosystem, Base Ecosystem, AI Applications, Binance Alpha Spotlight, HyperEVM Ecosystem, x402 Ecosystem, Base Native, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:pair 0x6b1d42927b1a84ec28fa88d4fc6fa7af404966be (PAIR, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:gage 0x7163ae1b5aea2f09ebc609c52b4dcac0a7a4bc2d (GAGE, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:aur-b0788f 0xb0788f5f65a9f4c0d8a634c45c391234f46221ab (AUR, excluded in e5b6b656): CoinGecko files it as a memecoin (Meme, AI Meme): a memecoin is not a row; robinhood:bucket 0xbc9e7b1c5c0081f4ae85e71ec95703d3dec9ffad (Bucket, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:virtual 0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31 (VIRTUAL, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Artificial Intelligence (AI), Solana Ecosystem, Launchpad, Ethereum Ecosystem, Base Ecosystem, AI Agents, Virtuals Protocol Ecosystem, AI Agent Launchpad, Binance Alpha Spotlight, AI Framework, Robotics, Base Native, Arc Ecosystem, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:nosh 0xe02c53d448a62067b2ac10ed70f5bc6c29471386 (NOSH, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:stonkbroker 0xe934e36a439c94017b64a3fece66af12099abf50 (STONKBROKER, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Decentralized Finance (DeFi), Automated Market Maker (AMM), Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:gme-ef67e3 0xef67e3064bef1a27e81925ec7132f23e533bd5f6 (GME, excluded in e5b6b656): CoinGecko files it as a memecoin (Robinhood Chain Meme): a memecoin is not a row; robinhood:prm 0xf24f8f6b08fe87cf062e833a732ad7f636064bc8 (PRM, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Launchpad, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row; robinhood:wood 0xf8bc08092c06db6148114dcf82af881f1085f92b (WOOD, candidate in e5b6b656): CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: Governance, Robinhood Ecosystem), and no rule, and no verdict citing its project's own page, makes it a row."
   },
   "assets": [
     {
@@ -934,116 +934,6 @@
       "listedIn": [],
       "pools": null,
       "poolsReason": "no_known_pool",
-      "tracked": null,
-      "attributes": null,
-      "source": "https://api.robinhood.com/rhj/assets, https://reference-data-directory.vercel.app/feeds-robinhood-mainnet.json and DexScreener's search and token pairs, then the tokens by eth_call through Multicall3, eth_getStorageAt and eth_getCode at block 86880390 on Robinhood Chain (chain 4663) through https://rpc.mainnet.chain.robinhood.com",
-      "fetchedAt": "2026-10-12T18:20:35.000Z",
-      "method": "assets-list-0.1",
-      "provenance": "live"
-    },
-    {
-      "id": "robinhood:pons",
-      "chain": "robinhood",
-      "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
-      "symbol": "PONS",
-      "name": "Pons",
-      "nameReason": null,
-      "decimals": 18,
-      "standard": "erc20",
-      "standardNote": null,
-      "extensions": {
-        "family": "evm",
-        "proxy": {
-          "value": false,
-          "reason": null,
-          "read": "EIP-1967 implementation, admin and beacon slots are zero and the code has no DELEGATECALL"
-        },
-        "implementation": null,
-        "pausable": {
-          "value": false,
-          "reason": null,
-          "read": "none of the pausable selectors in the code of the token, which has no DELEGATECALL"
-        },
-        "blacklist": {
-          "value": false,
-          "reason": null,
-          "read": "none of the blacklist selectors in the code of the token, which has no DELEGATECALL"
-        }
-      },
-      "extensionsReason": null,
-      "authorities": {
-        "owner": {
-          "holder": null,
-          "reason": "no_owner_function",
-          "read": "owner()"
-        },
-        "admin": {
-          "holder": null,
-          "reason": "none",
-          "read": "EIP-1967 admin slot"
-        }
-      },
-      "authoritiesReason": null,
-      "read": {
-        "method": "eth_call by Multicall3, eth_getStorageAt and eth_getCode",
-        "at": "2026-10-12T18:20:35.000Z",
-        "height": 86880390,
-        "symbolFrom": "erc20"
-      },
-      "listingTags": ["dexscreener", "coingecko", "previous_list"],
-      "issuerRegistry": null,
-      "category": "governance",
-      "status": "candidate",
-      "statusReason": "a protocol's token by CoinGecko's categories (one of PROTOCOL_CATEGORIES, matched whole, or a launch pad's own token), selected by its trading on the chain or a Chainlink feed or a row of a committed list; crypto is enumerated and not decided (DA6)",
-      "verdictSource": null,
-      "issuer": "Pons",
-      "issuerReason": null,
-      "issuerKind": "defi_protocol",
-      "underlying": "PONS",
-      "underlyingReason": null,
-      "currency": null,
-      "legTypes": null,
-      "legTypesReason": null,
-      "yieldMechanism": null,
-      "yieldMechanismReason": "not_read",
-      "access": null,
-      "accessReason": "not_read",
-      "mintRedeem": null,
-      "mintRedeemReason": "not_read",
-      "sources": [
-        {
-          "url": "https://www.coingecko.com/en/coins/pons",
-          "title": "CoinGecko: Pons, at this address on Robinhood Chain; categories Launchpad, Robinhood Ecosystem, Pons Launchpad",
-          "readOn": "2026-10-12"
-        },
-        {
-          "url": "https://tokens.coingecko.com/robinhood/all.json",
-          "title": "CoinGecko's token list for Robinhood Chain: names and addresses",
-          "readOn": "2026-10-11"
-        },
-        {
-          "url": "https://api.dexscreener.com/tokens/v1/robinhood",
-          "title": "DexScreener's pairs of each listed token on Robinhood Chain, which select it by its trading",
-          "readOn": "2026-10-11"
-        }
-      ],
-      "unverified": [
-        "what the project is: CoinGecko's categories, not the project's own pages (https://ponsfamily.com/)",
-        "who may mint the token on this chain, and by which bridge it arrives"
-      ],
-      "cls": "crypto",
-      "clsReason": null,
-      "oracle": null,
-      "oracleReason": "no_feed",
-      "unverifiedOracles": [],
-      "decidedBy": ["derived", "rule:crypto-protocol"],
-      "listedIn": [],
-      "pools": {
-        "confirmed": 13,
-        "unconfirmed": 4,
-        "file": "discovery-robinhood-20261005T1947.json (pools with a stock token of the issuer registry, 2026-10-05) and DexScreener's pairs of 2026-10-12 (pools with none)"
-      },
-      "poolsReason": null,
       "tracked": null,
       "attributes": null,
       "source": "https://api.robinhood.com/rhj/assets, https://reference-data-directory.vercel.app/feeds-robinhood-mainnet.json and DexScreener's search and token pairs, then the tokens by eth_call through Multicall3, eth_getStorageAt and eth_getCode at block 86880390 on Robinhood Chain (chain 4663) through https://rpc.mainnet.chain.robinhood.com",
