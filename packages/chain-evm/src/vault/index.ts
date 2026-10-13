@@ -3,6 +3,7 @@
 // a `ChainConfig` per chain. It holds no key. Its own entry: '@colosseum/chain-evm/vault'.
 export * from './adapter';
 export { displayAmount, fromScaled, multiplierString, toScaled } from './amounts';
+export * from './asset-batch';
 export { callHash } from './compose';
 export * from './deployment';
 export { revertDataOf, revertToChainError } from './errors';

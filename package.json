@@ -126,6 +126,7 @@
     "risk-evm:history": "tsx scripts/risk-evm/history-run.ts",
     "risk-evm:flow-import": "NODE_OPTIONS=--max-old-space-size=8192 tsx scripts/risk-evm/flow-import.ts",
     "ops:authority-check": "tsx scripts/ops/authority-check.ts",
+    "ops:add-assets": "tsx scripts/ops/add-assets.ts",
     "ops:mainnet-records": "tsx scripts/ops/mainnet-records.ts"
   },
   "devDependencies": {

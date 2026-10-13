@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ChainError } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
-import { assertNode, deploymentAssets, EvmDeploymentRecord } from '../src/vault/deployment';
+import {
+  assertNode,
+  deploymentAssets,
+  deploymentLimits,
+  deploymentPools,
+  EvmDeploymentRecord,
+} from '../src/vault/deployment';
 import type { EvmRpc } from '../src/vault/rpc';
 
 // A mainnet's record is admitted only when it is complete: it says it is live, it carries the
@@ -164,6 +170,52 @@ describe('a mainnet record', () => {
     // The test network's own stay as they were.
     const [testCash] = deploymentAssets(EvmDeploymentRecord.parse(TESTNET));
     expect(testCash).toMatchObject({ provenance: 'sandbox', issuer: 'test network' });
+  });
+});
+
+describe("a mainnet record's pending tokens", () => {
+  /** A token the Safe has scheduled and the chain does not list yet. */
+  const scheduled = (r: Json) => ({
+    ...structuredClone(r.assets[0]),
+    id: 'robinhood:mstr',
+    symbol: 'MSTR',
+    name: 'Strategy',
+    modelOf: 'MSTR',
+    address: A(0x3e1),
+    feed: A(0x3e2),
+    operation: `0x${'ab'.repeat(32)}`,
+  });
+  const withPending = (change: (p: Json) => void = () => {}) => {
+    const record = mainnet();
+    const pending = scheduled(record);
+    change(pending);
+    record.pending = [pending];
+    return record;
+  };
+
+  it('are admitted, and nothing that trades, shows or limits reads them', () => {
+    const record = EvmDeploymentRecord.parse(withPending());
+    expect(record.pending?.map((p) => p.symbol)).toEqual(['MSTR']);
+    const pending = A(0x3e1);
+    expect(deploymentAssets(record).map((a) => a.address)).not.toContain(pending);
+    expect(Object.keys(deploymentPools(record).byToken)).not.toContain(pending);
+    expect(Object.keys(deploymentLimits(record).maxTradeUsd)).not.toContain(pending);
+    expect(Object.keys(deploymentLimits(record).average ?? {})).not.toContain(pending);
+  });
+
+  it('are refused when one is listed already, twice, on another chain, with the keeper on or no largest trade', () => {
+    const refusedWith = (change: (p: Json) => void) =>
+      EvmDeploymentRecord.safeParse(withPending(change)).success === false;
+    expect(refusedWith(() => {})).toBe(false);
+    expect(refusedWith((p) => (p.address = mainnet().assets[0].address))).toBe(true);
+    expect(refusedWith((p) => (p.id = 'robinhood:nvda'))).toBe(true);
+    expect(refusedWith((p) => (p.id = 'base:mstr'))).toBe(true);
+    expect(refusedWith((p) => (p.keeperOn = true))).toBe(true);
+    expect(refusedWith((p) => (p.maxTradeUsd = null))).toBe(true);
+    expect(refusedWith((p) => (p.operation = '0x12'))).toBe(true);
+    const twice = withPending();
+    twice.pending.push(structuredClone(twice.pending[0]));
+    expect(EvmDeploymentRecord.safeParse(twice).success).toBe(false);
   });
 });
 

@@ -39,6 +39,47 @@ const Token = z.strictObject({
   decimals: z.number().int().min(0).max(18),
 });
 
+/** A token the factory lists, as the deploy or the Safe listed it. */
+const ListedAsset = Token.extend({
+  /** The underlying a person reads: 'NVDA' for the NVDA token. */
+  modelOf: z.string().min(1),
+  kind: Kind,
+  /** The asset's Chainlink-interface feed, 8 decimals or what `feedDecimals` says. */
+  feed: Address,
+  feedDecimals: z.number().int().min(0).max(18),
+  /** The same source's one-hour average; the zero address where there is none. */
+  averageFeed: Address,
+  maxAge: z.number().int().positive(),
+  session: z.union([z.literal(0), z.literal(1)]),
+  maxWeightBps: z.number().int().min(0).max(5_000),
+  keeperOn: z.boolean(),
+  /** In the feed's units; null where the asset has no range (and so no keeper). */
+  range: z.strictObject({ minPrice: Raw, maxPrice: Raw }).nullable(),
+  /**
+   * The asset's own Uniswap v4 pool against the cash token, hookless: its fee in hundredths of a
+   * basis point and its tick spacing, within Uniswap's bounds. Every trade of the asset goes
+   * through this pool and no other, and the guard's deployment file says the same pool.
+   */
+  pool: z.strictObject({
+    fee: z.number().int().min(0).max(1_000_000),
+    tickSpacing: z.number().int().min(1).max(32_767),
+  }),
+  /**
+   * The largest single trade of the asset the builder makes, in dollars: the size its pool was
+   * measured to fill near its price. Null: no limit (the test network, whose pools hold a
+   * million dollars a side).
+   */
+  maxTradeUsd: z.number().int().positive().nullable(),
+  /**
+   * The pool the asset's one-hour average is read from while its feed is stale: a Uniswap v3
+   * pool of the asset and the cash, the least liquidity in range it may hold (its own units),
+   * and whether its history is long enough to use. `usable` is stated by whoever writes the
+   * record, from the pool's observation cardinality: nothing guesses it when a trade is built.
+   * Null: the asset has none, and is not traded on a stale feed.
+   */
+  average: z.strictObject({ pool: Address, minLiquidity: Raw, usable: z.boolean() }).nullable(),
+});
+
 export const EvmDeploymentRecord = z
   .strictObject({
     /**
@@ -117,49 +158,17 @@ export const EvmDeploymentRecord = z
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
     ),
     cash: Token,
-    assets: z.array(
-      Token.extend({
-        /** The underlying a person reads: 'NVDA' for the NVDA token. */
-        modelOf: z.string().min(1),
-        kind: Kind,
-        /** The asset's Chainlink-interface feed, 8 decimals or what `feedDecimals` says. */
-        feed: Address,
-        feedDecimals: z.number().int().min(0).max(18),
-        /** The same source's one-hour average; the zero address where there is none. */
-        averageFeed: Address,
-        maxAge: z.number().int().positive(),
-        session: z.union([z.literal(0), z.literal(1)]),
-        maxWeightBps: z.number().int().min(0).max(5_000),
-        keeperOn: z.boolean(),
-        /** In the feed's units; null where the asset has no range (and so no keeper). */
-        range: z.strictObject({ minPrice: Raw, maxPrice: Raw }).nullable(),
-        /**
-         * The asset's own Uniswap v4 pool against the cash token, hookless: its fee in hundredths of a
-         * basis point and its tick spacing, within Uniswap's bounds. Every trade of the asset goes
-         * through this pool and no other, and the guard's deployment file says the same pool.
-         */
-        pool: z.strictObject({
-          fee: z.number().int().min(0).max(1_000_000),
-          tickSpacing: z.number().int().min(1).max(32_767),
-        }),
-        /**
-         * The largest single trade of the asset the builder makes, in dollars: the size its pool was
-         * measured to fill near its price. Null: no limit (the test network, whose pools hold a
-         * million dollars a side).
-         */
-        maxTradeUsd: z.number().int().positive().nullable(),
-        /**
-         * The pool the asset's one-hour average is read from while its feed is stale: a Uniswap v3
-         * pool of the asset and the cash, the least liquidity in range it may hold (its own units),
-         * and whether its history is long enough to use. `usable` is stated by whoever writes the
-         * record, from the pool's observation cardinality: nothing guesses it when a trade is built.
-         * Null: the asset has none, and is not traded on a stale feed.
-         */
-        average: z
-          .strictObject({ pool: Address, minLiquidity: Raw, usable: z.boolean() })
-          .nullable(),
-      }),
-    ),
+    assets: z.array(ListedAsset),
+    /**
+     * Tokens the Safe has scheduled through the timelock and the chain does not list yet
+     * (`contracts/script/AddAssets.s.sol`): each as it will be listed, with the timelock operation that
+     * lists it. Nothing that reads the record trades, shows or holds them to anything: they are listed
+     * here so that what was scheduled is reviewed like code, and they move to `assets` only once the
+     * chain lists each with these settings (`pnpm ops:add-assets --promote`).
+     */
+    pending: z
+      .array(ListedAsset.extend({ operation: z.string().regex(/^0x[0-9a-f]{64}$/) }))
+      .optional(),
     /** Listed once and taken off the list: vaults may still hold them. */
     retired: z.array(
       z.strictObject({
@@ -201,6 +210,24 @@ export const EvmDeploymentRecord = z
     const missing = unlimitedOnMainnet(r);
     if (missing) ctx.addIssue({ code: 'custom', message: missing, path: ['priceBoundBps'] });
   })
+  .refine(
+    (r) => {
+      const listed = new Set([r.cash.address, ...r.assets.map((a) => a.address)]);
+      const ids = new Set([r.cash.id, ...r.assets.map((a) => a.id)]);
+      const pending = r.pending ?? [];
+      return (
+        pending.every((p) => !listed.has(p.address) && !ids.has(p.id) && !p.keeperOn) &&
+        new Set(pending.map((p) => p.address)).size === pending.length &&
+        pending.every((p) => p.id.startsWith(`${r.chain}:`)) &&
+        (!isMainnetRecord(r) || pending.every((p) => p.maxTradeUsd !== null))
+      );
+    },
+    {
+      message:
+        "a pending token is not listed yet, once, on the record's chain, with its keeper off and, on a mainnet, its largest trade",
+      path: ['pending'],
+    },
+  )
   .refine((r) => r.assets.every((a) => !a.keeperOn || a.range !== null), {
     message: 'the keeper is on only for an asset with a range',
     path: ['assets'],
