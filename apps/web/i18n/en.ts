@@ -2065,8 +2065,6 @@ export const en = {
       follows: (name: string) => `${name} · follows this portfolio`,
       /** One that does not: choosing it switches it to follow, and deposits nothing. */
       other: (name: string) => `${name} · switch to this portfolio`,
-      newHint: 'A new vault of yours that follows this portfolio.',
-      addsHint: 'Your vault that follows this portfolio: the deposit adds to it.',
     },
     field: { deposit: 'You deposit', withdraw: 'You withdraw' },
     /** The token the amount is paid in, named for screen readers beside its mark. */

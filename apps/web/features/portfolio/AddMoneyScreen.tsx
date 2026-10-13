@@ -317,22 +317,27 @@ export function AddMoneyScreen({
       holdings={held ? (held.keeper ? null : held.targets) : null}
       keeper
       keeperInvests={held?.keeper === true}
-      into={{
-        label: t.amount.into.label,
-        value: vault.address,
-        options: [
-          {
-            value: vault.address,
-            title: vault.address,
-            // its name, "Vault #N", or "Your vault": the vault's one name wherever it is said
-            label: vaultTitle(
-              vault,
-              { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
-              chainName,
-            ),
-          },
-        ],
-      }}
+      // in the vault's own pane the vault is the page: no "Into" to say it again
+      into={
+        embedded
+          ? undefined
+          : {
+              label: t.amount.into.label,
+              value: vault.address,
+              options: [
+                {
+                  value: vault.address,
+                  title: vault.address,
+                  // its name, "Vault #N", or "Your vault": the vault's one name wherever it is said
+                  label: vaultTitle(
+                    vault,
+                    { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+                    chainName,
+                  ),
+                },
+              ],
+            }
+      }
       {...(embedded?.entry?.onMode ? { onMode: embedded.entry.onMode } : {})}
       blocked={blocked}
       notice={

@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
-import { readyToInvest } from './invest';
+import { pressInView, readyToInvest } from './invest';
 import { inTheme } from './theme';
 
 // A person's own vault page, end to end on the mock chain (gate VAULT-PAGE-ACTIONS): the head, the
@@ -271,6 +271,9 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await expect(page.locator('[data-ui="vault-chat"] [inert] textarea')).toHaveCount(1);
   await expect(actions).toHaveCount(0);
   await check(page, 'deposit-amount');
+  // a first deposit, with the trust notice to tick and the amount typed: the button in sight at 1440
+  await pane.getByLabel(en.amount.field.deposit, { exact: true }).fill('40');
+  await pressInView(page, 'deposit, first time');
   const press = await readyToInvest(page, { amount: '40' });
   await expect(pane.locator('[data-ui="order-step"]').first()).toBeVisible();
   await check(page, 'deposit-review');
@@ -305,6 +308,12 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
     .locator('[data-ui="amount-chips"]')
     .getByRole('button', { name: en.amount.out.max })
     .click();
+  await pressInView(page, 'withdraw, as tokens');
+  await pane.getByLabel(en.amount.out.asCash('USDC')).check();
+  await pressInView(page, 'withdraw, as dollars');
+  await pane.getByLabel(en.amount.out.asTokens).check();
+  // where it goes, in the card's details, one click away
+  await pane.locator('[data-ui="amount-details"] > summary').click();
   await expect(pane.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
   await pane.getByRole('button', { name: en.amount.press.withdrawAll }).click();
   await expect(title).toHaveText(p.panes.withdraw.signTitle);

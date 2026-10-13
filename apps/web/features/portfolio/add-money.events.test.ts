@@ -466,11 +466,12 @@ describe('the add-money screen', () => {
     const host = await add(VAULT);
     expect(find(host, '[data-ui="add-keeper"]').textContent).toBe(en.portfolio.add.keeper);
     expect(host.querySelector('[data-ui="add-newer-version"]')).toBeNull();
-    // the card's preview says the keeper invests it: nothing is split here
+    // no preview until there is an amount; then it says the keeper invests it: nothing is split here
+    expect(host.querySelector('[data-ui="amount-preview"]')).toBeNull();
+    await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
     expect(find(host, '[data-ui="amount-preview"]').textContent).toContain(
       en.amount.preview.keeper,
     );
-    await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
     await enter(host);
     await made();
     expect(recallOrder(ORDER_ID, USER)?.terms).toEqual({

@@ -85,3 +85,43 @@ export async function openPlan(page: Page, tail: '' | '/buy' = '') {
   await page.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(page).toHaveURL(tail ? /\/plan\/[^/]+\/buy$/ : /\/plan\/[^/]+$/);
 }
+
+/**
+ * The amount card at 1440x900 (Thom, Oct 13: "not sure i needed to scroll"): with the card's top in
+ * the window, its one button is in the window too, the amount over it. `scroll`: the card sits under
+ * other content on its page (a portfolio's plan), so it is brought to the top first; in a vault's pane
+ * nothing is scrolled.
+ */
+export async function pressInView(page: Page, name: string, o: { scroll?: boolean } = {}) {
+  const before = page.viewportSize();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const card = page.locator('section[data-ui="card"]:has([data-ui="amount-card"])').first();
+  if (o.scroll)
+    await card.evaluate((el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const amount = card.locator('[data-ui="amount-well"] input');
+  const press = card.locator('[data-ui="amount-card"] [data-variant="primary"]');
+  for (const [what, el] of [
+    ['amount', amount],
+    ['button', press],
+  ] as const) {
+    const box = await el.boundingBox();
+    expect(box, `${name}: ${what} drawn`).not.toBeNull();
+    if (!box) continue;
+    // and not cut by a pane that scrolls on its own (the vault page's workbench)
+    const clip = await el.evaluate((node) => {
+      let bottom = window.innerHeight;
+      for (let up = node.parentElement; up; up = up.parentElement) {
+        const { overflowY } = getComputedStyle(up);
+        if (overflowY !== 'visible') bottom = Math.min(bottom, up.getBoundingClientRect().bottom);
+      }
+      return bottom;
+    });
+    expect(box.y + box.height, `${name}: ${what} not cut by its pane`).toBeLessThanOrEqual(clip);
+    expect(box.y, `${name}: ${what} below the window's top`).toBeGreaterThanOrEqual(0);
+    expect(
+      box.y + box.height,
+      `${name}: ${what} above the window's foot, with no scroll`,
+    ).toBeLessThanOrEqual(900);
+  }
+  if (before) await page.setViewportSize(before);
+}

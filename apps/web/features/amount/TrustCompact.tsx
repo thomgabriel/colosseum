@@ -43,14 +43,14 @@ export function TrustCompact({
   // A live chain with no notice of its own: nothing to accept, so nothing is offered to tick.
   if (!points) return null;
   return (
-    <div id={id} data-ui="trust-notice" className="flex flex-col gap-2.5">
+    <div id={id} data-ui="trust-notice" className="flex flex-col gap-2">
       <p id={titleId} className="text-body-sm font-semibold">
         {t.trust.short.title}
       </p>
       <ul
         data-ui="trust-short"
         aria-labelledby={titleId}
-        className="flex list-disc flex-col gap-1 pl-4 text-body-sm text-muted-foreground marker:text-muted-foreground"
+        className="flex list-disc flex-col gap-0.5 pl-4 text-caption tracking-normal text-muted-foreground marker:text-muted-foreground"
       >
         {points.short.map((item) => (
           <li key={item} className="[overflow-wrap:anywhere]">
@@ -74,10 +74,7 @@ export function TrustCompact({
         </div>
       </details>
       {!accepted && (
-        <label
-          htmlFor={boxId}
-          className="mt-1 inline-flex items-center gap-2 text-body-sm font-medium"
-        >
+        <label htmlFor={boxId} className="inline-flex items-center gap-2 text-body-sm font-medium">
           <input
             id={boxId}
             type="checkbox"

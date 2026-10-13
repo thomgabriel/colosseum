@@ -2,7 +2,6 @@
 import { type ChainId, ORDER_LIMITS, type Provenance, type Target } from '@colosseum/schemas';
 import { type ReactNode, useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { DataTable } from '../../components/ui/DataTable';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -195,48 +194,28 @@ export function DepositCard({
             : []),
         ]
       : [];
-  // What the vault will hold at this amount, as a table: the asset, its weight, and its dollars.
+  // What the vault will hold at this amount, once there is one: each holding in one compact line,
+  // its weight and its dollars, so the card's button stays in sight with the amount.
   const preview =
-    keeperInvests || lines.length > 0
+    amount !== null && (keeperInvests || lines.length > 0)
       ? {
           title: a.preview.deposit,
           body: keeperInvests ? (
             <p className="text-body-sm">{a.preview.keeper}</p>
           ) : (
-            <DataTable
-              className="w-full min-w-0"
-              caption={a.preview.deposit}
-              captionHidden
-              dense
-              rows={lines}
-              rowKey={(line) => line.asset}
-              columns={[
-                {
-                  key: 'asset',
-                  header: a.preview.asset,
-                  rowHeader: true,
-                  cell: (line) => (
-                    <span className="inline-flex min-w-0 items-center gap-2">
-                      <AssetMark asset={line.asset} className="size-5" />
-                      <span className="min-w-0 [overflow-wrap:anywhere]">{line.name}</span>
-                    </span>
-                  ),
-                },
-                {
-                  key: 'weight',
-                  header: a.preview.weight,
-                  numeric: true,
-                  cell: (line) => formatBps(line.weightBps, locale),
-                },
-                {
-                  key: 'amount',
-                  header: a.preview.amount,
-                  numeric: true,
-                  cell: (line) =>
-                    amount !== null ? dollars((amount * line.weightBps) / 10_000, lang) : '—',
-                },
-              ]}
-            />
+            <ul
+              data-ui="deposit-holds"
+              className="flex flex-wrap gap-x-4 gap-y-1.5 text-body-sm tabular-nums"
+            >
+              {lines.map((line) => (
+                <li key={line.asset} className="inline-flex min-w-0 items-center gap-1.5">
+                  <AssetMark asset={line.asset} className="size-5" />
+                  <span className="font-medium">{line.name}</span>
+                  <span className="text-muted-foreground">{formatBps(line.weightBps, locale)}</span>
+                  <span>{dollars((amount * line.weightBps) / 10_000, lang)}</span>
+                </li>
+              ))}
+            </ul>
           ),
         }
       : null;

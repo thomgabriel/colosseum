@@ -349,6 +349,7 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
   /** The amount card pressed, the order made, every step signed, and back to the portfolio. */
   const through = async (steps: number) => {
     // where it goes is the wallet that is signed in, said in the card's details
+    await page.locator('[data-ui="amount-details"] > summary').click();
     await expect(page.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
     await page.locator('button[data-action="amount-withdraw"]').click();
     await expect(page).toHaveURL(/\/orders\/[^/]+$/);
@@ -390,7 +391,7 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
     .locator('[data-ui="amount-chips"]')
     .getByRole('button', { name: en.amount.out.max })
     .click();
-  await expect(page.locator('[data-ui="withdraw-tokens"] tbody tr:visible')).toHaveCount(4);
+  await expect(page.locator('[data-ui="withdraw-tokens"] li:visible')).toHaveCount(4);
   await check(page, 'withdraw-review');
   await through(4);
   await expect(page).toHaveURL(/\/monitor$/);
@@ -433,10 +434,11 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
   /** The review confirmed, the order made, every step signed, and back to the portfolio. */
   const through = async (emptied: boolean) => {
     // the amount card (gate AMOUNT-CARD): what is sold, then the details, then its one button
+    // what is sold, where it goes and what happens, in the card's details, one click away
+    await page.locator('[data-ui="amount-details"] > summary').click();
     await expect(page.locator('[data-ui="withdraw-sales"] tbody tr:visible')).toHaveCount(3);
     await expect(page.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
-    // what the figures do not say, in words, behind the card's one fold
-    await page.locator('[data-ui="amount-more"] > summary').click();
+
     // all of it: no promise of an empty vault, since what can't be sold now and dust stay
     await expect(page.getByText(emptied ? d.emptied : d.stays)).toBeVisible();
     await expect(page.getByText(w.check.emptied)).toHaveCount(0);

@@ -1849,8 +1849,6 @@ export const pt: Dictionary = {
       newVault: 'Novo cofre',
       follows: (name: string) => `${name} · segue este portfólio`,
       other: (name: string) => `${name} · passar a seguir este portfólio`,
-      newHint: 'Um cofre novo seu, que segue este portfólio.',
-      addsHint: 'Seu cofre que segue este portfólio: o depósito entra nele.',
     },
     field: { deposit: 'Você deposita', withdraw: 'Você saca' },
     token: (symbol: string) => `Pago em ${symbol}`,

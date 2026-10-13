@@ -192,7 +192,7 @@ export function AmountCard({
       className={cn('mx-auto w-full max-w-[32.5rem]', className)}
     >
       <CardBody className="flex flex-col gap-4">
-        <div data-ui="amount-card" data-mode={mode} className="flex min-w-0 flex-col gap-4">
+        <div data-ui="amount-card" data-mode={mode} className="flex min-w-0 flex-col gap-3.5">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             {onMode ? (
               <fieldset
@@ -303,19 +303,25 @@ export function AmountCard({
           {choice}
 
           {preview && (
-            <div data-ui="amount-preview" className="flex min-w-0 flex-col gap-2.5 px-1">
+            <div data-ui="amount-preview" className="flex min-w-0 flex-col gap-1.5">
               <p className="text-body-sm font-medium text-muted-foreground">{preview.title}</p>
               {preview.body}
             </div>
           )}
 
           {details && details.length > 0 && (
-            <section
-              data-ui="amount-details"
-              aria-label={a.details.summary}
-              className="border-t border-border pt-4"
-            >
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+            // The figures behind one fold, in a grid as the portfolio board sets them: one click away,
+            // and the card's button stays in sight with its amount.
+            <details data-ui="amount-details" className="group border-t border-border pt-3">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-body-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                <span className="font-medium">{a.details.summary}</span>
+                <Icon
+                  name="ChevronDown"
+                  size={16}
+                  className="transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
                 {details.map((d) => (
                   <div
                     key={d.term}
@@ -329,19 +335,12 @@ export function AmountCard({
                 ))}
               </dl>
               {more && (
-                <details data-ui="amount-more" className="group mt-3">
-                  <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-sm text-body-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                    {more.label}
-                    <Icon
-                      name="ChevronDown"
-                      size={16}
-                      className="transition-transform group-open:rotate-180"
-                    />
-                  </summary>
-                  <div className="mt-2 text-body-sm">{more.body}</div>
-                </details>
+                <div data-ui="amount-more" className="mt-3 flex flex-col gap-2 text-body-sm">
+                  <p className="font-medium">{more.label}</p>
+                  {more.body}
+                </div>
               )}
-            </section>
+            </details>
           )}
 
           {notice}
@@ -354,7 +353,7 @@ export function AmountCard({
                 id={trustId}
                 data-ui="amount-trust"
                 data-state="ask"
-                className="rounded-md border border-border p-4"
+                className="rounded-md border border-border px-3.5 py-3"
               >
                 <TrustCompact
                   chain={chain}

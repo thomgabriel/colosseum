@@ -980,9 +980,7 @@ function FamilyDeposit({
       ? mine.keep(switching)
         ? t.shared.vaults.followNoteKeeper
         : t.shared.vaults.followNote
-      : own
-        ? a.into.addsHint
-        : a.into.newHint,
+      : undefined,
     // Held while a deposit is signed or a follow is being made: the choice is the one under way.
     ...(running || mine.busy !== null
       ? {}

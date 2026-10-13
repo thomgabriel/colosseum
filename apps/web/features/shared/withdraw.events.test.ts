@@ -165,14 +165,12 @@ const choose = async (host: HTMLElement) =>
   click(find(host, 'button[data-action="withdraw-pick"]'));
 const pick = (host: HTMLElement, asset: string) =>
   find(host, `[data-ui="withdraw-picks"] li[data-asset="${asset}"]`);
-/** Each token that leaves, by the amount in its row of the table. */
+/** Each token that leaves, as its line says. */
 const tokens = (host: HTMLElement) =>
-  [...gets(host).querySelectorAll('[data-ui="withdraw-tokens"] tbody tr')].map(
-    (tr) => tr.querySelector('td:last-child')?.textContent,
-  );
-/** Each holding sold, as its row reads: the holding, the amount sold, the cost to sell. */
+  [...gets(host).querySelectorAll('[data-ui="withdraw-tokens"] li')].map((li) => li.textContent);
+/** Each holding sold, as its row reads in the details: the holding, the amount sold, the cost. */
 const sales = (host: HTMLElement) =>
-  [...gets(host).querySelectorAll('[data-ui="withdraw-sales"] tbody tr')].map((tr) =>
+  [...host.querySelectorAll('[data-ui="withdraw-sales"] tbody tr')].map((tr) =>
     [...tr.querySelectorAll('th, td')].map((cell) => cell.textContent).join(' | '),
   );
 
@@ -797,10 +795,9 @@ describe('the withdraw screen, in dollars', () => {
     expect(way(host, 'tokens').checked).toBe(true);
     const group = find(host, '[data-ui="withdraw-way"]');
     expect(group.textContent).toContain(en.amount.out.asTokens);
-    expect(group.textContent).toContain(w.way.tokensHint);
     expect(group.textContent).toContain(en.amount.out.asCash('USDC'));
-    // the hint of the way chosen, one at a time
-    expect(group.textContent).not.toContain(w.way.dollarsHint('USDC'));
+    // what the way chosen means, one at a time, in the details
+    expect(find(host, '[data-ui="withdraw-way-hint"]').textContent).toBe(w.way.tokensHint);
     // the tokens one by one are there until dollars is chosen
     expect(host.querySelector('button[data-action="withdraw-pick"]')).not.toBeNull();
     await click(way(host, 'dollars'));
@@ -933,7 +930,7 @@ describe('the withdraw screen, in dollars', () => {
     await click(way(host, 'dollars'));
     await settle();
     await click(chip(host, en.amount.out.max));
-    const sale = find(gets(host), '[data-ui="withdraw-sales"] tbody tr');
+    const sale = find(host, '[data-ui="withdraw-sales"] tbody tr');
     expect(sale.textContent).toContain(w.check.dollars.costBps('12.5'));
     expect(sale.textContent).not.toContain(w.check.dollars.notMeasured);
     expect(details(host).textContent).toContain(w.check.dollars.costNote);
@@ -945,7 +942,7 @@ describe('the withdraw screen, in dollars', () => {
     await click(way(bare, 'dollars'));
     await settle();
     await click(chip(bare, en.amount.out.max));
-    expect(find(gets(bare), '[data-ui="withdraw-sales"] tbody tr').textContent).toContain(
+    expect(find(bare, '[data-ui="withdraw-sales"] tbody tr').textContent).toContain(
       w.check.dollars.notMeasured,
     );
   });

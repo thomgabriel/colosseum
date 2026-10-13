@@ -82,21 +82,21 @@ export function AmountWell({
   const hintId = `${amountId}-hint`;
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div
-        data-ui="amount-well"
-        className={cn(
-          'flex min-w-0 flex-col gap-2 rounded-md border bg-card px-4 py-3.5',
-          'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring',
-          problem ? 'border-destructive' : 'border-input',
-        )}
-      >
+      <div data-ui="amount-well" className="flex min-w-0 flex-col gap-1">
         <label htmlFor={amountId} className="text-body-sm text-muted-foreground">
           {label}
         </label>
-        <div className="flex min-w-0 items-center gap-2">
+        {/* The figure as the portfolio board sets its hero figure, on one hairline: the field. */}
+        <div
+          className={cn(
+            'flex min-w-0 items-center gap-2 border-b pb-1',
+            'focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-ring',
+            problem ? 'border-destructive' : 'border-input',
+          )}
+        >
           <span
             aria-hidden="true"
-            className="shrink-0 font-display text-[1.75rem] leading-none font-semibold text-muted-foreground"
+            className="shrink-0 font-display text-[2rem]/10 font-semibold text-muted-foreground"
           >
             {t.mix.deposit.currency}
           </span>
@@ -115,14 +115,14 @@ export function AmountWell({
             }
             onChange={(e) => onText(e.currentTarget.value)}
             onBlur={onBlur}
-            className="h-14 min-w-0 flex-1 bg-transparent font-display text-[2.5rem] leading-[3rem] font-semibold tracking-[-0.02em] tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
+            className="h-12 min-w-0 flex-1 bg-transparent font-display text-[2rem]/10 font-semibold tracking-[-0.02em] tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
           />
           {token && (
             <span
               data-ui="amount-token"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card pr-3 pl-1 text-body-sm font-semibold"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card pr-3 pl-1 text-body-sm font-semibold"
             >
-              <AssetMark asset={token.asset} className="size-7" />
+              <AssetMark asset={token.asset} className="size-6" />
               <span aria-hidden="true">{token.symbol}</span>
               <span className="sr-only">{token.name}</span>
             </span>

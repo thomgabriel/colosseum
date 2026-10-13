@@ -454,7 +454,7 @@ export function WithdrawScreen({
   // The two ways out, as the card's own choice: the tokens themselves by default.
   const ways = (
     <fieldset data-ui="withdraw-way" className="flex min-w-0 flex-col gap-2">
-      <legend className="pb-2 text-body-sm text-muted-foreground">{w.way.legend}</legend>
+      <legend className="sr-only">{w.way.legend}</legend>
       <div className="grid grid-cols-2 gap-1 rounded-md border border-input p-1">
         {(
           [
@@ -490,9 +490,6 @@ export function WithdrawScreen({
           </label>
         ))}
       </div>
-      <p data-ui="withdraw-way-hint" className="text-caption text-muted-foreground">
-        {way === 'tokens' ? w.way.tokensHint : w.way.dollarsHint(cashSymbol)}
-      </p>
       {way === 'tokens' && (
         <Button
           variant="link"
@@ -509,11 +506,22 @@ export function WithdrawScreen({
     </fieldset>
   );
 
-  // What reaches the wallet: about what the share is worth, then the tokens or the sales, as tables.
+  // What reaches the wallet: about what the share is worth, then each token in one compact line. The
+  // sales of a withdrawal in dollars, with each one's cost, are in the details.
+  const inline = (rows: readonly { asset: string; text: string }[], ui: string) => (
+    <ul data-ui={ui} className="flex flex-wrap gap-x-4 gap-y-1.5 text-body-sm tabular-nums">
+      {rows.map((row) => (
+        <li key={row.asset} className="inline-flex min-w-0 items-center gap-1.5">
+          <AssetMark asset={row.asset} className="size-5" />
+          <span className="[overflow-wrap:anywhere]">{row.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
   const preview = !valid ? (
     <p className="text-body-sm text-muted-foreground">{a.preview.emptyWithdraw}</p>
   ) : (
-    <div data-ui="withdraw-gets" className="flex min-w-0 flex-col gap-3 text-body-sm">
+    <div data-ui="withdraw-gets" className="flex min-w-0 flex-col gap-1.5 text-body-sm">
       {worth !== null && (
         <p
           data-ui="withdraw-worth"
@@ -528,76 +536,52 @@ export function WithdrawScreen({
         </p>
       )}
       {way === 'dollars' && dollars ? (
-        <>
-          {dollars.sales.length === 0 ? (
-            <p>{d.nothing}</p>
-          ) : (
-            <div data-ui="withdraw-sales" className="min-w-0">
-              <DataTable
-                className="w-full min-w-0"
-                caption={d.sold}
-                captionHidden
-                dense
-                rows={dollars.sales}
-                rowKey={(sale) => sale.asset}
-                columns={[
-                  {
-                    key: 'asset',
-                    header: a.preview.asset,
-                    rowHeader: true,
-                    cell: (sale) => <AssetCell asset={sale.asset} name={symbol(sale.asset)} />,
-                  },
-                  {
-                    key: 'sold',
-                    header: d.amount,
-                    numeric: true,
-                    cell: (sale) => whole(sale.amountRaw, sale.asset),
-                  },
-                  {
-                    key: 'cost',
-                    header: d.costHeader,
-                    numeric: true,
-                    cell: (sale) => costOf(sale.asset),
-                  },
-                ]}
-              />
-            </div>
-          )}
-          <p data-ui="withdraw-cash" className="tabular-nums text-muted-foreground">
-            {BigInt(dollars.cashRaw) > 0n
+        <p data-ui="withdraw-cash" className="tabular-nums text-muted-foreground">
+          {dollars.sales.length === 0
+            ? d.nothing
+            : BigInt(dollars.cashRaw) > 0n
               ? d.cash(whole(dollars.cashRaw, vault.cash.asset))
               : d.noCash}
-          </p>
-        </>
+        </p>
       ) : (
-        <div data-ui="withdraw-tokens" className="min-w-0">
-          <DataTable
-            className="w-full min-w-0"
-            caption={w.check.leaves}
-            captionHidden
-            dense
-            rows={items}
-            rowKey={(item) => item.asset}
-            columns={[
-              {
-                key: 'asset',
-                header: a.preview.asset,
-                rowHeader: true,
-                cell: (item) => <AssetCell asset={item.asset} name={symbol(item.asset)} />,
-              },
-              {
-                key: 'amount',
-                header: a.preview.amount,
-                numeric: true,
-                cell: (item) =>
-                  item.amountRaw === null
-                    ? w.check.all(whole(item.heldRaw, item.asset))
-                    : whole(item.amountRaw, item.asset),
-              },
-            ]}
-          />
-        </div>
+        inline(
+          items.map((item) => ({
+            asset: item.asset,
+            text:
+              item.amountRaw === null
+                ? w.check.all(whole(item.heldRaw, item.asset))
+                : whole(item.amountRaw, item.asset),
+          })),
+          'withdraw-tokens',
+        )
       )}
+    </div>
+  );
+  // What is sold, each with what it costs to sell: in the details.
+  const salesTable = way === 'dollars' && dollars && dollars.sales.length > 0 && (
+    <div data-ui="withdraw-sales" className="min-w-0">
+      <DataTable
+        className="w-full min-w-0"
+        caption={d.sold}
+        dense
+        rows={dollars.sales}
+        rowKey={(sale) => sale.asset}
+        columns={[
+          {
+            key: 'asset',
+            header: a.preview.asset,
+            rowHeader: true,
+            cell: (sale) => <AssetCell asset={sale.asset} name={symbol(sale.asset)} />,
+          },
+          {
+            key: 'sold',
+            header: d.amount,
+            numeric: true,
+            cell: (sale) => whole(sale.amountRaw, sale.asset),
+          },
+          { key: 'cost', header: d.costHeader, numeric: true, cell: (sale) => costOf(sale.asset) },
+        ]}
+      />
     </div>
   );
 
@@ -634,6 +618,10 @@ export function WithdrawScreen({
     label: a.out.what,
     body: (
       <div data-ui="withdraw-what" className="flex flex-col gap-2">
+        <p data-ui="withdraw-way-hint" className={text2}>
+          {way === 'tokens' ? w.way.tokensHint : w.way.dollarsHint(cashSymbol)}
+        </p>
+        {salesTable}
         {way === 'dollars' ? (
           <>
             <p className={text2}>{emptied ? d.emptied : d.stays}</p>
@@ -679,21 +667,26 @@ export function WithdrawScreen({
       chain={chain}
       chainName={chainName}
       provenance={provenance}
-      into={{
-        label: t.amount.into.from,
-        value: vault.address,
-        options: [
-          {
-            value: vault.address,
-            title: vault.address,
-            label: vaultTitle(
-              { number: vault.number ?? null },
-              { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
-              chainName,
-            ),
-          },
-        ],
-      }}
+      // in the vault's own pane the vault is the page: no "From" to say it again
+      into={
+        embedded
+          ? undefined
+          : {
+              label: t.amount.into.from,
+              value: vault.address,
+              options: [
+                {
+                  value: vault.address,
+                  title: vault.address,
+                  label: vaultTitle(
+                    { number: vault.number ?? null },
+                    { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+                    chainName,
+                  ),
+                },
+              ],
+            }
+      }
       field={
         picking
           ? null
