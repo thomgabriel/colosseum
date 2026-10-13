@@ -1,0 +1,1343 @@
+{
+  "chain": "robinhood",
+  "shelf": "scripts/risk/assets/shelf-robinhood.json",
+  "stated": {
+    "tier": "C on every entry, the careful side, labelled tierFrom 'fallback' (gate EXIT-SOURCE): where Bearing measures a token's exit capacity, a plan line holds shareOfDepth of it and the tier is not read.",
+    "maxWeightBps": "0 until the asset entry of a deploy sets it (ledger OPS-4): a cap is never guessed here.",
+    "session": "us_equity for stocks and funds of shares, always for every other class: stated, not chosen (the program's session flag).",
+    "eligibility": "By class, the engine's (packages/engine/src/personal/registry.ts on staging): no entry carries profiles of its own.",
+    "autoFollowEligible": "false on every entry until a person turns it on.",
+    "issuer": "The list's issuer; where the list states none, a placeholder naming the token, so that no two such tokens read as one issuer.",
+    "underlying": "The list's underlying; where the list states none, the token's own symbol (a liquid staking token then reads as itself, not SOL).",
+    "provenance": "live: only live readings are cut (asset_observations and yield_observations with provenance live)."
+  },
+  "entries": [
+    {
+      "asset": {
+        "id": "robinhood:weth",
+        "chain": "robinhood",
+        "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+        "symbol": "WETH",
+        "decimals": 18,
+        "cls": "crypto",
+        "underlying": "ETH",
+        "issuer": "WETH: issuer not stated in the list",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:usdg",
+        "chain": "robinhood",
+        "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "symbol": "USDG",
+        "decimals": 6,
+        "cls": "cash",
+        "underlying": "USDG",
+        "issuer": "Paxos (Global Dollar Network)",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x61b7e5650328764b076a108eff5fa7282a1b9ad2",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:pons",
+        "chain": "robinhood",
+        "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
+        "symbol": "PONS",
+        "decimals": 18,
+        "cls": "crypto",
+        "underlying": "PONS",
+        "issuer": "Pons",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:nvda",
+        "chain": "robinhood",
+        "address": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+        "symbol": "NVDA",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "NVDA",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x379ec4f7c378f34a1b47e4f3cbebcbac3e8e9f15",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:spy",
+        "chain": "robinhood",
+        "address": "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+        "symbol": "SPY",
+        "decimals": 18,
+        "cls": "etf",
+        "underlying": "SPY",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x319724394d3a0e3669269846abe664cd621f9f6a",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:spcx",
+        "chain": "robinhood",
+        "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+        "symbol": "SPCX",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "SPCX",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0xb265810950ba6c5c0ff821c9963014a56fd8bffb",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:meta",
+        "chain": "robinhood",
+        "address": "0xc0d6457c16cc70d6790dd43521c899c87ce02f35",
+        "symbol": "META",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "META",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x7c38c00c30bee9378381e7b6135d7283356d71b1",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:crcl",
+        "chain": "robinhood",
+        "address": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+        "symbol": "CRCL",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "CRCL",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x6652edf64ba3731c4f2d3ce821a0fb1f1f6b482a",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:hims",
+        "chain": "robinhood",
+        "address": "0xccee82fe024c36fa15e1005ede3e9e4787e23d09",
+        "symbol": "HIMS",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "HIMS",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:googl",
+        "chain": "robinhood",
+        "address": "0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3",
+        "symbol": "GOOGL",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "GOOGL",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0xf6f373a037c30f0e5010d854385ca89185ae638b",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:gld",
+        "chain": "robinhood",
+        "address": "0xc9a981fee1f9dec688bb123ccdecc63d0debfc4e",
+        "symbol": "GLD",
+        "decimals": 18,
+        "cls": "gold",
+        "underlying": "GLD",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x470a51258068043bd43dc0a56245625c9fe86eb0",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:aapl",
+        "chain": "robinhood",
+        "address": "0xaf3d76f1834a1d425780943c99ea8a608f8a93f9",
+        "symbol": "AAPL",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "AAPL",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x6b22a786baa607d76728168703a39ea9c99f2cd0",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:mstr",
+        "chain": "robinhood",
+        "address": "0xec262a75e413fafd0df80480274532c79d42da09",
+        "symbol": "MSTR",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "MSTR",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x396118bdfb181e6240e74d243f266b061c0edc3d",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:amc",
+        "chain": "robinhood",
+        "address": "0x05a3d1cd21d0c88145e82600e62e7e496e0f222b",
+        "symbol": "AMC",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "AMC",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:uso",
+        "chain": "robinhood",
+        "address": "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344",
+        "symbol": "USO",
+        "decimals": 18,
+        "cls": "commodity",
+        "underlying": "USO",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x75a9c76ef439e2c7c2e5a34ab105ecfe3766431c",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:qqq",
+        "chain": "robinhood",
+        "address": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+        "symbol": "QQQ",
+        "decimals": 18,
+        "cls": "etf",
+        "underlying": "QQQ",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x80901d846d5d7b030f26b480776ee3b29374c2ae",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:mu",
+        "chain": "robinhood",
+        "address": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+        "symbol": "MU",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "MU",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x425eefdcf05ed6526c3ce61af99429a228a6d596",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:net-ca9c78",
+        "chain": "robinhood",
+        "address": "0xca9c78dd337a67f6e0077f65f5e9218719d30edf",
+        "symbol": "NET",
+        "decimals": 9,
+        "cls": "crypto",
+        "underlying": "NET",
+        "issuer": "NetNet",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:tsla",
+        "chain": "robinhood",
+        "address": "0x322f0929c4625ed5bad873c95208d54e1c003b2d",
+        "symbol": "TSLA",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "TSLA",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x4a1166a659a55625345e9515b32adecea5547c38",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:pltr",
+        "chain": "robinhood",
+        "address": "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a",
+        "symbol": "PLTR",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "PLTR",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x820abedff239034956b7a9d2f0a331f9f075eb4c",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:cbbtc",
+        "chain": "robinhood",
+        "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+        "symbol": "cbBTC",
+        "decimals": 8,
+        "cls": "crypto",
+        "underlying": "BTC",
+        "issuer": "Coinbase",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:amd",
+        "chain": "robinhood",
+        "address": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+        "symbol": "AMD",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "AMD",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x943a29e7ae51a4798823ca9eed2ed533b2a22c72",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:gme",
+        "chain": "robinhood",
+        "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+        "symbol": "GME",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "GME",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x27c71df6a64fb476468edf256cf72c038bab5b67",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:intc",
+        "chain": "robinhood",
+        "address": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+        "symbol": "INTC",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "INTC",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x3f390c5c24628ac7c489515402235fead71d1913",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:coin",
+        "chain": "robinhood",
+        "address": "0x6330d8c3178a418788df01a47479c0ce7ccf450b",
+        "symbol": "COIN",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "COIN",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0xa3a468a452940b7d6b69991207b508c609a98ef2",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:rddt",
+        "chain": "robinhood",
+        "address": "0x05b37fb53a299a1b874a619e1c4c404d52c36f4c",
+        "symbol": "RDDT",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "RDDT",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:lly",
+        "chain": "robinhood",
+        "address": "0x8005d266423c7ea827372c9c864491e5786600ea",
+        "symbol": "LLY",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "LLY",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:tsm",
+        "chain": "robinhood",
+        "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
+        "symbol": "TSM",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "TSM",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x874cf94aa8ec88fd9560094dd065f2fb3e41fc2f",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:mrna",
+        "chain": "robinhood",
+        "address": "0x43b07d15ce533bec5476d70c22a78a1b2b662155",
+        "symbol": "MRNA",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "MRNA",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:amzn",
+        "chain": "robinhood",
+        "address": "0x12f190a9f9d7d37a250758b26824b97ce941bf54",
+        "symbol": "AMZN",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "AMZN",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0xd5a1508ced74c084ebf3cbe853e2c968fb2a651c",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:usde",
+        "chain": "robinhood",
+        "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+        "symbol": "USDe",
+        "decimals": 18,
+        "cls": "cash",
+        "underlying": "USDe",
+        "issuer": "USDe: issuer not stated in the list",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:msft",
+        "chain": "robinhood",
+        "address": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+        "symbol": "MSFT",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "MSFT",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x45c3c877c15e6ba2ebb19ea114ea508d14c1af2e",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:cost",
+        "chain": "robinhood",
+        "address": "0x4ea005168d7f09a7a0ba9d1def21a479950e44c2",
+        "symbol": "COST",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "COST",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:tao",
+        "chain": "robinhood",
+        "address": "0xf3081494b87e8d5fb7960f066e931d1d0e6e3d67",
+        "symbol": "TAO",
+        "decimals": 18,
+        "cls": "crypto",
+        "underlying": "TAO",
+        "issuer": "ForeverMoney",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:dual",
+        "chain": "robinhood",
+        "address": "0xca6f20e241c73de4eeb873107b217ce2463c3b1d",
+        "symbol": "DUAL",
+        "decimals": 18,
+        "cls": "crypto",
+        "underlying": "DUAL",
+        "issuer": "Dual",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:sndk",
+        "chain": "robinhood",
+        "address": "0xb90a19ff0af67f7779aff50a882a9cff42446400",
+        "symbol": "SNDK",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "SNDK",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0xfb133fa4b7b385802b693a293606682df47109a3",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:prologue",
+        "chain": "robinhood",
+        "address": "0xb9972ca7188e511174947e3936a5315ac7073277",
+        "symbol": "PROLOGUE",
+        "decimals": 18,
+        "cls": "crypto",
+        "underlying": "PROLOGUE",
+        "issuer": "Prologue",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:snap",
+        "chain": "robinhood",
+        "address": "0xf6589f11bc40b669e584073f428b05562f568733",
+        "symbol": "SNAP",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "SNAP",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:slv",
+        "chain": "robinhood",
+        "address": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+        "symbol": "SLV",
+        "decimals": 18,
+        "cls": "commodity",
+        "underlying": "SLV",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x209b73908e92ae021826ed79609845451ecba2ce",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:ttwo",
+        "chain": "robinhood",
+        "address": "0x5e81213613b6b86eab4c6c50d718d34359459786",
+        "symbol": "TTWO",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "TTWO",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:rblx",
+        "chain": "robinhood",
+        "address": "0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8",
+        "symbol": "RBLX",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "RBLX",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:dell",
+        "chain": "robinhood",
+        "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
+        "symbol": "DELL",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "DELL",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "chainlink",
+        "priceRef": "0x1c6c8cadbe02e19129c39ddb92281ce4c0bf206b",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:lit",
+        "chain": "robinhood",
+        "address": "0xeeca2e7dc194a320d349122d88259bb9595a4cb0",
+        "symbol": "LIT",
+        "decimals": 18,
+        "cls": "crypto",
+        "underlying": "LIT",
+        "issuer": "Lighter",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "always",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:djt",
+        "chain": "robinhood",
+        "address": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+        "symbol": "DJT",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "DJT",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    },
+    {
+      "asset": {
+        "id": "robinhood:glxy",
+        "chain": "robinhood",
+        "address": "0x2d427692e928fa156ec22acfabafa0447c5805b7",
+        "symbol": "GLXY",
+        "decimals": 18,
+        "cls": "stock",
+        "underlying": "GLXY",
+        "issuer": "Robinhood",
+        "tier": "C",
+        "priceKind": "none",
+        "priceRef": "",
+        "session": "us_equity",
+        "autoFollowEligible": false,
+        "maxWeightBps": 0,
+        "blockedCountries": [],
+        "sheet": "",
+        "provenance": "live"
+      },
+      "tierFrom": "fallback",
+      "toSet": [
+        "feed",
+        "pairs",
+        "maxWeightBps",
+        "keeperOn",
+        "a price source (priceKind none: the keeper never trades it)",
+        "sheet (the risk sheet under content/risk-sheets/)"
+      ]
+    }
+  ],
+  "waiting": [],
+  "method": "shelf-0.1"
+}
