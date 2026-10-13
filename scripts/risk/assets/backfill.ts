@@ -1340,7 +1340,83 @@ async function externalDaily() {
     );
     return finish({ fetched: { protocol, first: r.first, last: r.last, ...w, ms: r.ms } });
   }
-  throw new Error('--coin or --protocol (a whole series needs --all, not run by this session)');
+  if (!all) throw new Error('--coin or --protocol, or --all for the whole series');
+  // the whole series: every row of both lists that DefiLlama prices, from its first price, and the protocols'
+  // TVL. Resumable: a subject whose manifest was written today is not asked again.
+  const today = at.slice(0, 10);
+  const doneToday = (subject: string) => {
+    const f = join(out, subject.replace(/[^A-Za-z0-9_.-]/g, '_'), 'manifest.json');
+    return (
+      existsSync(f) &&
+      (JSON.parse(readFileSync(f, 'utf8')) as { updatedAt: string }).updatedAt.slice(0, 10) ===
+        today
+    );
+  };
+  const keys = [
+    ...mints.map((m) => coinKey('solana', m)),
+    ...rh.map((r) => coinKey('robinhood', r.address)),
+  ];
+  const todo = keys.filter((k) => !doneToday(k));
+  const first = await firstPrices(todo);
+  const guard = fetchGuard();
+  let written = 0;
+  const done: string[] = [];
+  const noPrice: string[] = [];
+  const failed: Array<{ key: string; error: string }> = [];
+  for (const k of todo) {
+    const f = first.coins[k]?.first;
+    if (!f) {
+      noPrice.push(k);
+      continue;
+    }
+    guard({ nextBytes: 200_000, writtenBytes: written });
+    try {
+      const start = Math.floor(Date.parse(f) / 1000);
+      const c = await dailyChart(k, start, Math.ceil((Date.now() / 1000 - start) / DAY));
+      const w = writeSeries(
+        out,
+        k,
+        c.prices,
+        `DefiLlama coins ${k} /chart period=1d`,
+        { from: start, to: Math.floor(Date.now() / 1000) },
+        at,
+      );
+      written += w.gzBytes;
+      done.push(k);
+    } catch (e) {
+      failed.push({ key: k, error: e instanceof Error ? e.message : String(e) });
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  const protocols: string[] = [];
+  for (const slug of ['kamino-lend', 'jupiter-lend', 'maple', 'ondo-finance', 'mellow-lrt']) {
+    if (doneToday(`protocol:${slug}`)) continue;
+    try {
+      const r = await protocolTvl(slug);
+      writeSeries(
+        out,
+        `protocol:${slug}`,
+        r.tvl,
+        `DefiLlama /protocol/${slug} tvl`,
+        { from: Date.parse(r.first ?? at) / 1000, to: Date.parse(r.last ?? at) / 1000 },
+        at,
+      );
+      protocols.push(slug);
+    } catch (e) {
+      failed.push({ key: `protocol:${slug}`, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return finish({
+    fetched: {
+      subjects: keys.length,
+      skippedDoneToday: keys.length - todo.length,
+      written: done.length,
+      noPrice: noPrice.length,
+      failed,
+      protocols,
+      gzBytes: written,
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
