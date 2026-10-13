@@ -17,7 +17,7 @@ export { dayOf, marketAt } from './market';
 export * from './pool-average';
 export * from './reader';
 export * from './routes';
-export { createEvmRpc, type EvmRpc, isRevert } from './rpc';
+export { createEvmRpc, type EvmRpc, type EvmRpcOptions, isRevert, READ_METHODS } from './rpc';
 export * from './send';
 export * from './trade-limits';
 export { unlistedAssetId, unlistedToken } from './unlisted';
