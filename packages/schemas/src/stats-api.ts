@@ -19,13 +19,14 @@ export const PlatformNetwork = z.object({
   /** The label every row counted here carries, and that the chains' figures carry now. */
   provenance: Provenance,
   chains: z.array(ChainId),
-  /** Vaults the server knows on these chains: every one its cache or the snapshot worker holds. */
+  /** Vaults the server knows on these chains: named by its cache, or read by the snapshot worker in the last 7 days. */
   vaults: PlatformFigure,
   /** The wallets that own them. */
   wallets: PlatformFigure,
   /**
    * What the vaults held at the snapshot worker's last pass, in dollars. Null when no pass in the last
-   * hour stands behind it on every one of the chains: unknown, never 0.
+   * hour stands behind it on every one of the chains, or a vault counted has no snapshot in that hour:
+   * unknown, never 0 and never a partial sum.
    */
   valueUsd: PlatformFigure.nullable(),
 });
