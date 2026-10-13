@@ -30,8 +30,6 @@ describe('parseFlags', () => {
       autoFollow: { solana: false, robinhood: false, base: false },
       keeperEnabled: false,
       agentSurface: false,
-      // Off: the API registers the structurer's server-signing routes only when this is on.
-      legacyStructurer: false,
     });
     expect(Flags.parse(parseFlags({}))).toEqual(DEFAULT_FLAGS);
   });
@@ -45,17 +43,13 @@ describe('parseFlags', () => {
       AUTO_FOLLOW_ROBINHOOD: 'off',
       KEEPER_ENABLED: 'true',
       AGENT_SURFACE: '1',
-      LEGACY_STRUCTURER: 'off',
     });
     expect(flags).toEqual({
       chainMode: { solana: 'live', robinhood: 'readonly', base: 'mock' },
       autoFollow: { solana: true, robinhood: false, base: false },
       keeperEnabled: true,
       agentSurface: true,
-      legacyStructurer: false,
     });
-    // Off is also what unset means, so the variable is shown to be read by turning it on.
-    expect(parseFlags({ LEGACY_STRUCTURER: 'on' }).legacyStructurer).toBe(true);
   });
 
   it('ignores case and spaces, and treats an empty value as unset', () => {

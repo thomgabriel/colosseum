@@ -8675,18 +8675,9 @@
                         },
                         "agentSurface": {
                           "type": "boolean"
-                        },
-                        "legacyStructurer": {
-                          "type": "boolean"
                         }
                       },
-                      "required": [
-                        "chainMode",
-                        "autoFollow",
-                        "keeperEnabled",
-                        "agentSurface",
-                        "legacyStructurer"
-                      ],
+                      "required": ["chainMode", "autoFollow", "keeperEnabled", "agentSurface"],
                       "additionalProperties": false
                     },
                     "chains": {

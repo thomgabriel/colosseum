@@ -54,8 +54,7 @@ describe('api skeleton', () => {
   });
 
   it('counts every write outside /v1 and /risk: the list of open writes is the app’s own POST routes', async () => {
-    // with the structurer's signing route switched on, so the list is the longest it can be
-    const app = await buildApp({ env: { LEGACY_STRUCTURER: 'on' } });
+    const app = await buildApp();
     await app.ready();
     const paths = (app.swagger() as { paths: Record<string, Record<string, unknown>> }).paths;
     const writes = Object.entries(paths)

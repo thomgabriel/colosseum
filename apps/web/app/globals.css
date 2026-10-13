@@ -13,7 +13,8 @@
  * Tailwind makes a utility for every word in the source that looks like a class name, comments
  * included. Tests and notes are not rendered, so they are not read. And the plain names of what the
  * design system forbids are never made into utilities, so a word in a comment cannot make one: a
- * shadow, a ring (which is a box-shadow; focus uses `outline`), a blur, an italic, a light weight.
+ * shadow, a ring (which is a box-shadow; focus uses `outline`), a blur, an italic, a light weight,
+ * and the bare `rounded`, whose 4px corner is off the system's steps.
  * This list stops the plain names only. The same utilities behind a variant (`hover:`) or with a
  * value in brackets are still made when a file asks for them, and components/ui/forbidden.test.ts
  * is what fails then: it reads the stylesheet these lines produce.
@@ -24,7 +25,7 @@
 @source not inline("{,inset-}{shadow,ring}{,-0,-1,-2,-4,-8,-2xs,-xs,-sm,-md,-lg,-xl,-2xl,-inner,-none}");
 @source not inline("{,backdrop-}blur{,-xs,-sm,-md,-lg,-xl,-2xl,-3xl,-none}");
 @source not inline("drop-shadow{,-xs,-sm,-md,-lg,-xl,-2xl,-none}");
-@source not inline("{italic,font-thin,font-extralight,font-light,text-justify}");
+@source not inline("{italic,font-thin,font-extralight,font-light,text-justify,rounded}");
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* Dark as drawn: the dark class, or no choice made on a system that is dark (the theme toggle's icon). */
@@ -740,19 +741,6 @@
   .dark {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  /*
-   * The pages written before the design system (app/(structurer)) keep the faces they had, the
-   * system's own, until each is rebuilt on the primitives (WEB-2). Their mono face is IBM Plex Mono
-   * wherever they ask for it by class, as before. This goes when the last of them is rebuilt.
-   */
-  .tf-system-faces {
-    font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  }
-
-  .tf-system-faces :is(code, kbd, samp, pre) {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
 }
 
