@@ -99,7 +99,7 @@ describe('what an order does, in one sentence', () => {
       },
     ]);
     expect(costSentence(both, words)).toBe(
-      'About $500 of TSLAx is sold for cash, and about $97.95 of cash goes into GOOGLx. At worst each swap lands 2% under today’s price.',
+      'About $499 of TSLAx is sold for cash, and about $97.95 of cash goes into GOOGLx. At worst each swap lands 2% under today’s price.',
     );
   });
 
@@ -287,10 +287,48 @@ describe('the picture of what changes', () => {
   });
 });
 
+describe('a least in dollars', () => {
+  it('is cut down everywhere it is said: the sentence, the picture, the step and its button', () => {
+    const out = order([
+      {
+        trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }],
+        expected: [{ inRaw: '50000000', outRaw: '400000000', minOutRaw: '395678900', costBps: 0 }],
+      },
+      {
+        kind: 'withdraw',
+        withdrawals: [
+          { asset: CASH, amountRaw: null, heldRaw: '600000000', leastRaw: '996700000' },
+        ],
+      },
+    ]);
+    expect(costSentence(out, words)).toContain('you receive at least $996 in your own wallet');
+    expect(withdrawPicture(out, words).rows[0]?.cells[0]).toEqual({
+      shown: 'at least $996',
+      exact: '$996.70',
+    });
+    const [sale, cash] = stepWordsOf(out, words);
+    expect(sale?.worst).toBe('At worst you get $395, 1.09% under today’s price.');
+    expect(cash?.press).toBe('Sign: withdraw at least $996');
+    expect(cash?.title).not.toContain('$997');
+    // under $100, to the cent below
+    const small = order([
+      {
+        kind: 'withdraw',
+        withdrawals: [{ asset: CASH, amountRaw: null, heldRaw: '1', leastRaw: '5678900' }],
+      },
+    ]);
+    expect(stepWordsOf(small, words)[0]?.press).toBe('Sign: withdraw at least $5.67');
+  });
+});
+
 describe('dollars to read', () => {
   it('rounds to whole dollars from $100, and keeps the cents under it', () => {
     expect(readDollars(1354.139432, 'en')).toBe('$1,354');
     expect(readDollars(97.951023, 'en')).toBe('$97.95');
     expect(readDollars(10, 'en')).toBe('$10');
+    // cut down, never rounded up
+    expect(readDollars(996.7, 'en')).toBe('$996');
+    expect(readDollars(5.678, 'en')).toBe('$5.67');
+    expect(readDollars(99.999, 'en')).toBe('$99.99');
   });
 });

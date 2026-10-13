@@ -76,6 +76,8 @@ function useKeyedRead<T>(
   round: number,
   scope: string | null,
   read: ReadFn<T>,
+  /** A round asked for by the window's focus or an ended order: a failed answer keeps the last read. */
+  quiet = false,
 ): { reading: Reading<T>; busy: boolean } {
   const apiFetch = useApiFetch();
   const [answer, setAnswer] = useState<{
@@ -85,6 +87,8 @@ function useKeyedRead<T>(
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const wanted = useRef('');
+  const held = useRef(answer);
+  held.current = answer;
   // The call of the moment: a new function is not a new question, only a new `scope` is.
   const latest = useRef({ read, apiFetch });
   useEffect(() => {
@@ -100,11 +104,21 @@ function useKeyedRead<T>(
       return;
     }
     setBusy(true);
+    const kept = quiet;
     latest.current.read(latest.current.apiFetch).then((outcome) => {
       if (wanted.current !== key) return;
-      setAnswer({ who, scope, outcome });
+      const last = held.current;
+      // Read again by itself, it answered no figures (busy, unreachable): the ones shown stay.
+      const keep =
+        kept &&
+        outcome.kind !== 'read' &&
+        last?.who === who &&
+        last.scope === scope &&
+        last.outcome.kind === 'read';
+      if (!keep) setAnswer({ who, scope, outcome });
       setBusy(false);
     });
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `quiet` is how this round was asked, read as it starts
   }, [key, who, scope]);
 
   const same = answer !== null && answer.who === who && answer.scope === scope ? answer : null;
@@ -114,7 +128,12 @@ function useKeyedRead<T>(
 
 const SectionContext = createContext<PortfolioSection | null>(null);
 /** Who is asked for and which round of asking it is: what a page's own read joins. */
-const AskedContext = createContext<{ who: string | null; round: number } | null>(null);
+const AskedContext = createContext<{ who: string | null; round: number; quiet: boolean } | null>(
+  null,
+);
+
+/** The window's focus reads the section again at most this often. */
+export const FOCUS_READ_MS = 30_000;
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
   const port = useWalletPort();
@@ -123,23 +142,40 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   // answers the chains of the wallets it is shown, so nothing is asked until they are all there.
   const who = port.status === 'ready' ? port.userId : null;
 
-  const plans = useKeyedRead(who, round, 'plans', allPlans);
-  const exposure = useKeyedRead(who, round, 'exposure', allExposure);
-  const rebalances = useKeyedRead(who, round, 'rebalances', allRebalances);
+  // Whether this round was asked for by the person ("Read again") or by itself (the focus, an order).
+  const [quiet, setQuiet] = useState(false);
+  const plans = useKeyedRead(who, round, 'plans', allPlans, quiet);
+  const exposure = useKeyedRead(who, round, 'exposure', allExposure, quiet);
+  const rebalances = useKeyedRead(who, round, 'rebalances', allRebalances, quiet);
 
-  const again = useCallback(() => setRound((n) => n + 1), []);
+  const asked = useRef(0);
+  const again = useCallback(() => {
+    asked.current = Date.now();
+    setQuiet(false);
+    setRound((n) => n + 1);
+  }, []);
   // The figures change while the section is open: an order ends in this tab or another, or the person
-  // comes back from another window. Each is a "Read again" for whoever is signed in, and the answers
-  // on the screen stay until the new ones land.
+  // comes back from another window. Each reads the section again for whoever is signed in, the focus
+  // at most every 30 seconds; the answers on the screen stay until new ones land, and stay when the
+  // new answer has no figures (busy, unreachable).
   useEffect(() => {
     if (who === null) return;
-    const stop = onOrderDone(again);
-    window.addEventListener('focus', again);
+    asked.current = Date.now();
+    const refresh = () => {
+      asked.current = Date.now();
+      setQuiet(true);
+      setRound((n) => n + 1);
+    };
+    const focused = () => {
+      if (Date.now() - asked.current >= FOCUS_READ_MS) refresh();
+    };
+    const stop = onOrderDone(refresh);
+    window.addEventListener('focus', focused);
     return () => {
       stop();
-      window.removeEventListener('focus', again);
+      window.removeEventListener('focus', focused);
     };
-  }, [who, again]);
+  }, [who]);
   const person: Person =
     port.status === 'signed-out' ? 'signed-out' : who === null ? 'loading' : 'signed-in';
   const busy = plans.busy || exposure.busy || rebalances.busy;
@@ -156,11 +192,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }),
     [person, port.test, plans.reading, exposure.reading, rebalances.reading, again, busy],
   );
-  const asked = useMemo(() => ({ who, round }), [who, round]);
+  const askedFor = useMemo(() => ({ who, round, quiet }), [who, round, quiet]);
 
   return (
     <SectionContext.Provider value={section}>
-      <AskedContext.Provider value={asked}>{children}</AskedContext.Provider>
+      <AskedContext.Provider value={askedFor}>{children}</AskedContext.Provider>
     </SectionContext.Provider>
   );
 }
@@ -186,5 +222,5 @@ export function useSectionRead<T>(
 ): { reading: Reading<T>; busy: boolean } {
   const asked = useContext(AskedContext);
   if (!asked) throw new Error('useSectionRead is used under <PortfolioProvider>');
-  return useKeyedRead(asked.who, asked.round, scope, read);
+  return useKeyedRead(asked.who, asked.round, scope, read, asked.quiet);
 }

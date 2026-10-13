@@ -26,15 +26,17 @@ export type SummaryWords = {
 const listOf = (names: readonly string[], locale: string) =>
   new Intl.ListFormat(locale, { type: 'conjunction' }).format(names);
 
-/** Dollars to read: whole from $100 up, cents under it. */
+/** Dollars to read: whole from $100 up, cents under it, cut down and never rounded up. */
 export function readDollars(value: number, locale: string): string {
   const whole = Math.abs(value) >= 100;
+  // to the cent first, as a count of cents, so a float's last digit is not taken for a cent
+  const cut = whole ? Math.floor(value) : Math.floor(Math.round(value * 1e6) / 1e4) / 100;
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: whole || Number.isInteger(value) ? 0 : 2,
+    minimumFractionDigits: whole || Number.isInteger(cut) ? 0 : 2,
     maximumFractionDigits: whole ? 0 : 2,
-  }).format(value);
+  }).format(cut);
 }
 
 /** Dollars in full, to the cent. */
@@ -65,16 +67,20 @@ function reader({ units, t, locale, multipliers }: SummaryWords) {
   const cash = units?.cash ?? null;
   const unitsOf = (asset: string) => units?.tokens[asset];
   const symbol = (asset: string) => unitsOf(asset)?.symbol ?? tokenName(asset);
-  /** A raw amount of cash as dollars, or null where the cash token's units are not known. */
-  const usd = (raw: string): number | null => {
-    const u = cash ? unitsOf(cash) : undefined;
-    return u && /^\d+$/.test(raw) ? Number(raw) / 10 ** u.decimals : null;
-  };
+  /**
+   * A raw amount of cash as dollars, cut down to the cent and never rounded up: whole dollars from
+   * $100, cents under it, and the cents on hover. Null where the cash token's units are not known.
+   */
   const money = (raw: string): Figure | null => {
-    const value = usd(raw);
-    return value === null
-      ? null
-      : { shown: readDollars(value, locale), exact: exactDollars(value, locale) };
+    const u = cash ? unitsOf(cash) : undefined;
+    if (!u || !/^\d+$/.test(raw)) return null;
+    const cents = (BigInt(raw) * 100n) / 10n ** BigInt(u.decimals);
+    const exact = exactDollars(Number(cents) / 100, locale);
+    return {
+      shown:
+        cents >= 10_000n ? readDollars(Number(cents / 100n), locale) : exact.replace(/[.,]00$/, ''),
+      exact,
+    };
   };
   /** A raw amount of a token with its symbol, shown with its multiplier where a withdrawal has one. */
   const tokens = (raw: string, asset: string): Figure | null => {
@@ -90,7 +96,7 @@ function reader({ units, t, locale, multipliers }: SummaryWords) {
   /** Cash read as dollars, any other token as itself. */
   const amount = (raw: string, asset: string): Figure | null =>
     asset === cash ? money(raw) : tokens(raw, asset);
-  return { cash, symbol, usd, money, tokens, amount, t, locale };
+  return { cash, symbol, money, tokens, amount, t, locale };
 }
 type Reader = ReturnType<typeof reader>;
 

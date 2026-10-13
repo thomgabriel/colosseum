@@ -9,7 +9,7 @@ import { EMBEDDED, fakePort, json, signedInPort } from '../wallet/test/fake-port
 import { location } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { EXPOSURE_PATH, HISTORY_PATH, PLANS_PATH, REBALANCES_PATH } from './api';
-import { REBALANCES_ASKED } from './PortfolioProvider';
+import { FOCUS_READ_MS, REBALANCES_ASKED } from './PortfolioProvider';
 import { held, serve } from './test/api';
 import { history, plans, RH_SILENT, SOL_GROW, SOL_INCOME } from './test/fixtures';
 import { GatePage, inSection, OwnHistory, Probe } from './test/screen';
@@ -165,11 +165,18 @@ describe('the reads of the portfolio section', () => {
     for (const route of ROUTES) expect(server.to(route)).toHaveLength(1);
   });
 
-  it('reads again when the window has the focus back, keeping the answers on the screen meanwhile', async () => {
+  it('reads again when the window has the focus back, at most every 30 seconds, keeping the answers meanwhile', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
     const server = serve(portStore);
     signIn();
     const host = await probe();
     for (const route of ROUTES) expect(server.to(route)).toHaveLength(1);
+    // back within 30 seconds of the last read: nothing is asked
+    clock.mockReturnValue(1_000_000 + FOCUS_READ_MS - 1);
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await settle();
+    for (const route of ROUTES) expect(server.to(route)).toHaveLength(1);
+    clock.mockReturnValue(1_000_000 + FOCUS_READ_MS);
     const pending = held();
     const again = serve(portStore, { plans: pending.answer });
     await act(async () => window.dispatchEvent(new Event('focus')));
@@ -182,6 +189,24 @@ describe('the reads of the portfolio section', () => {
     await act(async () => pending.release(json(plans({ address: SOL_INCOME }))));
     await settle();
     expect(shown(host)).toBe(SOL_INCOME);
+    clock.mockRestore();
+  });
+
+  it('keeps the figures it has when a read it asked for by itself answers none, and not on "Read again"', async () => {
+    serve(portStore);
+    signIn();
+    const host = await probe();
+    expect(shown(host)).toContain(SOL_GROW);
+    // an order ended, and the server is busy: the plans on the screen stay
+    serve(portStore, { plans: () => json({ error: 'slow down' }, 429) });
+    await act(async () => announceOrderDone());
+    await settle();
+    expect(state(host)).toMatchObject({ plans: 'read', busy: 'false' });
+    expect(shown(host)).toContain(SOL_GROW);
+    // the person asked: they are told the server is busy
+    await click(find(host, '[data-action="again"]'));
+    await settle();
+    expect(state(host).plans).toBe('busy');
   });
 
   it('reads again when an order ends, in this tab or another', async () => {

@@ -2041,7 +2041,7 @@ export const pt: Dictionary = {
         depositInto: (amount: string, into: string) =>
           `Seus ${amount} vão para o seu cofre, e de lá para ${into}.`,
         sell: (amount: string, what: string) =>
-          `Cerca de ${amount} de ${what} são vendidos por caixa.`,
+          `Cerca de ${amount} de ${what} é vendido por caixa.`,
         sellSome: (what: string) => `Parte do seu ${what} é vendida por caixa.`,
         spend: (amount: string, into: string) => `Cerca de ${amount} em caixa vão para ${into}.`,
         spendSome: (into: string) => `Caixa vai para ${into}.`,
