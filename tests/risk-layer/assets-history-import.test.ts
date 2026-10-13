@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { createDb, marketBars } from '@colosseum/db';
+import { assetObservations, createDb, marketBars, riskPriceObservations } from '@colosseum/db';
 import {
   carriedPrice,
   fileEvmPool,
@@ -8,11 +10,12 @@ import {
   priceJobHoldBack,
   roundPrice,
   scaled,
+  solanaQuoteUsd,
   wholeDaysOfBlocks,
   wholeDaysOfSeconds,
 } from '@colosseum/risk';
 import type { AssetList } from '@colosseum/schemas';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
   readPoolTokens,
@@ -24,6 +27,7 @@ import { solanaRegime } from '../../scripts/risk/assets/bars-read';
 import {
   type BarRow as BarRowT,
   barRows,
+  reconcileBackfillBars,
   upsertBackfillBars,
 } from '../../scripts/risk/assets/bars-rows';
 import { buildHistory, insertKeep } from '../../scripts/risk/assets/history-import';
@@ -89,6 +93,35 @@ describe('whole days, by hand', () => {
     // without a later day inside the range, nothing is whole
     expect(wholeDaysOfBlocks(covered, [inside])).toEqual([]);
   });
+  it('blocks: a reopened manifest (failed rewalk_ check, days left listed) proves nothing', () => {
+    const covered = [{ from: 100, to: 400 }];
+    const early = { covered: [{ from: 100, to: 199 }], days: ['2026-10-10'] };
+    const reopened = {
+      covered: [{ from: 300, to: 400 }],
+      days: ['2026-10-13'],
+      checks: [{ name: 'rewalk_2026-10-13', passed: false }],
+    };
+    expect(wholeDaysOfBlocks(covered, [early, reopened])).toEqual([]);
+    expect(
+      wholeDaysOfBlocks(covered, [
+        early,
+        { ...reopened, checks: [{ name: 'rewalk_2026-10-13', passed: true }] },
+      ]),
+    ).toEqual(['2026-10-11', '2026-10-12']);
+  });
+  it('blocks: a manifest within the header margin of the range edge is not an anchor', () => {
+    // rows' times are interpolated between headers 50 blocks apart: a piece within 50 blocks of the edge may hold
+    // a row filed on the day before whose true time is past midnight
+    const covered = [{ from: 100, to: 400 }];
+    const edge = { covered: [{ from: 100, to: 149 }], days: ['2026-10-10'] };
+    const inner = { covered: [{ from: 150, to: 199 }], days: ['2026-10-11'] };
+    const newest = { covered: [{ from: 300, to: 350 }], days: ['2026-10-13'] };
+    expect(wholeDaysOfBlocks(covered, [edge, inner, newest], 50)).toEqual(['2026-10-12']);
+    expect(wholeDaysOfBlocks(covered, [edge, inner, newest], 0)).toEqual([
+      '2026-10-11',
+      '2026-10-12',
+    ]);
+  });
 });
 
 describe('the parts of a row, by hand', () => {
@@ -145,12 +178,28 @@ describe('the parts of a row, by hand', () => {
     expect(m.get('2026-10-07T22:00:00.000Z')).toEqual({
       usd: 120,
       method: 'native_median_of_2_pools',
+      carriedHours: 0,
     });
     expect(m.get('2026-10-07T23:00:00.000Z')).toEqual({
       usd: 120,
       method: 'native_median_of_2_pools_carried_1h',
+      carriedHours: 1,
     });
     expect(m.get('2026-10-08T00:00:00.000Z')).toBeUndefined();
+  });
+  it('a carried price says so, and a price of the hour wins over a carried one', () => {
+    const usdcPools = [{ pool: 'U', vwap: new Map([['2026-10-07T21:00:00.000Z', 10]]) }];
+    const own = new Map([['2026-10-07T23:00:00.000Z', 5]]);
+    const base = { quoteMint: 'SOL', own, usdcPools, regimeOf: () => null };
+    expect(solanaQuoteUsd(base).get('2026-10-07T23:00:00.000Z')).toMatchObject({
+      quoteUsd: 2,
+      method: 'implied_from_U_carried_2h',
+    });
+    const fresh = solanaQuoteUsd({
+      ...base,
+      quoteUsdOf: () => ({ usd: 2.5, method: 'native_median_of_3_pools', carriedHours: 0 }),
+    }).get('2026-10-07T23:00:00.000Z');
+    expect(fresh).toMatchObject({ quoteUsd: 2.5, method: 'native_median_of_3_pools' });
   });
   it('carries a reference price at most to the end of its own UTC day', () => {
     const vwap = new Map([['2026-10-07T23:00:00.000Z', 2]]);
@@ -294,6 +343,72 @@ describe('Robinhood Chain swaps to bars', () => {
       if (e?.volumeUsd !== null) expect(e?.detail.quoteUsd).toBe(b.detail.quoteUsd);
     }
   });
+  it('a shelf token the list no longer holds (as PONS after SHELF-CRYPTO-1) gets no bar, never a NaN one', () => {
+    const list = {
+      ...rhList,
+      assets: rhList.assets.filter((a) => a.address.toLowerCase() !== NVDA),
+    };
+    const r = readRobinhoodBackfill({
+      dataDir: F,
+      creation: JSON.parse(readFileSync(`${F}/creation-logs-robinhood.json`, 'utf8')).created,
+      list,
+      shelf: count.scopeOf.shelf.tokens.map((x: { address: string }) => x.address),
+      scope: count.scope,
+      regimeOfT: solanaRegime(),
+      resolved: readPoolTokens(F),
+    });
+    expect(r.summary.shelfTokensNotInList).toContain(NVDA);
+    expect(r.pools.filter((p) => p.address === NVDA)).toEqual([]);
+  });
+  it("ETH's median of 15:00 recomputed from the raw swaps", () => {
+    // each pool's price of the hour: its last swap's sqrtPriceX96 (word 2 of the data), quote per NVDA; NVDA in
+    // dollars from its USDG pool with the most swaps that day; each ETH- or WETH-quoted pool implies ETH's dollars
+    // as NVDA's over its own price, weighted by its swaps in the hour
+    const created = JSON.parse(readFileSync(`${F}/creation-logs-robinhood.json`, 'utf8'))
+      .created as Array<{
+      id: string;
+      token0: string;
+    }>;
+    const hour = Date.parse('2026-10-11T15:00:00Z') / 1000;
+    const rowsOf = (pool: string) =>
+      lines(`robinhood/swaps/${pool}/2026-10-11.jsonl.gz`).map(
+        (l) => JSON.parse(l) as { block: number; logIndex: number; t: number; data: string },
+      );
+    const sqrtOf = (data: string) => BigInt(`0x${data.slice(2 + 64 * 2, 2 + 64 * 3)}`);
+    const lastPrice = (pool: string, quoteDecimals: number) => {
+      const inHour = rowsOf(pool).filter((r) => r.t >= hour && r.t < hour + 3600);
+      const last = inHour.sort((a, b) => a.block - b.block || a.logIndex - b.logIndex).at(-1);
+      if (!last) return null;
+      const s = Number(sqrtOf(last.data)) / 2 ** 96;
+      const nvdaIs0 =
+        created.find((c) => c.id.toLowerCase() === pool)?.token0.toLowerCase() === NVDA;
+      const p1per0 = s * s * 10 ** (nvdaIs0 ? 18 - quoteDecimals : quoteDecimals - 18);
+      return { price: nvdaIs0 ? p1per0 : 1 / p1per0, n: inHour.length };
+    };
+    const usdgPools = [
+      '0x6444a8e0b267406a15db74ca00c4a24bdfa81ed3180f5b6d0851f8ed6f4f29c5',
+      '0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3',
+    ].sort((a, b) => rowsOf(b).length - rowsOf(a).length);
+    const nvdaUsd = lastPrice(usdgPools[0] as string, 6)?.price as number;
+    const samples = [
+      '0x62ab521f71431f78ac374cdbadc6cda3c8916b6c',
+      '0x71f9660f9535e3e81d720696a58ea80274da8b2c6eb7c3acb22611d977439a5c',
+    ]
+      .map((p) => lastPrice(p, 18))
+      .filter((x): x is { price: number; n: number } => x !== null)
+      .map((x) => ({ v: nvdaUsd / x.price, w: x.n }))
+      .sort((a, b) => a.v - b.v);
+    const total = samples.reduce((a, x) => a + x.w, 0);
+    let acc = 0;
+    const median = samples.find((x) => {
+      acc += x.w;
+      return acc * 2 >= total;
+    })?.v as number;
+    const weth = read.pools.find((p) => p.pool === '0x62ab521f71431f78ac374cdbadc6cda3c8916b6c');
+    const b = weth?.bars.find((x) => x.hour === '2026-10-11T15:00:00.000Z');
+    expect(b?.quoteUsdMethod).toBe(`native_median_of_${samples.length}_pools`);
+    expect(b?.detail.quoteUsd as number).toBeCloseTo(median, 6);
+  });
 });
 
 describe('Chainlink rounds and the external daily series', () => {
@@ -334,18 +449,13 @@ describe('Chainlink rounds and the external daily series', () => {
   });
 });
 
-describe('written once (in a transaction that is rolled back)', () => {
+describe('written once, and withdrawn (in a transaction that is rolled back)', () => {
   it('a re-run changes nothing; an earlier import row that differs is replaced; another source is never touched', async () => {
     const bars = barRows(solRead(), 'solana', true).rows;
-    const hist = buildHistory({ dataDir: F, what: 'all', lists, nowT: NOW });
     const { db, client } = createDb();
     const o = {
       first: { inserted: -1, replaced: -1 },
       second: { inserted: -1, replaced: -1 },
-      stale: { inserted: -1, replaced: -1 },
-      foreign: { inserted: -1, replaced: -1 },
-      prices: [-1, -1],
-      facts: [-1, -1],
       stored: -1,
       foreignSource: '',
       staleMethod: '',
@@ -354,14 +464,6 @@ describe('written once (in a transaction that is rolled back)', () => {
     const [one, two] = bars as [BarRowT, BarRowT];
     try {
       await db.transaction(async (tx) => {
-        const keyOf = (r: BarRowT) =>
-          and(
-            eq(marketBars.chain, r.chain),
-            eq(marketBars.address, r.address),
-            eq(marketBars.pool, r.pool),
-            eq(marketBars.hour, r.hour as Date),
-            eq(marketBars.methodVersion, r.methodVersion),
-          );
         // the table as a run might find it: an earlier run of this import wrote `one` with another pricing; the
         // held history (another source) holds `two`'s key
         await tx.delete(marketBars).where(keyOf(one));
@@ -375,25 +477,7 @@ describe('written once (in a transaction that is rolled back)', () => {
         o.staleMethod =
           (await tx.select().from(marketBars).where(keyOf(one)))[0]?.quoteUsdMethod ?? '';
         o.foreignSource = (await tx.select().from(marketBars).where(keyOf(two)))[0]?.source ?? '';
-        const h1 = await insertKeep(tx, hist.prices, hist.facts);
-        const h2 = await insertKeep(tx, hist.prices, hist.facts);
-        o.prices = [h1.prices, h2.prices];
-        o.facts = [h1.facts, h2.facts];
-        const stored = await tx
-          .select({ address: marketBars.address, pool: marketBars.pool, hour: marketBars.hour })
-          .from(marketBars)
-          .where(
-            and(
-              eq(marketBars.chain, 'solana'),
-              eq(marketBars.methodVersion, 'bars-0.1'),
-              gte(marketBars.hour, new Date('2026-10-07T00:00:00Z')),
-              lte(marketBars.hour, new Date('2026-10-07T05:00:00Z')),
-            ),
-          );
-        const keys = new Set(stored.map((r) => `${r.address}|${r.pool}|${r.hour.getTime()}`));
-        o.stored = bars.filter((r) =>
-          keys.has(`${r.address}|${r.pool}|${(r.hour as Date).getTime()}`),
-        ).length;
+        o.stored = await storedOf(tx, bars);
         throw new Undo();
       });
     } catch (e) {
@@ -401,13 +485,137 @@ describe('written once (in a transaction that is rolled back)', () => {
     } finally {
       await client.end();
     }
-    // the stale row of an earlier run is replaced by the row built now; the held history's row stays its own
     expect(o.staleMethod).toBe(one.quoteUsdMethod);
     expect(o.foreignSource).toBe('the held swap history (AS.7)');
     expect(o.first.replaced).toBeGreaterThanOrEqual(1);
     expect(o.second).toEqual({ inserted: 0, replaced: 0 });
-    expect(o.prices[1]).toBe(0);
-    expect(o.facts[1]).toBe(0);
+    // `two`'s key belongs to the held history: every other row built is stored
     expect(o.stored).toBe(bars.length);
   }, 60_000);
+
+  it("a manifest whose covered window shrinks between two runs: that day's rows are withdrawn", async () => {
+    // a copy of the fixture where AAVE's USDC pool no longer holds 2026-10-07 whole (its owner reopened it)
+    const dir = mkdtempSync(join(tmpdir(), 'assets-history-'));
+    cpSync(F, dir, { recursive: true });
+    const mf = join(dir, 'solana/swaps/6k7hLzFcL3H64uziJboN3WZNXYj6PiBMP1DZh8zFfhSb/manifest.json');
+    const m = JSON.parse(readFileSync(mf, 'utf8'));
+    m.covered = [
+      { from: Date.parse('2026-10-08T00:00:00Z') / 1000, to: m.covered.at(-1).to, unit: 'second' },
+    ];
+    m.checks.push({ name: 'rewalk_2026-10-13', passed: false, detail: 'test' });
+    writeFileSync(mf, JSON.stringify(m));
+    const read = (d: string) =>
+      readSolanaBackfill({
+        dataDir: d,
+        registry: solanaRegistryPools(`${F}/shelf-registry-solana.json`),
+        registryFile: `${F}/shelf-registry-solana.json`,
+        regimeOfT: solanaRegime(),
+      });
+    const before = barRows(read(F), 'solana', true).rows;
+    const after = barRows(read(dir), 'solana', true).rows;
+    const aave = (r: BarRowT) =>
+      r.address ===
+      before.find((x) => x.pool === '6k7hLzFcL3H64uziJboN3WZNXYj6PiBMP1DZh8zFfhSb')?.address;
+    // AAVE's day is no longer whole for the token: none of its rows, pool or token, is built
+    expect(after.filter(aave).length).toBe(0);
+    expect(after.length).toBe(before.filter((r) => !aave(r)).length);
+    const range = { from: new Date('2026-10-06T00:00:00Z'), to: new Date('2026-10-07T23:00:00Z') };
+    const { db, client } = createDb();
+    const o = { dry: -1, withdrawn: -1, again: -1, left: -1 };
+    class Undo extends Error {}
+    try {
+      await db.transaction(async (tx) => {
+        // the table as the first run leaves it: the fixture's rows only (a real import's other rows of the range
+        // are withdrawn by this same pass, inside the rollback)
+        await reconcileBackfillBars(tx, 'solana', before, range);
+        await upsertBackfillBars(tx, before);
+        o.dry = (await reconcileBackfillBars(tx, 'solana', after, range, true)).withdrawn;
+        o.withdrawn = (await reconcileBackfillBars(tx, 'solana', after, range)).withdrawn;
+        o.again = (await reconcileBackfillBars(tx, 'solana', after, range)).withdrawn;
+        o.left = await storedOf(tx, before.filter(aave));
+        throw new Undo();
+      });
+    } catch (e) {
+      if (!(e instanceof Undo)) throw e;
+    } finally {
+      await client.end();
+      rmSync(dir, { recursive: true, force: true });
+    }
+    // every AAVE row withdrawn (the dry run counts the same and deletes nothing); a second pass finds none
+    expect(o.dry).toBe(before.filter(aave).length);
+    expect(o.withdrawn).toBe(before.filter(aave).length);
+    expect(o.again).toBe(0);
+    expect(o.left).toBe(0);
+  }, 60_000);
+
+  it('the daily series: the first run on fresh keys inserts every row built, the second none', async () => {
+    const hist = buildHistory({ dataDir: F, what: 'all', lists, nowT: NOW });
+    const distinct = new Set(
+      hist.prices.map((r) =>
+        [r.priceSource, r.ref, r.mint, (r.observedAt as Date).getTime(), r.slot, r.price].join('|'),
+      ),
+    ).size;
+    const mints = [...new Set(hist.prices.map((r) => r.mint))];
+    const { db, client } = createDb();
+    const o = { prices: [-1, -1], facts: [-1, -1] };
+    class Undo extends Error {}
+    try {
+      await db.transaction(async (tx) => {
+        // the fixture's keys made fresh: what a real import stored under them is removed inside the rollback
+        await tx
+          .delete(riskPriceObservations)
+          .where(
+            and(
+              inArray(riskPriceObservations.mint, mints),
+              eq(riskPriceObservations.methodVersion, 'history-import-0.1'),
+            ),
+          );
+        await tx
+          .delete(assetObservations)
+          .where(
+            and(
+              eq(assetObservations.chain, 'all_chains'),
+              eq(assetObservations.address, 'protocol:kamino-lend'),
+            ),
+          );
+        const h1 = await insertKeep(tx, hist.prices, hist.facts);
+        const h2 = await insertKeep(tx, hist.prices, hist.facts);
+        o.prices = [h1.prices, h2.prices];
+        o.facts = [h1.facts, h2.facts];
+        throw new Undo();
+      });
+    } catch (e) {
+      if (!(e instanceof Undo)) throw e;
+    } finally {
+      await client.end();
+    }
+    expect(o.prices).toEqual([distinct, 0]);
+    expect(o.facts).toEqual([hist.facts.length, 0]);
+  }, 60_000);
 });
+
+function keyOf(r: BarRowT) {
+  return and(
+    eq(marketBars.chain, r.chain),
+    eq(marketBars.address, r.address),
+    eq(marketBars.pool, r.pool),
+    eq(marketBars.hour, r.hour as Date),
+    eq(marketBars.methodVersion, r.methodVersion),
+  );
+}
+async function storedOf(tx: Pick<ReturnType<typeof createDb>['db'], 'select'>, rows: BarRowT[]) {
+  const stored = await tx
+    .select({ address: marketBars.address, pool: marketBars.pool, hour: marketBars.hour })
+    .from(marketBars)
+    .where(
+      and(
+        eq(marketBars.chain, 'solana'),
+        eq(marketBars.methodVersion, 'bars-0.1'),
+        gte(marketBars.hour, new Date('2026-10-07T00:00:00Z')),
+        lte(marketBars.hour, new Date('2026-10-07T23:00:00Z')),
+      ),
+    );
+  const keys = new Set(stored.map((r) => `${r.address}|${r.pool}|${r.hour.getTime()}`));
+  return rows.filter((r) => keys.has(`${r.address}|${r.pool}|${(r.hour as Date).getTime()}`))
+    .length;
+}

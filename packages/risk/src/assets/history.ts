@@ -15,7 +15,8 @@ import type { BarHour } from './bars';
 //                (`implied_from_<pool>`): the USDC pool's volume-weighted price over the pool's own, both of the
 //                hour, the USDC pool's carried at most 24 hours inside the same UTC day; else no dollar figure
 //                (`none:…` on the bar). Never a price of the quote invented, never a stablecoin other than USDC
-//                at par. When the asset has no USDC price that hour: a quote that is itself an asset of the
+//                at par. A price carried from an earlier hour says so (`…_carried_<h>h`), and a price of the
+//                hour itself wins over a carried one. When the asset has no USDC price that hour: a quote that is itself an asset of the
 //                registry at its own USDC pools' price (`implied_from_<pool>`), and SOL at the hour's native median
 //                (`nativeMedianByHour`, `native_median_of_<n>_pools`), as Robinhood Chain prices ETH.
 //   Robinhood Chain's pools  which side is the asset: the side less like a quote (USDG, then the other dollar
@@ -73,22 +74,38 @@ export function mergeRanges(rs: Range[]): Range[] {
   return out;
 }
 
+/** A check a fetch's owner set to reopen a subject's windows (`recheck_…`, `rewalk_…`, `verify_days_…`), failed. */
+export const REOPEN_CHECK = /^(recheck|rewalk|verify_days)_/;
+export const isReopened = (checks: Array<{ name: string; passed: boolean }> | undefined) =>
+  (checks ?? []).some((c) => !c.passed && REOPEN_CHECK.test(c.name));
+
 /**
  * The UTC days whose every block lies in one of `covered` (contiguous block ranges): a day is whole when, inside
- * the same range, a manifest shows a block on an earlier day and one shows a block on a later day. A manifest
- * counts for a range only when every piece it was fetched over lies inside that range (its rows are then all
- * inside it); one with a piece outside, such as a piece still being written, is not used.
+ * the same range, a manifest shows a block on an earlier day and one shows a block on a later day. A manifest is
+ * used for a range only when every piece it was fetched over lies inside the range shrunk by `marginBlocks` at
+ * each end: a row's time is interpolated between headers at most `marginBlocks` apart, so a row filed on the day
+ * before (after) D sits within that many blocks of D's true first (last) block, and the margin keeps that block
+ * inside the range. Its days are trusted only then. A manifest with no covered piece, or with a failed reopen
+ * check (`isReopened`: its owner uncovered windows and left their days listed), is not used.
  */
 export function wholeDaysOfBlocks(
   covered: Range[],
-  manifests: Array<{ covered: Range[]; days: string[] }>,
+  manifests: Array<{
+    covered: Range[];
+    days: string[];
+    checks?: Array<{ name: string; passed: boolean }>;
+  }>,
+  marginBlocks = 0,
 ): string[] {
   const out = new Set<string>();
   for (const r of mergeRanges(covered)) {
+    const lo = r.from + marginBlocks;
+    const hi = r.to - marginBlocks;
     let first: string | null = null;
     let last: string | null = null;
     for (const m of manifests) {
-      if (!m.covered.length || !m.covered.every((w) => w.from >= r.from && w.to <= r.to)) continue;
+      if (!m.covered.length || isReopened(m.checks)) continue;
+      if (!m.covered.every((w) => w.from >= lo && w.to <= hi)) continue;
       for (const d of m.days) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
         if (first === null || d < first) first = d;
@@ -120,10 +137,10 @@ export function solanaQuoteUsd(inp: {
   /** The asset's USDC pools, in the order of preference (the registry's TVL, largest first), each with its prices. */
   usdcPools: Array<{ pool: string; vwap: HourVwaps }>;
   /**
-   * When the asset has no USDC price that hour: the quote token's own dollar price, if any (the quote's USDC pools
-   * when it is an asset of the registry, `implied_from_<pool>`; SOL's median, `native_median_of_<n>_pools`).
+   * The quote token's own dollar price, if any (the quote's USDC pools when it is an asset of the registry,
+   * `implied_from_<pool>`; SOL's median, `native_median_of_<n>_pools`), with the hours it was carried.
    */
-  quoteUsdOf?: (hour: string) => { usd: number; method: string } | null;
+  quoteUsdOf?: (hour: string) => { usd: number; method: string; carriedHours: number } | null;
   regimeOf: (hour: string) => BarHour['regime'];
 }): Map<string, BarHour> {
   const out = new Map<string, BarHour>();
@@ -133,15 +150,27 @@ export function solanaQuoteUsd(inp: {
       out.set(hour, { regime, quoteUsd: 1, method: 'usdc_at_par' });
       continue;
     }
+    // the candidates: the asset's USDC pools over the pool's own price (Step 5b), and the quote's own price; a
+    // price of the hour itself wins over a carried one, then the asset's USDC pools, then the shorter carry
+    const cands: Array<{ usd: number; method: string; carriedHours: number; rank: number }> = [];
     const ref = carriedPrice(inp.usdcPools, hour);
-    if (ref && ownPrice > 0 && Number.isFinite(ownPrice)) {
-      out.set(hour, { regime, quoteUsd: ref.usd / ownPrice, method: `implied_from_${ref.pool}` });
-      continue;
-    }
+    if (ref && ownPrice > 0 && Number.isFinite(ownPrice))
+      cands.push({
+        usd: ref.usd / ownPrice,
+        method: `implied_from_${ref.pool}${ref.carriedHours ? `_carried_${ref.carriedHours}h` : ''}`,
+        carriedHours: ref.carriedHours,
+        rank: 0,
+      });
     const q = inp.quoteUsdOf?.(hour) ?? null;
-    if (q && q.usd > 0 && Number.isFinite(q.usd))
-      out.set(hour, { regime, quoteUsd: q.usd, method: q.method });
-    else out.set(hour, { regime, quoteUsd: null, method: null });
+    if (q && q.usd > 0 && Number.isFinite(q.usd)) cands.push({ ...q, rank: 1 });
+    cands.sort((a, b) => a.carriedHours - b.carriedHours || a.rank - b.rank);
+    const best = cands[0];
+    out.set(
+      hour,
+      best
+        ? { regime, quoteUsd: best.usd, method: best.method }
+        : { regime, quoteUsd: null, method: null },
+    );
   }
   return out;
 }
@@ -167,8 +196,8 @@ export function weightedMedianOf(xs: Array<{ v: number; w: number }>): number {
  */
 export function nativeMedianByHour(
   samples: Map<string, Array<{ v: number; w: number }>>,
-): Map<string, { usd: number; method: string }> {
-  const out = new Map<string, { usd: number; method: string }>();
+): Map<string, { usd: number; method: string; carriedHours: number }> {
+  const out = new Map<string, { usd: number; method: string; carriedHours: number }>();
   const byDay = new Map<string, string[]>();
   for (const h of samples.keys())
     byDay.set(h.slice(0, 10), [...(byDay.get(h.slice(0, 10)) ?? []), h]);
@@ -187,25 +216,31 @@ export function nativeMedianByHour(
       out.set(hour, {
         usd: last.v,
         method: `native_median_of_${last.n}_pools${carried ? `_carried_${carried}h` : ''}`,
+        carriedHours: carried,
       });
     }
   }
   return out;
 }
 
-/** The first pool with a price at `hour`: its own, or its last earlier hour of the same UTC day within the carry. */
+/**
+ * The freshest price at `hour` among the pools: the hour's own first, then each earlier hour of the same UTC day
+ * within the carry; among pools of equal freshness, the first in the order given.
+ */
 export function carriedPrice(
   pools: Array<{ pool: string; vwap: HourVwaps }>,
   hour: string,
 ): { pool: string; usd: number; carriedHours: number } | null {
   const t = Date.parse(hour) / 1000;
   const from = Math.max(dayStart(hour.slice(0, 10)), t - MAX_CARRY_HOURS * HOUR);
-  for (const p of pools)
-    for (let h = t; h >= from; h -= HOUR) {
-      const v = p.vwap.get(new Date(h * 1000).toISOString());
+  for (let h = t; h >= from; h -= HOUR) {
+    const key = new Date(h * 1000).toISOString();
+    for (const p of pools) {
+      const v = p.vwap.get(key);
       if (v !== undefined && v > 0 && Number.isFinite(v))
         return { pool: p.pool, usd: v, carriedHours: (t - h) / HOUR };
     }
+  }
   return null;
 }
 

@@ -3,8 +3,8 @@
 // data/assets); no network. Rows are inserted, never updated: a row already there is kept, so a second run inserts
 // nothing. --dry-run builds and counts and writes nothing.
 //
-//   chainlink  <dir>/robinhood/chainlink/<proxy>/<day>.jsonl.gz: every round of a feed whose manifest says every
-//              round was answered → risk_price_observations, price_source `chainlink:<proxy>` (kept apart from the
+//   chainlink  <dir>/robinhood/chainlink/<proxy>/<day>.jsonl.gz: every round of a feed whose manifest's three
+//              checks passed (every round answered, updatedAt never going back, every answer positive) → risk_price_observations, price_source `chainlink:<proxy>` (kept apart from the
 //              live reads under `chainlink`, which the API's oracle facts read), the round's updatedAt as its
 //              time, the answer over 10^decimals; the token is every row of the asset list and the tracked list
 //              that names the proxy, with the decimals those rows give (a feed they disagree on is refused).
@@ -89,8 +89,12 @@ export function chainlinkRows(
   const skipped: Record<string, number> = {};
   const m = readJson<Manifest>(join(dir, feed, 'manifest.json'));
   if (!m) return { rows: [], skipped, refused: 'no_manifest' };
-  if (!m.checks.some((c) => c.name === 'every_round_answered'))
-    return { rows: [], skipped, refused: 'manifest_without_its_checks' };
+  // the fetch's own checks of the feed, each present and passed
+  for (const name of ['every_round_answered', 'updated_at_never_goes_back', 'answers_positive']) {
+    const c = m.checks.find((x) => x.name === name);
+    if (!c) return { rows: [], skipped, refused: `check_missing:${name}` };
+    if (!c.passed) return { rows: [], skipped, refused: `check_failed:${name}` };
+  }
   const f = of.get(feed);
   if (!f) return { rows: [], skipped, refused: 'no_list_row_names_the_feed' };
   if (f.decimals.size !== 1) return { rows: [], skipped, refused: 'decimals_not_one_value' };

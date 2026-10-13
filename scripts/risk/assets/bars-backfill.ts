@@ -29,6 +29,7 @@ import {
   type HourVwaps,
   hourOf,
   intersectRanges,
+  isReopened,
   type Manifest,
   mergeRanges,
   nativeMedianByHour,
@@ -49,6 +50,7 @@ import { CHAINS, type ChainConfig } from '../../risk-evm/config';
 import { ZERO_ADDRESS } from '../../risk-evm/discovery';
 import {
   accumulateHour,
+  DEFAULT_HEADER_STEP,
   decodeV3Swap,
   decodeV4Swap,
   type HistoryPool,
@@ -64,7 +66,12 @@ import { evmBarSwap, LAYER, type PoolBars, type SolanaPoolMeta, solanaBarSwaps }
 type Provenance = 'live' | 'prior_dataset';
 /** Pool bars that also name, per hour, the day file the bar came from. */
 export type BackfillPoolBars = PoolBars & { sourceOf: (hour: string) => string };
-export type BackfillRead = { pools: BackfillPoolBars[]; summary: Record<string, unknown> };
+export type BackfillRead = {
+  pools: BackfillPoolBars[];
+  /** The first and last UTC day of the day files on disk: the range a run withdraws its stale rows in. */
+  daysOnDisk: { first: string; last: string } | null;
+  summary: Record<string, unknown>;
+};
 
 const readJson = <T>(f: string): T | null => {
   if (!existsSync(f)) return null;
@@ -254,7 +261,13 @@ export function readSolanaBackfill(inp: {
           const r = tokens.includes(p.quoteMint)
             ? carriedPrice(usdcPoolsOf(p.quoteMint), hour)
             : null;
-          return r ? { usd: r.usd, method: `implied_from_${r.pool}` } : null;
+          return r
+            ? {
+                usd: r.usd,
+                method: `implied_from_${r.pool}${r.carriedHours ? `_carried_${r.carriedHours}h` : ''}`,
+                carriedHours: r.carriedHours,
+              }
+            : null;
         };
         const hours = solanaQuoteUsd({
           quoteMint: p.quoteMint,
@@ -305,14 +318,30 @@ export function readSolanaBackfill(inp: {
       usdcPools: usdcOrderOf.get(token)?.length ?? 0,
     }))
     .filter((t) => t.daysBuilt > 0 || t.poolsWithFolder > 0);
+  const onDisk = inp.registry
+    .flatMap((p) =>
+      existsSync(join(dir, p.address))
+        ? readdirSync(join(dir, p.address)).filter((f) => f.endsWith('.jsonl.gz'))
+        : [],
+    )
+    .map((f) => f.slice(0, 10))
+    .sort();
   return {
     pools: [...out.values()],
+    daysOnDisk: onDisk.length
+      ? { first: onDisk[0] as string, last: onDisk.at(-1) as string }
+      : null,
     summary: {
       dir,
       registry: inp.registryFile,
       registryPools: inp.registry.length,
       poolsWithFolder: inp.registry.filter((p) => existsSync(join(dir, p.address))).length,
       registryTokens: byToken.size,
+      // a manifest its owner reopened (a failed recheck_/rewalk_/verify_days_ check): only its covered windows
+      // count, and the reopen emptied the ones it uncovered; counted apart here
+      manifestsReopened: inp.registry.filter((p) =>
+        isReopened(readJson<Manifest>(join(dir, p.address, 'manifest.json'))?.checks),
+      ).length,
       tokensWithADay: perToken.filter((t) => t.daysBuilt > 0).length,
       poolDaysWhole,
       poolDaysBuilt,
@@ -345,8 +374,10 @@ export function swapCoverage(
 }
 
 /** Every subject manifest of the Robinhood Chain logs (swaps, supply, liquidity): pieces and days. */
-export function robinhoodManifests(root: string): Array<{ covered: Range[]; days: string[] }> {
-  const out: Array<{ covered: Range[]; days: string[] }> = [];
+export function robinhoodManifests(
+  root: string,
+): Array<{ covered: Range[]; days: string[]; checks: Manifest['checks'] }> {
+  const out: Array<{ covered: Range[]; days: string[]; checks: Manifest['checks'] }> = [];
   for (const kind of ['swaps', 'supply', 'liquidity']) {
     const d = join(root, kind);
     if (!existsSync(d)) continue;
@@ -356,6 +387,7 @@ export function robinhoodManifests(root: string): Array<{ covered: Range[]; days
       out.push({
         covered: m.covered.filter((w) => w.unit === 'block'),
         days: Object.keys(m.days),
+        checks: m.checks ?? [],
       });
     }
   }
@@ -430,9 +462,14 @@ export function readRobinhoodBackfill(inp: {
     covered: {},
   };
   const covered = swapCoverage(fetched, inp.scope);
-  const days = wholeDaysOfBlocks(covered, robinhoodManifests(root));
+  const manifests = robinhoodManifests(root);
+  // a row's time is interpolated between headers DEFAULT_HEADER_STEP blocks apart: the margin of the day rule
+  const days = wholeDaysOfBlocks(covered, manifests, DEFAULT_HEADER_STEP);
   const tokens = robinhoodTokens(inp.list, chain);
-  const shelf = new Set(inp.shelf.map((a) => a.toLowerCase()));
+  // the shelf's tokens that are still rows of the list (a row the list dropped since the cut, PONS after
+  // SHELF-CRYPTO-1, has no decimals here and gets no bar)
+  const shelfAll = inp.shelf.map((a) => a.toLowerCase());
+  const shelf = new Set(shelfAll.filter((a) => tokens.decimals.has(a)));
   const created = new Map(inp.creation.map((c) => [c.id.toLowerCase(), c]));
   // pools the creation logs do not name, resolved from the chain (resolve-pools.ts): a Uniswap pool with its two
   // tokens is filed like any other; another venue's contract (D4) or an id the chain did not know is not
@@ -606,16 +643,24 @@ export function readRobinhoodBackfill(inp: {
   for (const s of subjects)
     for (const f of readdirSync(join(swapsDir, s)))
       if (f.endsWith('.jsonl.gz')) presentDays.add(f.slice(0, 10));
+  const sortedDays = [...presentDays].sort();
   return {
     pools: [...out.values()],
+    daysOnDisk: sortedDays.length
+      ? { first: sortedDays[0] as string, last: sortedDays.at(-1) as string }
+      : null,
     summary: {
       root,
       scope: inp.scope,
       shelfTokens: shelf.size,
+      shelfTokensNotInList: shelfAll.filter((a) => !shelf.has(a)),
       covered,
       wholeDays: days,
       daysSkippedNotWhole: [...presentDays].filter((d) => !days.includes(d)).sort(),
       subjects: subjects.length,
+      manifests: manifests.length,
+      manifestsReopened: manifests.filter((m) => isReopened(m.checks)).length,
+      dayRuleMarginBlocks: DEFAULT_HEADER_STEP,
       poolsResolvedFromChain: resolvedFromChain,
       resolvedButOtherVenue: otherVenue,
       resolvedButUnknownToChain: unknownToChain,

@@ -13,7 +13,9 @@
 // RU.2's creation logs in RISK_EVM_DIR and the shelf of --scope (default: the one shelf scope of fetched.json).
 // A new key is inserted; a key an earlier run of this import wrote is replaced when the row now differs (a pool
 // resolved since, a pricing method added); a key of another source (AS.7's held history) is never touched. A
-// re-run on the same files changes nothing; a run after the fetch moved on adds the new days.
+// re-run on the same files changes nothing; a run after the fetch moved on adds the new days, and a key it wrote
+// that the build no longer produces (a day no longer whole, a pool moved) is withdrawn (reconcileBackfillBars).
+// The held path below never writes over a row of the backfill.
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -28,7 +30,13 @@ import {
   solanaRegistryPools,
 } from './bars-backfill';
 import { type PoolBars, readRobinhood, readSolana, solanaRegime } from './bars-read';
-import { type BarRow, barRows, isBackfillSource, upsertBackfillBars } from './bars-rows';
+import {
+  type BarRow,
+  barRows,
+  isBackfillSource,
+  reconcileBackfillBars,
+  upsertBackfillBars,
+} from './bars-rows';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -50,6 +58,7 @@ if (
 const t0 = Date.now();
 const read: {
   pools: Array<PoolBars & { sourceOf?: (hour: string) => string }>;
+  daysOnDisk?: { first: string; last: string } | null;
   summary: Record<string, unknown>;
 } = backfill
   ? readBackfill()
@@ -167,6 +176,25 @@ if (backfill && rows.length) {
     await client.end();
   }
 }
+// the backfill's own rows the build no longer produces, in the days on disk: withdrawn (counted in a dry run)
+let withdrawn: { stored: number; withdrawn: number } | null = null;
+if (backfill && read.daysOnDisk) {
+  const { db, client } = createDb();
+  try {
+    withdrawn = await reconcileBackfillBars(
+      db,
+      chain,
+      rows,
+      {
+        from: new Date(`${read.daysOnDisk.first}T00:00:00Z`),
+        to: new Date(`${read.daysOnDisk.last}T23:00:00Z`),
+      },
+      dry,
+    );
+  } finally {
+    await client.end();
+  }
+}
 if (!dry && backfill) {
   const { db, client } = createDb();
   const r = await upsertBackfillBars(db, rows);
@@ -193,6 +221,10 @@ if (!dry && backfill) {
           marketBars.methodVersion,
         ],
         set,
+        // never over a row the backfill import wrote (AS.13): the held history fills only its own keys
+        setWhere: sql.raw(
+          "not (market_bars.source like '<ASSETS_DATA_DIR>/%' or market_bars.source like '%in the asset backfill''s day files%')",
+        ),
       })
       .returning({ h: marketBars.hour });
     written += res.length;
@@ -217,7 +249,9 @@ console.log(
     assetBars: rows.length - poolRows,
     rows: rows.length,
     written,
-    ...(backfill ? { replaced, alreadyStored: existing } : {}),
+    ...(backfill
+      ? { replaced, withdrawn, daysOnDisk: read.daysOnDisk, alreadyStored: existing }
+      : {}),
     pricedPoolBars: rows.slice(0, poolRows).filter((r) => r.volumeUsd !== null).length,
     unpricedSwaps: rows.slice(0, poolRows).reduce((a, r) => a + (r.unpricedSwaps ?? 0), 0),
     readSeconds: Math.round(readS),

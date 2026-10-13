@@ -2,7 +2,7 @@
 // hour, and one per token and hour across its pools (`pool = 'asset'`).
 import { type Db, marketBars } from '@colosseum/db';
 import { assetBars, BARS_METHOD, BARS_METHOD_VERSION, type Bar } from '@colosseum/risk';
-import { sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { CROSS_POOL_ORDER, LAYER, type PoolBars } from './bars-read';
 
 export type BarRow = typeof marketBars.$inferInsert;
@@ -83,7 +83,10 @@ export function barRows(
           address,
           pool: 'asset',
           quoteAddress: null,
-          source: `the bars-0.1 bars of the token's ${ps.length} pool${ps.length > 1 ? 's' : ''} in ${backfill ? `the asset backfill's day files of ${b.hour.slice(0, 10)}, every pool of the token holding the day whole` : 'the held swap history'} (pool = each pool's address in market_bars), summed: ${ps.map((p) => p.pool).join(', ')}`,
+          // the backfill's: the pools that traded in the hour, so a day added later leaves the row as it is
+          source: backfill
+            ? `the bars-0.1 bars of the token's ${here.length} pool${here.length > 1 ? 's' : ''} that traded in the hour, in the asset backfill's day files of ${b.hour.slice(0, 10)}, every pool of the token holding the day whole (pool = each pool's address in market_bars), summed: ${here.map((p) => p.pool).join(', ')}`
+            : `the bars-0.1 bars of the token's ${ps.length} pool${ps.length > 1 ? 's' : ''} in the held swap history (pool = each pool's address in market_bars), summed: ${ps.map((p) => p.pool).join(', ')}`,
           fetchedAt: new Date(Math.max(...fetched)),
           provenance: here.some((p) => p.provenanceOf(b.hour) !== 'live')
             ? 'prior_dataset'
@@ -147,4 +150,54 @@ export async function upsertBackfillBars(
     for (const r of res) r.inserted ? out.inserted++ : out.replaced++;
   }
   return out;
+}
+
+/**
+ * Withdraws the backfill's own rows (`isBackfillSource`) of `chain` whose hour lies in [from, to] and whose key the
+ * current build no longer produces: a day no longer whole, a pool moved to another token, a registry change. A row
+ * of another source is never touched. `dryRun`: counts, deletes nothing.
+ */
+export async function reconcileBackfillBars(
+  db: Pick<Db, 'select' | 'delete'>,
+  chain: string,
+  rows: BarRow[],
+  range: { from: Date; to: Date },
+  dryRun = false,
+): Promise<{ stored: number; withdrawn: number }> {
+  const keyOf = (address: string, pool: string, hour: Date) =>
+    `${address}|${pool}|${hour.getTime()}`;
+  const built = new Set(rows.map((r) => keyOf(r.address, r.pool, r.hour as Date)));
+  const have = await db
+    .select({
+      address: marketBars.address,
+      pool: marketBars.pool,
+      hour: marketBars.hour,
+      source: marketBars.source,
+    })
+    .from(marketBars)
+    .where(
+      and(
+        eq(marketBars.chain, chain),
+        eq(marketBars.methodVersion, BARS_METHOD_VERSION),
+        gte(marketBars.hour, range.from),
+        lte(marketBars.hour, range.to),
+      ),
+    );
+  const gone = have.filter(
+    (h) => isBackfillSource(h.source) && !built.has(keyOf(h.address, h.pool, h.hour)),
+  );
+  if (!dryRun)
+    for (const g of gone)
+      await db
+        .delete(marketBars)
+        .where(
+          and(
+            eq(marketBars.chain, chain),
+            eq(marketBars.address, g.address),
+            eq(marketBars.pool, g.pool),
+            eq(marketBars.hour, g.hour),
+            eq(marketBars.methodVersion, BARS_METHOD_VERSION),
+          ),
+        );
+  return { stored: have.filter((h) => isBackfillSource(h.source)).length, withdrawn: gone.length };
 }
