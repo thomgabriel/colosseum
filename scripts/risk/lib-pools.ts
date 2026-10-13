@@ -35,7 +35,10 @@ const ENDPOINTS = (process.env.SOLANA_RPC_URLS ?? '')
 const pickUrl = () => {
   if (ENDPOINTS.length === 0) return RPC_URL;
   let r = Math.random() * ENDPOINTS.reduce((a, e) => a + e.w, 0);
-  for (const e of ENDPOINTS) if ((r -= e.w) < 0) return e.url;
+  for (const e of ENDPOINTS) {
+    r -= e.w;
+    if (r < 0) return e.url;
+  }
   return (ENDPOINTS.at(-1) as { url: string }).url;
 };
 

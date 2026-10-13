@@ -27,25 +27,29 @@ const token = (s: string) => frozen.tokens.find((t) => t.symbol === s) as (typeo
 const pick = (s: string) => pickPools(token(s).mint, token(s).pairs);
 
 describe('the venues the rule takes', () => {
-  it('are the four the swap decoders read, by DexScreener names', () => {
+  it('are the eight the swap decoders read, by DexScreener names', () => {
     expect(supportedVenue({ dexId: 'raydium', labels: ['CLMM'] })).toBe('raydium_clmm');
     expect(supportedVenue({ dexId: 'raydium', labels: ['CPMM'] })).toBe('raydium_cpmm');
     expect(supportedVenue({ dexId: 'orca', labels: ['wp'] })).toBe('orca_whirlpool');
     expect(supportedVenue({ dexId: 'meteora', labels: ['DLMM'] })).toBe('meteora_dlmm');
-    // Raydium's AMM v4, Meteora's DAMM pools and others have no swap decoder here
+    // ASSET-3: Raydium's AMM v4 (no label), Meteora's DAMM v1 and v2, PumpSwap
+    expect(supportedVenue({ dexId: 'raydium' })).toBe('raydium_amm_v4');
+    expect(supportedVenue({ dexId: 'meteora', labels: ['DYN'] })).toBe('meteora_damm_v1');
+    expect(supportedVenue({ dexId: 'meteora', labels: ['DYN2'] })).toBe('meteora_damm_v2');
+    expect(supportedVenue({ dexId: 'pumpswap' })).toBe('pumpswap');
+    // the rest have no swap decoder here
     for (const v of [
-      { dexId: 'raydium' },
-      { dexId: 'meteora', labels: ['DYN'] },
-      { dexId: 'meteora', labels: ['DYN2'] },
-      { dexId: 'pumpswap' },
       { dexId: 'orca', labels: ['v2'] },
+      { dexId: 'metadao' },
+      { dexId: 'pancakeswap' },
+      { dexId: 'raydium', labels: ['LaunchLab'] },
     ])
       expect(supportedVenue(v)).toBeNull();
   });
 });
 
 describe('the picking rule on frozen answers', () => {
-  it('JitoSOL: a mispriced pair is re-valued, and three pools reach 90%', () => {
+  it('JitoSOL: a mispriced pair is re-valued, and four pools reach 90%', () => {
     const p = pick('JitoSOL');
     expect(p.pairs).toBe(30);
     // the JitoSOL/JupSOL pair DexScreener put at $2.4 billion, valued at the reference price instead
@@ -53,21 +57,29 @@ describe('the picking rule on frozen answers', () => {
     expect(p.repriced[0]?.dexscreenerUsd).toBeGreaterThan(2e9);
     expect(p.repriced[0]?.usd).toBeLessThan(1e6);
     expect(p.referencePriceUsd).toBeCloseTo(139.66, 2);
+    // ASSET-3: the JitoSOL/SOL pool on Meteora DAMM v1 ($2,821,847), unread before, is now the second pool, and
+    // its DAMM pools count in the supported liquidity ($13,072,412 over 29 pairs; only fluxbeam's $2 is left)
     expect(p.picked.map((x) => [x.venue, Math.round(x.liquidityUsd)])).toEqual([
       ['orca_whirlpool', 6_104_065],
+      ['meteora_damm_v1', 2_821_847],
       ['raydium_clmm', 1_748_186],
       ['meteora_dlmm', 1_315_536],
     ]);
-    expect(p.coveredShare).toBeGreaterThanOrEqual(SHELF_POOL_RULE.share);
+    // (6,104,065 + 2,821,847 + 1,748,186 + 1,315,536) / 13,072,412 = 0.9172: three pools reach 0.8165, under 90%
+    expect(p.coveredShare).toBeCloseTo(0.9172, 4);
     expect(p.coveredUsd + p.leftOutUsd).toBeCloseTo(p.supported.liquidityUsd, 2);
-    expect(p.unsupported.byVenue['meteora:DYN']).toBeGreaterThan(2e6);
-    expect(p.belowMin.pools).toBe(13);
+    expect(p.supported.pools).toBe(29);
+    expect(p.unsupported.byVenue).toEqual({ fluxbeam: 2.06 });
+    expect(p.belowMin.pools).toBe(17);
   });
 
   it('GLDx: the five-pool cap stops it short of 90%', () => {
     const p = pick('GLDx');
     expect(p.picked).toHaveLength(SHELF_POOL_RULE.maxPools);
-    expect(p.coveredShare).toBeCloseTo(0.7943, 4);
+    // 0.7649 since ASSET-3 (0.7943 before): its pairs on the new venues raise the supported liquidity to
+    // $1,828,513 over 30 pairs, none of them among its five largest
+    expect(p.coveredShare).toBeCloseTo(0.7649, 4);
+    expect(p.supported.pools).toBe(30);
     const liq = p.picked.map((x) => x.liquidityUsd);
     expect([...liq].sort((a, b) => b - a)).toEqual(liq);
   });

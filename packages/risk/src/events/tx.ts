@@ -1,10 +1,15 @@
+import { METEORA_DAMM_V2_PROGRAM } from '../pools/meteora-damm';
 import { METEORA_DLMM_PROGRAM } from '../pools/meteora-dlmm';
 import { ORCA_WHIRLPOOL_PROGRAM } from '../pools/orca-whirlpool';
+import { PUMPSWAP_PROGRAM } from '../pools/pumpswap';
 import { RAYDIUM_CLMM_PROGRAM } from '../pools/raydium-clmm';
 import { RAYDIUM_CPMM_PROGRAM } from '../pools/raydium-cpmm';
 import { discOf, eventDisc, type LogFrame, type PoolEvent, parseLogs } from './logs';
+import { decodeDammV1, decodeDammV2 } from './meteora-damm';
 import { DLMM_KNOWN, decodeDlmmEvents, dlmmEventPayloads } from './meteora-dlmm';
 import { decodeWhirlpoolFrames } from './orca-whirlpool';
+import { decodePumpSwap } from './pumpswap';
+import { ammV4Frames, decodeAmmV4Logs } from './raydium-amm-v4';
 import { decodeRaydiumClmmFrames } from './raydium-clmm';
 import { decodeCpmmFrames } from './raydium-cpmm';
 
@@ -27,8 +32,16 @@ export type RpcTx = {
       index: number;
       instructions: Array<{ programIdIndex: number; accounts: number[]; data: string }>;
     }>;
-    postTokenBalances?: Array<{ accountIndex: number; uiTokenAmount: { amount: string } }>;
-    preTokenBalances?: Array<{ accountIndex: number; uiTokenAmount: { amount: string } }>;
+    postTokenBalances?: Array<{
+      accountIndex: number;
+      mint?: string;
+      uiTokenAmount: { amount: string };
+    }>;
+    preTokenBalances?: Array<{
+      accountIndex: number;
+      mint?: string;
+      uiTokenAmount: { amount: string };
+    }>;
   } | null;
 };
 
@@ -150,4 +163,45 @@ export const decoders: Record<string, PoolDecoder> = {
     if (!ctx?.mint0) throw new Error('raydium_cpmm decoder needs mint0');
     return decodeCpmmFrames(f, pool, ctx.mint0);
   }),
+  // ASSET-3: the three venues of the shelf's unread liquidity (Raydium AMM v4, Meteora DAMM v1 and v2, PumpSwap).
+  // AMM v4 and DAMM v1 events name no pool: their frames are paired with the instructions that opened them
+  // (invoke.ts), and a transaction whose frames and instructions do not pair is flagged as truncated.
+  raydium_amm_v4: (tx, pool) => {
+    const f = ammV4Frames(tx, pool);
+    return {
+      events: decodeAmmV4Logs(f.frames, pool),
+      // a ray_log of a type the decoder does not read (the five types are all read, so a new one)
+      unknown: f.frames.flatMap((x) =>
+        x.logs
+          .filter((d) => (d[0] ?? 9) > 4)
+          .map((d) => `raylog${d[0]}/${d.length}:${Buffer.from(d).toString('base64')}`),
+      ),
+      ix: f.frames.map((x) => x.ix),
+      truncated: f.truncated || !f.aligned,
+    };
+  },
+  meteora_damm_v1: (tx, pool, ctx) => {
+    if (!ctx?.mint0) throw new Error('meteora_damm_v1 decoder needs mint0');
+    return decodeDammV1(tx, pool, ctx.mint0);
+  },
+  meteora_damm_v2: (tx, pool, ctx) => {
+    const { events, unknown } = decodeDammV2(tx, pool, ctx?.mint0, txAccountKeys(tx));
+    const { frames, truncated } = parseLogs(tx.meta?.logMessages ?? []);
+    return {
+      events,
+      unknown,
+      ix: frames.filter((f) => f.program === METEORA_DAMM_V2_PROGRAM).flatMap((f) => f.ix),
+      truncated,
+    };
+  },
+  pumpswap: (tx, pool) => {
+    const { events, unknown } = decodePumpSwap(tx, pool, txAccountKeys(tx));
+    const { frames, truncated } = parseLogs(tx.meta?.logMessages ?? []);
+    return {
+      events,
+      unknown,
+      ix: frames.filter((f) => f.program === PUMPSWAP_PROGRAM).flatMap((f) => f.ix),
+      truncated,
+    };
+  },
 };
