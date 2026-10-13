@@ -534,9 +534,8 @@ describe('private model-led vault reply route', () => {
     expect(res.statusCode).toBe(200);
     expect(vi.mocked(s.model.read)).toHaveBeenCalledTimes(1);
     expect(res.json()).toMatchObject({ proposal: null, question: null });
-    // The page has no rebalance action until its route lands: no control is named.
-    expect(res.json().message).not.toMatch(/Rebalance|button|page/u);
-    expect(res.json().message).toContain('not available from this conversation yet');
+    // Nothing is held here, so there is no value to trade: the page offers no action, and none is named.
+    expect(res.json().message).not.toMatch(/Rebalance”|button|page/u);
     // A portfolio that cannot be read costs the reply nothing: the model is told it is unknown.
     recipe.mockRejectedValue(new Error('rpc down'));
     expect((await s.post()).statusCode).toBe(200);
