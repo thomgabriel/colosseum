@@ -170,7 +170,7 @@ The tints are translucent on purpose: `--tf-honey-tint` over night is `#2D2318`,
   --text-body-sm: 0.875rem;   --text-body-sm--line-height: 1.375rem;
   --text-caption: 0.75rem;    --text-caption--line-height: 1rem;      --text-caption--letter-spacing: 0.04em;   /* uppercase: eyebrows, column heads */
   --text-figure-lg: 1.75rem;  --text-figure-lg--line-height: 2rem;    --text-figure-lg--letter-spacing: -0.02em; /* the amount on a goal card */
-  --text-sample-line: 0.78125rem; --text-sample-line--line-height: 1.125rem;   /* "Sample figures · test network": Inter 400, muted, no box */
+  --text-sample-line: 0.78125rem; --text-sample-line--line-height: 1.125rem;   /* a sample panel's or the embed's quiet line: Inter 400, muted, no box; a card has its tag */
   --text-source: 0.8125rem;   --text-source--line-height: 1.25rem;
   /* productive scale (Bearing): 13px base, fixed */
   --text-b-kpi: 1.375rem;     --text-b-kpi--line-height: 1.75rem;     --text-b-kpi--letter-spacing: -0.02em;

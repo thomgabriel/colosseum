@@ -379,7 +379,7 @@ patterns:
 constraints:
   never:
     - "a yield, price or FX figure without its provenance pin (source · fetched_at · method)"
-    - "a mock shown as live — no sample figure without its hatched pin or glyph and the card's quiet line; no text set on hatch strokes; no sandbox card without 'test network'; no boxed MOCK word anywhere (gate MOCK-QUIET)"
+    - "a mock shown as live — no sample figure without its hatched pin or glyph and the card's sample tag; no text set on hatch strokes; no sandbox card without 'Test network'; no boxed MOCK word anywhere (gate MOCK-QUIET)"
     - "the hatch for anything but MOCK or stale"
     - "omit, shrink below body size, or paraphrase the disclaimer; present the brand as licensed advice; promise returns ('earn up to', 'guaranteed', 'risk-free')"
     - "a second brand colour: honey is the only accent. Chalk is a line, never a fill, a button or a brand element; no blue brand, no blue gradient. Exception: verified token identification artwork retains its original colours (Thom, Oct 7, INVEST-TWO-PANE), without extending the interface palette"
