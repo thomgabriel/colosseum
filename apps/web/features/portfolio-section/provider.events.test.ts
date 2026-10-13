@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { click, find, mount, settle, unmountAll } from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
 import { portfolioDictionary } from '../../i18n/portfolio';
+import { announceOrderDone, ORDER_DONE_KEY } from '../order/order-done';
 import { EMBEDDED, fakePort, json, signedInPort } from '../wallet/test/fake-port';
 import { location } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
@@ -162,6 +163,54 @@ describe('the reads of the portfolio section', () => {
     expect(shown(host)).toBe(SOL_INCOME);
     // the first round asked each route once
     for (const route of ROUTES) expect(server.to(route)).toHaveLength(1);
+  });
+
+  it('reads again when the window has the focus back, keeping the answers on the screen meanwhile', async () => {
+    const server = serve(portStore);
+    signIn();
+    const host = await probe();
+    for (const route of ROUTES) expect(server.to(route)).toHaveLength(1);
+    const pending = held();
+    const again = serve(portStore, { plans: pending.answer });
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    await settle();
+    expect(pending.asked()).toBe(1);
+    expect(again.to(EXPOSURE_PATH)).toHaveLength(1);
+    expect(again.to(REBALANCES_PATH)).toHaveLength(1);
+    expect(state(host)).toMatchObject({ plans: 'read', busy: 'true' });
+    expect(shown(host)).toContain(SOL_GROW);
+    await act(async () => pending.release(json(plans({ address: SOL_INCOME }))));
+    await settle();
+    expect(shown(host)).toBe(SOL_INCOME);
+  });
+
+  it('reads again when an order ends, in this tab or another', async () => {
+    serve(portStore);
+    signIn();
+    await probe();
+    const here = serve(portStore);
+    await act(async () => announceOrderDone());
+    await settle();
+    for (const route of ROUTES) expect(here.to(route)).toHaveLength(1);
+    // another tab's order: heard through the storage key, and nothing else of storage counts
+    const there = serve(portStore);
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent('storage', { key: 'something-else' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: ORDER_DONE_KEY }));
+    });
+    await settle();
+    for (const route of ROUTES) expect(there.to(route)).toHaveLength(1);
+  });
+
+  it('asks nothing on focus or an ended order for someone signed out', async () => {
+    const server = serve(portStore);
+    await probe();
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      announceOrderDone();
+    });
+    await settle();
+    for (const route of ROUTES) expect(server.to(route)).toEqual([]);
   });
 
   it('drops an answer that lands after the person signed out', async () => {

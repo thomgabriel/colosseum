@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import type { ApiFetch } from '../account/person';
+import { onOrderDone } from '../order/order-done';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import {
   type ExposureAnswer,
@@ -24,7 +25,7 @@ import {
 
 // The reads of the portfolio section, held while a person moves between its pages: the plans, the
 // exposure and the rebalances of the signed-in person, each asked once when they are known and again
-// on "Read again". As the monitor reads (features/portfolio/use-portfolio.ts): an answer is kept under
+// on "Read again", when the window has the focus back and when an order ends (order-done.ts). As the monitor reads (features/portfolio/use-portfolio.ts): an answer is kept under
 // who asked for it and is shown to nobody else, and one that lands after the person changed is
 // dropped. Each read stands on its own, so a route that fails leaves the other pages their answers.
 // A plan's own page asks for its vault's history itself, with `useSectionRead`.
@@ -127,6 +128,18 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const rebalances = useKeyedRead(who, round, 'rebalances', allRebalances);
 
   const again = useCallback(() => setRound((n) => n + 1), []);
+  // The figures change while the section is open: an order ends in this tab or another, or the person
+  // comes back from another window. Each is a "Read again" for whoever is signed in, and the answers
+  // on the screen stay until the new ones land.
+  useEffect(() => {
+    if (who === null) return;
+    const stop = onOrderDone(again);
+    window.addEventListener('focus', again);
+    return () => {
+      stop();
+      window.removeEventListener('focus', again);
+    };
+  }, [who, again]);
   const person: Person =
     port.status === 'signed-out' ? 'signed-out' : who === null ? 'loading' : 'signed-in';
   const busy = plans.busy || exposure.busy || rebalances.busy;
