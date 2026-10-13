@@ -41,6 +41,40 @@ describe('the approved steps of an order', () => {
     );
   });
 
+  it('where the order has an approval, the vault is opened before it and opened empty', async () => {
+    // Gate CREATE-BEFORE-APPROVE: an approval names a vault that is there. The client holds the order
+    // to that, whatever the API plans.
+    const { w, double, order } = await bought('robinhood');
+    const [create, approve, deposit] = order.legs;
+    if (!create || !approve || !deposit) throw new Error('three steps');
+    const refused = (legs: unknown[]) =>
+      refusalOf(() => approvedSteps({ ...order, legs } as never, double.plan, w.deployment));
+    // The approval first, then the empty create, then the deposit.
+    const early = refused([
+      { ...approve, seq: 0 },
+      { ...create, seq: 1 },
+      { ...deposit, seq: 2 },
+    ]);
+    expect([early?.code, early?.legId]).toEqual(['order', approve.id]);
+    // The shape before the gate: the approval, then a create that takes the cash it approves.
+    const old = refused([
+      { ...approve, seq: 0 },
+      { ...deposit, kind: 'create_vault', seq: 1 },
+    ]);
+    expect(old?.code).toBe('order');
+    // A create that takes the cash after its approval: the cash goes in as the vault is made, to an
+    // address that had no code when it was approved.
+    expect(
+      refused([
+        { ...create, seq: 0 },
+        { ...approve, seq: 1 },
+        { ...deposit, kind: 'create_vault', seq: 2 },
+      ])?.code,
+    ).toBe('order');
+    // As the API plans it: passes.
+    expect(refused(order.legs)).toBeNull();
+  });
+
   it('a buy on Solana: the create carries the cash, and each trade is a step of its own', async () => {
     const { w, double, order } = await bought('solana');
     const steps = approvedSteps(order, double.plan, w.deployment);
