@@ -111,6 +111,10 @@ export function planTermsOf(terms: SharedTerms): PlanTerms {
     case 'retarget':
       // The targets the review showed, which the `set_targets` step's bytes are held to.
       return { basketId: terms.basketId, targets: terms.targets };
+    case 'rebalance':
+      // The vault's number and nothing else: the guard signs its swaps, and with no targets, no
+      // portfolio and no switch in the terms it refuses any step that would change the vault.
+      return { basketId: terms.basketId };
     case 'withdraw':
       // Everything: any token the vault holds, each once, to its owner. Otherwise the tokens and the
       // amounts reviewed, and nothing else.

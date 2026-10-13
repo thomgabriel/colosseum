@@ -25,9 +25,17 @@ import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { MORE_ROW, placeMenu } from './MoreMenu';
 import type { SharedTerms } from './terms';
-import { CREATOR, ORDER_ID, retargetOrder, USER, vaultOf, withdrawOrder } from './test/fixtures';
+import {
+  CREATOR,
+  ORDER_ID,
+  rebalanceOrder,
+  retargetOrder,
+  USER,
+  vaultOf,
+  withdrawOrder,
+} from './test/fixtures';
 import { keepAction, recallAction } from './VaultAction';
-import { VaultScreen } from './VaultScreen';
+import { offTarget, VaultScreen } from './VaultScreen';
 
 // A person's own vault page (gate VAULT-PAGE-ACTIONS), with real events against a double of the API:
 // what the head and the pane show, who is offered the actions, each state of the pane and the way out
@@ -1102,5 +1110,266 @@ describe('a reload in the middle of signing', () => {
     expect(
       localStorage.getItem(`tf-vault-action:1:${encodeURIComponent(USER)}:solana:${MY_VAULT}`),
     ).toBeNull();
+  });
+});
+
+// Thom's vault of Oct 13: it followed a shared portfolio of 50% jlUSDC, 30% syrupUSDC and 20% PAXG,
+// and what it held stayed as it was, with $20,050 idle in cash. Auto-follow is off, so nothing trades
+// it for him: the page offers the one press that does, in its own pane.
+describe('a vault away from its targets is offered one press that trades it to them', () => {
+  const JL = 'solana:jlusdc';
+  const SYRUP = 'solana:syrupusdc';
+  const PAXG = 'solana:paxg';
+  const position = (
+    asset: string,
+    raw: string,
+    display: string,
+    valueUsd: string,
+    weightBps: number,
+    targetBps: number,
+  ) => ({
+    ...holding(asset, raw, display),
+    targetBps,
+    lastKeeperAt: null,
+    valueUsd,
+    weightBps,
+    driftBps: weightBps - targetBps,
+  });
+  const followed = (over: Partial<VaultView> = {}) =>
+    held({
+      recipeOnchainId: CREATOR,
+      acceptedVersion: 1,
+      autoFollow: false,
+      cash: holding(CASH, '20050000000', '20050'),
+      positions: [
+        position(JL, '37702634440', '37702.63444', '39964.79', 4_989, 5_000),
+        position(SYRUP, '16888138676', '16888.138676', '20096.89', 2_508, 3_000),
+        position(PAXG, '0', '0', '0', 0, 2_000),
+      ] as VaultView['positions'],
+      valueUsd: '80111.68',
+      ...over,
+    });
+  const atTargets = () =>
+    followed({
+      cash: holding(CASH, '40000000', '40'),
+      positions: [
+        position(JL, '37788000000', '37788', '40055', 5_000, 5_000),
+        position(SYRUP, '20180000000', '20180', '24014', 2_998, 3_000),
+        position(PAXG, '3857000000', '3.857', '16020', 1_999, 2_000),
+      ] as VaultView['positions'],
+    });
+  const TARGETS = [
+    { asset: JL, weightBps: 5_000 },
+    { asset: SYRUP, weightBps: 3_000 },
+    { asset: PAXG, weightBps: 2_000 },
+  ];
+  const REBALANCE = `/v1/vaults/solana/${MY_VAULT}/rebalance`;
+  const serving = (
+    answer: () => Response,
+    o: { vault?: VaultView; order?: () => OrderDetail } = {},
+  ) =>
+    api({
+      vault: o.vault ?? followed(),
+      order: o.order ?? (() => rebalanceOrder() as OrderDetail),
+      more: (path, method) => (path === REBALANCE && method === 'POST' ? answer() : undefined),
+    });
+  const ordered = (order = rebalanceOrder() as OrderDetail) =>
+    json({ status: 'ordered', targets: TARGETS, order });
+
+  it('is offered by the rule the server orders by: outside the band, auto-follow off, every holding priced', () => {
+    expect(offTarget(followed())).toBe(true);
+    expect(offTarget(atTargets())).toBe(false);
+    // the keeper's work where auto-follow is on
+    expect(offTarget(followed({ autoFollow: true }))).toBe(false);
+    // only the cash is over: every position is inside the band, a little under
+    expect(
+      offTarget(
+        followed({
+          positions: [
+            position(JL, '1', '1', '39600', 4_960, 5_000),
+            position(SYRUP, '1', '1', '23700', 2_960, 3_000),
+            position(PAXG, '1', '1', '15700', 1_960, 2_000),
+          ] as VaultView['positions'],
+        }),
+      ),
+    ).toBe(true);
+    // a holding with no price: the shares are not known
+    expect(
+      offTarget(
+        followed({
+          positions: [
+            { ...position(JL, '1', '1', '0', 0, 5_000), valueUsd: null },
+            position(PAXG, '0', '0', '0', 0, 5_000),
+          ] as VaultView['positions'],
+        }),
+      ),
+    ).toBe(false);
+    // no target: nothing to be brought to
+    expect(offTarget(followed({ positions: [] }))).toBe(false);
+  });
+
+  it('shows the press and why, beside Deposit and Withdraw, and not on a vault at its targets or one the keeper trades', async () => {
+    serving(ordered);
+    const host = await show();
+    const actions = find(host, '[data-ui="vault-page-actions"]');
+    expect(find(actions, '[data-action="vault-rebalance"]').textContent).toBe(p.rebalance);
+    // Deposit stays the view's one primary
+    expect(find(actions, '[data-action="vault-rebalance"]').dataset.variant).toBe('secondary');
+    expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    expect(find(host, '[data-ui="vault-off-target"]').textContent).toBe(p.offTarget);
+    expect(screen(host).textContent).not.toMatch(/\b(mix|buy)\b/i);
+    await unmountAll();
+
+    for (const vault of [atTargets(), followed({ autoFollow: true })]) {
+      serving(ordered, { vault });
+      const other = await show();
+      expect(other.querySelector('[data-action="vault-rebalance"]')).toBeNull();
+      expect(other.querySelector('[data-ui="vault-off-target"]')).toBeNull();
+      await unmountAll();
+    }
+    // a visitor is offered nothing
+    portStore.set(fakePort({ status: 'signed-out' }));
+    serving(ordered);
+    expect((await show()).querySelector('[data-action="vault-rebalance"]')).toBeNull();
+  });
+
+  it('one press: the order is asked for, its swaps are shown in the pane with their minimums, signed there, and the vault is read again', async () => {
+    const server = serving(ordered);
+    const host = await show();
+    await click(find(host, '[data-action="vault-rebalance"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    // asked once, with no body of the person's making, and no other page opened
+    expect(server.calls.filter((c) => c.path === REBALANCE)).toEqual([
+      { method: 'POST', path: REBALANCE },
+    ]);
+    expect(router.push).not.toHaveBeenCalled();
+    expect(screen(host).dataset.pane).toBe('rebalance');
+    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.rebalance.signTitle);
+    expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.rebalance);
+    // what it is held to: the vault and the targets it has
+    const review = find(pane(host), `section[aria-label="${p.rebalancing.reviewTitle}"]`);
+    expect(review.textContent).toContain(MY_VAULT);
+    expect(review.textContent).toContain(p.rebalancing.reviewNote);
+    // each trade with the least it may give, on the test network's own line
+    const steps = [...pane(host).querySelectorAll('[data-ui="order-step"]')].map(
+      (step) => step.textContent ?? '',
+    );
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toMatch(/Spend 16,022 USDC on .*receive at least/);
+    expect(steps[1]).toMatch(/Spend 3,936 USDC on .*receive at least/);
+    expect(pane(host).querySelector('[data-ui="data-note"]')?.textContent).toBe(
+      en.buy.steps.note.testNetwork('Solana'),
+    );
+    expect(pane(host).textContent).not.toMatch(/\b(mix|buy)\b/i);
+    // kept with the terms the guard is handed: the vault's number, and nothing that changes the vault
+    const [record] = recallOrders(USER);
+    expect(record?.terms).toEqual({
+      kind: 'rebalance',
+      vault: MY_VAULT,
+      basketId: '42',
+      targets: TARGETS,
+    });
+    expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
+
+    const before = server.reads();
+    await click(button(pane(host), en.order.shared.signRebalance));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(run.calls).toHaveLength(1);
+    expect(run.calls[0]?.order.legs.map((l) => l.kind)).toEqual(['swap', 'swap']);
+    expect(pane(host).dataset.state).toBe('done');
+    server.state.vault = atTargets();
+    await click(find(pane(host), '[data-action="back-to-vault"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(server.reads()).toBeGreaterThan(before);
+    expect(screen(host).dataset.pane).toBe('holdings');
+    // at its targets now: the press is gone
+    expect(host.querySelector('[data-action="vault-rebalance"]')).toBeNull();
+  });
+
+  it.each([
+    [
+      'sets targets first',
+      () =>
+        ({
+          ...rebalanceOrder(),
+          legs: (retargetOrder('solana:paxg') as OrderDetail).legs,
+        }) as OrderDetail,
+    ],
+    [
+      'swaps into an asset that is no target of the vault',
+      () =>
+        rebalanceOrder([
+          { sell: CASH, buy: 'solana:tslax', amountInRaw: '16022000000' },
+        ]) as OrderDetail,
+    ],
+    [
+      'swaps one asset straight into another',
+      () => rebalanceOrder([{ sell: JL, buy: PAXG, amountInRaw: '1000000' }]) as OrderDetail,
+    ],
+  ])('an order that %s is not offered for signing', async (_why, wrong) => {
+    // the client refuses an answer with a step that is no swap; the others reach the order's own check
+    serving(() => ordered(wrong()), { order: wrong });
+    const host = await show();
+    await click(find(host, '[data-action="vault-rebalance"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(
+      [...pane(host).querySelectorAll('button')].some((b) =>
+        b.textContent?.includes(en.order.shared.signRebalance),
+      ),
+    ).toBe(false);
+    expect(pane(host).querySelector('[role="alert"]')).not.toBeNull();
+    expect(run.calls).toHaveLength(0);
+  });
+
+  it('says so where there is nothing to trade, where the keeper trades it, and where an asset has no price', async () => {
+    for (const [answer, sentence, again] of [
+      [() => json({ status: 'on_target', targets: TARGETS }), p.rebalancing.onTarget, false],
+      [
+        () =>
+          json(
+            {
+              error: 'auto-follow is on',
+              details: { retryable: false, issues: ['AUTO_FOLLOW_ON'] },
+            },
+            409,
+          ),
+        p.rebalancing.keeper,
+        false,
+      ],
+      [
+        () =>
+          json(
+            { error: 'no price', details: { retryable: true, issues: ['NO_PRICE:solana:paxg'] } },
+            409,
+          ),
+        p.rebalancing.noPrice('PAXG'),
+        true,
+      ],
+    ] as const) {
+      serving(answer);
+      const host = await show();
+      await click(find(host, '[data-action="vault-rebalance"]'));
+      for (let i = 0; i < 4; i += 1) await settle(30);
+      expect(pane(host).textContent).toContain(sentence);
+      expect(pane(host).querySelector('[data-ui="order-step"]')).toBeNull();
+      expect(pane(host).querySelector('[data-action="rebalance-again"]') !== null).toBe(again);
+      expect(recallOrders(USER)).toEqual([]);
+      // and the way back is there
+      await click(find(pane(host), '[data-action="leave-action"]'));
+      expect(screen(host).dataset.pane).toBe('holdings');
+      await unmountAll();
+    }
+  });
+
+  it('opens on the rebalance when the person arrives from a follow that is done', async () => {
+    const server = serving(ordered);
+    window.history.replaceState(null, '', '?do=rebalance');
+    try {
+      const host = await show();
+      expect(screen(host).dataset.pane).toBe('rebalance');
+      expect(server.calls.filter((c) => c.path === REBALANCE)).toHaveLength(1);
+    } finally {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
   });
 });

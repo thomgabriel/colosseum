@@ -35,6 +35,7 @@ import {
   continueOrder,
   continuesOrders,
   readOrder,
+  rebalancePath,
 } from './order-api';
 import {
   checkContinuation,
@@ -45,6 +46,7 @@ import {
   depositLanded,
   leftOfApproved,
   leftOfPlan,
+  rebalanceShapeOk,
   retargetShapeOk,
   sharedShapeOk,
   stoppedShort,
@@ -102,6 +104,10 @@ function checkOf(order: OrderDetail, record: OrderRecord, units: ChainUnits | nu
   if (terms.kind === 'vault') return checkVaultAdd(order, record.amountUsd, units, terms);
   if (terms.kind === 'retarget')
     return retargetShapeOk(order, terms, units)
+      ? { ok: true, depositRaw: 0n, decimals: 0 }
+      : { ok: false, why: 'shape' };
+  if (terms.kind === 'rebalance')
+    return rebalanceShapeOk(order, terms, units)
       ? { ok: true, depositRaw: 0n, decimals: 0 }
       : { ok: false, why: 'shape' };
   return sharedShapeOk(order, terms)
@@ -688,7 +694,9 @@ export function OrderScreen({
             ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/withdraw`
             : terms.kind === 'retarget'
               ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/targets`
-              : '/publish';
+              : terms.kind === 'rebalance'
+                ? rebalancePath(chain, terms.vault)
+                : '/publish';
   const testNetwork = shown.legs[0]?.provenance === 'sandbox';
   // The swaps the order left undone: what an order that finishes it would make, and is held to.
   // The trades are the approved order's own, step by step: of the API's later answer only where each
@@ -752,14 +760,18 @@ export function OrderScreen({
                     ? record.approved
                       ? t.order.shared.resume
                       : t.mix.order.signTargets
-                    : record.approved
-                      ? t.order.resume(amount)
-                      : record.continues && embed
-                        ? // it deposits nothing: the press signs what the first order left
-                          t.order.outcome.finishSign
-                        : embed
-                          ? t.invest.press(amount)
-                          : t.order.signAndBuy(amount);
+                    : terms?.kind === 'rebalance'
+                      ? record.approved
+                        ? t.order.shared.resume
+                        : t.order.shared.signRebalance
+                      : record.approved
+                        ? t.order.resume(amount)
+                        : record.continues && embed
+                          ? // it deposits nothing: the press signs what the first order left
+                            t.order.outcome.finishSign
+                          : embed
+                            ? t.invest.press(amount)
+                            : t.order.signAndBuy(amount);
   // A deposit is never signed for before the trust notice is accepted (DESIGN-VAULT section 13). The
   // invest card makes the order before that, to show its prices, so the order's own page asks too:
   // an order opened here that nobody approved is held until the notice is accepted, as on the card.
@@ -1022,6 +1034,19 @@ export function OrderScreen({
                 {t.withdraw.back}
               </Link>
             )}
+          </div>
+        )}
+        {done && terms?.kind === 'follow' && terms.follow !== null && !terms.autoFollow && (
+          // Following set the vault's targets and traded nothing: the trades to them are the next press.
+          <div data-ui="follow-done" className="flex flex-col items-start gap-3">
+            <p className="max-w-(--tf-measure-body) text-body">{t.order.shared.followDone}</p>
+            <Link
+              href={rebalancePath(chain, terms.vault)}
+              data-action="follow-rebalance"
+              className={buttonClass({ variant: 'primary' })}
+            >
+              {t.order.shared.followRebalance}
+            </Link>
           </div>
         )}
         {trustAsked && check.ok && !done && (

@@ -256,6 +256,15 @@ export const ORDER_LIMITS = {
   maxSlippageBps: 300,
 } as const;
 
+/**
+ * How far from its targets a vault is before its owner is offered a rebalance, and before one is
+ * ordered, in bps of the vault: a position further than this from its target, or cash further than this
+ * over its share. Inside it there is nothing to trade (`on_target`). One place, so the page that offers
+ * the press and the server that answers it agree. It is the owner's own press and not the keeper's
+ * band, which each chain states.
+ */
+export const OWNER_REBALANCE_BAND_BPS = 50;
+
 /** `family` is always the slug. */
 export const IntentRequest = z.discriminatedUnion('type', [
   z.object({
@@ -316,7 +325,9 @@ export const IntentRequest = z.discriminatedUnion('type', [
     reason: z.enum(['manual', 'index_update', 'drift']),
     /**
      * Written by the server, never taken from this route: the vault's new own targets, for an order
-     * made by `POST /v1/vaults/{chain}/{address}/targets`. `POST /v1/orders` plans no rebalance yet.
+     * made by `POST /v1/vaults/{chain}/{address}/targets`, or the targets the vault had, for one made
+     * by `POST /v1/vaults/{chain}/{address}/rebalance`, which sets none. `POST /v1/orders` plans no
+     * rebalance yet.
      */
     targets: z.array(Target).max(16).optional(),
     /** With `targets`: the slippage the order's trades are built with. */
@@ -454,7 +465,10 @@ export const OrderError = ApiError.extend({
       blocking: z.object({ orderId: z.string().min(1), legId: z.string().min(1) }).optional(),
       /** With `ORDER_CONTINUED`: the id of the order that finishes this one. */
       continuedBy: z.string().min(1).optional(),
-      /** With `MIX_NOT_VALID`: what is wrong with the mix, `CODE` or `CODE:assetId` each. */
+      /**
+       * With `MIX_NOT_VALID`: what is wrong with the mix, `CODE` or `CODE:assetId` each. And why a
+       * vault's rebalance is refused (`POST /v1/vaults/{chain}/{address}/rebalance`).
+       */
       issues: z.array(z.string().min(1)).optional(),
     })
     .optional(),

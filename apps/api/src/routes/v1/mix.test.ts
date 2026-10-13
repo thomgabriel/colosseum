@@ -1,3 +1,4 @@
+import { mockRecipeId } from '@colosseum/chain-mock';
 import type { Db } from '@colosseum/db';
 import {
   AcceptGoalMixResponse,
@@ -10,6 +11,10 @@ import {
   OrderError,
   parseChainConfigs,
   parseFlags,
+  type Recipe,
+  RebalanceQuoteResponse,
+  RebalanceVaultResponse,
+  type VaultState,
 } from '@colosseum/schemas';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -17,6 +22,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fixtureLiquidity } from '../../../../../packages/engine/src/personal/testing';
 import { createChainRegistry } from '../../orders/chains';
 import { Refusal } from '../../orders/errors';
+import type { StoredFamily } from '../../orders/families';
+import { buildRetarget, planVaultRebalance } from '../../orders/mix';
 import { prepareOrder } from '../../orders/prepare';
 import { registerAuth } from '../../plugins/auth';
 import { person, testIssuer } from '../../testing/harness';
@@ -31,14 +38,15 @@ afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close();
 });
 
-async function setup() {
+async function setup(env: Record<string, string> = {}) {
   const issuer = await testIssuer('mix');
   const owner = await person(issuer, 'solana');
   const stranger = await person(issuer, 'solana');
   const evmOnly = await person(issuer, 'robinhood');
-  const chains = createChainRegistry(parseFlags({}), parseChainConfigs({}), { seed: 'mix-route' });
+  const chains = createChainRegistry(parseFlags(env), parseChainConfigs({}), { seed: 'mix-route' });
   const plans = new Map<string, BasketProposal>();
   const saved: Array<{ order: Order; request: IntentRequest }> = [];
+  const families = new Map<string, StoredFamily>();
   const store: MixStore = {
     // As `insertProposal`: the same plan stored again answers the first one's id.
     saveProposal: vi.fn(async (proposal: BasketProposal) => {
@@ -52,6 +60,7 @@ async function setup() {
       saved.push({ order, request });
     }),
     planOf: vi.fn(async () => ({ goal: 'income' as const, risk: 'low' as const })),
+    familyBySlug: vi.fn(async (slug: string) => families.get(slug) ?? null),
   };
   const db = new Proxy(
     {},
@@ -105,7 +114,7 @@ async function setup() {
       who,
     );
   };
-  return { app, chains, owner, stranger, evmOnly, store, plans, saved, post, confirm };
+  return { app, chains, owner, stranger, evmOnly, store, plans, saved, families, post, confirm };
 }
 
 const ACCEPT = '/v1/conversations/solana/goal/accept';
@@ -726,5 +735,386 @@ describe('POST /v1/vaults/{chain}/{address}/targets', () => {
     );
     expect(res.statusCode).toBe(422);
     expect(OrderError.parse(res.json()).details?.issues).toEqual(['ALL_CASH']);
+  });
+});
+
+describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
+  const FOLLOWED = [
+    { asset: 'solana:yield', weightBps: 5000 },
+    { asset: 'solana:spy', weightBps: 3000 },
+    { asset: 'solana:gold', weightBps: 2000 },
+  ];
+  /**
+   * Thom's vault of Oct 13 on the sample chain's shelf: half in one asset, a quarter in a second, a
+   * quarter ($20,050) idle in cash; then it follows a shared portfolio of 50%, 30% and 20% in a third
+   * asset, with auto-follow off. Following trades nothing.
+   */
+  async function followed(opts: { accept?: boolean } = {}) {
+    const s = await setup();
+    const entry = s.chains.get('solana');
+    const mock = entry.mock;
+    if (!mock) throw new Error('the test chain is the mock');
+    const owner = s.owner.solana as Address;
+    const creator = s.stranger.solana as Address;
+    const usd = (dollars: number) => (BigInt(dollars) * 1_000_000n).toString();
+    mock.fund(owner, { gasRaw: '100000000000', assets: { 'solana:usdc': usd(80_200) } });
+    mock.fund(creator, { gasRaw: '100000000000', assets: {} });
+    const send = async (tx: Promise<BuiltTx>) => mock.send(await tx);
+    await send(
+      entry.adapter.buildCreateVault({
+        owner,
+        basketId: '21',
+        targets: [
+          { asset: 'solana:yield', weightBps: 5000 },
+          { asset: 'solana:spy', weightBps: 2500 },
+        ],
+        autoFollow: false,
+        depositRaw: usd(80_200),
+        slippageBps: 100,
+      }),
+    );
+    const [opened] = await entry.adapter.getVaults(owner);
+    if (!opened) throw new Error('no vault');
+    const address = opened.address;
+    for (const [buy, dollars] of [
+      ['solana:yield', 40_100],
+      ['solana:spy', 20_050],
+    ] as const)
+      await send(
+        entry.adapter.buildOwnerSwap({
+          vault: address,
+          trades: [{ sell: 'solana:usdc', buy, amountInRaw: usd(dollars) }],
+          slippageBps: 100,
+        }),
+      );
+    const familyId = 'ef'.repeat(32);
+    const recipe: Recipe = {
+      schemaVersion: 1,
+      familyId,
+      chain: 'solana',
+      onchainId: null,
+      creator,
+      kind: 'community',
+      version: 1,
+      effectiveAt: 0,
+      components: FOLLOWED.map((t) => ({ kind: 'asset', ...t })),
+      metaHash: '00'.repeat(32),
+      maxFeeBps: 0,
+      flags: 0,
+    };
+    await send(entry.adapter.buildPublishRecipe({ creator, recipe }));
+    const published = { onchainId: mockRecipeId('solana', creator, familyId) };
+    s.families.set('half-thirty-twenty', {
+      familyId,
+      slug: 'half-thirty-twenty',
+      nameKey: 'halfthlrtytwenty',
+      name: 'Half thirty twenty',
+      copy: '',
+      kind: 'index',
+      creatorUserId: null,
+      creatorKind: 'community',
+      platform: false,
+      recipes: [
+        { id: 'r1', chain: 'solana', onchainId: published.onchainId, creator, versions: [] },
+      ],
+    });
+    if (opts.accept !== false)
+      await send(
+        entry.adapter.buildAcceptVersion({
+          vault: address,
+          recipeOnchainId: published.onchainId,
+          expectedVersion: 1,
+        }),
+      );
+    const read = async (): Promise<VaultState> => {
+      const vault = await entry.adapter.getVault(address);
+      if (!vault) throw new Error('no vault');
+      return vault;
+    };
+    /** Each share of the vault's value in bps, cash under its own id, at the chain's prices now. */
+    const shares = async () => {
+      const vault = await read();
+      const prices = new Map(
+        (await entry.adapter.getPrices(vault.positions.map((p) => p.asset))).map((p) => [
+          p.asset,
+          Number(p.usdPerToken),
+        ]),
+      );
+      const usdOf = [vault.cash, ...vault.positions].map(
+        (h) => [h.asset, Number(h.display) * (prices.get(h.asset) ?? 1)] as const,
+      );
+      const total = usdOf.reduce((n, [, v]) => n + v, 0);
+      return {
+        total,
+        bps: Object.fromEntries(usdOf.map(([id, v]) => [id, Math.round((v / total) * 10_000)])),
+      };
+    };
+    return {
+      ...s,
+      entry,
+      mock,
+      owner,
+      address,
+      recipeId: published.onchainId,
+      read,
+      shares,
+      url: `/v1/vaults/solana/${address}/rebalance`,
+    };
+  }
+
+  it('needs the owner: nobody signed in is 401, and a stranger is told there is no such vault', async () => {
+    const s = await followed();
+    const none = await s.app.inject({ method: 'POST', url: s.url, payload: {} });
+    expect(none.statusCode).toBe(401);
+    const res = await s.post(s.url, {}, s.stranger);
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(s.store.saveOrder).not.toHaveBeenCalled();
+  });
+
+  it('orders the trades that bring a vault that just followed 50/30/20 to those targets, and nothing else', async () => {
+    const s = await followed();
+    // As following left it: the targets are the portfolio's, the holdings the old ones.
+    const before = await s.shares();
+    expect((await s.read()).recipeOnchainId).toBe(s.recipeId);
+    expect(before.bps['solana:usdc']).toBeGreaterThan(2400);
+    expect(before.bps['solana:gold']).toBe(0);
+
+    const res = await s.post(s.url, {});
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    const ordered = RebalanceVaultResponse.parse(res.json());
+    if (ordered.status !== 'ordered') throw new Error(res.body);
+    expect(ordered.targets).toEqual(FOLLOWED);
+    const { order } = ordered;
+    expect(order.type).toBe('rebalance');
+    expect(order.status).toBe('open');
+    expect(order.owner.solana).toBe(s.owner);
+    expect(order.needsConsent).toEqual([]);
+    // Swaps only: the targets are not set again, so the vault goes on following.
+    expect(order.legs.every((l) => l.kind === 'swap' && l.signer === 'owner')).toBe(true);
+    const trades = order.legs.flatMap((l) => l.trades);
+    // Nothing is over its target but the cash: every trade spends cash on a target.
+    expect(trades.every((t) => t.sell === 'solana:usdc')).toBe(true);
+    const spent = Object.fromEntries(trades.map((t) => [t.buy, Number(t.amountInRaw) / 1e6]));
+    expect(Object.keys(spent).every((id) => FOLLOWED.some((t) => t.asset === id))).toBe(true);
+    // Gold from nothing to 20% of the vault and the second asset from 25% to 30%, less the slippage
+    // the order counts on.
+    expect(spent['solana:gold']).toBeGreaterThan(before.total * 0.19);
+    expect(spent['solana:gold']).toBeLessThanOrEqual(before.total * 0.2);
+    expect(spent['solana:spy']).toBeGreaterThan(before.total * 0.04);
+    expect(spent['solana:spy']).toBeLessThanOrEqual(before.total * 0.055);
+    // Every trade states the least it may give.
+    for (const leg of order.legs) {
+      expect(leg.expected).toHaveLength(leg.trades.length);
+      for (const e of leg.expected) expect(BigInt(e.minOutRaw) > 0n).toBe(true);
+    }
+    // What a person reads of it says neither "buy" nor "mix" (WORDS-VAULT-DEPOSIT).
+    expect(order.summary).toBe('Rebalance your vault on Solana to its targets');
+    for (const text of [order.summary, ...order.legs.map((l) => l.description)])
+      expect(text).not.toMatch(/\b(buy|mix)\b/i);
+    expect(s.saved).toHaveLength(1);
+    const request = s.saved[0]?.request;
+    expect(request).toEqual({
+      type: 'rebalance',
+      vaults: [s.address],
+      reason: 'manual',
+      targets: FOLLOWED,
+      maxSlippageBps: 100,
+    });
+    if (request?.type !== 'rebalance') throw new Error('not a rebalance');
+
+    // Built as the order routes build them and landed: the vault is at its targets and still follows.
+    for (const leg of order.legs)
+      await s.mock.send(await buildRetarget(request, leg, s.entry, s.owner, undefined, true));
+    const after = await s.shares();
+    expect(Math.abs((after.bps['solana:yield'] ?? 0) - 5000)).toBeLessThan(100);
+    expect(Math.abs((after.bps['solana:spy'] ?? 0) - 3000)).toBeLessThan(100);
+    expect(Math.abs((after.bps['solana:gold'] ?? 0) - 2000)).toBeLessThan(100);
+    expect(after.bps['solana:usdc']).toBeLessThan(150);
+    const vault = await s.read();
+    expect(vault.recipeOnchainId).toBe(s.recipeId);
+    expect(vault.acceptedVersion).toBe(1);
+  });
+
+  it('answers on_target, and stores nothing, once the vault is at its targets', async () => {
+    const s = await followed();
+    const first = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+    if (first.status !== 'ordered') throw new Error('not ordered');
+    const request = s.saved[0]?.request;
+    if (request?.type !== 'rebalance') throw new Error('not a rebalance');
+    for (const leg of first.order.legs)
+      await s.mock.send(await buildRetarget(request, leg, s.entry, s.owner, undefined, true));
+    const res = await s.post(s.url, {});
+    expect(res.statusCode, res.body).toBe(200);
+    const again = RebalanceVaultResponse.parse(res.json());
+    expect(again.status).toBe('on_target');
+    expect(again.targets).toHaveLength(3);
+    expect(again.targets).toEqual(expect.arrayContaining(FOLLOWED));
+    expect(s.saved).toHaveLength(1);
+  });
+
+  it('refuses to build a step once the vault\'s targets are no longer the order\'s', async () => {
+    const s = await followed();
+    const ordered = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+    if (ordered.status !== 'ordered') throw new Error('not ordered');
+    const request = s.saved[0]?.request;
+    const [leg] = ordered.order.legs;
+    if (request?.type !== 'rebalance' || !leg) throw new Error('not a rebalance');
+    await s.mock.send(
+      await s.entry.adapter.buildSetTargets({
+        vault: s.address,
+        targets: [{ asset: 'solana:yield', weightBps: 10_000 }],
+      }),
+    );
+    const built = buildRetarget(request, leg, s.entry, s.owner, undefined, true);
+    await expect(built).rejects.toMatchObject({ status: 409 });
+    await expect(built).rejects.toThrow(/targets/);
+  });
+
+  it('takes no body field but the slippage', async () => {
+    const s = await followed();
+    const res = await s.post(s.url, { targets: [{ asset: 'solana:tsla', weightBps: 10_000 }] });
+    expect(res.statusCode).toBe(400);
+    expect(s.store.saveOrder).not.toHaveBeenCalled();
+  });
+
+  it('leaves a vault with auto-follow on to the keeper where the chain runs one, and orders it where none runs', async () => {
+    const s = await followed();
+    await s.mock.send(await s.entry.adapter.buildSetAutoFollow({ vault: s.address, on: true }));
+    const res = await s.post(s.url, {});
+    expect(res.statusCode, res.body).toBe(409);
+    expect(OrderError.parse(res.json()).details).toMatchObject({ issues: ['AUTO_FOLLOW_ON'] });
+    expect(s.store.saveOrder).not.toHaveBeenCalled();
+    // The hosted API's case: the chain's keeper path is switched off, so nobody else trades the vault.
+    const noKeeper = {
+      ...s.entry,
+      adapter: {
+        ...s.entry.adapter,
+        capabilities: { ...s.entry.adapter.capabilities, autoFollow: false },
+      },
+    };
+    const { planned } = await planVaultRebalance(noKeeper, await s.read(), {
+      slippageBps: 100,
+      now: '2026-10-08T12:00:00.000Z',
+      owner: s.owner,
+    });
+    expect(planned?.order.legs.every((l) => l.kind === 'swap')).toBe(true);
+    expect(planned?.order.legs.length).toBeGreaterThan(0);
+  });
+
+  it('refuses a vault with no target, which has nothing to be brought to', async () => {
+    const s = await setup();
+    const entry = s.chains.get('solana');
+    const mock = entry.mock;
+    if (!mock) throw new Error('the test chain is the mock');
+    const owner = s.owner.solana as Address;
+    mock.fund(owner, { gasRaw: '100000000000', assets: { 'solana:usdc': '1000000000' } });
+    await mock.send(
+      await entry.adapter.buildCreateVault({
+        owner,
+        basketId: '22',
+        targets: [],
+        autoFollow: false,
+        depositRaw: '1000000000',
+        slippageBps: 100,
+      }),
+    );
+    const [vault] = await entry.adapter.getVaults(owner);
+    if (!vault) throw new Error('no vault');
+    const res = await s.post(`/v1/vaults/solana/${vault.address}/rebalance`, {});
+    expect(res.statusCode, res.body).toBe(409);
+    expect(s.store.saveOrder).not.toHaveBeenCalled();
+  });
+
+  describe('/quote', () => {
+    it('quotes, before the follow is signed, what following would trade, and stores nothing', async () => {
+      const s = await followed({ accept: false });
+      // not followed yet: the vault's own targets are the old ones
+      expect((await s.read()).recipeOnchainId).toBeNull();
+      const res = await s.post(`${s.url}/quote`, { family: 'half-thirty-twenty', version: 1 });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers['cache-control']).toBe('private, no-store');
+      const quote = RebalanceQuoteResponse.parse(res.json());
+      expect(quote.status).toBe('quoted');
+      expect(quote.provenance).toBe('mock');
+      expect(quote.version).toBe(1);
+      expect(quote.targets).toEqual(FOLLOWED);
+      expect(quote.slippageBps).toBe(100);
+      expect(quote.trades.map((t) => [t.sell, t.buy])).toEqual([
+        ['solana:usdc', 'solana:gold'],
+        ['solana:usdc', 'solana:spy'],
+      ]);
+      for (const t of quote.trades) {
+        expect(BigInt(t.minOutRaw) > 0n && BigInt(t.minOutRaw) <= BigInt(t.expectedOutRaw)).toBe(
+          true,
+        );
+        expect(Number(t.valueUsd)).toBeCloseTo(Number(t.amountInRaw) / 1e6, 2);
+      }
+      // Before and after, each against its target: cash first.
+      const by = Object.fromEntries(quote.holdings.map((h) => [h.asset, h]));
+      expect(quote.holdings[0]).toMatchObject({ asset: 'solana:usdc', cash: true, targetBps: 0 });
+      expect(by['solana:usdc']?.beforeBps).toBeGreaterThan(2400);
+      expect(by['solana:usdc']?.afterBps).toBeLessThan(150);
+      expect(by['solana:gold']).toMatchObject({ targetBps: 2000, beforeBps: 0 });
+      expect(Math.abs((by['solana:gold']?.afterBps ?? 0) - 2000)).toBeLessThan(60);
+      expect(Math.abs((by['solana:spy']?.afterBps ?? 0) - 3000)).toBeLessThan(60);
+      expect(Math.abs((by['solana:yield']?.afterBps ?? 0) - 5000)).toBeLessThan(60);
+      // The total cost is the trades' quoted costs, in dollars; every price carries its source.
+      const cost = quote.trades.reduce((n, t) => n + (Number(t.valueUsd) * t.costBps) / 10_000, 0);
+      expect(Number(quote.costUsd)).toBeCloseTo(cost, 1);
+      expect(Number(quote.valueUsd)).toBeGreaterThan(79_000);
+      for (const id of ['solana:gold', 'solana:spy', 'solana:yield']) {
+        const price = quote.prices.find((p) => p.asset === id);
+        expect(price?.source && price.fetchedAt && price.method).toBeTruthy();
+      }
+      expect(quote.unavailable).toBeNull();
+      expect(s.store.saveOrder).not.toHaveBeenCalled();
+      // and nothing moved
+      expect((await s.read()).recipeOnchainId).toBeNull();
+    });
+
+    it('quotes against the vault\'s own targets where no portfolio is named, as the order then trades', async () => {
+      const s = await followed();
+      const quote = RebalanceQuoteResponse.parse((await s.post(`${s.url}/quote`, {})).json());
+      expect(quote).toMatchObject({ status: 'quoted', version: null });
+      const ordered = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      if (ordered.status !== 'ordered') throw new Error('not ordered');
+      expect(quote.trades.map((t) => [t.sell, t.buy, t.amountInRaw, t.minOutRaw])).toEqual(
+        ordered.order.legs.flatMap((l) =>
+          l.trades.map((t, i) => [t.sell, t.buy, t.amountInRaw, l.expected[i]?.minOutRaw]),
+        ),
+      );
+    });
+
+    it('says which asset cannot be quoted and why, and still answers', async () => {
+      const s = await followed({ accept: false });
+      s.mock.setPriceAge('solana:gold', 1_000_000);
+      const res = await s.post(`${s.url}/quote`, { family: 'half-thirty-twenty' });
+      expect(res.statusCode, res.body).toBe(200);
+      const quote = RebalanceQuoteResponse.parse(res.json());
+      expect(quote.status).toBe('unavailable');
+      expect(quote.trades).toEqual([]);
+      expect(quote.unavailable?.issues).toEqual(['NO_PRICE:solana:gold']);
+      expect(quote.unavailable?.reason).toMatch(/solana:gold/);
+      // the holdings as they are, against the targets following would give
+      expect(quote.holdings.find((h) => h.asset === 'solana:spy')?.targetBps).toBe(3000);
+    });
+
+    it('answers on_target with no trade, a stranger 404, an unknown portfolio 404, a stale version VERSION_CHANGED', async () => {
+      const s = await followed();
+      expect((await s.post(`${s.url}/quote`, {}, s.stranger)).statusCode).toBe(404);
+      expect((await s.post(`${s.url}/quote`, { family: 'nobody' })).statusCode).toBe(404);
+      const stale = await s.post(`${s.url}/quote`, { family: 'half-thirty-twenty', version: 2 });
+      expect(stale.statusCode).toBe(409);
+      expect(OrderError.parse(stale.json()).code).toBe('VERSION_CHANGED');
+      const ordered = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      const request = s.saved[0]?.request;
+      if (ordered.status !== 'ordered' || request?.type !== 'rebalance') throw new Error('no order');
+      for (const leg of ordered.order.legs)
+        await s.mock.send(await buildRetarget(request, leg, s.entry, s.owner, undefined, true));
+      const quote = RebalanceQuoteResponse.parse((await s.post(`${s.url}/quote`, {})).json());
+      expect(quote).toMatchObject({ status: 'on_target', trades: [], costUsd: '0' });
+    });
   });
 });

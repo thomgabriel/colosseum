@@ -1,5 +1,10 @@
 'use client';
-import { ChainId, chainFamily, type VaultResponse } from '@colosseum/schemas';
+import {
+  ChainId,
+  chainFamily,
+  OWNER_REBALANCE_BAND_BPS,
+  type VaultResponse,
+} from '@colosseum/schemas';
 import Link from 'next/link';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
@@ -206,6 +211,30 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   );
 }
 
+/**
+ * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it has a target, a position is
+ * further from its target than the owner's band or the cash is over what the targets leave by more
+ * than it, and auto-follow is off, so no keeper trades it. With a holding that has no price the shares
+ * are not known and nothing is offered. The server decides again when asked.
+ */
+export function offTarget(
+  vault: Pick<VaultResponse['vault'], 'autoFollow' | 'positions' | 'valueUsd'>,
+): boolean {
+  if (vault.autoFollow) return false;
+  const held = vault.positions.filter((p) => !/^0+$/.test(p.raw));
+  if (!vault.positions.some((p) => p.targetBps > 0) || held.some((p) => p.valueUsd === null))
+    return false;
+  const total = Number(vault.valueUsd);
+  if (!(total > 0)) return false;
+  const invested = vault.positions.reduce((n, p) => n + p.weightBps, 0);
+  const planned = vault.positions.reduce((n, p) => n + p.targetBps, 0);
+  // cash over its share is what the positions together are under theirs
+  return (
+    vault.positions.some((p) => Math.abs(p.driftBps) > OWNER_REBALANCE_BAND_BPS) ||
+    planned - invested > OWNER_REBALANCE_BAND_BPS
+  );
+}
+
 /** The owner's page: the head, the pair of actions, and the workbench they act in. */
 function OwnVault({
   read,
@@ -233,6 +262,7 @@ function OwnVault({
   const { vault } = read;
   const empty = [vault.cash, ...vault.positions].every((h) => /^0+$/.test(h.raw));
   const targeted = vault.positions.some((position) => position.targetBps > 0);
+  const away = !empty && offTarget(vault);
   const deposit = (
     <Button
       variant="primary"
@@ -305,6 +335,21 @@ function OwnVault({
     setOpen(null);
     setPhase('open');
   };
+  // Opened from a follow that is done (`?do=rebalance`, features/order/order-api.ts): the pane opens
+  // on the rebalance once, where one is offered, as the press here would.
+  const arrived = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: read once, when the page is first shown
+  useEffect(() => {
+    if (arrived.current) return;
+    arrived.current = true;
+    let asked = false;
+    try {
+      asked = new URLSearchParams(window.location.search).get('do') === 'rebalance';
+    } catch {
+      // no address to read: nothing is opened
+    }
+    if (asked && away && !openNow.current) start('rebalance', '[data-action="vault-rebalance"]');
+  }, []);
 
   const action = open && {
     why:
@@ -415,6 +460,15 @@ function OwnVault({
                 >
                   {/* an empty vault's one action is on its empty card, in the pane */}
                   {!empty && deposit}
+                  {away && (
+                    <Button
+                      variant="secondary"
+                      data-action="vault-rebalance"
+                      onClick={() => start('rebalance', '[data-action="vault-rebalance"]')}
+                    >
+                      {p.rebalance}
+                    </Button>
+                  )}
                   {!empty && (
                     <Button
                       variant="secondary"
@@ -452,6 +506,14 @@ function OwnVault({
         }
         current={
           <>
+            {away && (
+              <p
+                data-ui="vault-off-target"
+                className="max-w-(--tf-measure-body) border-l-2 border-primary pl-4 text-body-sm"
+              >
+                {p.offTarget}
+              </p>
+            )}
             <VaultHoldings read={read} deposit={empty ? deposit : undefined} />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">

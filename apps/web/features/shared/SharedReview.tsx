@@ -152,6 +152,26 @@ export function SharedReview({ terms, chain }: { terms: SharedTerms; chain: Chai
       </Card>
     );
   }
+  if (terms.kind === 'rebalance') {
+    const r = t.shared.vault.page.rebalancing;
+    const cash = 10_000 - terms.targets.reduce((n, x) => n + x.weightBps, 0);
+    return (
+      <Card as="section" aria-label={r.reviewTitle}>
+        <CardHeader title={r.reviewTitle} level={2} meta={t.chain.names[chain]} />
+        <CardBody className="flex flex-col gap-4">
+          <dl className="grid gap-x-6 gap-y-1 text-body-sm sm:grid-cols-[auto_1fr]">
+            <dt className="text-muted-foreground">{s.vault}</dt>
+            <dd className="break-all font-mono text-source">{terms.vault}</dd>
+          </dl>
+          {weights(terms.targets)}
+          {cash > 0 && <p className="text-body-sm">{r.cash(share(cash))}</p>}
+          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+            {r.reviewNote}
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
   if (terms.kind === 'vault')
     return (
       <Card as="section" aria-label={s.addTitle}>

@@ -95,6 +95,20 @@ export type SharedTerms =
       targets: Target[];
       /** Who chose the weights: the conversation's proposal, or the person. */
       origin: 'model' | 'person';
+    }
+  /**
+   * A rebalance of a vault the person owns to the targets it has (HANDOFF-VAULT, MVP item 6): the
+   * order only swaps. No target is set and nothing else about the vault changes, so the guard is
+   * handed the vault's number alone and refuses a step that sets targets, follows, switches or
+   * withdraws. The targets are the vault's as the page read them, which the trades are held to.
+   */
+  | {
+      kind: 'rebalance';
+      vault: string;
+      /** The plan number of that vault, which the guard derives its address from. */
+      basketId: string;
+      /** The vault's targets above zero; cash is what they leave. */
+      targets: Target[];
     };
 
 /**
@@ -243,6 +257,20 @@ export function readTerms(value: unknown): SharedTerms | null {
       targets: targets.data,
       origin: t.origin,
     };
+  }
+  if (t.kind === 'rebalance') {
+    const targets = Target.array().min(1).max(16).safeParse(t.targets);
+    if (
+      !isText(t.vault) ||
+      !t.vault ||
+      !isText(t.basketId) ||
+      !RAW.test(t.basketId) ||
+      !targets.success ||
+      new Set(targets.data.map((x) => x.asset)).size !== targets.data.length ||
+      targets.data.reduce((n, x) => n + x.weightBps, 0) > 10_000
+    )
+      return null;
+    return { kind: 'rebalance', vault: t.vault, basketId: t.basketId, targets: targets.data };
   }
   if (t.kind === 'publish') {
     const components = targetsOf(t.components);

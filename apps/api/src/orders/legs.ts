@@ -173,7 +173,16 @@ async function buildFor(
     return buildShared(deps, stored, leg, entry, owner, nonce);
   if (request.type === 'withdraw') return buildWithdraw(request, leg, entry, owner, nonce);
   // A vault's own targets, from a mix the person confirmed (orders/mix.ts).
-  if (request.type === 'rebalance') return buildRetarget(request, leg, entry, owner, nonce);
+  // ... or the vault's holdings brought to the targets it has, by an order that sets none.
+  if (request.type === 'rebalance')
+    return buildRetarget(
+      request,
+      leg,
+      entry,
+      owner,
+      nonce,
+      !order.legs.some((l) => l.kind === 'set_targets'),
+    );
   if (request.type !== 'buy' || !(request.proposalId || request.family || request.vault))
     throw new Refusal(501, `a ${request.type} order cannot be built yet`);
   const { adapter } = entry;

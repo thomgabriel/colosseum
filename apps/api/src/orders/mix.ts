@@ -13,6 +13,7 @@ import {
   BasketProposal,
   type BasketSheet,
   type BuiltTx,
+  ChainError,
   chainFamily,
   DISCLAIMER,
   type IntentRequest,
@@ -30,7 +31,9 @@ import {
   type ObservationRef,
   ORDER_LIMITS,
   type Order,
+  OWNER_REBALANCE_BAND_BPS,
   type Price,
+  type RebalanceQuoteResponse,
   type Target,
   type Trade,
   type VaultState,
@@ -95,7 +98,7 @@ export type CheckedMix = {
 const issue = (code: MixIssueCode, asset?: string) => (asset ? `${code}:${asset}` : code);
 
 /** A price the vault can trade on now: a feed, above zero, and no older than the chain takes. */
-const usable = (asset: BasketAsset, price: Price | undefined): price is Price =>
+export const usable = (asset: BasketAsset, price: Price | undefined): price is Price =>
   asset.priceKind !== 'none' &&
   price !== undefined &&
   Number(price.usdPerToken) > 0 &&
@@ -581,16 +584,21 @@ const pct = (bps: number) =>
  * chain takes. Purchases count on each sale losing up to the order's slippage, so the cash is there.
  * Every trade states its minimum, as a buy's do. The vault's auto-follow goes off with its own targets,
  * on chain, so the keeper does not trade it meanwhile.
+ *
+ * With `keepTargets`, the targets are the vault's own as the chain has them and are not set again: the
+ * order is the trades alone, so a vault that follows a shared portfolio goes on following it
+ * (`planVaultRebalance`), and with nothing to trade it has no step.
  */
 export async function planRetarget(
-  ctx: MixContext,
+  ctx: Pick<MixContext, 'entry' | 'assets' | 'cash'>,
   vault: VaultState,
-  checked: CheckedMix,
+  checked: Pick<CheckedMix, 'targets' | 'prices' | 'cashBps'>,
   a: {
     slippageBps: number;
     now: string;
     /** The signed-in wallet that owns the vault, as the sign-in names it: the order's owner. */
     owner: Address;
+    keepTargets?: boolean;
   },
 ): Promise<{ order: Order; request: Extract<IntentRequest, { type: 'rebalance' }> }> {
   const { entry } = ctx;
@@ -606,7 +614,12 @@ export async function planRetarget(
       vault,
       checked.targets,
       [...checked.prices.values()],
-      { bandBps: 0, minTradeUsd: 1, costBps: a.slippageBps },
+      // Its own new targets are traded to whatever the distance; a rebalance only once outside the band.
+      {
+        bandBps: a.keepTargets ? OWNER_REBALANCE_BAND_BPS : 0,
+        minTradeUsd: 1,
+        costBps: a.slippageBps,
+      },
       ctx.assets,
     );
     if (!plan.weighed || plan.unpriced.length)
@@ -623,13 +636,17 @@ export async function planRetarget(
   const id = randomUUID();
   const { owner } = a;
   const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
-    {
-      kind: 'set_targets',
-      description: `Set your vault's targets: ${checked.targets
-        .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
-        .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`,
-      trades: [],
-    },
+    ...(a.keepTargets
+      ? []
+      : [
+          {
+            kind: 'set_targets' as const,
+            description: `Set your vault's targets: ${checked.targets
+              .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
+              .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`,
+            trades: [],
+          },
+        ]),
     ...batchTrades(trades, entry.adapter.capabilities.maxTradesPerTx).map((group) => ({
       kind: 'swap' as const,
       description: group
@@ -663,7 +680,9 @@ export async function planRetarget(
     id,
     type: 'rebalance',
     owner: { [chainFamily(entry.chain)]: owner },
-    summary: `Apply your new targets to your vault on ${entry.config.name}`,
+    summary: a.keepTargets
+      ? `Rebalance your vault on ${entry.config.name} to its targets`
+      : `Apply your new targets to your vault on ${entry.config.name}`,
     basketId: vault.basketId,
     legs,
     warnings: [],
@@ -689,9 +708,195 @@ export async function planRetarget(
 }
 
 /**
+ * The order that brings what a vault holds to the targets it has on chain now, and changes nothing
+ * else (the one-press rebalance of HANDOFF-VAULT, MVP item 6): the sales and then the purchases of
+ * `rebalancePlan` at the prices now. No target is set, so a vault that follows a shared portfolio goes
+ * on following it, and no goal is read: the targets are the vault's already. Null where there is
+ * nothing to trade: every asset within `OWNER_REBALANCE_BAND_BPS` of its target, and the cash no
+ * more than that over its share.
+ *
+ * Refused: a vault with no target; one with auto-follow on where the chain runs a keeper, whose work
+ * this is and who would trade alongside; a target or a holding with no price the vault can trade on;
+ * a vault worth more than one order may move.
+ */
+export async function planVaultRebalance(
+  entry: ChainEntry,
+  vault: VaultState,
+  a: {
+    slippageBps: number;
+    now: string;
+    owner: Address;
+    /**
+     * For a quote only (`quoteVaultRebalance`): the targets the vault would have, in place of its own,
+     * as after following a shared portfolio. An order is never made from these.
+     */
+    targets?: Target[];
+  },
+): Promise<{
+  targets: Target[];
+  planned: { order: Order; request: Extract<IntentRequest, { type: 'rebalance' }> } | null;
+}> {
+  assertBuilds(entry);
+  const targets = a.targets ?? ownTargets(vault);
+  if (!targets.length)
+    throw new Refusal(409, 'this vault has no targets to rebalance to', {
+      fix: 'Choose what the vault holds first.',
+      details: { retryable: false, issues: ['NO_TARGETS'] },
+    });
+  if (vault.autoFollow && entry.adapter.capabilities.autoFollow)
+    throw new Refusal(
+      409,
+      `auto-follow is on for this vault, so the keeper on ${entry.config.name} rebalances it`,
+      {
+        fix: 'Switch auto-follow off to rebalance it yourself.',
+        details: { retryable: false, issues: ['AUTO_FOLLOW_ON'] },
+      },
+    );
+  const assets = await entry.adapter.listAssets();
+  const byId = new Map(assets.map((x) => [x.id, x]));
+  const cash = byId.get(vault.cash.asset);
+  if (!cash) throw new Error(`${entry.chain} does not list the vault's cash token`);
+  const held = vault.positions.filter((p) => BigInt(p.raw) > 0n).map((p) => p.asset);
+  const ids = [...new Set([...targets.map((t) => t.asset), ...held])];
+  const prices = new Map<string, Price>();
+  for (const price of await entry.adapter.getPrices(ids.filter((id) => byId.has(id))))
+    prices.set(price.asset, price);
+  const unpriced = ids.filter((id) => {
+    const asset = byId.get(id);
+    return !asset || !usable(asset, prices.get(id));
+  });
+  if (unpriced.length)
+    throw new Refusal(
+      409,
+      `the vault cannot be rebalanced now: ${unpriced.join(', ')} has no price it can trade on`,
+      { details: { retryable: true, issues: unpriced.map((id) => `NO_PRICE:${id}`) } },
+    );
+  const cashBps = 10_000 - targets.reduce((n, t) => n + t.weightBps, 0);
+  const planned = await planRetarget(
+    { entry, assets, cash },
+    vault,
+    { targets, prices, cashBps },
+    { slippageBps: a.slippageBps, now: a.now, owner: a.owner, keepTargets: true },
+  );
+  return { targets, planned: planned.order.legs.length ? planned : null };
+}
+
+/** The targets a vault has on chain, those above zero. */
+const ownTargets = (vault: VaultState): Target[] =>
+  vault.positions
+    .filter((p) => p.targetBps > 0)
+    .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
+
+const cents = (usd: number) => (Math.round(Math.max(usd, 0) * 100) / 100).toString();
+
+/**
+ * What a rebalance of the vault would trade now, as figures to show before anything is signed, and
+ * nothing stored: each trade with what it is quoted to give and the least an order would take, each
+ * holding's share before and after against its target, and what the trades are quoted to cost
+ * together. `targets`: the weights the vault would have (a shared portfolio's version in effect, before
+ * the vault follows it); left out, its own. The plan is `planVaultRebalance`'s, so an order made next
+ * with the vault and the prices unchanged trades exactly this. Where no order could be made, the
+ * answer says why and still gives the holdings against the targets.
+ */
+export async function quoteVaultRebalance(
+  entry: ChainEntry,
+  vault: VaultState,
+  a: { slippageBps: number; now: string; owner: Address; targets?: Target[]; version?: number },
+): Promise<RebalanceQuoteResponse> {
+  const targets = a.targets ?? ownTargets(vault);
+  let trades: Array<Trade & { expected: Leg['expected'][number] }> = [];
+  let unavailable: RebalanceQuoteResponse['unavailable'] = null;
+  try {
+    const { planned } = await planVaultRebalance(entry, vault, a);
+    trades = (planned?.order.legs ?? []).flatMap((leg) =>
+      leg.trades.flatMap((t, i) => {
+        const expected = leg.expected[i];
+        return expected ? [{ ...t, expected }] : [];
+      }),
+    );
+  } catch (e) {
+    // Why no order could be made is the answer, not an error: the review says it.
+    if (!(e instanceof Refusal) && !(e instanceof ChainError)) throw e;
+    const refusal = e instanceof Refusal ? e.body() : null;
+    unavailable = {
+      reason: e.message,
+      issues: refusal?.details?.issues ?? (e instanceof ChainError ? [e.code] : []),
+    };
+  }
+  const assets = await entry.adapter.listAssets();
+  const decimals = new Map(assets.map((x) => [x.id, x.decimals]));
+  const cashId = vault.cash.asset;
+  const ids = [...new Set([...targets.map((t) => t.asset), ...vault.positions.map((p) => p.asset)])];
+  const prices = await entry.adapter.getPrices(ids.filter((id) => decimals.has(id)));
+  const usdOf = new Map(prices.map((p) => [p.asset, Number(p.usdPerToken)]));
+  const worth = (asset: string, raw: string): number => {
+    const d = decimals.get(asset);
+    const usd = asset === cashId ? 1 : usdOf.get(asset);
+    return d === undefined || usd === undefined ? Number.NaN : (Number(raw) / 10 ** d) * usd;
+  };
+  const before = new Map<string, number>([[cashId, worth(cashId, vault.cash.raw)]]);
+  for (const p of vault.positions)
+    if (BigInt(p.raw) > 0n) before.set(p.asset, (before.get(p.asset) ?? 0) + worth(p.asset, p.raw));
+  const after = new Map(before);
+  let cost = 0;
+  const quoted = trades.map((t) => {
+    const value = worth(t.sell, t.amountInRaw);
+    const out = worth(t.buy, t.expected.outRaw);
+    after.set(t.sell, (after.get(t.sell) ?? 0) - value);
+    after.set(t.buy, (after.get(t.buy) ?? 0) + out);
+    cost += (value * t.expected.costBps) / 10_000;
+    return {
+      sell: t.sell,
+      buy: t.buy,
+      amountInRaw: t.amountInRaw,
+      valueUsd: cents(value),
+      expectedOutRaw: t.expected.outRaw,
+      minOutRaw: t.expected.minOutRaw,
+      costBps: t.expected.costBps,
+    };
+  });
+  const sum = (m: Map<string, number>) => [...m.values()].reduce((n, v) => n + v, 0);
+  const valued = Number.isFinite(sum(before)) && sum(before) > 0;
+  const share = (m: Map<string, number>, id: string) => {
+    const total = sum(m);
+    const bps = Math.round(((m.get(id) ?? 0) / total) * 10_000);
+    return valued && Number.isFinite(bps) ? Math.min(Math.max(bps, 0), 10_000) : 0;
+  };
+  const targetOf = new Map(targets.map((t) => [t.asset, t.weightBps]));
+  const cashTarget = Math.max(10_000 - targets.reduce((n, t) => n + t.weightBps, 0), 0);
+  const listed = [cashId, ...new Set([...targets.map((t) => t.asset), ...before.keys()])].filter(
+    (id, i, all) => all.indexOf(id) === i,
+  );
+  return {
+    status: unavailable ? 'unavailable' : quoted.length ? 'quoted' : 'on_target',
+    chain: entry.chain,
+    provenance: entry.provenance,
+    version: a.version ?? null,
+    targets,
+    slippageBps: a.slippageBps,
+    valueUsd: valued ? cents(sum(before)) : null,
+    trades: quoted,
+    holdings: listed.map((asset) => ({
+      asset,
+      cash: asset === cashId,
+      targetBps: asset === cashId ? cashTarget : (targetOf.get(asset) ?? 0),
+      beforeBps: share(before, asset),
+      afterBps: share(after, asset),
+    })),
+    costUsd: unavailable ? null : cents(cost),
+    prices,
+    unavailable,
+    quotedAt: a.now,
+    disclaimer: DISCLAIMER.en,
+  };
+}
+
+/**
  * One step of an order that applies a vault's own targets, built from the vault as it is now. The
  * vault is held to the order's owner again; the targets are the ones the order was made with, and a
- * trade carries the minimum the order stated, never another.
+ * trade carries the minimum the order stated, never another. `keepsTargets`: the order sets no target
+ * (`planVaultRebalance`), so its trades were sized for the targets the vault had: built only while
+ * the vault still has exactly those.
  */
 export async function buildRetarget(
   request: Extract<IntentRequest, { type: 'rebalance' }>,
@@ -699,6 +904,7 @@ export async function buildRetarget(
   entry: ChainEntry,
   owner: Address,
   nonce: number | undefined,
+  keepsTargets = false,
 ): Promise<BuiltTx> {
   const [address] = request.vaults;
   if (!address || !request.targets?.length || request.maxSlippageBps === undefined)
@@ -719,6 +925,17 @@ export async function buildRetarget(
     return entry.adapter.buildSetTargets({ vault: vault.address, targets: request.targets, ...at });
   if (leg.kind !== 'swap' || !leg.trades.length)
     throw new Refusal(501, `a ${leg.kind} step of a rebalance cannot be built`);
+  if (keepsTargets) {
+    const now = new Map(ownTargets(vault).map((t) => [t.asset, t.weightBps]));
+    const same =
+      now.size === request.targets.length &&
+      request.targets.every((t) => now.get(t.asset) === t.weightBps);
+    if (!same)
+      throw new Refusal(409, "the vault's targets changed since this order was made", {
+        fix: 'Rebalance again: the new order trades to the targets the vault has now.',
+        details: { retryable: false, issues: ['TARGETS_CHANGED'] },
+      });
+  }
   if (leg.expected.length !== leg.trades.length)
     throw new Refusal(409, 'this step states no minimum for its trades: make the order again');
   return entry.adapter.buildOwnerSwap({

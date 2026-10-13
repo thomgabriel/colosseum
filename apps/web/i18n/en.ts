@@ -581,6 +581,7 @@ export const en = {
     order: (when: string) => `Order · ${when}`,
     follow: (when: string) => `Follow a shared portfolio · ${when}`,
     withdraw: (when: string) => `Withdrawal · ${when}`,
+    rebalance: (when: string) => `Rebalance to your vault’s targets · ${when}`,
     publish: (when: string) => `Publish a portfolio · ${when}`,
     noneVault:
       'Nothing from your deposits has reached the chain yet. The keeper’s trades, and orders about a shared portfolio placed in another browser, are not listed here yet.',
@@ -1479,7 +1480,40 @@ export const en = {
       reviewTarget: (vault: string, portfolio: string, version: number) =>
         `“${vault}” will follow ${portfolio}, version ${version}. Review the change before signing.`,
       followNote:
-        'Your vault takes this portfolio’s weights. Nothing is traded in that step: you rebalance after, or the keeper does with auto-follow on.',
+        'The first step gives your vault this portfolio’s weights as its targets. The trades below then bring what it holds to them: once the follow is signed, you rebalance with one press and sign each trade.',
+      /** The same, where auto-follow stays on and a keeper makes the trades. */
+      followNoteKeeper:
+        'The first step gives your vault this portfolio’s weights as its targets. Auto-follow is on, so our keeper then trades what it holds to them.',
+      /** In a follow's review: what the vault would trade to reach the portfolio's weights, quoted now. */
+      quote: {
+        title: 'What following trades',
+        lead: 'A quote, taken now. The trades are planned and quoted again when you rebalance, and each is signed with the minimum shown then.',
+        reading: 'Quoting the trades…',
+        sell: (amount: string, asset: string) => `Sell ${amount} of ${asset} for cash`,
+        into: (amount: string, asset: string) => `Swap ${amount} of cash into ${asset}`,
+        /** A trade whose token this app has no units for: named, with its dollar value only. */
+        sellPlain: (asset: string) => `Sell ${asset} for cash`,
+        intoPlain: (asset: string) => `Swap cash into ${asset}`,
+        worth: 'Worth',
+        receive: 'Quoted to give',
+        minimum: 'At least',
+        cost: 'Quoted cost',
+        /** A cost in basis points and in dollars: "10 bps" and "$16.02". */
+        costOf: (bps: string, usd: string) => `${bps} bps, about ${usd}`,
+        total: 'Quoted cost of all the trades',
+        slippage: (bps: string) =>
+          `Each minimum is the quote less ${bps} bps. A trade that would give less is not made.`,
+        holdings: 'Your vault before and after',
+        columns: { asset: 'Asset', before: 'Now', after: 'After', target: 'Target' },
+        cash: 'Cash',
+        onTarget: 'Your vault already holds these weights, so following trades nothing.',
+        unavailable: (reason: string) =>
+          `The trades can’t be quoted now: ${reason}. You can still follow, and rebalance from the vault’s page once they can be made.`,
+        noPrice: (assets: string) => `${assets} has no price the vault can trade on`,
+        keeper: 'auto-follow is on, so our keeper makes them',
+        failed:
+          'I couldn’t quote the trades: our server didn’t answer. You can still review the follow.',
+      },
       autoOn: 'Switch auto-follow on',
       autoOff: 'Switch auto-follow off',
       autoIs: (on: boolean): string => (on ? 'Auto-follow is on.' : 'Auto-follow is off.'),
@@ -1676,6 +1710,29 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** The press that trades the vault to the targets it has, and the sentence that offers it. */
+        rebalance: 'Rebalance',
+        offTarget:
+          'What this vault holds is away from its targets, and nothing trades it for you. Rebalance swaps it to them: you see every trade with the least it may give, and sign each step here.',
+        rebalancing: {
+          preparing: 'Working out the trades…',
+          onTarget: 'This vault is at its targets. There is nothing to trade.',
+          keeper:
+            'Auto-follow is on, so our keeper rebalances this vault. Switch auto-follow off to rebalance it yourself.',
+          noPrice: (assets: string) =>
+            `I can’t rebalance now: ${assets} has no price the vault can trade on. Try again in a moment.`,
+          noTargets: 'This vault has no targets yet. Tell the conversation what it should hold.',
+          notYours: 'This vault isn’t one of yours, so I can’t rebalance it.',
+          readOnly: 'This chain only reads for now, so no order can be made.',
+          said: (error: string) => `I couldn’t make the order: ${error}.`,
+          unreachable: 'I couldn’t make the order: our server didn’t answer. Try again.',
+          noStore: 'I couldn’t keep the order in this browser, so I haven’t opened it.',
+          again: 'Try again',
+          reviewTitle: 'What this rebalance trades to',
+          reviewNote:
+            'These are the targets your vault has now. Every step is a swap with its minimum. The targets, and what the vault follows, stay as they are.',
+          cash: (share: string) => `The rest stays in cash: ${share}.`,
+        },
         holdings: 'What it holds',
         /** The bar's leg for the smaller holdings, past the three largest. */
         others: (count: number) => `${count} others`,
@@ -1731,6 +1788,14 @@ export const en = {
               'You approved this withdrawal before this page was opened again. Its steps are where they were.',
             stopped: 'This withdrawal stopped, and its order is kept.',
           },
+          rebalance: {
+            title: 'Rebalance your vault',
+            signTitle: 'Sign your rebalance',
+            lead: 'The steps swap what your vault holds to reach its targets. Nothing else about the vault changes. You sign each step here.',
+            resumed:
+              'You approved this rebalance before this page was opened again. Its steps are where they were.',
+            stopped: 'This rebalance stopped, and its order is kept.',
+          },
           change: {
             title: 'Edit weights by hand',
             signTitle: 'Sign the change to your vault',
@@ -1748,6 +1813,8 @@ export const en = {
             'The conversation waits while this withdrawal is open. Finish it, or go back to your holdings.',
           change:
             'The conversation waits while this change is open. Finish it, or go back to your holdings.',
+          rebalance:
+            'The conversation waits while this rebalance is open. Finish it, or go back to your holdings.',
           signing: 'The conversation waits while the steps are signed.',
           done: 'Go back to your vault to carry on the conversation.',
         },
@@ -2007,6 +2074,11 @@ export const en = {
         'Your wallet is asked to sign only a transaction that publishes exactly this name, description and these weights, under this id.',
       signPublish: 'Sign and publish',
       signFollow: 'Sign and follow',
+      signRebalance: 'Sign and rebalance',
+      /** Under a follow that is done: its targets are set, and the trades to them are the next press. */
+      followDone:
+        'Your vault follows the portfolio now, and has its weights as targets. What it holds hasn’t been traded yet.',
+      followRebalance: 'Rebalance this vault',
       resume: 'Continue',
       withdrawTitle: 'What you withdraw',
       signWithdraw: 'Sign and withdraw',

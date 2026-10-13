@@ -216,6 +216,35 @@ export const withdrawOrder = (
 };
 
 /**
+ * A rebalance to the targets a vault has, as POST /v1/vaults/{chain}/{address}/rebalance answers it:
+ * swaps only, one trade a step on Solana, each with its minimum.
+ */
+export const rebalanceOrder = (
+  trades: { sell: string; buy: string; amountInRaw: string }[] = [
+    { sell: 'solana:usdc', buy: 'solana:paxg', amountInRaw: '16022000000' },
+    { sell: 'solana:usdc', buy: 'solana:syrupusdc', amountInRaw: '3936000000' },
+  ],
+  more: object[] = [],
+) =>
+  order({
+    type: 'rebalance',
+    summary: 'Rebalance your vault on Solana to its targets',
+    legs: [
+      ...trades.map((trade, i) => ({
+        ...leg,
+        id: [LEG_A, LEG_B, LEG_C][i],
+        seq: i,
+        kind: 'swap',
+        trades: [trade],
+        expected: [
+          { inRaw: trade.amountInRaw, outRaw: '1000000', minOutRaw: '990000', costBps: 10 },
+        ],
+      })),
+      ...more,
+    ],
+  });
+
+/**
  * New targets for a vault, as POST /v1/vaults/{chain}/{address}/targets answers a confirm (#191): the
  * step that sets them, then a swap into them.
  */
