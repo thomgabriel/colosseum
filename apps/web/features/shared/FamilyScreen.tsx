@@ -10,7 +10,6 @@ import {
   type VaultView,
   type VersionsResponse,
 } from '@colosseum/schemas';
-import { basketIdOfPlan } from '@colosseum/sdk';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -36,7 +35,7 @@ import type { CallFailure } from '../order/order-api';
 import { keepOrder, type OrderRecord, recallOrders } from '../order/order-record';
 import { AssetMark, PlanView } from '../order/PlanView';
 import { goalLine } from '../order/plain';
-import { networkFor } from '../order/readiness';
+import { basketOfPlan, networkFor } from '../order/readiness';
 import { unpriced, holdingsOf as vaultHoldingsOf } from '../portfolio/portfolio';
 import { goalOfVault } from '../portfolio/vault-goal';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
@@ -373,8 +372,6 @@ function RecipeSection({
                 : null;
   const p = t.shared.product;
   const holdings = holdingsOf(recipe, active.components, t);
-  /** The invest card is on the page: the person is ready on this chain and nothing blocks a buy. */
-  const investing = person.kind === 'ready' && own && !blocked && followed !== null;
   // The person's vaults on this chain, and the follow of one of them: for the card's "Into" and the
   // list under it. Read only where a deposit is offered.
   const mine = useFamilyVaults(
@@ -383,7 +380,6 @@ function RecipeSection({
     recipe,
     followed,
   );
-  const [into, setInto] = useState<string>(INTO_FAMILY);
   const unmeasured = holdings.filter((h) => !h.exit);
   const list = (items: string[]) =>
     new Intl.ListFormat(locale, { type: 'conjunction' }).format(items);
@@ -464,8 +460,8 @@ function RecipeSection({
             {/* Where the version and weights come from, and words that match no version: never
                 folded away (the flow audit, finding 41). */}
             {check.state === 'read' && check.textMatches === null && <TextMark matches={null} />}
-            {/* The invest card says the same line over itself: said once on the page. */}
-            {!investing && <SourceMark check={check} chain={recipe.chain} />}
+            {/* Never folded away, before the deposit or during it: said once, here. */}
+            <SourceMark check={check} chain={recipe.chain} />
           </>
         }
         figures={
@@ -539,12 +535,9 @@ function RecipeSection({
                     recipe={recipe}
                     followed={followed}
                     targets={followed.targets}
-                    check={check}
                     person={person}
                     mock={mock}
                     vaults={mine}
-                    into={into}
-                    onInto={setInto}
                     running={pressed}
                     onRunning={setPressed}
                     onVersionChanged={() => {
@@ -700,14 +693,24 @@ type FamilyVaults = {
   eligible: OwnVault[];
   nameOf: (vault: OwnVault) => string;
   /** A follow order for this vault, kept with its terms, then the order screen. */
-  follow: (vault: VaultView, autoFollow: boolean, accept: boolean) => Promise<void>;
+  follow: (
+    vault: VaultView,
+    autoFollow: boolean,
+    accept: boolean,
+    from?: 'card' | 'list',
+  ) => Promise<void>;
   /** The auto-follow switch an accept asks for. */
   keep: (vault: VaultView) => boolean;
   busy: string | null;
   failure: string | null;
+  /** Where the follow that failed was asked for: the amount card's switch, or the list. */
+  failedFrom: 'card' | 'list';
   /** Our server said the portfolio is another version now: reading it again is offered. */
   changed: boolean;
   clear: () => void;
+  /** The amount card's "Into": dropped with everything else for another person, chain or version. */
+  into: string;
+  setInto: (into: string) => void;
 };
 
 function useFamilyVaults(
@@ -729,6 +732,8 @@ function useFamilyVaults(
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [changed, setChanged] = useState(false);
+  const [failedFrom, setFailedFrom] = useState<'card' | 'list'>('list');
+  const [into, setInto] = useState<string>(INTO_FAMILY);
   // Everything is read again for another person, wallet, chain, portfolio or version.
   const key = person
     ? `${person.userId}:${person.owner}:${person.chain}:${person.mock}:${family.slug}:${recipe.onchainId}:${followed?.follow.version}:${followed?.source}`
@@ -743,6 +748,7 @@ function useFamilyVaults(
     setBusy(null);
     setFailure(null);
     setChanged(false);
+    setInto(INTO_FAMILY);
     if (!person) return;
     let mine = true;
     readPortfolio(apiFetch).then((read) => {
@@ -757,9 +763,15 @@ function useFamilyVaults(
     };
   }, [apiFetch, key]);
 
-  async function follow(vault: VaultView, autoFollow: boolean, accept: boolean) {
+  async function follow(
+    vault: VaultView,
+    autoFollow: boolean,
+    accept: boolean,
+    from: 'card' | 'list' = 'list',
+  ) {
     if (!person || !followed || !person.owner || !person.userId || submitting.current) return;
     submitting.current = true;
+    setFailedFrom(from);
     setBusy(`${vault.address}:${autoFollow}:${accept}`);
     setFailure(null);
     // The plan number the step names has to be the vault's own, as the guard derives it.
@@ -858,18 +870,29 @@ function useFamilyVaults(
     keep: (vault) => vault.autoFollow && offered,
     busy,
     failure,
+    failedFrom,
     changed,
     clear: () => {
       setFailure(null);
       setChanged(false);
     },
+    into,
+    setInto,
   };
 }
 
 /** What a failed follow says, with the way to read the portfolio again where it changed. */
-function FollowFailure({ mine, onReread }: { mine: FamilyVaults; onReread: () => void }) {
+function FollowFailure({
+  mine,
+  from,
+  onReread,
+}: {
+  mine: FamilyVaults;
+  from: 'card' | 'list';
+  onReread: () => void;
+}) {
   const t = useT();
-  if (!mine.failure) return null;
+  if (!mine.failure || mine.failedFrom !== from) return null;
   return (
     <>
       <p
@@ -906,12 +929,9 @@ function FamilyDeposit({
   recipe,
   followed,
   targets,
-  check,
   person,
   mock,
   vaults: mine,
-  into,
-  onInto,
   running,
   onRunning,
   onVersionChanged,
@@ -920,12 +940,9 @@ function FamilyDeposit({
   recipe: SharedRecipe;
   followed: Followed;
   targets: Target[];
-  check: ChainCheck;
   person: Extract<SharedPerson, { kind: 'ready' }>;
   mock: boolean;
   vaults: FamilyVaults;
-  into: string;
-  onInto: (into: string) => void;
   running: boolean;
   onRunning: (running: boolean) => void;
   onVersionChanged: () => void;
@@ -934,11 +951,12 @@ function FamilyDeposit({
   const a = t.amount;
   const chainName = t.chain.names[recipe.chain];
   // The vault a buy of this portfolio adds to, where the person has one: its number is the portfolio's.
-  const ownBasket = basketIdOfPlan(familyIdFor(family.slug));
+  const ownBasket = basketOfPlan(familyIdFor(family.slug));
   const own = Array.isArray(mine.vaults)
     ? mine.vaults.find((vault) => vault.basketId === ownBasket)
     : undefined;
   const switchable = mine.eligible.filter((vault) => vault.basketId !== ownBasket);
+  const { into } = mine;
   const switching = into.startsWith(INTO_SWITCH)
     ? switchable.find((vault) => vault.address === into.slice(INTO_SWITCH.length))
     : undefined;
@@ -953,12 +971,13 @@ function FamilyDeposit({
       })),
     ],
     hint: switching ? a.into.switchHint : own ? a.into.addsHint : a.into.newHint,
-    ...(running
+    // Held while a deposit is signed or a follow is being made: the choice is the one under way.
+    ...(running || mine.busy !== null
       ? {}
       : {
           onChange: (next: string) => {
             mine.clear();
-            onInto(next);
+            mine.setInto(next);
           },
         }),
   };
@@ -967,6 +986,7 @@ function FamilyDeposit({
     return (
       <AmountCard
         mode="deposit"
+        headingLevel={3}
         chain={recipe.chain}
         chainName={chainName}
         provenance={mock ? 'mock' : recipe.provenance}
@@ -990,19 +1010,20 @@ function FamilyDeposit({
             </div>
           ),
         }}
-        notice={<FollowFailure mine={mine} onReread={onVersionChanged} />}
+        notice={<FollowFailure mine={mine} from="card" onReread={onVersionChanged} />}
         action={{
           label: a.review,
           reasons: [],
           busy: mine.busy !== null,
           busyLabel: a.busy,
-          onPress: () => void mine.follow(switching, mine.keep(switching), true),
+          onPress: () => void mine.follow(switching, mine.keep(switching), true, 'card'),
         }}
       />
     );
 
   return (
     <DepositCard
+      headingLevel={3}
       chain={recipe.chain}
       chainName={chainName}
       mock={mock}
@@ -1014,7 +1035,6 @@ function FamilyDeposit({
       keeper
       into={choice}
       blocked={[]}
-      source={<SourceMark check={check} chain={recipe.chain} />}
       running={running}
       flow={(amount, change) => (
         <Invest
@@ -1195,7 +1215,7 @@ function VaultsPanel({
           )}
         </>
       )}
-      <FollowFailure mine={mine} onReread={onReread} />
+      <FollowFailure mine={mine} from="list" onReread={onReread} />
     </section>
   );
 }

@@ -11,7 +11,7 @@ import { Hint } from '../../components/ui/Hint';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import { SkeletonSummary } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
-import { useLang, useT } from '../../i18n/I18nProvider';
+import { useT } from '../../i18n/I18nProvider';
 import type { AmountMode } from '../amount/AmountCard';
 import { DepositCard } from '../amount/DepositCard';
 import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
@@ -68,7 +68,6 @@ export function AddMoneyScreen({
   embedded?: InvestEmbedded & { bare?: boolean; entry?: AddEntry };
 }) {
   const t = useT();
-  const lang = useLang();
   const port = useWalletPort();
   const apiFetch = useApiFetch();
   const { state } = usePortfolio();
@@ -278,7 +277,7 @@ export function AddMoneyScreen({
     />
   );
 
-  // Where the vault's targets were read: over the card while it is wrong, in its details otherwise.
+  // Where the vault's targets were read: over the card, never folded, before the press and after it.
   const sourceLine = owner && (
     <p
       data-ui="source-mark"
@@ -307,6 +306,7 @@ export function AddMoneyScreen({
   // The amount card (gate AMOUNT-CARD): into this vault, its press handing the amount to the card.
   const entry = (
     <DepositCard
+      headingLevel={embedded ? 3 : 2}
       chain={chain}
       chainName={chainName}
       mock={mock}
@@ -325,16 +325,12 @@ export function AddMoneyScreen({
       {...(embedded?.entry?.onMode ? { onMode: embedded.entry.onMode } : {})}
       blocked={blocked}
       notice={
-        <>
-          {alarm && sourceLine}
-          {vault.pending && (
-            <p data-ui="add-newer-version" className="max-w-(--tf-measure-body) text-body-sm">
-              {words.newerVersion(vault.pending.version)}
-            </p>
-          )}
-        </>
+        vault.pending && (
+          <p data-ui="add-newer-version" className="max-w-(--tf-measure-body) text-body-sm">
+            {words.newerVersion(vault.pending.version)}
+          </p>
+        )
       }
-      source={alarm ? undefined : sourceLine}
       running={locked}
       pressed={embedded?.entry?.pressed ?? null}
       fact={embedded?.entry?.fact ?? true}
@@ -387,6 +383,7 @@ export function AddMoneyScreen({
     return (
       <div data-ui="vault-invest" className="flex flex-col gap-3">
         {!embedded.bare && <PlanParts vault={vault} />}
+        {sourceLine}
         {entry}
       </div>
     );
@@ -432,6 +429,7 @@ export function AddMoneyScreen({
           <h2 className="text-h3">{words.strategy}</h2>
           <div className="flex max-w-3xl flex-col gap-3">
             <PlanParts vault={vault} />
+            {sourceLine}
             {held?.keeper && (
               <p data-ui="add-keeper" className="max-w-(--tf-measure-body) text-body-sm">
                 {words.keeper}

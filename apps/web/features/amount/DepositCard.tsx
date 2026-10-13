@@ -66,6 +66,8 @@ export type DepositCardProps = {
    * deposits nothing.
    */
   fact?: boolean;
+  /** The card's title level, under the screen's own heading. */
+  headingLevel?: 2 | 3;
   flow: DepositFlow;
 };
 
@@ -90,6 +92,7 @@ export function DepositCard({
   onPressed,
   pressed: resumed = null,
   fact = true,
+  headingLevel,
   flow,
 }: DepositCardProps) {
   const t = useT();
@@ -100,7 +103,8 @@ export function DepositCard({
   // Taken up after a reload, the deposit is the one its order was made for: no way back to the field.
   const [pressed, setPressed] = useState<number | null>(resumed);
   const takenUp = resumed !== null;
-  const balance = useWalletBalance(owner ? buyOf : null, owner, chain, mock);
+  // Read for the field only: once the amount is pressed, the invest card reads the wallet itself.
+  const balance = useWalletBalance(owner && pressed === null ? buyOf : null, owner, chain, mock);
   const read = balance.kind === 'read' ? balance : null;
   const units = unitsFor(chain, mock);
   const cashAsset = read?.cash.asset ?? units?.cash ?? null;
@@ -237,6 +241,7 @@ export function DepositCard({
     <AmountCard
       mode="deposit"
       onMode={onMode}
+      headingLevel={headingLevel}
       chain={chain}
       chainName={chainName}
       provenance={figures}

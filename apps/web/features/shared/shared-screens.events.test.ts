@@ -189,6 +189,34 @@ const show = async (node: Parameters<typeof withAccount>[1]) => {
 };
 const button = (host: HTMLElement, name: string) =>
   [...host.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.includes(name));
+/**
+ * The amount card's press (gate AMOUNT-CARD): the trust notice ticked where it is asked, then the
+ * button that hands the amount to the invest card.
+ */
+async function pressDeposit(host: HTMLElement) {
+  const box = host.querySelector<HTMLInputElement>(
+    '[data-ui="amount-trust"] input[type="checkbox"]',
+  );
+  if (box && !box.checked) await click(box);
+  await click(find(host, 'button[data-action="amount-deposit"]'));
+}
+/** The amount card's "Into" (gate AMOUNT-CARD), where one of the person's vaults is chosen. */
+const intoSelect = (host: HTMLElement) =>
+  host.querySelector<HTMLSelectElement>('[data-ui="amount-into"] select');
+const intoOptions = (host: HTMLElement) =>
+  [...(intoSelect(host)?.options ?? [])].map((option) => option.textContent);
+/** Chooses the option whose words include `label`, as a person picks it. */
+async function chooseInto(host: HTMLElement, label: string) {
+  const select = intoSelect(host);
+  const option = [...(select?.options ?? [])].find((o) => o.textContent?.includes(label));
+  if (!select || !option)
+    throw new Error(`no “${label}” in Into: ${intoOptions(host).join(' | ')}`);
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+  await act(async () => {
+    setter?.call(select, option.value);
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -395,12 +423,16 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     expect(host.querySelector('[data-ui="my-vault"]')).toBeNull();
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-    const mine = find(host, '[data-ui="my-vault"]');
-    expect(find(mine, 'h3').textContent).toBe('Grow $40,000 over 36 months.');
-    expect(find(mine, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}`);
-    expect(mine.textContent).toContain(en.shared.vaults.ownPlan);
-    expect(mine.textContent).not.toContain('something else');
+    // offered in the amount card's "Into", by the goal it was bought from, as a switch
+    expect(intoOptions(host)).toEqual([
+      en.amount.into.newVault,
+      en.amount.into.other('Grow $40,000 over 36 months.'),
+    ]);
+    await chooseInto(host, 'Grow $40,000');
+    expect(find(host, '[data-ui="review-follow"]').textContent).toContain(
+      en.amount.preview.switch('Grow $40,000 over 36 months.', familyOf(FAMILY_ID).name, 2),
+    );
+    expect(host.textContent).not.toContain('something else');
   });
 
   it.each(['en', 'pt'] as const)(
@@ -528,30 +560,29 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       });
       const host = await mount(withAccount(lang, createElement(FamilyScreen, { slug: SLUG })));
       for (let i = 0; i < 4; i += 1) await settle(50);
+      // the one that follows is in the list; the others are in the card's "Into" only
       expect(host.querySelectorAll('[data-ui="my-vault"]')).toHaveLength(1);
-      expect(host.textContent).not.toContain('Trip fund');
       const panel = find(host, '[data-ui="my-vault"]').closest('section');
       expect(panel?.getAttribute('data-ui')).not.toBe('card');
-      await click(button(host, t.shared.vaults.useExisting) as HTMLElement);
-      const cards = [...host.querySelectorAll<HTMLElement>('[data-ui="my-vault"]')];
-      expect(cards).toHaveLength(3);
-      expect(find(cards[1], 'h3').textContent).toBe('Trip fund');
-      for (const card of cards) {
-        expect(find(card, 'a').textContent).toBe(t.shared.vaults.open);
-        expect(find(card, '[data-ui="chain-badge"]').textContent).toBe('Solana');
-      }
-      await click(button(cards[1], t.shared.vaults.choose) as HTMLElement);
-      expect(button(cards[1], t.shared.vaults.selected)?.getAttribute('aria-pressed')).toBe('true');
-      await click(button(cards[2], t.shared.vaults.choose) as HTMLElement);
-      expect(button(cards[1], t.shared.vaults.choose)?.getAttribute('aria-pressed')).toBe('false');
+      expect(panel?.textContent).not.toContain('Trip fund');
+      expect(intoOptions(host)).toEqual([
+        t.amount.into.newVault,
+        t.amount.into.other('Trip fund'),
+        t.amount.into.other('Long term'),
+      ]);
+      await chooseInto(host, 'Trip fund');
+      await chooseInto(host, 'Long term');
       expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
       expect(host.querySelectorAll('[data-ui="review-follow"]')).toHaveLength(1);
       const review = find(host, '[data-ui="review-follow"]');
       expect(review.textContent).toContain(
-        t.shared.vaults.reviewTarget('Long term', familyOf(FAMILY_ID).name, 2),
+        t.amount.preview.switch('Long term', familyOf(FAMILY_ID).name, 2),
       );
-      expect(host.textContent?.split(t.shared.vaults.followNote)).toHaveLength(2);
-      await click(button(review, t.shared.vaults.reviewFollow) as HTMLElement);
+      // a switch moves no money: no amount, no trust notice, and the one button reviews it
+      expect(host.querySelector('[data-ui="amount-well"]')).toBeNull();
+      expect(host.querySelector('[data-ui="amount-trust"]')).toBeNull();
+      expect(host.textContent?.split(t.amount.into.switchHint)).toHaveLength(2);
+      await click(button(host, t.amount.review) as HTMLElement);
       await settle(50);
       expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(1);
       expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({
@@ -571,19 +602,18 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     },
   );
 
-  it('closing and reopening the chooser drops its selection without placing an order', async () => {
+  it('choosing a new vault again drops the switch without placing an order', async () => {
     const calls = api({
       family: familyOf(FAMILY_ID),
       vaults: [vaultOf({ address: MY_VAULT, recipeOnchainId: null })],
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-    await click(button(host, en.shared.vaults.choose) as HTMLElement);
+    await chooseInto(host, en.amount.into.other(''));
     expect(host.querySelector('[data-ui="review-follow"]')).not.toBeNull();
-    await click(button(host, en.shared.vaults.closeChooser) as HTMLElement);
+    await chooseInto(host, en.amount.into.newVault);
     expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-    expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
+    // back to the deposit into a new vault
+    expect(host.querySelector('[data-ui="amount-well"]')).not.toBeNull();
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
   });
 
@@ -605,14 +635,12 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       },
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-    await click(button(host, en.shared.vaults.choose) as HTMLElement);
-    const review = button(host, en.shared.vaults.reviewFollow) as HTMLElement;
+    await chooseInto(host, en.amount.into.other(''));
+    const review = find(host, 'button[data-action="amount-deposit"]');
     await click(review);
-    const other = button(host, en.shared.vaults.choose) as HTMLElement;
-    expect(other.getAttribute('aria-disabled')).toBe('true');
-    expect(button(host, en.shared.vaults.closeChooser)?.getAttribute('aria-disabled')).toBe('true');
-    await click(other);
+    // while it is made, the choice is held: no other vault can be chosen
+    expect(intoSelect(host)).toBeNull();
+    expect(review.getAttribute('aria-disabled')).toBe('true');
     await click(review);
     expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(1);
     expect(calls.find((c) => c.path === '/v1/orders')?.body?.vault).toBe(MY_VAULT);
@@ -621,7 +649,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
   });
 
-  it('drops the chooser, selection and refusal when the account changes, including while its vault read waits', async () => {
+  it('drops the choice and the refusal when the account changes, including while its vault read waits', async () => {
     let paused = false;
     let release!: (response: Response) => void;
     const waiting = new Promise<Response>((resolve) => {
@@ -647,9 +675,8 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       portfolio: () => (paused ? waiting : Promise.resolve(response())),
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-    await click(button(host, en.shared.vaults.choose) as HTMLElement);
-    await click(button(host, en.shared.vaults.reviewFollow) as HTMLElement);
+    await chooseInto(host, en.amount.into.other(''));
+    await click(button(host, en.amount.review) as HTMLElement);
     expect(find(host, '[role="alert"]').textContent).toContain(en.order.mismatch.shape);
     paused = true;
     await act(async () => {
@@ -661,8 +688,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(host.querySelector('[role="alert"]')).toBeNull();
     release(response());
     await settle(50);
-    expect(button(host, en.shared.vaults.useExisting)).toBeDefined();
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
+    expect(intoOptions(host)).toHaveLength(2);
     expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
   });
@@ -705,9 +731,8 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
           createElement(SwitchChain),
         ),
       );
-      await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-      await click(button(host, en.shared.vaults.choose) as HTMLElement);
-      await click(button(host, en.shared.vaults.reviewFollow) as HTMLElement);
+      await chooseInto(host, en.amount.into.other(''));
+      await click(button(host, en.amount.review) as HTMLElement);
       expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(1);
       if (context === 'account') {
         await act(async () => {
@@ -865,10 +890,9 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       vaults: [vaultOf({ address: MY_VAULT, basketId: '43', recipeOnchainId: null })],
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
-    await click(button(host, en.shared.vaults.choose) as HTMLElement);
+    await chooseInto(host, en.amount.into.other(''));
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
-    await click(button(host, en.shared.vaults.reviewFollow) as HTMLElement);
+    await click(button(host, en.amount.review) as HTMLElement);
     await settle(50);
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
     expect(find(host, '[role="alert"]').textContent).toContain(en.order.mismatch.shape);
@@ -983,6 +1007,7 @@ describe('buying a portfolio, which follows it', () => {
     const host = await mount(withAccount(lang, createElement(FamilyBuyScreen, { slug: SLUG })));
     for (let i = 0; i < 4; i += 1) await settle(50);
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    await pressDeposit(host);
     await settle(400);
     await settle(1050);
     await settle(50);
@@ -1041,7 +1066,8 @@ describe('buying a portfolio, which follows it', () => {
     const calls = api({ family: familyOf(FAMILY_ID), order: () => familyBuyOrder(), funded: true });
     const host = await show(createElement(FamilyBuyScreen, { slug: SLUG }));
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
-    // the wallet is read, then the order is made for the card: no press, and no other page
+    await pressDeposit(host);
+    // the wallet is read, then the order is made for the card: no other press, and no other page
     await settle(400);
     await settle(1050);
     await settle(50);
@@ -1075,6 +1101,7 @@ describe('buying on the chain of the recipe chosen (gate CHAIN-AT-THE-PLAN)', ()
   const buy = async (node: Parameters<typeof show>[0]) => {
     const host = await show(node);
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    await pressDeposit(host);
     await settle(400);
     await settle(1050);
     await settle(50);
@@ -1114,7 +1141,9 @@ describe('buying on the chain of the recipe chosen (gate CHAIN-AT-THE-PLAN)', ()
       ['robinhood', false],
     ]);
     await click(radios[1] as HTMLElement);
+    await settle(50);
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    await pressDeposit(host);
     await settle(400);
     await settle(1050);
     await settle(50);
@@ -1201,9 +1230,9 @@ describe('the trust notice on a buy the keeper may trade', () => {
         ...(keeperShown === undefined ? {} : { keeperShown }),
       }),
     );
-  /** The notice as it is asked: with its box to tick, on the card. */
+  /** The notice as it is asked: with its box to tick, on the amount card. */
   const trustStep = (host: HTMLElement) =>
-    host.querySelector('[data-ui="invest-card"] [data-ui="trust-notice"] input[type="checkbox"]');
+    host.querySelector('[data-ui="amount-trust"] [data-ui="trust-notice"] input[type="checkbox"]');
 
   it('shows the keeper’s limits among its short points', async () => {
     api({ family: familyOf(FAMILY_ID), funded: true });

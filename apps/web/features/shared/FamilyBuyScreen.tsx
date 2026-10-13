@@ -36,7 +36,7 @@ import { useSharedPerson } from './use-person';
 // trust notice the first time, and the order as our server made it with the button that names the
 // amount. The version and the weights the buy is held to are the chain's where this app read them,
 // and our server's, said to be unverified, where it could not (chain-recipe.ts). With `embedded`,
-// another screen gives the amount and mounts the card with its source line alone.
+// another screen gives the amount and says where the version and weights were read.
 
 /** The recipe and terms already shown by a product page; a buy must not replace them with a reread. */
 export type FamilyBuySnapshot = {
@@ -258,8 +258,8 @@ export function FamilyBuyScreen({
   );
   if (embedded)
     return (
+      // the host says where the version and weights were read, over the amount card
       <div data-ui="family-invest" className="flex flex-col gap-3">
-        <SourceMark check={check} chain={chain} />
         {cardFor(embedded.amount, embedded.onAmount)}
       </div>
     );
@@ -272,6 +272,7 @@ export function FamilyBuyScreen({
           {family.name}
         </p>
         <p className="max-w-(--tf-measure-body) text-body-lg">{t.shared.buy.lead(chainName)}</p>
+        <SourceMark check={check} chain={chain} />
       </header>
 
       {usable.length > 1 && !locked && (
@@ -314,7 +315,6 @@ export function FamilyBuyScreen({
           options: [{ value: 'family', label: t.amount.into.newVault }],
         }}
         blocked={blocked}
-        source={<SourceMark check={check} chain={chain} />}
         initialText="100"
         running={locked}
         flow={(amount, change) => cardFor(amount, change)}

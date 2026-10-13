@@ -104,6 +104,8 @@ export type AmountCardProps = {
   };
   /** The person pressed and the order is under way: nothing on the card changes. */
   locked?: boolean;
+  /** The card's title where it has no Deposit | Withdraw: a level under the screen's own heading. */
+  headingLevel?: 2 | 3;
   className?: string;
 };
 
@@ -122,8 +124,10 @@ export function AmountCard({
   trust,
   action,
   locked = false,
+  headingLevel = 2,
   className,
 }: AmountCardProps) {
+  const Title = headingLevel === 3 ? 'h3' : 'h2';
   const t = useT();
   const a = t.amount;
   const titleId = useId();
@@ -214,9 +218,9 @@ export function AmountCard({
                 ))}
               </fieldset>
             ) : (
-              <h2 id={titleId} className="font-display text-h4 font-semibold">
+              <Title id={titleId} className="font-display text-h4 font-semibold">
                 {a.modes[mode]}
-              </h2>
+              </Title>
             )}
             {provenance === 'sandbox' && (
               // A test network's figures are real reads, not samples: one tag says where they are

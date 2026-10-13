@@ -221,8 +221,9 @@ describe('an add, held to the vault’s targets as this app reads them from the 
     const orders = api();
     const host = await ready(MY_VAULT, false);
     expect(NODE.asked).toContainEqual({ method: 'getAccountInfo', address: MY_VAULT });
-    // read from the chain and the same: said in the amount card's details
-    const mark = find(host, '[data-ui="amount-details"] [data-ui="source-mark"]');
+    // read from the chain and the same: said over the amount card, never folded away
+    const mark = find(host, '[data-ui="source-mark"]');
+    expect(mark.closest('details')).toBeNull();
     expect(mark.getAttribute('data-source')).toBe('chain');
     expect(mark.textContent).toContain(en.shared.check.verified);
     expect(mark.textContent).toContain(en.portfolio.add.source.read('Solana'));
