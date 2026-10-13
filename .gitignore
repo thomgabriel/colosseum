@@ -40,7 +40,8 @@ try/out/
 # Test-network keys belong outside the checkout (scripts/testnet/make-faucet-keys.ts refuses to write in it).
 testnet-keys/
 
-# The analytics prototype's offline copy of the risk API: capture.mjs writes it, and it stays local
+# The analytics prototype's offline copy of the risk API: capture.mjs writes it, and it stays local.
+# The answers the Bearing tests and the e2e stub read are cut from it into fixtures/risk/analytics.
 .design/branding/working-brand/patterns/prototypes/assets/analytics/snapshot/
 .design/branding/working-brand/patterns/prototypes/assets/analytics/manifest.json
 # Scratch folders, local tool state and logs

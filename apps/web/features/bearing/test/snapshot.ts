@@ -3,12 +3,10 @@ import { join } from 'node:path';
 import type { Reader, Res } from '../data';
 
 // A reader of Rodrigo's recording of the risk API (the snapshot his Analytics 2.0 prototype falls back
-// to), for the tests: the same answers the e2e stub serves (tests/e2e/stub-risk.ts). A fixture only.
+// to), for the tests: the same answers the e2e stub serves (tests/e2e/stub-risk.ts). A fixture only:
+// the answers these tests and the e2e read, cut from the recording into fixtures/risk/analytics.
 
-const DIR = join(
-  import.meta.dirname,
-  '../../../../../.design/branding/working-brand/patterns/prototypes/assets/analytics',
-);
+const DIR = join(import.meta.dirname, '../../../../../fixtures/risk/analytics');
 type Manifest = { captured_at: string; files: Record<string, string> };
 export const manifest = JSON.parse(readFileSync(join(DIR, 'manifest.json'), 'utf8')) as Manifest;
 export const CAPTURED = Date.parse(manifest.captured_at);
