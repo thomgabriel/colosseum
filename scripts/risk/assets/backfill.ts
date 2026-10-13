@@ -1051,21 +1051,37 @@ async function solanaPieces(inp: {
       continue;
     }
     inp.guard({ nextBytes: inp.written.largest, writtenBytes: inp.written.bytes });
-    const r = await fetchWindow({
-      // one endpoint for the whole window: its walk pages with `before` (stickyRpc)
-      rpc: stickyRpc() as never,
-      out: join(OUT, 'solana'),
-      kind: inp.kind,
-      address: inp.address,
-      ...(inp.p ? { pool: inp.p } : {}),
-      from: piece.from,
-      to: piece.to,
-      parallel: Number(opt('--parallel') ?? 32),
-      ...(inp.perHour ? { perHour: inp.perHour } : {}),
-      ...(before ? { startBefore: before } : {}),
-      source: `Solana RPC getSignaturesForAddress and getTransaction (${BACKFILL_ENDPOINTS.solana ?? (process.env.SOLANA_RPC_URL ? 'SOLANA_RPC_URL' : 'public')})${inp.p ? `, decoded by @colosseum/risk's ${inp.p.venue} decoder` : ''}`,
-      now: () => new Date(),
-    });
+    // a window the endpoint fails (an error the RPC helper does not retry, such as a node's own memory limit) is
+    // logged and left uncovered for the next run; it never ends the run (found 2026-10-13)
+    let r: Awaited<ReturnType<typeof fetchWindow>>;
+    try {
+      r = await fetchWindow({
+        // one endpoint for the whole window: its walk pages with `before` (stickyRpc)
+        rpc: stickyRpc() as never,
+        out: join(OUT, 'solana'),
+        kind: inp.kind,
+        address: inp.address,
+        ...(inp.p ? { pool: inp.p } : {}),
+        from: piece.from,
+        to: piece.to,
+        parallel: Number(opt('--parallel') ?? 32),
+        ...(inp.perHour ? { perHour: inp.perHour } : {}),
+        ...(before ? { startBefore: before } : {}),
+        source: `Solana RPC getSignaturesForAddress and getTransaction (${BACKFILL_ENDPOINTS.solana ?? (process.env.SOLANA_RPC_URL ? 'SOLANA_RPC_URL' : 'public')})${inp.p ? `, decoded by @colosseum/risk's ${inp.p.venue} decoder` : ''}`,
+        now: () => new Date(),
+      });
+    } catch (e) {
+      log({
+        event: 'window_failed',
+        address: inp.address,
+        from: new Date(piece.from * 1000).toISOString(),
+        error: (e instanceof Error ? e.message : String(e))
+          .replace(/https?:\/\/\S+/g, '<url>')
+          .slice(0, 300),
+      });
+      before = undefined;
+      continue;
+    }
     before = r.lastSignature ?? before;
     inp.written.bytes += r.gzBytes;
     inp.written.largest = Math.max(inp.written.largest, r.gzBytes);
