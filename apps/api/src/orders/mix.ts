@@ -32,6 +32,7 @@ import {
   ORDER_LIMITS,
   type Order,
   OWNER_REBALANCE_BAND_BPS,
+  OWNER_REBALANCE_MIN_TRADE_USD,
   outsideOwnerBand,
   type Price,
   type RebalanceQuoteResponse,
@@ -612,13 +613,24 @@ async function expectedHeld(
     } catch (e) {
       // Larger than the network's largest trade of the asset (`maxTradeUsd`): the same plan is
       // refused every time, so this is said as it is, and not as something to try again.
-      if (e instanceof ChainError && e.code === 'BadTrade' && /at a time/.test(e.message))
+      if (e instanceof ChainError && e.code === 'TradeOverAssetLimit')
         throw new Refusal(
           422,
           `this rebalance needs a trade of ${symbol(assetOf(t))} larger than ${entry.config.name} takes in one go`,
           {
             fix: 'Rebalance by hand in smaller steps, or wait for the limit to rise.',
             details: { retryable: false, issues: [`TRADE_TOO_LARGE:${assetOf(t)}`] },
+          },
+        );
+      // Over the smaller limit while the reference price is not live (a closed market): the same
+      // trade passes once it is.
+      if (e instanceof ChainError && e.code === 'TradeOverClosedLimit')
+        throw new Refusal(
+          409,
+          `${symbol(assetOf(t))}'s market is closed, and a trade this size waits until it opens`,
+          {
+            fix: 'Rebalance again once the market is open.',
+            details: { retryable: true, issues: [`TRADE_WAITS_FOR_OPEN:${assetOf(t)}`] },
           },
         );
       throw e;
@@ -730,7 +742,7 @@ export async function planRetarget(
       // a rebalance makes no trade smaller than the smallest line a plan holds
       {
         bandBps: a.keepTargets ? OWNER_REBALANCE_BAND_BPS : 0,
-        minTradeUsd: a.keepTargets ? PERSONAL_PARAMS.minLineUsd : 1,
+        minTradeUsd: a.keepTargets ? OWNER_REBALANCE_MIN_TRADE_USD : 1,
         costBps: a.slippageBps,
       },
       ctx.assets,

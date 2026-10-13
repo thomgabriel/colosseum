@@ -1526,7 +1526,9 @@ export const pt: Dictionary = {
           cannot: (why: string) => `Não consigo rebalancear agora: ${why}.`,
           why: {
             tooLarge: (asset: string, chain: string) =>
-              `é preciso uma troca de ${asset} maior do que ${chain} aceita de uma vez. Rebalanceie à mão em passos menores com "Editar pesos à mão"`,
+              `é preciso uma troca de ${asset} maior do que ${chain} aceita de uma vez`,
+            waitsForOpen: (asset: string) =>
+              `o mercado de ${asset} está fechado, e trocas deste tamanho esperam até ele abrir`,
             overLimit: 'negociaria mais do que uma ordem pode mover',
             priceBound: (asset: string) =>
               `o pool de ${asset} está longe demais do preço de referência`,

@@ -1075,6 +1075,8 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
         'RouterFailed',
         'Expired',
         'Unavailable',
+        // The smaller limit of a closed market lifts once the reference price is live again.
+        'TradeOverClosedLimit',
       ].sort(),
     );
     for (const code of ChainErrorCode.options)

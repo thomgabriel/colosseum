@@ -1205,6 +1205,19 @@ describe('a vault away from its targets is offered one press that trades it to t
         }),
       ),
     ).toBe(false);
+    // outside the band, but every trade it would take is under the smallest a rebalance makes: the
+    // server answers on_target, so the page offers nothing
+    const small = (valueUsd: string) =>
+      followed({
+        valueUsd,
+        positions: [
+          position(JL, '1', '1', '1', 4_800, 5_000),
+          position(SYRUP, '1', '1', '1', 3_000, 3_000),
+          position(PAXG, '1', '1', '1', 2_000, 2_000),
+        ] as VaultView['positions'],
+      });
+    expect(offTarget(small('200'))).toBe(false);
+    expect(offTarget(small('1000'))).toBe(true);
     // a holding with no price: the shares are not known
     expect(
       offTarget(
@@ -1396,6 +1409,34 @@ describe('a vault away from its targets is offered one press that trades it to t
       expect(pane(host).textContent).toContain(r.cannot(r.why.tooLarge('PAXG', 'Solana')));
       expect(pane(host).textContent).not.toContain('this rebalance needs');
       expect(pane(host).querySelector('[data-action="rebalance-again"]')).toBeNull();
+      await unmountAll();
+    }
+  });
+
+  it('says a trade that waits for its market to open as such, with Try again, and gives no advice that ends the follow', async () => {
+    const refusal = () =>
+      json(
+        {
+          error: "PAXG's market is closed, and a trade this size waits until it opens",
+          details: { retryable: true, issues: ['TRADE_WAITS_FOR_OPEN:solana:paxg'] },
+        },
+        409,
+      );
+    for (const lang of ['en', 'pt'] as const) {
+      const t = dictionary(lang);
+      serving(refusal);
+      const host = await mount(
+        withAccount(lang, createElement(VaultScreen, { chain: 'solana', address: MY_VAULT })),
+      );
+      for (let i = 0; i < 4; i += 1) await settle(30);
+      await click(find(host, '[data-action="vault-rebalance"]'));
+      for (let i = 0; i < 4; i += 1) await settle(30);
+      const r = t.shared.vault.page.rebalancing;
+      expect(pane(host).textContent).toContain(r.cannot(r.why.waitsForOpen('PAXG')));
+      expect(pane(host).querySelector('[data-action="rebalance-again"]')).not.toBeNull();
+      // neither refusal points at new weights, which would end the follow
+      for (const why of [r.why.waitsForOpen('PAXG'), r.why.tooLarge('PAXG', 'Solana')])
+        expect(why).not.toContain(t.shared.vault.page.editWeights);
       await unmountAll();
     }
   });

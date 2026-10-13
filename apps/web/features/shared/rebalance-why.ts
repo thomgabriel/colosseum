@@ -20,6 +20,8 @@ export function rebalanceWhy(
   const large = first('TRADE_TOO_LARGE');
   if (large) return { why: w.tooLarge(name(large), t.chain.names[chain]), again: false };
   if (issues.includes('OVER_ORDER_LIMIT')) return { why: w.overLimit, again: false };
+  const waits = first('TRADE_WAITS_FOR_OPEN');
+  if (waits) return { why: w.waitsForOpen(name(waits)), again: true };
   if (issues.includes('AUTO_FOLLOW_ON')) return { why: w.keeper, again: false };
   if (issues.includes('NO_TARGETS')) return { why: w.noTargets, again: false };
   const unpriced = of('NO_PRICE');

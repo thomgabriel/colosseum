@@ -1,5 +1,6 @@
 import { mockRecipeId } from '@colosseum/chain-mock';
 import type { Db } from '@colosseum/db';
+import { PERSONAL_PARAMS } from '@colosseum/engine/personal';
 import {
   AcceptGoalMixResponse,
   type Address,
@@ -10,6 +11,7 @@ import {
   type IntentRequest,
   type Order,
   OrderError,
+  OWNER_REBALANCE_MIN_TRADE_USD,
   OWNER_REBALANCE_SLIPPAGE_BPS,
   parseChainConfigs,
   parseFlags,
@@ -1215,6 +1217,8 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
 
   it('offers a rebalance with the slippage the server makes it with', () => {
     expect(ORDER_POLICY.slippageBps).toBe(OWNER_REBALANCE_SLIPPAGE_BPS);
+    // and makes no trade smaller than the smallest line a plan holds
+    expect(PERSONAL_PARAMS.minLineUsd).toBe(OWNER_REBALANCE_MIN_TRADE_USD);
   });
 
   describe('the review of #265', () => {
@@ -1366,53 +1370,62 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
     });
   });
 
-  it('says a trade larger than the network takes in one go, with no retry, in the order and in the quote', async () => {
-    const s = await setup();
-    const entry = s.chains.get('robinhood');
-    const mock = entry.mock;
-    if (!mock) throw new Error('the test chain is the mock');
-    const owner = s.evmOnly.evm as Address;
-    mock.fund(owner, { gasRaw: '1000000000000000000', assets: { 'robinhood:usdc': '1000000000' } });
-    await mock.send(
-      await entry.adapter.buildApprove({ owner, basketId: '32', amountRaw: '1000000000' }),
-    );
-    await mock.send(
-      await entry.adapter.buildCreateVault({
-        owner,
-        basketId: '32',
-        targets: [
-          { asset: 'robinhood:spy', weightBps: 5000 },
-          { asset: 'robinhood:nvda', weightBps: 5000 },
-        ],
-        autoFollow: false,
-        depositRaw: '1000000000',
-        trades: [{ sell: 'robinhood:usdc', buy: 'robinhood:spy', amountInRaw: '1000000000' }],
-        slippageBps: 100,
-      }),
-    );
-    const [vault] = await entry.adapter.getVaults(owner);
-    if (!vault) throw new Error('no vault');
-    const quote = entry.adapter.quote.bind(entry.adapter);
-    vi.spyOn(entry.adapter, 'quote').mockImplementation(async (trade, taker) => {
-      if (trade.sell === 'robinhood:spy')
-        throw new ChainError(
-          'BadTrade',
-          '$495.00 of SPY in one go is more than its pool is trusted to fill: at most $100.00 at a time. Trade less, or in parts',
-        );
-      return quote(trade, taker);
-    });
-    const url = `/v1/vaults/robinhood/${vault.address}/rebalance`;
-    const res = await s.post(url, {}, s.evmOnly);
-    expect(res.statusCode, res.body).toBe(422);
-    expect(OrderError.parse(res.json()).details).toMatchObject({
-      retryable: false,
-      issues: ['TRADE_TOO_LARGE:robinhood:spy'],
-    });
-    expect(s.store.saveOrder).not.toHaveBeenCalled();
-    const quoted = RebalanceQuoteResponse.parse(
-      (await s.post(`${url}/quote`, {}, s.evmOnly)).json(),
-    );
-    expect(quoted.status).toBe('unavailable');
-    expect(quoted.unavailable?.issues).toEqual(['TRADE_TOO_LARGE:robinhood:spy']);
-  });
+  it.each([
+    ['TradeOverAssetLimit', 422, false, 'TRADE_TOO_LARGE'],
+    ['TradeOverClosedLimit', 409, true, 'TRADE_WAITS_FOR_OPEN'],
+  ] as const)(
+    "says a trade over the network's limit (%s) by its code: for good where it is the asset's, until the market opens where it is the closed market's",
+    async (code, status, retryable, issue) => {
+      const s = await setup();
+      const entry = s.chains.get('robinhood');
+      const mock = entry.mock;
+      if (!mock) throw new Error('the test chain is the mock');
+      const owner = s.evmOnly.evm as Address;
+      mock.fund(owner, {
+        gasRaw: '1000000000000000000',
+        assets: { 'robinhood:usdc': '1000000000' },
+      });
+      await mock.send(
+        await entry.adapter.buildApprove({ owner, basketId: '32', amountRaw: '1000000000' }),
+      );
+      await mock.send(
+        await entry.adapter.buildCreateVault({
+          owner,
+          basketId: '32',
+          targets: [
+            { asset: 'robinhood:spy', weightBps: 5000 },
+            { asset: 'robinhood:nvda', weightBps: 5000 },
+          ],
+          autoFollow: false,
+          depositRaw: '1000000000',
+          trades: [{ sell: 'robinhood:usdc', buy: 'robinhood:spy', amountInRaw: '1000000000' }],
+          slippageBps: 100,
+        }),
+      );
+      const [vault] = await entry.adapter.getVaults(owner);
+      if (!vault) throw new Error('no vault');
+      const quote = entry.adapter.quote.bind(entry.adapter);
+      vi.spyOn(entry.adapter, 'quote').mockImplementation(async (trade, taker) => {
+        if (trade.sell === 'robinhood:spy')
+          throw new ChainError(
+            code,
+            "$495.00 of SPY in one go is more than is traded while SPY's market is closed: at most $100.00 at a time. Trade less, or in parts",
+          );
+        return quote(trade, taker);
+      });
+      const url = `/v1/vaults/robinhood/${vault.address}/rebalance`;
+      const res = await s.post(url, {}, s.evmOnly);
+      expect(res.statusCode, res.body).toBe(status);
+      expect(OrderError.parse(res.json()).details).toMatchObject({
+        retryable,
+        issues: [`${issue}:robinhood:spy`],
+      });
+      expect(s.store.saveOrder).not.toHaveBeenCalled();
+      const quoted = RebalanceQuoteResponse.parse(
+        (await s.post(`${url}/quote`, {}, s.evmOnly)).json(),
+      );
+      expect(quoted.status).toBe('unavailable');
+      expect(quoted.unavailable?.issues).toEqual([`${issue}:robinhood:spy`]);
+    },
+  );
 });

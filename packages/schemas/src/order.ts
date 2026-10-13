@@ -272,6 +272,34 @@ export const OWNER_REBALANCE_BAND_BPS = 50;
 export const OWNER_REBALANCE_SLIPPAGE_BPS = 100;
 
 /**
+ * The smallest trade a rebalance makes, in dollars: the smallest line a plan holds
+ * (`PERSONAL_PARAMS.minLineUsd` in packages/engine, held equal to this by a test in apps/api). A
+ * vault whose every trade would be smaller is answered `on_target`, and its page offers nothing.
+ */
+export const OWNER_REBALANCE_MIN_TRADE_USD = 5;
+
+/**
+ * Whether a vault's page offers its owner a rebalance: outside the band (`outsideOwnerBand`), and at
+ * least one asset far enough from its target, in dollars, for a trade of
+ * `OWNER_REBALANCE_MIN_TRADE_USD` after the slippage the purchases keep. The server plans the trades
+ * when asked and may still find none; this is the same rule read from the vault's shares and value.
+ */
+export function ownerRebalanceOffered(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+  valueUsd: number,
+): boolean {
+  if (!outsideOwnerBand(rows, cashOverBps, slippageBps)) return false;
+  const usable = 1 - slippageBps / 10_000;
+  return rows.some(
+    (r) =>
+      (Math.abs(r.targetBps - r.weightBps) / 10_000) * valueUsd * usable >=
+      OWNER_REBALANCE_MIN_TRADE_USD,
+  );
+}
+
+/**
  * Whether a vault is far enough from its targets to be offered, and ordered, a rebalance by its owner.
  * `rows`: every asset held or targeted, but cash, each with its share of the vault now; `cashOverBps`:
  * the cash's share less what the targets leave it. A rebalance's purchases are sized so that every
