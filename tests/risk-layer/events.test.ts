@@ -15,7 +15,8 @@ import {
 } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
 
-// Step 5b — event decoders on frozen mainnet transactions (fixtures/risk/txs, fetched 2026-10-01).
+// Step 5b — event decoders on frozen mainnet transactions (fixtures/risk/txs, fetched 2026-10-01; the Raydium AMM
+// v4, Meteora DAMM v1 and v2 and PumpSwap ones 2026-10-13, ASSET-3, worked by hand in asset-venues.test.ts).
 type Fx = {
   venue: string;
   label: string;
@@ -42,7 +43,17 @@ function vaultFlow(e: PoolEvent): [bigint, bigint] {
 describe('pool event decoders (live transactions)', () => {
   it('has fixtures for every decoded venue', () => {
     const venues = new Set(fixtures.map((f) => f.venue));
-    for (const v of ['raydium_clmm', 'orca_whirlpool', 'raydium_cpmm', 'meteora_dlmm'])
+    for (const v of [
+      'raydium_clmm',
+      'orca_whirlpool',
+      'raydium_cpmm',
+      'meteora_dlmm',
+      // ASSET-3, frozen 2026-10-13
+      'raydium_amm_v4',
+      'meteora_damm_v1',
+      'meteora_damm_v2',
+      'pumpswap',
+    ])
       expect(venues).toContain(v);
   });
   for (const fx of fixtures)

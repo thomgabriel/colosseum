@@ -13,7 +13,7 @@ import { sql } from 'drizzle-orm';
 import { MINTS, nowIso, sleep } from '../../lib';
 import type { RegistryPool } from '../lib-history';
 import { getMultiple, rpc, rpcStats } from '../lib-pools';
-import { confirmPool, mintInfos } from '../lib-venues';
+import { ALL_VENUES, confirmPool, mintInfos, VENUES } from '../lib-venues';
 import {
   assignPools,
   type DsPair,
@@ -182,7 +182,7 @@ for (let round = 0; round < 6; round++) {
   if (!toCheck.length) break;
   const accs = await getMultiple(toCheck.map((c) => c.p.address));
   for (const [i, { token, p }] of toCheck.entries()) {
-    const c = confirmPool(accs[i] ?? null, { expected: p.venue, mint: token });
+    const c = confirmPool(accs[i] ?? null, { expected: p.venue, mint: token, venues: ALL_VENUES });
     if (c.ok) confirmed.set(`${token}:${p.address}`, c);
     else {
       rejected.set(token, new Set([...(rejected.get(token) ?? []), p.address]));
@@ -235,6 +235,8 @@ type ShelfRegistryPool = RegistryPool & {
   fetchedAt: string;
   confirmedAt: string;
   provenance: 'live';
+  /** Meteora DAMM v1 only: vault0/vault1 hold the dynamic vaults' LP token, not the pool's tokens (lib-venues.ts). */
+  vaultsHold?: { kind: 'dynamic_vault_lp'; aVault: string; bVault: string };
 };
 const pools: ShelfRegistryPool[] = owned.map(({ token, p }) => {
   const c = confirmed.get(`${token}:${p.address}`) as NonNullable<ReturnType<typeof confirmed.get>>;
@@ -273,6 +275,7 @@ const pools: ShelfRegistryPool[] = owned.map(({ token, p }) => {
     fetchedAt: fetchedOf(token),
     confirmedAt,
     provenance: 'live',
+    ...(c.vaultsHold ? { vaultsHold: c.vaultsHold } : {}),
   };
 });
 
@@ -346,7 +349,7 @@ const registry = {
   stated: {
     quotes:
       'stated, not chosen: cash tokens (cls cash) and SOL are not subjects of their own. They are the quotes of the shelf; their own largest pools (SOL/USDC and the like) would dwarf every other token, so their pools enter only as the pair of another shelf token, and they are listed under `quotesNotSubjects`.',
-    rule: `per subject: DexScreener's pairs on a venue the swap decoders read (raydium_clmm, orca_whirlpool, meteora_dlmm, raydium_cpmm), at least $${SHELF_POOL_RULE.minLiquidityUsd} of liquidity, largest first, kept until ${SHELF_POOL_RULE.share * 100}% of the token's supported liquidity (every supported pair, of any size) is covered, at most ${SHELF_POOL_RULE.maxPools} a token`,
+    rule: `per subject: DexScreener's pairs on a venue the swap decoders read (${Object.keys(VENUES).join(', ')}), at least $${SHELF_POOL_RULE.minLiquidityUsd} of liquidity, largest first, kept until ${SHELF_POOL_RULE.share * 100}% of the token's supported liquidity (every supported pair, of any size) is covered, at most ${SHELF_POOL_RULE.maxPools} a token`,
     dexscreenerCap:
       "DexScreener answers at most 30 pairs a token: a token's supported and unsupported liquidity are of those pairs",
     tvlUsd:

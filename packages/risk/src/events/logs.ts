@@ -7,6 +7,8 @@ export type LogFrame = {
   depth: number;
   ix: string[];
   data: Uint8Array[];
+  /** Its own `Program log: ` lines, without the prefix (Raydium AMM v4 writes its events there as `ray_log:`). */
+  log: string[];
   ok: boolean;
 };
 
@@ -26,6 +28,7 @@ export function parseLogs(logs: readonly string[]): ParsedLogs {
         depth: Number(inv[2]),
         ix: [],
         data: [],
+        log: [],
         ok: false,
       };
       frames.push(f);
@@ -46,7 +49,8 @@ export function parseLogs(logs: readonly string[]): ParsedLogs {
     if (!top) continue;
     if (l.startsWith('Program data: '))
       top.data.push(new Uint8Array(Buffer.from(l.slice(14), 'base64')));
-    else {
+    else if (l.startsWith('Program log: ')) {
+      top.log.push(l.slice(13));
       const ix = /^Program log: Instruction: (\w+)/.exec(l);
       if (ix) top.ix.push(ix[1] as string);
     }

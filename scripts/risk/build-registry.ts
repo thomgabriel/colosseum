@@ -5,7 +5,14 @@ import { createDb, riskPools } from '@colosseum/db';
 import { sql } from 'drizzle-orm';
 import { jupHeaders, MINTS, nowIso, sleep } from '../lib';
 import { getMultiple, rpc, rpcStats } from './lib-pools';
-import { confirmPool, mintInfos, VENUES, venueByProgram } from './lib-venues';
+import {
+  confirmPool,
+  mintInfos,
+  REGISTRY_VENUES,
+  VENUES,
+  type Venue,
+  venueByProgram,
+} from './lib-venues';
 
 // Step 1 — pool registry. Confirms every candidate xStocks pool on-chain (owner program, decoded mints),
 // adds pools DexScreener missed (getProgramAccounts by mint per venue), measures TVL from vault balances,
@@ -76,7 +83,8 @@ const ckpt: Record<string, string[]> = existsSync(ckptFile)
   : {};
 let found = 0;
 for (const mint of process.env.SKIP_SEARCH === '1' ? [] : assetsWithPools) {
-  for (const [, cfg] of Object.entries(VENUES)) {
+  // the stock registry's four venues only (REGISTRY_VENUES): the collector and the raw arrays read no other
+  for (const [, cfg] of Object.entries(VENUES).filter(([v]) => REGISTRY_VENUES.has(v as Venue))) {
     for (const offset of cfg.mintOffsets) {
       const key = `${cfg.program}:${offset}:${mint}`;
       if (!ckpt[key]) {
