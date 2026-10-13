@@ -163,7 +163,11 @@ describe('Robinhood Chain on mainnet', () => {
       assets: JSON.parse(readFileSync(join(dir, 'robinhood-testnet.json'), 'utf8')).assets.map(
         (a: Record<string, unknown>) => ({ ...a, maxTradeUsd: 1000 }),
       ),
-      timelock: { address: `0x${'71'.padStart(40, '0')}`, minDelay: 172_800 },
+      timelock: {
+        address: `0x${'71'.padStart(40, '0')}`,
+        minDelay: 172_800,
+        proposers: [`0x${'5afe'.padStart(40, '0')}`],
+      },
       expected: { launched: false, publishDelay: 172_800, keeperEnabled: true },
     });
     const live = deploymentAssets(mainnet);

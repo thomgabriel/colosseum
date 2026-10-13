@@ -625,6 +625,30 @@ describe('a plan’s page, for a plan made to measure with two deposits', () => 
     expect(text(trades)).not.toMatch(/\$\s?\d/);
   });
 
+  it('links a step on this app’s network, and never hands a step of the other network this one’s explorer', async () => {
+    api();
+    signIn();
+    const linked = (host: ParentNode) =>
+      [...block(host, 'plan-trades').querySelectorAll('[data-ui="explorer-link"]')].map((el) =>
+        el.getAttribute('href'),
+      );
+    expect(linked(await open('solana', SOL_INCOME))).toEqual([
+      expect.stringMatching(/^https:\/\/solscan\.io\/tx\/.+\?cluster=devnet$/),
+    ]);
+    await unmountAll();
+    // The same test network's step, read by an app set to mainnet: no link rather than mainnet's.
+    const before = process.env.NEXT_PUBLIC_CHAIN_NETWORK_SOLANA;
+    process.env.NEXT_PUBLIC_CHAIN_NETWORK_SOLANA = 'mainnet';
+    try {
+      const host = await open('solana', SOL_INCOME);
+      expect(linked(host)).toEqual([null]);
+      expect(part(block(host, 'plan-trades'), 'explorer-link')).toContain(t.order.link.unavailable);
+    } finally {
+      if (before === undefined) delete process.env.NEXT_PUBLIC_CHAIN_NETWORK_SOLANA;
+      else process.env.NEXT_PUBLIC_CHAIN_NETWORK_SOLANA = before;
+    }
+  });
+
   it('shows a failed step with the word and the notched mark, and says how many older steps it leaves out', async () => {
     const answer = rebalances();
     const [solana] = answer.chains;
