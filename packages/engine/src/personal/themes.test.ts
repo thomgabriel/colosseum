@@ -548,7 +548,7 @@ describe('what the person already holds counts in the theme sleeve, as in the go
     const others = [...namesHeld(plan).values()];
     expect(every(others.reduce((n, x) => n + x, 0))).toBe(every(5000));
     expect(texts).toContain(
-      'A larger share here: of the $9,000 of NVDA you hold, $833 counts here, so this part buys less of it.',
+      'A larger share here: of the $9,000 of NVDA you hold, $833 counts here, so this part holds less of it.',
     );
   });
 
@@ -581,7 +581,7 @@ describe('what the person already holds counts in the theme sleeve, as in the go
     expect(namesHeld(plan).has('MSFTx')).toBe(false);
     expect(plan.removed.find((r) => r.ref === 'MSFTx')?.reasons.map((r) => r.text)).toEqual([
       'MSFTx is left out: stocks and crypto, and the rest of the plan, each hold at most 7 parts.',
-      'Less MSFT in AI: of the $300 of it you hold, $300 counts here, so the theme buys it only up to the total of each of its other names.',
+      'Less MSFT in AI: of the $300 of it you hold, $300 counts here, so the theme holds it only up to the total of each of its other names.',
     ]);
     // The same where what is left of a name is under the least a line can be: with a line for every
     // name, $800 of NVDA held leaves $28.57 of NVDAx to buy.

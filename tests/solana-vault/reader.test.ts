@@ -925,6 +925,15 @@ describe('Solana reader: transaction status', () => {
       },
     });
   });
+
+  it('reads why a version-1 transaction failed: the node is asked with version 1', async () => {
+    const { node, reader } = world();
+    node.versionOne.add(REVERTED);
+    expect(await reader.track(REVERTED)).toMatchObject({
+      status: 'reverted',
+      error: { code: 'NotCashMint' },
+    });
+  });
 });
 
 describe('Solana reader: the node', () => {

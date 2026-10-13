@@ -351,11 +351,14 @@ export function VaultConversation({
       tabIndex={-1}
       data-workbench
       aria-labelledby={`${id}-title`}
-      className="grid min-w-0 gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[minmax(0,auto)_minmax(15rem,1fr)] md:items-stretch"
+      className="relative grid min-w-0 gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[minmax(0,auto)_minmax(15rem,1fr)] md:items-stretch"
     >
       {/* The panes keep a least height (the grid's second row): a head that outgrows what is left, with
-          the rename form open on a short screen, scrolls inside itself and is never clipped. */}
-      <header className="tf-scroll-thin flex flex-wrap items-start justify-between gap-3 md:col-span-12 md:min-h-0 md:overflow-y-auto">
+          the rename form open on a short screen, scrolls inside itself and is never clipped. Each pane
+          that scrolls, and the workbench, is `relative`, as on /goal: a screen reader's line (`sr-only`
+          is absolute) then belongs to the pane it is in, where without it the line's box is the page's,
+          left where the pane's text runs on below the window, and the page scrolls (Oct 13). */}
+      <header className="tf-scroll-thin relative flex flex-wrap items-start justify-between gap-3 md:col-span-12 md:min-h-0 md:overflow-y-auto">
         <div className="flex min-w-0 flex-1 flex-col gap-2">{heading}</div>
         <Button
           variant="link"
@@ -418,7 +421,7 @@ export function VaultConversation({
             ref={transcript}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: The scrollable transcript needs keyboard focus so arrow keys can read earlier messages.
             tabIndex={0}
-            className="tf-scroll-thin flex max-h-[55vh] min-h-0 min-w-0 flex-col gap-5 overflow-y-auto pr-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:max-h-none md:flex-1"
+            className="tf-scroll-thin relative flex max-h-[55vh] min-h-0 min-w-0 flex-col gap-5 overflow-y-auto pr-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:max-h-none md:flex-1"
             aria-label={copy.history}
           >
             {turns.map((turn) => (
@@ -490,7 +493,7 @@ export function VaultConversation({
       {action && (
         <div
           data-ui="vault-action"
-          className={`tf-scroll-thin flex min-w-0 flex-col gap-4 md:min-h-0 md:overflow-y-auto md:pr-2 ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
+          className={`tf-scroll-thin relative flex min-w-0 flex-col gap-4 md:min-h-0 md:overflow-y-auto md:pr-2 ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
         >
           {action.pane}
         </div>
@@ -499,7 +502,7 @@ export function VaultConversation({
         data-ui="vault-plan"
         aria-busy={busy}
         hidden={locked}
-        className={`tf-scroll-thin min-w-0 flex-col gap-4 md:min-h-0 md:overflow-y-auto md:pr-2 ${locked ? 'hidden' : 'flex'} ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
+        className={`tf-scroll-thin relative min-w-0 flex-col gap-4 md:min-h-0 md:overflow-y-auto md:pr-2 ${locked ? 'hidden' : 'flex'} ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
       >
         {/* The proposal leads when there is one: it is what the person is working on. */}
         {reply?.notes && !proposal && <WeightNotes notes={reply.notes} />}

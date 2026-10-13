@@ -46,9 +46,9 @@ export const rebalancing: Rebalancing = {
   noTrade: 'Este passo não negociou nada.',
   noTx: 'Não há transação guardada para este passo.',
   trade: {
-    bought: (asset: string, cash: string) => `Comprou ${asset} com caixa (${cash}).`,
+    bought: (asset: string, cash: string) => `Trocou caixa (${cash}) por ${asset}.`,
     sold: (asset: string, cash: string) => `Vendeu ${asset} por caixa (${cash}).`,
-    triedBuy: (asset: string, cash: string) => `Tentou comprar ${asset} com caixa (${cash}).`,
+    triedBuy: (asset: string, cash: string) => `Tentou trocar caixa (${cash}) por ${asset}.`,
     triedSell: (asset: string, cash: string) => `Tentou vender ${asset} por caixa (${cash}).`,
     swapped: (sold: string, bought: string) => `Vendeu ${sold} por ${bought}.`,
     triedSwap: (sold: string, bought: string) => `Tentou vender ${sold} por ${bought}.`,

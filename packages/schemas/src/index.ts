@@ -28,6 +28,7 @@ export * from './policy';
 export * from './portfolio-api';
 export * from './recipe';
 export * from './shared-api';
+export * from './stats-api';
 export * from './trust';
 export * from './tx';
 export * from './universe';

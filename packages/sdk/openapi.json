@@ -22622,6 +22622,291 @@
         }
       }
     },
+    "/v1/stats": {
+      "get": {
+        "summary": "The platform in numbers: vaults, the wallets that own them, what they hold",
+        "tags": ["portfolio"],
+        "description": "One block per label the active chains carry (`live` for a mainnet, `sandbox` for a test network, `mock`), so figures of different networks are never added together. Every figure carries `source`, `fetchedAt` and `method`. A vault is counted when the server’s cache names it or the snapshot worker read it in the last 7 days. `valueUsd` is the sum of each vault’s newest snapshot, and null when the snapshot worker has not finished a pass in the last hour on every chain of the block or a vault counted has no snapshot in that hour: an unknown value is null, never 0 and never a partial sum. An answer is kept for 60 seconds.",
+        "security": [],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "provenance": {
+                            "type": "string",
+                            "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                          },
+                          "chains": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": ["solana", "base", "robinhood"]
+                            }
+                          },
+                          "vaults": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "fetchedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "method": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["value", "source", "fetchedAt", "method"],
+                            "additionalProperties": false
+                          },
+                          "wallets": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "source": {
+                                "type": "string"
+                              },
+                              "fetchedAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "method": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["value", "source", "fetchedAt", "method"],
+                            "additionalProperties": false
+                          },
+                          "valueUsd": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "value": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["value", "source", "fetchedAt", "method"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["provenance", "chains", "vaults", "wallets", "valueUsd"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "disclaimer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["networks", "disclaimer"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/testnet/fund": {
       "post": {
         "summary": "Test network only: send the signed-in wallet the test tokens and gas a buy is missing",
@@ -25360,7 +25645,7 @@
       "post": {
         "summary": "Discuss an owned vault and preview a model-proposed strategy",
         "tags": ["portfolio"],
-        "description": "Fresh chain ownership on every call; missing and other-owned vaults return the same 404. The model receives the supplied conversation, real current vault state, listed assets and sourced risk inputs. It picks assets and the server sets the preview weights, without calling the allocation engine. The goal is the one of the plan the vault was opened for, read on the server as `POST /v1/vaults/{chain}/{address}/targets` reads it, never from the request: in an income or protect plan a stock is proposed only where the person asked for it in their own words, with the warning `outside_goal_requested`, and any other pick outside the goal is left out with the note `pick_outside_goal`, since the targets review would refuse it. A vault the server holds no plan for has no goal to check against, and `proposal.unknowns` says so. Sources and numerical metrics are server-authored. The model writes no number: where it states a measured figure it names one the server gave it, and the server writes the value in its place in `message`, `question` and the prose of the proposal (plain text, no markup). `figures` is then present: `figures.prose` is the same prose with each figure a `{{fact:<id>}}` placeholder and `figures.facts` what each one is, with its value, unit, shown text, source, fetchedAt, method, provenance and, for a price past the age the chain accepts, `staleAgeSec`; a figure that is not measured has a null value and its reason, and its text says so. A reference to anything the server did not measure never becomes a number: its sentence is left out. No history, plan, order, target or account-chain change is stored. Existing configured model and shared intake call quota apply. Cache-Control: private, no-store.",
+        "description": "Fresh chain ownership on every call; missing and other-owned vaults return the same 404. The model receives the supplied conversation, real current vault state, listed assets and sourced risk inputs. It picks assets and the server sets the preview weights, without calling the allocation engine. The goal is the one of the plan the vault was opened for, read on the server as `POST /v1/vaults/{chain}/{address}/targets` reads it, never from the request: in an income or protect plan a stock is proposed only where the person asked for it in their own words, with the warning `outside_goal_requested`, and any other pick outside the goal is left out with the note `pick_outside_goal`, since the targets review would refuse it; a target the vault already has may be kept at its current weight or below, and raised it is held to the goal like a new one. The model is also given what the server knows of the vault: the shared portfolio it follows (read from the chain for this reply, with its lines and weights), whose its targets are, each holding against its target, auto-follow and the keeper on this server, and the network. A request to bring the holdings to the targets (a rebalance) is answered by the server itself, with each holding against its target and, once the page of the vault has the action, its name; no model is called for it, nothing is drafted, and no order is made. A bare confirmation the server cannot tie to one question is answered with a question and no proposal. A vault the server holds no plan for has no goal to check against, and `proposal.unknowns` says so. Sources and numerical metrics are server-authored. The model writes no number: where it states a measured figure it names one the server gave it, and the server writes the value in its place in `message`, `question` and the prose of the proposal (plain text, no markup). `figures` is then present: `figures.prose` is the same prose with each figure a `{{fact:<id>}}` placeholder and `figures.facts` what each one is, with its value, unit, shown text, source, fetchedAt, method, provenance and, for a price past the age the chain accepts, `staleAgeSec`; a figure that is not measured has a null value and its reason, and its text says so. A reference to anything the server did not measure never becomes a number: its sentence is left out. No history, plan, order, target or account-chain change is stored. Existing configured model and shared intake call quota apply. Cache-Control: private, no-store.",
         "requestBody": {
           "required": true,
           "content": {

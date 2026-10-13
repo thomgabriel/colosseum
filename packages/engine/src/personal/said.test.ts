@@ -349,7 +349,7 @@ describe('what the person already holds', () => {
     expect(grow.moved).toEqual(expect.arrayContaining(['solana:gldx', 'solana:aaplx']));
     expect(
       line(grow.plan, 'solana:gldx')?.reasons.find((r) => r.rule === 'MORE_BECAUSE_HELD')?.text,
-    ).toBe('A larger share here: you already hold $4,000 of NVDA, so this plan buys less of it.');
+    ).toBe('A larger share here: you already hold $4,000 of NVDA, so this plan holds less of it.');
     // At high risk one issuer may hold the whole plan, so there is room for the dollar yield to grow
     // too, and it says why.
     const high = movedBy({ ...BASE, risk: 'high' });

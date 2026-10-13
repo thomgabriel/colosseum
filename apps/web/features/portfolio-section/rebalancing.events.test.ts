@@ -697,7 +697,7 @@ describe('the rebalancing page in Portuguese', () => {
     expect(at(own, 'step-outcome')).toBe('Confirmado');
     expect(at(own, 'step-why')).toBe('Este passo foi feito por você.');
     const [usdy] = trades(own) as [Element];
-    expect(at(usdy, 'trade-sentence')).toBe('Comprou USDY (Ondo) com caixa (USDC).');
+    expect(at(usdy, 'trade-sentence')).toBe('Trocou caixa (USDC) por USDY (Ondo).');
     expect(
       [...usdy.querySelectorAll('dt')].map(
         (dt) => `${said(dt)}: ${said(dt.nextElementSibling as Element).trim()}`,
@@ -721,7 +721,7 @@ describe('the rebalancing page in Portuguese', () => {
     );
     expect(at(step(host, SOL_GROW, 2), 'step-outcome')).toBe('Falhou');
     expect(at(step(host, SOL_GROW, 2), 'trade-sentence')).toBe(
-      'Tentou comprar SPYx com caixa (USDC).',
+      'Tentou trocar caixa (USDC) por SPYx.',
     );
     expect(at(step(host, SOL_GROW, 0), 'trade-sentence')).toBe('Vendeu SPYx por caixa (USDC).');
     expect(said(row(trades(step(host, SOL_GROW, 0))[0] as Element, 'held-before')).trim()).toBe(

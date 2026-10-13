@@ -171,10 +171,17 @@ export const EvmDeploymentRecord = z
     /**
      * The timelock that is the admin of a mainnet's factory and the owner of its beacon, and what the
      * deploy is expected to hold. Both are read and held to the chain by `pnpm ops:authority-check`
-     * (scripts/ops/authority.ts), which owns their shape; here only the timelock's address is read,
-     * to hold `roles.admin` to it. A mainnet's record has both; a test network's need not.
+     * (scripts/ops/authority.ts), which owns their shape; here the timelock's address is read, to
+     * hold `roles.admin` to it, with its delay and who proposes to it. A mainnet's record has both; a
+     * test network's need not.
      */
-    timelock: z.looseObject({ address: Address, minDelay: z.number().int().optional() }).optional(),
+    timelock: z
+      .looseObject({
+        address: Address,
+        minDelay: z.number().int().optional(),
+        proposers: z.array(Address).optional(),
+      })
+      .optional(),
     expected: z
       .looseObject({
         launched: z.boolean().optional(),
@@ -216,9 +223,10 @@ const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
  * A mainnet's record says what it is in three places that go together, and is complete: `-mainnet` in
  * its name, `live`, and the chain's own mainnet number, all three or none; every contract the deploy
  * made, the block it was made in, an admin that is the timelock, a guardian, a router and the cash
- * token; the timelock and what the deploy is expected to hold, for the authority check; and nothing of
- * a test network (a price writer, a token issuer of ours). Returns what is wrong, or null. The trade
- * limits are held beside it (`unlimitedOnMainnet`).
+ * token; the timelock, who proposes to it and what the deploy is expected to hold, for the authority
+ * check; an average feed for every asset the keeper trades; and nothing of a test network (a price
+ * writer, a token issuer of ours). Returns what is wrong, or null. The trade limits are held beside it
+ * (`unlimitedOnMainnet`).
  */
 function incompleteMainnet(r: {
   network: string;
@@ -235,8 +243,17 @@ function incompleteMainnet(r: {
   };
   routers: readonly { address: string }[];
   cash: { address: string };
-  assets: readonly { symbol: string; address: string; feed: string }[];
-  timelock?: { address: string; minDelay?: number | undefined } | undefined;
+  sequencerFeed: string | null;
+  assets: readonly {
+    symbol: string;
+    address: string;
+    feed: string;
+    averageFeed: string;
+    keeperOn: boolean;
+  }[];
+  timelock?:
+    | { address: string; minDelay?: number | undefined; proposers?: string[] | undefined }
+    | undefined;
   expected?:
     | {
         launched?: boolean | undefined;
@@ -269,6 +286,9 @@ function incompleteMainnet(r: {
     return 'the admin of a mainnet record is its timelock';
   if (r.timelock.minDelay === undefined || r.timelock.minDelay < MIN_MAINNET_DELAY)
     return `a mainnet record's timelock waits at least ${MIN_MAINNET_DELAY} s`;
+  const proposers = r.timelock.proposers ?? [];
+  if (proposers.length === 0 || proposers.includes(ZERO_ADDRESS))
+    return 'a mainnet record names who proposes to its timelock';
   if (
     r.expected.launched === undefined ||
     r.expected.publishDelay === undefined ||
@@ -281,6 +301,15 @@ function incompleteMainnet(r: {
   if (r.assets.length === 0) return 'a mainnet record lists the tokens it was deployed with';
   const blank = r.assets.find((a) => a.address === ZERO_ADDRESS || a.feed === ZERO_ADDRESS);
   if (blank) return `a mainnet record states the token and the feed of ${blank.symbol}`;
+  // The vault turns the keeper on only for an asset with an average of its own (VaultConfig.setAsset).
+  // With the keeper off the average is unused, and Robinhood Chain's first deploy has none.
+  const unaveraged = r.assets.find(
+    (a) => a.keeperOn && (a.averageFeed === ZERO_ADDRESS || a.averageFeed === a.feed),
+  );
+  if (unaveraged)
+    return `a mainnet record states the average feed of ${unaveraged.symbol}, which the keeper trades`;
+  // Robinhood Chain has no sequencer feed: none is null, so a zero address is a blank, not a choice.
+  if (r.sequencerFeed === ZERO_ADDRESS) return 'a mainnet record writes no sequencer feed as null';
   return null;
 }
 
