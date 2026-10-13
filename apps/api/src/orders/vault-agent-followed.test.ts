@@ -19,7 +19,24 @@ const now = '2026-10-13T17:00:00.000Z';
 const RECIPE = '6KfwMDq3hXyZ8RrT5uVw2pLmN9cJkAgBSY6';
 const SHOWN = '6KfwMD…AgBSY6';
 
-function world(options: { follows?: boolean; goldTarget?: boolean } = {}) {
+function world(
+  options: {
+    follows?: boolean;
+    goldTarget?: boolean;
+    /** The gold target's weight, where there is one. */
+    goldBps?: number;
+    /** A tGOOGLx target of this weight, in place of the gold one. */
+    stockBps?: number;
+    familyName?: string;
+    /** Whether the vault's page has the rebalance action (off until its route lands). */
+    rebalanceOnPage?: boolean;
+    keeperEnabled?: boolean;
+    autoFollow?: boolean;
+    autoFollowOffered?: boolean;
+    /** A line of the followed portfolio the server cannot show: another portfolio inside it. */
+    indexLine?: boolean;
+  } = {},
+) {
   const follows = options.follows ?? true;
   const goldTarget = options.goldTarget ?? true;
   const shelf = launchShelf();
@@ -57,12 +74,16 @@ function world(options: { follows?: boolean; goldTarget?: boolean } = {}) {
     keeper: cash.address,
     recipeOnchainId: follows ? RECIPE : null,
     acceptedVersion: follows ? 1 : 0,
-    autoFollow: false,
+    autoFollow: options.autoFollow ?? false,
     cash: { asset: cash.id, raw: '20050000000', display: '20050', multiplier: '1' },
     positions: [
       held(jl, '37702.63444', 5000),
       held(syrup, '16888.138676', 3000),
-      ...(goldTarget ? [held(gold, '0', 2000)] : []),
+      ...(options.stockBps
+        ? [held(googl, '0', options.stockBps)]
+        : goldTarget
+          ? [held(gold, '0', options.goldBps ?? 2000)]
+          : []),
     ],
     lossUsedBps: 0,
     observedAt: now,
@@ -93,7 +114,9 @@ function world(options: { follows?: boolean; goldTarget?: boolean } = {}) {
     components: [
       { kind: 'asset', asset: jl.id, weightBps: 5000 },
       { kind: 'asset', asset: syrup.id, weightBps: 3000 },
-      { kind: 'asset', asset: gold.id, weightBps: 2000 },
+      options.indexLine
+        ? { kind: 'index', family: 'another-portfolio', weightBps: 2000 }
+        : { kind: 'asset', asset: gold.id, weightBps: 2000 },
     ],
     metaHash: 'b'.repeat(64),
     maxFeeBps: 0,
@@ -109,16 +132,17 @@ function world(options: { follows?: boolean; goldTarget?: boolean } = {}) {
       source: 'offline adapter',
       provenance: 'sandbox',
       config: { name: 'Solana', networkName: 'devnet' },
-      adapter: { capabilities: { autoFollow: false } },
+      adapter: { capabilities: { autoFollow: options.autoFollowOffered ?? false } },
     } as unknown as Input['entry'],
     prepared: { shelf: { ...shelf, assets }, figures: {} },
     currentGoals: [{ goal: 'income', risk: 'low' }],
-    keeperEnabled: false,
+    keeperEnabled: options.keeperEnabled ?? false,
+    rebalanceOnPage: options.rebalanceOnPage ?? false,
     ...(follows
       ? {
           followed: {
             recipe: { active: recipe, pending: null },
-            family: { name: 'Steady Dollar', slug: 'steady-dollar' },
+            family: { name: options.familyName ?? 'Steady Dollar', slug: 'steady-dollar' },
             readAt: now,
           },
         }
@@ -330,54 +354,95 @@ describe('the facts the server hands the model about a vault that follows a shar
   });
 });
 
-describe('a target the vault already has is not outside its plan', () => {
+describe('a target the vault already has may be kept, not raised', () => {
   const w = world();
+  const one = async (
+    of: ReturnType<typeof world>,
+    text: string | Array<string | ['app', string]>,
+    answer: unknown,
+  ) => of.reply(Array.isArray(text) ? text : [text], answer);
 
-  it('keeps the followed gold target out of what the goal bars, and says the state once', async () => {
+  it('tells the model which targets the goal would not admit as new', async () => {
     const out = await w.reply(['what can i hold'], w.talking('Here is what it holds.'));
     expect(out.prompt?.eligibilityGoal).toBe('income');
-    expect(out.prompt?.outsideGoal).not.toContain(w.gold.id);
     expect(out.prompt?.outsideGoal).toContain(w.googl.id);
     expect(out.prompt?.facts?.targets.outsideGoalAlreadyHeld).toEqual([w.gold.id]);
   });
 
-  it('serves a draft that keeps the gold target', async () => {
-    const out = await w.reply(['make my three assets equal'], w.drafting(w.jl, w.syrup, w.gold));
-    expect(out.lines).toEqual([w.jl.id, w.syrup.id, w.gold.id]);
+  it('serves a draft that keeps the gold target at its weight or below', async () => {
+    const out = await w.reply(
+      ['I want 40% tjlUSDC, 40% tsyrupUSDC, 20% tGLDx'],
+      w.drafting(w.jl, w.syrup, w.gold),
+    );
+    expect(out.reply.proposal?.allocations.map((line) => [line.assetId, line.weightBps])).toEqual([
+      [w.jl.id, 4000],
+      [w.syrup.id, 4000],
+      [w.gold.id, 2000],
+    ]);
     expect(out.reply.weightNotes.map((note) => note.code)).not.toContain('pick_outside_goal');
     expect(out.calls).toBe(1);
   });
 
-  it('keeps a stock the vault already targets, with nobody asking for it again', async () => {
-    const context = {
-      ...w.context,
-      state: {
-        ...w.state,
-        positions: [
-          ...w.state.positions.slice(0, 2),
-          { ...(w.state.positions[2] as VaultState['positions'][number]), asset: w.googl.id },
-        ],
-      },
-    };
-    const model: VaultAgentModel = {
-      read: vi.fn(async () => ({ reply: w.drafting(w.jl, w.googl) })),
-    };
-    const out = await replyToVaultConversation(
-      {
-        version: 1,
-        language: 'en',
-        messageId: 'turn',
-        messages: [{ who: 'person', text: 'make my assets equal' }],
-      },
-      context,
-      model,
+  it('leaves it out of a draft that would raise it: an equal split of three is above a fifth', async () => {
+    const out = await w.reply(['make my three assets equal'], w.drafting(w.jl, w.syrup, w.gold));
+    expect(out.lines).toEqual([w.jl.id, w.syrup.id]);
+    expect(out.reply.weightNotes).toContainEqual({
+      code: 'pick_outside_goal',
+      assetIds: [w.gold.id],
+    });
+    expect(out.reply.message).toMatch(/GLDx.*not raise/u);
+  });
+
+  it('refuses "I want 100% GLDx" on the income vault: no draft of it', async () => {
+    const out = await one(w, 'I want 100% tGLDx', w.drafting(w.gold));
+    expect(out.reply.proposal).toBeNull();
+  });
+
+  it('does not make a class unlimited because a followed portfolio holds one percent of it', async () => {
+    const thin = world({ goldBps: 100 });
+    const out = await one(thin, 'make it simpler', thin.drafting(thin.jl, thin.gold));
+    expect(out.lines).toEqual([thin.jl.id]);
+    expect(out.reply.weightNotes).toContainEqual({
+      code: 'pick_outside_goal',
+      assetIds: [thin.gold.id],
+    });
+  });
+
+  it('does not take a one percent stock to the whole vault on "simplify it"', async () => {
+    const thin = world({ stockBps: 100 });
+    const out = await one(thin, 'simplify it', thin.drafting(thin.googl));
+    expect(out.reply.proposal).toBeNull();
+    expect(JSON.stringify(out.reply.weightNotes)).toContain('pick_outside_goal');
+  });
+
+  it.each(['No stocks.', 'I want tGOOGLx removed.', 'I do not want tGOOGLx.'])(
+    'leaves out a stock the vault targets once the person says "%s"',
+    async (text) => {
+      const stocked = world({ stockBps: 2000 });
+      const out = await one(stocked, text, stocked.drafting(stocked.jl, stocked.googl));
+      expect(out.lines).toEqual([stocked.jl.id]);
+      expect(out.reply.weightNotes).toContainEqual({
+        code: 'pick_outside_goal',
+        assetIds: [stocked.googl.id],
+      });
+    },
+  );
+
+  it('keeps a stock the vault targets at its weight, and raises it only when asked, with the warning', async () => {
+    const stocked = world({ stockBps: 2000 });
+    const kept = await one(
+      stocked,
+      'I want 50% tjlUSDC, 30% tsyrupUSDC, 20% tGOOGLx',
+      stocked.drafting(stocked.jl, stocked.syrup, stocked.googl),
     );
-    if (out.kind !== 'reply') throw new Error('refused');
-    expect(out.reply.proposal?.allocations.map((line) => line.assetId)).toEqual([
-      w.jl.id,
-      w.googl.id,
-    ]);
-    expect(out.reply.weightNotes.map((note) => note.code)).not.toContain('pick_outside_goal');
+    expect(kept.lines).toEqual([stocked.jl.id, stocked.syrup.id, stocked.googl.id]);
+    const raised = await one(stocked, 'all in tGOOGLx', stocked.drafting(stocked.googl));
+    expect(raised.lines).toEqual([stocked.googl.id]);
+    expect(raised.reply.warnings).toContainEqual({
+      code: 'outside_goal_requested',
+      assetId: stocked.googl.id,
+      evidenceId: `catalog:${stocked.googl.id}`,
+    });
   });
 
   it('still leaves out a new gold target on an income vault that has none', async () => {
@@ -391,8 +456,8 @@ describe('a target the vault already has is not outside its plan', () => {
   });
 
   it('still leaves out a stock or a crypto token the model adds on its own', async () => {
-    const out = await w.reply(['make my assets equal'], w.drafting(w.jl, w.gold, w.googl, w.sol));
-    expect(out.lines).toEqual([w.jl.id, w.gold.id]);
+    const out = await w.reply(['make my assets equal'], w.drafting(w.jl, w.googl, w.sol));
+    expect(out.lines).toEqual([w.jl.id]);
     expect(out.reply.weightNotes).toContainEqual({
       code: 'pick_outside_goal',
       assetIds: [w.googl.id, w.sol.id],
@@ -401,12 +466,14 @@ describe('a target the vault already has is not outside its plan', () => {
 });
 
 describe('"bring my holdings to my targets" is its own kind of request', () => {
-  const w = world();
+  const w = world({ rebalanceOnPage: true });
   const asks = [
     `i want to be the same as ${SHOWN}`,
     'i want to reblance to follow exactly the planned bro!',
     'bro i want to change the curent holdings to match the targets. because current they are different',
     'rebalance',
+    'rebalance it',
+    'rebalance to the targets',
     'Bring my holdings to my targets',
     'match the targets please',
     'quero rebalancear',
@@ -434,6 +501,31 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
       expect(fact).toMatchObject({ source: expect.any(String), fetchedAt: expect.any(String) });
   });
 
+  it('names no control while the page has none, and says so plainly', async () => {
+    const off = world();
+    const out = await off.reply(['rebalance'], off.talking('unused'));
+    expect(out.calls).toBe(0);
+    expect(out.prompt).toBeUndefined();
+    expect(out.reply.message).not.toContain(REBALANCE_ACTION.en);
+    expect(out.reply.message).not.toMatch(/button|page/iu);
+    expect(out.reply.message).toMatch(/not at their targets/u);
+    expect(out.reply.message).toMatch(/not available from this conversation yet/u);
+    expect(out.reply.message).toMatch(/GLDx: 0% of the vault, target 20%/u);
+    const asked = await off.reply(['what can you do'], off.talking('Here it is.'));
+    expect(asked.prompt?.facts?.rebalanceAction).toBeNull();
+  });
+
+  it('speaks of a keeper only where auto-follow is on, offered and the keeper runs', async () => {
+    const running = world({ autoFollow: true, autoFollowOffered: true, keeperEnabled: true });
+    expect((await running.reply(['rebalance'], running.talking('unused'))).reply.message).toMatch(
+      /keeper rebalances it/u,
+    );
+    const idle = world({ autoFollow: true, autoFollowOffered: true, keeperEnabled: false });
+    expect((await idle.reply(['rebalance'], idle.talking('unused'))).reply.message).not.toMatch(
+      /keeper/iu,
+    );
+  });
+
   it('says once that the goal would not admit the gold target as a new one, and goes on', async () => {
     const out = await w.reply(['rebalance'], w.talking('unused'));
     expect(out.reply.message).toMatch(/GLDx is already a target of this vault/u);
@@ -445,7 +537,8 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
     expect(again.reply.message).toMatch(/GLDx: 0% of the vault, target 20%/u);
   });
 
-  it.each([
+  // Each of these has something in it besides the request, or is no request: the model answers.
+  const notRebalance = [
     'should i rebalance?',
     'what is a rebalance',
     "don't rebalance anything",
@@ -455,9 +548,54 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
     'I want to change my targets',
     'i want to follow a different strategy',
     'rebalance into another portfolio',
-  ])('leaves "%s" to the model', async (text) => {
+    'rebalance equally',
+    'rebalance so gold is half',
+    'rebalance out of syrupUSDC into jlUSDC',
+    'rebalance and remove gold',
+    'rebalance everything to cash',
+    'bring more gold into my targets',
+    'i want to follow a growth strategy',
+    'match my targets to a growth plan',
+    'I want to go back to my original plan',
+    'quero ajustar o plano',
+    'quero seguir uma estratégia de crescimento',
+    'no rebalance',
+    'cancel the rebalance',
+    "the rebalance button doesn't work",
+    'there is no rebalance button',
+    'I already rebalanced',
+    'bro what does rebalance mean',
+    'tell me what rebalance means',
+    'when was the last rebalance',
+    'who pays for the rebalance',
+    'forget the rebalance',
+  ];
+  it.each(notRebalance)('leaves "%s" to the model', async (text) => {
     const out = await w.reply([text], w.talking('Here is what I can tell you.'));
     expect(out.calls).toBeGreaterThan(0);
+  });
+
+  it.each(notRebalance)('keeps what was asked before "%s"', async (text) => {
+    const out = await w.reply(
+      ['I want 30% tGOOGLx', ['app', 'Drafted.'], text, ['app', 'Noted.'], 'thanks, go on'],
+      w.talking('Going on.'),
+    );
+    expect(out.prompt?.requestedOutsideGoal).toEqual([w.googl.id]);
+    expect(out.prompt?.allocationConstraints).toHaveLength(1);
+  });
+
+  it('serves the stock asked for before a message that only sounds like a rebalance', async () => {
+    const out = await w.reply(
+      [
+        'I want 30% tGOOGLx',
+        ['app', 'Drafted.'],
+        'bring more gold into my targets',
+        ['app', 'A plan with this goal cannot hold more gold.'],
+        'ok draft it again with tjlUSDC',
+      ],
+      w.drafting(w.googl, w.jl),
+    );
+    expect(out.lines).toEqual([w.googl.id, w.jl.id]);
   });
 
   it('leaves it to the model on a vault with no targets', async () => {
@@ -496,23 +634,11 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
   });
 });
 
-describe('a request the conversation left behind is not revived', () => {
+describe('a bare "yes" revives nothing', () => {
   const w = world();
-
-  it('hands the model the standing "all in tGOOGLx" only while it is the subject', async () => {
-    const at12 = await w.reply(upTo12.slice(0, 11), w.drafting(w.googl));
-    expect(at12.prompt?.requestedOutsideGoal).toEqual([w.googl.id]);
-    expect(at12.lines).toEqual([w.googl.id]);
-    // Turn 13 is a question about something else: the request is no longer asked for.
-    const at13 = await w.reply(upTo20.slice(0, 13), w.drafting(w.googl));
-    expect(at13.prompt?.requestedOutsideGoal).toEqual([]);
-    expect(at13.prompt?.allocationConstraints).toEqual([]);
-    expect(at13.lines).toBeNull();
-  });
 
   it('drafts nothing on the bare "yes" of turn 25, and asks which', async () => {
     const out = await w.reply([...upTo24, 'yes'], w.drafting(w.googl));
-    expect(out.prompt?.requestedOutsideGoal).toEqual([]);
     expect(out.prompt?.facts?.latest).toBe('ambiguous_confirmation');
     expect(out.reply.proposal).toBeNull();
     expect(JSON.stringify(out.reply)).not.toMatch(/GOOGL|Alphabet/u);
@@ -530,37 +656,32 @@ describe('a request the conversation left behind is not revived', () => {
     expect(out.reply.message).toBe('That could answer either choice.');
   });
 
-  it('drafts nothing on a bare "yes" even with the request still standing', async () => {
+  it('drafts nothing on a bare "yes" to an either-or, with the request still standing', async () => {
     const out = await w.reply([...upTo12, 'yes'], w.drafting(w.googl));
     expect(out.reply.proposal).toBeNull();
   });
 
-  it('reads "yes" as an answer when one plain question was asked', async () => {
+  it.each(['Shall I draft the whole vault in GOOGLx?', 'Shall I draft it, yes or no?'])(
+    'reads "yes" as an answer to "%s"',
+    async (question) => {
+      const out = await w.reply(['all in tGOOGLx', ['app', question], 'yes'], w.drafting(w.googl));
+      expect(out.prompt?.facts?.latest).toBeNull();
+      expect(out.lines).toEqual([w.googl.id]);
+    },
+  );
+
+  it('keeps the request through a question about something else, then a clear yes', async () => {
     const out = await w.reply(
-      ['all in tGOOGLx', ['app', 'Shall I draft the whole vault in GOOGLx?'], 'yes'],
+      [
+        'all in tGOOGLx',
+        ['app', 'Noted.'],
+        'what would it cost to sell later?',
+        ['app', 'Shall I draft the whole vault in GOOGLx?'],
+        'yes',
+      ],
       w.drafting(w.googl),
     );
-    expect(out.prompt?.facts?.latest).toBeNull();
     expect(out.lines).toEqual([w.googl.id]);
-  });
-
-  it('does not bring it back after the talk moved to rebalancing (turns 28 to 32)', async () => {
-    const turns = [
-      ...upTo24,
-      'yes',
-      ['app', 'Which did you mean?'] as ['app', string],
-      'i want to reblance to follow exactly the planned bro!',
-      ['app', 'Use Rebalance on this page.'] as ['app', string],
-      'bro we changed the goal',
-    ];
-    const out = await w.reply(turns, w.drafting(w.googl));
-    expect(out.prompt?.requestedOutsideGoal).toEqual([]);
-    expect(out.prompt?.allocationConstraints).toEqual([]);
-    expect(out.lines).toBeNull();
-    expect(out.reply.weightNotes).toContainEqual({
-      code: 'pick_outside_goal',
-      assetIds: [w.googl.id],
-    });
   });
 
   it('keeps a request through a question about that stock, and through a refinement', async () => {
@@ -574,6 +695,33 @@ describe('a request the conversation left behind is not revived', () => {
       w.drafting(w.googl, w.jl),
     );
     expect(refined.lines).toEqual([w.googl.id, w.jl.id]);
+  });
+
+  it('answers "ok" after a draft that asked nothing with the question, not a draft', async () => {
+    const out = await w.reply(
+      ['all in tGOOGLx', ['app', 'Here is the draft.'], 'ok'],
+      w.drafting(w.googl),
+    );
+    expect(out.reply.proposal).toBeNull();
+  });
+
+  it('does not bring it back after a rebalance request closed that talk (turns 28 to 32)', async () => {
+    const turns = [
+      ...upTo24,
+      'yes',
+      ['app', 'Which did you mean?'] as ['app', string],
+      'i want to reblance to follow exactly the planned bro!',
+      ['app', 'The holdings are not at their targets yet.'] as ['app', string],
+      'bro we changed the goal',
+    ];
+    const out = await w.reply(turns, w.drafting(w.googl));
+    expect(out.prompt?.requestedOutsideGoal).toEqual([]);
+    expect(out.prompt?.allocationConstraints).toEqual([]);
+    expect(out.lines).toBeNull();
+    expect(out.reply.weightNotes).toContainEqual({
+      code: 'pick_outside_goal',
+      assetIds: [w.googl.id],
+    });
   });
 });
 
@@ -604,11 +752,60 @@ describe('what was said is not said again', () => {
     expect(out.reply.message).toBe(REFUSED);
   });
 
+  it('leaves a new draft whole, and never drops that nothing changes until it is confirmed', async () => {
+    const draft = w.drafting(w.jl, w.syrup);
+    const out = await w.reply(
+      ['draft my two dollar assets', ['app', draft.message], 'draft it again'],
+      draft,
+    );
+    expect(out.reply.message).toBe(draft.message);
+    const said = await w.reply(
+      ['hello', ['app', `${REFUSED} Nothing changes until you review and confirm it.`], 'ok then'],
+      w.talking(`Understood. Nothing changes until you review and confirm it. ${REFUSED}`),
+    );
+    expect(said.reply.message).toBe('Understood. Nothing changes until you review and confirm it.');
+  });
+
   it('tells the model what earlier replies already told the person', async () => {
     const out = await w.reply([...upTo12, 'hmm let me think'], w.talking('Take your time.'));
     expect(out.prompt?.facts?.alreadySaid).toContain('goal_rule');
     const fresh = await w.reply(['hello there'], w.talking('Hello.'));
     expect(fresh.prompt?.facts?.alreadySaid).toEqual([]);
+  });
+});
+
+describe('a name its author chose is not a way to state a number', () => {
+  it('refuses "Gold tends to return 12% a year." when the portfolio is named "12% a year"', async () => {
+    const named = world({ familyName: '12% a year' });
+    const out = await replyToVaultConversation(
+      {
+        version: 1,
+        language: 'en',
+        messageId: 'turn',
+        messages: [{ who: 'person', text: 'what does gold do' }],
+      },
+      named.context,
+      { read: vi.fn(async () => ({ reply: named.talking('Gold tends to return 12% a year.') })) },
+    );
+    expect(out).toMatchObject({ kind: 'failure', detail: 'prose_figure' });
+  });
+
+  it('hands the model no name that holds a digit or a sign, and the id still names it', async () => {
+    const named = world({ familyName: '12% a year' });
+    const out = await named.reply(['what do i follow'], named.talking(`You follow ${SHOWN}.`));
+    expect(out.prompt?.facts?.follows).toMatchObject({ name: null, portfolioId: SHOWN });
+    expect(JSON.stringify(out.prompt?.facts)).not.toContain('12%');
+  });
+
+  it('says when a line of the portfolio is not among the lines given', async () => {
+    const partial = world({ indexLine: true });
+    const out = await partial.reply(['what do i follow'], partial.talking('Here it is.'));
+    expect(out.prompt?.facts?.follows).toMatchObject({ partial: true });
+    expect(out.prompt?.facts?.follows?.lines).toHaveLength(2);
+    expect(out.prompt?.unknowns.join(' ')).toMatch(/not all of its lines/u);
+    const whole = world();
+    const full = await whole.reply(['what do i follow'], whole.talking('Here it is.'));
+    expect(full.prompt?.facts?.follows).toMatchObject({ partial: false });
   });
 });
 

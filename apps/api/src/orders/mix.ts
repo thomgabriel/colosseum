@@ -359,11 +359,14 @@ export function reviewMix(
       // (gate ANY-COMPOSITION); crypto, gold and any other class stay out of an income or protect plan.
       // The cash token has no ceiling, so it never reaches here; `goalFit` lets it pass all the same.
       // A target the vault already has is its own (accepted when it followed, or set by its owner):
-      // keeping it is no change of what the vault may hold, so it is warned about, never refused
-      // (ANY-COMPOSITION, amended Oct 13). Only a new target of a barred class is refused.
+      // kept at its current weight or below it is no change of what the vault may hold, so it is
+      // warned about, never refused (VAULT-CHAT-KNOWS-ITS-VAULT). Raised, it is a new target and
+      // the goal's rule applies as to any other: a barred class is refused.
       const fit = a.goal ? goalFit(asset, a.goal) : 'fits';
       const own =
-        a.vault?.positions.some((held) => held.asset === asset.id && held.targetBps > 0) ?? false;
+        a.vault?.positions.some(
+          (held) => held.asset === asset.id && held.targetBps > 0 && weightBps <= held.targetBps,
+        ) ?? false;
       if (a.goal && fit !== 'fits') {
         if (fit === 'stock_outside' || own)
           warn(

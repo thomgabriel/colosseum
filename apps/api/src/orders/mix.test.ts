@@ -397,8 +397,9 @@ describe('reviewMix: what an income or protect plan may hold', () => {
       expect(r.extra.details?.issues).toEqual(['NOT_FOR_GOAL:solana:coin']);
     }
     expect(at('grow').review.warnings).toEqual([]);
-    // A target the vault already has is its own: kept with the warning, never refused (Oct 13).
-    const held = (goal: 'income' | 'protect') =>
+    // A target the vault already has, kept at its weight or below, is its own: a warning, not a
+    // refusal. Raised above it, it is a new target and refused as before (Oct 13).
+    const held = (goal: 'income' | 'protect', targetBps = 5000) =>
       reviewMix(wide, checked, {
         origin: 'person',
         goal,
@@ -422,7 +423,7 @@ describe('reviewMix: what an income or protect plan may hold', () => {
               raw: '0',
               display: '0',
               multiplier: '1',
-              targetBps: 2000,
+              targetBps,
               lastKeeperAt: null,
             },
           ],
@@ -431,8 +432,13 @@ describe('reviewMix: what an income or protect plan may hold', () => {
           pending: null,
         },
       });
-    for (const goal of ['income', 'protect'] as const)
+    for (const goal of ['income', 'protect'] as const) {
       expect(held(goal).review.warnings.map((w) => w.code)).toEqual(['NOT_FOR_GOAL']);
+      expect(held(goal, 9000).review.warnings.map((w) => w.code)).toEqual(['NOT_FOR_GOAL']);
+      // The vault targets it at one percent: half the vault in it is not keeping it.
+      const r = await refusal(Promise.resolve().then(() => held(goal, 100)));
+      expect(r.extra.details?.issues).toEqual(['NOT_FOR_GOAL:solana:coin']);
+    }
   });
 });
 
