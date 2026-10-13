@@ -96,6 +96,7 @@ function useKeyedRead<T>(
   });
 
   const key = who !== null && scope !== null ? JSON.stringify([who, scope, round]) : '';
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `quiet` is how this round was asked, read as it starts
   useEffect(() => {
     wanted.current = key;
     // Nobody to read for, or nothing asked: nothing is on its way, whatever was.
@@ -118,7 +119,6 @@ function useKeyedRead<T>(
       if (!keep) setAnswer({ who, scope, outcome });
       setBusy(false);
     });
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `quiet` is how this round was asked, read as it starts
   }, [key, who, scope]);
 
   const same = answer !== null && answer.who === who && answer.scope === scope ? answer : null;
