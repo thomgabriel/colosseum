@@ -61,7 +61,6 @@ const EXPECTED_VAULT = [
   'chains',
   'users',
   'user_wallets',
-  'consents',
   'basket_assets',
   'index_families',
   'recipes',
@@ -75,7 +74,6 @@ const EXPECTED_VAULT = [
   'vault_numbers',
   'vault_snapshots',
   'snapshot_runs',
-  'follows',
   'orders',
   'legs',
   'leg_attempts',
@@ -89,7 +87,7 @@ const EXPECTED_VAULT = [
 describe('db schema: vault tables', () => {
   const tables = (Object.values(basketSchema) as unknown[]).filter(isTable) as PgTable[];
 
-  it('declares the 26 vault tables, and none that the core schema already has', () => {
+  it('declares the 24 vault tables, and none that the core schema already has', () => {
     const names = tables.map((t) => getTableName(t));
     expect([...names].sort()).toEqual([...EXPECTED_VAULT].sort());
     expect(names.filter((n) => EXPECTED.includes(n))).toEqual([]);
@@ -162,14 +160,13 @@ describe('db schema: vault tables', () => {
     ]);
   });
 
-  it('indexes what is looked up: an attempt by its hash, vaults by recipe, follows by family', () => {
+  it('indexes what is looked up: an attempt by its hash, vaults by recipe, keeper legs by run', () => {
     const indexed = (table: PgTable) =>
       getTableConfig(table).indexes.map((i) =>
         i.config.columns.map((c) => ('name' in c ? c.name : '')).join(','),
       );
     expect(indexed(basketSchema.legAttempts)).toContain('message_hash');
     expect(indexed(basketSchema.vaults)).toEqual(expect.arrayContaining(['owner', 'recipe_id']));
-    expect(indexed(basketSchema.follows)).toContain('family_id');
     expect(indexed(basketSchema.keeperLegs)).toContain('keeper_run_id');
   });
 

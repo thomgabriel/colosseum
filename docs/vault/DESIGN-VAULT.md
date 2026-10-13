@@ -907,19 +907,17 @@ event PublishDelaySet(uint32 delay);
 
 ## 4. Data model
 
-**New tables** (`packages/db/src/basket-schema.ts`, migration `0006`; `0012` adds the picked chain and a step's cash; `0016` adds a vault's name; `0017` a step's withdrawals; `0018` adds the snapshot worker's two tables; `0020` adds a vault's number). They cache chain state and hold off-chain text. The chains are the source of truth. No table of his changes.
+**New tables** (`packages/db/src/basket-schema.ts`, migration `0006`; `0012` adds the picked chain and a step's cash; `0016` adds a vault's name; `0017` a step's withdrawals; `0018` adds the snapshot worker's two tables; `0020` adds a vault's number; `0022` drops `consents` and `follows`, which nothing wrote or read). They cache chain state and hold off-chain text. The chains are the source of truth. No table of his changes.
 
 | Table | Key columns |
 |---|---|
 | `chains` | text id (`solana`, `base`, `robinhood`) with its family, network and EVM chain id; every `chain_id` column is text with a foreign key here. `seedChains(db, configs)` writes the rows from the chain configs at API start and after `pnpm db:migrate`, and refuses a database whose rows name another network: one database per network |
 | `users`, `user_wallets` | `privy_id`; `chain_id`, the person's current chain, where new plans are made (gate `CHAIN-SWITCH`), and `chain_picked_at`, the time of the last pick or switch, null when an outside wallet named the chain; `(family, address)` unique, `kind`; written only from a verified identity token. A `users` row is written at the pick, the first time an outside wallet names the chain, or by the goal join, with no chain, for a person who has neither ("The goal join", below); nothing writes `user_wallets` yet |
-| `consents` | order id, address, kind, text version, a hash of the legs it covers, time |
 | `basket_assets` | id `chain:slug`; `(chain_id, address)` unique; class, underlying, issuer, tier, price source, session, `max_weight_bps`, `blocked_countries` |
 | `index_families` | `family_id`, slug, a folded-name key (unique), name, copy, `creator_user_id`, `creator_kind`, `kind` (`index`, `single`), `platform` badge, `params jsonb` |
 | `recipes`, `recipe_versions` | family, chain, onchain id; version, components, `meta_hash`, `effective_at`, status, nullable `fee_bps` |
 | `baskets`, `proposals` | user, kind (`personal`, `follow`), family; the stored `BasketProposal` keyed by `inputs_hash`, and `from_link` for a plan made from a link (migration 0013, gate `AGENT-LINK`), read by a partial index on `created_at` (0015). A `baskets` row is a person's plan in one vault: the API writes it when the vault is joined to its plan (the goal join, below), with `created_at` the time of the order that opened the vault |
 | `vaults` | `(chain_id, address)` unique; owner, plan, recipe, accepted version, auto-follow, targets, balances, `value_usd`, `vault_type`, `observed_at`. Written first when the step that opens the vault is confirmed (`value_usd` null: nobody has valued it yet), then overwritten by every portfolio read. `basket_id`, the plan, is set once by the goal join and never touched by the cache |
-| `follows` | user, family: the watchlist and pending prompts |
 | `orders`, `legs`, `leg_attempts` | the `Order`, `Leg` and `Attempt` fields; nullable `org_id` and `basket_id` (a buy's vault number, 0015) on orders; a leg's `cash_raw` and its `withdrawals` (0017, gate `WITHDRAW`); attempts carry `message_hash`, `nonce` (the nonce of record once a transaction was reported), his provenance columns, nullable `fee_amount`, unique `(chain_id, tx_id)` |
 | `keeper_runs`, `keeper_legs`, `keeper_vaults` | one open run per chain (a partial unique index, which works through any connection pooler); the keeper's own leg log; `synced_version` per vault. The two vault tables name a vault by `(chain_id, vault_address)`, not by a row of `vaults`: the keeper finds vaults on the chain and may not write the API's cache |
 | `vault_numbers` | a vault's number among its person's vaults, which a vault with no name is called by (migration `0020`, gate `VAULT-NUMBER`): `(user_id, chain_id, address)` is the key and `(user_id, number)` is unique, with `number` above zero. A row is written once, with the next free number of the person, when the server first holds the vault as theirs (`apps/api/src/portfolio/numbers.ts`), and is never updated or deleted but with its user. It names the vault by chain and address and does not hang off `vaults`, whose row is rewritten on every read |
@@ -1744,7 +1742,7 @@ A tier 2 failure blocks only if it shows a real way to lose funds.
 
 | Roadmap item | In place at the MVP | Added later |
 |---|---|---|
-| Community, gamification | Same events on both families; `follows`; `creator_user_id`; value and counts from `vaults`; a `badges` slot on cards | Profiles, rankings, an event index |
+| Community, gamification | Same events on both families; `creator_user_id`; value and counts from `vaults`; a `badges` slot on cards | Profiles, rankings, an event index |
 | Creator fees | `maxFeeBps` and `flags` stored at publish on both families and required to be zero; `Order.fees`; nullable `fee_bps`, `fee_amount` | Accrual through an upgrade |
 | Publish once (CCIP) | `familyId` onchain on all three chains; chain-free EVM portfolio ids; publish is already an order with a leg per chain | An authorized remote publisher; one leg |
 | More chains | `chains` rows and `content/chains.json` are the only chain lists; init in the proxy constructor, CREATE2; a `Submitter` per chain | One config, one deploy. A third wallet family would touch `Owner` and `WalletPort` |

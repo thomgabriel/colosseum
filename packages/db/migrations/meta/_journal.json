@@ -155,6 +155,13 @@
       "when": 1791685486169,
       "tag": "0021_asset_observations",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791924783823,
+      "tag": "0022_drop_unused_tables",
+      "breakpoints": true
     }
   ]
 }
