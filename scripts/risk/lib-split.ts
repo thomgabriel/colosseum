@@ -70,8 +70,9 @@ export function selectSplitPools(
   registryPools: readonly RawRegPool[],
   opts: { twoHop: boolean; tracked: ReadonlySet<string> },
 ): SplitSelection {
+  // the stock pools: a merged registry's shelf pools (set `shelf`, PLAN-ASSETS AS.12) are not split here
   const ab = registryPools
-    .filter((p) => ['A', 'B'].includes(p.tier))
+    .filter((p) => ['A', 'B'].includes(p.tier) && (p as { set?: unknown }).set !== 'shelf')
     .map((p) => ({ ...p, assetIsToken0: Boolean(p.assetIsToken0) })) as RegPool[];
   const direct = ab.filter((p) => p.exitPath === 'direct_usd' || p.exitPath === 'via_sol');
   if (!opts.twoHop) return { direct, twoHop: [], listed: null };

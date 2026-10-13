@@ -244,6 +244,36 @@ RISK_EVM_MAX_POOLS=5 pnpm risk-evm:collect --list   # at most five pools a token
 - 271 RPC calls in 48 requests, 29 seconds, with the confirmation of the pools. The hand list's run is 54 pools and about ten seconds.
 - **The asset row barely moves.** Against the three deepest dollar pools of each token at the same block, a pool beyond the three was the best at 4 of 480 points (MSTR and SGOV at $100, by 2.3 and 0.9 basis points). What the wider run adds is the pool rows, for a split across pools later.
 
+## The shelf's tokens (PLAN-ASSETS AS.12)
+
+`--list --shelf [file]` adds to a list run every token of the Robinhood Chain shelf (`scripts/risk/assets/shelf-robinhood.json`) that the list does not track, with the pools of `scripts/risk/assets/shelf-pools-robinhood.json` (the default file). **Without `--shelf` a list run is exactly what it was.** The file is committed and read once, when the loop starts; a new file takes effect when the loop is started again.
+
+```sh
+pnpm risk-evm:shelf-pools                                  # the file again: DexScreener only, one call every 1.1 s, no RPC
+RISK_EVM_DIR=… pnpm risk-evm:collect --list --shelf        # one run on the list and the shelf
+```
+
+- **Tokens** (`shelf.ts`, `shelfTokens`): each shelf row that is not the dollar token (USDG: every quote is in it) and not tracked by the list (its pools are the cut's), with its decimals from `scripts/risk/assets/robinhood.json`. Each row the file does not add is in `notAdded` with the reason. A token whose symbol the list already uses, or that the list tracks, stops the run (`withShelf`).
+- **Pools** (`shelfPoolsOf`): DexScreener's `token-pairs/v1/robinhood/<token>` pairs against USDG of $10,000 or more (the loop's floor for a DexScreener pool), every one. The Uniswap ones are candidates and go to the same on-chain confirmation as the cut's (the factory's `getPool`, the position manager's `poolKeys`, no hook); another venue's pool is kept in the file and never asked, as the cut's unreachable pools are (DU3). Each candidate gets a pool row (`evmq-pools-0.1`) with `listTvlUsd` DexScreener's figure and `listTvlAt` the file's time; a candidate the chain does not confirm says `not_confirmed_on_chain`. DexScreener lists at most 30 pairs a token (WETH reached it).
+- **Rows:** the asset row is `evmq-0.1`, unchanged, with `source` naming the shelf file for these tokens. A shelf token has no oracle row (the file names no feed). The pool list is confirmed again when the list file of pools (`pools-robinhood-list.json`) is a day old or lacks a token, so the first run after a restart confirms the shelf's pools.
+- **The file of 2026-10-13** (after the re-cut to 44 tokens): 14 tokens added (WETH, NET, cbBTC, TSM, MRNA, USDe, TAO, DUAL, PROLOGUE, SNAP, TTWO, RBLX, LIT, GLXY), 29 tracked by the list, USDG not added; 64 pools, 41 on Uniswap. DUAL has no pair against USDG. TSM was the hand list's untracked token: the shelf measures it again.
+
+**Two one-off runs of 2026-10-13** (17:43 and 17:50 UTC, public RPC, into a scratch folder): 44 tokens, 43 asset rows (DUAL: no eligible pool); 35 shelf pools quoted, 6 not confirmed (hooked v4); WETH at 0.016% to sell $10,000. **The steady run: 326 RPC calls in 59 HTTP requests and 39 seconds**, against the list loop's mean of 261 calls in 48 requests over its last 48 hours (+25% calls, +11 requests an hour); the day's confirmation adds two Multicall3 calls.
+
+**The public RPC.** The loop reads `rpc.mainnet.chain.robinhood.com` unless `RISK_EVM_RH_RPC_URL` is set; it never reads `ROBINHOOD_BACKFILL_RPC_URL` (Alchemy, shared with the backfill's $5 cap), and no keyed endpoint is used by this change. The endpoint's Cloudflare challenges (HTTP 403) cost the loop 385 token-rows of 1,440 over its last 48 hours (991 rows written), and a 403 is not retried within the hour: it comes back as a plain error, so `worthRetrying` says no. Eleven more requests an hour give the challenge eleven more chances; a 403 costs the token it hits, not the run, so the shelf's tokens add their own misses and take none from the stocks'. Whether a 403 should be retried is a change to `run.ts` this work does not make.
+
+**The restart (Rodrigo's).** The loop is not running: its run log ends with `"event":"stopping","signal":"SIGTERM"` at 2026-10-12 14:08 UTC, and no `loop.lock` is left. It ran from the risk-analytics worktree; the new one runs from this checkout (`~/Documents/Colosseum-assets-collect`, or `staging` once merged), with the same data folder, and `DOTENV_CONFIG_PATH=/dev/null` so no `.env` setting can point it at a keyed endpoint:
+
+```sh
+cd ~/Documents/Colosseum-assets-collect
+pgrep -fl 'risk-evm/collect.ts' || echo 'no loop running'      # if one runs: kill -TERM <pid>, wait for "stopping" in collect.log
+DOTENV_CONFIG_PATH=/dev/null RISK_EVM_DIR=~/Documents/Colosseum-data/risk-evm \
+  nohup caffeinate -i pnpm risk-evm:collect --loop --list --shelf >> ~/Documents/Colosseum-data/risk-evm/collect.log 2>&1 &
+tail -3 ~/Documents/Colosseum-data/risk-evm/collect.log           # "14 shelf tokens from …", then "loop_started"
+```
+
+The backfill of Robinhood Chain logs waits out minutes 1 to 14 of each hour around the old loop's minute 4; a loop started now runs on a grid from its own start, so start it at about minute 4 of an hour, the old loop's minute, to keep its run inside that quiet window (the asset metrics job at minute 38 waits it out as well).
+
 ## The oracle beside the pool price
 
 A list run also reads the Chainlink feed of every tracked stock that has one (PLAN-UNIVERSE RU.7, method `evmo-0.1`): `latestRoundData()` of each proxy the asset list names, in one Multicall3 call at the block the run holds, before the first pool is asked. The rows go to `oracle/<day>.jsonl`. A run without `--list` reads no feed.

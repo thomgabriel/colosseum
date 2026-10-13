@@ -3,11 +3,14 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createDb, riskPools } from '@colosseum/db';
 import { eq } from 'drizzle-orm';
+import { tierByShare } from './lib-tiers';
 
 // Re-tiers the latest registry without re-reading the chain. Tiers (policy inputs):
 //   A: pools that together hold TIER_A_SHARE of TVL among pools with TVL ≥ MIN_POOL_TVL_USD (5-min refresh)
 //   B: other pools with TVL ≥ MIN_POOL_TVL_USD (hourly)
 //   X: dust (TVL below MIN_POOL_TVL_USD) — kept in the registry, not collected.
+// It writes ~/.colosseum/risk/registry.json from the stock registry alone: an installed merge with the shelf's pools
+// (PLAN-ASSETS AS.12, `pnpm risk:registry-merge`) is replaced, and is merged and installed again after it.
 const TIER_A_SHARE = Number(process.env.TIER_A_SHARE ?? 0.99);
 const MIN_POOL_TVL_USD = Number(process.env.MIN_POOL_TVL_USD ?? 1000);
 const OUT = process.env.RISK_DATA_DIR ?? 'data/risk';
@@ -32,12 +35,11 @@ const live = reg.pools
   .filter((p) => (p.tvlUsd ?? 0) >= MIN_POOL_TVL_USD)
   .sort((a, b) => b.tvlUsd - a.tvlUsd);
 const total = live.reduce((s, p) => s + p.tvlUsd, 0);
-let cum = 0;
-const tierOf = new Map<string, string>();
-for (const p of live) {
-  tierOf.set(p.address, cum < TIER_A_SHARE * total ? 'A' : 'B');
-  cum += p.tvlUsd;
-}
+// the rule itself is lib-tiers.ts, shared with the merge of the shelf's pools (collector/registry-merge.ts)
+const tierOf = tierByShare(reg.pools, {
+  tierAShare: TIER_A_SHARE,
+  minPoolTvlUsd: MIN_POOL_TVL_USD,
+});
 for (const p of reg.pools) p.tier = tierOf.get(p.address) ?? 'X';
 const { db, client } = createDb();
 for (const p of reg.pools)
