@@ -85,8 +85,41 @@ describe('a plan to grow', () => {
       })),
     );
     expect(answer(host)).toBe(en.plan.answer.inNoFall('60%', 'stocks'));
-    expect(width(find(host, '[data-ui="plan-fall-loss"]'))).toBe('0%');
+    // no "$0 since nothing here is stocks": the spread holds stocks, so no figure is drawn
+    expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
     expect(host.querySelector('[data-ui="plan-yield"]')).toBeNull();
+  });
+
+  it('says $0 in a bad fall only where the spread holds no stocks, crypto or gold', async () => {
+    const host = await pane({
+      ...of('grow', (p) => ({
+        card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
+      })),
+      rollUp: {
+        ...ROLL_UP,
+        byClass: [
+          { key: 'dollar_yield', bps: 9500 },
+          { key: 'cash', bps: 500 },
+        ],
+      },
+    });
+    expect(answer(host)).toBe(en.plan.answer.inNoFall('95%', 'dollar yield'));
+    expect(find(host, '[data-ui="plan-bad-fall"]').textContent).toBe(en.plan.badFall.none);
+    expect(width(find(host, '[data-ui="plan-fall-loss"]'))).toBe('0%');
+  });
+
+  it('says nothing of a fall where the kinds are not known and the engine counted none', async () => {
+    // a plan made from a mix, or read back: no spread by kind, and a zero that may only mean that
+    const host = await pane({
+      ...of('grow', (p) => ({
+        card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
+      })),
+      rollUp: null,
+    });
+    expect(answer(host)).toBe(en.plan.answer.inOnly('60%', 'SPYx'));
+    expect(answer(host)).not.toMatch(/fall/);
+    expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
+    expect(host.textContent).not.toContain(en.plan.badFall.none);
   });
 });
 

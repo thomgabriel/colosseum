@@ -140,8 +140,15 @@ describe('the frame', () => {
     ]);
     // no Resources item (Thom, Oct 6): the methodology is reached from Bearing's own side menu
     expect(host.querySelector('nav a[href="/analytics/methodology"]')).toBeNull();
-    // the page a person is on is said, not only shown; the plan and the order are under Invest
+    // the page a person is on is said, not only shown; a plan is under Invest
     expect(links(host).map((a) => a.getAttribute('aria-current'))).toEqual([null, 'page', null]);
+    // an order's page is under none: a publish started from Products is no plan of Invest's
+    location.pathname = '/orders/some-order';
+    expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
+      null,
+      null,
+    ]);
     // every page of Bearing's analytics is under Analytics, its methodology too
     location.pathname = '/analytics/lending';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([

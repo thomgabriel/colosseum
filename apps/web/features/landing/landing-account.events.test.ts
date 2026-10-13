@@ -92,4 +92,30 @@ describe('the landing’s account control, before the wallet is loaded', () => {
     expect(document.querySelector('[role="dialog"] [data-ui="panel-stand-in"]')).not.toBeNull();
     expect(live.loaded).toBe(1);
   });
+
+  it('draws the dialog at the end of the page, outside the bar that opened it', async () => {
+    // The landing's bar sets its own stacking (`relative z-10`): a dialog inside it is held at the
+    // bar's level, under anything after it at that level (the landing's pins). The UI audit, G7.
+    const host = await mount(
+      inLanguage(
+        'en',
+        createElement(
+          'header',
+          { className: 'relative z-10' },
+          createElement(LandingAccount, { hinted: false }),
+        ),
+      ),
+    );
+    await click(find<HTMLAnchorElement>(host, '[data-ui="account-control"] a'));
+    const frame = find(document.body, '[data-ui="sign-in-dialog"]');
+    expect(frame.parentElement).toBe(document.body);
+    expect(host.contains(frame)).toBe(false);
+    // and the page under it, the bar among it, is still inert while it is open
+    const page = [...document.body.children].find((el) => el.contains(host)) as HTMLElement;
+    expect(page.inert).toBe(true);
+    live.release();
+    await settle(10);
+    await press(find(document.body, '[role="dialog"]'), 'Escape');
+    expect(document.querySelector('[data-ui="sign-in-dialog"]')).toBeNull();
+  });
 });

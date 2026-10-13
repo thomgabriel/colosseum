@@ -3,6 +3,7 @@ import { TRUST_STATUS } from '@colosseum/schemas';
 import { deploymentsOf, type GuardDeployment, solanaVaultAddress } from '@colosseum/sdk';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { shorten } from '../../components/ui/format';
 import {
   click,
   find,
@@ -1654,8 +1655,44 @@ describe('a vault’s public page', () => {
     });
     for (let i = 0; i < 3; i += 1) await settle(50);
     expect(asked).toBe(1);
+    // one way back, and no word of the shared portfolios (the UI audit, V9)
     const ways = [...host.querySelectorAll('a')].map((link) => link.getAttribute('href'));
-    expect(ways).toEqual(['/shelf', '/portfolio']);
+    expect(ways).toEqual(['/portfolio']);
+    expect(host.textContent).not.toMatch(/shared portfolios/);
+    expect(host.querySelectorAll('button')).toHaveLength(0);
+  });
+
+  it('says a bad address is no vault, with one way back for someone signed out', async () => {
+    portStore.set(fakePort());
+    portStore.setApi(async () => json({ error: 'that is not an address of Solana' }, 400));
+    const host = await show(
+      createElement(VaultScreen, { chain: 'solana', address: 'not-a-vault' }),
+    );
+    await settle();
+    expect(find(host, 'h1').textContent).toBe(en.shared.vault.missing);
+    const ways = [...host.querySelectorAll('a')];
+    expect(ways.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      [en.shared.vault.backVisitor, '/shelf'],
+    ]);
+    expect(host.querySelectorAll('button')).toHaveLength(0);
+  });
+
+  it('says a vault it could not read is this vault, not the shared portfolios, and reads it again', async () => {
+    let asked = 0;
+    portStore.set(fakePort());
+    portStore.setApi(async () => {
+      asked += 1;
+      return json({ error: 'down' }, 503);
+    });
+    const host = await show(createElement(VaultScreen, { chain: 'solana', address: VAULT }));
+    await settle();
+    expect(find(host, 'h1').textContent).toBe(en.shared.vault.named(shorten(VAULT)));
+    expect(host.textContent).toContain(en.shared.vault.unreachable);
+    expect(host.textContent).not.toMatch(/shared portfolios/);
+    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+    await click(find(host, 'button'));
+    await settle();
+    expect(asked).toBe(2);
   });
 });
 

@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
+import { ChainBadge } from '../../components/ui/ChainBadge';
+import { shorten } from '../../components/ui/format';
 import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
@@ -65,6 +67,18 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   const shown = useRef<string | null>(null);
   const titleId = useId();
   const known = ChainId.safeParse(chain);
+  // Someone signed out has no portfolio to go back to: they came from Products, or from a link.
+  const signedIn = port.status !== 'signed-out' && port.userId !== null;
+  const backLink = (ui?: string) =>
+    signedIn ? (
+      <Link href="/portfolio" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+        {v.back}
+      </Link>
+    ) : (
+      <Link href="/shelf" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+        {v.backVisitor}
+      </Link>
+    );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `round` reads the vault again
   useEffect(() => {
@@ -98,30 +112,37 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         !sameAddress(load.read.chain, load.read.vault.address, address)))
   )
     return <VaultWait visitor={port.status === 'signed-out'} />;
-  if (load.kind !== 'read')
+  if (load.kind !== 'read') {
+    // An address that is not a vault (404), or not an address of the chain (400): said once, with
+    // one way back. A server that did not answer is asked again from here.
+    const missing = load.kind === 'no-plan' || load.kind === 'refused';
     return (
-      <section aria-labelledby={titleId} className="flex flex-col items-start gap-4">
+      <section
+        data-ui="vault-unread"
+        aria-labelledby={titleId}
+        className="flex flex-col items-start gap-4"
+      >
         <h1 id={titleId} className={PAGE_TITLE}>
-          {load.kind === 'no-plan' || load.kind === 'refused' ? v.missing : v.title}
+          {missing ? v.missing : v.named(shorten(address))}
         </h1>
-        {load.kind !== 'no-plan' && load.kind !== 'refused' && (
+        {!missing && (
           <>
             <p className="max-w-(--tf-measure-body) text-body">
-              {load.kind === 'busy' ? t.shell.slowDown : t.shared.shelf.failure.unreachable}
+              {load.kind === 'busy'
+                ? t.shell.slowDown
+                : load.kind === 'unreadable'
+                  ? t.shared.shelf.failure.unreadable
+                  : v.unreachable}
             </p>
             <Button variant="secondary" onClick={() => setRound((n) => n + 1)}>
-              {t.shared.shelf.failure.retry}
+              {v.retry}
             </Button>
           </>
         )}
-        <Link href="/shelf" className={buttonClass({ variant: 'secondary' })}>
-          {t.shared.family.backToShelf}
-        </Link>
-        <Link href="/portfolio" className={buttonClass({ variant: 'link' })}>
-          {v.back}
-        </Link>
+        {backLink('vault-back')}
       </section>
     );
+  }
 
   const { read } = load;
   const { vault } = read;
@@ -133,8 +154,9 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     !!wallet &&
     sameAddress(read.chain, wallet.address, vault.owner);
   const chainName = port.network(read.chain)?.name ?? t.chain.names[read.chain];
-  // The vault's value on its pin, with what kind of figure it is where it is not a live one.
-  const value = (
+  // The vault's value on its pin, with what kind of figure it is where it is not a live one. The
+  // owner's head says the chain beside it; a visitor's says it once, by the title.
+  const valueRow = (withChain: boolean) => (
     <p
       data-ui="vault-value"
       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm text-muted-foreground"
@@ -147,9 +169,10 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
           labels={t.pin}
         />
       </span>
-      <span data-ui="vault-chain">{chainName}</span>
+      {withChain && <span data-ui="vault-chain">{chainName}</span>}
     </p>
   );
+  const value = valueRow(true);
   /** The vault on its chain's explorer: a link in a visitor's head, a row in the owner's "More". */
   const explorerLinkAs = (className: string) =>
     explorer && (
@@ -166,11 +189,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     );
   const explorerLink = explorerLinkAs(buttonClass({ variant: 'link' }));
   const explorerRow = explorerLinkAs(MORE_ROW);
-  const back = (
-    <Link href="/portfolio" data-ui="vault-back" className={buttonClass({ variant: 'link' })}>
-      {v.back}
-    </Link>
-  );
+  const back = backLink('vault-back');
 
   // The owner's vault is a workbench (Rodrigo, Oct 8), the conversation beside the vault, and the page
   // leads with what a person comes to do (gate VAULT-PAGE-ACTIONS, Thom, Oct 9): Deposit and Withdraw,
@@ -197,10 +216,13 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     <div data-ui="vault-screen" className="flex flex-col gap-6">
       <header className="flex flex-col items-start gap-3">
         <p>{back}</p>
-        <h1 id={titleId} className={PAGE_TITLE}>
-          {v.title}
-        </h1>
-        {value}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 id={titleId} className={PAGE_TITLE}>
+            {v.named(shorten(vault.address))}
+          </h1>
+          <ChainBadge chain={read.chain} />
+        </div>
+        {valueRow(false)}
         <p className="max-w-(--tf-measure-body) text-body text-muted-foreground">
           {v.lead(chainName)}
         </p>
@@ -436,7 +458,7 @@ function OwnVault({
               page
               fallback={
                 <h1 id={titleId} className={WORKSPACE_TITLE}>
-                  {v.title}
+                  {v.named(shorten(vault.address))}
                 </h1>
               }
               // The name (the person's own, or "Vault #N") comes with their portfolio, read once the

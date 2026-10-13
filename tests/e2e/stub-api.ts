@@ -4,9 +4,10 @@ import {
   createMockAdapter,
   type MockAdapter,
   mockAddress,
+  mockAssets,
   mockRecipeId,
 } from '@colosseum/chain-mock';
-import { purposeOfMix } from '@colosseum/engine/personal';
+import { PERSONAL_PARAMS, purposeOfMix, sleeveOfClass } from '@colosseum/engine/personal';
 import {
   AcceptGoalMixRequest,
   AcceptGoalMixResponse,
@@ -16,9 +17,11 @@ import {
   ChainError,
   ChainId,
   ConfigResponse,
+  chainFamily,
   chainProvenance,
   DEFAULT_FLAGS,
   DISCLAIMER,
+  isAddressOf,
   MixReview,
   type OrderDetail,
   PortfolioExposureResponse,
@@ -180,6 +183,23 @@ function config(): ConfigResponse {
   });
 }
 
+/** What kind each token of the mock's list is, as the server's asset list says it. */
+const CLASSES = new Map(mockAssets(CHAIN).map((a) => [a.id, a.cls]));
+
+/**
+ * What a bad fall could cost, as the engine counts it (packages/engine/src/personal/card.ts): the
+ * part in stocks, crypto and gold, down by `fallBps`. Never a flat zero: a zero says nothing here is
+ * those, and the plan's page says so in words.
+ */
+function lossInFall(lines: { assetId: string; amountUsd: number }[]) {
+  const priced = lines.filter((l) => {
+    const cls = CLASSES.get(l.assetId);
+    return cls !== undefined && ['growth', 'gold'].includes(sleeveOfClass(cls));
+  });
+  const cents = priced.reduce((n, l) => n + Math.round(l.amountUsd * 100), 0);
+  return Math.ceil((cents * PERSONAL_PARAMS.fallBps) / 10_000) / 100;
+}
+
 function proposal(sheet: BasketSheet, weights: Target[] = WEIGHTS) {
   const cash = world.adapter.mock.cash;
   const cashBps = 10_000 - weights.reduce((n, t) => n + t.weightBps, 0);
@@ -224,7 +244,7 @@ function proposal(sheet: BasketSheet, weights: Target[] = WEIGHTS) {
       moneyTodayUsd: sheet.amountUsd,
       termMonths: sheet.horizonMonths,
       cashFlow: 'none',
-      expectedReturn: { lowPct: 0, highPct: 0, basis: 'sample', lossInFallUsd: 0 },
+      expectedReturn: { lowPct: 0, highPct: 0, basis: 'sample', lossInFallUsd: lossInFall(lines) },
       exit: { text: 'Sample: up to the whole amount within a day', costBps: 25 },
     },
     flags: [],
@@ -329,6 +349,15 @@ async function familyOf(p: Published): Promise<SharedFamily | null> {
         source: 'chain',
         observedAt: new Date().toISOString(),
         provenance: 'mock',
+        // each holding's kind, as apps/api sends it from the chain's asset list; nothing measured
+        figures: {
+          holdings: active.components.map((c) => ({
+            asset: c.asset,
+            cls: CLASSES.get(c.asset) ?? null,
+            yield: null,
+            exit: null,
+          })),
+        },
       },
     ],
   };
@@ -1362,7 +1391,11 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   }
   const vault = /^\/v1\/vaults\/([^/]+)\/([^/]+)$/.exec(path);
   if (vault) {
-    const read = vault[1] === CHAIN ? await vaultView(decodeURIComponent(vault[2] ?? '')) : null;
+    // apps/api answers an address that is not one of the chain's with 400, before any read
+    const address = decodeURIComponent(vault[2] ?? '');
+    if (vault[1] === CHAIN && !isAddressOf(chainFamily(CHAIN), address))
+      return send(res, 400, { error: `that is not an address of ${CHAIN_NAME}` });
+    const read = vault[1] === CHAIN ? await vaultView(address) : null;
     if (!read) return send(res, 404, { error: 'no vault at that address' });
     return send(res, 200, {
       chain: CHAIN,

@@ -88,18 +88,52 @@ export function holdingsOf(
   });
 }
 
-/** The share of each kind of asset, largest first: "Stocks 50%", "Dollar yield 30%". */
+type KindShare = { label: string; bps: number; kind: boolean };
+
+function sharesByKind(
+  holdings: readonly Pick<ProductHolding, 'cls' | 'shareBps' | 'name'>[],
+  kinds: Dictionary['plan']['kinds'],
+): KindShare[] {
+  const shares = new Map<string, KindShare>();
+  for (const h of holdings) {
+    const key = h.cls ? `kind:${h.cls}` : `name:${h.name}`;
+    const before = shares.get(key);
+    shares.set(key, {
+      label: h.cls ? kinds[h.cls] : h.name,
+      bps: (before?.bps ?? 0) + h.shareBps,
+      kind: h.cls !== null,
+    });
+  }
+  return [...shares.values()].sort((a, b) => b.bps - a.bps);
+}
+
+/**
+ * The share of each kind of asset, largest first: "Stocks 50%", "Dollar yield 30%". A holding whose
+ * kind the server did not send is named by itself ("SPY 40%"), never counted as "Other": a missing
+ * kind says nothing of what the token is.
+ */
 export function kindShares(
-  holdings: readonly Pick<ProductHolding, 'cls' | 'shareBps'>[],
+  holdings: readonly Pick<ProductHolding, 'cls' | 'shareBps' | 'name'>[],
   locale: string,
   kinds: Dictionary['plan']['kinds'],
 ): string[] {
-  const shares = new Map<string, number>();
-  for (const h of holdings) {
-    const key = h.cls ?? 'other';
-    shares.set(key, (shares.get(key) ?? 0) + h.shareBps);
-  }
-  return [...shares]
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, bps]) => `${kinds[key as keyof typeof kinds]} ${formatBps(bps, locale)}`);
+  return sharesByKind(holdings, kinds).map(
+    ({ label, bps }) => `${label} ${formatBps(bps, locale)}`,
+  );
+}
+
+/**
+ * The same as part of a sentence: "Funds 50% and dollar yield 50%". Only the first word keeps its
+ * capital; a token's own name keeps its own ("SPY 40%, NVDA 30% and TSLA 30%").
+ */
+export function kindsSaid(
+  holdings: readonly Pick<ProductHolding, 'cls' | 'shareBps' | 'name'>[],
+  locale: string,
+  kinds: Dictionary['plan']['kinds'],
+): string {
+  const parts = sharesByKind(holdings, kinds).map(({ label, bps, kind }, i) => {
+    const text = `${label} ${formatBps(bps, locale)}`;
+    return i === 0 || !kind ? text : text.charAt(0).toLocaleLowerCase(locale) + text.slice(1);
+  });
+  return new Intl.ListFormat(locale, { type: 'conjunction' }).format(parts);
 }

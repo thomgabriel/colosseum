@@ -1114,6 +1114,8 @@ export const en = {
         `${share} in ${what} · in a bad fall about −${loss}`,
       inNoFall: (share: string, what: string) =>
         `${share} in ${what} · no loss counted in a bad fall`,
+      /** Where the kinds of asset are not known, so nothing is said of a fall. */
+      inOnly: (share: string, what: string) => `${share} in ${what}`,
       /** After the yield, where it is a small figure under the answer. */
       yieldAfter: 'a year from its dollar yield, projected. Not a promise.',
       range: (low: string, high: string) => `${low} to ${high} a year`,
@@ -1851,6 +1853,12 @@ export const en = {
       loading: 'Reading the vault…',
       missing: 'There is no vault at this address.',
       back: 'Back to your portfolio',
+      /** A visitor's way back: they have no portfolio here. */
+      backVisitor: 'Back to Products',
+      /** Someone else's vault, by its address shortened: "Vault H9hg…LYP5". */
+      named: (address: string) => `Vault ${address}`,
+      unreachable: 'I couldn’t read this vault: our server didn’t answer. Try again.',
+      retry: 'Read it again',
       /** The link to the vault's address on its chain's explorer. */
       explorer: (explorer: string) => `See it on ${explorer}`,
       owner: 'Owner',
