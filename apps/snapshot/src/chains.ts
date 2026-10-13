@@ -79,8 +79,19 @@ const RPC_URL = { solana: 'SOLANA_RPC_URL', robinhood: 'ROBINHOOD_RPC_URL' } as 
  * three requests a batch and two batches in flight. A free node refuses a larger batch and a public
  * one answers a burst with 403; a paid node takes the same small batches. The lanes of a pass
  * (pass.ts, READS_AT_ONCE) share the one client, so this bounds the whole chain's reads.
+ *
+ * `timeoutMs` is two minutes, not the client's 30 s: viem's timer starts before the request waits its
+ * turn in `maxInFlight`'s queue, so a batch's time in the queue counts against it. Four lanes reading
+ * a vault each (about 14 batches a vault) can stand some 28 turns deep; at 3 s a turn on a slow node
+ * that is 84 s of waiting before the last batch is even sent. Two minutes covers that, and a node that
+ * does not answer at all still fails the pass within a few minutes, with viem's two retries.
  */
-export const EVM_NODE = { readOnly: true, batchSize: 3, maxInFlight: 2 } as const;
+export const EVM_NODE = {
+  readOnly: true,
+  batchSize: 3,
+  maxInFlight: 2,
+  timeoutMs: 120_000,
+} as const;
 
 const DEPLOYMENTS = fileURLToPath(new URL('../../../deployments/', import.meta.url));
 

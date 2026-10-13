@@ -609,7 +609,8 @@ describe('Robinhood Chain on mainnet', () => {
 
   it('asks the node in small batches, a few at a time, through a client that only reads', () => {
     // robinhood.drpc.org refuses a batch of more than three; a public node answers a burst with 403.
-    expect(EVM_NODE).toEqual({ readOnly: true, batchSize: 3, maxInFlight: 2 });
+    // Two minutes: a batch's wait in the queue counts toward viem's timer.
+    expect(EVM_NODE).toEqual({ readOnly: true, batchSize: 3, maxInFlight: 2, timeoutMs: 120_000 });
   });
 
   it('asks a mainnet node for nothing but reads, three a batch and two batches at a time', async () => {

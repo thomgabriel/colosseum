@@ -46,13 +46,16 @@ export type EvmRpcOptions = {
   batchSize?: number;
   /**
    * The most HTTP requests in flight at once; the rest wait their turn. Left out, there is no limit.
-   * A public node answers a burst with 403 or 429.
+   * A public node answers a burst with 403 or 429. The time a request waits its turn counts toward
+   * `timeoutMs`, since viem starts its timer before it calls the fetch: give a queue its time.
    */
   maxInFlight?: number;
   /**
    * True for a client that only ever reads (the snapshot worker's): a method that is not in
    * `READ_METHODS` is refused here, as `NotSupported`, and never reaches the node. So nothing that
-   * holds this client can relay a transaction through it, whatever it was handed.
+   * holds this client can relay a transaction through it, whatever it was handed. Off by default:
+   * the adapter simulates (`eth_simulateV1`, `eth_estimateGas`) and relays (`eth_sendRawTransaction`)
+   * through the same client, for the API, the keeper and the test worlds.
    */
   readOnly?: boolean;
   /** What makes the HTTP request. A test hands in its own, and no connection is opened. */
