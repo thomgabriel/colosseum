@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ChainRegistry } from '../../orders/chains';
 import { basketIdOf } from '../../orders/prepare';
+import { insertOrder } from '../../orders/store';
 import { chainOf, orderFlow, type Sent, walletOf } from '../../testing/flow';
 import {
   type HomeChain,
@@ -583,6 +584,62 @@ describe('what a leg is expected to pay out', () => {
         .map((p) => p.asset)
         .sort(),
     ).toEqual(['robinhood:gold', 'robinhood:nvda', 'robinhood:spy']);
+  });
+
+  it('a first deposit stopped after another order opened the vault: its create is refused with what to do', async () => {
+    // Two orders for one plan, made before either opened the vault. The first opens it; the second's
+    // empty create would be refused on chain (`VaultExists`). The API says to make the deposit again,
+    // which plans the approval and the deposit into the open vault.
+    const a = await someone('robinhood');
+    await fund(a);
+    const [one, two] = [await order(a, { amountUsd: 400 }), await order(a, { amountUsd: 300 })];
+    const opened = first(one, 0);
+    await build(a, one, opened.id);
+    await report(a, one, opened.id, { txId: await land(a, one, opened.id) });
+
+    const refused = await post(a, legUrl(two, first(two, 0).id, 'build'));
+    expect([refused.statusCode, refused.json()]).toEqual([
+      409,
+      {
+        error: 'the vault for this plan is open already: make the deposit again',
+        fix: 'Make the deposit again: it goes into the vault that is open.',
+      },
+    ]);
+    expect((await read(a, two)).attempts).toEqual([]);
+    const again = await order(a, { amountUsd: 300 });
+    expect(again.legs.map((l) => l.kind)).toEqual(['approve', 'deposit']);
+  });
+
+  it('refuses to build a create that takes the cash in an order that deposits it again', async () => {
+    // No order the API plans has this shape: one stored by hand stands for an order made by an older
+    // or a wrong planner. Its create is never built with the cash.
+    const a = await someone('robinhood');
+    await fund(a);
+    const placed = await order(a, { amountUsd: 400 });
+    const id = randomUUID();
+    const crafted = {
+      ...placed,
+      id,
+      legs: placed.legs.map((l) => ({
+        ...l,
+        id: randomUUID(),
+        orderId: id,
+        ...(l.kind === 'create_vault' ? { cashRaw: placed.depositRaw } : {}),
+      })),
+    };
+    const { attempts: _, ...stored } = crafted;
+    await insertOrder(data.db, Order.parse(stored), {
+      type: 'buy',
+      owner: a.owner,
+      amountUsd: 400,
+      proposalId: plans.robinhood,
+    });
+    const refused = await post(a, legUrl(crafted, first(crafted, 0).id, 'build'));
+    expect([refused.statusCode, refused.json().error]).toEqual([
+      409,
+      'this order opens its vault with cash and deposits again: make it again',
+    ]);
+    expect(await registry.get('robinhood').adapter.getVaults(a.evm)).toEqual([]);
   });
 
   it('builds with the slippage the buy asked for, up to the cap and no further', async () => {
