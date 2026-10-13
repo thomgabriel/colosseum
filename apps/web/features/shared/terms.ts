@@ -55,6 +55,11 @@ export type SharedTerms =
       items: WithdrawItem[];
       /** The vault had auto-follow on at the review: the order's first step switches it off. */
       autoFollowOff: boolean;
+      /**
+       * In dollars (gate WITHDRAW-DOLLARS): the holdings are sold for the chain's cash token and the
+       * cash leaves. `items` is then the cash token alone. Absent: the tokens themselves leave.
+       */
+      dollars?: DollarsTerms;
     }
   /** A creator's publish, with the text and the weights of the form. */
   | {
@@ -108,6 +113,24 @@ export type WithdrawItem = {
   multiplier: string;
 };
 
+/**
+ * What a withdrawal in dollars is held to, as its review showed it: the share of the vault taken, the
+ * most of each holding that may be sold (that share of what the vault held, rounded down), and that
+ * share of the cash it held, which leaves with what the sales bring.
+ */
+export type DollarsTerms = {
+  /** The share of the vault taken out, in basis points: 10,000 is all of it. */
+  shareBps: number;
+  /** Each holding that is not cash, with the amount of it sold. Nothing else is sold, and no more. */
+  sales: { asset: string; amountRaw: string }[];
+  /** The share of the cash the vault held at the review, raw. */
+  cashRaw: string;
+};
+
+/** The share of an amount, rounded down; all of it for the whole (the API's `shareOf`). */
+export const shareOfRaw = (raw: bigint, shareBps: number): bigint =>
+  shareBps >= 10_000 ? raw : (raw * BigInt(shareBps)) / 10_000n;
+
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const RAW = /^\d+$/;
 const isText = (v: unknown): v is string => typeof v === 'string';
@@ -125,6 +148,35 @@ const followOf = (v: unknown): FollowTerms | null => {
     : null;
 };
 const sourceOf = (v: unknown): TermsSource | null => (v === 'chain' || v === 'api' ? v : null);
+
+const dollarsOf = (v: unknown): DollarsTerms | null => {
+  const d = (typeof v === 'object' && v !== null ? v : {}) as Record<string, unknown>;
+  const sales = Array.isArray(d.sales) ? (d.sales as Record<string, unknown>[]) : null;
+  if (
+    !Number.isInteger(d.shareBps) ||
+    (d.shareBps as number) < 1 ||
+    (d.shareBps as number) > 10_000 ||
+    !isText(d.cashRaw) ||
+    !RAW.test(d.cashRaw) ||
+    !sales ||
+    !sales.every(
+      (s) =>
+        typeof s === 'object' &&
+        s !== null &&
+        isText(s.asset) &&
+        s.asset.includes(':') &&
+        isText(s.amountRaw) &&
+        RAW.test(s.amountRaw),
+    ) ||
+    new Set(sales.map((s) => s.asset)).size !== sales.length
+  )
+    return null;
+  return {
+    shareBps: d.shareBps as number,
+    cashRaw: d.cashRaw,
+    sales: sales.map((s) => ({ asset: s.asset as string, amountRaw: s.amountRaw as string })),
+  };
+};
 
 /** Terms as they were written, or null when any part does not read. */
 export function readTerms(value: unknown): SharedTerms | null {
@@ -192,6 +244,10 @@ export function readTerms(value: unknown): SharedTerms | null {
       (t.everything && items.some((i) => i.amountRaw !== null))
     )
       return null;
+    const dollars = t.dollars === undefined ? undefined : dollarsOf(t.dollars);
+    // In dollars the one token that leaves is the cash, all that is there when its step is built.
+    if (dollars === null || (dollars && (items.length !== 1 || items[0]?.amountRaw !== null)))
+      return null;
     return {
       kind: 'withdraw',
       vault: t.vault,
@@ -205,6 +261,7 @@ export function readTerms(value: unknown): SharedTerms | null {
         heldRaw: i.heldRaw as string,
         multiplier: i.multiplier as string,
       })),
+      ...(dollars ? { dollars } : {}),
     };
   }
   if (t.kind === 'vault') {
