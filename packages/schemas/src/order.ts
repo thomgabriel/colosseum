@@ -278,6 +278,75 @@ export const ORDER_LIMITS = {
  */
 export const WITHDRAW_DOLLARS_MARGIN_BPS = 300;
 
+/**
+ * How far from its targets a vault is before its owner is offered a rebalance, and before one is
+ * ordered, in bps of the vault: a position further than this from its target, or cash further than this
+ * over its share. Inside it there is nothing to trade (`on_target`). One place, so the page that offers
+ * the press and the server that answers it agree. It is the owner's own press and not the keeper's
+ * band, which each chain states.
+ */
+export const OWNER_REBALANCE_BAND_BPS = 50;
+
+/**
+ * The slippage a rebalance is made with where the person names none: the server's own figure
+ * (`ORDER_POLICY.slippageBps` in apps/api, held equal to this by a test there).
+ */
+export const OWNER_REBALANCE_SLIPPAGE_BPS = 100;
+
+/**
+ * The smallest trade a rebalance makes, in dollars: the smallest line a plan holds
+ * (`PERSONAL_PARAMS.minLineUsd` in packages/engine, held equal to this by a test in apps/api). A
+ * vault whose every trade would be smaller is answered `on_target`, and its page offers nothing.
+ */
+export const OWNER_REBALANCE_MIN_TRADE_USD = 5;
+
+/**
+ * Whether a vault's page offers its owner a rebalance: outside the band (`outsideOwnerBand`), and at
+ * least one asset far enough from its target, in dollars, for a trade of
+ * `OWNER_REBALANCE_MIN_TRADE_USD` after the slippage the purchases keep. The server plans the trades
+ * when asked and may still find none; this is the same rule read from the vault's shares and value.
+ */
+export function ownerRebalanceOffered(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+  valueUsd: number,
+): boolean {
+  if (!outsideOwnerBand(rows, cashOverBps, slippageBps)) return false;
+  const usable = 1 - slippageBps / 10_000;
+  return rows.some(
+    (r) =>
+      (Math.abs(r.targetBps - r.weightBps) / 10_000) * valueUsd * usable >=
+      OWNER_REBALANCE_MIN_TRADE_USD,
+  );
+}
+
+/**
+ * Whether a vault is far enough from its targets to be offered, and ordered, a rebalance by its owner.
+ * `rows`: every asset held or targeted, but cash, each with its share of the vault now; `cashOverBps`:
+ * the cash's share less what the targets leave it. A rebalance's purchases are sized so that every
+ * trade may lose the order's slippage and still have its cash, so after one the cash may sit up to
+ * that slippage over its share and each asset up to its own part of it under its target: neither is
+ * drift. Outside, then: an asset over its target by more than `OWNER_REBALANCE_BAND_BPS`, or under it
+ * by more than the band and its part of the slippage; or the cash over its share by more than the
+ * band and the slippage.
+ */
+export function outsideOwnerBand(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+): boolean {
+  const band = OWNER_REBALANCE_BAND_BPS;
+  return (
+    cashOverBps > band + slippageBps ||
+    rows.some(
+      (r) =>
+        r.weightBps - r.targetBps > band ||
+        r.targetBps - r.weightBps > band + Math.ceil((slippageBps * r.targetBps) / 10_000),
+    )
+  );
+}
+
 /** `family` is always the slug. */
 export const IntentRequest = z.discriminatedUnion('type', [
   z.object({
@@ -338,7 +407,9 @@ export const IntentRequest = z.discriminatedUnion('type', [
     reason: z.enum(['manual', 'index_update', 'drift']),
     /**
      * Written by the server, never taken from this route: the vault's new own targets, for an order
-     * made by `POST /v1/vaults/{chain}/{address}/targets`. `POST /v1/orders` plans no rebalance yet.
+     * made by `POST /v1/vaults/{chain}/{address}/targets`, or the targets the vault had, for one made
+     * by `POST /v1/vaults/{chain}/{address}/rebalance`, which sets none. `POST /v1/orders` plans no
+     * rebalance yet.
      */
     targets: z.array(Target).max(16).optional(),
     /** With `targets`: the slippage the order's trades are built with. */
@@ -488,7 +559,10 @@ export const OrderError = ApiError.extend({
       blocking: z.object({ orderId: z.string().min(1), legId: z.string().min(1) }).optional(),
       /** With `ORDER_CONTINUED`: the id of the order that finishes this one. */
       continuedBy: z.string().min(1).optional(),
-      /** With `MIX_NOT_VALID`: what is wrong with the mix, `CODE` or `CODE:assetId` each. */
+      /**
+       * With `MIX_NOT_VALID`: what is wrong with the mix, `CODE` or `CODE:assetId` each. And why a
+       * vault's rebalance is refused (`POST /v1/vaults/{chain}/{address}/rebalance`).
+       */
       issues: z.array(z.string().min(1)).optional(),
     })
     .optional(),

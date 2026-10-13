@@ -117,6 +117,13 @@ const ADAPTER_ERRORS = [
   'NotSupported',
   'TooManyTrades',
   'BadTrade',
+  /** One trade over the network's largest of the asset (`maxTradeUsd`). */
+  'TradeOverAssetLimit',
+  /**
+   * One trade over the network's smaller limit while the asset's reference price is not live, as when
+   * its market is closed (`maxTradeUsdNotLive`): the same trade passes once the price is live again.
+   */
+  'TradeOverClosedLimit',
   'VaultNotFound',
   /** The owner already used that plan id. */
   'VaultExists',
@@ -281,6 +288,9 @@ export const CHAIN_ERROR_RETRYABLE: Record<ChainErrorCode, boolean> = {
   OtherAccountDebited: false,
   AccountTampered: false,
   PriceStale: true,
+  TradeOverAssetLimit: false,
+  /** The smaller limit lifts once the reference price is live again, as when its market opens. */
+  TradeOverClosedLimit: true,
   PriceDeviation: true,
   MarketClosed: true,
   MultiplierWindow: true,

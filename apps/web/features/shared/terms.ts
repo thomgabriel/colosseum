@@ -1,4 +1,4 @@
-import { Hex32, Target } from '@colosseum/schemas';
+import { Hex32, Target, TradeBase } from '@colosseum/schemas';
 
 // What a shared-portfolio order is held to, as the screen that made it showed it (WEB-4). The order
 // screen hands these to the executor (features/order/run-order.ts), which turns them into the guard's
@@ -100,6 +100,22 @@ export type SharedTerms =
       targets: Target[];
       /** Who chose the weights: the conversation's proposal, or the person. */
       origin: 'model' | 'person';
+    }
+  /**
+   * A rebalance of a vault the person owns to the targets it has (HANDOFF-VAULT, MVP item 6). The
+   * guard is handed the targets and every trade as reviewed (`PlanTerms.rebalance`), and refuses any
+   * step that is not a swap, a trade without the cash on exactly one side, a purchase that is not one
+   * of these targets, a minimum of zero, and a trade that is not the reviewed one.
+   */
+  | {
+      kind: 'rebalance';
+      vault: string;
+      /** The plan number of that vault, which the guard derives its address from. */
+      basketId: string;
+      /** The vault's targets above zero; cash is what they leave. */
+      targets: Target[];
+      /** Every trade of the order as the person was shown it, in the order signed. */
+      trades: { sell: string; buy: string; amountInRaw: string }[];
     };
 
 /**
@@ -299,6 +315,28 @@ export function readTerms(value: unknown): SharedTerms | null {
       basketId: t.basketId,
       targets: targets.data,
       origin: t.origin,
+    };
+  }
+  if (t.kind === 'rebalance') {
+    const targets = Target.array().min(1).max(16).safeParse(t.targets);
+    if (
+      !isText(t.vault) ||
+      !t.vault ||
+      !isText(t.basketId) ||
+      !RAW.test(t.basketId) ||
+      !targets.success ||
+      new Set(targets.data.map((x) => x.asset)).size !== targets.data.length ||
+      targets.data.reduce((n, x) => n + x.weightBps, 0) > 10_000
+    )
+      return null;
+    const trades = TradeBase.array().min(1).safeParse(t.trades);
+    if (!trades.success) return null;
+    return {
+      kind: 'rebalance',
+      vault: t.vault,
+      basketId: t.basketId,
+      targets: targets.data,
+      trades: trades.data.map(({ sell, buy, amountInRaw }) => ({ sell, buy, amountInRaw })),
     };
   }
   if (t.kind === 'publish') {
