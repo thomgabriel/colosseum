@@ -587,6 +587,31 @@ describe('a Solana window: one row per signature, covered only when every transa
     expect(m.rows).toBe(3);
     expect(m.covered).toEqual([{ from: t0 - 3600, to: t0, unit: 'second' }]);
   });
+  it('takes no window as whole when its walk ends on an empty page below a cursor, nor a sampled one', async () => {
+    // an endpoint that does not hold the cursor answers an empty page, not an error (found 2026-10-13)
+    const empty = (async (method: string, params: unknown[]) =>
+      method === 'getSignaturesForAddress'
+        ? []
+        : (fake(new Set()) as never as (m: string, p: unknown[]) => unknown)(
+            method,
+            params,
+          )) as never;
+    const out = mkdtempSync(join(tmpdir(), 'sol-'));
+    const base = {
+      out,
+      kind: 'mints' as const,
+      address: 'Mint222',
+      from: t0 - 3600,
+      to: t0,
+      parallel: 2,
+      source: 'fake',
+      now: () => new Date(),
+    };
+    const a = await fetchWindow({ ...base, rpc: empty, startBefore: 'cursorSig' });
+    expect([a.fetched, a.covered]).toEqual([0, false]);
+    const b = await fetchWindow({ ...base, address: 'Mint333', rpc: fake(new Set()), perHour: 1 });
+    expect(b.covered).toBe(false);
+  });
   it('cuts a long window into UTC days, newest first', () => {
     expect(dayPieces(86_400 + 100, 3 * 86_400 + 5)).toEqual([
       { from: 3 * 86_400, to: 3 * 86_400 + 5 },
