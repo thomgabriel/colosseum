@@ -74,6 +74,19 @@ export const LegWithdrawal = z.object({
   amountRaw: RawAmount.nullable(),
   heldRaw: RawAmount,
   /**
+   * Only on the cash step of a withdrawal in dollars (gate `WITHDRAW-DOLLARS`): the least that step
+   * pays out, in the cash token's raw units. It is the person's share of the cash the vault held when
+   * the order was planned plus the least each of the order's sales accepts. The step is never built
+   * for less, and the guard refuses bytes that take out less.
+   */
+  leastRaw: RawAmount.optional(),
+  /**
+   * With `leastRaw`: the most that step pays out. The share of the cash held at planning, plus each
+   * sale's quoted output, plus `WITHDRAW_DOLLARS_MARGIN_BPS` of those quotes for a sale that fills
+   * above its quote. Cash that reaches the vault after the order is planned stays in it.
+   */
+  mostRaw: RawAmount.optional(),
+  /**
    * What it was worth in dollars when the order was made, with where the price came from: the amount
    * (all that was held, where no amount is named) at the chain's reference price then, cash at one
    * dollar. Absent for a token with no price. A portfolio counts what was taken out from it.
@@ -256,6 +269,15 @@ export const ORDER_LIMITS = {
   maxSlippageBps: 300,
 } as const;
 
+/**
+ * How far above the sum of its sales' quotes the cash step of a withdrawal in dollars may pay (gate
+ * WITHDRAW-DOLLARS), in bps of those quotes. A fill can land above its quote when the price moves the
+ * person's way; this allows it the same distance an order's trade may be built below its quote
+ * (`ORDER_LIMITS.maxSlippageBps`), and no more, so the step never takes cash the order did not bring.
+ * Not a cap on what a request may ask, so not in `ORDER_LIMITS`.
+ */
+export const WITHDRAW_DOLLARS_MARGIN_BPS = 300;
+
 /** `family` is always the slug. */
 export const IntentRequest = z.discriminatedUnion('type', [
   z.object({
@@ -349,8 +371,20 @@ export const IntentRequest = z.discriminatedUnion('type', [
     type: z.literal('withdraw'),
     /** One vault per order for now: the first, and a second is refused. */
     vaults: z.array(Address).min(1),
-    /** Not offered yet: `true` is refused. The tokens leave as they are, to the vault's owner. */
+    /**
+     * `false`: the tokens leave as they are, to the vault's owner. `true` (gate `WITHDRAW-DOLLARS`):
+     * the vault's holdings are sold for the chain's cash token, each sale stating its minimum, and
+     * the cash is then withdrawn to the vault's owner; `withdrawals` is then left out.
+     */
     sellToCash: z.boolean(),
+    /**
+     * With `sellToCash`: the share of the vault taken out, in basis points. That share of each
+     * holding is sold, rounded down, and that share of the cash leaves with what the sales bring.
+     * Left out: all of it.
+     */
+    shareBps: Bps.min(1).optional(),
+    /** With `sellToCash`: the slippage each sale is built with. Left out, the server's own figure. */
+    maxSlippageBps: Bps.max(ORDER_LIMITS.maxSlippageBps).optional(),
     /**
      * Which tokens, each once. `amountRaw` left out or null: all the vault holds of that token. The
      * whole list left out: everything the vault holds.

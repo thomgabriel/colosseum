@@ -1,6 +1,7 @@
 export * from './account-api';
 export * from './api';
 export * from './asset';
+export * from './asset-universe';
 export * from './basket';
 export * from './basket-asset';
 export * from './basket-sheet';
@@ -28,6 +29,7 @@ export * from './policy';
 export * from './portfolio-api';
 export * from './recipe';
 export * from './shared-api';
+export * from './stats-api';
 export * from './trust';
 export * from './tx';
 export * from './universe';

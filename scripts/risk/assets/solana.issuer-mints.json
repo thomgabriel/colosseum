@@ -1,0 +1,348 @@
+{
+  "note": "Solana mints an issuer's own page prints, read by hand on readOn; `pnpm risk:assets solana` fetches each page again and records whether its HTML still holds the address.",
+  "mints": [
+    {
+      "symbol": "AAPLx",
+      "address": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+      "url": "https://assets.backed.fi/products/apple-xstock",
+      "title": "Backed Assets, AAPLx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "AMZNx",
+      "address": "Xs3eBt7uRfJX8QUs4suhyU8p2M6DoUDrJyWBa8LLZsg",
+      "url": "https://assets.backed.fi/products/amazon-xstock",
+      "title": "Backed Assets, AMZNx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "CETES",
+      "address": "CETES7CKqqKQizuSN6iWQwmTeFRjbJR6Vw2XRKfEDR8f",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "COINx",
+      "address": "Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu",
+      "url": "https://assets.backed.fi/products/coinbase-xstock",
+      "title": "Backed Assets, COINx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "CRCLx",
+      "address": "XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1",
+      "url": "https://assets.backed.fi/products/circle-xstock",
+      "title": "Backed Assets, CRCLx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "ENA",
+      "address": "72QvBVwpxqmheEPfaCwWSWqEFsUy3rhWt6JhQBMNTwD1",
+      "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+      "title": "Ethena docs, Key Addresses (Solana row)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "EURC",
+      "address": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+      "url": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "title": "Circle developer docs, EURC contract addresses",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "EUROB",
+      "address": "EuroszHk1AL7fHBBsxgeGHsamUqwBpb26oEyt9BcfZ6G",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "GILTS",
+      "address": "GiLTSeSFnNse7xQVYeKdMyckGw66AoRmyggGg1NNd4yr",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "GLDx",
+      "address": "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re",
+      "url": "https://assets.backed.fi/products/gold-xstock",
+      "title": "Backed Assets, GLDx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "GMEx",
+      "address": "Xsf9mBktVB9BSU5kf4nHxPq5hCBJ2j2ui3ecFGxPRGc",
+      "url": "https://assets.backed.fi/products/gamestop-xstock",
+      "title": "Backed Assets, GMEx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "GOOGLx",
+      "address": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+      "url": "https://assets.backed.fi/products/alphabet-xstock",
+      "title": "Backed Assets, GOOGLx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "HOODx",
+      "address": "XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg",
+      "url": "https://assets.backed.fi/products/robinhood-xstock",
+      "title": "Backed Assets, HOODx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "JUP",
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "url": "https://station.jup.ag/docs/jup-token",
+      "title": "Jupiter Station docs, JUP token",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "JupUSD",
+      "address": "JuprjznTrTSp2UFa3ZBUFgwdAmtZCq4MQCwysN55USD",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "KTB",
+      "address": "KTBeXe7VMPMLxBsqDQu4KA9PdSajF3Hkw1y9qRsKqfL",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "MCDx",
+      "address": "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2",
+      "url": "https://assets.backed.fi/products/mcdonalds-xstock",
+      "title": "Backed Assets, MCDx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "METAx",
+      "address": "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+      "url": "https://assets.backed.fi/products/meta-xstock",
+      "title": "Backed Assets, METAx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "MEX",
+      "address": "CeteszTBgDCiRWyPX6KFMHGVcSBTAg82dbaiFC7xDXSn",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "MSFTx",
+      "address": "XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX",
+      "url": "https://assets.backed.fi/products/microsoft-xstock",
+      "title": "Backed Assets, MSFTx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "MSTRx",
+      "address": "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+      "url": "https://assets.backed.fi/products/microstrategy-xstock",
+      "title": "Backed Assets, MSTRx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "NVDAx",
+      "address": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+      "url": "https://assets.backed.fi/products/nvidia-xstock",
+      "title": "Backed Assets, NVDAx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "OUSG",
+      "address": "i7u4r16TcsJTgq1kAG8opmVZyVnAKBwLKu6ZPMwzxNc",
+      "url": "https://docs.ondo.finance/addresses",
+      "title": "Ondo Finance docs, Smart Contract Addresses (Solana): the OUSG token on Solana; addresses that can hold OUSG are on its registry",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "PAXG",
+      "address": "5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW",
+      "url": "https://docs.paxos.com/guides/stablecoin/paxg/mainnet",
+      "title": "Paxos docs, PAXG on mainnet",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "PLTRx",
+      "address": "XsoBhf2ufR8fTyNSjqfU71DYGaE6Z3SUGAidpzriAA4",
+      "url": "https://assets.backed.fi/products/palantir-xstock",
+      "title": "Backed Assets, PLTRx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "PYUSD",
+      "address": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "url": "https://docs.paxos.com/guides/stablecoin/pyusd/mainnet",
+      "title": "Paxos docs, PYUSD on mainnet",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "QQQx",
+      "address": "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+      "url": "https://assets.backed.fi/products/nasdaq-xstock",
+      "title": "Backed Assets, QQQx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "SPCXx",
+      "address": "Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8",
+      "url": "https://assets.backed.fi/products/spacex-xstock",
+      "title": "Backed Assets, SPCXx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "SPYx",
+      "address": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+      "url": "https://assets.backed.fi/products/sp500-xstock",
+      "title": "Backed Assets, SPYx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "STRCx",
+      "address": "Xs78JED6PFZxWc2wCEPspZW9kL3Se5J7L5TChKgsidH",
+      "url": "https://assets.backed.fi/products/strategy-pp-variable-xstock",
+      "title": "Backed Assets, STRCx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "TESOURO",
+      "address": "BRNTNaZeTJANz9PeuD8drNbBHwGgg7ZTjiQYrFgWQ48p",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "TSLAx",
+      "address": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+      "url": "https://assets.backed.fi/products/tesla-xstock",
+      "title": "Backed Assets, TSLAx product page",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USCC",
+      "address": "BTRR3sj1Bn2ZjuemgbeQ6SCtf84iXS81CS7UDTSxUCaK",
+      "url": "https://docs.superstate.com/investors/smart-contracts",
+      "title": "Superstate docs, Smart Contracts: SVM contracts, Solana Mainnet (allowlist, USTB and USCC Token-2022)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USDC",
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "url": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "title": "Circle developer docs, USDC contract addresses",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USDG",
+      "address": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "url": "https://docs.paxos.com/guides/stablecoin/usdg/mainnet",
+      "title": "Paxos docs, USDG on mainnet",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USDT",
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "url": "https://tether.to/en/supported-protocols/",
+      "title": "Tether, Supported Protocols",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USDY",
+      "address": "A1KLoBrKBde8Ty9qtNQUtq3C2ortoC3u7twggz7sEto6",
+      "url": "https://docs.ondo.finance/addresses",
+      "title": "Ondo Finance docs, Smart Contract Addresses (Solana)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USDe",
+      "address": "DEkqHyPN7GMRJ5cArtQFAWefqbZb33Hyf6s5iCwjEonT",
+      "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+      "title": "Ethena docs, Key Addresses (Solana row)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USTB",
+      "address": "CCz3SGVziFeLYk2xfEstkiqJfYkjaSWb2GCABYsVcjo2",
+      "url": "https://docs.superstate.com/investors/smart-contracts",
+      "title": "Superstate docs, Smart Contracts: SVM contracts, Solana Mainnet (allowlist, USTB and USCC Token-2022)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "USTRY",
+      "address": "USTRYnGgcHAhdWsanv8BG6vHGd4p7UGgoB9NRd8ei7j",
+      "url": "https://api.etherfuse.com/lookup/stablebonds",
+      "title": "Etherfuse API, List stablebonds (each bond and its Solana mint)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "eUSX",
+      "address": "3ThdFZQKM6kRyVGLG48kaPg5TRMhYMKY1iCRa9xop1WC",
+      "url": "https://docs.solstice.finance/solstice-for-users/eusx-powered-by-yieldvault",
+      "title": "Solstice docs, eUSX (powered by YieldVault)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "jlEURC",
+      "address": "GcV9tEj62VncGithz4o4N9x6HWXARxuRgEAYk9zahNA8",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "jlJUPUSD",
+      "address": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "jlUSDC",
+      "address": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "jlUSDG",
+      "address": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "jlUSDS",
+      "address": "j14XLJZSVMcUYpAfajdZRpnfHUpJieZHS4aPektLWvh",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "jlUSDT",
+      "address": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
+      "url": "https://lite-api.jup.ag/lend/v1/earn/tokens",
+      "title": "Jupiter Lend, earn tokens API (each deposit token and its asset)",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "mSOL",
+      "address": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "url": "https://docs.marinade.finance/developers/contract-addresses",
+      "title": "Marinade docs, Contract Addresses",
+      "readOn": "2026-10-11"
+    },
+    {
+      "symbol": "sUSDe",
+      "address": "Eh6XEPhSwoLv5wFApukmnaVSHQ6sAnoD9BmgmwQoN2sN",
+      "url": "https://docs.ethena.fi/technical-design/key-addresses.md",
+      "title": "Ethena docs, Key Addresses (Solana row)",
+      "readOn": "2026-10-11"
+    }
+  ]
+}

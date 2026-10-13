@@ -2473,6 +2473,8 @@ export type GetMeWithdrawalsResponse = {
         asset: string;
         amountRaw: string | null;
         heldRaw: string;
+        leastRaw?: string;
+        mostRaw?: string;
         valued?: {
           source: string;
           method: string;
@@ -2553,6 +2555,8 @@ export type PostOrdersBody =
       type: 'withdraw';
       vaults: (string | string)[];
       sellToCash: boolean;
+      shareBps?: number;
+      maxSlippageBps?: number;
       withdrawals?: {
         asset: string;
         amountRaw?: string | null;
@@ -2600,6 +2604,8 @@ export type PostOrdersResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2703,6 +2709,8 @@ export type GetOrdersByIdResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2806,6 +2814,8 @@ export type PostOrdersByIdContinueResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2984,6 +2994,8 @@ export type PostOrdersByIdLegsByLegIdCancelResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -3097,6 +3109,8 @@ export type PostOrdersByIdLegsByLegIdReportResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -3758,6 +3772,33 @@ export type GetShelfResponse = {
         }[];
       };
     }[];
+  }[];
+  disclaimer: string;
+};
+
+/** GET /v1/stats: response. The platform in numbers: vaults, the wallets that own them, what they hold */
+export type GetStatsResponse = {
+  networks: {
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+    chains: ('solana' | 'base' | 'robinhood')[];
+    vaults: {
+      value: number;
+      source: string;
+      fetchedAt: string;
+      method: string;
+    };
+    wallets: {
+      value: number;
+      source: string;
+      fetchedAt: string;
+      method: string;
+    };
+    valueUsd: {
+      value: number;
+      source: string;
+      fetchedAt: string;
+      method: string;
+    } | null;
   }[];
   disclaimer: string;
 };
@@ -4519,6 +4560,8 @@ export type PostVaultsByChainByAddressTargetsResponse =
             asset: string;
             amountRaw: string | null;
             heldRaw: string;
+            leastRaw?: string;
+            mostRaw?: string;
             valued?: {
               source: string;
               method: string;
@@ -4664,6 +4707,7 @@ export interface ApiRoutes {
     response: GetPortfolioRebalancesResponse;
   };
   'GET /v1/shelf': { query: GetShelfQuery; response: GetShelfResponse };
+  'GET /v1/stats': { response: GetStatsResponse };
   'POST /v1/testnet/fund': { body: PostTestnetFundBody; response: PostTestnetFundResponse };
   'GET /v1/vaults/{chain}/{address}': {
     params: GetVaultsByChainByAddressParams;

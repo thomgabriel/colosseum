@@ -13,7 +13,7 @@ import type { EvmRpc } from '../src/vault/rpc';
 
 // A mainnet's record is admitted only when it is complete: it says it is live, it carries the
 // mainnet's own chain id, every address the deploy made, the timelock and what the deploy is expected
-// to hold, and every trade limit. Nothing here reads a chain; no mainnet record is committed.
+// to hold, and every trade limit. Nothing here reads a chain.
 
 const A = (n: number) => `0x${n.toString(16).padStart(40, '0')}`;
 const TESTNET = JSON.parse(
@@ -25,6 +25,12 @@ const TESTNET = JSON.parse(
 // biome-ignore lint/suspicious/noExplicitAny: a record as a file holds it, edited field by field below
 type Json = any;
 const asset = TESTNET.assets[0];
+const COMMITTED = JSON.parse(
+  readFileSync(
+    join(import.meta.dirname, '..', '..', '..', 'deployments', 'robinhood-mainnet.json'),
+    'utf8',
+  ),
+);
 
 /** A complete record of Robinhood Chain mainnet, as a deploy behind a timelock would write it. */
 const mainnet = (): Json => ({
@@ -133,6 +139,46 @@ describe('a mainnet record', () => {
         refused((r) => delete r.expected[key]),
         key,
       ).toBe(true);
+  });
+
+  it('is refused with a timelock nobody proposes to, a keeper asset with no average, or a zero sequencer feed', () => {
+    expect(refused((r) => delete r.timelock.proposers)).toBe(true);
+    expect(refused((r) => (r.timelock.proposers = []))).toBe(true);
+    expect(refused((r) => (r.timelock.proposers = [A(0)]))).toBe(true);
+    // The vault refuses the keeper on an asset whose average is missing or is its own feed
+    // (VaultConfig.setAsset); the record says the same.
+    const keeper = (r: Json) => {
+      r.assets[0].keeperOn = true;
+      r.assets[0].range = { minPrice: '100', maxPrice: '150' };
+    };
+    expect(refused(keeper)).toBe(false);
+    expect(
+      refused((r) => {
+        keeper(r);
+        r.assets[0].averageFeed = A(0);
+      }),
+    ).toBe(true);
+    expect(
+      refused((r) => {
+        keeper(r);
+        r.assets[0].averageFeed = r.assets[0].feed;
+      }),
+    ).toBe(true);
+    // None is null, never the zero address.
+    expect(refused((r) => (r.sequencerFeed = A(0)))).toBe(true);
+  });
+
+  it('is admitted with no average on an asset the keeper is off for, and no sequencer feed: Robinhood Chain has none', () => {
+    expect(
+      refused((r) => {
+        r.assets[0].averageFeed = A(0);
+        r.sequencerFeed = null;
+      }),
+    ).toBe(false);
+  });
+
+  it('is the committed one: deployments/robinhood-mainnet.json is admitted', () => {
+    expect(EvmDeploymentRecord.safeParse(COMMITTED).error).toBeUndefined();
   });
 
   it('is Robinhood Chain’s alone: Base has no mainnet here, under its own number or any other', () => {

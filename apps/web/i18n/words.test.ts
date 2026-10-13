@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { bearingEn as bearing } from './bearing/en';
+import { bearingPt } from './bearing/pt';
 import { en } from './en';
 import { portfolioEn as portfolio } from './portfolio/en';
+import { portfolioPt } from './portfolio/pt';
+import { pt } from './pt';
 
 // Gate WORDS-VAULT-DEPOSIT (Thom, Oct 9): nothing a person reads says "mix" or "buy". What a proposal
 // holds is the vault, and putting money in is a deposit. Every sentence of the English dictionaries is
@@ -91,5 +94,44 @@ describe('the words of the product: vault and deposit, never mix or buy', () => 
     expect(FORBIDDEN.test('A mixture of fixtures, bought-in')).toBe(true);
     expect(FORBIDDEN.test('Fix the admixture')).toBe(false);
     expect(FORBIDDEN.test('Deposit into your vault')).toBe(false);
+  });
+});
+
+// The same rule in Portuguese: depósito and cofre, never compra or mistura. A swap inside an order is
+// a troca, as the English says swap.
+const PROIBIDO =
+  /(?<!\p{L})(?:compr(?:a|as|ar|o|e|es|ei|em|ou|amos|aram|ado|ada|ados|adas|ando|á)|mistur(?:a|as|ar|ado|ada)|mix(?:es)?)(?!\p{L})/iu;
+const todas = [
+  ...sentences(pt, 'pt'),
+  ...sentences(portfolioPt, 'portfolio'),
+  ...sentences(bearingPt, 'bearing'),
+];
+
+describe('as palavras do produto: cofre e depósito, nunca compra ou mistura', () => {
+  it('reads the Portuguese dictionaries, the made sentences among them', () => {
+    expect(todas.length).toBeGreaterThan(2000);
+    expect(todas.map(([, said]) => said)).toContain(pt.mix.goal.confirm);
+  });
+
+  it('finds none', () => {
+    expect(
+      todas.filter(([, said]) => PROIBIDO.test(said)).map(([path, said]) => `${path}: ${said}`),
+    ).toEqual([]);
+  });
+
+  it('bites: each form is found, and a word that only looks like one is not', () => {
+    for (const said of [
+      'Nada foi comprado',
+      'Comprar este plano',
+      'Confira esta mistura',
+      'Comprou NVDA com caixa',
+      'não vou oferecer comprá-lo',
+    ])
+      expect(PROIBIDO.test(said), said).toBe(true);
+    // words that only begin like one
+    expect(PROIBIDO.test('Um compromisso de saque')).toBe(false);
+    expect(PROIBIDO.test('O comprovante do depósito')).toBe(false);
+    expect(PROIBIDO.test('Depositar no seu cofre')).toBe(false);
+    expect(PROIBIDO.test('Trocando por NVDA')).toBe(false);
   });
 });

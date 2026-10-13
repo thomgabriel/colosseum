@@ -27,8 +27,7 @@ export function Landing({
   signedIn?: boolean;
 }) {
   const { landing: t, shell } = dictionary(lang);
-  const sandbox = stats.items.some((s) => s.obs.provenance === 'sandbox');
-  const marked = !stats.live || sandbox;
+  const marked = stats.provenance !== 'live';
   return (
     <div className="flex min-h-dvh flex-col">
       <LandingBar lang={lang} signedIn={signedIn} />
@@ -78,10 +77,17 @@ export function Landing({
             as="section"
             aria-label={t.stats.label}
             mock={marked}
-            mockLabels={{ announce: stats.live ? shell.testNetworkLine : shell.mockAnnounce }}
+            mockLabels={{
+              announce: stats.provenance === 'sandbox' ? shell.testNetworkLine : shell.mockAnnounce,
+            }}
             className="rounded-none! border-x-0 border-b-0 bg-background! text-foreground"
           >
-            <dl className="mx-auto grid w-full max-w-page grid-cols-1 sm:grid-cols-3">
+            <dl
+              className={cn(
+                'mx-auto grid w-full max-w-page grid-cols-1',
+                stats.items.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3',
+              )}
+            >
               {stats.items.map((s, i) => (
                 <div
                   key={s.key}

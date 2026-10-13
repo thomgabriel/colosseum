@@ -244,6 +244,36 @@ RISK_EVM_MAX_POOLS=5 pnpm risk-evm:collect --list   # at most five pools a token
 - 271 RPC calls in 48 requests, 29 seconds, with the confirmation of the pools. The hand list's run is 54 pools and about ten seconds.
 - **The asset row barely moves.** Against the three deepest dollar pools of each token at the same block, a pool beyond the three was the best at 4 of 480 points (MSTR and SGOV at $100, by 2.3 and 0.9 basis points). What the wider run adds is the pool rows, for a split across pools later.
 
+## The shelf's tokens (PLAN-ASSETS AS.12)
+
+`--list --shelf [file]` adds to a list run every token of the Robinhood Chain shelf (`scripts/risk/assets/shelf-robinhood.json`) that the list does not track, with the pools of `scripts/risk/assets/shelf-pools-robinhood.json` (the default file). **Without `--shelf` a list run is exactly what it was.** The file is committed and read once, when the loop starts; a new file takes effect when the loop is started again.
+
+```sh
+pnpm risk-evm:shelf-pools                                  # the file again: DexScreener only, one call every 1.1 s, no RPC
+RISK_EVM_DIR=… pnpm risk-evm:collect --list --shelf        # one run on the list and the shelf
+```
+
+- **Tokens** (`shelf.ts`, `shelfTokens`): each shelf row that is not the dollar token (USDG: every quote is in it) and not tracked by the list (its pools are the cut's), with its decimals from `scripts/risk/assets/robinhood.json`. Each row the file does not add is in `notAdded` with the reason. A token whose symbol the list already uses, or that the list tracks, stops the run (`withShelf`).
+- **Pools** (`shelfPoolsOf`): DexScreener's `token-pairs/v1/robinhood/<token>` pairs against USDG of $10,000 or more (the loop's floor for a DexScreener pool), every one. The Uniswap ones are candidates and go to the same on-chain confirmation as the cut's (the factory's `getPool`, the position manager's `poolKeys`, no hook); another venue's pool is kept in the file and never asked, as the cut's unreachable pools are (DU3). Each candidate gets a pool row (`evmq-pools-0.1`) with `listTvlUsd` DexScreener's figure and `listTvlAt` the file's time; a candidate the chain does not confirm says `not_confirmed_on_chain`. DexScreener lists at most 30 pairs a token (WETH reached it).
+- **Rows:** the asset row is `evmq-0.1`, unchanged, with `source` naming the shelf file for these tokens. A shelf token has no oracle row (the file names no feed). The pool list is confirmed again when the list file of pools (`pools-robinhood-list.json`) is a day old or lacks a token, so the first run after a restart confirms the shelf's pools.
+- **The file of 2026-10-13** (after the re-cut to 44 tokens): 14 tokens added (WETH, NET, cbBTC, TSM, MRNA, USDe, TAO, DUAL, PROLOGUE, SNAP, TTWO, RBLX, LIT, GLXY), 29 tracked by the list, USDG not added; 65 pools, 41 on Uniswap (rebuilt 18:11 UTC against the committed shelf of 44, PONS out). DUAL has no pair against USDG. TSM was the hand list's untracked token: the shelf measures it again.
+
+**Two one-off runs of 2026-10-13** (17:43 and 17:50 UTC, public RPC, into a scratch folder): 44 tokens, 43 asset rows (DUAL: no eligible pool); 35 shelf pools quoted, 6 not confirmed (hooked v4); WETH at 0.016% to sell $10,000. **The steady run: 326 RPC calls in 59 HTTP requests and 39 seconds**, against the list loop's mean of 261 calls in 48 requests over its last 48 hours (+25% calls, +11 requests an hour); the day's confirmation adds two Multicall3 calls.
+
+**The public RPC.** The loop reads `rpc.mainnet.chain.robinhood.com` unless `RISK_EVM_RH_RPC_URL` is set; it never reads `ROBINHOOD_BACKFILL_RPC_URL` (Alchemy, shared with the backfill's $5 cap), and no keyed endpoint is used by this change. The endpoint's Cloudflare challenges (HTTP 403) cost the loop 385 token-rows of 1,440 over its last 48 hours (991 rows written), and a 403 is not retried within the hour: it comes back as a plain error, so `worthRetrying` says no. Eleven more requests an hour give the challenge eleven more chances; a 403 costs the token it hits, not the run, so the shelf's tokens add their own misses and take none from the stocks'. Whether a 403 should be retried is a change to `run.ts` this work does not make.
+
+**The restart (Rodrigo's).** On 2026-10-13 the loop had been stopped since 2026-10-12 14:08 UTC (`"event":"stopping","signal":"SIGTERM"`, no `loop.lock` left), and its restart without `--shelf` went to Rodrigo first. Adding the shelf means stopping that loop (SIGTERM lets a run in progress finish) and starting it again with `--shelf`. It ran from the risk-analytics worktree; the one with the shelf runs from this checkout (`~/Documents/Colosseum-assets-collect`, or `staging` once merged), with the same data folder, and `DOTENV_CONFIG_PATH=/dev/null` so no `.env` setting can point it at a keyed endpoint:
+
+```sh
+cd ~/Documents/Colosseum-assets-collect
+pgrep -fl 'risk-evm/collect.ts' || echo 'no loop running'      # if one runs: kill -TERM <pid>, wait for "stopping" in collect.log
+DOTENV_CONFIG_PATH=/dev/null RISK_EVM_DIR=~/Documents/Colosseum-data/risk-evm \
+  nohup caffeinate -i pnpm risk-evm:collect --loop --list --shelf >> ~/Documents/Colosseum-data/risk-evm/collect.log 2>&1 &
+tail -3 ~/Documents/Colosseum-data/risk-evm/collect.log           # "14 shelf tokens from …", then "loop_started"
+```
+
+The backfill of Robinhood Chain logs waits out minutes 1 to 14 of each hour around the old loop's minute 4; a loop started now runs on a grid from its own start, so start it at about minute 4 of an hour, the old loop's minute, to keep its run inside that quiet window (the asset metrics job at minute 38 waits it out as well).
+
 ## The oracle beside the pool price
 
 A list run also reads the Chainlink feed of every tracked stock that has one (PLAN-UNIVERSE RU.7, method `evmo-0.1`): `latestRoundData()` of each proxy the asset list names, in one Multicall3 call at the block the run holds, before the first pool is asked. The rows go to `oracle/<day>.jsonl`. A run without `--list` reads no feed.
@@ -283,6 +313,33 @@ RISK_EVM_DIR=… pnpm risk-evm:flow-import           # the rows into the databas
 
 Tests: `pnpm vitest run tests/risk-evm-history.test.ts` on `fixtures/risk-evm/robinhood-history.json.gz`, a recorded quarter-day walk of seven pools (`record-history-fixture.ts`): each decoder read by hand, the sign conventions, the halving, the resume, the interpolation against exact blocks, the hourly prices and the flow rows recomputed by hand, and an insert inside a transaction that is rolled back.
 
+## The asset universe (ASSET-1)
+
+`pnpm risk:assets robinhood` (PLAN-ASSETS AS.3, gate `ASSET-UNIVERSE`) writes `scripts/risk/assets/robinhood.json`: every Robinhood Chain token of the product's classes, read on chain, with a status and its reason from the reviewed table `scripts/risk/assets/robinhood.verdicts.json`. The builder is `assets.ts` (the command's part), `assets-read.ts` (the reads, through the client and fetch it is given) and `assets-list.ts` (the list from the reads, no I/O); the decoders are `packages/risk/src/assets/evm.ts`. Read-only: public GETs, `eth_call`, `eth_getStorageAt`, `eth_getCode`. No file the hourly loop runs was changed, and the loop reads nothing this writes. How a row is decided is in `scripts/risk/assets/README.md`; what is read, here.
+
+```sh
+RISK_EVM_DIR=… pnpm risk:assets robinhood                      # read everything again (about an hour: CoinGecko's keyless pages)
+pnpm risk:assets robinhood --from <reads.json.gz>              # build from reads already made, with no network
+RISK_EVM_DIR=… pnpm risk:assets robinhood --listings <file>    # reuse the GETs of a run, read the chain again
+pnpm risk-evm:assets-freeze --from <reads.json.gz>             # the same, and freeze the reads under fixtures/risk-evm/assets/
+```
+
+Every live run writes its reads (`reads-<stamp>.json.gz`, with the code samples) and its GETs (`listings-<stamp>.json.gz`) to `RISK_ASSETS_DIR` (default `data/assets/robinhood`), and the names it saw to `names-<stamp>.json` there, whether or not the build goes through: that file is what a person writes the verdicts from. The discovery file is the newest in `RISK_EVM_DIR`, read and never written.
+
+**The reads, in order.**
+
+1. The issuer's registry (`REGISTRY_URL`), every row, cut to the fields the list keeps.
+2. Chainlink's directory (`DIRECTORY_URL`), every entry, cut to what `parseDirectory` reads.
+3. DexScreener: `latest/dex/search?q=robinhood <name>` for each class name (the prompt's names, the base assets of the directory, USD, EUR), then `token-pairs/v1/robinhood/<token>` for each address the screening note writes and each name a search gave whose symbol names a class, one call every 1.1 seconds; a call that fails is asked once more after 5 seconds and counted. Pairs are kept with their names, addresses, venue and labels only.
+4. CoinGecko's token list for the chain and Chainlink CCIP's token directory (one GET each); DexScreener's `tokens/v1/robinhood/<30 addresses>` over every token they list outside the registry (one call every 1.1 seconds), whose 24-hour volume selects the crypto rows (`scripts/risk/assets/README.md`, "Crypto beyond the listings"); then, keyless and one call every 6 seconds, the names of every CoinGecko category, CoinGecko's list of the chain's memecoin category, its list of every coin with its address on each chain, and the page of each token outside that category and outside the registry that the selection kept, a verdict names, or a committed list holds (`git log` of `scripts/risk/assets/robinhood.json`, every version).
+5. The chain, at one block: `WETH9()` of the v4 position manager; then, through Multicall3 at that block, `decimals()`, `symbol()`, `name()`, `asset()`, `convertToAssets(1e18)`, `owner()` and `defaultAdmin()` of every address the registry, the note (with its input list and its shelf fixture: every full address written there), WETH9() and the class names of DexScreener give, of every selected token CoinGecko files as a protocol's or a liquid staking token, and of every address a verdict names or a committed version of the list holds, every run, whatever that day's search returned; the three EIP-1967 slots of each, and of each clone's target, by `eth_getStorageAt` (20 addresses a request); `implementation()` and `owner()` of each beacon; `eth_getCode` of every address, every implementation and every clone's target (20 a request), each reduced to its size, whether it has a DELEGATECALL, an EIP-1167 target and the watched selectors it pushes, with its SHA-256; for each token whose running code pushes `getFacet(bytes4)`, `getFacet(<selector>)` for every pause and blacklist selector and the code of each facet named; and the directory's feeds, five reads each as `feeds.ts` reads them.
+
+**The public RPC and the loop.** The endpoint sits behind Cloudflare, which at times answers a request with a challenge (HTTP 403 with `cf-mitigated`); it does so to the hourly loop too: by its run log, 7 of its 12 runs from 14:04 UTC on Oct 10 to 01:04 UTC on Oct 11 lost tokens to `RPC answered HTTP 403`, the first at 15:04, before this work began. Such a request is asked again as it is, up to 8 times 15 seconds apart, and the count is in the run's lines: nothing is solved, disguised or sent elsewhere. A refusal for rate (HTTP 429) is the client's own retry, then the whole chain part again on a new block after 30 seconds, three times at most. No request is sent to the chain in minutes 1 to 14 of an hour (UTC), around the loop's run at minute 4: every request waits for minute 15 (the reads' block may then be gone, and the chain part starts again on a new block).
+
+**What is frozen** (`pnpm risk-evm:assets-freeze`): `fixtures/risk-evm/assets/robinhood-reads-<stamp>.json.gz` holds every read above as the list uses it (the multicall answers as returned, the slots, the code scans, the GETs cut) the discovery file cut to pools grouped by stock token, other side and source, and the rows of every committed version of the list the run started from (address, id, symbol, status, commit), from which the ids are kept; `robinhood-code-<stamp>.json.gz` holds the raw code of six addresses, one of each kind the reads found, for the decoder tests. `tests/risk-assets-robinhood.test.ts` rebuilds the committed list from them with no network.
+
+**The metrics of every row (ASSET-2, AS.5 and AS.6)** are read by `assets-metrics.ts` (`totalSupply()` and the ERC-4626 rates by Multicall3 at one pinned block, outside minutes 1 to 14 and with the same Cloudflare retry; the newest discovery file's pool TVL; the issuer registry's SGOV multiplier) for `pnpm risk:assets-import robinhood`, and hourly by `com.colosseum.assets-robinhood` (`install-assets-job.sh`, minute 38). What each metric is and where it goes: `scripts/risk/assets/README.md`, "Metrics".
+
 ## Files
 
 | File | What it is |
@@ -311,6 +368,7 @@ Tests: `pnpm vitest run tests/risk-evm-history.test.ts` on `fixtures/risk-evm/ro
 | `history.ts` | The trade history (RU.14): decoders, filters, the window walk, block times, prices by the hour. No I/O |
 | `history-run.ts`, `history-flow.ts`, `flow-import.ts`, `flow-insert.ts` | The walk command; the swaps as `risk_pool_flow` rows (no I/O); the import command; the insert |
 | `record-history-fixture.ts` | Re-records `fixtures/risk-evm/robinhood-history.json.gz`: a quarter-day walk of seven pools |
+| `assets.ts`, `assets-read.ts`, `assets-list.ts` | The asset universe (ASSET-1): the builder `pnpm risk:assets robinhood` loads, its reads, and the list from the reads (no I/O) |
 
 After editing `ClQuoter.sol`, run `pnpm exec tsx scripts/risk-evm/build-quoter.ts`; a test fails while the JSON is stale. The tests are in `tests/risk-evm.test.ts`. They replay `fixtures/risk-evm/robinhood-nvda-quotes.json` and the endpoint errors in `fixtures/risk-evm/rpc-errors.json`; none calls the network. The token list and the discovery are tested in `tests/risk-evm-universe.test.ts`, which replays one recorded pass for two tokens (`fixtures/risk-evm/robinhood-discovery.json.gz`). The cut is tested in `tests/risk-evm-cut.test.ts`, on the discovery of Oct 5 frozen to what the cut reads (`fixtures/risk/universe/robinhood-discovery-20261005T1947.json.gz`, made by `pnpm risk:freeze-universe-fixture <discovery.json> --chain robinhood`). The oracle read is tested in `tests/risk-evm-oracle-run.test.ts`, on the same recording and by hand. The run on the list is tested in `tests/risk-evm-list.test.ts`, which replays two recorded runs for NVDA and GME at one block (`fixtures/risk-evm/robinhood-list-run.json.gz`): every reachable pool, then the three deepest. The oracle map is tested in `tests/risk-evm-oracles.test.ts`, which replays one recorded pass (`fixtures/risk-evm/robinhood-oracles.json.gz`: the directory and the chain's answers at block 81,164,613).
 
