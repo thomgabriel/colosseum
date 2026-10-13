@@ -163,8 +163,8 @@ export const REASON_TEMPLATES = {
   ),
   THEME_HELD: rule(
     ['holdings', 'themes'],
-    'Less {asset} in {theme}: of the {totalUsd|usd} of it you hold, {heldUsd|usd} counts here, so the theme buys it only up to the total of each of its other names.',
-    'Menos {asset} em {theme}: dos {totalUsd|usd} que você tem desse ativo, {heldUsd|usd} contam aqui, então o tema compra só até o total de cada um dos outros nomes.',
+    'Less {asset} in {theme}: of the {totalUsd|usd} of it you hold, {heldUsd|usd} counts here, so the theme holds it only up to the total of each of its other names.',
+    'Menos {asset} em {theme}: dos {totalUsd|usd} que você tem desse ativo, {heldUsd|usd} contam aqui, então o tema fica com ele só até o total de cada um dos outros nomes.',
   ),
   THEME_HELD_NONE: rule(
     ['holdings', 'themes'],
@@ -184,8 +184,8 @@ export const REASON_TEMPLATES = {
   ),
   MORE_BECAUSE_HELD_PART: rule(
     ['holdings', 'themes'],
-    'A larger share here: of the {totalUsd|usd} of {asset} you hold, {heldUsd|usd} counts here, so this part buys less of it.',
-    'Uma parcela maior aqui: dos {totalUsd|usd} de {asset} que você tem, {heldUsd|usd} contam aqui, então esta parte compra menos desse ativo.',
+    'A larger share here: of the {totalUsd|usd} of {asset} you hold, {heldUsd|usd} counts here, so this part holds less of it.',
+    'Uma parcela maior aqui: dos {totalUsd|usd} de {asset} que você tem, {heldUsd|usd} contam aqui, então esta parte fica com menos desse ativo.',
   ),
   OVERFLOW_HELD_PART: rule(
     ['holdings', 'themes'],
@@ -376,8 +376,8 @@ export const REASON_TEMPLATES = {
   ),
   MORE_BECAUSE_HELD: rule(
     ['holdings'],
-    'A larger share here: you already hold {heldUsd|usd} of {asset}, so this plan buys less of it.',
-    'Uma parcela maior aqui: você já tem {heldUsd|usd} de {asset}, então este plano compra menos desse ativo.',
+    'A larger share here: you already hold {heldUsd|usd} of {asset}, so this plan holds less of it.',
+    'Uma parcela maior aqui: você já tem {heldUsd|usd} de {asset}, então este plano fica com menos desse ativo.',
   ),
   SINGLE_STOCK_CAP: rule(
     ['risk'],
