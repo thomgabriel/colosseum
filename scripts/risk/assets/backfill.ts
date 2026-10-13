@@ -1014,7 +1014,19 @@ async function solanaPieces(inp: {
 }) {
   const results = [];
   let before = inp.before;
+  // a resumed run skips a day the address's manifest already holds whole (a window with a failed fetch is never
+  // marked covered, so it is asked again)
+  const mf = join(OUT, 'solana', inp.kind, inp.address, 'manifest.json');
+  const covered = existsSync(mf)
+    ? (JSON.parse(readFileSync(mf, 'utf8')) as { covered: Array<{ from: number; to: number }> })
+        .covered
+    : [];
   for (const piece of dayPieces(inp.from, inp.to)) {
+    if (!inp.perHour && covered.some((w) => w.from <= piece.from && w.to >= piece.to)) {
+      log({ event: 'window_held', address: inp.address, from: piece.from });
+      before = undefined;
+      continue;
+    }
     inp.guard({ nextBytes: inp.written.largest, writtenBytes: inp.written.bytes });
     const r = await fetchWindow({
       rpc: solRpc as never,
@@ -1111,12 +1123,62 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
       throw new Error(
         '--all on Solana mints: walking the mints or their mint authorities is Rodrigo’s choice (DA20); fetch a mint with --mint and --window',
       );
+    const nowT = Math.floor(Date.now() / 1000);
+    const d90 = nowT - (ctx?.days ?? 90) * DAY;
+    // the shelf's scope with --skip-exact: gated on the sampled count of the same scope (the budget is checked
+    // after every day all the same), and fetched in passes over time, the newest days of every pool first, so a
+    // run cut short (an endpoint's trial ending) leaves every pool its most recent days (stated, not chosen)
+    if (has('--skip-exact') && ctx && !ctx.beyond) {
+      requireCountThatFits(ctx.key, '--all --skip-exact (the sampled count of the scope)');
+      const passDays = Number(opt('--pass-days') ?? 7);
+      const windows: Array<[number, number]> = [];
+      for (let end = nowT; end > d90; end -= passDays * DAY)
+        windows.push([Math.max(d90, end - passDays * DAY + 1), end]);
+      const lastSig = new Map<string, string | undefined>();
+      let piecesDone = 0;
+      for (const [i, [from, to]] of windows.entries()) {
+        for (const p of pools) {
+          const before = lastSig.get(p.address);
+          const r = await solanaPieces({
+            kind,
+            address: p.address,
+            p,
+            from,
+            to,
+            ...(before ? { before } : {}),
+            guard: guardFn,
+            written,
+          });
+          lastSig.set(p.address, r.at(-1)?.lastSignature ?? undefined);
+          piecesDone++;
+          log({
+            event: 'pass_pool_done',
+            pass: i + 1,
+            of: windows.length,
+            address: p.address,
+            piecesDone,
+            writtenBytes: written.bytes,
+          });
+        }
+        log({
+          event: 'pass_done',
+          pass: i + 1,
+          of: windows.length,
+          from: new Date(from * 1000).toISOString(),
+          writtenBytes: written.bytes,
+        });
+      }
+      return finish({
+        pools: pools.length,
+        passes: windows.length,
+        writtenBytes: written.bytes,
+        rpc: rpcStats,
+      });
+    }
     // step 1, the exact pass, then the gate on its count, then the fetch
     const exact = await solanaExactCount();
     log({ event: 'exact_pass', count: exact.file, estimate: exact.body.estimate });
     requireCountThatFits(ctx?.exactKey as string, '--all after the exact pass');
-    const nowT = Math.floor(Date.now() / 1000);
-    const d90 = nowT - (ctx?.days ?? 90) * DAY;
     const order = [...exact.body.perPool].sort((x, y) => y.signatures - x.signatures);
     let done = 0;
     for (const w of order) {
