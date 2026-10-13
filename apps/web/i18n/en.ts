@@ -2001,7 +2001,6 @@ export const en = {
       max: 'Max',
       maxLabel: (amount: string) => `Use your whole balance, ${amount}`,
     },
-    share: { label: 'Share of your vault', part: (share: string) => share, max: 'Max' },
     errors: {
       notAmount: 'Type an amount in dollars.',
       belowMin: (least: string) => `At least ${least}`,

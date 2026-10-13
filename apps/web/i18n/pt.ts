@@ -1790,7 +1790,6 @@ export const pt: Dictionary = {
       max: 'Máx.',
       maxLabel: (amount: string) => `Usar todo o saldo, ${amount}`,
     },
-    share: { label: 'Parte do seu cofre', part: (share: string) => share, max: 'Máx.' },
     errors: {
       notAmount: 'Digite um valor em dólares.',
       belowMin: (least: string) => `No mínimo ${least}`,
