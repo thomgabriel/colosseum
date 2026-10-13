@@ -52,7 +52,7 @@ import { SubscribeBlock, type SubscribeStatus } from '../../../../components/ui/
 
 // The showcase of the design system: every primitive in every state, light beside dark, with the name
 // of its spec. Development only (see page.dev.tsx). Everything on it is made up, and every panel says
-// so as sample (a hatched pin, a quiet line); the live and stale pins are specimens of a state, not of data.
+// so as sample (a hatched pin, a quiet tag); the live and stale pins are specimens of a state, not of data.
 
 const noop = () => {};
 const SPECS = '.design/branding/working-brand/patterns/components';
@@ -523,7 +523,7 @@ export function Showcase() {
             <CardHeader title="Trip fund" meta="March 2029" />
           </Card>
         </Specimen>
-        <Specimen state="sample: band on the edge, one quiet line at the foot">
+        <Specimen state="sample: one quiet tag in the top-right corner">
           <Card mock>
             <CardHeader title="Sample plan" meta="as of 14:02 UTC" />
             <CardBody>
@@ -633,7 +633,7 @@ export function Showcase() {
       <Section
         spec="mock-plate.md"
         title="Sample mark"
-        note="Sample is never shown as live, and never by a boxed word: a hatched glyph named for a screen reader, and one quiet line per card. Text never sits on the hatch."
+        note="Sample is never shown as live, and never by a boxed word: a hatched glyph named for a screen reader, and one quiet tag per card. Text never sits on the hatch."
       >
         <Specimen state="inline: after a figure and its hatched pin">
           <p className="text-h4 font-medium">

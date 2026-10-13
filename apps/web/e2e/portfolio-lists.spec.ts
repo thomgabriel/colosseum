@@ -44,7 +44,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(income).toHaveAttribute('data-vault', INCOME);
     await expect(income.locator('h2')).toHaveText('Earn income from $80,000 for 60 months.');
     await expect(income.locator('[data-ui="chain-badge"]')).toHaveText('Solana');
-    await expect(income.locator('[data-ui="sample-note"]')).toHaveText(t.shell.testNetworkLine);
+    await expect(income.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.testNetworkLine);
     await expect(income.locator('header a')).toHaveAttribute(
       'href',
       `/portfolio/plan/solana/${INCOME}`,
@@ -80,7 +80,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(failed.locator('[data-ui="step-outcome"] svg')).toBeVisible();
     // the sample chain's step: its own quiet line, and a transaction no explorer shows
     const silent = page.locator(`main [data-ui="vault-steps"][data-vault="${SILENT}"]`);
-    await expect(silent.locator('[data-ui="sample-note"]')).toHaveText(t.shell.mockAnnounce);
+    await expect(silent.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.mockAnnounce);
     await expect(silent.locator('[data-ui="step-tx"]')).toContainText(w.rebalancing.noExplorer);
     await expect(page.locator('main a[href^="mock:"]')).toHaveCount(0);
     // once, what the list cannot tell, with the way to the methodology
@@ -131,7 +131,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(solana.locator('[data-ui="exposure-oldest"]')).toContainText(
       'Oct 7, 2026, 08:55 UTC',
     );
-    await expect(solana.locator('[data-ui="sample-note"]')).toHaveText(t.shell.testNetworkLine);
+    await expect(solana.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.testNetworkLine);
     // the shares, largest first, each a bar that is drawn
     const underlying = solana.locator('ol[data-ui="shares"][data-by="underlying"] > li');
     await expect(underlying).toHaveCount(5);
@@ -162,7 +162,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(solana.locator('[data-ui="unvalued"] li')).toHaveCount(1);
     // the sample chain says its figures are samples, and shows no split by issuer
     const robinhood = page.locator('main [data-ui="chain-exposure"][data-chain="robinhood"]');
-    await expect(robinhood.locator('[data-ui="sample-note"]')).toHaveText(t.shell.mockAnnounce);
+    await expect(robinhood.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.mockAnnounce);
     await expect(robinhood.locator('[data-ui="issuer-stand-ins"]')).toHaveText(
       w.exposure.shares.standIns,
     );

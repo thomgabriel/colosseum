@@ -473,7 +473,7 @@ describe('the figures of the rebalancing page', () => {
     }
   });
 
-  it('draws a test network and the sample chain as the hatch and one quiet line, never as live (rule 2)', async () => {
+  it('draws a test network and the sample chain with one quiet tag, never as live (rule 2)', async () => {
     serve(portStore);
     signIn();
     const host = await page();
@@ -488,8 +488,8 @@ describe('the figures of the rebalancing page', () => {
       [RH_SILENT, t.shell.mockAnnounce],
     ] as const) {
       const g = group(host, vault);
-      expect(g.querySelector('[data-ui="hatch-band"]')).not.toBeNull();
-      expect(part(g, 'sample-note')).toBe(line);
+      expect(g.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
+      expect(part(g, 'sample-tag')).toBe(line);
     }
     expect(text(host)).not.toContain('MOCK');
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
@@ -523,7 +523,7 @@ describe('the figures of the rebalancing page', () => {
     expect(new Set(pins(host).map((pin) => pin.getAttribute('data-state')))).toEqual(
       new Set(['live']),
     );
-    expect(host.querySelector('[data-ui="hatch-band"], [data-ui="sample-note"]')).toBeNull();
+    expect(host.querySelector('[data-ui="hatch-band"], [data-ui="sample-tag"]')).toBeNull();
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     // this app is set to the test networks: a live step's transaction is not on their explorers, so
     // it is shown with no link rather than one that opens the wrong network
@@ -544,7 +544,7 @@ describe('the figures of the rebalancing page', () => {
     expect(text(find(group(host, RH_SILENT), 'h2'))).toBe('Your vault on Robinhood Chain');
     expect(find(g, 'header a').getAttribute('href')).toBe(`/portfolio/plan/solana/${SOL_GROW}`);
     // still not live: the steps' own labels say so
-    expect(part(g, 'sample-note')).toBe(t.shell.testNetworkLine);
+    expect(part(g, 'sample-tag')).toBe(t.shell.testNetworkLine);
   });
 });
 
@@ -727,7 +727,7 @@ describe('the rebalancing page in Portuguese', () => {
     expect(said(row(trades(step(host, SOL_GROW, 0))[0] as Element, 'held-before')).trim()).toBe(
       '1,62 SPYx',
     );
-    expect(at(group(host, SOL_INCOME), 'sample-note')).toBe(dictionary('pt').shell.testNetworkLine);
+    expect(at(group(host, SOL_INCOME), 'sample-tag')).toBe(dictionary('pt').shell.testNetworkLine);
     expect(said(find(groups(host).at(-1) as Element, 'h2'))).toBe(
       'Passos na Solana sem cofre identificado',
     );

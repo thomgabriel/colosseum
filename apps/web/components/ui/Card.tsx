@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { cn } from './cn';
-import { HatchBand, SampleNote } from './internal/mock-parts';
+import { SAMPLE_LINE, SampleTag } from './internal/mock-parts';
 import { LatticeGlyph, LatticeStatus } from './Lattice';
 
 // card.md. A card is a planed face: one layer up from the ground, a hairline edge, 10px corners, no
@@ -26,12 +26,13 @@ export type CardProps = {
   /** Sets `aria-current` on a selected card. */
   current?: 'page' | 'true';
   /**
-   * The data inside is not live. The card draws both halves itself: a hatch band down its left edge
-   * and one quiet line at its foot ("Sample figures"). Nothing else is needed (MOCK-QUIET).
+   * The data inside is not live. The card says so itself, once: a quiet tag in its top-right corner
+   * ("Sample figures", or "Test network"), in its header's row when it opens with a `CardHeader`, else
+   * in a row of its own. Nothing else is needed (MOCK-QUIET, Thom, Oct 13).
    */
   mock?: boolean;
   /**
-   * Words for that line, in the language of the view. `announce` is the line ("Sample figures");
+   * Words for that tag, in the language of the view. `announce` is the tag ("Sample figures");
    * `note` follows it after a dot: "test network", for a card whose figures come from one.
    */
   mockLabels?: { announce?: string; note?: string };
@@ -55,6 +56,15 @@ export function Card({
   className,
   ...aria
 }: CardProps) {
+  const sample = mock
+    ? [mockLabels?.announce ?? SAMPLE_LINE, mockLabels?.note].filter(Boolean).join(' · ')
+    : undefined;
+  // A card that opens with its header carries the tag at the header's right; any other, in a row above.
+  const [first, ...rest] = Children.toArray(children);
+  const header =
+    sample !== undefined && isValidElement(first) && first.type === CardHeader
+      ? (first as ReactElement<CardHeaderProps>)
+      : null;
   return (
     <Tag
       {...aria}
@@ -67,26 +77,24 @@ export function Card({
         interactive &&
           'transition-colors hover:border-input focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring',
         selected && 'border-l-2 border-l-primary',
-        mock && 'flex',
+        // the section under the tag's row opens the card: no hairline over it
+        sample !== undefined && header === null && '[&>[data-ui=sample-tag-row]+*]:border-t-0!',
         className,
       )}
     >
-      {mock ? (
-        <>
-          <HatchBand />
-          <div className="min-w-0 flex-1">
-            <div className="contents">{children}</div>
-            {/* Said once, quietly, at the foot of the card (MOCK-QUIET). */}
-            <SampleNote
-              line={mockLabels?.announce}
-              note={mockLabels?.note}
-              className={density === 'dense' ? 'px-4 pb-3' : 'px-6 pb-5'}
-            />
-          </div>
-        </>
-      ) : (
-        children
+      {sample !== undefined && header === null && (
+        // tucked into the top padding of what follows, so the tag adds a line, not a band
+        <div
+          data-ui="sample-tag-row"
+          className={cn(
+            'flex justify-end',
+            density === 'dense' ? '-mb-2 px-4 pt-3' : '-mb-3 px-6 pt-4',
+          )}
+        >
+          <SampleTag label={sample} />
+        </div>
       )}
+      {header ? [cloneElement(header, { sample }), ...rest] : children}
     </Tag>
   );
 }
@@ -101,6 +109,8 @@ export type CardHeaderProps = {
   /** The heading level in the page outline. */
   level?: 2 | 3 | 4;
   id?: string;
+  /** Set by a `mock` card that opens with this header: its sample tag, after the meta. */
+  sample?: string;
   className?: string;
 };
 
@@ -111,6 +121,7 @@ export function CardHeader({
   density = 'default',
   level = 3,
   id,
+  sample,
   className,
 }: CardHeaderProps) {
   const Heading = `h${level}` as 'h2' | 'h3' | 'h4';
@@ -131,7 +142,14 @@ export function CardHeader({
           </a>
         )}
       </Heading>
-      {meta && <div className="shrink-0 text-caption text-muted-foreground">{meta}</div>}
+      {sample === undefined ? (
+        meta && <div className="shrink-0 text-caption text-muted-foreground">{meta}</div>
+      ) : (
+        <div className="flex shrink-0 items-baseline gap-2">
+          {meta && <div className="text-caption text-muted-foreground">{meta}</div>}
+          <SampleTag label={sample} />
+        </div>
+      )}
     </div>
   );
 }

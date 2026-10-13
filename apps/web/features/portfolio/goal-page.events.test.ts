@@ -214,9 +214,9 @@ describe('home', () => {
     // that link is the portfolio section, the same plans over time (PORT-3): no second link to it
     expect(card.querySelector('[data-ui="plans-over-time"]')).toBeNull();
     expect(card.querySelectorAll('[data-ui="button"]')).toHaveLength(0);
-    // a test network: the hatch and one quiet line with the words, never MOCK
+    // a test network: one quiet tag with the words, never MOCK
     expect(card.textContent).not.toContain('MOCK');
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     expect(find(owned(host)[0], 'a').getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
     // still one serif line on the page, and no primary button but the goal's own
@@ -261,7 +261,7 @@ describe('home', () => {
       '$1,040.00\u202f',
       '$26.50\u202f',
     ]);
-    expect(owned(host).map((vault) => find(vault, '[data-ui="sample-note"]').textContent)).toEqual([
+    expect(owned(host).map((vault) => find(vault, '[data-ui="sample-tag"]').textContent)).toEqual([
       en.shell.testNetworkLine,
       en.shell.mockAnnounce,
     ]);
@@ -370,7 +370,7 @@ describe('home', () => {
     portStore.set(signedInPort(PHANTOM));
     const host = await home();
     const card = owned(host)[0];
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(card.textContent).toContain(en.portfolio.vault.unpriced(1));
     const held = find(card, '[data-ui="owned-vault-holdings"]');
     expect(find(held, '[data-asset="solana:usdy"]').textContent).toContain('USDY —');

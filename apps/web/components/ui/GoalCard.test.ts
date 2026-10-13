@@ -100,13 +100,17 @@ describe('GoalCard (goal-card.md)', () => {
     expect(all(c, ui('pin'))).toHaveLength(0);
   });
 
-  it('with mock inputs has the hatch band on its left edge and one quiet line, never MOCK', () => {
+  it('with mock inputs has one quiet tag in its top-right corner, no hatch, never MOCK', () => {
     const c = one(render(goalCard.watch), ui('goal-card'));
-    expect(all(c, ui('hatch-band'))).toHaveLength(1);
-    expect(c.children[0]).toMatchObject({ attrs: { 'data-ui': 'hatch-band' } });
-    expect(text(one(c, ui('sample-note')))).toBe('Sample figures');
+    const tag = one(c, ui('sample-tag'));
+    expect(text(tag)).toBe('Sample figures');
+    expect(classes(tag)).toEqual(expect.arrayContaining(['rounded-sm', 'self-end']));
+    // first in the card, above the sentence
+    expect(tag.parent?.children[0]).toBe(tag);
+    expect(all(c, (e) => classes(e).includes('tf-hatch'))).toHaveLength(0);
+    expect(all(c, ui('sample-note'))).toHaveLength(0);
     expect(text(c)).not.toContain('MOCK');
-    expect(all(card, ui('hatch-band'))).toHaveLength(0);
+    expect(all(card, ui('sample-tag'))).toHaveLength(0);
   });
 
   it('as a draft has no status mark and no amount', () => {

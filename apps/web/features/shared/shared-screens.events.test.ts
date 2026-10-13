@@ -231,9 +231,9 @@ describe('the shelf', () => {
     expect(card.textContent).toContain(en.shared.text.unverified);
     expect(card.textContent).toContain('SPYx 40%');
     expect(card.textContent).not.toContain(en.shared.shelf.card.platform);
-    // a test network's portfolio carries the hatch and one quiet line, never the word MOCK
+    // a test network's portfolio carries one quiet tag, never the word MOCK
     expect(card.textContent).not.toContain('MOCK');
-    expect(card.querySelector('[data-ui="sample-note"]')?.textContent).toBe(
+    expect(card.querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
       en.shell.testNetworkLine,
     );
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
@@ -251,7 +251,7 @@ describe('the shelf', () => {
     [...host.querySelectorAll<HTMLElement>('[data-ui="shelf-card"]')].map((card) => ({
       name: card.querySelector('a')?.textContent,
       chains: [...card.querySelectorAll('[data-ui="chain-badge"]')].map((b) => b.textContent),
-      note: card.querySelector('[data-ui="sample-note"]')?.textContent,
+      note: card.querySelector('[data-ui="sample-tag"]')?.textContent,
     }));
 
   it('lists both chains’ portfolios together, each with its chain and its own sample mark', async () => {

@@ -118,7 +118,7 @@ async function toSteps(page: Page, shots = false) {
   await expect(card).toContainText(en.order.review.steps);
   await expect(card).toContainText(en.order.review.expires);
   await expect(card.locator('[data-ui="order-step"]').first()).toContainText('100');
-  // sample figures on the mock: the card's hatch says so, and nothing reads as live
+  // sample figures on the mock: the card's tag says so, and nothing reads as live
   await expect(pane(page)).toContainText(en.shell.mockAnnounce);
 }
 

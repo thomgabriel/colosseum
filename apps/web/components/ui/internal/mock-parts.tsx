@@ -1,20 +1,21 @@
 import { cn } from '../cn';
 
 // The parts of the sample mark, for the primitives only (gate MOCK-QUIET, Thom, Oct 6, in place of
-// the boxed word MOCK beside every figure). A sample card keeps its hatched edge and says so once, in
-// a quiet line; a sample figure keeps a small hatched glyph with a name for screen readers. A screen
-// never imports this file: it uses a whole thing (`MockPlate`, `MockFrame`, a mocked card, row, leg
-// or figure), each of which draws both halves itself. hatch.test.ts fails on an import of this file
-// from outside components/ui, and on a hatch with nothing that says it is sample.
+// the boxed word MOCK beside every figure). A sample card says so once, in a quiet tag in its
+// top-right corner (Thom, Oct 13, in place of its hatched edge); a sample figure keeps a small hatched
+// glyph with a name for screen readers. A screen never imports this file: it uses a whole thing
+// (`MockPlate`, `MockFrame`, a mocked card, row, leg or figure), each of which draws its mark itself.
+// hatch.test.ts fails on an import of this file from outside components/ui, and on a hatch with
+// nothing that says it is sample.
 
-/** The card's line, when a screen hands none. */
+/** The words of a sample card's tag or a sample panel's line, when a screen hands none. */
 export const SAMPLE_LINE = 'Sample figures';
 /** A sample glyph's name for a screen reader, when a screen hands none. */
 export const SAMPLE_FIGURE = 'sample figure';
 /** Kept for the screens that still hand it: the card's line. */
 export const MOCK_ANNOUNCE = SAMPLE_LINE;
 
-/** The 6px band of hatch: the left edge of a mocked card, row or leg label. */
+/** The 6px band of hatch: the left edge of a mocked row or leg label, and of a stale plate. */
 export function HatchBand({ className }: { className?: string }) {
   return (
     <span
@@ -52,7 +53,7 @@ export function MockWord({ announce = true, sentence, className }: MockWordProps
   );
 }
 
-/** A sample card's one quiet line: "Sample figures · test network", muted, with no box. */
+/** A sample panel's one quiet line (the embed, a mock frame): "Sample figures · test network". */
 export function SampleNote({
   line,
   note,
@@ -68,5 +69,23 @@ export function SampleNote({
       {line ?? SAMPLE_LINE}
       {note ? ` · ${note}` : ''}
     </p>
+  );
+}
+
+/**
+ * A sample card's one tag, in its top-right corner: "Sample figures" or "Test network", quiet and
+ * neutral, with a tag's 6px corners (MOCK-QUIET, Thom, Oct 13). Its words are its screen-reader name.
+ */
+export function SampleTag({ label, className }: { label?: string; className?: string }) {
+  return (
+    <span
+      data-ui="sample-tag"
+      className={cn(
+        'inline-flex shrink-0 items-center rounded-sm border border-border px-1.5 py-px font-sans text-caption font-medium whitespace-nowrap text-sample-foreground',
+        className,
+      )}
+    >
+      {label ?? SAMPLE_LINE}
+    </span>
   );
 }

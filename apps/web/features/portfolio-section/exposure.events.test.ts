@@ -353,8 +353,8 @@ describe('the exposure page, for a person who holds on two chains', () => {
     signIn();
     const host = await page();
     const robinhood = block(host, 'robinhood');
-    expect(part(robinhood, 'sample-note')).toBe(t.shell.mockAnnounce);
-    expect(robinhood.querySelector('[data-ui="hatch-band"]')).not.toBeNull();
+    expect(part(robinhood, 'sample-tag')).toBe(t.shell.mockAnnounce);
+    expect(robinhood.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
     expect(robinhood.querySelector('[data-ui="shares"][data-by="issuer"]')).toBeNull();
     expect(part(robinhood, 'issuer-stand-ins')).toBe(
       'On our sample chain every issuer and tier is a stand-in, so there is no split by issuer to show.',
@@ -363,7 +363,7 @@ describe('the exposure page, for a person who holds on two chains', () => {
     expect(text(robinhood)).not.toContain(words.flags.say.issuer_concentration);
     expect(text(robinhood)).not.toContain(words.shares.byIssuer);
     // a test network keeps its split, under its own line
-    expect(part(block(host, 'solana'), 'sample-note')).toBe(t.shell.testNetworkLine);
+    expect(part(block(host, 'solana'), 'sample-tag')).toBe(t.shell.testNetworkLine);
     expect(block(host, 'solana').querySelector('[data-ui="issuer-stand-ins"]')).toBeNull();
   });
 });
@@ -389,14 +389,14 @@ describe('the figures of the exposure page', () => {
     expect(text(copy)).not.toMatch(/\d\s?bps/);
   });
 
-  it('draws a test network and the sample chain as the hatch and one quiet line, never as live (rule 2)', async () => {
+  it('draws a test network and the sample chain with one quiet tag, never as live (rule 2)', async () => {
     serve(portStore);
     signIn();
     const host = await page();
     expect(new Set(pins(host).map((pin) => pin.getAttribute('data-state')))).toEqual(
       new Set(['mock']),
     );
-    expect(host.querySelectorAll('[data-ui="sample-note"]')).toHaveLength(2);
+    expect(host.querySelectorAll('[data-ui="sample-tag"]')).toHaveLength(2);
     expect(text(host)).not.toContain('MOCK');
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     // the only status on the page is a word with its shape
@@ -412,7 +412,7 @@ describe('the figures of the exposure page', () => {
     expect(new Set(pins(host).map((pin) => pin.getAttribute('data-state')))).toEqual(
       new Set(['live']),
     );
-    expect(host.querySelector('[data-ui="hatch-band"], [data-ui="sample-note"]')).toBeNull();
+    expect(host.querySelector('[data-ui="hatch-band"], [data-ui="sample-tag"]')).toBeNull();
     expect(block(host, 'solana').querySelector('[data-ui="chain-mark"]')).toBeNull();
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
@@ -582,7 +582,7 @@ describe('the exposure page in Portuguese', () => {
     expect(at(exit(solana, 'solana:spyx'), 'exit-cost')).toBe(pt.exit.undated);
     expect(at(exit(solana, 'solana:syrupusdc'), 'exit-cost')).toContain('A faixa dele, B,');
     expect(at(solana, 'unvalued-note')).toBe(pt.unvalued.note);
-    expect(at(solana, 'sample-note')).toBe(dictionary('pt').shell.testNetworkLine);
+    expect(at(solana, 'sample-tag')).toBe(dictionary('pt').shell.testNetworkLine);
     expect(at(block(host, 'robinhood'), 'issuer-stand-ins')).toBe(pt.shares.standIns);
     expect(read(find(host, '[data-ui="exposure-notes"]'))).toContain(pt.notes.chains);
     for (const english of [words.title, words.exit.heading, words.shares.byUnderlying])
