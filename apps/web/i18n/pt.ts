@@ -176,6 +176,7 @@ export const pt: Dictionary = {
     names: { solana: 'Solana', robinhood: 'Robinhood Chain', base: 'Base' },
     short: { solana: 'Solana', robinhood: 'Robinhood', base: 'Base' },
     explorers: { solana: 'Solscan', robinhood: 'explorador da Robinhood', base: 'Basescan' },
+    etherscan: 'Etherscan',
     switch: {
       noWallet: (chain: string) => `A carteira com que você entrou não assina na ${chain}.`,
       saving: 'Trocando…',
@@ -976,6 +977,31 @@ export const pt: Dictionary = {
       robinhood_fork: 'uma execução numa cópia da Robinhood Chain',
       second_rehearsal: 'um segundo ensaio na rede principal com a chave de administração',
     },
+    mainnet: {
+      real: 'Isto é dinheiro de verdade em uma rede ao vivo. Nada aqui promete retorno, e isto não é aconselhamento licenciado.',
+      loss: 'Você pode perder dinheiro, inclusive tudo.',
+      governance: (hours: number, signatures: number) =>
+        `Os contratos dos cofres pertencem a um timelock. Um Safe que exige ${signatures} assinaturas, dos dois fundadores, propõe cada mudança a ele, e uma mudança passa a valer ${hours} horas depois de aparecer na rede. Uma mudança pode alterar o que um cofre faz, então depois dessa espera a equipe poderia mover fundos.`,
+      withdraw:
+        'Um saque envia a você os próprios tokens, e os contratos dos cofres nunca o bloqueiam. O emissor pode pausar os tokens de ações e congelar o token de dólar, o que impediria esses tokens de se moverem, dentro ou fora do seu cofre.',
+      safe: (address: string) => `O Safe: ${address}.`,
+      guardian:
+        'Um fundador tem uma chave de guardião. Ela pode pausar novos depósitos na hora. Ela não move fundos, não muda os contratos e não impede um saque.',
+      noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
+      noCap: 'Nada limita quanto você pode depositar. Quanto você coloca é decisão sua.',
+      trades:
+        'Cada negociação que você assina é conferida por este aplicativo com um preço de referência e limitada em tamanho antes de ser montada. Uma negociação fora desses limites não é montada. Os próprios contratos só seguram uma negociação ao mínimo que você assina.',
+      issuers:
+        'O emissor dos tokens de ações pode substituir o código deles e pausá-los. O emissor do token de dólar pode congelá-lo.',
+      short: {
+        governance: (hours: number, signatures: number) =>
+          `Um Safe de ${signatures} assinaturas, dos fundadores, pode mudar o código dos cofres ${hours} horas depois de avisar na rede.`,
+        noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
+        noCap: 'Nada limita quanto você pode depositar.',
+        issuers:
+          'Os emissores podem mudar ou pausar os tokens de ações e congelar o token de dólar.',
+      },
+    },
     accept: 'Li e aceito',
     accepted: 'Você aceitou este aviso neste navegador.',
     short: {
@@ -1009,9 +1035,9 @@ export const pt: Dictionary = {
     },
     funding: {
       title: 'O que sua carteira precisa',
-      needs: (cash: string, gas: string) => `Você precisa de ${cash} e ${gas} para as taxas.`,
-      haveNone: 'Você ainda não tem nada.',
-      lacking: (list: string) => `Ainda faltam ${list}.`,
+      insufficient: 'Saldo insuficiente.',
+      addToken: (symbol: string) => `Adicione ${symbol} à sua carteira para depositar.`,
+      addGas: (symbol: string) => `Adicione um pouco de ${symbol} para as taxas de rede.`,
       and: (a: string, b: string) => `${a} e ${b}`,
       details: 'Mostrar os detalhes',
       testFunds: 'Receber fundos de teste',
@@ -1022,13 +1048,13 @@ export const pt: Dictionary = {
         busy: 'Você já recebeu fundos de teste quantas vezes um dia permite. Tente amanhã, ou coloque fundos na carteira você mesmo.',
         tooMuch:
           'Este valor precisa de mais do que um envio de fundos de teste dá. Escolha um valor menor e peça de novo.',
-        enough: 'Sua carteira já tem o que esta compra precisa.',
+        enough: 'Sua carteira já tem o que este depósito precisa.',
         lowCash:
           'Nossos fundos de teste estão baixos. Peça à equipe para completar, ou coloque fundos na carteira você mesmo.',
         lowGas:
           'Nosso gás de teste está baixo. Peça à equipe para completar, ou coloque fundos na carteira você mesmo.',
         refused:
-          'Nosso servidor não enviou fundos de teste para esta compra. Leia sua carteira de novo e tente outra vez.',
+          'Nosso servidor não enviou fundos de teste para este depósito. Leia sua carteira de novo e tente outra vez.',
         unreachable:
           'A rede de teste não aceitou a transferência, ou nosso servidor não respondeu. Leia sua carteira de novo: parte pode ter chegado.',
       },
@@ -1036,14 +1062,12 @@ export const pt: Dictionary = {
       cash: (symbol: string) => `Dinheiro para depositar (${symbol})`,
       gas: (symbol: string) => `Taxas da rede (${symbol})`,
       have: 'Você tem',
-      need: 'Esta compra precisa',
+      need: 'Este depósito precisa',
       missing: 'Faltam',
-      ok: 'Sua carteira tem o que esta compra precisa.',
-      short: (chain: string) =>
-        `Falta na sua carteira o que esta compra precisa. Adicione o que falta à sua carteira em ${chain} e leia de novo.`,
+      ok: 'Sua carteira tem o que este depósito precisa.',
       address: (address: string) => `Seu endereço lá: ${address}`,
       newVault:
-        'Esta compra abre o seu cofre para este plano, o que custa um pouco mais de taxa na primeira vez.',
+        'Este depósito abre o seu cofre para este plano, o que custa um pouco mais de taxa na primeira vez.',
       readAgain: 'Ler minha carteira de novo',
       mockFund: 'Adicionar dinheiro e taxas de exemplo',
       mockFunding: 'Adicionando…',

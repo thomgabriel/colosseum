@@ -6,7 +6,7 @@ Written on Thu Oct 1, at night. There is no feature freeze (decided on Oct 5, ga
 
 - Done: the documents, the audit, green checks, the repo organised, the shared Claude setup (ORG-1 to ORG-4).
 - Not started: any product code for the vault. The two test rigs in `spikes/` pass on copies of mainnet; neither has run on mainnet itself.
-- Decided on Oct 2: no money goes onto mainnet for now, and the product is built and shown on test networks first. The $10 of model credit stays. Everything through Sunday is local and free anyway; what changes is under "Where it runs" below.
+- Decided on Oct 2: no money goes onto mainnet for now, and the product is built and shown on test networks first (amended on Oct 12 for one deployment and deposits on Robinhood Chain, gate `SPEND-FIRST-MAINNET-DEPOSIT`). The $10 of model credit stays. Everything through Sunday is local and free anyway; what changes is under "Where it runs" below.
 - One day behind the design. Its day plan had the program, the contracts, the personalization port and the sign-in page starting on Oct 1. They start on Oct 2, which now carries two days of starts. There is no spare day: Oct 8 is for the gates and Oct 9 for fixes. A slip costs a cut, in the order below.
 
 ## How the days are used

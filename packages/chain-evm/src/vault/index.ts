@@ -19,4 +19,5 @@ export * from './reader';
 export * from './routes';
 export { createEvmRpc, type EvmRpc, isRevert } from './rpc';
 export * from './send';
+export * from './trade-limits';
 export { unlistedAssetId, unlistedToken } from './unlisted';

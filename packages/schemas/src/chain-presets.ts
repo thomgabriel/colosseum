@@ -36,8 +36,10 @@ const solanaMainnet: ChainPreset = {
 const robinhoodMainnet: ChainPreset = {
   networkName: 'Robinhood Chain',
   evmChainId: 4663,
-  // No explorer address for mainnet is recorded in this repo yet.
-  explorerTx: null,
+  // Etherscan's instance for the chain (gate MAINNET-EXPLORER, Thom, 2026-10-13), in place of
+  // Blockscout's, which viem's own definition of the chain still names. Etherscan's standard paths:
+  // `/tx/<hash>` and `/address/<address>`.
+  explorerTx: 'https://robin.etherscan.io/tx/{txId}',
   router: ROBINHOOD_UNIVERSAL_ROUTER,
   priceSource: { kind: 'chainlink', address: null },
 };

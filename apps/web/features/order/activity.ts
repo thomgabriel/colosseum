@@ -9,7 +9,7 @@ import type {
 import type { Execution } from '../../components/ui/ExecutionList';
 import type { Dictionary } from '../../i18n';
 import { tokenName } from './amounts';
-import { explorerUrlFor } from './readiness';
+import { explorerNameFor, explorerUrlFor } from './readiness';
 import { unitsFor } from './units';
 
 // What was done on chain, as his guide writes it (guidelines.html, "Disclaimer and activity"): one
@@ -54,8 +54,13 @@ export function activityOfWithdrawals(
           error: null,
           at: s.at,
           signature: s.txId,
-          explorerUrl: explorerUrlFor(w.chain, s.txId, mock(w.chain)),
-          explorer: t.chain.explorers[w.chain],
+          explorerUrl: explorerUrlFor(
+            w.chain,
+            s.txId,
+            mock(w.chain),
+            mock(w.chain) ? undefined : s.provenance,
+          ),
+          explorer: explorerNameFor(w.chain, t.chain),
           chain: w.chain,
           provenance: s.provenance,
         })),
@@ -92,8 +97,8 @@ export function activityOf(
         error: leg.error?.message ?? null,
         at: last?.builtAt ?? order.createdAt,
         signature: leg.txId,
-        explorerUrl: explorerUrlFor(leg.chain, leg.txId, mock),
-        explorer: t.chain.explorers[leg.chain],
+        explorerUrl: explorerUrlFor(leg.chain, leg.txId, mock, mock ? undefined : leg.provenance),
+        explorer: explorerNameFor(leg.chain, t.chain),
         chain: leg.chain,
         provenance: leg.provenance,
       };

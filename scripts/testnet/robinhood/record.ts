@@ -40,6 +40,9 @@ export type KitState = {
   cash: string;
   cashSymbol: string;
   router: string;
+  /** The shape of every pool the kit opened: one pool per token against the cash, all alike. */
+  fee: number;
+  tickSpacing: number;
   tokens: { symbol: string; modelOf: string; address: string }[];
 };
 
@@ -115,6 +118,13 @@ export function buildRecord(
       tokenIssuer: kit.admin,
     },
     sequencerFeed: same(chain.sequencerFeed, ZERO) ? null : chain.sequencerFeed,
+    // Not checked against the feeds here: the kit's market keeps each pool at its feed, and the feeds
+    // are written by our own copier (packages/chain-evm/src/vault/deployment.ts).
+    priceBoundBps: null,
+    staleRailBps: null,
+    sessionPriceAge: null,
+    maxTradeUsdNotLive: null,
+    staleRailMaxAge: null,
     routers: [{ address: kit.router, pull: 2 as const }],
     cash: {
       id: idOf(kit.cashSymbol),
@@ -145,6 +155,11 @@ export function buildRecord(
         maxWeightBps: a.maxWeightBps,
         keeperOn: (a.flags & 1) === 1,
         range: ranged ? { minPrice: a.minPrice.toString(), maxPrice: a.maxPrice.toString() } : null,
+        // Stated for each asset, though the kit's pools are all one shape: on a mainnet they are not.
+        pool: { fee: kit.fee, tickSpacing: kit.tickSpacing },
+        // No largest trade: the kit seeds each pool with a million dollars a side.
+        maxTradeUsd: null,
+        average: null,
       };
     }),
     retired: chain.removed.map((address) => {

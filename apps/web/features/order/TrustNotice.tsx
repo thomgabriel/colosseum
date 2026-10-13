@@ -4,6 +4,8 @@ import { useId } from 'react';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { formatBps } from './amounts';
+import { chainIsLive } from './readiness';
+import { trustPoints } from './trust-points';
 
 // The trust notice, from the one TRUST_STATUS constant (DESIGN-VAULT section 13), before the first
 // deposit. First the four points in short: unaudited, the team's upgrade keys, the keeper's limits in
@@ -35,7 +37,6 @@ export function TrustNotice({
   const lang = useLang();
   const boxId = useId();
   const shortId = useId();
-  const admin = TRUST_STATUS.admin[chain];
   const keeper = TRUST_STATUS.keeper[chain];
   const limits = keeper
     ? ([
@@ -43,24 +44,12 @@ export function TrustNotice({
         formatBps(keeper.weeklyLossCapBps, LOCALE[lang]),
       ] as const)
     : null;
-  const short = [
-    ...(TRUST_STATUS.audited ? [] : [t.trust.short.unaudited]),
-    t.trust.short.keys,
-    ...(keeperTrades ? [limits ? t.trust.short.keeper(...limits) : t.trust.short.keeperUnset] : []),
-    ...(TRUST_STATUS.issuersCanFreeze ? [t.trust.short.issuers] : []),
-  ];
-  const items = [
-    ...(TRUST_STATUS.audited ? [] : [t.trust.unaudited]),
-    t.trust.keys,
-    ...(admin ? [t.trust.admin(admin)] : []),
-    limits ? t.trust.keeper(...limits) : t.trust.keeperUnset,
-    ...(TRUST_STATUS.issuersCanFreeze ? [t.trust.issuers] : []),
-    ...(TRUST_STATUS.usPersons === 'blocked' ? [t.trust.notUnitedStates] : []),
-    ...(TRUST_STATUS.passkeyLoss ? [t.trust.passkey] : []),
-    ...(TRUST_STATUS.openChecks.length
-      ? [t.trust.openChecks(TRUST_STATUS.openChecks.map((c) => t.trust.checks[c]).join('; '))]
-      : []),
-  ];
+  // Live is this app's own word for the chain (its network variable), as every label's is.
+  const live = chainIsLive(chain);
+  const points = trustPoints(t, chain, { live, keeperTrades, limits });
+  // A live chain with no notice of its own: nothing to accept, so nothing is offered to tick.
+  if (!points) return null;
+  const { short, items } = points;
   return (
     <div data-ui="trust-notice" className="flex flex-col gap-4">
       <p className="max-w-(--tf-measure-body) text-body">{t.trust.lead}</p>

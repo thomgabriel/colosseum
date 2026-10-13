@@ -12,47 +12,76 @@ import {
 import { ask, type EvmRpc, isRevert } from './rpc';
 
 // The one route an EVM vault trades through here: an exact-input swap in one hookless Uniswap v4 pool,
+// the one recorded for the asset traded,
 // through Universal Router 2.1.x (pull 2, through Permit2), priced by Uniswap's v4 Quoter. The call
 // data is the shape `contracts/test/fork/UniV4Calldata.sol` builds, which the fork test of the vault ran
 // against the real router on Robinhood Chain: `SWAP_EXACT_IN_SINGLE`, `SETTLE_ALL`, `TAKE_ALL`, so
 // the output goes to the caller, the vault, and nowhere else.
 
-/** Which pools a chain trades in, and who prices them. */
+/** One Uniswap v4 pool's shape: its fee in hundredths of a basis point, and its tick spacing. */
+export type V4Pool = { fee: number; tickSpacing: number };
+
+/**
+ * Which pools a chain trades in, and who prices them. Every asset has one pool, against the cash
+ * token, and its shape is the asset's own: on mainnet the money of one stock sits at one fee and that
+ * of the next at another. A trade goes through the pool recorded for its asset and no other.
+ */
 export type V4Pools = {
   /** Uniswap's v4 Quoter. */
   quoter: Address;
-  fee: number;
-  tickSpacing: number;
   /** The zero address: the vault trades in hookless pools only. */
   hooks: Address;
+  /** The cash token every pool here is against. */
+  cash: Address;
+  /** Each asset's pool against the cash token, by the asset's token address in lower case. */
+  byToken: Readonly<Record<string, V4Pool>>;
 };
 
 const ZERO = '0x0000000000000000000000000000000000000000' as Address;
 
 /**
- * Robinhood Chain's test network (46630), as TNET-2 made it (`contracts/script/testnet/deployed/
- * 46630.json`): one pool per test token against tUSDG at fee 500 and tick spacing 10, no hooks. The
- * Quoter is Uniswap's, at the address it has on mainnet, with the same code (docs/vault/research/
- * test-networks.md).
+ * Uniswap's v4 Quoter on Robinhood Chain: the same address, with the same code, on mainnet (4663)
+ * and on the test network (46630) (docs/vault/research/test-networks.md).
  */
-export const ROBINHOOD_TESTNET_POOLS: V4Pools = {
-  quoter: '0x8dc178efb8111bb0973dd9d722ebeff267c98f94',
-  fee: 500,
-  tickSpacing: 10,
-  hooks: ZERO,
-};
+export const ROBINHOOD_V4_QUOTER = '0x8dc178efb8111bb0973dd9d722ebeff267c98f94' as Address;
+
+/** The pools of a network from its assets: the cash token, and each other token with its pool. */
+export function v4Pools(
+  cash: string,
+  assets: readonly { address: string; pool: V4Pool }[],
+  quoter: Address = ROBINHOOD_V4_QUOTER,
+): V4Pools {
+  return {
+    quoter,
+    hooks: ZERO,
+    cash: cash.toLowerCase() as Address,
+    byToken: Object.fromEntries(
+      assets.map((a) => [
+        a.address.toLowerCase(),
+        { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing },
+      ]),
+    ),
+  };
+}
 
 /**
- * Robinhood Chain mainnet, for a local copy of it: the NVDA and USDG pool the vault's fork test trades
- * in (contracts/test/fork/RobinhoodForkSwap.t.sol), fee 100 and tick spacing 1, no hooks. Other tokens'
- * pools on mainnet may sit at other fees; a trade in one of them is refused as `BadTrade` by the quote.
+ * The pool two tokens trade in: the pool recorded for the one that is not cash. Two assets have no
+ * pool of their own, and an asset with none recorded is not traded: `BadTrade`, before anything is
+ * asked of the chain.
  */
-export const ROBINHOOD_MAINNET_POOLS: V4Pools = {
-  quoter: '0x8dc178efb8111bb0973dd9d722ebeff267c98f94',
-  fee: 100,
-  tickSpacing: 1,
-  hooks: ZERO,
-};
+export function poolOf(pools: V4Pools, a: Address, b: Address): V4Pool {
+  const [x, y] = [a.toLowerCase(), b.toLowerCase()];
+  const cash = pools.cash.toLowerCase();
+  if ((x === cash) === (y === cash))
+    throw new ChainError(
+      'BadTrade',
+      `no pool is recorded for ${a} and ${b}: a trade is between the cash token and one asset`,
+    );
+  const asset = x === cash ? y : x;
+  const pool = Object.hasOwn(pools.byToken, asset) ? pools.byToken[asset] : undefined;
+  if (!pool) throw new ChainError('BadTrade', `no pool is recorded for ${asset}`);
+  return pool;
+}
 
 const QUOTER_ABI = parseAbi([
   'struct PoolKey { address currency0; address currency1; uint24 fee; int24 tickSpacing; address hooks; }',
@@ -67,21 +96,16 @@ const SETTLE_ALL = '0x0c';
 const TAKE_ALL = '0x0f';
 const MAX_UINT128 = (1n << 128n) - 1n;
 
-/** The pool of two tokens: the lower address is `currency0`. */
+/** The key of the pool two tokens trade in: the lower address is `currency0`, the shape the asset's. */
 export function poolKeyOf(pools: V4Pools, a: Address, b: Address) {
+  const { fee, tickSpacing } = poolOf(pools, a, b);
   const [currency0, currency1] = BigInt(a) < BigInt(b) ? [a, b] : [b, a];
-  return {
-    currency0,
-    currency1,
-    fee: pools.fee,
-    tickSpacing: pools.tickSpacing,
-    hooks: pools.hooks,
-  };
+  return { currency0, currency1, fee, tickSpacing, hooks: pools.hooks };
 }
 
 /**
- * What the pool pays for `amountIn` of `tokenIn`, now (or at `block`). A pool that does not exist, or
- * cannot fill the amount, makes the Quoter revert: `BadTrade`.
+ * What the asset's pool pays for `amountIn` of `tokenIn`, now (or at `block`). A pool that does not
+ * exist, or cannot fill the amount, makes the Quoter revert: `BadTrade`.
  */
 export async function quoteExactIn(
   rpc: EvmRpc,
@@ -117,7 +141,7 @@ export async function quoteExactIn(
     if (isRevert(e))
       throw new ChainError(
         'BadTrade',
-        `no pool of ${t.tokenIn} and ${t.tokenOut} at fee ${pools.fee} and tick spacing ${pools.tickSpacing} can fill that amount`,
+        `no pool of ${t.tokenIn} and ${t.tokenOut} at fee ${poolKey.fee} and tick spacing ${poolKey.tickSpacing} can fill that amount`,
       );
     throw e;
   }

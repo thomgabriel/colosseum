@@ -143,15 +143,17 @@ export type SolanaDeployment = {
 /**
  * How the guard reads the call data a vault hands one of its exchanges (`Swap.data`). Every router of
  * a deployment states one, and only a stated kind is read:
- * - `universal-router-v4`: Uniswap's Universal Router, held to one exact-input swap in one v4 pool of
- *   this fee and tick spacing, with these hooks (the zero address: a pool with none).
+ * - `universal-router-v4`: Uniswap's Universal Router, held to one exact-input swap in one v4 pool
+ *   with these hooks (the zero address: a pool with none). Which pool is the traded asset's own
+ *   (`EvmDeployment.assets[id].pool`): its fee and tick spacing, and no other pool of the two tokens.
  * - `unread`: an exchange whose call data the guard does not read, such as the mock router of a local
  *   chain. The vault still holds the trade to its tokens, its amount and its minimum. Never on a live
  *   network: the loader refuses it there, and so does the check.
  */
-export type EvmRoute =
-  | { kind: 'universal-router-v4'; fee: number; tickSpacing: number; hooks: Address }
-  | { kind: 'unread' };
+/** A Uniswap v4 pool's shape: the fee in hundredths of a basis point, and the tick spacing. */
+export type EvmPool = { fee: number; tickSpacing: number };
+
+export type EvmRoute = { kind: 'universal-router-v4'; hooks: Address } | { kind: 'unread' };
 
 export type EvmDeployment = {
   family: 'evm';
@@ -174,8 +176,11 @@ export type EvmDeployment = {
   /** The shared portfolios' `IndexRegistry`. Left out, nothing is published on the chain. */
   registry?: Address;
   cash: AssetId;
-  /** Each asset's token contract and its decimals. */
-  assets: Record<AssetId, { token: Address; decimals: number }>;
+  /**
+   * Each asset's token contract and its decimals, and for an asset that trades, its one Uniswap v4
+   * pool against the cash. The cash has none.
+   */
+  assets: Record<AssetId, { token: Address; decimals: number; pool?: EvmPool }>;
   fee?: FeeLimit;
 };
 

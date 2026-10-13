@@ -27,6 +27,24 @@ describe('walletChains', () => {
     expect(solanaCluster(solana)).toBe('solana:mainnet');
   });
 
+  it('labels each chain as what it is: Robinhood Chain live on mainnet beside Solana on its test network', () => {
+    const chains = walletChains({ NEXT_PUBLIC_CHAIN_NETWORK_ROBINHOOD: 'mainnet' });
+    expect([chains.robinhood.network, chains.robinhood.provenance]).toEqual(['mainnet', 'live']);
+    expect([chains.solana.network, chains.solana.provenance]).toEqual(['testnet', 'sandbox']);
+    expect(chains.robinhood.config.evmChainId).toBe(4663);
+  });
+
+  // The one stated exception to "our chain table agrees with the chain viem ships": viem's definition
+  // of 4663 names Blockscout's explorer, and ours names Etherscan's (gate MAINNET-EXPLORER, Thom,
+  // 2026-10-13). The id and the RPC of 4663, and all of 46630, are still held to viem's below.
+  it('on mainnet, Robinhood Chain has an explorer: Etherscan’s, not the one the chain viem ships names', () => {
+    const chain = walletChains({ NEXT_PUBLIC_CHAIN_NETWORK_ROBINHOOD: 'mainnet' }).robinhood;
+    const viem = toViemChain(chain);
+    expect(viem.testnet).toBe(false);
+    expect(viem.blockExplorers?.default.url).toBe('https://robin.etherscan.io');
+    expect(chain.config.explorerTx).toBe('https://robin.etherscan.io/tx/{txId}');
+  });
+
   it('refuses a value it does not know, and `local`, naming the variable and not the value', () => {
     for (const value of ['local', 'devnet', 'https://secret.example/key']) {
       const run = () => walletChains({ NEXT_PUBLIC_CHAIN_NETWORK_BASE: value });

@@ -236,6 +236,8 @@ export const en = {
     short: { solana: 'Solana', robinhood: 'Robinhood', base: 'Base' },
     /** The explorer each chain's transaction links open, named beside the link. */
     explorers: { solana: 'Solscan', robinhood: 'Robinhood explorer', base: 'Basescan' },
+    /** Robinhood Chain's explorer on mainnet (4663), where the links open Etherscan's. */
+    etherscan: 'Etherscan',
     /** What is left of the bar's switch, which is gone (CHAIN-AT-THE-PLAN): words pages still say. */
     switch: {
       noWallet: (chain: string) => `The wallet you signed in with doesn’t sign on ${chain}.`,
@@ -1146,6 +1148,31 @@ export const en = {
       robinhood_fork: 'a run on a copy of Robinhood Chain',
       second_rehearsal: 'a second rehearsal on mainnet with the admin key',
     },
+    /** The same notice where the money is real: a chain on mainnet (TRUST_STATUS.mainnet). */
+    mainnet: {
+      real: 'This is real money on a live network. Nothing here promises a return, and this is not licensed advice.',
+      loss: 'You can lose money, including all of it.',
+      governance: (hours: number, signatures: number) =>
+        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
+      withdraw:
+        'A withdrawal sends you the tokens themselves, and the vault contracts never block it. The issuer can pause the stock tokens and freeze the dollar token, which would stop those tokens moving, in your vault or out of it.',
+      safe: (address: string) => `The Safe: ${address}.`,
+      guardian:
+        'One founder holds a guardian key. It can pause new deposits at once. It cannot move funds, change the contracts or stop a withdrawal.',
+      noKeeper: 'No keeper runs here: nothing trades your vault but you.',
+      noCap: 'Nothing limits how much you can deposit. How much you put in is your decision.',
+      trades:
+        'Each trade you sign is checked by this app against a reference price and limited in size before it is built. A trade outside those limits is not built. The contracts themselves hold a trade only to the minimum you sign.',
+      issuers:
+        'The issuer of the stock tokens can replace their code, and can pause them. The issuer of the dollar token can freeze it.',
+      short: {
+        governance: (hours: number, signatures: number) =>
+          `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
+        noKeeper: 'No keeper runs here: only you trade your vault.',
+        noCap: 'Nothing limits how much you can deposit.',
+        issuers: 'The issuers can change or pause the stock tokens and freeze the dollar token.',
+      },
+    },
     accept: 'I’ve read this and I accept it',
     accepted: 'You’ve accepted this notice in this browser.',
     /** The four points of the notice in short, with the whole notice one click away. */
@@ -1182,10 +1209,10 @@ export const en = {
     },
     funding: {
       title: 'What your wallet needs',
-      /** The need in one line: the deposit, and the fees. */
-      needs: (cash: string, gas: string) => `You need ${cash} and ${gas} for fees.`,
-      haveNone: 'You have none yet.',
-      lacking: (list: string) => `You’re still short ${list}.`,
+      /** A short wallet, in plain words and no figure (Thom, Oct 12): the heading, then what to add. */
+      insufficient: 'Insufficient balance.',
+      addToken: (symbol: string) => `Add ${symbol} to your wallet to deposit.`,
+      addGas: (symbol: string) => `Add a little ${symbol} for network fees.`,
       and: (a: string, b: string) => `${a} and ${b}`,
       details: 'Show the details',
       testFunds: 'Get test funds',
@@ -1212,8 +1239,6 @@ export const en = {
       need: 'This deposit needs',
       missing: 'Missing',
       ok: 'Your wallet has what this deposit needs.',
-      short: (chain: string) =>
-        `Your wallet is short of what this deposit needs. Add what is missing to your wallet on ${chain}, then read it again.`,
       address: (address: string) => `Your address there: ${address}`,
       newVault: 'This deposit opens your vault, which costs a little more in fees the first time.',
       readAgain: 'Read my wallet again',

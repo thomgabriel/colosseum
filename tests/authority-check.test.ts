@@ -9,6 +9,7 @@ import {
   type ChainLog,
   checkAuthority,
   formatLine,
+  GUARD_SLOT,
   IMPLEMENTATION_SLOT,
   isMainnet,
   type LogFilter,
@@ -54,8 +55,22 @@ const STOCK_AVERAGE = at(0xfe2);
 const MAX = (1n << 256n) - 1n;
 const DAYS_2 = 172_800n;
 
-/** `modules`: what it lists as enabled; `null` is a Safe too old to answer the question. */
-type ModelSafe = { threshold: number; owners: string[]; modules?: string[] | null };
+/**
+ * `modules`: what it lists as enabled through `getModulesPaginated`; `null` is a Safe too old to have
+ * that call. `legacyModules`: what `getModules()` answers, as Safe 1.0.0 does; left out, it is not answered.
+ */
+type ModelSafe = {
+  threshold: number;
+  owners: string[];
+  modules?: string[] | null;
+  legacyModules?: string[];
+  /** What `getModulesPaginated` answers as `next`; the list's sentinel when left out. */
+  next?: string;
+  /** Words appended to the paginated answer, to make one that is not of the exact shape. */
+  extraWords?: number;
+  /** What sits in the Safe's guard slot; none when left out. */
+  guard?: string;
+};
 type ModelAsset = { token: string; feed: string; flags: number; averageFeed: string };
 type Model = {
   chainId: number;
@@ -140,6 +155,7 @@ function readerOf(model: Model): Reader {
     code: async (address) =>
       model.codes.get(address) ?? (model.code.has(address) ? '0x60806040' : '0x'),
     storageAt: async (address, slot) => {
+      if (slot === GUARD_SLOT) return hex(model.safes.get(address)?.guard ?? 0);
       if (slot !== IMPLEMENTATION_SLOT) return hex(0);
       if (address === FACTORY) return hex(f.implementation);
       if (address === REGISTRY) return hex(model.registry.implementation);
@@ -177,7 +193,17 @@ function readerOf(model: Model): Reader {
       if (safe && sel === selector('getModulesPaginated')) {
         if (safe.modules === null) throw new CallReverted();
         // (address[] array, address next): the array's offset, the list's sentinel, then the array.
-        return hex(64, 1, safe.modules?.length ?? 0, ...(safe.modules ?? []));
+        return hex(
+          64,
+          safe.next ?? 1,
+          safe.modules?.length ?? 0,
+          ...(safe.modules ?? []),
+          ...Array.from({ length: safe.extraWords ?? 0 }, () => 0),
+        );
+      }
+      if (safe && sel === selector('getModules')) {
+        if (safe.legacyModules === undefined) throw new CallReverted();
+        return hex(32, safe.legacyModules.length, ...safe.legacyModules);
       }
       if (sel === selector('writer')) {
         if (model.testFeeds.has(to)) return hex(DEPLOYER);
@@ -365,6 +391,7 @@ describe('the selectors and topics the check is written with', () => {
     for (const name of THREE) expect(ROLES[name]).toBe(hash(name));
     expect(BigInt(ROLES.DEFAULT_ADMIN_ROLE)).toBe(0n);
     expect(BigInt(IMPLEMENTATION_SLOT)).toBe(BigInt(hash('eip1967.proxy.implementation')) - 1n);
+    expect(GUARD_SLOT).toBe(hash('guard_manager.guard.address'));
   });
 
   it('treat every chain as a mainnet but the three test networks, as the deploy script does', () => {
@@ -521,17 +548,130 @@ describe('a healthy timelocked mainnet', () => {
     expect(text(r)).toContain('OK\tfactory.depositCaps().perVault\tnone\texpected none');
   });
 
-  it('warns and does not fail on a Safe too old to list its modules', async () => {
+  it('fails a Safe that lists its modules by neither call: they cannot be ruled out', async () => {
     const r = await run({
       model: (m) => {
         m.safes.set(SAFE, { threshold: 2, owners: [OWNER_A, OWNER_B, OWNER_C], modules: null });
       },
     });
-    expect(r.failures).toEqual([]);
-    expect(r.lines.filter((l) => l.status === 'WARN').map(formatLine)).toEqual([
-      `WARN\tsafe ${SAFE} modules\t\t\tgetModulesPaginated() is not answered (an older Safe?): its modules cannot be ruled out`,
+    expect(r.failures).toHaveLength(1);
+    expect(r.lines.filter((l) => l.status === 'FAIL').map(formatLine)).toEqual([
+      `FAIL\tsafe ${SAFE} modules\t\t\tneither getModulesPaginated() nor getModules() is answered: its modules cannot be ruled out`,
     ]);
     expect(text(r)).toContain(`${OWNER_C}; modules: not answered`);
+  });
+
+  it('refuses an empty page of modules that names a next one', async () => {
+    const withNext = (next: string | number) =>
+      run({
+        model: (m) => {
+          m.safes.set(SAFE, {
+            threshold: 2,
+            owners: [OWNER_A, OWNER_B, OWNER_C],
+            modules: [],
+            next: next as string,
+          });
+        },
+      });
+    const odd = await withNext(OTHER_SAFE);
+    expect(odd.lines.filter((l) => l.status === 'FAIL').map(formatLine)).toEqual([
+      `FAIL\tsafe ${SAFE} modules\t${OTHER_SAFE}\t\tit lists no module and names a next one: its list cannot be trusted`,
+    ]);
+    expect((await withNext(0)).failures).toEqual([]);
+    expect((await withNext(1)).failures).toEqual([]);
+  });
+
+  it('asks a Safe both ways for its modules, and either listing one fails', async () => {
+    const safe = { threshold: 2, owners: [OWNER_A, OWNER_B, OWNER_C] };
+    const onlyListed = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { ...safe, modules: [], legacyModules: [OTHER_SAFE] });
+      },
+    });
+    expect(onlyListed.lines.filter((l) => l.status === 'FAIL').map(formatLine)).toEqual([
+      `FAIL\tsafe ${SAFE} modules\t${OTHER_SAFE}\t\ta module can move the Safe without its signers`,
+    ]);
+    const onlyPaged = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { ...safe, modules: [OTHER_SAFE], legacyModules: [] });
+      },
+    });
+    expect(onlyPaged.lines.filter((l) => l.status === 'FAIL').map(formatLine)).toEqual([
+      `FAIL\tsafe ${SAFE} modules\t${OTHER_SAFE}\t\ta module can move the Safe without its signers`,
+    ]);
+    // Both answer, both empty: nothing to say.
+    const both = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { ...safe, modules: [], legacyModules: [] });
+      },
+    });
+    expect(both.failures).toEqual([]);
+  });
+
+  it('holds the paginated answer to the deploy script’s exact shape', async () => {
+    const safe = { threshold: 2, owners: [OWNER_A, OWNER_B, OWNER_C] };
+    // A word too many: not the shape, so not an answer; with no getModules() either, nothing was read.
+    const long = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { ...safe, modules: [], extraWords: 1 });
+      },
+    });
+    expect(long.lines.filter((l) => l.status === 'FAIL').map(formatLine)).toEqual([
+      `FAIL\tsafe ${SAFE} modules\t\t\tneither getModulesPaginated() nor getModules() is answered: its modules cannot be ruled out`,
+    ]);
+    // More than a page of ten is not the shape either, and getModules() then decides.
+    const eleven = Array.from({ length: 11 }, (_, i) => at(0xd00d00 + i));
+    const many = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { ...safe, modules: eleven, legacyModules: [] });
+      },
+    });
+    expect(many.failures).toEqual([]);
+    const ten = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { ...safe, modules: eleven.slice(0, 10) });
+      },
+    });
+    expect(ten.failures).toHaveLength(1);
+  });
+
+  it('prints a Safe’s guard, and warns on a mainnet when one is set', async () => {
+    const none = await run();
+    expect(text(none)).toContain(`INFO\tguard of safe ${SAFE}\tnone`);
+    expect(none.lines.filter((l) => l.status === 'WARN')).toEqual([]);
+
+    const guarded = await run({
+      model: (m) => {
+        m.safes.set(SAFE, { threshold: 2, owners: [OWNER_A, OWNER_B, OWNER_C], guard: OTHER_SAFE });
+      },
+    });
+    expect(guarded.failures).toEqual([]);
+    expect(guarded.lines.filter((l) => l.status === 'WARN').map(formatLine)).toEqual([
+      `WARN\tguard of safe ${SAFE}\t${OTHER_SAFE}\t\ta guard can block the Safe’s transactions; it is not checked at deploy: look at what it is`,
+    ]);
+  });
+
+  it('reads an old Safe through getModules(): none passes, one fails', async () => {
+    const old = (legacyModules: string[]) =>
+      run({
+        model: (m) => {
+          m.safes.set(SAFE, {
+            threshold: 2,
+            owners: [OWNER_A, OWNER_B, OWNER_C],
+            modules: null,
+            legacyModules,
+          });
+        },
+      });
+    const none = await old([]);
+    expect(none.failures).toEqual([]);
+    expect(none.lines.filter((l) => l.status === 'WARN')).toEqual([]);
+    expect(text(none)).toContain(`${OWNER_C}; modules: none`);
+
+    const one = await old([OTHER_SAFE]);
+    expect(one.lines.filter((l) => l.status === 'FAIL').map(formatLine)).toEqual([
+      `FAIL\tsafe ${SAFE} modules\t${OTHER_SAFE}\t\ta module can move the Safe without its signers`,
+    ]);
   });
 
   it('warns on a queued change the timelock makes to itself, and does not fail on it', async () => {

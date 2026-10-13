@@ -109,7 +109,17 @@ describe('the chain registry', () => {
       provenance: 'sandbox' as const,
     };
     // Nothing is asked of the node here: the adapter reads only when a route asks it to.
-    const robinhood = { rpc: {} as never, assets: [cash] };
+    const robinhood = {
+      rpc: {} as never,
+      assets: [cash],
+      pools: {
+        quoter: '0x00000000000000000000000000000000000000cd' as const,
+        hooks: '0x0000000000000000000000000000000000000000' as const,
+        cash: cash.address as `0x${string}`,
+        byToken: {},
+      },
+      limits: { priceBoundBps: null, maxTradeUsd: {} },
+    };
     for (const mode of ['live', 'readonly'] as const)
       for (const network of ['testnet', 'local']) {
         const e = {

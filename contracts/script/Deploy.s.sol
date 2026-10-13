@@ -102,6 +102,19 @@ contract Deploy is Script {
         address[] creators;
         /// The file still holds the word TODO somewhere: a value nobody has confirmed.
         bool placeholders;
+        /// What the app holds an owner's trade to, which no contract reads: how far a pool's quote may be
+        /// from the asset's Chainlink price (basis points), and each asset's largest single trade in
+        /// dollars, in the assets' order. Zero is "not stated". The script writes neither anywhere; on a
+        /// mainnet it refuses a file that leaves one out, because the deploy record is written from this
+        /// file and a record with none is a mainnet whose trades are checked against nothing.
+        uint256 priceBoundBps;
+        uint256[] maxTradeUsd;
+        /// While a feed is not live the app leans on a pool's average inside a rail around the feed's last
+        /// answer (`staleRailBps`; zero is no rail). With a rail a mainnet file also states the largest
+        /// trade then and how old that answer may be: the same reason as above, and the script writes none.
+        uint256 staleRailBps;
+        uint256 maxTradeUsdNotLive;
+        uint256 staleRailMaxAge;
     }
 
     struct Deployed {
@@ -527,14 +540,39 @@ contract Deploy is Script {
             }
         }
         require(cashListed, MainnetRefused("the cash token is not among the assets"));
+
+        // The app's own limits on an owner's trade. Nothing here reads them on chain; a mainnet file
+        // states them all the same, so the record written from it cannot leave a trade unchecked.
+        require(
+            cfg.priceBoundBps != 0 && cfg.priceBoundBps <= 1000,
+            MainnetRefused("no priceBoundBps of 1 to 1000: an owner's trade would be checked against no price")
+        );
+        for (uint256 i; i < cfg.assets.length; ++i) {
+            if (cfg.assets[i].token == cfg.cashToken) continue;
+            require(
+                i < cfg.maxTradeUsd.length && cfg.maxTradeUsd[i] != 0,
+                MainnetRefused("an asset states no maxTradeUsd: a trade of any size would be built")
+            );
+        }
+        if (cfg.staleRailBps != 0) {
+            require(
+                cfg.maxTradeUsdNotLive != 0,
+                MainnetRefused("a rail with no maxTradeUsdNotLive: a trade of any size would lean on the pools alone")
+            );
+            require(
+                cfg.staleRailMaxAge != 0,
+                MainnetRefused("a rail with no staleRailMaxAge: a feed that died would anchor trades for ever")
+            );
+        }
     }
 
     /// Holds the timelock's owner to being a Safe more than one person must sign for. "Has code" is not
     /// enough: a contract one key controls has code, and so does a plain key that has delegated its code
     /// (EIP-7702: 23 bytes that start 0xef0100). It must answer as a Safe does, `getThreshold()` and
     /// `getOwners()`, need at least `minThreshold` signatures, and have at least two owners and no fewer
-    /// than it needs. This reads what the contract says of itself; that it is a real Safe with these
-    /// people behind it is for a person to compare with the owners the run prints.
+    /// than it needs, and no module enabled: a module can make a Safe act with no signature of its owners,
+    /// so with one the threshold says nothing. This reads what the contract says of itself; that it is a
+    /// real Safe with these people behind it is for a person to compare with the owners the run prints.
     function checkSafe(address safe, uint256 minThreshold)
         public
         view
@@ -566,6 +604,58 @@ contract Deploy is Script {
         require(threshold >= minThreshold, MainnetRefused("the Safe needs fewer signatures than safeMinThreshold"));
         require(owners.length >= 2, MainnetRefused("the Safe has fewer than two owners"));
         require(owners.length >= threshold, MainnetRefused("the Safe needs more signatures than it has owners"));
+        // Both ways a Safe lists its modules are asked. Neither answered is refused, and so is a module under
+        // either: a contract that says "none" one way and names one the other is not passed on the answer
+        // that suits it.
+        (bool paged, uint256 inPage, bool pageEnds) = _pagedModules(safe);
+        (bool listed, uint256 inList) = _listedModules(safe);
+        require(
+            paged || listed,
+            MainnetRefused("the Safe does not say which modules it has enabled: they cannot be ruled out")
+        );
+        require(
+            !paged || inPage != 0 || pageEnds,
+            MainnetRefused("the Safe lists no module and names a next one: its list cannot be trusted")
+        );
+        require(
+            inPage == 0 && inList == 0,
+            MainnetRefused("the Safe has a module enabled: a module can move it without its signers")
+        );
+    }
+
+    /// `getModulesPaginated(start, pageSize)` from the list's sentinel, as Safe 1.1.1 and later answer:
+    /// whether it answered, how many modules the page holds, and whether an empty page says the list ends
+    /// there (`next` is the sentinel, or zero). The answer is `(address[] array, address next)` and is held
+    /// to that exact shape: the array's offset, `next`, the length, the entries and nothing more. Anything
+    /// else is no answer: a Safe hands a call it does not know to its fallback handler, which may return
+    /// nothing at all and still succeed. `scripts/ops/authority.ts` holds the answer to the same shape.
+    function _pagedModules(address safe) private view returns (bool answered, uint256 count, bool ends) {
+        (bool ok, bytes memory ret) = safe.staticcall(
+            abi.encodeWithSelector(bytes4(keccak256("getModulesPaginated(address,uint256)")), address(1), uint256(10))
+        );
+        if (!ok || ret.length < 96) return (false, 0, false);
+        uint256 offset;
+        uint256 next;
+        assembly ("memory-safe") {
+            offset := mload(add(ret, 0x20))
+            next := mload(add(ret, 0x40))
+            count := mload(add(ret, 0x60))
+        }
+        if (offset != 64 || count > 10 || ret.length != 96 + count * 32) return (false, 0, false);
+        return (true, count, next <= 1);
+    }
+
+    /// `getModules()`, as Safe 1.0.0 to 1.2.0 answer: whether it answered, and how many modules it lists.
+    function _listedModules(address safe) private view returns (bool answered, uint256 count) {
+        (bool ok, bytes memory ret) = safe.staticcall(abi.encodeWithSelector(bytes4(keccak256("getModules()"))));
+        if (!ok || ret.length < 64) return (false, 0);
+        uint256 offset;
+        assembly ("memory-safe") {
+            offset := mload(add(ret, 0x20))
+            count := mload(add(ret, 0x40))
+        }
+        if (offset != 32 || count >= 1 << 32 || ret.length != 64 + count * 32) return (false, 0);
+        return (true, count);
     }
 
     /// A feed on a mainnet has code and is not one of ours: `TestPriceFeed` answers `writer()` and
@@ -716,8 +806,18 @@ contract Deploy is Script {
         uint256 n = _count(json, ".assets");
         cfg.assets = new Asset[](n);
         cfg.feedDescriptions = new string[](n);
+        cfg.maxTradeUsd = new uint256[](n);
+        if (vm.keyExistsJson(json, ".priceBoundBps")) cfg.priceBoundBps = json.readUint(".priceBoundBps");
+        if (vm.keyExistsJson(json, ".staleRailBps")) cfg.staleRailBps = json.readUint(".staleRailBps");
+        if (vm.keyExistsJson(json, ".maxTradeUsdNotLive")) {
+            cfg.maxTradeUsdNotLive = json.readUint(".maxTradeUsdNotLive");
+        }
+        if (vm.keyExistsJson(json, ".staleRailMaxAge")) cfg.staleRailMaxAge = json.readUint(".staleRailMaxAge");
         for (uint256 i; i < n; ++i) {
             string memory entry = string.concat(".assets[", vm.toString(i), "]");
+            if (vm.keyExistsJson(json, string.concat(entry, ".maxTradeUsd"))) {
+                cfg.maxTradeUsd[i] = json.readUint(string.concat(entry, ".maxTradeUsd"));
+            }
             cfg.assets[i].token = json.readAddress(string.concat(entry, ".token"));
             if (vm.keyExistsJson(json, string.concat(entry, ".feedDescription"))) {
                 cfg.feedDescriptions[i] = json.readString(string.concat(entry, ".feedDescription"));
@@ -801,17 +901,53 @@ contract Deploy is Script {
     }
 
     /// What the timelock's owner says of itself, for a person to hold against the Safe they expect.
+    ///
+    /// It reads the owner directly and never calls this contract (`this.checkSafe`): `forge script` refuses
+    /// a script that calls itself, so that call failed the whole run after every transaction had simulated,
+    /// and nothing could have been broadcast. `forge test` allows it, which is why no test saw it; the
+    /// script is now also run as a script, on the timelock path (`test/fixtures/deploy-timelock-31337.json`).
+    /// The rules are `checkSafe`'s own, which a mainnet run has already passed before anything was created.
     function _printSafe(address safe) private view {
-        try this.checkSafe(safe, 0) returns (uint256 threshold, address[] memory owners) {
-            console2.log("  signatures it needs:", threshold);
-            console2.log("  owners:", owners.length);
-            for (uint256 i; i < owners.length; ++i) {
-                console2.log("   ", owners[i]);
-            }
-            console2.log("  compare these owners and this threshold with the Safe you mean, before anything else");
-        } catch {
-            console2.log("  it does not answer as a Safe of two or more owners (allowed on a test network only)");
+        (bool answers, uint256 threshold, address[] memory owners) = _safeSays(safe);
+        (bool paged, uint256 inPage, bool pageEnds) = _pagedModules(safe);
+        (bool listed, uint256 inList) = _listedModules(safe);
+        bool noModule = (paged || listed) && (!paged || inPage != 0 || pageEnds) && inPage == 0 && inList == 0;
+        if (!answers || owners.length < 2 || owners.length < threshold || threshold == 0 || !noModule) {
+            console2.log(
+                "  it does not answer as a Safe of two or more owners with no module (allowed on a test network only)"
+            );
+            return;
         }
+        console2.log("  signatures it needs:", threshold);
+        console2.log("  owners:", owners.length);
+        for (uint256 i; i < owners.length; ++i) {
+            console2.log("   ", owners[i]);
+        }
+        console2.log("  modules enabled: none");
+        console2.log("  compare these owners and this threshold with the Safe you mean, before anything else");
+    }
+
+    /// `getThreshold()` and `getOwners()` of `safe`, read without reverting: whether both answered in the
+    /// shape a Safe answers in, and what they said. A key, or a contract that is no Safe, answers neither.
+    function _safeSays(address safe) private view returns (bool answers, uint256 threshold, address[] memory owners) {
+        bytes memory code = safe.code;
+        if (code.length == 0 || (code.length == 23 && code[0] == 0xef && code[1] == 0x01 && code[2] == 0x00)) {
+            return (false, 0, owners);
+        }
+        bool ok;
+        (ok, threshold) = _word(safe, bytes4(keccak256("getThreshold()")));
+        if (!ok) return (false, 0, owners);
+        bytes memory ret;
+        (ok, ret) = safe.staticcall(abi.encodeWithSelector(bytes4(keccak256("getOwners()"))));
+        if (!ok || ret.length < 64) return (false, 0, owners);
+        uint256 offset;
+        uint256 count;
+        assembly ("memory-safe") {
+            offset := mload(add(ret, 0x20))
+            count := mload(add(ret, 0x40))
+        }
+        if (offset != 32 || count >= 1 << 32 || ret.length != 64 + count * 32) return (false, 0, owners);
+        return (true, threshold, abi.decode(ret, (address[])));
     }
 
     function _print(Config memory cfg, Deployed memory d, address deployer) private view {

@@ -27,8 +27,6 @@
       "routes": {
         "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9": {
           "kind": "universal-router-v4",
-          "fee": 100,
-          "tickSpacing": 1,
           "hooks": "0x0000000000000000000000000000000000000000"
         }
       },
@@ -40,7 +38,11 @@
         },
         "robinhood:spy": {
           "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-          "decimals": 18
+          "decimals": 18,
+          "pool": {
+            "fee": 100,
+            "tickSpacing": 1
+          }
         }
       },
       "fee": {

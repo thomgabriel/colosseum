@@ -2,13 +2,14 @@
 
 `import { createEvmVaultAdapter } from '@colosseum/chain-evm/vault'` for the whole `ChainAdapter` (reads, builders, quotes, the probe; ADE-2), and `buildCancelPending` beside it; `createEvmVaultReader` for the read side alone (ADE-1). The root entry does not re-export either, and nothing here holds a key.
 
-One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network, its router, and the factory and the registry under `contracts`), a viem public client the caller makes (`createEvmRpc(url)`), the asset list, and the pools it trades in (`V4Pools`; `ROBINHOOD_TESTNET_POOLS` for 46630). It reads no environment and no file. The cash token, the keeper, the pause, the keeper's limits and each asset's feed come from the factory, so what it reports is what the contracts enforce.
+One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network, its router, and the factory and the registry under `contracts`), a viem public client the caller makes (`createEvmRpc(url)`), the asset list, and the pools it trades in (`V4Pools`: each asset's own pool against the cash, from the deploy record with `deploymentPools(record)`). It reads no environment and no file. The cash token, the keeper, the pause, the keeper's limits and each asset's feed come from the factory, so what it reports is what the contracts enforce.
 
 | File | What it holds |
 |---|---|
 | `adapter.ts` | `createEvmVaultAdapter`: every builder of DESIGN-VAULT 3.2, `quote`, and `buildCancelPending` |
 | `compose.ts` | One transaction from a builder's call: `eth_simulateV1` with its transfers traced, the refusal a revert maps to, gas, fee, nonce, preview, message hash |
-| `routes.ts` | The route: Uniswap's v4 Quoter for a quote, Universal Router call data for a swap (`V4Pools`) |
+| `routes.ts` | The route: Uniswap's v4 Quoter for a quote, Universal Router call data for a swap, each in the traded asset's own pool (`V4Pools`, `poolOf`) |
+| `trade-limits.ts` | What an owner's trade is held to before it is built: the pool's quote within the record's `priceBoundBps` of the asset's Chainlink price, a fresh feed, a minimum no lower than the feed's worth less the bound, and the asset's `maxTradeUsd` (`holdTrade`, `deploymentLimits(record)`) |
 | `send.ts` | The probe (`TxProbe`): `messageHashOf`, `relay`, `carries`, `fate`, `nonceOf`. Key-free |
 | `reader.ts` | `createEvmVaultReader`: vaults, prices, holdings, funding, `track`, the platform's settings, each asset's settings |
 | `deployment.ts` | The record an EVM deploy commits (`deployments/<chain>-<network>.json`), the assets it lists, and `assertNode` |
@@ -59,16 +60,19 @@ One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network
 { network: 'robinhood-testnet' | 'robinhood-local' | 'base-…', chain, provenance: 'sandbox', evmChainId, deployBlock | null,
   contracts: { factory, registry, beacon, vaultLogic, factoryLogic, registryLogic },
   roles: { admin, guardian, keeper, priceWriter | null, tokenIssuer | null },
-  routers: [{ address, pull: 1 | 2 }], sequencerFeed | null,
+  routers: [{ address, pull: 1 | 2 }], sequencerFeed | null, priceBoundBps | null, staleRailBps | null, sessionPriceAge | null,
+  maxTradeUsdNotLive | null, staleRailMaxAge | null,
   cash: { id, symbol, name, address, decimals },
   assets: [{ id, symbol, name, address, decimals, modelOf, kind, feed, feedDecimals, averageFeed (zero address for none),
-             maxAge, session: 0 | 1, maxWeightBps, keeperOn, range: { minPrice, maxPrice } | null }],
+             maxAge, session: 0 | 1, maxWeightBps, keeperOn, range: { minPrice, maxPrice } | null,
+             pool: { fee, tickSpacing }, maxTradeUsd | null,
+             average: { pool, minLiquidity, usable } | null }],
   retired: [{ id | null, symbol | null, address }] }
 ```
 
-`priceWriter` is who writes the test price feeds, `tokenIssuer` who mints, schedules multipliers on and pauses the test tokens, `sequencerFeed` what the factory's `sequencerFeed()` names; each is null where the network's own are used.
+`pool` is the asset's own Uniswap v4 pool against the cash, hookless: the one pool its trades go through (`deploymentPools(record)`), stated for each asset even where a network's pools are all one shape, as on 46630 (fee 500, tick spacing 10). `priceWriter` is who writes the test price feeds, `tokenIssuer` who mints, schedules multipliers on and pauses the test tokens, `sequencerFeed` what the factory's `sequencerFeed()` names; each is null where the network's own are used.
 
-`assertNode(rpc, record)` at start: the node's chain id is the record's and never a mainnet's, and the factory has code. A local copy of an EVM mainnet runs under its own chain id: the `local` presets are 31337 for Robinhood Chain and 31338 for Base (`LOCAL_EVM_CHAIN_IDS`), started with `anvil --chain-id`. A signature made for 4663 or 8453 is good on mainnet.
+`assertNode(rpc, record)` at start: the node's chain id is the record's, a mainnet's only for a mainnet's own record, and the factory has code. A local copy of an EVM mainnet runs under its own chain id: the `local` presets are 31337 for Robinhood Chain and 31338 for Base (`LOCAL_EVM_CHAIN_IDS`), started with `anvil --chain-id`. A signature made for 4663 or 8453 is good on mainnet.
 
 ## The builders (ADE-2)
 
@@ -90,7 +94,9 @@ Every builder returns one unsigned transaction (`BuiltTx`) and refuses with a `C
 | Publish | `create(familyId, components, metaHash, 0, 0)` the first time, `publish(id, components, metaHash)` after; `cancel(id)` by `buildCancelPending` |
 | Adopt, keeper leg | `adoptVersion()` and `keeperSwap(swap)`, signed by the factory's keeper; the keeper's `minOut` is the quote less 100 bps |
 
-A trade is an exact-input swap in one hookless Uniswap v4 pool through Universal Router 2.1.x (`SWAP_EXACT_IN_SINGLE`, `SETTLE_ALL`, `TAKE_ALL`, so the output goes to the vault), quoted by Uniswap's v4 Quoter. Its `minOut` is the quote less the slippage asked for. The router's own minimum is zero: the vault holds the swap to `minOut` by its own balances, so a price that moved is refused as the vault's `ReceivedTooLittle`, not wrapped as `RouterFailed`. Two trades in one pool are quoted one after the other (the cumulative amount less what came before), a unit lower for the pool's rounding; a pool traded both ways in one transaction is refused (`BadTrade`). An owner's trade carries a deadline `DEADLINE_S` (900 s) after the block's time, which the guard holds to at most 1,800 s ahead of its own clock; the adapter states it as the attempt's `validUntil` (`lastValidBlockHeight`). Calls that do not trade carry none.
+Before an owner's trade is quoted or built it is held to the network's limits (`trade-limits.ts`): the pool's quote within `priceBoundBps` of the asset's Chainlink price either way (`PriceDeviation`), while the feed is live (its answer younger than the record's `sessionPriceAge`); past that the witness is the last hour's average of the asset's `average` pool (a Uniswap v3 pool, read with `readPoolAveragePlan`) by the same bound, inside `staleRailBps` of the feed's last answer, an asset whose record says its average is not usable keeps the feed up to its `maxAge` and is refused past it, a usable average that reads thin, short or unreadable is refused at once, one trade is then at most `maxTradeUsdNotLive`, and the feed's last answer anchors the rail for `staleRailMaxAge` (`PriceStale`), and the trade no larger than the asset's `maxTradeUsd` (`BadTrade`, with the limit in the message); its `minOut` is the higher of the slippage under the quote and the bound under the feed's worth. A record states both, null for none: the test network's are null. The keeper's leg is not held here: the contract checks its price itself.
+
+A trade is an exact-input swap in one hookless Uniswap v4 pool, the one recorded for the traded asset against the cash (`poolOf`; two assets, or an asset with no pool recorded, are `BadTrade` before the node is asked), through Universal Router 2.1.x (`SWAP_EXACT_IN_SINGLE`, `SETTLE_ALL`, `TAKE_ALL`, so the output goes to the vault), quoted by Uniswap's v4 Quoter. Its `minOut` is the quote less the slippage asked for. The router's own minimum is zero: the vault holds the swap to `minOut` by its own balances, so a price that moved is refused as the vault's `ReceivedTooLittle`, not wrapped as `RouterFailed`. Two trades in one pool are quoted one after the other (the cumulative amount less what came before), a unit lower for the pool's rounding; a pool traded both ways in one transaction is refused (`BadTrade`). An owner's trade carries a deadline `DEADLINE_S` (900 s) after the block's time, which the guard holds to at most 1,800 s ahead of its own clock; the adapter states it as the attempt's `validUntil` (`lastValidBlockHeight`). Calls that do not trade carry none.
 
 Every owner step is the shape the guard of `packages/sdk` takes: one call, no value, to the cash token, the factory or the person's own vault, at most the deployment's gas and fee. Each passed the guard with the test network's deployment on Oct 6. The guard's deployment for 46630 is committed in `packages/sdk/deployments/testnet.json` (WEB-RH-BUY), with its registry since AGT-4, and `tests/evm-vault/guard.test.ts` holds every step to it. Since AGT-4 the guard signs a `publish` step on EVM too: `create`, `publish` or `cancel` on the registry the deployment names, held to the creator's id (`indexIdOf`, keccak256(abi.encode(creator, familyId))), the weights and the hash of the text shown.
 
@@ -104,10 +110,10 @@ Every owner step is the shape the guard of `packages/sdk` takes: one call, no va
 
 ## What the API runs Robinhood Chain on
 
-- **The record:** `deployments/robinhood-testnet.json` for `CHAIN_NETWORK_ROBINHOOD=testnet` (TNET-2 wrote it), `deployments/robinhood-local.json` for `local`. `evmDeployment` in `apps/api/src/deployments.ts` reads it strictly, holds its `network` to the file's name, and puts its factory and registry in `contracts.robinhood` and its router in `CHAIN_ROUTER_ROBINHOOD`, which may say the same address and no other. The test network's router is also the preset's now (`chain-presets.ts`).
-- **The node:** `ROBINHOOD_RPC_URL` (`https://rpc.testnet.chain.robinhood.com` serves the test network; nothing here needs an archive). `robinhoodFromEnv` checks it at start with `assertNode`: the record's chain id, never a mainnet's, code at the factory.
-- **The assets:** the `robinhood` rows of `basket_assets`, held to the record (`holdToEvmRecord`: every row a token of the record with its decimals, class, session, feed, ceiling and keeper switch, the cash row the record's cash). `pnpm exec tsx scripts/robinhood/basket-assets.ts` fills them from the record, idempotently.
-- **The mode:** `CHAIN_MODE_ROBINHOOD=live` or `readonly` runs `createEvmVaultAdapter` (`orders/chains.ts`), labelled `sandbox`; mainnet and Base refuse at start.
+- **The record:** `deployments/robinhood-testnet.json` for `CHAIN_NETWORK_ROBINHOOD=testnet` (TNET-2 wrote it), `deployments/robinhood-local.json` for `local`, and `deployments/robinhood-mainnet.json` for `mainnet`, which does not exist until a person deploys there. A mainnet's record is admitted only when complete (`incompleteMainnet` in `deployment.ts`, `test/mainnet-record.test.ts`): `-mainnet`, `live` and chain id 4663 together or not at all, every contract, the deploy block, a guardian, an admin that is the record's timelock, the `timelock` and `expected` blocks that `pnpm ops:authority-check` reads, no price writer or token issuer of ours, and every trade limit. `evmDeployment` in `apps/api/src/deployments.ts` reads it strictly, holds its `network` to the file's name, and puts its factory and registry in `contracts.robinhood` and its router in `CHAIN_ROUTER_ROBINHOOD`, which may say the same address and no other. The test network's router is also the preset's now (`chain-presets.ts`).
+- **The node:** `ROBINHOOD_RPC_URL` (`https://rpc.testnet.chain.robinhood.com` serves the test network; nothing here needs an archive). `robinhoodFromEnv` checks it at start with `assertNode`: the record's chain id, a mainnet's only for the mainnet record, code at the factory.
+- **The assets:** the `robinhood` rows of `basket_assets`, held to the record (`holdToEvmRecord`: every row a token of the record with its decimals, class, session, feed, ceiling, keeper switch and label (`sandbox` or `live`, as the record is), the cash row the record's cash). `pnpm exec tsx scripts/robinhood/basket-assets.ts` fills them from the record, idempotently.
+- **The mode:** `CHAIN_MODE_ROBINHOOD=live` or `readonly` runs `createEvmVaultAdapter` (`orders/chains.ts`), labelled `sandbox`. Robinhood Chain's mainnet runs, labelled `live`, only with its record and `CHAIN_MAINNET_ROBINHOOD=real-money` (`apps/api/src/orders/chains.ts`); Base and every other mainnet refuse at start.
 - **On `local`:** the preset, the record and the node all say 31337. The web never runs `local` (`walletChains` refuses it), so its dev self-transfer cannot sign for a copy.
 
 ## The check

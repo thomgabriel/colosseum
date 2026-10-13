@@ -164,6 +164,8 @@ describe("the API's record from the chain and the kit", () => {
     cash: a(3),
     cashSymbol: 'tUSDG',
     router: a(4),
+    fee: 500,
+    tickSpacing: 10,
     tokens: [
       { symbol: 'tSPY', modelOf: 'SPY', address: a(5) },
       { symbol: 'tNVDA', modelOf: 'NVDA', address: a(6) },
@@ -232,6 +234,11 @@ describe("the API's record from the chain and the kit", () => {
       averageFeed: a(11),
     });
     expect(record.assets[1]).toMatchObject({ keeperOn: false, range: null });
+    // Each asset states its own pool, though the kit's are all one shape.
+    expect(record.assets.map((x) => x.pool)).toEqual([
+      { fee: 500, tickSpacing: 10 },
+      { fee: 500, tickSpacing: 10 },
+    ]);
     expect(record.retired).toEqual([{ id: 'robinhood:tnvda', symbol: 'tNVDA', address: a(6) }]);
     expect(recordJson(record)).not.toMatch(/"token":/);
   });

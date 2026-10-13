@@ -3025,6 +3025,34 @@ const RULES = [
     replace: '',
     expect: 'test_mainnet_holdsTheTimelockOwnerToBeingASafeOfTwoOrMore',
   },
+  {
+    id: 'setup-deploy-safe-no-module-paged',
+    file: 'script/Deploy.s.sol',
+    find: 'inPage == 0 && inList == 0,',
+    replace: 'inList == 0,',
+    expect: 'test_mainnet_asksASafeBothWaysForItsModules_andEitherListingOneRefuses',
+  },
+  {
+    id: 'setup-deploy-safe-no-module-listed',
+    file: 'script/Deploy.s.sol',
+    find: 'inPage == 0 && inList == 0,',
+    replace: 'inPage == 0,',
+    expect: 'test_mainnet_asksASafeBothWaysForItsModules_andEitherListingOneRefuses',
+  },
+  {
+    id: 'setup-deploy-safe-modules-must-be-read',
+    file: 'script/Deploy.s.sol',
+    find: 'paged || listed,',
+    replace: 'true,',
+    expect: 'test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas',
+  },
+  {
+    id: 'setup-deploy-safe-empty-page-ends',
+    file: 'script/Deploy.s.sol',
+    find: '!paged || inPage != 0 || pageEnds,',
+    replace: 'true,',
+    expect: 'test_mainnet_refusesASafeWhoseEmptyModulePageNamesANextOne',
+  },
 ];
 
 // Fewer fuzz and invariant runs than the default: a removed rule fails on the first runs or not at all.

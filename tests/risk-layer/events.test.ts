@@ -12,6 +12,7 @@ import {
   rewind,
   type TickMap,
   tokenBalances,
+  txAccountKeys,
 } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
 
@@ -152,5 +153,51 @@ describe('replay', () => {
       },
     ];
     expect(chainBreaks(rows)).toHaveLength(1);
+  });
+});
+
+describe('a version-1 transaction (getTransaction with maxSupportedTransactionVersion 1)', () => {
+  // The json shape mainnet returned for a version-1 swap on 2026-10-13: the message carries
+  // `transactionConfig` and no `addressTableLookups`, and `meta.loadedAddresses` is still present.
+  // Keys and balances are read the same way as from a version-0 answer.
+  const tx = {
+    slot: 1,
+    blockTime: 1_760_000_000,
+    version: 1,
+    transaction: {
+      signatures: ['sig'],
+      message: {
+        header: {
+          numRequiredSignatures: 1,
+          numReadonlySignedAccounts: 0,
+          numReadonlyUnsignedAccounts: 1,
+        },
+        accountKeys: ['payer', 'vaultA', 'program'],
+        recentBlockhash: 'hash',
+        instructions: [{ programIdIndex: 2, accounts: [0, 1, 3], data: '' }],
+        transactionConfig: {},
+      },
+    },
+    meta: {
+      err: null,
+      logMessages: [],
+      loadedAddresses: { writable: ['vaultB'], readonly: [] },
+      preTokenBalances: [
+        { accountIndex: 1, uiTokenAmount: { amount: '100' } },
+        { accountIndex: 3, uiTokenAmount: { amount: '7' } },
+      ],
+      postTokenBalances: [
+        { accountIndex: 1, uiTokenAmount: { amount: '90' } },
+        { accountIndex: 3, uiTokenAmount: { amount: '8' } },
+      ],
+    },
+  };
+
+  it('lists static keys then loaded ones, and reads the token balances by them', () => {
+    expect(txAccountKeys(tx)).toEqual(['payer', 'vaultA', 'program', 'vaultB']);
+    expect(tokenBalances(tx, ['vaultA', 'vaultB'])).toEqual({
+      pre: ['100', '7'],
+      post: ['90', '8'],
+    });
   });
 });

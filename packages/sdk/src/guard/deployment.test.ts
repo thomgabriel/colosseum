@@ -29,7 +29,7 @@ import { evmVaultAddress } from './evm/addresses';
 import { BASKET_PROGRAM } from './generated/basket-program';
 import { guardTransaction, readDeploymentFile as offered } from './index';
 import { configAddress, tokenAccountAddress, vaultAddress } from './solana/addresses';
-import type { ApprovedStep, GuardDeployments } from './types';
+import type { ApprovedStep, EvmDeployment, GuardDeployments } from './types';
 
 vi.mock('./generated/deployment-files', () => import('../../test/deployments'));
 
@@ -261,7 +261,7 @@ describe('a deployment is only what the loader read from a file', () => {
       factory: chain.contracts.factory as string,
       beacon: chain.contracts.beacon as string,
       routers: [chain.router],
-      routes: { [chain.router]: { kind: 'universal-router-v4' as const, ...e.POOL } },
+      routes: { [chain.router]: { kind: 'universal-router-v4' as const, hooks: e.POOL.hooks } },
       cash: 'robinhood:usdc',
       assets: { ...e.EVM.assets },
     };
@@ -306,13 +306,13 @@ describe('a deployment is only what the loader read from a file', () => {
       refusalOf(() => guardTransaction({ step: approveStep, tx, deployment: read }))?.code,
     ).toBe('deployment');
     // The one way to a deployment reads only the files the package carries, which cannot be added to.
-    for (const network of ['mainnet', '__proto__', 'constructor', 'toString'])
+    for (const network of ['__proto__', 'constructor', 'toString'])
       expect(refusalOf(() => deploymentsOf(network as never))?.code, network).toBe('deployment');
     expect(Object.isFrozen(DEPLOYMENT_FILES) && Object.isFrozen(DEPLOYMENT_FILES.mock)).toBe(true);
     expect(() => {
       (DEPLOYMENT_FILES as Record<string, unknown>).mainnet = fromApi;
     }).toThrow(TypeError);
-    // Mainnet's entry is still the committed placeholder, or none: never the file handed over.
+    // Mainnet's entry is still the committed file: never the file handed over.
     expect(DEPLOYMENT_FILES.mainnet).toEqual(readDeploymentFiles().mainnet);
   });
 });
@@ -339,11 +339,15 @@ const fileOf = (network: DeploymentFile['network'] = 'local') => ({
       factory: e.FACTORY,
       beacon: e.BEACON,
       routers: [e.ROUTER],
-      routes: { [e.ROUTER]: { kind: 'universal-router-v4', ...e.POOL } },
+      routes: { [e.ROUTER]: { kind: 'universal-router-v4', hooks: e.POOL.hooks } },
       cash: 'robinhood:usdc',
       assets: {
         'robinhood:usdc': { address: e.anyone('token usdc'), decimals: 6 },
-        'robinhood:spy': { address: e.anyone('token spy'), decimals: 18 },
+        'robinhood:spy': {
+          address: e.anyone('token spy'),
+          decimals: 18,
+          pool: { fee: 500, tickSpacing: 10 },
+        },
       },
       fee: { maxFeeNativeRaw: '1000000000000000', maxGas: 5_000_000 },
     } as Record<string, unknown>,
@@ -427,7 +431,14 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     decimals: 8,
   });
 
-  const V4 = { kind: 'universal-router-v4', ...e.POOL };
+  const V4 = { kind: 'universal-router-v4', hooks: e.POOL.hooks };
+  /** The file with SPY's pool set to `pool`, or with none when it is left out. */
+  const spyPool = (pool?: unknown) =>
+    asset(evm, 'robinhood:spy', {
+      address: e.anyone('token spy'),
+      decimals: 18,
+      ...(pool === undefined ? {} : { pool }),
+    });
   const OTHER = e.anyone('another router');
   /** A router whose address viem wrote with its checksum: two spellings of one address. */
   const SPELT = vectors.checksums.find(
@@ -609,12 +620,49 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     ],
     ['a route with no kind', route({ kind: undefined }), /no kind the guard reads/],
     ['a route of a kind nobody reads', route({ kind: 'universal-router-v3' }), /no kind/],
-    ['a route with no fee', route({ fee: undefined }), /fee of the route/],
-    ['a fee as text', route({ fee: '500' }), /fee of the route/],
-    ['a fee above any pool', route({ fee: 1_000_001 }), /fee of the route/],
-    ['a tick spacing of zero', route({ tickSpacing: 0 }), /tick spacing of the route/],
-    ['a tick spacing below zero', route({ tickSpacing: -10 }), /tick spacing of the route/],
-    ['a tick spacing above any pool', route({ tickSpacing: 32_768 }), /tick spacing of the route/],
+    // ---- the pool is each asset's own, never the router's
+    [
+      'a route that states one fee for the whole chain',
+      route({ fee: 500 }),
+      /route of .* carries fee, which the guard does not read/,
+    ],
+    [
+      'a route that states one pool shape for the whole chain',
+      route({ fee: 500, tickSpacing: 10 }),
+      /carries fee, tickSpacing/,
+    ],
+    ['an asset with no pool, beside a router whose swaps are read', spyPool(), /states no pool/],
+    ['a pool that is not an object', spyPool(500), /pool of robinhood:spy is not an object/],
+    ['a pool with no fee', spyPool({ tickSpacing: 10 }), /fee of the pool of robinhood:spy/],
+    ['a fee as text', spyPool({ fee: '500', tickSpacing: 10 }), /fee of the pool/],
+    ['a fee below zero', spyPool({ fee: -1, tickSpacing: 10 }), /fee of the pool/],
+    ['a fee above any pool', spyPool({ fee: 1_000_001, tickSpacing: 10 }), /fee of the pool/],
+    ['a pool with no tick spacing', spyPool({ fee: 500 }), /tick spacing of the pool/],
+    ['a tick spacing of zero', spyPool({ fee: 500, tickSpacing: 0 }), /tick spacing of the pool/],
+    [
+      'a tick spacing below zero',
+      spyPool({ fee: 500, tickSpacing: -10 }),
+      /tick spacing of the pool/,
+    ],
+    [
+      'a tick spacing above any pool',
+      spyPool({ fee: 500, tickSpacing: 32_768 }),
+      /tick spacing of the pool/,
+    ],
+    [
+      'a pool that names its hooks',
+      spyPool({ fee: 500, tickSpacing: 10, hooks: OTHER }),
+      /pool of robinhood:spy carries hooks/,
+    ],
+    [
+      'the cash with a pool',
+      asset(evm, 'robinhood:usdc', {
+        address: e.anyone('token usdc'),
+        decimals: 6,
+        pool: { fee: 500, tickSpacing: 10 },
+      }),
+      /cash robinhood:usdc states a pool/,
+    ],
     ['a pool with hooks', route({ hooks: OTHER }), /hooks of the route/],
     ['no hooks stated', route({ hooks: undefined }), /hooks of the route/],
     ['a field nobody reads in a route', route({ quoter: OTHER }), /quoter/],
@@ -747,8 +795,26 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
   it('reads each router with its route, and an unread one only off mainnet', () => {
     expect(readDeploymentFile(fileOf()).robinhood).toMatchObject({
       routers: [e.ROUTER],
-      routes: { [e.ROUTER]: { kind: 'universal-router-v4', fee: 500, tickSpacing: 10 } },
+      routes: { [e.ROUTER]: { kind: 'universal-router-v4', hooks: e.ZERO_ADDRESS } },
+      assets: { 'robinhood:spy': { pool: { fee: 500, tickSpacing: 10 } } },
     });
+    // Each asset's pool is its own: a second asset at another fee is read as written.
+    const two = fileOf();
+    (evm(two).assets as Record<string, unknown>)['robinhood:gold'] = {
+      address: e.anyone('token gold'),
+      decimals: 18,
+      pool: { fee: 3000, tickSpacing: 60 },
+    };
+    expect(readDeploymentFile(two).robinhood).toMatchObject({
+      assets: {
+        'robinhood:usdc': { decimals: 6 },
+        'robinhood:spy': { pool: { fee: 500, tickSpacing: 10 } },
+        'robinhood:gold': { pool: { fee: 3000, tickSpacing: 60 } },
+      },
+    });
+    expect(
+      (readDeploymentFile(two).robinhood as EvmDeployment).assets['robinhood:usdc']?.pool,
+    ).toBeUndefined();
     // A route keyed by its router as viem writes it is held in lower case, like the router.
     const mixed = fileOf();
     Object.assign(evm(mixed), { routers: [SPELT.lower], routes: { [SPELT.checksummed]: V4 } });
@@ -762,6 +828,12 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
         provenance: 'sandbox',
         routes: { [e.ROUTER]: { kind: 'unread' } },
       });
+      // Where no router's swaps are read, an asset may state no pool: nothing is held to one.
+      spyPool()(file);
+      expect(
+        (readDeploymentFile(file).robinhood as EvmDeployment).assets['robinhood:spy']?.pool,
+        network,
+      ).toBeUndefined();
     }
     // No router, nothing to read: an entry that trades through nothing states no route.
     const none = fileOf();
@@ -769,53 +841,65 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     expect(readDeploymentFile(none).robinhood).toMatchObject({ routers: [], routes: {} });
   });
 
-  it("mainnet's committed file is a placeholder: nothing loads it, and no deployment comes of it", () => {
+  it("mainnet's committed file is the deployment of 2026-10-12; marked a placeholder or with a zero address it loads nothing", () => {
     const committed = readDeploymentFiles().mainnet as DeploymentFile;
-    expect(committed.placeholder).toBe(true);
-    for (const refusal of [
-      refusalOf(() => readDeploymentFile(committed)),
-      refusalOf(() => deploymentsOf('mainnet')),
-    ]) {
-      expect(refusal?.code).toBe('deployment');
-      expect(refusal?.message).toContain('it is a placeholder for mainnet, not a deployment');
-      expect(refusal?.message).toContain(committed.todo);
-    }
-    // What it does state is what the repository already holds: the chain's number, Universal Router
-    // as the shared presets name it, and the pool shape routes.ts trades mainnet's pools in.
+    expect(committed.placeholder).toBeUndefined();
+    expect(isLoadedDeployment(deploymentsOf('mainnet').robinhood)).toBe(true);
+    // What it states beside the contracts is what the repository already holds: the chain's number,
+    // Universal Router as the shared presets name it, and the pool shape routes.ts trades in.
     const rh = committed.chains.robinhood;
-    if (rh?.family !== 'evm') throw new Error('the placeholder has no Robinhood Chain');
+    if (rh?.family !== 'evm') throw new Error('the file has no Robinhood Chain');
     expect(rh.evmChainId).toBe(CHAIN_PRESETS.robinhood.networks.mainnet.evmChainId);
     expect(rh.routers.map((r) => r.toLowerCase())).toEqual([
       CHAIN_PRESETS.robinhood.networks.mainnet.router,
     ]);
     expect(Object.values(rh.routes)).toEqual([
-      { kind: 'universal-router-v4', ...routeVectors.pools.mainnet },
+      { kind: 'universal-router-v4', hooks: routeVectors.pools.mainnet.hooks },
     ]);
+    // Each listed token states its own pool, and they are not all one shape: NVDA's is the one the
+    // vault's fork test first traded in, and most of the others sit at another fee.
+    const { fee, tickSpacing } = routeVectors.pools.mainnet;
+    expect(rh.assets['robinhood:nvda']?.pool).toEqual({ fee, tickSpacing });
+    expect(rh.assets[rh.cash]?.pool).toBeUndefined();
+    const shapes = Object.entries(rh.assets)
+      .filter(([id]) => id !== rh.cash)
+      .map(([, a]) => `${a.pool?.fee}/${a.pool?.tickSpacing}`);
+    expect(shapes.length).toBeGreaterThan(1);
+    expect(shapes).not.toContain('undefined/undefined');
+    expect(new Set(shapes).size).toBeGreaterThan(1);
     for (const address of [rh.factory, rh.beacon, rh.registry])
-      expect(address).toBe(e.ZERO_ADDRESS);
-    // With the mark still in, real addresses change nothing.
-    const filled = (): DeploymentFile => ({
+      expect(address).not.toBe(e.ZERO_ADDRESS);
+    // With a placeholder's mark on it, real addresses change nothing.
+    const marked: DeploymentFile = {
+      ...structuredClone(committed),
+      placeholder: true,
+      todo: 'not deployed',
+    };
+    const refusal = refusalOf(() => readDeploymentFile(marked));
+    expect(refusal?.code).toBe('deployment');
+    expect(refusal?.message).toContain('it is a placeholder for mainnet, not a deployment');
+    expect(refusal?.message).toContain('not deployed');
+    // And with no mark but a zero address in a contract's place, it is refused for that.
+    const zeroed: DeploymentFile = {
       ...structuredClone(committed),
       chains: {
         robinhood: {
           ...structuredClone(rh),
-          factory: e.FACTORY,
-          beacon: e.BEACON,
-          registry: e.anyone('registry'),
+          factory: e.ZERO_ADDRESS,
+          beacon: e.ZERO_ADDRESS,
+          registry: e.ZERO_ADDRESS,
         },
       },
-    });
-    expect(refusalOf(() => readDeploymentFile(filled()))?.message).toMatch(/placeholder/);
-    // And with the mark out but the zero addresses left, it is refused for those.
-    const { placeholder: _mark, todo: _note, ...unmarked } = committed;
-    expect(refusalOf(() => readDeploymentFile(unmarked))?.message).toMatch(/zero address/);
+    };
+    expect(refusalOf(() => readDeploymentFile(zeroed))?.message).toMatch(/zero address/);
   });
 
-  it('the placeholder filled in, with its mark taken out, loads as mainnet', () => {
+  it('another file put in mainnet’s place loads as mainnet, and the committed one is back after', () => {
     const committed = readDeploymentFiles().mainnet as DeploymentFile;
-    const { placeholder: _mark, todo: _note, ...file } = structuredClone(committed);
+    const file = structuredClone(committed);
     const rh = file.chains.robinhood;
-    if (rh?.family !== 'evm') throw new Error('the placeholder has no Robinhood Chain');
+    if (rh?.family !== 'evm') throw new Error('the file has no Robinhood Chain');
+    const deployed = rh.factory;
     Object.assign(rh, { factory: e.FACTORY, beacon: e.BEACON, registry: e.anyone('registry') });
     const router = CHAIN_PRESETS.robinhood.networks.mainnet.router as string;
     expect(readDeploymentFile(file).robinhood).toMatchObject({
@@ -823,13 +907,13 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
       evmChainId: 4663,
       factory: e.FACTORY,
       routers: [router],
-      routes: { [router]: { kind: 'universal-router-v4', fee: 100, tickSpacing: 1 } },
+      routes: { [router]: { kind: 'universal-router-v4', hooks: e.ZERO_ADDRESS } },
       cash: 'robinhood:usdg',
     });
     const loaded = withFile(file, () => deploymentsOf('mainnet')).robinhood;
     expect(isLoadedDeployment(loaded)).toBe(true);
-    // And the committed placeholder is back in its place after.
-    expect(refusalOf(() => deploymentsOf('mainnet'))?.message).toMatch(/placeholder/);
+    // And the committed file is back in its place after.
+    expect(deploymentsOf('mainnet').robinhood).toMatchObject({ factory: deployed });
   });
 
   it("carries a proxy's creation code the file states, and derives the vault from it", () => {

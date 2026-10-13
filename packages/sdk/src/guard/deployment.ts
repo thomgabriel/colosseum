@@ -8,6 +8,7 @@ import { GuardRefusal } from './refusal';
 import { count, deepFreeze, type Loose, must, only, text } from './strict';
 import type {
   EvmDeployment,
+  EvmPool,
   EvmRoute,
   FeeLimit,
   GuardDeployment,
@@ -57,17 +58,22 @@ export type EvmEntry = {
   /** The shared portfolios' registry. Left out, a publish on the chain is never signed. */
   registry?: string;
   cash: AssetId;
-  /** Each asset's token contract. The field is `address`: a secret scanner reads `token` as a credential. */
-  assets: Record<AssetId, { address: string; decimals: number }>;
+  /**
+   * Each asset's token contract. The field is `address`: a secret scanner reads `token` as a credential.
+   * `pool` is the asset's own Uniswap v4 pool against the cash, the one its trades go through: stated
+   * for every asset but the cash wherever a router's route is `universal-router-v4`.
+   */
+  assets: Record<AssetId, { address: string; decimals: number; pool?: EvmPoolEntry }>;
   fee?: FeeLimit;
 };
 /**
- * A router's route in a file. `universal-router-v4`: the one Uniswap v4 pool shape its swaps go
- * through, `hooks` the zero address. `unread`: call data the guard does not read (a local mock router).
+ * A router's route in a file. `universal-router-v4`: one swap in one Uniswap v4 pool, `hooks` the zero
+ * address; the pool's fee and tick spacing are the traded asset's (`assets[id].pool`), not the
+ * router's. `unread`: call data the guard does not read (a local mock router).
  */
-export type EvmRouteEntry =
-  | { kind: 'universal-router-v4'; fee: number; tickSpacing: number; hooks: string }
-  | { kind: 'unread' };
+export type EvmRouteEntry = { kind: 'universal-router-v4'; hooks: string } | { kind: 'unread' };
+/** An asset's pool in a file: the fee in hundredths of a basis point, and the tick spacing. */
+export type EvmPoolEntry = { fee: number; tickSpacing: number };
 /** A chain's entry in the mock's file: the chain runs on packages/chain-mock and moves nothing. */
 export type MockEntry = { family: 'mock'; cash: AssetId; cashDecimals: number };
 
@@ -219,6 +225,21 @@ const ZERO_ADDRESS = `0x${'0'.repeat(40)}`;
 const MAX_V4_FEE = 1_000_000;
 const MAX_V4_TICK_SPACING = 32_767;
 
+/** An asset's pool: a fee and a tick spacing inside Uniswap v4's own bounds, and nothing else. */
+function poolOf(value: unknown, id: string): EvmPool {
+  const what = `the pool of ${id}`;
+  const pool = only(what, value, ['fee', 'tickSpacing']);
+  must(
+    count(pool.fee, 0) && (pool.fee as number) <= MAX_V4_FEE,
+    `the fee of ${what} is not 0 to ${MAX_V4_FEE}`,
+  );
+  must(
+    count(pool.tickSpacing, 1) && (pool.tickSpacing as number) <= MAX_V4_TICK_SPACING,
+    `the tick spacing of ${what} is not 1 to ${MAX_V4_TICK_SPACING}`,
+  );
+  return { fee: pool.fee as number, tickSpacing: pool.tickSpacing as number };
+}
+
 /**
  * The routes of an EVM entry: one for every router, none for anything else, each of a kind the guard
  * knows. A router with no route is refused, so no call data goes unread without the file saying so.
@@ -238,7 +259,9 @@ function routesOf(
     );
     must(!Object.hasOwn(routes, router), `two routes are stated for ${router}`);
     const what = `the route of ${router}`;
-    const route = only(what, raw, ['kind', 'fee', 'tickSpacing', 'hooks']);
+    // The pool's shape is each asset's own (`assets[id].pool`): a route that still states one fee for
+    // the whole chain is a file of the earlier shape, and is refused by name.
+    const route = only(what, raw, ['kind', 'hooks']);
     if (route.kind === 'unread') {
       only(what, raw, ['kind']);
       must(
@@ -250,23 +273,10 @@ function routesOf(
     }
     must(route.kind === 'universal-router-v4', `${what} is of no kind the guard reads`);
     must(
-      count(route.fee, 0) && (route.fee as number) <= MAX_V4_FEE,
-      `the fee of ${what} is not 0 to ${MAX_V4_FEE}`,
-    );
-    must(
-      count(route.tickSpacing, 1) && (route.tickSpacing as number) <= MAX_V4_TICK_SPACING,
-      `the tick spacing of ${what} is not 1 to ${MAX_V4_TICK_SPACING}`,
-    );
-    must(
       route.hooks === ZERO_ADDRESS,
       `the hooks of ${what} are not the zero address: a vault trades in pools with no hooks`,
     );
-    routes[router] = {
-      kind: 'universal-router-v4',
-      fee: route.fee as number,
-      tickSpacing: route.tickSpacing as number,
-      hooks: ZERO_ADDRESS,
-    };
+    routes[router] = { kind: 'universal-router-v4', hooks: ZERO_ADDRESS };
   }
   for (const router of routers)
     must(
@@ -310,12 +320,28 @@ function evmOf(
     entry.registry === undefined ? undefined : evmAddress(entry.registry, 'the registry');
   const seen = [factory, beacon, ...routers, ...(registry ? [registry] : [])];
   const { cash, assets } = assetsOf(chain, entry, seen, (a, id) => {
-    const asset = only(`the asset ${id}`, a, ['address', 'decimals']);
+    const asset = only(`the asset ${id}`, a, ['address', 'decimals', 'pool']);
     const token = evmAddress(asset.address, `the token of ${id}`);
-    return { address: token, value: { token, decimals: decimalsOf(asset.decimals, id) } };
+    const pool = asset.pool === undefined ? undefined : poolOf(asset.pool, id);
+    return {
+      address: token,
+      value: { token, decimals: decimalsOf(asset.decimals, id), ...(pool ? { pool } : {}) },
+    };
   });
   must(new Set(seen).size === seen.length, 'two of its addresses are the same');
   const routes = routesOf(entry.routes, routers, network);
+  // A pool is an asset's pool against the cash: the cash has none. Where a router's swaps are read,
+  // every other asset states its own, so no trade is held to a pool nobody wrote down.
+  must(
+    assets[cash]?.pool === undefined,
+    `the cash ${cash} states a pool, and a pool is an asset's`,
+  );
+  if (Object.values(routes).some((r) => r.kind === 'universal-router-v4'))
+    for (const [id, asset] of Object.entries(assets))
+      must(
+        id === cash || asset.pool !== undefined,
+        `the asset ${id} states no pool: which pool its trades go through is not said`,
+      );
   let proxyCreationCode: string | undefined;
   if (entry.proxyCreationCode !== undefined) {
     must(typeof entry.proxyCreationCode === 'string', "the proxy's creation code is not hex");

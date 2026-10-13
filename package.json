@@ -142,7 +142,8 @@
     "risk-evm:oracles": "tsx scripts/risk-evm/oracles.ts",
     "risk-evm:history": "tsx scripts/risk-evm/history-run.ts",
     "risk-evm:flow-import": "NODE_OPTIONS=--max-old-space-size=8192 tsx scripts/risk-evm/flow-import.ts",
-    "ops:authority-check": "tsx scripts/ops/authority-check.ts"
+    "ops:authority-check": "tsx scripts/ops/authority-check.ts",
+    "ops:mainnet-records": "tsx scripts/ops/mainnet-records.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

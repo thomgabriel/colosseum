@@ -6,7 +6,7 @@ Every document under `docs/`, once, with what it is and where it stands:
 - **decision record**: a dated record of what was decided or measured, kept as written;
 - **historical**: a plan, prompt or spec that did its job and has been overtaken. Read it for how the work got here, not for what the product does.
 
-The product today, which the older documents do not all reflect: English only (gate `ENGLISH-ONLY`); a goal is said in a chat, not filled into a form (`RELAXED-INTAKE`); the deposit opens in place on `/goal` (`DEPOSIT-STEP`, `DEPOSIT-DERIVE`); the chain is chosen where a plan starts (`CHAIN-AT-THE-PLAN`); a person's own vault may hold any composition of listed assets, with measured exit capacity as a warning and not a cap (`ANY-COMPOSITION`); everything runs on test networks (`SHOW`, `SPEND`). Where a document disagrees with [`GATES.md`](GATES.md), the gate is right.
+The product today, which the older documents do not all reflect: English only (gate `ENGLISH-ONLY`); a goal is said in a chat, not filled into a form (`RELAXED-INTAKE`); the deposit opens in place on `/goal` (`DEPOSIT-STEP`, `DEPOSIT-DERIVE`); the chain is chosen where a plan starts (`CHAIN-AT-THE-PLAN`); a person's own vault may hold any composition of listed assets, with measured exit capacity as a warning and not a cap (`ANY-COMPOSITION`); Solana runs on devnet and Robinhood Chain on mainnet since Oct 12 to 13, with nothing deposited there yet (`SHOW`, `MAINNET-DEPLOYED`, `APP-MAINNET-BESIDE-TESTNET`). Where a document disagrees with [`GATES.md`](GATES.md), the gate is right.
 
 ## Reading order for someone new
 
@@ -34,6 +34,7 @@ The product today, which the older documents do not all reflect: English only (g
 | [`RUN-DEVNET-LOCAL.md`](vault/RUN-DEVNET-LOCAL.md) | How to run one checkout against Solana devnet with a passkey wallet | Current for the launcher. Its browser steps predate `CHAIN-AT-THE-PLAN` and `DEPOSIT-STEP`: the chain is now chosen on `/goal`, and the deposit opens there |
 | [`SECURITY.md`](vault/SECURITY.md) | The EVM contracts: who can do what and how fast, what an owner can always do, that no deposit cap is set, the keeper's bounded loss, where each review finding stands, what is not audited | Current for EVM; the Solana matrix is not in it |
 | [`INCIDENT.md`](vault/INCIDENT.md) | What to do when something is wrong on an EVM chain: the guardian's pause, a lost key, a queued operation | Current; not rehearsed on a live network |
+| [`MAINNET-DEPLOY.md`](vault/MAINNET-DEPLOY.md) | The deploy of the vault contracts on Robinhood Chain mainnet on Oct 12: addresses, roles and each of the 40 transactions | Decision record |
 | [`SECURITY-DEPS.md`](vault/SECURITY-DEPS.md) | The dependency advisories accepted for now, each with its reason | Current |
 | [`AUDIT-VAULT.md`](vault/AUDIT-VAULT.md) | A review of the code as it was on Oct 1, before the vault work | Decision record |
 | [`CONVERGENCE-VAULT.md`](vault/CONVERGENCE-VAULT.md) | What happens to each package of the structurer under the vault work, as decided on Oct 1 | Decision record |
@@ -111,6 +112,10 @@ The engine the vault work builds on. Its documents describe the first product: g
 | [`PROMPT-PLAN.md`](structurer/PROMPT-PLAN.md), [`PROMPT-BUILD.md`](structurer/PROMPT-BUILD.md) | The prompts that produced the plan and drove the build | Historical |
 
 `schedule-check.csv` is the schedule export the acceptance run checked, and `screenshots/` holds three screens of the first app.
+
+## `screens/`
+
+Four screens of the app, taken Oct 12 on Solana devnet, shown in the root README.
 
 ## Elsewhere
 

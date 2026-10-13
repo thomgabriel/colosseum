@@ -1641,6 +1641,45 @@ describe('properties: any mix', () => {
     params: tables,
   });
 
+  it('a name too thin for a line takes none of the issuer’s room from the names after it', () => {
+    // The counterexample of Oct 12 (seed 1248425416): two portfolios opened on Solana, one month out.
+    // COINx and HOODx sell $1,500 within the cost, under the least line of 1.63%, and stayed in the
+    // share of Backed's room until last: AAPL came to a cent under a line and was left out "for the
+    // issuer", which then held $64,116.65 of the $73,720.41 it may.
+    const s = PersonalSheet.parse({
+      ...sheet(),
+      amountUsd: 586_479,
+      horizonMonths: 1,
+      themes: ['the-seven', 'crypto-in-a-suit'],
+      rules: { useHoldings: false, glide: false },
+      mix: mix({ growthBps: 2942, dollarYieldBps: 2582, goldBps: 1621, cashBps: 2855 }),
+    });
+    const context: ComposeContext = {
+      now: NOW,
+      holdings: [],
+      yields: [],
+      liquidity: fixtureLiquidity({}),
+      liquiditySource: LIQUIDITY_SOURCE,
+      params: PersonalParameters.parse({
+        ...PERSONAL_PARAMS,
+        capPerStockBps: { low: 0, medium: 0, high: 442 },
+        capPerIssuerBps: { low: 0, medium: 0, high: 1257 },
+        issuerCapBps: 0,
+        minLineBps: 163,
+        minLineUsd: 0,
+        maxLinesPerChain: 8,
+        version: 'generated',
+      }),
+      fx: [usdBrl()],
+    };
+    const plan = compose(s, launch, context);
+    expect(violations(plan, launch, context)).toEqual([]);
+    for (const c of candidates(s, launch, context).shown)
+      expect(violations(c.plan, launch, context), c.id).toEqual([]);
+    expect(plan.lines.map((l) => l.assetId)).toContain('solana:aaplx');
+    expect(plan.sleeves.find((x) => x.sleeve === 'growth')?.amountUsd).toBe(73_720.41);
+  });
+
   it('the plan and each candidate shown keep every rule, and nothing makes the engine give up', () => {
     fc.assert(
       fc.property(someone, worlds, (s, raw) => {

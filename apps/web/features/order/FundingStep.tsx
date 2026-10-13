@@ -2,7 +2,9 @@
 import type { FundingFigure } from '@colosseum/schemas';
 import { Wait } from '../../components/shell/Wait';
 import { Button } from '../../components/ui/Button';
+import { CopyButton } from '../../components/ui/CopyButton';
 import { DataTable } from '../../components/ui/DataTable';
+import { shorten } from '../../components/ui/format';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -12,9 +14,10 @@ import type { FundingOutcome, TestFundsOutcome } from './order-api';
 import type { TokenUnits, unitsFor } from './units';
 import { FundsWait } from './waits';
 
-// The funds step of a buy: what the wallet needs on the plan's chain in one line, the way to fill it
-// (test funds from our server on a test network, sample cash on the mock, or the address to send to),
-// and the table of each balance with where it was read, behind a disclosure. The card it sits in
+// The funds step of a buy: that the balance is short and which token to add, in plain words and no
+// figure (Thom, Oct 12), the wallet's address on the plan's chain with its copy beside it, the way to
+// fill it (test funds from our server on a test network, sample cash on the mock), and the table of
+// each balance with where it was read, behind a disclosure. The card it sits in
 // says once, in a quiet line, that every figure here is a sample or the test network's.
 
 export type Funding = { kind: 'idle' } | { kind: 'reading' } | FundingOutcome;
@@ -105,28 +108,18 @@ export function FundingStep({
                   ? t.buy.failure.noChain
                   : t.buy.funding.failure.refused;
 
-  // The need in one line, then what the wallet holds of it.
-  const [cashRow, gasRow] = rows;
-  const need =
-    cashRow && gasRow
-      ? t.buy.funding.needs(
-          words(cashRow.figure.needRaw, cashRow.units),
-          words(gasRow.figure.needRaw, gasRow.units),
-        )
-      : null;
-  const short = rows.filter((r) => r.figure.missingRaw !== '0');
-  const held =
-    !read || !cashRow || !gasRow
-      ? null
-      : read.ok
-        ? t.buy.funding.ok
-        : cashRow.figure.haveRaw === '0' && gasRow.figure.haveRaw === '0'
-          ? t.buy.funding.haveNone
-          : t.buy.funding.lacking(
-              short
-                .map((r) => words(r.figure.missingRaw, r.units))
-                .reduce((a, b) => t.buy.funding.and(a, b)),
-            );
+  // A short wallet: which token to add, the deposit's first and the fee's after, each named by its
+  // symbol from the read and never by an amount. On the sample chain nothing can be sent, so nothing
+  // is asked for and no address is shown: the heading and the sample-cash button alone.
+  const add = (mock ? [] : rows)
+    .filter((r) => r.figure.missingRaw !== '0')
+    .map((r) => {
+      const symbol = r.units?.symbol ?? r.figure.symbol;
+      return {
+        key: r.key,
+        line: r.key === 'cash' ? t.buy.funding.addToken(symbol) : t.buy.funding.addGas(symbol),
+      };
+    });
   // Test funds are offered where the server says it can send them, on a test network only.
   const offered =
     read !== null && !read.ok && read.provenance === 'sandbox' && read.testFunds === true;
@@ -168,33 +161,63 @@ export function FundingStep({
 
   return (
     <div data-ui="funding-step" className="flex flex-col gap-4">
-      <div aria-live="polite" className="flex flex-col gap-3">
-        {funding.kind === 'reading' || funding.kind === 'idle' ? (
-          <Wait label={t.buy.funding.reading} skeleton={<FundsWait />} />
-        ) : null}
-        {read && (
-          <p data-ui="funding-line" className="max-w-(--tf-measure-body) text-body">
-            {need} {held}
-          </p>
-        )}
-        {read?.newVault && (
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {t.buy.funding.newVault}
-          </p>
-        )}
-        {sentence && <p className="max-w-(--tf-measure-body) text-body-sm">{sentence}</p>}
-        {sent && (
-          <p data-ui="test-funds-sent" className="max-w-(--tf-measure-body) text-body-sm">
-            {sent}
-          </p>
-        )}
-        {failed && (
-          <p
-            role="alert"
-            className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-          >
-            <StatusMark status="off-track" size={12} className="mt-1.5" />
-            <span>{failed}</span>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+        <div aria-live="polite" className="flex flex-col gap-3">
+          {funding.kind === 'reading' || funding.kind === 'idle' ? (
+            <Wait label={t.buy.funding.reading} skeleton={<FundsWait />} />
+          ) : null}
+          {read?.ok && (
+            <p data-ui="funding-line" className="max-w-(--tf-measure-body) text-body">
+              {t.buy.funding.ok}
+            </p>
+          )}
+          {read && !read.ok && (
+            <div data-ui="funding-line" className="flex max-w-(--tf-measure-body) flex-col gap-1">
+              <p className="text-body font-medium">{t.buy.funding.insufficient}</p>
+              {add.map((a) => (
+                <p key={a.key} className="text-body">
+                  {a.line}
+                </p>
+              ))}
+            </div>
+          )}
+          {read?.newVault && (
+            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+              {t.buy.funding.newVault}
+            </p>
+          )}
+          {sentence && <p className="max-w-(--tf-measure-body) text-body-sm">{sentence}</p>}
+          {sent && (
+            <p data-ui="test-funds-sent" className="max-w-(--tf-measure-body) text-body-sm">
+              {sent}
+            </p>
+          )}
+          {failed && (
+            <p
+              role="alert"
+              className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
+            >
+              <StatusMark status="off-track" size={12} className="mt-1.5" />
+              <span>{failed}</span>
+            </p>
+          )}
+        </div>
+        {read && !read.ok && !mock && owner && (
+          // Where to send it, outside the live region so a new read does not say it again: the short
+          // address with the account menu's copy beside it; the whole one is what is copied, what a
+          // screen reader hears and what the pointer shows.
+          <p className="flex min-h-10 items-center gap-x-1">
+            <span data-ui="funding-address" title={owner} className="font-mono text-source">
+              <span aria-hidden="true">{shorten(owner)}</span>
+              <span className="sr-only">
+                {chainName}: {owner}
+              </span>
+            </span>
+            <CopyButton
+              value={owner}
+              title={`${t.shell.copyAddress}: ${owner}`}
+              labels={{ copy: t.shell.copyAddress, copied: t.shell.copied }}
+            />
           </p>
         )}
       </div>
@@ -208,15 +231,6 @@ export function FundingStep({
             t.buy.funding.testNote
           )}
         </p>
-      )}
-      {read && !read.ok && !offered && !mock && (
-        // No test funds from this server: the person adds what is missing themselves.
-        <div className="flex flex-col gap-1">
-          <p className="max-w-(--tf-measure-body) text-body-sm">{t.buy.funding.short(chainName)}</p>
-          {owner && (
-            <p className="break-all font-mono text-source">{t.buy.funding.address(owner)}</p>
-          )}
-        </div>
       )}
       <div className="flex flex-wrap gap-3">
         {offered && (
@@ -277,7 +291,7 @@ export function FundingStep({
                 },
               ]}
             />
-            {owner && (read.ok || offered || mock) && (
+            {owner && read.ok && (
               <p className="break-all font-mono text-source">{t.buy.funding.address(owner)}</p>
             )}
             {/* Where each balance comes from (card.md: source lines in mono). */}

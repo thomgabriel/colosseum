@@ -5,6 +5,8 @@ import {
   type EvmDeploymentRecord,
   type EvmRpc,
   deploymentAssets as evmDeploymentAssets,
+  deploymentLimits as evmLimits,
+  deploymentPools as evmPools,
 } from '@colosseum/chain-evm/vault';
 import {
   assertNode,
@@ -35,6 +37,9 @@ import {
   type ChainRegistry,
   createChainRegistry,
   type EvmInputs,
+  MAINNET_SWITCH,
+  MAINNET_SWITCH_VALUE,
+  mainnetAllowed,
   type SolanaInputs,
 } from '../../orders/chains';
 import { Refusal, refusalFromChainError } from '../../orders/errors';
@@ -402,6 +407,9 @@ function holdTo(
     'priceRef',
     'maxWeightBps',
     'autoFollowEligible',
+    // A row says whose figures it carries: a test network's row on a live chain would be shown as a
+    // test network's, and a live one on a test network as real. The record decides, not the row.
+    'provenance',
   ] as const;
   // A token the deploy retired stays listed on chain and may still be in a vault: its row does not stop
   // the start, and is left out of what the adapter lists.
@@ -443,6 +451,13 @@ export async function robinhoodFromEnv(
     throw new Error(
       `CHAIN_MODE_ROBINHOOD is ${mode}, and there is no deploy record for its network in deployments/`,
     );
+  // A mainnet's record runs only with the second switch, in its exact words. The record and the
+  // network variable are not enough: real money is never one inherited variable away.
+  const mainnet = record.provenance === 'live';
+  if (mainnet && !mainnetAllowed(env))
+    throw new Error(
+      `CHAIN_MODE_ROBINHOOD is ${mode} and the record is ${record.network}'s: set ${MAINNET_SWITCH} to ${MAINNET_SWITCH_VALUE} to run on mainnet with real money`,
+    );
   // As written: a URL can carry a key, and keys are case-sensitive (readEnv lower-cases).
   const url = env.ROBINHOOD_RPC_URL?.trim();
   if (!url) throw new Error(`CHAIN_MODE_ROBINHOOD is ${mode}, and ROBINHOOD_RPC_URL is not set`);
@@ -453,5 +468,11 @@ export async function robinhoodFromEnv(
   const rpc = connect(url);
   // The node is asked what chain it is: a test label on a mainnet node does not start.
   await assertEvmNode(rpc, record);
-  return { rpc, assets: holdToEvmRecord(assets, record) };
+  return {
+    rpc,
+    assets: holdToEvmRecord(assets, record),
+    pools: evmPools(record),
+    limits: evmLimits(record),
+    ...(mainnet ? { mainnet: true } : {}),
+  };
 }

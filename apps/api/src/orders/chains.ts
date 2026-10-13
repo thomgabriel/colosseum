@@ -1,8 +1,7 @@
 import {
   createEvmVaultAdapter,
   type EvmRpc,
-  ROBINHOOD_MAINNET_POOLS,
-  ROBINHOOD_TESTNET_POOLS,
+  type TradeLimits,
   type V4Pools,
 } from '@colosseum/chain-evm/vault';
 import { createMockAdapter, type MockControl } from '@colosseum/chain-mock';
@@ -72,9 +71,26 @@ export type EvmInputs = {
   rpc: EvmRpc;
   /** The assets of the network, with their token contracts and feeds. */
   assets: BasketAsset[];
-  /** The pools trades go through. Default: by network, the test network's or mainnet's. */
-  pools?: V4Pools;
+  /** Each asset's own pool against cash, from the deploy's record: the pool its trades go through. */
+  pools: V4Pools;
+  /** What an owner's trade is held to: the bound to the feed and each asset's largest trade, from the record. */
+  limits: TradeLimits;
+  /**
+   * True only when these came from a mainnet's own deploy record with the mainnet switch set
+   * (`robinhoodFromEnv`). Without it the registry does not run the chain on mainnet.
+   */
+  mainnet?: boolean;
 };
+
+/**
+ * The second switch a mainnet needs, beside `CHAIN_NETWORK_ROBINHOOD=mainnet` and the committed deploy
+ * record: its value is the words below, exactly. Real money is never one typo, or one inherited
+ * variable, away.
+ */
+export const MAINNET_SWITCH = 'CHAIN_MAINNET_ROBINHOOD';
+export const MAINNET_SWITCH_VALUE = 'real-money';
+export const mainnetAllowed = (env: Record<string, string | undefined>): boolean =>
+  env[MAINNET_SWITCH]?.trim() === MAINNET_SWITCH_VALUE;
 
 export type RegistryOptions = {
   /**
@@ -142,8 +158,9 @@ export function createChainRegistry(
 }
 
 /**
- * A chain on its real adapter: Solana or Robinhood Chain, and not on mainnet yet: the first real network
- * is the test one (or a local copy), labelled `sandbox` on every figure.
+ * A chain on its real adapter: Solana or Robinhood Chain, on a test network or a local copy, labelled
+ * `sandbox` on every figure. Robinhood Chain alone may run on mainnet, labelled `live`, and only from
+ * its own mainnet deploy record under `MAINNET_SWITCH`.
  */
 function realEntry(
   chain: ChainId,
@@ -157,9 +174,20 @@ function realEntry(
     throw new Error(
       `${key} is ${mode}, and the API has no ${chain} adapter for that yet: set it to mock or off`,
     );
-  if (config.network === 'mainnet')
+  // Mainnet is Robinhood Chain's alone, and only with inputs that came from its own mainnet record
+  // under the switch. Anything else is refused as it always was.
+  if (config.network === 'mainnet' && !(chain === 'robinhood' && options.robinhood?.mainnet))
     throw new Error(
-      `${key} is ${mode} on mainnet, which this API does not run yet: set ${envKey('CHAIN_NETWORK', chain)} to testnet or local`,
+      `${key} is ${mode} on mainnet, which this API does not run yet: set ${envKey('CHAIN_NETWORK', chain)} to testnet or local${
+        chain === 'robinhood'
+          ? `, or commit the mainnet deploy record and set ${MAINNET_SWITCH}`
+          : ''
+      }`,
+    );
+  // The other way too: inputs of a mainnet record never run under a test network's name.
+  if (chain === 'robinhood' && options.robinhood?.mainnet && config.network !== 'mainnet')
+    throw new Error(
+      `${key} was given a mainnet deploy record, and ${envKey('CHAIN_NETWORK', chain)} is ${config.network}`,
     );
   if (chain === 'robinhood') {
     if (!options.robinhood)
@@ -176,10 +204,8 @@ function realEntry(
         config,
         rpc: options.robinhood.rpc,
         assets: options.robinhood.assets,
-        // The test network's pools on `testnet`; mainnet's on `local`, a copy of mainnet.
-        pools:
-          options.robinhood.pools ??
-          (config.network === 'local' ? ROBINHOOD_MAINNET_POOLS : ROBINHOOD_TESTNET_POOLS),
+        pools: options.robinhood.pools,
+        limits: options.robinhood.limits,
         trade: mode,
         autoFollow: flags.autoFollow[chain],
         ...(options.now ? { now: options.now } : {}),

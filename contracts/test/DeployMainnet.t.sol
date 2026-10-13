@@ -103,18 +103,63 @@ contract PoolAverageLike {
 /// A router, or any contract that is not a Safe: an address with code.
 contract Anything {}
 
-/// What a Safe says of itself: who its owners are and how many must sign.
+/// What a Safe says of itself: who its owners are, how many must sign, and which modules it has enabled.
+/// `answers` is which of the two module calls it has: bit 1 `getModulesPaginated` (Safe 1.1.1 and later),
+/// bit 0 `getModules()` (1.0.0 to 1.2.0); 3 is both, 0 neither. A call it does not know goes to its fallback
+/// handler, as a real Safe's does, and comes back empty and successful. The two lists are kept apart so
+/// that a contract answering one way with a module and the other way with none can be made.
 contract SafeLike {
     address[] internal owners;
+    address[] internal paged;
+    address[] internal listed;
     uint256 public getThreshold;
+    uint8 internal answers = 3;
+    address internal next = address(1);
 
     constructor(address[] memory owners_, uint256 threshold_) {
         owners = owners_;
         getThreshold = threshold_;
     }
 
+    function enableModule(address module) external {
+        paged.push(module);
+        listed.push(module);
+    }
+
+    function enableOnlyPaged(address module) external {
+        paged.push(module);
+    }
+
+    function enableOnlyListed(address module) external {
+        listed.push(module);
+    }
+
+    function setAnswers(uint8 answers_) external {
+        answers = answers_;
+    }
+
+    function setNext(address next_) external {
+        next = next_;
+    }
+
     function getOwners() external view returns (address[] memory) {
         return owners;
+    }
+
+    fallback() external {
+        bytes4 asked = msg.sig;
+        if (asked == bytes4(keccak256("getModulesPaginated(address,uint256)")) && answers & 2 != 0) {
+            bytes memory out = abi.encode(paged, next);
+            assembly ("memory-safe") {
+                return(add(out, 0x20), mload(out))
+            }
+        }
+        if (asked == bytes4(keccak256("getModules()")) && answers & 1 != 0) {
+            bytes memory out = abi.encode(listed);
+            assembly ("memory-safe") {
+                return(add(out, 0x20), mload(out))
+            }
+        }
     }
 }
 
@@ -190,6 +235,9 @@ contract DeployMainnetTest is Test {
         cfg.routers[0] = Deploy.Router(UNIVERSAL_ROUTER, 2);
         cfg.closedDays = new uint32[](1);
         cfg.closedDays[0] = 20_813;
+        cfg.priceBoundBps = 200;
+        cfg.maxTradeUsd = new uint256[](2);
+        cfg.maxTradeUsd[1] = 50_000;
     }
 
     function _stockConfig() internal view returns (AssetConfig memory a) {
@@ -425,6 +473,86 @@ contract DeployMainnetTest is Test {
         d = script.deploy(cfg, deployer);
         assertFalse(VaultFactory(d.factory).creationRestricted());
         assertTrue(VaultFactory(d.factory).mayCreate(keeper));
+    }
+
+    /// A module can make a Safe act with no signature of its owners, so two of three means nothing beside
+    /// one. The script reads the Safe's modules and refuses any, by either way a Safe lists them, and
+    /// refuses a Safe that lists them by neither: what cannot be read cannot be ruled out.
+    function test_mainnet_refusesASafeWithAModule_orOneThatDoesNotSayWhichItHas() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike current = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(current);
+        (uint256 threshold, address[] memory owners) = script.checkSafe(address(current), 2);
+        assertEq(threshold, 2, "no module: it passes");
+        assertEq(owners.length, 3);
+
+        current.enableModule(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Safe 1.0.0: `getModules()` and no paginated call.
+        SafeLike old = SafeLike(payable(_safe(3, 2)));
+        old.setAnswers(1);
+        cfg.timelockOwner = address(old);
+        script.checkSafe(address(old), 2);
+        old.enableModule(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Neither call answered: the fallback handler returns nothing, and succeeds.
+        SafeLike silent = SafeLike(payable(_safe(3, 2)));
+        silent.setAnswers(0);
+        cfg.timelockOwner = address(silent);
+        _refused(cfg, "the Safe does not say which modules it has enabled: they cannot be ruled out");
+
+        // More modules than one page holds is still "has a module".
+        SafeLike many = SafeLike(payable(_safe(3, 2)));
+        for (uint160 i = 1; i <= 12; ++i) {
+            many.enableModule(address(i + 0xD00D00));
+        }
+        cfg.timelockOwner = address(many);
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+    }
+
+    /// An empty page of modules ends the list: `next` is the list's sentinel, or zero. One that is empty
+    /// and names a next module is a list that says two things, and is not taken at its word.
+    function test_mainnet_refusesASafeWhoseEmptyModulePageNamesANextOne() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike odd = SafeLike(payable(_safe(3, 2)));
+        odd.setAnswers(2);
+        cfg.timelockOwner = address(odd);
+        odd.setNext(makeAddr("a-module"));
+        _refused(cfg, "the Safe lists no module and names a next one: its list cannot be trusted");
+        odd.setNext(address(0));
+        script.checkSafe(address(odd), 2);
+        odd.setNext(address(1));
+        script.checkSafe(address(odd), 2);
+    }
+
+    /// Both ways of listing modules are asked, and a module under either refuses: a contract that says
+    /// "none" one way and names one the other way is not passed on the answer that suits it. A Safe that
+    /// has only one of the two calls passes when that one is empty.
+    function test_mainnet_asksASafeBothWaysForItsModules_andEitherListingOneRefuses() public {
+        Deploy.Config memory cfg = _good();
+        SafeLike split = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(split);
+        split.enableOnlyListed(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        split = SafeLike(payable(_safe(3, 2)));
+        cfg.timelockOwner = address(split);
+        split.enableOnlyPaged(makeAddr("a-module"));
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
+
+        // Only one of the two calls, and empty: it passes, whichever it is.
+        SafeLike onlyPaged = SafeLike(payable(_safe(3, 2)));
+        onlyPaged.setAnswers(2);
+        script.checkSafe(address(onlyPaged), 2);
+        SafeLike onlyListed = SafeLike(payable(_safe(3, 2)));
+        onlyListed.setAnswers(1);
+        script.checkSafe(address(onlyListed), 2);
+        // And a module there is still a module.
+        onlyPaged.enableModule(makeAddr("a-module"));
+        cfg.timelockOwner = address(onlyPaged);
+        _refused(cfg, "the Safe has a module enabled: a module can move it without its signers");
     }
 
     function test_mainnet_refusesADelayUnder48Hours_orOver30Days() public {
@@ -769,18 +897,93 @@ contract DeployMainnetTest is Test {
         }
     }
 
+    // ---- the app's limits on an owner's trade: a mainnet file states them
+
+    /// No contract reads the bound to the feed or an asset's largest trade, and the script writes neither.
+    /// A mainnet file that leaves one out is refused all the same: the deploy record is written from it,
+    /// and a record with none is a mainnet whose owner trades are checked against nothing.
+    function test_mainnet_refusesAFileThatLeavesAnOwnersTradeUnchecked() public {
+        Deploy.Config memory cfg = _good();
+        cfg.priceBoundBps = 0;
+        _refused(cfg, "no priceBoundBps of 1 to 1000: an owner's trade would be checked against no price");
+        cfg.priceBoundBps = 1001;
+        _refused(cfg, "no priceBoundBps of 1 to 1000: an owner's trade would be checked against no price");
+
+        cfg = _good();
+        cfg.maxTradeUsd[1] = 0;
+        _refused(cfg, "an asset states no maxTradeUsd: a trade of any size would be built");
+        cfg = _good();
+        cfg.maxTradeUsd = new uint256[](0);
+        _refused(cfg, "an asset states no maxTradeUsd: a trade of any size would be built");
+
+        // A rail brings two limits with it: the largest trade while a feed is not live, and the rail's age.
+        cfg = _good();
+        cfg.staleRailBps = 1000;
+        _refused(cfg, "a rail with no maxTradeUsdNotLive: a trade of any size would lean on the pools alone");
+        cfg.maxTradeUsdNotLive = 20_000;
+        _refused(cfg, "a rail with no staleRailMaxAge: a feed that died would anchor trades for ever");
+        cfg.staleRailMaxAge = 4 days;
+        script.deploy(cfg, deployer);
+
+        // The cash needs none, and with both stated the file deploys.
+        cfg = _good();
+        assertEq(cfg.maxTradeUsd[0], 0, "the cash states no largest trade");
+        script.deploy(cfg, deployer);
+    }
+
+    /// The committed file states both, and the script reads them: 2%, and a largest trade for every token.
+    function test_theCommittedMainnetFile_statesTheBoundAndALargestTradeForEveryToken() public view {
+        Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
+        assertEq(cfg.priceBoundBps, 200);
+        assertEq(cfg.maxTradeUsd.length, cfg.assets.length);
+        assertEq(cfg.maxTradeUsd[0], 0, "the cash");
+        uint256 least = type(uint256).max;
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            assertGe(cfg.maxTradeUsd[i], 1000);
+            if (cfg.maxTradeUsd[i] < least) least = cfg.maxTradeUsd[i];
+        }
+        assertEq(least, 1000, "the thinnest token's");
+        assertEq(cfg.staleRailBps, 1000);
+        assertEq(cfg.maxTradeUsdNotLive, 20_000);
+        assertEq(cfg.staleRailMaxAge, 4 days);
+    }
+
+    /// A test network states neither and deploys: its record says null for both.
+    function test_testNetwork_needsNoLimits() public {
+        vm.chainId(31_337);
+        Deploy.Config memory cfg = script.readConfig("script/config/31337.json");
+        assertEq(cfg.priceBoundBps, 0);
+        script.deploy(cfg, deployer);
+    }
+
     // ---- the committed mainnet file
 
-    /// As committed it deploys nowhere: it still holds values nobody has confirmed.
-    function test_theCommittedMainnetFile_isRefusedWhileItHoldsPlaceholders() public {
+    /// As committed it holds no value a person has not confirmed (Thom, 2026-10-12), so the marker rule no
+    /// longer stops it. Every other rule still does: here, with no Safe at the address it names, it is
+    /// refused for that. And the marker rule itself still bites on the same file with the word put back.
+    function test_theCommittedMainnetFile_holdsNoPlaceholder_andIsStillHeldToEveryRule() public {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
         assertEq(cfg.chainId, ROBINHOOD);
-        assertTrue(cfg.placeholders);
+        assertFalse(cfg.placeholders, "every value is confirmed");
+        string memory file = vm.readFile("script/config/4663.json");
+        Deploy.Config memory marked =
+            script.parseConfig(vm.replace(file, '"guardianNote": "', '"guardianNote": "TODO: '));
+        assertTrue(marked.placeholders, "the word put back");
+        _refused(marked, "the file still holds a TODO: every value must be confirmed by a person");
+        // The ceilings as confirmed: none left at zero, none above the contract's own 5000.
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            assertGt(cfg.assets[i].config.maxWeightBps, 0, "a confirmed ceiling");
+            assertLe(cfg.assets[i].config.maxWeightBps, 5000);
+        }
+        assertEq(cfg.assets[1].config.maxWeightBps, 2500, "NVDA");
+        assertEq(cfg.assets[2].config.maxWeightBps, 5000, "SPY");
         assertFalse(cfg.adminIsDeployer);
         assertFalse(cfg.keeperEnabled);
         assertEq(cfg.keeper, address(0));
-        assertEq(cfg.timelockOwner, address(0), "a placeholder");
-        assertEq(cfg.guardian, address(0), "a placeholder");
+        // Two values a person has confirmed since (Thom, 2026-10-12): the Safe and the guardian.
+        assertEq(cfg.timelockOwner, 0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc, "the Safe on Robinhood Chain");
+        assertEq(cfg.guardian, 0x0a1c3312c808b23D019bF241028f6B5624f4cc98, "the guardian");
+        assertGt(cfg.assets.length, 2, "more than NVDA is listed");
         assertEq(cfg.timelockDelay, 48 hours);
         assertEq(cfg.publishDelay, 172_800);
         assertEq(cfg.cashToken, USDG);
@@ -792,32 +995,43 @@ contract DeployMainnetTest is Test {
             assertEq(cfg.assets[i].config.flags, 0, "no keeper switch");
             assertEq(cfg.assets[i].config.averageFeed, address(0));
         }
-        _refused(cfg, "the file still holds a TODO: every value must be confirmed by a person");
-
-        // Taking the marker out is not enough: the two addresses it stood beside are still missing.
-        cfg.placeholders = false;
+        // With no marker the file is still held to the Safe: on a chain that has no contract at the address
+        // it names, the owner is refused as a key would be. And neither address may be missing.
+        _refused(cfg, "the timelock owner has no code: it must be a contract (a Safe), not a key");
+        cfg.timelockOwner = address(0);
         _refused(cfg, "no timelock owner");
         cfg.timelockOwner = safe;
+        address named = cfg.guardian;
+        cfg.guardian = address(0);
         _refused(cfg, "no guardian");
-        cfg.guardian = guardian;
+        cfg.guardian = deployer;
+        _refused(cfg, "the guardian is the deployer");
+        cfg.guardian = named;
         assertEq(cfg.safeMinThreshold, 2);
     }
 
-    /// With its placeholders filled, and stand-ins at the addresses it names, the committed file deploys.
+    /// With its unconfirmed values taken as confirmed, a stand-in for the Safe (no chain here holds the real
+    /// one) and stand-ins at the token and feed addresses it names, the committed file deploys.
     /// The same file against the chain's real token, feed and router is `test/fork/RobinhoodForkDeploy.t.sol`.
     function test_theCommittedMainnetFile_deploysOnceItsPlaceholdersAreFilled() public {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
         cfg.timelockOwner = safe;
-        cfg.guardian = guardian;
-        vm.etch(cfg.assets[1].token, address(stock).code);
-        vm.etch(cfg.assets[1].config.feed, address(feed).code);
-        vm.store(cfg.assets[1].config.feed, bytes32(0), vm.load(address(feed), bytes32(0)));
-        vm.store(cfg.assets[1].config.feed, bytes32(uint256(1)), vm.load(address(feed), bytes32(uint256(1))));
-        vm.store(cfg.assets[1].config.feed, bytes32(uint256(2)), vm.load(address(feed), bytes32(uint256(2))));
+        // The guardian is the file's own.
+        // Every listed token and its feed, as stand-ins that answer what the file says of them.
+        assertGt(cfg.assets.length, 2, "more than NVDA is listed");
+        for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            ChainlinkLikeFeed like = new ChainlinkLikeFeed(8, cfg.feedDescriptions[i], address(new Aggregator()));
+            vm.etch(cfg.assets[i].token, address(stock).code);
+            vm.etch(cfg.assets[i].config.feed, address(like).code);
+            for (uint256 slot; slot < 3; ++slot) {
+                vm.store(cfg.assets[i].config.feed, bytes32(slot), vm.load(address(like), bytes32(slot)));
+            }
+        }
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
         assertEq(VaultFactory(d.factory).admin(), d.timelock);
-        assertEq(VaultFactory(d.factory).assets().length, 2);
+        assertEq(VaultFactory(d.factory).assets().length, cfg.assets.length);
+        assertEq(VaultFactory(d.factory).guardian(), 0x0a1c3312c808b23D019bF241028f6B5624f4cc98);
     }
 
     // ---- the rest of the script on a mainnet

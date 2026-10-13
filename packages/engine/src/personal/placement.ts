@@ -613,8 +613,8 @@ export class Book {
    * 1. Lines: in the fixed order, a unit whose token has no line yet takes one of the lines left.
    * 2. Each unit asks for its cents, up to the room under its token's own ceiling.
    * 3. Where an issuer has no room for all its units ask, each gets its share in proportion.
-   * 4. A unit left with less than the least a line can be is left out, the last in the order first,
-   *    and the rest share again.
+   * 4. A unit left with less than the least a line can be is left out, and the rest share again:
+   *    first those whose own ask is under it, then the last in the order.
    */
   placeTogether(units: Unit[], candidatesOf: (unit: Unit) => BasketAsset[]): void {
     const { w } = this;
@@ -699,9 +699,11 @@ export class Book {
           takes.set(u, shares[i] ?? 0);
         });
       }
-      // 4. The least a new line can be.
+      // 4. The least a new line can be. A unit whose own ask is under it holds no line whatever its
+      // issuer has room for, so it goes first: left in, it would share room it never takes, and a
+      // name after it would be out for an issuer that is not at its cap.
       const short = live.filter((u) => !hasLine(u) && (takes.get(u) ?? 0) < w.minLine);
-      const last = short.at(-1);
+      const last = short.filter((u) => askOf(u) < w.minLine).at(-1) ?? short.at(-1);
       if (!last) break;
       const token = tokenOf(last);
       tooSmall.set(

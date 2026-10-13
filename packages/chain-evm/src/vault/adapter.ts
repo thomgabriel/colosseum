@@ -9,10 +9,13 @@ import {
   CreateVaultArgs,
   DepositArgs,
   EvmAddress,
+  isStalePrice,
   type LegKind,
   OwnerSwapArgs,
+  type Price,
   PublishRecipeArgs,
   type Quote,
+  referenceCostBps,
   SetAutoFollowArgs,
   SetTargetsArgs,
   statedMinimum,
@@ -30,13 +33,16 @@ import {
   parseAbiParameters,
 } from 'viem';
 import { z } from 'zod';
+import { fromScaled } from './amounts';
 import { type Composed, compose } from './compose';
-import { firstShort, referenceCostBps } from './funds';
+import { firstShort } from './funds';
 import { BASKET_VAULT_ABI, INDEX_REGISTRY_ABI, VAULT_FACTORY_ABI } from './generated/abi';
+import { readPoolAveragePlan } from './pool-average';
 import { createEvmVaultReader, type EvmVaultReader, type EvmVaultReaderOptions } from './reader';
-import { quoteExactIn, swapCalldata, type V4Pools } from './routes';
+import { poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
 import { ask } from './rpc';
 import { createEvmProbe } from './send';
+import { type AverageWitness, holdTrade, type TradeLimits } from './trade-limits';
 import { unlistedAssetId, unlistedToken } from './unlisted';
 
 // The EVM adapter whole (DESIGN-VAULT 3.2): the reader of ADE-1, every builder, the quotes and the
@@ -67,6 +73,9 @@ export function indexIdOf(creator: string, familyId: string): Hex {
 }
 
 const ZERO_WORD = `0x${'0'.repeat(64)}` as Hex;
+/** The window of the pool average that stands in for a stale feed: an hour, as `PoolAverageFeed`'s. */
+const AVERAGE_WINDOW_S = 3600;
+type Witnessed = { price: Price; average: AverageWitness | null };
 const ERC20 = parseAbi([
   'function approve(address spender, uint256 amount) returns (bool)',
   'function allowance(address owner, address spender) view returns (uint256)',
@@ -74,8 +83,13 @@ const ERC20 = parseAbi([
 ]);
 
 export type EvmVaultAdapterOptions = EvmVaultReaderOptions & {
-  /** The pools trades are routed through and priced in. */
+  /** Each asset's pool against cash: what trades are routed through and priced in. */
   pools: V4Pools;
+  /**
+   * What an owner's trade is held to beside the vault's own minimum: how far the pool's quote may be
+   * from the asset's Chainlink price, and the largest single trade of each asset (trade-limits.ts).
+   */
+  limits: TradeLimits;
   /** The slippage `quote()` takes off the quoted output for its `minOutRaw`. Default 100 bps. */
   quoteSlippageBps?: number;
   /** The slippage a keeper leg allows under the quote. Default 100 bps. */
@@ -120,7 +134,7 @@ const lower = (a: string) => a.toLowerCase() as Address;
 const IndexId = z.string().regex(/^0x[0-9a-f]{64}$/, 'expected 32 bytes as lower-case 0x hex');
 
 export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVaultAdapter {
-  const { config, rpc, pools } = options;
+  const { config, rpc, pools, limits } = options;
   const reader = createEvmVaultReader(options);
   const probe = createEvmProbe({ config, rpc });
   const now = options.now ?? (() => new Date());
@@ -156,6 +170,106 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         `${id} is not listed on ${config.name}: it can be sold, not bought`,
       );
   };
+
+  /**
+   * The feed's price of each asset the trades touch, where the network checks the pool against it. An
+   * asset with no feed has none here, and `holdTrade` refuses it; a feed that gives no price is
+   * refused by the read itself (`AssetNotPriced`).
+   */
+  async function feedPrices(ids: AssetId[]): Promise<Map<AssetId, Witnessed>> {
+    if (limits.priceBoundBps === null && Object.values(limits.maxTradeUsd).every((v) => v === null))
+      return new Map();
+    const priced = [...new Set(ids)].filter((id) => byId.get(id)?.priceKind === 'chainlink');
+    const prices = priced.length ? await reader.getPrices(priced) : [];
+    // A feed that is no longer live, on a network with a rail: the asset's one-hour pool average is
+    // read beside it. Live is younger than the network's `liveFeedSeconds`; with none, up to `maxAge`.
+    const stale = prices.filter(
+      (p) =>
+        limits.priceBoundBps !== null &&
+        (limits.staleRailBps ?? null) !== null &&
+        (isStalePrice(p) || p.ageSeconds > (limits.liveFeedSeconds ?? p.maxAgeSeconds)),
+    );
+    const block = stale.length
+      ? await ask('eth_getBlockByNumber', () => rpc.getBlock({ blockTag: 'latest' }))
+      : null;
+    const averages = new Map<AssetId, AverageWitness>();
+    await Promise.all(
+      stale.map(async (p) => {
+        const asset = byId.get(p.asset);
+        const named = asset ? (limits.average?.[asset.address] ?? null) : null;
+        if (!asset || !named || !block) return;
+        if (!named.usable) {
+          averages.set(p.asset, { state: 'unusable' });
+          return;
+        }
+        const reading = await readPoolAveragePlan(
+          rpc,
+          {
+            pool: named.pool as Address,
+            base: asset.address as Address,
+            quote: cash?.address as Address,
+            feed: asset.priceRef as Address,
+            baseDecimals: asset.decimals,
+            quoteDecimals: cash?.decimals ?? 6,
+            window: AVERAGE_WINDOW_S,
+            minLiquidity: named.minLiquidity,
+            // Chainlink's own hour is not asked of a feed that is stale: its last answer is the rail.
+            jumpBps: 10_000,
+            maxRounds: 1,
+          },
+          { block: block.number, time: block.timestamp },
+        );
+        averages.set(
+          p.asset,
+          reading.reason === 'ThinPool'
+            ? { state: 'thin' }
+            : reading.reason === 'ShortHistory'
+              ? { state: 'short' }
+              : reading.average > 0n &&
+                  (reading.reason === null ||
+                    reading.reason === 'FeedRounds' ||
+                    reading.reason === 'FeedJumped')
+                ? { state: 'ok', usdPerToken: fromScaled(reading.average, reading.feedDecimals) }
+                : { state: 'unreadable' },
+        );
+      }),
+    );
+    return new Map(
+      prices.map((p) => [p.asset, { price: p, average: averages.get(p.asset) ?? null }]),
+    );
+  }
+  /** One trade against the network's limits: throws the refusal, or gives the feed's floor for `minOut`. */
+  function held(
+    prices: Map<AssetId, Witnessed>,
+    t: Trade,
+    leg: { tokenIn: Address; tokenOut: Address; amountIn: bigint; amountInSoFar: bigint },
+    out: bigint,
+  ): bigint | null {
+    const side = t.sell === cash?.id ? 'buy' : 'sell';
+    const id = side === 'buy' ? t.buy : t.sell;
+    const asset = byId.get(id);
+    const witnessed = prices.get(id);
+    const price = witnessed?.price;
+    return holdTrade(limits, side === 'buy' ? leg.tokenOut : leg.tokenIn, {
+      symbol: asset?.symbol ?? id,
+      side,
+      amountIn: leg.amountIn,
+      amountInSoFar: leg.amountInSoFar,
+      out,
+      cashDecimals: cash?.decimals ?? 6,
+      assetDecimals: asset?.decimals ?? 18,
+      price:
+        price && price.ageSeconds !== undefined && price.maxAgeSeconds !== undefined
+          ? {
+              usdPerToken: price.usdPerToken,
+              ageSeconds: price.ageSeconds,
+              maxAgeSeconds: price.maxAgeSeconds,
+              market: price.market,
+            }
+          : null,
+      average: witnessed?.average ?? null,
+    });
+  }
 
   const evm = (value: unknown, what: string) => input(EvmAddress, value, what) as Address;
   const builds = () => {
@@ -245,6 +359,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
       amountIn === 0n
         ? Promise.resolve(0n)
         : quoteExactIn(rpc, pools, { tokenIn: leg.tokenIn, tokenOut: leg.tokenOut, amountIn });
+    const prices = await feedPrices(legs.flatMap((leg) => [leg.t.sell, leg.t.buy]));
     const routed = await Promise.all(
       legs.map(async (leg, i) => {
         const prior = cumulative[i] ?? 0n;
@@ -257,8 +372,22 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           refuse('BadTrade', `the pool pays nothing for ${leg.t.amountInRaw} raw ${leg.t.sell}`);
         // A trade after another in the same pool can fill one unit under the difference of the two
         // quotes, by the pool's rounding: its floor is set that much lower.
-        const floor = (out * BigInt(10_000 - slippageBps)) / 10_000n - (prior > 0n ? 1n : 0n);
-        const minOut = statedMinimum(stated, trades, i, out) ?? (floor > 0n ? floor : 1n);
+        const quoteFloor = (out * BigInt(10_000 - slippageBps)) / 10_000n - (prior > 0n ? 1n : 0n);
+        // Held to the feed and to the asset's largest trade before anything is built. The minimum is
+        // the higher of the two floors: the slippage under the quote, and the bound under the feed's
+        // worth, so the fill itself is never further from the feed than the bound.
+        const feedFloor = held(prices, leg.t, { ...leg, amountInSoFar: prior + leg.amountIn }, out);
+        const floor = feedFloor !== null && feedFloor > quoteFloor ? feedFloor : quoteFloor;
+        const least = statedMinimum(stated, trades, i, out);
+        // An order's steps carry the minimums the order stated. Where the feed has since moved in the
+        // person's favour, that minimum sits under the feed's floor of now, and a push between this
+        // build and the block could fill down to it: refused, and the order is quoted again.
+        if (least != null && feedFloor !== null && least < feedFloor)
+          refuse(
+            'PriceMoved',
+            `the reference price has moved since the order was made: its minimum for ${leg.t.amountInRaw} raw ${leg.t.sell} is ${least} raw ${leg.t.buy}, under the ${feedFloor} the reference price now allows at least. Ask for a new quote`,
+          );
+        const minOut = least ?? (floor > 0n ? floor : 1n);
         const { tokenIn, tokenOut, amountIn, t } = leg;
         return {
           swap: {
@@ -380,9 +509,18 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         buyable(t.buy);
         const [tokenIn, tokenOut] = [tokenOf(t.sell), tokenOf(t.buy)];
         const amountIn = BigInt(t.amountInRaw);
+        const pool = poolOf(pools, tokenIn, tokenOut);
         const out = await quoteExactIn(rpc, pools, { tokenIn, tokenOut, amountIn });
         const fetchedAt = now().toISOString();
-        const minOut = (out * BigInt(10_000 - quoteSlippageBps)) / 10_000n;
+        // The same hold a built trade gets: a quote the builder would refuse is refused here.
+        const feedFloor = held(
+          await feedPrices([t.sell, t.buy]),
+          t,
+          { tokenIn, tokenOut, amountIn, amountInSoFar: amountIn },
+          out,
+        );
+        const quoteFloor = (out * BigInt(10_000 - quoteSlippageBps)) / 10_000n;
+        const minOut = feedFloor !== null && feedFloor > quoteFloor ? feedFloor : quoteFloor;
         // The cost against the reference prices where both sides have one; cash is a dollar.
         const priced = [t.sell, t.buy].filter((id) => byId.get(id)?.priceKind === 'chainlink');
         const prices = priced.length ? await reader.getPrices(priced) : [];
@@ -397,7 +535,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const reference = costBps !== null;
         return {
           source: `Uniswap v4 Quoter ${pools.quoter} on ${config.networkName}`,
-          method: `quoteExactInputSingle in the pool of fee ${pools.fee} and tick spacing ${pools.tickSpacing}, no hooks; minimum ${quoteSlippageBps} bps under the quote${
+          method: `quoteExactInputSingle in the asset's pool, of fee ${pool.fee} and tick spacing ${pool.tickSpacing}, no hooks; minimum ${quoteSlippageBps} bps under the quote${
             reference
               ? "; cost against the factory's Chainlink-interface feeds, cash at a dollar"
               : ''
@@ -409,7 +547,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           minOutRaw: minOut.toString(),
           costBps: costBps ?? 0,
           against: reference ? 'reference' : 'pool_mid',
-          venue: `Uniswap v4 (fee ${pools.fee}) through Universal Router ${router ?? 'unset'}`,
+          venue: `Uniswap v4 (fee ${pool.fee}) through Universal Router ${router ?? 'unset'}`,
         };
       }),
 
