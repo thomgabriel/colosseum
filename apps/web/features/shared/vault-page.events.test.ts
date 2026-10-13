@@ -939,8 +939,12 @@ describe('a reload in the middle of signing', () => {
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(pane(host).textContent).toContain(p.panes.deposit.resumed);
-    // the amount is the order's own, a fact: nothing to type, and nothing typed makes another order
-    expect(find(pane(host), '[data-ui="vault-action-amount"]').textContent).toContain('$10');
+    // the amount is the order's own, a fact on the amount card's line (gate AMOUNT-CARD): nothing to
+    // type, no way back to the field, and nothing typed makes another order
+    expect(find(pane(host), '[data-ui="deposit-fact"]').textContent).toContain(
+      en.amount.pressed('$10'),
+    );
+    expect(pane(host).querySelector('button[data-action="amount-change"]')).toBeNull();
     expect(pane(host).querySelector('input[inputmode="decimal"]')).toBeNull();
     expect(pane(host).querySelectorAll('[data-ui="order-step"]').length).toBeGreaterThan(0);
     expect(server.calls.filter((c) => c.path === '/v1/orders' && c.method === 'POST')).toEqual([]);
@@ -1076,8 +1080,10 @@ describe('a reload in the middle of signing', () => {
     // the line's newest order says how it stands: the first one failed, and the pane still opens
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(server.calls.map((c) => c.path)).toContain(`/v1/orders/${FOLLOW}`);
-    expect(pane(host).querySelector('[data-ui="vault-action-amount"]')).toBeNull();
+    // the amount card's line says no amount of an order that deposits nothing
+    expect(pane(host).querySelector('[data-ui="deposit-fact"]')).toBeNull();
     expect(pane(host).textContent).not.toContain(p.amount);
+    expect(pane(host).textContent).not.toContain(en.amount.pressed('$10'));
     // and the pane is headed for what it is: no "Sign your deposit", no "the whole amount goes in"
     expect(find(pane(host), ':scope > header h2').textContent).toBe(p.finish.title);
     expect(find(pane(host), ':scope > header').textContent).toContain(p.finish.lead);

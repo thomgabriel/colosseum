@@ -379,6 +379,16 @@ const made = async () => {
   await settle(1050);
   await settle();
 };
+/** The amount card's one button (gate AMOUNT-CARD): it hands the amount to the invest card. */
+const ENTER = 'button[data-action="amount-deposit"]';
+/** The amount card's press, its trust notice ticked where it is asked. */
+const enter = async (host: HTMLElement) => {
+  const box = host.querySelector<HTMLInputElement>(
+    '[data-ui="amount-trust"] input[type="checkbox"]',
+  );
+  if (box && !box.checked) await click(box);
+  await click(find(host, ENTER));
+};
 const posted = (server: ReturnType<typeof api>) =>
   server.to('/v1/orders').filter((c) => c.method === 'POST');
 
@@ -395,9 +405,15 @@ describe('the add-money screen', () => {
     const server = api();
     const host = await add(SECOND_VAULT);
     expect(find(host, 'h1').textContent).toBe(en.portfolio.add.title);
+    // this app has no node of its own here: the targets are our server's, said so over the button
+    expect(find(host, '[data-ui="source-mark"]').textContent).toContain(
+      en.portfolio.add.source.notRead('Solana'),
+    );
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    // the amount card's press hands the amount to the invest card (gate AMOUNT-CARD)
+    await enter(host);
     await settle(350);
-    const [asked] = server.to('/v1/funding?');
+    const asked = server.to('/v1/funding?').at(-1);
     const query = new URLSearchParams(asked?.path.split('?')[1]);
     expect(Object.fromEntries(query)).toEqual({
       amountUsd: '10',
@@ -417,8 +433,9 @@ describe('the add-money screen', () => {
     ]);
     expect(router.push).not.toHaveBeenCalled();
     // This double answers the fixtures' order, which buys another asset than this vault's targets:
-    // the card says so and offers no press at all, ticked or not (order-check.ts, `checkVaultAdd`).
-    await click(find(host, '[data-ui="trust-notice"] input[type="checkbox"]'));
+    // the card says so and offers no press at all, with the notice accepted on the amount card
+    // (order-check.ts, `checkVaultAdd`).
+    expect(host.querySelector('[data-ui="invest-card"] [data-ui="trust-notice"] input')).toBeNull();
     expect(host.querySelector(SIGN)).toBeNull();
     expect(find(host, '[data-ui="invest-card"] [role="alert"]').textContent).toBe(
       en.order.mismatch.trades,
@@ -441,9 +458,6 @@ describe('the add-money screen', () => {
         source: 'api',
       },
     });
-    expect(find(host, '[data-ui="source-mark"]').textContent).toContain(
-      en.portfolio.add.source.notRead('Solana'),
-    );
   });
 
   it('for a vault with auto-follow on: says the keeper invests it, and holds the add to the deposit alone', async () => {
@@ -452,7 +466,12 @@ describe('the add-money screen', () => {
     const host = await add(VAULT);
     expect(find(host, '[data-ui="add-keeper"]').textContent).toBe(en.portfolio.add.keeper);
     expect(host.querySelector('[data-ui="add-newer-version"]')).toBeNull();
+    // the card's preview says the keeper invests it: nothing is split here
+    expect(find(host, '[data-ui="amount-preview"]').textContent).toContain(
+      en.amount.preview.keeper,
+    );
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    await enter(host);
     await made();
     expect(recallOrder(ORDER_ID, USER)?.terms).toEqual({
       kind: 'vault',
@@ -482,14 +501,20 @@ describe('the add-money screen', () => {
   });
 
   it('reads the amount in the page’s language: "10.555" is no amount in English, and 10,555 in Portuguese', async () => {
+    // the amount card says it under the field, once the amount is still, and holds its press; the
+    // invest card reads the wallet for the amount only once it is pressed (gate AMOUNT-CARD)
     const server = api();
     const host = await add(SECOND_VAULT);
     const input = find<HTMLInputElement>(host, 'input[inputmode="decimal"]');
     await type(input, '10.555');
-    await settle(350);
-    expect(host.textContent).toContain(en.buy.blocked.amount);
-    expect(server.to('/v1/funding?')).toEqual([]);
+    await settle(550);
+    expect(find(host, '[data-ui="amount-problem"]').textContent).toBe(en.amount.errors.notAmount);
+    expect(find(host, ENTER).getAttribute('aria-disabled')).toBe('true');
+    await enter(host);
+    expect(host.querySelector('[data-ui="invest-card"]')).toBeNull();
     await type(input, '10,555');
+    expect(find(host, ENTER).textContent).toBe(en.amount.press.deposit('$10,555'));
+    await enter(host);
     await settle(350);
     expect(server.to('/v1/funding?').at(-1)?.path).toContain('amountUsd=10555');
     await unmountAll();
@@ -503,10 +528,11 @@ describe('the add-money screen', () => {
     await settle();
     const field = find<HTMLInputElement>(page, 'input[inputmode="decimal"]');
     await type(field, '10,555');
-    await settle(350);
-    expect(page.textContent).toContain(pt.buy.blocked.amount);
-    expect(inPortuguese.to('/v1/funding?')).toEqual([]);
+    await settle(550);
+    expect(find(page, '[data-ui="amount-problem"]').textContent).toBe(pt.amount.errors.notAmount);
+    expect(find(page, ENTER).getAttribute('aria-disabled')).toBe('true');
     await type(field, '10.555');
+    await enter(page);
     await settle(350);
     expect(inPortuguese.to('/v1/funding?').at(-1)?.path).toContain('amountUsd=10555');
   });
@@ -529,7 +555,8 @@ describe('the add-money screen', () => {
       const mark = find(host, '[data-ui="source-mark"]');
       expect(mark.textContent).toContain(en.portfolio.add.source.failed('Solana'));
       expect(mark.className).toContain('text-destructive');
-      const button = find(host, SIGN);
+      // the amount card's press is held by it: the invest card is never reached (gate AMOUNT-CARD)
+      const button = find(host, ENTER);
       expect(button.getAttribute('aria-disabled')).toBe('true');
       await click(button);
       await settle();
@@ -575,7 +602,8 @@ describe('the add-money screen', () => {
     await made();
     expect(server.to('/v1/funding?')).toEqual([]);
     expect(server.to('/v1/orders')).toEqual([]);
-    expect(find(host, SIGN).getAttribute('aria-disabled')).toBe('true');
+    // the amount card's press is held, and says whose vault it is
+    expect(find(host, ENTER).getAttribute('aria-disabled')).toBe('true');
     expect(host.textContent).toContain('This vault belongs to another wallet of yours');
   });
 });
