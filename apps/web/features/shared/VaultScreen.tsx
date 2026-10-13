@@ -2,7 +2,8 @@
 import {
   ChainId,
   chainFamily,
-  OWNER_REBALANCE_BAND_BPS,
+  OWNER_REBALANCE_SLIPPAGE_BPS,
+  outsideOwnerBand,
   type VaultResponse,
 } from '@colosseum/schemas';
 import Link from 'next/link';
@@ -212,9 +213,9 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
 }
 
 /**
- * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it has a target, a position is
- * further from its target than the owner's band or the cash is over what the targets leave by more
- * than it, and auto-follow is off, so no keeper trades it. With a holding that has no price the shares
+ * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it has a target, it is
+ * outside the owner's band as the server reads it (`outsideOwnerBand`: what a rebalance leaves in cash
+ * for its slippage is not drift), and auto-follow is off, so no keeper trades it. With a holding that has no price the shares
  * are not known and nothing is offered. The server decides again when asked.
  */
 export function offTarget(
@@ -228,11 +229,8 @@ export function offTarget(
   if (!(total > 0)) return false;
   const invested = vault.positions.reduce((n, p) => n + p.weightBps, 0);
   const planned = vault.positions.reduce((n, p) => n + p.targetBps, 0);
-  // cash over its share is what the positions together are under theirs
-  return (
-    vault.positions.some((p) => Math.abs(p.driftBps) > OWNER_REBALANCE_BAND_BPS) ||
-    planned - invested > OWNER_REBALANCE_BAND_BPS
-  );
+  // cash over its share is what the positions together are under theirs; the server's own rule
+  return outsideOwnerBand(vault.positions, planned - invested, OWNER_REBALANCE_SLIPPAGE_BPS);
 }
 
 /** The owner's page: the head, the pair of actions, and the workbench they act in. */

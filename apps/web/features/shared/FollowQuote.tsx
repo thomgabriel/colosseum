@@ -13,6 +13,7 @@ import { dollars, share } from '../portfolio/figures';
 import { basisPoints } from '../portfolio-section/list-figures';
 import { useApiFetch } from '../wallet/WalletProvider';
 import { quoteRebalance } from './rebalance-api';
+import { rebalanceWhy } from './rebalance-why';
 
 // In the review of a follow, before anything is signed (Thom, Oct 13): what following this portfolio
 // would do to the vault, as a quote taken now. Each trade with what goes in, what the quote says comes
@@ -86,17 +87,8 @@ export function FollowQuote({
       </p>
     );
   if (quote) {
-    const why = quote.unavailable;
-    const unpriced = (why?.issues ?? [])
-      .filter((issue) => issue.startsWith('NO_PRICE:'))
-      .map((issue) => name(issue.slice('NO_PRICE:'.length)));
-    const reason = why
-      ? unpriced.length
-        ? q.noPrice(unpriced.join(', '))
-        : why.issues.includes('AUTO_FOLLOW_ON')
-          ? q.keeper
-          : why.reason
-      : null;
+    // in this app's words, from the codes: never our server's English sentence
+    const reason = quote.unavailable ? rebalanceWhy(quote.unavailable.issues, t, chain).why : null;
     body = (
       <>
         {quote.status === 'on_target' && (

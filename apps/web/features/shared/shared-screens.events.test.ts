@@ -719,7 +719,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
         ),
       );
       expect(find(review, '[data-ui="follow-quote-unavailable"]').textContent).toBe(
-        q.unavailable(q.noPrice('PAXG')),
+        q.unavailable(en.shared.vault.page.rebalancing.why.noPrice('PAXG')),
       );
       expect(review.querySelector('[data-ui="follow-quote-trade"]')).toBeNull();
       // the holdings as they are, against the targets: no "After" without trades

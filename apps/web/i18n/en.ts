@@ -1509,8 +1509,6 @@ export const en = {
         onTarget: 'Your vault already holds these weights, so following trades nothing.',
         unavailable: (reason: string) =>
           `The trades can’t be quoted now: ${reason}. You can still follow, and rebalance from the vault’s page once they can be made.`,
-        noPrice: (assets: string) => `${assets} has no price the vault can trade on`,
-        keeper: 'auto-follow is on, so our keeper makes them',
         failed:
           'I couldn’t quote the trades: our server didn’t answer. You can still review the follow.',
       },
@@ -1719,12 +1717,26 @@ export const en = {
           onTarget: 'This vault is at its targets. There is nothing to trade.',
           keeper:
             'Auto-follow is on, so our keeper rebalances this vault. Switch auto-follow off to rebalance it yourself.',
-          noPrice: (assets: string) =>
-            `I can’t rebalance now: ${assets} has no price the vault can trade on. Try again in a moment.`,
           noTargets: 'This vault has no targets yet. Tell the conversation what it should hold.',
           notYours: 'This vault isn’t one of yours, so I can’t rebalance it.',
           readOnly: 'This chain only reads for now, so no order can be made.',
-          said: (error: string) => `I couldn’t make the order: ${error}.`,
+          /** Why no order was made, as a part of a sentence: after "I can’t rebalance now:". */
+          cannot: (why: string) => `I can’t rebalance now: ${why}.`,
+          why: {
+            tooLarge: (asset: string, chain: string) =>
+              `it needs a trade of ${asset} larger than ${chain} takes in one go. Rebalance by hand in smaller steps with "Edit weights by hand"`,
+            overLimit: 'it would trade more than one order may move',
+            priceBound: (asset: string) =>
+              `the pool for ${asset} is too far from its reference price`,
+            priceStale: 'a reference price isn’t fresh, often because its market is closed',
+            priceDeviation: 'a pool is too far from its reference price',
+            targetsChanged: 'the vault’s targets changed since the order was made',
+            pastTarget: 'the vault has moved since the order was made',
+            noPrice: (assets: string) => `${assets} has no price the vault can trade on`,
+            keeper: 'auto-follow is on, so our keeper makes the trades',
+            noTargets: 'the vault has no targets',
+            other: 'the chain refused one of the trades',
+          },
           unreachable: 'I couldn’t make the order: our server didn’t answer. Try again.',
           noStore: 'I couldn’t keep the order in this browser, so I haven’t opened it.',
           again: 'Try again',

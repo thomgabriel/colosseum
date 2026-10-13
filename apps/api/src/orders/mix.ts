@@ -32,6 +32,7 @@ import {
   ORDER_LIMITS,
   type Order,
   OWNER_REBALANCE_BAND_BPS,
+  outsideOwnerBand,
   type Price,
   type RebalanceQuoteResponse,
   type Target,
@@ -581,7 +582,8 @@ export function vaultValueUsd(vault: VaultState, prices: Map<string, Price>): nu
  * feed's floor (what the reference price says the trade is worth, less `priceBoundBps`), and the
  * builder refuses a stated minimum under that floor (`PriceMoved`). So a trade's minimum is the higher
  * of the order's and the quote's, and a trade the pool pays less for than the floor is not ordered:
- * every build of it would be refused. A pair traded twice in one leg keeps `expectedOf`'s minimum,
+ * every build of it would be refused. A trade over the network's largest trade of its asset is not
+ * ordered either: no rebalance of that size can be made in one order (`TRADE_TOO_LARGE`). A pair traded twice in one leg keeps `expectedOf`'s minimum,
  * since its quote is of the two together; a rebalance never trades a pair twice. Solana's quote has
  * no feed floor, and its minimum is the order's slippage alone, so nothing is changed there.
  */
@@ -593,34 +595,95 @@ async function expectedHeld(
   a: { symbol: (id: string) => string; cash: string },
 ): Promise<Leg['expected']> {
   const { symbol } = a;
-  const expected = await expectedOf(entry, trades, taker, slippageBps);
-  if (entry.config.family !== 'evm') return expected;
+  if (entry.config.family !== 'evm') return expectedOf(entry, trades, taker, slippageBps);
   const pairs = new Map<string, number>();
   for (const t of trades)
     pairs.set(`${t.sell}>${t.buy}`, (pairs.get(`${t.sell}>${t.buy}`) ?? 0) + 1);
+  const assetOf = (t: Trade) => (t.sell === a.cash ? t.buy : t.sell);
+  // Each trade quoted by itself first: the chain's floor, and a trade the chain will not take at all.
+  const floors: (bigint | null)[] = [];
+  for (const t of trades) {
+    if (pairs.get(`${t.sell}>${t.buy}`) !== 1) {
+      floors.push(null);
+      continue;
+    }
+    try {
+      floors.push(BigInt((await entry.adapter.quote(t, taker)).minOutRaw));
+    } catch (e) {
+      // Larger than the network's largest trade of the asset (`maxTradeUsd`): the same plan is
+      // refused every time, so this is said as it is, and not as something to try again.
+      if (e instanceof ChainError && e.code === 'BadTrade' && /at a time/.test(e.message))
+        throw new Refusal(
+          422,
+          `this rebalance needs a trade of ${symbol(assetOf(t))} larger than ${entry.config.name} takes in one go`,
+          {
+            fix: 'Rebalance by hand in smaller steps, or wait for the limit to rise.',
+            details: { retryable: false, issues: [`TRADE_TOO_LARGE:${assetOf(t)}`] },
+          },
+        );
+      throw e;
+    }
+  }
+  const expected = await expectedOf(entry, trades, taker, slippageBps);
   const held: Leg['expected'] = [];
   for (const [i, t] of trades.entries()) {
     const e = expected[i];
-    if (!e || pairs.get(`${t.sell}>${t.buy}`) !== 1) {
-      if (e) held.push(e);
+    const floor = floors[i] ?? null;
+    if (!e) continue;
+    if (floor === null) {
+      held.push(e);
       continue;
     }
-    const floor = BigInt((await entry.adapter.quote(t, taker)).minOutRaw);
-    if (floor > BigInt(e.outRaw)) {
-      const asset = t.sell === a.cash ? t.buy : t.sell;
+    if (floor > BigInt(e.outRaw))
       throw new Refusal(
         409,
         `${symbol(t.sell)} into ${symbol(t.buy)} can't be traded now: the pool gives less than the reference price allows`,
         {
           code: 'PRICE_MOVED',
           fix: 'Try again later, once the pool is back near the reference price.',
-          details: { retryable: true, issues: [`PRICE_BOUND:${asset}`] },
+          details: { retryable: true, issues: [`PRICE_BOUND:${assetOf(t)}`] },
         },
       );
-    }
     held.push(floor > BigInt(e.minOutRaw) ? { ...e, minOutRaw: floor.toString() } : e);
   }
   return held;
+}
+
+/** Each asset's and the cash's share of the vault, in bps, at these prices; null where unpriced. */
+function sharesOf(vault: VaultState, prices: Map<string, Price>) {
+  const usd = (h: { asset: string; display: string }) =>
+    Number(h.display) *
+    (h.asset === vault.cash.asset ? 1 : Number(prices.get(h.asset)?.usdPerToken ?? Number.NaN));
+  const values = new Map<string, number>();
+  for (const p of vault.positions)
+    if (BigInt(p.raw) > 0n) values.set(p.asset, (values.get(p.asset) ?? 0) + usd(p));
+  const cash = usd(vault.cash);
+  const total = [...values.values()].reduce((n, v) => n + v, cash);
+  if (!(total > 0) || !Number.isFinite(total)) return null;
+  return { values, cash, total };
+}
+
+/** `outsideOwnerBand` at these prices, for the targets given. */
+function outsideBand(
+  vault: VaultState,
+  targets: Target[],
+  prices: Map<string, Price>,
+  slippageBps: number,
+): boolean {
+  const shares = sharesOf(vault, prices);
+  if (!shares) return true;
+  const target = new Map(targets.map((t) => [t.asset, t.weightBps]));
+  const ids = new Set([...target.keys(), ...shares.values.keys()]);
+  const bps = (usd: number) => (usd / shares.total) * 10_000;
+  const cashShare = 10_000 - targets.reduce((n, t) => n + t.weightBps, 0);
+  return outsideOwnerBand(
+    [...ids].map((id) => ({
+      targetBps: target.get(id) ?? 0,
+      weightBps: bps(shares.values.get(id) ?? 0),
+    })),
+    bps(shares.cash) - cashShare,
+    slippageBps,
+  );
 }
 
 const pct = (bps: number) =>
@@ -651,7 +714,8 @@ export async function planRetarget(
 ): Promise<{ order: Order; request: Extract<IntentRequest, { type: 'rebalance' }> }> {
   const { entry } = ctx;
   assertBuilds(entry);
-  if (vaultValueUsd(vault, checked.prices) > ORDER_LIMITS.maxAmountUsd)
+  // New targets trade up to the whole vault; a rebalance is judged by its trades, below.
+  if (!a.keepTargets && vaultValueUsd(vault, checked.prices) > ORDER_LIMITS.maxAmountUsd)
     throw new Refusal(422, 'this vault is worth more than one order may move', {
       code: 'MIX_NOT_VALID',
       details: { issues: ['OVER_ORDER_LIMIT'] },
@@ -663,9 +727,10 @@ export async function planRetarget(
       checked.targets,
       [...checked.prices.values()],
       // Its own new targets are traded to whatever the distance; a rebalance only once outside the band.
+      // a rebalance makes no trade smaller than the smallest line a plan holds
       {
         bandBps: a.keepTargets ? OWNER_REBALANCE_BAND_BPS : 0,
-        minTradeUsd: 1,
+        minTradeUsd: a.keepTargets ? PERSONAL_PARAMS.minLineUsd : 1,
         costBps: a.slippageBps,
       },
       ctx.assets,
@@ -674,13 +739,34 @@ export async function planRetarget(
       throw new Refusal(409, 'the vault cannot be valued now: an asset it holds has no price', {
         details: { retryable: true },
       });
-    trades = plan.trades;
+    trades =
+      a.keepTargets && !outsideBand(vault, checked.targets, checked.prices, a.slippageBps)
+        ? []
+        : plan.trades;
   } catch (e) {
     if (e instanceof RebalanceError)
       throw new Refusal(409, `the vault cannot be planned: ${e.message}`);
     throw e;
   }
   const symbol = (id: string) => ctx.assets.find((x) => x.id === id)?.symbol ?? id;
+  if (a.keepTargets) {
+    // One order moves at most `ORDER_LIMITS.maxAmountUsd`: of sales, or of purchases.
+    const usdOf = (t: Trade) => {
+      if (t.sell === ctx.cash.id) return Number(t.amountInRaw) / 10 ** ctx.cash.decimals;
+      const decimals = ctx.assets.find((x) => x.id === t.sell)?.decimals ?? 0;
+      return (
+        (Number(t.amountInRaw) / 10 ** decimals) *
+        Number(checked.prices.get(t.sell)?.usdPerToken ?? Number.NaN)
+      );
+    };
+    const sold = trades.filter((t) => t.buy === ctx.cash.id).reduce((n, t) => n + usdOf(t), 0);
+    const bought = trades.filter((t) => t.sell === ctx.cash.id).reduce((n, t) => n + usdOf(t), 0);
+    if (!(Math.max(sold, bought) <= ORDER_LIMITS.maxAmountUsd))
+      throw new Refusal(422, 'this rebalance trades more than one order may move', {
+        code: 'MIX_NOT_VALID',
+        details: { issues: ['OVER_ORDER_LIMIT'] },
+      });
+  }
   const id = randomUUID();
   const { owner } = a;
   const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
@@ -832,6 +918,72 @@ export async function planVaultRebalance(
   return { targets, planned: planned.order.legs.length ? planned : null };
 }
 
+/**
+ * A step of a rebalance, held again to the vault as it is when the step is built: its trades were
+ * sized when the order was made, and the vault may have moved since (another order landed first, an
+ * old order taken up again). Refused where auto-follow is on and the chain runs a keeper, and where a
+ * trade would take an asset past its target: a purchase over it by more than the owner's band, or a
+ * sale under it by more than the band and the order's slippage, at the reference prices now. A
+ * purchase's worth does not move with the price, so its allowance is the band alone.
+ */
+async function heldAtBuild(
+  entry: ChainEntry,
+  vault: VaultState,
+  leg: Leg,
+  slippageBps: number,
+): Promise<void> {
+  if (vault.autoFollow && entry.adapter.capabilities.autoFollow)
+    throw new Refusal(
+      409,
+      `auto-follow is on for this vault now, so the keeper on ${entry.config.name} rebalances it`,
+      {
+        fix: 'Switch auto-follow off to rebalance it yourself.',
+        details: { retryable: false, issues: ['AUTO_FOLLOW_ON'] },
+      },
+    );
+  const cashId = vault.cash.asset;
+  const ids = [
+    ...new Set([
+      ...vault.positions.map((p) => p.asset),
+      ...leg.trades.flatMap((t) => [t.sell, t.buy]),
+    ]),
+  ].filter((id) => id !== cashId);
+  const [assets, prices] = await Promise.all([
+    entry.adapter.listAssets(),
+    entry.adapter.getPrices(ids),
+  ]);
+  const priced = new Map(prices.map((p) => [p.asset, p]));
+  const shares = sharesOf(vault, priced);
+  if (!shares) return;
+  const target = new Map(ownTargets(vault).map((t) => [t.asset, t.weightBps]));
+  const decimals = new Map(assets.map((x) => [x.id, x.decimals]));
+  const usd = (asset: string, raw: string) =>
+    (Number(raw) / 10 ** (decimals.get(asset) ?? 0)) *
+    (asset === cashId ? 1 : Number(priced.get(asset)?.usdPerToken ?? Number.NaN));
+  const bps = (value: number) => (value / shares.total) * 10_000;
+  for (const t of leg.trades) {
+    const buys = t.sell === cashId;
+    const asset = buys ? t.buy : t.sell;
+    const now = shares.values.get(asset) ?? 0;
+    const moved = usd(t.sell, t.amountInRaw);
+    if (!Number.isFinite(moved)) continue;
+    const after = bps(buys ? now + moved : now - moved);
+    const goal = target.get(asset) ?? 0;
+    const past = buys
+      ? after - goal > OWNER_REBALANCE_BAND_BPS
+      : goal > 0 && goal - after > OWNER_REBALANCE_BAND_BPS + slippageBps;
+    if (past)
+      throw new Refusal(
+        409,
+        `this step would take ${asset} past its target: the vault has moved since the order was made`,
+        {
+          fix: 'Rebalance again: the new order trades from what the vault holds now.',
+          details: { retryable: false, issues: [`PAST_TARGET:${asset}`] },
+        },
+      );
+  }
+}
+
 /** The targets a vault has on chain, those above zero. */
 const ownTargets = (vault: VaultState): Target[] =>
   vault.positions
@@ -871,7 +1023,13 @@ export async function quoteVaultRebalance(
     const refusal = e instanceof Refusal ? e.body() : null;
     unavailable = {
       reason: e.message,
-      issues: refusal?.details?.issues ?? (e instanceof ChainError ? [e.code] : []),
+      issues:
+        refusal?.details?.issues ??
+        (refusal?.details?.chainCode
+          ? [refusal.details.chainCode]
+          : e instanceof ChainError
+            ? [e.code]
+            : []),
     };
   }
   const assets = await entry.adapter.listAssets();
@@ -995,6 +1153,7 @@ export async function buildRetarget(
         fix: 'Rebalance again: the new order trades to the targets the vault has now.',
         details: { retryable: false, issues: ['TARGETS_CHANGED'] },
       });
+    await heldAtBuild(entry, vault, leg, request.maxSlippageBps);
   }
   if (leg.expected.length !== leg.trades.length)
     throw new Refusal(409, 'this step states no minimum for its trades: make the order again');

@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { useT } from '../../i18n/I18nProvider';
 import { keepOrder } from '../order/order-record';
-import { displayName } from '../order/plain';
 import { onMock } from '../order/readiness';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { isVaultOf } from './chain-recipe';
 import { type RebalanceFailure, rebalanceVault } from './rebalance-api';
+import { rebalanceWhy } from './rebalance-why';
 import type { SharedTerms } from './terms';
 
 // The first moment of "Rebalance" on a vault's own page: our server is asked for the order that brings
@@ -54,16 +54,13 @@ export function RebalanceStart({
     setState({ kind: 'asking' });
     const say = (failure: RebalanceFailure): State => {
       if (failure.kind === 'refused') {
-        const unpriced = failure.issues
-          .filter((issue) => issue.startsWith('NO_PRICE:'))
-          .map((issue) => displayName(issue.slice('NO_PRICE:'.length), t.plan));
         if (failure.issues.includes('AUTO_FOLLOW_ON'))
           return { kind: 'failed', sentence: r.keeper, again: false };
         if (failure.issues.includes('NO_TARGETS'))
           return { kind: 'failed', sentence: r.noTargets, again: false };
-        if (unpriced.length)
-          return { kind: 'failed', sentence: r.noPrice(unpriced.join(', ')), again: true };
-        return { kind: 'failed', sentence: r.said(failure.error), again: true };
+        // in this app's words, from the codes: never our server's English sentence
+        const { why, again } = rebalanceWhy(failure.issues, t, chain);
+        return { kind: 'failed', sentence: r.cannot(why), again };
       }
       if (failure.kind === 'not-yours' || failure.kind === 'signed-out')
         return { kind: 'failed', sentence: r.notYours, again: false };

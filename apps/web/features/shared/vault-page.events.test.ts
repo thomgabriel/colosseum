@@ -1181,18 +1181,30 @@ describe('a vault away from its targets is offered one press that trades it to t
     expect(offTarget(atTargets())).toBe(false);
     // the keeper's work where auto-follow is on
     expect(offTarget(followed({ autoFollow: true }))).toBe(false);
-    // only the cash is over: every position is inside the band, a little under
+    // only the cash is over, by more than the band and the slippage: every position is a little under
     expect(
       offTarget(
         followed({
           positions: [
-            position(JL, '1', '1', '39600', 4_960, 5_000),
-            position(SYRUP, '1', '1', '23700', 2_960, 3_000),
+            position(JL, '1', '1', '39300', 4_930, 5_000),
+            position(SYRUP, '1', '1', '23500', 2_940, 3_000),
             position(PAXG, '1', '1', '15700', 1_960, 2_000),
           ] as VaultView['positions'],
         }),
       ),
     ).toBe(true);
+    // what a rebalance leaves: cash up to the slippage over, each asset up to its part of it under
+    expect(
+      offTarget(
+        followed({
+          positions: [
+            position(JL, '1', '1', '39600', 4_950, 5_000),
+            position(SYRUP, '1', '1', '23700', 2_970, 3_000),
+            position(PAXG, '1', '1', '15700', 1_980, 2_000),
+          ] as VaultView['positions'],
+        }),
+      ),
+    ).toBe(false);
     // a holding with no price: the shares are not known
     expect(
       offTarget(
@@ -1343,7 +1355,7 @@ describe('a vault away from its targets is offered one press that trades it to t
             { error: 'no price', details: { retryable: true, issues: ['NO_PRICE:solana:paxg'] } },
             409,
           ),
-        p.rebalancing.noPrice('PAXG'),
+        p.rebalancing.cannot(p.rebalancing.why.noPrice('PAXG')),
         true,
       ],
     ] as const) {
@@ -1358,6 +1370,32 @@ describe('a vault away from its targets is offered one press that trades it to t
       // and the way back is there
       await click(find(pane(host), '[data-action="leave-action"]'));
       expect(screen(host).dataset.pane).toBe('holdings');
+      await unmountAll();
+    }
+  });
+
+  it("says a trade too large for the network in the person's own language, with no Try again", async () => {
+    const refusal = () =>
+      json(
+        {
+          error: 'this rebalance needs a trade of PAXG larger than Solana takes in one go',
+          details: { retryable: false, issues: ['TRADE_TOO_LARGE:solana:paxg'] },
+        },
+        422,
+      );
+    for (const lang of ['en', 'pt'] as const) {
+      const t = dictionary(lang);
+      serving(refusal);
+      const host = await mount(
+        withAccount(lang, createElement(VaultScreen, { chain: 'solana', address: MY_VAULT })),
+      );
+      for (let i = 0; i < 4; i += 1) await settle(30);
+      await click(find(host, '[data-action="vault-rebalance"]'));
+      for (let i = 0; i < 4; i += 1) await settle(30);
+      const r = t.shared.vault.page.rebalancing;
+      expect(pane(host).textContent).toContain(r.cannot(r.why.tooLarge('PAXG', 'Solana')));
+      expect(pane(host).textContent).not.toContain('this rebalance needs');
+      expect(pane(host).querySelector('[data-action="rebalance-again"]')).toBeNull();
       await unmountAll();
     }
   });

@@ -6,9 +6,11 @@ import {
   ApplyVaultMixResponse,
   type BasketProposal,
   type BuiltTx,
+  ChainError,
   type IntentRequest,
   type Order,
   OrderError,
+  OWNER_REBALANCE_SLIPPAGE_BPS,
   parseChainConfigs,
   parseFlags,
   RebalanceQuoteResponse,
@@ -24,7 +26,7 @@ import { createChainRegistry } from '../../orders/chains';
 import { Refusal } from '../../orders/errors';
 import type { StoredFamily } from '../../orders/families';
 import { buildRetarget, planVaultRebalance } from '../../orders/mix';
-import { prepareOrder } from '../../orders/prepare';
+import { ORDER_POLICY, prepareOrder } from '../../orders/prepare';
 import { registerAuth } from '../../plugins/auth';
 import { person, testIssuer } from '../../testing/harness';
 import { type MixStore, registerMixRoutes } from './mix';
@@ -1209,5 +1211,208 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
       expect(quote.unavailable?.issues).toEqual([`PRICE_BOUND:${SPY}`]);
       expect(quote.unavailable?.reason).toMatch(/reference price/);
     });
+  });
+
+  it('offers a rebalance with the slippage the server makes it with', () => {
+    expect(ORDER_POLICY.slippageBps).toBe(OWNER_REBALANCE_SLIPPAGE_BPS);
+  });
+
+  describe('the review of #265', () => {
+    const usd = (dollars: number) => BigInt(Math.round(dollars * 1e6)).toString();
+    /** A Solana vault with these targets, opened with `cash` dollars and then these purchases. */
+    async function solanaVault(
+      targets: { asset: string; weightBps: number }[],
+      cash: number,
+      buys: [string, number][],
+    ) {
+      const s = await setup();
+      const entry = s.chains.get('solana');
+      const mock = entry.mock;
+      if (!mock) throw new Error('the test chain is the mock');
+      const owner = s.owner.solana as Address;
+      mock.fund(owner, { gasRaw: '100000000000', assets: { 'solana:usdc': usd(cash) } });
+      await mock.send(
+        await entry.adapter.buildCreateVault({
+          owner,
+          basketId: '41',
+          targets,
+          autoFollow: false,
+          depositRaw: usd(cash),
+          slippageBps: 100,
+        }),
+      );
+      const [vault] = await entry.adapter.getVaults(owner);
+      if (!vault) throw new Error('no vault');
+      for (const [buy, dollars] of buys)
+        await mock.send(
+          await entry.adapter.buildOwnerSwap({
+            vault: vault.address,
+            trades: [{ sell: 'solana:usdc', buy, amountInRaw: usd(dollars) }],
+            slippageBps: 100,
+          }),
+        );
+      const land = async (request: IntentRequest | undefined, order: Order) => {
+        if (request?.type !== 'rebalance') throw new Error('not a rebalance');
+        for (const leg of order.legs)
+          await mock.send(await buildRetarget(request, leg, entry, owner, undefined, true));
+      };
+      return {
+        ...s,
+        entry,
+        mock,
+        owner,
+        address: vault.address,
+        land,
+        url: `/v1/vaults/solana/${vault.address}/rebalance`,
+      };
+    }
+
+    it('an all-cash vault rebalanced once is on target after: the cash its purchases keep for slippage is not drift', async () => {
+      const s = await solanaVault(
+        [
+          { asset: 'solana:spy', weightBps: 5000 },
+          { asset: 'solana:gold', weightBps: 5000 },
+        ],
+        10_000,
+        [],
+      );
+      const first = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      if (first.status !== 'ordered') throw new Error('not ordered');
+      await s.land(s.saved[0]?.request, first.order);
+      const again = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      expect(again.status).toBe('on_target');
+      expect(s.saved).toHaveLength(1);
+    });
+
+    it('makes no trade smaller than the smallest line a plan holds', async () => {
+      const s = await solanaVault(
+        [
+          { asset: 'solana:spy', weightBps: 4996 },
+          { asset: 'solana:gold', weightBps: 5000 },
+          { asset: 'solana:tsla', weightBps: 4 },
+        ],
+        10_000,
+        [
+          ['solana:spy', 5_600],
+          ['solana:gold', 4_399],
+          ['solana:tsla', 1],
+        ],
+      );
+      const ordered = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      if (ordered.status !== 'ordered') throw new Error('not ordered');
+      const trades = ordered.order.legs.flatMap((l) => l.trades);
+      expect(trades.map((t) => t.buy)).not.toContain('solana:tsla');
+      for (const t of trades)
+        if (t.sell === 'solana:usdc') expect(Number(t.amountInRaw) / 1e6).toBeGreaterThanOrEqual(5);
+    });
+
+    it('judges one order by what it trades, not by what the vault is worth', async () => {
+      const s = await solanaVault(
+        [
+          { asset: 'solana:spy', weightBps: 5000 },
+          { asset: 'solana:gold', weightBps: 5000 },
+        ],
+        1_200_000,
+        [
+          ['solana:spy', 600_000],
+          ['solana:gold', 580_000],
+        ],
+      );
+      const res = await s.post(s.url, {});
+      expect(res.statusCode, res.body).toBe(200);
+      const ordered = RebalanceVaultResponse.parse(res.json());
+      expect(ordered.status).toBe('ordered');
+    });
+
+    it('builds no step once auto-follow is on where a keeper runs, and none that would push an asset past its target', async () => {
+      const s = await solanaVault(
+        [
+          { asset: 'solana:spy', weightBps: 5000 },
+          { asset: 'solana:gold', weightBps: 5000 },
+        ],
+        10_000,
+        [],
+      );
+      // two orders from the same holdings: the second is sized for what the first already did
+      const first = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      const second = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
+      if (first.status !== 'ordered' || second.status !== 'ordered') throw new Error('no order');
+      await s.land(s.saved[0]?.request, first.order);
+      const request = s.saved[1]?.request;
+      const [leg] = second.order.legs;
+      if (request?.type !== 'rebalance' || !leg) throw new Error('not a rebalance');
+      const past = buildRetarget(request, leg, s.entry, s.owner, undefined, true);
+      await expect(past).rejects.toMatchObject({ status: 409 });
+      await expect(past).rejects.toThrow(/past its target/);
+
+      const s2 = await solanaVault(
+        [
+          { asset: 'solana:spy', weightBps: 5000 },
+          { asset: 'solana:gold', weightBps: 5000 },
+        ],
+        10_000,
+        [],
+      );
+      const ordered = RebalanceVaultResponse.parse((await s2.post(s2.url, {})).json());
+      const req2 = s2.saved[0]?.request;
+      const [leg2] = ordered.status === 'ordered' ? ordered.order.legs : [];
+      if (req2?.type !== 'rebalance' || !leg2) throw new Error('not a rebalance');
+      await s2.mock.send(
+        await s2.entry.adapter.buildSetAutoFollow({ vault: s2.address, on: true }),
+      );
+      const keeper = buildRetarget(req2, leg2, s2.entry, s2.owner, undefined, true);
+      await expect(keeper).rejects.toMatchObject({ status: 409 });
+      await expect(keeper).rejects.toThrow(/auto-follow is on/);
+    });
+  });
+
+  it('says a trade larger than the network takes in one go, with no retry, in the order and in the quote', async () => {
+    const s = await setup();
+    const entry = s.chains.get('robinhood');
+    const mock = entry.mock;
+    if (!mock) throw new Error('the test chain is the mock');
+    const owner = s.evmOnly.evm as Address;
+    mock.fund(owner, { gasRaw: '1000000000000000000', assets: { 'robinhood:usdc': '1000000000' } });
+    await mock.send(
+      await entry.adapter.buildApprove({ owner, basketId: '32', amountRaw: '1000000000' }),
+    );
+    await mock.send(
+      await entry.adapter.buildCreateVault({
+        owner,
+        basketId: '32',
+        targets: [
+          { asset: 'robinhood:spy', weightBps: 5000 },
+          { asset: 'robinhood:nvda', weightBps: 5000 },
+        ],
+        autoFollow: false,
+        depositRaw: '1000000000',
+        trades: [{ sell: 'robinhood:usdc', buy: 'robinhood:spy', amountInRaw: '1000000000' }],
+        slippageBps: 100,
+      }),
+    );
+    const [vault] = await entry.adapter.getVaults(owner);
+    if (!vault) throw new Error('no vault');
+    const quote = entry.adapter.quote.bind(entry.adapter);
+    vi.spyOn(entry.adapter, 'quote').mockImplementation(async (trade, taker) => {
+      if (trade.sell === 'robinhood:spy')
+        throw new ChainError(
+          'BadTrade',
+          '$495.00 of SPY in one go is more than its pool is trusted to fill: at most $100.00 at a time. Trade less, or in parts',
+        );
+      return quote(trade, taker);
+    });
+    const url = `/v1/vaults/robinhood/${vault.address}/rebalance`;
+    const res = await s.post(url, {}, s.evmOnly);
+    expect(res.statusCode, res.body).toBe(422);
+    expect(OrderError.parse(res.json()).details).toMatchObject({
+      retryable: false,
+      issues: ['TRADE_TOO_LARGE:robinhood:spy'],
+    });
+    expect(s.store.saveOrder).not.toHaveBeenCalled();
+    const quoted = RebalanceQuoteResponse.parse(
+      (await s.post(`${url}/quote`, {}, s.evmOnly)).json(),
+    );
+    expect(quoted.status).toBe('unavailable');
+    expect(quoted.unavailable?.issues).toEqual(['TRADE_TOO_LARGE:robinhood:spy']);
   });
 });

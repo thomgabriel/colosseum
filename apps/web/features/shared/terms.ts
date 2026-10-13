@@ -1,4 +1,4 @@
-import { Hex32, Target } from '@colosseum/schemas';
+import { Hex32, Target, TradeBase } from '@colosseum/schemas';
 
 // What a shared-portfolio order is held to, as the screen that made it showed it (WEB-4). The order
 // screen hands these to the executor (features/order/run-order.ts), which turns them into the guard's
@@ -272,27 +272,14 @@ export function readTerms(value: unknown): SharedTerms | null {
       targets.data.reduce((n, x) => n + x.weightBps, 0) > 10_000
     )
       return null;
-    const trades = Array.isArray(t.trades) ? t.trades : null;
-    const read = trades?.every(
-      (x) =>
-        typeof x === 'object' &&
-        x !== null &&
-        isText((x as Record<string, unknown>).sell) &&
-        isText((x as Record<string, unknown>).buy) &&
-        isText((x as Record<string, unknown>).amountInRaw) &&
-        RAW.test((x as Record<string, string>).amountInRaw),
-    );
-    if (!trades?.length || !read) return null;
+    const trades = TradeBase.array().min(1).safeParse(t.trades);
+    if (!trades.success) return null;
     return {
       kind: 'rebalance',
       vault: t.vault,
       basketId: t.basketId,
       targets: targets.data,
-      trades: (trades as Record<string, string>[]).map(({ sell, buy, amountInRaw }) => ({
-        sell: sell as string,
-        buy: buy as string,
-        amountInRaw: amountInRaw as string,
-      })),
+      trades: trades.data.map(({ sell, buy, amountInRaw }) => ({ sell, buy, amountInRaw })),
     };
   }
   if (t.kind === 'publish') {

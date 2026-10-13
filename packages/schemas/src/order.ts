@@ -265,6 +265,38 @@ export const ORDER_LIMITS = {
  */
 export const OWNER_REBALANCE_BAND_BPS = 50;
 
+/**
+ * The slippage a rebalance is made with where the person names none: the server's own figure
+ * (`ORDER_POLICY.slippageBps` in apps/api, held equal to this by a test there).
+ */
+export const OWNER_REBALANCE_SLIPPAGE_BPS = 100;
+
+/**
+ * Whether a vault is far enough from its targets to be offered, and ordered, a rebalance by its owner.
+ * `rows`: every asset held or targeted, but cash, each with its share of the vault now; `cashOverBps`:
+ * the cash's share less what the targets leave it. A rebalance's purchases are sized so that every
+ * trade may lose the order's slippage and still have its cash, so after one the cash may sit up to
+ * that slippage over its share and each asset up to its own part of it under its target: neither is
+ * drift. Outside, then: an asset over its target by more than `OWNER_REBALANCE_BAND_BPS`, or under it
+ * by more than the band and its part of the slippage; or the cash over its share by more than the
+ * band and the slippage.
+ */
+export function outsideOwnerBand(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+): boolean {
+  const band = OWNER_REBALANCE_BAND_BPS;
+  return (
+    cashOverBps > band + slippageBps ||
+    rows.some(
+      (r) =>
+        r.weightBps - r.targetBps > band ||
+        r.targetBps - r.weightBps > band + Math.ceil((slippageBps * r.targetBps) / 10_000),
+    )
+  );
+}
+
 /** `family` is always the slug. */
 export const IntentRequest = z.discriminatedUnion('type', [
   z.object({

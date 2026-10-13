@@ -1323,8 +1323,6 @@ export const pt: Dictionary = {
         onTarget: 'Seu cofre já guarda estes pesos, então seguir não negocia nada.',
         unavailable: (reason: string) =>
           `As trocas não podem ser cotadas agora: ${reason}. Você ainda pode seguir, e rebalancear na página do cofre quando elas puderem ser feitas.`,
-        noPrice: (assets: string) => `${assets} não tem preço em que o cofre possa negociar`,
-        keeper: 'o seguir automático está ativado, então nosso operador as faz',
         failed:
           'Não consegui cotar as trocas: nosso servidor não respondeu. Você ainda pode revisar o seguir.',
       },
@@ -1522,12 +1520,26 @@ export const pt: Dictionary = {
           onTarget: 'Este cofre está nas metas. Não há nada a negociar.',
           keeper:
             'O seguir automático está ativado, então nosso operador rebalanceia este cofre. Desative o seguir automático para rebalancear você mesmo.',
-          noPrice: (assets: string) =>
-            `Não consigo rebalancear agora: ${assets} não tem preço em que o cofre possa negociar. Tente de novo em instantes.`,
           noTargets: 'Este cofre ainda não tem metas. Diga na conversa o que ele deve guardar.',
           notYours: 'Este cofre não é seu, então não consigo rebalanceá-lo.',
           readOnly: 'Esta rede só lê por enquanto, então nenhuma ordem pode ser feita.',
-          said: (error: string) => `Não consegui fazer a ordem: ${error}.`,
+          cannot: (why: string) => `Não consigo rebalancear agora: ${why}.`,
+          why: {
+            tooLarge: (asset: string, chain: string) =>
+              `é preciso uma troca de ${asset} maior do que ${chain} aceita de uma vez. Rebalanceie à mão em passos menores com "Editar pesos à mão"`,
+            overLimit: 'negociaria mais do que uma ordem pode mover',
+            priceBound: (asset: string) =>
+              `o pool de ${asset} está longe demais do preço de referência`,
+            priceStale:
+              'um preço de referência não está atualizado, muitas vezes porque o mercado está fechado',
+            priceDeviation: 'um pool está longe demais do preço de referência',
+            targetsChanged: 'as metas do cofre mudaram desde que a ordem foi feita',
+            pastTarget: 'o cofre mudou desde que a ordem foi feita',
+            noPrice: (assets: string) => `${assets} não tem preço em que o cofre possa negociar`,
+            keeper: 'o seguir automático está ativado, então nosso operador faz as trocas',
+            noTargets: 'o cofre não tem metas',
+            other: 'a rede recusou uma das trocas',
+          },
           unreachable: 'Não consegui fazer a ordem: nosso servidor não respondeu. Tente de novo.',
           noStore: 'Não consegui guardar a ordem neste navegador, então não a abri.',
           again: 'Tentar de novo',

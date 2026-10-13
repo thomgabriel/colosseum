@@ -14,8 +14,12 @@ import type { ApiFetch } from '../account/person';
 // `rebalanceShapeOk`), and the guard holds every step's bytes.
 
 export type RebalanceFailure =
-  /** 409 with reasons: `AUTO_FOLLOW_ON`, `NO_TARGETS`, `NO_PRICE:<asset>`, `TARGETS_CHANGED`. */
-  | { kind: 'refused'; issues: string[]; error: string }
+  /**
+   * Refused, with the codes that say why: `details.issues` (`AUTO_FOLLOW_ON`, `NO_TARGETS`,
+   * `NO_PRICE:<asset>`, `PRICE_BOUND:<asset>`, `TRADE_TOO_LARGE:<asset>`, `OVER_ORDER_LIMIT`), and a
+   * chain's own code (`details.chainCode`) among them.
+   */
+  | { kind: 'refused'; issues: string[] }
   | { kind: 'signed-out' }
   /** 404: not a vault of this person's. */
   | { kind: 'not-yours' }
@@ -58,13 +62,12 @@ async function post<T>(
     if (res.status === 404) return { kind: 'not-yours' };
     if (res.status === 503) return { kind: 'read-only' };
     if (res.status >= 500) return { kind: 'unreachable' };
-    const details = (answer.details ?? {}) as { issues?: unknown };
+    const details = (answer.details ?? {}) as { issues?: unknown; chainCode?: unknown };
     const issues = Array.isArray(details.issues)
       ? details.issues.filter((issue): issue is string => typeof issue === 'string')
       : [];
-    return typeof answer.error === 'string'
-      ? { kind: 'refused', issues, error: answer.error }
-      : { kind: 'unreadable' };
+    if (typeof details.chainCode === 'string') issues.push(details.chainCode);
+    return { kind: 'refused', issues };
   }
   const value = parse(answer);
   return value === null ? { kind: 'unreadable' } : { kind: 'ok', value };
