@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "covered": {
+    "v3_swap:shelf-d30-f100000-a65990cc": [{ "from": 84690531, "to": 87646274 }],
+    "v4_swap:shelf-d30-f100000-a65990cc": [{ "from": 84690531, "to": 87646274 }],
+    "mint:shelf-d30-f100000-a65990cc": [{ "from": 84690531, "to": 87646274 }],
+    "burn:shelf-d30-f100000-a65990cc": [{ "from": 84690531, "to": 87646274 }],
+    "v3_liquidity:shelf-d30-f100000-a65990cc": [{ "from": 84690531, "to": 87646274 }],
+    "v4_liquidity:shelf-d30-f100000-a65990cc": [{ "from": 84690531, "to": 87646274 }]
+  }
+}
