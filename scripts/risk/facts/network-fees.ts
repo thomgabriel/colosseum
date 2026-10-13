@@ -45,7 +45,7 @@ const skipped: string[] = [];
 for (const signature of todo) {
   const tx = await rpc<Tx | null>('getTransaction', [
     signature,
-    { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' },
+    { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' },
   ]);
   if (!tx?.meta || tx.meta.err || !tx.blockTime) {
     skipped.push(
