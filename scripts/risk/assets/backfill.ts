@@ -693,10 +693,15 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const mintEvery = Number(opt('--mint-every') ?? 10);
   const otherMints = mints.filter((m) => !registryMints.has(m));
   const nowT = Math.floor(Date.now() / 1000);
+  // a scope without the sampled walk beyond its window (the shelf's 30 days) is anchored within its window only,
+  // weekly: an anchor a year back sizes nothing it fetches, and a deep `before` on a busy pool can time out
+  const inWindowOnly = !!ctx && !ctx.beyond;
   const anc = anchors(RISK, nowT, {
     windowDays,
-    stepDays: Number(opt('--step-days') ?? 15),
-    oldest: '2025-06-25',
+    stepDays: Number(opt('--step-days') ?? (inWindowOnly ? 7 : 15)),
+    oldest: inWindowOnly
+      ? new Date((nowT - windowDays * DAY) * 1000).toISOString().slice(0, 10)
+      : '2025-06-25',
   });
   const dustEvery = Number(opt('--dust-every') ?? 20);
   const live = swapPools.filter((p) => p.tier !== 'X');
@@ -731,17 +736,32 @@ async function solanaCount(kind: 'swaps' | 'mints') {
   const jobs = subjects.flatMap((s) => anc.map((a) => ({ s, a })));
   const tc = Date.now();
   let pageBytes = 0;
-  const pages = await pool(jobs, parallel, async ({ s, a }) => {
-    const got = await anchoredPage(solRpc as never, s.address, a, SOL_LIMIT);
-    pageBytes += got.bytes;
-    return { address: s.address, page: got.page };
-  });
+  // a page the endpoint cannot answer (a deep `before` on a busy pool times out on some) is recorded and left
+  // out: the address is estimated from its other pages, and the count file names every such page
+  const pageFailures: Array<{ address: string; anchor: string; error: string }> = [];
+  const pages = (
+    await pool(jobs, parallel, async ({ s, a }) => {
+      try {
+        const got = await anchoredPage(solRpc as never, s.address, a, SOL_LIMIT);
+        pageBytes += got.bytes;
+        return { address: s.address, page: got.page };
+      } catch (e) {
+        pageFailures.push({
+          address: s.address,
+          anchor: a.at,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      }
+    })
+  ).filter((x): x is { address: string; page: AnchoredPage } => x !== null);
   // an address older than the oldest anchor (no page reached its first transaction): quarterly anchors from
   // blocks, back from 2025-03 to 2020-04, until a page reaches it
   const reached = new Set(
     pages.filter((r) => r.page.exhausted || r.page.n === 0).map((r) => r.address),
   );
-  const older = subjects.filter((x) => !reached.has(x.address));
+  // within its window only (the shelf's 30 days), an address is never followed back to its first transaction
+  const older = inWindowOnly ? [] : subjects.filter((x) => !reached.has(x.address));
   const deepDates: number[] = [];
   for (
     let d = new Date('2025-03-15T12:00:00Z');
@@ -956,7 +976,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
     },
     anchors: anc,
     deepAnchors: { subjects: older.length, anchors: deep },
-    method: `anchored pages: getSignaturesForAddress(address, { before: <anchor>, limit: ${SOL_LIMIT} }) at ${anc.length} anchors (now, every ${Number(opt('--step-days') ?? 15)} days to day ${windowDays}, monthly to 2025-06-25), each page's mean rate at the middle of what it covers, linear between pages, nothing before an exhausted page's oldest signature (estimateSignatures); the dust pools (tier X) sampled one in ${dustEvery} and the mints outside the registry's stock tokens one in ${mintEvery}, each scaled; successful transactions are the signatures less the pages' failed share; bytes are Step 5b's decoded rows gzipped (${rowBytes.toFixed(0)} B a row, ${gzPerTx.toFixed(0)} B gzipped, from three day files)`,
+    method: `anchored pages: getSignaturesForAddress(address, { before: <anchor>, limit: ${SOL_LIMIT} }) at ${anc.length} anchors (now, every ${Number(opt('--step-days') ?? (inWindowOnly ? 7 : 15))} days to day ${windowDays}${inWindowOnly ? ', none beyond the window' : ', monthly to 2025-06-25'}), each page's mean rate at the middle of what it covers, linear between pages, nothing before an exhausted page's oldest signature (estimateSignatures); the dust pools (tier X) sampled one in ${dustEvery} and the mints outside the registry's stock tokens one in ${mintEvery}, each scaled; successful transactions are the signatures less the pages' failed share; bytes are Step 5b's decoded rows gzipped (${rowBytes.toFixed(0)} B a row, ${gzPerTx.toFixed(0)} B gzipped, from three day files)`,
     estimate: {
       signatures90: Math.round(tot('sigs90')),
       transactions90: Math.round(tx90),
@@ -976,6 +996,7 @@ async function solanaCount(kind: 'swaps' | 'mints') {
     },
     calls,
     hours,
+    pageFailures,
     measured: {
       pages: pages.length,
       pageBytes,

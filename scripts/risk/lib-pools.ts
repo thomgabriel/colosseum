@@ -41,7 +41,10 @@ export async function rpc<T = unknown>(method: string, params: unknown[]): Promi
     } catch (e) {
       rpcStats.errors++;
       await sleep(500 * 2 ** attempt);
-      if (attempt === 7) throw e;
+      if (attempt === 7)
+        throw new Error(
+          `rpc ${method}: ${e instanceof Error ? e.message : String(e)} (8 attempts)`,
+        );
       continue;
     }
     if (j.error?.code === 429) {

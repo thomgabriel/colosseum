@@ -273,7 +273,8 @@ export async function logsOf(
         await deps.sleep(PAUSE_MS);
         continue;
       }
-      if ((tooManyLogs(m) || QUERY_TIMED_OUT.test(m)) && b > a) {
+      // Alchemy answers some large windows with a bare "Internal error": halved like a window too large
+      if ((tooManyLogs(m) || QUERY_TIMED_OUT.test(m) || /internal error/i.test(m)) && b > a) {
         const mid = a + Math.floor((b - a) / 2);
         jobs.push([mid + 1, b], [a, mid]);
         halvings++;
