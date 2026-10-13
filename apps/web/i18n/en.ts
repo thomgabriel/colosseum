@@ -1858,6 +1858,9 @@ export const en = {
       unreachable: 'I couldn’t read this vault: our server didn’t answer. Try again.',
       chainOff: (chain: string) =>
         `${chain} is switched off on our server for now, so this vault can’t be read here.`,
+      /** An address of another kind of chain than the page's: it can't be a vault here. */
+      otherFamily: (chain: string) => `This address isn’t one of ${chain}’s.`,
+      openOn: (chain: string) => `Open it on ${chain}`,
       retry: 'Read it again',
       /** The link to the vault's address on its chain's explorer. */
       explorer: (explorer: string) => `See it on ${explorer}`,

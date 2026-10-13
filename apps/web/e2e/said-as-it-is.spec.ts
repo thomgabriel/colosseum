@@ -88,6 +88,14 @@ test('an address that is no vault says so, with one way back', async ({ page }) 
     await expect(unread).not.toContainText('shared portfolios');
   }
   await check(page, 'vault-missing');
+  // an EVM address on Solana's page: no vault here, and the way to its page on the EVM chain run here
+  const evm = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
+  await page.goto(`/vaults/solana/${evm}`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.vault.missing);
+  const there = page.locator('[data-ui="vault-elsewhere"]');
+  await expect(there).toHaveCount(1);
+  await expect(there).toHaveText(en.shared.vault.openOn('Robinhood Chain'));
+  await expect(there).toHaveAttribute('href', `/vaults/robinhood/${evm}`);
 });
 
 test('an order’s page lights no section of the bar', async ({ page }) => {

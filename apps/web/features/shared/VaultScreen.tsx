@@ -2,6 +2,7 @@
 import {
   ChainId,
   chainFamily,
+  isAddressOf,
   OWNER_REBALANCE_SLIPPAGE_BPS,
   ownerRebalanceOffered,
   type VaultResponse,
@@ -49,6 +50,12 @@ import { VaultWait } from './waits';
 // the digit. Every price carries its pin (STYLE.md rule 1); a vault on the mock or a test network says
 // so in its card's line. It leads back to the portfolio, and to the chain's explorer where there is one.
 
+/**
+ * How long a read of the vault may take before the page says it couldn't read it, with "Read it
+ * again": past this a server or a node that hangs would leave "Reading the vault…" up for good.
+ */
+export const VAULT_READ_MS = 20_000;
+
 type Load =
   | { kind: 'loading' }
   | { kind: 'read'; read: VaultResponse }
@@ -95,7 +102,13 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     // read is here; one that fails leaves the last read standing.
     const again = shown.current === `${chain}:${address}`;
     if (!again) setLoad({ kind: 'loading' });
-    readVault(fetcher.current, known.data, address).then((read) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<{ kind: 'unreachable' }>((done) => {
+      timer = setTimeout(() => done({ kind: 'unreachable' }), VAULT_READ_MS);
+    });
+    // A read that answers after its time is nobody's: the page already said it couldn't read it.
+    Promise.race([readVault(fetcher.current, known.data, address), late]).then((read) => {
+      clearTimeout(timer);
       if (!mine) return;
       if (read.kind === 'read') shown.current = `${chain}:${address}`;
       setLoad((before) =>
@@ -108,6 +121,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     });
     return () => {
       mine = false;
+      clearTimeout(timer);
     };
   }, [chain, address, round]);
 
@@ -125,6 +139,18 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     // retry. A server that did not answer is asked again from here.
     const missing = load.kind === 'no-plan' || load.kind === 'refused';
     const off = load.code === 'CHAIN_UNAVAILABLE' && known.success;
+    // An address of the other family (0x… on Solana's page, base58 on an EVM chain's) may be a vault
+    // there: each running chain of that family is offered, by its own page.
+    const family = known.success ? chainFamily(known.data) : null;
+    const elsewhere =
+      missing && family
+        ? ChainId.options.filter(
+            (c) =>
+              chainFamily(c) !== family &&
+              isAddressOf(chainFamily(c), address) &&
+              port.network(c)?.on === true,
+          )
+        : [];
     return (
       <section
         data-ui="vault-unread"
@@ -134,6 +160,21 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         <h1 id={titleId} className={PAGE_TITLE}>
           {missing ? v.missing : t.shared.vaults.address(shortAddress(address))}
         </h1>
+        {elsewhere.length > 0 && (
+          <p className="max-w-(--tf-measure-body) text-body">
+            {known.success && v.otherFamily(t.chain.names[known.data])}
+          </p>
+        )}
+        {elsewhere.map((c) => (
+          <Link
+            key={c}
+            data-ui="vault-elsewhere"
+            href={`/vaults/${c}/${encodeURIComponent(address)}`}
+            className={buttonClass({ variant: 'secondary' })}
+          >
+            {v.openOn(t.chain.names[c])}
+          </Link>
+        ))}
         {off && known.success && (
           <p className="max-w-(--tf-measure-body) text-body">
             {v.chainOff(t.chain.names[known.data])}

@@ -1648,6 +1648,8 @@ export const pt: Dictionary = {
       unreachable: 'Não consegui ler este cofre: nosso servidor não respondeu. Tente de novo.',
       chainOff: (chain: string) =>
         `${chain} está indisponível no nosso servidor por enquanto, então não consigo ler este cofre aqui.`,
+      otherFamily: (chain: string) => `Este endereço não é da ${chain}.`,
+      openOn: (chain: string) => `Abrir na ${chain}`,
       retry: 'Ler de novo',
       explorer: (explorer: string) => `Ver no ${explorer}`,
       owner: 'Dono',

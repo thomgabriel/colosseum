@@ -47,7 +47,7 @@ import {
   WEIGHTS,
 } from './test/fixtures';
 import { shortAddress } from './use-person';
-import { VaultScreen } from './VaultScreen';
+import { VAULT_READ_MS, VaultScreen } from './VaultScreen';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 // the card draws the order's own screen, which holds the runner: nothing here presses it
@@ -1704,6 +1704,48 @@ describe('a vault’s public page', () => {
     expect(host.textContent).not.toContain(en.shared.vault.unreachable);
     expect(host.querySelectorAll('button')).toHaveLength(0);
     expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+  });
+
+  it('gives up on a read that never answers, says it couldn’t read the vault, and reads it again', async () => {
+    portStore.set(fakePort());
+    let asked = 0;
+    portStore.setApi(async (path) => {
+      if (!path.startsWith('/v1/vaults/')) return json({ error: 'not found' }, 404);
+      asked += 1;
+      return asked === 1 ? new Promise<Response>(() => {}) : json({ error: 'down' }, 503);
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const host = await show(createElement(VaultScreen, { chain: 'solana', address: VAULT }));
+      expect(host.querySelector('[data-ui="vault-wait"]')).not.toBeNull();
+      await act(async () => void (await vi.advanceTimersByTimeAsync(VAULT_READ_MS)));
+      expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
+      expect(host.textContent).toContain(en.shared.vault.unreachable);
+      await click(find(host, 'button'));
+      await settle();
+      expect(asked).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('points an address of the other kind of chain to its page there', async () => {
+    portStore.set(fakePort());
+    const evm = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
+    portStore.setApi(async () => json({ error: 'that is not an address of Solana' }, 400));
+    const host = await show(createElement(VaultScreen, { chain: 'solana', address: evm }));
+    expect(find(host, 'h1').textContent).toBe(en.shared.vault.missing);
+    expect(host.textContent).toContain(en.shared.vault.otherFamily('Solana'));
+    // Robinhood Chain runs here; Base is switched off, and is not offered
+    const there = [...host.querySelectorAll('[data-ui="vault-elsewhere"]')];
+    expect(there.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      [en.shared.vault.openOn('Robinhood Chain'), `/vaults/robinhood/${evm}`],
+    ]);
+    // and an address of Solana's own kind that holds no vault gets no such link
+    await unmountAll();
+    portStore.setApi(async () => json({ error: 'no vault at that address' }, 404));
+    const plain = await show(createElement(VaultScreen, { chain: 'solana', address: VAULT }));
+    expect(plain.querySelector('[data-ui="vault-elsewhere"]')).toBeNull();
   });
 
   it('names no way back while the wallet is loading, so "Back to Products" never flashes by', async () => {
