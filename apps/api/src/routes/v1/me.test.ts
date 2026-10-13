@@ -564,7 +564,8 @@ describe('GET /v1/funding: what the wallet is missing on its chain', () => {
     // thousand gwei a step on an EVM chain.
     const expected = {
       solana: { steps: 4, gas: '6020000', symbol: 'SOL', decimals: 9 },
-      robinhood: { steps: 2, gas: '40000000000000', symbol: 'ETH', decimals: 18 },
+      // Three steps: the vault opened empty, the approval, the deposit (gate CREATE-BEFORE-APPROVE).
+      robinhood: { steps: 3, gas: '60000000000000', symbol: 'ETH', decimals: 18 },
     };
     for (const chain of ['solana', 'robinhood'] as const) {
       const who = await someone(chain);

@@ -1,5 +1,5 @@
 import { adapterContract, type ContractFixture } from '@colosseum/chain-mock/contract';
-import { type Address, parseAbi } from 'viem';
+import { type Address, decodeFunctionData, type Hex, parseAbi } from 'viem';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   ACCOUNTS,
@@ -58,6 +58,78 @@ describe.skipIf(!FORK_URL)('on a copy of Robinhood Chain test network', () => {
     expect(create.lastValidBlockHeight).toBeGreaterThan(wall);
     const toggle = await w.adapter.buildSetAutoFollow({ vault: w.manualVault, on: false });
     expect(toggle.lastValidBlockHeight).toBeUndefined();
+  });
+
+  it('a first deposit opens the vault empty, approves the contract that is there, then deposits and swaps in one', async () => {
+    // Gate CREATE-BEFORE-APPROVE: the order the app now plans, against the deployed factory and vault.
+    const w = await startTestnet();
+    const basketId = '78';
+    const owner = ACCOUNTS.owner;
+    const cashToken = (await w.adapter.listAssets()).find((a) => a.cls === 'cash')
+      ?.address as Address;
+    const ERC20_READ = parseAbi([
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function balanceOf(address) view returns (uint256)',
+    ]);
+    const spenderOf = (data: Hex) =>
+      decodeFunctionData({ abi: ERC20_READ, data }).args[0] as Address;
+
+    // What the old first step approved: an address with no code yet.
+    const early = await w.adapter.buildApprove({ owner, basketId, amountRaw: '1' });
+    const future = spenderOf(early.payload as Hex);
+    expect(await w.client.getCode({ address: future })).toBeUndefined();
+
+    const create = await w.adapter.buildCreateVault({
+      owner,
+      basketId,
+      targets: [{ asset: id('tspy'), weightBps: 5000 }],
+      autoFollow: false,
+      slippageBps: 100,
+    });
+    expect(create.preview.changes.filter((c) => c.holder === 'wallet')).toEqual([]);
+    await w.send(create);
+    const vault = (await w.adapter.getVaults(owner)).find((v) => v.basketId === basketId);
+    expect(vault?.address.toLowerCase()).toBe(future.toLowerCase());
+    expect(vault?.cash.raw).toBe('0');
+
+    // The approval is built and signed with its spender a contract: the vault just opened.
+    const approve = await w.adapter.buildApprove({
+      owner,
+      basketId,
+      amountRaw: DEPOSIT_RAW.toString(),
+    });
+    const spender = spenderOf(approve.payload as Hex);
+    expect(spender.toLowerCase()).toBe(future.toLowerCase());
+    expect((await w.client.getCode({ address: spender }))?.length).toBeGreaterThan(2);
+    await w.send(approve);
+
+    // Then the deposit, with its trade, as into any open vault: one transaction.
+    const wallet = (await w.client.readContract({
+      address: cashToken,
+      abi: ERC20_READ,
+      functionName: 'balanceOf',
+      args: [owner],
+    })) as bigint;
+    const half = (DEPOSIT_RAW / 2n).toString();
+    const deposit = await w.adapter.buildDeposit({
+      vault: vault?.address ?? '',
+      amountRaw: DEPOSIT_RAW.toString(),
+      trades: [{ sell: id('tusdg'), buy: id('tspy'), amountInRaw: half }],
+      slippageBps: 100,
+    });
+    await w.send(deposit);
+    const after = await w.adapter.getVault(vault?.address ?? '');
+    expect(after?.cash.raw).toBe(half);
+    expect(
+      BigInt(after?.positions.find((p) => p.asset === id('tspy'))?.raw ?? '0'),
+    ).toBeGreaterThan(0n);
+    const left = (await w.client.readContract({
+      address: cashToken,
+      abi: ERC20_READ,
+      functionName: 'balanceOf',
+      args: [owner],
+    })) as bigint;
+    expect(wallet - left).toBe(DEPOSIT_RAW);
   });
 
   adapterContract(

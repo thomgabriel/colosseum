@@ -1,4 +1,4 @@
-import type { OrderDetail, Target, Trade } from '@colosseum/schemas';
+import type { Leg, OrderDetail, Target, Trade } from '@colosseum/schemas';
 import { type SharedTerms, tradesOf } from '../shared/terms';
 import type { ChainUnits } from './units';
 
@@ -50,11 +50,17 @@ export function checkDeposit(
 
 type Standing = Pick<OrderDetail, 'status' | 'legs'>;
 
+/**
+ * The step moves the order's cash into the vault: a deposit, or a create that carries the cash. A
+ * create that a later step deposits after opens the vault empty (gate CREATE-BEFORE-APPROVE). The
+ * guard counts the same steps (`approvedSteps`).
+ */
+export const movesCash = (leg: Pick<Leg, 'kind' | 'cashRaw'>): boolean =>
+  leg.kind === 'deposit' || (leg.kind === 'create_vault' && (leg.cashRaw ?? '0') !== '0');
+
 /** The order's deposit is confirmed on its chain: the cash is in the vault whatever came after. */
 export const depositLanded = (order: Pick<OrderDetail, 'legs'>): boolean =>
-  order.legs.some(
-    (leg) => (leg.kind === 'create_vault' || leg.kind === 'deposit') && leg.status === 'confirmed',
-  );
+  order.legs.some((leg) => movesCash(leg) && leg.status === 'confirmed');
 
 /** The order goes no further, with a step not done: it failed or ran out of time, or a step did. */
 export const stoppedShort = (order: Standing): boolean =>
