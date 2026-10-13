@@ -867,6 +867,8 @@ describe('the /v1 route table', () => {
       '/v1/vaults/{chain}/{address}/conversation',
       '/v1/vaults/{chain}/{address}/conversation/reply',
       '/v1/vaults/{chain}/{address}/name',
+      '/v1/vaults/{chain}/{address}/rebalance',
+      '/v1/vaults/{chain}/{address}/rebalance/quote',
       '/v1/vaults/{chain}/{address}/targets',
     ]);
     // No route lets a caller through without a token: 503 with no Privy app set, 401 with one.

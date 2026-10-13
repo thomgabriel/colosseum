@@ -40,6 +40,7 @@ import { unpriced, holdingsOf as vaultHoldingsOf } from '../portfolio/portfolio'
 import { goalOfVault } from '../portfolio/vault-goal';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { type ChainCheck, familyIdFor, isVaultOf, useChainRecipe } from './chain-recipe';
+import { FollowQuote } from './FollowQuote';
 import { HoldingsBar } from './HoldingsBar';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, kindShares } from './product-figures';
@@ -975,7 +976,13 @@ function FamilyDeposit({
         label: a.into.other(mine.nameOf(vault)),
       })),
     ],
-    hint: switching ? a.into.switchHint : own ? a.into.addsHint : a.into.newHint,
+    hint: switching
+      ? mine.keep(switching)
+        ? t.shared.vaults.followNoteKeeper
+        : t.shared.vaults.followNote
+      : own
+        ? a.into.addsHint
+        : a.into.newHint,
     // Held while a deposit is signed or a follow is being made: the choice is the one under way.
     ...(running || mine.busy !== null
       ? {}
@@ -989,41 +996,54 @@ function FamilyDeposit({
 
   if (switching)
     return (
-      <AmountCard
-        mode="deposit"
-        headingLevel={3}
-        chain={recipe.chain}
-        chainName={chainName}
-        provenance={mock ? 'mock' : recipe.provenance}
-        into={choice}
-        field={null}
-        preview={{
-          title: a.preview.deposit,
-          body: (
-            <div data-ui="review-follow" className="flex flex-col gap-2">
-              <p className="text-body-sm [overflow-wrap:anywhere]">
-                {a.preview.switch(mine.nameOf(switching), family.name, followed.follow.version)}
-              </p>
-              <p className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-source">
-                {targets.map((target) => (
-                  <span key={target.asset} className="inline-flex items-center gap-1.5">
-                    <AssetMark asset={target.asset} className="size-5" />
-                    {tokenName(target.asset)}
-                  </span>
-                ))}
-              </p>
-            </div>
-          ),
-        }}
-        notice={<FollowFailure mine={mine} from="card" onReread={onVersionChanged} />}
-        action={{
-          label: a.review,
-          reasons: [],
-          busy: mine.busy !== null,
-          busyLabel: a.busy,
-          onPress: () => void mine.follow(switching, mine.keep(switching), true, 'card'),
-        }}
-      />
+      <div data-ui="review-follow" className="flex min-w-0 flex-col gap-4">
+        <AmountCard
+          mode="deposit"
+          headingLevel={3}
+          chain={recipe.chain}
+          chainName={chainName}
+          provenance={mock ? 'mock' : recipe.provenance}
+          into={choice}
+          field={null}
+          preview={{
+            title: a.preview.deposit,
+            body: (
+              <div className="flex flex-col gap-2">
+                <p className="text-body-sm [overflow-wrap:anywhere]">
+                  {a.preview.switch(mine.nameOf(switching), family.name, followed.follow.version)}
+                </p>
+                <p className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-source">
+                  {targets.map((target) => (
+                    <span key={target.asset} className="inline-flex items-center gap-1.5">
+                      <AssetMark asset={target.asset} className="size-5" />
+                      {tokenName(target.asset)}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            ),
+          }}
+          notice={<FollowFailure mine={mine} from="card" onReread={onVersionChanged} />}
+          action={{
+            label: a.review,
+            reasons: [],
+            busy: mine.busy !== null,
+            busyLabel: a.busy,
+            onPress: () => void mine.follow(switching, mine.keep(switching), true, 'card'),
+          }}
+        />
+        {/* what following would trade, quoted now: our keeper's to make where auto-follow stays on */}
+        {!mine.keep(switching) && (
+          <FollowQuote
+            key={`${switching.address}:${followed.follow.version}`}
+            chain={person.chain}
+            mock={person.mock}
+            address={switching.address}
+            slug={family.slug}
+            version={followed.follow.version}
+          />
+        )}
+      </div>
     );
 
   return (

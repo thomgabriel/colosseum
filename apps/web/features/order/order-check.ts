@@ -362,3 +362,37 @@ export function dollarsShapeOk(
     out.mostRaw === most.toString()
   );
 }
+
+/**
+ * A rebalance of a vault to the targets it has (HANDOFF-VAULT, MVP item 6): only swaps. No deposit, no
+ * cash moved, nothing withdrawn, no target set, no portfolio taken and no switch thrown. Every trade
+ * has the chain's cash on one side: a sale is for cash, and a purchase is of one of the vault's
+ * targets. The guard holds each swap to the vault and to its bytes and minimums.
+ */
+export function rebalanceShapeOk(
+  order: Pick<OrderDetail, 'depositRaw' | 'legs'>,
+  terms: Extract<SharedTerms, { kind: 'rebalance' }>,
+  units: Pick<ChainUnits, 'cash'> | null,
+): boolean {
+  if (!units || order.depositRaw !== undefined || order.legs.length === 0) return false;
+  if (
+    order.legs.some(
+      (l) => (l.cashRaw !== undefined && l.cashRaw !== '0') || l.withdrawals !== undefined,
+    )
+  )
+    return false;
+  const targets = new Set(terms.targets.map((t) => t.asset));
+  return order.legs.every(
+    (l) =>
+      l.kind === 'swap' &&
+      l.trades.length > 0 &&
+      l.expected.length === l.trades.length &&
+      l.trades.every(
+        (t) =>
+          t.sell !== t.buy &&
+          (t.buy === units.cash
+            ? t.sell !== units.cash
+            : t.sell === units.cash && targets.has(t.buy)),
+      ),
+  );
+}

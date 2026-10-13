@@ -251,4 +251,16 @@ export type PlanTerms = {
    * order leaves out (it could not be sold now) is no fault. `withdrawals` is then left out.
    */
   dollars?: { cashRaw: RawAmount; sales: { asset: AssetId; amountRaw: RawAmount }[] };
+  /**
+   * A rebalance of the vault to the targets it has, as its review showed it: the order is those
+   * trades and nothing else, every one a swap through the chain's cash, every purchase one of these
+   * targets, each with a minimum above zero (approved.ts).
+   */
+  rebalance?: Rebalance;
+};
+
+/** What a rebalance was reviewed as: the vault's targets, and every trade, in the order signed. */
+export type Rebalance = {
+  targets: Target[];
+  trades: { sell: AssetId; buy: AssetId; amountInRaw: string }[];
 };

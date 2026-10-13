@@ -11,6 +11,7 @@ import { OrderScreen } from '../order/OrderScreen';
 import { latestOf, recallOrder, recallOrders } from '../order/order-record';
 import { AddMoneyScreen } from '../portfolio/AddMoneyScreen';
 import { sameAddress } from '../portfolio/vault-name';
+import { RebalanceStart } from './RebalanceStart';
 import { SharedReview } from './SharedReview';
 import type { SharedTerms } from './terms';
 import { WithdrawScreen } from './WithdrawScreen';
@@ -28,8 +29,11 @@ import { WithdrawScreen } from './WithdrawScreen';
 // the focus, the amount as a fact once it is pressed, the end over the steps it sums up, and the way
 // back whenever no step is being signed.
 
-/** What can take the pane. `apply` is a change proposed in the conversation, once its order is made. */
-export type ActionKind = 'deposit' | 'withdraw' | 'weights' | 'apply';
+/**
+ * What can take the pane. `apply` is a change proposed in the conversation, once its order is made;
+ * `rebalance` trades the vault to the targets it has, and changes nothing else.
+ */
+export type ActionKind = 'deposit' | 'withdraw' | 'weights' | 'apply' | 'rebalance';
 export type OpenAction = {
   kind: ActionKind;
   /** The order the action made, once there is one. */
@@ -47,10 +51,17 @@ const TERMS: Record<ActionKind, SharedTerms['kind']> = {
   withdraw: 'withdraw',
   weights: 'retarget',
   apply: 'retarget',
+  rebalance: 'rebalance',
 };
 /** The words of each action's pane: the weights, by hand or from the conversation, are one change. */
 export const paneOf = (kind: ActionKind) =>
   kind === 'weights' || kind === 'apply' ? 'change' : kind;
+
+/** A vault's targets above zero, as its read gives them: what a rebalance trades to. */
+export const targetsOfVault = (vault: VaultResponse['vault']) =>
+  vault.positions
+    .filter((position) => position.targetBps > 0)
+    .map((position) => ({ asset: position.asset, weightBps: position.targetBps }));
 
 const keyOf = (userId: string, chain: ChainId, address: string) =>
   `tf-vault-action:1:${encodeURIComponent(userId)}:${chain}:${address}`;
@@ -200,6 +211,13 @@ export function VaultAction({
             onOrder: (orderId) => onOrder(orderId, false),
             ...(onMode ? { onMode } : {}),
           }}
+        />
+      ) : open.kind === 'rebalance' ? (
+        <RebalanceStart
+          chain={chain}
+          vault={vault}
+          targets={targetsOfVault(vault)}
+          onOrder={(orderId) => onOrder(orderId, false)}
         />
       ) : (
         <VaultMixFlow
