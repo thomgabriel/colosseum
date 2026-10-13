@@ -83,8 +83,8 @@ export function WithdrawScreen({
   // The share as typed in dollars of the vault's value, or Max; a share picked where the value is
   // not known; and the tokens chosen one by one, behind their own control.
   const [text, setText] = useState('');
-  const [all, setAll] = useState(false);
-  const [chipShare, setChipShare] = useState<number | null>(null);
+  // A quick share picked (25%, 50%, 75%, Max): held as that share, not as the dollars it types.
+  const [chosen, setChosen] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
   const [choices, setChoices] = useState<Record<string, Pick>>({});
   // Bearing's measured cost of selling each holding, read only once the person looks at dollars.
@@ -217,13 +217,11 @@ export function WithdrawScreen({
   );
   const shareBps: number | null = picking
     ? null
-    : all
-      ? 10_000
-      : !priced
-        ? chipShare
-        : typed.amount === null || typed.over
-          ? null
-          : Math.max(1, Math.min(10_000, Math.floor((typed.amount / value) * 10_000)));
+    : chosen !== null
+      ? chosen
+      : !priced || typed.amount === null || typed.over
+        ? null
+        : Math.max(1, Math.min(10_000, Math.floor((typed.amount / value) * 10_000)));
   const cashSymbol = symbol(vault.cash.asset);
   const dollars: DollarsTerms | null =
     way === 'dollars' && shareBps !== null
@@ -613,9 +611,8 @@ export function WithdrawScreen({
     onPick: () =>
       change(() => {
         setPicking(false);
-        setAll(bps === 10_000);
+        setChosen(bps);
         if (priced) setText(maxText((value * bps) / 10_000, lang));
-        else setChipShare(bps);
       }),
   }));
 
@@ -641,7 +638,7 @@ export function WithdrawScreen({
               text: priced ? text : '',
               onText: (next) =>
                 change(() => {
-                  setAll(false);
+                  setChosen(null);
                   setText(next);
                 }),
               token:
@@ -661,7 +658,7 @@ export function WithdrawScreen({
                   }
                 : undefined,
               chips: shareChips,
-              problem: priced ? (all ? null : typed.problem) : null,
+              problem: priced && chosen === null ? typed.problem : null,
               note: priced ? null : a.out.noValue,
             }
       }
@@ -699,8 +696,8 @@ export function WithdrawScreen({
             ? a.press.withdrawPicked(items.length)
             : everything || (way === 'dollars' && shareBps === 10_000)
               ? a.press.withdrawAll
-              : priced && typed.amount !== null
-                ? a.press.withdraw(usd(typed.amount))
+              : priced && worth !== null
+                ? a.press.withdraw(usd(typed.amount ?? worth))
                 : a.press.withdrawShare(percent(shareBps ?? 0)),
         held: !valid,
         reasons: blocked,
