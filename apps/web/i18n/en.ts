@@ -1686,6 +1686,16 @@ export const en = {
           'To change what this vault holds, say it in the conversation: more of one asset, less of another.',
         details: 'Details',
         priceSources: 'Price sources',
+        /** One price account's line: the entries in it that price this vault's assets. */
+        priceEntries: (count: number, list: string) =>
+          count === 1 ? `entry ${list}` : `entries ${list}`,
+        /** The program that owns the price account, before its address. */
+        priceOwner: 'owned by',
+        copyPriceAccount: 'price account address',
+        copyPriceOwner: 'price program address',
+        /** A source written in a way this page does not read, kept word for word behind this. */
+        sourcesAsWritten: (count: number) =>
+          count === 1 ? '1 source, as written' : `${count} sources, as written`,
         read: 'Read from the chain',
         copyVault: 'vault address',
         copyOwner: 'owner address',
