@@ -1737,3 +1737,170 @@ describe.each([
     if (chain === 'robinhood') expect(host.textContent).not.toMatch(/usdc/i);
   });
 });
+
+describe('one screen at a time (gate SIGN-ONE-STEP)', () => {
+  const stage = (host: HTMLElement) => find(host, '[data-ui="order-screen"]').dataset.stage;
+  const strip = (host: HTMLElement) =>
+    [...host.querySelectorAll('[data-ui="sign-progress"] li')].map((li) => ({
+      done: li.getAttribute('data-done'),
+      current: li.getAttribute('aria-current'),
+    }));
+  /** Two steps that answer one at a time, as a wallet that confirms each in turn. */
+  function stepByStep() {
+    const gates = [0, 1].map(() => {
+      let open: () => void = () => {};
+      const wait = new Promise<void>((done) => {
+        open = done;
+      });
+      return { wait, open: () => open() };
+    });
+    run.answer = async (order, deps) => {
+      deps.onEvent?.({ order, legId: LEG_CREATE, phase: 'signing' } as never);
+      await gates[0]?.wait;
+      const first = {
+        ...order,
+        legs: order.legs.map((leg) =>
+          leg.id === LEG_CREATE
+            ? {
+                ...leg,
+                status: 'confirmed' as const,
+                txId: 'sig0',
+                explorerUrl: 'https://explorer.example/tx/sig0',
+              }
+            : leg,
+        ),
+      };
+      deps.onEvent?.({ order: first, legId: LEG_SWAP, phase: 'landing' } as never);
+      await gates[1]?.wait;
+      return { status: 'done', order: doneOrder() };
+    };
+    return gates;
+  }
+
+  it('reviews what changes in a sentence and a picture, with every step one fold away, and approves nothing', async () => {
+    api(orderOn());
+    seed();
+    const host = await screen();
+    expect(stage(host)).toBe('review');
+    expect(find(host, '[data-ui="sign-sentence"]').textContent).toBe(
+      'Your $10 goes into your vault, and about $6 of it into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
+    );
+    const rows = [...host.querySelectorAll('[data-ui="sign-picture"] tbody tr')].map((tr) =>
+      [...tr.querySelectorAll('th, td')].map((cell) => cell.textContent),
+    );
+    expect(rows).toEqual([
+      ['SPYx', '$6'],
+      [en.order.flow.picture.cash, '$4'],
+    ]);
+    // the exact figures are folded, closed, and still every step's
+    const details = find<HTMLDetailsElement>(host, '[data-ui="order-details"]');
+    expect(details.open).toBe(false);
+    expect(find(details, 'summary').textContent).toBe(en.order.flow.details);
+    expect(details.querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
+    // no step on its own yet, one primary button, and nothing kept as approved
+    expect(host.querySelector('[data-ui="sign-step"]')).toBeNull();
+    expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    expect(label(primary(host))).toBe(en.order.flow.continue);
+    expect(recallOrder(ORDER_ID, USER)?.approved).toBeNull();
+  });
+
+  it('leads to the first step alone, with the focus on it, and back to the review without approving', async () => {
+    api(orderOn());
+    seed();
+    const host = await screen();
+    await click(find(host, '[data-action="order-continue"]'));
+    await settle();
+    expect(stage(host)).toBe('steps');
+    expect(strip(host)).toEqual([
+      { done: 'false', current: 'step' },
+      { done: 'false', current: null },
+      { done: 'false', current: null },
+    ]);
+    const step = find(host, '[data-ui="sign-step"]');
+    expect(find(step, 'h3').textContent).toBe(en.order.flow.title.openDeposit('$10'));
+    expect(step.textContent).toContain(en.order.flow.stepOf(1, 2));
+    expect(document.activeElement).toBe(find(step, 'h3'));
+    expect(label(primary(host))).toBe(en.order.flow.press.deposit('$10'));
+    expect(run.calls).toHaveLength(0);
+    expect(recallOrder(ORDER_ID, USER)?.approved).toBeNull();
+    await click(find(host, '[data-action="order-back"]'));
+    await settle();
+    expect(stage(host)).toBe('review');
+    expect(document.activeElement).toBe(find(host, '[data-action="order-continue"]'));
+    expect(run.calls).toHaveLength(0);
+  });
+
+  it('moves on by itself as each step confirms, the signed one kept as a line with its transaction', async () => {
+    api(orderOn());
+    seed();
+    const gates = stepByStep();
+    const host = await screen();
+    await sign(host);
+    await settle();
+    // the first step under way: its phase in its panel, the button busy
+    expect(find(host, '[data-ui="sign-step"] h3').textContent).toBe(
+      en.order.flow.title.openDeposit('$10'),
+    );
+    expect(find(host, '[data-ui="sign-phase"]').textContent).toBe(en.order.phase.signing);
+    expect(primary(host).getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('[data-ui="sign-past"]')).toBeNull();
+    gates[0]?.open();
+    await settle();
+    // the second has the screen; the first is one line with a check and its link
+    expect(strip(host).map((s) => s.done)).toEqual(['true', 'false', 'false']);
+    expect(find(host, '[data-ui="sign-step"] h3').textContent).toBe('Swap $6 of cash for SPYx');
+    expect(find(host, '[data-ui="sign-step"]').textContent).toContain(en.order.flow.stepOf(2, 2));
+    expect(find(host, '[data-ui="sign-step"] [data-ui="sign-worst"]').textContent).toBe(
+      'At worst you get 0.0099 SPYx, 1% under today’s price.',
+    );
+    const past = find(host, '[data-ui="sign-past"]');
+    expect(past.textContent).toContain(en.order.flow.title.openDeposit('$10'));
+    expect(find<HTMLAnchorElement>(past, 'a').getAttribute('href')).toContain('sig0');
+    expect(find(host, '[data-ui="sign-phase"]').textContent).toBe(en.order.phase.landing);
+    gates[1]?.open();
+    await settle();
+    await settle();
+    // done: every place of the strip done, what the order did, the transactions folded
+    expect(stage(host)).toBe('done');
+    expect(strip(host).map((s) => s.done)).toEqual(['true', 'true', 'true']);
+    expect(status(host)).toBe(en.order.outcome.done('Solana'));
+    const fold = find<HTMLDetailsElement>(host, '[data-ui="order-details"]');
+    expect(fold.open).toBe(false);
+    expect(find(fold, 'summary').textContent).toBe(en.order.flow.transactions);
+    expect(fold.querySelectorAll('[data-ui="order-step"] a')).toHaveLength(2);
+    expect(run.calls).toHaveLength(1);
+  });
+
+  it('says a failure in the panel of the step it is about, with the way on there', async () => {
+    api(orderOn());
+    seed();
+    run.answer = async (order) => ({
+      status: 'cancelled',
+      order,
+      legId: LEG_SWAP,
+      wallet: { code: 'rejected', message: 'no' },
+    });
+    const host = await screen();
+    await sign(host);
+    await settle();
+    const step = find(host, '[data-ui="sign-step"]');
+    expect(find(step, 'h3').textContent).toBe('Swap $6 of cash for SPYx');
+    expect(find(step, '[data-ui="sign-status"]').textContent).toContain(
+      en.order.outcome.cancelled(2),
+    );
+    expect(label(find(step, '[data-variant="primary"]'))).toBe(en.order.outcome.tryAgain);
+  });
+
+  it('tells whatever shows the person’s figures that an order ended', async () => {
+    api(orderOn());
+    seed();
+    run.answer = async () => ({ status: 'done', order: doneOrder() });
+    const heard = vi.fn();
+    window.addEventListener('tf:order-done', heard);
+    const host = await screen();
+    await sign(host);
+    await settle();
+    expect(heard).toHaveBeenCalledTimes(1);
+    window.removeEventListener('tf:order-done', heard);
+  });
+});

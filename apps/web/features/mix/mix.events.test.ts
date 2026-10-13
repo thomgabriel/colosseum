@@ -480,6 +480,8 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
           chainOptions: [],
         });
       if (url === `/v1/vaults/solana/${read.vault.address}`) return json(read);
+      // the order the confirm made, as the order's own screen reads it in the pane
+      if (url.startsWith('/v1/orders/') && init?.method !== 'POST') return json(retargetOrder());
       if (init?.method !== 'POST') return json({}, 404);
       const body = JSON.parse(String(init.body));
       if (url.endsWith('/conversation/reply'))
@@ -515,6 +517,14 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('apply');
     expect(router.push).not.toHaveBeenCalled();
+    // reviewed in the pane first (gate SIGN-ONE-STEP): the vault's targets now beside the new ones
+    const pane = find(host, '[data-ui="vault-action-pane"]');
+    expect(find(pane, '[data-ui="order-screen"]').dataset.stage).toBe('review');
+    const heads = [...pane.querySelectorAll('[data-ui="sign-picture"] thead th')].map(
+      (th) => th.textContent,
+    );
+    expect(heads.slice(1)).toEqual([en.order.flow.picture.now, en.order.flow.picture.next]);
+    expect(pane.querySelectorAll('[data-ui="sign-picture"] tbody tr').length).toBeGreaterThan(0);
   });
 
   it('does not replace a deposit opened before its order answers', async () => {

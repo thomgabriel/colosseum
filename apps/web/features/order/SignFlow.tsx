@@ -173,7 +173,10 @@ export function StepPanel({
     <section data-ui="sign-step" aria-label={title} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <p className="text-caption text-muted-foreground">{place}</p>
-        <h3 className="font-display text-h4 font-semibold text-balance">{title}</h3>
+        {/* takes the focus when the review leads here: the press that led is gone */}
+        <h3 tabIndex={-1} className="font-display text-h4 font-semibold text-balance outline-none">
+          {title}
+        </h3>
         {worst && (
           <p data-ui="sign-worst" className="max-w-(--tf-measure-body) text-body-sm">
             {worst}

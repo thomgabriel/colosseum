@@ -160,6 +160,19 @@ export function OrderScreen({
   const [round, setRound] = useState(0);
   // The person read the review and went on to the steps: nothing is approved until the first is signed.
   const [onward, setOnward] = useState(false);
+  // Moving between the review and the first step takes the focus along: to the step's heading, or
+  // back to "Continue". The press that moved it is gone from the screen.
+  const [focusTo, setFocusTo] = useState<'step' | 'review' | null>(null);
+  const shell = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!focusTo) return;
+    shell.current
+      ?.querySelector<HTMLElement>(
+        focusTo === 'step' ? '[data-ui="sign-step"] h3' : '[data-action="order-continue"]',
+      )
+      ?.focus();
+    setFocusTo(null);
+  });
   const stop = useRef({ aborted: false });
   // The person asked to stop between steps: the step under way is finished, the next is not begun.
   const [stopping, setStopping] = useState(false);
@@ -1131,7 +1144,10 @@ export function OrderScreen({
                 data-action="order-continue"
                 disabled={consentMissing || held.length > 0}
                 aria-describedby={consentMissing || held.length > 0 ? reasonId : undefined}
-                onClick={() => setOnward(true)}
+                onClick={() => {
+                  setOnward(true);
+                  setFocusTo('step');
+                }}
               >
                 {flow.continue}
               </Button>
@@ -1192,7 +1208,14 @@ export function OrderScreen({
             )}
             {stage === 'steps' && !record.approved && !running && !view && !onePress && (
               // Before the first signature, the review is one press back.
-              <Button variant="link" data-action="order-back" onClick={() => setOnward(false)}>
+              <Button
+                variant="link"
+                data-action="order-back"
+                onClick={() => {
+                  setOnward(false);
+                  setFocusTo('review');
+                }}
+              >
                 {flow.back}
               </Button>
             )}
@@ -1428,6 +1451,7 @@ export function OrderScreen({
 
   return (
     <div
+      ref={shell}
       data-ui="order-screen"
       data-stage={stage}
       className={embed ? 'flex flex-col gap-5' : 'flex flex-col gap-8'}
