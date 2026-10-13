@@ -369,7 +369,7 @@ describe('investing with one press, with the passkey wallet', () => {
     expect(done).toEqual([{ orderId: ORDER_ID, vault: MY_VAULT }]);
     // the end leads to the vault the money went into, not to the portfolio (audit F3)
     await settle();
-    const open = find<HTMLAnchorElement>(host, '[data-ui="order-next"] a');
+    const open = find<HTMLAnchorElement>(host, '[data-ui="order-next"] [data-action="open-vault"]');
     expect(open.textContent).toBe(en.mix.deposit.signing.openVault);
     expect(open.getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}`);
     // one signing run in all: nothing is asked of the wallet twice

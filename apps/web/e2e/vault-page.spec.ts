@@ -75,7 +75,11 @@ async function go(page: Page, name: string) {
 }
 
 /** Signed in, with a vault of the person's own (60% SPY, 40% NVDA, $100 in), on its page. */
-async function toVault(page: Page): Promise<string> {
+async function toVault(
+  page: Page,
+  /** What the vault is bought into, where it is to start away from its 60/40 targets. */
+  holds?: { asset: string; weightBps: number }[],
+): Promise<string> {
   await page.request.post(`${STUB}/__stub/reset`);
   await page.goto('/goal');
   await page.locator('header a[href^="/sign-in"]').click();
@@ -97,6 +101,7 @@ async function toVault(page: Page): Promise<string> {
         { asset: 'solana:spy', weightBps: 6000 },
         { asset: 'solana:nvda', weightBps: 4000 },
       ],
+      ...(holds ? { holds } : {}),
     },
   });
   expect(source.ok(), await source.text()).toBe(true);
@@ -650,4 +655,39 @@ test('a change proposed in the conversation is applied in place, and the weights
   await pane.getByRole('button', { name: p.backToHoldings }).click();
   await expect(screen).toHaveAttribute('data-pane', 'holdings');
   await expect(more).toBeFocused();
+});
+
+test('a vault away from its targets: the rebalance reviewed, signed and done in the pane', async ({
+  page,
+}) => {
+  // bought 40/60 with targets of 60/40: away from them, so the page offers the rebalance
+  await toVault(page, [
+    { asset: 'solana:spy', weightBps: 4000 },
+    { asset: 'solana:nvda', weightBps: 6000 },
+  ]);
+  const screen = page.locator('[data-ui="vault-screen"]');
+  const pane = page.locator('[data-ui="vault-action-pane"]');
+  await screen.locator('[data-action="vault-rebalance"]').click();
+  await expect(screen).toHaveAttribute('data-pane', 'rebalance');
+  // the review: what the vault holds now beside its targets, one sentence, one "Continue"
+  await expect(pane.locator('[data-ui="sign-hero"]')).toHaveText(en.order.flow.hero.rebalance);
+  const picture = pane.locator('[data-ui="sign-picture"]');
+  await expect(picture).toContainText('40%');
+  await expect(picture).toContainText('60%');
+  await check(page, 'rebalance-review');
+  await fitsPane(page, 'rebalance review');
+  await pane.locator('[data-action="order-continue"]').click();
+  // one press signs the swaps: the screen is the rebalance's
+  const press = pane.getByRole('button', { name: en.order.flow.press.rebalance });
+  await expect(press).toBeVisible();
+  await check(page, 'rebalance-sign');
+  await fitsPane(page, 'rebalance step');
+  await press.click();
+  await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
+  await expect(pane.locator('[data-ui="sign-hero"]')).toHaveText(en.order.flow.ended.title);
+  await check(page, 'rebalance-done');
+  await fitsPane(page, 'rebalance done');
+  await pane.getByRole('button', { name: p.backToVault }).click();
+  await expect(screen).toHaveAttribute('data-pane', 'holdings');
+  await expect(screen.locator('[data-action="vault-rebalance"]')).toHaveCount(0);
 });

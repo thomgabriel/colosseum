@@ -1422,12 +1422,21 @@ export function OrderScreen({
       {/* The order is done: the next step is the portfolio it filled, and another buy beside it. */}
       {done && !running && terms?.kind !== 'publish' && !embed?.hostEnds && (
         <div data-ui="order-next" className="flex flex-wrap items-center gap-3">
+          {/* a deposit that opened or filled a vault leads to it first (audit F3) */}
+          {embed?.endsAt && (
+            <Link
+              href={embed.endsAt.href}
+              data-action="open-vault"
+              className={buttonClass({ variant: 'primary' })}
+            >
+              {embed.endsAt.label}
+            </Link>
+          )}
           <Link
-            href={embed?.endsAt?.href ?? portfolioHref}
-            data-action={embed?.endsAt ? 'open-vault' : undefined}
-            className={buttonClass({ variant: 'primary' })}
+            href={portfolioHref}
+            className={buttonClass({ variant: embed?.endsAt ? 'secondary' : 'primary' })}
           >
-            {embed?.endsAt?.label ?? t.order.outcome.seePortfolio}
+            {t.order.outcome.seePortfolio}
           </Link>
           {buying && !embed && (
             <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
