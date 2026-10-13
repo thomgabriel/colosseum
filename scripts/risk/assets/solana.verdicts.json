@@ -522,9 +522,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the holding"
-      ]
+      "unverified": ["the holding"]
     },
     {
       "address": "GiLTSeSFnNse7xQVYeKdMyckGw66AoRmyggGg1NNd4yr",
@@ -725,9 +723,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the holding"
-      ]
+      "unverified": ["the holding"]
     },
     {
       "address": "J6pQQ3FAcJQeWPPGppWRb4nM8jU3wLyYbRrLh7feMfvd",
@@ -2033,10 +2029,7 @@
           "readOn": "2026-10-06"
         }
       ],
-      "unverified": [
-        "the share of backing lost",
-        "the mint on a Reflect page"
-      ]
+      "unverified": ["the share of backing lost", "the mint on a Reflect page"]
     },
     {
       "address": "GcV9tEj62VncGithz4o4N9x6HWXARxuRgEAYk9zahNA8",
@@ -2071,9 +2064,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
-      ]
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
@@ -2114,11 +2105,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "JupUSD reserves from an issuer document",
-        "the terms",
-        "how rewards are paid"
-      ]
+      "unverified": ["JupUSD reserves from an issuer document", "the terms", "how rewards are paid"]
     },
     {
       "address": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
@@ -2164,9 +2151,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
-      ]
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
@@ -2201,9 +2186,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
-      ]
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "j14XLJZSVMcUYpAfajdZRpnfHUpJieZHS4aPektLWvh",
@@ -2249,9 +2232,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
-      ]
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
@@ -2286,9 +2267,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
-      ]
+      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
     },
     {
       "address": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
@@ -2666,11 +2645,7 @@
           "readOn": "2026-10-06"
         }
       ],
-      "unverified": [
-        "the mint on an issuer page",
-        "what backs it in full",
-        "geo-blocks"
-      ]
+      "unverified": ["the mint on an issuer page", "what backs it in full", "geo-blocks"]
     },
     {
       "address": "2uxaYT1fVrp6Fg2BrxQcyKSW91hefM6dG9krpbeDiirT",
@@ -3082,10 +3057,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the issuer: from DefiLlama's name only",
-        "the mint on an issuer page"
-      ]
+      "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
     },
     {
       "address": "CeteszTBgDCiRWyPX6KFMHGVcSBTAg82dbaiFC7xDXSn",
@@ -3120,9 +3092,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "what backs MEX"
-      ]
+      "unverified": ["what backs MEX"]
     },
     {
       "address": "AhhdRu5YZdjVkKR3wbnUDaymVQL2ucjMQ63sZ3LFHsch",
@@ -3309,9 +3279,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "how USDe reaches Solana (the bridge) and how it is redeemed there"
-      ]
+      "unverified": ["how USDe reaches Solana (the bridge) and how it is redeemed there"]
     },
     {
       "address": "USDvUSpnhCr9yBgj3UyVrD239HRUv4RsHwH2FxsWuMk",
@@ -3537,10 +3505,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the issuer: from DefiLlama's name only",
-        "the mint on an issuer page"
-      ]
+      "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
     },
     {
       "address": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
@@ -3609,9 +3574,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the mint on an issuer page"
-      ]
+      "unverified": ["the mint on an issuer page"]
     },
     {
       "address": "JuprjznTrTSp2UFa3ZBUFgwdAmtZCq4MQCwysN55USD",
@@ -3723,9 +3686,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the mint on an issuer page"
-      ]
+      "unverified": ["the mint on an issuer page"]
     },
     {
       "address": "A9mUU4qviSctJVPJdBJWkb28deg915LYJKrzQ19ji3FM",
@@ -4568,10 +4529,7 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": [
-        "the issuer and the bridge behind it",
-        "the mint on an issuer page"
-      ]
+      "unverified": ["the issuer and the bridge behind it", "the mint on an issuer page"]
     },
     {
       "address": "9hX59xHHnaZXLU6quvm5uGY2iDiT3jczaReHy6A6TYKw",

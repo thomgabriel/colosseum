@@ -61,7 +61,8 @@ export function meteredBatch(
       ]);
     const replies = await batch(requests);
     for (const r of requests) {
-      const m = (ledger.byMethod[r.method] ??= { requests: 0, cu: 0 });
+      ledger.byMethod[r.method] ??= { requests: 0, cu: 0 };
+      const m = ledger.byMethod[r.method] as { requests: number; cu: number };
       m.requests++;
       m.cu += cuOf(r.method);
     }
