@@ -55,6 +55,16 @@ export type DepositCardProps = {
   source?: ReactNode;
   /** The amount the card opens with, as typed. */
   initialText?: string;
+  /**
+   * The amount as typed and the trust box, kept by the host: a host whose card is drawn again under
+   * the person (a reread of what is deposited into) keeps what they typed and ticked.
+   */
+  entry?: {
+    text: string;
+    onText: (text: string) => void;
+    ticked: boolean;
+    onTick: (ticked: boolean) => void;
+  };
   /** The person's steps are being signed: the card's line loses its way back. */
   running: boolean;
   /** The amount was pressed (a number) or taken back (null): the host locks what it must. */
@@ -88,6 +98,7 @@ export function DepositCard({
   notice,
   source,
   initialText = '',
+  entry,
   running,
   onPressed,
   pressed: resumed = null,
@@ -99,7 +110,9 @@ export function DepositCard({
   const lang = useLang();
   const a = t.amount;
   const locale = LOCALE[lang];
-  const [text, setText] = useState(initialText);
+  const [textHere, setTextHere] = useState(initialText);
+  const text = entry?.text ?? textHere;
+  const setText = entry?.onText ?? setTextHere;
   // Taken up after a reload, the deposit is the one its order was made for: no way back to the field.
   const [pressed, setPressed] = useState<number | null>(resumed);
   const takenUp = resumed !== null;
@@ -277,7 +290,11 @@ export function DepositCard({
       preview={preview}
       details={details}
       notice={notice}
-      trust={{ userId, keeper }}
+      trust={{
+        userId,
+        keeper,
+        ...(entry ? { ticked: entry.ticked, onTick: entry.onTick } : {}),
+      }}
       action={{
         label: amount !== null ? a.press.deposit(dollars(amount, lang)) : a.enter,
         held: amount === null || blocking !== null || !owner,

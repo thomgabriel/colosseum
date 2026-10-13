@@ -27,7 +27,7 @@ import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainChoice } from '../account/ChainChoice';
 import { AmountCard } from '../amount/AmountCard';
-import { DepositCard } from '../amount/DepositCard';
+import { DepositCard, type DepositCardProps } from '../amount/DepositCard';
 import { dollars } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import { Invest } from '../order/Invest';
@@ -312,8 +312,10 @@ function RecipeSection({
   const person = useSharedPerson(recipe.chain);
   // A deposit is being signed: the chain and the card's amount are locked until it ends.
   const [pressed, setPressedHere] = useState(false);
-  // Our server said the version changed: the card is drawn again, empty, for the new one.
-  const [cardRound, setCardRound] = useState(0);
+  // What is typed and ticked on the amount card, kept here: the card is drawn again whenever the
+  // recipe is read again, and the person's amount and tick stay with them.
+  const [amountText, setAmountText] = useState('');
+  const [ticked, setTicked] = useState(false);
   const setPressed = (now: boolean) => {
     setPressedHere(now);
     onRunning(now);
@@ -530,7 +532,8 @@ function RecipeSection({
                 // draws the card again, empty, with the new displayed terms.
                 <div className="w-full">
                   <FamilyDeposit
-                    key={`${recipe.active.version}:${active.version}:${cardRound}`}
+                    key={`${recipe.active.version}:${active.version}`}
+                    entry={{ text: amountText, onText: setAmountText, ticked, onTick: setTicked }}
                     family={family}
                     recipe={recipe}
                     followed={followed}
@@ -544,7 +547,7 @@ function RecipeSection({
                       // No order is made for the new version until the person has seen it and
                       // typed an amount again.
                       setPressed(false);
-                      setCardRound((n) => n + 1);
+                      setAmountText('');
                       onVersionChanged();
                     }}
                   />
@@ -932,6 +935,7 @@ function FamilyDeposit({
   person,
   mock,
   vaults: mine,
+  entry,
   running,
   onRunning,
   onVersionChanged,
@@ -943,6 +947,7 @@ function FamilyDeposit({
   person: Extract<SharedPerson, { kind: 'ready' }>;
   mock: boolean;
   vaults: FamilyVaults;
+  entry: NonNullable<DepositCardProps['entry']>;
   running: boolean;
   onRunning: (running: boolean) => void;
   onVersionChanged: () => void;
@@ -1024,6 +1029,7 @@ function FamilyDeposit({
   return (
     <DepositCard
       headingLevel={3}
+      entry={entry}
       chain={recipe.chain}
       chainName={chainName}
       mock={mock}

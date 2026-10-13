@@ -76,7 +76,13 @@ export type AmountCardProps = {
   /** Said over the button and never folded: a read that failed, a vault that differs. */
   notice?: ReactNode;
   /** The trust notice, where this action needs it: a deposit. Left out: none. */
-  trust?: { userId: string | null; keeper: boolean } | null;
+  trust?: {
+    userId: string | null;
+    keeper: boolean;
+    /** The box as its host keeps it, where the card may be drawn again under the person. */
+    ticked?: boolean;
+    onTick?: (ticked: boolean) => void;
+  } | null;
   action: {
     label: string;
     onPress: () => void;
@@ -121,20 +127,22 @@ export function AmountCard({
   const trustId = useId();
   const intoId = useId();
   const intoHintId = useId();
-  const [ticked, setTicked] = useState(false);
+  const [tickedHere, setTickedHere] = useState(false);
+  const ticked = trust?.ticked ?? tickedHere;
+  const setTicked = trust?.onTick ?? setTickedHere;
   const [viewTrust, setViewTrust] = useState(false);
 
-  // Said once the amount has been still for a moment, or the field was left: never on the first digit.
+  // Said once the amount has been still for a moment, never on the first digit. Not on leaving the
+  // field: the line it adds would move the card under the press that left it (the trust box's tick).
   const text = field?.text ?? '';
   const [settled, setSettled] = useState(true);
-  const [left, setLeft] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a pause after each change of the text
   useEffect(() => {
     setSettled(false);
     const timer = setTimeout(() => setSettled(true), SETTLE_MS);
     return () => clearTimeout(timer);
   }, [text]);
-  const problem = field?.problem && (settled || left) ? field.problem : null;
+  const problem = field?.problem && settled ? field.problem : null;
 
   const keeper = trust?.keeper ?? true;
   const live = chainIsLive(chain);
@@ -261,16 +269,12 @@ export function AmountCard({
               id={amountId}
               label={field.label}
               text={field.text}
-              onText={(next) => {
-                setLeft(false);
-                field.onText(next);
-              }}
-              onBlur={() => setLeft(true)}
+              onText={field.onText}
               token={field.token}
               balance={field.balance}
               chips={field.chips}
               problem={problem}
-              note={!problem && field.note && (settled || left) ? field.note : null}
+              note={!problem && field.note && settled ? field.note : null}
               locked={locked}
             />
           )}
