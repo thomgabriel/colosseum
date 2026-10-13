@@ -33,6 +33,11 @@ import { CLASS_BY_UNDERLYING } from '../risk/universe/list';
 import { fundRow, type MatchContext, matchToken, parseDirectory, readFeeds } from './feeds';
 
 export const ASSETS_METHOD = 'assets-list-0.1';
+/** Tokens a person took out of the list though a rule admits them, by lower-case address, with the decision. */
+export const DECIDED_OUT: Record<string, string> = {
+  '0x39dbed3a2bd333467115de45665cc57f813c4571':
+    'PONS, gate SHELF-CRYPTO-1 (Rodrigo, 2026-10-13): the token of a launch pad whose launches are mostly memes, the closest to a meme though the CoinGecko rule admits it',
+};
 /** The longest symbol and name a row holds (the schema's); a longer chain answer is cut there. */
 export const SYMBOL_MAX = 64;
 export const NAME_MAX = 256;
@@ -944,6 +949,8 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       )
       .map((r) => r.name);
   };
+  /** A token a person took out (docs/GATES.md): never a row, whatever rule names it, and named where it leaves. */
+  const decidedOut = (t: { address: string }) => DECIDED_OUT[lower(t.address)] !== undefined;
   /** A memecoin by CoinGecko: never a row, whatever rule or verdict names it (as the Solana list). */
   const memeOut = (t: { address: string }) => kindOf(t.address) === 'meme';
   // a verdict cannot make a memecoin a row: the build stops, naming it
@@ -953,7 +960,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       `verdicts for tokens CoinGecko files as memecoins (a memecoin is not a row): ${memeVerdicts.map((v) => `${v.symbol} ${lower(v.address)}`).join(', ')}`,
     );
   const decided = (t: { address: string; symbol: string }) =>
-    !memeOut(t) && (verdictOfAddress.has(t.address) || rulesOf(t).length > 0);
+    !memeOut(t) && !decidedOut(t) && (verdictOfAddress.has(t.address) || rulesOf(t).length > 0);
   /** The issuer (or the chain, for its own coin) a token's own verdict or its last matching rule names; null where none does. */
   const issuer0 = (t: { address: string; symbol: string }): string | null => {
     const matched = new Set(rulesOf(t));
@@ -1384,11 +1391,13 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
       const nt = notTokens.find((n) => n.address === p.address);
       const why = nt
         ? `does not answer as a token at block ${block} (${nt.reason})`
-        : memeOut({ address: p.address })
-          ? `CoinGecko files it as a memecoin (${memeCategories(p.address)}): a memecoin is not a row`
-          : kindOf(p.address) === 'no_protocol_category'
-            ? `CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: ${(coins.get(p.address)?.categories ?? []).join(', ') || 'none'}), and no rule, and no verdict citing its project's own page, makes it a row`
-            : `no verdict or rule decides it (CoinGecko: ${kindOf(p.address) ?? 'not read'})`;
+        : decidedOut({ address: p.address })
+          ? `taken out by a person's decision: ${DECIDED_OUT[lower(p.address)]}`
+          : memeOut({ address: p.address })
+            ? `CoinGecko files it as a memecoin (${memeCategories(p.address)}): a memecoin is not a row`
+            : kindOf(p.address) === 'no_protocol_category'
+              ? `CoinGecko files it under no category of PROTOCOL_CATEGORIES (its categories: ${(coins.get(p.address)?.categories ?? []).join(', ') || 'none'}), and no rule, and no verdict citing its project's own page, makes it a row`
+              : `no verdict or rule decides it (CoinGecko: ${kindOf(p.address) ?? 'not read'})`;
       return `${p.id} ${p.address} (${p.symbol}, ${p.status} in ${p.commit.slice(0, 8)}): ${why}`;
     });
   const leftText = `Of the ${previous.size} rows of the committed lists (${files.previous?.path ?? 'none'}, ${files.previous?.commits.length ?? 0} commits), every one is read again; ${previous.size - left.length} are rows here. ${left.length === 0 ? 'None left.' : `Left (${left.length}): ${left.join('; ')}.`}`;
