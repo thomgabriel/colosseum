@@ -4,7 +4,7 @@
 
 How this was made: nine research notes (`docs/vault/research/design-v2/*.md`) merged with the product (`docs/vault/HANDOFF-VAULT.md`), the first version, the audit (`docs/vault/AUDIT-VAULT.md`) and the convergence blueprint (`docs/vault/CONVERGENCE-VAULT.md`), then revised after three reviews: scope against time, security, and seams. What each review changed is in `docs/vault/research/design-v2/review-log.md`. Marks: **[C n]** means checked on Oct 1 against source n in the last section, by a stream note, a reviewer or this revision; **(memory)** means not re-checked. Other numbers come from the stream notes, which carry their own source lists.
 
-Nothing here has run on mainnet. The three $10 runs come first in time.
+When this was written nothing here had run on mainnet. Since 2026-10-12 the EVM vault contracts are deployed on Robinhood Chain mainnet (`MAINNET-DEPLOY.md`), with no deposit made yet; the Solana program runs on devnet only. The three $10 runs were dropped (gate `SPEND`).
 
 **Changed on Oct 1, night:** the delay between an author publishing a new version and a vault applying it is 48 hours after launch, up from 12. The person has two days to see the change and refuse it.
 
@@ -24,7 +24,7 @@ Nothing here has run on mainnet. The three $10 runs come first in time.
 - US persons: no location block and no banner. The terms say the app is not for US persons, and a person accepts the terms before the first deposit.
 - Upgrade keys: one disclosed key per chain for now, and the app says so. A multisig comes after the MVP.
 - Keeper: run locally while testing, with a gas-only key. At deploy it moves to a small VM.
-- About $10 of Anthropic credit for the sentence parser is approved. Nothing else is spent, and no money goes onto mainnet for now (decided on Oct 2): the three $10 tests are dropped and no domain is bought.
+- About $10 of Anthropic credit for the sentence parser is approved. Nothing else is spent, and no money goes onto mainnet for now (decided on Oct 2; amended on Oct 12 for one deployment and deposits on Robinhood Chain, gate `SPEND-FIRST-MAINNET-DEPOSIT`): the three $10 tests are dropped and no domain is bought.
 - Base comes after Solana and Robinhood Chain (decided on Oct 2). Its contracts are the same Solidity; it is deployed only if the first two are working by Tue Oct 6.
 - Built and shown on test networks first (decided on Oct 2): Solana devnet and the EVM test networks, with test tokens, a test exchange and test prices standing in for the stock tokens, Jupiter and the price feeds, labelled as test everywhere. So the router and the price source are set in each chain's config, never fixed in code. The vault's handling of the real tokens and pools is proven by tests on copies of mainnet. Mainnet maybe later, by configuration. Where the text below names a $10 run, a mainnet deploy or a mainnet rehearsal, `PLAN-VAULT.md` says what stands in for it.
 - A plan lives on one chain (decided on Oct 3, gate `ONE-CHAIN`): the chain the person chose where it started (gate `CHAIN-AT-THE-PLAN`). A new plan is proposed only what exists on that chain, and the deposit, the vault and every trade of the plan are there. A plan is never split across chains. The product still runs on several chains, and a shared portfolio may be published on more than one: the lists show every chain's, and a person follows the recipe of the chain they choose on its page, among those a wallet of theirs signs on.
