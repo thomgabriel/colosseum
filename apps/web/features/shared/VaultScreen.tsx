@@ -11,7 +11,6 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { shorten } from '../../components/ui/format';
 import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
@@ -30,6 +29,7 @@ import { VaultConversation } from '../vault-conversation/VaultConversation';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { MORE_ROW, MoreMenu } from './MoreMenu';
 import { readVault } from './shared-api';
+import { shortAddress } from './use-person';
 import {
   type ActionKind,
   type ActionPhase,
@@ -49,7 +49,10 @@ import { VaultWait } from './waits';
 // the digit. Every price carries its pin (STYLE.md rule 1); a vault on the mock or a test network says
 // so in its card's line. It leads back to the portfolio, and to the chain's explorer where there is one.
 
-type Load = { kind: 'loading' } | { kind: 'read'; read: VaultResponse } | { kind: CallFailure };
+type Load =
+  | { kind: 'loading' }
+  | { kind: 'read'; read: VaultResponse }
+  | { kind: CallFailure; code?: string };
 
 export function VaultScreen({ chain, address }: { chain: string; address: string }) {
   const t = useT();
@@ -68,9 +71,13 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   const titleId = useId();
   const known = ChainId.safeParse(chain);
   // Someone signed out has no portfolio to go back to: they came from Products, or from a link.
+  // Until the wallet is known nobody is named either way: no "Back to Products" flashes by for a
+  // person whose sign-in is still loading.
   const signedIn = port.status !== 'signed-out' && port.userId !== null;
   const backLink = (ui?: string) =>
-    signedIn ? (
+    port.status === 'loading' ? (
+      <span data-ui={ui && `${ui}-wait`} aria-hidden="true" className="inline-block h-5" />
+    ) : signedIn ? (
       <Link href="/portfolio" data-ui={ui} className={buttonClass({ variant: 'link' })}>
         {v.back}
       </Link>
@@ -114,8 +121,10 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     return <VaultWait visitor={port.status === 'signed-out'} />;
   if (load.kind !== 'read') {
     // An address that is not a vault (404), or not an address of the chain (400): said once, with
-    // one way back. A server that did not answer is asked again from here.
+    // one way back. A chain switched off on the server is an answer, said as one, with nothing to
+    // retry. A server that did not answer is asked again from here.
     const missing = load.kind === 'no-plan' || load.kind === 'refused';
+    const off = load.code === 'CHAIN_UNAVAILABLE' && known.success;
     return (
       <section
         data-ui="vault-unread"
@@ -123,9 +132,14 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         className="flex flex-col items-start gap-4"
       >
         <h1 id={titleId} className={PAGE_TITLE}>
-          {missing ? v.missing : v.named(shorten(address))}
+          {missing ? v.missing : t.shared.vaults.address(shortAddress(address))}
         </h1>
-        {!missing && (
+        {off && known.success && (
+          <p className="max-w-(--tf-measure-body) text-body">
+            {v.chainOff(t.chain.names[known.data])}
+          </p>
+        )}
+        {!missing && !off && (
           <>
             <p className="max-w-(--tf-measure-body) text-body">
               {load.kind === 'busy'
@@ -218,7 +232,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         <p>{back}</p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 id={titleId} className={PAGE_TITLE}>
-            {v.named(shorten(vault.address))}
+            {t.shared.vaults.address(shortAddress(vault.address))}
           </h1>
           <ChainBadge chain={read.chain} />
         </div>
@@ -458,7 +472,7 @@ function OwnVault({
               page
               fallback={
                 <h1 id={titleId} className={WORKSPACE_TITLE}>
-                  {v.named(shorten(vault.address))}
+                  {t.shared.vaults.address(shortAddress(vault.address))}
                 </h1>
               }
               // The name (the person's own, or "Vault #N") comes with their portfolio, read once the

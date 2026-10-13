@@ -1855,9 +1855,9 @@ export const en = {
       back: 'Back to your portfolio',
       /** A visitor's way back: they have no portfolio here. */
       backVisitor: 'Back to Products',
-      /** Someone else's vault, by its address shortened: "Vault H9hg…LYP5". */
-      named: (address: string) => `Vault ${address}`,
       unreachable: 'I couldn’t read this vault: our server didn’t answer. Try again.',
+      chainOff: (chain: string) =>
+        `${chain} is switched off on our server for now, so this vault can’t be read here.`,
       retry: 'Read it again',
       /** The link to the vault's address on its chain's explorer. */
       explorer: (explorer: string) => `See it on ${explorer}`,

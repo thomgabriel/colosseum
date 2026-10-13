@@ -5,6 +5,7 @@ import type {
   SharedRecipe,
   Sourced,
 } from '@colosseum/schemas';
+import { shorten } from '../../components/ui/format';
 import type { PinSource } from '../../components/ui/provenance';
 import type { Dictionary } from '../../i18n';
 import { formatBps } from '../order/amounts';
@@ -68,7 +69,8 @@ export function holdingsOf(
     const cls = figure?.cls ?? null;
     return {
       asset: c.asset,
-      name: c.mint ? c.mint : displayName(c.asset, t.plan),
+      // a token this app does not list, by its mint cut to its ends: it goes into a sentence
+      name: c.mint ? shorten(c.mint) : displayName(c.asset, t.plan),
       shareBps: c.weightBps,
       cls,
       yield: figure?.yield
@@ -108,23 +110,10 @@ function sharesByKind(
 }
 
 /**
- * The share of each kind of asset, largest first: "Stocks 50%", "Dollar yield 30%". A holding whose
- * kind the server did not send is named by itself ("SPY 40%"), never counted as "Other": a missing
- * kind says nothing of what the token is.
- */
-export function kindShares(
-  holdings: readonly Pick<ProductHolding, 'cls' | 'shareBps' | 'name'>[],
-  locale: string,
-  kinds: Dictionary['plan']['kinds'],
-): string[] {
-  return sharesByKind(holdings, kinds).map(
-    ({ label, bps }) => `${label} ${formatBps(bps, locale)}`,
-  );
-}
-
-/**
- * The same as part of a sentence: "Funds 50% and dollar yield 50%". Only the first word keeps its
- * capital; a token's own name keeps its own ("SPY 40%, NVDA 30% and TSLA 30%").
+ * The share of each kind of asset, largest first, as part of a sentence: "Funds 50% and dollar yield
+ * 50%". Only the first word keeps its capital. A holding whose kind the server did not send is named
+ * by itself and keeps its own capitals ("SPY 40%, NVDA 30%, and TSLA 30%"), never counted as
+ * "Other": a missing kind says nothing of what the token is.
  */
 export function kindsSaid(
   holdings: readonly Pick<ProductHolding, 'cls' | 'shareBps' | 'name'>[],

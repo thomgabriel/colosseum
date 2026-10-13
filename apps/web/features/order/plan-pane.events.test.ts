@@ -84,8 +84,8 @@ describe('a plan to grow', () => {
         card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
       })),
     );
-    expect(answer(host)).toBe(en.plan.answer.inNoFall('60%', 'stocks'));
-    // no "$0 since nothing here is stocks": the spread holds stocks, so no figure is drawn
+    // no "no loss counted" and no "$0 since nothing here is stocks": the spread holds stocks
+    expect(answer(host)).toBe(en.plan.answer.inOnly('60%', 'stocks'));
     expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
     expect(host.querySelector('[data-ui="plan-yield"]')).toBeNull();
   });
@@ -106,6 +106,17 @@ describe('a plan to grow', () => {
     expect(answer(host)).toBe(en.plan.answer.inNoFall('95%', 'dollar yield'));
     expect(find(host, '[data-ui="plan-bad-fall"]').textContent).toBe(en.plan.badFall.none);
     expect(width(find(host, '[data-ui="plan-fall-loss"]'))).toBe('0%');
+  });
+
+  it('counts a kind the asset list does not know as one that may fall', async () => {
+    const host = await pane({
+      ...of('grow', (p) => ({
+        card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
+      })),
+      rollUp: { ...ROLL_UP, byClass: [{ key: 'unknown', bps: 10_000 }] },
+    });
+    expect(answer(host)).not.toMatch(/fall/);
+    expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
   });
 
   it('says nothing of a fall where the kinds are not known and the engine counted none', async () => {

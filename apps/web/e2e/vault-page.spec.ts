@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { shorten } from '../components/ui/format';
+// `shortAddress` (features/shared/use-person.ts) cuts as `shorten` does; it imports the wallet
+import { shorten as shortAddress } from '../components/ui/format';
 import { dictionary } from '../i18n';
 import { readyToInvest } from './invest';
 import { inTheme } from './theme';
@@ -357,7 +358,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   // throwaway wallet new keys, so this load is not the owner's.
   await page.goto(`/vaults/solana/${address}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    en.shared.vault.named(shorten(address)),
+    en.shared.vaults.address(shortAddress(address)),
   );
   const visitor = page.locator('[data-ui="vault-screen"]');
   await expect(

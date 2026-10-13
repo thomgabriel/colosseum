@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { shorten } from '../components/ui/format';
+// `shortAddress` (features/shared/use-person.ts) cuts as `shorten` does; it imports the wallet
+import { shorten as shortAddress } from '../components/ui/format';
 import { dictionary } from '../i18n';
 import { openPlan } from './invest';
 import { inTheme } from './theme';
@@ -65,7 +66,7 @@ test('a visitor on a vault’s page: its address for a title, its chain, and the
   await page.goto(`/vaults/solana/${address}`);
   const head = page.locator('[data-ui="vault-screen"] header');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    en.shared.vault.named(shorten(address)),
+    en.shared.vaults.address(shortAddress(address)),
   );
   await expect(head.locator('[data-ui="chain-badge"]')).toHaveText('Solana');
   const back = head.locator('[data-ui="vault-back"]');

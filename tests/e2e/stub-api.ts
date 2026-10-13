@@ -153,14 +153,25 @@ let linked: ReturnType<typeof proposal> | null = null;
 let built: ReturnType<typeof proposal> | null = null;
 /** The weights of a mix confirmed for a new goal (POST /v1/conversations/{chain}/goal/accept): the buy's. */
 let mixTargets: Target[] | null = null;
-/** The risk roll-up of a plan an agent proposed: MOCK, nothing measured, as on the mock chain. */
-const ROLL_UP = {
-  byIssuer: [{ key: 'mock', bps: 10_000 }],
-  byChain: [{ key: CHAIN, bps: 10_000 }],
-  byClass: [{ key: 'stock', bps: 10_000 }],
-  flags: ['exit_not_measured', 'exit_quote_missing'],
-  exit: { quotedBps: null, quotedAt: null, measuredWorstBps: null, measuredShareBps: 0 },
-};
+/**
+ * A plan's risk roll-up, as apps/api sends it with every plan it makes (`rollUp`): its spread by kind
+ * from the mock's asset list, its cash as cash; MOCK, nothing measured, as on the mock chain.
+ */
+function rollUpOf(lines: { assetId: string; weightBps: number }[]) {
+  const byClass = new Map<string, number>();
+  for (const l of lines) {
+    const key =
+      l.assetId === world.adapter.mock.cash ? 'cash' : (CLASSES.get(l.assetId) ?? 'unknown');
+    byClass.set(key, (byClass.get(key) ?? 0) + l.weightBps);
+  }
+  return {
+    byIssuer: [{ key: 'mock', bps: 10_000 }],
+    byChain: [{ key: CHAIN, bps: 10_000 }],
+    byClass: [...byClass].sort((a, b) => b[1] - a[1]).map(([key, bps]) => ({ key, bps })),
+    flags: ['exit_not_measured', 'exit_quote_missing'],
+    exit: { quotedBps: null, quotedAt: null, measuredWorstBps: null, measuredShareBps: 0 },
+  };
+}
 /** The steps the web reported signed bytes or an id for, in order. */
 let reports: string[] = [];
 
@@ -1159,7 +1170,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (path === '/v1/baskets/propose' && method === 'POST') {
     const body = (await read(req)) as { sheet: BasketSheet };
     linked = proposal(body.sheet);
-    return send(res, 200, { id: PLAN_ID, proposal: linked, rollUp: ROLL_UP });
+    return send(res, 200, { id: PLAN_ID, proposal: linked, rollUp: rollUpOf(linked.lines) });
   }
   if (path.startsWith('/v1/baskets/') && method === 'GET') {
     if (path !== `/v1/baskets/${PLAN_ID}` || !(linked || built))
@@ -1171,7 +1182,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (path === '/v1/baskets/personalize' && method === 'POST') {
     const body = (await read(req)) as { sheet: BasketSheet };
     built = proposal(body.sheet);
-    return send(res, 200, { id: PLAN_ID, proposal: built });
+    return send(res, 200, { id: PLAN_ID, proposal: built, rollUp: rollUpOf(built.lines) });
   }
   if (path === `/v1/conversations/${CHAIN}/goal/reply` && method === 'POST')
     return send(res, 200, goalReply((await read(req)) as Parameters<typeof goalReply>[0]));

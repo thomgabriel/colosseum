@@ -3,7 +3,6 @@ import { DISCLAIMER, type OrderDetail } from '@colosseum/schemas';
 import { solanaVaultAddress } from '@colosseum/sdk';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { shorten } from '../../components/ui/format';
 import { click, find, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import type { Person } from '../account/person';
@@ -23,6 +22,7 @@ import {
 } from '../order/test/fixtures';
 import { unitsFor } from '../order/units';
 import { readTerms, type SharedTerms } from '../shared/terms';
+import { shortAddress } from '../shared/use-person';
 import { VaultScreen } from '../shared/VaultScreen';
 import { EMBEDDED, fakePort, json, SOLANA, signedInPort } from '../wallet/test/fake-port';
 import { router } from '../wallet/test/mock-next';
@@ -758,7 +758,7 @@ describe('a vault’s own page, which anybody can open', () => {
     // signed in, with a vault of their own that is not this one
     api({ vaults: [vault({ address: SECOND_VAULT, basketId: '8', name: 'Mine' })] });
     const host = await page();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.named(shorten(VAULT)));
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.querySelector('[data-ui="vault-actions"]')).toBeNull();
     expect(host.querySelector('[data-ui="vault-add-money"]')).toBeNull();
     expect(host.textContent).not.toContain('Mine');
@@ -770,7 +770,7 @@ describe('a vault’s own page, which anybody can open', () => {
     const server = api({ vaults: [vault({ name: 'Rent' })] });
     portStore.set(fakePort());
     const host = await page();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.named(shorten(VAULT)));
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.querySelector('[data-ui="vault-actions"]')).toBeNull();
     expect(host.textContent).not.toContain('Rent');
     expect(server.to(PORTFOLIO_PATH)).toEqual([]);

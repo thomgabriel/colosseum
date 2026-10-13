@@ -34,8 +34,8 @@ const observed = (observations: readonly ObservationRef[], kind: ObservationRef[
     : null;
 };
 
-/** The kinds of asset a bad fall is counted on (the engine's growth and gold sleeves). */
-const FALLS: ReadonlySet<string> = new Set(['stock', 'etf', 'crypto', 'gold', 'commodity']);
+/** The kinds of asset a bad fall does not touch: cash and dollar yield. Any other, `unknown` too, may fall. */
+const HOLDS: ReadonlySet<string> = new Set(['cash', 'dollar_yield']);
 
 const percent = (value: number, lang: Lang) =>
   new Intl.NumberFormat(LOCALE[lang], {
@@ -106,12 +106,12 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
   const monthly = income && ranged;
   const fall = card.expectedReturn.lossInFallUsd;
   // A bad fall is said only where it stands on known kinds of asset. A loss above zero is the
-  // engine's count of the stocks, crypto and gold it found. A zero is said as "no loss counted" only
-  // where the plan came with its spread by kind, and as "nothing here is stocks, crypto or gold" only
-  // where that spread holds none of them: a plan read back, or made from a mix, carries no spread, and
-  // its zero may be no more than kinds nobody sent (the UI audit, F2).
+  // engine's count of the stocks, crypto and gold it found. A zero is said, in the headline and in
+  // the figure, only where the plan came with its spread by kind and that spread is all cash and
+  // dollar yield: a plan read back, or made from a mix, carries no spread, and its zero may be no
+  // more than kinds nobody sent (the UI audit, F2).
   const kinds = plan.rollUp?.byClass ?? [];
-  const noneFalls = kinds.length > 0 && !kinds.some((k) => FALLS.has(k.key.replace(/-/g, '_')));
+  const noneFalls = kinds.length > 0 && kinds.every((k) => HOLDS.has(k.key.replace(/-/g, '_')));
   const fallSaid = fall > 0 || noneFalls;
   // The income meter's two ends, as shares of what was asked. Whether the plan reaches the ask is
   // the engine's verdict where it gave one, never this page's rounding: short of it, the solid part
@@ -183,7 +183,7 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
         ) : top && !income ? (
           fall > 0 ? (
             t.plan.answer.inFall(share(top.bps), top.what, dollars(fall, lang))
-          ) : kinds.length > 0 ? (
+          ) : noneFalls ? (
             t.plan.answer.inNoFall(share(top.bps), top.what)
           ) : (
             t.plan.answer.inOnly(share(top.bps), top.what)

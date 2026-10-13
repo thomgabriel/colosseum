@@ -1645,8 +1645,9 @@ export const pt: Dictionary = {
       missing: 'Não há cofre neste endereço.',
       back: 'Voltar ao seu portfólio',
       backVisitor: 'Voltar aos Produtos',
-      named: (address: string) => `Cofre ${address}`,
       unreachable: 'Não consegui ler este cofre: nosso servidor não respondeu. Tente de novo.',
+      chainOff: (chain: string) =>
+        `${chain} está indisponível no nosso servidor por enquanto, então não consigo ler este cofre aqui.`,
       retry: 'Ler de novo',
       explorer: (explorer: string) => `Ver no ${explorer}`,
       owner: 'Dono',

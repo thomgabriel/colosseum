@@ -3,7 +3,6 @@ import { TRUST_STATUS } from '@colosseum/schemas';
 import { deploymentsOf, type GuardDeployment, solanaVaultAddress } from '@colosseum/sdk';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { shorten } from '../../components/ui/format';
 import {
   click,
   find,
@@ -47,6 +46,7 @@ import {
   vaultOf,
   WEIGHTS,
 } from './test/fixtures';
+import { shortAddress } from './use-person';
 import { VaultScreen } from './VaultScreen';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
@@ -1686,13 +1686,34 @@ describe('a vault’s public page', () => {
     });
     const host = await show(createElement(VaultScreen, { chain: 'solana', address: VAULT }));
     await settle();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.named(shorten(VAULT)));
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.textContent).toContain(en.shared.vault.unreachable);
     expect(host.textContent).not.toMatch(/shared portfolios/);
     expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
     await click(find(host, 'button'));
     await settle();
     expect(asked).toBe(2);
+  });
+
+  it('says a chain switched off on the server as an answer, with nothing to read again', async () => {
+    portStore.set(fakePort());
+    portStore.setApi(async () => json({ error: 'switched off', code: 'CHAIN_UNAVAILABLE' }, 503));
+    const host = await show(createElement(VaultScreen, { chain: 'solana', address: VAULT }));
+    await settle();
+    expect(host.textContent).toContain(en.shared.vault.chainOff('Solana'));
+    expect(host.textContent).not.toContain(en.shared.vault.unreachable);
+    expect(host.querySelectorAll('button')).toHaveLength(0);
+    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+  });
+
+  it('names no way back while the wallet is loading, so "Back to Products" never flashes by', async () => {
+    portStore.set(fakePort({ status: 'loading' }));
+    portStore.setApi(async () => json({ error: 'no vault at that address' }, 404));
+    const host = await show(createElement(VaultScreen, { chain: 'solana', address: VAULT }));
+    await settle();
+    expect(find(host, 'h1').textContent).toBe(en.shared.vault.missing);
+    expect(host.querySelectorAll('a')).toHaveLength(0);
+    expect(host.textContent).not.toContain(en.shared.vault.backVisitor);
   });
 });
 
