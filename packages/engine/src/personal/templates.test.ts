@@ -293,7 +293,7 @@ describe('explanation templates', () => {
         'en',
       ).text,
     ).toBe(
-      'On its own, this mix takes the limits for low risk. Because of what is set aside for your withdrawals, the plan uses the limits one step up, for medium risk: at lower limits it would hold less in stocks and crypto.',
+      'On its own, what you asked to hold takes the limits for low risk. Because of what is set aside for your withdrawals, the plan uses the limits one step up, for medium risk: at lower limits it would hold less in stocks and crypto.',
     );
     expect(
       reason(
@@ -302,7 +302,7 @@ describe('explanation templates', () => {
         'pt',
       ).text,
     ).toBe(
-      'Sozinha, esta composição usa os limites de risco baixo. Por causa de o que você já tem e o que você não pode ter, o plano usa os limites dois níveis acima, de risco alto: com limites mais baixos ele teria menos em ações e cripto.',
+      'Sozinho, o que você pediu para ter usa os limites de risco baixo. Por causa de o que você já tem e o que você não pode ter, o plano usa os limites dois níveis acima, de risco alto: com limites mais baixos ele teria menos em ações e cripto.',
     );
   });
 

@@ -15,7 +15,6 @@
     "@colosseum/db": "workspace:*",
     "@colosseum/schemas": "workspace:*",
     "@solana/kit": "^2.3.0",
-    "drizzle-orm": "^0.45.3",
-    "zod": "^4.6.5"
+    "drizzle-orm": "^0.45.3"
   }
 }

@@ -16,12 +16,37 @@ vi.mock('./landing-account-live', () => new Promise(() => {}));
 // line and "Start a plan" in front, the slow honey fog behind, and the platform's numbers, each pinned.
 
 const en = dictionary('en');
+const AT = '2026-10-08T12:00:00.000Z';
+const figure = (value: number, fetchedAt = AT) => ({
+  value,
+  source: 'tenonfi API /v1/stats',
+  fetchedAt,
+  method: 'a count',
+});
+/** A reply of `/v1/stats` with a test network's block and a mainnet's. */
 const LIVE_REPLY = {
-  plans: 37,
-  wallets: 12,
-  observedValueUsd: 15234.5,
-  asOf: '2026-10-08T12:00:00.000Z',
+  networks: [
+    {
+      provenance: 'sandbox',
+      chains: ['solana'],
+      vaults: figure(900),
+      wallets: figure(400),
+      valueUsd: figure(1_000_000),
+    },
+    {
+      provenance: 'live',
+      chains: ['robinhood'],
+      vaults: figure(37),
+      wallets: figure(12),
+      valueUsd: figure(15234.5, '2026-10-08T11:55:00.000Z'),
+    },
+  ],
+  disclaimer: 'x',
 };
+const only = (provenance: string, valueUsd: unknown = figure(10)) => ({
+  ...LIVE_REPLY,
+  networks: [{ ...LIVE_REPLY.networks[0], provenance, valueUsd }],
+});
 
 const landing = async (
   { lang = 'en', signedIn = false, stats = SAMPLE_STATS } = {} as {
@@ -134,8 +159,7 @@ describe('the numbers', () => {
     expect(host.textContent).not.toContain('MOCK');
   });
 
-  it('shows the API’s numbers live on mainnet, with no hatch and no change figure', async () => {
-    vi.stubEnv('NEXT_PUBLIC_CHAIN_NETWORK_SOLANA', 'mainnet');
+  it('shows a mainnet’s numbers live, with no hatch and no change figure', async () => {
     const stats = fromReply(LIVE_REPLY);
     expect(stats).not.toBeNull();
     const host = await landing({ stats: stats ?? SAMPLE_STATS });
@@ -144,20 +168,43 @@ describe('the numbers', () => {
     expect(strip.querySelector('[data-ui="hatch-band"]')).toBeNull();
     expect(strip.querySelectorAll('[data-ui="pin-glyph"][data-state="live"]')).toHaveLength(3);
     expect([...strip.querySelectorAll('dt')].map((d) => d.textContent)).toEqual([
-      en.landing.stats.plans,
+      en.landing.stats.vaults,
       en.landing.stats.wallets,
       en.landing.stats.value,
     ]);
+    // the mainnet's block, never the test network's beside it
     expect(strip.textContent).toContain('37');
+    expect(strip.textContent).toContain('$15.2K');
+    expect(strip.textContent).not.toContain('900');
     expect(strip.textContent).not.toMatch(/[+−]\d/);
   });
 
-  it('says "Test network" on the API’s numbers off mainnet, and keeps the hatch', async () => {
-    vi.stubEnv('NEXT_PUBLIC_CHAIN_NETWORK_SOLANA', 'devnet');
-    const host = await landing({ stats: fromReply(LIVE_REPLY) ?? SAMPLE_STATS });
+  it('says "Test network" on a test network’s numbers, and keeps the hatch', async () => {
+    const host = await landing({ stats: fromReply(only('sandbox')) ?? SAMPLE_STATS });
     const strip = find(host, '[data-ui="landing-stats"]');
     expect(strip.hasAttribute('data-sample')).toBe(true);
+    expect(strip.querySelectorAll('[data-ui="pin-glyph"][data-state="mock"]')).toHaveLength(3);
     expect(find(strip, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+  });
+
+  it('says "Sample figures" on the mock’s numbers', async () => {
+    const host = await landing({ stats: fromReply(only('mock')) ?? SAMPLE_STATS });
+    const strip = find(host, '[data-ui="landing-stats"]');
+    expect(strip.hasAttribute('data-sample')).toBe(true);
+    expect(find(strip, '[data-ui="sample-note"]').textContent).toBe(en.shell.mockAnnounce);
+  });
+
+  it('leaves the value out, never 0, when the API has none', async () => {
+    const stats = fromReply(only('live', null));
+    expect(stats?.items.map((i) => i.key)).toEqual(['vaults', 'wallets']);
+    const host = await landing({ stats: stats ?? SAMPLE_STATS });
+    const strip = find(host, '[data-ui="landing-stats"]');
+    expect([...strip.querySelectorAll('dt')].map((d) => d.textContent)).toEqual([
+      en.landing.stats.vaults,
+      en.landing.stats.wallets,
+    ]);
+    expect(strip.textContent).not.toContain('$0');
+    expect(find(strip, 'dl').className).toContain('sm:grid-cols-2');
   });
 });
 
@@ -171,15 +218,24 @@ describe('where the numbers come from', () => {
     expect(await platformStats()).toBe(SAMPLE_STATS);
   });
 
-  it('is the API’s `/stats`, stamped with the instant it answered', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json(LIVE_REPLY));
+  it('is the API’s `/v1/stats`, each figure pinned with its own source, instant and method', async () => {
+    const fetched = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json(LIVE_REPLY));
     const stats = await platformStats();
-    expect(stats.live).toBe(true);
+    expect(String(fetched.mock.calls[0]?.[0])).toMatch(/\/v1\/stats$/);
+    expect(stats.provenance).toBe('live');
     for (const item of stats.items) {
-      expect(item.obs.source).toBe('tenonfi API /stats');
-      expect(item.obs.fetchedAt).toBe(LIVE_REPLY.asOf);
+      expect(item.obs.source).toBe('tenonfi API /v1/stats');
       expect(item.obs.method).not.toBe('');
+      expect(item.obs.provenance).toBe('live');
     }
+    expect(stats.items.find((i) => i.key === 'value')?.obs.fetchedAt).toBe(
+      '2026-10-08T11:55:00.000Z',
+    );
+  });
+
+  it('is the sample strip on a reply with no block, or the structurer’s old `/stats` shape', () => {
+    expect(fromReply({ ...LIVE_REPLY, networks: [] })).toBeNull();
+    expect(fromReply({ plans: 0, wallets: 0, observedValueUsd: 0, asOf: AT })).toBeNull();
   });
 });
 

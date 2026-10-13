@@ -60,13 +60,24 @@ const OWNED_PREFIXES = ['CHAIN_', 'AUTO_FOLLOW_', 'KEEPER_'];
 /** Every variable the flags and the chain configs read. */
 export const KNOWN_ENV_KEYS: readonly string[] = [
   ...PER_CHAIN.flatMap((prefix) => ChainId.options.map((chain) => envKey(prefix, chain))),
-  // The second switch a mainnet chain needs (apps/api/src/orders/chains.ts, MAINNET_SWITCH). Only
-  // Robinhood Chain may be on a mainnet, so there is one name, not one per chain.
+  // The second switch a mainnet chain needs (MAINNET_SWITCH, below). Only Robinhood Chain may be on a
+  // mainnet, so there is one name, not one per chain.
   'CHAIN_MAINNET_ROBINHOOD',
   'KEEPER_ENABLED',
   'AGENT_SURFACE',
   'LEGACY_STRUCTURER',
 ];
+
+/**
+ * The second switch a mainnet needs, beside `CHAIN_NETWORK_ROBINHOOD=mainnet` and the committed deploy
+ * record: its value is the words below, exactly. Real money is never one typo, or one inherited
+ * variable, away. Here, and not in an app, because every app that touches the chain is held to it: the
+ * API (apps/api/src/orders/chains.ts) and the snapshot worker (apps/snapshot/src/chains.ts).
+ */
+export const MAINNET_SWITCH = 'CHAIN_MAINNET_ROBINHOOD';
+export const MAINNET_SWITCH_VALUE = 'real-money';
+export const mainnetAllowed = (env: EnvLike): boolean =>
+  env[MAINNET_SWITCH]?.trim() === MAINNET_SWITCH_VALUE;
 
 /**
  * Throws on a set variable that starts with CHAIN_, AUTO_FOLLOW_ or KEEPER_ and is not one we read:

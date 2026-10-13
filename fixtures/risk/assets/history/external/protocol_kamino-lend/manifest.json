@@ -1,0 +1,31 @@
+{
+  "series": "external-daily",
+  "chain": "robinhood",
+  "subject": "protocol:kamino-lend",
+  "methodVersion": "backfill-0.1",
+  "source": "DefiLlama /protocol/kamino-lend tvl",
+  "provenance": "live",
+  "covered": [
+    {
+      "from": 1697068800,
+      "to": 1791897947,
+      "unit": "second"
+    }
+  ],
+  "days": {
+    "all": {
+      "rows": 1099,
+      "bytes": 10811
+    }
+  },
+  "rows": 1099,
+  "bytes": 10811,
+  "checks": [
+    {
+      "name": "non_empty",
+      "passed": true,
+      "detail": "1099 daily points"
+    }
+  ],
+  "updatedAt": "2026-10-13T13:46:27.016Z"
+}

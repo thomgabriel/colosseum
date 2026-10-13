@@ -3776,6 +3776,33 @@ export type GetShelfResponse = {
   disclaimer: string;
 };
 
+/** GET /v1/stats: response. The platform in numbers: vaults, the wallets that own them, what they hold */
+export type GetStatsResponse = {
+  networks: {
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+    chains: ('solana' | 'base' | 'robinhood')[];
+    vaults: {
+      value: number;
+      source: string;
+      fetchedAt: string;
+      method: string;
+    };
+    wallets: {
+      value: number;
+      source: string;
+      fetchedAt: string;
+      method: string;
+    };
+    valueUsd: {
+      value: number;
+      source: string;
+      fetchedAt: string;
+      method: string;
+    } | null;
+  }[];
+  disclaimer: string;
+};
+
 /** POST /v1/testnet/fund: body. Test network only: send the signed-in wallet the test tokens and gas a buy is missing */
 export type PostTestnetFundBody = {
   wallet?: string | string;
@@ -4680,6 +4707,7 @@ export interface ApiRoutes {
     response: GetPortfolioRebalancesResponse;
   };
   'GET /v1/shelf': { query: GetShelfQuery; response: GetShelfResponse };
+  'GET /v1/stats': { response: GetStatsResponse };
   'POST /v1/testnet/fund': { body: PostTestnetFundBody; response: PostTestnetFundResponse };
   'GET /v1/vaults/{chain}/{address}': {
     params: GetVaultsByChainByAddressParams;

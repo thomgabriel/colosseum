@@ -148,6 +148,13 @@
       "when": 1791572641769,
       "tag": "0020_vault_numbers",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791685486169,
+      "tag": "0021_asset_observations",
+      "breakpoints": true
     }
   ]
 }

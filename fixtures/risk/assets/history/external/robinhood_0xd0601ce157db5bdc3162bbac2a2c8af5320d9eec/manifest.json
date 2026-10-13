@@ -1,0 +1,31 @@
+{
+  "series": "external-daily",
+  "chain": "robinhood",
+  "subject": "robinhood:0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+  "methodVersion": "backfill-0.1",
+  "source": "DefiLlama coins robinhood:0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec /chart period=1d",
+  "provenance": "live",
+  "covered": [
+    {
+      "from": 1782446104,
+      "to": 1791900454,
+      "unit": "second"
+    }
+  ],
+  "days": {
+    "all": {
+      "rows": 99,
+      "bytes": 1164
+    }
+  },
+  "rows": 99,
+  "bytes": 1164,
+  "checks": [
+    {
+      "name": "non_empty",
+      "passed": true,
+      "detail": "99 daily points"
+    }
+  ],
+  "updatedAt": "2026-10-13T13:46:27.016Z"
+}

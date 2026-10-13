@@ -104,9 +104,12 @@ describe('raw arrays: the collector’s own rule', () => {
     expect(src).toContain(
       "const isCl = (p: RegPool) => p.venue === 'raydium_clmm' || p.venue === 'orca_whirlpool';",
     );
-    expect(src).toContain('const totalTvl = reg.pools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);');
+    // the stock pools only: a merged registry's shelf pools (PLAN-ASSETS AS.12) take no raw capture
+    expect(src).toContain("const isStockSet = (p: RegPool) => p.set !== 'shelf';");
+    expect(src).toContain('const stockPools = reg.pools.filter(isStockSet);');
+    expect(src).toContain('const totalTvl = stockPools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);');
     expect(src).toContain(
-      'for (const p of [...reg.pools].sort((a, b) => b.tvlUsd - a.tvlUsd)) { if (cum >= RAW_TOP_SHARE * totalTvl) break; cum += p.tvlUsd; rawSet.add(p.address); }',
+      'for (const p of [...stockPools].sort((a, b) => b.tvlUsd - a.tvlUsd)) { if (cum >= RAW_TOP_SHARE * totalTvl) break; cum += p.tvlUsd; rawSet.add(p.address); }',
     );
     // a pool gets a raw file only where its arrays were just read again, which is asked for Raydium and Orca only
     expect(src).toContain('if (isCl(p)) refreshCl.add(p.address);');
@@ -133,6 +136,19 @@ describe('raw arrays: the collector’s own rule', () => {
     });
     // every one of them is a pool of a tracked stock
     expect(rows.every((p) => tracked.has(p.assetMint))).toBe(true);
+  });
+
+  it("leaves a merged registry's shelf pools out of the rule, as the collector does", () => {
+    // the same registry with a shelf pool larger than all of it: the stock pools the rule names do not move
+    const big = {
+      ...(registry[0] as (typeof registry)[number]),
+      address: 'ShelfPoo1',
+      tvlUsd: 1e12,
+    };
+    const merged = [...registry, { ...big, set: 'shelf' }];
+    expect([...collectorRecorded(merged)].sort()).toEqual([...collectorRecorded(registry)].sort());
+    // and without its mark it would take the whole 80% for itself
+    expect(collectorRecorded([...registry, big]).has('ShelfPoo1')).toBe(true);
   });
 });
 
