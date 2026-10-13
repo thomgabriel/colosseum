@@ -581,10 +581,10 @@ describe('where the limits are above the ones the mix takes on its own, the plan
         l.assetId,
       ).toBe(l.assetId === 'robinhood:spy');
     expect(raised(plan)[0]?.text).toBe(
-      'On its own, this mix takes the limits for low risk. Because of what is set aside for your withdrawals, the plan uses the limits one step up, for medium risk: at lower limits it would hold less in stocks and crypto.',
+      'On its own, what you asked to hold takes the limits for low risk. Because of what is set aside for your withdrawals, the plan uses the limits one step up, for medium risk: at lower limits it would hold less in stocks and crypto.',
     );
     expect(raised(run({ ...s, language: 'pt' }))[0]?.text).toBe(
-      'Sozinha, esta composição usa os limites de risco baixo. Por causa de o que fica separado para os seus saques, o plano usa os limites um nível acima, de risco médio: com limites mais baixos ele teria menos em ações e cripto.',
+      'Sozinho, o que você pediu para ter usa os limites de risco baixo. Por causa de o que fica separado para os seus saques, o plano usa os limites um nível acima, de risco médio: com limites mais baixos ele teria menos em ações e cripto.',
     );
     // Every candidate shown takes the plan's limits, and says the same of them.
     for (const c of candidates(s, shelf, ctx).shown) {
@@ -624,7 +624,7 @@ describe('where the limits are above the ones the mix takes on its own, the plan
     });
     expect(without.sheet.risk).toBe('high');
     expect(raised(without)[0]?.text).toBe(
-      'On its own, this mix takes the limits for medium risk. Because of what you cannot hold, the plan uses the limits one step up, for high risk: at lower limits it would hold less in stocks and crypto.',
+      'On its own, what you asked to hold takes the limits for medium risk. Because of what you cannot hold, the plan uses the limits one step up, for high risk: at lower limits it would hold less in stocks and crypto.',
     );
     expect(raisedFlags(without)).toEqual(['limits_raised:medium:cannotHold']);
   });
@@ -676,7 +676,7 @@ describe('a mix with withdrawals (review of Oct 6, finding 2)', () => {
         .map((r) => r.text),
     ).toEqual([
       'You asked for all of it in stocks and crypto.',
-      '$1,800 of the 100% you asked for in stocks and crypto is set aside for your withdrawals from October 2026 to March 2027 instead, which leaves 82% of the plan for stocks and crypto: what your withdrawals need in those months is set aside before the mix is held.',
+      '$1,800 of the 100% you asked for in stocks and crypto is set aside for your withdrawals from October 2026 to March 2027 instead, which leaves 82% of the plan for stocks and crypto: what your withdrawals need in those months is set aside before the rest of what you asked for goes into the vault.',
       // The share the limits are taken for is the one the plan sets out to hold: what the sentence
       // before it says the withdrawals leave. It said 100% until the second review of Oct 6.
       'To hold 82% of the plan in stocks and crypto, the plan uses the limits for high risk: at most 35% in one stock or crypto asset, and 100% with one issuer.',
@@ -700,7 +700,7 @@ describe('a mix with withdrawals (review of Oct 6, finding 2)', () => {
   it('says it in Portuguese', () => {
     const plan = run(withdrawing(mix({ growthBps: 10_000 }), { language: 'pt' }));
     expect(said(plan, 'solana:spyx')[1]?.text).toBe(
-      'US$ 1.800 dos 100% que você pediu em ações e cripto ficam separados para os seus saques de outubro de 2026 a março de 2027, o que deixa 82% do plano para ações e cripto: o que os seus saques precisam nesses meses fica separado antes de a composição ser montada.',
+      'US$ 1.800 dos 100% que você pediu em ações e cripto ficam separados para os seus saques de outubro de 2026 a março de 2027, o que deixa 82% do plano para ações e cripto: o que os seus saques precisam nesses meses fica separado antes de o restante do que você pediu ir para o cofre.',
     );
   });
 
@@ -754,7 +754,7 @@ describe('a mix with withdrawals (review of Oct 6, finding 2)', () => {
     );
     expect(heldIn(robinhood)).toEqual({ growth: 5000, dollarYield: 1800, gold: 0, cash: 3200 });
     expect(said(robinhood, 'robinhood:usdg').find((r) => r.rule === 'MIX_SET_ASIDE')?.text).toBe(
-      '$1,800 of the 50% you asked for in cash is set aside for your withdrawals from October 2026 to March 2027 instead, which leaves 32% of the plan for cash: what your withdrawals need in those months is set aside before the mix is held.',
+      '$1,800 of the 50% you asked for in cash is set aside for your withdrawals from October 2026 to March 2027 instead, which leaves 32% of the plan for cash: what your withdrawals need in those months is set aside before the rest of what you asked for goes into the vault.',
     );
   });
 
@@ -800,11 +800,11 @@ describe('a mix with withdrawals (review of Oct 6, finding 2)', () => {
     }
     // Cover sets a year aside: 76% would be left for stocks, another share than the plan's 82%.
     expect(all.notShown.find((n) => n.id === 'cover')?.why).toBe(
-      'Cover is not shown: it would hold 76% of the plan in stocks and crypto, where the plan for the mix you asked for holds 82%.',
+      'Cover is not shown: it would hold 76% of the plan in stocks and crypto, where the plan for what you asked to hold has 82%.',
     );
     const pt = candidates(withdrawing(mix({ growthBps: 10_000 }), { language: 'pt' }), shelf, ctx);
     expect(pt.notShown.find((n) => n.id === 'cover')?.why).toBe(
-      'Cobertura não aparece: ele teria 76% do plano em ações e cripto, e o plano para a composição que você pediu tem 82%.',
+      'Cobertura não aparece: ele teria 76% do plano em ações e cripto, e o plano com o que você pediu tem 82%.',
     );
   });
 });
@@ -959,7 +959,7 @@ describe('a candidate that would change a share the mix states is not made', () 
     );
     for (const c of all.shown) expect(sleeveBps(c.plan, shelf, 'dollarYield'), c.id).toBe(9000);
     expect(all.notShown.find((n) => n.id === 'spread')?.why).toBe(
-      'Spread is not shown: it would hold 60% of the plan in dollar yield, where the plan for the mix you asked for holds 90%.',
+      'Spread is not shown: it would hold 60% of the plan in dollar yield, where the plan for what you asked to hold has 90%.',
     );
   });
 
@@ -975,7 +975,7 @@ describe('a candidate that would change a share the mix states is not made', () 
       expect(sleeveBps(c.plan, shelf, 'gold'), c.id).toBe(5000);
     }
     expect(all.notShown.map((n) => n.why)).toEqual([
-      'Spread is not shown: it would hold 30% of the plan in gold, where the plan for the mix you asked for holds 50%.',
+      'Spread is not shown: it would hold 30% of the plan in gold, where the plan for what you asked to hold has 50%.',
     ]);
   });
 });
@@ -1027,10 +1027,10 @@ describe('a cent of rounding is not a limit', () => {
       ['robinhood:usdg', 0.01],
     ]);
     expect(said(odd, 'robinhood:usdg').map((r) => r.text)).toEqual([
-      '$0.01 is left over once each share of your mix is written in whole cents, and stays in cash.',
+      '$0.01 is left over once each share you asked for is written in whole cents, and stays in cash.',
     ]);
     expect(said(at(1000.37, 'pt'), 'robinhood:usdg').map((r) => r.text)).toEqual([
-      'US$ 0,01 sobram quando cada parcela da sua composição é escrita em centavos inteiros, e ficam em caixa.',
+      'US$ 0,01 sobram quando cada parcela que você pediu é escrita em centavos inteiros, e ficam em caixa.',
     ]);
     // Shares that come to whole cents leave nothing over, and the plan has no cash line.
     expect(at(1000).lines.map((l) => l.assetId)).toEqual(['robinhood:spy', 'robinhood:sgov']);
@@ -1528,7 +1528,7 @@ describe('properties: any mix', () => {
           }
           // What a sentence says a candidate is measured against is what the plans shown hold.
           for (const n of all.notShown) {
-            const held = /where the plan for the mix you asked for holds ([\d.]+)%/.exec(n.why);
+            const held = /where the plan for what you asked to hold has ([\d.]+)%/.exec(n.why);
             const of = / of the plan in (stocks and crypto|dollar yield|gold|cash),/.exec(n.why);
             if (!held || !of) continue;
             const sleeve = (

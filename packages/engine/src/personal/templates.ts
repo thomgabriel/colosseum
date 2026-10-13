@@ -113,21 +113,21 @@ export const REASON_TEMPLATES = {
   // higher ones for what else the person's sheet carries, it says so, and names what raised them.
   MIX_LIMITS_RAISED: rule(
     ['mix'],
-    'On its own, this mix takes the limits for {alone|risk}. Because of {by|raisers}, the plan uses the limits {steps|steps}, for {risk|risk}: at lower limits it would hold less in stocks and crypto.',
-    'Sozinha, esta composição usa os limites de {alone|risk}. Por causa de {by|raisers}, o plano usa os limites {steps|steps}, de {risk|risk}: com limites mais baixos ele teria menos em ações e cripto.',
+    'On its own, what you asked to hold takes the limits for {alone|risk}. Because of {by|raisers}, the plan uses the limits {steps|steps}, for {risk|risk}: at lower limits it would hold less in stocks and crypto.',
+    'Sozinho, o que você pediu para ter usa os limites de {alone|risk}. Por causa de {by|raisers}, o plano usa os limites {steps|steps}, de {risk|risk}: com limites mais baixos ele teria menos em ações e cripto.',
   ),
   // The cents a mix's shares leave over, each written in whole cents, where the mix has no cash.
   MIX_ODD_CENTS: rule(
     ['amount', 'mix'],
-    '{usd|usd} is left over once each share of your mix is written in whole cents, and stays in cash.',
-    '{usd|usd} sobram quando cada parcela da sua composição é escrita em centavos inteiros, e ficam em caixa.',
+    '{usd|usd} is left over once each share you asked for is written in whole cents, and stays in cash.',
+    '{usd|usd} sobram quando cada parcela que você pediu é escrita em centavos inteiros, e ficam em caixa.',
   ),
   // Withdrawals come before the mix: what the next months owe is set aside first. Said on the lines
   // of each class of the mix that holds less for it, and on the lines that hold what is set aside.
   MIX_SET_ASIDE: rule(
     ['obligations', 'mix'],
-    '{usd|usd} of the {askedBps|pct} you asked for in {sleeve|sleeve} is set aside for your withdrawals from {from|month} to {to|month} instead, which leaves {leftBps|pct} of the plan for {sleeve|sleeve}: what your withdrawals need in those months is set aside before the mix is held.',
-    '{usd|usd} dos {askedBps|pct} que você pediu em {sleeve|sleeve} ficam separados para os seus saques de {from|month} a {to|month}, o que deixa {leftBps|pct} do plano para {sleeve|sleeve}: o que os seus saques precisam nesses meses fica separado antes de a composição ser montada.',
+    '{usd|usd} of the {askedBps|pct} you asked for in {sleeve|sleeve} is set aside for your withdrawals from {from|month} to {to|month} instead, which leaves {leftBps|pct} of the plan for {sleeve|sleeve}: what your withdrawals need in those months is set aside before the rest of what you asked for goes into the vault.',
+    '{usd|usd} dos {askedBps|pct} que você pediu em {sleeve|sleeve} ficam separados para os seus saques de {from|month} a {to|month}, o que deixa {leftBps|pct} do plano para {sleeve|sleeve}: o que os seus saques precisam nesses meses fica separado antes de o restante do que você pediu ir para o cofre.',
   ),
   // The person's split of the plan (gate SLEEVES).
   SPLIT_GOAL: rule(
@@ -466,8 +466,8 @@ export const REASON_TEMPLATES = {
   ),
   CREDIT_NONE_MIX: rule(
     ['mix'],
-    '{asset} is left out: it lends to borrowers or trades a spread, and the mix you asked for holds none of those.',
-    '{asset} fica de fora: ele empresta a tomadores ou opera uma diferença de taxas, e a composição que você pediu não tem nenhum desses.',
+    '{asset} is left out: it lends to borrowers or trades a spread, and what you asked to hold has none of those.',
+    '{asset} fica de fora: ele empresta a tomadores ou opera uma diferença de taxas, e o que você pediu para ter não inclui nenhum desses.',
   ),
   CREDIT_NONE: rule(
     ['credit'],
@@ -751,8 +751,8 @@ export const TEXT_TEMPLATES = {
     pt: '{plan|candidate} não aparece: ele guarda o mesmo que {other|candidate}.',
   },
   CANDIDATE_BREAKS_MIX: {
-    en: '{plan|candidate} is not shown: it would hold {heldBps|pct} of the plan in {sleeve|sleeve}, where the plan for the mix you asked for holds {mixBps|pct}.',
-    pt: '{plan|candidate} não aparece: ele teria {heldBps|pct} do plano em {sleeve|sleeve}, e o plano para a composição que você pediu tem {mixBps|pct}.',
+    en: '{plan|candidate} is not shown: it would hold {heldBps|pct} of the plan in {sleeve|sleeve}, where the plan for what you asked to hold has {mixBps|pct}.',
+    pt: '{plan|candidate} não aparece: ele teria {heldBps|pct} do plano em {sleeve|sleeve}, e o plano com o que você pediu tem {mixBps|pct}.',
   },
   CANDIDATE_DOMINATED: {
     en: '{plan|candidate} is not shown: {other|candidate} is as good on every line of the comparison, and better on one.',
