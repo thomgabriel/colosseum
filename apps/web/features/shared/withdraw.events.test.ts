@@ -867,6 +867,25 @@ describe('the withdraw screen, in dollars', () => {
     });
   });
 
+  it('a quick share is that share exactly, whatever the cents of its dollars', async () => {
+    const server = api({
+      vault: holdingVault({ valueUsd: '999.99' }),
+      order: () =>
+        dollarsOrder([{ sell: SPYX, amountInRaw: '125000000', minOutRaw: '195000000' }], {
+          heldRaw: '600000000',
+          cashRaw: '300000000',
+        }),
+    });
+    const host = await show();
+    await click(way(host, 'dollars'));
+    await click(chip(host, '50%'));
+    expect(chip(host, '50%').getAttribute('aria-pressed')).toBe('true');
+    await through(host);
+    expect(server.placed().map((c) => c.body)).toEqual([
+      { type: 'withdraw', vaults: [MY_VAULT], sellToCash: true, shareBps: 5_000 },
+    ]);
+  });
+
   it('shows Bearing’s measured cost of selling a holding with its source, and says so where there is none', async () => {
     const exit = (more: object) => ({
       total: null,
