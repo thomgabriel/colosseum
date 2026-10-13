@@ -1,6 +1,7 @@
 import type { Leg, OrderDetail } from '@colosseum/schemas';
 import type { Dictionary } from '../../i18n';
 import { tokenName } from './amounts';
+import { movesCash } from './order-check';
 import { legsInOrder } from './order-view';
 import type { ChainUnits } from './units';
 
@@ -37,13 +38,14 @@ function stepWords(
 ): { doing: string; did: string } {
   const w = t.invest.progress;
   const names = bought(leg, units);
-  const deposits = leg.kind === 'create_vault' || leg.kind === 'deposit';
+  const deposits = movesCash(leg);
   if (deposits && names.length > 0)
     return {
       doing: w.depositingAndBuying(listOf(names, locale)),
       did: w.depositedAndBought(listOf(names, locale)),
     };
   if (deposits) return { doing: w.depositing, did: w.deposited };
+  if (leg.kind === 'create_vault') return { doing: w.opening, did: w.opened };
   if (leg.kind === 'approve') return { doing: w.approving, did: w.approved };
   if (names.length > 0)
     return { doing: w.buying(listOf(names, locale)), did: w.bought(listOf(names, locale)) };
@@ -81,7 +83,8 @@ export function progressOf(
 /** What a step is, as a thing that landed or did not: "the deposit", "jlUSDC". */
 function nouns(leg: Leg, units: ChainUnits | null, w: Words): string[] {
   const names = bought(leg, units);
-  if (leg.kind === 'create_vault' || leg.kind === 'deposit') return [w.things.deposit, ...names];
+  if (movesCash(leg)) return [w.things.deposit, ...names];
+  if (leg.kind === 'create_vault') return [w.things.vault];
   if (leg.kind === 'approve') return [w.things.approval];
   return names.length > 0 ? names : [w.things.step];
 }

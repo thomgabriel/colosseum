@@ -464,7 +464,8 @@ describe('a vault is joined to its plan when the step that opens it is confirmed
 
   it('a join missed at the report leaves the report answering confirmed, and the portfolio read makes it', async () => {
     // The chain's read of the wallet's vaults throws, or does not show the new vault yet. On Robinhood
-    // Chain the step that opens the vault is the order's last, so no later route of the order runs.
+    // Chain the step that opens the vault is the first of three (gate CREATE-BEFORE-APPROVE), and
+    // nothing of the order is asked after its report here.
     for (const how of ['throws', 'empty'] as const) {
       const sick = await flaky();
       try {
@@ -479,7 +480,7 @@ describe('a vault is joined to its plan when the step that opens it is confirmed
         sick.on[how] = true;
         const done = await report(a, placed, create.id, { txId }, sick.app);
         sick.on[how] = false;
-        expect([legOf(done, create.id).status, done.status]).toEqual(['confirmed', 'done']);
+        expect([legOf(done, create.id).status, done.status]).toEqual(['confirmed', 'open']);
         expect(await cached(a)).toEqual([]);
         expect(await held(a)).toEqual([]);
 
@@ -535,13 +536,13 @@ describe('a vault is joined to its plan when the step that opens it is confirmed
       timed.on.throws = true;
       const done = await report(a, placed, create.id, { txId }, timed.app);
       timed.on.throws = false;
-      expect(done.status).toBe('done');
+      expect(done.status).toBe('open');
 
       // A step landed, so the order stayed open for a day. That day is over.
       clock += 25 * 60 * 60 * 1000;
       const reads = vi.spyOn(timed.registry.get('robinhood').adapter, 'getVaults');
       try {
-        expect((await read(a, placed, timed.app)).status).toBe('done');
+        expect((await read(a, placed, timed.app)).status).toBe('expired');
         expect(reads).not.toHaveBeenCalled();
       } finally {
         reads.mockRestore();

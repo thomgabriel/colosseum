@@ -600,9 +600,10 @@ describe('the buy screen', () => {
     expect(funded.to('/v1/orders').flatMap((c) => (c.method === 'POST' ? [c.body] : []))).toEqual([
       { type: 'buy', owner: { evm: EVM }, amountUsd: 10, proposalId: PLAN_ID },
     ]);
-    // the order's two steps on the card, the permission first, and the press that names the amount
+    // the order's three steps on the card (the vault, the permission, the deposit), and the press
+    // that names the amount
     expect(ready.querySelectorAll('[data-ui="invest-card"] [data-ui="order-step"]')).toHaveLength(
-      2,
+      3,
     );
     expect(label(find(ready, SIGN))).toBe(en.invest.press('$10'));
     expect(router.push).not.toHaveBeenCalled();

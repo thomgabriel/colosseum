@@ -117,10 +117,13 @@ export const LEG_SWAP = '22222222-2222-4222-8222-222222222222';
 /** The leg that approves the deposit on an EVM chain. */
 export const LEG_APPROVE = '33333333-3333-4333-8333-333333333333';
 
+/** The leg that deposits on an EVM chain, after the vault was opened empty and approved. */
+export const LEG_DEPOSIT = '44444444-4444-4444-8444-444444444444';
+
 /**
  * A buy of $10 on a chain, as the API plans it. Solana: open the vault with the deposit, then one swap
- * (no trade rides in a create there). An EVM chain: allow the deposit to the plan's vault, then open
- * the vault with the deposit and the trade in the same step (`tradesInCreate`, `needsApprove`).
+ * (no trade rides in a create there). An EVM chain: open the plan's vault empty, allow it the
+ * deposit, then deposit with the trade in the same step (`needsApprove`, gate CREATE-BEFORE-APPROVE).
  */
 export function orderOn(chain: ChainId = 'solana', minOutRaw = '990000'): OrderDetail {
   const evm = chain !== 'solana';
@@ -143,10 +146,11 @@ export function orderOn(chain: ChainId = 'solana', minOutRaw = '990000'): OrderD
   const expected = { inRaw: '6000000', outRaw: '1000000', minOutRaw, costBps: 10 };
   const legs = evm
     ? [
+        { ...leg, id: LEG_CREATE, seq: 0, kind: 'create_vault', trades: [], expected: [] },
         {
           ...leg,
           id: LEG_APPROVE,
-          seq: 0,
+          seq: 1,
           kind: 'approve',
           cashRaw: '10000000',
           trades: [],
@@ -154,9 +158,9 @@ export function orderOn(chain: ChainId = 'solana', minOutRaw = '990000'): OrderD
         },
         {
           ...leg,
-          id: LEG_CREATE,
-          seq: 1,
-          kind: 'create_vault',
+          id: LEG_DEPOSIT,
+          seq: 2,
+          kind: 'deposit',
           cashRaw: '10000000',
           trades: [trade],
           expected: [expected],

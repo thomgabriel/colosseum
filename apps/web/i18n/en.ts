@@ -2033,6 +2033,8 @@ export const en = {
       deposited: 'Deposit confirmed',
       depositingAndBuying: (names: string) => `Depositing and swapping into ${names}`,
       depositedAndBought: (names: string) => `Deposit confirmed, ${names} in your vault`,
+      opening: 'Opening your vault',
+      opened: 'Vault open',
       approving: 'Allowing the deposit',
       approved: 'Deposit allowed',
       buying: (names: string) => `Swapping into ${names}`,
@@ -2044,6 +2046,7 @@ export const en = {
     things: {
       deposit: 'the deposit',
       approval: 'the permission for the deposit',
+      vault: 'the opening of your vault',
       step: 'a step',
     },
     stopped: {
@@ -2184,6 +2187,8 @@ export const en = {
     kind: {
       approve: 'Allow the deposit',
       create_vault: 'Open your vault and deposit',
+      /** The same step where it moves no cash: a later step deposits (Robinhood Chain). */
+      open_vault: 'Open your vault',
       /** The same step where it also buys (Robinhood Chain): the buys are named, not hidden. */
       create_vault_buy: 'Open your vault, deposit and swap',
       deposit_buy: 'Deposit and swap',

@@ -20,7 +20,7 @@ import {
   PortfolioPlansResponse,
   TRACK_RULE,
 } from '@colosseum/schemas';
-import { and, asc, eq, inArray, max, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, max, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ChainEntry, ChainRegistry } from '../../orders/chains';
@@ -191,7 +191,14 @@ async function depositStep(orderId: string) {
   const [row] = await data.db
     .select()
     .from(legs)
-    .where(and(eq(legs.orderId, orderId), inArray(legs.kind, ['create_vault', 'deposit'])))
+    .where(
+      and(
+        eq(legs.orderId, orderId),
+        inArray(legs.kind, ['create_vault', 'deposit']),
+        // A create that opens the vault empty deposits nothing (gate CREATE-BEFORE-APPROVE).
+        isNotNull(legs.cashRaw),
+      ),
+    )
     .orderBy(asc(legs.seq))
     .limit(1);
   if (!row) throw new Error('the order has no step that deposits');
@@ -280,9 +287,10 @@ describe('what a person put into a vault', () => {
       const own = await ownPlan(a);
       await fund(a);
       const first = await bought(a, 100.1, own.id);
-      // On Robinhood Chain the approval holds the cash too, beside the step that opens the vault.
+      // On Robinhood Chain the vault is opened empty, and the approval holds the cash too, beside
+      // the step that deposits it.
       expect(first.placed.legs.filter((l) => l.cashRaw !== undefined).map((l) => l.kind)).toEqual(
-        chain === 'robinhood' ? ['approve', 'create_vault'] : ['create_vault'],
+        chain === 'robinhood' ? ['approve', 'deposit'] : ['create_vault'],
       );
       const opened = await depositStep(first.placed.id);
 
