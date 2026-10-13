@@ -12,13 +12,13 @@
 These are product rules expressed as design. A screen that breaks one of them is wrong, however good it looks.
 
 1. **Provenance pin on every number.** Every yield, price and FX figure is followed by the provenance pin (the logo's tenon end in line mode, with its square pin), which opens `source · fetched_at · method`. No pin, no number.
-2. **Sample is never shown as live (gate `MOCK-QUIET`, Thom, Oct 6).** Mocked or stubbed data (the API carries `"provenance": "mock"`) is marked by the 45° section hatch on the card's left edge and **one quiet muted line, with no box**: "Sample figures" ("Números de exemplo"), or "Sample figures · test network" for a figure from a test network or a local copy of mainnet (`"provenance": "sandbox"`). A sample figure keeps its hatched pin, or a small hatched glyph where it has no pin, named "sample figure" for screen readers. The word MOCK is the API's value and the name of the state in these documents; it never appears as a boxed label beside a figure. Text never sits on hatch strokes. Stale data gets a hollow pin plus the word "stale" and its age.
+2. **Sample is never shown as live (gate `MOCK-QUIET`, Thom, Oct 6; amended Oct 13).** A card whose data is mocked or stubbed (the API carries `"provenance": "mock"`) carries **one quiet tag in its top-right corner**: "Sample figures" ("Números de exemplo"), or "Test network" ("Rede de teste") for figures from a test network or a local copy of mainnet (`"provenance": "sandbox"`). The tag is neutral (hairline edge, muted ink, 6px corners, caption size), sits after the header's meta or in a line of its own above the content, and its words are its screen-reader name. No hatched edge on a card and no foot line (Thom, Oct 13). A sample figure keeps its hatched pin, or a small hatched glyph where it has no pin, named "sample figure" for screen readers. The word MOCK is the API's value and the name of the state in these documents; it never appears as a boxed label beside a figure. Text never sits on hatch strokes. Stale data gets a hollow pin plus the word "stale" and its age.
 3. **The disclaimer is never omitted, and the brand is never presented as advice.** The disclaimer renders from the single `DISCLAIMER` constant, unedited, on the plan view and in the API docs, at body size, in a hairline box. No return promises: no "earn up to", "guaranteed" or "risk-free".
 4. **No Japanese clichés.** The reference is joinery as craft and structure, not culture as costume. No kanji or kana, torii, ensō, hanko or seal-red, sakura, waves, brush type, washi texture, asanoha, kikkō or seigaiha, and no Japanese words in product UI.
 5. **Nothing like Teiten.** No bevelled chassis, instrument nameplates, LEDs, screws, retro-OS panels, mono-led headlines or cinnabar signal. Bearing is a dense data screen, not hardware.
 6. **One brand colour.** Honey `#F5A83A` is the only accent, in both modes, and it always carries ink text. Leaf, clay and madder carry direction and status, never brand. Chalk is a line (focus, guides, "today"), never a fill or a brand element. There is no second brand hue and no blue brand. Exception for token identification (Thom, Oct 7, `INVEST-TWO-PANE`): verified token logos keep their original artwork colours; that does not extend the interface or chart palette.
 7. **Status is word + shape + colour.** On track, watch and off track each have a square glyph, a word and a colour on a 14% tint. Deltas are signed and coloured by direction. Colour alone never carries meaning.
-8. **The brand recedes in the embed.** Inside a partner app, the partner's colours, font, radius and buttons take over. What survives: the pin and its popover, the hatch with its sample line, hairline structure, the disclaimer block, explorer links, and a "Powered by tenonfi" credit with the 16 px cut in the partner's muted colour.
+8. **The brand recedes in the embed.** Inside a partner app, the partner's colours, font, radius and buttons take over. What survives: the pin and its popover, the sample tag or line, hairline structure, the disclaimer block, explorer links, and a "Powered by tenonfi" credit with the 16 px cut in the partner's muted colour.
 
 ---
 
@@ -86,7 +86,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | shape | Pill, 22px tall |
 | chip | Filter chips: Inter 500 12px, `--muted-foreground` text, 1px `--input` border. Selected: honey-tint fill `rgba(245,168,58,.14)`, honey (night) / honey-l (day) text, no border |
 | status | **On track:** solid square, leaf. **Watch:** half-filled square, clay. **Off track:** notched square outline, madder. Fill = the colour's 14% tint; text = the colour; always the word |
-| sample line | Inter 400, 12.5px, `--muted-foreground`: "Sample figures", or "Sample figures · test network", once per card at its foot, beside the card's 6px hatched left edge. No plate, no box, no uppercase word (gate `MOCK-QUIET`) |
+| sample tag | Inter 500, 12px (caption), `--tf-sample-fg` on the card, a 1px `--border` edge, 6px corners: "Sample figures" or "Test network", once per card in its top-right corner. No fill, no honey, no status hue, no uppercase word (gate `MOCK-QUIET`, Oct 13) |
 | delta | Inter 500 11px, signed (+ / U+2212), leaf up / madder down / muted flat, beside or under the value it qualifies |
 
 ### Navigation
@@ -114,8 +114,8 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | drawing | `viewBox 0 0 18 12`: outline rect 3:2, stroke 1.5, radius 2.5; the square pin 4×4, radius 1, set toward the end (x 11.5). `height: .75em` |
 | live | Solid square pin. Outline muted-2 `#6E7282` / line-l2 `#C9C4B9`; pin honey (night) / honey-l `#9D5A00` (day) |
 | stale | Hollow square pin (1.5px) **plus "stale · 3 h"**. Never without the word |
-| sample (MOCK) | No pin. The tenon is filled with a 3px-pitch hatch, `aria-label` "sample figure"; the card carries the quiet line "Sample figures" |
-| sandbox | As sample; the card's line reads "Sample figures · test network" |
+| sample (MOCK) | No pin. The tenon is filled with a 3px-pitch hatch, `aria-label` "sample figure"; the card carries the quiet tag "Sample figures" |
+| sandbox | As sample; the card's tag reads "Test network" |
 | popover | Plain words first, in Inter: what the number is and where from, how fresh, whether it is live; a stale reading first. Under "Details": the API's `source · fetched_at (UTC) · method`, addresses only in Plex Mono, shortened, each with a copy button (gate `TOOLTIP-WORDS`). On night-3 / white with a 1px border and `--tf-shadow-popover` |
 | a11y | `<button aria-label="Source for 6.4%">` (with ", stale, 3 hours old" or ", mock data" appended), a 24×24 hit area, and Enter opens it |
 | embed | The pin takes the partner's muted text colour |
@@ -128,7 +128,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | data row | Asset avatar 22px + name (600) + type chip (pill) · sparkline coloured by direction · tabular values with a signed delta beneath · status cell (pin, stale, MOCK). Rows 36px. Selected row on honey-tint. Hover `--accent` |
 | chart | Base case: 2px honey with `--tf-curve-fill` beneath. Stress cases: dashed muted and dashed madder. "Today": 1px dashed chalk with a Plex Mono label. Dashed = projected, solid = measured. Heatmaps on the night → honey → pale ramp; no-sample cells empty with an en dash |
 | disclaimer | The `DISCLAIMER` constant verbatim, in a hairline box directly under the plan and at the top of the API reference. Inter 400 at body size (≥ 1em in the embed) |
-| embed | Partner skin. The pin, the hatch with its sample line, hairlines, disclaimer, explorer links and "Powered by" survive. Sizes in em on a 1.2 ratio, with container queries |
+| embed | Partner skin. The pin, the sample tag or line, hairlines, disclaimer, explorer links and "Powered by" survive. Sizes in em on a 1.2 ratio, with container queries |
 | Bearing tile | b-head label (Inter 500 11px uppercase) → b-kpi value (Inter Tight 600 22px) + pin + delta → b-meta line (unit · n= · method version · as-of UTC, Plex Mono). night-2 on night, 1px line, 10px radius, 16px padding |
 
 ---
@@ -137,7 +137,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 
 ### Never
 - A yield, price or FX figure without its provenance pin. It breaks the core promise ("every joint shown").
-- A mock shown as live: a sample figure without its hatched pin or glyph and the card's quiet line, text set on hatch strokes, a sandbox card without "test network", or a boxed MOCK word anywhere (gate `MOCK-QUIET`).
+- A mock shown as live: a sample figure without its hatched pin or glyph and the card's quiet tag, text set on hatch strokes, a sandbox card without "Test network", a live card with a tag, or a boxed MOCK word anywhere (gate `MOCK-QUIET`).
 - The hatch used for anything but MOCK or stale.
 - Omitting, shrinking or paraphrasing the disclaimer, presenting the brand as licensed advice, or promising returns.
 - A second brand colour. Chalk as a fill, a button or a brand element. A blue brand or a blue gradient.
@@ -160,7 +160,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 - One brand colour: honey, with ink on it, in both modes. The pin is honey on night and honey-l on day.
 - Light and dark as peers. Every component ships both and passes WCAG 2.2 AA in both.
 - Status = word + shape + colour on a 14% tint. Deltas signed and coloured by direction.
-- Sample = the hatched card edge + the quiet line "Sample figures" + a hatched pin or glyph named "sample figure". Sandbox adds "test network" to the line. Stale = a hollow pin + the word "stale" + its age.
+- Sample = the card's quiet tag "Sample figures" in its top-right corner + a hatched pin or glyph named "sample figure". Sandbox: the tag reads "Test network". Stale = a hollow pin + the word "stale" + its age.
 - The disclaimer from the single `DISCLAIMER` constant, on the plan view and in API docs.
 - Inter Tight for display and big numbers, Inter for UI, Plex Mono for provenance and code. Tabular lining figures, a true minus (U+2212), `Intl` formatting with 2 decimals on yields.
 - Colour in surfaces as 14% tints (selected rows, chips, badges), not only in text.
@@ -208,8 +208,8 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 
 ## Bold Bets
 
-1. **The provenance pin is the brand's smallest logo.** The logo is the end view of a pinned through-tenon on a tile; the pin that follows every figure is the same tenon end drawn in line mode, with the same square pin. It has four states (solid; hollow + "stale"; hatched, named "sample figure", with the card's line "Sample figures"; the same with "test network") and opens `source · fetched_at · method`. When the brand recedes in the embed, only the pin is left, and it is still the brand.
-2. **The section hatch is a word, not a texture.** A 45° hatch (1px muted strokes, 6px pitch; 3px in glyphs) means one thing only: *not finished timber* (sample or stale). It always travels with its words (the quiet line "Sample figures", or "stale" and the age), fills a 6px edge band, and never sits under text. A DOM test fails the build if the hatch appears without that line in the same component, or if any element's text is exactly "MOCK" (gate `MOCK-QUIET`).
+1. **The provenance pin is the brand's smallest logo.** The logo is the end view of a pinned through-tenon on a tile; the pin that follows every figure is the same tenon end drawn in line mode, with the same square pin. It has four states (solid; hollow + "stale"; hatched, named "sample figure", with the card's tag "Sample figures"; the same with "Test network") and opens `source · fetched_at · method`. When the brand recedes in the embed, only the pin is left, and it is still the brand.
+2. **The section hatch is a word, not a texture.** A 45° hatch (1px muted strokes, 6px pitch; 3px in glyphs) means one thing only: *not finished timber* (sample or stale). It always travels with its words (a card's tag "Sample figures", a glyph's name, or "stale" and the age), fills a 6px edge band on a row, a plan leg, a stale plate or a Bearing tile (never on a card, since Oct 13), and never sits under text. A DOM test fails the build if the hatch appears without those words in the same component, or if any element's text is exactly "MOCK" (gate `MOCK-QUIET`).
 3. **One colour, and it carries ink.** Honey is the only accent, in both modes, and the primary button is black on honey. Meteora is white on orange, Jupiter black on lime, Binance black on yellow. Black on honey beside a cool black ground and wood photography is ours.
 4. **Direction lives in surfaces.** Leaf, clay and madder sit as 14% tints under status pills, as signed deltas under values and as the colour of sparklines. The screen reads alive at density because colour is in the surfaces, not only in the text, and it never means anything but direction.
 5. **Light is the only gradient.** A honey glow behind the hero and the composer, a honey fill under the base-case curve, and nothing else. No two-hue gradient, no glass, no glow on controls. The joint is lit; the interface is not.
@@ -282,8 +282,9 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 /* P4 hatch = MOCK / stale only. 6px pitch for UI bands; 3px inside glyphs */
 .hatch { --h: var(--muted-foreground);
   background: repeating-linear-gradient(45deg, var(--h) 0 1px, transparent 1px 6px); }
-.sample-edge { inline-size: 6px; align-self: stretch; }      /* + .hatch, the card's left edge */
-.sample-line { font: 400 0.78125rem/1.25rem var(--font-sans); color: var(--muted-foreground); }  /* "Sample figures · test network", once per card */
+.sample-edge { inline-size: 6px; align-self: stretch; }      /* + .hatch, a row's or a leg's left edge */
+.sample-tag { font: 500 0.75rem/1rem var(--font-sans); color: var(--muted-foreground);
+  border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }  /* "Sample figures" / "Test network", once per card, top right */
 ```
 
 ### Typography treatments

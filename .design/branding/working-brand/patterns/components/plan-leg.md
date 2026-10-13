@@ -15,7 +15,7 @@ Cash buffer · 20% · — · reachable today
 
 - **Bar**: a `rounded-full overflow-hidden` container with `display:flex; gap:2px; background: var(--background)` (the gap is ground colour, not a border; the container's pill ends round only the first and last segment). Segment fills in leg order `--chart-1`…`--chart-4`: **light** honey `#F5A83A`, honey-deep `#D9881B`, wood-deep `#B9803F`, muted-l `#676A75`; **dark** honey, wood `#E9C48E`, honey-deep, muted `#9A9DAD`. Segment width = weight. Max 4 legs; the solver output decides order (largest first).
 - **Leg label** (one row each, in a `<ol>`): 10px swatch (same fill, `rounded-[3px]`) → leg name (Inter 600) · weight (Inter, tabular) · after-haircut yield + [pin](./provenance-pin.md) · "quoted x%" in `--muted-foreground` · optional "why" line below in body-sm muted. All yields come from `YieldObservation` (never literals).
-- **Sample leg**: segment is `.tf-hatch` on `--card` (no solid fill); its figure keeps the hatched pin ("sample figure"), and the card that holds the bar keeps a 6px hatched left edge with one muted line, "Sample figures" (+ " · test network" for sandbox), no box ([mock-plate.md](./mock-plate.md), gate MOCK-QUIET). Legs with `mintPath: "unavailable"` read "integration in progress" and are never executed.
+- **Sample leg**: segment is `.tf-hatch` on `--card` (no solid fill); its figure keeps the hatched pin ("sample figure"), and the card that holds the bar carries its quiet tag, "Sample figures" ("Test network" for sandbox), in its top-right corner ([mock-plate.md](./mock-plate.md), gate MOCK-QUIET). Legs with `mintPath: "unavailable"` read "integration in progress" and are never executed.
 
 ## Tokens
 
@@ -58,6 +58,6 @@ Bar is `aria-hidden`; the `<ol>` of labels carries everything. 1.4.11: adjacent 
 | Do | Don't |
 |---|---|
 | "4.10% ⊡ after haircut · quoted 4.35%" | Only the quoted rate, or a rate without a pin |
-| Hatched segment + hatched pin for a sample leg, and the card's sample line | A grey or lighter solid segment for a sample leg, or a boxed label beside it |
+| Hatched segment + hatched pin for a sample leg, and the card's sample tag | A grey or lighter solid segment for a sample leg, or a boxed label beside it |
 | Pill ends on the bar, gaps in ground colour | Rounded segments inside the bar, gradients, a donut |
 | Honey family + one neutral | Green or red legs |

@@ -145,7 +145,7 @@ tokens:
       body-sm: { face: primary, weight: 400, size: "0.875rem", line-height: "1.375rem", tracking: "0" }
       caption: { face: primary, weight: 500, size: "0.75rem", line-height: "1rem", tracking: "0.04em", transform: uppercase, note: "eyebrows and column heads only" }
       figure-lg: { face: display, weight: 600, size: "1.75rem", line-height: "2rem", tracking: "-0.02em", note: "the amount on a goal card" }
-      sample-line: { face: primary, weight: 400, size: "0.78125rem", line-height: "1.25rem", tracking: "0", note: "'Sample figures · test network', muted, once per card" }
+      sample-line: { face: primary, weight: 400, size: "0.78125rem", line-height: "1.25rem", tracking: "0", note: "a whole sample panel's or the embed's quiet line, muted; a card has its tag (sample-tag)" }
       source: { face: mono, weight: 400, size: "0.8125rem", line-height: "1.25rem", tracking: "0" }
 
     # Productive register (Bearing): 13px base, fixed
@@ -222,7 +222,7 @@ tokens:
       stroke: "1px muted (night) / muted-l (day)"
       pitch-ui: "6px"
       pitch-glyph: "3px"
-      band: "6px left edge band on a sample card; text never on strokes"
+      band: "6px left edge band on a sample row or plan leg, a stale plate or a Bearing tile (not a card, since Oct 13); text never on strokes"
     p5-bracket-set: "Bearing imagery only (photo / render), never a repeat"
     dimension-lines: "45° ticks and Plex Mono values on drawings and exploded views; chalk / chalk-l"
 
@@ -241,7 +241,7 @@ tokens:
       light: { outline: "#C9C4B9", fill: "45deg hatch #676A75, 3px pitch", pin: "none" }
       dark: { outline: "#6E7282", fill: "45deg hatch #9A9DAD", pin: "none" }
       paired: "aria-label 'sample figure'; the card's quiet line 'Sample figures' (gate MOCK-QUIET: never a boxed MOCK word); API carries \"provenance\": \"mock\""
-    sandbox: "same as mock; the card's line reads 'Sample figures · test network'; the buy card says 'Test network · <chain> · not live'"
+    sandbox: "same as mock; the card's tag reads 'Test network'; the buy card says 'Test network · <chain> · not live'"
     embed: "pin in partner's muted text colour; the hatch and the sample line mandatory"
     a11y: "<button aria-label='Source for 6.4%'> (+ ', stale, 3 hours old' / ', mock data'); 24x24 hit area; Enter opens"
 
@@ -327,7 +327,7 @@ patterns:
     shape: "pill, 22px tall, 14% tint of its colour as fill, the colour as text; leads with its square glyph"
     text: "Inter 600 11.5-12px, sentence case"
     status: "on track = solid square leaf · watch = half square clay · off track = notched outline madder"
-    sample-line: "Inter 400 12.5px muted-foreground: 'Sample figures' or 'Sample figures · test network', once per card, beside the card's 6px hatched left edge; no plate, no box, no uppercase word (gate MOCK-QUIET)"
+    sample-tag: "Inter 500 12px muted-foreground, 1px border edge, 6px corners, no fill: 'Sample figures' or 'Test network', once per card in its top-right corner; no hatched card edge, no uppercase word (gate MOCK-QUIET, Thom, Oct 13)"
     chip: "filter chips are pills; selected = honey-tint fill + honey text, no border"
   nav:
     style: "plain horizontal bar on {color.background}, 1px hairline bottom; mark + wordmark left; the primary action right; no glass, no blur"
@@ -349,8 +349,8 @@ patterns:
     colour: "pin in honey (night) / honey-l (day); outline in muted-2 / line-l2; partner muted in the embed"
     popover: "plain words in Inter (what and where from, how fresh, whether live; stale first); under Details the API's source · fetched_at (UTC) · method, addresses only in Plex Mono; on night-3 / white, 1px border, shadow-popover (gate TOOLTIP-WORDS)"
   sample:
-    rule: "gate MOCK-QUIET: the hatched left edge + one quiet line ('Sample figures', or '… · test network') + a hatched pin or glyph named 'sample figure'. Never a boxed MOCK word. Never styled like a live figure"
-    surface: "hatch fills a 6px edge band; the line sits in the card's own text, muted"
+    rule: "gate MOCK-QUIET: one quiet tag in the card's top-right corner ('Sample figures', or 'Test network') + a hatched pin or glyph named 'sample figure'. Never a boxed MOCK word. Never styled like a live figure"
+    surface: "the tag sits after the header's meta, or in a line of its own at the top right; hatch fills a 6px band only on rows, legs, stale plates and Bearing tiles"
   goal-card:
     anatomy: "eyebrow (caption: 'Apartment fund · Jun 2028') → amount in figure-lg + pin → one line (net yield · access to cash) → status pill → progress bar (honey on line)"
     never: "photography, patterns, leaderboards, a big APY as the headline, progress rings"
@@ -400,7 +400,7 @@ constraints:
     - "one brand colour: honey, ink on it, in both modes; the pin is honey (night) or honey-l (day)"
     - "light and dark as peers — every component ships both and passes WCAG 2.2 AA in both"
     - "status = word + shape + colour (solid / half / notched square) on a 14% tint; deltas signed and coloured by direction"
-    - "sample = hatched edge + the quiet line 'Sample figures' + hatched pin or glyph named 'sample figure'; sandbox adds 'test network' to the line"
+    - "sample = the card's quiet tag 'Sample figures' + hatched pin or glyph named 'sample figure'; sandbox: the tag reads 'Test network'"
     - "stale = hollow pin + the word 'stale' + its age"
     - "the disclaimer from the single DISCLAIMER constant on the plan view and in API docs"
     - "Inter Tight for display and big numbers, Inter for UI, Plex Mono for provenance and code; tabular lining figures; true minus U+2212"
