@@ -990,7 +990,7 @@ export const pt: Dictionary = {
       noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
       noCap: 'Nada limita quanto você pode depositar. Quanto você coloca é decisão sua.',
       trades:
-        'Cada negociação que você assina é conferida por este aplicativo com um preço de referência e limitada em tamanho antes de ser montada. Uma negociação fora desses limites não é montada. Os próprios contratos só seguram uma negociação ao mínimo que você assina.',
+        'Cada negociação que você assina é conferida por este aplicativo com um preço de referência e limitada em tamanho antes de ser montada. Uma negociação fora desses limites não é montada. Os próprios contratos só garantem o mínimo que você assina.',
       issuers:
         'O emissor dos tokens de ações pode substituir o código deles e pausá-los. O emissor do token de dólar pode congelá-lo.',
       short: {
