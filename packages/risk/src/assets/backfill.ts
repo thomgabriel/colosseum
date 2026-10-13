@@ -176,8 +176,14 @@ export type AnchoredPage = {
  * rate of that segment, placed at the segment's middle.
  */
 export const pageRate = (p: AnchoredPage) =>
-  p.n === 0 || p.oldest === null ? 0 : p.n / Math.max(1, p.t - p.oldest);
-const pageMid = (p: AnchoredPage) => (p.oldest === null ? p.t : (p.oldest + p.t) / 2);
+  p.n === 0 || p.oldest === null ? 0 : p.n / Math.max(1, pageEnd(p) - p.oldest);
+/**
+ * The segment's end: the anchor, or the page's newest signature when that is later. The "now" page of a busy
+ * address is anchored at the clock read before the page was asked, and signatures land after it: measured to the
+ * anchor, its span could be negative and the rate read as n a second (found 2026-10-13, about 7x over).
+ */
+const pageEnd = (p: AnchoredPage) => Math.max(p.t, p.newest ?? p.t);
+const pageMid = (p: AnchoredPage) => (p.oldest === null ? p.t : (p.oldest + pageEnd(p)) / 2);
 
 /**
  * The signatures of an address between `from` and `to` (unix seconds), estimated from its anchored pages: each

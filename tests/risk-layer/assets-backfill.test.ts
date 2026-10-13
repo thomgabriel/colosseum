@@ -113,6 +113,16 @@ describe('an address’s signatures from anchored pages', () => {
     expect(pageRate(page(1000, 100, 900))).toBe(1);
     expect(pageRate(page(1000, 0, null))).toBe(0);
   });
+  it('measures a page whose newest signature is later than its anchor to that signature', () => {
+    // the "now" page of a busy pool: anchored at t=1000, its 1,000 signatures from 995 to 1,005 (10 s, 100/s);
+    // to the anchor alone the span is 5 s, and with all of them newer it would clamp to 1 s
+    expect(
+      pageRate({ t: 1000, n: 1000, newest: 1005, oldest: 995, failed: 0, exhausted: false }),
+    ).toBe(100);
+    expect(
+      pageRate({ t: 1000, n: 1000, newest: 1010, oldest: 1002, failed: 0, exhausted: false }),
+    ).toBe(125);
+  });
   it('integrates the rates between pages, flat beyond them, nothing before the first transaction', () => {
     // rates 1/s at t=950 (the middle of 900…1000) and 3/s at t=2950 (2900…3000)
     const ps = [page(1000, 100, 900), page(3000, 300, 2900)];
@@ -657,11 +667,23 @@ describe('the anchored estimate on frozen real pages (Step 5b’s 34 pools)', ()
       failed,
       exhausted: exhausted === 1,
     }));
-  it('gives again the count file’s 90-day figure of each pool', () => {
+  it('gives again the count file’s 90-day figure of each pool its anchors held, and less where they did not', () => {
+    // the count of 2026-10-11 measured a page to its anchor even when its newest signature was later, which
+    // inflated those pools' rates (fixed 2026-10-13); every other pool's figure is unchanged
     const now = Date.parse(fx.window.now) / 1000;
     const d90 = Date.parse(fx.window.day90) / 1000;
-    for (const p of fx.pools)
-      expect(Math.round(estimateSignatures(pagesOf(p.pages), d90, now).signatures)).toBe(p.sigs90);
+    let unchanged = 0;
+    for (const p of fx.pools) {
+      const pages = pagesOf(p.pages);
+      const sigs = Math.round(estimateSignatures(pages, d90, now).signatures);
+      if (pages.some((pg) => pg.newest !== null && pg.newest > pg.t))
+        expect(sigs).toBeLessThan(p.sigs90);
+      else {
+        expect(sigs).toBe(p.sigs90);
+        unchanged++;
+      }
+    }
+    expect(unchanged).toBeGreaterThan(0);
   });
   it('sizes the total of the exact walk to within a few percent, and no single pool', () => {
     let est = 0;
