@@ -36,10 +36,10 @@ import {
   budgetGuard,
   gateWholeSeries,
   newestCount,
+  requireWindowInScope,
   scopeKey,
   scopeOptions,
   windowNeedsGate,
-  requireWindowInScope,
 } from '../../scripts/risk/assets/backfill-gate';
 import { dayPieces, fetchWindow } from '../../scripts/risk/assets/backfill-solana';
 import {

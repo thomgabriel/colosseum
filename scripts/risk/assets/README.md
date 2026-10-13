@@ -243,3 +243,29 @@ The command refuses a list with uncommitted changes. It reads only the local dat
 
 - **Solana:** 97 rows on the shelf (of 2,006 listed or candidate; 148 below the floor, 1,761 with a null reading): stock 41, crypto 36, cash 8, etf 5, dollar_yield 4, gold 3. 94 entries (Scope price 15, none 79); waiting: PRIME, AUTO and PST, which have no yield reading.
 - **Robinhood Chain:** 45 rows (of 215; 108 below the floor, 62 null): stock 30, crypto 8, cash 2, etf 2, commodity 2, gold 1. 45 entries (Chainlink 25, none 20).
+
+## The Solana shelf's pools (AS.12)
+
+```sh
+RISK_DATA_DIR=<main checkout>/data/risk DOTENV_CONFIG_PATH=<main checkout>/.env \
+  pnpm risk:shelf-pools-solana [--floor <dollars>] [--readings <file>] [--pairs <jsonl>]
+pnpm risk:assets-backfill solana-swaps --count --registry <RISK_DATA_DIR>/shelf-registry-solana-<stamp>.json
+```
+
+The Oct 1 registry names pools for the stock tokens only, so the backfill's shelf scope knew no pool for most of the Solana shelf. `shelf-pools-solana.ts` (the pure rule in `shelf-pools.ts`, the confirmation in `scripts/risk/lib-venues.ts`, extracted from `build-registry.ts` with its behaviour unchanged) writes a registry of the shelf's pools:
+
+- **The shelf** is cut as the backfill cuts it (`cutShelf`, the same query on `asset_observations`, or `--readings`); the output names its `tokensHash` beside the committed `shelf-solana.json`'s.
+- **Subjects:** every shelf token but the quotes. Cash tokens (`cls` cash) and SOL are stated, not chosen, as quotes: their own pools (SOL/USDC) would dwarf every other token, so they enter only as another token's pair (`quotesNotSubjects`).
+- **Discovery:** DexScreener's `token-pairs/v1/solana/<mint>` per subject (at most 30 pairs), one call every 300 ms, a 429 waited out; the answers go to `shelf-dexscreener-solana-<stamp>.jsonl` (`--pairs` reuses them).
+- **The rule** (`SHELF_POOL_RULE`): the pairs on a venue the swap decoders read (Raydium CLMM and CPMM, Orca Whirlpool, Meteora DLMM), at least $10,000 of liquidity, largest first, until 90% of the token's supported liquidity is covered, at most 5 a token. DexScreener sometimes values a pair at a mispriced quote (on Oct 13 a JitoSOL/JupSOL pool at $2.4 billion; pairs quoted in JupSOL, JLP, MET): a pair whose price of the token is more than 1.5 times off the median of its pairs' prices has its liquidity re-valued at that median, and keeps DexScreener's figure beside it.
+- **Confirmation:** each kept pool is read with `getMultipleAccounts`: the owner is the venue's program and the decoded mints hold the token; a pool that fails is left out (`excluded`) and the token re-picked. A pool kept for two subjects is written once, under the first.
+- **The file** `shelf-registry-solana-<stamp>.json`: `pools` are `RegistryPool` rows (each with `source`, `fetchedAt`, `confirmedAt`, `method`, `provenance`, tier B with its reason, `tvlUsd` DexScreener's liquidity), then `tokens` (picked, covered, left out, unsupported, repriced), `noSupportedPool`, `quotesNotSubjects`, `excluded`. Its name does not start with `registry-`, so `latestRegistryFile`, `history-backfill.ts` and `retier.ts` never take it by default: the backfill takes it only with `--registry`. It writes no table and nothing under `~/.colosseum`.
+- **Test:** `tests/risk-layer/shelf-pools.test.ts`, on three real answers frozen with placeholder addresses (`fixtures/risk/assets/shelf-pools/`).
+
+### The run of 2026-10-13 (DexScreener 13:49 UTC, confirmed 13:52 UTC)
+
+Shelf 97 tokens, hash `3d63aab8` (the committed shelf's); 88 subjects, 9 quotes (SOL, USDC, USDT, PYUSD, USDG, USD1, USDe, JupUSD, USX). **263 pools** for 87 tokens, all confirmed on chain: Raydium CLMM 106, Orca Whirlpool 66, Meteora DLMM 63, Raydium CPMM 28. Covered $179.9M of $193.8M of supported liquidity (93%); $42.5M more sits on venues no decoder reads (Raydium AMM v4 $17.9M, Meteora DAMM $15.7M, PumpSwap $3.3M). No supported pool: DBR (its supported pairs hold $18,172, none at $10,000). Under 80% covered: GRND 43%, SCHH 53%, AMC 68%, NFLX 69%, Cake and GMEx 75%, LLY 77%, GLDx and TTWO 79% (the 5-pool cap or the $10,000 floor). 25 pairs re-valued.
+
+The backfill takes it (`--count --registry`): scope `shelf-d30-f100000-3d63aab8`, 263 live pools, `noKnownPool` DBR and the 9 quotes only.
+
+Its count (`count-20261013T1353.json`) reads 990M signatures, 672.6M transactions, 68.4 GB, 391 hours: over the budget. That figure is mostly an estimator defect, not traffic: for a busy pool the newest anchored page ("now", no `before`) holds signatures newer than its anchor time `t`, so `pageRate`'s `t - oldest` is negative, clamps to 1 second, and the rate reads 250 a second (74 pools on that count). Read with the page's newest time as its anchor, the same pages give about 132M signatures, 82M transactions, 8.3 GB and some 48 hours (with `--step-days 3`: 175M, 101M, 10.3 GB). The fix belongs to `pageRate`/the anchor of the "now" page in `packages/risk/src/assets/backfill.ts`, not to this file.

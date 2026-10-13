@@ -2,19 +2,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createDb, riskPools } from '@colosseum/db';
-import {
-  decodeClmmPool,
-  decodeCpmmPool,
-  decodeDlmmPair,
-  decodeWhirlpool,
-  METEORA_DLMM_PROGRAM,
-  ORCA_WHIRLPOOL_PROGRAM,
-  RAYDIUM_CLMM_PROGRAM,
-  RAYDIUM_CPMM_PROGRAM,
-} from '@colosseum/risk';
 import { sql } from 'drizzle-orm';
 import { jupHeaders, MINTS, nowIso, sleep } from '../lib';
 import { getMultiple, rpc, rpcStats } from './lib-pools';
+import { confirmPool, mintInfos, VENUES, venueByProgram } from './lib-venues';
 
 // Step 1 — pool registry. Confirms every candidate xStocks pool on-chain (owner program, decoded mints),
 // adds pools DexScreener missed (getProgramAccounts by mint per venue), measures TVL from vault balances,
@@ -32,38 +23,6 @@ const latest = (prefix: string, ext: string) =>
       .sort()
       .at(-1) as string,
   );
-
-type Venue = 'raydium_clmm' | 'orca_whirlpool' | 'meteora_dlmm' | 'raydium_cpmm';
-const VENUES: Record<
-  Venue,
-  { program: string; size: number; mintOffsets: [number, number]; dexscreener: string }
-> = {
-  raydium_clmm: {
-    program: RAYDIUM_CLMM_PROGRAM,
-    size: 1544,
-    mintOffsets: [73, 105],
-    dexscreener: 'raydium:CLMM',
-  },
-  orca_whirlpool: {
-    program: ORCA_WHIRLPOOL_PROGRAM,
-    size: 653,
-    mintOffsets: [101, 181],
-    dexscreener: 'orca:wp',
-  },
-  meteora_dlmm: {
-    program: METEORA_DLMM_PROGRAM,
-    size: 904,
-    mintOffsets: [88, 120],
-    dexscreener: 'meteora:DLMM',
-  },
-  raydium_cpmm: {
-    program: RAYDIUM_CPMM_PROGRAM,
-    size: 637,
-    mintOffsets: [168, 200],
-    dexscreener: 'raydium:CPMM',
-  },
-};
-const venueByProgram = new Map(Object.entries(VENUES).map(([v, c]) => [c.program, v as Venue]));
 
 // --- inputs: discovery file and the xStocks list ---
 const discoveryFile = latest('pools-dexscreener-', '.jsonl');
@@ -159,37 +118,19 @@ const excluded: Array<{ address: string; venue: string; reason: string }> = [];
 for (const [i, address] of addrs.entries()) {
   const c = cands.get(address) as Cand;
   const acc = accs[i];
-  const venue = acc ? venueByProgram.get(acc.owner) : undefined;
-  if (!acc || !venue) {
+  const conf = confirmPool(acc);
+  if (!conf.ok) {
     excluded.push({
       address,
-      venue: c.dsVenue,
-      reason: acc ? `unsupported program ${acc.owner}` : 'account not found',
+      // the venue's name when the owner is a venue's (a decode failure), DexScreener's otherwise
+      venue: conf.reason.startsWith('decode failed')
+        ? (venueByProgram.get(acc?.owner ?? '') as string)
+        : c.dsVenue,
+      reason: conf.reason,
     });
     continue;
   }
-  let mint0: string;
-  let mint1: string;
-  let vault0: string;
-  let vault1: string;
-  try {
-    if (venue === 'raydium_clmm') {
-      const h = decodeClmmPool(acc.data);
-      [mint0, mint1, vault0, vault1] = [h.mint0, h.mint1, h.vault0, h.vault1];
-    } else if (venue === 'orca_whirlpool') {
-      const h = decodeWhirlpool(acc.data);
-      [mint0, mint1, vault0, vault1] = [h.mintA, h.mintB, h.vaultA, h.vaultB];
-    } else if (venue === 'meteora_dlmm') {
-      const h = decodeDlmmPair(acc.data);
-      [mint0, mint1, vault0, vault1] = [h.mintX, h.mintY, h.reserveX, h.reserveY];
-    } else {
-      const h = decodeCpmmPool(acc.data);
-      [mint0, mint1, vault0, vault1] = [h.mint0, h.mint1, h.vault0, h.vault1];
-    }
-  } catch (e) {
-    excluded.push({ address, venue, reason: `decode failed: ${String(e).slice(0, 80)}` });
-    continue;
-  }
+  const { venue, mint0, mint1, vault0, vault1 } = conf;
   const assetIs0 = isX(mint0) ? 1 : isX(mint1) ? 0 : -1;
   if (assetIs0 < 0) {
     excluded.push({ address, venue, reason: 'no xStock mint in pool' });
@@ -207,7 +148,7 @@ for (const [i, address] of addrs.entries()) {
           : 'other';
   rows.push({
     address,
-    program: acc.owner,
+    program: conf.program,
     venue,
     assetMint,
     assetSymbol: symbol.get(assetMint) ?? assetMint.slice(0, 6),
@@ -237,34 +178,7 @@ for (const [i, address] of addrs.entries()) {
 
 // --- mints: decimals and transfer fees ---
 const mints = [...new Set(rows.flatMap((r) => [r.mint0, r.mint1]))];
-const mintInfo = new Map<string, { decimals: number; feeBps: number }>();
-for (let i = 0; i < mints.length; i += 100) {
-  const batch = mints.slice(i, i + 100);
-  const r = await rpc<{
-    value: Array<{
-      data: {
-        parsed: {
-          info: {
-            decimals: number;
-            extensions?: Array<{
-              extension: string;
-              state: { newerTransferFee?: { transferFeeBasisPoints: number } };
-            }>;
-          };
-        };
-      };
-    } | null>;
-  }>('getMultipleAccounts', [batch, { encoding: 'jsonParsed' }]);
-  for (const [k, v] of r.value.entries()) {
-    const info = v?.data.parsed.info;
-    if (!info) continue;
-    const fee = info.extensions?.find((e) => e.extension === 'transferFeeConfig');
-    mintInfo.set(batch[k] as string, {
-      decimals: info.decimals,
-      feeBps: fee?.state.newerTransferFee?.transferFeeBasisPoints ?? 0,
-    });
-  }
-}
+const mintInfo = await mintInfos(rpc, mints);
 
 // --- TVL from vault balances, priced for ranking only (Jupiter Price API v3) ---
 const vaults = rows.flatMap((r) => [r.vault0 as string, r.vault1 as string]);

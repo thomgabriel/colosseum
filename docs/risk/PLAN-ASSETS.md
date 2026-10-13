@@ -84,6 +84,7 @@ From each shelf file, `pnpm risk:shelf` also writes `scripts/risk/assets/shelf-e
 **AS.11 — The Solana program's 64 entries.** The program's registry holds 64 assets (`MAX_ASSETS`, `programs/basket/src/state.rs`) and the shelf names 97 Solana tokens at the reading of 2026-10-12. **Thom:** raise the limit, or cut the Solana entries to 64 by volume (the cut file is sorted so either can be read from it). AS.9 and AS.10 do not wait for it: the files hold every shelf token.
 
 **AS.12 — Bearing measures the shelf's pools.** The collectors start on the shelf's pools: on Solana a registry of the shelf's pools (the Oct 1 registry names pools for 20 of the 97 tokens), on Robinhood Chain the shelf's tokens beside the tracked stocks. Before Oct 13 the collectors' files are not edited (CLAUDE.md), so this is a new job or waits for that date; installing a job is Rodrigo's.
+- **Solana's registry of the shelf's pools** (built 2026-10-13, branch `universe/assets-shelf-pools`): `pnpm risk:shelf-pools-solana` writes `data/risk/shelf-registry-solana-<stamp>.json` (DexScreener's pairs per shelf token, pools on the four decoded venues of at least $10,000 until 90% of the token's supported liquidity, at most 5, each confirmed on chain; cash tokens and SOL are quotes, not subjects), which the backfill takes with `--registry` and the default registry choice never takes. Run of Oct 13: 263 pools for 87 of the 88 subjects (DBR has none), 93% of their supported liquidity; `scripts/risk/assets/README.md`. The collectors' job on it is still Rodrigo's.
 
 ## 4. Decisions
 
