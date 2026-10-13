@@ -80,6 +80,78 @@ const vaultOf = async (s: Scene) =>
   (await s.w.adapter.getVaults(s.w.owner)).find((v) => v.basketId === s.double.plan.basketId);
 const statuses = (order: OrderDetail) => order.legs.map((l) => `${l.kind}:${l.status}`);
 
+describe('the executor: an approval on an EVM chain is signed only for a vault that is open', () => {
+  // Gate CREATE-BEFORE-APPROVE, held by the client: before an approval is built, the caller's own
+  // read of the chain is asked whether a contract answers at the vault's address. The API is never
+  // asked.
+  const withCode = (read: ChainRead, there: boolean | Error): ChainRead => ({
+    ...read,
+    hasCode: async () => {
+      if (there instanceof Error) throw there;
+      return there;
+    },
+  });
+
+  it('asks the read once the create has landed, and signs the approval when the vault is there', async () => {
+    const s = scene('robinhood');
+    const read = mockChainRead(s.w, () => s.wallet.asked);
+    const asked: string[] = [];
+    const chainRead: ChainRead = {
+      ...read,
+      hasCode: async (at) => {
+        asked.push(at.address);
+        return read.hasCode(at);
+      },
+    };
+    const order = await s.double.buy(1000);
+    expect((await execute(order, { ...s.deps, chainRead })).status).toBe('done');
+    expect(asked).toEqual([(await vaultOf(s))?.address]);
+  });
+
+  it('refuses an approval for a vault with no code, and builds nothing for it', async () => {
+    const s = scene('robinhood');
+    const order = await s.double.buy(1000);
+    const [create, approve] = order.legs;
+    const chainRead = withCode(
+      mockChainRead(s.w, () => s.wallet.asked),
+      false,
+    );
+    const result = await execute(order, { ...s.deps, chainRead });
+    expect(result.status === 'refused' && [result.refusal.code, result.legId]).toEqual([
+      'order',
+      approve?.id,
+    ]);
+    expect(s.wallet.asked.map((tx) => tx.legId)).toEqual([create?.id]);
+    expect(s.double.calls).not.toContain(`build ${approve?.id}`);
+  });
+
+  it('refuses an approval and a deposit for a vault that was never opened', async () => {
+    // What the API could hand out if it skipped the create: the guard's rules about the order pass it.
+    const s = scene('robinhood');
+    const order = await s.double.buy(1000);
+    const legs = order.legs.filter((l) => l.kind !== 'create_vault');
+    const result = await execute(
+      { ...order, legs },
+      { ...s.deps, chainRead: mockChainRead(s.w, () => s.wallet.asked) },
+    );
+    expect(result.status === 'refused' && result.refusal.code).toBe('order');
+    expect(s.wallet.asked).toEqual([]);
+    expect(await vaultOf(s)).toBeUndefined();
+  });
+
+  it('refuses when its own node cannot say, and does not skip the read', async () => {
+    const s = scene('robinhood');
+    const order = await s.double.buy(1000);
+    const chainRead = withCode(
+      mockChainRead(s.w, () => s.wallet.asked),
+      new Error('node down'),
+    );
+    const result = await execute(order, { ...s.deps, chainRead });
+    expect(result.status === 'refused' && result.refusal.code).toBe('unsupported');
+    expect(s.wallet.asked.map((tx) => tx.legKind)).toEqual(['create_vault']);
+  });
+});
+
 describe('the executor: an order walked to its end', () => {
   it('on Solana: the vault is opened with the cash, then one trade per transaction', async () => {
     const s = scene('solana');
@@ -1077,6 +1149,7 @@ describe('the executor: one approved step gets one signature', () => {
     const read = {
       asked: 0,
       heightBefore: async () => 0,
+      hasCode: async () => true,
       fateOf: async () => {
         const fate = fates[Math.min(read.asked, fates.length - 1)] as Fate | Error;
         read.asked += 1;

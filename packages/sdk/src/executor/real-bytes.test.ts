@@ -300,15 +300,46 @@ describe('the executor on an EVM call', () => {
     value: 0n,
     data: `0x${hexEncode(data)}`,
   };
-  const run = async (signedTx: string) => {
+  /** The caller's own node: it answers `code` at the vault's address, and nothing else. */
+  const node = (code: string) => {
+    const asked: unknown[][] = [];
+    const rpc: RpcCall = async (method, params) => {
+      asked.push([method, ...params]);
+      if (method !== 'eth_getCode') throw new Error(`not asked here: ${method}`);
+      return params[0] === e.VAULT.toLowerCase() || params[0] === e.VAULT ? code : '0x';
+    };
+    return { asked, read: chainReadOf({ evm: rpc }) };
+  };
+  const run = async (
+    signedTx: string,
+    read: ExecutorDeps['chainRead'] | null = node('0x6080').read,
+  ) => {
     const tx = e.evmTx(approveStep, { to: token, data });
     // The order is an approval and the deposit it serves. The deposit is already done: only the
     // approval is run here.
     const sc = scene('robinhood', e.OWNER, { kind: 'approve' }, tx, () => signedTx, [
       { id: 'leg-2', seq: 1, kind: 'deposit', status: 'confirmed' },
     ]);
-    return { ...sc, result: await execute(sc.order, sc.deps(e.EVM)) };
+    const deps = sc.deps(e.EVM);
+    return { ...sc, result: await execute(sc.order, read ? { ...deps, chainRead: read } : deps) };
   };
+
+  it('asks its own node for code at the vault before the approval, and builds nothing without it', async () => {
+    // Gate CREATE-BEFORE-APPROVE: the address is the one the guard derives, never the API's word.
+    const there = node('0x6080');
+    expect((await run(typeTwo(honest), there.read)).result.status).toBe('done');
+    expect(there.asked).toEqual([['eth_getCode', e.VAULT.toLowerCase(), 'latest']]);
+
+    const empty = await run(typeTwo(honest), node('0x').read);
+    expect(empty.result.status === 'refused' && empty.result.refusal.code).toBe('order');
+    expect([empty.calls, empty.asked]).toEqual([[], []]);
+
+    const none = await run(typeTwo(honest), null);
+    expect(none.result.status === 'refused' && none.result.refusal.message).toMatch(
+      /no node of its own/,
+    );
+    expect([none.calls, none.asked]).toEqual([[], []]);
+  });
 
   it('the hand-made transaction reads back as it was written', () => {
     const read = signedEvm(typeTwo(honest));
