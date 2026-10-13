@@ -1157,8 +1157,10 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
         windows.push([Math.max(d90, end - passDays * DAY + 1), end]);
       const lastSig = new Map<string, string | undefined>();
       let piecesDone = 0;
+      // pools fetched `--pool-parallel` at a time (default 6), each pool's days in order
+      const poolParallel = Number(opt('--pool-parallel') ?? 6);
       for (const [i, [from, to]] of windows.entries()) {
-        for (const p of pools) {
+        await pool(pools, poolParallel, async (p) => {
           const before = lastSig.get(p.address);
           const r = await solanaPieces({
             kind,
@@ -1180,7 +1182,7 @@ async function solanaFetch(kind: 'swaps' | 'mints') {
             piecesDone,
             writtenBytes: written.bytes,
           });
-        }
+        });
         log({
           event: 'pass_done',
           pass: i + 1,

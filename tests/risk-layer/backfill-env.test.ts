@@ -30,6 +30,19 @@ describe("the backfill's own endpoints", () => {
     expect(env.KEEP_QUIET_MINUTES).toBe(false);
   });
 
+  it('spread the Solana calls over both endpoints by weight when asked to share', async () => {
+    process.env.SOLANA_RPC_URL = 'https://collector.example';
+    process.env.SOLANA_BACKFILL_RPC_URL = 'https://backfill.example';
+    process.env.SOLANA_BACKFILL_SHARE_RPC_WEIGHT = '3';
+    const env = await import('../../scripts/risk/assets/backfill-env');
+    expect(process.env.SOLANA_RPC_URLS).toBe(
+      'https://backfill.example|1,https://collector.example|3',
+    );
+    expect(env.BACKFILL_ENDPOINTS.solana).toBe(
+      'SOLANA_BACKFILL_RPC_URL and SOLANA_RPC_URL (weights 1:3)',
+    );
+  });
+
   it('change nothing when unset, and keep the quiet minutes on the public endpoint', async () => {
     process.env.SOLANA_RPC_URL = 'https://collector.example';
     delete process.env.SOLANA_BACKFILL_RPC_URL;
