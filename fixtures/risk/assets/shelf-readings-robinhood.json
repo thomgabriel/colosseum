@@ -398,15 +398,6 @@
       "provenance": "live"
     },
     {
-      "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
-      "value": 21360871.249999993,
-      "observedAt": "2026-10-12T18:34:33.056Z",
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "method": "dexscreener_token_pairs_h24",
-      "fetchedAt": "2026-10-12T18:34:33.056Z",
-      "provenance": "live"
-    },
-    {
       "address": "0x39ec44bee4f6a116c6f9b8de566848a985c53c60",
       "value": 171.3,
       "observedAt": "2026-10-12T18:34:33.461Z",

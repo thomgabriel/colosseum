@@ -4,18 +4,18 @@
   "floorUsd": 100000,
   "list": {
     "file": "scripts/risk/assets/solana.json",
-    "commit": "08724285"
+    "commit": "6f4dabba"
   },
   "reading": {
     "from": "2026-10-11T03:54:35.945Z",
     "to": "2026-10-12T18:34:15.246Z"
   },
   "counts": {
-    "considered": 2006,
-    "onShelf": 97,
-    "belowFloor": 148,
+    "considered": 2135,
+    "onShelf": 98,
+    "belowFloor": 149,
     "nullReading": 1761,
-    "noReading": 0
+    "noReading": 127
   },
   "rows": [
     {
@@ -864,6 +864,19 @@
       "provenance": "live"
     },
     {
+      "id": "solana:render",
+      "address": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+      "symbol": "RENDER",
+      "cls": "crypto",
+      "category": "governance",
+      "status": "candidate",
+      "volume24hUsd": 276234.11000000004,
+      "source": "DexScreener api.dexscreener.com/token-pairs/v1/solana (VOLUME-DEXSCREENER: DexScreener's figure)",
+      "fetched_at": "2026-10-11T17:39:36.151Z",
+      "method": "dexscreener_token_pairs_h24",
+      "provenance": "live"
+    },
+    {
       "id": "solana:auto",
       "address": "GNE6oDS6jHrfaV3GQVVCCp37fDnT7PiPuewMKBj2bqNm",
       "symbol": "AUTO",
@@ -873,19 +886,6 @@
       "volume24hUsd": 262883.83,
       "source": "DexScreener api.dexscreener.com/token-pairs/v1/solana (VOLUME-DEXSCREENER: DexScreener's figure)",
       "fetched_at": "2026-10-12T18:33:05.383Z",
-      "method": "dexscreener_token_pairs_h24",
-      "provenance": "live"
-    },
-    {
-      "id": "solana:arc",
-      "address": "61V8vBaqAGMpgDQi4JcAwo1dmBGHsyhzodcPqnEVpump",
-      "symbol": "arc",
-      "cls": "crypto",
-      "category": "governance",
-      "status": "candidate",
-      "volume24hUsd": 262256.19,
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/solana (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "fetched_at": "2026-10-12T18:32:31.005Z",
       "method": "dexscreener_token_pairs_h24",
       "provenance": "live"
     },
@@ -1068,6 +1068,19 @@
       "volume24hUsd": 202361.33000000002,
       "source": "DexScreener api.dexscreener.com/token-pairs/v1/solana (VOLUME-DEXSCREENER: DexScreener's figure)",
       "fetched_at": "2026-10-12T18:32:54.131Z",
+      "method": "dexscreener_token_pairs_h24",
+      "provenance": "live"
+    },
+    {
+      "id": "solana:w",
+      "address": "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ",
+      "symbol": "W",
+      "cls": "crypto",
+      "category": "governance",
+      "status": "candidate",
+      "volume24hUsd": 200868.18999999997,
+      "source": "DexScreener api.dexscreener.com/token-pairs/v1/solana (VOLUME-DEXSCREENER: DexScreener's figure)",
+      "fetched_at": "2026-10-11T17:37:35.259Z",
       "method": "dexscreener_token_pairs_h24",
       "provenance": "live"
     },

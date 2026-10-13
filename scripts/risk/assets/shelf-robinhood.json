@@ -4,15 +4,15 @@
   "floorUsd": 100000,
   "list": {
     "file": "scripts/risk/assets/robinhood.json",
-    "commit": "87c23615"
+    "commit": "7aa39586"
   },
   "reading": {
     "from": "2026-10-11T02:43:34.000Z",
     "to": "2026-10-12T18:35:38.395Z"
   },
   "counts": {
-    "considered": 215,
-    "onShelf": 45,
+    "considered": 214,
+    "onShelf": 44,
     "belowFloor": 108,
     "nullReading": 62,
     "noReading": 0
@@ -41,19 +41,6 @@
       "volume24hUsd": 30794366.359999992,
       "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
       "fetched_at": "2026-10-12T18:34:50.973Z",
-      "method": "dexscreener_token_pairs_h24",
-      "provenance": "live"
-    },
-    {
-      "id": "robinhood:pons",
-      "address": "0x39dbed3a2bd333467115de45665cc57f813c4571",
-      "symbol": "PONS",
-      "cls": "crypto",
-      "category": "governance",
-      "status": "candidate",
-      "volume24hUsd": 21360871.249999993,
-      "source": "DexScreener api.dexscreener.com/token-pairs/v1/robinhood (VOLUME-DEXSCREENER: DexScreener's figure)",
-      "fetched_at": "2026-10-12T18:34:33.056Z",
       "method": "dexscreener_token_pairs_h24",
       "provenance": "live"
     },
