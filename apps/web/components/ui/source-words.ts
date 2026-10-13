@@ -154,7 +154,7 @@ const RULES: readonly Rule[] = [
   },
   { test: /^https:\/\/coins\.llama\.fi\//i, from: 'DefiLlama’s price history' },
   { test: /^issuer page$/i, from: 'the issuer’s own page' },
-  { test: /^tenonfi API \/stats$/i, from: 'this app’s own counts' },
+  { test: /^tenonfi API \/(?:v1\/)?stats$/i, from: 'this app’s own counts' },
   { test: /^server registry$/i, from: 'this app’s list of assets' },
   { test: /^policy input platformFeeBps$/i, from: 'this app’s fee setting' },
 

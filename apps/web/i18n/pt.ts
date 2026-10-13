@@ -1977,7 +1977,7 @@ export const pt: Dictionary = {
     },
     stats: {
       label: 'A plataforma em números',
-      plans: 'Planos feitos',
+      vaults: 'Cofres',
       wallets: 'Carteiras',
       value: 'Nos cofres',
       running: 'Planos em curso',
