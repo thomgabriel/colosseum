@@ -76,6 +76,7 @@ import { requestKey, rpcOver } from '../../risk-evm/replay';
 import { createRpc, type Rpc, type RpcReply } from '../../risk-evm/rpc';
 import { latestRegistryFile, type RegistryPool } from '../lib-history';
 import { rpcStats, rpc as solRpc } from '../lib-pools';
+import { meteredBatch } from './backfill-cost';
 import { BACKFILL_ENDPOINTS, KEEP_QUIET_MINUTES } from './backfill-env';
 import {
   CHART_SPAN_DAYS,
@@ -233,7 +234,18 @@ const evmDeps = (): Deps => {
   // one client a request: its timeout ends before the live loop's minutes, and it never retries by itself
   // (retries: 0), so every retry goes back through `ask` and its check of the clock
   const clientFor = (timeoutMs: number): Rpc => {
-    const inner = createRpc(rpcFor(robinhood).url, { timeoutMs, retries: 0 });
+    const plain = createRpc(rpcFor(robinhood).url, { timeoutMs, retries: 0 });
+    // a metered endpoint (Alchemy) is priced per request and stops at its cap (backfill-cost.ts)
+    const inner = BACKFILL_ENDPOINTS.robinhood
+      ? rpcOver(
+          meteredBatch(plain.batch, {
+            ledgerFile: join(OUT, 'robinhood', 'cost-ledger.json'),
+            capUsd: Number(process.env.ROBINHOOD_BACKFILL_USD_CAP ?? 5),
+            endpoint: BACKFILL_ENDPOINTS.robinhood,
+          }),
+          plain.stats,
+        )
+      : plain;
     return opt('--record')
       ? rpcOver(async (requests) => {
           const replies = await inner.batch(requests);

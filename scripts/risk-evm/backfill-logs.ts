@@ -215,6 +215,8 @@ export async function ask(
       if (r && isTransient(r)) throw new Error(r.error?.message ?? 'refused for rate');
       return r ?? { error: { message: 'no reply' } };
     } catch (e) {
+      // a stop by the budget or a cost cap ends the run cleanly: never waited out and asked again
+      if (e instanceof Error && e.name === 'BudgetStop') throw e;
       const wait = BACKOFF_MS[attempt];
       if (wait === undefined) throw e;
       deps.log({

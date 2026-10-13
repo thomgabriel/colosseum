@@ -170,6 +170,7 @@ export function requireWindowInScope(
 export class BudgetStop extends Error {
   constructor(readonly reasons: string[]) {
     super(`stopped by the budget: ${reasons.join('; ')}`);
+    this.name = 'BudgetStop';
   }
 }
 
