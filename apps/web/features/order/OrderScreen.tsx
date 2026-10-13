@@ -35,6 +35,7 @@ import {
   continueOrder,
   continuesOrders,
   readOrder,
+  rebalancePath,
 } from './order-api';
 import {
   checkContinuation,
@@ -43,8 +44,10 @@ import {
   checkVaultAdd,
   type DepositCheck,
   depositLanded,
+  dollarsShapeOk,
   leftOfApproved,
   leftOfPlan,
+  rebalanceShapeOk,
   retargetShapeOk,
   sharedShapeOk,
   stoppedShort,
@@ -102,6 +105,14 @@ function checkOf(order: OrderDetail, record: OrderRecord, units: ChainUnits | nu
   if (terms.kind === 'vault') return checkVaultAdd(order, record.amountUsd, units, terms);
   if (terms.kind === 'retarget')
     return retargetShapeOk(order, terms, units)
+      ? { ok: true, depositRaw: 0n, decimals: 0 }
+      : { ok: false, why: 'shape' };
+  if (terms.kind === 'withdraw' && terms.dollars)
+    return dollarsShapeOk(order, terms, units)
+      ? { ok: true, depositRaw: 0n, decimals: 0 }
+      : { ok: false, why: 'withdraw' };
+  if (terms.kind === 'rebalance')
+    return rebalanceShapeOk(order, terms, units)
       ? { ok: true, depositRaw: 0n, decimals: 0 }
       : { ok: false, why: 'shape' };
   return sharedShapeOk(order, terms)
@@ -688,7 +699,9 @@ export function OrderScreen({
             ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/withdraw`
             : terms.kind === 'retarget'
               ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/targets`
-              : '/publish';
+              : terms.kind === 'rebalance'
+                ? rebalancePath(chain, terms.vault)
+                : '/publish';
   const testNetwork = shown.legs[0]?.provenance === 'sandbox';
   // The swaps the order left undone: what an order that finishes it would make, and is held to.
   // The trades are the approved order's own, step by step: of the API's later answer only where each
@@ -752,14 +765,18 @@ export function OrderScreen({
                     ? record.approved
                       ? t.order.shared.resume
                       : t.mix.order.signTargets
-                    : record.approved
-                      ? t.order.resume(amount)
-                      : record.continues && embed
-                        ? // it deposits nothing: the press signs what the first order left
-                          t.order.outcome.finishSign
-                        : embed
-                          ? t.invest.press(amount)
-                          : t.order.signAndBuy(amount);
+                    : terms?.kind === 'rebalance'
+                      ? record.approved
+                        ? t.order.shared.resume
+                        : t.order.shared.signRebalance
+                      : record.approved
+                        ? t.order.resume(amount)
+                        : record.continues && embed
+                          ? // it deposits nothing: the press signs what the first order left
+                            t.order.outcome.finishSign
+                          : embed
+                            ? t.invest.press(amount)
+                            : t.order.signAndBuy(amount);
   // A deposit is never signed for before the trust notice is accepted (DESIGN-VAULT section 13). The
   // invest card makes the order before that, to show its prices, so the order's own page asks too:
   // an order opened here that nobody approved is held until the notice is accepted, as on the card.
@@ -781,12 +798,60 @@ export function OrderScreen({
   // The passkey wallet signs with no window of its own; any other wallet confirms each step in its own.
   const quiet = port.active(chainFamily(chain))?.kind === 'embedded';
 
+  // A withdrawal in dollars: the least its cash step pays, which the check held to the share of the
+  // cash reviewed plus every sale's minimum.
+  const leastRaw =
+    terms?.kind === 'withdraw' && terms.dollars && check.ok
+      ? legs.at(-1)?.withdrawals?.[0]?.leastRaw
+      : undefined;
+  const leastOut =
+    leastRaw === undefined
+      ? null
+      : cash
+        ? `${formatRaw(leastRaw, cash.decimals, LOCALE[lang]) ?? leastRaw} ${cash.symbol}`
+        : leastRaw;
+
+  // A withdrawal in dollars that stopped with some of its sales landed: which, and the least they
+  // brought into the vault, from the minimums the order stated.
+  const landedSales =
+    terms?.kind === 'withdraw' && terms.dollars && stoppedShort(now)
+      ? legs.filter(
+          (leg) =>
+            leg.kind === 'swap' &&
+            (now.legs.find((l) => l.id === leg.id)?.status ?? leg.status) === 'confirmed',
+        )
+      : [];
+  const soldBefore =
+    landedSales.length > 0
+      ? {
+          names: new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
+            landedSales.flatMap((l) =>
+              l.trades.map((x) => units?.tokens[x.sell]?.symbol ?? tokenName(x.sell)),
+            ),
+          ),
+          least: (() => {
+            const raw = landedSales
+              .flatMap((l) => l.expected)
+              .reduce((n, e) => n + BigInt(e.minOutRaw), 0n)
+              .toString();
+            return cash
+              ? `${formatRaw(raw, cash.decimals, LOCALE[lang]) ?? raw} ${cash.symbol}`
+              : raw;
+          })(),
+        }
+      : null;
+
   const stepsBody = (
     <>
       <StatRow>
         {/* an order that finishes another deposits nothing */}
         {buying && !record.continues && <Stat label={t.order.review.deposit}>{depositShown}</Stat>}
         {record.continues && check.ok && <Stat label={t.order.review.fromVault}>{amount}</Stat>}
+        {leastOut && (
+          <Stat label={t.order.shared.receiveAtLeast}>
+            <span data-ui="withdraw-least">{leastOut}</span>
+          </Stat>
+        )}
         <Stat label={t.order.review.steps}>{legs.length}</Stat>
         {!record.approved && (
           <Stat label={t.order.review.expires} className="max-[620px]:col-span-2">
@@ -1003,6 +1068,19 @@ export function OrderScreen({
             </span>
           </p>
         )}
+        {soldBefore && (
+          // In dollars, stopped after some sales landed: their dollars are in the vault now, and the
+          // same share asked again would sell those holdings a second time.
+          <div data-ui="withdraw-sold-before" className="flex flex-col items-start gap-3">
+            <p className="max-w-(--tf-measure-body) text-body">
+              {t.order.shared.soldBefore(soldBefore.names, soldBefore.least)}
+            </p>
+            <p className="max-w-(--tf-measure-body) text-body-sm">{t.order.shared.notAgain}</p>
+            <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
+              {t.order.shared.tokensInstead}
+            </Link>
+          </div>
+        )}
         {done && terms?.kind === 'withdraw' && (
           // The portfolio reads the vault again from its chain: what stayed, or that it is empty.
           <div data-ui="withdraw-done" className="flex flex-col items-start gap-3">
@@ -1016,12 +1094,35 @@ export function OrderScreen({
                 )}
               </p>
             )}
+            {/* in dollars with a holding left unsold: the tokens themselves, for that part */}
+            {terms.dollars && shown.warnings.some((x) => x.code.startsWith('NOT_SOLD:')) && (
+              <Link
+                data-ui="withdraw-tokens-instead"
+                href={newOrder}
+                className={buttonClass({ variant: 'secondary' })}
+              >
+                {t.order.shared.tokensInstead}
+              </Link>
+            )}
             {/* a host that holds this screen (the vault's own page) has its own way back */}
             {!embed?.hostEnds && (
               <Link href={portfolioHref} className={buttonClass({ variant: 'secondary' })}>
                 {t.withdraw.back}
               </Link>
             )}
+          </div>
+        )}
+        {done && terms?.kind === 'follow' && terms.follow !== null && !terms.autoFollow && (
+          // Following set the vault's targets and traded nothing: the trades to them are the next press.
+          <div data-ui="follow-done" className="flex flex-col items-start gap-3">
+            <p className="max-w-(--tf-measure-body) text-body">{t.order.shared.followDone}</p>
+            <Link
+              href={rebalancePath(chain, terms.vault)}
+              data-action="follow-rebalance"
+              className={buttonClass({ variant: 'primary' })}
+            >
+              {t.order.shared.followRebalance}
+            </Link>
           </div>
         )}
         {trustAsked && check.ok && !done && (
@@ -1364,15 +1465,20 @@ function Step({
         <ul className="flex flex-col gap-0.5 text-body-sm text-muted-foreground">
           {leg.withdrawals.map((w) => (
             <li key={w.asset} data-ui="order-withdrawal" className="tabular-nums">
-              {w.amountRaw === null
-                ? t.order.shared.withdrawsAll(
-                    whole(shown(w.heldRaw, w.asset), w.asset, 18) ??
-                      `${w.heldRaw} ${tokenName(w.asset)}`,
+              {w.leastRaw !== undefined
+                ? // the cash of a withdrawal in dollars: the least it pays, whatever the sales bring
+                  t.order.shared.withdrawsAtLeast(
+                    whole(w.leastRaw, w.asset, 18) ?? `${w.leastRaw} ${tokenName(w.asset)}`,
                   )
-                : t.order.shared.withdraws(
-                    whole(shown(w.amountRaw, w.asset), w.asset, 18) ??
-                      `${w.amountRaw} ${tokenName(w.asset)}`,
-                  )}
+                : w.amountRaw === null
+                  ? t.order.shared.withdrawsAll(
+                      whole(shown(w.heldRaw, w.asset), w.asset, 18) ??
+                        `${w.heldRaw} ${tokenName(w.asset)}`,
+                    )
+                  : t.order.shared.withdraws(
+                      whole(shown(w.amountRaw, w.asset), w.asset, 18) ??
+                        `${w.amountRaw} ${tokenName(w.asset)}`,
+                    )}
             </li>
           ))}
         </ul>

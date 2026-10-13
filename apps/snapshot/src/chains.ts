@@ -24,12 +24,16 @@ import {
 } from '@colosseum/chain-solana/vault';
 import {
   type ChainConfig,
+  ChainError,
   ChainId,
   type ChainMode,
   chainProvenance,
   type EnvLike,
   envKey,
   type Flags,
+  MAINNET_SWITCH,
+  MAINNET_SWITCH_VALUE,
+  mainnetAllowed,
   type Network,
   parseChainConfigs,
   parseFlags,
@@ -42,9 +46,12 @@ import type { ChainRules, ChainSource } from './source';
 // One ChainSource per chain the worker reads, from the environment, or an error before any node is
 // asked anything. A real chain is its READER (packages/chain-solana/src/vault/reader.ts,
 // packages/chain-evm/src/vault/reader.ts) on a test network or a local copy, from the record its deploy
-// committed. A chain on the mock is packages/chain-mock with the sample world of mock-world.ts. Nothing
-// here makes an adapter of a real chain, a builder, a probe or a signer, and nothing loads a key:
-// tests/snapshot/reads-only.test.ts holds the folder to that.
+// committed; Robinhood Chain alone is also read on its mainnet (gate SNAPSHOT-WORKER as amended on
+// Oct 13), from its mainnet record and under the switch the API needs, labelled `live`. A chain on the
+// mock is packages/chain-mock with the sample world of mock-world.ts. Nothing here makes an adapter of a
+// real chain, a builder, a probe or a signer, and nothing loads a key:
+// tests/snapshot/reads-only.test.ts holds the folder to that, and the EVM node's client passes on
+// nothing but reads (`EVM_NODE`).
 
 /**
  * Names under the prefixes the flags own (CHAIN_, AUTO_FOLLOW_, KEEPER_) that the keeper and its run
@@ -66,6 +73,25 @@ export const ALSO_KNOWN: readonly string[] = [
 
 /** Where a real chain's node comes from. A URL can carry a key: it is read as written, never printed. */
 const RPC_URL = { solana: 'SOLANA_RPC_URL', robinhood: 'ROBINHOOD_RPC_URL' } as const;
+
+/**
+ * How the worker asks an EVM node, whatever the network: nothing but reads passed on (`readOnly`),
+ * three requests a batch and two batches in flight. A free node refuses a larger batch and a public
+ * one answers a burst with 403; a paid node takes the same small batches. The lanes of a pass
+ * (pass.ts, READS_AT_ONCE) share the one client, so this bounds the whole chain's reads.
+ *
+ * `timeoutMs` is two minutes, not the client's 30 s: viem's timer starts before the request waits its
+ * turn in `maxInFlight`'s queue, so a batch's time in the queue counts against it. Four lanes reading
+ * a vault each (about 14 batches a vault) can stand some 28 turns deep; at 3 s a turn on a slow node
+ * that is 84 s of waiting before the last batch is even sent. Two minutes covers that, and a node that
+ * does not answer at all still fails the pass within a few minutes, with viem's two retries.
+ */
+export const EVM_NODE = {
+  readOnly: true,
+  batchSize: 3,
+  maxInFlight: 2,
+  timeoutMs: 120_000,
+} as const;
 
 const DEPLOYMENTS = fileURLToPath(new URL('../../../deployments/', import.meta.url));
 
@@ -89,18 +115,28 @@ export type SourceOptions = {
   warn?: (line: string) => void;
 };
 
-/** Why the worker stops on a mainnet setting. The variable is named; nothing else of the environment is. */
+/**
+ * Why the worker stops on a mainnet setting of a chain it reads on a test network only (Solana, Base).
+ * The variable is named; nothing else of the environment is.
+ */
 export function mainnetRefusal(key: string): string {
   return `${key} is mainnet, and the snapshot worker reads the test networks only until a person says otherwise: set it to testnet or local`;
 }
+
+/** The one chain the worker reads on its mainnet (gate SNAPSHOT-WORKER, amended Oct 13). */
+export const MAINNET_CHAIN = 'robinhood';
+
+/** Why the worker stops on Robinhood Chain's mainnet without the second switch. */
+export const SWITCH_REFUSAL = `${envKey('CHAIN_NETWORK', MAINNET_CHAIN)} is mainnet: set ${MAINNET_SWITCH} to ${MAINNET_SWITCH_VALUE} for the snapshot worker to read it, as the API needs it to run there`;
 
 /** Said when the environment names no chain to read: both ways to name one. */
 export const NO_CHAIN =
   'no chain to read: set CHAIN_MODE_<CHAIN> to readonly for a chain on its test network, or name the chains in SNAPSHOT_CHAINS (a chain on the mock is read only when it is named there)';
 
 /**
- * The label on every row read from a real chain on this network, which here is always `sandbox`. A
- * network whose figures would carry another label is refused: nothing this worker stores is `live`.
+ * The label on every row read from a chain the worker reads on a test network only, which is always
+ * `sandbox`. A network whose figures would carry another label is refused. `live` is Robinhood Chain's
+ * mainnet alone (`labelOfEvm`).
  */
 export function sandboxOnly(chain: ChainId, network: Network): 'sandbox' {
   const provenance = chainProvenance(network, 'readonly');
@@ -109,6 +145,21 @@ export function sandboxOnly(chain: ChainId, network: Network): 'sandbox' {
       `${envKey('CHAIN_NETWORK', chain)} is ${network}, whose figures would be labelled ${provenance}: the snapshot worker stores test-network figures only`,
     );
   return provenance;
+}
+
+/**
+ * The label on every row read from Robinhood Chain: `live` on its mainnet, which needs the switch, and
+ * `sandbox` on its test network or a local copy. A mainnet reading is never stored as a test
+ * network's, nor the other way: the record and the node are held to the same network below.
+ */
+export function labelOfEvm(
+  chain: typeof MAINNET_CHAIN,
+  network: Network,
+  env: EnvLike,
+): 'live' | 'sandbox' {
+  if (network !== 'mainnet') return sandboxOnly(chain, network);
+  if (!mainnetAllowed(env)) throw new Error(SWITCH_REFUSAL);
+  return 'live';
 }
 
 /** The chain's settings as the Solana program's Config account holds them. */
@@ -140,9 +191,12 @@ export async function sourcesFromEnv(
   options: SourceOptions = {},
 ): Promise<ChainSource[]> {
   // First, and for every chain whatever its mode: a chain set to mainnet stops the worker, read or not.
+  // Robinhood Chain is the exception, and only with the second switch in its exact words.
   for (const chain of ChainId.options) {
     const key = envKey('CHAIN_NETWORK', chain);
-    if (readEnv(env, key) === 'mainnet') throw new Error(mainnetRefusal(key));
+    if (readEnv(env, key) !== 'mainnet') continue;
+    if (chain !== MAINNET_CHAIN) throw new Error(mainnetRefusal(key));
+    if (!mainnetAllowed(env)) throw new Error(SWITCH_REFUSAL);
   }
   // The flags, read once (DESIGN-VAULT section 2, rule 6). A name it does not know is refused as a typo.
   const flags = parseFlags(env, ALSO_KNOWN);
@@ -195,8 +249,12 @@ function chosen(env: EnvLike, flags: Flags): ChainId[] {
   return ChainId.options.filter((chain) => ids.includes(chain));
 }
 
-/** "Solana devnet", "Robinhood Chain testnet": some networks' own names already say the chain. */
+/**
+ * "Solana devnet", "Robinhood Chain testnet", "Robinhood Chain mainnet": some networks' own names
+ * already say the chain, and a mainnet's own name is the chain's, which would not say which network.
+ */
 function nameOf(config: ChainConfig): string {
+  if (config.network === 'mainnet') return `${config.name} mainnet`;
   return config.networkName.startsWith(config.name)
     ? config.networkName
     : `${config.name} ${config.networkName}`;
@@ -217,6 +275,52 @@ function heightOrNull(read: () => Promise<bigint | number>): Promise<bigint | nu
     );
   return Promise.race([answer, late]).finally(() => clearTimeout(timer));
 }
+
+/**
+ * The node check of one chain, made at start and, where the node did not answer then, before each read
+ * until it has. A node that does not answer (`Unavailable`: a timeout, a rate limit, a 403) says nothing
+ * of which network it is, so it must not stop the other chains from being read: the worker starts, says
+ * so once, and this chain's passes fail and back off alone (loop.ts) until the node answers. A node
+ * that answers another network stops the worker at start, and fails every read after it. Nothing is
+ * read from a node before it has said it is the record's network.
+ */
+async function nodeCheck(
+  name: string,
+  check: () => Promise<void>,
+  options: SourceOptions,
+): Promise<() => Promise<void>> {
+  let passed = false;
+  let asking: Promise<void> | null = null;
+  const ready = () => {
+    if (passed) return Promise.resolve();
+    asking ??= check()
+      .then(() => {
+        passed = true;
+      })
+      .finally(() => {
+        asking = null;
+      });
+    return asking;
+  };
+  try {
+    await ready();
+  } catch (e) {
+    if (!(e instanceof ChainError && e.code === 'Unavailable')) throw e;
+    // A ChainError's message never carries the node's address, and main.ts hides one all the same.
+    (options.warn ?? ((line: string) => console.error(line)))(
+      `${name} did not say which network it is at start (${e.code}: ${e.message}): each pass asks again, and nothing is read from it until it has`,
+    );
+  }
+  return ready;
+}
+
+/** `read`, once the node has said which network it is. */
+const after =
+  <A extends unknown[], R>(ready: () => Promise<void>, read: (...args: A) => Promise<R>) =>
+  async (...args: A): Promise<R> => {
+    await ready();
+    return read(...args);
+  };
 
 /**
  * The record a deploy committed for a network (`deployments/<name>.json`), parsed and held to its own
@@ -305,25 +409,35 @@ function solana(
   const slots = rpc as unknown as Rpc<GetSlotApi>;
   return async () => {
     // The node says which network it is: a test label on a mainnet node does not start.
-    await (options.checkSolana ?? assertSolanaNode)(rpc, record);
+    const ready = await nodeCheck(
+      nameOf(config),
+      () => (options.checkSolana ?? assertSolanaNode)(rpc, record),
+      options,
+    );
     return {
       chain: 'solana',
       name: nameOf(config),
       provenance,
       source: `${nameOf(config)}, read over RPC by the vault reader`,
       listAssets: () => reader.listAssets(),
-      getPrices: (assets) => reader.getPrices(assets),
-      getVault: (vault) => reader.getVault(vault),
-      getVaults: (owner) => reader.getVaults(owner),
-      rules: async () => rulesOfConfig(await reader.getConfig()),
+      getPrices: after(ready, async (assets) => reader.getPrices(assets)),
+      getVault: after(ready, async (vault) => reader.getVault(vault)),
+      getVaults: after(ready, async (owner) => reader.getVaults(owner)),
+      rules: after(ready, async () => rulesOfConfig(await reader.getConfig())),
       // The reader's own commitment, so the slot is of the view of the chain the vaults are then read
       // on. One node answers in order; a node behind a balancer can answer a later read a slot behind.
-      height: () => heightOrNull(() => slots.getSlot({ commitment: 'confirmed' }).send()),
+      height: () =>
+        heightOrNull(after(ready, async () => slots.getSlot({ commitment: 'confirmed' }).send())),
     };
   };
 }
 
-/** Robinhood Chain on its test network (46630) or a local copy, the same way. */
+/**
+ * Robinhood Chain on its test network (46630) or a local copy, the same way, and on its mainnet (4663)
+ * from `deployments/robinhood-mainnet.json`. The label follows the network, the record has to be that
+ * network's own, and the node has to answer the record's chain id (`assertNode`): a mainnet node under
+ * a test setting does not start, and neither does a test node under the mainnet one.
+ */
 function evm(
   chain: 'robinhood',
   env: EnvLike,
@@ -331,7 +445,7 @@ function evm(
   network: Network,
   options: SourceOptions,
 ): () => Promise<ChainSource> {
-  const provenance = sandboxOnly(chain, network);
+  const provenance = labelOfEvm(chain, network, env);
   const name = `${chain}-${network}`;
   const record = recordOf(
     name,
@@ -342,6 +456,11 @@ function evm(
   );
   if (record.chain !== chain)
     throw new Error(`deployments/${name}.json is the record of ${record.chain}`);
+  // The record says whose figures it holds, and it is the label the rows get.
+  if (record.provenance !== provenance)
+    throw new Error(
+      `deployments/${name}.json says its figures are ${record.provenance}, and ${envKey('CHAIN_NETWORK', chain)} makes them ${provenance}`,
+    );
   const url = nodeUrl(env, chain, mode);
   const { factory, registry, router } = evmAddresses(record);
   if (router) agree(env, envKey('CHAIN_ROUTER', chain), router, name, true);
@@ -352,7 +471,7 @@ function evm(
     },
     { [chain]: { factory, registry } },
   )[chain];
-  const rpc = (options.connectEvm ?? createEvmRpc)(url);
+  const rpc = (options.connectEvm ?? ((node: string) => createEvmRpc(node, EVM_NODE)))(url);
   const reader = createEvmVaultReader({
     config,
     rpc,
@@ -360,18 +479,22 @@ function evm(
     trade: 'readonly',
   });
   return async () => {
-    await (options.checkEvm ?? assertEvmNode)(rpc, record);
+    const ready = await nodeCheck(
+      nameOf(config),
+      () => (options.checkEvm ?? assertEvmNode)(rpc, record),
+      options,
+    );
     return {
       chain,
       name: nameOf(config),
       provenance,
       source: `${nameOf(config)}, read over JSON-RPC by the EVM vault reader`,
       listAssets: () => reader.listAssets(),
-      getPrices: (assets) => reader.getPrices(assets),
-      getVault: (vault) => reader.getVault(vault),
-      getVaults: (owner) => reader.getVaults(owner),
-      rules: async () => rulesOfPlatform(await reader.getPlatform()),
-      height: () => heightOrNull(() => rpc.getBlockNumber()),
+      getPrices: after(ready, async (assets) => reader.getPrices(assets)),
+      getVault: after(ready, async (vault) => reader.getVault(vault)),
+      getVaults: after(ready, async (owner) => reader.getVaults(owner)),
+      rules: after(ready, async () => rulesOfPlatform(await reader.getPlatform())),
+      height: () => heightOrNull(after(ready, async () => rpc.getBlockNumber())),
     };
   };
 }

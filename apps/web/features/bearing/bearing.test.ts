@@ -682,10 +682,10 @@ describe('what the page says of recordings, whichever job wrote them', () => {
     );
     // Portuguese joins the preposition to the article: “do registro”, “da leitura”, not “de o”
     expect(pt.note(pt.recordedAt('3 de out. de 2026, 15:02 UTC'))).toBe(
-      'guardada a até ±30% do preço, a partir do registro mais recente do pool, 3 de out. de 2026, 15:02 UTC; o ativo espera acima do preço (vendido conforme sobe), a moeda de cotação abaixo (usada para comprar conforme cai); + e − para zoom',
+      'guardada a até ±30% do preço, a partir do registro mais recente do pool, 3 de out. de 2026, 15:02 UTC; o ativo espera acima do preço (vendido conforme sobe), a moeda de cotação abaixo (gasta no ativo conforme cai); + e − para zoom',
     );
     expect(pt.note(pt.liveAt('15:02'))).toBe(
-      'guardada a até ±30% do preço, a partir da leitura ao vivo das 15:02 UTC; o ativo espera acima do preço (vendido conforme sobe), a moeda de cotação abaixo (usada para comprar conforme cai); + e − para zoom',
+      'guardada a até ±30% do preço, a partir da leitura ao vivo das 15:02 UTC; o ativo espera acima do preço (vendido conforme sobe), a moeda de cotação abaixo (gasta no ativo conforme cai); + e − para zoom',
     );
     for (const s of [pt.note(pt.recordedAt('x')), pt.note(pt.liveAt('x'))])
       expect(s).not.toMatch(/\bde (o|a|os|as) /);

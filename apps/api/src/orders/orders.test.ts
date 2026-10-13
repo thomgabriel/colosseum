@@ -861,11 +861,14 @@ describe('the /v1 route table', () => {
       '/v1/portfolio/plans',
       '/v1/portfolio/rebalances',
       '/v1/shelf',
+      '/v1/stats',
       '/v1/testnet/fund',
       '/v1/vaults/{chain}/{address}',
       '/v1/vaults/{chain}/{address}/conversation',
       '/v1/vaults/{chain}/{address}/conversation/reply',
       '/v1/vaults/{chain}/{address}/name',
+      '/v1/vaults/{chain}/{address}/rebalance',
+      '/v1/vaults/{chain}/{address}/rebalance/quote',
       '/v1/vaults/{chain}/{address}/targets',
     ]);
     // No route lets a caller through without a token: 503 with no Privy app set, 401 with one.
@@ -996,6 +999,7 @@ describe('no /v1 route can make the server sign', () => {
       'routes/v1/portfolio-rebalances.ts',
       'routes/v1/portfolio.ts',
       'routes/v1/shared.ts',
+      'routes/v1/stats.ts',
       'routes/v1/testnet.ts',
       'routes/v1/thread.ts',
       'routes/v1/vault-conversation-reply.ts',

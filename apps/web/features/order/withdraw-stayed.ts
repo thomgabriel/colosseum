@@ -26,7 +26,8 @@ export const takenWhole = (order: OrderDetail): string[] => [
     order.legs
       .filter((leg) => leg.status === 'confirmed')
       .flatMap((leg) => leg.withdrawals ?? [])
-      .filter((w) => w.amountRaw === null)
+      // The cash of a withdrawal in dollars names no amount and may leave a share behind by design.
+      .filter((w) => w.amountRaw === null && w.leastRaw === undefined)
       .map((w) => w.asset),
   ),
 ];

@@ -1,0 +1,357 @@
+{
+  "series": "chainlink-rounds",
+  "chain": "robinhood",
+  "subject": "0x379ec4f7c378f34a1b47e4f3cbebcbac3e8e9f15",
+  "methodVersion": "backfill-0.1",
+  "source": "Robinhood Chain Chainlink proxy 0x379ec4f7c378f34a1b47e4f3cbebcbac3e8e9f15 (NVDA): getRoundData of every round of every phase by Multicall3 through ROBINHOOD_BACKFILL_RPC_URL",
+  "provenance": "live",
+  "covered": [
+    {
+      "from": 1000000001,
+      "to": 1000001214,
+      "unit": "round"
+    }
+  ],
+  "days": {
+    "2026-06-22": {
+      "rows": 11,
+      "bytes": 383
+    },
+    "2026-06-23": {
+      "rows": 18,
+      "bytes": 540
+    },
+    "2026-06-24": {
+      "rows": 15,
+      "bytes": 477
+    },
+    "2026-06-25": {
+      "rows": 26,
+      "bytes": 698
+    },
+    "2026-06-26": {
+      "rows": 24,
+      "bytes": 674
+    },
+    "2026-06-29": {
+      "rows": 23,
+      "bytes": 637
+    },
+    "2026-06-30": {
+      "rows": 22,
+      "bytes": 617
+    },
+    "2026-07-01": {
+      "rows": 21,
+      "bytes": 593
+    },
+    "2026-07-02": {
+      "rows": 23,
+      "bytes": 641
+    },
+    "2026-07-06": {
+      "rows": 10,
+      "bytes": 356
+    },
+    "2026-07-07": {
+      "rows": 17,
+      "bytes": 516
+    },
+    "2026-07-08": {
+      "rows": 31,
+      "bytes": 812
+    },
+    "2026-07-09": {
+      "rows": 16,
+      "bytes": 495
+    },
+    "2026-07-10": {
+      "rows": 17,
+      "bytes": 508
+    },
+    "2026-07-13": {
+      "rows": 23,
+      "bytes": 647
+    },
+    "2026-07-14": {
+      "rows": 21,
+      "bytes": 591
+    },
+    "2026-07-15": {
+      "rows": 15,
+      "bytes": 472
+    },
+    "2026-07-16": {
+      "rows": 17,
+      "bytes": 516
+    },
+    "2026-07-17": {
+      "rows": 28,
+      "bytes": 741
+    },
+    "2026-07-20": {
+      "rows": 16,
+      "bytes": 498
+    },
+    "2026-07-21": {
+      "rows": 11,
+      "bytes": 396
+    },
+    "2026-07-22": {
+      "rows": 14,
+      "bytes": 443
+    },
+    "2026-07-23": {
+      "rows": 20,
+      "bytes": 589
+    },
+    "2026-07-24": {
+      "rows": 21,
+      "bytes": 603
+    },
+    "2026-07-27": {
+      "rows": 26,
+      "bytes": 687
+    },
+    "2026-07-28": {
+      "rows": 27,
+      "bytes": 725
+    },
+    "2026-07-29": {
+      "rows": 33,
+      "bytes": 837
+    },
+    "2026-07-30": {
+      "rows": 30,
+      "bytes": 784
+    },
+    "2026-07-31": {
+      "rows": 29,
+      "bytes": 778
+    },
+    "2026-08-03": {
+      "rows": 24,
+      "bytes": 657
+    },
+    "2026-08-04": {
+      "rows": 21,
+      "bytes": 590
+    },
+    "2026-08-05": {
+      "rows": 19,
+      "bytes": 552
+    },
+    "2026-08-06": {
+      "rows": 22,
+      "bytes": 638
+    },
+    "2026-08-07": {
+      "rows": 12,
+      "bytes": 409
+    },
+    "2026-08-10": {
+      "rows": 14,
+      "bytes": 457
+    },
+    "2026-08-11": {
+      "rows": 12,
+      "bytes": 409
+    },
+    "2026-08-12": {
+      "rows": 11,
+      "bytes": 384
+    },
+    "2026-08-13": {
+      "rows": 5,
+      "bytes": 258
+    },
+    "2026-08-14": {
+      "rows": 6,
+      "bytes": 280
+    },
+    "2026-08-17": {
+      "rows": 5,
+      "bytes": 267
+    },
+    "2026-08-18": {
+      "rows": 7,
+      "bytes": 309
+    },
+    "2026-08-19": {
+      "rows": 13,
+      "bytes": 428
+    },
+    "2026-08-20": {
+      "rows": 11,
+      "bytes": 398
+    },
+    "2026-08-21": {
+      "rows": 19,
+      "bytes": 548
+    },
+    "2026-08-24": {
+      "rows": 15,
+      "bytes": 475
+    },
+    "2026-08-25": {
+      "rows": 15,
+      "bytes": 483
+    },
+    "2026-08-26": {
+      "rows": 41,
+      "bytes": 987
+    },
+    "2026-08-27": {
+      "rows": 35,
+      "bytes": 892
+    },
+    "2026-08-28": {
+      "rows": 18,
+      "bytes": 537
+    },
+    "2026-08-31": {
+      "rows": 9,
+      "bytes": 341
+    },
+    "2026-09-01": {
+      "rows": 13,
+      "bytes": 432
+    },
+    "2026-09-02": {
+      "rows": 14,
+      "bytes": 458
+    },
+    "2026-09-03": {
+      "rows": 13,
+      "bytes": 440
+    },
+    "2026-09-04": {
+      "rows": 15,
+      "bytes": 472
+    },
+    "2026-09-08": {
+      "rows": 11,
+      "bytes": 394
+    },
+    "2026-09-09": {
+      "rows": 4,
+      "bytes": 241
+    },
+    "2026-09-10": {
+      "rows": 6,
+      "bytes": 292
+    },
+    "2026-09-11": {
+      "rows": 10,
+      "bytes": 381
+    },
+    "2026-09-14": {
+      "rows": 12,
+      "bytes": 429
+    },
+    "2026-09-15": {
+      "rows": 2,
+      "bytes": 200
+    },
+    "2026-09-16": {
+      "rows": 11,
+      "bytes": 404
+    },
+    "2026-09-17": {
+      "rows": 4,
+      "bytes": 247
+    },
+    "2026-09-18": {
+      "rows": 7,
+      "bytes": 318
+    },
+    "2026-09-21": {
+      "rows": 13,
+      "bytes": 456
+    },
+    "2026-09-22": {
+      "rows": 9,
+      "bytes": 348
+    },
+    "2026-09-23": {
+      "rows": 9,
+      "bytes": 355
+    },
+    "2026-09-24": {
+      "rows": 7,
+      "bytes": 313
+    },
+    "2026-09-25": {
+      "rows": 7,
+      "bytes": 312
+    },
+    "2026-09-28": {
+      "rows": 21,
+      "bytes": 640
+    },
+    "2026-09-29": {
+      "rows": 7,
+      "bytes": 317
+    },
+    "2026-09-30": {
+      "rows": 5,
+      "bytes": 268
+    },
+    "2026-10-01": {
+      "rows": 12,
+      "bytes": 429
+    },
+    "2026-10-02": {
+      "rows": 11,
+      "bytes": 402
+    },
+    "2026-10-05": {
+      "rows": 13,
+      "bytes": 458
+    },
+    "2026-10-06": {
+      "rows": 8,
+      "bytes": 339
+    },
+    "2026-10-07": {
+      "rows": 5,
+      "bytes": 270
+    },
+    "2026-10-08": {
+      "rows": 9,
+      "bytes": 359
+    },
+    "2026-10-09": {
+      "rows": 6,
+      "bytes": 293
+    },
+    "2026-10-12": {
+      "rows": 7,
+      "bytes": 314
+    },
+    "2026-10-13": {
+      "rows": 4,
+      "bytes": 248
+    }
+  },
+  "rows": 1214,
+  "bytes": 38382,
+  "checks": [
+    {
+      "name": "every_round_answered",
+      "passed": true,
+      "detail": "1214 of 1214 rounds answered getRoundData"
+    },
+    {
+      "name": "updated_at_never_goes_back",
+      "passed": true,
+      "detail": "updatedAt of each answered round at or after the round before it, phase by phase"
+    },
+    {
+      "name": "answers_positive",
+      "passed": true,
+      "detail": "every answered round above zero"
+    }
+  ],
+  "updatedAt": "2026-10-13T14:03:36.649Z"
+}

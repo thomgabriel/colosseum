@@ -74,6 +74,19 @@ export const LegWithdrawal = z.object({
   amountRaw: RawAmount.nullable(),
   heldRaw: RawAmount,
   /**
+   * Only on the cash step of a withdrawal in dollars (gate `WITHDRAW-DOLLARS`): the least that step
+   * pays out, in the cash token's raw units. It is the person's share of the cash the vault held when
+   * the order was planned plus the least each of the order's sales accepts. The step is never built
+   * for less, and the guard refuses bytes that take out less.
+   */
+  leastRaw: RawAmount.optional(),
+  /**
+   * With `leastRaw`: the most that step pays out. The share of the cash held at planning, plus each
+   * sale's quoted output, plus `WITHDRAW_DOLLARS_MARGIN_BPS` of those quotes for a sale that fills
+   * above its quote. Cash that reaches the vault after the order is planned stays in it.
+   */
+  mostRaw: RawAmount.optional(),
+  /**
    * What it was worth in dollars when the order was made, with where the price came from: the amount
    * (all that was held, where no amount is named) at the chain's reference price then, cash at one
    * dollar. Absent for a token with no price. A portfolio counts what was taken out from it.
@@ -256,6 +269,84 @@ export const ORDER_LIMITS = {
   maxSlippageBps: 300,
 } as const;
 
+/**
+ * How far above the sum of its sales' quotes the cash step of a withdrawal in dollars may pay (gate
+ * WITHDRAW-DOLLARS), in bps of those quotes. A fill can land above its quote when the price moves the
+ * person's way; this allows it the same distance an order's trade may be built below its quote
+ * (`ORDER_LIMITS.maxSlippageBps`), and no more, so the step never takes cash the order did not bring.
+ * Not a cap on what a request may ask, so not in `ORDER_LIMITS`.
+ */
+export const WITHDRAW_DOLLARS_MARGIN_BPS = 300;
+
+/**
+ * How far from its targets a vault is before its owner is offered a rebalance, and before one is
+ * ordered, in bps of the vault: a position further than this from its target, or cash further than this
+ * over its share. Inside it there is nothing to trade (`on_target`). One place, so the page that offers
+ * the press and the server that answers it agree. It is the owner's own press and not the keeper's
+ * band, which each chain states.
+ */
+export const OWNER_REBALANCE_BAND_BPS = 50;
+
+/**
+ * The slippage a rebalance is made with where the person names none: the server's own figure
+ * (`ORDER_POLICY.slippageBps` in apps/api, held equal to this by a test there).
+ */
+export const OWNER_REBALANCE_SLIPPAGE_BPS = 100;
+
+/**
+ * The smallest trade a rebalance makes, in dollars: the smallest line a plan holds
+ * (`PERSONAL_PARAMS.minLineUsd` in packages/engine, held equal to this by a test in apps/api). A
+ * vault whose every trade would be smaller is answered `on_target`, and its page offers nothing.
+ */
+export const OWNER_REBALANCE_MIN_TRADE_USD = 5;
+
+/**
+ * Whether a vault's page offers its owner a rebalance: outside the band (`outsideOwnerBand`), and at
+ * least one asset far enough from its target, in dollars, for a trade of
+ * `OWNER_REBALANCE_MIN_TRADE_USD` after the slippage the purchases keep. The server plans the trades
+ * when asked and may still find none; this is the same rule read from the vault's shares and value.
+ */
+export function ownerRebalanceOffered(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+  valueUsd: number,
+): boolean {
+  if (!outsideOwnerBand(rows, cashOverBps, slippageBps)) return false;
+  const usable = 1 - slippageBps / 10_000;
+  return rows.some(
+    (r) =>
+      (Math.abs(r.targetBps - r.weightBps) / 10_000) * valueUsd * usable >=
+      OWNER_REBALANCE_MIN_TRADE_USD,
+  );
+}
+
+/**
+ * Whether a vault is far enough from its targets to be offered, and ordered, a rebalance by its owner.
+ * `rows`: every asset held or targeted, but cash, each with its share of the vault now; `cashOverBps`:
+ * the cash's share less what the targets leave it. A rebalance's purchases are sized so that every
+ * trade may lose the order's slippage and still have its cash, so after one the cash may sit up to
+ * that slippage over its share and each asset up to its own part of it under its target: neither is
+ * drift. Outside, then: an asset over its target by more than `OWNER_REBALANCE_BAND_BPS`, or under it
+ * by more than the band and its part of the slippage; or the cash over its share by more than the
+ * band and the slippage.
+ */
+export function outsideOwnerBand(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+): boolean {
+  const band = OWNER_REBALANCE_BAND_BPS;
+  return (
+    cashOverBps > band + slippageBps ||
+    rows.some(
+      (r) =>
+        r.weightBps - r.targetBps > band ||
+        r.targetBps - r.weightBps > band + Math.ceil((slippageBps * r.targetBps) / 10_000),
+    )
+  );
+}
+
 /** `family` is always the slug. */
 export const IntentRequest = z.discriminatedUnion('type', [
   z.object({
@@ -316,7 +407,9 @@ export const IntentRequest = z.discriminatedUnion('type', [
     reason: z.enum(['manual', 'index_update', 'drift']),
     /**
      * Written by the server, never taken from this route: the vault's new own targets, for an order
-     * made by `POST /v1/vaults/{chain}/{address}/targets`. `POST /v1/orders` plans no rebalance yet.
+     * made by `POST /v1/vaults/{chain}/{address}/targets`, or the targets the vault had, for one made
+     * by `POST /v1/vaults/{chain}/{address}/rebalance`, which sets none. `POST /v1/orders` plans no
+     * rebalance yet.
      */
     targets: z.array(Target).max(16).optional(),
     /** With `targets`: the slippage the order's trades are built with. */
@@ -349,8 +442,20 @@ export const IntentRequest = z.discriminatedUnion('type', [
     type: z.literal('withdraw'),
     /** One vault per order for now: the first, and a second is refused. */
     vaults: z.array(Address).min(1),
-    /** Not offered yet: `true` is refused. The tokens leave as they are, to the vault's owner. */
+    /**
+     * `false`: the tokens leave as they are, to the vault's owner. `true` (gate `WITHDRAW-DOLLARS`):
+     * the vault's holdings are sold for the chain's cash token, each sale stating its minimum, and
+     * the cash is then withdrawn to the vault's owner; `withdrawals` is then left out.
+     */
     sellToCash: z.boolean(),
+    /**
+     * With `sellToCash`: the share of the vault taken out, in basis points. That share of each
+     * holding is sold, rounded down, and that share of the cash leaves with what the sales bring.
+     * Left out: all of it.
+     */
+    shareBps: Bps.min(1).optional(),
+    /** With `sellToCash`: the slippage each sale is built with. Left out, the server's own figure. */
+    maxSlippageBps: Bps.max(ORDER_LIMITS.maxSlippageBps).optional(),
     /**
      * Which tokens, each once. `amountRaw` left out or null: all the vault holds of that token. The
      * whole list left out: everything the vault holds.
@@ -454,7 +559,10 @@ export const OrderError = ApiError.extend({
       blocking: z.object({ orderId: z.string().min(1), legId: z.string().min(1) }).optional(),
       /** With `ORDER_CONTINUED`: the id of the order that finishes this one. */
       continuedBy: z.string().min(1).optional(),
-      /** With `MIX_NOT_VALID`: what is wrong with the mix, `CODE` or `CODE:assetId` each. */
+      /**
+       * With `MIX_NOT_VALID`: what is wrong with the mix, `CODE` or `CODE:assetId` each. And why a
+       * vault's rebalance is refused (`POST /v1/vaults/{chain}/{address}/rebalance`).
+       */
       issues: z.array(z.string().min(1)).optional(),
     })
     .optional(),
