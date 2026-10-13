@@ -113,6 +113,8 @@ export const LeftOutReason = z.enum([
   'no_source_names_the_mint',
   'stock_token_no_rule_takes',
   'not_of_a_class_of_the_product',
+  /** A person's decision, recorded in docs/GATES.md and named in the entry's source (SHELF-CRYPTO-1: arc). */
+  'decided_out',
 ]);
 export const LeftOut = z.strictObject({
   chain: z.literal('solana'),
