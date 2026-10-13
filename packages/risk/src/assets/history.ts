@@ -15,7 +15,9 @@ import type { BarHour } from './bars';
 //                (`implied_from_<pool>`): the USDC pool's volume-weighted price over the pool's own, both of the
 //                hour, the USDC pool's carried at most 24 hours inside the same UTC day; else no dollar figure
 //                (`none:…` on the bar). Never a price of the quote invented, never a stablecoin other than USDC
-//                at par.
+//                at par. When the asset has no USDC price that hour: a quote that is itself an asset of the
+//                registry at its own USDC pools' price (`implied_from_<pool>`), and SOL at the hour's native median
+//                (`nativeMedianByHour`, `native_median_of_<n>_pools`), as Robinhood Chain prices ETH.
 //   Robinhood Chain's pools  which side is the asset: the side less like a quote (USDG, then the other dollar
 //                tokens, then ETH and WETH, then anything else), and it must be a token of the shelf
 //                (`fileEvmPool`).
@@ -28,6 +30,7 @@ export const HISTORY_IMPORT_METHOD_VERSION = 'history-import-0.1';
 const DAY = 86_400;
 const HOUR = 3_600;
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+export const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 /** The longest a reference pool's price is carried to a later hour of the same UTC day. */
 export const MAX_CARRY_HOURS = 24;
 
@@ -116,6 +119,11 @@ export function solanaQuoteUsd(inp: {
   own: HourVwaps;
   /** The asset's USDC pools, in the order of preference (the registry's TVL, largest first), each with its prices. */
   usdcPools: Array<{ pool: string; vwap: HourVwaps }>;
+  /**
+   * When the asset has no USDC price that hour: the quote token's own dollar price, if any (the quote's USDC pools
+   * when it is an asset of the registry, `implied_from_<pool>`; SOL's median, `native_median_of_<n>_pools`).
+   */
+  quoteUsdOf?: (hour: string) => { usd: number; method: string } | null;
   regimeOf: (hour: string) => BarHour['regime'];
 }): Map<string, BarHour> {
   const out = new Map<string, BarHour>();
@@ -126,9 +134,61 @@ export function solanaQuoteUsd(inp: {
       continue;
     }
     const ref = carriedPrice(inp.usdcPools, hour);
-    if (ref && ownPrice > 0 && Number.isFinite(ownPrice))
+    if (ref && ownPrice > 0 && Number.isFinite(ownPrice)) {
       out.set(hour, { regime, quoteUsd: ref.usd / ownPrice, method: `implied_from_${ref.pool}` });
+      continue;
+    }
+    const q = inp.quoteUsdOf?.(hour) ?? null;
+    if (q && q.usd > 0 && Number.isFinite(q.usd))
+      out.set(hour, { regime, quoteUsd: q.usd, method: q.method });
     else out.set(hour, { regime, quoteUsd: null, method: null });
+  }
+  return out;
+}
+
+/** The value with half the weight at or below it (the lower one when the weight splits exactly), as Robinhood Chain's. */
+export function weightedMedianOf(xs: Array<{ v: number; w: number }>): number {
+  const sorted = [...xs].sort((a, b) => a.v - b.v);
+  const total = sorted.reduce((a, x) => a + x.w, 0);
+  let acc = 0;
+  for (const x of sorted) {
+    acc += x.w;
+    if (acc * 2 >= total) return x.v;
+  }
+  return (sorted.at(-1) as { v: number }).v;
+}
+
+/**
+ * SOL's dollar price per hour, as Robinhood Chain prices ETH (`hourlyRows`): every pool quoted in SOL that traded in
+ * the hour and whose asset has a dollar price that hour (its USDC pools, own or carried in the day) implies one,
+ * the asset's dollars over the pool's own price; the hour's price is their median weighted by the pools' swaps of
+ * the hour. An hour with none carries the last one at most MAX_CARRY_HOURS inside the same UTC day.
+ * `native_median_of_<n>_pools` (`_carried_<h>h` when carried).
+ */
+export function nativeMedianByHour(
+  samples: Map<string, Array<{ v: number; w: number }>>,
+): Map<string, { usd: number; method: string }> {
+  const out = new Map<string, { usd: number; method: string }>();
+  const byDay = new Map<string, string[]>();
+  for (const h of samples.keys())
+    byDay.set(h.slice(0, 10), [...(byDay.get(h.slice(0, 10)) ?? []), h]);
+  for (const day of [...byDay.keys()].sort()) {
+    let last: { v: number; n: number; t: number } | null = null;
+    for (let k = 0; k < 24; k++) {
+      const t = dayStart(day) + k * HOUR;
+      const hour = new Date(t * 1000).toISOString();
+      const xs = (samples.get(hour) ?? []).filter(
+        (x) => x.v > 0 && Number.isFinite(x.v) && x.w > 0,
+      );
+      if (xs.length) last = { v: weightedMedianOf(xs), n: xs.length, t };
+      if (!last) continue;
+      const carried = (t - last.t) / HOUR;
+      if (carried > MAX_CARRY_HOURS) continue;
+      out.set(hour, {
+        usd: last.v,
+        method: `native_median_of_${last.n}_pools${carried ? `_carried_${carried}h` : ''}`,
+      });
+    }
   }
   return out;
 }

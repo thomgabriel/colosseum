@@ -6,7 +6,9 @@
 //              hold whole) and the first rows of 2026-10-06 (a day they do not); JTO's SOL pool alone, with JTO's
 //              other pools left out of the frozen registry, so no USDC pool prices it (the `none:` case).
 //   Robinhood  four NVDA pools (two against USDG, one against WETH, one against ETH) and one pool the creation
-//              logs do not name (its first rows of the day), 2026-10-11 14:00 to 15:59 and the first rows of 2026-10-10; their manifests,
+//              logs do not name (its first rows of the day), two pools resolved from the chain since
+//              (pool-tokens.json: an NVDA pool against an unlisted token, an id no position manager knows),
+//              2026-10-11 14:00 to 15:59 and the first rows of 2026-10-10 and 2026-10-13; their manifests,
 //              fetched.json and the shelf's count file as they are.
 //   Chainlink  NVDA's feed, its first two days of rounds and its manifest.
 //   External   one Solana coin, one Robinhood Chain coin and one protocol, their last 12 points each.
@@ -55,6 +57,7 @@ const AAVE = [
   'DTm2scPFBDUT3RE5Kc3Z8oUJPusKWk7gsFgJ2iZwhG99',
 ];
 const JTO_SOL = '2UhFnySoJi6c89aydGAGS7ZRemo2dbkFRhvSJqDX4gHJ';
+const JTO_JITOSOL = 'G2FiE1yn9N9ZJx5e1E2LxxMnHvb1H3hCuHLPfKJ98smA';
 const counts: Record<string, number> = {};
 for (const p of AAVE) {
   copy(`solana/swaps/${p}/manifest.json`);
@@ -64,11 +67,13 @@ for (const p of AAVE) {
   );
   counts[`${p}/2026-10-06`] = cut(`solana/swaps/${p}/2026-10-06.jsonl.gz`, (_, i) => i < 5);
 }
-copy(`solana/swaps/${JTO_SOL}/manifest.json`);
-counts[`${JTO_SOL}/2026-10-07`] = cut(
-  `solana/swaps/${JTO_SOL}/2026-10-07.jsonl.gz`,
-  inHours('2026-10-07T00:00:00Z', '2026-10-07T02:00:00Z'),
-);
+for (const p of [JTO_SOL, JTO_JITOSOL]) {
+  copy(`solana/swaps/${p}/manifest.json`);
+  counts[`${p}/2026-10-07`] = cut(
+    `solana/swaps/${p}/2026-10-07.jsonl.gz`,
+    inHours('2026-10-07T00:00:00Z', '2026-10-07T02:00:00Z'),
+  );
+}
 const reg = JSON.parse(readFileSync(registryFile, 'utf8')) as {
   pools: Array<Record<string, unknown> & { address: string }>;
 };
@@ -76,8 +81,8 @@ put(
   'shelf-registry-solana.json',
   `${JSON.stringify(
     {
-      source: `${registryFile.split('/').at(-1)}, cut to AAVE's three pools and JTO's SOL pool`,
-      pools: reg.pools.filter((p) => [...AAVE, JTO_SOL].includes(p.address)),
+      source: `${registryFile.split('/').at(-1)}, cut to AAVE's three pools and JTO's SOL and JitoSOL pools`,
+      pools: reg.pools.filter((p) => [...AAVE, JTO_SOL, JTO_JITOSOL].includes(p.address)),
     },
     null,
     1,
@@ -101,14 +106,38 @@ const fetchedFile = JSON.parse(
 const unknown = readdirSync(join(SRC, 'robinhood', 'swaps')).find(
   (s) => !known.has(s) && existsSync(join(SRC, 'robinhood', 'swaps', s, '2026-10-11.jsonl.gz')),
 ) as string;
-for (const p of [...RH, unknown]) {
+// resolved from the chain since (resolve-pools.ts): an NVDA pool against a token the list does not hold, and an
+// id the position manager does not know
+const RESOLVED_NVDA = '0x3daec59627656f66048c7c2bcfd4d582d293d43f3fa85a57d093882edb8c997a';
+const NOT_A_POOL = '0x001ded79b93e9a3306207fe0645de2ddee5747aee6a8938a220e6adc35cad53c';
+const tokensFile = JSON.parse(readFileSync(join(SRC, 'robinhood', 'pool-tokens.json'), 'utf8')) as {
+  pools: Record<string, unknown>;
+} & Record<string, unknown>;
+put(
+  'robinhood/pool-tokens.json',
+  `${JSON.stringify(
+    {
+      ...tokensFile,
+      pools: Object.fromEntries(
+        [unknown, RESOLVED_NVDA, NOT_A_POOL].map((k) => [k, tokensFile.pools[k]]),
+      ),
+    },
+    null,
+    1,
+  )}\n`,
+);
+for (const p of [...RH, unknown, RESOLVED_NVDA, NOT_A_POOL]) {
   copy(`robinhood/swaps/${p}/manifest.json`);
   counts[`${p}/2026-10-11`] = cut(
     `robinhood/swaps/${p}/2026-10-11.jsonl.gz`,
-    p === unknown ? (_, i) => i < 5 : inHours('2026-10-11T14:00:00Z', '2026-10-11T16:00:00Z'),
+    p === unknown || p === NOT_A_POOL || p === RESOLVED_NVDA
+      ? (_, i) => i < 5
+      : inHours('2026-10-11T14:00:00Z', '2026-10-11T16:00:00Z'),
   );
-  if (existsSync(join(SRC, 'robinhood', 'swaps', p, '2026-10-10.jsonl.gz')))
-    counts[`${p}/2026-10-10`] = cut(`robinhood/swaps/${p}/2026-10-10.jsonl.gz`, (_, i) => i < 3);
+  // the first rows of the day before and of the newest day (still being fetched: never whole)
+  for (const d of ['2026-10-10', '2026-10-13'])
+    if (existsSync(join(SRC, 'robinhood', 'swaps', p, `${d}.jsonl.gz`)))
+      counts[`${p}/${d}`] = cut(`robinhood/swaps/${p}/${d}.jsonl.gz`, (_, i) => i < 3);
 }
 put('robinhood/fetched.json', JSON.stringify(fetchedFile));
 const countDir = join(SRC, 'robinhood', 'robinhood-logs');

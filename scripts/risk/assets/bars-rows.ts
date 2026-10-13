@@ -2,6 +2,7 @@
 // hour, and one per token and hour across its pools (`pool = 'asset'`).
 import { type Db, marketBars } from '@colosseum/db';
 import { assetBars, BARS_METHOD, BARS_METHOD_VERSION, type Bar } from '@colosseum/risk';
+import { sql } from 'drizzle-orm';
 import { CROSS_POOL_ORDER, LAYER, type PoolBars } from './bars-read';
 
 export type BarRow = typeof marketBars.$inferInsert;
@@ -103,16 +104,47 @@ export function barRows(
   return { rows, poolRows, tokens, byToken };
 }
 
-/** Inserts the rows, keeping any row already there (the key: chain, address, pool, hour, method version). */
-export async function insertBarsKeep(db: Pick<Db, 'insert'>, rows: BarRow[]): Promise<number> {
-  let written = 0;
+/** A row this import wrote: a pool row names its backfill day file, a token row the backfill's day files. */
+export const isBackfillSource = (source: string) =>
+  source.startsWith('<ASSETS_DATA_DIR>/') || source.includes("in the asset backfill's day files");
+
+const KEY = ['chain', 'address', 'pool', 'hour', 'methodVersion'];
+const snake = (k: string) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+
+/**
+ * The backfill's rows: a new key is inserted; a key this import wrote before (`isBackfillSource`) is replaced only
+ * when the row differs (a pool resolved since, a pricing method added, more tokens in a day's SOL median); a key
+ * of any other source (AS.7's held history) is never touched. So a re-run on the same files changes nothing.
+ */
+export async function upsertBackfillBars(
+  db: Pick<Db, 'insert'>,
+  rows: BarRow[],
+): Promise<{ inserted: number; replaced: number }> {
+  const out = { inserted: 0, replaced: 0 };
+  if (!rows.length) return out;
+  const cols = Object.keys(rows[0] as object).filter((k) => !KEY.includes(k));
+  const set = Object.fromEntries(cols.map((k) => [k, sql.raw(`excluded.${snake(k)}`)]));
+  const list = (prefix: string) => cols.map((k) => `${prefix}.${snake(k)}`).join(', ');
+  const setWhere = sql.raw(
+    `(market_bars.source like '<ASSETS_DATA_DIR>/%' or market_bars.source like '%in the asset backfill''s day files%') and (${list('market_bars')}) is distinct from (${list('excluded')})`,
+  );
   for (let i = 0; i < rows.length; i += 500) {
     const res = await db
       .insert(marketBars)
       .values(rows.slice(i, i + 500))
-      .onConflictDoNothing()
-      .returning({ h: marketBars.hour });
-    written += res.length;
+      .onConflictDoUpdate({
+        target: [
+          marketBars.chain,
+          marketBars.address,
+          marketBars.pool,
+          marketBars.hour,
+          marketBars.methodVersion,
+        ],
+        set,
+        setWhere,
+      })
+      .returning({ inserted: sql<boolean>`(xmax = 0)` });
+    for (const r of res) r.inserted ? out.inserted++ : out.replaced++;
   }
-  return written;
+  return out;
 }

@@ -57,6 +57,7 @@
     "risk:assets-bars": "NODE_OPTIONS=--max-old-space-size=8192 tsx scripts/risk/assets/bars.ts",
     "risk:assets-bars-check": "tsx scripts/risk/assets/bars-check.ts",
     "risk:assets-history-import": "tsx scripts/risk/assets/history-import.ts",
+    "risk:assets-resolve-pools": "tsx scripts/risk/assets/resolve-pools.ts",
     "risk:assets-backfill": "tsx scripts/risk/assets/backfill.ts",
     "risk:assets-backfill-probe": "tsx scripts/risk/assets/backfill-probe.ts",
     "risk:assets-backfill-status": "tsx scripts/risk/assets/backfill-status.ts",

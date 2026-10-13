@@ -7,7 +7,7 @@
   "provenance": "live",
   "covered": [
     {
-      "from": 84690531,
+      "from": 84090531,
       "to": 87646274,
       "unit": "block"
     }
@@ -26,12 +26,16 @@
       "bytes": 139816
     },
     "2026-10-10": {
-      "rows": 1415,
-      "bytes": 128550
+      "rows": 1564,
+      "bytes": 143365
+    },
+    "2026-10-09": {
+      "rows": 2641,
+      "bytes": 255779
     }
   },
-  "rows": 8746,
-  "bytes": 828942,
+  "rows": 11536,
+  "bytes": 1099536,
   "checks": [
     {
       "name": "one_row_per_log",
@@ -44,5 +48,5 @@
       "detail": "block times linear between headers every 10000 blocks"
     }
   ],
-  "updatedAt": "2026-10-13T17:43:50.688Z"
+  "updatedAt": "2026-10-13T18:11:11.645Z"
 }

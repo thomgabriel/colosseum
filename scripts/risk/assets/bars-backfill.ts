@@ -24,12 +24,14 @@ import {
   addBarSwap,
   type BarHour,
   type BarSwap,
+  carriedPrice,
   fileEvmPool,
   type HourVwaps,
   hourOf,
   intersectRanges,
   type Manifest,
   mergeRanges,
+  nativeMedianByHour,
   newPoolBars,
   type PoolBar,
   poolBars,
@@ -37,11 +39,12 @@ import {
   type Regime,
   solanaQuoteUsd,
   USDC_MINT,
+  WSOL_MINT,
   wholeDaysOfBlocks,
   wholeDaysOfSeconds,
 } from '@colosseum/risk';
 import type { AssetList } from '@colosseum/schemas';
-import type { LogRow } from '../../risk-evm/backfill-logs';
+import type { LogRow, PoolTokens } from '../../risk-evm/backfill-logs';
 import { CHAINS, type ChainConfig } from '../../risk-evm/config';
 import { ZERO_ADDRESS } from '../../risk-evm/discovery';
 import {
@@ -152,34 +155,44 @@ export function readSolanaBackfill(inp: {
     inp.registry.map((p) => [p.address, new Set(solanaWholeDays(inp.dataDir, p.address))]),
   );
   const regimeOf = (hour: string) => inp.regimeOfT(Date.parse(hour) / 1000);
-  const out = new Map<string, BackfillPoolBars & { bars: PoolBar[] }>();
-  const dayFile = new Map<string, string>();
-  const mtime = new Map<string, Date>();
-  const perToken: Array<Record<string, unknown>> = [];
+  // a token's days: those every one of its registry pools holds whole
+  const tokenDays = new Map<string, string[]>();
   let poolDaysWhole = 0;
+  for (const [token, pools] of byToken) {
+    const sets = pools.map((p) => whole.get(p.address) as Set<string>);
+    for (const x of sets) poolDaysWhole += x.size;
+    tokenDays.set(
+      token,
+      [...(sets[0] ?? new Set<string>())].filter((d) => sets.every((x) => x.has(d))).sort(),
+    );
+  }
+  const usdcOrderOf = new Map(
+    [...byToken].map(([token, pools]) => [
+      token,
+      pools
+        .filter((p) => p.quoteMint === USDC_MINT)
+        .sort((a, b) => b.tvlUsd - a.tvlUsd || (a.address < b.address ? -1 : 1)),
+    ]),
+  );
+  const out = new Map<string, BackfillPoolBars & { bars: PoolBar[] }>();
+  const mtime = new Map<string, Date>();
+  const tally = new Map<string, { days: number; swaps: number }>();
+  const methods: Record<string, number> = {};
   let poolDaysBuilt = 0;
   let swaps = 0;
   let duplicates = 0;
-  for (const [, pools] of [...byToken].sort(([a], [b]) => (a < b ? -1 : 1))) {
-    // the token's days: those every one of its registry pools holds whole
-    const sets = pools.map((p) => whole.get(p.address) as Set<string>);
-    for (const s of sets) poolDaysWhole += s.size;
-    const days = [...(sets[0] ?? new Set<string>())]
-      .filter((d) => sets.every((s) => s.has(d)))
-      .sort();
-    const usdcOrder = pools
-      .filter((p) => p.quoteMint === USDC_MINT)
-      .sort((a, b) => b.tvlUsd - a.tvlUsd || (a.address < b.address ? -1 : 1));
-    let tokenSwaps = 0;
-    for (const day of days) {
-      // the day's swaps of every pool of the token, and each pool's VWAP per hour
-      const swapsOf = new Map<string, BarSwap[]>();
-      const vwapOf = new Map<string, HourVwaps>();
-      for (const p of pools) {
+  const allDays = [...new Set([...tokenDays.values()].flat())].sort();
+  for (const day of allDays) {
+    // every pool of every token whose day is whole: its swaps, its VWAP and its swaps per hour
+    const tokens = [...byToken.keys()].filter((t) => tokenDays.get(t)?.includes(day)).sort();
+    const swapsOf = new Map<string, BarSwap[]>();
+    const vwapOf = new Map<string, HourVwaps>();
+    const countOf = new Map<string, Map<string, number>>();
+    for (const token of tokens)
+      for (const p of byToken.get(token) as SolanaRegistryPool[]) {
         const f = join(dir, p.address, `${day}.jsonl.gz`);
         const list: BarSwap[] = [];
         if (existsSync(f)) {
-          dayFile.set(`${p.address}|${day}`, f);
           mtime.set(`${p.address}|${day}`, statSync(f).mtime);
           const seen = new Set<string>();
           for (const l of gzLines(f)) {
@@ -195,34 +208,73 @@ export function readSolanaBackfill(inp: {
         }
         swapsOf.set(p.address, list);
         const q = new Map<string, [number, number]>();
-        for (const s of list) {
-          if (s.quote === null || !(s.tokens > 0) || !(s.quote > 0)) continue;
-          const h = hourOf(s.t);
+        const n = new Map<string, number>();
+        for (const x of list) {
+          const h = hourOf(x.t);
+          if (x.side !== null) n.set(h, (n.get(h) ?? 0) + 1);
+          if (x.quote === null || !(x.tokens > 0) || !(x.quote > 0)) continue;
           const a = q.get(h) ?? [0, 0];
-          a[0] += s.quote;
-          a[1] += s.tokens;
+          a[0] += x.quote;
+          a[1] += x.tokens;
           q.set(h, a);
         }
         vwapOf.set(p.address, new Map([...q].map(([h, [qq, tt]]) => [h, qq / tt])));
+        countOf.set(p.address, n);
       }
-      const usdcPools = usdcOrder.map((p) => ({
-        pool: p.address,
-        vwap: vwapOf.get(p.address) as HourVwaps,
-      }));
+    const usdcPoolsOf = (token: string) =>
+      (usdcOrderOf.get(token) ?? [])
+        .filter((p) => vwapOf.has(p.address))
+        .map((p) => ({ pool: p.address, vwap: vwapOf.get(p.address) as HourVwaps }));
+    // SOL's median: each SOL-quoted pool of the day whose asset has a dollar price in the hour
+    const samples = new Map<string, Array<{ v: number; w: number }>>();
+    for (const token of tokens)
+      for (const p of byToken.get(token) as SolanaRegistryPool[]) {
+        if (p.quoteMint !== WSOL_MINT) continue;
+        for (const [hour, own] of vwapOf.get(p.address) ?? []) {
+          const usd = carriedPrice(usdcPoolsOf(token), hour);
+          const w = countOf.get(p.address)?.get(hour) ?? 0;
+          if (!usd || !(own > 0) || !w) continue;
+          samples.set(hour, [...(samples.get(hour) ?? []), { v: usd.usd / own, w }]);
+        }
+      }
+    const solUsd = nativeMedianByHour(samples);
+    for (const token of tokens) {
+      const pools = byToken.get(token) as SolanaRegistryPool[];
+      const usdcPools = usdcPoolsOf(token);
       for (const p of pools) {
         const list = swapsOf.get(p.address) as BarSwap[];
         poolDaysBuilt++;
         if (!list.length) continue;
         const own = new Map<string, number>();
-        for (const h of new Set(list.map((s) => hourOf(s.t))))
+        for (const h of new Set(list.map((x) => hourOf(x.t))))
           own.set(h, vwapOf.get(p.address)?.get(h) ?? Number.NaN);
-        const hours = solanaQuoteUsd({ quoteMint: p.quoteMint, own, usdcPools, regimeOf });
+        const quoteUsdOf = (hour: string) => {
+          if (p.quoteMint === WSOL_MINT) return solUsd.get(hour) ?? null;
+          // a quote that is an asset of the registry, whole this day: its own USDC pools
+          const r = tokens.includes(p.quoteMint)
+            ? carriedPrice(usdcPoolsOf(p.quoteMint), hour)
+            : null;
+          return r ? { usd: r.usd, method: `implied_from_${r.pool}` } : null;
+        };
+        const hours = solanaQuoteUsd({
+          quoteMint: p.quoteMint,
+          own,
+          usdcPools,
+          quoteUsdOf,
+          regimeOf,
+        });
+        for (const h of hours.values()) {
+          const k = (h.method ?? 'none').replace(/_of_\d+_pools.*/, '').replace(/_from_.*/, '');
+          methods[k] = (methods[k] ?? 0) + 1;
+        }
         const acc = newPoolBars();
-        for (const s of list) addBarSwap(acc, s, hours.get(hourOf(s.t)), inp.regimeOfT);
+        for (const x of list) addBarSwap(acc, x, hours.get(hourOf(x.t)), inp.regimeOfT);
         swaps += list.length;
-        tokenSwaps += list.length;
-        const have = out.get(p.address);
+        const t = tally.get(token) ?? { days: 0, swaps: 0 };
+        t.swaps += list.length;
+        tally.set(token, t);
         const bars = poolBars(acc, LAYER);
+        const have = out.get(p.address);
         if (have) have.bars.push(...bars);
         else
           out.set(p.address, {
@@ -233,24 +285,26 @@ export function readSolanaBackfill(inp: {
             bars,
             source: '',
             sourceOf: (hour) =>
-              `<ASSETS_DATA_DIR>/solana/swaps/${p.address}/${hour.slice(0, 10)}.jsonl.gz (backfill-0.1: Solana RPC getSignaturesForAddress and getTransaction, decoded by @colosseum/risk's ${p.venue} decoder; the day held whole by its manifest) with the pools of ${inp.registryFile.split('/').at(-1)}; quote in dollars: USDC at par, else implied from the asset's USDC pool in the hour (VWAP over VWAP, carried at most 24 h inside the day)`,
+              `<ASSETS_DATA_DIR>/solana/swaps/${p.address}/${hour.slice(0, 10)}.jsonl.gz (backfill-0.1: Solana RPC getSignaturesForAddress and getTransaction, decoded by @colosseum/risk's ${p.venue} decoder; the day held whole by its manifest) with the pools of ${inp.registryFile.split('/').at(-1)}; quote in dollars: USDC at par, else implied from the asset's USDC pool in the hour (VWAP over VWAP, carried at most 24 h inside the day), else the quote's own USDC pool, else for SOL the hour's native median`,
             fetchedAtOf: (hour) => mtime.get(`${p.address}|${hour.slice(0, 10)}`) as Date,
             provenanceOf: (): Provenance => 'live',
           });
       }
     }
-    perToken.push({
+  }
+  for (const p of out.values()) p.bars.sort((a, b) => a.hour.localeCompare(b.hour));
+  const perToken = [...byToken]
+    .map(([token, pools]) => ({
       symbol: pools[0]?.assetSymbol,
       pools: pools.length,
       poolsWithFolder: pools.filter((p) => existsSync(join(dir, p.address))).length,
-      daysBuilt: days.length,
-      first: days[0] ?? null,
-      last: days.at(-1) ?? null,
-      swaps: tokenSwaps,
-      usdcPools: usdcOrder.length,
-    });
-  }
-  for (const p of out.values()) p.bars.sort((a, b) => a.hour.localeCompare(b.hour));
+      daysBuilt: tokenDays.get(token)?.length ?? 0,
+      first: tokenDays.get(token)?.[0] ?? null,
+      last: tokenDays.get(token)?.at(-1) ?? null,
+      swaps: tally.get(token)?.swaps ?? 0,
+      usdcPools: usdcOrderOf.get(token)?.length ?? 0,
+    }))
+    .filter((t) => t.daysBuilt > 0 || t.poolsWithFolder > 0);
   return {
     pools: [...out.values()],
     summary: {
@@ -259,15 +313,14 @@ export function readSolanaBackfill(inp: {
       registryPools: inp.registry.length,
       poolsWithFolder: inp.registry.filter((p) => existsSync(join(dir, p.address))).length,
       registryTokens: byToken.size,
-      tokensWithADay: perToken.filter((t) => (t.daysBuilt as number) > 0).length,
+      tokensWithADay: perToken.filter((t) => t.daysBuilt > 0).length,
       poolDaysWhole,
       poolDaysBuilt,
       poolDaysWholeButTokenIncomplete: poolDaysWhole - poolDaysBuilt,
       swaps,
       duplicates,
-      perToken: perToken.filter(
-        (t) => (t.daysBuilt as number) > 0 || (t.poolsWithFolder as number) > 0,
-      ),
+      poolHoursByMethod: methods,
+      perToken,
     },
   };
 }
@@ -365,6 +418,11 @@ export function readRobinhoodBackfill(inp: {
   shelf: string[];
   scope: string;
   regimeOfT: (t: number) => Regime;
+  /** Pools resolved from the chain (resolve-pools.ts's file), by pool. */
+  resolved?: Record<
+    string,
+    { kind: 'cl' | 'v4'; token0: string | null; token1: string | null; uniswap: boolean | null }
+  >;
 }): BackfillRead {
   const chain = CHAINS.find((c) => c.id === 'robinhood') as ChainConfig;
   const root = join(inp.dataDir, 'robinhood');
@@ -376,6 +434,21 @@ export function readRobinhoodBackfill(inp: {
   const tokens = robinhoodTokens(inp.list, chain);
   const shelf = new Set(inp.shelf.map((a) => a.toLowerCase()));
   const created = new Map(inp.creation.map((c) => [c.id.toLowerCase(), c]));
+  // pools the creation logs do not name, resolved from the chain (resolve-pools.ts): a Uniswap pool with its two
+  // tokens is filed like any other; another venue's contract (D4) or an id the chain did not know is not
+  let resolvedFromChain = 0;
+  let otherVenue = 0;
+  let unknownToChain = 0;
+  for (const [id, t] of Object.entries(inp.resolved ?? {})) {
+    const k = id.toLowerCase();
+    if (created.has(k)) continue;
+    if (!t.token0 || !t.token1) unknownToChain++;
+    else if (t.kind === 'cl' && t.uniswap !== true) otherVenue++;
+    else {
+      created.set(k, { kind: t.kind, id: k, token0: t.token0, token1: t.token1 });
+      resolvedFromChain++;
+    }
+  }
   const swapsDir = join(root, 'swaps');
   const subjects = existsSync(swapsDir) ? readdirSync(swapsDir).sort() : [];
   const dollar = chain.dollar.address.toLowerCase();
@@ -543,9 +616,31 @@ export function readRobinhoodBackfill(inp: {
       wholeDays: days,
       daysSkippedNotWhole: [...presentDays].filter((d) => !days.includes(d)).sort(),
       subjects: subjects.length,
-      subjectsNotInCreationLogs: subjects.filter((s) => !created.has(s)).length,
+      poolsResolvedFromChain: resolvedFromChain,
+      resolvedButOtherVenue: otherVenue,
+      resolvedButUnknownToChain: unknownToChain,
+      subjectsWithoutTokens: subjects.filter((s) => !created.has(s)).length,
       swaps: perDay.reduce((a, d) => a + (d.swaps as number), 0),
       perDay,
     },
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The pools resolved from the chain (resolve-pools.ts)
+
+export const POOL_TOKENS_FILE = 'pool-tokens.json';
+export type PoolTokensFile = {
+  chain: 'robinhood';
+  source: string;
+  method: string;
+  provenance: 'live';
+  updatedAt: string;
+  pools: Record<string, PoolTokens & { resolvedAt: string }>;
+};
+
+/** The resolved pools under `<dataDir>/robinhood`, or none. */
+export function readPoolTokens(dataDir: string): PoolTokensFile['pools'] {
+  const f = join(dataDir, 'robinhood', POOL_TOKENS_FILE);
+  return existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as PoolTokensFile).pools : {};
 }

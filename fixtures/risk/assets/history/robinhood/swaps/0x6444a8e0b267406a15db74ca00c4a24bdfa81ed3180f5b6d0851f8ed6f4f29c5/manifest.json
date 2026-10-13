@@ -12,7 +12,7 @@
       "unit": "block"
     },
     {
-      "from": 84690531,
+      "from": 84090531,
       "to": 87646274,
       "unit": "block"
     }
@@ -35,12 +35,16 @@
       "bytes": 196880
     },
     "2026-10-10": {
-      "rows": 2036,
-      "bytes": 192197
+      "rows": 2320,
+      "bytes": 220377
+    },
+    "2026-10-09": {
+      "rows": 4799,
+      "bytes": 460865
     }
   },
-  "rows": 39431,
-  "bytes": 3661088,
+  "rows": 44514,
+  "bytes": 4150133,
   "checks": [
     {
       "name": "one_row_per_log",
@@ -53,5 +57,5 @@
       "detail": "block times linear between headers every 10000 blocks"
     }
   ],
-  "updatedAt": "2026-10-13T17:43:50.688Z"
+  "updatedAt": "2026-10-13T18:11:11.645Z"
 }

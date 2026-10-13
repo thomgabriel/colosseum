@@ -11,8 +11,9 @@
 // --source backfill (AS.13): the backfill's day files under ASSETS_DATA_DIR instead (bars-backfill.ts), only the
 // UTC days its records hold whole. Solana needs --registry <shelf-registry-solana-*.json>; Robinhood Chain reads
 // RU.2's creation logs in RISK_EVM_DIR and the shelf of --scope (default: the one shelf scope of fetched.json).
-// These rows are inserted, never updated: a row already there (the held history's, or an earlier import's) is
-// kept, so a re-run over the same days inserts nothing and a run after the fetch moved on adds the new days.
+// A new key is inserted; a key an earlier run of this import wrote is replaced when the row now differs (a pool
+// resolved since, a pricing method added); a key of another source (AS.7's held history) is never touched. A
+// re-run on the same files changes nothing; a run after the fetch moved on adds the new days.
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,9 +21,14 @@ import { createDb, marketBars } from '@colosseum/db';
 import { BARS_METHOD_VERSION } from '@colosseum/risk';
 import type { AssetList } from '@colosseum/schemas';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
-import { readRobinhoodBackfill, readSolanaBackfill, solanaRegistryPools } from './bars-backfill';
+import {
+  readPoolTokens,
+  readRobinhoodBackfill,
+  readSolanaBackfill,
+  solanaRegistryPools,
+} from './bars-backfill';
 import { type PoolBars, readRobinhood, readSolana, solanaRegime } from './bars-read';
-import { type BarRow, barRows, insertBarsKeep } from './bars-rows';
+import { type BarRow, barRows, isBackfillSource, upsertBackfillBars } from './bars-rows';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -107,6 +113,7 @@ function readBackfill() {
     shelf,
     scope,
     regimeOfT: solanaRegime(),
+    resolved: readPoolTokens(dataDir),
   });
 }
 const readS = (Date.now() - t0) / 1000;
@@ -114,10 +121,17 @@ const readS = (Date.now() - t0) / 1000;
 const { rows, poolRows, tokens, byToken } = barRows(read, chain, backfill);
 
 let written = 0;
+let replaced = 0;
 // the backfill's rows against what the table already holds (read-only, so a dry run says it too)
-let existing: { same: number; other: number; checked: boolean } = {
-  same: 0,
-  other: 0,
+let existing: {
+  equalSource: number;
+  earlierImport: number;
+  otherSource: number;
+  checked: boolean;
+} = {
+  equalSource: 0,
+  earlierImport: 0,
+  otherSource: 0,
   checked: false,
 };
 if (backfill && rows.length) {
@@ -141,12 +155,13 @@ if (backfill && rows.length) {
         ),
       );
     const src = new Map(have.map((h) => [`${h.address}|${h.pool}|${h.hour.getTime()}`, h.source]));
-    existing = { same: 0, other: 0, checked: true };
+    existing = { equalSource: 0, earlierImport: 0, otherSource: 0, checked: true };
     for (const r of rows) {
       const s = src.get(`${r.address}|${r.pool}|${(r.hour as Date).getTime()}`);
       if (s === undefined) continue;
-      if (s === r.source) existing.same++;
-      else existing.other++;
+      if (s === r.source) existing.equalSource++;
+      else if (isBackfillSource(s)) existing.earlierImport++;
+      else existing.otherSource++;
     }
   } finally {
     await client.end();
@@ -154,7 +169,9 @@ if (backfill && rows.length) {
 }
 if (!dry && backfill) {
   const { db, client } = createDb();
-  written = await insertBarsKeep(db, rows);
+  const r = await upsertBackfillBars(db, rows);
+  written = r.inserted;
+  replaced = r.replaced;
   await client.end();
 } else if (!dry) {
   const { db, client } = createDb();
@@ -200,7 +217,7 @@ console.log(
     assetBars: rows.length - poolRows,
     rows: rows.length,
     written,
-    ...(backfill ? { alreadyStored: existing } : {}),
+    ...(backfill ? { replaced, alreadyStored: existing } : {}),
     pricedPoolBars: rows.slice(0, poolRows).filter((r) => r.volumeUsd !== null).length,
     unpricedSwaps: rows.slice(0, poolRows).reduce((a, r) => a + (r.unpricedSwaps ?? 0), 0),
     readSeconds: Math.round(readS),
