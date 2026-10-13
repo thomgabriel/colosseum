@@ -22,6 +22,15 @@ describe('api skeleton', () => {
     await app.close();
   });
 
+  it('starts where the removed LEGACY_STRUCTURER is still set, and serves no route of the monitor', async () => {
+    const app = await buildApp({ env: { LEGACY_STRUCTURER: 'on' } });
+    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+    const rebalance = await app.inject({ method: 'POST', url: '/policies/x/rebalance' });
+    expect(rebalance.statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/stats' })).statusCode).toBe(404);
+    await app.close();
+  });
+
   it('rejects invalid bodies with 400', async () => {
     const app = await buildApp();
     const bad = await app.inject({ method: 'POST', url: '/goals', payload: { text: 'x' } });

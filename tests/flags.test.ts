@@ -90,6 +90,12 @@ describe('parseFlags', () => {
     expect(KNOWN_ENV_KEYS).toContain('CHAIN_PRICE_SOURCE_SOLANA');
   });
 
+  it('still starts where LEGACY_STRUCTURER is set, a flag removed on Oct 13: the name is not under its prefixes', () => {
+    for (const value of ['on', 'off', 'anything'])
+      expect(parseFlags({ LEGACY_STRUCTURER: value })).toEqual(DEFAULT_FLAGS);
+    expect(KNOWN_ENV_KEYS).not.toContain('LEGACY_STRUCTURER');
+  });
+
   it('is pure: it reads only its argument and changes nothing', () => {
     const saved = process.env.KEEPER_ENABLED;
     process.env.KEEPER_ENABLED = 'on';
