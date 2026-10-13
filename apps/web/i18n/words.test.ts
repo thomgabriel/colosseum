@@ -99,7 +99,8 @@ describe('the words of the product: vault and deposit, never mix or buy', () => 
 
 // The same rule in Portuguese: depósito and cofre, never compra or mistura. A swap inside an order is
 // a troca, as the English says swap.
-const PROIBIDO = /\b(?:compr|mistur)|\bmix(?:es)?\b/i;
+const PROIBIDO =
+  /(?<!\p{L})(?:compr(?:a|as|ar|o|e|es|ei|em|ou|amos|aram|ado|ada|ados|adas|ando|á)|mistur(?:a|as|ar|ado|ada)|mix(?:es)?)(?!\p{L})/iu;
 const todas = [
   ...sentences(pt, 'pt'),
   ...sentences(portfolioPt, 'portfolio'),
@@ -127,6 +128,9 @@ describe('as palavras do produto: cofre e depósito, nunca compra ou mistura', (
       'não vou oferecer comprá-lo',
     ])
       expect(PROIBIDO.test(said), said).toBe(true);
+    // words that only begin like one
+    expect(PROIBIDO.test('Um compromisso de saque')).toBe(false);
+    expect(PROIBIDO.test('O comprovante do depósito')).toBe(false);
     expect(PROIBIDO.test('Depositar no seu cofre')).toBe(false);
     expect(PROIBIDO.test('Trocando por NVDA')).toBe(false);
   });

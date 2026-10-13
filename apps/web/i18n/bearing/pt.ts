@@ -214,11 +214,11 @@ export const bearingPt: BearingDictionary = {
     capacity: {
       title: 'Capacidade de saída com custo ≤ 1%',
       note: (from: string) =>
-        `lados de saída e de aporte, somados nos ativos selecionados, um ponto por hora UTC desde ${from}, quando as curvas roteadas começaram`,
+        `os dois lados, a saída e os dólares que entram, somados nos ativos selecionados, um ponto por hora UTC desde ${from}, quando as curvas roteadas começaram`,
       firstCurve: 'a primeira curva roteada',
       sell: 'venda (para sair)',
-      buy: 'aporte (dólares que entram)',
-      aria: 'Capacidade de saída e de aporte ao longo do tempo para os ativos selecionados',
+      buy: 'dólares que entram',
+      aria: 'Capacidade de saída e dos dólares que entram, ao longo do tempo, para os ativos selecionados',
       src: 'gráfico de capacidade',
       partial: (k: number, n: number) => `(${k} de ${n} ativos)`,
     },

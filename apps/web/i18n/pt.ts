@@ -612,7 +612,7 @@ export const pt: Dictionary = {
         parts === 1 ? 'Seu plano · 1 parte' : `Seu plano · ${parts} partes`,
       tooMany: 'Mais partes do que uma barra mostra: cada uma está na tabela abaixo.',
       target: (share: string) => `planejado ${share}`,
-      onlyCash: 'Só caixa por enquanto: nada dele está nos ativos do cofre ainda.',
+      onlyCash: 'Só caixa por enquanto: nada dele foi para os ativos do cofre ainda.',
       columns: {
         asset: 'Ativo',
         amount: 'Quantidade',
@@ -1094,7 +1094,7 @@ export const pt: Dictionary = {
         'Um portfólio compartilhado deste plano mudou depois que o plano foi feito. Monte o plano de novo a partir do seu objetivo.',
       ORDER_EXPIRED: 'Essa ordem perdeu o prazo. Tente de novo.',
       AMOUNT_OVER_REVIEW:
-        'Este cofre foi revisado com um valor menor, e um depósito nele não passa desse valor. Diminua o valor ou revise o depósito de novo com o novo valor.',
+        'Este cofre foi revisado com um valor menor, e um depósito nele não pode passar desse valor. Diminua o valor ou revise o depósito de novo com o novo valor.',
       US_PERSON:
         'Este produto não é para pessoas nos Estados Unidos, então a ordem não foi criada.',
       RATE_LIMITED:
@@ -2115,7 +2115,7 @@ export const pt: Dictionary = {
       reviewOf: (amount: string) => `Revisar o depósito de ${amount}`,
       reviewing: 'Conferindo os preços de hoje…',
       changeMix: 'Mudar os ativos',
-      next: 'Nada é depositado nem assinado ainda. Em seguida você confere a revisão e assina cada passo aqui.',
+      next: 'Nada foi depositado nem assinado ainda. Em seguida você confere a revisão e assina cada passo aqui.',
       brokenMix:
         'Os pesos no editor ainda não fecham, então não há ativos para mostrar. Corrija abaixo, ou volte aos pesos propostos.',
       balance: 'O saldo da sua carteira é conferido antes de você assinar.',
