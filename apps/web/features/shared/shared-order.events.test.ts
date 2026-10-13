@@ -19,6 +19,7 @@ import {
   ORDER_ID,
   publishOrder,
   RECIPE,
+  rebalanceOrder,
   SLUG,
   USER,
   VAULT,
@@ -261,5 +262,96 @@ describe('a follow by a vault, on the order screen', () => {
     const host = await screen();
     expect(host.querySelector('[data-variant="primary"]')).toBeNull();
     expect(find(host, '[role="alert"]').textContent).toContain(en.order.mismatch.shape);
+  });
+
+  it('once done with auto-follow off, says the holdings are not traded yet and leads to the rebalance; with it on, the keeper’s', async () => {
+    for (const autoFollow of [false, true]) {
+      const open = followOrder(
+        autoFollow ? ['accept_version', 'set_auto_follow'] : ['accept_version'],
+      );
+      // not while it is still to be signed
+      api(open);
+      seed({ ...FOLLOW, autoFollow });
+      expect((await screen()).querySelector('[data-ui="follow-done"]')).toBeNull();
+      await unmountAll();
+      // read back with every step confirmed
+      api({
+        ...open,
+        status: 'done',
+        legs: open.legs.map((l) => ({ ...l, status: 'confirmed', txId: 'sig' })),
+      } as typeof open);
+      const host = await screen();
+      const done = host.querySelector('[data-ui="follow-done"]');
+      expect(done !== null).toBe(!autoFollow);
+      if (done) {
+        expect(done.textContent).toContain(en.order.shared.followDone);
+        const link = find(host, '[data-action="follow-rebalance"]');
+        expect(link.textContent).toBe(en.order.shared.followRebalance);
+        expect(link.getAttribute('href')).toBe(`/vaults/solana/${VAULT}?do=rebalance`);
+      }
+      await unmountAll();
+    }
+  });
+});
+
+describe('a rebalance to a vault’s targets, on the order screen', () => {
+  const REBALANCE: SharedTerms = {
+    kind: 'rebalance',
+    vault: VAULT,
+    basketId: '42',
+    targets: [
+      { asset: 'solana:paxg', weightBps: 2_000 },
+      { asset: 'solana:syrupusdc', weightBps: 3_000 },
+    ],
+  };
+  it('hands the guard the vault’s number and nothing that could change the vault', async () => {
+    api(rebalanceOrder());
+    seed(REBALANCE);
+    const host = await screen();
+    expect(primary(host).textContent).toContain(en.order.shared.signRebalance);
+    await click(primary(host));
+    await settle();
+    expect(run.calls[0]?.deps.plan).toEqual({ basketId: '42' });
+    expect(run.calls[0]?.deps.consents).toEqual([]);
+  });
+
+  it.each([
+    [
+      'a step that sets targets',
+      [{ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', seq: 9, kind: 'set_targets' }],
+    ],
+    [
+      'a step that follows a portfolio',
+      [{ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', seq: 9, kind: 'accept_version' }],
+    ],
+    [
+      'a withdrawal',
+      [
+        {
+          id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          seq: 9,
+          kind: 'withdraw',
+          withdrawals: [{ asset: 'solana:usdc', amountRaw: null, heldRaw: '1' }],
+        },
+      ],
+    ],
+  ])('offers nothing to sign when the order also has %s', async (_what, more) => {
+    const base = rebalanceOrder();
+    const template = base.legs[0];
+    api({
+      ...base,
+      legs: [...base.legs, ...more.map((m) => ({ ...template, trades: [], expected: [], ...m }))],
+    } as typeof base);
+    seed(REBALANCE);
+    const host = await screen();
+    expect(host.querySelector('[data-variant="primary"]')).toBeNull();
+    expect(find(host, '[role="alert"]').textContent).toContain(en.order.mismatch.shape);
+  });
+
+  it('offers nothing to sign when a swap acquires an asset that is no target of the vault', async () => {
+    api(rebalanceOrder([{ sell: 'solana:usdc', buy: 'solana:tslax', amountInRaw: '1000000' }]));
+    seed(REBALANCE);
+    const host = await screen();
+    expect(host.querySelector('[data-variant="primary"]')).toBeNull();
   });
 });

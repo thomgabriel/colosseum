@@ -296,9 +296,9 @@ export const RebalanceQuoteResponse = z.strictObject({
   /** What the trades together are quoted to cost against the reference prices, in dollars. */
   costUsd: DecimalString.nullable(),
   prices: z.array(Price),
-  unavailable: z
-    .strictObject({ reason: z.string(), issues: z.array(z.string()) })
-    .nullable(),
+  /** Where the trades' own figures come from (what comes out, the minimum, the cost): the chain's quote. */
+  quote: Sourced,
+  unavailable: z.strictObject({ reason: z.string(), issues: z.array(z.string()) }).nullable(),
   quotedAt: z.string().datetime(),
   disclaimer: z.string(),
 });

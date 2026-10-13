@@ -11,9 +11,9 @@ import {
   OrderError,
   parseChainConfigs,
   parseFlags,
-  type Recipe,
   RebalanceQuoteResponse,
   RebalanceVaultResponse,
+  type Recipe,
   type VaultState,
 } from '@colosseum/schemas';
 import Fastify from 'fastify';
@@ -954,7 +954,7 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
     expect(s.saved).toHaveLength(1);
   });
 
-  it('refuses to build a step once the vault\'s targets are no longer the order\'s', async () => {
+  it("refuses to build a step once the vault's targets are no longer the order's", async () => {
     const s = await followed();
     const ordered = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
     if (ordered.status !== 'ordered') throw new Error('not ordered');
@@ -1068,13 +1068,15 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
         const price = quote.prices.find((p) => p.asset === id);
         expect(price?.source && price.fetchedAt && price.method).toBeTruthy();
       }
+      expect(quote.quote).toMatchObject({ source: 'chain-mock', provenance: 'mock' });
+      expect(quote.quote.method && quote.quote.fetchedAt).toBeTruthy();
       expect(quote.unavailable).toBeNull();
       expect(s.store.saveOrder).not.toHaveBeenCalled();
       // and nothing moved
       expect((await s.read()).recipeOnchainId).toBeNull();
     });
 
-    it('quotes against the vault\'s own targets where no portfolio is named, as the order then trades', async () => {
+    it("quotes against the vault's own targets where no portfolio is named, as the order then trades", async () => {
       const s = await followed();
       const quote = RebalanceQuoteResponse.parse((await s.post(`${s.url}/quote`, {})).json());
       expect(quote).toMatchObject({ status: 'quoted', version: null });
@@ -1110,7 +1112,8 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
       expect(OrderError.parse(stale.json()).code).toBe('VERSION_CHANGED');
       const ordered = RebalanceVaultResponse.parse((await s.post(s.url, {})).json());
       const request = s.saved[0]?.request;
-      if (ordered.status !== 'ordered' || request?.type !== 'rebalance') throw new Error('no order');
+      if (ordered.status !== 'ordered' || request?.type !== 'rebalance')
+        throw new Error('no order');
       for (const leg of ordered.order.legs)
         await s.mock.send(await buildRetarget(request, leg, s.entry, s.owner, undefined, true));
       const quote = RebalanceQuoteResponse.parse((await s.post(`${s.url}/quote`, {})).json());

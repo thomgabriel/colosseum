@@ -826,7 +826,9 @@ export async function quoteVaultRebalance(
   const assets = await entry.adapter.listAssets();
   const decimals = new Map(assets.map((x) => [x.id, x.decimals]));
   const cashId = vault.cash.asset;
-  const ids = [...new Set([...targets.map((t) => t.asset), ...vault.positions.map((p) => p.asset)])];
+  const ids = [
+    ...new Set([...targets.map((t) => t.asset), ...vault.positions.map((p) => p.asset)]),
+  ];
   const prices = await entry.adapter.getPrices(ids.filter((id) => decimals.has(id)));
   const usdOf = new Map(prices.map((p) => [p.asset, Number(p.usdPerToken)]));
   const worth = (asset: string, raw: string): number => {
@@ -885,6 +887,13 @@ export async function quoteVaultRebalance(
     })),
     costUsd: unavailable ? null : cents(cost),
     prices,
+    quote: {
+      source: entry.source,
+      fetchedAt: a.now,
+      method:
+        'each trade quoted by the chain adapter for the amount it puts in; the cost is the quote against the reference price, and the minimum is the quote less the slippage',
+      provenance: entry.provenance,
+    },
     unavailable,
     quotedAt: a.now,
     disclaimer: DISCLAIMER.en,

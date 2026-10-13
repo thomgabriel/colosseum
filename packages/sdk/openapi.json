@@ -27153,7 +27153,7 @@
       "post": {
         "summary": "Quote what a rebalance of a vault you own would trade now",
         "tags": ["portfolio"],
-        "description": "What `POST /v1/vaults/{chain}/{address}/rebalance` would order now, as figures to show before anything is signed: nothing is built or stored. With `family`, the quote is against the weights of that shared portfolio’s version in effect on the vault’s chain, which is what the vault trades to once it follows it (a follow’s own step trades nothing); a portfolio that is not there answers 404, one not on this chain 422, and a `version` that is not the one in effect 409 `VERSION_CHANGED`. Without `family`, against the targets the vault has. `quoted`: each trade, the sales first, with what goes in and its dollar value at the reference price, what the quote says comes out, the least an order would take at `slippageBps`, and the quote’s cost against the reference in bps; `holdings`, cash first, each with its target and its share of the vault before and after the trades; `costUsd`, the trades’ quoted costs together. `on_target`: there is nothing to trade. `unavailable`: no order could be made now, and `unavailable.reason` and `unavailable.issues` say why, as the rebalance route’s refusals do (`NO_PRICE:<asset>`, `AUTO_FOLLOW_ON`, `NO_TARGETS`, `OVER_ORDER_LIMIT`, or a chain’s own code such as a closed market or a size limit); the holdings are still answered against the targets. The figures are indicative: an order is planned and quoted again when it is made, and its own minimums are the ones signed. `prices` are the reference prices the shares are worked out with, each with its `source`, `fetchedAt` and `method`; `provenance` says whether the chain is the sample one or a test network. Ownership is read from the chain on every call; a missing vault and another person’s answer the same 404. Cache-Control: private, no-store.",
+        "description": "What `POST /v1/vaults/{chain}/{address}/rebalance` would order now, as figures to show before anything is signed: nothing is built or stored. With `family`, the quote is against the weights of that shared portfolio’s version in effect on the vault’s chain, which is what the vault trades to once it follows it (a follow’s own step trades nothing); a portfolio that is not there answers 404, one not on this chain 422, and a `version` that is not the one in effect 409 `VERSION_CHANGED`. Without `family`, against the targets the vault has. `quoted`: each trade, the sales first, with what goes in and its dollar value at the reference price, what the quote says comes out, the least an order would take at `slippageBps`, and the quote’s cost against the reference in bps; `holdings`, cash first, each with its target and its share of the vault before and after the trades; `costUsd`, the trades’ quoted costs together. `on_target`: there is nothing to trade. `unavailable`: no order could be made now, and `unavailable.reason` and `unavailable.issues` say why, as the rebalance route’s refusals do (`NO_PRICE:<asset>`, `AUTO_FOLLOW_ON`, `NO_TARGETS`, `OVER_ORDER_LIMIT`, or a chain’s own code such as a closed market or a size limit); the holdings are still answered against the targets. The figures are indicative: an order is planned and quoted again when it is made, and its own minimums are the ones signed. `prices` are the reference prices the shares are worked out with, each with its `source`, `fetchedAt` and `method`, and `quote` is the same for the trades’ own figures; `provenance` says whether the chain is the sample one or a test network. Ownership is read from the chain on every call; a missing vault and another person’s answer the same 404. Cache-Control: private, no-store.",
         "requestBody": {
           "required": true,
           "content": {
@@ -27423,6 +27423,30 @@
                         "additionalProperties": false
                       }
                     },
+                    "quote": {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "method": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "fetchedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                        }
+                      },
+                      "required": ["source", "method", "fetchedAt", "provenance"],
+                      "additionalProperties": false
+                    },
                     "unavailable": {
                       "anyOf": [
                         {
@@ -27467,6 +27491,7 @@
                     "holdings",
                     "costUsd",
                     "prices",
+                    "quote",
                     "unavailable",
                     "quotedAt",
                     "disclaimer"

@@ -4515,6 +4515,12 @@ export type PostVaultsByChainByAddressRebalanceQuoteResponse = {
     maxAgeSeconds: number;
     market: 'open' | 'closed' | 'unknown';
   }[];
+  quote: {
+    source: string;
+    method: string;
+    fetchedAt: string;
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  };
   unavailable: {
     reason: string;
     issues: string[];

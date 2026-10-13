@@ -610,14 +610,10 @@ describe('planRebalance, a vault that just followed a shared portfolio (Thom, Oc
     const all = plan.reduce((n, t) => n + BigInt(t.amountInRaw), 0n);
     expect(all <= 20_050_000_000n && all >= 20_049_000_000n).toBe(true);
     // the largest first, as a batch is sent
-    expect(plan.map((t) => t.buy)).toEqual([
-      'solana:paxg',
-      'solana:syrupusdc',
-      'solana:jlusdc',
-    ]);
+    expect(plan.map((t) => t.buy)).toEqual(['solana:paxg', 'solana:syrupusdc', 'solana:jlusdc']);
   });
 
-  it('with the order\'s slippage as its cost, still has the cash for every purchase', () => {
+  it("with the order's slippage as its cost, still has the cash for every purchase", () => {
     const plan = planRebalance(
       held,
       followed,
