@@ -25,7 +25,7 @@ import { sameTargets, useChainVault } from './chain-vault';
 import type { Vault } from './portfolio';
 import { usePortfolio } from './use-portfolio';
 import { PlanParts } from './VaultPanel';
-import { ownVault, sameAddress } from './vault-name';
+import { ownVault, sameAddress, vaultTitle } from './vault-name';
 
 // More money into a vault the person has (Thom, Oct 6), on one card with one press (InvestCard, gate
 // INVEST-ONE-PRESS): the amount, then the card with what the wallet is missing only when it is short
@@ -320,7 +320,17 @@ export function AddMoneyScreen({
       into={{
         label: t.amount.into.label,
         value: vault.address,
-        options: [{ value: vault.address, label: vault.name ?? shorten(vault.address) }],
+        options: [
+          {
+            value: vault.address,
+            // its name, "Vault #N", or "Your vault": the vault's one name wherever it is said
+            label: vaultTitle(
+              vault,
+              { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+              chainName,
+            ),
+          },
+        ],
       }}
       {...(embedded?.entry?.onMode ? { onMode: embedded.entry.onMode } : {})}
       blocked={blocked}

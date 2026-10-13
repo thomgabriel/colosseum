@@ -6,8 +6,8 @@ import { useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
+import { cn } from '../../components/ui/cn';
 import { Field, Input } from '../../components/ui/Field';
-import { shorten } from '../../components/ui/format';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { StatusMark } from '../../components/ui/StatusMark';
@@ -23,6 +23,7 @@ import { AssetMark } from '../order/PlanView';
 import { chainReady, onMock } from '../order/readiness';
 import { unitsFor } from '../order/units';
 import { unpriced, vaultValueSource } from '../portfolio/portfolio';
+import { vaultTitle } from '../portfolio/vault-name';
 import { type ExposureChain, readExposure } from '../portfolio-section/api';
 import { basisPoints } from '../portfolio-section/list-figures';
 import { exitPin } from '../portfolio-section/pins';
@@ -451,20 +452,30 @@ export function WithdrawScreen({
 
   // The two ways out, as the card's own choice: the tokens themselves by default.
   const ways = (
-    <fieldset data-ui="withdraw-way" className="flex flex-col gap-2">
-      <legend className="pb-2 text-body-sm font-medium">{w.way.legend}</legend>
-      {(
-        [
-          ['tokens', w.way.tokens, w.way.tokensHint],
-          ['dollars', w.way.dollars(cashSymbol), w.way.dollarsHint(cashSymbol)],
-        ] as const
-      ).map(([option, label, hint]) => (
-        <label key={option} className="flex flex-col gap-0.5 text-body">
-          <span className="inline-flex items-center gap-2">
+    <fieldset data-ui="withdraw-way" className="flex min-w-0 flex-col gap-2">
+      <legend className="pb-2 text-body-sm text-muted-foreground">{w.way.legend}</legend>
+      <div className="grid grid-cols-2 gap-1 rounded-md border border-input p-1">
+        {(
+          [
+            ['tokens', a.out.asTokens],
+            ['dollars', a.out.asCash(cashSymbol)],
+          ] as const
+        ).map(([option, label]) => (
+          <label
+            key={option}
+            className={cn(
+              'relative flex min-h-9 cursor-pointer items-center justify-center rounded-sm px-2 py-1.5 text-center text-body-sm font-semibold transition-colors',
+              'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring',
+              way === option
+                ? 'bg-honey-tint text-honey-text'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+            )}
+          >
             <input
               type="radio"
               name={wayId}
-              className="size-4 accent-primary"
+              // over the whole segment, unseen: the segment is the control a pointer or a key meets
+              className="absolute inset-0 cursor-pointer appearance-none rounded-sm opacity-0"
               checked={way === option}
               disabled={placing}
               onChange={() =>
@@ -475,14 +486,16 @@ export function WithdrawScreen({
               }
             />
             {label}
-          </span>
-          <span className="pl-6 text-body-sm text-muted-foreground">{hint}</span>
-        </label>
-      ))}
+          </label>
+        ))}
+      </div>
+      <p data-ui="withdraw-way-hint" className="text-caption text-muted-foreground">
+        {way === 'tokens' ? w.way.tokensHint : w.way.dollarsHint(cashSymbol)}
+      </p>
       {way === 'tokens' && (
         <Button
           variant="link"
-          className="self-start"
+          className="self-start text-body-sm"
           data-action="withdraw-pick"
           aria-expanded={picking}
           onClick={() => change(() => setPicking((open) => !open))}
@@ -612,7 +625,8 @@ export function WithdrawScreen({
       change(() => {
         setPicking(false);
         setChosen(bps);
-        if (priced) setText(maxText((value * bps) / 10_000, lang));
+        // to the nearest cent, as "About" says it: the share itself is the chip's, exactly
+        if (priced) setText(maxText(Math.round((value * bps) / 100) / 100, lang));
       }),
   }));
 
@@ -628,7 +642,16 @@ export function WithdrawScreen({
       into={{
         label: t.amount.into.from,
         value: vault.address,
-        options: [{ value: vault.address, label: shorten(vault.address) }],
+        options: [
+          {
+            value: vault.address,
+            label: vaultTitle(
+              { number: vault.number ?? null },
+              { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+              chainName,
+            ),
+          },
+        ],
       }}
       field={
         picking

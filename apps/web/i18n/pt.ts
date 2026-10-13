@@ -1916,6 +1916,8 @@ export const pt: Dictionary = {
     },
     out: {
       chips: 'Partes rápidas',
+      asTokens: 'Em tokens',
+      asCash: (cash: string) => `Em ${cash}`,
       max: 'Máx.',
       choose: 'Escolher os tokens você mesmo',
       byShare: 'Sacar uma parte em vez disso',

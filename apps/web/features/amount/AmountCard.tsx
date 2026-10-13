@@ -4,12 +4,12 @@ import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
-import { Select } from '../../components/ui/Field';
+import { Icon } from '../../components/ui/Icon';
 import { useT } from '../../i18n/I18nProvider';
 import { acceptTrust, trustAccepted } from '../order/order-record';
 import { chainIsLive } from '../order/readiness';
-import { TrustNotice } from '../order/TrustNotice';
 import { type AmountBalance, type AmountChip, AmountWell } from './AmountWell';
+import { TrustCompact } from './TrustCompact';
 
 // The amount card (gate AMOUNT-CARD, Thom, Oct 13): where a deposit or a withdrawal starts, as the
 // familiar deposit card of a DeFi app. One card: Deposit | Withdraw where both apply, where the money
@@ -226,8 +226,8 @@ export function AmountCard({
           </div>
 
           {into && (
-            <div data-ui="amount-into" className="flex min-w-0 flex-col gap-1">
-              <div className="flex min-w-0 items-center gap-3">
+            <div data-ui="amount-into" className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex min-w-0 items-center justify-between gap-3">
                 {choosable ? (
                   <label htmlFor={intoId} className="shrink-0 text-body-sm text-muted-foreground">
                     {into.label}
@@ -236,22 +236,33 @@ export function AmountCard({
                   <span className="shrink-0 text-body-sm text-muted-foreground">{into.label}</span>
                 )}
                 {choosable ? (
-                  <Select
-                    id={intoId}
-                    value={into.value}
-                    disabled={locked}
-                    aria-describedby={into.hint ? intoHintId : undefined}
-                    onChange={(e) => into.onChange?.(e.currentTarget.value)}
-                    className="min-w-0 flex-1"
-                  >
-                    {into.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
+                  <span className="relative min-w-0">
+                    <select
+                      id={intoId}
+                      value={into.value}
+                      disabled={locked}
+                      aria-describedby={into.hint ? intoHintId : undefined}
+                      onChange={(e) => into.onChange?.(e.currentTarget.value)}
+                      className={cn(
+                        'h-9 max-w-full appearance-none truncate rounded-md border border-input bg-card pr-9 pl-3 text-body-sm font-medium text-foreground',
+                        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                        'hover:bg-secondary disabled:text-muted-foreground',
+                      )}
+                    >
+                      {into.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Icon
+                      name="ChevronDown"
+                      size={16}
+                      className="pointer-events-none absolute top-2.5 right-3 text-muted-foreground"
+                    />
+                  </span>
                 ) : (
-                  <span className="min-w-0 text-body-sm font-medium [overflow-wrap:anywhere]">
+                  <span className="min-w-0 truncate text-body-sm font-medium">
                     {into.options.find((o) => o.value === into.value)?.label ?? into.value}
                   </span>
                 )}
@@ -282,25 +293,27 @@ export function AmountCard({
           {choice}
 
           {preview && (
-            <div
-              data-ui="amount-preview"
-              className="flex min-w-0 flex-col gap-2 rounded-md border border-border p-4"
-            >
-              <p className="text-caption font-medium text-muted-foreground">{preview.title}</p>
+            <div data-ui="amount-preview" className="flex min-w-0 flex-col gap-2.5 px-1">
+              <p className="text-body-sm font-medium text-muted-foreground">{preview.title}</p>
               {preview.body}
             </div>
           )}
 
           {details && details.length > 0 && (
-            <details data-ui="amount-details" className="group/details">
-              <summary className="w-fit cursor-pointer text-body-sm font-medium text-honey-text underline decoration-1 underline-offset-4 hover:decoration-2">
-                {a.details.summary}
+            <details data-ui="amount-details" className="group border-t border-border pt-3">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-body-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                <span className="font-medium">{a.details.summary}</span>
+                <Icon
+                  name="ChevronDown"
+                  size={16}
+                  className="transition-transform group-open:rotate-180"
+                />
               </summary>
-              <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-body-sm">
+              <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-body-sm">
                 {details.map((d) => (
                   <div key={d.term} className="contents">
                     <dt className="text-muted-foreground">{d.term}</dt>
-                    <dd className="min-w-0 [overflow-wrap:anywhere]">{d.value}</dd>
+                    <dd className="min-w-0 text-right [overflow-wrap:anywhere]">{d.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -319,7 +332,7 @@ export function AmountCard({
                 data-state="ask"
                 className="rounded-md border border-border p-4"
               >
-                <TrustNotice
+                <TrustCompact
                   chain={chain}
                   accepted={false}
                   checked={ticked}
@@ -342,7 +355,7 @@ export function AmountCard({
                 </p>
                 {viewTrust && (
                   <div className="rounded-md border border-border p-4">
-                    <TrustNotice
+                    <TrustCompact
                       chain={chain}
                       accepted
                       checked={false}

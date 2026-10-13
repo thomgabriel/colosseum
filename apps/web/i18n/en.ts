@@ -2135,6 +2135,9 @@ export const en = {
     /** The withdrawal on the amount card: a share of the whole vault, or tokens chosen one by one. */
     out: {
       chips: 'Quick shares',
+      /** The two ways out, short enough for a segment on a phone (gate WITHDRAW-DOLLARS). */
+      asTokens: 'As tokens',
+      asCash: (cash: string) => `As ${cash}`,
       max: 'Max',
       choose: 'Choose tokens yourself',
       byShare: 'Withdraw a share instead',

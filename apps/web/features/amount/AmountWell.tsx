@@ -94,7 +94,10 @@ export function AmountWell({
           {label}
         </label>
         <div className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true" className="shrink-0 font-display text-h3 text-muted-foreground">
+          <span
+            aria-hidden="true"
+            className="shrink-0 font-display text-[1.75rem] leading-none font-semibold text-muted-foreground"
+          >
             {t.mix.deposit.currency}
           </span>
           <input
@@ -112,7 +115,7 @@ export function AmountWell({
             }
             onChange={(e) => onText(e.currentTarget.value)}
             onBlur={onBlur}
-            className="h-12 min-w-0 flex-1 bg-transparent font-display text-[2rem] leading-10 font-semibold tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
+            className="h-14 min-w-0 flex-1 bg-transparent font-display text-[2.5rem] leading-[3rem] font-semibold tracking-[-0.02em] tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
           />
           {token && (
             <span
@@ -126,41 +129,46 @@ export function AmountWell({
           )}
         </div>
         {balance && (
-          <p
-            id={balanceId}
-            data-ui="amount-balance"
-            data-state={balance.state}
-            className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body-sm text-muted-foreground"
-          >
-            {balance.state === 'read' ? (
-              <>
-                <span>{balance.label}:</span>
-                <ProvenancePin
-                  value={balance.figure}
-                  obs={balance.obs}
-                  what={balance.label}
-                  className="text-foreground tabular-nums"
-                />
-                {balance.onMax && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <Button
-                      variant="link"
-                      disabled={locked}
-                      aria-label={a.balance.maxLabel(balance.figure)}
-                      onClick={balance.onMax}
-                    >
-                      {a.balance.max}
-                    </Button>
-                  </>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <p
+              id={balanceId}
+              data-ui="amount-balance"
+              data-state={balance.state}
+              className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body-sm text-muted-foreground"
+            >
+              {balance.state === 'read' ? (
+                <>
+                  <span>{balance.label}:</span>
+                  <ProvenancePin
+                    value={balance.figure}
+                    obs={balance.obs}
+                    what={balance.label}
+                    className="text-foreground tabular-nums"
+                  />
+                </>
+              ) : balance.state === 'reading' ? (
+                <span>{a.balance.reading}</span>
+              ) : (
+                <span>{a.balance.failed}</span>
+              )}
+            </p>
+            {balance.state === 'read' && balance.onMax && (
+              <button
+                type="button"
+                data-ui="amount-max"
+                disabled={locked}
+                aria-label={a.balance.maxLabel(balance.figure)}
+                onClick={balance.onMax}
+                className={cn(
+                  'h-6 shrink-0 rounded-full border border-input px-2.5 text-caption font-semibold text-foreground transition-colors',
+                  'hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                  'disabled:text-muted-foreground',
                 )}
-              </>
-            ) : balance.state === 'reading' ? (
-              <span>{a.balance.reading}</span>
-            ) : (
-              <span>{a.balance.failed}</span>
+              >
+                {a.balance.max}
+              </button>
             )}
-          </p>
+          </div>
         )}
       </div>
       {hint && (

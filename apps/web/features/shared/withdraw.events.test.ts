@@ -788,13 +788,15 @@ describe('the withdraw screen, in dollars', () => {
     const host = await show();
     expect(way(host, 'tokens').checked).toBe(true);
     const group = find(host, '[data-ui="withdraw-way"]');
-    expect(group.textContent).toContain(w.way.tokens);
+    expect(group.textContent).toContain(en.amount.out.asTokens);
     expect(group.textContent).toContain(w.way.tokensHint);
-    expect(group.textContent).toContain(w.way.dollars('USDC'));
-    expect(group.textContent).toContain(w.way.dollarsHint('USDC'));
+    expect(group.textContent).toContain(en.amount.out.asCash('USDC'));
+    // the hint of the way chosen, one at a time
+    expect(group.textContent).not.toContain(w.way.dollarsHint('USDC'));
     // the tokens one by one are there until dollars is chosen
     expect(host.querySelector('button[data-action="withdraw-pick"]')).not.toBeNull();
     await click(way(host, 'dollars'));
+    expect(find(host, '[data-ui="withdraw-way-hint"]').textContent).toBe(w.way.dollarsHint('USDC'));
     expect(host.querySelector('button[data-action="withdraw-pick"]')).toBeNull();
     // paid out in the cash token, beside the figure
     expect(find(host, '[data-ui="amount-token"]').textContent).toContain('USDC');

@@ -135,9 +135,7 @@ describe('the amount card on a deposit', () => {
     expect(balance.textContent).toContain('1,234.56 USDC');
     // the figure has its pin, which names where it was read
     expect(balance.querySelector('button[data-ui="pin"]')).not.toBeNull();
-    await click(
-      find(balance, `button[aria-label="${en.amount.balance.maxLabel('1,234.56 USDC')}"]`),
-    );
+    await click(find(host, `button[aria-label="${en.amount.balance.maxLabel('1,234.56 USDC')}"]`));
     expect(field(host).value).toBe('1234.56');
     expect(primary(host).textContent).toBe(en.amount.press.deposit('$1,234.56'));
     // typing does not read the wallet again
@@ -193,9 +191,7 @@ describe('the amount card on a deposit', () => {
     expect(find(host, '[data-ui="amount-note"]').textContent).toBe(en.amount.errors.overFunded);
     expect(held(primary(host))).toBe(false);
     // no Max for a balance under the least deposit
-    expect(
-      find(host, '[data-ui="amount-balance"]').querySelector('button[data-ui="button"]'),
-    ).toBeNull();
+    expect(host.querySelector('[data-ui="amount-max"]')).toBeNull();
   });
 
   it('asks for the trust notice the first time, keeps it as the person presses, and says it in one line after', async () => {

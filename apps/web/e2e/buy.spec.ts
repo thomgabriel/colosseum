@@ -428,8 +428,8 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await page.locator('a[data-ui="vault-withdraw"]').click();
     await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+\/withdraw$/);
     // the two ways, the tokens themselves chosen first
-    await expect(page.getByLabel(w.way.tokens)).toBeChecked();
-    await page.getByLabel(w.way.dollars('USDC')).check();
+    await expect(page.getByLabel(en.amount.out.asTokens)).toBeChecked();
+    await page.getByLabel(en.amount.out.asCash('USDC')).check();
   };
   /** The review confirmed, the order made, every step signed, and back to the portfolio. */
   const through = async (emptied: boolean) => {

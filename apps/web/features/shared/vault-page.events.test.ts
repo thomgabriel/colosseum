@@ -74,7 +74,6 @@ vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
 const en = dictionary('en');
 const p = en.shared.vault.page;
-const w = en.withdraw;
 const MY_VAULT = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '42');
 const CASH = 'solana:usdc';
 const SPYX = 'solana:spyx';
