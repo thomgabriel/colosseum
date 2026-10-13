@@ -2060,6 +2060,108 @@ export const en = {
       adopt_version: 'Keeper: adopt a version',
       keeper_leg: 'Keeper: trade',
     },
+    /**
+     * The order one screen at a time (gate SIGN-ONE-STEP): what changes and its worst case, then each
+     * step on its own card with a button that names it, then what the order did.
+     */
+    flow: {
+      continue: 'Continue',
+      details: 'Details',
+      /** The progress strip's name, read by a screen reader. */
+      progress: 'Where you are in the steps',
+      /** The strip's last place, after every step. */
+      done: 'Done',
+      /** Read after a done step's name. */
+      doneWord: 'done',
+      stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
+      /** The fold with every step as it will be signed, to the last unit. */
+      allSteps: 'Every step, exactly',
+      /** The fold with each confirmed step's transaction. */
+      transactions: 'Transactions',
+      /** The steps already confirmed, over the one being signed. */
+      signed: 'Signed',
+      /** A step that deposits, then trades: "Deposit $1,000 into your vault, then swap $900 of cash for SPYx". */
+      andThen: (head: string, rest: string) => `${head}, then ${rest}`,
+      atLeast: (amount: string) => `at least ${amount}`,
+      allOf: (token: string) => `all of your ${token}`,
+      short: {
+        approve: 'Allow',
+        open: 'Open vault',
+        deposit: 'Deposit',
+        swap: 'Swap',
+        swapN: (n: number) => `Swap ${n}`,
+        targets: 'Set targets',
+        version: 'Accept version',
+        autoFollow: 'Auto-follow',
+        withdraw: 'Withdraw',
+        publish: 'Publish',
+      },
+      title: {
+        approve: (amount: string) => `Allow your vault to take ${amount} of cash`,
+        open: 'Open your vault',
+        openDeposit: (amount: string) => `Open your vault and deposit ${amount}`,
+        deposit: (amount: string) => `Deposit ${amount} into your vault`,
+        sell: (what: string) => `sell ${what}`,
+        swap: (amount: string, into: string) => `swap ${amount} of cash for ${into}`,
+        swapInto: (into: string) => `swap cash for ${into}`,
+        targets: 'Set your vault’s new targets on chain',
+        version: 'Accept the new version of the portfolio',
+        withdraw: (what: string) => `Send ${what} to your own wallet`,
+        publish: 'Publish your portfolio',
+      },
+      /** A button that signs names the action and the amount. */
+      sign: {
+        of: (what: string) => `Sign: ${what}`,
+        approve: (amount: string) => `Sign: allow ${amount}`,
+        open: 'Sign: open your vault',
+        deposit: (amount: string) => `Sign: deposit ${amount}`,
+        sell: (what: string) => `sell ${what}`,
+        swap: (amount: string, into: string) => `swap ${amount} for ${into}`,
+        swapInto: (into: string) => `swap for ${into}`,
+        targets: 'Sign: set the new targets',
+        version: 'Sign: accept the new version',
+        autoFollow: 'Sign: switch auto-follow',
+        withdraw: (what: string) => `Sign: withdraw ${what}`,
+        publish: 'Sign: publish',
+        step: 'Sign this step',
+      },
+      worst: {
+        one: (amount: string, pct: string) =>
+          `At worst you get ${amount}, ${pct} under today’s price.`,
+        each: (pct: string) => `At worst each swap lands ${pct} under today’s price.`,
+      },
+      /** What the order does to the money, without its full stop: two are joined by `and`. */
+      sentence: {
+        depositCash: (amount: string) => `Your ${amount} goes into your vault as cash`,
+        depositSwap: (amount: string, spent: string, into: string) =>
+          `Your ${amount} goes into your vault, and about ${spent} of it into ${into}`,
+        depositInto: (amount: string, into: string) =>
+          `Your ${amount} goes into your vault, and from there into ${into}`,
+        sell: (amount: string, what: string) => `About ${amount} of ${what} is sold for cash`,
+        sellSome: (what: string) => `Some of your ${what} is sold for cash`,
+        spend: (amount: string, into: string) => `About ${amount} of cash goes into ${into}`,
+        spendSome: (into: string) => `Cash goes into ${into}`,
+        noTrade: 'Nothing is swapped in this order',
+        and: (a: string, b: string) => `${a}, and ${b}`,
+      },
+      picture: {
+        cash: 'Cash',
+        amount: 'Amount',
+        now: 'Now',
+        next: 'New',
+        holdsNow: 'Holds now',
+        target: 'Target',
+        targets: 'Your vault’s targets',
+        deposit: (amount: string) => `Where your ${amount} goes`,
+        withdraw: 'What leaves your vault for your own wallet',
+        all: 'All of it',
+      },
+      /** The last screen: what the order did, and the vault as it is now. */
+      ended: {
+        title: 'Done',
+        targets: 'Your vault’s targets now',
+      },
+    },
     status: {
       planned: 'Not started',
       built: 'Built, not signed yet',
