@@ -260,7 +260,8 @@ The command refuses a list with uncommitted changes. It reads only the local dat
 
 ```sh
 RISK_DATA_DIR=<main checkout>/data/risk DOTENV_CONFIG_PATH=<main checkout>/.env \
-  pnpm risk:shelf-pools-solana [--floor <dollars>] [--readings <file>] [--pairs <jsonl>]
+  pnpm risk:shelf-pools-solana --shelf-file scripts/risk/assets/shelf-solana.json [--pairs <jsonl>]   # the committed shelf
+#  or: pnpm risk:shelf-pools-solana [--floor <dollars>] [--readings <file>] [--pairs <jsonl>]       # a cut from the readings
 pnpm risk:assets-backfill solana-swaps --count --registry <RISK_DATA_DIR>/shelf-registry-solana-<stamp>.json
 ```
 
@@ -281,6 +282,14 @@ Shelf 97 tokens, hash `3d63aab8` (the committed shelf's); 88 subjects, 9 quotes 
 The backfill takes it (`--count --registry`): scope `shelf-d30-f100000-3d63aab8`, 263 live pools, `noKnownPool` DBR and the 9 quotes only.
 
 Its count (`count-20261013T1353.json`) reads 990M signatures, 672.6M transactions, 68.4 GB, 391 hours: over the budget. That figure is mostly an estimator defect, not traffic: for a busy pool the newest anchored page ("now", no `before`) holds signatures newer than its anchor time `t`, so `pageRate`'s `t - oldest` is negative, clamps to 1 second, and the rate reads 250 a second (74 pools on that count). Read with the page's newest time as its anchor, the same pages give about 132M signatures, 82M transactions, 8.3 GB and some 48 hours (with `--step-days 3`: 175M, 101M, 10.3 GB). The fix belongs to `pageRate`/the anchor of the "now" page in `packages/risk/src/assets/backfill.ts`, not to this file.
+
+### The committed shelf, and the run of 18:10 UTC
+
+`--shelf-file scripts/risk/assets/shelf-solana.json` takes the shelf as committed (its rows, in its order) instead of cutting it from the newest readings, which move every hour: the registry follows the shelf the repo holds. `--pairs <file>` reuses that file's answers and asks DexScreener only for the tokens it lacks; every run writes a new `shelf-dexscreener-solana-<stamp>.jsonl` holding the answers reused and the new ones, and never appends to the file it was given.
+
+Run of 2026-10-13 18:10 UTC (`shelf-registry-solana-20261013T1810.json`; `--shelf-file` on the re-cut shelf `9090624a`, 98 tokens with W and RENDER and without arc; `--pairs shelf-dexscreener-solana-20261013T1349.jsonl`, DexScreener asked for W and RENDER only; 5 RPC calls): 89 subjects, 9 quotes, **287 pools**, every subject covered, none excluded. Raydium CLMM 108, Orca 68, Meteora DLMM 60, Raydium CPMM 29, PumpSwap 7, Raydium AMM v4 5, Meteora DAMM v1 5 and v2 5.
+
+**Run of 18:25 UTC** (`shelf-registry-solana-20261013T1825.json`, the same inputs with `--pairs shelf-dexscreener-solana-20261013T1810.jsonl`, no DexScreener call, 5 RPC calls), after `pairLiquidity` stopped re-valuing a pair DexScreener puts under the $10,000 floor: **286 pools**. Two dust pairs the re-valuing had lifted are gone (SPCXx's Meteora DLMM pair, $223 read as $547,942; QUBT/SOL, $85 read as $398,175), and SPCXx takes its next DLMM pool ($133,063). Meteora DLMM 59, the rest as at 18:10.
 
 ### Raydium AMM v4, Meteora DAMM and PumpSwap (ASSET-3, 2026-10-13)
 
@@ -309,3 +318,51 @@ The run above left $42.5M of the shelf tokens' liquidity on venues no decoder re
 | PumpSwap | 6 | $2.9M (TRX/USDC $2.7M, five stock-token pairs under $0.1M each) |
 
 21 new pools, $35.6M. Covered $179.9M → $214.7M of $193.8M → $230.7M supported (93% both); the four older venues lose 3 pools ($0.8M) where a new pool reached the 90% first or took one of the five places. Liquidity on venues still unread: $42.5M → $5.6M (Orca v2 $2.6M, MetaDAO $2.4M, PancakeSwap $0.6M). DBR has one pool, $5,948,775 of its $5,968,692.
+
+## The collectors on the shelf's pools (AS.12)
+
+Exit cost and depth are measured from pool state at the moment; they cannot be backfilled, so the collectors measure the shelf from the day they are given its pools.
+
+### Solana: the merged registry
+
+```sh
+RISK_DATA_DIR=<main checkout>/data/risk pnpm risk:registry-merge --out data/risk   # [--base <file>] [--shelf <file>]
+```
+
+`scripts/risk/registry-merge.ts` (the rule in `scripts/risk/lib-registry-merge.ts`, no I/O) reads the stock registry (default the newest `registry-<stamp>.json` of `RISK_DATA_DIR`, its dust left out: the file `retier.ts` copied to `~/.colosseum/risk/registry.json`; `--base ~/.colosseum/risk/registry.json` reads the installed copy, read only) and the shelf registry (default the newest `shelf-registry-solana-<stamp>.json`), and writes `collector-registry-solana-<stamp>.json` and nothing else:
+
+- **The stock pools as installed, and no stock asset gains a pool.** Tier, order and fields unchanged. A shelf pool of a stock-set asset is left out (`shelfLeftOut`: AVGOx's Raydium CLMM pool on Oct 13), because `pools.ts` routes every dollar and SOL pool of an asset into its curve and such a pool would move that stock's curve. The merge does change what the collector does: more pools a run (RPC, run time, the shared cap on re-listing), and new assets downstream (below).
+- **Once per address.** A shelf pool the stock registry holds is the stock registry's, with its tier (`duplicates`).
+- **The shelf's tiers** by `retier.ts`'s rule, now one function (`scripts/risk/lib-tiers.ts`, `retier.ts` calls it): tier A for the pools that together hold 99% of the TVL of the pools of $1,000 or more (refreshed every 5 minutes), B for the rest (hourly), dust left out. It runs over the shelf's pools alone: over the merged set the shelf's dollars (TRX, syrupUSDC, cbBTC…) would move 511 stock pools from A to B. `TIER_A_SHARE` and `MIN_POOL_TVL_USD` change it, as they change `retier.ts`. Each shelf pool says why (`tierReason`).
+- **`set` on every pool** (`stocks` or `shelf`). The shelf pools get what every pool gets: a snapshot per run of their tier (depth within 2%, sell and buy curves where the quote is USDC, USDT or SOL; a pool quoted in another token has its depth in that token and no dollar curve) and the routed curve of their asset (`assets/<day>.jsonl`). The extras stay on the stock set, as before the merge: raw captures and position scans (the 80% rule of `pools.ts`, mirrored in `raw-arrays/lib.ts`), the Jupiter cross-check's asset set (`quotes.ts`), the lending-market snapshot's mints, and the split snapshot's pools (`lib-split.ts`).
+- **The name** does not start with `registry-`, so `latestRegistryFile`, `retier.ts` and the backfill never take it.
+
+Run of 2026-10-13 18:25 UTC (`collector-registry-solana-20261013T1825.json`, from `registry-20261001T0139.json` and `shelf-registry-solana-20261013T1825.json`, the committed shelf of 98, dust pairs no longer re-valued): **1,180 pools**, stocks 757 A and 235 B (equal, pool for pool, to the installed registry), shelf 136 A and 52 B (Meteora DLMM 43 A + 10 B, Orca 44 + 7, Raydium CLMM 43 + 19, Raydium CPMM 6 + 16), 67 assets, $136.2M; 75 shelf pools held already. **23 shelf pools are left out.** One is AVGOx's CLMM pool (an asset of the stock set). 22 ($32.8M) are on the four venues decoded on `universe/assets-venues` (PumpSwap 7, Raydium AMM v4 5, Meteora DAMM v1 5, DAMM v2 5): `lib-venues.ts` confirms them and the backfill decodes their events, but the pool collector cannot read them: `pools.ts` simulates only Raydium CLMM and CPMM, Orca Whirlpool and Meteora DLMM (`build()`), and `build-registry.ts`'s stock registry knows only those four. A DAMM v1 pool holds vault-LP tokens rather than the tokens, DAMM v2 is concentrated, AMM v4 carries order-book and PnL adjustments, PumpSwap has its own fees: each needs its own simulator before the collector can take it. Each is in `shelfLeftOut` with its reason; the backfill still fetches them. DBR's only pool is on DAMM v1, so DBR is the one shelf token the collector does not measure. W and RENDER are in, arc is out. Against the 18:10 shelf registry, SPCXx's DLMM pool re-valued from $223 to $547,942 and QUBT/SOL's from $85 to $398,175 are gone (`shelf-pools.ts` no longer re-values a pair DexScreener puts under the $10,000 floor); SPCXx's next DLMM pool ($133,063) is one the stock registry holds.
+
+**Cost on the collectors' RPC** (`SOLANA_RPC_URL`; no numeric budget for it is written anywhere in the repo). The pool collector made about 900 requests an hour on the stock pools on Oct 13 (`runs.jsonl`: 69 a 5-minute run, 137 the hourly one). The shelf adds, by the shape of `pools.ts` (`addedCallsPerHour`, printed by the command): 24 header batches, 61 child-account batches, 217 `getProgramAccounts` to re-list tick and bin arrays (one per concentrated pool an hour, two on Orca) and about 125 for stale tick maps: **about 427 an hour (+47%)**. The first runs after the install list the 166 new concentrated pools' arrays at once (217 `getProgramAccounts`; the 5-minute run that does it can run past 5 minutes, and launchd then skips the next start). The re-listing is capped at 40 pools a run (`RISK_MAX_DISCOVERIES`) across both sets: at about 500 pools an hour against a cap of 480, some lists are re-read a little after the hour, and a stale map is still caught at once by the liquidity check. The Jupiter quotes are unchanged (stock set only).
+
+**After an install, things to know.**
+- The refresh job imports a pool snapshot only for a pool in `risk_pools`, and the shelf pools are not there: their pool rows stay in `~/.colosseum/risk/pools/` until they are. Their routed asset rows (67 assets) do go to `risk_asset_snapshots`, and `pnpm risk:compute` (the refresh job, minute 10) fits depth curves for them: crypto, cash-like and dollar-yield assets get curves bucketed by the US-market regimes the stocks use.
+- The installed price job (`com.colosseum.risk-prices`, minute 14) starts writing hourly `risk_reference_prices` rows for those 67 shelf assets from their routed rows.
+- `pnpm risk:retier` and `pnpm risk:registry` write `~/.colosseum/risk/registry.json` from the stock registry alone and so drop the shelf: both now print a warning when the installed file holds shelf pools; merge and install again after either.
+- **The split snapshot first.** `com.colosseum.risk-facts-split` reads the same `registry.json`. The installed bundle (built Oct 2) has no stock-set filter, so with the merged registry it would route about 140 shelf pools into its cost-breakdown medians. `install.sh registry` refuses until `~/.colosseum/risk/risk-facts-split.mjs` carries the filter (`splitKeepsTheStockSetOnly`, `lib-split.ts`), and until the file's stock set is the installed registry's, pool for pool (the merge reads `data/risk/registry-<stamp>.json`, not the installed copy). Step 1 below rebuilds the split job from about ten days of newer code, not just the filter: RU.11's split, RU.15's Byreal pools (off unless `RISK_SPLIT_BYREAL` is set), `ba4f22c8` and the cost breakdown. Run from this checkout, `jobs/install.sh` also makes this checkout's `data/risk/split` a symlink to `~/.colosseum/risk/data/split`, as it did in the checkout it was installed from.
+
+**Rodrigo's install**, from this checkout (`~/Documents/Colosseum-assets-collect`, or `staging` once merged):
+
+```sh
+# 0. a rehearsal of both steps, on copies of the live files (read only), nothing loaded
+R=/tmp/collect-rehearsal; mkdir -p $R && cp ~/.colosseum/risk/{registry.json,risk-facts-split.mjs} $R/
+COLOSSEUM_HOME=$R scripts/risk/collector/install.sh registry data/risk/collector-registry-solana-20261013T1825.json --no-load   # refuses: the old split bundle
+COLOSSEUM_HOME=$R scripts/risk/jobs/install.sh facts-split --no-load
+COLOSSEUM_HOME=$R scripts/risk/collector/install.sh registry data/risk/collector-registry-solana-20261013T1825.json --no-load   # passes
+# 1. the split job from this code, with the stock-set filter (rebuilds and reloads com.colosseum.risk-facts-split)
+scripts/risk/jobs/install.sh facts-split
+grep -c splitKeepsTheStockSetOnly ~/.colosseum/risk/risk-facts-split.mjs   # 2
+# 2. the install: checks the split bundle, the stock set and the file, keeps registry.before-<stamp>.json and the old
+#    bundles, swaps them in; loads nothing
+scripts/risk/collector/install.sh registry data/risk/collector-registry-solana-20261013T1825.json
+# 3. after the next run (minute 2, 7, …): the shelf's pools are due
+tail -1 ~/.colosseum/risk/runs.jsonl   # "due" 893 on a 5-minute run, 1180 on the hourly one; "dueShelf" 136 / 188
+```
+
+Undo: `cp ~/.colosseum/risk/registry.before-<stamp>.json ~/.colosseum/risk/registry.json` (the new bundles read a registry without shelf pools as the old ones did).

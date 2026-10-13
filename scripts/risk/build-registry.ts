@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createDb, riskPools } from '@colosseum/db';
 import { sql } from 'drizzle-orm';
 import { jupHeaders, MINTS, nowIso, sleep } from '../lib';
+import { shelfReplacedWarning } from './lib-installed';
 import { getMultiple, rpc, rpcStats } from './lib-pools';
 import {
   confirmPool,
@@ -297,6 +298,10 @@ const registry = {
 writeFileSync(join(OUT, `registry-${stamp}.json`), JSON.stringify(registry, null, 1));
 const home = join(homedir(), '.colosseum', 'risk');
 mkdirSync(home, { recursive: true });
+{
+  const warning = shelfReplacedWarning(join(home, 'registry.json'));
+  if (warning) console.error(warning);
+}
 writeFileSync(join(home, 'registry.json'), JSON.stringify(registry));
 const byVenue: Record<string, { pools: number; tvl: number }> = {};
 for (const r of rows) {

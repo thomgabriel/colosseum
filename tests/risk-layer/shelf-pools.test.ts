@@ -49,6 +49,22 @@ describe('the venues the rule takes', () => {
 });
 
 describe('the picking rule on frozen answers', () => {
+  it('a pair DexScreener values under the floor is never re-valued: it stays dust and is not picked', () => {
+    const t = token('JitoSOL');
+    const ref = pickPools(t.mint, t.pairs).referencePriceUsd as number;
+    const base = t.pairs.find((p) => p.baseToken.address === t.mint) as DsPair;
+    // a dust pair whose own price of the token is 1/2,000 of the reference: scaling would read it as $446,000
+    const dust: DsPair = {
+      ...base,
+      pairAddress: 'DustPair1111111111111111111111111111111111',
+      priceUsd: String(ref / 2000),
+      liquidity: { usd: 223 },
+      volume: { h24: 0 },
+    } as DsPair;
+    const p = pickPools(t.mint, [...t.pairs, dust]);
+    expect(p.repriced.some((r) => r.address === dust.pairAddress)).toBe(false);
+    expect(p.picked.some((x) => x.address === dust.pairAddress)).toBe(false);
+  });
   it('JitoSOL: a mispriced pair is re-valued, and four pools reach 90%', () => {
     const p = pick('JitoSOL');
     expect(p.pairs).toBe(30);

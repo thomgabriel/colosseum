@@ -6,6 +6,7 @@ import { CHAINS, type ChainConfig } from './config';
 import { type ListRun, listRun } from './listed';
 import { acquireLock, type MissedWhy, runLoop, type Slot } from './loop';
 import { collectOnce } from './run';
+import { type ShelfPoolsFile, withShelf } from './shelf';
 import {
   type Attempt,
   attemptOf,
@@ -25,6 +26,10 @@ import {
 //   pnpm risk-evm:collect --list          the tracked stocks of scripts/risk/universe/<chain>.json and every
 //                                         reachable pool of each (PLAN-UNIVERSE RU.6); also with --loop.
 //                                         Without it the run is the hand list of config.ts, as before.
+//   pnpm risk-evm:collect --list --shelf [file]
+//                                         and the shelf's other tokens with the pools of the file (PLAN-ASSETS AS.12,
+//                                         shelf.ts; default scripts/risk/assets/shelf-pools-robinhood.json, written by
+//                                         pnpm risk-evm:shelf-pools); also with --loop. Read once, at the start.
 const args = process.argv.slice(2);
 const flag = (name: string) => args.includes(name);
 const option = (name: string) => {
@@ -61,6 +66,19 @@ const LIST_DIR = process.env.RISK_UNIVERSE_DIR ?? 'scripts/risk/universe';
  * machine, or is another cut, stops the run: the list holds counts, the cut holds the pools.
  */
 const lists = new Map<string, { chain: ChainConfig; listed: ListRun }>();
+/** `--shelf [file]`: the shelf's tokens beside the list's (a list run only). */
+const SHELF_DEFAULT = 'scripts/risk/assets/shelf-pools-robinhood.json';
+const shelfAt = args.indexOf('--shelf');
+const shelfPath =
+  shelfAt < 0
+    ? null
+    : args[shelfAt + 1] && !args[shelfAt + 1]?.startsWith('--')
+      ? (args[shelfAt + 1] as string)
+      : SHELF_DEFAULT;
+if (shelfPath && !flag('--list')) {
+  console.error('--shelf adds the shelf to a list run: pass --list as well');
+  process.exit(1);
+}
 if (flag('--list')) {
   for (const chain of chains) {
     const listPath = join(LIST_DIR, `${chain.id}.json`);
@@ -78,13 +96,23 @@ if (flag('--list')) {
         throw new Error(
           `${listPath} was written from ${cutName || 'no cut'}, which is not in ${dir}: run pnpm risk-evm:pareto, pnpm risk-evm:oracles and pnpm risk:universe ${chain.id} on this machine`,
         );
-      const { tokens, listed } = listRun(chain, list, JSON.parse(readFileSync(cutPath, 'utf8')), {
+      let { tokens, listed } = listRun(chain, list, JSON.parse(readFileSync(cutPath, 'utf8')), {
         list: listPath,
         cut: cutName,
       });
+      const trackedCount = tokens.length;
+      if (shelfPath) {
+        const shelf = JSON.parse(readFileSync(shelfPath, 'utf8')) as ShelfPoolsFile;
+        if (shelf.chain === chain.id) {
+          ({ tokens, listed } = withShelf(chain, { tokens, listed }, shelf, shelfPath));
+          console.error(
+            `${chain.id}: ${listed.shelf?.tokens.length ?? 0} shelf tokens from ${shelfPath} (${shelf.fetchedAt}): ${listed.shelf?.tokens.join(', ')}`,
+          );
+        }
+      }
       lists.set(chain.id, { chain: { ...chain, tokens }, listed });
       console.error(
-        `${chain.id}: ${tokens.length} tracked stocks from ${listPath} (${cutName})${listed.handListNotTracked.length ? `; in config.ts and not tracked, not read in this run: ${listed.handListNotTracked.join(', ')}` : ''}`,
+        `${chain.id}: ${trackedCount} tracked stocks from ${listPath} (${cutName})${listed.handListNotTracked.length ? `; in config.ts and not tracked, not read in this run: ${listed.handListNotTracked.join(', ')}` : ''}`,
       );
     } catch (e) {
       console.error(message(e));

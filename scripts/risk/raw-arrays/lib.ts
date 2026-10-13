@@ -44,18 +44,21 @@ type RawRegPool = Omit<RegPool, 'assetIsToken0'> & { assetIsToken0: boolean | nu
  */
 export const COLLECTOR_RAW_TOP_SHARE = 0.8;
 export function collectorRecorded(
-  registryPools: ReadonlyArray<{ address: string; venue: string; tvlUsd: number }>,
+  registryPools: ReadonlyArray<{ address: string; venue: string; tvlUsd: number; set?: unknown }>,
 ): Set<string> {
-  const total = registryPools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);
+  // the collector's rule runs over the stock pools only: a merged registry's shelf pools (set `shelf`, PLAN-ASSETS
+  // AS.12) take no raw capture
+  const stockPools = registryPools.filter((p) => p.set !== 'shelf');
+  const total = stockPools.reduce((s, p) => s + (p.tvlUsd ?? 0), 0);
   let cum = 0;
   const top = new Set<string>();
-  for (const p of [...registryPools].sort((a, b) => b.tvlUsd - a.tvlUsd)) {
+  for (const p of [...stockPools].sort((a, b) => b.tvlUsd - a.tvlUsd)) {
     if (cum >= COLLECTOR_RAW_TOP_SHARE * total) break;
     cum += p.tvlUsd;
     top.add(p.address);
   }
   return new Set(
-    registryPools
+    stockPools
       .filter(
         (p) => top.has(p.address) && (p.venue === 'raydium_clmm' || p.venue === 'orca_whirlpool'),
       )

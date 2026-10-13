@@ -103,15 +103,19 @@ export function referencePrice(token: string, pairs: DsPair[]): number | null {
  * A pair's liquidity in dollars. DexScreener values a pool's two sides at the pair's own price of the base, which it
  * sometimes takes from a mispriced quote (seen 2026-10-13 on pairs quoted in JupSOL, JLP, MET: a JitoSOL/JupSOL
  * pool at $2.4 billion). Its liquidity is linear in that price, so when the pair's price of the token is off the
- * reference by more than the band, the liquidity is scaled by reference ÷ implied.
+ * reference by more than the band, the liquidity is scaled by reference ÷ implied. A pair DexScreener values under
+ * `minUsd` (the rule's floor) is never re-valued: a dust pair's own price is the least reliable of all, and scaling
+ * it lifted SPCXx's $223 pair to $547,942 and QUBT/SOL's $85 to $398,175 (2026-10-13); it stays dust and is dropped.
  */
 export function pairLiquidity(
   token: string,
   p: DsPair,
   ref: number | null,
   band: number,
+  minUsd = 0,
 ): { usd: number; repriced: boolean } {
   const usd = dsLiq(p);
+  if (usd < minUsd) return { usd, repriced: false };
   const implied = impliedPrice(token, p);
   if (ref === null || implied === null) return { usd, repriced: false };
   const r = implied / ref;
@@ -141,7 +145,10 @@ export function pickPools(
   const all = [...seen.values()];
   const ref = referencePrice(token, all);
   const valued = new Map(
-    all.map((p) => [p.pairAddress, pairLiquidity(token, p, ref, rule.priceBand)]),
+    all.map((p) => [
+      p.pairAddress,
+      pairLiquidity(token, p, ref, rule.priceBand, rule.minLiquidityUsd),
+    ]),
   );
   const liq = (p: DsPair) => valued.get(p.pairAddress)?.usd ?? 0;
   const supported = all.filter((p) => supportedVenue(p));
