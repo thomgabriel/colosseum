@@ -828,11 +828,65 @@ describe.each(CHAINS)('a withdrawal in dollars on %s', (chain) => {
     if (!last) throw new Error('no cash step');
     // the sale is not seen yet: the vault holds its $600 and no more, as a read from before the sale
     // would. That can pass in a moment, so the step is built again, not the order made again.
-    const short = await refusal(buildWithdraw(request, legOf(last), w.entry, w.owner, undefined));
+    const legs = plan.steps.map(legOf);
+    const short = await refusal(
+      buildWithdraw(request, legOf(last), w.entry, w.owner, undefined, legs),
+    );
     expect(short.status).toBe(409);
     expect(short.body().error).toMatch(/less than the .* the order stated: nothing was built/);
     expect(short.body().details?.retryable).toBe(true);
     expect(await inVault(w, w.cash)).toBe(BigInt(usd(600)));
+  });
+
+  it('a cash step short with its sale already read is not a lagging read: cash left, refused for good', async () => {
+    const request = dollars(w);
+    const plan = await planWithdraw(request, ctx);
+    const [sale, last] = [sales(plan)[0], plan.steps.at(-1)];
+    if (!sale || !last) throw new Error('no steps');
+    // the sale lands, and $10 of cash leaves by another withdrawal: the vault holds more than it did
+    // at planning, and less than the order stated
+    await w.entry.mock?.send(
+      await buildWithdraw(request, legOf(sale), w.entry, w.owner, undefined),
+    );
+    const [away] = await w.entry.adapter.buildWithdrawInKind({
+      vault: w.vault,
+      assets: [w.cash],
+      amounts: { [w.cash]: usd(10) },
+    });
+    await w.entry.mock?.send(away as never);
+    expect(await inVault(w, w.cash)).toBeGreaterThan(BigInt(usd(600)));
+    const short = await refusal(
+      buildWithdraw(request, legOf(last), w.entry, w.owner, undefined, plan.steps.map(legOf)),
+    );
+    expect(short.status).toBe(409);
+    expect(short.body().details?.retryable).toBe(false);
+  });
+
+  it('a share: a sale not read yet is told from one read, by what the vault still holds of it', async () => {
+    const request = dollars(w, { shareBps: 2_500 });
+    const plan = await planWithdraw(request, ctx);
+    const [sale, last] = [sales(plan)[0], plan.steps.at(-1)];
+    if (!sale || !last) throw new Error('no steps');
+    const legs = plan.steps.map(legOf);
+    // not landed: the holding reads as it did, a read from before the sale
+    const before = await refusal(
+      buildWithdraw(request, legOf(last), w.entry, w.owner, undefined, legs),
+    );
+    expect(before.body().details?.retryable).toBe(true);
+    // landed, then $10 of the cash leaves: three quarters of the holding reads, and the sale is read
+    await w.entry.mock?.send(
+      await buildWithdraw(request, legOf(sale), w.entry, w.owner, undefined),
+    );
+    const [away] = await w.entry.adapter.buildWithdrawInKind({
+      vault: w.vault,
+      assets: [w.cash],
+      amounts: { [w.cash]: usd(300) },
+    });
+    await w.entry.mock?.send(away as never);
+    const after = await refusal(
+      buildWithdraw(request, legOf(last), w.entry, w.owner, undefined, legs),
+    );
+    expect(after.body().details?.retryable).toBe(false);
   });
 
   it('a cash step short because cash left the vault since the order was planned is refused for good', async () => {

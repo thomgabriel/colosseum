@@ -1052,6 +1052,10 @@ describe('a withdrawal in dollars on the order screen', () => {
       'a cash step that states less than the cash reviewed plus the minimums',
       () => dollarsOrder([sale], { ...held, leastRaw: (BigInt(least) - 1n).toString() }),
     ],
+    [
+      'a sale whose quote is a hundred times its minimum, which would lift the cash step’s most',
+      () => dollarsOrder([{ ...sale, outRaw: (BigInt(sale.minOutRaw) * 100n).toString() }], held),
+    ],
     ['a reviewed holding left out with no word of why', () => dollarsOrder([], held)],
     [
       'a cash step that may pay more than the cash reviewed and the quotes',
@@ -1141,6 +1145,19 @@ describe('a withdrawal in dollars on the order screen', () => {
     expect(sold.textContent).toContain(en.order.shared.notAgain);
     expect(find(sold, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}/withdraw`);
     expect(find(sold, 'a').textContent).toBe(en.order.shared.tokensInstead);
+  });
+
+  it('takes a quote at most the largest slippage above its minimum, to the unit, and not one more', () => {
+    // 97 is what 101 less 3% rounds down to. The bound is (97 + 1) / 0.97 rounded up, 102: one unit
+    // of room for the minimum's own rounding down, and no more
+    for (const [out, ok] of [
+      ['101', true],
+      ['102', true],
+      ['103', false],
+    ] as const) {
+      const order = dollarsOrder([{ ...sale, minOutRaw: '97', outRaw: out }], held);
+      expect(dollarsShapeOk(order, ALL_DOLLARS as never, { cash: CASH }), out).toBe(ok);
+    }
   });
 
   it('a withdrawal of the tokens themselves is never offered an order that trades', async () => {

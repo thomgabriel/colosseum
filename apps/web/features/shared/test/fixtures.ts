@@ -221,7 +221,7 @@ export const withdrawOrder = (
  * the least it pays: `cashRaw` plus the minimum of every sale, unless `leastRaw` says otherwise.
  */
 export const dollarsOrder = (
-  sales: { sell: string; amountInRaw: string; minOutRaw: string; buy?: string }[],
+  sales: { sell: string; amountInRaw: string; minOutRaw: string; buy?: string; outRaw?: string }[],
   cash: { heldRaw: string; cashRaw: string; leastRaw?: string; mostRaw?: string },
   over: Record<string, unknown> = {},
   autoFollowOff = false,
@@ -229,7 +229,8 @@ export const dollarsOrder = (
   const first = autoFollowOff ? [{ ...leg, id: LEG_C, seq: 0, kind: 'set_auto_follow' }] : [];
   const least = sales.reduce((n, s) => n + BigInt(s.minOutRaw), BigInt(cash.cashRaw));
   // The most the cash step pays: the cash reviewed, each sale's quote, and 3% of the quotes.
-  const outs = sales.reduce((n, s) => n + BigInt(s.minOutRaw) + 1_000n, 0n);
+  const outOf = (s: (typeof sales)[number]) => BigInt(s.outRaw ?? BigInt(s.minOutRaw) + 1_000n);
+  const outs = sales.reduce((n, s) => n + outOf(s), 0n);
   const most = BigInt(cash.cashRaw) + outs + (outs * 300n) / 10_000n;
   return order({
     type: 'withdraw',
@@ -244,7 +245,7 @@ export const dollarsOrder = (
         expected: [
           {
             inRaw: s.amountInRaw,
-            outRaw: (BigInt(s.minOutRaw) + 1_000n).toString(),
+            outRaw: outOf(s).toString(),
             minOutRaw: s.minOutRaw,
             costBps: 10,
           },

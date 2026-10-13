@@ -32,6 +32,15 @@ const SIGNED_HERE: readonly string[] = [
  */
 export const DOLLARS_MARGIN_BPS = 300;
 
+/** `ORDER_LIMITS.maxSlippageBps` of packages/schemas: the furthest a minimum is under its quote. */
+export const MAX_SLIPPAGE_BPS = 300;
+
+/** The most a quote can be over a minimum stated at most `MAX_SLIPPAGE_BPS` under it, rounded down. */
+export const quoteCeiling = (minimum: bigint): bigint => {
+  const keep = BigInt(10_000 - MAX_SLIPPAGE_BPS);
+  return ((minimum + 1n) * 10_000n + keep - 1n) / keep;
+};
+
 const refuse = (message: string, legId?: string) =>
   new GuardRefusal('order', message, legId ?? null);
 
@@ -180,6 +189,14 @@ export function approvedSteps(
         const figure = leg.expected[leg.trades.findIndex((t) => t.sell === trade.sell)];
         if (!figure || !isRawAmount(figure.outRaw))
           throw refuse('a sale was shown with no quote', leg.id);
+        // The quote is no figure the person reads, and it sets the most the cash step may pay: it is
+        // held to its minimum. A minimum is at most `MAX_SLIPPAGE_BPS` under its quote, rounded down,
+        // so the quote is at most (minimum + 1) / (1 - that), rounded up.
+        if (BigInt(figure.outRaw) > quoteCeiling(BigInt(trade.minOutRaw)))
+          throw refuse(
+            `a sale's quote, ${figure.outRaw}, is further above its minimum, ${trade.minOutRaw}, than any slippage an order may have`,
+            leg.id,
+          );
         quoted += BigInt(figure.outRaw);
       }
     }

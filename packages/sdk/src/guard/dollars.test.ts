@@ -2,7 +2,7 @@ import { type BuiltTx, type ChainId, type Leg, ORDER_LIMITS, type Order } from '
 import { describe, expect, it, vi } from 'vitest';
 import { refusalOf } from '../../test/bites';
 import { mockWorld, stamped, tampered, usd } from '../../test/mock';
-import { approvedSteps, DOLLARS_MARGIN_BPS } from './approved';
+import { approvedSteps, DOLLARS_MARGIN_BPS, MAX_SLIPPAGE_BPS } from './approved';
 import { guardTransaction } from './index';
 import { mockVaultAddress } from './mock/check';
 import type { PlanTerms } from './types';
@@ -164,6 +164,7 @@ const orderRefusal = (x: World, order: Picked, plan: PlanTerms = x.plan) =>
 
 it('holds the cash step to the margin the API plans it with', () => {
   expect(DOLLARS_MARGIN_BPS).toBe(ORDER_LIMITS.dollarsMarginBps);
+  expect(MAX_SLIPPAGE_BPS).toBe(ORDER_LIMITS.maxSlippageBps);
 });
 
 describe.each(['solana', 'robinhood'] as const)('a withdrawal in dollars on %s', (chain) => {
@@ -239,6 +240,37 @@ describe.each(['solana', 'robinhood'] as const)('a withdrawal in dollars on %s',
       legs: x.order.legs.filter((l) => !l.trades.some((t) => t.sell === x.spy)),
     };
     expect(orderRefusal(x, fewer)).toBeNull();
+  });
+
+  it('refuses a sale whose quote is far above its minimum: it would lift the most the cash step pays', async () => {
+    const x = await world(chain);
+    const [first, ...rest] = x.order.legs;
+    if (!first) throw new Error('no sale');
+    const inflate = (out: (e: Leg['expected'][number]) => bigint) => ({
+      ...x.order,
+      legs: [
+        { ...first, expected: first.expected.map((e) => ({ ...e, outRaw: out(e).toString() })) },
+        ...rest,
+      ],
+    });
+    // a hundred times: refused, whatever else is right
+    expect(
+      orderRefusal(
+        x,
+        inflate((e) => BigInt(e.minOutRaw) * 100n),
+      )?.message,
+    ).toMatch(/quote/);
+    // the most an honest quote can be over its minimum, at 3%, rounded as the minimum was: passes;
+    // one unit more does not
+    const most = (e: Leg['expected'][number]) =>
+      ((BigInt(e.minOutRaw) + 1n) * 10_000n + 9_699n) / 9_700n;
+    expect(orderRefusal(x, inflate(most))).toBeNull();
+    expect(
+      orderRefusal(
+        x,
+        inflate((e) => most(e) + 1n),
+      )?.code,
+    ).toBe('order');
   });
 
   it('refuses a holding sold twice, a sale shown with no minimum, and any step that is neither a sale nor the cash', async () => {

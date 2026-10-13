@@ -491,6 +491,8 @@ export async function buildWithdraw(
   entry: ChainEntry,
   owner: Address,
   nonce: number | undefined,
+  /** The order's steps: for a withdrawal in dollars, which sales its cash step waits on. */
+  legs: readonly Leg[] = [],
 ): Promise<BuiltTx> {
   const [address] = request.vaults;
   if (!address) throw new Refusal(501, 'a withdrawal names its vault');
@@ -550,11 +552,27 @@ export async function buildWithdraw(
     const there = has - keep;
     const amount = there > most ? most : there;
     if (amount < BigInt(w.leastRaw) || amount <= 0n) {
-      // Nothing in this order lowers the vault's cash before this step. Less than it held at
-      // planning: cash left the vault since, and building again will not bring it back. At least
-      // that much: the sales' cash does not show yet, which a node a block behind answers just
-      // after the last sale settles; the step is built again in a moment.
-      const lagging = has >= planned;
+      // A read a block behind, just after the last sale settled, shows that sale not made yet: the
+      // vault still holds what it sold. A sale reads as not made while the vault holds at least what
+      // it held before it, which a share's sale tells from the amount sold: that share of the
+      // holding, rounded down, so the holding was at least the amount over the share. The step is
+      // built again in a moment when the cash short is no more than the unread sales' minimums: the
+      // cash at planning and every read sale's minimum are there. Otherwise cash left the vault, and
+      // building again will not bring it back.
+      const share = BigInt(request.shareBps ?? 10_000);
+      let unread = 0n;
+      let read = 0n;
+      for (const t of legs
+        .filter((l) => l.kind === 'swap')
+        .flatMap((l) =>
+          l.trades.map((trade, i) => ({ trade, min: BigInt(l.expected[i]?.minOutRaw ?? '0') })),
+        )) {
+        const sold = BigInt(t.trade.amountInRaw);
+        const before = (sold * 10_000n + share - 1n) / share;
+        if ((holdings.get(t.trade.sell) ?? 0n) >= before) unread += t.min;
+        else read += t.min;
+      }
+      const lagging = unread > 0n && has >= planned + read;
       throw new Refusal(
         409,
         `the vault now holds ${name(w.asset, has)}, so this step would pay less than the ${name(w.asset, BigInt(w.leastRaw))} the order stated: nothing was built`,

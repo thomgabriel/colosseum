@@ -326,6 +326,11 @@ export function dollarsShapeOk(
       least += BigInt(min);
       const out = leg.expected[i]?.outRaw;
       if (out === undefined || !RAW.test(out)) return false;
+      // The quote sets the most the cash step pays and is no figure the person reads: it is held to
+      // its minimum, which is at most `maxSlippageBps` under it, rounded down (the guard's
+      // `quoteCeiling`).
+      const keep = BigInt(10_000 - ORDER_LIMITS.maxSlippageBps);
+      if (BigInt(out) > ((BigInt(min) + 1n) * 10_000n + keep - 1n) / keep) return false;
       quoted += BigInt(out);
     }
   }
