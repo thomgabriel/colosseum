@@ -6,10 +6,19 @@ import { ChainBadge } from '../../components/ui/ChainBadge';
 import { cn } from '../../components/ui/cn';
 import { Hint } from '../../components/ui/Hint';
 import { PAGE_TITLE } from '../../components/ui/heading';
-import { KIT_CELL, KIT_PINNED, KIT_ROW, KitTable, KitTh } from '../../components/ui/KitTable';
+import {
+  KIT_ABOVE_LINK,
+  KIT_CELL,
+  KIT_NUMERIC,
+  KIT_ROW,
+  KIT_ROW_LINK,
+  KitTable,
+  KitTh,
+} from '../../components/ui/KitTable';
 import {
   HeroFigure,
   Panel,
+  PanelBody,
   PanelHead,
   PanelStat,
   Plate,
@@ -455,7 +464,7 @@ function Figures({
 
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="flex flex-col gap-4 p-5">
+      <PanelBody>
         <HeroFigure
           label={words.total}
           ui="board-total"
@@ -505,8 +514,8 @@ function Figures({
         {unvalued > 0 && (
           <p className="text-caption text-muted-foreground">{words.unvalued(unvalued)}</p>
         )}
-      </div>
-      <div className="flex flex-col gap-4 border-t border-border p-5">
+      </PanelBody>
+      <PanelBody className="border-t border-border">
         <div className="flex items-center justify-between gap-3">
           <p className="text-body-sm text-muted-foreground">{words.pnl}</p>
           <span className="rounded-full border border-border px-2.5 py-0.5 font-mono text-caption">
@@ -568,7 +577,7 @@ function Figures({
             </StatGrid>
           </>
         )}
-      </div>
+      </PanelBody>
     </div>
   );
 }
@@ -734,6 +743,7 @@ function Vaults({
       />
       <KitTable
         ui="overview-vaults"
+        labelledBy="overview-vaults"
         head={
           <>
             <KitTh>{words.vault}</KitTh>
@@ -797,7 +807,7 @@ function VaultRow({
   const share = period ? shareOf(period.pnlUsd, period.baseUsd) : null;
   const cell = KIT_CELL;
   // A pinned cell sits over the row's link, so its pin opens rather than the vault.
-  const pinned = KIT_PINNED;
+  const pinned = `${KIT_ABOVE_LINK} ${KIT_NUMERIC}`;
   const valuePin = newest ? snapshotPin(newest, entry.provenance, plan.provenance) : null;
   const netPin: PinSource | null = plan.putIn
     ? {
@@ -820,7 +830,7 @@ function VaultRow({
           href={vaultHref(entry.chain, plan.address)}
           data-ui="vault-sentence"
           aria-label={words.open(title.sentence)}
-          className="font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className={`font-medium text-foreground ${KIT_ROW_LINK} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
         >
           {title.sentence}
         </Link>

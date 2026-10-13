@@ -42,12 +42,19 @@ import {
 import { GoalCard } from '../../../../components/ui/GoalCard';
 import { type HeatmapState, HeatmapTile } from '../../../../components/ui/HeatmapTile';
 import { Icon, type IconName } from '../../../../components/ui/Icon';
-import { KIT_CELL, KIT_PINNED, KIT_ROW, KitTable, KitTh } from '../../../../components/ui/KitTable';
+import {
+  KIT_CELL,
+  KIT_NUMERIC,
+  KIT_ROW,
+  KitTable,
+  KitTh,
+} from '../../../../components/ui/KitTable';
 import { LatticeStatus } from '../../../../components/ui/Lattice';
 import { MockFrame, MockPlate, StalePlate } from '../../../../components/ui/MockPlate';
 import {
   HeroFigure,
   Panel,
+  PanelBody,
   PanelHead,
   PanelStat,
   Plate,
@@ -826,7 +833,7 @@ export function Showcase() {
       >
         <Specimen state="panel: hero figure, small figures, the pill" wide>
           <Panel aria-label="Made-up board">
-            <div className="flex flex-col gap-4 p-5">
+            <PanelBody>
               <HeroFigure label="Total value" plate={<Plate>Sample figures</Plate>}>
                 $12,345.67
               </HeroFigure>
@@ -834,7 +841,7 @@ export function Showcase() {
                 <PanelStat label="Vaults">3</PanelStat>
                 <PanelStat label="Net deposited">$12,000.00</PanelStat>
               </StatGrid>
-            </div>
+            </PanelBody>
           </Panel>
         </Specimen>
         <Specimen state="panel head and table" wide>
@@ -845,6 +852,7 @@ export function Showcase() {
               stats={[{ label: 'Assets', value: <span className="font-medium">2</span> }]}
             />
             <KitTable
+              caption="Made-up holdings"
               minWidth="min-w-[480px]"
               head={
                 <>
@@ -855,11 +863,11 @@ export function Showcase() {
             >
               <tr className={KIT_ROW}>
                 <td className={KIT_CELL}>Treasury token</td>
-                <td className={`${KIT_CELL} ${KIT_PINNED}`}>60%</td>
+                <td className={`${KIT_CELL} ${KIT_NUMERIC}`}>60%</td>
               </tr>
               <tr className={KIT_ROW}>
                 <td className={KIT_CELL}>Dollar lending</td>
-                <td className={`${KIT_CELL} ${KIT_PINNED}`}>40%</td>
+                <td className={`${KIT_CELL} ${KIT_NUMERIC}`}>40%</td>
               </tr>
             </KitTable>
           </Panel>

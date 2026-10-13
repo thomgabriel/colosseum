@@ -35,6 +35,23 @@ export function Panel({
   );
 }
 
+/** A panel's section: its margin, its pieces 16px apart. `className` adds to it (a hairline over it). */
+export function PanelBody({
+  className,
+  children,
+  ui,
+}: {
+  className?: string;
+  children: ReactNode;
+  ui?: string;
+}) {
+  return (
+    <div data-ui={ui} className={cn('flex flex-col gap-4 p-5', className)}>
+      {children}
+    </div>
+  );
+}
+
 /** A figure of a panel's head, in one line: its label muted, then the figure. */
 export type HeadStat = { label: string; value: ReactNode; ui?: string };
 
