@@ -26,3 +26,7 @@ db40ae2ccd48e69b0feea91fe2cae88ff7a37441:docs/vault/research/yield-shelf/solana.
 4c2ef1ca4a3a7a3edb08fa4d29f29ef0137ecdbc:packages/sdk/test/fixtures/evm-route-vectors.json:generic-api-key:38
 4c2ef1ca4a3a7a3edb08fa4d29f29ef0137ecdbc:packages/sdk/test/fixtures/evm-route-vectors.json:generic-api-key:46
 4c2ef1ca4a3a7a3edb08fa4d29f29ef0137ecdbc:packages/sdk/test/fixtures/evm-route-vectors.json:generic-api-key:47
+
+# A backfill scope key in a test, `const key = 'shelf-d30-f100000-3d63aab8'`: the shelf's 30 days at the $100,000 floor
+# and the hash of its token set (scripts/risk/assets/backfill-gate.ts scopeKey), not a secret (Oct 13, ASSET-2).
+1361cdb4d52da25f85d5a0c1f57d88ff2437d0aa:tests/risk-layer/assets-backfill.test.ts:generic-api-key:868
