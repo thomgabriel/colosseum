@@ -454,7 +454,10 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await expect(page.locator('[data-ui="withdraw-least"]')).toHaveText(/^[\d.,]+ USDC$/);
     await expect(page.locator('[data-ui="order-withdrawal"]')).toHaveCount(1);
     // the review says what is sold and the least that reaches the wallet, with one way on
-    await expect(page.locator('[data-ui="sign-sentence"]')).toContainText(/at least \$[\d.,]+/);
+    await expect(page.locator('[data-ui="sign-hero"]')).toHaveText(
+      /^At least \$[\d.,]+ to your wallet$/,
+    );
+    await expect(page.locator('[data-ui="sign-sentence"]')).toContainText('is sold for cash');
     await expect(page.locator('[data-variant="primary"]')).toHaveCount(1);
     await check(page, emptied ? 'withdraw-dollars-order-all' : 'withdraw-dollars-order');
     await page.locator('[data-action="order-continue"]').click();
