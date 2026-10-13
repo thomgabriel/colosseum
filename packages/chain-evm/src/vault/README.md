@@ -18,7 +18,7 @@ One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network
 | `pool-average.ts` | `PoolAverageFeed` as the keeper and the app read it: `readPoolAverageFeed` (the deployed feed's own `check()`), the typed reasons it gives no answer (`AverageRefusal`), and `poolAverageOf`, the same checks in the contract's arithmetic for a chain where no feed is deployed yet |
 | `market.ts` | The session rule of the keeper's path: Monday to Friday, `sessionOpen` to before `sessionClose`, no closed day, not before `closedUntil` |
 | `unlisted.ts` | The id of a token the app does not list: `<chain>:token-` and its 20 bytes in hex |
-| `rpc.ts` | `createEvmRpc`, and the line between a node that did not answer (`Unavailable`) and a call that reverted |
+| `rpc.ts` | `createEvmRpc`, and the line between a node that did not answer (`Unavailable`) and a call that reverted. Its options cut the batch (`batchSize`), bound the HTTP requests in flight (`maxInFlight`) and, with `readOnly`, refuse every JSON-RPC method outside `READ_METHODS` before the node is asked (the snapshot worker's client) |
 
 ## How it reads
 

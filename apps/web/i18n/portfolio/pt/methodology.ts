@@ -38,7 +38,7 @@ export const methodology: Methodology = {
       'Um retrato é uma leitura de um cofre, guardada inteira: o que ele tinha, quanto valia cada parte, a fatia dela e a fatia planejada, e todo preço em que os valores se apoiaram. Cada preço guarda sua fonte, sua hora e seu método.',
       'Lemos cada cofre que conhecemos mais ou menos a cada dez minutos, da própria rede dele, e guardamos cada leitura. Um cofre criado fora deste app é encontrado em até uma hora.',
       'O leitor não tem chave nenhuma. Ele lê e guarda: não assina, não negocia e não move nada.',
-      'Por enquanto ele lê só redes de teste e a nossa rede de exemplo. Todo número aqui leva essa marca, e nenhum é mostrado como real.',
+      'Ele lê a Robinhood Chain na rede principal, a Solana na rede de teste e a nossa rede de exemplo. Todo número leva a marca de onde foi lido: só um número da rede principal é mostrado como real, e o de uma rede de teste ou de exemplo é marcado como tal.',
       'Um retrato com mais de uma hora é chamado de desatualizado, com a idade dele ao lado.',
     ],
   },

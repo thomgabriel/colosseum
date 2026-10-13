@@ -13,17 +13,41 @@ CHAIN_MODE_SOLANA=readonly SOLANA_RPC_URL=<devnet node> \
 - It reads the environment it is started with and loads no `.env` file, as the keeper.
 - `DATABASE_URL` is the database it writes to. Unset, it is the local one of `pnpm db:up`.
 - It opens its database through `createDb()` of `packages/db`, as the API does, and so obeys `DB_POOL_MAX` and `DB_PGBOUNCER` (`packages/db/src/pool.ts`).
-- What is wrong at start (mainnet, no chain to read, a missing node address, a node of another network, a deploy record it cannot read, a database of another network, a database that does not answer) is said on stderr and ends it with 1 before any pass. A database that is down is said by the code of the refusal, `the database did not take a query (ECONNREFUSED)`, never by the query.
+- What is wrong at start (a mainnet it does not read, no chain to read, a missing node address, a node of another network, a deploy record it cannot read, a database of another network, a database that does not answer) is said on stderr and ends it with 1 before any pass. A database that is down is said by the code of the refusal, `the database did not take a query (ECONNREFUSED)`, never by the query.
 
 ## Which chains
 
 - `SNAPSHOT_CHAINS`: a comma list of chain ids (`solana`, `robinhood`, `base`). Unset, the worker reads every chain whose `CHAIN_MODE_<CHAIN>` is `live` or `readonly`. `live` means what `readonly` means here: the worker only ever reads.
 - A chain on the mock (`CHAIN_MODE_<CHAIN>=mock`, which is also the default for Solana and Robinhood Chain) is read only when `SNAPSHOT_CHAINS` names it, so nothing fills the tables with sample rows by omission.
 - A named chain that is `off` is refused. So is an id that is not a chain, and so is starting with no chain at all.
-- A real chain is Solana or Robinhood Chain, each from the record its deploy committed: `deployments/solana-devnet.json`, `deployments/robinhood-testnet.json`, and `solana-local.json` or `robinhood-local.json` for `CHAIN_NETWORK_<CHAIN>=local` where there is one. The program or the factory, the price account and the tokens come from the record. `CHAIN_ROUTER_<CHAIN>` and `CHAIN_PRICE_SOURCE_SOLANA` may repeat the record's address and never replace it.
-- The node is `SOLANA_RPC_URL` or `ROBINHOOD_RPC_URL`. It is asked which network it is before the first pass, and has to answer the record's genesis or chain id, never a mainnet's.
+- A real chain is Solana or Robinhood Chain, each from the record its deploy committed: `deployments/solana-devnet.json`, `deployments/robinhood-testnet.json`, `deployments/robinhood-mainnet.json` for `CHAIN_NETWORK_ROBINHOOD=mainnet`, and `solana-local.json` or `robinhood-local.json` for `CHAIN_NETWORK_<CHAIN>=local` where there is one. The program or the factory, the price account and the tokens come from the record. `CHAIN_ROUTER_<CHAIN>` and `CHAIN_PRICE_SOURCE_SOLANA` may repeat the record's address and never replace it.
+- The node is `SOLANA_RPC_URL` or `ROBINHOOD_RPC_URL`. It is asked which network it is before the first pass, and has to answer the record's genesis or chain id: a mainnet's only for Robinhood Chain's mainnet record. A node of another network stops the worker. A node that does not answer at start (a timeout, a 403, a rate limit) does not: it is said once on stderr, that chain's passes fail and back off alone, and nothing is read from it until it has said its network. The other chains are read as usual.
+- An EVM node is asked through a client that passes on reads alone (`READ_METHODS` of `packages/chain-evm`: `eth_call`, `eth_blockNumber`, `eth_chainId`, `eth_getCode`, `eth_getBalance`, `eth_getBlockByNumber`, `eth_gasPrice` and the two transaction lookups); any other method is refused before the node is asked. It sends three requests a JSON-RPC batch and two batches at a time, for every network (`EVM_NODE` in `src/chains.ts`).
 - Base has no reader for a real network yet: `CHAIN_MODE_BASE=readonly` is refused by name. On the mock it is a chain like the others.
 - The flags are read once, by `parseFlags`, as the API reads them. A name under `CHAIN_`, `AUTO_FOLLOW_` or `KEEPER_` that nobody reads is refused as a typo; the keeper's own names (`KEEPER_CHAIN`, `KEEPER_STATE_DIR` and the rest) are known, so one environment can serve the keeper and the worker.
+
+## Robinhood Chain on mainnet
+
+Gate `SNAPSHOT-WORKER-MAINNET` (Thom, Oct 13): the worker reads Robinhood Chain's mainnet (4663) beside Solana's devnet, as the hosted API serves them. It takes the API's three, all of them: the network, the committed record and the second switch in its exact words. Without the switch it stops at start and names it. Its rows are `live`; Solana's stay `sandbox`. `CHAIN_NETWORK_SOLANA=mainnet` and `CHAIN_NETWORK_BASE=mainnet` still stop it.
+
+The names it reads for the hosted run (values are the operator's; none is committed):
+
+```sh
+DATABASE_URL=<the hosted database>          # and DB_POOL_MAX, DB_PGBOUNCER as the API's
+CHAIN_MODE_SOLANA=readonly                  # or live: the worker only reads
+CHAIN_NETWORK_SOLANA=testnet
+SOLANA_RPC_URL=<a devnet node>
+CHAIN_MODE_ROBINHOOD=readonly               # or live
+CHAIN_NETWORK_ROBINHOOD=mainnet
+CHAIN_MAINNET_ROBINHOOD=real-money
+ROBINHOOD_RPC_URL=<a mainnet node>
+SNAPSHOT_PING_URL=<healthchecks.io check>   # optional
+  pnpm --filter @colosseum/snapshot start --loop
+```
+
+The node for `ROBINHOOD_RPC_URL`: a paid one (Alchemy's) answers the worker's batches; `https://robinhood.drpc.org` (free) takes them, since they are three at most; `rpc.mainnet.chain.robinhood.com` answers bursts from cloud hosts with 403 and is not one to run from a server. A URL with a key in it is never printed (`src/hide.ts`).
+
+Checked on Oct 13 against the deployed factory `0xaE4ae2F2a5c2ee50C5A7574Cf355Cd5B068E7A80` through `robinhood.drpc.org`, reads only: the node check, the height, the rules (not paused, loss cap 100 bps, band 50 bps), ten assets labelled `live`, an owner with no vault (an empty list, not a failure), an address with no vault (`skipped`), and two Chainlink prices labelled `live`; 62 calls in 26 requests, the largest batch three, every answer 200.
 
 ## The local run
 
@@ -47,9 +71,9 @@ CHAIN_MODE_ROBINHOOD=readonly ROBINHOOD_RPC_URL=<46630 node> \
 SNAPSHOT_CHAINS=solana CHAIN_MODE_SOLANA=mock pnpm --filter @colosseum/snapshot start --loop
 ```
 
-`CHAIN_NETWORK_<CHAIN>` is `testnet` when unset. Every row read from a test network or a local copy is labelled `sandbox`; every row read from the mock is labelled `mock`.
+`CHAIN_NETWORK_<CHAIN>` is `testnet` when unset. Every row read from Robinhood Chain's mainnet is labelled `live`, every row read from a test network or a local copy `sandbox`, and every row read from the mock `mock`.
 
-At start the worker holds the database to the networks of its environment, as the API does at its start: it writes the rows of `chains` (`seedChains`), which every `chain_id` points at, and refuses a database whose row names another network. Devnet and a local validator are both `sandbox`, and a snapshot row does not say which, so one database serves one network. A dry run writes nothing and makes the same check on the rows it reads.
+At start the worker holds the database to the networks of its environment, as the API does at its start: it writes the rows of `chains` (`seedChains`), which every `chain_id` points at, and refuses a database whose row names another network. Devnet and a local validator are both `sandbox`, and a snapshot row does not say which, so one database serves one network a chain: Solana on devnet beside Robinhood Chain on mainnet is one database, as the hosted API has it. A dry run writes nothing and makes the same check on the rows it reads.
 
 ## The mock's sample world
 
@@ -80,8 +104,9 @@ Only our people's vaults, never every vault the program or the factory holds.
 ## What it never does
 
 - It holds no key. It loads no signing entry (`@colosseum/chain-*/server`), makes a reader of each real chain and never an adapter, and names no builder, relay, signer or send: `tests/snapshot/reads-only.test.ts` reads the source of this folder and fails on any of them. The one file that builds and lands a transaction is `src/mock-world.ts`, on the chain in memory only, and it may import no real chain.
-- It does not run on mainnet. `CHAIN_NETWORK_<CHAIN>=mainnet` stops it at start for every chain, read or not and whatever its mode, with a sentence that names the variable, before a node or the database is asked anything. Both node checks also refuse a node that answers a mainnet's genesis or chain id. That holds until a person says otherwise.
-- Nothing it reads is ever labelled `live`. A test network or a local copy is `sandbox`, the mock is `mock`, and a network whose figures would carry another label is refused.
+- It reads no mainnet but Robinhood Chain's. `CHAIN_NETWORK_SOLANA=mainnet` or `CHAIN_NETWORK_BASE=mainnet` stops it at start, read or not and whatever its mode, with a sentence that names the variable, before a node or the database is asked anything; so does `CHAIN_NETWORK_ROBINHOOD=mainnet` without `CHAIN_MAINNET_ROBINHOOD=real-money`. The Solana node check refuses mainnet's genesis, and the EVM one a mainnet's chain id under any record but that mainnet's own.
+- It sends nothing to an EVM node but reads: its client refuses any other JSON-RPC method before the node is asked (`packages/chain-evm/test/rpc.test.ts`, and the mainnet path in `src/chains.test.ts`).
+- A row is `live` only from Robinhood Chain's mainnet record under the switch, and that record must say `live` itself. A test network or a local copy is `sandbox` and the mock is `mock`.
 - It writes two tables, `vault_snapshots` and `snapshot_runs`, and at start the rows of `chains`. `vaults`, `orders`, `legs` and `user_wallets` are the API's and are only read.
 - It prints no node address, no database address and no ping address: every reason goes through `src/hide.ts` first (each `*_RPC_URL`, `DATABASE_URL` and `SNAPSHOT_PING_URL` by its setting's name, any other `URL: ...` cut), and only an error's code and message are ever said, never its cause or its stack; of a query the database did not take, only the code of the refusal, at start as in a pass.
 
@@ -113,7 +138,7 @@ Stopped by SIGINT or SIGTERM, the worker closes its database client and exits wi
 Reads go one vault a call today, at most four in flight a chain:
 
 - Solana: about 2 to 3 `getMultipleAccounts` a vault a pass, one more for the prices, one for the rules and one `getSlot`. The hourly read by owner adds one `getProgramAccounts` an owner.
-- Robinhood Chain: about 40 `eth_call`s a vault a pass, sent as JSON-RPC batches, about two a priced asset for the prices, about 13 for the rules and one `eth_blockNumber`. The settings and the multipliers are read again for every vault.
+- Robinhood Chain: about 40 `eth_call`s a vault a pass, sent as JSON-RPC batches of three, two batches at a time, about two a priced asset for the prices, about 13 for the rules and one `eth_blockNumber`. The settings and the multipliers are read again for every vault. A pass with no vault costs about 60 calls.
 
 A read of many vaults by address in one call is not built on either reader. The Solana reader already reads many internally and the EVM reader could share one block and one read of the settings; neither is public yet, and the EVM reads do not go through Multicall3. With many vaults this is the first thing to build, before the interval is shortened.
 
@@ -127,10 +152,10 @@ A read of many vaults by address in one call is not built on either reader. The 
 
 - `src/args.test.ts`: `--once` or `--loop` and exactly one, the interval and its floor, the dry run, a flag it does not know.
 - `src/hide.test.ts`: every configured address named by its setting, the longer taken out whole, any other `URL: ...` cut.
-- `src/chains.test.ts`, with no connection opened: mainnet refused for each chain and each mode with the variable named, before anything else; the selection (the default, the list, a mock chain only when named, an off chain, an id it does not know, no chain); Base refused on a real network; a missing node said by its variable before any node is asked; the record missing, unreadable or another network's; an address in the environment that is not the record's; a height that cannot be read as null; the keeper's names known.
+- `src/chains.test.ts`, with no connection opened: mainnet refused for Solana and Base for each mode with the variable named, before anything else, and for Robinhood Chain without its switch; Robinhood Chain's mainnet read beside Solana's devnet, `live` beside `sandbox`, from its own record, its node held to 4663, through a client that asks for reads only, three a batch and two at a time; a node that does not answer at start keeping its own chain from reading and not the other; the selection (the default, the list, a mock chain only when named, an off chain, an id it does not know, no chain); Base refused on a real network; a missing node said by its variable before any node is asked; the record missing, unreadable or another network's; an address in the environment that is not the record's; a height that cannot be read as null; the keeper's names known.
 - `src/mock-world.test.ts`, on `packages/chain-mock`: a vault made at the address another process gave it, with weights near its targets; the approval on an EVM chain; a target the mock does not list dropped; a row the mock cannot make skipped and said once; one sample vault and no second one; the prices moving every ten minutes inside their bound, the same on any worker.
 - `src/main.test.ts`: a bad command line, mainnet and no chain each stopping the worker before the database is opened; the chain rows held before the first pass and only checked in a dry run; the database closed after a failed pass; the health check.
-- `tests/snapshot/start.test.ts` starts the worker as a process: mainnet stops it with the sentence, a code that is not 0 and no line of a pass, for a chain it reads, one it does not and one on the mock.
+- `tests/snapshot/start.test.ts` starts the worker as a process: a mainnet it may not read stops it with the sentence, a code that is not 0 and no line of a pass, for a chain it reads, one it does not, and Robinhood Chain without its switch.
 - `tests/snapshot/reads-only.test.ts`: the source of this folder names nothing that builds, signs, relays or sends, and takes from a real chain only what reads.
 - `tests/boundaries.test.ts`: the worker's row, and nothing `src/main.ts` loads at start reaching a signing entry.
 - `src/pipeline.test.ts`, `src/pass.test.ts`, `src/discover.test.ts` and `tests/snapshot/loop.test.ts`: the passes on the mock with the database, the lines and the rows, the discovery by owner, and the loop held to the keeper's. `src/pipeline.test.ts` needs the database (`pnpm db:up`).

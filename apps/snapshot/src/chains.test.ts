@@ -1,16 +1,19 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { EvmRpc } from '@colosseum/chain-evm/vault';
+import { createEvmRpc, type EvmRpc, READ_METHODS } from '@colosseum/chain-evm/vault';
 import type { VaultNodeRpc } from '@colosseum/chain-solana/vault';
-import { ChainId, type EnvLike, envKey, KNOWN_ENV_KEYS } from '@colosseum/schemas';
+import { ChainError, ChainId, type EnvLike, envKey, KNOWN_ENV_KEYS } from '@colosseum/schemas';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ALSO_KNOWN,
+  EVM_NODE,
+  labelOfEvm,
   mainnetRefusal,
   NO_CHAIN,
   rulesOfConfig,
   rulesOfPlatform,
   type SourceOptions,
+  SWITCH_REFUSAL,
   sandboxOnly,
   sourcesFromEnv,
 } from './chains';
@@ -56,6 +59,15 @@ function seam(over: Partial<SourceOptions> = {}) {
 
 const SOLANA: EnvLike = { CHAIN_MODE_SOLANA: 'readonly', SOLANA_RPC_URL: SOLANA_URL };
 const ROBINHOOD: EnvLike = { CHAIN_MODE_ROBINHOOD: 'readonly', ROBINHOOD_RPC_URL: ROBINHOOD_URL };
+// Gate SNAPSHOT-WORKER as amended on Oct 13: Robinhood Chain is read on mainnet too, from its own
+// record, under the switch the API needs, labelled `live`. Solana and Base stay off mainnet.
+const MAINNET: EnvLike = {
+  CHAIN_MODE_ROBINHOOD: 'live',
+  CHAIN_NETWORK_ROBINHOOD: 'mainnet',
+  CHAIN_MAINNET_ROBINHOOD: 'real-money',
+  ROBINHOOD_RPC_URL: ROBINHOOD_URL,
+};
+
 const READS = ['getPrices', 'getVault', 'getVaults', 'height', 'listAssets', 'rules'];
 const LABELS = ['chain', 'name', 'provenance', 'source'];
 
@@ -75,21 +87,40 @@ describe('the worker and mainnet', () => {
           [envKey('CHAIN_MODE', chain)]: mode,
           [key]: 'mainnet',
         };
+        // Robinhood Chain is the one mainnet the worker reads, and not without its switch.
         await expect(sourcesFromEnv(env, s.options), `${chain} ${mode}`).rejects.toThrow(
-          `${key} is mainnet, and the snapshot worker reads the test networks only until a person says otherwise`,
+          chain === 'robinhood'
+            ? SWITCH_REFUSAL
+            : `${key} is mainnet, and the snapshot worker reads the test networks only until a person says otherwise`,
         );
         expect(s.connected, `${chain} ${mode}`).toEqual([]);
         expect(s.checked).toEqual([]);
       }
     }
     expect(mainnetRefusal('CHAIN_NETWORK_SOLANA')).toContain('CHAIN_NETWORK_SOLANA is mainnet');
+    expect(SWITCH_REFUSAL).toContain('CHAIN_NETWORK_ROBINHOOD is mainnet');
+  });
+
+  it('stops on Solana or Base set to mainnet even with Robinhood Chain’s switch set', async () => {
+    for (const chain of ['solana', 'base'] as const) {
+      const s = seam();
+      const key = envKey('CHAIN_NETWORK', chain);
+      await expect(
+        sourcesFromEnv({ ...SOLANA, ...MAINNET, [key]: 'mainnet' }, s.options),
+        chain,
+      ).rejects.toThrow(mainnetRefusal(key));
+      expect(s.connected).toEqual([]);
+    }
   });
 
   it('reads the setting as the chain configs do, and says it before anything else that is wrong', async () => {
     const s = seam();
     await expect(
       sourcesFromEnv({ CHAIN_NETWORK_ROBINHOOD: '  MainNet ' }, s.options),
-    ).rejects.toThrow(mainnetRefusal('CHAIN_NETWORK_ROBINHOOD'));
+    ).rejects.toThrow(SWITCH_REFUSAL);
+    await expect(sourcesFromEnv({ CHAIN_NETWORK_SOLANA: '  MainNet ' }, s.options)).rejects.toThrow(
+      mainnetRefusal('CHAIN_NETWORK_SOLANA'),
+    );
     // A chain it would not read, a name the flags do not know and a list that names nothing.
     await expect(
       sourcesFromEnv(
@@ -105,6 +136,11 @@ describe('the worker and mainnet', () => {
     expect(() => sandboxOnly('solana', 'mainnet')).toThrow(
       'CHAIN_NETWORK_SOLANA is mainnet, whose figures would be labelled live',
     );
+    // `live` is Robinhood Chain's mainnet alone, and only under the switch.
+    expect(labelOfEvm('robinhood', 'testnet', {})).toBe('sandbox');
+    expect(labelOfEvm('robinhood', 'local', MAINNET)).toBe('sandbox');
+    expect(labelOfEvm('robinhood', 'mainnet', MAINNET)).toBe('live');
+    expect(() => labelOfEvm('robinhood', 'mainnet', {})).toThrow(SWITCH_REFUSAL);
   });
 });
 
@@ -487,5 +523,240 @@ describe('Robinhood Chain on its test network', () => {
     expect(
       rulesOfPlatform({ keeperPaused: false, params: { lossCapBps: 200, bandBps: 75 } }),
     ).toEqual({ paused: false, lossCapBps: 200, bandBps: 75 });
+  });
+});
+
+describe('Robinhood Chain on mainnet', () => {
+  it('is read beside Solana on devnet, as the hosted API is set: live from the mainnet record, sandbox from devnet', async () => {
+    const s = seam();
+    const sources = await sourcesFromEnv({ ...SOLANA, ...MAINNET }, s.options);
+    expect(sources.map((x) => [x.chain, x.name, x.provenance])).toEqual([
+      ['solana', 'Solana devnet', 'sandbox'],
+      ['robinhood', 'Robinhood Chain mainnet', 'live'],
+    ]);
+    expect(s.checked).toEqual(['solana-devnet', 'robinhood-mainnet']);
+    const robinhood = sources[1];
+    if (!robinhood) throw new Error('no source');
+    expect(robinhood.source).toBe(
+      'Robinhood Chain mainnet, read over JSON-RPC by the EVM vault reader',
+    );
+    // The reads and the labels, and nothing else: no builder, no probe, no signer on the source.
+    expect(Object.keys(robinhood).sort()).toEqual([...LABELS, ...READS].sort());
+    const assets = await robinhood.listAssets();
+    expect(assets.filter((a) => a.cls === 'cash').map((a) => a.id)).toEqual(['robinhood:usdg']);
+    expect(assets.every((a) => a.provenance === 'live')).toBe(true);
+  });
+
+  it('needs the second switch in its exact words, and says so before a node is asked', async () => {
+    for (const value of [undefined, '', '1', 'true', 'mainnet', 'Real-Money ']) {
+      const s = seam();
+      await expect(
+        sourcesFromEnv({ ...SOLANA, ...MAINNET, CHAIN_MAINNET_ROBINHOOD: value }, s.options),
+        String(value),
+      ).rejects.toThrow(
+        'CHAIN_NETWORK_ROBINHOOD is mainnet: set CHAIN_MAINNET_ROBINHOOD to real-money for the snapshot worker to read it',
+      );
+      expect(s.connected).toEqual([]);
+      expect(s.checked).toEqual([]);
+    }
+  });
+
+  it('is read whatever the mode says, and is not read when the chain is on the mock or off', async () => {
+    for (const mode of ['live', 'readonly']) {
+      const [source] = await sourcesFromEnv(
+        { ...MAINNET, CHAIN_MODE_ROBINHOOD: mode },
+        seam().options,
+      );
+      expect(source?.provenance, mode).toBe('live');
+    }
+    // On the mock the rows are sample rows, whatever the network says.
+    const [mock] = await sourcesFromEnv(
+      { ...MAINNET, CHAIN_MODE_ROBINHOOD: 'mock', SNAPSHOT_CHAINS: 'robinhood' },
+      seam().options,
+    );
+    expect(mock?.provenance).toBe('mock');
+    await expect(
+      sourcesFromEnv({ ...MAINNET, CHAIN_MODE_ROBINHOOD: 'off' }, seam().options),
+    ).rejects.toThrow(NO_CHAIN);
+  });
+
+  it('holds the node to the mainnet record: a test network node under the mainnet setting does not start', async () => {
+    // The worker's default check, with no check handed in.
+    const node = (chainId: number) =>
+      seam({
+        checkEvm: undefined,
+        connectEvm: () =>
+          ({
+            getChainId: async () => chainId,
+            getCode: async () => '0x60',
+            getBlockNumber: async () => 1n,
+          }) as unknown as EvmRpc,
+      });
+    await expect(sourcesFromEnv(MAINNET, node(46630).options)).rejects.toThrow(
+      'the EVM RPC answers chain id 46630, and the record robinhood-mainnet is for 4663',
+    );
+    await expect(sourcesFromEnv(MAINNET, node(4663).options)).resolves.toHaveLength(1);
+  });
+
+  it('never under a test network record: a record that is not a mainnet’s is not labelled live', async () => {
+    const testnet = readFileSync(`${REPO}deployments/robinhood-testnet.json`, 'utf8');
+    const s = seam({ dir: '/records', read: () => testnet });
+    await expect(sourcesFromEnv(MAINNET, s.options)).rejects.toThrow(
+      'deployments/robinhood-mainnet.json is the record of robinhood-testnet',
+    );
+    expect(s.connected).toEqual([]);
+  });
+
+  it('asks the node in small batches, a few at a time, through a client that only reads', () => {
+    // robinhood.drpc.org refuses a batch of more than three; a public node answers a burst with 403.
+    expect(EVM_NODE).toEqual({ readOnly: true, batchSize: 3, maxInFlight: 2 });
+  });
+
+  it('asks a mainnet node for nothing but reads, three a batch and two batches at a time', async () => {
+    // The worker's own client (EVM_NODE) on a stand-in for the node's HTTP side, so every request the
+    // mainnet path makes is seen as it would go out: the node check, the height, the rules, an owner's
+    // vaults, a vault by its address and the prices. The stand-in answers every call with words of
+    // zero, which is no vault and no price; what is asked is what is held here.
+    const batches: { method: string }[][] = [];
+    let inFlight = 0;
+    let most = 0;
+    const answer = (call: { id: number; method: string }) => {
+      const result =
+        call.method === 'eth_chainId'
+          ? '0x1237'
+          : call.method === 'eth_blockNumber'
+            ? '0x52d9d3b'
+            : call.method === 'eth_getCode'
+              ? '0x60'
+              : call.method === 'eth_getBlockByNumber'
+                ? { number: '0x52d9d3b', timestamp: '0x68ed0000', transactions: [] }
+                : `0x${'0'.repeat(64 * 64)}`;
+      return { jsonrpc: '2.0', id: call.id, result };
+    };
+    const fetchFn = (async (_input: unknown, init?: { body?: unknown }) => {
+      inFlight++;
+      most = Math.max(most, inFlight);
+      const body = JSON.parse(String(init?.body));
+      const calls = Array.isArray(body) ? body : [body];
+      batches.push(calls);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      inFlight--;
+      const answers = calls.map(answer);
+      return new Response(JSON.stringify(Array.isArray(body) ? answers : answers[0]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as unknown as typeof fetch;
+    const s = seam({
+      checkEvm: undefined,
+      connectEvm: (url) => createEvmRpc(url, { ...EVM_NODE, fetchFn }),
+    });
+    const [source] = await sourcesFromEnv(MAINNET, s.options);
+    if (!source) throw new Error('no source');
+    const owner = '0x00000000000000000000000000000000000000a1';
+    const vault = '0x00000000000000000000000000000000000000b2';
+    const assets = await source.listAssets();
+    const tried = await Promise.allSettled([
+      source.height(),
+      source.rules(),
+      source.getVaults(owner),
+      source.getVault(vault),
+      source.getPrices(assets.filter((a) => a.cls !== 'cash').map((a) => a.id)),
+    ]);
+    expect(tried[0]).toEqual({ status: 'fulfilled', value: 0x52d9d3bn });
+    const methods = new Set(batches.flat().map((call) => call.method));
+    expect([...methods].filter((method) => !READ_METHODS.has(method))).toEqual([]);
+    expect(methods.has('eth_call')).toBe(true);
+    expect(batches.flat().length).toBeGreaterThan(10);
+    expect(Math.max(...batches.map((b) => b.length))).toBeLessThanOrEqual(3);
+    expect(most).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('a node that does not answer at start', () => {
+  const down = () => new ChainError('Unavailable', 'the EVM RPC did not answer eth_chainId');
+
+  it('does not keep the other chain from starting: its own reads wait for the check, and nothing is read before it', async () => {
+    let answers = false;
+    let asked = 0;
+    const warned: string[] = [];
+    const s = seam({
+      checkEvm: async () => {
+        asked++;
+        if (!answers) throw down();
+      },
+      warn: (line) => warned.push(line),
+    });
+    const sources = await sourcesFromEnv({ ...SOLANA, ...MAINNET }, s.options);
+    expect(sources.map((x) => x.chain)).toEqual(['solana', 'robinhood']);
+    expect(s.checked).toEqual(['solana-devnet']);
+    expect(warned).toEqual([
+      'Robinhood Chain mainnet did not say which network it is at start (Unavailable: the EVM RPC did not answer eth_chainId): each pass asks again, and nothing is read from it until it has',
+    ]);
+    expect(warned.join()).not.toContain('RhKey456');
+    const [solana, robinhood] = sources;
+    if (!solana || !robinhood) throw new Error('no source');
+    // Solana is read as ever.
+    expect(await solana.height()).toBe(1234n);
+    // Robinhood Chain's pass fails as a chain that does not answer, and its height is none.
+    await expect(robinhood.rules()).rejects.toThrow('the EVM RPC did not answer eth_chainId');
+    await expect(robinhood.getVaults('0x00000000000000000000000000000000000000a1')).rejects.toThrow(
+      ChainError,
+    );
+    await expect(robinhood.getVault('0x00000000000000000000000000000000000000a1')).rejects.toThrow(
+      ChainError,
+    );
+    await expect(robinhood.getPrices(['robinhood:nvda'])).rejects.toThrow(ChainError);
+    expect(await robinhood.height()).toBeNull();
+    const before = asked;
+    expect(before).toBeGreaterThan(1);
+    // Once the node says it is the record's network, the reads go through and it is not asked again.
+    answers = true;
+    expect(await robinhood.height()).toBe(99n);
+    expect(await robinhood.height()).toBe(99n);
+    expect(asked).toBe(before + 1);
+  });
+
+  it('still stops the worker on a node of another network, at start and later', async () => {
+    const wrong = new ChainError(
+      'NotSupported',
+      "the EVM RPC answers chain id 46630, a test network's",
+    );
+    const atStart = seam({
+      checkEvm: async () => {
+        throw wrong;
+      },
+    });
+    await expect(sourcesFromEnv({ ...SOLANA, ...MAINNET }, atStart.options)).rejects.toThrow(
+      'answers chain id 46630',
+    );
+    // A node that was down at start and turns out to be another network's: no read ever goes through.
+    let state: 'down' | 'wrong' = 'down';
+    const later = seam({
+      checkEvm: async () => {
+        throw state === 'down' ? down() : wrong;
+      },
+    });
+    const [source] = await sourcesFromEnv(MAINNET, later.options);
+    state = 'wrong';
+    await expect(source?.rules()).rejects.toThrow('answers chain id 46630');
+    await expect(source?.getVaults('0x00000000000000000000000000000000000000a1')).rejects.toThrow(
+      'answers chain id 46630',
+    );
+    expect(await source?.height()).toBeNull();
+  });
+
+  it('is the same for Solana', async () => {
+    let answers = false;
+    const s = seam({
+      checkSolana: async () => {
+        if (!answers) throw new ChainError('Unavailable', 'the Solana RPC did not say its network');
+      },
+    });
+    const [source] = await sourcesFromEnv(SOLANA, s.options);
+    await expect(source?.rules()).rejects.toThrow('the Solana RPC did not say its network');
+    expect(await source?.height()).toBeNull();
+    answers = true;
+    expect(await source?.height()).toBe(1234n);
   });
 });
