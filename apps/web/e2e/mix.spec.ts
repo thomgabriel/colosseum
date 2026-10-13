@@ -292,9 +292,11 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
     en.shared.vault.page.panes.change.signTitle,
   );
   await expect(page).toHaveURL(here);
-  await expect(pane.getByRole('region', { name: en.mix.order.title })).toContainText('70%');
+  // the change as one picture, then "Continue", then the first step's own button (SIGN-ONE-STEP)
+  await expect(pane.locator('[data-ui="sign-picture"]')).toContainText('70%');
   await check(page, 'vault-order');
-  await pane.getByRole('button', { name: en.mix.order.signTargets }).click();
+  await pane.locator('[data-action="order-continue"]').click();
+  await pane.getByRole('button', { name: en.order.flow.press.targets }).click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(
     en.order.outcome.done('Solana'),

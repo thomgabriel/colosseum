@@ -139,13 +139,13 @@ describe('each step, by what it does', () => {
     expect(targets).toEqual({
       name: 'Set targets',
       title: 'Set your vault’s new targets on chain',
-      sign: 'Sign: set the new targets',
+      press: 'Sign: set the new targets',
       worst: null,
     });
     expect(swap).toEqual({
       name: 'Swap',
       title: 'Swap $1,354 of cash for GOOGLx',
-      sign: 'Sign: swap $1,354 for GOOGLx',
+      press: 'Sign: swap $1,354 for GOOGLx',
       worst: 'At worst you get 3.76 GOOGLx, 1% under today’s price.',
     });
   });
@@ -155,7 +155,7 @@ describe('each step, by what it does', () => {
     const [sale, swap] = stepWordsOf(two, words);
     expect(sale?.name).toBe('Swap 1');
     expect(sale?.title).toBe('Sell 0.5 TSLAx');
-    expect(sale?.sign).toBe('Sign: sell 0.5 TSLAx');
+    expect(sale?.press).toBe('Sign: sell 0.5 TSLAx');
     expect(swap?.name).toBe('Swap 2');
   });
 
@@ -164,18 +164,16 @@ describe('each step, by what it does', () => {
     expect(open).toMatchObject({
       name: 'Deposit',
       title: 'Open your vault and deposit $10',
-      sign: 'Sign: deposit $10',
+      press: 'Sign: deposit $10',
     });
     expect(swap?.title).toBe('Swap $6 of cash for SPYx');
-    const [allow, both] = stepWordsOf(orderOn('robinhood'), {
-      units: null,
-      t: en,
-      locale: 'en',
-    });
-    // no units for the cash: no amount is made up, and the step is still named
+    // on an EVM chain the deposit is allowed first; with no units for the cash, no amount is made
+    // up, and each step is still named
+    const evm = stepWordsOf(orderOn('robinhood'), { units: null, t: en, locale: 'en' });
+    const allow = evm.find((w) => w.name === en.order.flow.short.approve);
     expect(allow?.title).toBe(en.order.kind.approve);
-    expect(allow?.sign).toBe(en.order.flow.sign.step);
-    expect(both?.name).toBe('Deposit');
+    expect(allow?.press).toBe(en.order.flow.press.step);
+    expect(evm.some((w) => w.name === en.order.flow.short.deposit)).toBe(true);
   });
 
   it('says a step that only opens the vault as that', () => {
@@ -195,7 +193,7 @@ describe('each step, by what it does', () => {
     ]);
     const [step] = stepWordsOf(out, words);
     expect(step?.title).toBe('Send 0.25 TSLAx and all of your USDC to your own wallet');
-    expect(step?.sign).toBe('Sign: withdraw 0.25 TSLAx and all of your USDC');
+    expect(step?.press).toBe('Sign: withdraw 0.25 TSLAx and all of your USDC');
     // with the token's multiplier at the review, as the withdraw screen showed it
     const [shown] = stepWordsOf(out, { ...words, multipliers: { [TSLA]: '2' } });
     expect(shown?.title).toContain('0.5 TSLAx');
@@ -239,6 +237,39 @@ describe('the picture of what changes', () => {
       ['Cash', '$4'],
     ]);
     expect(depositPicture(retarget, words)).toBeNull();
+  });
+
+  it('says a withdrawal as what goes to the owner’s wallet, and the least it pays where it sells first', () => {
+    const inKind = order([
+      {
+        kind: 'withdraw',
+        withdrawals: [
+          { asset: TSLA, amountRaw: '25000000', heldRaw: '50000000' },
+          { asset: CASH, amountRaw: null, heldRaw: '100000000' },
+        ],
+      },
+    ]);
+    expect(costSentence(inKind, words)).toBe(
+      'To your own wallet: TSLAx and USDC. Nothing is sold.',
+    );
+    const inDollars = order([
+      {
+        trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }],
+        expected: [{ inRaw: '50000000', outRaw: '400000000', minOutRaw: '396000000', costBps: 0 }],
+      },
+      {
+        kind: 'withdraw',
+        withdrawals: [
+          { asset: CASH, amountRaw: null, heldRaw: '600000000', leastRaw: '996000000' },
+        ],
+      },
+    ]);
+    expect(costSentence(inDollars, words)).toBe(
+      'About $400 of TSLAx is sold for cash, and you receive at least $996 in your own wallet.',
+    );
+    expect(withdrawPicture(inDollars, words).rows).toEqual([
+      { key: CASH, name: 'USDC', cells: [{ shown: 'at least $996', exact: '$996.00' }] },
+    ]);
   });
 
   it('lists what a withdrawal takes out', () => {

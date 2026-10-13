@@ -305,7 +305,7 @@ test('the invest card by keyboard, at 375 and 1440 px', async ({ page }) => {
   // by keyboard to the end: the funds, the notice, and the one press
   await ask.focus();
   await page.keyboard.press('Enter');
-  await expect(card.locator('[data-ui="order-step"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
   const accept = page.getByLabel(en.trust.accept);
   await accept.focus();
   await page.keyboard.press('Space');
@@ -356,7 +356,12 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
     await page.getByRole('button', { name: w.confirm.button }).click();
     await expect(page).toHaveURL(/\/orders\/[^/]+$/);
     await expect(page.locator('[data-ui="order-step"]')).toHaveCount(steps);
-    await page.getByRole('button', { name: en.order.shared.signWithdraw }).click();
+    // what leaves, then "Continue", then the first step's own button (gate SIGN-ONE-STEP)
+    await expect(page.locator('[data-ui="sign-picture"]')).toBeVisible();
+    await page.locator('[data-action="order-continue"]').click();
+    const press = page.locator('[data-ui="sign-step"] [data-variant="primary"]');
+    await expect(press).toContainText(en.order.flow.press.withdraw(''));
+    await press.click();
     const done = page.locator('[data-ui="withdraw-done"]');
     await expect(done).toBeVisible({ timeout: 90_000 });
     for (let i = 0; i < steps; i += 1)
@@ -448,9 +453,16 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await expect(page.locator('[data-ui="order-step"]')).toHaveCount(4);
     await expect(page.locator('[data-ui="withdraw-least"]')).toHaveText(/^[\d.,]+ USDC$/);
     await expect(page.locator('[data-ui="order-withdrawal"]')).toHaveCount(1);
-    await expect(page.getByRole('button', { name: en.order.shared.signWithdraw })).toHaveCount(1);
+    // the review says what is sold and the least that reaches the wallet, with one way on
+    await expect(page.locator('[data-ui="sign-sentence"]')).toContainText(/at least \$[\d.,]+/);
+    await expect(page.locator('[data-variant="primary"]')).toHaveCount(1);
     await check(page, emptied ? 'withdraw-dollars-order-all' : 'withdraw-dollars-order');
-    await page.getByRole('button', { name: en.order.shared.signWithdraw }).click();
+    await page.locator('[data-action="order-continue"]').click();
+    // the first sale alone on the screen, with a button that names it
+    const press = page.locator('[data-ui="sign-step"] [data-variant="primary"]');
+    await expect(press).toContainText(en.order.flow.press.of(en.order.flow.press.sell('')));
+    await check(page, emptied ? 'withdraw-dollars-sign-all' : 'withdraw-dollars-sign');
+    await press.click();
     const done = page.locator('[data-ui="withdraw-done"]');
     await expect(done).toBeVisible({ timeout: 90_000 });
     for (let i = 0; i < 4; i += 1)

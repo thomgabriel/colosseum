@@ -138,14 +138,15 @@ for (const width of WIDTHS) {
       await expect(making.locator('[data-ui="card"]')).toHaveCount(0);
       await axe(page, `steps waiting, ${width}px`);
       await inTheme(page, 'dark');
-      const stats = await boxOf(page, '[data-ui="steps-wait"] [data-ui="skeleton-stats"]');
+      const sentence = await boxOf(page, '[data-ui="steps-wait"] [data-ui="skeleton-sentence"]');
       await shot(page, 'deposit-steps-loading');
       orders.release();
-      await expect(pane.locator('[data-ui="order-step"]').first()).toBeVisible({ timeout: 30_000 });
+      // the review (gate SIGN-ONE-STEP): its sentence lands where the outline's was
+      await expect(pane.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
       await settled(page);
       await inTheme(page, 'dark');
-      const row = await boxOf(page, '[data-ui="deposit-sign"] [data-ui="stat-row"]');
-      expect.soft([row.x, row.width], 'the three figures').toEqual([stats.x, stats.width]);
+      const said = await boxOf(page, '[data-ui="deposit-sign"] [data-ui="sign-sentence"]');
+      expect.soft([said.x, said.width], 'the sentence').toEqual([sentence.x, sentence.width]);
       await shot(page, 'deposit-steps-loaded');
       // nothing was signed by any of this
       await expect(pane.locator('[data-ui="order-step"][data-status="confirmed"]')).toHaveCount(0);

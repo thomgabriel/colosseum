@@ -7,7 +7,6 @@ import {
   SkeletonLine,
   SkeletonListRow,
   SkeletonMark,
-  SkeletonStats,
 } from '../../components/ui/Skeleton';
 import { ScreenWait } from '../../components/waits/ScreenWait';
 import { useT } from '../../i18n/I18nProvider';
@@ -209,16 +208,7 @@ export function OrderScreenWait({
           <div aria-hidden="true" data-wait="order-steps" className={CARD}>
             <CardHeader title={t.order.stepsTitle} level={2} />
             <CardBody className="flex flex-col gap-4">
-              <SkeletonStats count={3} />
-              <div className="flex flex-col divide-y divide-border">
-                {Array.from({ length: steps }, (_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-                  <div key={i} className="flex flex-col gap-1 py-3">
-                    <SkeletonLine className="text-body" width={i % 2 ? 'w-72' : 'w-80'} />
-                    <SkeletonLine className="text-body-sm" width="w-96" />
-                  </div>
-                ))}
-              </div>
+              <ReviewWait rows={steps} />
             </CardBody>
           </div>
         </div>
@@ -252,22 +242,37 @@ export function FundsWait({ label }: { label?: string }) {
 }
 
 /**
- * An order's steps while the order is made or read, inside the pane or the card that holds them: the
- * three figures over them, then a line a step. No card of its own (the host is one), and no amount.
+ * An order's review in outline (gate SIGN-ONE-STEP): the sentence of what it does, a row a line of the
+ * picture of what changes, and the fold of its details. No amount is drawn: none is known yet.
+ */
+function ReviewWait({ rows }: { rows: number }) {
+  return (
+    <>
+      <div data-ui="skeleton-sentence" className="flex w-full max-w-(--tf-measure-body) flex-col">
+        <SkeletonLine className="text-body" width="w-full" lines={2} />
+      </div>
+      <div className="flex flex-col divide-y divide-border">
+        {Array.from({ length: rows }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
+          <div key={i} className="flex items-center justify-between py-2">
+            <SkeletonLine className="text-body-sm" width={i % 2 ? 'w-16' : 'w-20'} />
+            <SkeletonLine className="text-body-sm" width="w-12" />
+          </div>
+        ))}
+      </div>
+      <SkeletonLine className="text-body-sm" width="w-16" />
+    </>
+  );
+}
+
+/**
+ * An order while it is made or read, inside the pane or the card that holds it: its review in outline.
+ * No card of its own (the host is one), and no amount.
  */
 export function StepsWait({ steps = 3 }: { steps?: number }) {
   return (
     <div aria-hidden="true" data-ui="steps-wait" className="flex flex-col gap-4">
-      <SkeletonStats count={3} />
-      <div className="flex flex-col divide-y divide-border">
-        {Array.from({ length: steps }, (_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-          <div key={i} className="flex flex-col gap-1 py-3">
-            <SkeletonLine className="text-body" width={i % 2 ? 'w-72' : 'w-80'} />
-            {i > 0 && <SkeletonLine className="text-body-sm" width="w-4/5" />}
-          </div>
-        ))}
-      </div>
+      <ReviewWait rows={steps} />
     </div>
   );
 }

@@ -132,12 +132,15 @@ async function publish(page: Page, name: string, weights: [string, string][], ph
 
   await expect(page).toHaveURL(/\/orders\/[^/]+$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.order.review.title);
+  // what is published is held under "Details" (gate SIGN-ONE-STEP), one press away
+  await page.locator('[data-ui="order-details"] > summary').click();
   await expect(page.getByRole('region', { name: en.order.shared.publishTitle })).toContainText(
     name,
   );
   await page.getByLabel(en.order.review.consent.publish).check();
   if (photograph) await check(page, 'publish-review');
-  await page.getByRole('button', { name: en.order.shared.signPublish }).click();
+  await page.locator('[data-action="order-continue"]').click();
+  await page.getByRole('button', { name: en.order.flow.press.publish }).click();
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(
     en.order.outcome.done('Solana'),
     { timeout: 90_000 },

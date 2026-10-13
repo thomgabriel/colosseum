@@ -338,14 +338,21 @@ describe('investing with one press, with the passkey wallet', () => {
       autoFollow: false,
     });
     expect(holds.open).toBe(1);
-    expect(find(host, '[data-ui="invest-progress"]').textContent).toContain(
-      en.invest.progress.line(null, en.invest.progress.depositing, 1, 2),
-    );
+    // one step on the screen at a time (gate SIGN-ONE-STEP): the strip says where, the panel what
+    const current = () => find(host, '[data-ui="sign-progress"] [aria-current="step"]').textContent;
+    const panel = () => find(host, '[data-ui="sign-step"]');
+    expect(current()).toContain(en.order.flow.short.deposit);
+    expect(find(panel(), 'h3').textContent).toBe(en.order.flow.title.openDeposit('$10'));
+    expect(find(panel(), '[data-ui="sign-phase"]').textContent).toBe(en.order.phase.signing);
     first.open();
     await settle();
-    expect(find(host, '[data-ui="invest-progress"]').textContent).toContain(
-      'Deposit confirmed · Swapping into SPYx · 2 of 2',
+    // the deposit is signed: one line with its check, and the swap has the screen
+    expect(find(host, '[data-ui="sign-past"]').textContent).toContain(
+      en.order.flow.title.openDeposit('$10'),
     );
+    expect(current()).toContain(en.order.flow.short.swap);
+    expect(find(panel(), 'h3').textContent).toBe('Swap $6 of cash for SPYx');
+    expect(panel().textContent).toContain(en.order.flow.stepOf(2, 2));
     second.open();
     await settle();
     await settle();

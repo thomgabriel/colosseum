@@ -108,12 +108,14 @@ async function toSteps(page: Page, shots = false) {
   await expect(card.locator('[data-ui="order-step"]')).toHaveCount(0);
   if (shots) await check(page, '06-sign-wallet-short');
   await card.getByRole('button', { name: en.buy.funding.mockFund }).click();
-  await expect(card.locator('[data-ui="order-step"]').first()).toBeVisible({ timeout: 30_000 });
+  // the order is on the card: what it does in one sentence, its steps one fold away (SIGN-ONE-STEP)
+  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
   // a first deposit: the notice is in the pane and holds the press until it is ticked
   await expect(press(page)).toHaveAttribute('aria-disabled', 'true');
   await page.getByLabel(en.trust.accept).check();
   await expect(press(page)).not.toHaveAttribute('aria-disabled', 'true');
-  // the amount, the number of steps and the time to sign by, then each step's own line
+  // under "Details": the amount, the number of steps and the time to sign by, then each step's line
+  await card.locator('[data-ui="order-details"] > summary').click();
   await expect(card).toContainText(en.order.review.deposit);
   await expect(card).toContainText(en.order.review.steps);
   await expect(card).toContainText(en.order.review.expires);
@@ -198,7 +200,8 @@ test('a step the server lies about is refused in the pane, and the pane is taken
   await expect(pane(page)).toContainText(en.mix.deposit.signing.resumed);
   await expect(pane(page).locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
   await expect(steps.nth(0)).toHaveAttribute('data-status', 'confirmed');
-  await expect(steps.nth(0).getByRole('link')).toBeVisible();
+  // the step that landed is one line with its transaction, over the step that stopped
+  await expect(pane(page).locator('[data-ui="sign-past"]').getByRole('link')).toBeVisible();
   await expect(page.locator('textarea')).toBeDisabled();
   // no second deposit was made by opening it again
   expect(
@@ -244,6 +247,6 @@ test('a quote that ran out before the press: the pane says so and offers a fresh
   await expect(card.locator('[data-ui="order-step"]')).toHaveCount(0);
   await check(page, '12-quote-ran-out');
   await card.getByRole('button', { name: en.invest.again }).click();
-  await expect(card.locator('[data-ui="order-step"]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
   await expect(page).toHaveURL(/\/goal$/);
 });

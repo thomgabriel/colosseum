@@ -1794,7 +1794,6 @@ export const en = {
           lead: 'These steps swap the cash already in your vault. No new money is deposited.',
         },
         ended: 'The steps have ended',
-        endedLead: 'How each step ended is said under the steps below.',
         panes: {
           deposit: {
             title: 'Deposit into your vault',
@@ -2210,6 +2209,8 @@ export const en = {
     flow: {
       continue: 'Continue',
       details: 'Details',
+      /** Before the first signature: back to what changes. */
+      back: 'Back to the review',
       /** The progress strip's name, read by a screen reader. */
       progress: 'Where you are in the steps',
       /** The strip's last place, after every step. */
@@ -2253,7 +2254,7 @@ export const en = {
         publish: 'Publish your portfolio',
       },
       /** A button that signs names the action and the amount. */
-      sign: {
+      press: {
         of: (what: string) => `Sign: ${what}`,
         approve: (amount: string) => `Sign: allow ${amount}`,
         open: 'Sign: open your vault',
@@ -2273,18 +2274,20 @@ export const en = {
           `At worst you get ${amount}, ${pct} under today’s price.`,
         each: (pct: string) => `At worst each swap lands ${pct} under today’s price.`,
       },
-      /** What the order does to the money, without its full stop: two are joined by `and`. */
+      /** What the order does to the money; two are joined by `and`. */
       sentence: {
-        depositCash: (amount: string) => `Your ${amount} goes into your vault as cash`,
+        depositCash: (amount: string) => `Your ${amount} goes into your vault as cash.`,
         depositSwap: (amount: string, spent: string, into: string) =>
-          `Your ${amount} goes into your vault, and about ${spent} of it into ${into}`,
+          `Your ${amount} goes into your vault, and about ${spent} of it into ${into}.`,
         depositInto: (amount: string, into: string) =>
-          `Your ${amount} goes into your vault, and from there into ${into}`,
-        sell: (amount: string, what: string) => `About ${amount} of ${what} is sold for cash`,
-        sellSome: (what: string) => `Some of your ${what} is sold for cash`,
-        spend: (amount: string, into: string) => `About ${amount} of cash goes into ${into}`,
-        spendSome: (into: string) => `Cash goes into ${into}`,
-        noTrade: 'Nothing is swapped in this order',
+          `Your ${amount} goes into your vault, and from there into ${into}.`,
+        sell: (amount: string, what: string) => `About ${amount} of ${what} is sold for cash.`,
+        sellSome: (what: string) => `Some of your ${what} is sold for cash.`,
+        spend: (amount: string, into: string) => `About ${amount} of cash goes into ${into}.`,
+        spendSome: (into: string) => `Cash goes into ${into}.`,
+        noTrade: 'Nothing is swapped in this order.',
+        withdraw: (what: string) => `To your own wallet: ${what}. Nothing is sold.`,
+        receive: (amount: string) => `You receive at least ${amount} in your own wallet.`,
         and: (a: string, b: string) => `${a}, and ${b}`,
       },
       picture: {
@@ -2332,7 +2335,7 @@ export const en = {
     },
     outcome: {
       done: (chain: string) =>
-        `Every step is confirmed on ${chain}. Each step’s transaction is linked beside it.`,
+        `Every step is confirmed on ${chain}. Each step’s transaction is under Transactions.`,
       seePortfolio: 'See your portfolio',
       buyMore: 'Deposit more',
       /** After a step failed or was refused once the deposit had landed. */

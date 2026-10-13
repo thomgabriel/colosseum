@@ -207,6 +207,17 @@ const button = (host: Element, name: string) => {
   if (!found) throw new Error(`no button "${name}"`);
   return found;
 };
+/**
+ * The withdrawal's order, from its review to its first signature (gate SIGN-ONE-STEP): "Continue" on
+ * what changes, then the step's own button, which names what it takes out.
+ */
+async function signWithdrawal(at: Element) {
+  await click(button(at, en.order.flow.continue));
+  await settle();
+  const press = find(at, '[data-ui="sign-step"] [data-variant="primary"]');
+  expect(press.textContent).toContain(en.order.flow.press.withdraw(''));
+  await click(press);
+}
 /** From the page through the withdrawal's choice and review to its order, in the pane. */
 async function toSteps(host: HTMLElement) {
   await click(find(host, '[data-action="vault-withdraw"]'));
@@ -641,7 +652,7 @@ describe('the pane’s states, and the way out of each', () => {
     // not kept for a reload before the press: nobody approved it
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
     const before = server.reads();
-    await click(button(pane(again), en.order.shared.signWithdraw));
+    await signWithdrawal(pane(again));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(pane(again).dataset.state).toBe('done');
@@ -671,7 +682,7 @@ describe('the pane’s states, and the way out of each', () => {
     api();
     const host = await show();
     await toSteps(host);
-    await click(button(pane(host), en.order.shared.signWithdraw));
+    await signWithdrawal(pane(host));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(pane(host).dataset.state).toBe('stopped');
@@ -777,7 +788,7 @@ describe('an order that is done, but not plainly', () => {
     api();
     const host = await show();
     await toSteps(host);
-    await click(button(pane(host), en.order.shared.signWithdraw));
+    await signWithdrawal(pane(host));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(pane(host).dataset.state).toBe('done');
     const text = pane(host).textContent ?? '';

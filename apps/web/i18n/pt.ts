@@ -1587,7 +1587,6 @@ export const pt: Dictionary = {
           lead: 'Estes passos trocam o dinheiro que já está no seu cofre. Nenhum dinheiro novo é depositado.',
         },
         ended: 'Os passos terminaram',
-        endedLead: 'Como cada passo terminou está dito abaixo dos passos.',
         panes: {
           deposit: {
             title: 'Depositar no seu cofre',
@@ -1979,6 +1978,7 @@ export const pt: Dictionary = {
     flow: {
       continue: 'Continuar',
       details: 'Detalhes',
+      back: 'Voltar à revisão',
       progress: 'Onde você está nos passos',
       done: 'Pronto',
       doneWord: 'feito',
@@ -2014,7 +2014,7 @@ export const pt: Dictionary = {
         withdraw: (what: string) => `Enviar ${what} para a sua própria carteira`,
         publish: 'Publicar seu portfólio',
       },
-      sign: {
+      press: {
         of: (what: string) => `Assinar: ${what}`,
         approve: (amount: string) => `Assinar: autorizar ${amount}`,
         open: 'Assinar: abrir seu cofre',
@@ -2035,17 +2035,19 @@ export const pt: Dictionary = {
         each: (pct: string) => `No pior caso cada troca fica ${pct} abaixo do preço de hoje.`,
       },
       sentence: {
-        depositCash: (amount: string) => `Seus ${amount} vão para o seu cofre como caixa`,
+        depositCash: (amount: string) => `Seus ${amount} vão para o seu cofre como caixa.`,
         depositSwap: (amount: string, spent: string, into: string) =>
-          `Seus ${amount} vão para o seu cofre, e cerca de ${spent} deles para ${into}`,
+          `Seus ${amount} vão para o seu cofre, e cerca de ${spent} deles para ${into}.`,
         depositInto: (amount: string, into: string) =>
-          `Seus ${amount} vão para o seu cofre, e de lá para ${into}`,
+          `Seus ${amount} vão para o seu cofre, e de lá para ${into}.`,
         sell: (amount: string, what: string) =>
-          `Cerca de ${amount} de ${what} são vendidos por caixa`,
-        sellSome: (what: string) => `Parte do seu ${what} é vendida por caixa`,
-        spend: (amount: string, into: string) => `Cerca de ${amount} em caixa vão para ${into}`,
-        spendSome: (into: string) => `Caixa vai para ${into}`,
-        noTrade: 'Nada é trocado nesta ordem',
+          `Cerca de ${amount} de ${what} são vendidos por caixa.`,
+        sellSome: (what: string) => `Parte do seu ${what} é vendida por caixa.`,
+        spend: (amount: string, into: string) => `Cerca de ${amount} em caixa vão para ${into}.`,
+        spendSome: (into: string) => `Caixa vai para ${into}.`,
+        noTrade: 'Nada é trocado nesta ordem.',
+        withdraw: (what: string) => `Para a sua própria carteira: ${what}. Nada é vendido.`,
+        receive: (amount: string) => `Você recebe pelo menos ${amount} na sua própria carteira.`,
         and: (a: string, b: string) => `${a}, e ${b}`,
       },
       picture: {
@@ -2092,7 +2094,7 @@ export const pt: Dictionary = {
     },
     outcome: {
       done: (chain: string) =>
-        `Todos os passos estão confirmados em ${chain}. A transação de cada passo está no link ao lado dele.`,
+        `Todos os passos estão confirmados em ${chain}. A transação de cada passo está em Transações.`,
       seePortfolio: 'Ver seu portfólio',
       buyMore: 'Depositar mais',
       depositKept:

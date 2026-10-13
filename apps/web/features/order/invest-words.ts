@@ -135,4 +135,9 @@ export type OrderEmbed = {
    * same card, where it is reviewed and signed. Left out, the order's own page is opened.
    */
   onFinish?: (orderId: string) => void;
+  /**
+   * What the vault aims at before the order, as the host read it (a vault's own page): the review
+   * sets it beside the new targets. Left out where the host has no read of the vault.
+   */
+  before?: readonly { asset: string; weightBps: number }[];
 };

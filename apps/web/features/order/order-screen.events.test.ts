@@ -147,6 +147,20 @@ const label = (el: HTMLElement) =>
   el.querySelector('.grid > span:not([aria-hidden])')?.textContent ?? el.textContent;
 const status = (host: HTMLElement) =>
   host.querySelector('[data-ui="order-status"]')?.textContent ?? '';
+/**
+ * The order's one press from wherever it stands (gate SIGN-ONE-STEP): on the review, "Continue" first,
+ * which approves nothing, then the step's own button; anywhere else, the view's one primary button.
+ */
+async function sign(host: HTMLElement) {
+  const onward = host.querySelector<HTMLElement>('[data-action="order-continue"]');
+  if (onward && onward.getAttribute('aria-disabled') !== 'true') {
+    const before = run.calls.length;
+    await click(onward);
+    await settle();
+    expect(run.calls).toHaveLength(before);
+  }
+  await click(primary(host));
+}
 
 /**
  * The person accepted the trust notice before, with the keeper's limits shown: an order opened here
@@ -192,7 +206,7 @@ describe('the disclaimer on the order page (STYLE.md rule 3)', () => {
       };
       held();
       run.answer = async () => ({ status: 'done', order: doneOrder() });
-      await click(primary(host));
+      await sign(host);
       await settle();
       expect(find(host, '[data-ui="order-next"]')).toBeTruthy();
       held();
@@ -212,7 +226,8 @@ describe('the trust notice on the order’s own page', () => {
     seed();
     const host = await screen();
     const button = primary(host);
-    expect(label(button)).toBe(en.order.signAndBuy('$10'));
+    // on the review, the notice holds the one way on to the steps
+    expect(label(button)).toBe(en.order.flow.continue);
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect(host.textContent).toContain(en.buy.blocked.trust);
     await click(button);
@@ -222,7 +237,7 @@ describe('the trust notice on the order’s own page', () => {
     await click(notice(host) as HTMLElement);
     expect(primary(host).getAttribute('aria-disabled')).toBeNull();
     expect(trustAccepted(USER, TRUST_STATUS.textVersion, false)).toBe(false);
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls).toHaveLength(1);
     // a plan's own vault: accepted without the keeper's limits among the short points
@@ -273,7 +288,11 @@ describe('the review', () => {
     // with the price that minimum means: $6 over 0.0099 of the token
     expect(steps[1]).toContain(`(${en.order.review.atMostEach('$606.06')})`);
     expect(steps[1]).toContain(en.order.review.under('1%'));
-    expect(label(primary(host))).toBe(en.order.signAndBuy('$10'));
+    // the review's one button leads to the steps, and the first step's button names it and its amount
+    expect(label(primary(host))).toBe(en.order.flow.continue);
+    await click(find(host, '[data-action="order-continue"]'));
+    await settle();
+    expect(label(primary(host))).toBe(en.order.flow.press.deposit('$10'));
     // the deadline in the one way this app writes a time: the date, the minute and the zone
     expect(find(host, 'time').textContent).toBe(utc('en', orderOn().expiresAt));
     expect(find(host, 'time').textContent).toMatch(
@@ -293,7 +312,7 @@ describe('the review', () => {
     seed();
     run.answer = async (order) => ({ status: 'done', order: doneOrder() ?? order });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls).toHaveLength(1);
     const [{ order, deps }] = run.calls as [{ order: OrderDetail; deps: ExecutorDeps }];
@@ -326,7 +345,7 @@ describe('the review', () => {
     seed({ ...recordOf(), linked: true });
     run.answer = async (order) => ({ status: 'done', order: doneOrder() ?? order });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     const [{ deps }] = run.calls as [{ order: OrderDetail; deps: ExecutorDeps }];
     // the number the API gives this buyer's vault (gate AGENT-LINK): from the plan and the person
@@ -342,7 +361,7 @@ describe('the review', () => {
     seed();
     run.answer = async (order) => ({ status: 'done', order: doneOrder() ?? order });
     let host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     const [{ deps }] = run.calls as [{ order: OrderDetail; deps: ExecutorDeps }];
     expect(deps.plan.basketId).toBe(basketIdOfLinkedPlan(PLAN_ID, USER));
@@ -360,7 +379,7 @@ describe('the review', () => {
       api({ ...orderOn(), basketId });
       seed(record);
       host = await screen();
-      await click(primary(host));
+      await sign(host);
       await settle();
       expect(run.calls).toHaveLength(0);
       expect(host.textContent).toContain(en.order.outcome.notRunnable['plan-mismatch']);
@@ -375,7 +394,7 @@ describe('the review', () => {
     seed();
     run.answer = async () => ({ status: 'done', order: doneOrder() });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(status(host)).toBe(en.order.outcome.done('Solana'));
     // the links are built from this app's own chain table: devnet's explorer, whatever the API sent
@@ -457,7 +476,10 @@ describe('an order that does not move what the person asked for', () => {
     expect(steps[1]).toContain(en.order.review.spend('6 USDC', 'SPYx'));
     expect(steps[1]).toContain(en.order.review.atLeastWhole('0.0099 SPYx'));
     expect(host.querySelector('[data-ui="stat"]')?.textContent).toContain('10 USDC');
-    expect(label(primary(host))).toBe(en.order.signAndBuy('$10'));
+    expect(label(primary(host))).toBe(en.order.flow.continue);
+    await click(find(host, '[data-action="order-continue"]'));
+    await settle();
+    expect(label(primary(host))).toBe(en.order.flow.press.deposit('$10'));
   });
 
   it('runs nothing after a reload either, whatever was kept as approved', async () => {
@@ -506,7 +528,7 @@ describe('what the executor answers', () => {
       ),
     });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     const said = status(host);
     expect(said).toContain(en.order.outcome.refused(2));
@@ -518,10 +540,13 @@ describe('what the executor answers', () => {
     expect(support.textContent).toContain(en.order.outcome.check('minimum'));
     // nothing was deposited yet, so nothing is said about a deposit
     expect(host.querySelector('[data-ui="order-deposit-kept"]')).toBeNull();
-    // the region that says it is read out as it changes
-    expect(host.querySelector('[data-ui="order-status"]')?.getAttribute('aria-live')).toBe(
-      'polite',
-    );
+    // the region that says it is read out as it changes: the step's own panel (gate SIGN-ONE-STEP)
+    expect(
+      host
+        .querySelector('[data-ui="order-status"]')
+        ?.closest('[aria-live]')
+        ?.getAttribute('aria-live'),
+    ).toBe('polite');
     const next = primary(host);
     expect(label(next)).toBe(en.order.outcome.newOrder);
     expect(next.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
@@ -540,7 +565,7 @@ describe('what the executor answers', () => {
     };
     run.answer = async () => ({ status: 'failed', order: failed, legId: LEG_SWAP, error: null });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(find(host, '[data-ui="order-deposit-kept"]').textContent).toBe(
       en.order.outcome.stopped('$10'),
@@ -619,7 +644,7 @@ describe('what the executor answers', () => {
         error: null,
       });
       const host = await screen(lang);
-      await click(primary(host));
+      await sign(host);
       await settle();
       await settle();
       return host;
@@ -692,7 +717,7 @@ describe('what the executor answers', () => {
         error: null,
       });
       const host = await screen();
-      await click(primary(host));
+      await sign(host);
       await settle();
       await settle();
       await click(finishButton(host) as HTMLElement);
@@ -885,8 +910,14 @@ describe('what the executor answers', () => {
       const steps = [...host.querySelectorAll('[data-ui="order-step"]')].map((s) => s.textContent);
       expect(steps).toHaveLength(1);
       expect(steps[0]).toContain(en.order.review.spend('6 USDC', 'SPYx'));
-      // the button names what the steps spend of the vault's cash
-      expect(label(primary(host))).toBe(en.order.signAndBuy('$6'));
+      // the review leads to the steps, and the first one's button names what it spends of the vault's
+      // cash: a swap, never a deposit
+      expect(label(primary(host))).toBe(en.order.flow.continue);
+      await click(find(host, '[data-action="order-continue"]'));
+      await settle();
+      expect(label(primary(host))).toBe(
+        en.order.flow.press.of(en.order.flow.press.swap('$6', 'SPYx')),
+      );
     });
 
     it('offers nothing to sign for one that deposits, opens a vault, buys something else or does not say what it finishes', async () => {
@@ -941,7 +972,7 @@ describe('what the executor answers', () => {
           error: null,
         });
         const host = await screen(lang);
-        await click(primary(host));
+        await sign(host);
         await settle();
         await settle();
         const amount = dollars(10, lang);
@@ -1466,13 +1497,13 @@ describe('what the executor answers', () => {
       why: 'unproven',
     });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(status(host)).toContain(en.order.outcome.needsReview(2, 1));
     expect(run.calls[0]?.deps.approvedAgain).toBeUndefined();
     expect(label(primary(host))).toBe(en.order.outcome.approveAgain(2));
     run.answer = async () => ({ status: 'done', order: doneOrder() });
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls).toHaveLength(2);
     expect(run.calls[1]?.deps.approvedAgain).toEqual({ legId: LEG_SWAP, signedTimes: 1 });
@@ -1490,11 +1521,11 @@ describe('what the executor answers', () => {
       wallet: { code: 'rejected', message: 'no' },
     });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(status(host)).toContain(en.order.outcome.cancelled(2));
     expect(label(primary(host))).toBe(en.order.outcome.tryAgain);
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls).toHaveLength(2);
     expect(run.calls[1]?.deps.approvedAgain).toBeUndefined();
@@ -1505,7 +1536,7 @@ describe('what the executor answers', () => {
     seed();
     run.answer = async (order) => ({ status: 'failed', order, legId: LEG_SWAP, error: null });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(status(host)).toContain(en.order.outcome.failed(2));
     expect(label(primary(host))).toBe(en.order.outcome.newOrder);
@@ -1523,11 +1554,11 @@ describe('one run of an order at a time', () => {
       });
     const first = await screen();
     const second = await screen();
-    await click(primary(first));
+    await sign(first);
     await settle();
     // the first is busy: its button says so and is still the same button
     expect(primary(first).getAttribute('aria-busy')).toBe('true');
-    await click(primary(second));
+    await sign(second);
     await settle();
     expect(run.calls).toHaveLength(1);
     expect(status(second)).toBe(en.order.outcome.elsewhere);
@@ -1546,7 +1577,7 @@ describe('one run of an order at a time', () => {
       });
     const host = await screen();
     expect(holds.open).toBe(0);
-    await click(primary(host));
+    await sign(host);
     await settle();
     // "Try again" for a slow sign-in is refused meanwhile (WalletProvider's `restart`)
     expect(holds.open).toBe(1);
@@ -1560,7 +1591,7 @@ describe('one run of an order at a time', () => {
     seed();
     Object.defineProperty(window.navigator, 'locks', { value: undefined, configurable: true });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls).toHaveLength(0);
     expect(status(host)).toContain(en.order.outcome.notRunnable['no-lock']);
@@ -1580,7 +1611,7 @@ describe('what a run is handed after a reload', () => {
     run.answer = async () => ({ status: 'done', order: doneOrder() });
     const host = await screen();
     expect(label(primary(host))).toBe(en.order.resume('$10'));
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls[0]?.order).toEqual(approved);
   });
@@ -1606,7 +1637,11 @@ describe('a buy on Robinhood Chain', () => {
     expect(steps[1]).toContain(en.order.kind.create_vault_buy);
     expect(steps[1]).toContain('10 tUSDG');
     expect(steps[1]).toContain(en.order.review.spend('6 tUSDG', 'SPY'));
-    expect(label(primary(host))).toBe(en.order.signAndBuy('$10'));
+    expect(label(primary(host))).toBe(en.order.flow.continue);
+    await click(find(host, '[data-action="order-continue"]'));
+    await settle();
+    // the first step allows the deposit: its button names that and the amount
+    expect(label(primary(host))).toBe(en.order.flow.press.approve('$10'));
     expect(host.textContent).toContain(en.shell.testNetworkLine);
     expect(host.querySelector('[role="alert"]')).toBeNull();
     expect(run.calls).toHaveLength(0);
@@ -1628,7 +1663,7 @@ describe('a buy on Robinhood Chain', () => {
       },
     });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     expect(run.calls).toHaveLength(1);
     const [{ order, deps }] = run.calls as [{ order: OrderDetail; deps: ExecutorDeps }];
@@ -1693,7 +1728,7 @@ describe.each([
     seed(recordOf(chain));
     run.answer = async () => ({ status: 'done', order: doneOrder(chain) });
     const host = await screen();
-    await click(primary(host));
+    await sign(host);
     await settle();
     const names = [...host.querySelectorAll('[data-ui="explorer-name"]')].map((n) => n.textContent);
     // a link per step

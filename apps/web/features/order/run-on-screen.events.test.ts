@@ -166,6 +166,9 @@ describe('the order’s own page, while its steps run', () => {
     const host = await mount(withAccount('en', createElement(OrderScreen, { id: ORDER_ID })));
     await settle();
     await settle();
+    // past the review (gate SIGN-ONE-STEP): the first step's own button is the press
+    await click(find(host, '[data-action="order-continue"]'));
+    await settle();
     return { host, reads: () => reads };
   };
 

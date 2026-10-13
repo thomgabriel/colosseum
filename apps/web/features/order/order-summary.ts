@@ -135,36 +135,36 @@ export type StepWords = {
   /** What it does, in plain words: "Swap $1,354 of cash for GOOGLx". */
   title: string;
   /** What the button that signs it says: "Sign: swap $1,354 for GOOGLx". */
-  sign: string;
+  press: string;
   /** What it may give up at worst, where it trades: "At worst you get 3.76 GOOGLx, 1% under today's price." */
   worst: string | null;
 };
 
 /** The parts of a step that trades: sales of what the vault holds, then cash spent. */
-function tradeParts(leg: Leg, r: Reader): { title: string[]; sign: string[] } {
+function tradeParts(leg: Leg, r: Reader): { title: string[]; press: string[] } {
   const f = r.t.order.flow;
   const spends = leg.trades.filter((x) => r.cash === null || x.sell === r.cash);
   const sells = leg.trades.filter((x) => r.cash !== null && x.sell !== r.cash);
   const title: string[] = [];
-  const sign: string[] = [];
+  const press: string[] = [];
   if (sells.length > 0) {
     const sold = sells.map((x) => r.tokens(x.amountInRaw, x.sell)?.shown ?? r.symbol(x.sell));
     title.push(f.title.sell(listOf(sold, r.locale)));
-    sign.push(f.sign.sell(listOf(sold, r.locale)));
+    press.push(f.press.sell(listOf(sold, r.locale)));
   }
   if (spends.length > 0) {
     const into = listOf([...new Set(spends.map((x) => r.symbol(x.buy)))], r.locale);
     const spent = r.money(sumRaw(spends.map((x) => x.amountInRaw)));
     title.push(spent ? f.title.swap(spent.shown, into) : f.title.swapInto(into));
-    sign.push(spent ? f.sign.swap(spent.shown, into) : f.sign.swapInto(into));
+    press.push(spent ? f.press.swap(spent.shown, into) : f.press.swapInto(into));
   }
-  return { title, sign };
+  return { title, press };
 }
 
 /** The tokens a withdraw step sends to the owner, each read for the person. */
 function withdrawn(leg: Leg, r: Reader): string[] {
   return (leg.withdrawals ?? []).map((w) => {
-    const least = (w as { leastRaw?: string }).leastRaw;
+    const least = w.leastRaw;
     if (least !== undefined) {
       const at = r.amount(least, w.asset);
       return r.t.order.flow.atLeast(at?.shown ?? r.symbol(w.asset));
@@ -192,7 +192,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
         return {
           name: f.short.approve,
           title: deposit ? f.title.approve(deposit.shown) : fallback,
-          sign: deposit ? f.sign.approve(deposit.shown) : f.sign.step,
+          press: deposit ? f.press.approve(deposit.shown) : f.press.step,
           worst: null,
         };
       case 'create_vault':
@@ -202,7 +202,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
           return {
             name: f.short.open,
             title: f.title.open,
-            sign: f.sign.open,
+            press: f.press.open,
             worst: null,
           };
         const opens = leg.kind === 'create_vault';
@@ -212,40 +212,60 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
           : opens
             ? f.title.openDeposit(deposit.shown)
             : f.title.deposit(deposit.shown);
-        const press = deposit ? f.sign.deposit(deposit.shown) : f.sign.step;
+        const button = deposit ? f.press.deposit(deposit.shown) : f.press.step;
         const then = parts.title.length > 0 ? f.andThen(head, listOf(parts.title, r.locale)) : head;
-        return { name: f.short.deposit, title: then, sign: press, worst };
+        return { name: f.short.deposit, title: then, press: button, worst };
       }
       case 'swap': {
         swap += 1;
         const name = swaps > 1 ? f.short.swapN(swap) : f.short.swap;
-        if (parts.title.length === 0) return { name, title: fallback, sign: f.sign.step, worst };
+        if (parts.title.length === 0) return { name, title: fallback, press: f.press.step, worst };
         return {
           name,
           title: capitalise(listOf(parts.title, r.locale), r.locale),
-          sign: f.sign.of(listOf(parts.sign, r.locale)),
+          press: f.press.of(listOf(parts.press, r.locale)),
           worst,
         };
       }
       case 'set_targets':
-        return { name: f.short.targets, title: f.title.targets, sign: f.sign.targets, worst: null };
+        return {
+          name: f.short.targets,
+          title: f.title.targets,
+          press: f.press.targets,
+          worst: null,
+        };
       case 'accept_version':
-        return { name: f.short.version, title: f.title.version, sign: f.sign.version, worst: null };
+        return {
+          name: f.short.version,
+          title: f.title.version,
+          press: f.press.version,
+          worst: null,
+        };
       case 'set_auto_follow':
-        return { name: f.short.autoFollow, title: fallback, sign: f.sign.autoFollow, worst: null };
+        return {
+          name: f.short.autoFollow,
+          title: fallback,
+          press: f.press.autoFollow,
+          worst: null,
+        };
       case 'withdraw': {
         const what = listOf(withdrawn(leg, r), r.locale);
         return {
           name: f.short.withdraw,
           title: f.title.withdraw(what),
-          sign: f.sign.withdraw(what),
+          press: f.press.withdraw(what),
           worst: null,
         };
       }
       case 'publish':
-        return { name: f.short.publish, title: f.title.publish, sign: f.sign.publish, worst: null };
+        return {
+          name: f.short.publish,
+          title: f.title.publish,
+          press: f.press.publish,
+          worst: null,
+        };
       default:
-        return { name: fallback, title: fallback, sign: f.sign.step, worst };
+        return { name: fallback, title: fallback, press: f.press.step, worst };
     }
   });
 }
@@ -354,7 +374,7 @@ export function withdrawPicture(order: Pick<OrderDetail, 'legs'>, words: Summary
   const f = r.t.order.flow.picture;
   const rows: PictureRow[] = legsInOrder(order).flatMap((leg) =>
     (leg.withdrawals ?? []).map((w) => {
-      const least = (w as { leastRaw?: string }).leastRaw;
+      const least = w.leastRaw;
       const raw = least ?? w.amountRaw;
       const figure = raw === null ? null : r.amount(raw, w.asset);
       return {
@@ -395,8 +415,19 @@ export function costSentence(
     sumRaw(sells.filter((x) => x.trade.buy === r.cash).map((x) => x.expected?.outRaw ?? '0')),
   );
   const deposit = order.depositRaw ? r.money(order.depositRaw) : null;
+  // a withdrawal: what leaves for the owner's wallet, and the least it pays where it sells first
+  const out = legsInOrder(order).flatMap((leg) => leg.withdrawals ?? []);
+  const least = out.find((w) => w.leastRaw !== undefined);
   const parts: string[] = [];
-  if (deposit)
+  if (out.length > 0) {
+    if (sells.length > 0) parts.push(brings ? s.sell(brings.shown, sold) : s.sellSome(sold));
+    const receives = least?.leastRaw ? r.amount(least.leastRaw, least.asset) : null;
+    parts.push(
+      receives
+        ? s.receive(receives.shown)
+        : s.withdraw(listOf([...new Set(out.map((w) => r.symbol(w.asset)))], r.locale)),
+    );
+  } else if (deposit)
     parts.push(
       spends.length === 0
         ? s.depositCash(deposit.shown)
@@ -415,7 +446,8 @@ export function costSentence(
     if (parts.length === 0) parts.push(s.noTrade);
   }
   const [first = s.noTrade, second] = parts;
-  const head = `${second ? s.and(first, lowerFirst(second, r.locale)) : first}.`;
-  const worst = worstOf(trades, r);
+  const head = second ? s.and(first.replace(/\.$/, ''), lowerFirst(second, r.locale)) : first;
+  // a withdrawal that sells says its least already: what reaches the wallet
+  const worst = least ? null : worstOf(trades, r);
   return worst ? `${head} ${worst}` : head;
 }

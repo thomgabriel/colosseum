@@ -99,6 +99,11 @@ const screen = async () => {
 };
 const primary = (host: HTMLElement) =>
   host.querySelector<HTMLElement>('[data-variant="primary"]') as HTMLElement;
+/** Past the review of what changes to the first step (gate SIGN-ONE-STEP): approves nothing. */
+const onward = async (host: HTMLElement) => {
+  await click(host.querySelector('[data-action="order-continue"]') as HTMLElement);
+  await settle();
+};
 const tick = async (host: HTMLElement) => {
   for (const box of host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'))
     await click(box);
@@ -163,9 +168,13 @@ describe('a publish on the order screen', () => {
     expect(review.textContent).toContain(FAMILY_ID);
     // no deposit is shown for an order that deposits nothing
     expect(host.textContent).not.toContain(en.order.review.deposit);
-    expect(primary(host).textContent).toContain(en.order.shared.signPublish);
+    // the consent holds the way on to the steps; the step's button then names what it signs
+    expect(primary(host).textContent).toContain(en.order.flow.continue);
     expect(primary(host).getAttribute('aria-disabled')).toBe('true');
     await tick(host);
+    await onward(host);
+    expect(run.calls).toHaveLength(0);
+    expect(primary(host).textContent).toContain(en.order.flow.press.publish);
     await click(primary(host));
     await settle();
     expect(run.calls).toHaveLength(1);
@@ -219,6 +228,7 @@ describe('a buy that follows a shared portfolio, on the order screen', () => {
     seed(FAMILY, 10);
     const host = await screen();
     expect(find(host, `[aria-label="${en.order.shared.followTitle}"]`).textContent).toContain(SLUG);
+    await onward(host);
     await click(primary(host));
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({
@@ -244,8 +254,10 @@ describe('a follow by a vault, on the order screen', () => {
     seed(FOLLOW);
     const host = await screen();
     expect(host.textContent).toContain(en.shared.check.notChecked);
-    expect(primary(host).textContent).toContain(en.order.shared.signFollow);
+    expect(primary(host).textContent).toContain(en.order.flow.continue);
     await tick(host);
+    await onward(host);
+    expect(primary(host).textContent).toContain(en.order.flow.press.version);
     await click(primary(host));
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({

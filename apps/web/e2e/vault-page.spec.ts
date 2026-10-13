@@ -49,6 +49,25 @@ async function check(page: Page, name: string) {
   await inTheme(page, 'light');
 }
 
+/**
+ * One screen of an order in the pane, whole at a desk (gate SIGN-ONE-STEP): at 1440x900 the pane's
+ * own scroller holds it with nothing to scroll. Back to the phone after.
+ */
+async function fitsPane(page: Page, name: string) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const m = await page.evaluate(() => {
+    const pane = document.querySelector<HTMLElement>('[data-ui="vault-action"]');
+    const doc = document.scrollingElement as HTMLElement;
+    return {
+      over: pane ? pane.scrollHeight - pane.clientHeight : -1,
+      page: doc.scrollHeight - doc.clientHeight,
+    };
+  });
+  expect(m.over, `${name}: the screen fits the pane at 1440x900`).toBeLessThanOrEqual(1);
+  expect(m.page, `${name}: the page does not scroll at 1440x900`).toBeLessThanOrEqual(1);
+  await page.setViewportSize(PHONE);
+}
+
 /** Follows a link of the product's bar, as a phone does: the menu button, then the link in its sheet. */
 async function go(page: Page, name: string) {
   await page.getByRole('button', { name: en.shell.menu }).click();
@@ -272,7 +291,10 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await expect(actions).toHaveCount(0);
   await check(page, 'deposit-amount');
   const press = await readyToInvest(page, { amount: '40' });
-  await expect(pane.locator('[data-ui="order-step"]').first()).toBeVisible();
+  // what the deposit does in one sentence, where it goes, and every step one fold away
+  await expect(pane.locator('[data-ui="sign-sentence"]')).toContainText('$40');
+  await expect(pane.locator('[data-ui="sign-picture"]')).toBeVisible();
+  await expect(pane.locator('[data-ui="order-step"]').first()).toBeHidden();
   await check(page, 'deposit-review');
   await fixedWorkbench(page, '[data-ui="vault-action"]');
   await press.click();
@@ -309,8 +331,18 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await expect(title).toHaveText(p.panes.withdraw.signTitle);
   await expect(page).toHaveURL(here);
   await expect(pane.locator('[data-ui="order-step"]')).toHaveCount(2);
+  // the review: what leaves, one sentence, and "Continue", which approves nothing
+  await expect(pane.locator('[data-ui="sign-picture"]')).toBeVisible();
   await check(page, 'withdraw-steps');
-  await pane.getByRole('button', { name: en.order.shared.signWithdraw }).click();
+  await fitsPane(page, 'withdraw review');
+  await pane.locator('[data-action="order-continue"]').click();
+  // the first step alone, with a button that names it
+  const withdrawPress = pane.locator('[data-ui="sign-step"] [data-variant="primary"]');
+  await expect(withdrawPress).toContainText(en.order.flow.press.withdraw(''));
+  await expect(pane.locator('[data-ui="sign-progress"] [aria-current="step"]')).toBeVisible();
+  await check(page, 'withdraw-sign');
+  await fitsPane(page, 'withdraw step');
+  await withdrawPress.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page).toHaveURL(here);
   await expect(pane.locator('[data-ui="withdraw-done"]')).toBeVisible();
@@ -568,12 +600,32 @@ test('a change proposed in the conversation is applied in place, and the weights
   await expect(page).toHaveURL(here);
   await expect(title).toHaveText(p.panes.change.signTitle);
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.change);
-  await expect(pane.getByRole('region', { name: en.mix.order.title })).toContainText('70%');
+  // Thom's case (gate SIGN-ONE-STEP): what changes as one picture, the targets now beside the new
+  // ones, one sentence, and "Continue"; the vault's address and every step's figures are folded
+  const picture = pane.locator('[data-ui="sign-picture"]');
+  await expect(picture).toContainText('60%');
+  await expect(picture).toContainText('70%');
+  await expect(pane.locator('[data-ui="sign-sentence"]')).toBeVisible();
+  await expect(pane.getByRole('region', { name: en.mix.order.title })).toBeHidden();
   await check(page, 'apply-steps');
-  await pane.getByRole('button', { name: en.mix.order.signTargets }).click();
+  await fitsPane(page, 'change review');
+  await pane.locator('[data-action="order-continue"]').click();
+  // one step on the screen: the strip, the step in plain words, a button that names it
+  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText(en.order.flow.title.targets);
+  const targetsPress = pane.getByRole('button', { name: en.order.flow.press.targets });
+  await expect(targetsPress).toBeVisible();
+  await check(page, 'apply-sign');
+  await fitsPane(page, 'change step');
+  await targetsPress.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page).toHaveURL(here);
+  // done: the targets as the order set them, the transactions folded
+  await expect(pane.locator('[data-ui="sign-picture"]')).toContainText('70%');
+  await expect(pane.locator('[data-ui="order-details"] > summary')).toHaveText(
+    en.order.flow.transactions,
+  );
   await check(page, 'apply-done');
+  await fitsPane(page, 'change done');
   await pane.getByRole('button', { name: p.backToVault }).click();
   await expect(screen).toHaveAttribute('data-pane', 'holdings');
   const targets = async () => {

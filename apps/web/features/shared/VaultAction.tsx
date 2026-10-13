@@ -14,7 +14,6 @@ import { latestOf, recallOrder, recallOrders } from '../order/order-record';
 import { AddMoneyScreen } from '../portfolio/AddMoneyScreen';
 import { sameAddress } from '../portfolio/vault-name';
 import { RebalanceStart } from './RebalanceStart';
-import { SharedReview } from './SharedReview';
 import type { SharedTerms } from './terms';
 import { WithdrawScreen } from './WithdrawScreen';
 
@@ -254,12 +253,20 @@ export function VaultAction({
       onStarted: () => {},
       onAgain: onRestart,
       hostEnds: true,
+      // the vault's targets as this page read them: the review sets the new ones beside them
+      ...(paneOf(open.kind) === 'change'
+        ? {
+            before: vault.positions
+              .filter((position) => position.targetBps > 0)
+              .map((position) => ({ asset: position.asset, weightBps: position.targetBps })),
+          }
+        : {}),
       ...told,
     };
     body = (
       <>
-        {/* what the order is held to, as its review showed it: the order's screen leaves it to its host */}
-        {record?.terms && <SharedReview terms={record.terms} chain={chain} />}
+        {/* the order's screen says what changes, then each step on its own (gate SIGN-ONE-STEP); what
+            the order is held to, as its review showed it, is in its details */}
         <Card
           as="section"
           aria-label={t.order.stepsTitle}
@@ -305,20 +312,17 @@ export function VaultAction({
           </p>
         )}
       </header>
-      {/* The end, over the steps: the one way on is not under a long card. How it ended is the order's
-          own sentence, below, which never says plainly done of a step that was skipped or a token that
-          stayed (OrderScreen): nothing here says more than it does. */}
+      {body}
+      {/* The end, under what the order did (gate SIGN-ONE-STEP: a short screen, not a long card). How
+          it ended is the order's own sentence, above, which never says plainly done of a step that
+          was skipped or a token that stayed (OrderScreen): nothing here says more than it does. */}
       {done && (
         <div data-ui="vault-action-done" className="flex flex-col items-start gap-3">
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {p.endedLead}
-          </p>
           <Button variant="primary" data-action="back-to-vault" onClick={onFinished}>
             {p.backToVault}
           </Button>
         </div>
       )}
-      {body}
       {/* the way back, whenever no step is being signed; what was sent stays sent */}
       {phase !== 'signing' && !done && (
         <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
