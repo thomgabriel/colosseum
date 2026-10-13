@@ -522,7 +522,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the holding"]
+      "unverified": [
+        "the holding"
+      ]
     },
     {
       "address": "GiLTSeSFnNse7xQVYeKdMyckGw66AoRmyggGg1NNd4yr",
@@ -723,7 +725,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the holding"]
+      "unverified": [
+        "the holding"
+      ]
     },
     {
       "address": "J6pQQ3FAcJQeWPPGppWRb4nM8jU3wLyYbRrLh7feMfvd",
@@ -2029,7 +2033,10 @@
           "readOn": "2026-10-06"
         }
       ],
-      "unverified": ["the share of backing lost", "the mint on a Reflect page"]
+      "unverified": [
+        "the share of backing lost",
+        "the mint on a Reflect page"
+      ]
     },
     {
       "address": "GcV9tEj62VncGithz4o4N9x6HWXARxuRgEAYk9zahNA8",
@@ -2064,7 +2071,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+      "unverified": [
+        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
+      ]
     },
     {
       "address": "7GxATsNMnaC88vdwd2t3mwrFuQwwGvmYPrUQ4D6FotXk",
@@ -2105,7 +2114,11 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["JupUSD reserves from an issuer document", "the terms", "how rewards are paid"]
+      "unverified": [
+        "JupUSD reserves from an issuer document",
+        "the terms",
+        "how rewards are paid"
+      ]
     },
     {
       "address": "9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D",
@@ -2151,7 +2164,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+      "unverified": [
+        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
+      ]
     },
     {
       "address": "9fvHrYNw1A8Evpcj7X2yy4k4fT7nNHcA9L6UsamNHAif",
@@ -2186,7 +2201,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+      "unverified": [
+        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
+      ]
     },
     {
       "address": "j14XLJZSVMcUYpAfajdZRpnfHUpJieZHS4aPektLWvh",
@@ -2232,7 +2249,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+      "unverified": [
+        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
+      ]
     },
     {
       "address": "Cmn4v2wipYV41dkakDvCgFJpxhtaaKt11NyWV8pjSE8A",
@@ -2267,7 +2286,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"]
+      "unverified": [
+        "geo-blocks: Jupiter Lend's terms were not read (the note, section 6)"
+      ]
     },
     {
       "address": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
@@ -2645,7 +2666,11 @@
           "readOn": "2026-10-06"
         }
       ],
-      "unverified": ["the mint on an issuer page", "what backs it in full", "geo-blocks"]
+      "unverified": [
+        "the mint on an issuer page",
+        "what backs it in full",
+        "geo-blocks"
+      ]
     },
     {
       "address": "2uxaYT1fVrp6Fg2BrxQcyKSW91hefM6dG9krpbeDiirT",
@@ -3057,7 +3082,10 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
+      "unverified": [
+        "the issuer: from DefiLlama's name only",
+        "the mint on an issuer page"
+      ]
     },
     {
       "address": "CeteszTBgDCiRWyPX6KFMHGVcSBTAg82dbaiFC7xDXSn",
@@ -3092,7 +3120,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["what backs MEX"]
+      "unverified": [
+        "what backs MEX"
+      ]
     },
     {
       "address": "AhhdRu5YZdjVkKR3wbnUDaymVQL2ucjMQ63sZ3LFHsch",
@@ -3279,7 +3309,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["how USDe reaches Solana (the bridge) and how it is redeemed there"]
+      "unverified": [
+        "how USDe reaches Solana (the bridge) and how it is redeemed there"
+      ]
     },
     {
       "address": "USDvUSpnhCr9yBgj3UyVrD239HRUv4RsHwH2FxsWuMk",
@@ -3505,7 +3537,10 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the issuer: from DefiLlama's name only", "the mint on an issuer page"]
+      "unverified": [
+        "the issuer: from DefiLlama's name only",
+        "the mint on an issuer page"
+      ]
     },
     {
       "address": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
@@ -3574,7 +3609,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the mint on an issuer page"]
+      "unverified": [
+        "the mint on an issuer page"
+      ]
     },
     {
       "address": "JuprjznTrTSp2UFa3ZBUFgwdAmtZCq4MQCwysN55USD",
@@ -3686,7 +3723,9 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the mint on an issuer page"]
+      "unverified": [
+        "the mint on an issuer page"
+      ]
     },
     {
       "address": "A9mUU4qviSctJVPJdBJWkb28deg915LYJKrzQ19ji3FM",
@@ -4529,7 +4568,10 @@
           "readOn": "2026-10-11"
         }
       ],
-      "unverified": ["the issuer and the bridge behind it", "the mint on an issuer page"]
+      "unverified": [
+        "the issuer and the bridge behind it",
+        "the mint on an issuer page"
+      ]
     },
     {
       "address": "9hX59xHHnaZXLU6quvm5uGY2iDiT3jczaReHy6A6TYKw",
@@ -5052,43 +5094,6 @@
       ]
     },
     {
-      "address": "61V8vBaqAGMpgDQi4JcAwo1dmBGHsyhzodcPqnEVpump",
-      "symbol": "arc",
-      "category": "governance",
-      "status": "candidate",
-      "statusReason": "crypto: enumerated and read, not decided (DA6)",
-      "verdictSource": null,
-      "issuer": "AI Rig Complex",
-      "issuerReason": null,
-      "issuerKind": "defi_protocol",
-      "underlying": "arc",
-      "underlyingReason": null,
-      "currency": null,
-      "legTypes": null,
-      "legTypesReason": null,
-      "yieldMechanism": "none",
-      "yieldMechanismReason": null,
-      "access": null,
-      "accessReason": "not_read",
-      "mintRedeem": null,
-      "mintRedeemReason": "not_read",
-      "sources": [
-        {
-          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
-          "title": "Jupiter's verified token list, with every tag",
-          "readOn": "2026-10-12"
-        },
-        {
-          "url": "https://www.coingecko.com/en/coins/ai-rig-complex",
-          "title": "CoinGecko, AI Rig Complex: its coin list names this Solana mint; its categories infrastructure",
-          "readOn": "2026-10-12"
-        }
-      ],
-      "unverified": [
-        "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
-      ]
-    },
-    {
       "address": "AavE1kKKnesPw4MuRJmJ9jZs9QzEE8CPxQ3ViczUDfc1",
       "symbol": "AAVE",
       "category": "governance",
@@ -5160,6 +5165,132 @@
       ],
       "unverified": [
         "what the project is: CoinGecko's name for the mint and Jupiter's listing, not the project's own page"
+      ]
+    },
+    {
+      "address": "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ",
+      "symbol": "W",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6); its own project page names the protocol (gate SHELF-CRYPTO-1)",
+      "verdictSource": null,
+      "issuer": "Wormhole",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "W",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/wormhole",
+          "title": "CoinGecko, Wormhole: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://wormhole.com/blog/stake-for-governance-is-now-live-for-w-token-holders",
+          "title": "Wormhole, Stake for governance is now live for W token holders: W is staked and delegated to vote in the Wormhole DAO (MultiGov)",
+          "readOn": "2026-10-13"
+        }
+      ],
+      "unverified": [
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "hntyVP6YFm1Hg25TN9WGLqM12b8TQmcknKrdu1oxWux",
+      "symbol": "HNT",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6); its own project page names the protocol (gate SHELF-CRYPTO-1)",
+      "verdictSource": null,
+      "issuer": "Helium",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "HNT",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/helium",
+          "title": "CoinGecko, Helium: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://docs.helium.com/tokens/hnt-token",
+          "title": "Helium docs, HNT: the native cryptocurrency and protocol token of the Helium Network; names this Solana mint",
+          "readOn": "2026-10-13"
+        }
+      ],
+      "unverified": [
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
+      ]
+    },
+    {
+      "address": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+      "symbol": "RENDER",
+      "category": "governance",
+      "status": "candidate",
+      "statusReason": "crypto: enumerated and read, not decided (DA6); its own project page names the protocol (gate SHELF-CRYPTO-1)",
+      "verdictSource": null,
+      "issuer": "Render",
+      "issuerReason": null,
+      "issuerKind": "defi_protocol",
+      "underlying": "RENDER",
+      "underlyingReason": null,
+      "currency": null,
+      "legTypes": null,
+      "legTypesReason": null,
+      "yieldMechanism": "none",
+      "yieldMechanismReason": null,
+      "access": null,
+      "accessReason": "not_read",
+      "mintRedeem": null,
+      "mintRedeemReason": "not_read",
+      "sources": [
+        {
+          "url": "https://lite-api.jup.ag/tokens/v2/tag?query=verified",
+          "title": "Jupiter's verified token list, with every tag",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://www.coingecko.com/en/coins/render-token",
+          "title": "CoinGecko, Render: its coin list names this Solana mint",
+          "readOn": "2026-10-11"
+        },
+        {
+          "url": "https://know.rendernetwork.com/the-solana-shift-what-you-need-to-know/render-network-upgrade-portal-faq",
+          "title": "Render Network, Upgrade Portal FAQ: names this SPL mint; voting and governance occur with RENDER on Solana",
+          "readOn": "2026-10-13"
+        }
+      ],
+      "unverified": [
+        "that it is a protocol, network or product token and not a memecoin: CoinGecko files it in no meme category"
       ]
     }
   ]
