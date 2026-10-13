@@ -117,8 +117,25 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
         .filter(([id]) => id !== guard.cash)
         .map(([, a]) => [lower(a.address), { decimals: a.decimals, pool: a.pool }]),
     );
+    // And the tokens the Safe listed later through the timelock, once the record lists them
+    // (`4663-assets-2.json`, `pnpm ops:add-assets --promote`): the guard learns a token with the record.
+    const listed = new Set(
+      (
+        JSON.parse(readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8')) as {
+          assets: { address: string }[];
+        }
+      ).assets.map((a) => lower(a.address)),
+    );
+    const added = (
+      JSON.parse(
+        readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-assets-2.json'), 'utf8'),
+      ) as ContractsFile
+    ).assets.filter((a) => listed.has(lower(a.token)));
     const fromContracts = Object.fromEntries(
-      stocks.map((a) => [lower(a.token), { decimals: a.tokenDecimals, pool: a.pool }]),
+      [...stocks, ...added].map((a) => [
+        lower(a.token),
+        { decimals: a.tokenDecimals, pool: a.pool },
+      ]),
     );
     expect(fromGuard).toEqual(fromContracts);
     for (const a of stocks) {

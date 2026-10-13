@@ -104,6 +104,13 @@ export const SYMBOLS: Record<string, string> = Object.fromEntries(
     'MSFT',
     'AMZN',
     'PAXG',
+    'USO',
+    'DELL',
+    'COIN',
+    'PLTR',
+    'TSM',
+    'BABA',
+    'WETH',
   ].map((s) => [s.toLowerCase(), s]),
 );
 
