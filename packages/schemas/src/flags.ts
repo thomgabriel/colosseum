@@ -23,22 +23,15 @@ export const Flags = z.object({
   keeperEnabled: z.boolean(),
   /** AGENT_SURFACE */
   agentSurface: z.boolean(),
-  /** LEGACY_STRUCTURER: the structurer's one route that signs on the server (the rebalance). */
-  legacyStructurer: z.boolean(),
 });
 export type Flags = z.infer<typeof Flags>;
 
-/**
- * With nothing set, no chain is touched, nothing signs on its own, and Base is out.
- * `legacyStructurer` is off: the API registers the structurer's server-signing route only when it is
- * on (API-2), so with nothing set no route reaches a signer.
- */
+/** With nothing set, no chain is touched, nothing signs on its own, and Base is out. */
 export const DEFAULT_FLAGS: Flags = {
   chainMode: { solana: 'mock', robinhood: 'mock', base: 'off' },
   autoFollow: { solana: false, robinhood: false, base: false },
   keeperEnabled: false,
   agentSurface: false,
-  legacyStructurer: false,
 };
 
 /** The env key of a per-chain setting: envKey('CHAIN_MODE', 'robinhood') is CHAIN_MODE_ROBINHOOD. */
@@ -65,7 +58,6 @@ export const KNOWN_ENV_KEYS: readonly string[] = [
   'CHAIN_MAINNET_ROBINHOOD',
   'KEEPER_ENABLED',
   'AGENT_SURFACE',
-  'LEGACY_STRUCTURER',
 ];
 
 /**
@@ -138,6 +130,5 @@ export function parseFlags(env: EnvLike, alsoKnown: readonly string[] = []): Fla
     autoFollow,
     keeperEnabled: bool(env, 'KEEPER_ENABLED', DEFAULT_FLAGS.keeperEnabled),
     agentSurface: bool(env, 'AGENT_SURFACE', DEFAULT_FLAGS.agentSurface),
-    legacyStructurer: bool(env, 'LEGACY_STRUCTURER', DEFAULT_FLAGS.legacyStructurer),
   };
 }

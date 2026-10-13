@@ -462,26 +462,6 @@ export const snapshotRuns = pgTable(
   ],
 );
 
-/** The watchlist. `prompt_version` is a new version waiting for the person's answer. */
-export const follows = pgTable(
-  'follows',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id),
-    familyId: text('family_id')
-      .notNull()
-      .references(() => indexFamilies.familyId),
-    promptVersion: integer('prompt_version'),
-    createdAt: ts('created_at').notNull().defaultNow(),
-  },
-  (t) => [
-    unique('follows_user_family_key').on(t.userId, t.familyId),
-    index('follows_family_idx').on(t.familyId),
-  ],
-);
-
 /** One object behind every buy, rebalance, publish and agent approval. Reachable only by its id. */
 export const orders = pgTable(
   'orders',
@@ -511,23 +491,6 @@ export const orders = pgTable(
     index('orders_owner_solana_idx').on(t.ownerSolana),
     index('orders_owner_evm_idx').on(t.ownerEvm),
   ],
-);
-
-/** A consent given on the approval page, bound to the legs it covered. */
-export const consents = pgTable(
-  'consents',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    orderId: uuid('order_id')
-      .notNull()
-      .references(() => orders.id),
-    address: text('address').notNull(),
-    kind: text('kind').$type<ConsentKind>().notNull(),
-    textVersion: text('text_version').notNull(),
-    legsHash: text('legs_hash').notNull(),
-    createdAt: ts('created_at').notNull().defaultNow(),
-  },
-  (t) => [index('consents_order_idx').on(t.orderId)],
 );
 
 /** An owner-signed step of an order. Its status, tx id and attempt number mirror its latest attempt. */

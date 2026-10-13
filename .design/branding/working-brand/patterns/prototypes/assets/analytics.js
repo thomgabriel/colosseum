@@ -1,6 +1,7 @@
 /* Bearing analytics view for the landing prototype (hero-3d.html, #analytics).
    Reads the risk API at <html data-api> (default http://localhost:3011); when it does not answer within 3 s it
-   reads the snapshot under assets/analytics/ (manifest.json) and every figure takes the stale state.
+   reads the snapshot under assets/analytics/ (manifest.json, made by capture.mjs and not committed) and every
+   figure takes the stale state; with neither, one line says so.
    Every figure is a fact from the API (value, source, fetchedAt, method, methodVersion, quality) or a route field
    wrapped with the route's own source and time. A missing fact shows its reason in words: never zero, never hatched.
    No library: charts are inline SVG. Review aids: ?theme=light, ?check=1 (DOM check in the console), ?api=<base>. */
@@ -1212,7 +1213,7 @@
     if (started) return started;
     shell();
     started = ready().then(function () {
-      if (S.mode === 'none') { els['an-banner'].className = 'an-banner'; els['an-banner'].innerHTML = '<b>Neither the API at ' + esc(API) + ' nor the snapshot answered.</b><span>Start the API (docs/risk/PROMPT-BUILD-ANALYTICS-PAGE.md) or serve this folder over HTTP.</span>'; return; }
+      if (S.mode === 'none') { els['an-banner'].className = 'an-banner'; els['an-banner'].innerHTML = '<b>Neither the API at ' + esc(API) + ' nor a snapshot answered.</b><span>Start the API (docs/risk/PROMPT-BUILD-ANALYTICS-PAGE.md), or capture a snapshot with assets/analytics/capture.mjs and serve this folder over HTTP. The snapshot is not committed.</span>'; return; }
       return Promise.all([get(R.assets(S.tau)), get(R.pools())]).then(function (rs) {
         if (rs[1].ok) rs[1].body.pools.forEach(function (p) { A.nPools++; if (!A.poolTimes[p.assetMint] || p.fetchedAt > A.poolTimes[p.assetMint]) A.poolTimes[p.assetMint] = p.fetchedAt; });
         if (rs[0].ok) header(rs[0].body);

@@ -476,68 +476,10 @@ contract Deploy is Script {
         // Every asset: a real token with the decimals stated, and feeds that are Chainlink's.
         bool cashListed;
         for (uint256 i; i < cfg.assets.length; ++i) {
-            Asset memory a = cfg.assets[i];
-            string memory description = i < cfg.feedDescriptions.length ? cfg.feedDescriptions[i] : "";
-            require(a.token.code.length != 0, MainnetRefused("an asset's token has no code"));
-            (bool ok, uint256 decimals) = _word(a.token, 0x313ce567);
-            require(
-                ok && decimals == a.config.tokenDecimals, MainnetRefused("an asset's tokenDecimals are not the token's")
+            if (cfg.assets[i].token == cfg.cashToken) cashListed = true;
+            checkMainnetAsset(
+                cfg.assets[i], i < cfg.feedDescriptions.length ? cfg.feedDescriptions[i] : "", cfg.cashToken
             );
-            if (a.token == cfg.cashToken) {
-                cashListed = true;
-            }
-            if (a.config.pauseProbe != address(0)) {
-                (ok,) = _word(a.config.pauseProbe, a.config.pauseSelector);
-                require(ok, MainnetRefused("an asset's pause probe does not answer"));
-            }
-            if (a.config.scheduleSelector != bytes4(0)) {
-                (ok,) = _word(a.token, a.config.scheduleSelector);
-                require(ok, MainnetRefused("an asset's token does not answer its schedule selector"));
-            }
-            if (a.config.feed == address(0)) {
-                require(
-                    a.config.flags == 0 && a.config.averageFeed == address(0),
-                    MainnetRefused("an asset with no feed has an average or the keeper's switch")
-                );
-                continue;
-            }
-            _requireRealFeed(a.config.feed, "an asset's feed");
-            (ok, decimals) = _word(a.config.feed, 0x313ce567);
-            require(
-                ok && decimals == a.config.feedDecimals, MainnetRefused("an asset's feedDecimals are not the feed's")
-            );
-            // A Chainlink feed is a proxy that names the aggregator behind it, and says what it prices.
-            (bool named, uint256 aggregator) = _word(a.config.feed, 0x245a7bfc);
-            require(
-                named && aggregator != 0 && aggregator <= type(uint160).max
-                    && address(uint160(aggregator)).code.length != 0,
-                MainnetRefused("an asset's feed names no aggregator: not a Chainlink feed")
-            );
-            require(bytes(description).length != 0, MainnetRefused("an asset's feedDescription is missing"));
-            require(
-                _descriptionIs(a.config.feed, description),
-                MainnetRefused("an asset's feed does not describe itself as the file says")
-            );
-            if (a.config.averageFeed != address(0)) {
-                _requireRealFeed(a.config.averageFeed, "an asset's average feed");
-                (ok, decimals) = _word(a.config.averageFeed, 0x313ce567);
-                require(
-                    ok && decimals == a.config.feedDecimals,
-                    MainnetRefused("an average feed's decimals are not the feed's")
-                );
-                require(
-                    checkAverageFeed(a, cfg.cashToken),
-                    MainnetRefused(
-                        "an asset's average feed does not name its token, feed and cash: not a pool-average feed"
-                    )
-                );
-            }
-            if (a.config.flags & 1 != 0) {
-                require(
-                    uint256(a.config.maxPrice) * 100 <= uint256(a.config.minPrice) * MAINNET_MAX_RANGE_PCT,
-                    MainnetRefused("a keeper asset's price range is wider than about 15% either side")
-                );
-            }
         }
         require(cashListed, MainnetRefused("the cash token is not among the assets"));
 
@@ -562,6 +504,66 @@ contract Deploy is Script {
             require(
                 cfg.staleRailMaxAge != 0,
                 MainnetRefused("a rail with no staleRailMaxAge: a feed that died would anchor trades for ever")
+            );
+        }
+    }
+
+    /// One asset of a mainnet file, held to the chain: a real token with the decimals stated, a pause probe
+    /// and a schedule selector that answer, and feeds that are Chainlink's and describe themselves as the
+    /// file says. `checkMainnet` holds every asset of a deploy to it, and `AddAssets` every asset the Safe
+    /// lists later.
+    function checkMainnetAsset(Asset memory a, string memory description, address cashToken) public view {
+        require(a.token.code.length != 0, MainnetRefused("an asset's token has no code"));
+        (bool ok, uint256 decimals) = _word(a.token, 0x313ce567);
+        require(
+            ok && decimals == a.config.tokenDecimals, MainnetRefused("an asset's tokenDecimals are not the token's")
+        );
+        if (a.config.pauseProbe != address(0)) {
+            (ok,) = _word(a.config.pauseProbe, a.config.pauseSelector);
+            require(ok, MainnetRefused("an asset's pause probe does not answer"));
+        }
+        if (a.config.scheduleSelector != bytes4(0)) {
+            (ok,) = _word(a.token, a.config.scheduleSelector);
+            require(ok, MainnetRefused("an asset's token does not answer its schedule selector"));
+        }
+        if (a.config.feed == address(0)) {
+            require(
+                a.config.flags == 0 && a.config.averageFeed == address(0),
+                MainnetRefused("an asset with no feed has an average or the keeper's switch")
+            );
+            return;
+        }
+        _requireRealFeed(a.config.feed, "an asset's feed");
+        (ok, decimals) = _word(a.config.feed, 0x313ce567);
+        require(ok && decimals == a.config.feedDecimals, MainnetRefused("an asset's feedDecimals are not the feed's"));
+        // A Chainlink feed is a proxy that names the aggregator behind it, and says what it prices.
+        (bool named, uint256 aggregator) = _word(a.config.feed, 0x245a7bfc);
+        require(
+            named && aggregator != 0 && aggregator <= type(uint160).max && address(uint160(aggregator)).code.length != 0,
+            MainnetRefused("an asset's feed names no aggregator: not a Chainlink feed")
+        );
+        require(bytes(description).length != 0, MainnetRefused("an asset's feedDescription is missing"));
+        require(
+            _descriptionIs(a.config.feed, description),
+            MainnetRefused("an asset's feed does not describe itself as the file says")
+        );
+        if (a.config.averageFeed != address(0)) {
+            _requireRealFeed(a.config.averageFeed, "an asset's average feed");
+            (ok, decimals) = _word(a.config.averageFeed, 0x313ce567);
+            require(
+                ok && decimals == a.config.feedDecimals, MainnetRefused("an average feed's decimals are not the feed's")
+            );
+            require(
+                checkAverageFeed(a, cashToken),
+                MainnetRefused(
+                    "an asset's average feed does not name its token, feed and cash: not a pool-average feed"
+                )
+            );
+        }
+        if (a.config.flags & 1 != 0) {
+            require(
+                uint256(a.config.maxPrice) * 100 <= uint256(a.config.minPrice) * MAINNET_MAX_RANGE_PCT,
+                MainnetRefused("a keeper asset's price range is wider than about 15% either side")
             );
         }
     }
@@ -814,31 +816,8 @@ contract Deploy is Script {
         }
         if (vm.keyExistsJson(json, ".staleRailMaxAge")) cfg.staleRailMaxAge = json.readUint(".staleRailMaxAge");
         for (uint256 i; i < n; ++i) {
-            string memory entry = string.concat(".assets[", vm.toString(i), "]");
-            if (vm.keyExistsJson(json, string.concat(entry, ".maxTradeUsd"))) {
-                cfg.maxTradeUsd[i] = json.readUint(string.concat(entry, ".maxTradeUsd"));
-            }
-            cfg.assets[i].token = json.readAddress(string.concat(entry, ".token"));
-            if (vm.keyExistsJson(json, string.concat(entry, ".feedDescription"))) {
-                cfg.feedDescriptions[i] = json.readString(string.concat(entry, ".feedDescription"));
-            }
-            cfg.assets[i].config = AssetConfig({
-                feed: json.readAddress(string.concat(entry, ".feed")),
-                tokenDecimals: uint8(_fit(json, string.concat(entry, ".tokenDecimals"), type(uint8).max)),
-                feedDecimals: uint8(_fit(json, string.concat(entry, ".feedDecimals"), type(uint8).max)),
-                maxAge: uint32(_fit(json, string.concat(entry, ".maxAge"), type(uint32).max)),
-                session: uint8(_fit(json, string.concat(entry, ".session"), type(uint8).max)),
-                source: uint8(_fit(json, string.concat(entry, ".source"), type(uint8).max)),
-                maxWeightBps: uint16(_fit(json, string.concat(entry, ".maxWeightBps"), type(uint16).max)),
-                pauseProbe: json.readAddress(string.concat(entry, ".pauseProbe")),
-                pauseSelector: _selector(json, string.concat(entry, ".pauseSelector")),
-                scheduleSelector: _selector(json, string.concat(entry, ".scheduleSelector")),
-                haltUntil: 0,
-                flags: uint8(_fit(json, string.concat(entry, ".flags"), type(uint8).max)),
-                averageFeed: json.readAddress(string.concat(entry, ".averageFeed")),
-                minPrice: uint128(_fit(json, string.concat(entry, ".minPrice"), type(uint128).max)),
-                maxPrice: uint128(_fit(json, string.concat(entry, ".maxPrice"), type(uint128).max))
-            });
+            (cfg.assets[i], cfg.feedDescriptions[i], cfg.maxTradeUsd[i]) =
+                parseAsset(json, string.concat(".assets[", vm.toString(i), "]"));
         }
 
         n = _count(json, ".routers");
@@ -857,6 +836,39 @@ contract Deploy is Script {
             string memory entry = string.concat(".closedDays[", vm.toString(i), "]");
             cfg.closedDays[i] = uint32(_fit(json, entry, type(uint32).max));
         }
+    }
+
+    /// One entry of a file's `assets`, at `entry` (".assets[3]"): the token and its settings, what its
+    /// feed's `description()` must answer, and its largest single trade in dollars (zero where not stated).
+    function parseAsset(string memory json, string memory entry)
+        public
+        view
+        returns (Asset memory a, string memory description, uint256 maxTradeUsd)
+    {
+        if (vm.keyExistsJson(json, string.concat(entry, ".maxTradeUsd"))) {
+            maxTradeUsd = json.readUint(string.concat(entry, ".maxTradeUsd"));
+        }
+        a.token = json.readAddress(string.concat(entry, ".token"));
+        if (vm.keyExistsJson(json, string.concat(entry, ".feedDescription"))) {
+            description = json.readString(string.concat(entry, ".feedDescription"));
+        }
+        a.config = AssetConfig({
+            feed: json.readAddress(string.concat(entry, ".feed")),
+            tokenDecimals: uint8(_fit(json, string.concat(entry, ".tokenDecimals"), type(uint8).max)),
+            feedDecimals: uint8(_fit(json, string.concat(entry, ".feedDecimals"), type(uint8).max)),
+            maxAge: uint32(_fit(json, string.concat(entry, ".maxAge"), type(uint32).max)),
+            session: uint8(_fit(json, string.concat(entry, ".session"), type(uint8).max)),
+            source: uint8(_fit(json, string.concat(entry, ".source"), type(uint8).max)),
+            maxWeightBps: uint16(_fit(json, string.concat(entry, ".maxWeightBps"), type(uint16).max)),
+            pauseProbe: json.readAddress(string.concat(entry, ".pauseProbe")),
+            pauseSelector: _selector(json, string.concat(entry, ".pauseSelector")),
+            scheduleSelector: _selector(json, string.concat(entry, ".scheduleSelector")),
+            haltUntil: 0,
+            flags: uint8(_fit(json, string.concat(entry, ".flags"), type(uint8).max)),
+            averageFeed: json.readAddress(string.concat(entry, ".averageFeed")),
+            minPrice: uint128(_fit(json, string.concat(entry, ".minPrice"), type(uint128).max)),
+            maxPrice: uint128(_fit(json, string.concat(entry, ".maxPrice"), type(uint128).max))
+        });
     }
 
     /// Whether `text` holds `word` anywhere.
