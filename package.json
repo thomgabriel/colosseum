@@ -39,7 +39,6 @@
     "wallet:export": "tsx scripts/wallet-export.ts",
     "wallet:import": "tsx scripts/wallet-import.ts",
     "sign-and-send": "tsx scripts/mainnet/sign-and-send.ts",
-    "fixture:plan": "tsx scripts/fixtures/insert-fixture-plan.ts",
     "feeds:refresh": "tsx scripts/feeds/refresh.ts",
     "feeds:refresh-models": "tsx scripts/feeds/refresh-models.ts",
     "schedule:export": "tsx scripts/schedule-export.ts",
