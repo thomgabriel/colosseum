@@ -1,0 +1,64 @@
+{
+  "series": "solana-swaps",
+  "chain": "solana",
+  "subject": "DTm2scPFBDUT3RE5Kc3Z8oUJPusKWk7gsFgJ2iZwhG99",
+  "methodVersion": "backfill-0.1",
+  "source": "Solana RPC getSignaturesForAddress and getTransaction (SOLANA_BACKFILL_RPC_URL and SOLANA_RPC_URL (weights 1:3)), decoded by @colosseum/risk's orca_whirlpool decoder",
+  "provenance": "live",
+  "covered": [
+    {
+      "from": 1791300276,
+      "to": 1791905075,
+      "unit": "second"
+    }
+  ],
+  "days": {
+    "2026-10-13": {
+      "rows": 1116,
+      "bytes": 125898
+    },
+    "2026-10-12": {
+      "rows": 31968,
+      "bytes": 2464200
+    },
+    "2026-10-11": {
+      "rows": 266,
+      "bytes": 33046
+    },
+    "2026-10-10": {
+      "rows": 329,
+      "bytes": 38465
+    },
+    "2026-10-09": {
+      "rows": 1129,
+      "bytes": 108301
+    },
+    "2026-10-08": {
+      "rows": 782,
+      "bytes": 87341
+    },
+    "2026-10-07": {
+      "rows": 381,
+      "bytes": 49114
+    },
+    "2026-10-06": {
+      "rows": 106,
+      "bytes": 14433
+    }
+  },
+  "rows": 36077,
+  "bytes": 2920798,
+  "checks": [
+    {
+      "name": "every_successful_signature_fetched",
+      "passed": true,
+      "detail": "106 of 106 successful signatures fetched (23 failed ones walked, not fetched)"
+    },
+    {
+      "name": "vault_balances_chain",
+      "passed": true,
+      "detail": "pre and post vault balances kept per row (vp, vb): the reserve trace history-full.ts checks"
+    }
+  ],
+  "updatedAt": "2026-10-13T15:45:13.834Z"
+}

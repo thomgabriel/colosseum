@@ -60,18 +60,27 @@ export function meteredBatch(
         `the cost cap of $${opts.capUsd} on ${opts.endpoint}: $${ledger.usd.toFixed(4)} spent, the next batch $${usd.toFixed(4)} (${opts.ledgerFile})`,
       ]);
     const replies = await batch(requests);
+    // read again after the answer: another run sharing the ledger may have written meanwhile, and its spend is
+    // kept (the read, the sums and the write happen with nothing awaited between them)
+    let after: CostLedger;
+    try {
+      after = read();
+    } catch {
+      // the other run's write caught half way: this run's own reading stands
+      after = ledger;
+    }
     for (const r of requests) {
-      ledger.byMethod[r.method] ??= { requests: 0, cu: 0 };
-      const m = ledger.byMethod[r.method] as { requests: number; cu: number };
+      after.byMethod[r.method] ??= { requests: 0, cu: 0 };
+      const m = after.byMethod[r.method] as { requests: number; cu: number };
       m.requests++;
       m.cu += cuOf(r.method);
     }
-    ledger.cu += cu;
-    ledger.usd = (ledger.cu / 1e6) * USD_PER_MILLION_CU;
-    ledger.requests += requests.length;
-    ledger.updatedAt = now().toISOString();
+    after.cu += cu;
+    after.usd = (after.cu / 1e6) * USD_PER_MILLION_CU;
+    after.requests += requests.length;
+    after.updatedAt = now().toISOString();
     mkdirSync(dirname(opts.ledgerFile), { recursive: true });
-    writeFileSync(opts.ledgerFile, `${JSON.stringify(ledger, null, 1)}\n`);
+    writeFileSync(opts.ledgerFile, `${JSON.stringify(after, null, 1)}\n`);
     return replies;
   };
 }

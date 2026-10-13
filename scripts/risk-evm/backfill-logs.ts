@@ -353,58 +353,106 @@ export class PoolResolver {
       want.set(k, r.filter.startsWith('v4_') ? 'v4' : 'cl');
     }
     if (!want.size) return;
-    const pm = this.chain.v4?.positionManager as string;
-    const uni = new Set(this.chain.clFactories.map((f) => f.address.toLowerCase()));
-    const subjects = [...want.entries()];
-    const calls: Call[] = subjects.flatMap(([k, kind]) =>
-      kind === 'v4'
-        ? [{ target: pm, callData: encodePoolKeys(k) }]
-        : [SEL.token0, SEL.token1, SEL.factory].map((sel) => ({ target: k, callData: `0x${sel}` })),
-    );
-    const replies: Array<{ success: boolean; data: string }> = [];
-    for (let i = 0; i < calls.length; i += 400) {
-      const part = calls.slice(i, i + 400);
-      const r = await ask(deps, {
-        method: 'eth_call',
-        params: [{ to: this.chain.multicall3, data: encodeAggregate3(part) }, 'latest'],
-      });
-      this.calls++;
-      if (r.error || typeof r.result !== 'string')
-        throw new Error(`multicall: ${r.error?.message ?? 'no result'}`);
-      replies.push(...decodeAggregate3(r.result));
-      await deps.sleep(PAUSE_MS);
-    }
+    const got = await poolTokensOf(deps, this.chain, [...want.entries()]);
+    this.calls += got.requests;
     const inList = (a: string) => this.listTokens.has(a.toLowerCase());
-    const addr = (x: { success: boolean; data: string } | undefined) =>
-      x?.success && x.data.length >= 66 ? wordToAddress(words(x.data)[0] as bigint) : null;
-    let at = 0;
-    for (const [k, kind] of subjects) {
-      if (kind === 'v4') {
-        const x = replies[at++];
-        let cls: PoolClass = 'unknown_pool';
-        if (x?.success && x.data.length === 2 + 5 * 64) {
-          const key = decodePoolKey(x.data);
-          // a pool the position manager never saw answers zeros
-          if (key.tickSpacing !== 0)
-            cls = inList(key.currency0) || inList(key.currency1) ? 'list_pool' : 'other_pool';
-        }
-        this.cache.set(k, cls);
-      } else {
-        const [t0, t1, f] = [addr(replies[at]), addr(replies[at + 1]), addr(replies[at + 2])];
-        at += 3;
-        this.cache.set(
-          k,
-          !t0 || !t1 || !f
-            ? 'unknown_pool'
-            : !uni.has(f)
-              ? 'other_venue'
-              : inList(t0) || inList(t1)
-                ? 'list_pool'
-                : 'other_pool',
-        );
+    for (const [k, t] of got.pools)
+      this.cache.set(
+        k,
+        t.token0 === null || t.token1 === null || (t.kind === 'cl' && t.uniswap === null)
+          ? 'unknown_pool'
+          : t.kind === 'cl' && !t.uniswap
+            ? 'other_venue'
+            : inList(t.token0) || inList(t.token1)
+              ? 'list_pool'
+              : 'other_pool',
+      );
+  }
+}
+
+/** What the chain says of a pool the creation logs do not name. Null tokens: the chain did not say. */
+export type PoolTokens = {
+  kind: 'cl' | 'v4';
+  token0: string | null;
+  token1: string | null;
+  /** v3-style: factory() is one of the chain's Uniswap v3 factories (D4: another venue is not read). */
+  uniswap: boolean | null;
+  factory?: string | null;
+  fee?: number;
+  tickSpacing?: number;
+  hooks?: string;
+};
+
+/**
+ * token0(), token1() and factory() of each v3-style contract, poolKeys(id) of the v4 position manager for each v4
+ * id, through Multicall3 at the head, 400 calls a request (PoolResolver's reads, with the tokens kept).
+ */
+export async function poolTokensOf(
+  deps: Deps,
+  chain: ChainConfig,
+  subjects: Array<[string, 'cl' | 'v4']>,
+): Promise<{ pools: Map<string, PoolTokens>; requests: number }> {
+  const pools = new Map<string, PoolTokens>();
+  if (!subjects.length) return { pools, requests: 0 };
+  const pm = chain.v4?.positionManager as string;
+  const uni = new Set(chain.clFactories.map((f) => f.address.toLowerCase()));
+  const calls: Call[] = subjects.flatMap(([k, kind]) =>
+    kind === 'v4'
+      ? [{ target: pm, callData: encodePoolKeys(k) }]
+      : [SEL.token0, SEL.token1, SEL.factory].map((sel) => ({ target: k, callData: `0x${sel}` })),
+  );
+  const replies: Array<{ success: boolean; data: string }> = [];
+  let requests = 0;
+  for (let i = 0; i < calls.length; i += 400) {
+    const part = calls.slice(i, i + 400);
+    const r = await ask(deps, {
+      method: 'eth_call',
+      params: [{ to: chain.multicall3, data: encodeAggregate3(part) }, 'latest'],
+    });
+    requests++;
+    if (r.error || typeof r.result !== 'string')
+      throw new Error(`multicall: ${r.error?.message ?? 'no result'}`);
+    const got = decodeAggregate3(r.result);
+    if (got.length !== part.length)
+      throw new Error(`multicall: ${part.length} calls, ${got.length} answers`);
+    replies.push(...got);
+    await deps.sleep(PAUSE_MS);
+  }
+  const addr = (x: { success: boolean; data: string } | undefined) =>
+    x?.success && x.data.length >= 66 ? wordToAddress(words(x.data)[0] as bigint) : null;
+  let at = 0;
+  for (const [k, kind] of subjects) {
+    if (kind === 'v4') {
+      const x = replies[at++];
+      let t: PoolTokens = { kind, token0: null, token1: null, uniswap: null };
+      if (x?.success && x.data.length === 2 + 5 * 64) {
+        const key = decodePoolKey(x.data);
+        // a pool the position manager never saw answers zeros
+        if (key.tickSpacing !== 0)
+          t = {
+            kind,
+            token0: key.currency0.toLowerCase(),
+            token1: key.currency1.toLowerCase(),
+            uniswap: true,
+            fee: key.fee,
+            tickSpacing: key.tickSpacing,
+            hooks: key.hooks.toLowerCase(),
+          };
       }
+      pools.set(k, t);
+    } else {
+      const [t0, t1, f] = [addr(replies[at]), addr(replies[at + 1]), addr(replies[at + 2])];
+      at += 3;
+      pools.set(k, {
+        kind,
+        token0: t0?.toLowerCase() ?? null,
+        token1: t1?.toLowerCase() ?? null,
+        uniswap: f ? uni.has(f.toLowerCase()) : null,
+        factory: f?.toLowerCase() ?? null,
+      });
     }
   }
+  return { pools, requests };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
