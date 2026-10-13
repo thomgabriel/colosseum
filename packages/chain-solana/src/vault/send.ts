@@ -21,7 +21,7 @@ import {
   verifySignature,
 } from '@solana/kit';
 import { messageBytesOf, refusalOf, sha256Hex } from './compose';
-import { ask, type VaultWriteRpc } from './rpc';
+import { ask, MAX_TX_VERSION, type VaultWriteRpc } from './rpc';
 
 // Broadcast and the probe (DESIGN-VAULT 3.2 `TxProbe`): what ties signed bytes and a landed transaction
 // back to what was built. It holds no key, signs nothing and keeps no record of what it built: the
@@ -83,6 +83,9 @@ async function signedByAll(tx: Transaction): Promise<boolean> {
 
 export type SolanaProbe = TxProbe;
 
+/** The hash given a landed transaction in a layout none of ours has: equal to no SHA-256 hex. */
+const NOT_OURS = 'not-one-of-ours';
+
 export function createSolanaProbe(options: {
   rpc: VaultWriteRpc;
   program: Address;
@@ -92,19 +95,26 @@ export function createSolanaProbe(options: {
   const commitment =
     options.commitment === 'processed' ? 'confirmed' : (options.commitment ?? 'confirmed');
 
-  /** The message hash of the transaction the node has under this id, or null when it has none. */
+  /**
+   * The message hash of the transaction the node has under this id, or null when it has none. The
+   * signer's list holds other parties' transactions too, of any version: a version-1 one is asked for
+   * with 1 so the node answers instead of refusing. Its wire starts with the message (version byte
+   * 0x81), not with a signature count (legacy and v0 carry fewer than 128 signatures, so their first
+   * byte is under 0x80); none of ours has that layout, so it is a transaction, and another's.
+   */
   async function hashOnChain(signature: Signature): Promise<string | null> {
     const found = await ask('getTransaction', () =>
       rpc
         .getTransaction(signature, {
           commitment,
           encoding: 'base64',
-          maxSupportedTransactionVersion: 0,
+          maxSupportedTransactionVersion: MAX_TX_VERSION,
         })
         .send(),
     );
     if (!found) return null;
     const wire = new Uint8Array(Buffer.from(found.transaction[0], 'base64'));
+    if ((wire[0] ?? 0) >= 0x80) return NOT_OURS;
     const parts = messageBytesOf(wire);
     return parts ? sha256Hex(parts.message) : null;
   }

@@ -182,6 +182,8 @@ export type FakeNode = {
   heightsAsked: string[];
   statuses: Map<string, Status>;
   logs: Map<string, string[]>;
+  /** Landed transactions in the version-1 layout: refused to a getTransaction that supports less, as mainnet does. */
+  versionOne: Set<string>;
   blockHeight: bigint;
   /** A height per commitment, where they differ: a fork not yet finalized is ahead. */
   heights: Partial<Record<string, bigint>>;
@@ -219,6 +221,7 @@ export function fakeNode(accounts: RawAccount[]): FakeNode {
     heightsAsked: [],
     statuses: new Map(),
     logs: new Map(),
+    versionOne: new Set(),
     blockHeight: 1_000n,
     heights: {},
     strays: [],
@@ -302,8 +305,10 @@ export function fakeNode(accounts: RawAccount[]): FakeNode {
           return status ? { ...status, confirmations: null, slot: 1n } : null;
         }),
       })),
-    getTransaction: (signature: string) =>
+    getTransaction: (signature: string, config?: { maxSupportedTransactionVersion?: number }) =>
       call('getTransaction', () => {
+        if (node.versionOne.has(signature) && (config?.maxSupportedTransactionVersion ?? -1) < 1)
+          throw new Error('Transaction version (1) is not supported by the requesting client');
         const logMessages = node.logs.get(signature);
         return logMessages ? { meta: { logMessages } } : null;
       }),

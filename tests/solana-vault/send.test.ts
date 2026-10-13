@@ -57,7 +57,7 @@ async function signedTx(n: number) {
 }
 const idOf = (tx: Transaction) => base58.decode(Object.values(tx.signatures)[0] as Uint8Array);
 
-type Landed = { slot: bigint; wire: string; err: unknown };
+type Landed = { slot: bigint; wire: string; err: unknown; version?: 0 | 1 };
 function node() {
   const state = {
     landed: new Map<string, Landed>(),
@@ -107,10 +107,13 @@ function node() {
             : null,
         ),
       })),
-    getTransaction: (id: string) =>
+    getTransaction: (id: string, config?: { maxSupportedTransactionVersion?: number }) =>
       answer('getTransaction', () => {
         state.fetched.push(id);
         const found = state.landed.get(id);
+        // As mainnet does: a version-1 transaction is refused to a client that supports less.
+        if (found?.version === 1 && (config?.maxSupportedTransactionVersion ?? -1) < 1)
+          throw new Error('Transaction version (1) is not supported by the requesting client');
         return found
           ? { slot: found.slot, meta: { err: found.err }, transaction: [found.wire, 'base64'] }
           : null;
@@ -269,6 +272,34 @@ describe('the Solana probe', () => {
       nonce: null,
     };
     expect(await probe.fate(attempt)).toEqual({ state: 'landed', txId: id });
+  });
+
+  it("reads past a version-1 transaction of someone else's in the signer's list", async () => {
+    const { rpc, state, land } = node();
+    const probe = createSolanaProbe({ rpc, program: PROGRAM });
+    const t = await signedTx(13);
+    const id = land(t.signed, t.payer, 400n);
+    // A newer transaction naming the signer, in mainnet's version-1 layout: the message first (its
+    // version byte 0x81), the signatures after it.
+    const stranger = base58.decode(new Uint8Array(64).fill(77));
+    const v1Wire = new Uint8Array(300).fill(3);
+    v1Wire.set([0x81, 0x01], 0);
+    state.landed.set(stranger, {
+      slot: 450n,
+      wire: Buffer.from(v1Wire).toString('base64'),
+      err: null,
+      version: 1,
+    });
+    state.bySigner.set(t.payer, [stranger, id]);
+    state.height = 501n;
+    const attempt = {
+      messageHash: await probe.messageHashOf(t.wire),
+      signer: t.payer,
+      validUntil: '500',
+      nonce: null,
+    };
+    expect(await probe.fate(attempt)).toEqual({ state: 'landed', txId: id });
+    expect(await probe.carries(stranger, attempt.messageHash)).toBe('another');
   });
 
   it('says open, never gone, when it cannot read back to the start of the window', async () => {
