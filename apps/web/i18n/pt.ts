@@ -990,7 +990,7 @@ export const pt: Dictionary = {
       noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
       noCap: 'Nada limita quanto você pode depositar. Quanto você coloca é decisão sua.',
       trades:
-        'Cada negociação que você assina é conferida por este aplicativo com um preço de referência e limitada em tamanho antes de ser montada. Uma negociação fora desses limites não é montada. Os próprios contratos só seguram uma negociação ao mínimo que você assina.',
+        'Cada negociação que você assina é conferida por este aplicativo com um preço de referência e limitada em tamanho antes de ser montada. Uma negociação fora desses limites não é montada. Os próprios contratos só fazem valer o mínimo que você assina.',
       issuers:
         'O emissor dos tokens de ações pode substituir o código deles e pausá-los. O emissor do token de dólar pode congelá-lo.',
       short: {
@@ -1492,6 +1492,13 @@ export const pt: Dictionary = {
           'Para mudar o que este cofre guarda, diga na conversa: mais de um ativo, menos de outro.',
         details: 'Detalhes',
         priceSources: 'Fontes dos preços',
+        priceEntries: (count: number, list: string) =>
+          count === 1 ? `índice ${list}` : `índices ${list}`,
+        priceOwner: 'do programa',
+        copyPriceAccount: 'endereço da conta de preços',
+        copyPriceOwner: 'endereço do programa de preços',
+        sourcesAsWritten: (count: number) =>
+          count === 1 ? '1 fonte, como foi escrita' : `${count} fontes, como foram escritas`,
         read: 'Lido da rede',
         copyVault: 'endereço do cofre',
         copyOwner: 'endereço de quem é dono',

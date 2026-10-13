@@ -316,6 +316,8 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       vaultAgentModel,
       deps.planInputs,
       deps.agentAnalytics,
+      undefined,
+      { keeperEnabled: flags.keeperEnabled },
     );
     registerGoalConversationReplyRoute(
       scope,

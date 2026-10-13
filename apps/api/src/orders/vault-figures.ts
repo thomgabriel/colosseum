@@ -314,6 +314,10 @@ const yieldClauses = (names: readonly string[]): RegExp[] => {
   ].map((clause) => new RegExp(`${start}(?:${clause})${end}`, 'iu'));
 };
 
+// A holding's distance from its target, and a line's weight in the shared portfolio the vault follows.
+const GAP_WORDS =
+  'gaps?|off\\s+(?:its\\s+)?target|away\\s+from|above|below|over|under|short|drift|dist[aâ]ncia|desvio|acima|abaixo';
+const WEIGHT_WORDS = 'weights?|weighs|portfolio|pesos?|pesa|portf[oó]lio|carteira';
 // The kind of a figure, by its id, and the words that name it in a sentence.
 const KINDS: Array<[RegExp, RegExp]> = [
   [
@@ -332,6 +336,8 @@ const KINDS: Array<[RegExp, RegExp]> = [
     /^holding:.*:amount$/u,
     lone('units?|tokens?|hold|holds|holding|amount|unidades?|quantidade|possui|tem'),
   ],
+  [/^holding:.*:gap$/u, lone(GAP_WORDS)],
+  [/^recipe:.*:weight$/u, lone(WEIGHT_WORDS)],
   [/^price:/u, lone('price[sd]?|trades?|trading|pre[cç]os?|cota[cç][aã]o|negocia\\p{L}*')],
   [
     /^(?:exit|lpexit|liquidity|capacity):/u,
@@ -381,6 +387,8 @@ const BOUND_KINDS: Array<[RegExp, RegExp]> = [
   ],
   [/^holding:.*:target$/u, lone('targets?|alvo|meta')],
   [/^holding:.*:amount$/u, lone('units?|tokens?|unidades?')],
+  [/^holding:.*:gap$/u, lone(GAP_WORDS)],
+  [/^recipe:.*:weight$/u, lone(WEIGHT_WORDS)],
   ...STRICT_KINDS,
 ];
 /**
@@ -928,5 +936,99 @@ export function vaultFacts(input: {
       method: 'target read from the vault on its chain',
     });
   }
+  return { sources, references };
+}
+
+/**
+ * What the vault's targets add to its own figures (`vaultFacts`): the target of cash, which is what
+ * the targets leave of the whole, each holding's distance from its target, and, for a vault that
+ * follows a shared portfolio, each line's weight in the version read from the chain. A gap that needs
+ * a price the chain did not give is missing, never zero.
+ */
+export function targetFacts(input: {
+  state: VaultState;
+  prices: readonly Price[];
+  assets: readonly BasketAsset[];
+  chainSource: string;
+  chainProvenance: Provenance;
+  followed?: {
+    version: number;
+    readAt: string;
+    lines: ReadonlyArray<{ asset: string; weightBps: number }>;
+  };
+}): { sources: VaultAgentSource[]; references: FigureReferences } {
+  const { state, prices, assets, chainSource, chainProvenance } = input;
+  const sources: VaultAgentSource[] = [];
+  const references: FigureReferences = { missing: {}, staleAgeSec: {} };
+  const listed = new Set(assets.map((asset) => asset.id));
+  const read = { source: chainSource, fetchedAt: state.observedAt, provenance: chainProvenance };
+  for (const line of input.followed?.lines ?? []) {
+    if (!listed.has(line.asset)) continue;
+    sources.push({
+      id: `recipe:${line.asset}:weight`,
+      assetId: line.asset,
+      label: 'Weight of this asset in the shared portfolio the vault follows',
+      value: line.weightBps / 10_000,
+      unit: 'fraction',
+      source: chainSource,
+      fetchedAt: input.followed?.readAt ?? state.observedAt,
+      provenance: chainProvenance,
+      method: `weight in version ${input.followed?.version} of the shared portfolio, read from its chain`,
+    });
+  }
+  if (!listed.has(state.cash.asset)) return { sources, references };
+  const cashTargetBps = 10_000 - state.positions.reduce((sum, p) => sum + p.targetBps, 0);
+  if (cashTargetBps >= 0)
+    sources.push({
+      id: `holding:${state.cash.asset}:target`,
+      assetId: state.cash.asset,
+      label: 'Target share of cash in the vault: what the targets leave of the whole',
+      value: cashTargetBps / 10_000,
+      unit: 'fraction',
+      ...read,
+      method:
+        'one whole minus the targets read from the vault on its chain; cash is never a target',
+    });
+  let seen: ReturnType<typeof view>;
+  try {
+    seen = view(state, [...prices], [...assets]);
+  } catch {
+    return { sources, references };
+  }
+  const priceOf = new Map(prices.map((price) => [price.asset, price]));
+  const unpriced = seen.positions.some(
+    (position) => position.valueUsd === null && !/^0+$/.test(position.raw),
+  );
+  const used = seen.positions.flatMap((position) => {
+    const price = position.valueUsd === null ? undefined : priceOf.get(position.asset);
+    return price ? [price] : [];
+  });
+  const older = (a: string, b: string) => (Date.parse(b) < Date.parse(a) ? b : a);
+  const whole = {
+    source: used.length ? [...new Set(used.map((price) => price.source))].join(' + ') : chainSource,
+    fetchedAt: used.reduce((oldest, price) => older(oldest, price.fetchedAt), state.observedAt),
+    provenance: used.reduce((label, price) => worst(label, price.provenance), chainProvenance),
+  };
+  const total = Number(seen.valueUsd);
+  const label = "This holding's share of the vault minus its target; negative is below target";
+  const gap = (assetId: string, weightBps: number, targetBps: number) => {
+    const id = `holding:${assetId}:gap`;
+    if (unpriced) references.missing[id] = { assetId, label, reason: 'no_reference_price' };
+    else if (!(total > 0)) references.missing[id] = { assetId, label, reason: 'not_applicable' };
+    else
+      sources.push({
+        id,
+        assetId,
+        label,
+        value: (weightBps - targetBps) / 10_000,
+        unit: 'fraction',
+        ...whole,
+        method: "this holding's share of the vault's value at reference prices, minus its target",
+      });
+  };
+  const others = seen.positions.reduce((sum, position) => sum + position.weightBps, 0);
+  if (cashTargetBps >= 0) gap(state.cash.asset, total > 0 ? 10_000 - others : 0, cashTargetBps);
+  for (const position of seen.positions)
+    if (listed.has(position.asset)) gap(position.asset, position.weightBps, position.targetBps);
   return { sources, references };
 }

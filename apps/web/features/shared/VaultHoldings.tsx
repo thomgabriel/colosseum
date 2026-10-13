@@ -20,6 +20,7 @@ import { explorerAddressTemplateFor } from '../order/readiness';
 import { dollars, drift, share, shareTenths, tokens, utc } from '../portfolio/figures';
 import { type HoldingRow, holdingsOf, unpriced } from '../portfolio/portfolio';
 import { HoldingLegs } from './HoldingLegs';
+import { type PriceSourceLine, priceSourceLines } from './price-sources';
 
 // What a vault holds, the centre of its page (gate VAULT-PAGE-ACTIONS): the plan bar (plan-leg.md,
 // through HoldingLegs) over one table of every holding, cash included, with its amount, its price on
@@ -261,6 +262,67 @@ function Address({ value, what }: { value: string; what: string }) {
 }
 
 /**
+ * Where the prices come from, each source once: a price account with the entries it is read at, its
+ * address shortened with the whole of it to copy; any other source word for word, behind a fold.
+ */
+function PriceSources({ sources }: { sources: string[] }) {
+  const t = useT();
+  const lang = useLang();
+  const p = t.shared.vault.page;
+  const lines = priceSourceLines(sources);
+  const accounts = lines.filter(
+    (line): line is Extract<PriceSourceLine, { kind: 'account' }> => line.kind === 'account',
+  );
+  const texts = lines.flatMap((line) => (line.kind === 'text' ? [line.text] : []));
+  const list = (entries: number[]) =>
+    new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(entries.map(String));
+  return (
+    <div className="flex flex-col gap-2">
+      {accounts.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {accounts.map((line) => (
+            <li
+              key={`${line.layout}:${line.account}:${line.owner}`}
+              data-ui="vault-price-account"
+              className="flex flex-col gap-0.5"
+            >
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>{line.layout}</span>
+                <span aria-hidden="true" className="text-muted-foreground">
+                  ·
+                </span>
+                <Address value={line.account} what={p.copyPriceAccount} />
+                <span aria-hidden="true" className="text-muted-foreground">
+                  ·
+                </span>
+                <span className="tabular-nums">
+                  {p.priceEntries(line.entries.length, list(line.entries))}
+                </span>
+              </span>
+              <span className="flex flex-wrap items-center gap-x-1 text-caption text-muted-foreground">
+                {p.priceOwner} <Address value={line.owner} what={p.copyPriceOwner} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {texts.length > 0 && (
+        <details data-ui="vault-price-sources-written">
+          <summary className="w-fit cursor-pointer text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            {p.sourcesAsWritten(texts.length)}
+          </summary>
+          <ul className="flex flex-col gap-1 pt-2 font-mono text-source [overflow-wrap:anywhere]">
+            {texts.map((text) => (
+              <li key={text}>{text}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+/**
  * The vault's own facts, behind one fold at the foot of its page: its address, its owner, what it
  * follows, auto-follow, when it was read and where its prices come from.
  */
@@ -319,8 +381,8 @@ export function VaultDetails({ read, mine = false }: { read: VaultResponse; mine
         {sources.length > 0 && (
           <>
             <dt className="text-muted-foreground">{v.page.priceSources}</dt>
-            <dd className="font-mono text-source [overflow-wrap:anywhere]">
-              {new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(sources)}
+            <dd data-ui="vault-price-sources">
+              <PriceSources sources={sources} />
             </dd>
           </>
         )}

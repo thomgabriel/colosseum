@@ -10,19 +10,23 @@ import {
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import type { ChainEntry } from '../../orders/chains';
 import { refusing } from '../../orders/errors';
 import type { OrderDeps } from '../../orders/legs';
 import { type PlanInputs, preparePersonalInputs } from '../../orders/personalize';
 import { planSheetOf } from '../../orders/plan-join';
+import { readRecipe } from '../../orders/shared';
 import {
   type AgentAnalytics,
   analyticsGap,
   buildVaultAgentContext,
+  type FollowedPortfolio,
   readAgentAnalytics,
   replyToVaultConversation,
   vaultNotionalUsd,
 } from '../../orders/vault-agent';
 import { resolveVaultConversationOwner } from '../../orders/vault-conversation-owner';
+import { familiesOf } from '../../portfolio/plans';
 import type { VaultAgentModel } from '../../vault-agent-model';
 import { signedIn } from './orders';
 
@@ -46,6 +50,15 @@ export type VaultPlanGoal = (
   privyId: string,
 ) => Promise<Pick<BasketSheet, 'goal' | 'risk'> | null>;
 
+/**
+ * The shared portfolio a vault follows, read for one reply: the recipe from its chain and the family's
+ * name from the server's own rows. Each half that cannot be read is null; it never fails the reply.
+ */
+export type FollowedReader = (
+  entry: ChainEntry,
+  recipeOnchainId: string,
+) => Promise<FollowedPortfolio>;
+
 /** One private preview: no DB writes, allocation engine, financial order or target mutation. */
 export function registerVaultConversationReplyRoute(
   scope: FastifyInstance,
@@ -55,7 +68,32 @@ export function registerVaultConversationReplyRoute(
   analytics?: AgentAnalytics,
   planOf: VaultPlanGoal = (chain, address, privyId) =>
     planSheetOf(deps.db, chain, address, privyId),
+  more: {
+    /** How the followed portfolio is read; the chain and the server's rows by default. */
+    followedOf?: FollowedReader;
+    /** KEEPER_ENABLED as this server read it. */
+    keeperEnabled?: boolean;
+    /**
+     * Whether the vault's page has the rebalance action. Off until the owner's rebalance route and the
+     * web's control are merged: while it is off the conversation names no control.
+     */
+    rebalanceOnPage?: boolean;
+  } = {},
 ) {
+  const followedOf: FollowedReader =
+    more.followedOf ??
+    (async (entry, recipeOnchainId) => {
+      const [recipe, families] = await Promise.all([
+        readRecipe(entry, recipeOnchainId).catch(() => null),
+        familiesOf(deps.db, entry.chain, [recipeOnchainId]).catch(() => null),
+      ]);
+      const family = families?.get(recipeOnchainId);
+      return {
+        recipe,
+        family: family ? { name: family.name, slug: family.slug } : null,
+        readAt: deps.now().toISOString(),
+      };
+    });
   const path = '/v1/vaults/:chain/:address/conversation/reply';
   scope.addHook('onSend', async (req, reply, payload) => {
     if (req.routeOptions.url === path) reply.header('cache-control', 'private, no-store');
@@ -70,7 +108,7 @@ export function registerVaultConversationReplyRoute(
         tags: ['portfolio'],
         summary: 'Discuss an owned vault and preview a model-proposed strategy',
         description:
-          'Fresh chain ownership on every call; missing and other-owned vaults return the same 404. The model receives the supplied conversation, real current vault state, listed assets and sourced risk inputs. It picks assets and the server sets the preview weights, without calling the allocation engine. The goal is the one of the plan the vault was opened for, read on the server as `POST /v1/vaults/{chain}/{address}/targets` reads it, never from the request: in an income or protect plan a stock is proposed only where the person asked for it in their own words, with the warning `outside_goal_requested`, and any other pick outside the goal is left out with the note `pick_outside_goal`, since the targets review would refuse it. A vault the server holds no plan for has no goal to check against, and `proposal.unknowns` says so. Sources and numerical metrics are server-authored. The model writes no number: where it states a measured figure it names one the server gave it, and the server writes the value in its place in `message`, `question` and the prose of the proposal (plain text, no markup). `figures` is then present: `figures.prose` is the same prose with each figure a `{{fact:<id>}}` placeholder and `figures.facts` what each one is, with its value, unit, shown text, source, fetchedAt, method, provenance and, for a price past the age the chain accepts, `staleAgeSec`; a figure that is not measured has a null value and its reason, and its text says so. A reference to anything the server did not measure never becomes a number: its sentence is left out. No history, plan, order, target or account-chain change is stored. Existing configured model and shared intake call quota apply. Cache-Control: private, no-store.',
+          'Fresh chain ownership on every call; missing and other-owned vaults return the same 404. The model receives the supplied conversation, real current vault state, listed assets and sourced risk inputs. It picks assets and the server sets the preview weights, without calling the allocation engine. The goal is the one of the plan the vault was opened for, read on the server as `POST /v1/vaults/{chain}/{address}/targets` reads it, never from the request: in an income or protect plan a stock is proposed only where the person asked for it in their own words, with the warning `outside_goal_requested`, and any other pick outside the goal is left out with the note `pick_outside_goal`, since the targets review would refuse it; a target the vault already has may be kept at its current weight or below, and raised it is held to the goal like a new one. The model is also given what the server knows of the vault: the shared portfolio it follows (read from the chain for this reply, with its lines and weights), whose its targets are, each holding against its target, auto-follow and the keeper on this server, and the network. A request to bring the holdings to the targets (a rebalance) is answered by the server itself, with each holding against its target and, once the page of the vault has the action, its name; no model is called for it, nothing is drafted, and no order is made. A bare confirmation the server cannot tie to one question is answered with a question and no proposal. A vault the server holds no plan for has no goal to check against, and `proposal.unknowns` says so. Sources and numerical metrics are server-authored. The model writes no number: where it states a measured figure it names one the server gave it, and the server writes the value in its place in `message`, `question` and the prose of the proposal (plain text, no markup). `figures` is then present: `figures.prose` is the same prose with each figure a `{{fact:<id>}}` placeholder and `figures.facts` what each one is, with its value, unit, shown text, source, fetchedAt, method, provenance and, for a price past the age the chain accepts, `staleAgeSec`; a figure that is not measured has a null value and its reason, and its text says so. A reference to anything the server did not measure never becomes a number: its sentence is left out. No history, plan, order, target or account-chain change is stored. Existing configured model and shared intake call quota apply. Cache-Control: private, no-store.',
         params: VaultRouteParams,
         body: VaultAgentRequest,
         response: {
@@ -100,7 +138,7 @@ export function registerVaultConversationReplyRoute(
       const context = await refusing(async () => {
         const listed = await entry.adapter.listAssets();
         const pricing = entry.adapter.getPrices(listed.map((asset) => asset.id));
-        const [prices, prepared, read, plan] = await Promise.all([
+        const [prices, prepared, read, plan, followed] = await Promise.all([
           pricing,
           preparePersonalInputs(
             identity.chain,
@@ -121,6 +159,10 @@ export function registerVaultConversationReplyRoute(
           ),
           // The stored plan's goal, which the picks are held to as the review of the targets holds them.
           planOf(identity.chain, state.address, identity.privyId),
+          // What the vault follows, read here so the person is never asked to type it.
+          state.recipeOnchainId
+            ? followedOf(entry, state.recipeOnchainId).catch(() => null)
+            : Promise.resolve(null),
         ]);
         const gap = analyticsGap(read);
         if (gap)
@@ -135,6 +177,9 @@ export function registerVaultConversationReplyRoute(
           prepared,
           person: identity.privyId,
           analytics: read,
+          followed,
+          ...(more.keeperEnabled === undefined ? {} : { keeperEnabled: more.keeperEnabled }),
+          ...(more.rebalanceOnPage ? { rebalanceOnPage: true } : {}),
           // No plan of this person's for the vault: no goal, and the reply says it was not checked.
           ...(plan ? { currentGoals: [{ goal: plan.goal, risk: plan.risk }] } : {}),
         });

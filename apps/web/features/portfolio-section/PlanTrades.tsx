@@ -6,7 +6,7 @@ import { ExplorerLink } from '../../components/ui/ExplorerLink';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { displayName } from '../order/plain';
-import { explorerNameFor, explorerUrlFor, onMock } from '../order/readiness';
+import { explorerNameFor, onMock } from '../order/readiness';
 import { utc } from '../portfolio/figures';
 import { useWalletPort } from '../wallet/WalletProvider';
 import type { Plan, PlansChain, RebalancesAnswer, RebalancesChain } from './api';
@@ -16,6 +16,7 @@ import { href } from './pages';
 import { ChainsOut, sampleLine } from './parts';
 import { leastLive } from './pins';
 import { Block, BlockRead, sameVault } from './plan-blocks';
+import { explorerHref } from './rebalances';
 import { useWords } from './words';
 
 // The latest steps that traded for a plan's vault, from the section's read of the rebalances narrowed
@@ -25,8 +26,8 @@ import { useWords } from './words';
 // It says no more than the answer does (DESIGN-VAULT 3.3, "Rebalances"). A step of the person's is
 // timed at when it was built, since nothing records when it confirmed; a trade of the keeper's is
 // worked out from two snapshots, with no transaction to link. A transaction is linked on the explorer
-// of the network this app signs for, never by the address the answer carries, and not at all on the
-// mock, whose transactions are no network's.
+// of the network this app signs for, never by the address the answer carries, not at all on the mock,
+// whose transactions are no network's, and not for a step of the chain's other network (`explorerHref`).
 
 /** How many of the vault's steps the page shows. */
 const FEW = 3;
@@ -141,7 +142,7 @@ export function PlanTrades({
                         <span className="ml-auto">
                           <ExplorerLink
                             signature={step.txId}
-                            href={mock ? null : explorerUrlFor(step.chain, step.txId, false)}
+                            href={mock ? null : explorerHref(step, label)}
                             explorer={explorerNameFor(step.chain, t.chain)}
                             labels={t.order.link}
                           />
