@@ -579,10 +579,11 @@ export function vaultValueUsd(vault: VaultState, prices: Map<string, Price>): nu
 
 /**
  * The minimums of a leg's trades, as `expectedOf` states them, held to the chain's own floor where the
- * chain has one. On EVM a quote's `minOutRaw` is the higher of the quote less its slippage and the
- * feed's floor (what the reference price says the trade is worth, less `priceBoundBps`), and the
- * builder refuses a stated minimum under that floor (`PriceMoved`). So a trade's minimum is the higher
- * of the order's and the quote's, and a trade the pool pays less for than the floor is not ordered:
+ * chain has one. On EVM a quote states the feed's floor (`floorRaw`: what the reference price says the
+ * trade is worth, less `priceBoundBps`), and the builder refuses a stated minimum under it
+ * (`PriceMoved`). So a trade's minimum is the higher of the order's and that floor; the quote's own
+ * slippage (`minOutRaw`) is not taken, since the purchases after a sale are sized on the order's
+ * slippage. A trade the pool pays less for than the floor is not ordered:
  * every build of it would be refused. A trade over the network's largest trade of its asset is not
  * ordered either: no rebalance of that size can be made in one order (`TRADE_TOO_LARGE`). A pair traded twice in one leg keeps `expectedOf`'s minimum,
  * since its quote is of the two together; a rebalance never trades a pair twice. Solana's quote has
@@ -609,7 +610,8 @@ async function expectedHeld(
       continue;
     }
     try {
-      floors.push(BigInt((await entry.adapter.quote(t, taker)).minOutRaw));
+      const { floorRaw } = await entry.adapter.quote(t, taker);
+      floors.push(floorRaw === undefined ? null : BigInt(floorRaw));
     } catch (e) {
       // Larger than the network's largest trade of the asset (`maxTradeUsd`): the same plan is
       // refused every time, so this is said as it is, and not as something to try again.

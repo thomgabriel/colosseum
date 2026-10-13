@@ -1174,6 +1174,7 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
           ...q,
           outRaw: out.toString(),
           minOutRaw: (floor > slipped ? floor : slipped).toString(),
+          floorRaw: floor.toString(),
         };
       });
       return { ...s, entry, owner, vault, url: `/v1/vaults/robinhood/${vault.address}/rebalance` };

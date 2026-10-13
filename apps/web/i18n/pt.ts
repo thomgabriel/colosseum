@@ -1526,14 +1526,13 @@ export const pt: Dictionary = {
           cannot: (why: string) => `Não consigo rebalancear agora: ${why}.`,
           why: {
             tooLarge: (asset: string, chain: string) =>
-              `é preciso uma troca de ${asset} maior do que ${chain} aceita de uma vez`,
+              `precisa de uma troca de ${asset} acima do limite de ${chain}`,
             waitsForOpen: (asset: string) =>
-              `o mercado de ${asset} está fechado, e trocas deste tamanho esperam até ele abrir`,
+              `o mercado de ${asset} está fechado; trocas deste tamanho esperam a abertura`,
             overLimit: 'negociaria mais do que uma ordem pode mover',
             priceBound: (asset: string) =>
               `o pool de ${asset} está longe demais do preço de referência`,
-            priceStale:
-              'um preço de referência não está atualizado, muitas vezes porque o mercado está fechado',
+            priceStale: 'um preço de referência não está atualizado, talvez com o mercado fechado',
             priceDeviation: 'um pool está longe demais do preço de referência',
             targetsChanged: 'as metas do cofre mudaram desde que a ordem foi feita',
             pastTarget: 'o cofre mudou desde que a ordem foi feita',

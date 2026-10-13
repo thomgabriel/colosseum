@@ -135,6 +135,13 @@ export const Quote = Sourced.extend({
   trade: Trade,
   outRaw: RawAmount,
   minOutRaw: RawAmount,
+  /**
+   * The least the chain's builder accepts as this trade's stated minimum, where it holds one apart from
+   * the slippage: on EVM the reference price's worth of the trade less `priceBoundBps`. Left out where
+   * the chain holds none (Solana, the mock). `minOutRaw` is the higher of it and the quote less the
+   * quote's own slippage, so it cannot stand in for this.
+   */
+  floorRaw: RawAmount.optional(),
   costBps: z.number(),
   against: z.enum(['reference', 'pool_mid']),
   venue: z.string().min(1),

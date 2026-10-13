@@ -1724,9 +1724,9 @@ export const en = {
           cannot: (why: string) => `I can’t rebalance now: ${why}.`,
           why: {
             tooLarge: (asset: string, chain: string) =>
-              `it needs a trade of ${asset} larger than ${chain} takes in one go`,
+              `it needs one trade of ${asset} over ${chain}’s limit`,
             waitsForOpen: (asset: string) =>
-              `the market for ${asset} is closed, and trades this size wait until it opens`,
+              `${asset}’s market is closed; trades this size wait until it opens`,
             overLimit: 'it would trade more than one order may move',
             priceBound: (asset: string) =>
               `the pool for ${asset} is too far from its reference price`,
