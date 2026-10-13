@@ -213,7 +213,8 @@ function stepProblem(step: ApprovedStep): string | null {
             (w) =>
               onChain(w.asset) &&
               (w.amountRaw === null || isRawAmount(w.amountRaw)) &&
-              (w.minRaw === undefined || isRawAmount(w.minRaw)),
+              (w.minRaw === undefined || isRawAmount(w.minRaw)) &&
+              (w.maxRaw === undefined || isRawAmount(w.maxRaw)),
           ))
         ? null
         : 'a withdrawal names no asset of its chain';

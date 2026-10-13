@@ -774,7 +774,8 @@ describe('the withdraw screen, in dollars', () => {
       w.check.dollars.cash('600 USDC'),
     );
     expect(find(review, '[data-ui="withdraw-to"]').textContent).toBe(SOLANA);
-    expect(review.textContent).toContain(w.check.emptied);
+    expect(review.textContent).toContain(w.check.dollars.emptied);
+    expect(review.textContent).not.toContain(w.check.emptied);
     expect(review.textContent).toContain(w.check.dollars.quotes);
     // a holding that cannot be sold stays, and the tokens themselves are the way for it
     expect(find(review, '[data-ui="withdraw-not-sold"]').textContent).toBe(w.check.dollars.notSold);
@@ -984,7 +985,10 @@ describe('a withdrawal in dollars on the order screen', () => {
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls).toHaveLength(1);
-    expect(run.calls[0]?.deps.plan).toEqual({ basketId: '42', dollars: { cashRaw: '600000000' } });
+    expect(run.calls[0]?.deps.plan).toEqual({
+      basketId: '42',
+      dollars: { cashRaw: '600000000', sales: [{ asset: SPYX, amountRaw: '250000000' }] },
+    });
   });
 
   it('with auto-follow on: the switch off comes first, and the guard is told off', async () => {
@@ -997,7 +1001,7 @@ describe('a withdrawal in dollars on the order screen', () => {
     expect(run.calls[0]?.deps.plan).toEqual({
       basketId: '42',
       autoFollow: false,
-      dollars: { cashRaw: '600000000' },
+      dollars: { cashRaw: '600000000', sales: [{ asset: SPYX, amountRaw: '250000000' }] },
     });
   });
 
@@ -1048,6 +1052,11 @@ describe('a withdrawal in dollars on the order screen', () => {
       'a cash step that states less than the cash reviewed plus the minimums',
       () => dollarsOrder([sale], { ...held, leastRaw: (BigInt(least) - 1n).toString() }),
     ],
+    ['a reviewed holding left out with no word of why', () => dollarsOrder([], held)],
+    [
+      'a cash step that may pay more than the cash reviewed and the quotes',
+      () => dollarsOrder([sale], { ...held, mostRaw: '10000000000' }),
+    ],
     [
       'a cash step that states no least',
       () => {
@@ -1087,6 +1096,51 @@ describe('a withdrawal in dollars on the order screen', () => {
     expect(host.textContent).toContain(en.order.mismatch.withdraw);
     expect(sign(host)).toBeNull();
     expect(dollarsShapeOk(order(), ALL_DOLLARS as never, { cash: CASH })).toBe(false);
+  });
+
+  it('stopped after a sale landed: says which holdings were sold, and that the same percentage would sell them again', async () => {
+    const two = dollarsOrder(
+      [
+        { sell: SPYX, amountInRaw: '125000000', minOutRaw: '197000000' },
+        { sell: 'solana:gldx', amountInRaw: '100', minOutRaw: '50000000' },
+      ],
+      { heldRaw: '600000000', cashRaw: '300000000' },
+    );
+    api({
+      order: () =>
+        ({
+          ...two,
+          status: 'failed',
+          legs: two.legs.map((l, i) =>
+            i === 0
+              ? { ...l, status: 'confirmed', txId: 'sig' }
+              : i === 1
+                ? {
+                    ...l,
+                    status: 'failed',
+                    error: { code: 'PriceDeviation', message: 'far', retryable: false },
+                  }
+                : l,
+          ),
+        }) as OrderDetail,
+    });
+    seed({
+      ...ALL_DOLLARS,
+      dollars: {
+        shareBps: 5_000,
+        sales: [
+          { asset: SPYX, amountRaw: '125000000' },
+          { asset: 'solana:gldx', amountRaw: '100' },
+        ],
+        cashRaw: '300000000',
+      },
+    });
+    const host = await screen();
+    const sold = find(host, '[data-ui="withdraw-sold-before"]');
+    expect(sold.textContent).toContain(en.order.shared.soldBefore('SPYx', '197 USDC'));
+    expect(sold.textContent).toContain(en.order.shared.notAgain);
+    expect(find(sold, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}/withdraw`);
+    expect(find(sold, 'a').textContent).toBe(en.order.shared.tokensInstead);
   });
 
   it('a withdrawal of the tokens themselves is never offered an order that trades', async () => {

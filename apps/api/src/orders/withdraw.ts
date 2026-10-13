@@ -12,6 +12,7 @@ import {
   isAddressOf,
   type Leg,
   type LegWithdrawal,
+  ORDER_LIMITS,
   type Order,
   type Principal,
   type Trade,
@@ -20,7 +21,7 @@ import {
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
 import { Refusal } from './errors';
 import { HOME_CHAIN } from './person';
-import { expectedOf, ORDER_POLICY } from './prepare';
+import { lessBps, ORDER_POLICY } from './prepare';
 
 // A withdrawal: tokens leave a vault as they are, for the wallet of the vault's owner and nobody
 // else (DESIGN-VAULT section 5: the owner can always withdraw every token in kind). The program and
@@ -334,14 +335,39 @@ async function planDollars(
     }
     const trade: Trade = { sell: held.asset, buy: cash.id, amountInRaw: sell.toString() };
     try {
-      const [expected] = await expectedOf(entry, [trade], vault.owner, slippageBps);
-      if (!expected) throw new Error('a sale was quoted with no figure');
-      sales.push({ trade, expected });
+      // Each sale alone, in its own pool. Its minimum is the higher of two floors, as the builder
+      // takes it: the order's slippage under the quote, and the chain's own minimum, which on
+      // Robinhood Chain carries the floor under the reference price (trade-limits.ts). A minimum
+      // under that floor would be refused at every build (`PriceMoved`) after the person had begun.
+      const quote = await entry.adapter.quote(trade, vault.owner);
+      const out = BigInt(quote.outRaw);
+      const ours = lessBps(out, slippageBps);
+      const theirs = BigInt(quote.minOutRaw);
+      const least = theirs > ours ? theirs : ours;
+      // Too little to be held to a minimum: dust, which a sale would give away at any price.
+      if (out <= 0n || least <= 0n) {
+        stays(held.asset, 'the amount is too small to sell at a stated minimum');
+        continue;
+      }
+      // The pool pays less than the reference price allows the sale to accept.
+      if (least > out) {
+        stays(
+          held.asset,
+          'its pool pays less now than the reference price lets a sale accept, so no minimum can be stated',
+        );
+        continue;
+      }
+      sales.push({
+        trade,
+        expected: {
+          inRaw: trade.amountInRaw,
+          outRaw: out.toString(),
+          minOutRaw: least.toString(),
+          costBps: quote.costBps,
+        },
+      });
     } catch (e) {
       if (e instanceof ChainError && NOT_SOLD_NOW.has(e.code)) stays(held.asset, e.message);
-      // Too little to be held to a minimum: dust, which a sale would give away at any price.
-      else if (e instanceof Refusal && e.status === 422)
-        stays(held.asset, 'the amount is too small to sell at a stated minimum');
       else throw e;
     }
   }
@@ -349,6 +375,11 @@ async function planDollars(
   const cashHeld = BigInt(vault.cash.raw);
   const least =
     shareOf(cashHeld, shareBps) + sales.reduce((n, x) => n + BigInt(x.expected.minOutRaw), 0n);
+  const quoted = sales.reduce((n, x) => n + BigInt(x.expected.outRaw), 0n);
+  const most =
+    shareOf(cashHeld, shareBps) +
+    quoted +
+    (quoted * BigInt(ORDER_LIMITS.dollarsMarginBps)) / 10_000n;
   if (least === 0n)
     throw new Refusal(409, 'nothing this vault holds can be withdrawn in dollars now', {
       fix: 'Withdraw the tokens themselves: that needs no sale.',
@@ -360,6 +391,7 @@ async function planDollars(
     amountRaw: null,
     heldRaw: cashHeld.toString(),
     leastRaw: least.toString(),
+    mostRaw: most.toString(),
     valued: {
       usd: `${cents / 100n}.${(cents % 100n).toString().padStart(2, '0')}`,
       source: entry.source,
@@ -499,24 +531,44 @@ export async function buildWithdraw(
   const name = namer(await entry.adapter.listAssets());
   if (request.sellToCash) {
     // The cash of a withdrawal in dollars, once its sales have settled: what the vault holds now less
-    // the cash that was to stay (the cash at planning less the share taken). Never less than the
-    // order stated: a sale that did not go through leaves the order short, and it is made again.
+    // the cash that was to stay (the cash at planning less the share taken), and never more than the
+    // step states it pays at most: cash that came in after the order was planned stays. Never less
+    // than the order stated.
     const [w, ...more] = leg.withdrawals;
-    if (!w || more.length || w.asset !== vault.cash.asset || w.leastRaw === undefined)
+    if (
+      !w ||
+      more.length ||
+      w.asset !== vault.cash.asset ||
+      w.leastRaw === undefined ||
+      w.mostRaw === undefined
+    )
       throw new Refusal(501, 'a withdrawal in dollars takes out the cash token, in one step');
     const planned = BigInt(w.heldRaw);
     const keep = planned - shareOf(planned, request.shareBps ?? 10_000);
     const has = holdings.get(w.asset) ?? 0n;
-    const amount = has - keep;
-    if (amount < BigInt(w.leastRaw) || amount <= 0n)
+    const most = BigInt(w.mostRaw);
+    const there = has - keep;
+    const amount = there > most ? most : there;
+    if (amount < BigInt(w.leastRaw) || amount <= 0n) {
+      // Nothing in this order lowers the vault's cash before this step. Less than it held at
+      // planning: cash left the vault since, and building again will not bring it back. At least
+      // that much: the sales' cash does not show yet, which a node a block behind answers just
+      // after the last sale settles; the step is built again in a moment.
+      const lagging = has >= planned;
       throw new Refusal(
         409,
         `the vault now holds ${name(w.asset, has)}, so this step would pay less than the ${name(w.asset, BigInt(w.leastRaw))} the order stated: nothing was built`,
-        {
-          fix: 'A sale of this order did not go through, or cash left the vault since. Make the withdrawal again.',
-          details: { retryable: false },
-        },
+        lagging
+          ? {
+              fix: 'The sales may not show in the vault yet. Try this step again in a moment.',
+              details: { retryable: true },
+            }
+          : {
+              fix: 'Cash left the vault since this order was made. Make the withdrawal again.',
+              details: { retryable: false },
+            },
       );
+    }
     const [tx, ...rest] = await entry.adapter.buildWithdrawInKind({
       vault: vault.address,
       assets: [w.asset],

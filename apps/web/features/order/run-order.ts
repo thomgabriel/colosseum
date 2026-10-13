@@ -118,7 +118,7 @@ export function planTermsOf(terms: SharedTerms): PlanTerms {
         return {
           basketId: terms.basketId,
           ...(terms.autoFollowOff ? { autoFollow: false } : {}),
-          dollars: { cashRaw: terms.dollars.cashRaw },
+          dollars: { cashRaw: terms.dollars.cashRaw, sales: terms.dollars.sales },
         };
       // Everything: any token the vault holds, each once, to its owner. Otherwise the tokens and the
       // amounts reviewed, and nothing else.

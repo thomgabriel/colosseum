@@ -81,7 +81,7 @@ const withdrawAllStep: Step<'withdraw'> = { ...base, kind: 'withdraw', withdrawa
 const cashOutStep: Step<'withdraw'> = {
   ...base,
   kind: 'withdraw',
-  withdrawals: [{ asset: 'robinhood:usdc', amountRaw: null, minRaw: '700' }],
+  withdrawals: [{ asset: 'robinhood:usdc', amountRaw: null, minRaw: '700', maxRaw: '9000' }],
 };
 const acceptStep: Step<'accept_version'> = {
   ...base,
@@ -564,6 +564,9 @@ const negatives: Negative[] = [
   ),
   on(cashOutStep, 'a cash step that pays out less than the review stated', 'amount', () =>
     honest.withdraw(USDC, '699'),
+  ),
+  on(cashOutStep, 'a cash step that pays out more than the review allows', 'amount', () =>
+    honest.withdraw(USDC, '9001'),
   ),
   on(cashOutStep, 'a withdrawal of a holding in place of the cash', 'asset', () =>
     honest.withdraw(tokenOf('robinhood:spy'), '700'),

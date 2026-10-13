@@ -189,7 +189,14 @@ describe.skipIf(!PROGRAMS_BUILT)('a withdrawal in dollars on Solana, in LiteSVM'
     );
     const steps = approvedSteps(
       { id: 'order', owner: { solana: owner }, legs },
-      { basketId: '1', autoFollow: false, dollars: { cashRaw: vault.cash.raw } },
+      {
+        basketId: '1',
+        autoFollow: false,
+        dollars: {
+          cashRaw: vault.cash.raw,
+          sales: held.map((p) => ({ asset: p.asset, amountRaw: p.raw })),
+        },
+      },
       deployment,
     );
     const walletCash = async () =>

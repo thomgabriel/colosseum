@@ -1,8 +1,8 @@
-import type { BuiltTx, ChainId, Leg, Order } from '@colosseum/schemas';
+import { type BuiltTx, type ChainId, type Leg, ORDER_LIMITS, type Order } from '@colosseum/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import { refusalOf } from '../../test/bites';
 import { mockWorld, stamped, tampered, usd } from '../../test/mock';
-import { approvedSteps } from './approved';
+import { approvedSteps, DOLLARS_MARGIN_BPS } from './approved';
 import { guardTransaction } from './index';
 import { mockVaultAddress } from './mock/check';
 import type { PlanTerms } from './types';
@@ -113,8 +113,17 @@ async function world(chain: ChainId) {
     legs,
   };
   const least = sales.reduce((n, s) => n + BigInt(s.expected.minOutRaw), BigInt(state.cash.raw));
-  const plan: PlanTerms = { basketId: BASKET, dollars: { cashRaw: state.cash.raw } };
-  return { w, vault, cash, spy, gold, order, plan, least, sales };
+  const outs = sales.reduce((n, s) => n + BigInt(s.expected.outRaw), 0n);
+  // The most the cash step may pay: the cash reviewed, every sale's quote, and 3% of the quotes.
+  const most = BigInt(state.cash.raw) + outs + (outs * 300n) / 10_000n;
+  const plan: PlanTerms = {
+    basketId: BASKET,
+    dollars: {
+      cashRaw: state.cash.raw,
+      sales: sales.map((s) => ({ asset: s.trade.sell, amountRaw: s.trade.amountInRaw })),
+    },
+  };
+  return { w, vault, cash, spy, gold, order, plan, least, most, sales };
 }
 
 type World = Awaited<ReturnType<typeof world>>;
@@ -153,13 +162,24 @@ async function sign(x: World, change?: (tx: BuiltTx, leg: Leg) => BuiltTx) {
 const orderRefusal = (x: World, order: Picked, plan: PlanTerms = x.plan) =>
   refusalOf(() => approvedSteps(order, plan, x.w.deployment));
 
+it('holds the cash step to the margin the API plans it with', () => {
+  expect(DOLLARS_MARGIN_BPS).toBe(ORDER_LIMITS.dollarsMarginBps);
+});
+
 describe.each(['solana', 'robinhood'] as const)('a withdrawal in dollars on %s', (chain) => {
   it('passes: each sale at its stated minimum, then the cash to the owner, at least what the review stated', async () => {
     const x = await world(chain);
     const steps = approvedSteps(x.order, x.plan, x.w.deployment);
     expect(steps.at(-1)).toMatchObject({
       kind: 'withdraw',
-      withdrawals: [{ asset: x.cash, amountRaw: null, minRaw: x.least.toString() }],
+      withdrawals: [
+        {
+          asset: x.cash,
+          amountRaw: null,
+          minRaw: x.least.toString(),
+          maxRaw: x.most.toString(),
+        },
+      ],
     });
     for (const step of steps.slice(0, -1)) expect(step.kind).toBe('swap');
     await sign(x);
@@ -198,6 +218,27 @@ describe.each(['solana', 'robinhood'] as const)('a withdrawal in dollars on %s',
       expect(refusal?.code).toBe('order');
       expect(refusal?.legId).toBe(first.id);
     }
+  });
+
+  it('refuses a sale of another amount than the review showed, and of a holding it did not name', async () => {
+    const x = await world(chain);
+    const dollars = x.plan.dollars;
+    if (!dollars) throw new Error('no terms');
+    const [spy, gold] = dollars.sales;
+    if (!spy || !gold) throw new Error('no sales');
+    const more = {
+      ...dollars,
+      sales: [{ ...spy, amountRaw: (BigInt(spy.amountRaw) - 1n).toString() }, gold],
+    };
+    expect(orderRefusal(x, x.order, { ...x.plan, dollars: more })?.message).toMatch(/review/);
+    const unnamed = { ...dollars, sales: [gold] };
+    expect(orderRefusal(x, x.order, { ...x.plan, dollars: unnamed })?.code).toBe('order');
+    // a holding the review named and the order left out (it could not be sold) is no fault
+    const fewer = {
+      ...x.order,
+      legs: x.order.legs.filter((l) => !l.trades.some((t) => t.sell === x.spy)),
+    };
+    expect(orderRefusal(x, fewer)).toBeNull();
   });
 
   it('refuses a holding sold twice, a sale shown with no minimum, and any step that is neither a sale nor the cash', async () => {
@@ -244,6 +285,7 @@ describe.each(['solana', 'robinhood'] as const)('a withdrawal in dollars on %s',
       ['asset', (m) => (m.op.a.assets = [x.spy])],
       ['amount', (m) => (m.op.a.amounts = { [x.cash]: (x.least - 1n).toString() })],
       ['amount', (m) => (m.op.a.amounts = undefined)],
+      ['amount', (m) => (m.op.a.amounts = { [x.cash]: (x.most + 1n).toString() })],
       ['vault', (m) => (m.op.a.vault = mockVaultAddress(chain, x.w.stranger, BASKET))],
     ];
     for (const [code, lie] of lies) {

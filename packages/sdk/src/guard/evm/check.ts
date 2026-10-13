@@ -559,6 +559,11 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
           w.minRaw === undefined || atom.amount >= BigInt(w.minRaw),
           `the bytes withdraw ${atom.amount}, less than the ${w.minRaw} the step pays at least`,
         );
+        need(
+          'amount',
+          w.minRaw === undefined || (w.maxRaw !== undefined && atom.amount <= BigInt(w.maxRaw)),
+          `the bytes withdraw ${atom.amount}, more than the ${w.maxRaw ?? 'unstated'} the step pays at most`,
+        );
         break;
       }
       case 'withdrawAll':

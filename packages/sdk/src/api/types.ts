@@ -2474,6 +2474,7 @@ export type GetMeWithdrawalsResponse = {
         amountRaw: string | null;
         heldRaw: string;
         leastRaw?: string;
+        mostRaw?: string;
         valued?: {
           source: string;
           method: string;
@@ -2604,6 +2605,7 @@ export type PostOrdersResponse = {
       amountRaw: string | null;
       heldRaw: string;
       leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2708,6 +2710,7 @@ export type GetOrdersByIdResponse = {
       amountRaw: string | null;
       heldRaw: string;
       leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2812,6 +2815,7 @@ export type PostOrdersByIdContinueResponse = {
       amountRaw: string | null;
       heldRaw: string;
       leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2991,6 +2995,7 @@ export type PostOrdersByIdLegsByLegIdCancelResponse = {
       amountRaw: string | null;
       heldRaw: string;
       leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -3105,6 +3110,7 @@ export type PostOrdersByIdLegsByLegIdReportResponse = {
       amountRaw: string | null;
       heldRaw: string;
       leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -4528,6 +4534,7 @@ export type PostVaultsByChainByAddressTargetsResponse =
             amountRaw: string | null;
             heldRaw: string;
             leastRaw?: string;
+            mostRaw?: string;
             valued?: {
               source: string;
               method: string;

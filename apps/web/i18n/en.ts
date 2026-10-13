@@ -1861,6 +1861,8 @@ export const en = {
         holding: 'Holding',
         amount: 'Amount sold',
         cost: 'Measured cost of selling',
+        /** The column's heading: short, so three columns fit a phone. */
+        costHeader: 'Cost to sell',
         costBps: (bps: string) => `${bps} bps`,
         notMeasured: 'Not measured',
         costNote:
@@ -1875,6 +1877,8 @@ export const en = {
         targets:
           'Your vault’s targets don’t change. Selling the same share of everything leaves its weights where they are.',
         stays: 'The rest stays in the vault.',
+        emptied:
+          'Afterwards the vault holds only what can’t be sold now and amounts too small to sell.',
         onlyOwner: (cash: string) =>
           `A vault pays only its owner. Your wallet is asked to sign only sales of these holdings for ${cash}, and the withdrawal of that ${cash} to this address.`,
         confirm: 'This is what I want to sell and withdraw',
@@ -2059,6 +2063,11 @@ export const en = {
       withdrawsAtLeast: (amount: string) => `At least ${amount}, to your own wallet`,
       /** Over the steps of a withdrawal in dollars: the least its cash step pays out. */
       receiveAtLeast: 'You receive at least',
+      /** A withdrawal in dollars that stopped after some of its sales landed. */
+      soldBefore: (what: string, least: string) =>
+        `Sold before this stopped: ${what}. Their dollars, at least ${least}, are in your vault now.`,
+      notAgain:
+        'Withdrawing the same share in dollars again would sell those holdings again. To take out only the dollars already there, withdraw the tokens themselves and choose the dollar token.',
       /** After a withdrawal in dollars that left a holding unsold: the other way out. */
       tokensInstead: 'Withdraw the tokens themselves',
       withdrawDone: 'What you withdrew is in your wallet now.',

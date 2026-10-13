@@ -1659,6 +1659,7 @@ export const pt: Dictionary = {
         holding: 'Ativo',
         amount: 'Quantidade vendida',
         cost: 'Custo medido de vender',
+        costHeader: 'Custo de venda',
         costBps: (bps: string) => `${bps} bps`,
         notMeasured: 'Não medido',
         costNote:
@@ -1674,6 +1675,8 @@ export const pt: Dictionary = {
         targets:
           'As metas do seu cofre não mudam. Vender a mesma parte de tudo deixa os pesos onde estão.',
         stays: 'O resto fica no cofre.',
+        emptied:
+          'Depois o cofre só guarda o que não pode ser vendido agora e quantias pequenas demais para vender.',
         onlyOwner: (cash: string) =>
           `Um cofre só paga ao seu dono. Sua carteira só é chamada a assinar vendas destes ativos por ${cash}, e o saque desse ${cash} para este endereço.`,
         confirm: 'É isto que quero vender e sacar',
@@ -1846,6 +1849,10 @@ export const pt: Dictionary = {
       withdrawsAll: (held: string) => `Tudo, ${held} na revisão, para a sua própria carteira`,
       withdrawsAtLeast: (amount: string) => `Pelo menos ${amount}, para a sua própria carteira`,
       receiveAtLeast: 'Você recebe pelo menos',
+      soldBefore: (what: string, least: string) =>
+        `Vendido antes de parar: ${what}. Os dólares dessas vendas, pelo menos ${least}, estão no seu cofre agora.`,
+      notAgain:
+        'Sacar a mesma parte em dólares de novo venderia esses ativos de novo. Para tirar só os dólares que já estão lá, saque os próprios tokens e escolha o token de dólar.',
       tokensInstead: 'Sacar os próprios tokens',
       withdrawDone: 'O que você sacou está na sua carteira agora.',
       autoFollowStops: 'O seguir automático para neste cofre: o primeiro passo o desativa.',

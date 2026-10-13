@@ -222,12 +222,15 @@ export const withdrawOrder = (
  */
 export const dollarsOrder = (
   sales: { sell: string; amountInRaw: string; minOutRaw: string; buy?: string }[],
-  cash: { heldRaw: string; cashRaw: string; leastRaw?: string },
+  cash: { heldRaw: string; cashRaw: string; leastRaw?: string; mostRaw?: string },
   over: Record<string, unknown> = {},
   autoFollowOff = false,
 ) => {
   const first = autoFollowOff ? [{ ...leg, id: LEG_C, seq: 0, kind: 'set_auto_follow' }] : [];
   const least = sales.reduce((n, s) => n + BigInt(s.minOutRaw), BigInt(cash.cashRaw));
+  // The most the cash step pays: the cash reviewed, each sale's quote, and 3% of the quotes.
+  const outs = sales.reduce((n, s) => n + BigInt(s.minOutRaw) + 1_000n, 0n);
+  const most = BigInt(cash.cashRaw) + outs + (outs * 300n) / 10_000n;
   return order({
     type: 'withdraw',
     legs: [
@@ -258,6 +261,7 @@ export const dollarsOrder = (
             amountRaw: null,
             heldRaw: cash.heldRaw,
             leastRaw: cash.leastRaw ?? least.toString(),
+            mostRaw: cash.mostRaw ?? most.toString(),
           },
         ],
       },

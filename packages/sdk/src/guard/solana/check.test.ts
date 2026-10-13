@@ -94,7 +94,7 @@ const withdrawAllStep: Step<'withdraw'> = { ...base, kind: 'withdraw', withdrawa
 const cashOutStep: Step<'withdraw'> = {
   ...base,
   kind: 'withdraw',
-  withdrawals: [{ asset: 'solana:usdc', amountRaw: null, minRaw: '700' }],
+  withdrawals: [{ asset: 'solana:usdc', amountRaw: null, minRaw: '700', maxRaw: '9000' }],
 };
 const targetsStep: Step<'set_targets'> = { ...base, kind: 'set_targets', targets: TARGETS };
 const acceptStep: Step<'accept_version'> = {
@@ -902,6 +902,12 @@ const negatives: Negative[] = [
     check: 'amount',
     input: async () =>
       input(cashOutStep, wire([await withdrawIx(BASKET_PROGRAM, 'solana:usdc', '699')])),
+  },
+  {
+    name: 'a cash step that pays out more than the review allows',
+    check: 'amount',
+    input: async () =>
+      input(cashOutStep, wire([await withdrawIx(BASKET_PROGRAM, 'solana:usdc', '9001')])),
   },
   {
     name: "the cash of a withdrawal in dollars to a stranger's token account",

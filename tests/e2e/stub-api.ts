@@ -372,8 +372,13 @@ async function placeDollars(
     .map((p) => ({ sell: p.asset, buy: cash, amountInRaw: shareOf(BigInt(p.raw)).toString() }))
     .filter((t) => BigInt(t.amountInRaw) > 0n);
   let least = shareOf(BigInt(state.cash.raw));
-  for (const trade of trades)
-    least += (BigInt((await adapter.quote(trade, state.owner)).outRaw) * 9_900n) / 10_000n;
+  let quoted = 0n;
+  for (const trade of trades) {
+    const out = BigInt((await adapter.quote(trade, state.owner)).outRaw);
+    least += (out * 9_900n) / 10_000n;
+    quoted += out;
+  }
+  const most = shareOf(BigInt(state.cash.raw)) + quoted + (quoted * 300n) / 10_000n;
   if (least === 0n)
     throw new ApiRefusal(409, {
       error: 'nothing this vault holds can be withdrawn in dollars now',
@@ -398,7 +403,13 @@ async function placeDollars(
         description: 'Withdraw the cash to your own wallet',
         trades: [],
         withdrawals: [
-          { asset: cash, amountRaw: null, heldRaw: state.cash.raw, leastRaw: least.toString() },
+          {
+            asset: cash,
+            amountRaw: null,
+            heldRaw: state.cash.raw,
+            leastRaw: least.toString(),
+            mostRaw: most.toString(),
+          },
         ],
       },
     ],
@@ -415,7 +426,8 @@ async function placeDollars(
           ...at,
         });
       const now = await adapter.getVault(state.address);
-      const amount = BigInt(now?.cash.raw ?? '0') - keep;
+      const there = BigInt(now?.cash.raw ?? '0') - keep;
+      const amount = there > most ? most : there;
       if (amount < least)
         throw new ApiRefusal(409, { error: 'the vault holds less cash than the order stated' });
       const [tx] = await adapter.buildWithdrawInKind({

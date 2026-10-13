@@ -342,6 +342,14 @@ export function checkMock(ctx: Context, deployment: MockDeployment): void {
                 BigInt(stated) >= BigInt(w.minRaw),
               `the bytes withdraw ${String(stated ?? 'all')} of ${w.asset}, less than the ${w.minRaw} the step pays at least`,
             );
+            need(
+              'amount',
+              typeof stated === 'string' &&
+                /^\d+$/.test(stated) &&
+                w.maxRaw !== undefined &&
+                BigInt(stated) <= BigInt(w.maxRaw),
+              `the bytes withdraw ${String(stated ?? 'all')} of ${w.asset}, more than the ${w.maxRaw ?? 'unstated'} the step pays at most`,
+            );
             continue;
           }
           need(

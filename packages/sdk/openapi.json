@@ -14069,6 +14069,11 @@
                                         "maxLength": 78,
                                         "pattern": "^(?:0|[1-9]\\d*)$"
                                       },
+                                      "mostRaw": {
+                                        "type": "string",
+                                        "maxLength": 78,
+                                        "pattern": "^(?:0|[1-9]\\d*)$"
+                                      },
                                       "valued": {
                                         "type": "object",
                                         "properties": {
@@ -14813,6 +14818,11 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -15470,6 +15480,11 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -16123,6 +16138,11 @@
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
                                 "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -17287,6 +17307,11 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -17983,6 +18008,11 @@
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
                                 "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -27355,6 +27385,11 @@
                                           "pattern": "^(?:0|[1-9]\\d*)$"
                                         },
                                         "leastRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "mostRaw": {
                                           "type": "string",
                                           "maxLength": 78,
                                           "pattern": "^(?:0|[1-9]\\d*)$"

@@ -60,7 +60,13 @@ export type Publication = {
  * `minRaw`, on the cash step of a withdrawal in dollars: the bytes name an amount, and it is at least
  * this, so a step that pays out less than the review stated is never signed.
  */
-export type Withdrawal = { asset: AssetId; amountRaw: RawAmount | null; minRaw?: RawAmount };
+export type Withdrawal = {
+  asset: AssetId;
+  amountRaw: RawAmount | null;
+  minRaw?: RawAmount;
+  /** With `minRaw`: the bytes name at most this much. */
+  maxRaw?: RawAmount;
+};
 
 /**
  * A token the vault is known to hold that the deployment does not list: one sent in from outside. It
@@ -239,7 +245,10 @@ export type PlanTerms = {
    * turns auto-follow off, sales of the vault's holdings into the deployment's cash token, each token
    * once, and one last step that withdraws the cash token and nothing else, to the owner. `cashRaw`
    * is the person's share of the cash the vault held, as their review showed it: the cash step pays
-   * at least that plus the minimum of every sale. `withdrawals` is then left out.
+   * at least that plus the minimum of every sale, and at most that plus every sale's quote plus
+   * `DOLLARS_MARGIN_BPS` of the quotes. `sales` are the holdings the review named, each with the
+   * amount sold: a sale of anything else, or of another amount, is refused. A named holding the
+   * order leaves out (it could not be sold now) is no fault. `withdrawals` is then left out.
    */
-  dollars?: { cashRaw: RawAmount };
+  dollars?: { cashRaw: RawAmount; sales: { asset: AssetId; amountRaw: RawAmount }[] };
 };

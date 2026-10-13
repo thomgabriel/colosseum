@@ -81,6 +81,12 @@ export const LegWithdrawal = z.object({
    */
   leastRaw: RawAmount.optional(),
   /**
+   * With `leastRaw`: the most that step pays out. The share of the cash held at planning, plus each
+   * sale's quoted output, plus `ORDER_LIMITS.dollarsMarginBps` of those quotes for a sale that fills
+   * above its quote. Cash that reaches the vault after the order is planned stays in it.
+   */
+  mostRaw: RawAmount.optional(),
+  /**
    * What it was worth in dollars when the order was made, with where the price came from: the amount
    * (all that was held, where no amount is named) at the chain's reference price then, cash at one
    * dollar. Absent for a token with no price. A portfolio counts what was taken out from it.
@@ -261,6 +267,13 @@ export const ORDER_LIMITS = {
    * on the keeper's tolerance (DESIGN-VAULT 3.7), so no request can ask for a looser trade than that.
    */
   maxSlippageBps: 300,
+  /**
+   * How far above the sum of its sales' quotes the cash step of a withdrawal in dollars may pay
+   * (gate WITHDRAW-DOLLARS), in bps of those quotes. A fill can land above its quote when the price
+   * moves the person's way; this allows it the same distance an order's trade may be built below
+   * its quote, and no more, so the step never takes cash the order did not bring.
+   */
+  dollarsMarginBps: 300,
 } as const;
 
 /** `family` is always the slug. */

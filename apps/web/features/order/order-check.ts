@@ -1,4 +1,4 @@
-import type { OrderDetail, Target, Trade } from '@colosseum/schemas';
+import { ORDER_LIMITS, type OrderDetail, type Target, type Trade } from '@colosseum/schemas';
 import { type SharedTerms, tradesOf } from '../shared/terms';
 import type { ChainUnits } from './units';
 
@@ -297,7 +297,7 @@ export function retargetShapeOk(
  * (`PlanTerms.dollars`); this holds the order's shape to the review before anything is offered.
  */
 export function dollarsShapeOk(
-  order: Pick<OrderDetail, 'depositRaw' | 'legs'>,
+  order: Pick<OrderDetail, 'depositRaw' | 'legs' | 'warnings'>,
   terms: Extract<SharedTerms, { kind: 'withdraw' }>,
   units: Pick<ChainUnits, 'cash'> | null,
 ): boolean {
@@ -312,6 +312,7 @@ export function dollarsShapeOk(
   const sales = legs.slice(first ? 1 : 0, -1);
   const may = new Map(dollars.sales.map((s) => [s.asset, s.amountRaw]));
   let least = BigInt(dollars.cashRaw);
+  let quoted = 0n;
   for (const leg of sales) {
     if (leg.kind !== 'swap' || leg.withdrawals !== undefined || leg.trades.length === 0)
       return false;
@@ -323,8 +324,19 @@ export function dollarsShapeOk(
       const min = leg.expected[i]?.minOutRaw;
       if (min === undefined || !RAW.test(min) || BigInt(min) === 0n) return false;
       least += BigInt(min);
+      const out = leg.expected[i]?.outRaw;
+      if (out === undefined || !RAW.test(out)) return false;
+      quoted += BigInt(out);
     }
   }
+  // A reviewed holding the order does not sell is one the chain would not sell now, and the order
+  // says so; one left out with no word is not the order that was reviewed.
+  const said = new Set(order.warnings.map((x) => x.code));
+  if ([...may.keys()].some((asset) => !said.has(`NOT_SOLD:${asset}`))) return false;
+  // The most the cash step pays: the cash reviewed, every sale's quote, and the margin for a fill
+  // above its quote (ORDER_LIMITS.dollarsMarginBps), which the guard holds the bytes to as well.
+  const most =
+    BigInt(dollars.cashRaw) + quoted + (quoted * BigInt(ORDER_LIMITS.dollarsMarginBps)) / 10_000n;
   const [out, ...more] = last?.withdrawals ?? [];
   return (
     last?.kind === 'withdraw' &&
@@ -335,6 +347,7 @@ export function dollarsShapeOk(
     out.asset === units.cash &&
     out.amountRaw === null &&
     least > 0n &&
-    out.leastRaw === least.toString()
+    out.leastRaw === least.toString() &&
+    out.mostRaw === most.toString()
   );
 }

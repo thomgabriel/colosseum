@@ -569,14 +569,22 @@ describe.each(CHAINS)('a withdrawal in dollars on %s', (chain) => {
     if (!figure) throw new Error('a sale with no figure');
     expect(figure.inRaw).toBe(held.toString());
     expect(BigInt(figure.outRaw)).toBeGreaterThan(0n);
-    // the minimum is the quote less the order's slippage, and never the quote itself
-    expect(BigInt(figure.minOutRaw)).toBe((BigInt(figure.outRaw) * 9_900n) / 10_000n);
+    // the minimum is the higher of the order's slippage under the quote and the chain's own minimum
+    // (which on Robinhood Chain carries the feed's floor), and never the quote itself
+    const own =
+      (BigInt(figure.outRaw) * BigInt(10_000 - (w.entry.mock?.quoteSlippageBps ?? 0))) / 10_000n;
+    const ours = (BigInt(figure.outRaw) * 9_900n) / 10_000n;
+    expect(BigInt(figure.minOutRaw)).toBe(own > ours ? own : ours);
+    expect(BigInt(figure.minOutRaw)).toBeLessThan(BigInt(figure.outRaw));
     expect(sale?.description).toMatch(/^Sell .* for /);
     expect(sale?.withdrawals).toBeUndefined();
     // the cash step names the cash token only, and the least it pays: the cash held plus the minimum
     const out = cashStep(plan);
     expect(out).toMatchObject({ asset: w.cash, amountRaw: null, heldRaw: usd(600) });
     expect(BigInt(out.leastRaw ?? 0)).toBe(BigInt(usd(600)) + BigInt(figure.minOutRaw));
+    // and the most it pays: the cash, the sale's quote, and 3% of the quote for a fill above it
+    const quoted = BigInt(figure.outRaw);
+    expect(BigInt(out.mostRaw ?? 0)).toBe(BigInt(usd(600)) + quoted + (quoted * 300n) / 10_000n);
     expect(out.valued).toMatchObject({
       source: w.entry.source,
       fetchedAt: now,
@@ -818,10 +826,72 @@ describe.each(CHAINS)('a withdrawal in dollars on %s', (chain) => {
     const plan = await planWithdraw(request, ctx);
     const last = plan.steps.at(-1);
     if (!last) throw new Error('no cash step');
-    // the sale was never sent: the vault holds its $600 and no more
+    // the sale is not seen yet: the vault holds its $600 and no more, as a read from before the sale
+    // would. That can pass in a moment, so the step is built again, not the order made again.
     const short = await refusal(buildWithdraw(request, legOf(last), w.entry, w.owner, undefined));
     expect(short.status).toBe(409);
     expect(short.body().error).toMatch(/less than the .* the order stated: nothing was built/);
+    expect(short.body().details?.retryable).toBe(true);
     expect(await inVault(w, w.cash)).toBe(BigInt(usd(600)));
+  });
+
+  it('a cash step short because cash left the vault since the order was planned is refused for good', async () => {
+    const request = dollars(w);
+    const plan = await planWithdraw(request, ctx);
+    const [sale, last] = [sales(plan)[0], plan.steps.at(-1)];
+    if (!sale || !last) throw new Error('no steps');
+    // another withdrawal takes $590 of the cash, then the sale lands: less than planned is there
+    const [away] = await w.entry.adapter.buildWithdrawInKind({
+      vault: w.vault,
+      assets: [w.cash],
+      amounts: { [w.cash]: usd(590) },
+    });
+    await w.entry.mock?.send(away as never);
+    await w.entry.mock?.send(
+      await buildWithdraw(request, legOf(sale), w.entry, w.owner, undefined),
+    );
+    const short = await refusal(buildWithdraw(request, legOf(last), w.entry, w.owner, undefined));
+    expect(short.status).toBe(409);
+    expect(short.body().details?.retryable).toBe(false);
+  });
+
+  it('takes no cash that came in after the order was planned: the cash step pays at most what it stated', async () => {
+    const request = dollars(w, { shareBps: 5_000 });
+    const plan = await planWithdraw(request, ctx);
+    const out = cashStep(plan);
+    // $2,000 of new cash lands in the vault between the plan and its steps
+    const { adapter, mock } = w.entry;
+    if (adapter.capabilities.needsApprove)
+      await mock?.send(
+        await adapter.buildApprove({ owner: w.owner, basketId: '7', amountRaw: usd(2_000) }),
+      );
+    await mock?.send(
+      await adapter.buildDeposit({ vault: w.vault, amountRaw: usd(2_000), slippageBps: 100 }),
+    );
+    const before = await holds(w, w.owner, w.cash);
+    await run(request, plan);
+    const got = (await holds(w, w.owner, w.cash)) - before;
+    expect(got).toBeLessThanOrEqual(BigInt(out.mostRaw ?? 0));
+    expect(got).toBeGreaterThanOrEqual(BigInt(out.leastRaw ?? 0));
+    // the new cash, and the half of the old that was to stay, are in the vault, less at most the
+    // margin the step allows above its sale's quote
+    const quoted = BigInt(sales(plan)[0]?.expected?.[0]?.outRaw ?? 0);
+    const margin = BigInt(out.mostRaw ?? 0) - BigInt(usd(300)) - quoted;
+    expect(margin).toBe((quoted * 300n) / 10_000n);
+    expect(await inVault(w, w.cash)).toBeGreaterThanOrEqual(BigInt(usd(2_300)) - margin);
+    expect(await inVault(w, w.cash)).toBeGreaterThan(BigInt(usd(2_000)));
+  });
+
+  it('a sale whose own quote states a minimum above what it pays (a pool worse than the reference allows) is not made', async () => {
+    const quote = w.entry.adapter.quote.bind(w.entry.adapter);
+    vi.spyOn(w.entry.adapter, 'quote').mockImplementation(async (trade, taker) => {
+      const q = await quote(trade, taker);
+      return { ...q, minOutRaw: (BigInt(q.outRaw) + 1n).toString() };
+    });
+    const plan = await planWithdraw(dollars(w), ctx);
+    vi.restoreAllMocks();
+    expect(sales(plan)).toEqual([]);
+    expect(plan.warnings.map((x) => x.code)).toEqual([notSold(w.spy)]);
+    expect(plan.warnings[0]?.text).toMatch(/reference price/);
   });
 });

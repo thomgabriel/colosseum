@@ -799,6 +799,36 @@ export function OrderScreen({
         ? `${formatRaw(leastRaw, cash.decimals, LOCALE[lang]) ?? leastRaw} ${cash.symbol}`
         : leastRaw;
 
+  // A withdrawal in dollars that stopped with some of its sales landed: which, and the least they
+  // brought into the vault, from the minimums the order stated.
+  const landedSales =
+    terms?.kind === 'withdraw' && terms.dollars && stoppedShort(now)
+      ? legs.filter(
+          (leg) =>
+            leg.kind === 'swap' &&
+            (now.legs.find((l) => l.id === leg.id)?.status ?? leg.status) === 'confirmed',
+        )
+      : [];
+  const soldBefore =
+    landedSales.length > 0
+      ? {
+          names: new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
+            landedSales.flatMap((l) =>
+              l.trades.map((x) => units?.tokens[x.sell]?.symbol ?? tokenName(x.sell)),
+            ),
+          ),
+          least: (() => {
+            const raw = landedSales
+              .flatMap((l) => l.expected)
+              .reduce((n, e) => n + BigInt(e.minOutRaw), 0n)
+              .toString();
+            return cash
+              ? `${formatRaw(raw, cash.decimals, LOCALE[lang]) ?? raw} ${cash.symbol}`
+              : raw;
+          })(),
+        }
+      : null;
+
   const stepsBody = (
     <>
       <StatRow>
@@ -1025,6 +1055,19 @@ export function OrderScreen({
                 : t.order.mismatch[check.why]}
             </span>
           </p>
+        )}
+        {soldBefore && (
+          // In dollars, stopped after some sales landed: their dollars are in the vault now, and the
+          // same share asked again would sell those holdings a second time.
+          <div data-ui="withdraw-sold-before" className="flex flex-col items-start gap-3">
+            <p className="max-w-(--tf-measure-body) text-body">
+              {t.order.shared.soldBefore(soldBefore.names, soldBefore.least)}
+            </p>
+            <p className="max-w-(--tf-measure-body) text-body-sm">{t.order.shared.notAgain}</p>
+            <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
+              {t.order.shared.tokensInstead}
+            </Link>
+          </div>
         )}
         {done && terms?.kind === 'withdraw' && (
           // The portfolio reads the vault again from its chain: what stayed, or that it is empty.

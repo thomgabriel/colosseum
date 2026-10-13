@@ -526,6 +526,8 @@ export function WithdrawScreen({
       ) : (
         <>
           <DataTable<DollarsTerms['sales'][number]>
+            // the width of the pane and no wider: a table wider than a phone scrolls inside itself
+            className="w-full min-w-0"
             caption={d.sold}
             rows={dollars.sales}
             rowKey={(r) => r.asset}
@@ -537,7 +539,7 @@ export function WithdrawScreen({
                 numeric: true,
                 cell: (r) => whole(r.amountRaw, r.asset),
               },
-              { key: 'cost', header: d.cost, numeric: true, cell: (r) => costOf(r.asset) },
+              { key: 'cost', header: d.costHeader, numeric: true, cell: (r) => costOf(r.asset) },
             ]}
           />
           <p className={`${text} text-muted-foreground`}>{d.costNote}</p>
@@ -557,7 +559,7 @@ export function WithdrawScreen({
         <dt className="text-muted-foreground">{w.check.from}</dt>
         <dd className="break-all font-mono text-source">{vault.address}</dd>
       </dl>
-      <p className={text}>{dollars.shareBps >= 10_000 ? w.check.emptied : d.stays}</p>
+      <p className={text}>{dollars.shareBps >= 10_000 ? d.emptied : d.stays}</p>
       <p className={text}>{d.quotes}</p>
       <p data-ui="withdraw-not-sold" className={text}>
         {d.notSold}
