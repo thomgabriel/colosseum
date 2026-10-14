@@ -649,7 +649,8 @@ function OwnVault({
                 {p.offTarget}
               </p>
             )}
-            <VaultHoldings read={read} deposit={empty ? deposit : undefined} />
+            {/* while the close is asked, its press is the view's one primary */}
+            <VaultHoldings read={read} deposit={empty && !closing ? deposit : undefined} />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">
                 {p.change}

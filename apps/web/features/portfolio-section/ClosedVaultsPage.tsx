@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { KIT_CELL, KIT_ROW, KitTable, KitTh } from '../../components/ui/KitTable';
-import { Panel, PanelHead, Plate } from '../../components/ui/Panel';
+import { Panel, PanelHead } from '../../components/ui/Panel';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { readClosedVaults, reopenVault } from '../portfolio/vault-lifetime';
@@ -15,7 +15,7 @@ import { useApiFetch } from '../wallet/WalletProvider';
 import type { SectionRead } from './api';
 import { usePortfolioSection, useSectionRead } from './PortfolioProvider';
 import { href } from './pages';
-import { PageHead, Say, SectionGate, sampleLine } from './parts';
+import { PageHead, Say, SectionGate } from './parts';
 import { useWords } from './words';
 
 // The closed vaults (/portfolio/closed, gate VAULT-CLOSE-REUSE): the vaults the person closed, newest
@@ -48,21 +48,21 @@ export function ClosedVaultsPage() {
   );
 }
 
-function ClosedList({ vaults }: { vaults: ClosedVault[] }) {
+const keyOf = (vault: ClosedVault) => `${vault.chain}:${vault.address}`;
+
+function ClosedList({ vaults: answered }: { vaults: ClosedVault[] }) {
   const w = useWords();
-  const t = useT();
   const words = w.closed;
+  // A vault opened again here leaves the next answer; it keeps its row, and its way to its page, until
+  // the person leaves the page.
+  const [seen, setSeen] = useState(answered);
+  const fresh = answered.filter((v) => !seen.some((s) => keyOf(s) === keyOf(v)));
+  if (fresh.length) setSeen([...fresh, ...seen]);
+  const vaults = fresh.length ? [...fresh, ...seen] : seen;
   if (vaults.length === 0) return <Say sentence={words.empty} />;
-  // Not live: said once in words on the panel, as the overview's board says it.
-  const notLive = vaults.find((v) => v.provenance !== 'live');
   return (
     <Panel aria-labelledby="closed-vaults">
-      <PanelHead
-        id="closed-vaults"
-        title={words.label}
-        stats={[{ label: t.plan.kpiAssets, value: <span>{vaults.length}</span> }]}
-        actions={notLive ? <Plate>{sampleLine(t.shell, notLive.provenance)}</Plate> : undefined}
-      />
+      <PanelHead id="closed-vaults" title={words.label} />
       <KitTable
         ui="closed-vaults"
         caption={words.caption}
@@ -79,7 +79,7 @@ function ClosedList({ vaults }: { vaults: ClosedVault[] }) {
         }
       >
         {vaults.map((vault) => (
-          <Row key={`${vault.chain}:${vault.address}`} vault={vault} />
+          <Row key={keyOf(vault)} vault={vault} />
         ))}
       </KitTable>
     </Panel>
