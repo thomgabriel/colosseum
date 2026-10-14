@@ -1088,6 +1088,15 @@ describe('relaxed intake: caps', () => {
       'You will be asked to confirm a warning first.',
       'Está dentro do teto.',
       'Fica acima do limite listado.',
+      // reworded, from the review of #292
+      'No warning will appear.',
+      "You won't see a warning for this one.",
+      'There are no warnings on this draft.',
+      'The draft is clear of any warnings.',
+      'NVDAx is fine at that size.',
+      'NVDAx is under the threshold.',
+      'NVDAx stays inside its limit.',
+      'NVDAx goes past the allowed share.',
     ])
       expect(await said(`Here is the draft. ${verdict}`)).not.toContain(verdict);
     for (const kept of [
@@ -1095,8 +1104,27 @@ describe('relaxed intake: caps', () => {
       'Its market cap is not measured here.',
       'Nothing is deposited until you confirm.',
       'A word of warning: stocks can fall hard.',
+      'A word of warning: stocks can fall hard before you deposit.',
+      'NVDAx is the flagship chip stock, ready when you deposit.',
+      'USDY is no low-cap token.',
+      'NVDAx is a high-cap stock.',
+      'NVDAx is a large–cap chip maker.',
     ])
       expect(await said(`Here is the draft. ${kept}`)).toBe(`Here is the draft. ${kept}`);
+  });
+
+  it('reads no verdict in a pot’s name', async () => {
+    const reply = await run(
+      {
+        shape: 'split',
+        buckets: [
+          { name: 'Under the limit', shape: 'grow', share: 0.5, lines: [line('solana:nvdax')] },
+          { name: 'Reserve', shape: 'protect', share: 0.5, lines: [line('solana:usdy')] },
+        ],
+      },
+      'half growth, half reserve',
+    );
+    expect(reply.proposal?.summary).toContain('Under the limit (grow): NVDAx');
   });
 
   it('ends the warning before the holdings in the summary', async () => {

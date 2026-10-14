@@ -419,12 +419,26 @@ const whereOf = (error: z.ZodError) =>
   error.issues.map((issue) => `${issue.code}:${issue.path.join('.')}`);
 
 /**
- * A sentence that gives a cap verdict: a cap, a ceiling or a limit (not a large or small cap, not a
- * market cap), or a warning at the deposit step.
+ * Sentences that give a cap verdict, which only the server can: a cap, ceiling or threshold (not a
+ * large-, small- or market cap); a holding within, inside, under, over or past a limit, the maximum
+ * or the allowed share; a holding fine or too big at its size; no warning to come; and a warning the
+ * deposit step gives, shows or asks to confirm. A word of warning about risk is none of these.
  */
-const CAP_CLAIM =
-  /(?<!\b(?:large|small|mid|mega|micro|market)[-\s]?)\b(?:caps?|capped|ceilings?|tetos?)\b|\b(?:within|above|over|under|below|beyond|exceeds?|exceeding|past)\s+(?:(?:its|the|their|your|a|any)\s+)?(?:listed\s+)?limits?\b|\b(?:dentro|acima|abaixo|al[ée]m)\s+d[eo]s?\s+(?:(?:seu|sua)\s+)?limites?\b/iu;
-const WARNING = /\b(?:warn\w*|flag\w*|avis\w*|alert\w*)/iu;
+const CAP_VERDICTS = [
+  /(?<!\b(?:large|small|mid|mega|micro|low|high|market)[-–\s]?)\b(?:caps?|capped|ceilings?|thresholds?|tetos?)\b/iu,
+  /\b(?:within|inside|above|over|under|below|beyond|past|outside|exceeds?|exceeding|exceeded)\s+(?:(?:its|the|their|your|a|any|this|that)\s+)?(?:(?:listed|allowed|maximum|max)\s+)?(?:limits?|maximum|max)\b/iu,
+  /\b(?:allowed|permitted|maximum|max)\s+(?:share|weight|size|allocation)\b/iu,
+  /\b(?:dentro|acima|abaixo|al[ée]m)\s+d[eoa]s?\s+(?:(?:seu|sua)\s+)?(?:limites?|m[áa]ximo)\b/iu,
+  /\b(?:fine|ok|okay|safe|acceptable|allowed|too\s+(?:big|large|much|high))\s+(?:at|for)\s+(?:that|this|the|its|your|their)\s+(?:size|share|weight|amount|level)\b/iu,
+  // no warning to come, said either way round
+  /(?:\b(?:no|not|without|never|none|nothing|zero|clear\s+of|free\s+of|sem|nenhum|nenhuma|n[ãa]o)\b|n['’]t\b)[^.!?,;:]{0,25}?\b(?:warn\w*|avis\w*|alert\w*)/iu,
+  /\bwarn\w*\s+(?:\w+\s+)?(?:not|never|won['’]t|doesn['’]t|isn['’]t|wouldn['’]t)\b/iu,
+  // a warning shown, seen or confirmed
+  /\b(?:confirm|show|see|get|appear|raise|trigger|mostra|ver|aparece|confirma)\w*\s+(?:\w+\s+){0,2}(?:warnings?|avisos?|alertas?)\b/iu,
+  /\b(?:warnings?|avisos?|alertas?)\s+(?:\w+\s+){0,2}(?:appear|show|pop|come|aparece)\w*/iu,
+];
+// a warning or flag as something done, which is a verdict where the deposit or its confirmation is
+const WARNS = /\b(?:warns?|warned|flag(?:s|ged|ging)?|avisa\w*|alertar\w*|sinaliza\w*)\b/iu;
 const AT_DEPOSIT = /\b(?:deposit\w*|dep[óo]sit\w*|confirm\w*)/iu;
 
 const REPAIR_SHAPE =
@@ -586,11 +600,16 @@ export function createRelaxedGoalAgent(options: {
           personWords.some((words) => words.includes(inner)) ? '' : quote,
         );
         for (const name of catalogNames) if (name) own = own.replaceAll(name, '');
-        return CAP_CLAIM.test(own) || (WARNING.test(own) && AT_DEPOSIT.test(own));
+        return (
+          CAP_VERDICTS.some((verdict) => verdict.test(own)) ||
+          (WARNS.test(own) && AT_DEPOSIT.test(own))
+        );
       };
       // Outside the message no reference is served, so a brace there is a figure like any other.
       const figure = (text: string) =>
-        hasFinancialFigure(text, personWords, catalogNames) || /[{}]/u.test(text) || capClaim(text);
+        hasFinancialFigure(text, personWords, catalogNames) || /[{}]/u.test(text);
+      // A reason the model gives is read for verdicts as well; a pot's name, a term or a name is not.
+      const figureOrVerdict = (text: string) => figure(text) || capClaim(text);
       // Figures by reference, in the message only: the vault conversation's resolver and sentence
       // rules over this chain's catalog, resolving only what this request handed the model. The
       // model's own words, with a mark where each reference stood, pass the same check as ever.
@@ -619,7 +638,7 @@ export function createRelaxedGoalAgent(options: {
       ): { r: Reply; cut: number; unbacked: string[]; typed: boolean } => {
         let cut = 0;
         const trim = (text: string) => {
-          const trimmed = trimFigureSentences(text, figure, catalogNames);
+          const trimmed = trimFigureSentences(text, figureOrVerdict, catalogNames);
           cut += trimmed.cut;
           return trimmed.text;
         };
