@@ -25,6 +25,7 @@ import { explorerAddressUrlFor, explorerNameFor } from '../order/readiness';
 import { dollars } from '../portfolio/figures';
 import { vaultValueSource } from '../portfolio/portfolio';
 import { OwnVaultActions } from '../portfolio/VaultActions';
+import { closable } from '../portfolio/vault-lifetime';
 import { sameAddress } from '../portfolio/vault-name';
 import { conversationNetwork } from '../vault-conversation/storage';
 import { VaultConversation } from '../vault-conversation/VaultConversation';
@@ -41,6 +42,7 @@ import {
   recallAction,
   VaultAction,
 } from './VaultAction';
+import { CloseConfirm, ClosedNote } from './VaultClose';
 import { VaultDetails, VaultHoldings } from './VaultHoldings';
 import { VaultWait } from './waits';
 
@@ -364,6 +366,11 @@ function OwnVault({
   // signed step. One approved before the page was opened again is taken up from its order's record.
   const [open, setOpen] = useState<OpenAction | null>(null);
   const [phase, setPhase] = useState<ActionPhase>('open');
+  // Closing the vault (gate VAULT-CLOSE-REUSE): asked once more before it is made. A closed vault's
+  // owner is told so, with the way to open it again.
+  const [closing, setClosing] = useState(false);
+  const closedAt = vault.closedAt ?? null;
+  const where = { chain: read.chain, address: vault.address };
   // The pane as it is now, for an answer that comes back late: an order is taken only by the pane that
   // asked for it, and each opening of a pane is its own (`token`).
   const openNow = useRef(open);
@@ -548,7 +555,7 @@ function OwnVault({
               {value}
               {/* The pair a person comes for, and the rest behind "More". While one of them has the
                   pane its own press is the view's one primary, so the pair steps back. */}
-              {!open && (
+              {!open && !closing && (
                 <div
                   data-ui="vault-page-actions"
                   className="relative flex flex-wrap items-center gap-3"
@@ -593,6 +600,21 @@ function OwnVault({
                       </li>
                     )}
                     {explorerLink && <li>{explorerLink}</li>}
+                    {!closedAt && (
+                      <li>
+                        <button
+                          type="button"
+                          className={MORE_ROW}
+                          data-action="vault-close"
+                          onClick={() => {
+                            opener.current = '[data-ui="vault-more"]';
+                            setClosing(true);
+                          }}
+                        >
+                          {p.close.action}
+                        </button>
+                      </li>
+                    )}
                   </MoreMenu>
                 </div>
               )}
@@ -601,6 +623,28 @@ function OwnVault({
         }
         current={
           <>
+            {closing && !closedAt && (
+              <CloseConfirm
+                vault={where}
+                empty={closable(vault)}
+                onKeep={() => {
+                  setClosing(false);
+                  // back to the control that asked, once it is drawn again
+                  requestAnimationFrame(() =>
+                    root.current?.querySelector<HTMLElement>('[data-ui="vault-more"]')?.focus(),
+                  );
+                }}
+                onWithdraw={() => {
+                  setClosing(false);
+                  start('withdraw', '[data-action="vault-withdraw"]');
+                }}
+                onClosed={() => {
+                  setClosing(false);
+                  onReadAgain();
+                }}
+              />
+            )}
+            {closedAt && <ClosedNote vault={where} closedAt={closedAt} onReopened={onReadAgain} />}
             {away && (
               <p
                 data-ui="vault-off-target"
@@ -609,7 +653,8 @@ function OwnVault({
                 {p.offTarget}
               </p>
             )}
-            <VaultHoldings read={read} deposit={empty ? deposit : undefined} />
+            {/* while the close is asked, its press is the view's one primary */}
+            <VaultHoldings read={read} deposit={empty && !closing ? deposit : undefined} />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">
                 {p.change}

@@ -210,6 +210,41 @@ describe('the value over time', () => {
     ]);
   });
 
+  it('leaves out what was taken from a vault before it was opened again (VAULT-CLOSE-REUSE)', () => {
+    const step = (day: number, usd: string) => ({
+      legId: `l${day}`,
+      status: 'confirmed',
+      txId: null,
+      explorerUrl: null,
+      at: at(day),
+      provenance: 'sandbox',
+      withdrawals: [
+        {
+          asset: 'x',
+          amountRaw: '1',
+          heldRaw: '1',
+          valued: { usd, source: 's', fetchedAt: at(day), method: 'm', provenance: 'sandbox' },
+        },
+      ],
+    });
+    const withdrawal = {
+      orderId: 'w',
+      createdAt: at(2),
+      chain: 'solana',
+      vault: A,
+      status: 'done',
+      steps: [step(2, '100'), step(6, '10')],
+    } as unknown as PersonWithdrawal;
+    const answer = plans({ [A]: [{ day: 5, usd: 40 }] });
+    const plan = answer.chains[0]?.plans[0] as { countsFrom?: string };
+    plan.countsFrom = at(4);
+    const { flows } = flowsOf(answer, [withdrawal]);
+    expect(flows.map((f) => [f.usd, f.at])).toEqual([
+      [40, Date.parse(at(5))],
+      [-10, Date.parse(at(6))],
+    ]);
+  });
+
   it('adds a vault in only from its first reading, with what went into it', () => {
     const answer = history([
       { address: A, points: [point(1, 100), point(3, 110)] },

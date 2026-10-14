@@ -14,15 +14,17 @@ export type PageId = (typeof PAGES)[number]['id'];
 
 export const METHODOLOGY = 'methodology' as const;
 export const PLAN = 'plan' as const;
+/** The vaults the person closed (gate VAULT-CLOSE-REUSE), linked from the overview's foot. */
+export const CLOSED = 'closed' as const;
 
-/** Every page of the section, the two that are not in the menu's list among them. */
-export type SectionPage = PageId | typeof METHODOLOGY | typeof PLAN;
+/** Every page of the section, the three that are not in the menu's list among them. */
+export type SectionPage = PageId | typeof METHODOLOGY | typeof PLAN | typeof CLOSED;
 
 /** Where the section lives. */
 export const SECTION = '/portfolio';
 
 /** A page's address: the overview is the section's own, the others are under it. */
-export const href = (id: PageId | typeof METHODOLOGY): string =>
+export const href = (id: PageId | typeof METHODOLOGY | typeof CLOSED): string =>
   id === 'overview' ? SECTION : `${SECTION}/${id}`;
 
 /** The page of one plan: the vault it is held in, on its chain. */
@@ -33,6 +35,6 @@ export const planHref = (chain: ChainId, address: string): string =>
 export function pageOf(pathname: string): SectionPage {
   const [, section, page] = pathname.split('/');
   if (`/${section}` !== SECTION || page === undefined || page === '') return 'overview';
-  if (page === METHODOLOGY || page === PLAN) return page;
+  if (page === METHODOLOGY || page === PLAN || page === CLOSED) return page;
   return PAGES.find((p) => p.id === page)?.id ?? 'overview';
 }

@@ -169,6 +169,13 @@
       "when": 1792003033688,
       "tag": "0023_recipe_network",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792013101064,
+      "tag": "0025_vault_lifetimes",
+      "breakpoints": true
     }
   ]
 }
