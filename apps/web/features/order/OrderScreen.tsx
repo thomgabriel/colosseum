@@ -1540,9 +1540,9 @@ export function OrderScreen({
   const plate = onePress
     ? null
     : provenance === 'sandbox'
-      ? { text: t.buy.steps.note.testNetwork(t.chain.names[chain]), ui: 'data-note' }
+      ? { text: t.shell.testNetworkLine, ui: 'sample-tag' }
       : provenance === 'mock'
-        ? { text: t.shell.mockAnnounce, ui: 'sample-note' }
+        ? { text: t.shell.mockAnnounce, ui: 'sample-tag' }
         : null;
   // The review's line: a muted label over one figure, then the small figures of what it trades.
   const heroLabel =

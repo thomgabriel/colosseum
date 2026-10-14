@@ -255,7 +255,7 @@ test('a buy on the mock chain: plan, buy, review, sign, every step confirmed', a
     page.locator('[data-ui="activity-panel"] [data-ui="execution-list"] li a[href]'),
   ).toHaveCount(4);
   await expect(vault.locator('[data-ui="vault-value"] [data-ui="figure"]')).toHaveCount(1);
-  await expect(vault.locator('[data-ui="sample-note"]')).toBeVisible();
+  await expect(vault.locator('[data-ui="sample-tag"]')).toBeVisible();
   await expect(page.locator('main')).not.toContainText('MOCK');
   await expect(vault.locator('[data-ui="chain-badge"]')).toHaveText('Solana');
   await check(page, 'monitor');

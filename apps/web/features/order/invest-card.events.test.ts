@@ -267,7 +267,7 @@ describe('the card', () => {
     expect(server.to('/v1/orders')).toEqual([]);
   });
 
-  it('says once, in a quiet line on the card, that its figures are the test network’s, and never MOCK', async () => {
+  it('says once, in a quiet tag on the card, that its figures are the test network’s, and never MOCK', async () => {
     api({ funded: false });
     const host = await buy();
     const section = find(host, 'section[data-ui="card"]');
@@ -284,8 +284,8 @@ describe('the card', () => {
     portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'mock'));
     api({ funded: false, provenance: 'mock' });
     const host = await buy();
-    // the card's hatch band and its one quiet line at the foot (MOCK-QUIET), and no top line
-    expect(find(host, '[data-ui="sample-note"]').textContent).toBe(en.shell.mockAnnounce);
+    // the card's one quiet tag (MOCK-QUIET), and no top line
+    expect(find(host, '[data-ui="sample-tag"]').textContent).toBe(en.shell.mockAnnounce);
     expect(host.querySelector('[data-ui="data-note"]')).toBeNull();
     expect(button(host, en.buy.funding.mockFund)).toBeDefined();
     // nothing can be sent to the sample chain: the heading alone, no token to add and no address

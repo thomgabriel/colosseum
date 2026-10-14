@@ -207,7 +207,7 @@ describe('the step being signed', () => {
             { label: 'Under today’s price, at worst', value: '1%', ui: 'stat-under' },
           ],
           title: 'Swap $1,354 of cash for GOOGLx',
-          plate: { text: 'Test network · Solana · not live', ui: 'data-note' },
+          plate: { text: 'Test network', ui: 'sample-tag' },
           status: h('p', null, 'Waiting for the chain…'),
         },
         h('button', { type: 'button' }, 'Sign: swap $1,354 for GOOGLx'),
@@ -219,9 +219,7 @@ describe('the step being signed', () => {
     expect(find(step, '[data-ui="sign-figure"]').textContent).toBe('$1,354 → GOOGLx');
     expect(find(step, '[data-ui="sign-hero"]').getAttribute('tabindex')).toBe('-1');
     expect(find(step, '[data-ui="stat-least"]').textContent).toBe('At least3.76 GOOGLx');
-    expect(find(step, '[data-ui="data-note"]').textContent).toBe(
-      'Test network · Solana · not live',
-    );
+    expect(find(step, '[data-ui="sample-tag"]').textContent).toBe('Test network');
     expect(find(step, '.sr-only').textContent).toBe('Step 2 of 2');
     // the state is shown here and said by the order's one announcer, not a region of its own
     const status = find(step, '[data-ui="sign-status"]');

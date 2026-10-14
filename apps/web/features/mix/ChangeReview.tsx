@@ -65,9 +65,9 @@ export function ChangeReview({
   const figures = changeFigures(review.targets, holds, review.amountUsd, words);
   const plate =
     review.provenance === 'sandbox'
-      ? { text: t.buy.steps.note.testNetwork(t.chain.names[chain]), ui: 'data-note' }
+      ? { text: t.shell.testNetworkLine, ui: 'sample-tag' }
       : review.provenance === 'mock'
-        ? { text: t.shell.mockAnnounce, ui: 'sample-note' }
+        ? { text: t.shell.mockAnnounce, ui: 'sample-tag' }
         : null;
   return (
     <div data-ui="change-review">

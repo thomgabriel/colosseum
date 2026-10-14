@@ -2,13 +2,13 @@ import { all, classes, closest, type El, text } from './html';
 
 // The rule of the hatch (mock-plate.md, "Enforcement", as MOCK-QUIET changed it): the hatch means
 // sample or stale, and it never appears without its words in the same component: the card's quiet
-// line, a glyph's name for screen readers, a pin whose name says sample, or "stale". The other way
-// too: a sample glyph is itself hatched. And text never sits on the hatch.
+// tag or a panel's quiet line, a glyph's name for screen readers, a pin whose name says sample, or
+// "stale". The other way too: a sample glyph is itself hatched. And text never sits on the hatch.
 // A screen's own test can run this on its markup: `expect(hatchProblems(render(<Screen />))).toEqual([])`.
 
 /** Pieces of a component, not components: the search for the word goes on above them. */
 const PARTS = new Set(['hatch-band', 'pin', 'pin-glyph', 'plan-legs-bar']);
-const WORDS = new Set(['sample-note', 'sample-glyph', 'stale-plate', 'stale-tag']);
+const WORDS = new Set(['sample-tag', 'sample-note', 'sample-glyph', 'stale-plate', 'stale-tag']);
 
 const isHatch = (el: El) => classes(el).includes('tf-hatch') || 'data-hatch' in el.attrs;
 const isPlate = (el: El) => el.attrs['data-ui'] === 'sample-glyph';

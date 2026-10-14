@@ -273,11 +273,11 @@ describe('a plan’s page, for a plan made to measure with two deposits', () => 
       'Read 4 minutes ago, on Oct 7, 2026, 11:56 UTC.',
     );
     expect(head.querySelector('[data-ui="stale-plate"]')).toBeNull();
-    // a test network: the hatch and the one quiet line
+    // a test network: the one quiet tag
     const card = head.closest('[data-ui="card"]') as Element;
     expect(card.getAttribute('aria-label')).toBe(en.plan.head.label);
-    expect(card.querySelector('[data-ui="hatch-band"]')).not.toBeNull();
-    expect(part(card, 'sample-note')).toBe(t.shell.testNetworkLine);
+    expect(card.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
+    expect(part(card, 'sample-tag')).toBe(t.shell.testNetworkLine);
   });
 
   it('draws the value over time as one solid line, named for a screen reader, with one pinned figure', async () => {
@@ -737,11 +737,12 @@ describe('the figures of a plan’s page', () => {
       expect(text(copy)).not.toMatch(/\d\s*basis point/);
       expect(text(host)).not.toContain('MOCK');
       expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
-      // each block that shows a figure which is not live says so once, with the hatch
+      // each block that shows a figure which is not live says so once, in its tag, with no hatched edge
       for (const card of host.querySelectorAll('[data-ui="plan-blocks"] [data-ui="card"]')) {
         if (pins(card).length === 0) continue;
-        expect(card.querySelector(':scope > [data-ui="hatch-band"]')).not.toBeNull();
-        expect(text(find(card, ':scope > div > [data-ui="sample-note"]'))).toBe(
+        expect(card.querySelectorAll('[data-ui="sample-tag"]')).toHaveLength(1);
+        expect(card.querySelector(':scope > [data-ui="hatch-band"]')).toBeNull();
+        expect(text(find(card, '[data-ui="sample-tag"]'))).toBe(
           chain.provenance === 'mock' ? t.shell.mockAnnounce : t.shell.testNetworkLine,
         );
       }
@@ -763,7 +764,7 @@ describe('the figures of a plan’s page', () => {
           ? (block(host, ui).closest('[data-ui="card"]') as Element)
           : block(blocks, ui);
       expect(root.querySelector('[data-ui="hatch-band"]'), ui).toBeNull();
-      expect(root.querySelector('[data-ui="sample-note"]'), ui).toBeNull();
+      expect(root.querySelector('[data-ui="sample-tag"]'), ui).toBeNull();
     }
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
@@ -1082,7 +1083,7 @@ describe('a vault on the sample chain', () => {
     const head = block(host, 'plan-head');
     const status = find(head, '[data-ui="status"]');
     expect([status.getAttribute('data-status'), text(status)]).toEqual(['off-track', 'Off track']);
-    expect(part(head.closest('[data-ui="card"]') as Element, 'sample-note')).toBe(
+    expect(part(head.closest('[data-ui="card"]') as Element, 'sample-tag')).toBe(
       t.shell.mockAnnounce,
     );
     expect(part(head, 'stale-plate')).toBe('stale · 26 h');
@@ -1518,7 +1519,7 @@ describe('a plan’s page in Portuguese', () => {
         said(el).trim(),
       ),
     ).toEqual(['Valor agora', 'US$ 81.243,55', 'Você colocou', 'US$ 80.000,00']);
-    expect(said(find(head.closest('[data-ui="card"]') as Element, '[data-ui="sample-note"]'))).toBe(
+    expect(said(find(head.closest('[data-ui="card"]') as Element, '[data-ui="sample-tag"]'))).toBe(
       tp.shell.testNetworkLine,
     );
     expect(

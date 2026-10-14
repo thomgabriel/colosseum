@@ -62,6 +62,7 @@ export function PanelHead({
   title,
   stats = [],
   actions,
+  tabs,
   level = 2,
   className,
 }: {
@@ -70,6 +71,11 @@ export function PanelHead({
   title: ReactNode;
   stats?: readonly HeadStat[];
   actions?: ReactNode;
+  /**
+   * Tabs that say what the panel is (Deposit | Withdraw): drawn in the title's place, the title then
+   * read by screen readers alone, so the head does not say the same thing twice.
+   */
+  tabs?: ReactNode;
   level?: 2 | 3;
   className?: string;
 }) {
@@ -83,7 +89,10 @@ export function PanelHead({
     >
       <Title
         id={id}
-        className="flex items-center gap-2.5 text-body-lg font-semibold whitespace-nowrap"
+        className={cn(
+          'flex items-center gap-2.5 text-body-lg font-semibold whitespace-nowrap',
+          tabs !== undefined && 'sr-only',
+        )}
       >
         {icon && (
           <span className="inline-flex size-8 items-center justify-center rounded-lg bg-honey-tint text-foreground">
@@ -92,6 +101,7 @@ export function PanelHead({
         )}
         {title}
       </Title>
+      {tabs}
       {stats.map((stat) => (
         <p key={stat.label} data-ui={stat.ui} className="flex items-baseline gap-2 text-body-sm">
           <span className="text-muted-foreground">{stat.label}</span>
@@ -161,13 +171,17 @@ export function StatGrid({ spacing, children }: { spacing?: string; children: Re
   return <dl className={cn('m-0 grid grid-cols-2', spacing ?? 'gap-x-6 gap-y-4')}>{children}</dl>;
 }
 
-/** The quiet pill: honey edge on its tint, ink text. Says, in words, that figures are not live. */
+/** The quiet pill's look, shared with a sample card's tag (`Card mock`), so the two are one mark. */
+export const PLATE =
+  'rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground';
+
+/**
+ * The quiet pill: honey edge on its tint, ink text. Says, in words, that figures are not live. A
+ * panel's sample mark is `ui="sample-tag"`, the hook a sample card's tag has (MOCK-QUIET).
+ */
 export function Plate({ children, ui }: { children: ReactNode; ui?: string }) {
   return (
-    <span
-      data-ui={ui}
-      className="rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground"
-    >
+    <span data-ui={ui} className={PLATE}>
       {children}
     </span>
   );

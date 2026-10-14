@@ -179,7 +179,7 @@ describe('the amount card on a deposit', () => {
     expect(held(primary(host))).toBe(true);
     // the button names nothing until there is an amount
     await type(field(host), '');
-    expect(primary(host).textContent).toBe(en.amount.enter);
+    expect(primary(host).textContent).toBe(en.amount.modes.deposit);
   });
 
   it('lets a short wallet on, where the next step sends test funds, and says so quietly', async () => {
@@ -240,8 +240,10 @@ describe('the amount card on a deposit', () => {
     // what the vault will hold at that amount, by the weights shown, the rest as cash
     const preview = find(host, '[data-ui="amount-preview"]');
     expect(preview.textContent).toContain(en.amount.preview.deposit);
-    expect(preview.textContent).toContain('$100');
-    expect(preview.textContent).toContain('$75');
+    // the shared composition, now and after: a new vault holds nothing now; after, the weights
+    expect(find(preview, '[data-ui="composition"]').dataset.mode).toBe('single');
+    expect(preview.textContent).toContain('40%');
+    expect(preview.textContent).toContain('30%');
     expect(preview.textContent).toContain(en.amount.preview.cash);
     // one primary button, and it names the action and the amount
     expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
@@ -254,6 +256,107 @@ describe('the amount card on a deposit', () => {
     await click(find(host, 'button[data-action="amount-change"]'));
     expect(host.querySelector('[data-ui="the-flow"]')).toBeNull();
     expect(field(host).value).toBe('250');
+  });
+
+  it('compares an existing vault now with after the deposit, by its values as read', async () => {
+    api();
+    acceptTrust(USER, TRUST_STATUS.textVersion, true);
+    // $100 of SPY now; $100 in at 40% SPY, 30% NVDA and 30% cash
+    const host = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          held: {
+            rows: [{ asset: 'solana:spy', valueUsd: 100, weightBps: 10_000 }],
+            totalUsd: 100,
+          },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(host), '100');
+    const composition = find(host, '[data-ui="amount-preview"] [data-ui="composition"]');
+    expect(composition.dataset.mode).toBe('compare');
+    // SPY moves from 100% to 70%: both strips, now over after
+    expect(composition.querySelectorAll('[data-bar]').length).toBeGreaterThan(0);
+    const rows = [...composition.querySelectorAll('[data-ui="composition-list"] li')].map(
+      (li) => li.textContent,
+    );
+    // after: SPY (100 + 40) of 200, NVDA 30 of 200, cash 30 of 200
+    expect(rows.join(' | ')).toContain('70%');
+    expect(rows.join(' | ')).toContain('15%');
+  });
+
+  it('says nothing of what the vault will hold while its targets are not read', async () => {
+    api();
+    acceptTrust(USER, TRUST_STATUS.textVersion, true);
+    const host = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          holdings: null,
+          held: {
+            rows: [{ asset: 'solana:spy', valueUsd: 100, weightBps: 10_000 }],
+            totalUsd: 100,
+          },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(host), '100');
+    // never "SPY 50%": with no targets the deposit goes nowhere the card can say
+    expect(host.querySelector('[data-ui="amount-preview"]')).toBeNull();
+  });
+
+  it('draws one strip where no share moves, at the precision the rows write it, and for a new vault', async () => {
+    api();
+    acceptTrust(USER, TRUST_STATUS.textVersion, true);
+    // on its targets: SPY 40, NVDA 30, cash 30 of $100; $100 more at the same weights moves nothing
+    const onTarget = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          held: {
+            rows: [
+              { asset: 'solana:spy', valueUsd: 40, weightBps: 4_000 },
+              { asset: 'solana:nvda', valueUsd: 30, weightBps: 3_000 },
+              { asset: 'solana:usdc', valueUsd: 30, weightBps: 3_000, cash: true },
+            ],
+            totalUsd: 100,
+          },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(onTarget), '100');
+    const same = find(onTarget, '[data-ui="amount-preview"] [data-ui="composition"]');
+    expect(same.dataset.mode).toBe('compare');
+    expect(same.querySelectorAll('[data-bar]')).toHaveLength(0);
+    await unmountAll();
+
+    // a new vault: nothing now to compare with, one composition
+    const fresh = await mount(inLanguage('en', deposit()));
+    await settle(10);
+    await type(field(fresh), '100');
+    expect(find(fresh, '[data-ui="amount-preview"] [data-ui="composition"]').dataset.mode).toBe(
+      'single',
+    );
+    await unmountAll();
+
+    // a holding with no price: no comparison, the weights alone
+    const unpriced = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          held: { rows: [{ asset: 'solana:spy', valueUsd: null, weightBps: 0 }], totalUsd: 100 },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(unpriced), '100');
+    expect(find(unpriced, '[data-ui="amount-preview"] [data-ui="composition"]').dataset.mode).toBe(
+      'single',
+    );
   });
 
   it('keeps the line without its way back once the steps are being signed', async () => {
@@ -270,6 +373,9 @@ describe('the amount card on a deposit', () => {
       inLanguage('en', deposit({ source: createElement('span', { 'data-ui': 'src' }, 'read') })),
     );
     await settle(10);
+    // the figures once there is an amount to hold them to
+    expect(host.querySelector('[data-ui="amount-details"]')).toBeNull();
+    await type(field(host), '250');
     const details = find(host, '[data-ui="amount-details"]');
     // in sight, as the portfolio board sets its figures: a label over each
     expect(details.querySelectorAll('dt').length).toBeGreaterThanOrEqual(4);
@@ -301,21 +407,24 @@ describe('what the card says of the chain', () => {
     api();
     const host = await mount(inLanguage('en', deposit()));
     await settle(10);
-    expect(find(host, '[data-ui="data-note"]').textContent).toBe(
-      en.buy.steps.note.testNetwork('Solana'),
-    );
+    // the portfolio board's one quiet pill: the long line is the order card's (BUY-STEPS)
+    expect(find(host, '[data-ui="data-note"]').textContent).toBe(en.shell.testNetworkLine);
     expect(host.querySelector('[data-ui="sample-note"]')).toBeNull();
   });
 
-  it('says sample figures on the mock in the kit’s pill, beside the amount, with no hatch on the panel', async () => {
+  it('says sample figures on the mock in the kit’s one pill, in the head’s top right, with no hatch on the panel', async () => {
     api({ provenance: 'mock' });
     const host = await mount(inLanguage('en', deposit({ mock: true, provenance: 'mock' })));
     await settle(10);
     expect(host.querySelector('[data-ui="data-note"]')).toBeNull();
     expect(find(host, '[data-ui="sample-plate"]').textContent).toBe(en.shell.mockAnnounce);
+    // in the panel's head, with its actions on the right, not beside the amount
     expect(
       find(host, '[data-ui="hero-figure"]').contains(find(host, '[data-ui="sample-plate"]')),
-    ).toBe(true);
+    ).toBe(false);
+    expect(find(host, '[data-ui="sample-plate"]').closest('.ml-auto')).not.toBeNull();
+    // one pill, not the card's own tag beside it
+    expect(host.querySelector('[data-ui="sample-tag"]')).toBeNull();
     expect(host.querySelector('[data-ui="hatch-band"]')).toBeNull();
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
@@ -336,10 +445,9 @@ describe('what the card says of the chain', () => {
     await settle(10);
     expect(find(host, '[data-ui="amount-token"]').textContent).toMatch(/USDG/);
     expect(find(host, '[data-ui="amount-balance"]').textContent).toMatch(/1,234\.56 t?USDG/);
-    expect(find(host, '[data-ui="data-note"]').textContent).toBe(
-      en.buy.steps.note.testNetwork('Robinhood Chain'),
-    );
+    expect(find(host, '[data-ui="data-note"]').textContent).toBe(en.shell.testNetworkLine);
     // its swaps are held to each token's own limit: said in the details, in words
+    await type(field(host), '250');
     expect(find(host, '[data-ui="amount-details"]').textContent).toContain(
       en.amount.details.tradeLimitsValue,
     );

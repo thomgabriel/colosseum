@@ -181,10 +181,10 @@ describe('the plan screen', () => {
     expect(find(host, '[data-ui="plan-details"]').textContent).toContain('How it was worked out');
     // the API sent no risk roll-up, so there is no panel for one
     expect(host.textContent).not.toContain(en.plan.risk.title);
-    // a plan built on a test network: the hatch and one quiet line, never the word MOCK
+    // a plan built on a test network: one quiet tag, never the word MOCK
     expect(host.textContent).not.toContain('MOCK');
     // figures read from a test network are not samples: the card says "Test network", once
-    expect(host.querySelector('[data-ui="sample-note"]')?.textContent).toBe(
+    expect(host.querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
       en.shell.testNetworkLine,
     );
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
@@ -542,7 +542,7 @@ describe('the buy screen', () => {
     const host = await buy();
     expect(host.textContent).not.toMatch(/MOCK/);
     // The buy card's own line (gate BUY-STEPS): a test network's figures are real reads, not samples.
-    const lines = [...host.querySelectorAll('[data-ui="data-note"], [data-ui="sample-note"]')].map(
+    const lines = [...host.querySelectorAll('[data-ui="data-note"], [data-ui="sample-tag"]')].map(
       (l) => l.textContent,
     );
     expect(lines).toEqual([en.buy.steps.note.testNetwork('Solana')]);

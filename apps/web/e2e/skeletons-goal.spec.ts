@@ -67,13 +67,14 @@ for (const width of WIDTHS) {
       const bar = await boxOf(page, '[data-ui="goal-strategy"] [data-ui="composition"]');
       expect.soft([drawn.x, drawn.width], 'the card').toEqual([card.x, card.width]);
       if (width >= 768) {
-        // beside the chat on a desk: the card does not move, and the bar is where its outline was.
-        // (On a phone the card is under the chat, which the reply makes taller.)
+        // beside the chat on a desk: the card does not move, and the bar is where its outline was:
+        // the outline keeps the room of the sample card's tag. (On a phone the card is under the chat,
+        // which the reply makes taller.)
         expect.soft(drawn.y, 'the card’s top').toBe(card.y);
         expect.soft(bar.y, 'the bar’s top').toBe(legs.y);
       }
-      // the bar's own row is as tall as the outline drew it
-      expect.soft(bar.width - legs.width, 'the sample card’s hatch band takes 6px').toBe(-6);
+      // the bar's own row is as wide as the outline drew it: the sample card has no hatched edge
+      expect.soft(bar.width, 'the bar’s width').toBe(legs.width);
       await shot(page, 'goal-draft-loaded');
       await h.drop();
     });

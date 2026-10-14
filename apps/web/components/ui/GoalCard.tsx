@@ -3,7 +3,7 @@ import { useId } from 'react';
 import { Button } from './Button';
 import { ChainBadge } from './ChainBadge';
 import { cn } from './cn';
-import { HatchBand, SampleNote } from './internal/mock-parts';
+import { SampleTag } from './internal/mock-parts';
 import { LatticeStatus } from './Lattice';
 import { ProvenancePin } from './ProvenancePin';
 import type { PinLabels, PinSource } from './provenance';
@@ -17,7 +17,7 @@ import { Status, type StatusKind, statusWord } from './StatusMark';
 export type GoalCardLabels = {
   /** While the card waits for its goal. */
   loading: string;
-  /** A sample card's one quiet line (MOCK-QUIET). */
+  /** A sample card's one quiet tag (MOCK-QUIET). */
   sample: string;
 };
 export const GOAL_CARD_LABELS: GoalCardLabels = {
@@ -42,7 +42,7 @@ type Common = {
   variant?: 'card' | 'header';
   /** Header only: profile · solver version · created. */
   meta?: string;
-  /** An input of this plan is not live: a hatch band on the left edge and one quiet line. */
+  /** An input of this plan is not live: one quiet tag in the card's top-right corner. */
   mock?: boolean;
   /** The chain the goal's plan or vault is on, as a badge after the status. */
   chain?: ChainId;
@@ -114,12 +114,14 @@ export function GoalCard(props: GoalCardProps) {
       data-state={props.state ?? 'ready'}
       aria-labelledby={sentenceId}
       className={cn(
-        'group/goal relative flex rounded-lg border border-border bg-card text-card-foreground transition-colors hover:border-input',
+        'group/goal relative rounded-lg border border-border bg-card text-card-foreground transition-colors hover:border-input',
         className,
       )}
     >
-      {mock && <HatchBand />}
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-3 p-6">
+      <div className="flex min-w-0 flex-col items-start gap-3 p-6">
+        {mock && (
+          <SampleTag label={labels?.sample ?? GOAL_CARD_LABELS.sample} className="self-end" />
+        )}
         <Heading
           id={sentenceId}
           className={cn(
@@ -175,7 +177,6 @@ export function GoalCard(props: GoalCardProps) {
         )}
 
         {props.state === 'draft' && chain && <ChainBadge chain={chain} />}
-        {mock && <SampleNote line={labels?.sample ?? GOAL_CARD_LABELS.sample} />}
         {header && meta && <p className="text-caption text-muted-foreground">{meta}</p>}
         <Button
           variant="link"

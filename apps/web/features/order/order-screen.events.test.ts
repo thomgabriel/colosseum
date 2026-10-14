@@ -298,10 +298,10 @@ describe('the review', () => {
     expect(find(host, 'time').textContent).toMatch(
       /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{2}:\d{2} UTC$/,
     );
-    // on a test network: one quiet pill that says so (HOUSE-KIT's Plate), never the word MOCK
+    // on a test network: one quiet tag that says so, never the word MOCK
     expect(host.textContent).not.toContain('MOCK');
-    expect(host.querySelector('[data-ui="data-note"]')?.textContent).toBe(
-      en.buy.steps.note.testNetwork('Solana'),
+    expect(host.querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
+      en.shell.testNetworkLine,
     );
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     expect(run.calls).toHaveLength(0);

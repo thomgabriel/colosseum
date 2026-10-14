@@ -721,6 +721,26 @@ describe('the pane’s states, and the way out of each', () => {
     expect(document.activeElement).toBe(find(host, '[data-action="vault-deposit"]'));
   });
 
+  it('withdraw, when the vault cannot be read again: the sentence, the pane’s own heading and its way back', async () => {
+    let failing = false;
+    api({
+      more: (path) =>
+        failing && path.startsWith('/v1/vaults/solana/') && !path.includes('/conversation')
+          ? json({ error: 'down' }, 500)
+          : undefined,
+    });
+    const host = await show();
+    failing = true;
+    await click(find(host, '[data-action="vault-withdraw"]'));
+    for (let i = 0; i < 3; i += 1) await settle(30);
+    // no card is drawn: the pane keeps its own heading and the way out
+    expect(pane(host).querySelector('[data-ui="amount-panel"]')).toBeNull();
+    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.withdraw.title);
+    expect(pane(host).querySelectorAll('[data-action="leave-action"]')).toHaveLength(1);
+    await click(find(pane(host), '[data-action="leave-action"]'));
+    expect(screen(host).dataset.pane).toBe('holdings');
+  });
+
   it('deposit, for a vault the portfolio does not list: one sentence in the pane, no second title and no link away', async () => {
     api({
       more: (path) => (path === PORTFOLIO_PATH ? json({ chains: [], disclaimer: 'd' }) : undefined),
@@ -768,8 +788,9 @@ describe('the pane’s states, and the way out of each', () => {
     );
     expect(pane(again).querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
     expect(pane(again).textContent).toContain(SOLANA);
-    expect(pane(again).querySelector('[data-ui="data-note"]')?.textContent).toBe(
-      en.buy.steps.note.testNetwork('Solana'),
+    // on a test network the order's panel says so in its one tag (MOCK-QUIET)
+    expect(pane(again).querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
+      en.shell.testNetworkLine,
     );
     // not kept for a reload before the press: nobody approved it
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
@@ -1428,8 +1449,8 @@ describe('a vault away from its targets is offered one press that trades it to t
     expect(steps).toHaveLength(2);
     expect(steps[0]).toMatch(/Spend 16,022 USDC on .*receive at least/);
     expect(steps[1]).toMatch(/Spend 3,936 USDC on .*receive at least/);
-    expect(pane(host).querySelector('[data-ui="data-note"]')?.textContent).toBe(
-      en.buy.steps.note.testNetwork('Solana'),
+    expect(pane(host).querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
+      en.shell.testNetworkLine,
     );
     expect(pane(host).textContent).not.toMatch(/\b(mix|buy)\b/i);
     // kept with the terms the guard is handed: the vault's number, and nothing that changes the vault

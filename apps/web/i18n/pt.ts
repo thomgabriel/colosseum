@@ -1391,7 +1391,8 @@ export const pt: Dictionary = {
       privacy:
         'Só esta estratégia revisada, o nome e a descrição ficam públicos. A conversa do cofre permanece privada.',
       holdings: 'Tokens mantidos agora · separados dos pesos-alvo',
-      strategySource: (source: string) => `Estratégia lida de ${source}.`,
+      strategySource: (chain: string) => `Metas lidas do seu cofre na ${chain}.`,
+      strategySample: 'Metas lidas do seu cofre na rede de exemplo.',
       strategyChanged:
         'A estratégia do cofre mudou. As metas atuais estão na tela. Revise antes de compartilhar novamente.',
       sourceProblems: {
@@ -1935,7 +1936,6 @@ export const pt: Dictionary = {
       withdraw: 'Você recebe',
       cash: 'Dinheiro',
       empty: 'Digite um valor para ver o que seu cofre vai ter.',
-      emptyWithdraw: 'Escolha quanto para ver o que chega à sua carteira.',
       keeper:
         'Com o seguir automático ativado, o depósito entra como caixa e nosso operador o investe.',
       switch: (vault: string, portfolio: string, version: number) =>
@@ -1965,7 +1965,6 @@ export const pt: Dictionary = {
     },
     pressed: (amount: string) => `Depósito de ${amount}`,
     pressedWithdraw: (what: string) => `Saque de ${what}`,
-    enter: 'Digite um valor',
     press: {
       deposit: (amount: string) => `Depositar ${amount}`,
       withdraw: (amount: string) => `Sacar ${amount}`,

@@ -34,7 +34,7 @@ import { displayName, isCashId } from './plain';
 // the yield with its pin where the holding has one), with the reason behind a fold. The caller's
 // chart. The way out as a meter per tier, with the cost and its pin, and "not measured yet" said once.
 // Then the caller's details and its invest step. Nothing here is worked out: every figure is handed
-// in. Anything not live is hatched and says so once. Motion is one short settle, and none where the
+// in. Anything not live says so in the house kit's Plate. Motion is one short settle, and none where the
 // person asks for less.
 
 export type PlanViewHolding = {
@@ -96,7 +96,7 @@ export type PlanViewProps = {
   /** The answer in one line. A figure in it carries its own pin. */
   answer: ReactNode;
   chain: ChainId;
-  /** How the figures are run: anything but `live` hatches the card and says so in one quiet line. */
+  /** How the figures are run: anything but `live` puts the Plate on the board and the holdings. */
   provenance: Provenance;
   /** An income plan may hold no stock. Kept for the callers that say it; nothing is drawn from it. */
   profile?: 'income';
@@ -219,7 +219,7 @@ export function PlanView({
   // not live: said in words on the panel, as the portfolio overview says it (the house kit's Plate)
   const plate =
     provenance !== 'live' ? (
-      <Plate ui="sample-note">{sampleLine(t.shell, provenance)}</Plate>
+      <Plate ui="sample-tag">{sampleLine(t.shell, provenance)}</Plate>
     ) : undefined;
   return (
     <div data-ui="plan-pane" className="flex flex-col gap-6">
