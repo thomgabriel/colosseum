@@ -1097,6 +1097,10 @@ describe('relaxed intake: caps', () => {
       'NVDAx is under the threshold.',
       'NVDAx stays inside its limit.',
       'NVDAx goes past the allowed share.',
+      'Expect a warning when you deposit.',
+      "It won't be flagged.",
+      'Passa do limite listado.',
+      'It respects the limit.',
     ])
       expect(await said(`Here is the draft. ${verdict}`)).not.toContain(verdict);
     for (const kept of [

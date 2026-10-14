@@ -426,20 +426,23 @@ const whereOf = (error: z.ZodError) =>
  */
 const CAP_VERDICTS = [
   /(?<!\b(?:large|small|mid|mega|micro|low|high|market)[-–\s]?)\b(?:caps?|capped|ceilings?|thresholds?|tetos?)\b/iu,
-  /\b(?:within|inside|above|over|under|below|beyond|past|outside|exceeds?|exceeding|exceeded)\s+(?:(?:its|the|their|your|a|any|this|that)\s+)?(?:(?:listed|allowed|maximum|max)\s+)?(?:limits?|maximum|max)\b/iu,
+  /\b(?:within|inside|above|over|under|below|beyond|past|outside|exceeds?|exceeding|exceeded|respects?|respecting|meets?|breaks?|breach\w*|hits?|reach\w*)\s+(?:(?:its|the|their|your|a|any|this|that)\s+)?(?:(?:listed|allowed|maximum|max)\s+)?(?:limits?|maximum|max)\b/iu,
   /\b(?:allowed|permitted|maximum|max)\s+(?:share|weight|size|allocation)\b/iu,
-  /\b(?:dentro|acima|abaixo|al[ée]m)\s+d[eoa]s?\s+(?:(?:seu|sua)\s+)?(?:limites?|m[áa]ximo)\b/iu,
+  /\b(?:dentro|acima|abaixo|al[ée]m|passa\w*|ultrapassa\w*|excede\w*|respeita\w*)\s+(?:d[eoa]s?\s+|[oa]\s+)?(?:(?:seu|sua)\s+)?(?:limites?|m[áa]ximo)\b/iu,
   /\b(?:fine|ok|okay|safe|acceptable|allowed|too\s+(?:big|large|much|high))\s+(?:at|for)\s+(?:that|this|the|its|your|their)\s+(?:size|share|weight|amount|level)\b/iu,
   // no warning to come, said either way round
-  /(?:\b(?:no|not|without|never|none|nothing|zero|clear\s+of|free\s+of|sem|nenhum|nenhuma|n[ãa]o)\b|n['’]t\b)[^.!?,;:]{0,25}?\b(?:warn\w*|avis\w*|alert\w*)/iu,
+  /(?:\b(?:no|not|without|never|none|nothing|zero|clear\s+of|free\s+of|sem|nenhum|nenhuma|n[ãa]o)\b|n['’]t\b)[^.!?,;:]{0,25}?\b(?:warn\w*|flag(?:s|ged|ging)?\b|avis\w*|alert\w*)/iu,
   /\bwarn\w*\s+(?:\w+\s+)?(?:not|never|won['’]t|doesn['’]t|isn['’]t|wouldn['’]t)\b/iu,
   // a warning shown, seen or confirmed
   /\b(?:confirm|show|see|get|appear|raise|trigger|mostra|ver|aparece|confirma)\w*\s+(?:\w+\s+){0,2}(?:warnings?|avisos?|alertas?)\b/iu,
   /\b(?:warnings?|avisos?|alertas?)\s+(?:\w+\s+){0,2}(?:appear|show|pop|come|aparece)\w*/iu,
 ];
-// a warning or flag as something done, which is a verdict where the deposit or its confirmation is
-const WARNS = /\b(?:warns?|warned|flag(?:s|ged|ging)?|avisa\w*|alertar\w*|sinaliza\w*)\b/iu;
-const AT_DEPOSIT = /\b(?:deposit\w*|dep[óo]sit\w*|confirm\w*)/iu;
+// a warning or a flag where the deposit, confirming or signing is: the deposit step's verdict
+const WARNS =
+  /\b(?:warns?|warned|warnings?|flag(?:s|ged|ging)?|avis(?:os?|a\w*)|alertas?|alertar\w*|sinaliza\w*)\b/iu;
+const AT_DEPOSIT = /\b(?:deposit\w*|dep[óo]sit\w*|confirm\w*|sign(?:s|ed|ing)?\b|assina\w*)/iu;
+// "a word of warning" about risk, which is no verdict wherever it stands
+const WORD_OF_WARNING = /\b(?:a\s+)?word\s+of\s+warning\b/giu;
 
 const REPAIR_SHAPE =
   'That was not the JSON object the API holds you to. Answer again with that object and nothing else: every required field, each of the kind it asks for.';
@@ -602,7 +605,7 @@ export function createRelaxedGoalAgent(options: {
         for (const name of catalogNames) if (name) own = own.replaceAll(name, '');
         return (
           CAP_VERDICTS.some((verdict) => verdict.test(own)) ||
-          (WARNS.test(own) && AT_DEPOSIT.test(own))
+          (WARNS.test(own.replace(WORD_OF_WARNING, '')) && AT_DEPOSIT.test(own))
         );
       };
       // Outside the message no reference is served, so a brace there is a figure like any other.
