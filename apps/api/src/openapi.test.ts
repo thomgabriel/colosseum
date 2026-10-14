@@ -79,12 +79,27 @@ describe('the committed OpenAPI document (packages/sdk/openapi.json)', () => {
   });
 
   it('names each route in the product’s words: a deposit, never a buy or a mix (WORDS-VAULT-DEPOSIT)', () => {
+    // A name in backticks (the order type `buy`, the field `bought`, `fromMix`) is code and keeps its
+    // name. In a summary no form of either word is left; in a description, none that names putting money
+    // in or what a plan holds (a trade still buys what is under its target).
+    const words = (text: string) => text.replace(/`[^`]*`/g, '');
+    const inSummary = /\b(mix|mixes|mixed|buy|buys|buying|bought|buyers?)\b/i;
+    const inDescription =
+      /\b(a buy|the buy|buys|buying|bought|buyers?|a mix|the mix|mixes|mixed)\b/i;
+    // The guided intake names its `mix` question and the flags about it in words; it keeps them until
+    // that intake is rewritten.
+    const intake = 'POST /v1/baskets/intake';
     const off: string[] = [];
     for (const [path, methods] of Object.entries(committed.paths))
       for (const [method, operation] of Object.entries(methods)) {
-        const { summary } = operation as { summary?: string };
-        if (/\b(mix|mixes|buy|buys|bought|buyer)\b/i.test(summary ?? ''))
-          off.push(`${method.toUpperCase()} ${path}: ${summary}`);
+        const name = `${method.toUpperCase()} ${path}`;
+        const { summary = '', description = '' } = operation as {
+          summary?: string;
+          description?: string;
+        };
+        if (inSummary.test(words(summary))) off.push(`${name}: ${summary}`);
+        const found = words(description).match(inDescription);
+        if (found && name !== intake) off.push(`${name}: ${found[0]}`);
       }
     expect(off).toEqual([]);
   });
@@ -203,6 +218,7 @@ describe('the document the server serves at /docs', () => {
     await app.close();
     const declared = whole.tags.map((t) => t.name);
     expect(declared).toEqual(SERVED_TAGS.map((t) => t.name));
+    expect(new Set(declared).size).toBe(declared.length);
     const loose: string[] = [];
     const used = new Set<string>();
     // The routes that exist only while a chain runs on the mock carry their own group, MOCK, and are

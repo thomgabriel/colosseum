@@ -120,7 +120,12 @@ export async function buildApp(
 
   app.get(
     '/health',
-    { schema: { response: { 200: z.object({ ok: z.boolean(), disclaimer: z.string() }) } } },
+    {
+      schema: {
+        summary: 'Whether the server is up, with the disclaimer',
+        response: { 200: z.object({ ok: z.boolean(), disclaimer: z.string() }) },
+      },
+    },
     async () => ({
       ok: true,
       disclaimer: DISCLAIMER.en,
