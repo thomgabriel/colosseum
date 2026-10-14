@@ -5,7 +5,8 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { cn } from '../../components/ui/cn';
+import { PAGE_BACK, PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -17,6 +18,7 @@ import { explorerAddressUrlFor, explorerNameFor } from '../order/readiness';
 import { dollars } from '../portfolio/figures';
 import { vaultValueSource } from '../portfolio/portfolio';
 import { OwnVaultActions } from '../portfolio/VaultActions';
+import { closable } from '../portfolio/vault-lifetime';
 import { sameAddress } from '../portfolio/vault-name';
 import { conversationNetwork } from '../vault-conversation/storage';
 import { VaultConversation } from '../vault-conversation/VaultConversation';
@@ -34,6 +36,7 @@ import {
   recallAction,
   VaultAction,
 } from './VaultAction';
+import { CloseConfirm, ClosedNote } from './VaultClose';
 import { VaultDetails, VaultHoldings } from './VaultHoldings';
 import { VaultWait } from './waits';
 
@@ -79,11 +82,19 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     port.status === 'loading' ? (
       <span data-ui={ui && `${ui}-wait`} aria-hidden="true" className="inline-block h-5" />
     ) : signedIn ? (
-      <Link href="/portfolio" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link
+        href="/portfolio"
+        data-ui={ui}
+        className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
+      >
         {v.back}
       </Link>
     ) : (
-      <Link href="/products" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link
+        href="/products"
+        data-ui={ui}
+        className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
+      >
         {v.backVisitor}
       </Link>
     );
@@ -264,7 +275,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   return (
     <div data-ui="vault-screen" className="flex flex-col gap-6">
       <header className="flex flex-col items-start gap-3">
-        <p>{back}</p>
+        {back}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 id={titleId} className={PAGE_TITLE}>
             {t.shared.vaults.address(shortAddress(vault.address))}
@@ -333,6 +344,11 @@ function OwnVault({
   // signed step. One approved before the page was opened again is taken up from its order's record.
   const [open, setOpen] = useState<OpenAction | null>(null);
   const [phase, setPhase] = useState<ActionPhase>('open');
+  // Closing the vault (gate VAULT-CLOSE-REUSE): asked once more before it is made. A closed vault's
+  // owner is told so, with the way to open it again.
+  const [closing, setClosing] = useState(false);
+  const closedAt = vault.closedAt ?? null;
+  const where = { chain: read.chain, address: vault.address };
   // The pane as it is now, for an answer that comes back late: an order is taken only by the pane that
   // asked for it, and each opening of a pane is its own (`token`).
   const openNow = useRef(open);
@@ -496,26 +512,21 @@ function OwnVault({
         }}
         heading={
           <>
-            <p className="text-caption">{back}</p>
+            {back}
             <OwnVaultActions
               chain={read.chain}
               address={vault.address}
               headingLevel={1}
               page
               fallback={
-                <h1 id={titleId} className={WORKSPACE_TITLE}>
+                <h1 id={titleId} className={PAGE_TITLE}>
                   {t.shared.vaults.address(shortAddress(vault.address))}
                 </h1>
               }
               // The name (the person's own, or "Vault #N") comes with their portfolio, read once the
               // sign-in is here: until then the title waits, so no other one flashes by before it.
               pending={
-                <h1
-                  id={titleId}
-                  className={WORKSPACE_TITLE}
-                  data-ui="vault-name-wait"
-                  aria-busy="true"
-                >
+                <h1 id={titleId} className={PAGE_TITLE} data-ui="vault-name-wait" aria-busy="true">
                   <span className="sr-only">{v.loading}</span>
                   <span aria-hidden="true" className="inline-block h-6 w-40 rounded-md bg-muted" />
                 </h1>
@@ -525,7 +536,7 @@ function OwnVault({
               {value}
               {/* The pair a person comes for, and the rest behind "More". While one of them has the
                   pane its own press is the view's one primary, so the pair steps back. */}
-              {!open && (
+              {!open && !closing && (
                 <div
                   data-ui="vault-page-actions"
                   className="relative flex flex-wrap items-center gap-3"
@@ -570,6 +581,21 @@ function OwnVault({
                       </li>
                     )}
                     {explorerLink && <li>{explorerLink}</li>}
+                    {!closedAt && (
+                      <li>
+                        <button
+                          type="button"
+                          className={MORE_ROW}
+                          data-action="vault-close"
+                          onClick={() => {
+                            opener.current = '[data-ui="vault-more"]';
+                            setClosing(true);
+                          }}
+                        >
+                          {p.close.action}
+                        </button>
+                      </li>
+                    )}
                   </MoreMenu>
                 </div>
               )}
@@ -578,6 +604,28 @@ function OwnVault({
         }
         current={
           <>
+            {closing && !closedAt && (
+              <CloseConfirm
+                vault={where}
+                empty={closable(vault)}
+                onKeep={() => {
+                  setClosing(false);
+                  // back to the control that asked, once it is drawn again
+                  requestAnimationFrame(() =>
+                    root.current?.querySelector<HTMLElement>('[data-ui="vault-more"]')?.focus(),
+                  );
+                }}
+                onWithdraw={() => {
+                  setClosing(false);
+                  start('withdraw', '[data-action="vault-withdraw"]');
+                }}
+                onClosed={() => {
+                  setClosing(false);
+                  onReadAgain();
+                }}
+              />
+            )}
+            {closedAt && <ClosedNote vault={where} closedAt={closedAt} onReopened={onReadAgain} />}
             {away && (
               <p
                 data-ui="vault-off-target"
@@ -586,7 +634,8 @@ function OwnVault({
                 {p.offTarget}
               </p>
             )}
-            <VaultHoldings read={read} deposit={empty ? deposit : undefined} />
+            {/* while the close is asked, its press is the view's one primary */}
+            <VaultHoldings read={read} deposit={empty && !closing ? deposit : undefined} />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">
                 {p.change}

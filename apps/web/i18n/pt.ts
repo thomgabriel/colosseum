@@ -1150,6 +1150,7 @@ export const pt: Dictionary = {
       lead: 'Explore estratégias publicadas em todas as redes que rodamos. Cada uma diz em qual rede está. Abra uma para ver seus ativos, fontes e opções para investir ou seguir.',
       loading: 'Lendo os portfólios compartilhados…',
       empty: 'Nenhum portfólio foi compartilhado ainda.',
+      emptyOn: (chains: string) => `Nenhum portfólio foi compartilhado na ${chains} ainda.`,
       publish: 'Publicar um portfólio',
       publishSoon: (chain: string) =>
         `Publicar um portfólio na ${chain} está a caminho. Por enquanto dá para publicar na Solana.`,
@@ -1373,6 +1374,10 @@ export const pt: Dictionary = {
       lead: (chain: string) =>
         `Compartilhe a estratégia registrada no seu cofre na ${chain}. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.`,
       signIn: 'Entre para publicar um portfólio.',
+      liveOnly: (chain: string, live: string) =>
+        live
+          ? `Produtos lista só portfólios na ${live}, então um publicado de um cofre na ${chain} não apareceria. Publique do seu cofre na ${live}: abra a página dele e escolha Compartilhar estratégia.`
+          : `Produtos lista só portfólios ao vivo, e a ${chain} não está ao vivo aqui, então um portfólio publicado nela não apareceria.`,
       shareStrategy: 'Compartilhar estratégia',
       sourceVault: 'Seu cofre de origem',
       sourceHint: 'Escolha um cofre seu na rede ativa.',
@@ -1535,6 +1540,26 @@ export const pt: Dictionary = {
         deposit: 'Depositar',
         more: 'Mais',
         editWeights: 'Editar pesos à mão',
+        close: {
+          action: 'Encerrar este cofre',
+          title: 'Encerrar este cofre?',
+          body: 'Ele sai do seu portfólio, dos totais e das suas listas de cofres. Nada se move na rede: o cofre fica no mesmo endereço, vazio, e você pode abri-lo de novo em Cofres encerrados.',
+          confirm: 'Encerrar cofre',
+          closing: 'Encerrando…',
+          keep: 'Manter aberto',
+          notEmpty: 'Este cofre ainda guarda algo. Saque primeiro e depois encerre.',
+          failed: 'Não consegui encerrar: nosso servidor não respondeu. Tente de novo.',
+          orderOpen:
+            'Uma ordem neste cofre ainda não terminou. Conclua-a, ou espere ela expirar, e então encerre o cofre.',
+        },
+        closed: {
+          title: 'Este cofre está encerrado',
+          body: (date: string) =>
+            `Você o encerrou em ${date}. Ele não está no seu portfólio nem nos totais. Nada se moveu na rede.`,
+          reopen: 'Abrir de novo',
+          reopening: 'Abrindo…',
+          failed: 'Não consegui abri-lo de novo: nosso servidor não respondeu. Tente de novo.',
+        },
         rebalance: 'Rebalancear',
         offTarget:
           'O que este cofre guarda está fora das metas, e nada o negocia por você. Rebalancear troca até elas: você vê cada troca com o mínimo que ela pode render, e assina cada passo aqui.',

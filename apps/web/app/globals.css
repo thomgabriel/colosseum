@@ -665,6 +665,8 @@
 
   /* layout */
   --container-page: 1280px;
+  /* every product page, the portfolio overview's width (gate PAGE-SHELL, Thom, Oct 14) */
+  --container-shell: 1600px;
   --spacing-row-dense: var(--tf-row-dense);
   --spacing-row-comfortable: var(--tf-row-comfortable);
 }

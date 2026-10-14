@@ -4,7 +4,7 @@ import { type ReactNode, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { Field, Input } from '../../components/ui/Field';
-import { WORKSPACE_TITLE } from '../../components/ui/heading';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { dollars as whole } from '../goal/sheet';
 import { addMoneyPath } from '../order/order-api';
@@ -118,7 +118,8 @@ export function VaultActions({
       <div
         className={
           page
-            ? 'flex w-full flex-wrap items-baseline gap-x-4 gap-y-1'
+            ? // the title on the row's top, where every page's sits under its way back (PAGE-SHELL)
+              'flex w-full flex-wrap items-start gap-x-4 gap-y-1'
             : 'flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-2'
         }
       >
@@ -130,7 +131,7 @@ export function VaultActions({
           className={
             page
               ? // in full, on as many lines as it takes: never cut off
-                `${WORKSPACE_TITLE} min-w-0 [overflow-wrap:anywhere]`
+                `${PAGE_TITLE} min-w-0 [overflow-wrap:anywhere]`
               : 'min-w-0 text-h4 font-semibold [overflow-wrap:anywhere]'
           }
         >
@@ -147,7 +148,7 @@ export function VaultActions({
             </Link>
           )}
           {!editing && (
-            <Button variant="link" data-action="rename" onClick={open}>
+            <Button variant="secondary" size="dense" data-action="rename" onClick={open}>
               {words.rename}
             </Button>
           )}

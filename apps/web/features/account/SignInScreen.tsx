@@ -176,13 +176,12 @@ export function SignInScreen({ next = AFTER_SIGN_IN, onDone, titleId }: SignInSc
   }, [stage, now]);
 
   return (
-    // One centred column, as wide as the bar can grow (compact-nav.md: max 860px): the headline, the
-    // lead, the cards and, by the shell's rule for a centred page, the foot share its left edge.
+    // One column, as wide as the bar can grow (compact-nav.md: max 860px), on the left edge every
+    // product page shares (gate PAGE-SHELL): the headline, the lead and the cards.
     <div
       data-ui="sign-in-screen"
-      data-column="centred"
       data-account={account.status}
-      className="mx-auto flex w-full max-w-[860px] flex-col gap-8"
+      className="flex w-full max-w-[860px] flex-col gap-8"
     >
       <header className="flex flex-col gap-3">
         {onDone ? (

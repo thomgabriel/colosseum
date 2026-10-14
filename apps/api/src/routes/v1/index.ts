@@ -52,6 +52,7 @@ import { authFromEnv, enforceSignIn, identify, type TokenIssuer } from '../../pl
 import { refuseNonFinite } from '../../plugins/finite';
 import { type Limits, registerLimits, requireDeclared } from '../../plugins/limits';
 import { loggable } from '../../plugins/loggable';
+import { noteLifetimes } from '../../portfolio/scope';
 import {
   createAnthropicVaultAgentModel,
   type VaultAgentModel,
@@ -183,6 +184,12 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       solana,
       robinhood,
     });
+  // Whether the database has the table of closed vaults yet (migration 0025): asked once the server
+  // is ready, and never waited on (portfolio/scope.ts).
+  const asked = db;
+  app.addHook('onReady', async () => {
+    void noteLifetimes(asked);
+  });
   const orderDeps: OrderDeps = {
     db,
     chains,
@@ -318,7 +325,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     registerPortfolioPlansRoute(scope, orderDeps);
     registerPortfolioRebalancesRoute(scope, orderDeps);
     registerPortfolioExposureRoute(scope, orderDeps, planInputs);
-    registerSharedRoutes(scope, orderDeps, deps.planInputs);
+    registerSharedRoutes(scope, orderDeps, deps.planInputs, { liveOnly: flags.shelfLiveOnly });
     registerVaultRoute(scope, orderDeps);
     registerVaultConversationRoutes(scope, orderDeps);
     registerVaultConversationReplyRoute(

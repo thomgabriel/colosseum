@@ -362,6 +362,7 @@ describe('the owner’s page at rest', () => {
       p.editWeights,
       en.shared.publish.shareStrategy,
       en.shared.vault.explorer('Solscan'),
+      p.close.action,
     ]);
     // the way back is navigation: a link over the name, not one of the actions
     const back = find(host, '[data-ui="vault-back"]');
@@ -385,6 +386,7 @@ describe('the owner’s page at rest', () => {
       p.editWeights,
       en.shared.publish.shareStrategy,
       en.shared.vault.explorer('Solscan'),
+      p.close.action,
     ]);
     for (const row of rows) {
       // a row, not a bare underlined link: the whole width, 40px tall, in the tab order
@@ -1625,5 +1627,107 @@ describe('a vault away from its targets is offered one press that trades it to t
     } finally {
       window.history.replaceState(null, '', window.location.pathname);
     }
+  });
+});
+
+describe('closing a vault (gate VAULT-CLOSE-REUSE)', () => {
+  const c = p.close;
+  const CLOSE = `/v1/vaults/solana/${MY_VAULT}/close`;
+  const REOPEN = `/v1/vaults/solana/${MY_VAULT}/reopen`;
+  const lifetime = (closedAt: string | null) =>
+    json({ chain: 'solana', address: MY_VAULT, closedAt, reopenedAt: null });
+  const askClose = async (host: HTMLElement) => {
+    await click(find(host, '[data-ui="vault-more"]'));
+    await click(find(host, '[data-action="vault-close"]'));
+    await settle();
+  };
+
+  it('asks once more before it closes an empty vault, and nothing is closed until the press', async () => {
+    const closedAt = '2026-10-14T12:00:00.000Z';
+    const server = api({
+      vault: nothing(0),
+      more: (path, method) => {
+        if (path === CLOSE && method === 'POST') {
+          server.state.vault = { ...nothing(0), closedAt } as never;
+          return lifetime(closedAt);
+        }
+        return undefined;
+      },
+    });
+    const host = await show();
+    await askClose(host);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(find(confirm, 'h2').textContent).toBe(c.title);
+    expect(document.activeElement).toBe(find(confirm, 'h2'));
+    expect(confirm.textContent).toContain(c.body);
+    // while it asks, the page's own actions step back: its press is the one primary
+    expect(host.querySelector('[data-ui="vault-page-actions"]')).toBeNull();
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+
+    // kept open: nothing was asked of the server
+    await click(find(confirm, '[data-action="vault-close-keep"]'));
+    await settle();
+    expect(host.querySelector('[data-ui="vault-close-confirm"]')).toBeNull();
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+
+    await askClose(host);
+    await click(find(host, '[data-action="vault-close-confirm"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(server.calls.filter((call) => call.path === CLOSE)).toEqual([
+      { method: 'POST', path: CLOSE },
+    ]);
+    // read again: the page says it is closed, and how to open it again
+    const note = find(host, '[data-ui="vault-closed"]');
+    expect(note.textContent).toContain(p.closed.title);
+    expect(note.textContent).toContain(p.closed.body('Oct 14, 2026'));
+    expect(host.querySelector('[data-action="vault-close"]')).toBeNull();
+  });
+
+  it('tells a vault that holds something to withdraw first, and offers no close', async () => {
+    const server = api();
+    const host = await show();
+    await askClose(host);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(confirm.textContent).toContain(c.notEmpty);
+    expect(confirm.querySelector('[data-action="vault-close-confirm"]')).toBeNull();
+    await click(find(confirm, '[data-action="vault-close-withdraw"]'));
+    await settle();
+    expect(find(host, '[data-ui="vault-screen"]').getAttribute('data-pane')).toBe('withdraw');
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+  });
+
+  it('says an order on the vault is not finished, where the server refuses the close for one', async () => {
+    api({
+      vault: nothing(0),
+      more: (path, method) =>
+        path === CLOSE && method === 'POST'
+          ? json({ error: 'an order on this vault is not finished', code: 'ORDER_UNFINISHED' }, 409)
+          : undefined,
+    });
+    const host = await show();
+    await askClose(host);
+    await click(find(host, '[data-action="vault-close-confirm"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(find(confirm, '[role="alert"]').textContent).toBe(c.orderOpen);
+    expect(host.querySelector('[data-ui="vault-closed"]')).toBeNull();
+  });
+
+  it('opens a closed vault again from its note', async () => {
+    const server = api({
+      vault: { ...nothing(0), closedAt: '2026-10-14T12:00:00.000Z' } as never,
+      more: (path, method) => {
+        if (path === REOPEN && method === 'POST') {
+          server.state.vault = { ...nothing(0), closedAt: null } as never;
+          return lifetime(null);
+        }
+        return undefined;
+      },
+    });
+    const host = await show();
+    await click(find(host, '[data-action="vault-reopen"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(server.calls.filter((call) => call.path === REOPEN)).toHaveLength(1);
+    expect(host.querySelector('[data-ui="vault-closed"]')).toBeNull();
   });
 });

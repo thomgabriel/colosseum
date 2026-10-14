@@ -198,6 +198,7 @@ The tints are translucent on purpose: `--tf-honey-tint` over night is `#2D2318`,
 
   /* layout */
   --container-page: 1280px;
+  --container-shell: 1600px; /* every product page (PAGE-SHELL) */
   --spacing-row-dense: var(--tf-row-dense); --spacing-row-comfortable: var(--tf-row-comfortable);
 }
 

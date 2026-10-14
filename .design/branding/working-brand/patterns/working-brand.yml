@@ -343,7 +343,7 @@ patterns:
     docs: "left sidebar on {color.sidebar}, 1px {color.sidebar-border} right edge"
   layout:
     archetype: "asymmetric-grid"
-    max-width: "1280px page; 66ch body; 72ch docs prose; 16ch display"
+    max-width: "1600px product page (PAGE-SHELL); 1280px landing; 66ch body; 72ch docs prose; 16ch display"
     section-spacing: "96px marketing; 64px docs and plan; 32px Bearing panels"
     grid-gap: "24px; 16px Bearing"
     surfaces: "night or paper, flat; a honey glow (brand-color.glow) behind heroes and the composer; P1 lattice on marketing grounds only"
