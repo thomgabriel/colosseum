@@ -157,8 +157,7 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
         assertEq(cases[0].scenario, "first");
         assertEq(cases[count - 1].expect.reason, json.readString(string.concat(last, ".expect.reason")));
         assertEq(
-            cases[count - 1].expect.breaks.length,
-            json.readStringArray(string.concat(last, ".expect.breaks")).length
+            cases[count - 1].expect.breaks.length, json.readStringArray(string.concat(last, ".expect.breaks")).length
         );
 
         for (uint256 i; i < count; ++i) {
