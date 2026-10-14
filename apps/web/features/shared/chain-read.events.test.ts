@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { deploymentsOf, familyTextHash, readSolanaRecipe, rpcAt } from '@colosseum/sdk';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { click, find, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
+import { click, find, hintOf, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
@@ -191,7 +191,7 @@ describe('a shared portfolio read from the chain by this app', () => {
     expect(mark.className).toContain('text-destructive');
     expect(find(host, '[data-ui="creator"]').closest('details')).toBeNull();
     // the chain's version 3 at 50/25/25, not the server's version 2 at 40/30/30
-    expect(host.textContent).toContain(en.shared.family.versionN(3));
+    expect(find(host, '[data-ui="kpi-version"] dd').textContent).toBe('3');
     const legs = find(host, '[data-ui="plan-legs"]').textContent ?? '';
     for (const part of ['SPYx', '50%', 'NVDAx', '25%', 'TSLAx']) expect(legs).toContain(part);
     expect(legs).not.toContain('40%');
@@ -216,7 +216,8 @@ describe('a shared portfolio read from the chain by this app', () => {
     expect(find(host, '[data-ui="text-unverified"]').textContent).toContain(
       en.shared.text.unverified,
     );
-    expect(find(host, '[data-ui="creator"]').textContent).toBe(CREATOR);
+    // the creator read, shortened in view, the whole of it one hover away
+    expect(await hintOf(find(host, '[data-ui="creator"]'))).toBe(CREATOR);
     await unmountAll();
     // the hash of exactly the name and description shown, worked out here: no mark
     const shown = familyOf(FAMILY_ID);

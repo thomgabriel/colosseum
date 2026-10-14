@@ -502,6 +502,8 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
     ...reader,
     ...probe,
 
+    height: () => ask('getBlockNumber', () => rpc.getBlockNumber()),
+
     quote: (tradeArg, takerArg) =>
       guarded(async (): Promise<Quote> => {
         const t = input(Trade, tradeArg, 'trade');

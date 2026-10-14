@@ -237,7 +237,7 @@ test('a buy on the mock chain: plan, buy, review, sign, every step confirmed', a
   const summary = page.locator('[data-ui="vault-summary"]');
   await expect(summary).toHaveCount(1);
   await expect(summary.locator('[data-ui="vault-add-money"]')).toBeVisible();
-  await expect(summary.locator('[data-ui="holdings-bar"]')).toBeVisible();
+  await expect(summary.locator('[data-ui="composition"]')).toBeVisible();
   await expect(summary.getByRole('link', { name: en.portfolio.overview.open })).toBeVisible();
   const readDetails = page.locator('[data-ui="vault-read-details"]');
   await expect(readDetails).not.toHaveAttribute('open', '');

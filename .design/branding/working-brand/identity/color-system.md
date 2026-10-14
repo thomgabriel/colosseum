@@ -86,7 +86,8 @@ Badges and chips are pills with the 14% tint as fill and the colour as text. Thi
 - **Projections:** the base case is a 2 px `honey` line with `curve-fill` (honey 35% → 0) beneath; stress cases are dashed `muted` and dashed `madder`; the measured past is solid. Dashed means projected, everywhere. The "today" marker is a 1 px dashed `chalk` vertical with a Plex Mono label.
 - **Sparklines:** coloured by direction (leaf, madder, muted), 1.5 px, no fill.
 - **Heatmaps (depth by hour of week):** a single ramp from the ground to pale honey, colour-blind safe because it is lightness-led. Night: `#1A1D26 → #5C3707 → #B06C12 → #F5A83A → #FFE9C2`. Day: reversed. No-sample cells are empty with an en dash, never hatched (the hatch means sample data).
-- **Never** a rainbow categorical palette. Direction colours carry direction only.
+- **What a vault holds (holdings):** the share palette, the one categorical set ([share-palette.md](./share-palette.md), gate `WEIGHTS-RING`, Thom, Oct 13): honey, pine, lagoon, plum, heather, bronze, then one neutral for the rest and one for cash, in the holdings' order. For holdings only.
+- **Never** a rainbow categorical palette elsewhere. Direction colours carry direction only.
 
 ---
 

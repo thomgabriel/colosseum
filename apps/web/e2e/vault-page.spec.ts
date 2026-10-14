@@ -161,10 +161,14 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   );
   await expect(screen.locator('[data-ui="vault-back"]')).toHaveText(en.shared.vault.back);
   await expect(screen).not.toContainText(/\b(mix|buy)\b/i);
-  // The holdings are on the page, bar over table, with nothing to open first.
-  await expect(screen.locator('[data-ui="holding-legs"]')).toBeVisible();
-  await expect(screen.locator('[data-ui="vault-plan"] table')).toContainText('SPY');
-  await expect(screen.locator('[data-ui="holding-drift"]:visible').first()).toBeVisible();
+  // The holdings are on the page, planned over now and one list, with nothing to open first.
+  // on its targets: the ring, said once to be on target
+  await expect(screen.locator('[data-ui="composition-strip"]')).toBeVisible();
+  await expect(screen.locator('[data-ui="vault-on-target"]')).toBeVisible();
+  await expect(screen.locator('[data-ui="vault-plan"] [data-ui="composition-list"]')).toContainText(
+    'SPY',
+  );
+  await expect(screen.locator('[data-ui="composition-delta"]')).toHaveCount(0);
   await expect(screen.locator('[data-ui="vault-details"]')).not.toHaveAttribute('open', '');
   await check(page, 'idle');
   await fixedWorkbench(page, '[data-ui="vault-plan"]');
@@ -484,7 +488,11 @@ test('a long conversation with the details open: one scroll per pane, none for t
       ['chat', m.chat],
       ['plan', m.plan],
     ] as const) {
-      expect(pane.scrolls, `${at}: the ${name} pane scrolls, once`).toBe(1);
+      // the chat is always taller than its pane here; the holdings, a table now, may fit in it, and
+      // then nothing scrolls: never more than the pane itself
+      if (name === 'chat') expect(pane.scrolls, `${at}: the ${name} pane scrolls, once`).toBe(1);
+      else
+        expect(pane.scrolls, `${at}: the ${name} pane scrolls at most once`).toBeLessThanOrEqual(1);
       expect(pane.bottom, `${at}: the ${name} pane ends in the window`).toBeLessThanOrEqual(
         m.window,
       );

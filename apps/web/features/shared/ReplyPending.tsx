@@ -144,7 +144,7 @@ export function useChatScroll(
 
 /**
  * The preview card while the first draft is worked on: the words at heading size, the loader, and
- * still boxes where the bar and its rows will be (Skeleton.tsx), so the card is already the size of a
+ * still boxes where the ring and its rows will be (Skeleton.tsx), so the card is already the size of a
  * small draft when one lands. The boxes are not figures and show none.
  */
 export function DraftBuilding({
@@ -168,49 +168,36 @@ export function DraftBuilding({
           <p className="max-w-[48ch] text-body-sm text-muted-foreground">{line}</p>
         </div>
       </div>
-      {/* The draft's own outline (StrategyPreview): its summary, the bar with a label a holding,
-          the table with its head and a row a holding, its action and its fold. Each box is the
-          size of what lands there, so the card is the draft's from the first frame. */}
+      {/* The draft's own outline (StrategyPreview): its summary, the ring beside a row a holding
+          (Composition.tsx), its action and its fold. Each box is the size of what lands there, so
+          the card is the draft's from the first frame. */}
       <div aria-hidden="true" data-ui="draft-skeleton" className="flex min-w-0 flex-col gap-4">
         {/* on a phone the words over it already take the summary's room */}
         <SkeletonLine className="text-body-sm max-sm:hidden" width="w-3/5" />
-        <div data-wait="legs" className="flex flex-col gap-3">
-          <Skeleton className="h-6 w-full rounded-full" />
-          <div className="flex flex-col">
-            {Array.from({ length: rows }, (_, i) => (
-              <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-                key={i}
-                className="flex h-[2.9375rem] items-center gap-2 border-b border-border first:border-t"
-              >
-                <Skeleton className="size-2.5 rounded-none" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-            ))}
-          </div>
-        </div>
-        <div data-wait="table" className="flex flex-col">
-          <div className="flex h-[3.0625rem] items-center justify-between border-b border-border">
-            <Skeleton className="h-2.5 w-10" />
-            <Skeleton className="h-2.5 w-14" />
-          </div>
-          {Array.from({ length: rows }, (_, i) => (
-            <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-              key={i}
-              className="flex h-[4.5625rem] items-start justify-between gap-2 border-b border-border py-3 pr-1 pl-1"
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-2">
-                <span className="flex items-center gap-2">
-                  <Skeleton className="size-2.5 rounded-none" />
-                  <Skeleton className="size-6 rounded-full" />
-                  <Skeleton className="h-3.5 w-24" />
-                </span>
-                <Skeleton className="h-3 w-4/5 max-w-80" />
-              </span>
-              <Skeleton className="mt-1.5 h-3.5 w-10" />
+        <div data-wait="legs" className="@container min-w-0">
+          <div className="flex min-w-0 flex-col items-center gap-6 @lg:flex-row @lg:gap-10">
+            {/* the ring: a still band where the segments will be */}
+            <span className="relative size-[184px] shrink-0">
+              <Skeleton className="absolute inset-0 rounded-full" />
+              <span className="absolute inset-[22px] rounded-full bg-card" />
+            </span>
+            <div className="flex w-full min-w-0 flex-col gap-1 @lg:w-auto @lg:min-w-64">
+              {Array.from({ length: rows }, (_, i) => (
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
+                  key={i}
+                  className="flex min-w-0 items-center gap-3 px-2 py-2"
+                >
+                  <Skeleton className="size-8 shrink-0 rounded-full" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <Skeleton className="h-3.5 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </span>
+                  <Skeleton className="h-4 w-12" />
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
         <Skeleton className="h-9 w-28 rounded-md" />
       </div>

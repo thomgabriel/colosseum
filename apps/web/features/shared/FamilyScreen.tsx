@@ -19,6 +19,7 @@ import { Card } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { DataTable } from '../../components/ui/DataTable';
 import { utcMinute } from '../../components/ui/ExecutionList';
+import { shorten } from '../../components/ui/format';
 import { Hint } from '../../components/ui/Hint';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import { StatusMark } from '../../components/ui/StatusMark';
@@ -36,12 +37,14 @@ import { keepOrder, type OrderRecord, recallOrders } from '../order/order-record
 import { AssetMark, PlanView } from '../order/PlanView';
 import { goalLine } from '../order/plain';
 import { basketOfPlan, networkFor } from '../order/readiness';
+import { share } from '../portfolio/figures';
 import { unpriced, holdingsOf as vaultHoldingsOf } from '../portfolio/portfolio';
 import { goalOfVault } from '../portfolio/vault-goal';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
+import { Composition } from './Composition';
 import { type ChainCheck, familyIdFor, isVaultOf, useChainRecipe } from './chain-recipe';
 import { FollowQuote } from './FollowQuote';
-import { HoldingsBar } from './HoldingsBar';
+import { heldItems } from './held-items';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, kindsSaid } from './product-figures';
 import { sharedRefusal } from './refusal';
@@ -394,10 +397,7 @@ function RecipeSection({
     <div className="flex flex-col gap-6">
       <PlanView
         title={f.recipe(chainName)}
-        sub={p.sub(
-          f.versionN(active.version),
-          f.since(utcMinute(new Date(active.effectiveAt * 1000).toISOString())),
-        )}
+        chainLabel
         answer={p.answer(kindsSaid(holdings, locale, t.plan.kinds), chainName)}
         chain={recipe.chain}
         provenance={recipe.provenance}
@@ -414,7 +414,13 @@ function RecipeSection({
                 obs: h.yield.obs,
               }
             : null,
-          why: h.why,
+          // what it is, where the server says; a kind it did not send says nothing of the token
+          why: h.cls ? h.why : '',
+          // its kind, and what selling all of it costs where Bearing measures it
+          kind: h.cls ? t.plan.kinds[h.cls] : '—',
+          exitCost: h.exit
+            ? { figure: p.exit.cost(formatBps(h.exit.maxCostBps, locale)), obs: h.exit.obs }
+            : null,
         }))}
         exit={{
           tiers: holdings.flatMap((h) =>
@@ -440,22 +446,36 @@ function RecipeSection({
             ? { caveat: p.exit.notMeasured(list(unmeasured.map((h) => h.name))) }
             : {}),
         }}
+        kpis={[
+          { label: p.kpi.version, value: active.version, ui: 'kpi-version' },
+          {
+            label: p.kpi.since,
+            value: utcMinute(new Date(active.effectiveAt * 1000).toISOString()),
+            ui: 'kpi-since',
+          },
+          {
+            label: p.publisher,
+            ui: 'kpi-publisher',
+            value: (
+              // who published it, by address: in view (gate PRODUCTS-PLAN-PANE), the whole of it a
+              // hover away
+              <span className="inline-flex flex-wrap items-baseline gap-x-2">
+                <Hint tip={read?.creator ?? recipe.creator} label={p.publisher}>
+                  <span data-ui="creator" className="font-mono text-source">
+                    {shorten(read?.creator ?? recipe.creator, 4, 4)}
+                  </span>
+                </Hint>
+                {isPlatformCreator(
+                  networkFor(recipe.chain, mock),
+                  recipe.chain,
+                  read?.creator ?? recipe.creator,
+                ) && <span className="text-caption">{t.shared.shelf.card.platform}</span>}
+              </span>
+            ),
+          },
+        ]}
         aside={
           <>
-            {/* Who published it, by address: in view (gate PRODUCTS-PLAN-PANE). */}
-            <p className="flex flex-wrap items-baseline gap-x-2 text-body-sm text-muted-foreground">
-              <span>{p.publisher}</span>
-              <span data-ui="creator" className="break-all font-mono text-source text-foreground">
-                {read?.creator ?? recipe.creator}
-              </span>
-              {isPlatformCreator(
-                networkFor(recipe.chain, mock),
-                recipe.chain,
-                read?.creator ?? recipe.creator,
-              ) && (
-                <span className="font-medium text-foreground">{t.shared.shelf.card.platform}</span>
-              )}
-            </p>
             {/* Where the version and weights come from, and words that match no version: never
                 folded away (the flow audit, finding 41). */}
             {check.state === 'read' && check.textMatches === null && <TextMark matches={null} />}
@@ -1116,9 +1136,6 @@ function VaultsPanel({
         const behind = vault.acceptedVersion < followed.follow.version;
         const heading = `${titleId}-${vault.address}`;
         const holdings = vaultHoldingsOf(vault).filter((holding) => !/^0+$/.test(holding.raw));
-        const shares = holdings.filter(
-          (holding) => holding.weightBps > 0 && holding.valueUsd !== null,
-        );
         const unpricedCount = unpriced(vault);
         return (
           <li key={vault.address} data-ui="my-vault" className="min-w-0">
@@ -1145,29 +1162,17 @@ function VaultsPanel({
                 </h3>
                 <div data-ui="vault-holdings" className="flex w-full min-w-0 flex-col gap-2">
                   <p className="text-caption text-muted-foreground">{t.portfolio.vault.holdings}</p>
-                  {shares.length > 0 && (
-                    <HoldingsBar
-                      shares={shares.map((holding) => ({
-                        key: holding.asset,
-                        shareBps: holding.weightBps,
-                      }))}
+                  {holdings.length > 0 ? (
+                    <Composition
+                      size="compact"
+                      top={3}
+                      still
+                      share={(bps) => share(lang, bps)}
+                      items={heldItems(holdings, tokenName, t.portfolio.vault.noPrice)}
                     />
+                  ) : (
+                    <p className="text-body-sm">{v.noHoldings}</p>
                   )}
-                  <p className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-source [overflow-wrap:anywhere]">
-                    {holdings.length > 0
-                      ? holdings.map((holding) => (
-                          <span
-                            key={holding.asset}
-                            className="inline-flex min-w-0 items-center gap-1.5"
-                          >
-                            <AssetMark asset={holding.asset} className="size-5" />
-                            <span>
-                              {`${tokenName(holding.asset)} ${holding.valueUsd === null ? '—' : formatBps(holding.weightBps, LOCALE[lang])}`}
-                            </span>
-                          </span>
-                        ))
-                      : v.noHoldings}
-                  </p>
                   {unpricedCount > 0 && (
                     <p className="text-caption text-muted-foreground">
                       {t.portfolio.vault.unpriced(unpricedCount)}

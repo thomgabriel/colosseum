@@ -1055,6 +1055,8 @@ describe('no /v1 route can make the server sign', () => {
       'portfolio/rebalances.ts',
       'portfolio/scope.ts',
       'portfolio/snapshots.ts',
+      // why a vault's holdings are there, from stored reasons and the chain's asset list: no key
+      'portfolio/why.ts',
       'routes/v1/baskets.ts',
       'routes/v1/config.ts',
       'routes/v1/funding.ts',

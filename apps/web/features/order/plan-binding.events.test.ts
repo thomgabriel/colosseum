@@ -158,7 +158,8 @@ describe('why a plan holds what it holds', () => {
     const host = await shown();
     expect(find(host, 'h1').textContent).toBe('Earn $300 a month from $80,000 for 12 months.');
     expect(find(host, '[data-ui="plan-summary"]').textContent).not.toContain('100%');
-    const legs = find(host, '[data-ui="plan-legs"]').textContent ?? '';
+    // the binding reason of each leg: in the card's one fold, under "Why these shares"
+    const legs = find(host, '[data-ui="plan-more"] [data-ui="plan-why"]').textContent ?? '';
     expect(legs).toContain(CREDIT.text);
     expect(legs).toContain(UNPLACED.text);
     expect(legs).not.toContain(SLEEVE.text);
@@ -244,8 +245,8 @@ describe('an income plan and its gap (the flow audit, findings 11 and 14)', () =
   it('says the gap to the cent first, and each way the API gives as a sentence', async () => {
     rememberPlan(short());
     const host = await shown();
-    // the answer is the first thing in the plan's block
-    const block = find(host, '[data-ui="plan-pane"] [data-ui="plan-verdict"]');
+    // the answer is the first thing in the plan's board, the ways under it
+    const block = find(host, '[data-ui="plan-pane"] [data-ui="plan-board"]');
     expect(find(block, '[data-ui="plan-answer"]').textContent).toBe(en.plan.verdict.gap('$152.80'));
     const ways = find(block, '[data-ui="plan-ways"]');
     // each is the engine's own sentence, with its own figures, and none is a button
@@ -262,7 +263,7 @@ describe('an income plan and its gap (the flow audit, findings 11 and 14)', () =
       proposal: { ...plan.proposal, verdict: { met: true, gapUsdMonthly: 0, ways: [] } },
     });
     const verdict = find(await shown(), '[data-ui="plan-verdict"]');
-    expect(verdict.textContent).toBe(en.plan.verdict.met);
+    expect(find(verdict, '[data-ui="plan-answer"]').textContent).toBe(en.plan.verdict.met);
     expect(verdict.querySelector('a')).toBeNull();
   });
 

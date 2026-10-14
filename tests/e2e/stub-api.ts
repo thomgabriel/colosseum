@@ -981,7 +981,30 @@ async function vaultView(address: string) {
   const listed = await world.adapter.listAssets();
   const ids = [state.cash.asset, ...state.positions.map((p) => p.asset)];
   const prices = await world.adapter.getPrices([...new Set(ids)]);
-  return { vault: { ...view(state, prices, listed), provenance: 'mock' as const }, prices };
+  const seen = view(state, prices, listed);
+  // Why each holding is there, in the shapes the API answers (`why`, apps/api/src/portfolio/why.ts):
+  // a vault that follows a shared portfolio, the kind of each asset it targets, from the chain's list;
+  // any other, the owner's stored choice of share, in the engine's own sentence (MIX_FROM_PERSON).
+  // The API says the owner's to the owner alone; the stub, which never tells callers apart, says it
+  // to every caller, as the e2e runs read their own vaults.
+  const byId = new Map(listed.map((a) => [a.id, a]));
+  const positions = seen.positions.map((p) => {
+    const asset = byId.get(p.asset);
+    if (p.targetBps <= 0 || !asset) return { ...p, why: null };
+    return {
+      ...p,
+      why: seen.recipeOnchainId
+        ? { source: 'portfolio' as const, cls: asset.cls }
+        : {
+            source: 'owner' as const,
+            text: `You chose ${p.targetBps / 100}% for ${asset.symbol}.`,
+          },
+    };
+  });
+  return {
+    vault: { ...seen, positions, cash: { ...seen.cash, why: null }, provenance: 'mock' as const },
+    prices,
+  };
 }
 
 const read = (req: IncomingMessage) =>
