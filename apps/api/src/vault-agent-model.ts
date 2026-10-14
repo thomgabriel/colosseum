@@ -1,5 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { EnvLike, VaultAgentFailure } from '@colosseum/schemas';
+import {
+  LOOKUP_MAX_ROUNDS,
+  LOOKUP_RULES,
+  type LookedUp,
+  type LookupRun,
+  type LookupScope,
+  runLookupLoop,
+} from './orders/lookup-loop';
 import type { VaultAgentPrompt } from './orders/vault-agent';
 
 /**
@@ -83,13 +91,32 @@ export type VaultAgentRepair = {
   previous: unknown;
   problems: readonly string[];
   elapsedMs: number;
+  /**
+   * The first attempt's calls when it looked figures up, each assistant turn exactly as it came: the
+   * repair sends them on, so the model still sees what it looked up.
+   */
+  transcript?: readonly Anthropic.MessageParam[];
+};
+/** What the model looked up in one read, with its calls for the repair (FIGURES-BY-REFERENCE as amended 2026-10-14). */
+export type VaultAgentLooked = LookedUp & { transcript: Anthropic.MessageParam[] };
+export type VaultAgentRead = (
+  | { reply: unknown }
+  | { reply: null; why: VaultAgentFailure; detail?: string }
+) & {
+  /** Present when the read could look up: the evidence it added, which the resolver reads. */
+  looked?: VaultAgentLooked;
 };
 export type VaultAgentModel = {
+  /**
+   * `lookups`: the asset lookups of this request's chain, for a vault's own conversation only (the
+   * model-led new-goal conversation states no figure, so it looks up none). Absent: no tools, as before.
+   */
   read(
     person: string,
     prompt: VaultAgentPrompt,
     repair?: VaultAgentRepair,
-  ): Promise<{ reply: unknown } | { reply: null; why: VaultAgentFailure; detail?: string }>;
+    lookups?: LookupScope,
+  ): Promise<VaultAgentRead>;
 };
 
 export const VAULT_AGENT_SYSTEM = [
@@ -117,6 +144,8 @@ export const VAULT_AGENT_SYSTEM = [
   'Bringing the holdings to the targets the vault already has ("rebalance", "match the targets", "follow exactly the planned", "be the same as the portfolio I follow") is a rebalance, not a change of targets: draft no proposal for it and refuse nothing. Say where each holding stands against its target from the figures, and, when facts.rebalanceAction is not null, that the person does it with the action of that name on this vault\'s page, which shows the trades for them to sign. When facts.rebalanceAction is null the page does not offer it now (the holdings are on their targets, auto-follow is on, a holding has no price, or every trade would be too small): say where the holdings stand and name no button, page or control. This conversation places no order. The server answers the plain forms of that request itself.',
   'facts.latest is ambiguous_confirmation when the latest message is a bare "yes" or "ok" and your turn before it did not ask exactly one yes-or-no question: then return proposal null, say in one sentence that it could answer more than one thing, and ask in question which they mean. Never answer such a message by drafting an earlier request. A request holds only while it is the subject: requestedOutsideGoal and allocationConstraints already leave out what the conversation moved on from, so draft from them and from the latest message, never from an older message they no longer hold.',
   "Say a thing once. facts.alreadySaid lists what earlier replies already told the person (goal_rule: what a plan with this goal cannot hold; goal_differs_from_followed: that a target the vault has is outside its goal). Do not restate those, the plan's goal or its rule again unless the person asks about them or the latest message runs into them for a new asset; answer the latest message instead. Never repeat a sentence or a question of your previous turn.",
+  'When kind is vault you may look up the figures the server holds of a listed asset, as LOOKUPS says; when kind is new_goal you have no lookups. A figure the context already gives (evidence, analytics) comes first. Asked about a price, how it moved, a supply, who holds it, its pools or lending, look it up rather than say it is unknown; then state each figure by reference under the rules above and LOOKUPS: never compare, rank, do arithmetic, forecast or promise; asked which is deeper or better, each figure in its own sentence and no verdict. A looked-up figure is never a share, a weight or a limit, and never evidence of a pick: cite only evidence ids in evidenceIds.',
+  LOOKUP_RULES,
   'Return only the structured object. A general question or casual discussion can have proposal null. A specific stock direction may propose it if listed and allowed for the goal as above; do not invent an affiliation between a person and a company.',
 ].join('\n');
 
@@ -243,7 +272,8 @@ export function vaultAgentContent(prompt: VaultAgentPrompt): Anthropic.TextBlock
 /** One call's token counts, for the server log: how much of the prompt the cache wrote and read. */
 export type VaultAgentUsage = {
   model: string;
-  call: 'first' | 'repair';
+  /** `lookup`: a call after a round of lookups in the same attempt. */
+  call: 'first' | 'lookup' | 'repair';
   input_tokens: number | null;
   cache_creation_input_tokens: number | null;
   cache_read_input_tokens: number | null;
@@ -269,61 +299,101 @@ export function createAnthropicVaultAgentModel(options: {
     maxRetries: 0,
   });
   return {
-    async read(person, prompt, repair) {
+    async read(person, prompt, repair, lookups) {
       const timeout = repair
         ? options.timeoutMs + VAULT_AGENT_REPAIR_MARGIN_MS - repair.elapsedMs
         : options.timeoutMs;
       if (repair && timeout < VAULT_AGENT_REPAIR_MIN_MS)
         return { reply: null, why: 'timeout', detail: 'repair_no_time' };
-      // A repair is a second paid call, so it reserves from the same budget as the first.
-      const denied = options.quota.reserve(person);
-      if (denied !== null) return { reply: null, why: 'budget', detail: denied };
+      // Only a vault's own conversation looks up: the new-goal conversation states no figure.
+      const scope = prompt.kind === 'vault' && lookups ? lookups : null;
       const messages: Anthropic.MessageParam[] = [
         { role: 'user', content: vaultAgentContent(prompt) },
       ];
       if (repair)
-        messages.push(
-          { role: 'assistant', content: JSON.stringify(repair.previous) },
-          { role: 'user', content: repairRequest(repair.problems) },
-        );
-      try {
-        const response = await client.messages.create(
-          {
-            model: options.model,
-            max_tokens: VAULT_AGENT_MAX_TOKENS,
-            ...(acceptsTemperature(options.model) ? { temperature: 0 } : {}),
-            system: VAULT_AGENT_SYSTEM,
-            messages,
-            // No `thinking` parameter: the Claude 5 family rejects turning it off; effort sets its depth.
-            output_config: {
-              ...effort,
-              format: { type: 'json_schema', schema: VAULT_AGENT_REPLY_SCHEMA },
-            },
-          },
-          { timeout },
-        );
-        const usage = response.usage;
-        // A logger that throws must not turn the answer into `unavailable`.
-        try {
-          options.onUsage?.({
-            model: options.model,
-            call: repair ? 'repair' : 'first',
-            input_tokens: usage?.input_tokens ?? null,
-            cache_creation_input_tokens: usage?.cache_creation_input_tokens ?? null,
-            cache_read_input_tokens: usage?.cache_read_input_tokens ?? null,
-            output_tokens: usage?.output_tokens ?? null,
+        if (scope && repair.transcript?.length)
+          // the first attempt as it was, its own turns unchanged, then what was wrong with it
+          messages.splice(0, 1, ...repair.transcript, {
+            role: 'user',
+            content: repairRequest(repair.problems),
           });
-        } catch {}
+        else
+          messages.push(
+            { role: 'assistant', content: JSON.stringify(repair.previous) },
+            { role: 'user', content: repairRequest(repair.problems) },
+          );
+      // An id the context already gives keeps the figure it gave (`mergeLooked` in the conversation).
+      const handed = new Set([
+        ...prompt.evidence.map(({ id }) => id),
+        ...(prompt.analytics?.assets ?? []).flatMap((row) => Object.keys(row.values)),
+      ]);
+      let calls = 0;
+      let run: LookupRun;
+      try {
+        // Each call, a lookup round's too, reserves from the same budget as the first; a repair is a
+        // second paid call, so it reserves too.
+        run = await runLookupLoop({
+          call: async (more) => {
+            const response = await client.messages.create(
+              {
+                model: options.model,
+                max_tokens: VAULT_AGENT_MAX_TOKENS,
+                ...(acceptsTemperature(options.model) ? { temperature: 0 } : {}),
+                system: VAULT_AGENT_SYSTEM,
+                ...more,
+                // No `thinking` parameter: the Claude 5 family rejects turning it off; effort sets its depth.
+                output_config: {
+                  ...effort,
+                  format: { type: 'json_schema', schema: VAULT_AGENT_REPLY_SCHEMA },
+                },
+              },
+              { timeout },
+            );
+            const usage = response.usage;
+            // A logger that throws must not turn the answer into `unavailable`.
+            try {
+              options.onUsage?.({
+                model: options.model,
+                call: repair ? 'repair' : calls === 0 ? 'first' : 'lookup',
+                input_tokens: usage?.input_tokens ?? null,
+                cache_creation_input_tokens: usage?.cache_creation_input_tokens ?? null,
+                cache_read_input_tokens: usage?.cache_read_input_tokens ?? null,
+                output_tokens: usage?.output_tokens ?? null,
+              });
+            } catch {}
+            calls += 1;
+            return response;
+          },
+          messages,
+          reserve: () => options.quota.reserve(person),
+          scope,
+          handed: (id) => handed.has(id),
+          maxRounds: repair ? 0 : LOOKUP_MAX_ROUNDS,
+        });
+        // what was looked up goes back beside the reply, with the calls a repair sends on
+        const looked =
+          scope && !repair
+            ? {
+                looked: {
+                  ...run.looked,
+                  transcript: run.kind === 'answered' ? run.transcript : [],
+                },
+              }
+            : {};
+        if (run.kind === 'denied')
+          return { reply: null, why: 'budget', detail: run.detail, ...looked };
+        const response = run.response;
         if (response.stop_reason === 'max_tokens')
-          return { reply: null, why: 'invalid', detail: 'model_cut_off' };
+          return { reply: null, why: 'invalid', detail: 'model_cut_off', ...looked };
         if (response.stop_reason === 'refusal')
-          return { reply: null, why: 'invalid', detail: 'model_refused' };
+          return { reply: null, why: 'invalid', detail: 'model_refused', ...looked };
         const block = response.content.find((item) => item.type === 'text');
-        if (block?.type !== 'text') return { reply: null, why: 'invalid', detail: 'model_no_text' };
+        if (block?.type !== 'text')
+          return { reply: null, why: 'invalid', detail: 'model_no_text', ...looked };
         try {
-          return { reply: JSON.parse(block.text) as unknown };
+          return { reply: JSON.parse(block.text) as unknown, ...looked };
         } catch {
-          return { reply: null, why: 'invalid', detail: 'model_not_json' };
+          return { reply: null, why: 'invalid', detail: 'model_not_json', ...looked };
         }
       } catch (error) {
         if (error instanceof Anthropic.APIConnectionTimeoutError)

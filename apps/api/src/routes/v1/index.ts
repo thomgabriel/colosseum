@@ -119,8 +119,9 @@ export type V1Deps = {
   warmAgentAnalytics?: boolean;
   /**
    * The facts the server holds of one listed asset (`GET /v1/assets/{id}/facts`, gate
-   * FIGURES-BY-REFERENCE as amended 2026-10-14). Default: none, and the route answers 503. The server
-   * hands in its reader (asset-lookups.ts).
+   * FIGURES-BY-REFERENCE as amended 2026-10-14), and what the conversations' models may look up.
+   * Default: none, and the route answers 503 and the models have no tools. The server hands in its
+   * reader (asset-lookups.ts).
    */
   assetLookups?: AssetLookups;
   /**
@@ -327,7 +328,10 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       deps.planInputs,
       deps.agentAnalytics,
       undefined,
-      { keeperEnabled: flags.keeperEnabled },
+      {
+        keeperEnabled: flags.keeperEnabled,
+        ...(deps.assetLookups ? { lookups: deps.assetLookups } : {}),
+      },
     );
     registerGoalConversationReplyRoute(
       scope,
@@ -336,6 +340,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       deps.planInputs,
       deps.agentAnalytics,
       relaxedGoalAgent,
+      deps.assetLookups,
     );
     registerMixRoutes(scope, orderDeps, deps.planInputs);
     // The facts of one listed asset, for outside agents: public and read-only.

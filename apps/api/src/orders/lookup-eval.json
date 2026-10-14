@@ -1,0 +1,1343 @@
+{
+  "about": "The eval set of the conversations' lookups (API-AGENT-LOOKUPS-2, FIGURES-BY-REFERENCE as amended 2026-10-14). Each question names its conversation (goal: the relaxed intake behind /goal; vault: a vault's own conversation), its chain, the messages, the id families the answer must serve with their pins, and what must not appear in what is served. `recorded` is MOCK: a hand-written reply of the model, each lookup round it would make and its final JSON, replayed offline by lookup-eval.test.ts; scripts/verify/lookup-eval-live.ts sends the same questions to a running API and scores the live replies the same way.",
+  "mustNot": {
+    "promise": "a promise or a guarantee: guaranteed, risk-free, it is safe, you will earn, cannot lose, always",
+    "verdict": "a ranking or a comparison of figures: deeper, cheaper, better, more than, versus",
+    "forecast": "what happens next: will keep, will rise, going to, expected to, next week",
+    "typed_number": "a digit in what is served that is not a figure the server wrote",
+    "share_from_figure": "a weight that is not the person's own share (expect.weights) or an equal split"
+  },
+  "questions": [
+    {
+      "id": "goal-sol-price-tslax",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what's the price of TSLAx?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:tslax",
+                "window": "24h"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "TSLAx's latest closing price over the last day was {{fact:bars:solana:tslax:24h:close}}. Tell me what the money is for and I can draft around it.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-move-nvdax",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did NVDAx move this week?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "NVDAx's price changed by {{fact:bars:solana:nvdax:7d:change}} over the last week. Its lowest price over the last week was {{fact:bars:solana:nvdax:7d:low}}. Its highest price over the last week was {{fact:bars:solana:nvdax:7d:high}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-holders-jitosol",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "who holds most of JitoSOL?"
+        }
+      ],
+      "expect": {
+        "families": ["profile"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_profile",
+              "input": {
+                "assetId": "solana:jitosol"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "How concentrated JitoSOL is among its largest holders is {{fact:profile:solana:jitosol:holders_top20_share}}. Its total supply is {{fact:profile:solana:jitosol:supply_total}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-pools-jitosol",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "who holds most of JitoSOL?"
+        },
+        {
+          "who": "app",
+          "text": "How concentrated JitoSOL is among its largest holders is not measured (not collected yet)."
+        },
+        {
+          "who": "person",
+          "text": "how much is in its pools?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:jitosol"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "JitoSOL's largest pool, on raydium clmm, holds {{fact:pool:solana:jitosol:1:tvl}}. Its second largest pool, on raydium cpmm, holds {{fact:pool:solana:jitosol:2:tvl}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-deeper",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "which is deeper, TSLAx or NVDAx?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:tslax"
+              }
+            },
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "TSLAx's largest pool, on raydium clmm, holds {{fact:pool:solana:tslax:1:tvl}}. NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. Each figure stands on its own, and which suits you is your call.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-forecast",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did NVDAx move this week?"
+        },
+        {
+          "who": "app",
+          "text": "NVDAx's price changed by 4.32% over the last week."
+        },
+        {
+          "who": "person",
+          "text": "will it keep going up?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "No measured figure says what a price does next. NVDAx's price changed by {{fact:bars:solana:nvdax:7d:change}} over the last week, and that is all it measures.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-unlisted",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what's the price of BONK?"
+        }
+      ],
+      "expect": {
+        "families": []
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:bonk",
+                "window": "24h"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "BONK is not listed on this chain, so there are no figures for it here.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [
+            {
+              "name": "BONK",
+              "why": "not on this chain"
+            }
+          ],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-share-typed",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "NVDAx and TSLAx"
+        },
+        {
+          "who": "app",
+          "text": "NVDAx's largest pool, on raydium clmm, holds 65.17% of the dollars in its pools."
+        },
+        {
+          "who": "person",
+          "text": "I want 60% NVDAx and 40% TSLAx"
+        },
+        {
+          "who": "person",
+          "text": "how deep is the NVDAx pool?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"],
+        "weights": {
+          "solana:nvdax": 6000,
+          "solana:tslax": 4000
+        }
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. The draft holds NVDAx and TSLAx as you said.",
+          "shape": "pick",
+          "lines": [
+            {
+              "id": "solana:nvdax",
+              "why": "The stock you named.",
+              "share": 0.6517
+            },
+            {
+              "id": "solana:tslax",
+              "why": "The other stock you named.",
+              "share": 0.3483
+            }
+          ],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": ["amount"]
+        }
+      },
+      "note": "the model reports a share read off a figure; the server applies the person's"
+    },
+    {
+      "id": "goal-sol-supply-jitosol",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what's JitoSOL's supply?"
+        }
+      ],
+      "expect": {
+        "families": ["profile"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_profile",
+              "input": {
+                "assetId": "solana:jitosol"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "JitoSOL's total supply is {{fact:profile:solana:jitosol:supply_total}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-yield-jlusdc",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what's the yield on jlUSDC?"
+        }
+      ],
+      "expect": {
+        "families": ["profile"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_profile",
+              "input": {
+                "assetId": "solana:jlusdc"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "jlUSDC is a dollar-yield token on this chain. Its quoted yield is {{fact:profile:solana:jlusdc:yield_quoted}} a year.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-month-tslax",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did TSLAx move this month?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:tslax",
+                "window": "30d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "TSLAx's change in price over the last month is {{fact:bars:solana:tslax:30d:change}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-sol-volume-nvdax",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how much NVDAx traded today?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "24h"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "NVDAx's volume traded over the last day was {{fact:bars:solana:nvdax:24h:volume}}. Its number of swaps over the last day was {{fact:bars:solana:nvdax:24h:swaps}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-rh-price-tsla",
+      "conversation": "goal",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what's the price of TSLA?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "robinhood:tsla",
+                "window": "24h"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "TSLA's latest closing price over the last day was {{fact:bars:robinhood:tsla:24h:close}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-rh-move-nvda",
+      "conversation": "goal",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did NVDA move this week?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "robinhood:nvda",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "NVDA's price changed by {{fact:bars:robinhood:nvda:7d:change}} over the last week.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-rh-unlisted-sol",
+      "conversation": "goal",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did SOL move this week?"
+        }
+      ],
+      "expect": {
+        "families": []
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:sol",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "SOL is not listed on this chain, so there are no figures for it here.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [
+            {
+              "name": "SOL",
+              "why": "not on this chain"
+            }
+          ],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-rh-safe-gld",
+      "conversation": "goal",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "is GLD safe?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "robinhood:gld",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "No measured figure says whether an asset is safe, and none of this is a promise. GLD's lowest price over the last week was {{fact:bars:robinhood:gld:7d:low}}. Its highest price over the last week was {{fact:bars:robinhood:gld:7d:high}}.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "goal-rh-deeper",
+      "conversation": "goal",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "which is deeper, TSLA or NVDA?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "robinhood:tsla"
+              }
+            },
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "robinhood:nvda"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "TSLA's largest pool, on raydium clmm, holds {{fact:pool:robinhood:tsla:1:tvl}}. NVDA's largest pool, on raydium clmm, holds {{fact:pool:robinhood:nvda:1:tvl}}. Each figure stands on its own.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
+    },
+    {
+      "id": "vault-sol-move-nvdax",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did my NVDAx move this week?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "NVDAx's price changed by {{fact:bars:solana:nvdax:7d:change}} over the last week. Its latest closing price was {{fact:bars:solana:nvdax:7d:close}}.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-sol-lend-usdc",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "can I lend USDC and at what rate?"
+        }
+      ],
+      "expect": {
+        "families": ["lend"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_lending",
+              "input": {
+                "assetId": "solana:usdc"
+              }
+            }
+          ],
+          [
+            {
+              "name": "asset_lending",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "USDC is the cash line of this chain, so it has no lending figures of its own here. In the NVDAx/USDC market of Jupiter Lend, which takes NVDAx as collateral, a lender can withdraw {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:withdrawable}} now. The supply rate of USDC in the NVDAx/USDC market is {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:supply}} a year.",
+          "question": null,
+          "proposal": null
+        }
+      },
+      "note": "the supply-rate sentence is cut until the slice-1 fix takes lending rates out of the yield grammar; the withdrawable figure is served either way"
+    },
+    {
+      "id": "vault-sol-pools-nvdax",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how deep are the NVDAx pools?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. Its second largest pool, on raydium cpmm, holds {{fact:pool:solana:nvdax:2:tvl}}.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-sol-safe",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "is it safe?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "No measured figure says whether an asset is safe, and none of this is a promise. NVDAx's lowest price over the last week was {{fact:bars:solana:nvdax:7d:low}}. Its highest price over the last week was {{fact:bars:solana:nvdax:7d:high}}.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-sol-deeper",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "which is deeper, TSLAx or NVDAx?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:tslax"
+              }
+            },
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "TSLAx's largest pool, on raydium clmm, holds {{fact:pool:solana:tslax:1:tvl}}. NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. Each figure stands on its own.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-sol-forecast",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "will it keep going up?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "No measured figure says what a price does next. NVDAx's price changed by {{fact:bars:solana:nvdax:7d:change}} over the last week, and that is all it measures.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-sol-holders-jitosol",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "who holds most of JitoSOL?"
+        }
+      ],
+      "expect": {
+        "families": ["profile"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_profile",
+              "input": {
+                "assetId": "solana:jitosol"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "How concentrated JitoSOL is among its largest holders is {{fact:profile:solana:jitosol:holders_top20_share}}. Its total supply is {{fact:profile:solana:jitosol:supply_total}}.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-sol-share-typed",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "I want 60% NVDAx and 40% TSLAx"
+        },
+        {
+          "who": "person",
+          "text": "and how deep is the NVDAx pool?"
+        }
+      ],
+      "expect": {
+        "families": ["pool"],
+        "weights": {
+          "solana:nvdax": 6000,
+          "solana:tslax": 4000
+        }
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}.",
+          "question": null,
+          "proposal": {
+            "objective": "Hold Nvidia and Tesla as asked",
+            "summary": "Nvidia and Tesla, at the shares you gave.",
+            "allocations": [
+              {
+                "assetId": "solana:nvdax",
+                "why": "The stock you named.",
+                "evidenceIds": ["catalog:solana:nvdax"]
+              },
+              {
+                "assetId": "solana:tslax",
+                "why": "The other stock you named.",
+                "evidenceIds": ["catalog:solana:tslax"]
+              }
+            ],
+            "stated": [
+              {
+                "assetIds": ["solana:nvdax"],
+                "kind": "exact",
+                "bps": 6500,
+                "quote": "I want 60% NVDAx and 40% TSLAx"
+              }
+            ],
+            "tradeoffs": ["Two stocks move together more than a wider set would."],
+            "unknowns": []
+          }
+        }
+      },
+      "note": "the model reports a share read off a figure; the server applies the person's"
+    },
+    {
+      "id": "vault-rh-price-tsla",
+      "conversation": "vault",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what's the price of TSLA?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "robinhood:tsla",
+                "window": "24h"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "TSLA's latest closing price over the last day was {{fact:bars:robinhood:tsla:24h:close}}.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-rh-pools-nvda",
+      "conversation": "vault",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how much is in NVDA's pools?"
+        }
+      ],
+      "expect": {
+        "families": ["pool", "profile"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_pools",
+              "input": {
+                "assetId": "robinhood:nvda"
+              }
+            },
+            {
+              "name": "asset_profile",
+              "input": {
+                "assetId": "robinhood:nvda"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "NVDA's pools hold {{fact:profile:robinhood:nvda:pool_tvl_usd}} by the latest reading. NVDA's largest pool, on raydium clmm, holds {{fact:pool:robinhood:nvda:1:tvl}}.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-rh-unlisted-jitosol",
+      "conversation": "vault",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what about JitoSOL?"
+        }
+      ],
+      "expect": {
+        "families": []
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_profile",
+              "input": {
+                "assetId": "solana:jitosol"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "JitoSOL is not listed on this chain, so there are no figures for it here.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "vault-rh-move-nvda",
+      "conversation": "vault",
+      "chain": "robinhood",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how did my NVDA move this week?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "robinhood:nvda",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "NVDA's price changed by {{fact:bars:robinhood:nvda:7d:change}} over the last week.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    }
+  ]
+}

@@ -11,6 +11,15 @@ import {
 import { z } from 'zod';
 import type { ModelQuota } from '../model-quota';
 import { acceptsEffort } from '../vault-agent-model';
+import {
+  LOOKUP_MAX_ROUNDS,
+  LOOKUP_RULES,
+  type LookupBase,
+  type LookupCounts,
+  type LookupRun,
+  mergeLooked,
+  runLookupLoop,
+} from './lookup-loop';
 import { goalFit } from './mix';
 import { ORDER_POLICY } from './prepare';
 import { filled, fitted, goalFigures } from './relaxed-figures';
@@ -202,9 +211,10 @@ function systemBlocks(
   language: 'en' | 'pt',
   today: string,
   figures: string,
+  lookups: boolean,
 ): Anthropic.TextBlockParam[] {
   return [
-    { type: 'text', text: systemPrompt(table), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: systemPrompt(table, lookups), cache_control: { type: 'ephemeral' } },
     {
       type: 'text',
       // with the figures this conversation may reference: they change with what it names
@@ -213,7 +223,7 @@ function systemBlocks(
   ];
 }
 
-function systemPrompt(table: string) {
+function systemPrompt(table: string, lookups: boolean) {
   return `You are the planner at Tenonfi. A person tells you what they want to do with their money and you turn it into holdings from one table, the catalog of their chain, which you see in full below. You talk to them the way a sharp, warm friend who knows markets would: plainly, briefly, in their language, with real reasoning. You are not a form. The language to answer in and today's date follow this text.
 
 What you are free to do: read intent, including people, companies, themes, nicknames and half-sentences; decide which holdings on the table fit and why; notice when something they named is not on the table and say so; ask what you genuinely need, in a natural sentence, one or two things at a time; keep the whole conversation in mind; change course when they do; explain, compare, and give your view of the shape of the plan.
@@ -222,14 +232,14 @@ Four rules, which the code after you also enforces:
 1. You may only name holdings that appear on the table, by their exact id. If a thing they named is not there (a private company, a stock not on this chain), say so instead of substituting.
 2. You never choose weights yourself. When the person gives a share for a pot or for a holding ("80% in yield", "all of the income part in syrupUSDC", "20% in big tech"), you pass it on as that pot's or that line's "share" (0 to 1, of the pot for a line, of the money for a pot). The code applies a share only where it reads the same number in the person's own words beside the same holding or kind of holding; a share you report that it does not find there is not applied, so never describe a share as applied unless the person stated it plainly. Lines with no share stated split equally. Each holding has a cap on the table: the share above which the deposit step warns today. A cap never stops you: if the person asks for more, pass their share on as asked; the vault accepts any composition, and the deposit step shows a warning with the measured figure behind it, which the person confirms before anything is deposited. Mention it in one short sentence, no more.
 3. You never compute or estimate a return, a projection, a price or how long money lasts, and you never promise a return. Write no figure in "say", in a "why" or in a pot's name: no digit, no percent or currency sign, no price, yield, return or date, not as words either ("five percent"), and never "guaranteed" or "risk-free". The code cuts every sentence that does. The person's numbers go in the sheet ("stated", "share"), where the code reads them and shows them; to repeat what they said, quote them exactly: You said “...”. The code computes every projection from the table's readings and prints it under your message as soon as the amount and the date or the monthly withdrawals are in the sheet; refer to it ("the projection below") instead of doing sums. A holding with no yield on the table earns nothing in that projection.
-The one way a number reaches the person through you is a reference to a measured figure. After this text comes a list, MEASURED FIGURES, of ids and what each measures, for the holdings this conversation has named. Where one of those figures would stand in "say", write {{fact:<id>}} with the id exactly as listed, and the code writes the value there with its source and the time it was measured. You never see the value and you never type it.
-- When: only when the person asks about that figure (a price, what it costs to sell, how deep the pool is, how much trades, volatility, a drawdown, a yield), or when one figure is the reason for a caution you give. Not to decorate a draft.
+The one way a number reaches the person through you is a reference to a measured figure. After this text comes a list, MEASURED FIGURES, of the figures of the holdings this conversation has named: each line an id, what it measures, its value with its unit, when it was measured and its provenance (live, sandbox for a test network, mock for sample figures)${lookups ? ', and the lookups below give more' : ''}. Where one of those figures would stand in "say", write {{fact:<id>}} with the id exactly as given, and the code writes the value there with its source and the time it was measured. You see the value so that you pick the right id; you never type it, nor anything worked out from it.
+- When: only when the person asks about that figure (a price, how it moved, what it costs to sell, how deep the pool is, how much trades, its supply, who holds it, its pools, lending, volatility, a drawdown, a yield), or when one figure is the reason for a caution you give. Not to decorate a draft.
 - Where: in "say" only, never in a "why", a pot's name or a quote. A space and a word on each side of it; two references never touch.
-- How: its sentence names the holding and says what the figure is, in the word of the figure's own line (price, costs to sell, largest sale or capacity, weekend, provider, variation, volume, volatility, drawdown), and nothing more: "Selling Tesla at the reference size costs about {{fact:<id>}} in the worst measured regime." No "percent", "thousand" or "million" beside it, no "double", "half" or "times", no rise or fall, no "will", no "safe", no "a year" unless it is a yield. A yield only as its measurement, ending the sentence: "Its quoted yield is {{fact:<id>}} a year."
+- How: its sentence names the holding and says what the figure is, in the word of what it measures (price, costs to sell, largest sale or capacity, weekend, provider, variation, volume, volatility, drawdown, supply, holders, pool, change, high, low, swaps, lent out, withdraw), and nothing more: "Selling Tesla at the reference size costs about {{fact:<id>}} in the worst measured regime." No "percent", "thousand" or "million" beside it, no "double", "half" or "times", no rise or fall, no "will", no "safe", no "a year" unless it is a yield${lookups ? ' or a lending rate' : ''}. A yield only as its measurement, ending the sentence: "Its quoted yield is {{fact:<id>}} a year."${lookups ? " A change over a window, a lending market's supply or borrow rate and a pool's share are said as LOOKUPS below says." : ''}
 - A list of figures of one kind says the kind in its heading ("Exit costs at the reference size:") and one holding a line. A figure is never called a share, a weight, a cap, a target or what something is worth: none of those is measured here.
 - Never compare or rank figures, and do no arithmetic with them. No "than", no "versus". Asked which is deeper, cheaper or better, give each holding's figure in its own sentence and no verdict: the person compares. Never promise anything from a figure: it is what was measured, not what happens next.
-- An id listed as "not measured" may be referenced: the code writes "not measured" and why. A figure that is not on the list does not exist for you: say it is not measured here, or that you can give it once the holding is named. Never type a number instead.
-4. Nothing is built until the person confirms. Before that, you need: the amount for any plan; when they will need the money for a plan to grow or to protect; the monthly income they want for an income plan; the shares for a split, if not stated. Ask for what is missing while you work, never for what they already said, and never guess a number. Propose lines as soon as you know enough of the intent; the person sees the plan build beside the chat.
+- An id given as "not measured" may be referenced: the code writes "not measured" and why. A figure you were not given does not exist for you: say it is not measured here, or that you can give it once the holding is named. Never type a number instead.
+${lookups ? `${LOOKUP_RULES}\n` : ''}4. Nothing is built until the person confirms. Before that, you need: the amount for any plan; when they will need the money for a plan to grow or to protect; the monthly income they want for an income plan; the shares for a split, if not stated. Ask for what is missing while you work, never for what they already said, and never guess a number. Propose lines as soon as you know enough of the intent; the person sees the plan build beside the chat.
 
 The product's words, in "say" and in every "why": what the person will hold is their vault (before it exists: "your vault", "the draft", "what your vault holds"), and putting money in is a deposit ("deposit", "the deposit step"). Never write "mix", "buy", "bought" or "purchase": say what the vault holds and that the person deposits.
 
@@ -421,13 +431,21 @@ const whereOf = (error: z.ZodError) =>
 const REPAIR_SHAPE =
   'That was not the JSON object the API holds you to. Answer again with that object and nothing else: every required field, each of the kind it asks for.';
 const REPAIR_FIGURE =
-  'Your reply stated a figure, a price, a yield, a return, a date or a guarantee in "say", in a "why", in a pot\'s name, in "when" or in "not_available". Answer again with the same sheet and no digit, no percent or currency sign, no written-out amount and no "guaranteed" or "risk-free" in any of them. Numbers belong only in "stated" and "share"; to repeat what the person said, quote them exactly: You said “...”. A measured figure is stated only as its reference in "say", {{fact:<id>}} with an id from MEASURED FIGURES; never type its value.';
+  'Your reply stated a figure, a price, a yield, a return, a date or a guarantee in "say", in a "why", in a pot\'s name, in "when" or in "not_available". Answer again with the same sheet and no digit, no percent or currency sign, no written-out amount and no "guaranteed" or "risk-free" in any of them. Numbers belong only in "stated" and "share"; to repeat what the person said, quote them exactly: You said “...”. A measured figure is stated only as its reference in "say", {{fact:<id>}} with an id from MEASURED FIGURES or from a lookup of this reply; never type its value.';
 const REPAIR_REFERENCE =
-  'Your reply held a figure reference, {{fact:<id>}}, that the server will not serve. Either its id is not one listed under MEASURED FIGURES for this message, or it is not in "say", or it does not stand alone as the figure it is. A reference stands alone when: it is outside quotation marks; a space and a word, or plain sentence punctuation, is on each side of it; its sentence names the holding the figure is of and calls the figure what its line under MEASURED FIGURES says it is (price, costs to sell, the largest sale or capacity, weekend, provider, variation, volume, volatility, drawdown; never a share, a weight, a cap or what something is worth), names no other holding, and has no magnitude or percent word, no multiplier, fraction or arithmetic in words, no number or currency word beside it, no rate or return word unless it is a yield: figure, no rise or fall unless it is a drawdown: figure, no forecast, no comparison ("cheaper than", "better than") and no claim the figure does not measure; a yield: figure is said only as its measurement, in a sentence that ends after it ("Its quoted yield is {{fact:<id>}} a year."). Answer again with the same sheet: rewrite the sentence so the reference stands alone, or write it without the figure. Never type the number instead.';
+  'Your reply held a figure reference, {{fact:<id>}}, that the server will not serve. Either its id is not one given under MEASURED FIGURES for this message or by a lookup of this reply, or it is not in "say", or it does not stand alone as the figure it is. A reference stands alone when: it is outside quotation marks; a space and a word, or plain sentence punctuation, is on each side of it; its sentence names the holding the figure is of and calls the figure what its line says it measures (price, costs to sell, the largest sale or capacity, weekend, provider, variation, volume, volatility, drawdown; never a share, a weight, a cap or what something is worth), names no other holding, and has no magnitude or percent word, no multiplier, fraction or arithmetic in words, no number or currency word beside it, no rate or return word unless it is a yield: figure, no rise or fall unless it is a drawdown: figure, no forecast, no comparison ("cheaper than", "better than") and no claim the figure does not measure; a yield: figure is said only as its measurement, in a sentence that ends after it ("Its quoted yield is {{fact:<id>}} a year."). Answer again with the same sheet: rewrite the sentence so the reference stands alone, or write it without the figure. Never type the number instead.';
 
 export type RelaxedGoalAgent = {
   id: string;
-  reply(request: VaultAgentRequest, context: GoalAgentContext): Promise<VaultAgentResult>;
+  /**
+   * `lookups`: the asset lookups this server holds (FIGURES-BY-REFERENCE as amended 2026-10-14). Absent,
+   * the model has no tools, as before.
+   */
+  reply(
+    request: VaultAgentRequest,
+    context: GoalAgentContext,
+    lookups?: LookupBase,
+  ): Promise<VaultAgentResult>;
 };
 
 export function createRelaxedGoalAgent(options: {
@@ -455,7 +473,7 @@ export function createRelaxedGoalAgent(options: {
     ((params: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(params));
   return {
     id: model,
-    async reply(request, context) {
+    async reply(request, context, lookups) {
       const parsed = VaultAgentRequest.safeParse(request);
       if (!parsed.success) return { kind: 'failure', reason: 'invalid' };
       const { language, messages, messageId } = parsed.data;
@@ -495,41 +513,67 @@ export function createRelaxedGoalAgent(options: {
         language,
         new Date().toISOString().slice(0, 10),
         offered.block,
+        Boolean(lookups),
       );
+      // The lookups (FIGURES-BY-REFERENCE as amended 2026-10-14): read against this chain's catalog, and
+      // an id the request already holds keeps the figure it was handed.
+      const scope = lookups ? { ...lookups, chain: context.chain, catalog: assets } : null;
+      const handedIds = new Set([
+        ...context.evidence.map((source) => source.id),
+        ...Object.keys(context.references?.missing ?? {}),
+        ...Object.keys(offered.references.missing),
+      ]);
+      /** The first attempt's calls, each assistant turn as it came: what the repair call sends on. */
+      let transcript: Anthropic.MessageParam[] | null = null;
+      /** What the lookups did, for the log: counts only. */
+      let lookupCounts: LookupCounts | null = null;
       type Asked =
         | { kind: 'read'; data: Reply; text: string }
         | { kind: 'miss'; text: string }
         | { kind: 'failure'; result: Extract<VaultAgentResult, { kind: 'failure' }> };
-      /** One paid call, reserved from the shared budget first, as the model-led conversation does. */
+      /**
+       * One answer: the paid calls of the lookup loop, each reserved from the shared budget first, as the
+       * model-led conversation does. A repair call sends the first attempt's calls on, looks nothing up
+       * and may not (`tool_choice: none`).
+       */
       const ask = async (repair?: { previous: string; problem: string }): Promise<Asked> => {
-        const denied = options.quota?.reserve(context.person) ?? null;
-        if (denied !== null)
-          return { kind: 'failure', result: { kind: 'failure', reason: 'budget', detail: denied } };
         let text = '';
+        let run: LookupRun;
         try {
-          const response = await create({
-            model,
-            max_tokens: 4000,
-            system,
+          run = await runLookupLoop({
+            call: (more) =>
+              create({
+                model,
+                max_tokens: 4000,
+                system,
+                ...more,
+                output_config: {
+                  format: { type: 'json_schema', schema: REPLY_SCHEMA },
+                  // only where the model takes it: Haiku 4.5 and Sonnet 4.5 answer 400 to it
+                  ...(acceptsEffort(model) ? { effort: 'medium' } : {}),
+                },
+              } as unknown as Anthropic.MessageCreateParamsNonStreaming),
             messages: repair
-              ? [
-                  ...turns,
-                  { role: 'assistant', content: repair.previous },
-                  { role: 'user', content: repair.problem },
-                ]
+              ? transcript
+                ? // the attempt as it was, its own turns unchanged, then what was wrong with it
+                  [
+                    ...transcript,
+                    ...(transcript.at(-1)?.role === 'assistant'
+                      ? []
+                      : [{ role: 'assistant' as const, content: repair.previous }]),
+                    { role: 'user', content: repair.problem },
+                  ]
+                : [
+                    ...turns,
+                    { role: 'assistant', content: repair.previous },
+                    { role: 'user', content: repair.problem },
+                  ]
               : turns,
-            output_config: {
-              format: { type: 'json_schema', schema: REPLY_SCHEMA },
-              // only where the model takes it: Haiku 4.5 and Sonnet 4.5 answer 400 to it
-              ...(acceptsEffort(model) ? { effort: 'medium' } : {}),
-            },
-          } as unknown as Anthropic.MessageCreateParamsNonStreaming);
-          if (response.stop_reason !== 'end_turn') {
-            log('model stopped early', response.stop_reason);
-            return { kind: 'miss', text: '' };
-          }
-          const block = response.content.find((item) => item.type === 'text');
-          text = block?.type === 'text' ? block.text : '';
+            reserve: () => options.quota?.reserve(context.person) ?? null,
+            scope,
+            handed: (id) => handedIds.has(id),
+            maxRounds: repair ? 0 : LOOKUP_MAX_ROUNDS,
+          });
         } catch (error) {
           log('model call failed', error instanceof Error ? error.message : 'unknown error');
           return {
@@ -541,6 +585,31 @@ export function createRelaxedGoalAgent(options: {
             },
           };
         }
+        if (run.kind === 'denied')
+          return {
+            kind: 'failure',
+            result: { kind: 'failure', reason: 'budget', detail: run.detail },
+          };
+        if (!repair) {
+          // what was looked up is evidence of this request: the resolver below reads it
+          mergeLooked(
+            {
+              sources: offered.sources,
+              references: offered.references,
+              lowerBound: offered.lowerBound,
+            },
+            run.looked,
+          );
+          if (scope) transcript = run.transcript;
+          if (run.looked.counts.rounds) lookupCounts = run.looked.counts;
+        }
+        const response = run.response;
+        if (response.stop_reason !== 'end_turn') {
+          log('model stopped early', response.stop_reason);
+          return { kind: 'miss', text: '' };
+        }
+        const block = response.content.find((item) => item.type === 'text');
+        text = block?.type === 'text' ? block.text : '';
         let raw: unknown;
         try {
           raw = JSON.parse(text);
@@ -574,8 +643,9 @@ export function createRelaxedGoalAgent(options: {
       const figure = (text: string) =>
         hasFinancialFigure(text, personWords, catalogNames) || /[{}]/u.test(text);
       // Figures by reference, in the message only: the vault conversation's resolver and sentence
-      // rules over this chain's catalog, resolving only what this request handed the model. The
-      // model's own words, with a mark where each reference stood, pass the same check as ever.
+      // rules over this chain's catalog, resolving only what this request handed the model or what it
+      // looked up in this reply (merged in by `ask`). The model's own words, with a mark where each
+      // reference stood, pass the same check as ever.
       const references = conversationFigures({
         enabled: true,
         catalog,
@@ -585,8 +655,8 @@ export function createRelaxedGoalAgent(options: {
         references: offered.references,
         lowerBound: offered.lowerBound,
         language,
-        // the model sees ids and no values, so a wrong id is its likely mistake: each figure is
-        // called what it is, and none is set against another
+        // each figure is called what it is, and none is set against another: on for /goal, where the
+        // model now sees the values too (RELAXED-INTAKE as amended again, 2026-10-14)
         kindRequired: true,
         noComparison: true,
       });
@@ -695,6 +765,7 @@ export function createRelaxedGoalAgent(options: {
         kind: 'reply',
         reply,
         ...(repair ? { repair } : {}),
+        ...(lookupCounts ? { lookups: lookupCounts } : {}),
         ...(figureCounts || unknownReferences
           ? {
               figures: {
