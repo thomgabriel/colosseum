@@ -46,6 +46,7 @@ import { z } from 'zod';
 import { curveVersionOf, EVM_METHOD_VERSION } from '../curve-version';
 import { loadAssetFacts, loadPlanFacts } from '../facts';
 import { FACTS_METHODOLOGY } from '../facts-methodology';
+import { type RiskCacheOptions, registerRiskReadCache } from './risk-cache';
 import { registerRiskHistoryRoutes } from './risk-history';
 import { registerPoolLiquidityRoute } from './risk-pool-liquidity';
 import { registerRiskSplitRoute } from './risk-split';
@@ -63,8 +64,6 @@ const REGIME_PARAMS = defaultRegimeParams(calendar);
 const ISSUERS = JSON.parse(readFileSync(join(ROOT, 'fixtures/risk/issuer-models.json'), 'utf8'))
   .models as Record<string, IssuerModel>;
 const METHOD_VERSION = 'risk-0.3';
-/** What a `GET /risk/*` answer tells caches: a minute fresh, five more served while asked again. */
-export const RISK_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
 /** Largest `POST /risk/positions/assess` body: 50 years of monthly withdrawals, 50 legs (PLAN-ANALYTICS item 2). */
 export const ASSESS_MAX_WITHDRAWALS = 600;
 export const ASSESS_MAX_LEGS = 50;
@@ -86,22 +85,15 @@ type Chain = z.infer<typeof ChainName>;
 const EVM_POOLS_NOT_IN_REGISTRY =
   'not collected on Robinhood Chain: its pools are not in the pool registry (PLAN-UNIVERSE RU.14, DU6)';
 
-export async function registerRiskRoutes(app: FastifyInstance) {
+export async function registerRiskRoutes(
+  app: FastifyInstance,
+  opts: { cache?: RiskCacheOptions | false } = {},
+) {
   // The process's one pool (packages/db: `sharedDb`).
   const { db } = sharedDb();
   const f = app.withTypeProvider<ZodTypeProvider>();
-  // A read is the same for everyone, and the collectors write at most every few minutes: a browser may
-  // keep an answer a minute and show it a few more while it asks again. Every answer carries its own
-  // reading's time, so a kept one never passes for newer than it is.
-  app.addHook('onSend', async (req, reply) => {
-    if (
-      req.method === 'GET' &&
-      req.url.startsWith('/risk/') &&
-      reply.statusCode === 200 &&
-      !reply.hasHeader('cache-control')
-    )
-      reply.header('cache-control', RISK_CACHE_CONTROL);
-  });
+  // Every GET's answer kept in the process a while, and a browser told it may keep it a minute (risk-cache.ts).
+  if (opts.cache !== false) registerRiskReadCache(app, opts.cache);
 
   async function resolveAsset(id: string) {
     const rows = await db
