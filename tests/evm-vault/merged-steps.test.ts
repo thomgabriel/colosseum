@@ -60,6 +60,8 @@ describe.skipIf(!FORK_URL)('several of the vault calls in one step, on a copy of
     const { txId } = await w.send(tx);
     const receipt = await w.client.getTransactionReceipt({ hash: txId as `0x${string}` });
     expect(receipt.status, tx.description).toBe('success');
+    // The fork's hashes, for the record of the run: a copy of 46630, never the network itself.
+    console.info(`fork ${tx.legKind}: ${receipt.transactionHash} (${tx.description})`);
     return receipt;
   };
   let n = 0;

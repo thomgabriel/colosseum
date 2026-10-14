@@ -170,7 +170,7 @@ describe('the review of an add of money to a vault', () => {
     const next = {
       ...rest,
       id: NEXT_ID,
-      approvalUrl: `/orders/${NEXT_ID}`,
+      approvalUrl: `/portfolio/orders/${NEXT_ID}`,
       continues: ORDER_ID,
       legs: add.legs
         .filter((l) => l.kind === 'swap')
@@ -254,7 +254,7 @@ describe('the review of an add of money to a vault', () => {
     expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
     await click(button);
     await settle();
-    expect(router.push).toHaveBeenCalledWith(`/orders/${NEXT_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${NEXT_ID}`);
     const kept = recallOrder(NEXT_ID, USER);
     // the same vault, through the same terms, and the trades the add left
     expect(kept?.terms).toEqual(terms);

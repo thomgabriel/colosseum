@@ -15,7 +15,7 @@ export const WANTED = [
 
 export const HEADER_CASES = [
   '/',
-  '/goal',
+  '/invest',
   '/sign-in',
   '/embed',
   '/analytics/stocks',
@@ -52,7 +52,7 @@ export function judgeReported(path, policy, html) {
 }
 
 /** Pages rendered for each request, where every script must carry the request's nonce. */
-export const REPORTED_CASES = ['/goal', '/embed'];
+export const REPORTED_CASES = ['/invest', '/embed'];
 
 /** What is wrong with the headers on `base`; empty when nothing is. */
 export async function headerProblems(base) {

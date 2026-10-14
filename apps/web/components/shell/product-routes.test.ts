@@ -102,40 +102,40 @@ describe('the routes of the app', () => {
       'app/(app)/analytics/layout.tsx',
       'app/(app)/analytics/methodology/page.tsx',
       'app/(app)/analytics/page.tsx',
-      'app/(app)/goal/page.tsx',
-      'app/(app)/indexes/[slug]/buy/loading.tsx',
-      'app/(app)/indexes/[slug]/buy/page.tsx',
-      'app/(app)/indexes/[slug]/loading.tsx',
-      'app/(app)/indexes/[slug]/page.tsx',
+      'app/(app)/invest/page.tsx',
+      'app/(app)/invest/plan/[id]/buy/loading.tsx',
+      'app/(app)/invest/plan/[id]/buy/page.tsx',
+      'app/(app)/invest/plan/[id]/loading.tsx',
+      'app/(app)/invest/plan/[id]/page.tsx',
       'app/(app)/layout.tsx',
-      'app/(app)/monitor/page.tsx',
       'app/(app)/not-found.tsx',
-      'app/(app)/orders/[id]/loading.tsx',
-      'app/(app)/orders/[id]/page.tsx',
-      'app/(app)/plan/[id]/buy/loading.tsx',
-      'app/(app)/plan/[id]/buy/page.tsx',
-      'app/(app)/plan/[id]/loading.tsx',
-      'app/(app)/plan/[id]/page.tsx',
-      'app/(app)/portfolio/exposure/loading.tsx',
-      'app/(app)/portfolio/exposure/page.tsx',
-      'app/(app)/portfolio/layout.tsx',
-      'app/(app)/portfolio/loading.tsx',
-      'app/(app)/portfolio/methodology/loading.tsx',
-      'app/(app)/portfolio/methodology/page.tsx',
-      'app/(app)/portfolio/page.tsx',
-      'app/(app)/portfolio/plan/[chain]/[address]/loading.tsx',
-      'app/(app)/portfolio/plan/[chain]/[address]/page.tsx',
-      'app/(app)/portfolio/rebalancing/loading.tsx',
-      'app/(app)/portfolio/rebalancing/page.tsx',
-      'app/(app)/publish/page.tsx',
-      'app/(app)/shelf/page.tsx',
+      'app/(app)/portfolio/(section)/exposure/loading.tsx',
+      'app/(app)/portfolio/(section)/exposure/page.tsx',
+      'app/(app)/portfolio/(section)/layout.tsx',
+      'app/(app)/portfolio/(section)/loading.tsx',
+      'app/(app)/portfolio/(section)/methodology/loading.tsx',
+      'app/(app)/portfolio/(section)/methodology/page.tsx',
+      'app/(app)/portfolio/(section)/page.tsx',
+      'app/(app)/portfolio/(section)/plan/[chain]/[address]/loading.tsx',
+      'app/(app)/portfolio/(section)/plan/[chain]/[address]/page.tsx',
+      'app/(app)/portfolio/(section)/rebalancing/loading.tsx',
+      'app/(app)/portfolio/(section)/rebalancing/page.tsx',
+      'app/(app)/portfolio/monitor/page.tsx',
+      'app/(app)/portfolio/orders/[id]/loading.tsx',
+      'app/(app)/portfolio/orders/[id]/page.tsx',
+      'app/(app)/portfolio/vaults/[chain]/[address]/add/loading.tsx',
+      'app/(app)/portfolio/vaults/[chain]/[address]/add/page.tsx',
+      'app/(app)/portfolio/vaults/[chain]/[address]/loading.tsx',
+      'app/(app)/portfolio/vaults/[chain]/[address]/page.tsx',
+      'app/(app)/portfolio/vaults/[chain]/[address]/targets/page.tsx',
+      'app/(app)/portfolio/vaults/[chain]/[address]/withdraw/page.tsx',
+      'app/(app)/products/[slug]/buy/loading.tsx',
+      'app/(app)/products/[slug]/buy/page.tsx',
+      'app/(app)/products/[slug]/loading.tsx',
+      'app/(app)/products/[slug]/page.tsx',
+      'app/(app)/products/page.tsx',
+      'app/(app)/products/publish/page.tsx',
       'app/(app)/sign-in/page.tsx',
-      'app/(app)/vaults/[chain]/[address]/add/loading.tsx',
-      'app/(app)/vaults/[chain]/[address]/add/page.tsx',
-      'app/(app)/vaults/[chain]/[address]/loading.tsx',
-      'app/(app)/vaults/[chain]/[address]/page.tsx',
-      'app/(app)/vaults/[chain]/[address]/targets/page.tsx',
-      'app/(app)/vaults/[chain]/[address]/withdraw/page.tsx',
       'app/(embed)/embed/[chain]/[address]/page.tsx',
       'app/(embed)/embed/page.tsx',
       'app/(embed)/layout.tsx',
@@ -230,7 +230,7 @@ describe('rule 1: nothing the product ships imports from a dev, test or fixtures
       'features/goal/sheet.ts',
       'features/account/person.ts',
       'components/shell/AppNav.tsx',
-      'app/(app)/goal/page.tsx',
+      'app/(app)/invest/page.tsx',
       'i18n/pt.ts',
     ])
       expect(BUILD_DEV_ONLY.test(`../../apps/web/${file}`), file).toBe(false);
@@ -272,7 +272,7 @@ describe('rule 1: nothing the product ships imports from a dev, test or fixtures
       ),
     ).toHaveLength(1);
     expect(
-      bad('app/(app)/goal/page.tsx', "const S = () => import('../dev/ui/Showcase');"),
+      bad('app/(app)/invest/page.tsx', "const S = () => import('../dev/ui/Showcase');"),
     ).toHaveLength(1);
     expect(
       bad('components/shell/AppNav.tsx', "import { sheetGroups } from '../ui/fixtures/mock';"),
@@ -334,7 +334,7 @@ describe('rule 3: no screen can reach a key', () => {
   const SIGNING = 'features/wallet/signing.ts';
   /** The one screen that imports the runner, and the one route built from it. */
   const ORDER_SCREEN = 'features/order/OrderScreen.tsx';
-  const ORDER_ROUTE = 'app/(app)/orders/[id]/page.tsx';
+  const ORDER_ROUTE = 'app/(app)/portfolio/orders/[id]/page.tsx';
   /**
    * The routes that sign: the order's own, and those whose card runs an order with one press
    * (features/order/InvestCard.tsx draws the order screen inside it). Each reaches the runner through
@@ -344,15 +344,15 @@ describe('rule 3: no screen can reach a key', () => {
     ORDER_ROUTE,
     // a vault's own page shows its owner the steps of a deposit, a withdrawal or new weights in its
     // right pane (gate VAULT-PAGE-ACTIONS, Thom, Oct 9): the order screen is drawn there
-    'app/(app)/vaults/[chain]/[address]/page.tsx',
-    'app/(app)/plan/[id]/buy/page.tsx',
-    'app/(app)/indexes/[slug]/buy/page.tsx',
+    'app/(app)/portfolio/vaults/[chain]/[address]/page.tsx',
+    'app/(app)/invest/plan/[id]/buy/page.tsx',
+    'app/(app)/products/[slug]/buy/page.tsx',
     // a shared portfolio's own page mounts the invest card under its holdings (gate PRODUCTS-PLAN-PANE)
-    'app/(app)/indexes/[slug]/page.tsx',
-    'app/(app)/vaults/[chain]/[address]/add/page.tsx',
+    'app/(app)/products/[slug]/page.tsx',
+    'app/(app)/portfolio/vaults/[chain]/[address]/add/page.tsx',
     // the conversation's pane mounts the invest card once the deposit is confirmed, so the steps are
     // signed there (gate DEPOSIT-IN-PLACE, Thom, Oct 9; off this list from #195 until then)
-    'app/(app)/goal/page.tsx',
+    'app/(app)/invest/page.tsx',
   ];
 
   /** What a file outside the seam may take from a file of the seam, by name. Types are free. */

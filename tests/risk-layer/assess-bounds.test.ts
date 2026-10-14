@@ -80,6 +80,8 @@ describe('assess stays fast on the largest input the route accepts', () => {
     expect(r.checks).toHaveLength(600);
   });
 
+  // About three hundred thousand hours walked one by one, 1.5 s here: a loaded runner took more than
+  // vitest's default 5 s (#283, #295). Its own limit; what it compares is unchanged.
   it('regimesIn equals the hour-by-hour walk: DST changes, holidays at the edges, short and long windows', () => {
     const starts = [
       '2026-11-01T05:30:00Z', // DST ends that morning in New York
@@ -133,5 +135,5 @@ describe('assess stays fast on the largest input the route accepts', () => {
       n++;
     }
     expect(n).toBe(starts.length * lengths.length + 300);
-  });
+  }, 30_000);
 });

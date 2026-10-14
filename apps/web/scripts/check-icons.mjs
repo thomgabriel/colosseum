@@ -46,7 +46,7 @@ export async function iconProblems(base) {
     }
     if (icons.length < 2) problems.push('the manifest names fewer than two icons');
   }
-  for (const page of ['/', '/goal']) {
+  for (const page of ['/', '/invest']) {
     const head = (await (await fetch(base + page)).text()).split('</head>')[0];
     for (const [what, link] of [
       [

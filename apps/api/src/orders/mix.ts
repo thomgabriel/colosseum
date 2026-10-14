@@ -858,7 +858,7 @@ export async function planRetarget(
     fees: [],
     preparedBy: 'app',
     status: 'open',
-    approvalUrl: `/orders/${id}`,
+    approvalUrl: `/portfolio/orders/${id}`,
     expiresAt: Math.floor(Date.parse(a.now) / 1000) + ORDER_POLICY.unsignedSeconds,
     createdAt: a.now,
     disclaimer: DISCLAIMER.en,

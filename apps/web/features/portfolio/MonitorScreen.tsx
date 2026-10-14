@@ -36,7 +36,7 @@ import { VaultGoalCard } from './VaultGoalCard';
 import { PlanParts, VaultPanel } from './VaultPanel';
 import { familyOfVault, goalOfVault, ordersOfVault, putInto, takenOut } from './vault-goal';
 
-// The monitor (/monitor): the person's vaults, read from the API each time the page opens (GET
+// The monitor (/portfolio/monitor): the person's vaults, read from the API each time the page opens (GET
 // /v1/portfolio). One serif line, then the chain, then a panel per vault with its chain's badge, then
 // the disclaimer under them (disclaimer-block.md: "Monitor, under the plan summary card"). Vaults on
 // more than one chain are grouped by chain, a heading and a total each, and the one figure that adds
@@ -44,7 +44,7 @@ import { familyOfVault, goalOfVault, ordersOfVault, putInto, takenOut } from './
 // the API cannot say, a sentence says why and what to do; no holding is ever drawn in its place.
 // Nothing here signs: there is no primary button, and the vault's switches are not offered.
 
-const SIGN_IN = '/sign-in?next=/monitor';
+const SIGN_IN = '/sign-in?next=/portfolio/monitor';
 
 /** A vault's cash this far over its plan's share, after a stopped buy, is worth a word: 5 points. */
 const CASH_FAR_ABOVE_BPS = 500;
@@ -111,7 +111,7 @@ export function MonitorScreen() {
       >
         <Status status="watch">{words.vault.unfinished}</Status>
         <Link
-          href={`/orders/${encodeURIComponent(order.orderId)}`}
+          href={`/portfolio/orders/${encodeURIComponent(order.orderId)}`}
           className={buttonClass({ variant: 'secondary' })}
         >
           {t.order.outcome.finish}
@@ -125,7 +125,7 @@ export function MonitorScreen() {
     const rows = holdingsOf(vault).filter((row) => !/^0+$/.test(row.raw));
     const missing = rows.filter((row) => row.valueUsd === null).length;
     const valueSource = vaultValueSource(entry, vault, words.vault.valueMethod);
-    const page = `/vaults/${encodeURIComponent(entry.chain)}/${encodeURIComponent(vault.address)}`;
+    const page = `/portfolio/vaults/${encodeURIComponent(entry.chain)}/${encodeURIComponent(vault.address)}`;
     return (
       <section key={vault.address} data-ui="vault" className="flex min-w-0">
         <Card
@@ -357,7 +357,7 @@ export function MonitorScreen() {
             {vaults.length === 0 && unread.length === 0 && state.outcome.unavailable.length === 0
               ? say(
                   words.empty,
-                  <Link href="/goal" className={link}>
+                  <Link href="/invest" className={link}>
                     {words.startGoal}
                   </Link>,
                 )
@@ -379,7 +379,7 @@ export function MonitorScreen() {
       case 'unavailable':
         body = say(
           words.unavailable,
-          <Link href="/goal" className={link}>
+          <Link href="/invest" className={link}>
             {words.startGoal}
           </Link>,
         );
@@ -457,7 +457,7 @@ export function MonitorScreen() {
         {vaults.length > 0 && (
           <Link
             data-ui="new-plan"
-            href="/goal"
+            href="/invest"
             // Honey, so the way to a new plan stands out: a honey edge on its tint, ink text (IDENTITY-2).
             className="inline-flex h-8 items-center justify-center self-start rounded-md border border-primary bg-honey-tint px-3 text-body-sm font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >

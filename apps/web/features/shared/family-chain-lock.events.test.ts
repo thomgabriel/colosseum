@@ -84,7 +84,7 @@ function api() {
   vaultReads = 0;
   portStore.setApi(async (path, init) => {
     if (path === '/v1/portfolio') vaultReads += 1;
-    // where new plans start, as /goal's choice stores it
+    // where new plans start, as /invest's choice stores it
     if (path === '/v1/me/chain') starts = JSON.parse(String(init?.body)).chain;
     if (path === '/v1/me' || path === '/v1/me/chain')
       return json({
@@ -180,7 +180,7 @@ describe('a portfolio’s page while a deposit runs', () => {
   });
 
   it('keeps the recipe under a run when where new plans start changes elsewhere, the page’s own choice never touched', async () => {
-    // the bar's switch is gone; what is left to change it is /goal's choice, in another tab. The
+    // the bar's switch is gone; what is left to change it is /invest's choice, in another tab. The
     // page fell back on it for the recipe it shows: the run pins the recipe from the press
     let choose: (chain: 'solana' | 'robinhood') => Promise<void> = async () => {};
     function Elsewhere() {

@@ -12,8 +12,8 @@ import { BearingProvider, useBearing } from './BearingProvider';
 
 // Bearing's chain toggle and where a person's new plans start are two things (gate
 // CHAIN-AT-THE-PLAN): the toggle filters the analytics pages and is kept for them; the other is
-// chosen on /goal (the bar's switcher, which this file once set beside the toggle, is gone). Neither
-// moves the other, signed in or out. `StartChain` stands for /goal's choice.
+// chosen on /invest (the bar's switcher, which this file once set beside the toggle, is gone). Neither
+// moves the other, signed in or out. `StartChain` stands for /invest's choice.
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({

@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 
-// A measured figure in a reply on /goal (gate RELAXED-INTAKE as amended, FIGURES-BY-REFERENCE): drawn
+// A measured figure in a reply on /invest (gate RELAXED-INTAKE as amended, FIGURES-BY-REFERENCE): drawn
 // in the sentence with its pin, hatched where it is not live, its source one press away. Reopening a
 // kept conversation is in goal-figures.events.test.ts. The stub answers and the spec writes the
 // figures into its reply, as our server would. No model is called.
@@ -54,12 +54,12 @@ const text = (id: string) => facts.find((fact) => fact.id === id)?.text ?? '';
 
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 async function say(page: Page, said: string) {
   const box = page.locator('textarea');
@@ -68,7 +68,7 @@ async function say(page: Page, said: string) {
 }
 
 for (const width of [1440, 375] as const)
-  test(`a reply's figures on /goal carry their pins, at ${width}px`, async ({ page }) => {
+  test(`a reply's figures on /invest carry their pins, at ${width}px`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
     await signIn(page);

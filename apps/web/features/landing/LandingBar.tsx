@@ -14,7 +14,7 @@ import { LandingAccount } from './LandingAccount';
 // appearance as one icon (ThemeToggle).
 
 /** Where a signed-in person goes back into the app: the goal, where sign-in leads. */
-export const APP_HOME = '/goal';
+export const APP_HOME = '/invest';
 
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 const LINK = cn(

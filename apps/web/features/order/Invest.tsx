@@ -9,7 +9,7 @@ import type { InvestEmbedded } from './InvestCard';
 // bought and the amount go in, and the card comes back with one press. What it is told: `onProgress`
 // as the person presses and at each step, `onDone` with the vault's address once every step is
 // confirmed, `onStopped` with the order's id when the sequence stops short (the order's own page,
-// /orders/{id}, has the rest: finish the buy, try again). It is the same card, and the same checks,
+// /portfolio/orders/{id}, has the rest: finish the buy, try again). It is the same card, and the same checks,
 // as the pages that buy a plan, buy a shared portfolio and add money to a vault.
 
 export type InvestOf =

@@ -15,6 +15,7 @@ import {
   type Leg,
   type Principal,
   type Recipe,
+  TAKEN_SLUGS,
   type Target,
 } from '@colosseum/schemas';
 import { holds } from '../plugins/auth';
@@ -86,6 +87,8 @@ export function familyText(req: PublishRequest, familyId: string) {
 export function checkText(req: PublishRequest): void {
   if (!SLUG.test(req.family) || req.family.length > 64)
     throw new Refusal(422, 'a slug is lower-case letters, digits and dashes, at most 64');
+  if (TAKEN_SLUGS.includes(req.family))
+    throw new Refusal(422, `the slug ${req.family} is a page of Products; choose another`);
   if (!PRINTABLE_ASCII.test(req.name) || req.name.trim() !== req.name)
     throw new Refusal(
       422,
