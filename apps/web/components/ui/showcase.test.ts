@@ -26,6 +26,7 @@ const BUILT = [
   'data-table',
   'goal-card',
   'plan-leg',
+  'composition',
   'exit-plan-line',
   'constraint-sheet',
   'composer',
@@ -43,7 +44,7 @@ describe('the showcase (/dev/ui)', () => {
     const specs = readdirSync(join(SPEC_DIR, 'components'))
       .filter((name) => name.endsWith('.md'))
       .map((name) => name.replace(/\.md$/, ''));
-    expect(specs).toHaveLength(20);
+    expect(specs).toHaveLength(21);
     expect([...BUILT, ...NOT_BUILT].sort()).toEqual(specs.sort());
   });
 
@@ -111,14 +112,19 @@ describe('the showcase (/dev/ui)', () => {
     }
   });
 
-  it('spends the display face on headings and big numbers only: the goal card, the wordmark, a marketing heading, a KPI or stat, a panel’s hero figure, the type specimen', () => {
+  it('spends the display face on headings and big numbers only: the goal card, the wordmark, a marketing heading, a KPI or stat, a holding’s share, a panel’s hero figure, the type specimen', () => {
     const display = all(page, (el) => classes(el).includes('font-display'));
     expect(display.length).toBeGreaterThan(0);
     for (const el of display) {
       const home = closest(el, (e) =>
-        ['goal-card', 'compact-nav', 'subscribe-block', 'stat', 'hero-figure'].includes(
-          e.attrs['data-ui'] ?? '',
-        ),
+        [
+          'goal-card',
+          'compact-nav',
+          'subscribe-block',
+          'stat',
+          'composition',
+          'hero-figure',
+        ].includes(e.attrs['data-ui'] ?? ''),
       );
       const specimen = closest(el, (e) => e.tag === 'figure' && text(e).startsWith('type'));
       const heading = /^h[1-4]$/.test(el.tag);

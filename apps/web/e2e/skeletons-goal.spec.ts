@@ -64,7 +64,7 @@ for (const width of WIDTHS) {
       await settled(page);
       await inTheme(page, 'dark');
       const drawn = await boxOf(page, '[data-ui="goal-strategy"] [data-ui="card"]');
-      const bar = await boxOf(page, '[data-ui="holding-legs"]');
+      const bar = await boxOf(page, '[data-ui="goal-strategy"] [data-ui="composition"]');
       expect.soft([drawn.x, drawn.width], 'the card').toEqual([card.x, card.width]);
       if (width >= 768) {
         // beside the chat on a desk: the card does not move, and the bar is where its outline was.

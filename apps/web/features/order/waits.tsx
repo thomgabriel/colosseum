@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import { CardBody, CardHeader } from '../../components/ui/Card';
 import { PAGE_TITLE } from '../../components/ui/heading';
+import { Panel, PanelBody } from '../../components/ui/Panel';
 import {
   Skeleton,
   SkeletonLine,
@@ -26,72 +27,83 @@ export function ChainBadgeWait() {
 }
 
 /**
- * The plan pane in outline (PlanView.tsx): its head, the answer in one line, the bar of what it
- * holds with a label a holding, a row a holding, then the exit plan.
+ * The plan pane in outline (PlanView.tsx), in the house kit's two panels as it lands: the board, with
+ * the label over the answer, the answer in its own face and the small figures under it; then the
+ * holdings' panel, with its head, the strip, a row a holding and the exit plan.
  */
 export function PlanViewWait({
   title,
+  sub = false,
+  aside = 0,
+  kpis = 1,
   rows = 3,
-  aside = 1,
 }: {
-  /** The pane's own title, where the screen knows it. */
+  /** The label over the answer, where the screen knows it; left out, the chain's tag in outline. */
   title?: string;
-  rows?: number;
-  /** Lines under the answer: who published it, where it was read from. */
+  /** A line under the answer: the risk, the chain, what is deposited. */
+  sub?: boolean;
+  /** Lines beside the answer: where the version and weights were read from. */
   aside?: number;
+  /** How many small figures the board has under the answer. */
+  kpis?: number;
+  rows?: number;
 }) {
   const t = useT();
   return (
-    <div aria-hidden="true" data-ui="plan-pane-wait" className={CARD}>
-      <div className="px-6 pt-6">
-        {title ? (
-          <p className="text-[1.125rem]/7 font-medium">{title}</p>
-        ) : (
-          <SkeletonLine className="text-[1.125rem]/7" width="w-32" />
-        )}
-        <SkeletonLine className="mt-1 text-body-sm" width="w-64" />
-      </div>
-      <div className="flex flex-col gap-6 px-6 pt-5 pb-6">
-        <div className="flex max-w-(--tf-measure-body) flex-col gap-3">
-          <SkeletonLine className="text-h4" width="w-72" />
-          {aside > 0 && <SkeletonLine className="text-body-sm" width="w-80" lines={aside} />}
-        </div>
-        <div className="flex flex-col gap-4">
-          <p className="text-[0.8125rem]/5 font-medium">{t.plan.holds}</p>
-          <div className="flex flex-col gap-1.5">
-            <Skeleton className="h-11 w-full rounded-none" />
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {Array.from({ length: rows }, (_, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-                <span key={i} className="flex min-h-8 items-center gap-1.5 text-caption">
-                  <Skeleton className="size-3 rounded-none" />
-                  <SkeletonMark />
-                  <SkeletonLine width="w-16" />
-                </span>
-              ))}
+    <div aria-hidden="true" data-ui="plan-pane-wait" className="flex flex-col gap-6">
+      <Panel as="div" data-ui="plan-board-wait">
+        <PanelBody>
+          <div className="flex flex-col gap-1">
+            <div className="flex min-h-[1.375rem] items-center text-body-sm text-muted-foreground">
+              {title ?? <ChainBadgeWait />}
             </div>
+            <SkeletonLine className="font-display text-[2rem]/10" width="w-80" />
           </div>
-          <div className="flex flex-col divide-y divide-border border-y border-border">
-            {Array.from({ length: rows }, (_, i) => (
+          {sub && <SkeletonLine className="-mt-2 text-body-sm" width="w-64" />}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+            {Array.from({ length: kpis }, (_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-              <div key={i} className="flex flex-col gap-1 py-2.5">
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 sm:grid-cols-[auto_minmax(0,11rem)_minmax(3rem,1fr)_auto]">
-                  <SkeletonMark />
-                  <SkeletonLine className="text-body" width="w-20" />
-                  <Skeleton className="hidden h-2 w-full rounded-none sm:block" />
-                  <SkeletonLine className="text-body" width="w-9" />
-                </div>
-                <SkeletonLine className="pl-9 text-caption" width="w-20" />
+              <div key={i} className="flex min-w-0 flex-col gap-1">
+                <SkeletonLine className="text-caption" width="w-12" />
+                <SkeletonLine className="text-body" width="w-16" />
               </div>
             ))}
           </div>
+          {aside > 0 && (
+            <SkeletonLine
+              className="max-w-(--tf-measure-body) text-body-sm"
+              width="w-80"
+              lines={aside}
+            />
+          )}
+        </PanelBody>
+      </Panel>
+      <Panel as="div" data-ui="plan-legs-wait">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border px-5 py-4">
+          <p className="flex items-center gap-2.5 text-body-lg font-semibold whitespace-nowrap">
+            <span className="inline-flex size-8 rounded-lg bg-honey-tint" />
+            {t.plan.holdingsTitle}
+          </p>
         </div>
-        <div className="flex flex-col gap-3">
-          <p className="text-[0.8125rem]/5 font-medium">{t.plan.exitPlan}</p>
+        <div className="px-5 pt-4">
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+        <div className="pt-4">
+          {Array.from({ length: rows }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
+            <div key={i} className="flex items-center gap-3 border-t border-border px-5 py-4">
+              <SkeletonMark />
+              <SkeletonLine className="text-body" width="w-20" />
+              <SkeletonLine className="ml-auto text-body" width="w-12" />
+            </div>
+          ))}
+        </div>
+        <PanelBody className="border-t border-border">
+          <p className="text-body-sm font-medium">{t.plan.exitPlan}</p>
           <SkeletonLine className="text-body-sm" width="w-96" />
           <p className="text-body-sm text-muted-foreground">{t.plan.inKind}</p>
-        </div>
-      </div>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }
@@ -136,7 +148,7 @@ export function PlanScreenWait() {
             <SkeletonLine className={`${LEDE} hidden text-body sm:block`} lines={2} />
           </HeadWait>
           <div aria-hidden="true" className="flex flex-col gap-6">
-            <PlanViewWait title={t.plan.title} rows={4} aside={0} />
+            <PlanViewWait title={t.plan.title} sub kpis={1} rows={4} />
             <div className="border border-border px-6 py-4">
               <p className="text-body font-medium">{t.plan.details}</p>
             </div>

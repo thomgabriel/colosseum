@@ -366,6 +366,10 @@ describe('rule 3: no screen can reach a key', () => {
     'features/order/readiness.ts': {
       'features/wallet/chains.ts': ['publicWalletEnv', 'walletChains'],
     },
+    // the vault's "Read at" links its slot or block from the same table's explorer, public config only
+    'features/shared/explorer-height.ts': {
+      'features/wallet/chains.ts': ['publicWalletEnv', 'walletChains'],
+    },
     // "Try again" for a slow sign-in mounts the wallet provider again: a function that takes and
     // returns nothing, open to the account alone.
     'features/account/AccountProvider.tsx': {

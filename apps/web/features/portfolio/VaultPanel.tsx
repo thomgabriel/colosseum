@@ -15,7 +15,8 @@ import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { displayName } from '../order/plain';
 import { planHref } from '../portfolio-section/pages';
-import { dollars, drift, share, shareExact, sharesOf, shareTenths, tokens, utc } from './figures';
+import { Composition } from '../shared/Composition';
+import { dollars, drift, share, shareExact, shareTenths, tokens, utc } from './figures';
 import {
   type HoldingRow,
   holdingsOf,
@@ -325,39 +326,27 @@ export function VaultPanel({
   );
 }
 
-const FILL = ['bg-leg-1', 'bg-leg-2', 'bg-leg-3', 'bg-leg-4'] as const;
-
 /**
- * "Your plan · 3 parts", as his guide draws it beside the goal card (guidelines.html, "Goal card and
- * plan"; plan-leg.md): one bar, a segment per holding by its weight now, cash the rest, then each part
- * named with its weight and its target. At most four parts go in a bar; a vault with more says so and
- * leaves them to the table.
+ * "Your plan · 3 parts": the targets over the shares now as two bars, then each part named with its
+ * share now, its target and how far it is from it (Composition.tsx, gate WEIGHTS-RING). Cash is a part
+ * like any other once the vault holds some.
  */
 export function PlanParts({ vault }: { vault: Vault }) {
   const t = useT();
   const lang = useLang();
   const words = t.portfolio.vault;
   const heading = useId();
-  const positions = [...vault.positions].sort((a, b) => b.weightBps - a.weightBps);
-  // Cash is a part of the plan like any other: what the positions leave, named and counted.
-  const fills = new Map(positions.map((p, i) => [p.asset, FILL[i] ?? '']));
   const all = holdingsOf(vault);
-  const nowOf = sharesOf(
-    lang,
-    all.map((r) => r.weightBps),
-  );
-  const plannedOf = sharesOf(
-    lang,
-    all.map((r) => r.targetBps),
-  );
+  const nowTenths = shareTenths(all.map((r) => r.weightBps));
+  const plannedTenths = shareTenths(all.map((r) => r.targetBps));
+  // Cash is a part of the plan like any other: what the positions leave, named and counted.
   const parts = all
-    .map((row, i) => ({ ...row, now: nowOf[i] ?? '', planned: plannedOf[i] ?? '' }))
-    .filter((row) => !row.cash || row.weightBps > 0)
-    .map((row) => ({
-      ...row,
-      fill: row.cash ? 'bg-muted border border-border' : (fills.get(row.asset) ?? ''),
+    .map((row, i) => ({
+      row,
+      now: (nowTenths[i] ?? 0) * 10,
+      planned: (plannedTenths[i] ?? 0) * 10,
     }))
-    .sort((a, b) => b.weightBps - a.weightBps);
+    .filter(({ row }) => !row.cash || row.weightBps > 0);
   return (
     <Card
       as="section"
@@ -370,35 +359,31 @@ export function PlanParts({ vault }: { vault: Vault }) {
     >
       <CardHeader title={words.planTitle(parts.length)} level={3} id={heading} density="dense" />
       <CardBody density="dense" className="clear-right">
-        {positions.length === 0 ? (
+        {vault.positions.length === 0 ? (
           <p className="text-body-sm">{words.onlyCash}</p>
-        ) : positions.length > FILL.length ? (
-          <p className="text-body-sm text-muted-foreground">{words.tooMany}</p>
         ) : (
-          <div data-ui="vault-parts" className="flex flex-col gap-2">
-            <div aria-hidden="true" className="flex h-3 gap-0.5">
-              {parts.map((p) => (
-                <span key={p.asset} className={p.fill} style={{ width: `${p.weightBps / 100}%` }} />
-              ))}
-            </div>
-            <ul
-              aria-label={words.parts}
-              className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-x-4 gap-y-1.5"
-            >
-              {parts.map((p) => (
-                <li
-                  key={p.asset}
-                  className="grid grid-cols-[10px_1fr_auto] items-baseline gap-x-2 text-[13px]/5"
-                >
-                  <span aria-hidden="true" className={`size-2.5 translate-y-px ${p.fill}`} />
-                  <span className="font-mono">{displayName(p.asset, t.plan)}</span>
-                  <span className="font-mono text-[12px] font-medium tabular-nums">{p.now}</span>
-                  <span className="col-start-2 col-end-4 -mt-0.5 text-[12px]/4 text-muted-foreground">
-                    {words.target(p.planned)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <div data-ui="vault-parts">
+            <Composition
+              mode="compare"
+              still
+              share={(bps) => share(lang, bps)}
+              labels={{
+                // the table's name, as it was: "Its parts, by weight"
+                caption: words.parts,
+                before: t.shared.vault.columns.target,
+                after: t.shared.vault.columns.weight,
+                difference: t.shared.vault.page.against,
+                unchanged: t.shared.vault.page.onPlan,
+              }}
+              items={parts.map(({ row, now, planned }) => ({
+                key: row.asset,
+                name: displayName(row.asset, t.plan),
+                asset: row.asset,
+                cash: row.cash === true,
+                bps: now,
+                beforeBps: planned,
+              }))}
+            />
           </div>
         )}
       </CardBody>

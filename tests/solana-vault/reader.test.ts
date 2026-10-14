@@ -377,6 +377,21 @@ describe('Solana reader: vaults', () => {
     ]);
   });
 
+  it('knows the slot a vault was read at: the node’s own, for the call that read its account', async () => {
+    const { node, reader } = world({
+      edit: (n) => {
+        n.readSlot = 412_345_678n;
+      },
+    });
+    const state = await reader.getVault(names.vaults.following);
+    if (!state) throw new Error('the fixture has the vault');
+    expect(reader.heightOfRead?.(state)).toBe(412_345_678n);
+    // asked of no other call: the read itself says it
+    expect(node.calls).not.toContain('getSlot');
+    // a state it did not read is of no height it knows
+    expect(reader.heightOfRead?.({ ...state })).toBeUndefined();
+  });
+
   it('does not take a vault-shaped account of another program for a vault', async () => {
     const vault = accountOf(fixture, 'vault:following');
     const foreign = { ...vault, owner: names.router as Address };

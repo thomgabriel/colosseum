@@ -116,7 +116,7 @@ for (const width of WIDTHS) {
           {
             name: 'what it holds',
             waiting: '[data-wait="holdings"]',
-            loaded: '[data-ui="vault-plan"] [data-ui="card"]',
+            loaded: '[data-ui="vault-holdings-panel"]',
             sized: 'by-data',
           },
         ],
