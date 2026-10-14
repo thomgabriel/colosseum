@@ -180,6 +180,15 @@ afterEach(async () => {
 });
 
 describe('a shared portfolio read from the chain by this app', () => {
+  it('holds the buy with a plain "Loading…" while the chain is read, naming no source', async () => {
+    vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+    const host = await mount(withAccount('en', createElement(FamilyBuyScreen, { slug: SLUG })));
+    for (let i = 0; i < 4; i += 1) await settle(50);
+    expect(host.textContent).toContain(en.shared.check.reading);
+    expect(en.shared.check.reading).toBe('Loading…');
+    expect(host.textContent).not.toMatch(/from the chain|read from|our server/i);
+  });
+
   it('shows the chain’s version and weights, and says our server’s answer differs', async () => {
     const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
     for (let i = 0; i < 5; i += 1) await settle(50);
