@@ -207,7 +207,8 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        # Google's mirror of Docker Hub: Docker Hub and ECR Public both cap anonymous pulls, and CI hit both
+        image: mirror.gcr.io/library/postgres:16
         env:
           POSTGRES_USER: colosseum
           POSTGRES_PASSWORD: colosseum

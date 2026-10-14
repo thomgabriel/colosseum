@@ -875,7 +875,7 @@ describe('why an add can’t be placed', () => {
     expect(
       addFailure({ signedIn: true, owner: true, otherWallet: null, source: differs }, blocked),
     ).toBe(differs);
-    // nothing left to say of the read (it matched): no "Reading it from the chain…"
+    // nothing left to say of the read (it matched): not the loading line
     const said = addFailure(
       { signedIn: false, owner: true, otherWallet: null, source: null },
       blocked,
