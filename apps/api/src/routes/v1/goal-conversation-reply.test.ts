@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createModelQuota } from '../../model-quota';
 import { createChainRegistry } from '../../orders/chains';
 import { Refusal } from '../../orders/errors';
+import type { AssetLookups } from '../../orders/lookups';
 import {
   createRelaxedGoalAgent,
   type RelaxedGoalAgent,
@@ -26,6 +27,7 @@ async function setup(
   available = true,
   analytics?: AgentAnalytics,
   relaxed: RelaxedGoalAgent | null = null,
+  lookups?: AssetLookups,
 ) {
   const issuer = await testIssuer('goal-reply');
   const owner = await person(issuer, 'solana');
@@ -101,6 +103,7 @@ async function setup(
     inputs as unknown as Parameters<typeof registerGoalConversationReplyRoute>[3],
     analytics,
     relaxed,
+    lookups,
   );
   const body = {
     version: 1,
@@ -682,6 +685,26 @@ describe('the goal agent behind /goal (gate RELAXED-INTAKE)', () => {
       expect.objectContaining({ kind: 'new_goal', chain: 'solana' }),
     );
     expect(s.model.read).not.toHaveBeenCalled();
+  });
+  it('hands the relaxed intake the asset lookups, with the database and the chain’s label', async () => {
+    const reply = vi.fn(async (request: { messageId: string }) => ({
+      kind: 'reply' as const,
+      reply: relaxedReply(request.messageId),
+    }));
+    const lookups = {} as AssetLookups;
+    const s = await setup(
+      true,
+      undefined,
+      { id: 'relaxed-double', reply } as RelaxedGoalAgent,
+      lookups,
+    );
+    const res = await s.post();
+    expect(res.statusCode, res.body).toBe(200);
+    const handed = reply.mock.calls[0] as unknown[];
+    expect(handed).toHaveLength(3);
+    const base = handed[2] as { service: unknown; provenance: unknown };
+    expect(base.service).toBe(lookups);
+    expect(base.provenance).toBe('mock');
   });
   it('carries the goal and risk the server read in the person’s words, never the relaxed reply’s own', async () => {
     // a reply that tries to say the goal and risk itself: the route's reading of the words stands

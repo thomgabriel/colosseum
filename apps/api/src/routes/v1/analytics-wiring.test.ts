@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createChainRegistry } from '../../orders/chains';
+import type { AssetLookups } from '../../orders/lookups';
 import type { AgentAnalytics } from '../../orders/vault-agent';
 import { person, testIssuer } from '../../testing/harness';
 import type { VaultAgentModel } from '../../vault-agent-model';
@@ -61,6 +62,8 @@ describe("the conversations' analytics through the /v1 table", () => {
       tau: 0.01,
       assets: [],
     }));
+    // The asset lookups (FIGURES-BY-REFERENCE as amended 2026-10-14): a vault's conversation is handed them.
+    const lookups = {} as AssetLookups;
     const model: VaultAgentModel = {
       read: vi.fn(async () => ({
         reply: { message: 'Tell me more.', question: 'What matters most?', proposal: null },
@@ -79,6 +82,7 @@ describe("the conversations' analytics through the /v1 table", () => {
         chains,
         testFunds: [],
         agentAnalytics: analytics,
+        assetLookups: lookups,
         vaultAgentModel: model,
         now: () => new Date('2026-10-08T01:00:00.000Z'),
       },
@@ -106,6 +110,12 @@ describe("the conversations' analytics through the /v1 table", () => {
     expect(analytics).toHaveBeenCalledTimes(2);
     for (const call of vi.mocked(model.read).mock.calls)
       expect(call[1].analytics).toMatchObject({ assets: [], unknowns: [] });
+    // the model-led new goal states no figure and looks up nothing; the vault's conversation may
+    const [goalRead, vaultRead] = vi.mocked(model.read).mock.calls;
+    expect(goalRead).toHaveLength(2);
+    expect(vaultRead?.[3]?.service).toBe(lookups);
+    expect(vaultRead?.[3]?.db).toBe(emptyDb);
+    expect(vaultRead?.[3]?.chain).toBe('solana');
 
     // What staging registered beside them is still in the table.
     for (const [method, url] of [
