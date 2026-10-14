@@ -100,6 +100,9 @@ describe('the review of an add of money to a vault', () => {
     const host = await review(addOrder(), terms);
     const line = find(host, '[data-ui="not-checked"]');
     expect(line.textContent).toBe(`${en.shared.check.notChecked}.`);
+    // said once: the card of what the order is held to does not say it again
+    expect(host.textContent?.split(en.shared.check.notChecked)).toHaveLength(2);
+    expect(host.querySelector('[data-ui="source-mark"]')).toBeNull();
     // body text at its medium weight, not the small print of the card above
     expect(line.className).toContain('text-body ');
     expect(line.className).toContain('font-medium');

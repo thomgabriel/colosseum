@@ -7,6 +7,7 @@ import { click, find, mount, settle, type, unmountAll } from '../../components/u
 import { dictionary } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
+import { SETTLE_MS } from '../amount/AmountCard';
 import { OrderScreen } from '../order/OrderScreen';
 import { dollarsShapeOk } from '../order/order-check';
 import { type OrderRecord, recallOrder } from '../order/order-record';
@@ -140,28 +141,42 @@ const show = async () => {
   await settle();
   return host;
 };
-const step = (host: HTMLElement, id: string) =>
-  find(host, `[data-ui="withdraw-step"][data-step="${id}"]`);
-const panel = (host: HTMLElement, id: string) =>
-  find(
-    host,
-    `#${CSS.escape(find(step(host, id), 'h2 button').getAttribute('aria-controls') ?? '')}`,
-  );
-const primary = (host: HTMLElement, id: string) =>
-  find(panel(host, id), ':scope > div > [data-variant="primary"]');
-const radio = (host: HTMLElement, label: string) =>
-  [...host.querySelectorAll<HTMLInputElement>('input[type="radio"]')].find(
-    (r) => r.closest('label')?.textContent === label,
-  ) as HTMLInputElement;
+/** The amount card's one button (gate AMOUNT-CARD): it names the withdrawal and makes the order. */
+const button = (host: HTMLElement) =>
+  find<HTMLButtonElement>(host, 'button[data-action="amount-withdraw"]');
+const held = (host: HTMLElement) => button(host).getAttribute('aria-disabled') === 'true';
+/** What the button says now, not its busy words. */
+const label = (host: HTMLElement) =>
+  [...button(host).querySelectorAll('span span')].find(
+    (span) => span.getAttribute('aria-hidden') !== 'true',
+  )?.textContent;
+/** 25% · 50% · 75% · Max under the field. */
+const chip = (host: HTMLElement, label: string) =>
+  [...host.querySelectorAll<HTMLElement>('[data-ui="amount-chips"] button')].find(
+    (b) => b.textContent === label,
+  ) as HTMLElement;
+/** The amount in dollars of the vault's value. */
+const field = (host: HTMLElement) => find<HTMLInputElement>(host, '[data-ui="amount-well"] input');
+/** What reaches the wallet, and what the details say. */
+const gets = (host: HTMLElement) => find(host, '[data-ui="amount-preview"]');
+const details = (host: HTMLElement) => find(host, '[data-ui="amount-details"]');
+/** The tokens chosen one by one, behind their own control. */
+const choose = async (host: HTMLElement) =>
+  click(find(host, 'button[data-action="withdraw-pick"]'));
 const pick = (host: HTMLElement, asset: string) =>
   find(host, `[data-ui="withdraw-picks"] li[data-asset="${asset}"]`);
+/** Each token that leaves, as its line says. */
+const tokens = (host: HTMLElement) =>
+  [...gets(host).querySelectorAll('[data-ui="withdraw-tokens"] li')].map((li) => li.textContent);
+/** Each holding sold, as its row reads in the details: the holding, the amount sold, the cost. */
+const sales = (host: HTMLElement) =>
+  [...host.querySelectorAll('[data-ui="withdraw-sales"] tbody tr')].map((tr) =>
+    [...tr.querySelectorAll('th, td')].map((cell) => cell.textContent).join(' | '),
+  );
 
-/** From the choice to the order: Continue, the confirmation ticked, Continue, the button. */
+/** The press, and the answer it waits for. */
 async function through(host: HTMLElement) {
-  await click(primary(host, 'what'));
-  await click(find(panel(host, 'check'), 'input[type="checkbox"]'));
-  await click(primary(host, 'check'));
-  await click(primary(host, 'confirm'));
+  await click(button(host));
   await settle();
   await settle();
 }
@@ -186,7 +201,7 @@ describe('the withdraw screen', () => {
     const server = api({ vault: holdingVault({ owner: CREATOR }) });
     const theirs = await show();
     expect(theirs.textContent).toContain(w.notYours);
-    expect(theirs.querySelector('[data-ui="withdraw-steps"]')).toBeNull();
+    expect(theirs.querySelector('[data-ui="amount-card"]')).toBeNull();
     await unmountAll();
     api({ vault: null });
     expect((await show()).textContent).toContain(w.notYours);
@@ -202,38 +217,43 @@ describe('the withdraw screen', () => {
     api({ vault: holdingVault({ cash: holding(CASH, '0'), positions: [] }) });
     const host = await show();
     expect(host.textContent).toContain(w.empty);
-    expect(host.querySelector('[data-ui="withdraw-steps"]')).toBeNull();
+    expect(host.querySelector('[data-ui="amount-card"]')).toBeNull();
   });
 
-  it('everything: reviews each token and the owner’s own address, then orders exactly that', async () => {
+  it('is the amount card: the vault’s value with its pin, quick shares, and the one button held until an amount', async () => {
+    const server = api();
+    const host = await show();
+    const balance = find(host, '[data-ui="amount-balance"]');
+    expect(balance.textContent).toContain(`${en.amount.balance.vault}:`);
+    expect(balance.textContent).toContain('$1,000');
+    expect(balance.querySelector('button[data-ui="pin"]')).not.toBeNull();
+    expect(
+      [...host.querySelectorAll('[data-ui="amount-chips"] button')].map((b) => b.textContent),
+    ).toEqual(['25%', '50%', '75%', en.amount.out.max]);
+    expect(held(host)).toBe(true);
+    expect(label(host)).toBe(en.amount.enter);
+    await click(button(host));
+    expect(server.placed()).toEqual([]);
+    // one primary button on the card
+    expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+  });
+
+  it('everything: shows each token and the owner’s own address, then orders exactly that', async () => {
     const server = api({
       order: () =>
         withdrawOrder([[item(CASH, null, '600000000')], [item(SPYX, null, '250000000')]]),
     });
     const host = await show();
-    expect(radio(host, w.what.everything).checked).toBe(true);
-    await click(primary(host, 'what'));
-    const review = panel(host, 'check');
-    expect([...review.querySelectorAll('tbody tr')].map((r) => r.textContent)).toEqual([
-      `USDC${w.check.all('600 USDC')}`,
-      `SPYx${w.check.all('2.5 SPYx')}`,
-    ]);
+    await click(chip(host, en.amount.out.max));
+    expect(field(host).value).toBe('1000');
+    expect(tokens(host)).toEqual([w.check.all('600 USDC'), w.check.all('2.5 SPYx')]);
     // where it goes: the owner's own wallet, in full, and nowhere else
-    expect(find(review, '[data-ui="withdraw-to"]').textContent).toBe(SOLANA);
-    expect(review.textContent).toContain(MY_VAULT);
-    expect(review.textContent).toContain(w.check.emptied);
-    expect(review.textContent).toContain(w.check.noSale);
-    // not without the person's own confirmation
-    expect(primary(host, 'check').getAttribute('aria-disabled')).toBe('true');
-    expect(primary(host, 'confirm').getAttribute('aria-disabled')).toBe('true');
-    await click(primary(host, 'confirm'));
-    expect(server.placed()).toEqual([]);
-
-    await click(find(review, 'input[type="checkbox"]'));
-    await click(primary(host, 'check'));
-    await click(primary(host, 'confirm'));
-    await settle();
-    await settle();
+    expect(find(details(host), '[data-ui="withdraw-to"]').textContent).toBe(SOLANA);
+    expect(details(host).textContent).toContain(MY_VAULT);
+    expect(details(host).textContent).toContain(w.check.emptied);
+    expect(details(host).textContent).toContain(w.check.noSale);
+    expect(label(host)).toBe(en.amount.press.withdrawAll);
+    await through(host);
     expect(server.placed().map((c) => c.body)).toEqual([
       { type: 'withdraw', vaults: [MY_VAULT], sellToCash: false },
     ]);
@@ -249,28 +269,125 @@ describe('the withdraw screen', () => {
     expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
   });
 
-  it('part of the cash: that amount, in raw units, and the rest stays', async () => {
+  it('a share typed in dollars: that share of each token, rounded down, and the rest stays', async () => {
+    const server = api({
+      order: () =>
+        withdrawOrder([
+          [item(CASH, '150000000', '600000000')],
+          [item(SPYX, '62500000', '250000000')],
+        ]),
+    });
+    const host = await show();
+    await type(field(host), '250');
+    // a quarter of $1,000: a quarter of each token
+    expect(tokens(host)).toEqual(['150 USDC', '0.625 SPYx']);
+    expect(chip(host, '25%').getAttribute('aria-pressed')).toBe('true');
+    expect(details(host).textContent).toContain(w.check.stays);
+    expect(label(host)).toBe(en.amount.press.withdraw('$250'));
+    await through(host);
+    expect(server.placed().map((c) => c.body)).toEqual([
+      {
+        type: 'withdraw',
+        vaults: [MY_VAULT],
+        sellToCash: false,
+        withdrawals: [
+          { asset: CASH, amountRaw: '150000000' },
+          { asset: SPYX, amountRaw: '62500000' },
+        ],
+      },
+    ]);
+  });
+
+  it('on a $1,000,000 vault: refuses less than one basis point, and names what the basis points come to', async () => {
+    const server = api({
+      vault: holdingVault({ valueUsd: '1000000' }),
+      order: () =>
+        withdrawOrder([[item(CASH, '60000', '600000000')], [item(SPYX, '25000', '250000000')]]),
+    });
+    const host = await show();
+    // a cent, and $99.99, are less than one basis point ($100): refused, with the least named
+    for (const under of ['0.01', '99.99']) {
+      await type(field(host), under);
+      await settle(SETTLE_MS + 50);
+      expect(find(host, '[data-ui="amount-problem"]').textContent, under).toBe(
+        en.amount.errors.belowMin('$100'),
+      );
+      expect(held(host), under).toBe(true);
+    }
+    // $150 is one basis point, cut down: the button and "You get" say $100, never $150
+    await type(field(host), '150');
+    await settle(SETTLE_MS + 50);
+    expect(host.querySelector('[data-ui="amount-problem"]')).toBeNull();
+    expect(label(host)).toBe(en.amount.press.withdraw('$100'));
+    expect(find(host, '[data-ui="withdraw-worth"]').textContent).toContain(
+      en.amount.preview.about('$100'),
+    );
+    expect(tokens(host)).toEqual(['0.06 USDC', '0.00025 SPYx']);
+    await through(host);
+    expect(server.placed().map((c) => c.body)).toEqual([
+      {
+        type: 'withdraw',
+        vaults: [MY_VAULT],
+        sellToCash: false,
+        withdrawals: [
+          { asset: CASH, amountRaw: '60000' },
+          { asset: SPYX, amountRaw: '25000' },
+        ],
+      },
+    ]);
+  });
+
+  it('on a $300 vault: the least it names, three cents, is one basis point, and goes on', async () => {
+    const server = api({
+      vault: holdingVault({ valueUsd: '300' }),
+      order: () =>
+        withdrawOrder([[item(CASH, '60000', '600000000')], [item(SPYX, '25000', '250000000')]]),
+    });
+    const host = await show();
+    await type(field(host), '0.02');
+    await settle(SETTLE_MS + 50);
+    expect(find(host, '[data-ui="amount-problem"]').textContent).toBe(
+      en.amount.errors.belowMin('$0.03'),
+    );
+    await type(field(host), '0.03');
+    await settle(SETTLE_MS + 50);
+    // not a hair under one basis point: no problem, and the button names what it sends
+    expect(host.querySelector('[data-ui="amount-problem"]')).toBeNull();
+    expect(held(host)).toBe(false);
+    expect(label(host)).toBe(en.amount.press.withdraw('$0.03'));
+    await through(host);
+    expect(server.placed().at(-1)?.body).toMatchObject({
+      withdrawals: [
+        { asset: CASH, amountRaw: '60000' },
+        { asset: SPYX, amountRaw: '25000' },
+      ],
+    });
+  });
+
+  it('says quietly when the amount is more than the vault holds, and holds the press', async () => {
+    api();
+    const host = await show();
+    await type(field(host), '1500');
+    await settle(SETTLE_MS + 50);
+    expect(find(host, '[data-ui="amount-problem"]').textContent).toBe(en.amount.errors.overVault);
+    expect(held(host)).toBe(true);
+  });
+
+  it('part of the cash, chosen by hand: that amount, in raw units, and the rest stays', async () => {
     const server = api({ order: () => withdrawOrder([[item(CASH, '250500000', '600000000')]]) });
     const host = await show();
-    await click(radio(host, w.what.some));
-    // nothing chosen yet: nothing to continue with
-    expect(primary(host, 'what').getAttribute('aria-disabled')).toBe('true');
+    await choose(host);
+    // nothing chosen yet: nothing to withdraw
+    expect(held(host)).toBe(true);
     expect(host.textContent).toContain(w.what.errors.none);
     await click(find(pick(host, CASH), 'input[type="checkbox"]'));
     expect(pick(host, CASH).textContent).toContain(w.what.holds('600 USDC'));
     await type(find<HTMLInputElement>(pick(host, CASH), 'input[inputmode="decimal"]'), '250.5');
-    await click(primary(host, 'what'));
-    const review = panel(host, 'check');
-    expect([...review.querySelectorAll('tbody tr')].map((r) => r.textContent)).toEqual([
-      'USDC250.5 USDC',
-    ]);
-    expect(review.textContent).toContain(w.check.stays);
-    expect(review.querySelector('[data-ui="withdraw-keeper"]')).toBeNull();
-    await click(find(review, 'input[type="checkbox"]'));
-    await click(primary(host, 'check'));
-    await click(primary(host, 'confirm'));
-    await settle();
-    await settle();
+    expect(tokens(host)).toEqual(['250.5 USDC']);
+    expect(details(host).textContent).toContain(w.check.stays);
+    expect(host.querySelector('[data-ui="withdraw-keeper"]')).toBeNull();
+    expect(label(host)).toBe(en.amount.press.withdrawPicked(1));
+    await through(host);
     expect(server.placed().map((c) => c.body)).toEqual([
       {
         type: 'withdraw',
@@ -288,7 +405,7 @@ describe('the withdraw screen', () => {
   it('holds the amount to the vault: exactly the balance goes on, one unit over does not', async () => {
     api();
     const host = await show();
-    await click(radio(host, w.what.some));
+    await choose(host);
     await click(find(pick(host, CASH), 'input[type="checkbox"]'));
     const input = find<HTMLInputElement>(pick(host, CASH), 'input[inputmode="decimal"]');
     for (const [typed, error] of [
@@ -300,29 +417,13 @@ describe('the withdraw screen', () => {
     ] as const) {
       await type(input, typed);
       expect(pick(host, CASH).textContent, typed).toContain(error);
-      expect(primary(host, 'what').getAttribute('aria-disabled'), typed).toBe('true');
+      expect(held(host), typed).toBe(true);
     }
     await type(input, '600');
-    expect(primary(host, 'what').getAttribute('aria-disabled')).toBeNull();
-    await click(primary(host, 'what'));
-    expect(panel(host, 'check').querySelector('tbody tr')?.textContent).toBe('USDC600 USDC');
+    expect(held(host)).toBe(false);
+    expect(tokens(host)).toEqual(['600 USDC']);
     // the stock token stays, so the vault is not emptied
-    expect(panel(host, 'check').textContent).toContain(w.check.stays);
-  });
-
-  it('asks for the review again when what leaves changes after it was confirmed', async () => {
-    api();
-    const host = await show();
-    await click(primary(host, 'what'));
-    const box = find<HTMLInputElement>(panel(host, 'check'), 'input[type="checkbox"]');
-    await click(box);
-    expect(box.checked).toBe(true);
-    await click(radio(host, w.what.some));
-    await click(find(pick(host, SPYX), 'input[type="checkbox"]'));
-    expect(find<HTMLInputElement>(panel(host, 'check'), 'input[type="checkbox"]').checked).toBe(
-      false,
-    );
-    expect(panel(host, 'confirm').textContent).toContain(w.confirm.blocked.check);
+    expect(details(host).textContent).toContain(w.check.stays);
   });
 
   it('says that automatic following stops, on a vault that has it on, whatever leaves, and orders it so', async () => {
@@ -332,16 +433,15 @@ describe('the withdraw screen', () => {
         withdrawOrder([[item(CASH, null, '600000000')], [item(SPYX, null, '250000000')]], {}, true),
     });
     const host = await show();
-    await click(primary(host, 'what'));
-    // everything, too: the keeper would trade what is left between the steps
-    expect(find(panel(host, 'check'), '[data-ui="withdraw-keeper"]').textContent).toBe(
-      w.check.autoFollow,
-    );
+    // said on the card, never folded away, before anything is chosen
+    expect(find(host, '[data-ui="withdraw-keeper"]').textContent).toBe(w.check.autoFollow);
+    expect(find(host, '[data-ui="withdraw-keeper"]').closest('details')).toBeNull();
     expect(w.check.autoFollow).toMatch(/^Automatic following stops for this vault\./);
-    await click(radio(host, w.what.some));
+    await choose(host);
     await click(find(pick(host, SPYX), 'input[type="checkbox"]'));
-    expect(panel(host, 'check').querySelector('[data-ui="withdraw-keeper"]')).not.toBeNull();
-    await click(radio(host, w.what.everything));
+    expect(host.querySelector('[data-ui="withdraw-keeper"]')).not.toBeNull();
+    await choose(host);
+    await click(chip(host, en.amount.out.max));
     await through(host);
     expect(server.placed()).toHaveLength(1);
     expect(recallOrder(ORDER_ID, USER)?.terms).toMatchObject({ autoFollowOff: true });
@@ -350,8 +450,8 @@ describe('the withdraw screen', () => {
   it('says nothing of auto-follow on a vault that has it off', async () => {
     api();
     const host = await show();
-    await click(primary(host, 'what'));
-    expect(panel(host, 'check').querySelector('[data-ui="withdraw-keeper"]')).toBeNull();
+    await click(chip(host, en.amount.out.max));
+    expect(host.querySelector('[data-ui="withdraw-keeper"]')).toBeNull();
   });
 
   it('shows a stock token as the portfolio does, with its multiplier, and signs exact raw units, rounded down', async () => {
@@ -374,7 +474,7 @@ describe('the withdraw screen', () => {
       order: () => withdrawOrder([[item(SPYX, '99433230', '250000000')]]),
     });
     const host = await show();
-    await click(radio(host, w.what.some));
+    await choose(host);
     await click(find(pick(host, SPYX), 'input[type="checkbox"]'));
     expect(pick(host, SPYX).textContent).toContain(w.what.holds('2.51425 SPYx'));
     const input = find<HTMLInputElement>(pick(host, SPYX), 'input[inputmode="decimal"]');
@@ -383,13 +483,8 @@ describe('the withdraw screen', () => {
     expect(pick(host, SPYX).textContent).toContain(w.what.errors.over('2.51425 SPYx'));
     // one share: 1 / 1.0057 of a token, rounded down, so never more than was typed
     await type(input, '1');
-    await click(primary(host, 'what'));
-    expect(panel(host, 'check').querySelector('tbody tr')?.textContent).toBe('SPYx0.99999999 SPYx');
-    await click(find(panel(host, 'check'), 'input[type="checkbox"]'));
-    await click(primary(host, 'check'));
-    await click(primary(host, 'confirm'));
-    await settle();
-    await settle();
+    expect(tokens(host)).toEqual(['0.99999999 SPYx']);
+    await through(host);
     expect(server.placed().at(-1)?.body).toMatchObject({
       withdrawals: [{ asset: SPYX, amountRaw: '99433230' }],
     });
@@ -416,7 +511,7 @@ describe('the withdraw screen', () => {
       }),
     });
     const host = await show();
-    await click(radio(host, w.what.some));
+    await choose(host);
     await click(find(pick(host, SPYX), 'input[type="checkbox"]'));
     // 250000001 raw is shown as 2.51425001 (rounded down from 2.514250010057)
     expect(pick(host, SPYX).textContent).toContain(w.what.holds('2.51425001 SPYx'));
@@ -424,20 +519,18 @@ describe('the withdraw screen', () => {
       find<HTMLInputElement>(pick(host, SPYX), 'input[inputmode="decimal"]'),
       '2.51425001',
     );
-    expect(primary(host, 'what').getAttribute('aria-disabled')).toBeNull();
-    await click(primary(host, 'what'));
+    expect(held(host)).toBe(false);
     // the cash stays, so the vault is not emptied; the stock token leaves in full
-    expect(panel(host, 'check').querySelector('tbody tr')?.textContent).toBe('SPYx2.51425001 SPYx');
+    expect(tokens(host)).toEqual(['2.51425001 SPYx']);
   });
 
   it('offers nothing for a vault it cannot hold to the person’s wallet', async () => {
     // A vault the API says is theirs under a plan number that does not lead to its address.
     const server = api({ vault: holdingVault({ basketId: '43' }) });
     const host = await show();
+    await click(chip(host, en.amount.out.max));
     await through(host);
-    expect(find(panel(host, 'confirm'), '[role="alert"]').textContent).toBe(
-      w.confirm.blocked.vault,
-    );
+    expect(find(host, '[role="alert"]').textContent).toBe(w.confirm.blocked.vault);
     expect(server.placed()).toEqual([]);
     expect(router.push).not.toHaveBeenCalled();
   });
@@ -447,12 +540,36 @@ describe('the withdraw screen', () => {
       order: () => json({ error: 'the vault holds no solana:usdc to withdraw' }, 409),
     });
     const host = await show();
+    await click(chip(host, en.amount.out.max));
     await through(host);
-    expect(find(panel(host, 'confirm'), '[role="alert"]').textContent).toBe(
+    expect(find(host, '[role="alert"]').textContent).toBe(
       en.shared.publish.failure.said('the vault holds no solana:usdc to withdraw'),
     );
     expect(recallOrder(ORDER_ID, USER)).toBeNull();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('where the vault’s value is not known, takes a share by the quick chips alone', async () => {
+    // a holding with no price: the value leaves it out, so no dollar amount is a share of it
+    const vault = holdingVault();
+    api({
+      vault: {
+        ...vault,
+        positions: vault.positions.map((p) => ({ ...p, valueUsd: null })),
+      } as VaultView,
+      order: () =>
+        withdrawOrder([
+          [item(CASH, '300000000', '600000000')],
+          [item(SPYX, '125000000', '250000000')],
+        ]),
+    });
+    const host = await show();
+    await settle(SETTLE_MS + 50);
+    expect(host.querySelector('[data-ui="amount-balance"]')).toBeNull();
+    expect(host.textContent).toContain(en.amount.out.noValue);
+    await click(chip(host, '50%'));
+    expect(tokens(host)).toEqual(['300 USDC', '1.25 SPYx']);
+    expect(label(host)).toBe(en.amount.press.withdrawShare('50%'));
   });
 });
 
@@ -714,10 +831,6 @@ const way = (host: HTMLElement, which: 'tokens' | 'dollars') =>
   host.querySelectorAll<HTMLInputElement>('[data-ui="withdraw-way"] input')[
     which === 'tokens' ? 0 : 1
   ] as HTMLInputElement;
-const share = (host: HTMLElement, all: boolean) =>
-  host.querySelectorAll<HTMLInputElement>('[data-ui="withdraw-share"] input')[
-    all ? 0 : 1
-  ] as HTMLInputElement;
 /** All of it: the 2.5 SPYx sold for at least 395 USDC, and the 600 USDC of cash. */
 const allOrder = (over: Parameters<typeof dollarsOrder>[2] = {}, off = false) =>
   dollarsOrder(
@@ -747,50 +860,45 @@ describe('the withdraw screen, in dollars', () => {
     const host = await show();
     expect(way(host, 'tokens').checked).toBe(true);
     const group = find(host, '[data-ui="withdraw-way"]');
-    expect(group.textContent).toContain(w.way.tokens);
-    expect(group.textContent).toContain(w.way.tokensHint);
-    expect(group.textContent).toContain(w.way.dollars('USDC'));
-    expect(group.textContent).toContain(w.way.dollarsHint('USDC'));
-    // the tokens' own choices are there until dollars is chosen
-    expect(radio(host, w.what.everything)).toBeDefined();
+    expect(group.textContent).toContain(en.amount.out.asTokens);
+    expect(group.textContent).toContain(en.amount.out.asCash('USDC'));
+    // what the way chosen means, one at a time, in the details
+    expect(find(host, '[data-ui="withdraw-way-hint"]').textContent).toBe(w.way.tokensHint);
+    // the tokens one by one are there until dollars is chosen
+    expect(host.querySelector('button[data-action="withdraw-pick"]')).not.toBeNull();
     await click(way(host, 'dollars'));
-    expect(radio(host, w.what.everything)).toBeUndefined();
-    expect(share(host, true).checked).toBe(true);
-    // one primary button in the step, as before
-    expect(panel(host, 'what').querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    expect(find(host, '[data-ui="withdraw-way-hint"]').textContent).toBe(w.way.dollarsHint('USDC'));
+    expect(host.querySelector('button[data-action="withdraw-pick"]')).toBeNull();
+    // paid out in the cash token, beside the figure
+    expect(find(host, '[data-ui="amount-token"]').textContent).toContain('USDC');
+    expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
   });
 
-  it('all of it: reviews each holding sold and the cash that leaves with it, then orders exactly that', async () => {
+  it('all of it: shows each holding sold and the cash that leaves with it, then orders exactly that', async () => {
     const server = api({ order: () => allOrder() });
     const host = await show();
     await click(way(host, 'dollars'));
-    await click(primary(host, 'what'));
-    const review = panel(host, 'check');
-    expect(find(review, 'caption').textContent).toBe(w.check.dollars.sold);
-    expect([...review.querySelectorAll('tbody tr')].map((r) => r.textContent)).toEqual([
-      `SPYx2.5 SPYx${w.check.dollars.notMeasured}`,
-    ]);
-    expect(find(review, '[data-ui="withdraw-cash"]').textContent).toBe(
+    await click(chip(host, en.amount.out.max));
+    expect(sales(host)).toEqual([`SPYx | 2.5 SPYx | ${w.check.dollars.notMeasured}`]);
+    expect(find(gets(host), '[data-ui="withdraw-cash"]').textContent).toBe(
       w.check.dollars.cash('600 USDC'),
     );
-    expect(find(review, '[data-ui="withdraw-to"]').textContent).toBe(SOLANA);
-    expect(review.textContent).toContain(w.check.dollars.emptied);
-    expect(review.textContent).not.toContain(w.check.emptied);
-    expect(review.textContent).toContain(w.check.dollars.quotes);
+    // about what it is worth, with its pin
+    expect(find(gets(host), '[data-ui="withdraw-worth"]').textContent).toContain(
+      en.amount.preview.about('$1,000'),
+    );
+    expect(find(details(host), '[data-ui="withdraw-to"]').textContent).toBe(SOLANA);
+    expect(details(host).textContent).toContain(w.check.dollars.emptied);
+    expect(details(host).textContent).not.toContain(w.check.emptied);
+    expect(details(host).textContent).toContain(w.check.dollars.quotes);
     // a holding that cannot be sold stays, and the tokens themselves are the way for it
-    expect(find(review, '[data-ui="withdraw-not-sold"]').textContent).toBe(w.check.dollars.notSold);
-    expect(review.textContent).toContain(w.check.dollars.onlyOwner('USDC'));
-    expect(review.textContent).not.toContain(w.check.noSale);
-    // not without the person's own confirmation
-    expect(primary(host, 'check').getAttribute('aria-disabled')).toBe('true');
-    await click(primary(host, 'confirm'));
-    expect(server.placed()).toEqual([]);
-
-    await click(find(review, 'input[type="checkbox"]'));
-    await click(primary(host, 'check'));
-    await click(primary(host, 'confirm'));
-    await settle();
-    await settle();
+    expect(find(details(host), '[data-ui="withdraw-not-sold"]').textContent).toBe(
+      w.check.dollars.notSold,
+    );
+    expect(details(host).textContent).toContain(w.check.dollars.onlyOwner('USDC'));
+    expect(details(host).textContent).not.toContain(w.check.noSale);
+    expect(label(host)).toBe(en.amount.press.withdrawAll);
+    await through(host);
     expect(server.placed().map((c) => c.body)).toEqual([
       { type: 'withdraw', vaults: [MY_VAULT], sellToCash: true },
     ]);
@@ -808,29 +916,15 @@ describe('the withdraw screen, in dollars', () => {
     });
     const host = await show();
     await click(way(host, 'dollars'));
-    await click(share(host, false));
-    // no share typed yet: nothing to continue with
-    expect(primary(host, 'what').getAttribute('aria-disabled')).toBe('true');
-    const field = () => find<HTMLInputElement>(panel(host, 'what'), 'input[inputmode="decimal"]');
-    await type(field(), '250');
-    expect(panel(host, 'what').textContent).toContain(w.share.error);
-    expect(primary(host, 'what').getAttribute('aria-disabled')).toBe('true');
-    await type(field(), '33.33');
-    await click(primary(host, 'what'));
-    const review = panel(host, 'check');
-    expect([...review.querySelectorAll('tbody tr')].map((r) => r.textContent)).toEqual([
-      `SPYx0.83325 SPYx${w.check.dollars.notMeasured}`,
-    ]);
-    expect(find(review, '[data-ui="withdraw-cash"]').textContent).toBe(
+    // $333.30 of $1,000: 33.33% of each
+    await type(field(host), '333.3');
+    expect(sales(host)).toEqual([`SPYx | 0.83325 SPYx | ${w.check.dollars.notMeasured}`]);
+    expect(find(gets(host), '[data-ui="withdraw-cash"]').textContent).toBe(
       w.check.dollars.cash('199.98 USDC'),
     );
-    expect(review.textContent).toContain(w.check.dollars.stays);
-    expect(review.textContent).toContain(w.check.dollars.targets);
-    await click(find(review, 'input[type="checkbox"]'));
-    await click(primary(host, 'check'));
-    await click(primary(host, 'confirm'));
-    await settle();
-    await settle();
+    expect(details(host).textContent).toContain(w.check.dollars.stays);
+    expect(details(host).textContent).toContain(w.check.dollars.targets);
+    await through(host);
     expect(server.placed().map((c) => c.body)).toEqual([
       { type: 'withdraw', vaults: [MY_VAULT], sellToCash: true, shareBps: 3_333 },
     ]);
@@ -841,6 +935,25 @@ describe('the withdraw screen, in dollars', () => {
         cashRaw: '199980000',
       },
     });
+  });
+
+  it('a quick share is that share exactly, whatever the cents of its dollars', async () => {
+    const server = api({
+      vault: holdingVault({ valueUsd: '999.99' }),
+      order: () =>
+        dollarsOrder([{ sell: SPYX, amountInRaw: '125000000', minOutRaw: '195000000' }], {
+          heldRaw: '600000000',
+          cashRaw: '300000000',
+        }),
+    });
+    const host = await show();
+    await click(way(host, 'dollars'));
+    await click(chip(host, '50%'));
+    expect(chip(host, '50%').getAttribute('aria-pressed')).toBe('true');
+    await through(host);
+    expect(server.placed().map((c) => c.body)).toEqual([
+      { type: 'withdraw', vaults: [MY_VAULT], sellToCash: true, shareBps: 5_000 },
+    ]);
   });
 
   it('shows Bearing’s measured cost of selling a holding with its source, and says so where there is none', async () => {
@@ -882,11 +995,11 @@ describe('the withdraw screen, in dollars', () => {
     const host = await show();
     await click(way(host, 'dollars'));
     await settle();
-    await click(primary(host, 'what'));
-    const cell = find(panel(host, 'check'), 'tbody tr td:last-child');
-    expect(cell.textContent).toContain(w.check.dollars.costBps('12.5'));
-    expect(cell.textContent).not.toContain(w.check.dollars.notMeasured);
-    expect(panel(host, 'check').textContent).toContain(w.check.dollars.costNote);
+    await click(chip(host, en.amount.out.max));
+    const sale = find(host, '[data-ui="withdraw-sales"] tbody tr');
+    expect(sale.textContent).toContain(w.check.dollars.costBps('12.5'));
+    expect(sale.textContent).not.toContain(w.check.dollars.notMeasured);
+    expect(details(host).textContent).toContain(w.check.dollars.costNote);
     await unmountAll();
 
     // measured with no source: no figure is shown without where it came from
@@ -894,34 +1007,24 @@ describe('the withdraw screen, in dollars', () => {
     const bare = await show();
     await click(way(bare, 'dollars'));
     await settle();
-    await click(primary(bare, 'what'));
-    expect(find(panel(bare, 'check'), 'tbody tr td:last-child').textContent).toBe(
+    await click(chip(bare, en.amount.out.max));
+    expect(find(bare, '[data-ui="withdraw-sales"] tbody tr').textContent).toContain(
       w.check.dollars.notMeasured,
     );
   });
 
-  it('going back to the tokens themselves is the withdrawal it was: nothing sold, and reviewed again', async () => {
+  it('going back to the tokens themselves is the withdrawal it was: nothing sold', async () => {
     const server = api({
       order: () =>
         withdrawOrder([[item(CASH, null, '600000000')], [item(SPYX, null, '250000000')]]),
     });
     const host = await show();
     await click(way(host, 'dollars'));
-    await click(primary(host, 'what'));
-    await click(find(panel(host, 'check'), 'input[type="checkbox"]'));
-    await click(find(step(host, 'what'), 'h2 button'));
+    await click(chip(host, en.amount.out.max));
     await click(way(host, 'tokens'));
-    await click(primary(host, 'what'));
-    // the confirmation of the other way does not carry over
-    expect(find<HTMLInputElement>(panel(host, 'check'), 'input[type="checkbox"]').checked).toBe(
-      false,
-    );
-    expect(panel(host, 'check').textContent).toContain(w.check.noSale);
-    await click(find(panel(host, 'check'), 'input[type="checkbox"]'));
-    await click(primary(host, 'check'));
-    await click(primary(host, 'confirm'));
-    await settle();
-    await settle();
+    expect(details(host).textContent).toContain(w.check.noSale);
+    expect(tokens(host)).toEqual([w.check.all('600 USDC'), w.check.all('2.5 SPYx')]);
+    await through(host);
     expect(server.placed().map((c) => c.body)).toEqual([
       { type: 'withdraw', vaults: [MY_VAULT], sellToCash: false },
     ]);

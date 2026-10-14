@@ -214,7 +214,8 @@ export function SharedReview({ terms, chain }: { terms: SharedTerms; chain: Chai
             <dt className="text-muted-foreground">{s.vault}</dt>
             <dd className="break-all font-mono text-source">{terms.vault}</dd>
           </dl>
-          <SourceMark source={terms.source} chain={chain} />
+          {/* not checked against the chain is said once, on its own line over the button that signs
+              (OrderScreen's `not-checked`), not here as well */}
           {terms.targets.length > 0 && weights(terms.targets)}
           <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
             {terms.keeper

@@ -847,7 +847,7 @@ export const en = {
         missing: (chain: string) =>
           `I read ${chain}, and it holds no such vault for your wallet, so I won’t offer a deposit into it.`,
         differs: (chain: string) =>
-          `Our server’s answer differs from the targets ${chain} holds for this vault, so I won’t offer a deposit now. Read your portfolio again in a moment.`,
+          `Our server’s answer differs from what ${chain} holds for this vault, so I won’t offer a deposit now. Read your portfolio again in a moment.`,
         unlisted:
           'This vault has a target on a token this app doesn’t list, so I can’t hold a deposit to it and won’t offer one.',
       },
@@ -1461,7 +1461,7 @@ export const en = {
     check: {
       reading: 'Reading it from the chain…',
       differs: (chain: string) =>
-        `${chain} holds another version or other weights than first shown. I show the chain’s, and a follow is held to them.`,
+        `Our server’s answer differs from what ${chain} holds. I show the chain’s version and weights, and a follow is held to them.`,
       failed: (chain: string) =>
         `I couldn’t verify this portfolio on ${chain}: the node this app reads from didn’t answer, or what our server named isn’t the portfolio the chain holds. It may have been tampered with, so I won’t offer to follow it.`,
       missing: (chain: string) =>
@@ -2105,6 +2105,111 @@ export const en = {
       all: (landed: string) => `What landed: ${landed}.`,
       some: (landed: string, not: string) => `What landed: ${landed}. What didn’t: ${not}.`,
     },
+  },
+
+  /** The amount card: one card where a deposit or a withdrawal starts (gate AMOUNT-CARD). */
+  amount: {
+    modes: { label: 'Deposit or withdraw', deposit: 'Deposit', withdraw: 'Withdraw' },
+    into: {
+      label: 'Into',
+      from: 'From',
+      newVault: 'New vault',
+      reading: 'Reading your vaults…',
+      /** Our server could not say whether the person has this portfolio's vault. */
+      ownOrNew: 'Your vault for this portfolio, or a new one',
+      /** A vault of the person's that already follows the portfolio: a deposit adds to it. */
+      follows: (name: string) => `${name} · follows this portfolio`,
+      /** One that does not: choosing it switches it to follow, and deposits nothing. */
+      other: (name: string) => `${name} · switch to this portfolio`,
+    },
+    field: { deposit: 'You deposit', withdraw: 'You withdraw' },
+    /** The token the amount is paid in, named for screen readers beside its mark. */
+    token: (symbol: string) => `Paid in ${symbol}`,
+    tokenOut: (symbol: string) => `Paid out in ${symbol}`,
+    balance: {
+      wallet: 'Balance',
+      vault: 'In your vault',
+      reading: 'Reading your balance…',
+      failed: 'Your balance couldn’t be read. You can still continue.',
+      max: 'Max',
+      maxLabel: (amount: string) => `Use your whole balance, ${amount}`,
+    },
+    errors: {
+      notAmount: 'Type an amount in dollars.',
+      belowMin: (least: string) => `At least ${least}`,
+      aboveMax: (most: string) => `At most ${most}`,
+      overBalance: 'More than your balance',
+      overVault: 'More than your vault holds',
+      /** Short, where the next step offers test funds or sample funds: said, and the press not held. */
+      overFunded: 'More than your balance. The next step offers test funds.',
+      overSample: 'More than your balance. The next step adds sample funds.',
+    },
+    preview: {
+      deposit: 'Your vault will hold',
+      /** A vault switched to follow a portfolio: no money moves, its targets change. */
+      targets: 'Its targets become',
+      asset: 'Asset',
+      weight: 'Weight',
+      amount: 'Amount',
+      add: 'Your deposit goes into',
+      withdraw: 'You get',
+      cash: 'Cash',
+      empty: 'Type an amount to see what your vault will hold.',
+      emptyWithdraw: 'Choose how much to see what reaches your wallet.',
+      keeper: 'With auto-follow on, the deposit lands as cash and our keeper invests it.',
+      switch: (vault: string, portfolio: string, version: number) =>
+        `“${vault}” will follow ${portfolio}, version ${version}.`,
+      about: (amount: string) => `About ${amount}`,
+      tokens: 'The tokens themselves, each the same share of what your vault holds.',
+      toWallet: 'To your own wallet',
+    },
+    details: {
+      summary: 'Details',
+      least: 'Least',
+      most: 'Most',
+      slippage: 'Slippage',
+      tradeLimits: 'Trade limits',
+      tradeLimitsValue:
+        'Each swap is also held to its token’s own limit, lower while its price feed isn’t live, and to a bound from that feed. The next step checks the order against them.',
+      slippageValue: (most: string) => `At most ${most} a trade`,
+      fee: 'Network fee',
+      feeValue: (amount: string) => `Up to ${amount}`,
+      source: 'Read from',
+      to: 'To',
+    },
+    trust: {
+      accepted: 'You accepted what you’re trusting',
+      view: 'view',
+      hide: 'hide',
+    },
+    /** The amount as a fact once the person pressed, with the way back while nothing is signed. */
+    pressed: (amount: string) => `Deposit of ${amount}`,
+    pressedWithdraw: (what: string) => `Withdrawal of ${what}`,
+    enter: 'Type an amount',
+    press: {
+      deposit: (amount: string) => `Deposit ${amount}`,
+      withdraw: (amount: string) => `Withdraw ${amount}`,
+      withdrawAll: 'Withdraw everything',
+      withdrawShare: (share: string) => `Withdraw ${share} of your vault`,
+      withdrawPicked: (n: number) => (n === 1 ? 'Withdraw 1 token' : `Withdraw ${n} tokens`),
+    },
+    /** The withdrawal on the amount card: a share of the whole vault, or tokens chosen one by one. */
+    out: {
+      chips: 'Quick shares',
+      /** The two ways out, short enough for a segment on a phone (gate WITHDRAW-DOLLARS). */
+      asTokens: 'As tokens',
+      asCash: (cash: string) => `As ${cash}`,
+      max: 'Max',
+      choose: 'Choose tokens yourself',
+      byShare: 'Withdraw a share instead',
+      noValue:
+        'Some holdings have no price now, so the vault’s value isn’t known: choose a share of it.',
+      what: 'What happens',
+      to: 'To your own wallet',
+    },
+    change: 'Change',
+    busy: 'Making your order…',
+    review: 'Review vault update',
   },
 
   order: {

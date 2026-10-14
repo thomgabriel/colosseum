@@ -108,6 +108,18 @@ const view = async () => {
   for (let i = 0; i < 6; i += 1) await settle(50);
   return host;
 };
+/**
+ * The amount card's press (gate AMOUNT-CARD): its trust notice ticked and its amount handed on, so the
+ * invest card (the stand-in) is on the page. The run itself starts with the stand-in's own press.
+ */
+const enter = async (host: HTMLElement) => {
+  const box = host.querySelector<HTMLInputElement>(
+    '[data-ui="amount-trust"] input[type="checkbox"]',
+  );
+  if (box && !box.checked) await click(box);
+  await click(find(host, 'button[data-action="amount-deposit"]'));
+  await settle(50);
+};
 const on = (host: HTMLElement) =>
   find(host, '[data-ui="card-stand-in"]').getAttribute('data-chain');
 const elsewhere = async (host: HTMLElement, chain: string) => {
@@ -127,6 +139,8 @@ afterEach(unmountAll);
 describe('a portfolio’s deposit page while a deposit runs', () => {
   it('follows where new plans start until a deposit is pressed', async () => {
     const host = await view();
+    // the amount card's press hands the amount on; the run has not begun
+    await enter(host);
     expect(on(host)).toBe('robinhood');
     await elsewhere(host, 'solana');
     expect(on(host)).toBe('solana');
@@ -134,6 +148,7 @@ describe('a portfolio’s deposit page while a deposit runs', () => {
 
   it('keeps the recipe under a run when where new plans start changes elsewhere', async () => {
     const host = await view();
+    await enter(host);
     expect(on(host)).toBe('robinhood');
     await click(find(host, '[data-ui="card-stand-in"]'));
     await elsewhere(host, 'solana');

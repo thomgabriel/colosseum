@@ -197,6 +197,49 @@ describe('a shared portfolio read from the chain by this app', () => {
     expect(legs).not.toContain('40%');
   });
 
+  it('says nothing of where it was read when the chain holds what our server answered', async () => {
+    const read = await readSolanaRecipe(rpcAt(NODE.url), deploymentsOf('testnet').solana as never, {
+      creator: CREATOR,
+      familyId: FAMILY_ID,
+    });
+    NODE.asked.length = 0;
+    portStore.setApi(async (path) => {
+      if (path === '/v1/me') return json(person);
+      if (path.startsWith('/v1/indexes/') && !path.includes('versions'))
+        return json({
+          family: familyOf(FAMILY_ID, {
+            recipes: [
+              recipeOf({
+                onchainId: read?.address ?? '',
+                active: {
+                  version: 3,
+                  effectiveAt: 1_791_100_000,
+                  components: [
+                    { asset: 'solana:spyx', weightBps: 5000 },
+                    { asset: 'solana:nvdax', weightBps: 2500 },
+                    { asset: 'solana:tslax', weightBps: 2500 },
+                  ],
+                  metaHash: '00'.repeat(32),
+                  status: 'active',
+                },
+              }),
+            ],
+          }),
+          disclaimer: 'd',
+        });
+      if (path === '/v1/portfolio') return json({ chains: [], disclaimer: 'd' });
+      return json({ error: 'no' }, 404);
+    });
+    const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
+    for (let i = 0; i < 5; i += 1) await settle(50);
+    expect(NODE.asked).toContain('getMultipleAccounts');
+    expect(find(host, '[data-ui="kpi-version"] dd').textContent).toBe('3');
+    // a read that matches says nothing (gate SOURCE-LINES): no line, no "not checked", no alarm
+    expect(host.querySelector('[data-ui="source-mark"]')).toBeNull();
+    expect(host.textContent).not.toContain(en.shared.check.notChecked);
+    expect(host.textContent).not.toMatch(/read from|our server/i);
+  });
+
   it('shows a line of the version that waits whose token this app does not list, by its mint', async () => {
     NODE_HOLDS.pendingMint = SOMEBODY;
     const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
@@ -249,6 +292,9 @@ describe('a shared portfolio read from the chain by this app', () => {
     const host = await mount(withAccount('en', createElement(FamilyBuyScreen, { slug: SLUG })));
     for (let i = 0; i < 4; i += 1) await settle(50);
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    // the amount card's press (gate AMOUNT-CARD), its trust notice ticked, hands the amount on
+    await click(find(host, '[data-ui="amount-trust"] input[type="checkbox"]'));
+    await click(find(host, 'button[data-action="amount-deposit"]'));
     // the wallet is read, then the order is made for the card
     await settle(400);
     await settle(1050);
@@ -317,9 +363,9 @@ describe('a shared portfolio this app could read from the chain and could not', 
     await settle(1050);
     await settle(50);
     await click(find(host, 'input[type="checkbox"]'));
-    const press = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes(en.invest.press('$10')),
-    );
+    // the amount card's press, held by the sentence that says why (gate AMOUNT-CARD)
+    const press = find<HTMLButtonElement>(host, 'button[data-action="amount-deposit"]');
+    expect(press.textContent).toBe(en.amount.press.deposit('$10'));
     expect(press?.getAttribute('aria-disabled')).toBe('true');
     expect(host.textContent).toContain(tampered);
     await click(press as HTMLElement);

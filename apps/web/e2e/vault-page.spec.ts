@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 // `shortAddress` (features/shared/use-person.ts) cuts as `shorten` does; it imports the wallet
 import { shorten as shortAddress } from '../components/ui/format';
 import { dictionary } from '../i18n';
-import { readyToInvest } from './invest';
+import { pressInView, readyToInvest } from './invest';
 import { inTheme } from './theme';
 
 // A person's own vault page, end to end on the mock chain (gate VAULT-PAGE-ACTIONS): the head, the
@@ -270,13 +270,18 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   // 1. A deposit, in the pane: the amount, the wallet's check, the order with its steps, one press.
   await actions.locator('[data-action="vault-deposit"]').click();
   await expect(screen).toHaveAttribute('data-pane', 'deposit');
-  await expect(title).toHaveText(p.panes.deposit.title);
-  await expect(title).toBeFocused();
+  // the amount card heads the pane (gate AMOUNT-CARD), its amount takes the focus
+  const cardTitle = pane.locator('[data-ui="amount-panel"] h2');
+  await expect(cardTitle).toHaveText(p.panes.deposit.title);
+  await expect(pane.locator('[data-ui="amount-well"] input')).toBeFocused();
   // the conversation's box is inert, and says why
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.deposit);
   await expect(page.locator('[data-ui="vault-chat"] [inert] textarea')).toHaveCount(1);
   await expect(actions).toHaveCount(0);
   await check(page, 'deposit-amount');
+  // a first deposit, with the trust notice to tick and the amount typed: the button in sight at 1440
+  await pane.getByLabel(en.amount.field.deposit, { exact: true }).fill('40');
+  await pressInView(page, 'deposit, first time');
   const press = await readyToInvest(page, { amount: '40' });
   await expect(pane.locator('[data-ui="order-step"]').first()).toBeVisible();
   await check(page, 'deposit-review');
@@ -301,17 +306,24 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   expect(after - before).toBeLessThan(41);
   await expect(actions.locator('[data-action="vault-deposit"]')).toBeFocused();
 
-  // 2. A withdrawal of everything, in the pane: what leaves, the review, then the steps to sign.
-  const w = en.withdraw;
+  // 2. A withdrawal of everything, in the pane: the amount card (gate AMOUNT-CARD) with Max, what
+  // reaches the wallet, then the steps to sign.
   await actions.locator('[data-action="vault-withdraw"]').click();
   await expect(screen).toHaveAttribute('data-pane', 'withdraw');
-  await expect(title).toHaveText(p.panes.withdraw.title);
+  await expect(cardTitle).toHaveText(p.panes.withdraw.title);
   await check(page, 'withdraw-what');
-  await pane.getByRole('button', { name: w.steps.next }).click();
+  await pane
+    .locator('[data-ui="amount-chips"]')
+    .getByRole('button', { name: en.amount.out.max })
+    .click();
+  await pressInView(page, 'withdraw, as tokens');
+  await pane.getByLabel(en.amount.out.asCash('USDC')).check();
+  await pressInView(page, 'withdraw, as dollars');
+  await pane.getByLabel(en.amount.out.asTokens).check();
+  // where it goes, in the card's details, one click away
+  await pane.locator('[data-ui="amount-details"] > summary').click();
   await expect(pane.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
-  await pane.getByLabel(w.check.confirm).check();
-  await pane.getByRole('button', { name: w.steps.next }).click();
-  await pane.getByRole('button', { name: w.confirm.button }).click();
+  await pane.getByRole('button', { name: en.amount.press.withdrawAll }).click();
   await expect(title).toHaveText(p.panes.withdraw.signTitle);
   await expect(page).toHaveURL(here);
   await expect(pane.locator('[data-ui="order-step"]')).toHaveCount(2);

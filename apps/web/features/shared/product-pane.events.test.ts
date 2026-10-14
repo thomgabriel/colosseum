@@ -156,6 +156,18 @@ function api(families = [familyOf(FAMILY_ID, { recipes: [withFigures()] })]) {
   });
 }
 
+/**
+ * The amount card's press (gate AMOUNT-CARD): the trust notice ticked where it is asked, and the
+ * amount handed to the invest card, which then makes the order as it did.
+ */
+async function pressCard(host: HTMLElement) {
+  const box = host.querySelector<HTMLInputElement>(
+    '[data-ui="amount-trust"] input[type="checkbox"]',
+  );
+  if (box && !box.checked) await click(box);
+  await click(find(host, 'button[data-action="amount-deposit"]'));
+}
+
 const show = async (node: Parameters<typeof withAccount>[1], lang: Lang = 'en') => {
   const host = await mount(withAccount(lang, node));
   for (let i = 0; i < 4; i += 1) await settle(50);
@@ -376,14 +388,17 @@ describe('a product’s page, on the plan view', () => {
     const creator = find(pane, '[data-ui="kpi-publisher"] [data-ui="creator"]');
     expect(await hintOf(creator)).toBe(CREATOR);
     expect(creator.closest('details')).toBeNull();
-    // one invest step, on the page: the amount and the one-press card, and no way off to a buy page
+    // one invest step, on the page: the amount card, whose press leads to the one-press card, and
+    // no way off to a buy page (gate AMOUNT-CARD)
     const invest = find(pane, '[data-ui="product-invest"]');
     expect(find(invest, 'input[inputmode="decimal"]').getAttribute('value')).toBe('');
-    expect(find(invest, '[data-ui="family-invest"]')).toBeTruthy();
+    expect(find(invest, '[data-ui="amount-card"]')).toBeTruthy();
+    expect(invest.querySelector('[data-ui="family-invest"]')).toBeNull();
     expect(host.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
-    // where the version and weights come from is said once on the page, over the card
+    // where the version and weights come from is said once on the page, in the pane, never folded
     expect(host.querySelectorAll('[data-ui="source-mark"]')).toHaveLength(1);
-    expect(find(invest, '[data-ui="source-mark"]')).toBeTruthy();
+    expect(find(pane, '[data-ui="source-mark"]').closest('details')).toBeNull();
+    expect(invest.querySelector('[data-ui="source-mark"]')).toBeNull();
     // nothing typed: nothing is asked of the server about an order
     expect(asked.filter((c) => c.path === '/v1/orders')).toEqual([]);
     expect(host.textContent).not.toContain('MOCK');
@@ -538,6 +553,7 @@ describe('a product’s page, when the portfolio gets a new version as the perso
     expect(versionShown(host)).toBe('2');
     expect(host.querySelector('[data-ui="product-version-changed"]')).toBeNull();
     await type(amountField(host), '40');
+    await pressCard(host);
     for (let i = 0; i < 8; i += 1) await settle(250);
     // the one order asked for named version 2, and was refused
     expect(orders().map((c) => [c.body?.family, c.body?.version, c.body?.amountUsd])).toEqual([
@@ -567,8 +583,9 @@ describe('a product’s page, when the portfolio gets a new version as the perso
     for (let i = 0; i < 6; i += 1) await settle(250);
     expect(orders()).toHaveLength(1);
 
-    // the person reads it and types an amount again: the next order names version 3
+    // the person reads it, types an amount again and presses: the next order names version 3
     await type(amountField(host), '40');
+    await pressCard(host);
     for (let i = 0; i < 8; i += 1) await settle(250);
     expect(orders().map((c) => c.body?.version)).toEqual([2, 3]);
     // the card waits a second of a still amount before it makes an order: this test waits for three
@@ -621,6 +638,7 @@ describe('the product pane is the embedded buy’s source of terms', () => {
         '[data-ui="product-invest"] input[inputmode="decimal"]',
       );
       await type(field, '10');
+      await pressCard(host);
       for (let i = 0; i < 8; i += 1) await settle(250);
       expect(reads).toBe(1);
       expect(

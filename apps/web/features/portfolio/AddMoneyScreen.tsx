@@ -11,16 +11,10 @@ import { Hint } from '../../components/ui/Hint';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import { SkeletonSummary } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
-import { useLang, useT } from '../../i18n/I18nProvider';
-import { parseNumber } from '../goal/sheet';
-import {
-  AmountField,
-  InvestCard,
-  type InvestEmbedded,
-  type InvestPlaced,
-  MAX_USD,
-  MIN_USD,
-} from '../order/InvestCard';
+import { useT } from '../../i18n/I18nProvider';
+import type { AmountMode } from '../amount/AmountCard';
+import { DepositCard } from '../amount/DepositCard';
+import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { addMoneyPath, placeOrder } from '../order/order-api';
 import { keepOrder, latestOf, recallOrder, recallOrders } from '../order/order-record';
 import { chainReady, onMock } from '../order/readiness';
@@ -31,7 +25,7 @@ import { sameTargets, useChainVault } from './chain-vault';
 import type { Vault } from './portfolio';
 import { usePortfolio } from './use-portfolio';
 import { PlanParts } from './VaultPanel';
-import { ownVault, sameAddress } from './vault-name';
+import { ownVault, sameAddress, vaultTitle } from './vault-name';
 
 // More money into a vault the person has (Thom, Oct 6), on one card with one press (InvestCard, gate
 // INVEST-ONE-PRESS): the amount, then the card with what the wallet is missing only when it is short
@@ -50,6 +44,20 @@ export const targetsOfVault = (vault: Pick<Vault, 'positions'>): Target[] =>
     .filter((p) => p.targetBps > 0)
     .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
 
+/** The amount card of a host that has no amount of its own (the vault page's pane). */
+export type AddEntry = {
+  /** Deposit | Withdraw on the card, where the vault has something to withdraw. */
+  onMode?: (mode: AmountMode) => void;
+  /** An amount pressed before the pane was opened again (a deposit taken up after a reload). */
+  pressed?: number | null;
+  /** Said once a deposit of the amount is under way: the order that finishes another adds nothing. */
+  fact?: boolean;
+  /** The card's title, as the pane's heading. */
+  title?: string;
+  /** The amount was pressed (a number) or taken back (null). */
+  onPressed?: (amount: number | null) => void;
+};
+
 export function AddMoneyScreen({
   chain: chainParam,
   address,
@@ -57,15 +65,16 @@ export function AddMoneyScreen({
 }: {
   chain: string;
   address: string;
-  /** `bare`: the host's own screen shows the vault's parts (its page), so they are not drawn again. */
-  embedded?: InvestEmbedded & { bare?: boolean };
+  /**
+   * `bare`: the host's own screen shows the vault's parts (its page), so they are not drawn again.
+   * `entry`: the amount is typed here, on the amount card, not given by the host.
+   */
+  embedded?: InvestEmbedded & { bare?: boolean; entry?: AddEntry };
 }) {
   const t = useT();
-  const lang = useLang();
   const port = useWalletPort();
   const apiFetch = useApiFetch();
   const { state } = usePortfolio();
-  const [text, setText] = useState('');
   const [locked, setLocked] = useState(false);
   const words = t.portfolio.add;
 
@@ -77,12 +86,6 @@ export function AddMoneyScreen({
   const active = chain ? (port.active(chainFamily(chain))?.address ?? null) : null;
   // The wallet that signs is the vault's owner, or nothing is asked of it.
   const owner = chain && vault && active && sameAddress(chain, vault.owner, active) ? active : null;
-  const parsed = parseNumber(text, lang);
-  const typed =
-    parsed !== null && !Number.isNaN(parsed) && parsed >= MIN_USD && parsed <= MAX_USD
-      ? parsed
-      : null;
-  const amount = embedded ? embedded.amount : typed;
   const mock = chain ? onMock(port, chain) : false;
   // The vault as this app reads it from its own node: what the add's trades are held to.
   const check = useChainVault(
@@ -245,7 +248,7 @@ export function AddMoneyScreen({
   const latest = root ? latestOf(root, recallOrders(port.userId)) : null;
 
   // The wallet that is signed in when it is not the vault's owner: nothing is asked of it.
-  const card = (
+  const cardFor = (amount: number | null, onAmount: ((next: number) => void) | undefined) => (
     <InvestCard
       chain={chain}
       chainName={chainName}
@@ -264,7 +267,7 @@ export function AddMoneyScreen({
       }}
       onDone={embedded?.onDone}
       onStopped={embedded?.onStopped}
-      onAmount={embedded ? embedded.onAmount : (next) => setText(String(next))}
+      onAmount={onAmount}
       {...(embedded?.hostEnds ? { hostEnds: true } : {})}
       {...(latest
         ? {
@@ -278,25 +281,89 @@ export function AddMoneyScreen({
     />
   );
 
+  // What the person needs to know of the vault's targets: nothing for a read that matches, one line
+  // where they could not be read, an alarm where they differ or the read failed (gate SOURCE-LINES).
+  // On the card, never folded; over its button while it is wrong.
+  const sourceLine =
+    owner && check.state !== 'reading' && sourceSentence ? (
+      <p
+        data-ui="source-mark"
+        data-source={check.state === 'read' ? 'chain' : 'api'}
+        data-state={check.state}
+        className={
+          alarm
+            ? 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive'
+            : 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm'
+        }
+      >
+        <StatusMark status={alarm ? 'off-track' : 'watch'} className="mt-1.5" />
+        <span>{sourceSentence}</span>
+      </p>
+    ) : null;
+  // The amount card (gate AMOUNT-CARD): into this vault, its press handing the amount to the card.
+  const entry = (
+    <DepositCard
+      headingLevel={embedded && !embedded.entry?.title ? 3 : 2}
+      chain={chain}
+      chainName={chainName}
+      mock={mock}
+      provenance={mock ? 'mock' : (port.network(chain)?.provenance ?? null)}
+      owner={owner}
+      userId={port.userId}
+      buyOf={{ vault: vault.address, vaultChain: chain }}
+      holdings={held ? (held.keeper ? null : held.targets) : null}
+      keeper
+      keeperInvests={held?.keeper === true}
+      // in the vault's own pane the vault is the page: no "Into" to say it again
+      into={
+        embedded
+          ? undefined
+          : {
+              label: t.amount.into.label,
+              value: vault.address,
+              options: [
+                {
+                  value: vault.address,
+                  title: vault.address,
+                  // its name, "Vault #N", or "Your vault": the vault's one name wherever it is said
+                  label: vaultTitle(
+                    vault,
+                    { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+                    chainName,
+                  ),
+                },
+              ],
+            }
+      }
+      {...(embedded?.entry?.onMode ? { onMode: embedded.entry.onMode } : {})}
+      blocked={blocked}
+      notice={
+        <>
+          {/* wrong or not read: over the button, never folded */}
+          {alarm && sourceLine}
+          {vault.pending && (
+            <p data-ui="add-newer-version" className="max-w-(--tf-measure-body) text-body-sm">
+              {words.newerVersion(vault.pending.version)}
+            </p>
+          )}
+        </>
+      }
+      // not checked against the chain: a quiet line at the card's foot, with its mark
+      foot={alarm ? undefined : sourceLine}
+      running={locked}
+      pressed={embedded?.entry?.pressed ?? null}
+      fact={embedded?.entry?.fact ?? true}
+      {...(embedded?.entry?.title ? { title: embedded.entry.title, focusOnOpen: true } : {})}
+      {...(embedded?.entry?.onPressed ? { onPressed: embedded.entry.onPressed } : {})}
+      flow={(amount, change) => cardFor(amount, change)}
+    />
+  );
+
   // What the add is held to, over the card: the vault's parts and where they were read.
   const context = (
     <div className="flex max-w-3xl flex-col gap-3">
       {!embedded?.bare && <PlanParts vault={vault} />}
-      {owner && check.state !== 'reading' && sourceSentence && (
-        <p
-          data-ui="source-mark"
-          data-source={check.state === 'read' ? 'chain' : 'api'}
-          data-state={check.state}
-          className={
-            alarm
-              ? 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive'
-              : 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm'
-          }
-        >
-          <StatusMark status={alarm ? 'off-track' : 'watch'} className="mt-1.5" />
-          <span>{sourceSentence}</span>
-        </p>
-      )}
+      {sourceLine}
       {held?.keeper && (
         <p data-ui="add-keeper" className="max-w-(--tf-measure-body) text-body-sm">
           {words.keeper}
@@ -309,11 +376,18 @@ export function AddMoneyScreen({
       )}
     </div>
   );
+  if (embedded?.entry)
+    return (
+      <div data-ui="vault-invest" className="flex flex-col gap-3">
+        {!embedded.bare && <PlanParts vault={vault} />}
+        {entry}
+      </div>
+    );
   if (embedded)
     return (
       <div data-ui="vault-invest" className="flex flex-col gap-3">
         {context}
-        {card}
+        {cardFor(embedded.amount, embedded.onAmount)}
       </div>
     );
 
@@ -342,21 +416,21 @@ export function AddMoneyScreen({
       </header>
       <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <section className="flex min-w-0 flex-col gap-5" aria-label={words.title}>
-          <AmountField
-            text={text}
-            onText={setText}
-            hint={words.amountHint}
-            value={typed}
-            disabled={locked}
-          />
-          {card}
+          {entry}
         </section>
         <section
           className="flex min-w-0 flex-col gap-4 border-t border-border pt-5"
           aria-label={words.strategy}
         >
           <h2 className="text-h3">{words.strategy}</h2>
-          {context}
+          <div className="flex max-w-3xl flex-col gap-3">
+            <PlanParts vault={vault} />
+            {held?.keeper && (
+              <p data-ui="add-keeper" className="max-w-(--tf-measure-body) text-body-sm">
+                {words.keeper}
+              </p>
+            )}
+          </div>
         </section>
       </div>
     </div>

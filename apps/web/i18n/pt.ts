@@ -707,7 +707,7 @@ export const pt: Dictionary = {
         missing: (chain: string) =>
           `Li a ${chain}, e ela não guarda um cofre assim para a sua carteira, então não ofereço adicionar dinheiro a ele.`,
         differs: (chain: string) =>
-          `A resposta do nosso servidor difere das metas que a ${chain} guarda para este cofre, então não ofereço adicionar dinheiro agora. Leia seu portfólio de novo em instantes.`,
+          `A resposta do nosso servidor difere do que a ${chain} tem para este cofre, então não ofereço adicionar dinheiro agora. Leia seu portfólio de novo em instantes.`,
         unlisted:
           'Este cofre tem um peso-alvo em um token que este app não lista, então não consigo conferir um aporte e não ofereço um.',
       },
@@ -1262,7 +1262,7 @@ export const pt: Dictionary = {
     check: {
       reading: 'Lendo da rede…',
       differs: (chain: string) =>
-        `A ${chain} tem outra versão ou outros pesos do que os mostrados antes. Mostro os da rede, e seguir fica preso a eles.`,
+        `A resposta do nosso servidor difere do que a ${chain} tem. Mostro a versão e os pesos da rede, e seguir fica preso a eles.`,
       failed: (chain: string) =>
         `Não consegui verificar este portfólio na ${chain}: o nó de onde este app lê não respondeu, ou o que nosso servidor indicou não é o portfólio que a rede tem. Ele pode ter sido adulterado, então não vou oferecer segui-lo.`,
       missing: (chain: string) =>
@@ -1864,6 +1864,102 @@ export const pt: Dictionary = {
       all: (landed: string) => `O que chegou: ${landed}.`,
       some: (landed: string, not: string) => `O que chegou: ${landed}. O que não chegou: ${not}.`,
     },
+  },
+
+  amount: {
+    modes: { label: 'Depositar ou sacar', deposit: 'Depositar', withdraw: 'Sacar' },
+    into: {
+      label: 'Para',
+      from: 'De',
+      newVault: 'Novo cofre',
+      reading: 'Lendo seus cofres…',
+      ownOrNew: 'Seu cofre deste portfólio, ou um novo',
+      follows: (name: string) => `${name} · segue este portfólio`,
+      other: (name: string) => `${name} · passar a seguir este portfólio`,
+    },
+    field: { deposit: 'Você deposita', withdraw: 'Você saca' },
+    token: (symbol: string) => `Pago em ${symbol}`,
+    tokenOut: (symbol: string) => `Recebido em ${symbol}`,
+    balance: {
+      wallet: 'Saldo',
+      vault: 'No seu cofre',
+      reading: 'Lendo seu saldo…',
+      failed: 'Não consegui ler seu saldo. Você ainda pode continuar.',
+      max: 'Máx.',
+      maxLabel: (amount: string) => `Usar todo o saldo, ${amount}`,
+    },
+    errors: {
+      notAmount: 'Digite um valor em dólares.',
+      belowMin: (least: string) => `No mínimo ${least}`,
+      aboveMax: (most: string) => `No máximo ${most}`,
+      overBalance: 'Mais do que o seu saldo',
+      overVault: 'Mais do que o seu cofre tem',
+      overFunded: 'Mais do que o seu saldo. A próxima etapa oferece fundos de teste.',
+      overSample: 'Mais do que o seu saldo. A próxima etapa adiciona fundos de exemplo.',
+    },
+    preview: {
+      deposit: 'Seu cofre vai ter',
+      targets: 'Os alvos dele passam a ser',
+      asset: 'Ativo',
+      weight: 'Peso',
+      amount: 'Valor',
+      add: 'Seu depósito vai para',
+      withdraw: 'Você recebe',
+      cash: 'Dinheiro',
+      empty: 'Digite um valor para ver o que seu cofre vai ter.',
+      emptyWithdraw: 'Escolha quanto para ver o que chega à sua carteira.',
+      keeper:
+        'Com o seguir automático ativado, o depósito entra como caixa e nosso operador o investe.',
+      switch: (vault: string, portfolio: string, version: number) =>
+        `“${vault}” vai seguir ${portfolio}, versão ${version}.`,
+      about: (amount: string) => `Cerca de ${amount}`,
+      tokens: 'Os próprios tokens, cada um na mesma parte do que seu cofre tem.',
+      toWallet: 'Para a sua própria carteira',
+    },
+    details: {
+      summary: 'Detalhes',
+      least: 'Mínimo',
+      most: 'Máximo',
+      slippage: 'Variação de preço',
+      tradeLimits: 'Limites por troca',
+      tradeLimitsValue:
+        'Cada troca também respeita o limite do próprio token, menor enquanto o preço dele não está ao vivo, e uma margem em relação a esse preço. A próxima etapa confere a ordem com eles.',
+      slippageValue: (most: string) => `No máximo ${most} por troca`,
+      fee: 'Taxa da rede',
+      feeValue: (amount: string) => `Até ${amount}`,
+      source: 'Lido de',
+      to: 'Para',
+    },
+    trust: {
+      accepted: 'Você aceitou aquilo em que está confiando',
+      view: 'ver',
+      hide: 'ocultar',
+    },
+    pressed: (amount: string) => `Depósito de ${amount}`,
+    pressedWithdraw: (what: string) => `Saque de ${what}`,
+    enter: 'Digite um valor',
+    press: {
+      deposit: (amount: string) => `Depositar ${amount}`,
+      withdraw: (amount: string) => `Sacar ${amount}`,
+      withdrawAll: 'Sacar tudo',
+      withdrawShare: (share: string) => `Sacar ${share} do seu cofre`,
+      withdrawPicked: (n: number) => (n === 1 ? 'Sacar 1 token' : `Sacar ${n} tokens`),
+    },
+    out: {
+      chips: 'Partes rápidas',
+      asTokens: 'Em tokens',
+      asCash: (cash: string) => `Em ${cash}`,
+      max: 'Máx.',
+      choose: 'Escolher os tokens você mesmo',
+      byShare: 'Sacar uma parte em vez disso',
+      noValue:
+        'Alguns ativos estão sem preço agora, então o valor do cofre não é conhecido: escolha uma parte dele.',
+      what: 'O que acontece',
+      to: 'Para a sua própria carteira',
+    },
+    change: 'Alterar',
+    busy: 'Preparando sua ordem…',
+    review: 'Revisar a mudança do cofre',
   },
 
   order: {
