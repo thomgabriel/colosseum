@@ -231,7 +231,10 @@ describe('the withdraw screen', () => {
       [...host.querySelectorAll('[data-ui="amount-chips"] button')].map((b) => b.textContent),
     ).toEqual(['25%', '50%', '75%', en.amount.out.max]);
     expect(held(host)).toBe(true);
-    expect(label(host)).toBe(en.amount.enter);
+    // with nothing chosen, it names the action alone; no "You get" and no details over nothing
+    expect(label(host)).toBe(w.action);
+    expect(host.querySelector('[data-ui="amount-preview"]')).toBeNull();
+    expect(host.querySelector('[data-ui="amount-details"]')).toBeNull();
     await click(button(host));
     expect(server.placed()).toEqual([]);
     // one primary button on the card
@@ -862,7 +865,8 @@ describe('the withdraw screen, in dollars', () => {
     const group = find(host, '[data-ui="withdraw-way"]');
     expect(group.textContent).toContain(en.amount.out.asTokens);
     expect(group.textContent).toContain(en.amount.out.asCash('USDC'));
-    // what the way chosen means, one at a time, in the details
+    // what the way chosen means, one at a time, in the details, once there is a share
+    await click(chip(host, en.amount.out.max));
     expect(find(host, '[data-ui="withdraw-way-hint"]').textContent).toBe(w.way.tokensHint);
     // the tokens one by one are there until dollars is chosen
     expect(host.querySelector('button[data-action="withdraw-pick"]')).not.toBeNull();

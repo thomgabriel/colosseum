@@ -2180,7 +2180,6 @@ export const en = {
       withdraw: 'You get',
       cash: 'Cash',
       empty: 'Type an amount to see what your vault will hold.',
-      emptyWithdraw: 'Choose how much to see what reaches your wallet.',
       keeper: 'With auto-follow on, the deposit lands as cash and our keeper invests it.',
       switch: (vault: string, portfolio: string, version: number) =>
         `“${vault}” will follow ${portfolio}, version ${version}.`,
@@ -2210,7 +2209,6 @@ export const en = {
     /** The amount as a fact once the person pressed, with the way back while nothing is signed. */
     pressed: (amount: string) => `Deposit of ${amount}`,
     pressedWithdraw: (what: string) => `Withdrawal of ${what}`,
-    enter: 'Type an amount',
     press: {
       deposit: (amount: string) => `Deposit ${amount}`,
       withdraw: (amount: string) => `Withdraw ${amount}`,

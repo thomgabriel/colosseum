@@ -62,6 +62,7 @@ export function PanelHead({
   title,
   stats = [],
   actions,
+  tabs,
   level = 2,
   className,
 }: {
@@ -70,6 +71,11 @@ export function PanelHead({
   title: ReactNode;
   stats?: readonly HeadStat[];
   actions?: ReactNode;
+  /**
+   * Tabs that say what the panel is (Deposit | Withdraw): drawn in the title's place, the title then
+   * read by screen readers alone, so the head does not say the same thing twice.
+   */
+  tabs?: ReactNode;
   level?: 2 | 3;
   className?: string;
 }) {
@@ -83,7 +89,10 @@ export function PanelHead({
     >
       <Title
         id={id}
-        className="flex items-center gap-2.5 text-body-lg font-semibold whitespace-nowrap"
+        className={cn(
+          'flex items-center gap-2.5 text-body-lg font-semibold whitespace-nowrap',
+          tabs !== undefined && 'sr-only',
+        )}
       >
         {icon && (
           <span className="inline-flex size-8 items-center justify-center rounded-lg bg-honey-tint text-foreground">
@@ -92,6 +101,7 @@ export function PanelHead({
         )}
         {title}
       </Title>
+      {tabs}
       {stats.map((stat) => (
         <p key={stat.label} data-ui={stat.ui} className="flex items-baseline gap-2 text-body-sm">
           <span className="text-muted-foreground">{stat.label}</span>

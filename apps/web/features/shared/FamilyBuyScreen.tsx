@@ -15,10 +15,11 @@ import { SkeletonPlan } from '../../components/ui/Skeleton';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainChoice } from '../account/ChainChoice';
-import { DepositCard } from '../amount/DepositCard';
+import { DepositCard, heldOf } from '../amount/DepositCard';
 import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { keepOrder } from '../order/order-record';
 import { basketOfPlan } from '../order/readiness';
+import type { Vault } from '../portfolio/portfolio';
 import { vaultTitle } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor, useChainRecipe } from './chain-recipe';
@@ -108,7 +109,10 @@ export function FamilyBuyScreen({
   // The vault a buy of this portfolio adds to, where the person has one (`planFamilyBuy`: the vault's
   // number is the portfolio's own): named in "Into", and a new vault only where there is none.
   const [ownVault, setOwnVault] = useState<
-    { kind: 'reading' } | { kind: 'none' } | { kind: 'unknown' } | { kind: 'own'; name: string }
+    | { kind: 'reading' }
+    | { kind: 'none' }
+    | { kind: 'unknown' }
+    | { kind: 'own'; name: string; vault: Vault }
   >({ kind: 'reading' });
   const whose = chain && owner ? `${chain}:${owner}` : null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: `whose` stands for the chain and the wallet
@@ -127,6 +131,7 @@ export function FamilyBuyScreen({
         vault
           ? {
               kind: 'own',
+              vault,
               name: vaultTitle(
                 vault,
                 { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
@@ -346,6 +351,7 @@ export function FamilyBuyScreen({
         buyOf={{ family: slug, chain }}
         holdings={followed?.targets ?? null}
         keeper
+        held={ownVault.kind === 'own' ? heldOf(ownVault.vault) : null}
         into={{
           label: t.amount.into.label,
           value: 'family',
