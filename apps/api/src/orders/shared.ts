@@ -27,7 +27,8 @@ import { HOME_CHAIN } from './person';
 // Shared portfolios as orders (DESIGN-VAULT section 6, gate SHARED-FULL): a creator publishes one, a
 // person follows one. The API plans and builds; the creator's own form says what is published, and the
 // guard in packages/sdk holds the bytes to what that form showed (AGT-4): the family id, the text, the
-// assets and weights. Solana only for now: Robinhood Chain's registry calls wait for EVM-3 and ADE-2.
+// assets and weights. On Solana the program's `publish_recipe`, `update_recipe` and `cancel_pending`;
+// on Robinhood Chain `IndexRegistry`'s `create`, `publish` and `cancel` (AGT-4).
 
 type PublishRequest = Extract<IntentRequest, { type: 'publish' }>;
 type FollowRequest = Extract<IntentRequest, { type: 'follow' }>;

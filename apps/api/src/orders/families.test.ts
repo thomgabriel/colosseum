@@ -3,7 +3,7 @@ import { indexFamilies, recipes } from '@colosseum/db';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { testDb } from '../testing/harness';
-import { writePublished } from './families';
+import { familyBySlug, writePublished } from './families';
 import { nameKeyOf } from './shared';
 
 // Two creators' publishes of one new slug, recorded at the same moment: the family's text and its
@@ -58,6 +58,25 @@ describe('two publishes of one new slug at once', () => {
     expect(await write(familyId, 'a')).not.toBeNull();
     expect(await write(familyId, 'b')).toBeNull();
     expect(await write(familyId, 'a')).not.toBeNull();
+  });
+});
+
+describe('a family on a chain that moved network (gate PRODUCTS-MAINNET-ONLY)', () => {
+  it('keeps the old network’s recipe, unserved, and records the new one beside it', async () => {
+    const familyId = randomUUID().replaceAll('-', '').padEnd(64, '0');
+    data.trackFamily(familyId);
+    expect(await write(familyId, 'a')).not.toBeNull();
+    // the chain ran another network when this recipe was published
+    await data.db.update(recipes).set({ network: 'local' }).where(eq(recipes.familyId, familyId));
+    expect(await familyBySlug(data.db, `race-${familyId.slice(0, 12)}`)).toMatchObject({
+      recipes: [],
+    });
+    // the same creator publishes it on the network the chain runs now: a second row, served
+    expect(await write(familyId, 'a')).not.toBeNull();
+    const rows = await data.db.select().from(recipes).where(eq(recipes.familyId, familyId));
+    expect(rows.map((r) => r.network).sort()).toEqual(['local', 'testnet']);
+    const served = await familyBySlug(data.db, `race-${familyId.slice(0, 12)}`);
+    expect(served?.recipes.map((r) => r.network)).toEqual(['testnet']);
   });
 });
 

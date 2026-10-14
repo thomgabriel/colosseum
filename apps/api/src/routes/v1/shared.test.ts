@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { familyIdOf, metaHash } from '@colosseum/basket';
 import { mockRecipeId } from '@colosseum/chain-mock';
-import { indexFamilies } from '@colosseum/db';
+import { chains, indexFamilies, recipes } from '@colosseum/db';
 import {
   type BasketAsset,
   ChainError,
@@ -27,6 +27,7 @@ import {
   testDb,
   testIssuer,
 } from '../../testing/harness';
+import { shelfLiveOnlyFrom } from './shared';
 
 // The shared-portfolio routes (API-3) through HTTP on the mock chain and the real database: the shelf,
 // a portfolio's page and its versions, a creator's publish, a buy that follows a portfolio, and a
@@ -1112,6 +1113,95 @@ describe('a vault follows a shared portfolio, and auto-follow where it is offere
     const built = await post(who, `/v1/orders/${placed.id}/legs/${placed.legs[0]?.id}/build`);
     expect([built.statusCode, built.json().code]).toEqual([409, 'VERSION_CHANGED']);
     expect((await read(who, placed)).legs[0]?.status).toBe('planned');
+  });
+});
+
+describe('a portfolio on a network its chain no longer runs (gate PRODUCTS-MAINNET-ONLY)', () => {
+  it('records a publish on the network its chain runs now', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    const [row] = await data.db
+      .select({ network: recipes.network })
+      .from(recipes)
+      .where(eq(recipes.familyId, familyIdOf(text.slug)));
+    const [chain] = await data.db
+      .select({ network: chains.network })
+      .from(chains)
+      .where(eq(chains.id, 'solana'));
+    expect(row?.network).toBe(chain?.network);
+  });
+
+  it('keeps it in the tables, and serves it neither on the shelf nor on its page', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    expect((await page(text.slug)).recipes).toHaveLength(1);
+    // The chain moved: the recipe is now another network's than the one the chain runs.
+    const familyId = familyIdOf(text.slug);
+    await data.db.update(recipes).set({ network: 'local' }).where(eq(recipes.familyId, familyId));
+    const shelf = ShelfResponse.parse((await get(null, '/v1/shelf?chain=solana')).json());
+    expect(shelf.families.some((f) => f.slug === text.slug)).toBe(false);
+    const everything = ShelfResponse.parse((await get(null, '/v1/shelf')).json());
+    expect(everything.families.find((f) => f.slug === text.slug)?.recipes ?? []).toEqual([]);
+    const unserved = await page(text.slug);
+    expect(unserved.recipes).toEqual([]);
+    expect(unserved.chains).toEqual([]);
+    const versions = VersionsResponse.parse(
+      (await get(null, `/v1/indexes/${text.slug}/versions`)).json(),
+    );
+    expect(versions.chains).toEqual([]);
+    // nothing was deleted
+    const kept = await data.db.select().from(recipes).where(eq(recipes.familyId, familyId));
+    expect(kept.map((r) => r.network)).toEqual(['local']);
+  });
+
+  it('lists live portfolios only where SHELF_LIVE_ONLY is on, and still answers a page by its slug', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    // the mock's figures are not live: with the setting on, the shelf leaves the portfolio out
+    const { app: liveOnly } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      env: { SHELF_LIVE_ONLY: 'on' },
+    });
+    try {
+      for (const query of ['', '?chain=solana']) {
+        const res = await liveOnly.inject({ method: 'GET', url: `/v1/shelf${query}` });
+        expect(res.statusCode, res.body).toBe(200);
+        const shelf = ShelfResponse.parse(res.json());
+        expect(shelf.families.some((f) => f.slug === text.slug)).toBe(false);
+        expect(shelf.families.flatMap((f) => f.recipes).every((r) => r.provenance === 'live')).toBe(
+          true,
+        );
+      }
+      const res = await liveOnly.inject({ method: 'GET', url: `/v1/indexes/${text.slug}` });
+      expect(res.statusCode, res.body).toBe(200);
+      // (this second app runs its own mock chain, which holds no such recipe: the page is the point)
+      expect(FamilyResponse.parse(res.json()).family.slug).toBe(text.slug);
+    } finally {
+      await liveOnly.close();
+    }
+    // off, the same shelf lists it
+    const shelf = ShelfResponse.parse((await get(null, '/v1/shelf')).json());
+    expect(shelf.families.some((f) => f.slug === text.slug)).toBe(true);
+  });
+
+  it('reads SHELF_LIVE_ONLY as on or off, and refuses anything else without repeating it', () => {
+    expect(shelfLiveOnlyFrom({})).toBe(false);
+    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: '' })).toBe(false);
+    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'on' })).toBe(true);
+    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'TRUE' })).toBe(true);
+    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'off' })).toBe(false);
+    expect(() => shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'secret-ish' })).toThrow(
+      'SHELF_LIVE_ONLY: expected on or off',
+    );
+    try {
+      shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'secret-ish' });
+    } catch (e) {
+      expect(String(e)).not.toContain('secret-ish');
+    }
   });
 });
 
