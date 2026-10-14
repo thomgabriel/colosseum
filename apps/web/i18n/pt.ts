@@ -1259,7 +1259,7 @@ export const pt: Dictionary = {
         'Este portfólio não foi publicado por este app, então não consigo conferir o identificador dele pelo nome, e seguir ainda não é oferecido aqui.',
     },
     check: {
-      reading: 'Lendo da rede…',
+      reading: 'Carregando…',
       differs: (chain: string) =>
         `A resposta do nosso servidor difere do que a ${chain} tem. Mostro a versão e os pesos da rede, e seguir fica preso a eles.`,
       failed: (chain: string) =>
