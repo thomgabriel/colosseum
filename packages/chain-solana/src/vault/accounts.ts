@@ -31,10 +31,18 @@ export const RECIPE_DISCRIMINATOR = new Uint8Array([10, 162, 156, 100, 56, 193, 
 export const CONFIG_SIZE = 396;
 export const VAULT_SIZE = 1063;
 export const ASSETS_SIZE = 6281;
-export const RECIPE_SIZE = 1022;
+/**
+ * A shared portfolio's fields, as the account was first laid out, with room for twelve lines a version.
+ * A portfolio published before Oct 14 that has never held more is this size still.
+ */
+export const RECIPE_HEAD_SIZE = 1022;
+/** The fields and room for four more lines a version after them (`Recipe::SPACE`, SHARED-RULES-V2). */
+export const RECIPE_SIZE = 1294;
 export const MAX_POSITIONS = 16;
 export const MAX_ASSETS = 64;
-export const MAX_COMPONENTS = 12;
+/** The most lines a version holds: twelve in its fields, four after the fields. */
+export const MAX_COMPONENTS = 16;
+export const INLINE_COMPONENTS = 12;
 
 /** Frozen offsets in Vault, for memcmp filters: the program's field order does not change. */
 export const VAULT_OWNER_OFFSET = 8;
@@ -151,7 +159,7 @@ const recipeVersionDecoder = getStructDecoder([
   ['effectiveAt', getI64Decoder()],
   ['metaHash', bytes32],
   ['count', getU8Decoder()],
-  ['components', getArrayDecoder(componentDecoder, { size: MAX_COMPONENTS })],
+  ['components', getArrayDecoder(componentDecoder, { size: INLINE_COMPONENTS })],
 ]);
 
 const recipeDecoder = getStructDecoder([
@@ -197,10 +205,14 @@ const KINDS = {
   recipe: [RECIPE_SIZE, RECIPE_DISCRIMINATOR],
 } as const;
 
-/** True when the bytes are the size of `kind` and start with its discriminator. */
+/**
+ * True when the bytes are the size of `kind` and start with its discriminator. A shared portfolio is
+ * either size: of the first layout, or with room for lines past twelve.
+ */
 export function isAccount(kind: keyof typeof KINDS, data: Uint8Array): boolean {
   const [size, tag] = KINDS[kind];
-  return data.length === size && sameBytes(data.subarray(0, 8), tag);
+  const sized = data.length === size || (kind === 'recipe' && data.length === RECIPE_HEAD_SIZE);
+  return sized && sameBytes(data.subarray(0, 8), tag);
 }
 
 /** Decodes a Config account. Throws when the bytes are not one. */
@@ -229,17 +241,36 @@ export function decodeAssetRegistry(data: Uint8Array): AssetRegistryAccount {
   return { ...registry, assets: registry.assets.slice(0, registry.count) };
 }
 
-/** Decodes a shared portfolio. Throws when the bytes are not one, or when a version names more than twelve lines. */
+/**
+ * Decodes a shared portfolio, each version with every line: the first twelve from its fields, the rest
+ * from the four slots after them (the version in effect's from byte 1,022, the waiting one's from 1,158).
+ * Throws when the bytes are not one, when a version names more than sixteen lines, or more than twelve
+ * on an account with no room past its fields.
+ */
 export function decodeRecipe(data: Uint8Array): RecipeAccount {
   if (!isAccount('recipe', data))
-    throw new Error(`not a Recipe account: ${data.length} bytes, expected ${RECIPE_SIZE}`);
+    throw new Error(
+      `not a Recipe account: ${data.length} bytes, expected ${RECIPE_HEAD_SIZE} or ${RECIPE_SIZE}`,
+    );
   const { discriminator: _, ...recipe } = recipeDecoder.decode(data);
-  const used = (version: RecipeVersion): RecipeVersion => {
+  const used = (version: RecipeVersion, slot: 0 | 1): RecipeVersion => {
     if (version.count > MAX_COMPONENTS)
       throw new Error(`a version of a shared portfolio has ${version.count} lines`);
-    return { ...version, components: version.components.slice(0, version.count) };
+    const past = Math.max(0, version.count - INLINE_COMPONENTS);
+    if (past > 0 && data.length < RECIPE_SIZE)
+      throw new Error(`a version has ${version.count} lines and the account no room past twelve`);
+    const extra = Array.from({ length: past }, (_, i) =>
+      componentDecoder.decode(
+        data,
+        RECIPE_HEAD_SIZE + (slot * (MAX_COMPONENTS - INLINE_COMPONENTS) + i) * 34,
+      ),
+    );
+    return {
+      ...version,
+      components: [...version.components.slice(0, version.count - past), ...extra],
+    };
   };
-  return { ...recipe, current: used(recipe.current), pending: used(recipe.pending) };
+  return { ...recipe, current: used(recipe.current, 0), pending: used(recipe.pending, 1) };
 }
 
 /**

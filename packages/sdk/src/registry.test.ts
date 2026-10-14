@@ -5,7 +5,7 @@ import { base58Decode, base58Encode } from './bytes';
 import type { RpcCall } from './executor/chain-read';
 import { BASKET_PROGRAM } from './guard/generated/basket-program';
 import { recipeAddress } from './guard/solana/addresses';
-import { RECIPE_ACCOUNT_SIZE, readSolanaRecipe } from './registry';
+import { RECIPE_ACCOUNT_SIZE, RECIPE_HEAD_SIZE, readSolanaRecipe } from './registry';
 
 // The registry's account as a screen reads it from its own node, against bytes laid out here from the
 // program's `Recipe` (idl/basket.json). tests/solana-vault/shared-routes.test.ts reads an account the
@@ -25,25 +25,34 @@ const DEPLOYMENT = {
 
 type Version = { version: number; effectiveAt: number; meta: number; lines: [number, number][] };
 
-function writeVersion(b: Uint8Array, at: number, v: Version) {
+/** A version's lines: the first twelve in its fields, the rest from byte 1,022 (current) or 1,158. */
+function writeVersion(b: Uint8Array, slot: 0 | 1, v: Version) {
+  const at = slot === 0 ? 72 : 525;
   const view = new DataView(b.buffer);
   view.setUint32(at, v.version, true);
   view.setBigInt64(at + 4, BigInt(v.effectiveAt), true);
   b.fill(v.meta, at + 12, at + 44);
   b[at + 44] = v.lines.length;
   v.lines.forEach(([mint, weight], i) => {
-    b.set(base58Decode(MINT(mint)), at + 45 + i * 34);
-    view.setUint16(at + 45 + i * 34 + 32, weight, true);
+    const line = i < 12 ? at + 45 + i * 34 : 1022 + (slot * 4 + i - 12) * 34;
+    b.set(base58Decode(MINT(mint)), line);
+    view.setUint16(line + 32, weight, true);
   });
 }
 
-function account(o: { current: Version; pending?: Version; creator?: string; family?: string }) {
-  const b = new Uint8Array(RECIPE_ACCOUNT_SIZE);
+function account(o: {
+  current: Version;
+  pending?: Version;
+  creator?: string;
+  family?: string;
+  size?: number;
+}) {
+  const b = new Uint8Array(o.size ?? RECIPE_ACCOUNT_SIZE);
   b.set(createHash('sha256').update('account:Recipe').digest().subarray(0, 8), 0);
   b.set(base58Decode(o.creator ?? CREATOR), 8);
   b.set(Buffer.from(o.family ?? FAMILY, 'hex'), 40);
-  writeVersion(b, 72, o.current);
-  if (o.pending) writeVersion(b, 525, o.pending);
+  writeVersion(b, 0, o.current);
+  if (o.pending) writeVersion(b, 1, o.pending);
   return b;
 }
 
@@ -101,7 +110,36 @@ describe("a shared portfolio, read from the caller's own node", () => {
     expect(recipe.discriminator).toEqual([
       ...createHash('sha256').update('account:Recipe').digest().subarray(0, 8),
     ]);
-    expect(RECIPE_ACCOUNT_SIZE).toBe(1022);
+    expect([RECIPE_HEAD_SIZE, RECIPE_ACCOUNT_SIZE]).toEqual([1022, 1294]);
+  });
+
+  it('reads a portfolio of the first layout, and the lines past twelve of one with room for them', async () => {
+    const at = { creator: CREATOR, familyId: FAMILY };
+    const old = await readSolanaRecipe(
+      node(account({ current: V1, pending: V2, size: RECIPE_HEAD_SIZE }), 1_500),
+      DEPLOYMENT,
+      at,
+    );
+    expect([old?.active.version, old?.pending?.version]).toEqual([1, 3]);
+    const sixteen = (first: number): Version => ({
+      ...V2,
+      lines: Array.from({ length: 16 }, (_, i) => [first + i, 600] as [number, number]),
+    });
+    const wide = await readSolanaRecipe(
+      node(account({ current: sixteen(10), pending: sixteen(40) }), 1_500),
+      DEPLOYMENT,
+      at,
+    );
+    expect(wide?.active.components.map((c) => c.mint)).toEqual(
+      Array.from({ length: 16 }, (_, i) => MINT(10 + i)),
+    );
+    expect(wide?.pending?.components.map((c) => c.mint)).toEqual(
+      Array.from({ length: 16 }, (_, i) => MINT(40 + i)),
+    );
+    const cut = account({ current: sixteen(10) }).slice(0, RECIPE_HEAD_SIZE);
+    await expect(readSolanaRecipe(node(cut, 1_500), DEPLOYMENT, at)).rejects.toThrow(
+      'no room past twelve',
+    );
   });
 
   it('answers the version in effect and the one that waits, by the cluster clock', async () => {

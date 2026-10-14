@@ -2,7 +2,7 @@ import {
   createSolanaVaultReader,
   getAccounts,
   type RawAccount,
-  RECIPE_SIZE,
+  RECIPE_HEAD_SIZE,
   type SolanaVaultReader,
   TOKEN_ACCOUNT_BYTES_BOUND,
   toBase58,
@@ -610,7 +610,7 @@ describe('Solana reader: vaults', () => {
     });
 
     it('refuses a shared portfolio that carries a fee or flags, which the program never stores', async () => {
-      const feeAt = RECIPE_SIZE - 32 - 1 - 1 - 2;
+      const feeAt = RECIPE_HEAD_SIZE - 32 - 1 - 1 - 2;
       for (const edit of [
         { at: feeAt, bytes: u16(1) },
         { at: feeAt + 2, bytes: [1] },

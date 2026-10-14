@@ -126,7 +126,14 @@ const updateIx = (o: Over = {}) =>
   vaultIx(
     BASKET_PROGRAM,
     'update_recipe',
-    { creator: OWNER, recipe: RECIPE, config: CONFIG, assets: ASSETS, ...o.accounts },
+    {
+      creator: OWNER,
+      recipe: RECIPE,
+      config: CONFIG,
+      assets: ASSETS,
+      system_program: SYSTEM,
+      ...o.accounts,
+    },
     join(targetsArg(o.components ?? COMPONENTS), Buffer.from(o.meta ?? META, 'hex')),
     o.extra,
     o.flagsOf,
@@ -488,6 +495,10 @@ describe('the guard on Solana: each registry negative is refused by the check th
     ),
     on(publishStep, 'another system program', 'accounts', () =>
       publishIx({ accounts: { system_program: someone('system') } }),
+    ),
+    // An update pays for the room past twelve lines through the system program, and no other.
+    on(updateStep, 'an update through another system program', 'accounts', () =>
+      updateIx({ accounts: { system_program: someone('system') } }),
     ),
     on(cancelStep, 'an account more on a cancel', 'accounts', () =>
       cancelIx({ extra: [{ address: someone('spare') }] }),

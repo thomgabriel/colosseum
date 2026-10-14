@@ -31,6 +31,7 @@ export const BASKET_DISCRIMINATORS = {
   adopt_version: [213, 117, 253, 10, 21, 238, 139, 217],
   cancel_pending: [74, 87, 109, 242, 64, 192, 151, 71],
   create_vault: [29, 237, 247, 208, 193, 82, 54, 135],
+  creator_limits: [5, 106, 182, 233, 116, 232, 60, 129],
   deposit: [242, 35, 198, 137, 82, 225, 242, 182],
   keeper_leg: [46, 178, 18, 83, 188, 146, 82, 217],
   owner_swap: [12, 59, 193, 156, 47, 162, 240, 108],
@@ -342,15 +343,30 @@ export function publishRecipeInstruction(
   };
 }
 
+/**
+ * The creator pays: a portfolio published before it could hold more than twelve lines is given the room
+ * for them, at the creator's cost, the first time a version needs it (272 bytes of rent, once).
+ */
 export function updateRecipeInstruction(
   p: ProgramAccounts,
   a: { creator: Address; recipe: Address; components: ComponentLine[]; metaHash: Uint8Array },
 ): IInstruction {
   return {
     programAddress: p.program,
-    accounts: [signer(a.creator), writable(a.recipe), readonly(p.config), readonly(p.assets)],
+    accounts: [
+      payer(a.creator),
+      writable(a.recipe),
+      readonly(p.config),
+      readonly(p.assets),
+      readonly(SYSTEM_PROGRAM),
+    ],
     data: data('update_recipe', componentsEncoder.encode(a.components), bytes32.encode(a.metaHash)),
   };
+}
+
+/** No accounts: the author limits the program holds, as return data (`decodeCreatorLimits`). */
+export function creatorLimitsInstruction(p: Pick<ProgramAccounts, 'program'>): IInstruction {
+  return { programAddress: p.program, accounts: [], data: data('creator_limits') };
 }
 
 /** Signed by the portfolio's creator, or by the guardian as a veto. */

@@ -128,6 +128,17 @@ const IX_ERRORS = [
   'ArithmeticOverflow',
 ];
 
+/** What the last instruction set as return data, as a node's JSON has it; null when it set none. */
+function returnDataOf(returned: { programId(): Uint8Array; data(): Uint8Array }) {
+  const data = new Uint8Array(returned.data());
+  const programId = new Uint8Array(returned.programId());
+  if (data.length === 0 && programId.every((byte) => byte === 0)) return null;
+  return {
+    programId: getBase58Decoder().decode(programId),
+    data: [Buffer.from(data).toString('base64'), 'base64'],
+  };
+}
+
 /** A failed transaction's error in the shape a node's JSON answers with. */
 function errorOf(failed: FailedTransactionMetadata): unknown {
   const err = failed.err() as unknown;
@@ -333,7 +344,7 @@ export async function createSvmNode(authority: Address, startAt: bigint): Promis
             err: failed ? errorOf(result) : null,
             logs: meta.logs(),
             unitsConsumed: meta.computeUnitsConsumed(),
-            returnData: null,
+            returnData: returnDataOf(meta.returnData()),
             accounts: failed
               ? null
               : (config.accounts?.addresses ?? []).map((address) => {
