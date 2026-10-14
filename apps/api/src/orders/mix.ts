@@ -894,7 +894,12 @@ export async function planRetarget(
     const spend = trades
       .filter((t) => t.sell === ctx.cash.id)
       .reduce((n, t) => n + BigInt(t.amountInRaw), 0n);
-    if (spend === 0n || spend <= sure) break;
+    // The cash's share is kept, not needed to pay: a purchase within a cent of it is the planner's
+    // own reserve read in floats here, and is not scaled (a $5.00 purchase scaled to $4.99 would be
+    // dropped). What the vault holds and the sales are sure to bring is never passed.
+    const cent = 10n ** BigInt(Math.max(0, ctx.cash.decimals - 2));
+    const slack = reserve < cent ? reserve : cent;
+    if (spend === 0n || spend <= sure + slack) break;
     const room = sure > 0n ? sure : 0n;
     trades = trades
       .map((t) =>

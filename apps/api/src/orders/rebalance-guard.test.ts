@@ -219,6 +219,25 @@ describe('what is offered is what is planned', { timeout: 120_000 }, () => {
     );
   });
 
+  it('does not offer a purchase with no cash and no sale of a trade to pay for it', () => {
+    // the reviewer's case: $1,200, four of 25%; A $288 (100 bps under, outside the band), B, C and D
+    // $304 each ($4 over: no sale of a trade), no cash
+    const state = vault('0', {
+      'solana:a': ['288000000', 2500],
+      'solana:b': ['304000000', 2500],
+      'solana:c': ['304000000', 2500],
+      'solana:d': ['304000000', 2500],
+    });
+    const targets = IDS.map((id) => ({ asset: id, weightBps: 2500 }));
+    const { offered, trades } = routePlan(
+      state,
+      targets,
+      IDS.map((id) => price(id, '1')),
+    );
+    expect(offered).toBe(false);
+    expect(trades).toHaveLength(0);
+  });
+
   it('plans a trade wherever it offers one', () => {
     let offers = 0;
     fc.assert(

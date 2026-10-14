@@ -719,6 +719,51 @@ describe('cash a change or a rebalance leaves (Vault #4 on devnet, Oct 14)', () 
     expect(Number(after?.cash.raw)).toBeLessThan(10);
   });
 
+  it('keeps a purchase filled with the whole of $5.01 of idle cash, never scaled under $5 and dropped', async () => {
+    const s = await setup();
+    const { entry, mock, cash } = s;
+    const owner = mockAddress('solana', 'edge');
+    mock.fund(owner, { gasRaw: '100000000000', assets: { [cash]: '1000000000' } });
+    const targets = ['spy', 'nvda', 'tsla', 'gold'].map((x) => ({
+      asset: `solana:${x}`,
+      weightBps: 2375,
+    }));
+    await mock.send(
+      await entry.adapter.buildCreateVault({
+        owner,
+        basketId: '15',
+        targets,
+        autoFollow: false,
+        depositRaw: '1000000000',
+        slippageBps: 100,
+      }),
+    );
+    const [opened] = await entry.adapter.getVaults(owner);
+    if (!opened) throw new Error('no vault');
+    // $237.50 each is on target; two $5.20 under, two over, and $55.01 of cash against its $50
+    for (const [x, raw] of [
+      ['spy', '232300000'],
+      ['nvda', '232300000'],
+      ['tsla', '240195000'],
+      ['gold', '240195000'],
+    ] as const)
+      await mock.send(
+        await entry.adapter.buildOwnerSwap({
+          vault: opened.address,
+          trades: [{ sell: cash, buy: `solana:${x}`, amountInRaw: raw }],
+          slippageBps: 100,
+        }),
+      );
+    const vault = await entry.adapter.getVault(opened.address);
+    if (!vault) throw new Error('no vault');
+    const planned = await planVaultRebalance(entry, vault, { slippageBps: 100, now: NOW, owner });
+    if (!planned.planned) throw new Error('nothing planned');
+    const buys = planned.planned.order.legs.flatMap((l) => l.trades);
+    expect(buys).toHaveLength(1);
+    expect(buys[0]?.sell).toBe(cash);
+    expect(Number(buys[0]?.amountInRaw) / 1e6).toBeGreaterThanOrEqual(5);
+  });
+
   it('plans nothing for idle cash under one trade, and the page and the chat say on target', async () => {
     const s = await setup();
     const owner = mockAddress('solana', 'dust');
