@@ -1,1 +1,0 @@
-ALTER TABLE "legs" ADD COLUMN "switch_auto_follow" boolean;

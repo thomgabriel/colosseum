@@ -162,13 +162,6 @@
       "when": 1791924783823,
       "tag": "0022_drop_unused_tables",
       "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1792000970931,
-      "tag": "0023_leg_switch_auto_follow",
-      "breakpoints": true
     }
   ]
 }
