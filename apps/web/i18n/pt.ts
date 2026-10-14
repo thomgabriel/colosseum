@@ -1,3 +1,4 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import type { Dictionary } from './en';
 
 // The same sentences as en.ts, as a Brazilian reads them: "você", answer first, no exclamation marks.
@@ -1564,6 +1565,26 @@ export const pt: Dictionary = {
         deposit: 'Depositar',
         more: 'Mais',
         editWeights: 'Editar pesos à mão',
+        close: {
+          action: 'Encerrar este cofre',
+          title: 'Encerrar este cofre?',
+          body: 'Ele sai do seu portfólio, dos totais e das suas listas de cofres. Nada se move na rede: o cofre fica no mesmo endereço, vazio, e você pode abri-lo de novo em Cofres encerrados.',
+          confirm: 'Encerrar cofre',
+          closing: 'Encerrando…',
+          keep: 'Manter aberto',
+          notEmpty: 'Este cofre ainda guarda algo. Saque primeiro e depois encerre.',
+          failed: 'Não consegui encerrar: nosso servidor não respondeu. Tente de novo.',
+          orderOpen:
+            'Uma ordem neste cofre ainda não terminou. Conclua-a, ou espere ela expirar, e então encerre o cofre.',
+        },
+        closed: {
+          title: 'Este cofre está encerrado',
+          body: (date: string) =>
+            `Você o encerrou em ${date}. Ele não está no seu portfólio nem nos totais. Nada se moveu na rede.`,
+          reopen: 'Abrir de novo',
+          reopening: 'Abrindo…',
+          failed: 'Não consegui abri-lo de novo: nosso servidor não respondeu. Tente de novo.',
+        },
         rebalance: 'Rebalancear',
         offTarget:
           'O que este cofre guarda está fora das metas, e nada o negocia por você. Rebalancear troca até elas: você vê cada troca com o mínimo que ela pode render, e assina cada passo aqui.',
@@ -2476,9 +2497,9 @@ export const pt: Dictionary = {
       remove: (name: string) => `Remover ${name}`,
       weight: (name: string) => `Peso de ${name}`,
       cash: (share: string) => `Caixa: ${share}`,
-      lines: (n: number) => `${n} de 16 ativos`,
+      lines: (n: number) => `${n} de ${VAULT_MAX_TARGETS} ativos`,
       issues: {
-        'too-many': 'Um cofre guarda 16 ativos além do caixa. Remova um.',
+        'too-many': `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa. Remova um.`,
         duplicate: 'Cada ativo uma vez. Remova a repetição.',
         'cash-line': 'O caixa é o que os outros deixam. Remova-o como linha.',
         'not-whole': 'Use porcentagens com até duas casas decimais, ou pontos-base inteiros.',
@@ -2518,7 +2539,7 @@ export const pt: Dictionary = {
         case 'SUM_NOT_10000':
           return 'Os pesos não somam o todo.';
         case 'TOO_MANY_LINES':
-          return 'Um cofre guarda 16 ativos além do caixa.';
+          return `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa.`;
         case 'NO_PRICE':
           return `${asset} não tem um preço usável agora.`;
         case 'NOT_FOR_GOAL':

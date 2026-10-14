@@ -389,6 +389,30 @@ export const vaultNumbers = pgTable(
 );
 
 /**
+ * Whether a person has closed a vault, and since when it counts again (gate `VAULT-CLOSE-REUSE`). A
+ * close is bookkeeping: nothing moves on chain, and the vault stays there, empty. A closed vault is in
+ * none of the person's lists, sums or histories until it is reopened; a reopened one counts its
+ * deposits, withdrawals and snapshots from `reopened_at` on, so a new life does not carry the old
+ * one's figures. Named by chain and address, as `vault_numbers` is, and not hung off the cache row,
+ * which is rewritten on every read. No row is the same as open, counted from the start.
+ */
+export const vaultLifetimes = pgTable(
+  'vault_lifetimes',
+  {
+    chainId: chainId(),
+    address: text('address').notNull(),
+    /** When its owner closed it; null while it is open. */
+    closedAt: ts('closed_at'),
+    /** Who closed it, among the people the server holds. */
+    closedBy: uuid('closed_by').references(() => users.id, { onDelete: 'set null' }),
+    /** When it was last opened again; its figures count from here. Null for a first life. */
+    reopenedAt: ts('reopened_at'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.address] })],
+);
+
+/**
  * One read of one vault at one time, kept whole: the view, and every price it stood on. A cache with
  * its time, as `vaults` is, but never overwritten: the rows of a vault are its history. Only the
  * snapshot worker (apps/snapshot) writes it, and it names a vault by its chain and address, as the

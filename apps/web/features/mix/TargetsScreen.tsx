@@ -99,7 +99,7 @@ export function TargetsScreen({ chain: chainText, address }: { chain: string; ad
         from="person"
         provenance={load.read.provenance}
       />
-      <Disclaimer lang={lang} label={t.shell.disclaimer} />
+      <Disclaimer lang={lang} heading={t.activity.notAdvice} label={t.shell.disclaimer} />
     </section>
   );
 }

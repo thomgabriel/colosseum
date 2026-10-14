@@ -1,3 +1,5 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
+
 // Every sentence a person reads on the product screens, in English. pt.ts holds the same keys in
 // Brazilian Portuguese, and the type below is what keeps the two in step.
 //
@@ -1798,6 +1800,29 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** Closing an empty vault (gate VAULT-CLOSE-REUSE): a confirm, then the closed vault's note. */
+        close: {
+          action: 'Close this vault',
+          title: 'Close this vault?',
+          body: 'It leaves your portfolio, its totals and your lists of vaults. Nothing moves on the chain: the vault stays at its address, empty, and you can open it again from Closed vaults.',
+          confirm: 'Close vault',
+          closing: 'Closing…',
+          keep: 'Keep it open',
+          /** Worth a cent or more, or holding a token with no price. */
+          notEmpty: 'This vault still holds something. Withdraw it first, then close it.',
+          failed: 'I couldn’t close it: our server didn’t answer. Try again.',
+          /** An order on the vault is still under way. */
+          orderOpen:
+            'An order on this vault isn’t finished yet. Finish it, or let it run out, then close the vault.',
+        },
+        closed: {
+          title: 'This vault is closed',
+          body: (date: string) =>
+            `You closed it on ${date}. It isn’t in your portfolio or its totals. Nothing moved on the chain.`,
+          reopen: 'Open it again',
+          reopening: 'Opening…',
+          failed: 'I couldn’t open it again: our server didn’t answer. Try again.',
+        },
         /** The press that trades the vault to the targets it has, and the sentence that offers it. */
         rebalance: 'Rebalance',
         offTarget:
@@ -2767,9 +2792,9 @@ export const en = {
       remove: (name: string) => `Remove ${name}`,
       weight: (name: string) => `Weight of ${name}`,
       cash: (share: string) => `Cash: ${share}`,
-      lines: (n: number) => `${n} of 16 assets`,
+      lines: (n: number) => `${n} of ${VAULT_MAX_TARGETS} assets`,
       issues: {
-        'too-many': 'A vault holds 16 assets besides cash. Remove one.',
+        'too-many': `A vault holds ${VAULT_MAX_TARGETS} assets besides cash. Remove one.`,
         duplicate: 'Each asset once. Remove the repeat.',
         'cash-line': 'Cash is what the others leave. Remove it as a line.',
         'not-whole': 'Use percents with up to two decimals, or whole basis points.',
@@ -2810,7 +2835,7 @@ export const en = {
         case 'SUM_NOT_10000':
           return 'The weights don’t add up to the whole.';
         case 'TOO_MANY_LINES':
-          return 'A vault holds 16 assets besides cash.';
+          return `A vault holds ${VAULT_MAX_TARGETS} assets besides cash.`;
         case 'NO_PRICE':
           return `${asset} has no usable price just now.`;
         case 'NOT_FOR_GOAL':

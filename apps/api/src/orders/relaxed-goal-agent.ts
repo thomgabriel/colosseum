@@ -455,6 +455,14 @@ const AT_DEPOSIT = /\b(?:deposit\w*|dep[óo]sit\w*|confirm\w*|sign(?:s|ed|ing)?\
 // "a word of warning" about risk, which is no verdict wherever it stands
 const WORD_OF_WARNING = /\b(?:a\s+)?word\s+of\s+warning\b/giu;
 
+/** Said by the server in the person's language when a draft names more holdings than a vault holds. */
+const TOO_MANY = {
+  en: (named: number, most: number) =>
+    `That names ${named} holdings, and a vault holds at most ${most} besides cash. Tell me which to keep, or ask for a shorter list.`,
+  pt: (named: number, most: number) =>
+    `Isso dá ${named} ativos, e um cofre guarda no máximo ${most} além do caixa. Diga quais manter, ou peça uma lista menor.`,
+};
+
 const REPAIR_SHAPE =
   'That was not the JSON object the API holds you to. Answer again with that object and nothing else: every required field, each of the kind it asks for.';
 const REPAIR_FIGURE =
@@ -1060,7 +1068,7 @@ export function createRelaxedGoalAgent(options: {
         const tooMany = VaultAgentReply.safeParse({
           version: 1,
           messageId,
-          message: `That names ${invested} holdings, and a vault holds at most ${ORDER_POLICY.maxLines} besides cash. Tell me which to keep, or ask for a shorter list.`,
+          message: TOO_MANY[language](invested, ORDER_POLICY.maxLines),
           question: null,
           warnings: [],
           weightNotes: [],

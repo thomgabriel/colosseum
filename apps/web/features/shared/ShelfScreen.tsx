@@ -97,7 +97,7 @@ export function ShelfScreen() {
         {person.kind === 'ready' && person.publishable && (
           <Link
             href="/products/publish"
-            className={`${buttonClass({ variant: 'link' })} self-start`}
+            className={`${buttonClass({ variant: 'secondary' })} self-start`}
           >
             {t.shared.shelf.publish}
           </Link>

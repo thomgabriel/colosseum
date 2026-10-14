@@ -15,7 +15,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import { utcMinute } from '../../components/ui/ExecutionList';
 import { shorten } from '../../components/ui/format';
 import { Hint } from '../../components/ui/Hint';
-import { PAGE_TITLE } from '../../components/ui/heading';
+import { PAGE_BACK, PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { KIT_CELL, KIT_ROW, KitTable, KitTh } from '../../components/ui/KitTable';
 import { Panel } from '../../components/ui/Panel';
@@ -192,7 +192,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
   return (
     <div data-ui="family-screen" className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
+        <Link href="/products" className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}>
           {f.backToShelf}
         </Link>
         <h1 id={titleId} className={`${PAGE_TITLE} [overflow-wrap:anywhere]`}>

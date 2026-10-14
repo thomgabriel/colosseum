@@ -359,8 +359,10 @@ describe('a number is its owner’s alone', () => {
     expect(signedIn.raw.vault).not.toHaveProperty('number');
     expect((await vaultOf(visitor, theirs)).answer.vault.number).toBe(1);
 
-    // The number is all the owner's answer adds.
-    const { number: _number, ...rest } = mine.raw.vault;
+    // The number, and whether they closed it (gate VAULT-CLOSE-REUSE), are all the owner's answer adds.
+    expect(mine.raw.vault.closedAt).toBeNull();
+    expect(anybody.raw.vault).not.toHaveProperty('closedAt');
+    const { number: _number, closedAt: _closedAt, ...rest } = mine.raw.vault;
     expect({ ...mine.raw, vault: rest }).toEqual(anybody.raw);
     expect(signedIn.raw).toEqual(anybody.raw);
 

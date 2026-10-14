@@ -2,7 +2,7 @@ import { type Db, snapshotRuns, vaultSnapshots, vaults } from '@colosseum/db';
 import type { TrackSnapshot } from '@colosseum/schemas';
 import { and, desc, eq, gt, isNotNull, isNull } from 'drizzle-orm';
 import type { ChainEntry } from '../orders/chains';
-import { addressOn, ownedOn, type ScopedChain } from './scope';
+import { addressOn, openOn, type ScopedChain } from './scope';
 
 // The reads of the snapshot worker's tables that the portfolio section's routes share (PORT-2). The
 // worker (apps/snapshot) writes `vault_snapshots` and `snapshot_runs`; the API only reads them, and
@@ -42,14 +42,14 @@ export async function knownVaults(
   const cached = await db
     .select()
     .from(vaults)
-    .where(and(ownedOn(vaults, scoped), ...(only ? [eq(vaults.address, only)] : [])));
+    .where(and(openOn(vaults, scoped), ...(only ? [eq(vaults.address, only)] : [])));
   const since = new Date(a.now.getTime() - SNAPSHOT_LOOKBACK_DAYS * 86_400_000);
   const seen = await db
     .selectDistinct({ address: vaultSnapshots.address })
     .from(vaultSnapshots)
     .where(
       and(
-        ownedOn(vaultSnapshots, scoped),
+        openOn(vaultSnapshots, scoped, vaultSnapshots.observedAt),
         gt(vaultSnapshots.observedAt, since),
         ...(only ? [eq(vaultSnapshots.address, only)] : []),
       ),
@@ -74,7 +74,12 @@ export async function newestSnapshot(
   const [row] = await db
     .select()
     .from(vaultSnapshots)
-    .where(and(ownedOn(vaultSnapshots, scoped), eq(vaultSnapshots.address, address)))
+    .where(
+      and(
+        openOn(vaultSnapshots, scoped, vaultSnapshots.observedAt),
+        eq(vaultSnapshots.address, address),
+      ),
+    )
     .orderBy(desc(vaultSnapshots.observedAt))
     .limit(1);
   return row ?? null;

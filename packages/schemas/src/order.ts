@@ -14,7 +14,7 @@ import {
 } from './chain';
 import { ChainErrorCode } from './chain-error';
 import { Provenance } from './enums';
-import { RecipeDraft, Target } from './recipe';
+import { RecipeDraft, Target, VAULT_MAX_TARGETS } from './recipe';
 import { Trade } from './vault';
 import { WalletAccount } from './wallet';
 
@@ -417,7 +417,7 @@ export const IntentRequest = z.discriminatedUnion('type', [
      * by `POST /v1/vaults/{chain}/{address}/rebalance`, which sets none. `POST /v1/orders` plans no
      * rebalance yet.
      */
-    targets: z.array(Target).max(16).optional(),
+    targets: z.array(Target).max(VAULT_MAX_TARGETS).optional(),
     /** With `targets`: the slippage the order's trades are built with. */
     maxSlippageBps: Bps.max(ORDER_LIMITS.maxSlippageBps).optional(),
   }),
@@ -525,6 +525,10 @@ export const OrderErrorCode = z.enum([
   'NOTHING_LEFT',
   /** The vault holds less cash than the steps left would spend. */
   'VAULT_CASH_SHORT',
+  /** A vault that still holds something is not closed: what it holds is withdrawn first (VAULT-CLOSE-REUSE). */
+  'NOT_EMPTY',
+  /** A vault with an order under way on it is not closed: the order is finished, or runs out, first. */
+  'ORDER_UNFINISHED',
   /** The order's deposit has not landed: its own steps are signed first. */
   'DEPOSIT_NOT_LANDED',
   /** Another request is working on the order, and the wait for it ran out. Retryable. */

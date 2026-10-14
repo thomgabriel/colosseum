@@ -5,7 +5,7 @@ import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } fr
 import { Button } from '../../components/ui/Button';
 import { CardSampleRoom } from '../../components/ui/Card';
 import { Composer } from '../../components/ui/Composer';
-import { WORKSPACE_TITLE } from '../../components/ui/heading';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { LatticeGlyph } from '../../components/ui/Lattice';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { dictionary, LOCALE } from '../../i18n';
@@ -70,6 +70,7 @@ export function GoalConversation({
   onDeposit,
   chainControl,
   carried,
+  picker,
 }: {
   /**
    * What the bar's account control shows (AccountProvider, `view`), so this page says the same:
@@ -99,6 +100,8 @@ export function GoalConversation({
    * beside the box: the box starts with them.
    */
   carried?: RefObject<{ chain: ChainId; text: string } | null>;
+  /** The conversation's picker, in the head's row beside the title, so the title is where every page's is (PAGE-SHELL). */
+  picker?: ReactNode;
 }) {
   const t = useT();
   const lang = useLang();
@@ -464,13 +467,15 @@ export function GoalConversation({
     <section
       data-ui="goal-conversation"
       data-workbench
-      className="grid min-w-0 gap-4 md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch"
     >
       <header className="flex flex-wrap items-baseline justify-between gap-3 md:col-span-12">
-        <h1 className={WORKSPACE_TITLE}>{t.talk.workbench.title}</h1>
-        <div className="flex flex-wrap items-baseline gap-3">
+        <h1 className={PAGE_TITLE}>{t.talk.workbench.title}</h1>
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
+          {picker}
           <Button
-            variant="link"
+            variant="secondary"
+            size="dense"
             aria-expanded={chatOpen}
             aria-controls={chatId}
             data-ui="goal-chat-toggle"
@@ -479,7 +484,7 @@ export function GoalConversation({
             {chatOpen ? t.talk.hideChat : t.talk.showChat}
           </Button>
           {turns.length > 0 && !asking && (
-            <Button variant="link" disabled={busy} onClick={() => startOver()}>
+            <Button variant="secondary" size="dense" disabled={busy} onClick={() => startOver()}>
               {t.talk.startOver}
             </Button>
           )}
