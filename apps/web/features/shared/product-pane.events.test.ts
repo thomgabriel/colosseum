@@ -21,7 +21,7 @@ import { recallOrder } from '../order/order-record';
 import { EMBEDDED, fakePort, json, signedInPort } from '../wallet/test/fake-port';
 import { portStore } from '../wallet/test/mock-provider';
 import { FamilyScreen } from './FamilyScreen';
-import { holdingsOf, kindShares, rate } from './product-figures';
+import { holdingsOf, kindsSaid, rate } from './product-figures';
 import { ShelfScreen } from './ShelfScreen';
 import {
   CREATOR,
@@ -217,7 +217,7 @@ describe('a product’s figures, from the server’s readings', () => {
     expect(rate(0.0312, 'en-US')).toBe('3.12%');
     expect(rate(0.04, 'pt-BR')).toBe('4%');
     const rows = holdingsOf(withFigures(), HELD, en);
-    expect(kindShares(rows, 'en-US', en.plan.kinds)).toEqual(['Funds 50%', 'Dollar yield 50%']);
+    expect(kindsSaid(rows, 'en-US', en.plan.kinds)).toBe('Funds 50% and dollar yield 50%');
   });
 });
 

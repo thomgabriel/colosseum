@@ -22,6 +22,7 @@ import {
 } from '../order/test/fixtures';
 import { unitsFor } from '../order/units';
 import { readTerms, type SharedTerms } from '../shared/terms';
+import { shortAddress } from '../shared/use-person';
 import { VaultScreen } from '../shared/VaultScreen';
 import { EMBEDDED, fakePort, json, SOLANA, signedInPort } from '../wallet/test/fake-port';
 import { router } from '../wallet/test/mock-next';
@@ -786,20 +787,31 @@ describe('a vault’s own page, which anybody can open', () => {
     // signed in, with a vault of their own that is not this one
     api({ vaults: [vault({ address: SECOND_VAULT, basketId: '8', name: 'Mine' })] });
     const host = await page();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.title);
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.querySelector('[data-ui="vault-actions"]')).toBeNull();
     expect(host.querySelector('[data-ui="vault-add-money"]')).toBeNull();
     expect(host.textContent).not.toContain('Mine');
+    // signed in, they have a portfolio to go back to
+    expect(find(host, '[data-ui="vault-back"]').getAttribute('href')).toBe('/portfolio');
   });
 
   it('offers a signed-out reader none, and asks the server for no portfolio', async () => {
     const server = api({ vaults: [vault({ name: 'Rent' })] });
     portStore.set(fakePort());
     const host = await page();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.title);
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.querySelector('[data-ui="vault-actions"]')).toBeNull();
     expect(host.textContent).not.toContain('Rent');
     expect(server.to(PORTFOLIO_PATH)).toEqual([]);
+    // no portfolio to go back to: the way back is to Products, and the chain is its chip by the title
+    const back = find<HTMLAnchorElement>(host, '[data-ui="vault-back"]');
+    expect([back.textContent, back.getAttribute('href')]).toEqual([
+      en.shared.vault.backVisitor,
+      '/shelf',
+    ]);
+    expect(find(host, 'header [data-ui="chain-badge"]').getAttribute('data-chain')).toBe('solana');
+    expect(host.querySelector('[data-ui="vault-chain"]')).toBeNull();
+    expect(host.textContent).not.toContain(en.shared.vault.back);
   });
 });
 

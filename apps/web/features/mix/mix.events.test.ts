@@ -298,7 +298,14 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     });
     // Every figure of the review carries its pin; the confirm waits for the tick.
     const lines = find(host, '[data-ui="mix-review-lines"]');
-    expect(lines.textContent).toContain('tGLDx');
+    // each row by the name every other step gives it, never the chain's symbol (the UI audit, I4)
+    expect(lines.textContent).toContain('GLDx');
+    expect(lines.textContent).not.toContain('tGLDx');
+    // and the server's warning names it the same way
+    expect(find(host, '[data-ui="mix-review-warnings"]').textContent).toContain(
+      'GLDx is larger than',
+    );
+    expect(find(host, '[data-ui="mix-review-warnings"]').textContent).not.toContain('tGLDx');
     expect(find(host, '[data-ui="exit-ceiling"]').textContent).toContain(en.mix.review.measured);
     const confirm = find<HTMLButtonElement>(host, '[data-action="mix-confirm"]');
     expect(confirm.getAttribute('aria-disabled')).toBe('true');
