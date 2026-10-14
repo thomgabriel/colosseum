@@ -300,11 +300,11 @@ describe('the shelf', () => {
     const [solanaCard, , bothCard] = [
       ...host.querySelectorAll<HTMLElement>('[data-ui="shelf-card"]'),
     ];
-    expect(solanaCard?.querySelector('[data-ui="holdings-bar"]')).not.toBeNull();
+    expect(solanaCard?.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(solanaCard?.querySelector('[data-ui="shelf-recipe"]')).toBeNull();
-    // One on both shows no figure of one chain as the family's: no bar, no yield line, and each
+    // One on both shows no figure of one chain as the family's: no ring, no yield line, and each
     // chain's weights, publisher and version under that chain's own name and mark.
-    expect(bothCard?.querySelector('[data-ui="holdings-bar"]')).toBeNull();
+    expect(bothCard?.querySelector('[data-ui="composition"]')).toBeNull();
     expect(bothCard?.querySelector('[data-ui="product-yield"]')).toBeNull();
     expect(bothCard?.textContent).toContain(en.shared.family.perChain);
     const whose = [...(bothCard?.querySelectorAll<HTMLElement>('[data-ui="shelf-recipe"]') ?? [])];
@@ -477,21 +477,22 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       const cards = [...host.querySelectorAll<HTMLElement>('[data-ui="my-vault"]')];
       expect(cards).toHaveLength(4);
       const allocations = cards.map((card) => find(card, '[data-ui="vault-holdings"]'));
-      expect(
-        [...find(allocations[0], '[data-ui="holdings-bar"]').children].map(
-          (segment) => (segment as HTMLElement).style.width,
-        ),
-      ).toEqual(['65%', '35%']);
+      const fills = (at: HTMLElement) =>
+        [...at.querySelectorAll('[data-ui="composition-segment"]')].map(
+          (segment) => (segment as HTMLElement).style.background,
+        );
+      // SPYx and cash, by the shares held, cash in its neutral
+      expect(fills(allocations[0])).toEqual(['var(--tf-share-1)', 'var(--tf-share-cash)']);
       expect(allocations[0].textContent).toContain('SPYx 65%');
       expect(allocations[0].textContent).toContain('USDC 35%');
       expect(allocations[0].textContent).not.toContain('90%');
-      expect(find(allocations[1], '[data-ui="holdings-bar"] span').getAttribute('style')).toContain(
-        '100%',
-      );
+      // cash alone is the whole: a strip of one says nothing, so there is none
+      expect(fills(allocations[1])).toEqual([]);
       expect(allocations[1].textContent).toContain('USDC 100%');
-      expect(allocations[2].querySelector('[data-ui="holdings-bar"]')).toBeNull();
+      expect(allocations[2].querySelector('[data-ui="composition"]')).toBeNull();
       expect(allocations[2].textContent).toContain(t.shared.vaults.noHoldings);
-      expect(allocations[3].querySelector('[data-ui="holdings-bar"]')).toBeNull();
+      // a holding with no price is a row with a dash, and nothing is drawn for it
+      expect(fills(allocations[3])).toEqual([]);
       expect(allocations[3].textContent).toContain('PAXG —');
       expect(allocations[3].textContent).toContain(t.portfolio.vault.unpriced(1));
       // One page read, for the owned-vault cards (a portfolio on one chain has no other chain to
@@ -1795,19 +1796,26 @@ describe('auto-follow on a vault’s page, after a withdrawal switched it off', 
         },
       ],
     });
-    const row = [...host.querySelectorAll('tbody tr')].find((tr) =>
-      tr.textContent?.includes('PAXG'),
+    const row = [...host.querySelectorAll('[data-ui="composition-list"] [data-row]')].find((li) =>
+      li.textContent?.includes('PAXG'),
     ) as HTMLElement;
-    const cells = [...row.querySelectorAll('th, td')].map((cell) => cell.textContent);
-    const heads = [...host.querySelectorAll('thead th')].map((th) => th.textContent);
-    const at = (name: string) => cells[heads.indexOf(name)];
-    expect(at(en.shared.vault.columns.price)).toBe('—');
-    expect(at(en.shared.vault.columns.weight)).toBe('—');
-    // the difference is the delta under a share (VaultHoldings): with no share there is none to draw
-    expect(row.querySelector('[data-ui="holding-drift"]')).toBeNull();
-    expect(heads).not.toContain(en.shared.vault.columns.drift);
-    // what it is meant to be is the plan's own number, and is still said
-    expect(at(en.shared.vault.columns.target)).toMatch(/40/);
+    // no price: a dash said in words, never 0%, and no difference under it
+    const shareNow = row.querySelector('[data-ui="composition-share"]');
+    expect(shareNow?.querySelector('[aria-hidden]')?.textContent).toBe('—');
+    expect(shareNow?.textContent).toContain(en.portfolio.vault.noPrice);
+    expect(row.querySelector('[data-ui="composition-delta"]')).toBeNull();
+    expect(row.textContent).not.toMatch(/\b0%/);
+    expect(row.querySelector('[data-column="price"] [data-ui="hint"]')?.textContent).toBe('—');
+    // no value either: a dash, never $0 (its column's name is in the cell for a narrow box)
+    expect(find(row, '[data-column="value"]').textContent).toMatch(/—$/);
+    expect(find(row, '[data-column="value"]').textContent).not.toContain('$');
+    // nothing is drawn for it now; what it is meant to be is the plan's own number, and is still said
+    expect(
+      host.querySelector(
+        '[data-bar="after"] [data-ui="composition-segment"][data-key="solana:paxg"]',
+      ),
+    ).toBeNull();
+    expect(find(row, '[data-column="before"]').textContent).toContain('40%');
   });
 
   it('says to a visitor, as to the owner, that the value leaves out a holding with no price', async () => {
@@ -1927,12 +1935,10 @@ describe('the chain, on the shelf and on a vault’s page', () => {
         chain === 'solana' ? 'Solana' : 'Robinhood Chain',
       );
       // cash is a holding like any other, named as the plan and the portfolio name it
-      const rows = [...find(host, 'table').querySelectorAll('tbody tr')].map((tr) =>
-        [...tr.children].map((cell) => cell.textContent?.trim()),
-      );
-      // (the row's first cell opens with the token's mark, then its name)
-      expect(rows.at(-1)?.[0]).toMatch(new RegExp(`Cash \\(${name}\\)$`));
-      expect(rows.at(-1)?.[1]).toBe('5');
+      const rows = [...host.querySelectorAll('[data-ui="composition-list"] [data-row]')];
+      const last = rows.at(-1);
+      expect(last?.querySelector('[data-part="name"]')?.textContent).toBe(`Cash (${name})`);
+      expect(last?.querySelector('[data-ui="holding-detail"]')?.textContent).toMatch(/^5\b/);
       // and the page leads back to the portfolio
       const back = [...host.querySelectorAll('a')].find(
         (a) => a.textContent === en.shared.vault.back,

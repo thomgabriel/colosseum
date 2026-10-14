@@ -1043,6 +1043,18 @@ export const en = {
     costPrefix: 'cost',
     /** The fold under a holding's row: every reason behind its share. */
     whyShare: 'Why this share',
+    /** One fold for the whole plan: each holding's reason. */
+    whyShares: 'Why these shares',
+    /** The one fold at the foot of a plan's card: why each share, the way out, who published it. */
+    aboutHoldings: 'Methodology',
+    /** The head of the panel of a plan's holdings. */
+    holdingsTitle: 'Holdings',
+    /** The heading over the strip and the table of what a plan holds. */
+    allocation: 'Allocation',
+    /** The first figure under a plan's answer: how many assets it holds. */
+    kpiAssets: 'Assets',
+    /** In the exit cost column, where Bearing measures nothing. */
+    notMeasured: 'Not measured',
     /** Under the meter of what leaving costs. */
     exitScale: 'A full bar is 1%, the cost at which selling is measured.',
     income: {
@@ -1061,6 +1073,8 @@ export const en = {
       amount: 'Amount',
       yield: 'Yield after haircut',
       why: 'Why',
+      kind: 'Type',
+      exit: 'Exit cost',
     },
     noReason: 'No reason given.',
     projected: 'Projected range a year, not a promise',
@@ -1287,6 +1301,34 @@ export const en = {
   },
 
   shared: {
+    /** What a vault holds, as a ring and a list, or as two bars before and after (Composition.tsx). */
+    composition: {
+      /** In the ring's centre when nothing is pointed at. */
+      count: (n: number) => (n === 1 ? '1 asset' : `${n} assets`),
+      /** The two bars of a comparison, top then bottom. */
+      before: 'Now',
+      after: 'After',
+      /** The bottom bar of a draft that changes a vault's targets. */
+      proposed: 'Proposed',
+      /** The table's name, and the heads of its columns. */
+      caption: 'What it holds',
+      asset: 'Asset',
+      weight: 'Weight',
+      changeHead: 'Change',
+      /** Under the largest holdings on a card in a list: how many are not listed. */
+      more: (n: number) => `and ${n} more`,
+      /** The ring as one sentence, for a screen reader: "SPY 50%, NVDA 30%". */
+      summary: (parts: string) => `What it holds: ${parts}`,
+      /** Under a share in a comparison: where it was. */
+      from: (share: string) => `from ${share}`,
+      /** The same, said whole for a screen reader. */
+      change: (before: string, after: string, difference: string) =>
+        `${before} before, ${after} after, ${difference}`,
+      unchanged: 'unchanged',
+      /** A holding that is new in the comparison, or gone. */
+      added: 'new',
+      removed: 'removed',
+    },
     meta: {
       shelf: 'Shared portfolios',
       family: 'Shared portfolio',
@@ -1359,6 +1401,8 @@ export const en = {
           `Selling ${names} isn’t measured yet, so no cost is shown for it.`,
       },
       publisher: 'Published by',
+      /** The figures under a shared portfolio's answer. */
+      kpi: { version: 'Version', since: 'In effect since' },
     },
     /** What a refusal of a buy or a follow of a shared portfolio says (features/shared/refusal.ts). */
     refusal: {
@@ -1670,6 +1714,8 @@ export const en = {
         /** In a figure's place, in a kept reply whose figures are no longer kept. No number. */
         figureNotKept: '(figure no longer kept)',
         comparison: 'Current target → proposed share',
+        /** A draft's comparison: the vault's targets as they are, over the proposed ones. */
+        currentTarget: 'Current target',
         reasons: 'Tradeoffs and sources',
         tradeoffs: 'Tradeoffs',
         unknowns: 'What is not known',
@@ -1757,6 +1803,18 @@ export const en = {
         /** Under a share: how far it is from the planned share, for a reader who cannot see the colour. */
         against: (difference: string) => `${difference} against its target`,
         onPlan: 'on target',
+        /** With a plan and every share on it, said once above the ring. */
+        allOnTarget: 'On target',
+        /** In the head of the holdings when a share is off its target. */
+        offTargetShort: 'Off target',
+        /** A holding's status pill when it is off its target: "Drift +2%". */
+        drift: (signed: string) => `Drift ${signed}`,
+        /** Why cash is kept, where the vault plans a share of cash. */
+        keptAsCash: 'Kept as cash',
+        /** Between an amount and its price: "225.49 GOOGLx at $355.38". */
+        at: 'at',
+        /** What a holding is worth, named for its pin. */
+        value: 'Value',
         change:
           'To change what this vault holds, say it in the conversation: more of one asset, less of another.',
         details: 'Details',
@@ -1772,6 +1830,9 @@ export const en = {
         sourcesAsWritten: (count: number) =>
           count === 1 ? '1 source, as written' : `${count} sources, as written`,
         read: 'Read from the chain',
+        /** The row of the slot or block the vault was read at, and when. */
+        readAt: 'Read at',
+        height: { slot: 'Slot', block: 'Block' },
         copyVault: 'vault address',
         copyOwner: 'owner address',
         /** A vault that holds nothing: said once, with the one thing to do next. */
@@ -1883,6 +1944,7 @@ export const en = {
         weight: 'Share now',
         target: 'Planned',
         drift: 'Difference',
+        status: 'Status',
       },
       on: 'On',
       off: 'Off',

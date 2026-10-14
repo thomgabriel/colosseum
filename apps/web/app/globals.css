@@ -250,6 +250,15 @@
   --tf-bearing-f2: #d9881b; /* honey-deep */
   --tf-bearing-f3: #b9803f; /* wood-deep */
   --tf-bearing-f4: #676a75; /* muted-l */
+  /* What a vault holds: the share palette, in its fixed order (gate WEIGHTS-RING) */
+  --tf-share-1: #f5a83a; /* honey */
+  --tf-share-2: #803668; /* plum */
+  --tf-share-3: #33a6a0; /* lagoon */
+  --tf-share-4: #975c17; /* bronze */
+  --tf-share-5: #cd7aa2; /* heather */
+  --tf-share-6: #12695c; /* pine */
+  --tf-share-rest: #9a9dad; /* neutral 400: past the sixth */
+  --tf-share-cash: #c9c4b9; /* neutral 300: cash */
 }
 
 .dark {
@@ -293,6 +302,14 @@
   --tf-bearing-f2: #e9c48e; /* wood */
   --tf-bearing-f3: #d9881b; /* honey-deep */
   --tf-bearing-f4: #9a9dad; /* muted */
+  --tf-share-1: #f5a83a; /* honey */
+  --tf-share-2: #9f4d86; /* plum */
+  --tf-share-3: #5fbdb7; /* lagoon */
+  --tf-share-4: #af7033; /* bronze */
+  --tf-share-5: #df93b5; /* heather */
+  --tf-share-6: #218373; /* pine */
+  --tf-share-rest: #6e7282; /* neutral 500: past the sixth */
+  --tf-share-cash: #4b4f5e; /* neutral 600: cash */
 }
 
 :root {
@@ -437,6 +454,14 @@
     --tf-bearing-f2: #e9c48e; /* wood */
     --tf-bearing-f3: #d9881b; /* honey-deep */
     --tf-bearing-f4: #9a9dad; /* muted */
+    --tf-share-1: #f5a83a; /* honey */
+    --tf-share-2: #9f4d86; /* plum */
+    --tf-share-3: #5fbdb7; /* lagoon */
+    --tf-share-4: #af7033; /* bronze */
+    --tf-share-5: #df93b5; /* heather */
+    --tf-share-6: #218373; /* pine */
+    --tf-share-rest: #6e7282; /* neutral 500: past the sixth */
+    --tf-share-cash: #4b4f5e; /* neutral 600: cash */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -513,6 +538,14 @@
   --color-leg-2: var(--chart-2);
   --color-leg-3: var(--chart-3);
   --color-leg-4: var(--chart-4);
+  --color-share-1: var(--tf-share-1);
+  --color-share-2: var(--tf-share-2);
+  --color-share-3: var(--tf-share-3);
+  --color-share-4: var(--tf-share-4);
+  --color-share-5: var(--tf-share-5);
+  --color-share-6: var(--tf-share-6);
+  --color-share-rest: var(--tf-share-rest);
+  --color-share-cash: var(--tf-share-cash);
   --color-heat-1: var(--tf-heat-1);
   --color-heat-2: var(--tf-heat-2);
   --color-heat-3: var(--tf-heat-3);
@@ -847,6 +880,15 @@
   --chart-3: color-mix(in oklab, var(--tf-embed-fg) 45%, var(--tf-embed-bg));
   --chart-4: color-mix(in oklab, var(--tf-embed-fg) 30%, var(--tf-embed-bg));
   --chart-5: var(--tf-embed-fg);
+  /* what a vault holds: shades of the partner's text colour, as the plan legs */
+  --tf-share-1: color-mix(in oklab, var(--tf-embed-fg) 85%, var(--tf-embed-bg));
+  --tf-share-2: color-mix(in oklab, var(--tf-embed-fg) 45%, var(--tf-embed-bg));
+  --tf-share-3: color-mix(in oklab, var(--tf-embed-fg) 70%, var(--tf-embed-bg));
+  --tf-share-4: color-mix(in oklab, var(--tf-embed-fg) 30%, var(--tf-embed-bg));
+  --tf-share-5: color-mix(in oklab, var(--tf-embed-fg) 60%, var(--tf-embed-bg));
+  --tf-share-6: color-mix(in oklab, var(--tf-embed-fg) 38%, var(--tf-embed-bg));
+  --tf-share-rest: color-mix(in oklab, var(--tf-embed-fg) 22%, var(--tf-embed-bg));
+  --tf-share-cash: color-mix(in oklab, var(--tf-embed-fg) 15%, var(--tf-embed-bg));
   --tf-primary-hover: var(--tf-embed-accent);
   --tf-primary-pressed: var(--tf-embed-accent);
   --tf-pin: var(--tf-embed-muted);

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   click,
   find,
+  hintOf,
   mount,
   pinLine,
   settle,
@@ -45,6 +46,9 @@ vi.mock('next/link', () => import('../wallet/test/mock-next'));
 // and add nothing up across holdings. The API is a double: GET /v1/me, GET /v1/shelf, GET /v1/indexes/{slug}, GET /v1/portfolio.
 
 const en = dictionary('en');
+/** The version the plan's figures name, as written in view. */
+const versionShown = (root: ParentNode) =>
+  find(root as HTMLElement, '[data-ui="kpi-version"] dd').textContent;
 const pt = dictionary('pt');
 
 const read = {
@@ -210,18 +214,20 @@ describe('a product’s figures, from the server’s readings', () => {
 });
 
 describe('the shelf, a card per product with the figures first', () => {
-  it('shows one bar of what it holds, each share, each holding’s yield with a pin, its chain and its publisher', async () => {
+  it('shows a ring of what it holds, each share, each holding’s yield with a pin, its chain and its publisher', async () => {
     api();
     const host = await show(createElement(ShelfScreen));
     const card = find(host, '[data-ui="shelf-card"]');
-    const bar = find(card, '[data-ui="holdings-bar"]');
-    expect([...bar.children].map((s) => (s as HTMLElement).style.width)).toEqual([
-      '50%',
-      '30%',
-      '20%',
-    ]);
-    // the bar is never the only place a share is said
-    expect(bar.getAttribute('aria-hidden')).toBe('true');
+    // a compact strip, a segment a holding in the share palette; the card is one link, so nothing in
+    // the picture is a control
+    const ring = find(card, '[data-ui="composition"]');
+    expect(
+      [...ring.querySelectorAll('[data-ui="composition-segment"]')].map(
+        (p) => (p as HTMLElement).style.background,
+      ),
+    ).toEqual(['var(--tf-share-1)', 'var(--tf-share-2)', 'var(--tf-share-3)']);
+    expect(ring.querySelectorAll('button')).toHaveLength(0);
+    // the strip is never the only place a share is said
     for (const part of ['SPYx 50%', 'jlUSDC 30%', 'syrupUSDC 20%'])
       expect(card.textContent).toContain(part);
     // each holding that has a reading, with its own figure after the haircut and its own pin; the
@@ -275,38 +281,55 @@ describe('a product’s page, on the plan view', () => {
       en.shared.product.answer('Funds 50% and dollar yield 50%', 'Solana'),
     );
     expect(find(pane, 'h2').textContent).toBe(en.shared.family.recipe('Solana'));
-    expect(pane.textContent).toContain(en.shared.family.versionN(2));
-    const rows = [...pane.querySelectorAll('[data-ui="plan-rows"] > li')] as HTMLElement[];
+    // the chain shown as the overview names it: its badge, the heading read by screen readers alone
+    expect(find(pane, 'h2').className).toContain('sr-only');
+    expect(
+      find(pane, '[data-ui="hero-figure"] [data-ui="chain-badge"]').getAttribute('data-chain'),
+    ).toBe('solana');
+    expect(versionShown(pane)).toBe('2');
+    const rows = [...pane.querySelectorAll('[data-ui="composition-list"] > tr')] as HTMLElement[];
     expect(rows).toHaveLength(3);
     const [fund, lend] = rows;
     if (!fund || !lend) throw new Error('two rows');
     expect(fund.textContent).toContain('SPYx');
     expect(fund.textContent).toContain('50%');
     // a holding that pays no yield has no figure and no pin: never 0%, and its line says why
-    expect(fund.querySelector('[data-ui="pin"]')).toBeNull();
+    expect(fund.querySelector('[data-column="yield"] [data-ui="pin"]')).toBeNull();
+    expect(find(fund, '[data-column="yield"]').textContent).toContain('—');
     expect(fund.textContent).not.toContain('0.00%');
-    expect(fund.textContent).toContain(en.shared.product.why.etf);
+    // the column says what the figure is: the yield after the haircut
+    expect([...pane.querySelectorAll('thead th')].map((th) => th.textContent)).toContain(
+      en.plan.columns.yield,
+    );
+    // the reasons are under one fold for the card, a line a holding
+    const why = find(pane, 'details[data-ui="plan-more"] [data-ui="plan-why"]');
+    expect(find(why, '[data-row-why="solana:spyx"]').textContent).toContain(
+      en.shared.product.why.etf,
+    );
     // one that does: its own reading after the haircut, with its pin, and the label that says so
-    expect(lend.textContent).toContain('4.00%');
-    expect(lend.textContent).toContain(en.plan.legs.afterHaircut);
+    expect(find(lend, '[data-column="yield"]').textContent).toContain('4.00%');
+    // and its reason in one line in the row, the whole of it under the fold
+    expect(find(lend, '[data-column="why"]').textContent).toContain(
+      en.shared.product.why.dollar_yield,
+    );
     expect(lend.querySelector('[data-ui="pin"]')).not.toBeNull();
-    expect(lend.textContent).toContain(en.shared.product.why.dollar_yield);
+    expect(find(why, '[data-row-why="solana:jlusdc"]').textContent).toContain(
+      en.shared.product.why.dollar_yield,
+    );
     // no amount is known on this page, so no row says dollars
-    expect(find(pane, '[data-ui="plan-rows"]').textContent).not.toContain('$');
-    // the picture: one bar, a part a holding by its share, each named for a reader
-    const parts = [...pane.querySelectorAll('[data-ui="plan-bar"] button')];
-    expect(parts.map((b) => b.getAttribute('aria-label'))).toEqual([
-      'SPYx, 50%',
-      'jlUSDC (Jupiter Lend), 30%',
-      'syrupUSDC (Maple), 20%',
-    ]);
+    expect(find(pane, '[data-ui="composition-list"]').textContent).not.toContain('$');
+    // the picture: one strip, a segment a holding by its share, said once for a reader; the name
+    // and its venue in the row
+    expect(find(pane, '[data-ui="composition"] [role="img"]').getAttribute('aria-label')).toBe(
+      en.shared.composition.summary('SPYx 50%, jlUSDC 30%, syrupUSDC 20%'),
+    );
+    expect(rows[1]?.querySelector('[data-part="name"]')?.textContent).toBe('jlUSDC');
+    expect(rows[1]?.querySelector('[data-part="sub"]')?.textContent).toBe('Jupiter Lend');
     for (const [asset, src] of [
       ['solana:jlusdc', '/assets/tokens/jlusdc.png'],
       ['solana:syrupusdc', '/assets/tokens/syrupusdc.png'],
     ]) {
-      for (const selector of ['data-part', 'data-label', 'data-row']) {
-        expect(pane.querySelector(`[${selector}="${asset}"] img`)?.getAttribute('src')).toBe(src);
-      }
+      expect(pane.querySelector(`[data-row="${asset}"] img`)?.getAttribute('src')).toBe(src);
     }
     // and no yield of the whole portfolio is shown anywhere: that is the engine's to work out
     expect(host.textContent).not.toMatch(/\d% to \d/);
@@ -349,8 +372,9 @@ describe('a product’s page, on the plan view', () => {
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     const pane = find(host, '[data-ui="plan-pane"]');
     expect(pane.textContent).toContain(en.shared.product.publisher);
-    const creator = find(pane, '[data-ui="creator"]');
-    expect(creator.textContent).toBe(CREATOR);
+    // in view among the plan's figures, shortened, the whole address one hover away
+    const creator = find(pane, '[data-ui="kpi-publisher"] [data-ui="creator"]');
+    expect(await hintOf(creator)).toBe(CREATOR);
     expect(creator.closest('details')).toBeNull();
     // one invest step, on the page: the amount and the one-press card, and no way off to a buy page
     const invest = find(pane, '[data-ui="product-invest"]');
@@ -413,17 +437,18 @@ describe('a product’s page, on the plan view', () => {
     api([familyOf(FAMILY_ID, { recipes: [recipe] })]);
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     const pane = find(host, '[data-ui="plan-pane"]');
-    const rows = [...pane.querySelectorAll('[data-ui="plan-rows"] > li')] as HTMLElement[];
+    const rows = [...pane.querySelectorAll('[data-ui="composition-list"] > tr')] as HTMLElement[];
     expect(rows).toHaveLength(5);
-    // the bar is a picture of five parts, with a label to press for each holding under it
-    expect(pane.querySelectorAll('[data-ui="plan-bar"] button')).toHaveLength(5);
+    // the ring is a picture of five segments, with a row to press for each holding beside it
+    expect(pane.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(5);
+    expect(pane.querySelectorAll('[data-ui="composition-row"]')).toHaveLength(5);
     // the two dollar tokens keep their own figure and pin on their row; a stock's row has none
     const yieldOf = (i: number) => rows[i]?.querySelector('[data-ui="row-yield"]');
     expect(yieldOf(3)?.textContent).toContain('4.00%');
     expect(yieldOf(4)?.textContent).toContain('6.00%');
     for (const i of [3, 4]) {
       expect(yieldOf(i)?.querySelector('[data-ui="pin"]')).not.toBeNull();
-      expect(yieldOf(i)?.textContent).toContain(en.plan.legs.afterHaircut);
+      expect(yieldOf(i)?.closest('[data-column="yield"]')).not.toBeNull();
     }
     for (const i of [0, 1, 2]) {
       expect(yieldOf(i)).toBeNull();
@@ -443,7 +468,23 @@ describe('a product’s page, on the plan view', () => {
     api([familyOf(FAMILY_ID, { recipes: [withFigures(null)] })]);
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     const pane = find(host, '[data-ui="plan-pane"]');
-    expect(pane.querySelectorAll('[data-ui="plan-rows"] > li')).toHaveLength(3);
+    expect(pane.querySelectorAll('[data-ui="composition-list"] > tr')).toHaveLength(3);
+    // no kind is known, so none is said: the answer names each holding by itself (kindsSaid), never
+    // "Other 100%", each type is a dash, and no reason is made up for a token the server said nothing of
+    expect(find(pane, '[data-ui="plan-answer"]').textContent).toBe(
+      en.shared.product.answer(
+        'SPYx 50%, jlUSDC (Jupiter Lend) 30%, and syrupUSDC (Maple) 20%',
+        'Solana',
+      ),
+    );
+    expect(
+      [...pane.querySelectorAll('[data-column="kind"]')].map((cell) =>
+        cell.textContent?.replace(en.plan.columns.kind, '').trim(),
+      ),
+    ).toEqual(['—', '—', '—']);
+    expect(pane.textContent).not.toContain(en.plan.kinds.other);
+    expect(pane.textContent).not.toContain(en.shared.product.why.unread);
+    expect(pane.querySelector('[data-column="why"]')).toBeNull();
     expect(pane.querySelectorAll('[data-ui="row-yield"]')).toHaveLength(0);
     expect(pane.querySelectorAll('[data-ui="exit-tier"]')).toHaveLength(0);
     const exit = find(pane, '[data-ui="exit-plan-line"]');
@@ -494,7 +535,7 @@ describe('a product’s page, when the portfolio gets a new version as the perso
       return json({ error: 'not in this test' }, 500);
     };
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    expect(host.textContent).toContain(en.shared.family.versionN(2));
+    expect(versionShown(host)).toBe('2');
     expect(host.querySelector('[data-ui="product-version-changed"]')).toBeNull();
     await type(amountField(host), '40');
     for (let i = 0; i < 8; i += 1) await settle(250);
@@ -506,15 +547,14 @@ describe('a product’s page, when the portfolio gets a new version as the perso
 
     // the page is the new version's: its holdings, and the sentence that says it changed
     const pane = find(host, '[data-ui="plan-pane"]');
-    expect(pane.textContent).toContain(en.shared.family.versionN(3));
-    expect(pane.textContent).not.toContain(en.shared.family.versionN(2));
-    const rows = [...pane.querySelectorAll('[data-ui="plan-rows"] > li')].map(
+    expect(versionShown(pane)).toBe('3');
+    const rows = [...pane.querySelectorAll('[data-ui="composition-list"] > tr')].map(
       (li) => li.textContent,
     );
     expect(rows).toHaveLength(2);
     expect(rows[0]).toContain('jlUSDC');
     expect(rows[0]).toContain('60%');
-    expect(pane.querySelector('[data-ui="plan-rows"]')?.textContent).not.toContain('SPYx');
+    expect(pane.querySelector('[data-ui="composition-list"]')?.textContent).not.toContain('SPYx');
     const notice = find(host, '[data-ui="product-version-changed"]');
     // the one sentence for it, the same the buy page and a refused follow say (refusal.ts)
     expect(notice.textContent).toBe(en.shared.refusal.versionChanged);
@@ -594,8 +634,11 @@ describe('the product pane is the embedded buy’s source of terms', () => {
         targets: HELD,
         source: 'api',
       });
-      expect(pane.textContent).toContain(dictionary(lang).shared.family.versionN(2));
-      expect(find(pane, '[data-ui="plan-rows"]').textContent).toContain('SPYx');
+      expect(versionShown(pane)).toBe('2');
+      expect(find(pane, '[data-ui="kpi-version"] dt').textContent).toBe(
+        dictionary(lang).shared.product.kpi.version,
+      );
+      expect(find(pane, '[data-ui="composition-list"]').textContent).toContain('SPYx');
       expect(host.querySelector('[data-ui="product-version-changed"]')).toBeNull();
     },
     15_000,

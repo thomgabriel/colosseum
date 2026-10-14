@@ -143,6 +143,8 @@ function api(
     standing?: () => OrderDetail;
     /** Other paths, answered before the defaults. */
     more?: (path: string, method: string) => Response | Promise<Response> | undefined;
+    /** More of the vault read's answer: its `blockOrSlot`. */
+    answer?: object;
   } = {},
 ) {
   const calls: { method: string; path: string }[] = [];
@@ -177,6 +179,7 @@ function api(
         vault: { ...state.vault, provenance },
         prices: [],
         disclaimer: 'the disclaimer',
+        ...o.answer,
       });
     if (path === '/v1/orders' && method === 'POST') {
       await o.placing;
@@ -453,26 +456,115 @@ describe('the owner’s page at rest', () => {
     ).toBe(88);
   });
 
-  it('shows the holdings with nothing to open: the bar, then one table with planned beside now', async () => {
+  it('shows the holdings with nothing to open: planned over now, then one list with the difference', async () => {
     api();
     const host = await show();
     const plan = find(host, '[data-ui="vault-plan"]');
-    expect(plan.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
-    expect(plan.querySelector('[data-ui="vault-details"]')?.contains(find(plan, 'table'))).toBe(
-      false,
+    const composition = find(plan, '[data-ui="composition"]');
+    expect(composition.getAttribute('data-mode')).toBe('compare');
+    expect(plan.querySelector('[data-ui="vault-details"]')?.contains(composition)).toBe(false);
+    expect(find(composition, '[data-ui="composition-bars"]').textContent).toBe(
+      `${en.shared.vault.columns.target}${en.shared.vault.columns.weight}`,
     );
-    expect([...plan.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual([
-      en.shared.vault.columns.asset,
-      en.shared.vault.columns.held,
-      en.shared.vault.columns.price,
-      en.shared.vault.columns.target,
-      en.shared.vault.columns.weight,
-    ]);
-    // the difference under each share: signed, by direction, and said in words
-    const drifts = [...plan.querySelectorAll<HTMLElement>('table [data-ui="holding-drift"]')];
-    expect(drifts.map((d) => d.dataset.direction)).toEqual(['over', 'under']);
+    // off its plan: said in the panel's head, as a status pill
+    expect(find(plan, '[data-ui="vault-on-target"] [data-ui="status"]').textContent).toContain(
+      p.offTargetShort,
+    );
+    // each holding a row: its amount under its name, its price and its value in their columns
+    const rows = [...composition.querySelectorAll<HTMLElement>('[data-row]')];
+    expect(rows).toHaveLength(2);
+    const detail = find(rows[0] as HTMLElement, '[data-ui="holding-detail"]');
+    expect(detail.textContent).toBe('2.5 SPYx');
+    // this read has no prices: no price, the dash said in words one hover away, and no value
+    const price = find(rows[0] as HTMLElement, '[data-column="price"]');
+    expect(price.querySelector('[data-ui="hint"]')?.textContent).toBe('—');
+    expect(
+      find(rows[0] as HTMLElement, '[data-column="value"]').querySelector('[data-ui="pin"]'),
+    ).toBeNull();
+    // the planned share, and the drift as a status pill: signed, and said in words
+    expect(find(rows[0] as HTMLElement, '[data-column="before"]').textContent).toContain('40%');
+    const drifts = [...composition.querySelectorAll<HTMLElement>('[data-ui="composition-delta"]')];
+    expect(drifts.map((d) => d.dataset.direction)).toEqual(['up', 'down']);
+    expect(find(drifts[0] as HTMLElement, '[aria-hidden]').textContent).toBe(p.drift('+5%'));
     expect(drifts[0]?.textContent).toContain(p.against('+5%'));
     expect(drifts[1]?.textContent).toContain(p.against('−5%'));
+    for (const drift of drifts)
+      expect(drift.closest('[data-ui="status"]')?.getAttribute('data-status')).toBe('watch');
+  });
+
+  it('says in Details the slot the vault was read at, to its explorer, and the time', async () => {
+    api({ answer: { blockOrSlot: '51073956' } });
+    const host = await show();
+    const row = find(host, '[data-ui="vault-read-at"]');
+    const height = find<HTMLAnchorElement>(row, 'a[data-ui="vault-height"]');
+    expect(row.textContent).toContain(p.height.slot);
+    expect(height.textContent).toBe('51,073,956');
+    expect(height.getAttribute('href')).toMatch(/\/block\/51073956(\?|$)/);
+    expect(height.getAttribute('target')).toBe('_blank');
+    expect(row.querySelector('time')).not.toBeNull();
+  });
+
+  it('says the time alone where the read has no height, and on the mock', async () => {
+    for (const [answer, provenance] of [
+      [{ blockOrSlot: null }, 'sandbox'],
+      [{ blockOrSlot: '1791000000' }, 'mock'],
+    ] as const) {
+      api({ answer, provenance });
+      const host = await show();
+      const row = find(host, '[data-ui="vault-read-at"]');
+      expect(row.querySelector('[data-ui="vault-height"]')).toBeNull();
+      expect(row.querySelector('time')).not.toBeNull();
+      await unmountAll();
+    }
+  });
+
+  it('says why each holding is there, in one line, from the server: its words, or its kind', async () => {
+    api({
+      vault: held({
+        cash: {
+          ...holding(CASH, '600000000', '600'),
+          why: { source: 'portfolio' },
+        } as VaultView['cash'],
+        positions: [
+          {
+            ...holding(SPYX, '250000000', '2.5'),
+            targetBps: 4_000,
+            lastKeeperAt: null,
+            valueUsd: '450',
+            weightBps: 4_000,
+            driftBps: 0,
+            why: { source: 'portfolio', cls: 'etf' },
+          },
+          {
+            ...holding('solana:usdy', '150000000', '150'),
+            targetBps: 2_000,
+            lastKeeperAt: null,
+            valueUsd: '150',
+            weightBps: 2_000,
+            driftBps: 0,
+            why: { source: 'plan', text: 'Capped by your limit on one issuer, as tsyrupUSDC is.' },
+          },
+        ] as unknown as VaultView['positions'],
+        valueUsd: '1200',
+      }),
+    });
+    const host = await show();
+    const plan = find(host, '[data-ui="vault-plan"]');
+    const why = (asset: string) =>
+      find(plan, `[data-row="${asset}"] [data-ui="holding-why"]`).textContent;
+    expect(why(SPYX)).toContain(en.shared.product.why.etf);
+    // the engine's sentence, with a test-network token said by its plain name
+    expect(why('solana:usdy')).toBe('Capped by your limit on one issuer, as syrupUSDC is.');
+    // cash the vault plans a share of is kept as cash
+    expect(why(CASH)).toContain(p.keptAsCash);
+    await unmountAll();
+    // the reason is a line under the amount, never a column the narrow pane would cut
+    expect(plan.querySelector('[data-column="why"]')).toBeNull();
+    await unmountAll();
+    // a vault the server holds no reason for has no such line, and nothing made up
+    api();
+    const plain = find(await show(), '[data-ui="vault-plan"]');
+    expect(plain.querySelector('[data-ui="holding-why"]')).toBeNull();
   });
 
   it('keeps the technical rows behind one closed "Details", addresses shortened with a copy', async () => {
@@ -513,7 +605,7 @@ describe('who is offered the actions', () => {
     for (const selector of owned) expect(host.querySelector(selector), selector).toBeNull();
     expect(host.querySelector('[data-variant="primary"]')).toBeNull();
     // and still what it holds, and the way to its chain's explorer
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(host.querySelector('[data-ui="vault-explorer"]')).not.toBeNull();
   });
   it('a signed-out reader sees none either', async () => {
@@ -555,7 +647,7 @@ describe('an empty vault', () => {
     const host = await show();
     expect(find(host, '[data-ui="vault-empty"]').textContent).toBe(p.empty.noTargets);
     expect(host.querySelector('[data-ui="vault-empty-targets"]')).toBeNull();
-    expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     expect(host.querySelectorAll('[data-action="vault-deposit"]')).toHaveLength(1);
     expect(host.querySelector('[data-ui="vault-share-strategy"]')).toBeNull();
     expect(find(host, '[data-ui="vault-chat"]').textContent).not.toContain(p.empty.explain);
@@ -818,8 +910,9 @@ describe('a funded vault with no targets', () => {
     });
     const host = await show();
     const plan = find(host, '[data-ui="vault-plan"]');
-    expect(plan.querySelector('table')?.textContent).toContain('45%');
-    expect(plan.querySelector('[data-ui="holding-drift"]')).toBeNull();
+    expect(find(plan, '[data-ui="composition"]').getAttribute('data-mode')).toBe('single');
+    expect(find(plan, '[data-ui="composition-list"]').textContent).toContain('45%');
+    expect(plan.querySelector('[data-ui="composition-delta"]')).toBeNull();
     expect(plan.textContent).not.toContain('against its target');
   });
 });

@@ -197,20 +197,18 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
         )
       }
       aside={
-        <>
-          {/* The ways the engine found to close the gap. Each is the engine's own sentence, with
-                its own figures. */}
-          {verdict && !verdict.met && verdict.ways.length > 0 && (
-            <div data-ui="plan-ways" className="flex flex-col items-start gap-2">
-              <p className="text-body-sm">{t.plan.verdict.ways}</p>
-              <ul className="flex list-disc flex-col gap-1 pl-5 text-body-sm">
-                {verdict.ways.map((way) => (
-                  <li key={way.change}>{way.change}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+        // The ways the engine found to close the gap, each the engine's own sentence with its own
+        // figures; with none, nothing, so the board keeps no empty gap for them.
+        verdict && !verdict.met && verdict.ways.length > 0 ? (
+          <div data-ui="plan-ways" className="flex flex-col items-start gap-2">
+            <p className="text-body-sm">{t.plan.verdict.ways}</p>
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-body-sm">
+              {verdict.ways.map((way) => (
+                <li key={way.change}>{way.change}</li>
+              ))}
+            </ul>
+          </div>
+        ) : undefined
       }
       under={
         <>

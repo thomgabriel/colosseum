@@ -3,6 +3,8 @@
 
 The plan as pieces: a stacked horizontal bar of at most four legs, each with a direct label. The bar shows proportion; the labels carry meaning.
 
+> **Holdings no longer use this bar** (gate `WEIGHTS-RING`, Thom, 2026-10-13). What a vault, a draft or a shared portfolio holds is drawn by [composition.md](./composition.md): a ring or two bars before and after, one list, the share palette. The section "A draft's holdings on the bar" below is superseded. `<PlanLegs>` itself stays as specified here for the plan's sleeves.
+
 ## Anatomy
 
 ```
@@ -30,7 +32,7 @@ Cash buffer · 20% · — · reachable today
 | "Why this plan?" | part-and-close: segments part 12–24px, callout rows fade in, then close |
 | Stress case selected | bar unchanged (it's the allocation); the schedule chart shows the stress |
 
-## A draft's holdings on the bar
+## A draft's holdings on the bar (superseded by composition.md, gate `WEIGHTS-RING`)
 
 A draft proposed in a conversation is drawn on this bar (`<HoldingLegs>` in `features/shared`, which hands `<PlanLegs>` its legs; the preview card at 24px, the deposit step at 12px). It supersedes the mix joint (Thom, 2026-10-09: the preview uses Rodrigo's plan bar; gate `MIX-JOINT`).
 

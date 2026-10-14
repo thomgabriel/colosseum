@@ -86,7 +86,7 @@ async function toDeposit(page: Page, words: string, use = en.mix.preview.deposit
   return page.locator('[data-ui="deposit-step"]');
 }
 const dollarsOf = (step: ReturnType<Page['locator']>, asset: string) =>
-  step.locator(`[data-asset="solana:${asset}"] [data-ui="mix-line-amount"]`);
+  step.locator(`[data-row="solana:${asset}"] [data-ui="mix-line-amount"]`);
 
 test('a new goal’s vault from the conversation: one amount, edited by hand, reviewed, ticked, stored and deposited into', async ({
   page,

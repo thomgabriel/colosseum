@@ -194,7 +194,8 @@ export function ExposureChainBlock({ chain }: { chain: ExposureChain }) {
                 </h3>
                 <ShareBars
                   by="underlying"
-                  labelledBy={`${id}-underlying`}
+                  caption={words.shares.byUnderlying}
+                  valueHeader={t.shared.vault.page.value}
                   rows={rowsOf(chain.byUnderlying, (key) => key)}
                   obs={pin}
                   pinLabels={t.pin}
@@ -214,7 +215,8 @@ export function ExposureChainBlock({ chain }: { chain: ExposureChain }) {
                   </h3>
                   <ShareBars
                     by="issuer"
-                    labelledBy={`${id}-issuer`}
+                    caption={words.shares.byIssuer}
+                    valueHeader={t.shared.vault.page.value}
                     rows={rowsOf(chain.byIssuer, issuer)}
                     obs={pin}
                     pinLabels={t.pin}

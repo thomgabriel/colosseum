@@ -3,9 +3,9 @@ import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 
-// The draft on /goal, drawn on the plan bar (plan-leg.md, HoldingLegs.tsx): at most four legs with
-// their labels, every holding in the rows, how a draft arrives, and what the card shows while a reply
-// is on its way. The stub answers
+// The draft on /goal, drawn as a ring beside its rows (composition.md, Composition.tsx, gate
+// WEIGHTS-RING): a segment and a row a holding, a row and its segment lighting each other, what the
+// card shows while a reply is on its way, and that it fits a phone and a desk. The stub answers
 // every turn with the same two picks, so each reply here is the stub's own with its allocations
 // swapped for the mix under test. No model is called and nothing is bought.
 
@@ -128,49 +128,31 @@ const shareOf = (bps: number) =>
 /** Every row's holding and share, as the card shows them now. */
 const shownShares = (page: Page) =>
   page
-    .locator('[data-ui="goal-strategy"] tbody tr')
+    .locator('[data-ui="goal-strategy"] [data-ui="composition-list"] [data-row]')
     .evaluateAll((rows) =>
       rows.map((row) => [
         row.getAttribute('data-row'),
-        row.querySelector('[data-part="share"]')?.textContent,
+        row.querySelector('[data-ui="composition-share"]')?.textContent,
       ]),
     );
-/** The labels under the bar: a leg's name and its share. */
-const labels = (page: Page) =>
-  page
-    .locator('[data-ui="goal-strategy"] [data-ui="plan-legs"] ol > li')
-    .evaluateAll((items) => items.map((item) => item.textContent));
-/** What the bar draws: the three largest holdings a leg each and the rest as one, largest first. */
-const legsOf = (mix: Mix) => {
-  let legs = mix.map(([symbol, bps]) => ({ name: symbol as string, bps }));
-  if (mix.length > 4) {
-    const largest = [...mix.entries()]
-      .sort(([a, [, x]], [b, [, y]]) => y - x || a - b)
-      .slice(0, 3)
-      .map(([at]) => at);
-    const rest = mix.filter((_, at) => !largest.includes(at));
-    legs = [
-      ...legs.filter((_, at) => largest.includes(at)),
-      {
-        name: en.shared.vault.conversation.others(rest.length),
-        bps: rest.reduce((sum, [, bps]) => sum + bps, 0),
-      },
-    ];
-  }
-  return legs
-    .map((leg, at) => ({ leg, at }))
-    .sort((a, b) => b.leg.bps - a.leg.bps || a.at - b.at)
-    .map(({ leg }) => `${leg.name}·${shareOf(leg.bps)}`);
-};
+/** The strip's segments: which holding, its colour and its opacity, in the order drawn. */
+const segmentsOf = (page: Page) =>
+  page.locator('[data-ui="goal-strategy"] [data-ui="composition-segment"]').evaluateAll((els) =>
+    els.map((el) => ({
+      key: el.getAttribute('data-key'),
+      colour: getComputedStyle(el).backgroundColor,
+      opacity: getComputedStyle(el).opacity,
+    })),
+  );
 
-test('a draft arrives on the plan bar with its rows, and the next one takes its place', async ({
+test('a draft arrives as a strip over its table, and the next one takes its place', async ({
   page,
 }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
   const strategy = page.locator('[data-ui="goal-strategy"]');
-  const bar = strategy.locator('[data-ui="plan-legs-bar"]');
+  const ring = strategy.locator('[data-ui="composition-strip"]');
 
   // while the first reply is on its way the card says it is being worked on
   let release = () => {};
@@ -181,68 +163,45 @@ test('a draft arrives on the plan bar with its rows, and the next one takes its 
   );
   release();
 
-  // six holdings: three legs and one for the rest, each labelled; every holding in the rows, exact
-  await expect(bar.locator('> *')).toHaveCount(4);
+  // six holdings: a segment and a row each, the exact share in every row
+  await expect(strategy.locator('[data-ui="composition-segment"]')).toHaveCount(6);
   const final = SIX.map(([symbol, bps]) => [idOf(symbol), shareOf(bps)]);
   expect(await shownShares(page)).toEqual(final);
-  expect(await labels(page)).toEqual(legsOf(SIX));
-  // the legs seat once (plan-lock), and the card is the same size while they do
-  const seating = () =>
-    bar.evaluate((el) =>
-      el
-        .getAnimations({ subtree: true })
-        .map((a) => [(a as CSSAnimation).animationName, a.effect?.getComputedTiming().endTime]),
-    );
-  expect((await seating()).map(([name]) => name)).toEqual(['seat', 'seat', 'seat', 'seat']);
-  expect(Math.max(...(await seating()).map(([, end]) => Number(end)))).toBeLessThanOrEqual(1200);
-  const midway = await strategy.locator('[data-ui="card"]').boundingBox();
-  await page.evaluate(() => {
-    for (const a of document.getAnimations()) a.finish();
-  });
-  expect(await strategy.locator('[data-ui="card"]').boundingBox()).toEqual(midway);
+  // the colours follow the holdings' order: five of the share palette, and cash in its neutral
+  const drawn = await segmentsOf(page);
+  expect(drawn.map((s) => s.key)).toEqual(SIX.map(([symbol]) => idOf(symbol)));
+  expect(new Set(drawn.map((s) => s.colour)).size).toBe(6);
+  // a row's weight bar is its segment's colour
+  const bars = await strategy
+    .locator('[data-part="weight-bar"] > span')
+    .evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor));
+  expect(bars).toEqual(drawn.map((s) => s.colour));
+  // nothing moves in: every figure is the draft's own from the first frame
+  expect(await ring.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
   await expect(strategy.getByRole('button', { name: en.mix.preview.deposit })).toBeEnabled();
 
-  // his bar: 24px tall on this card, pill ends, a 2px gap in the ground colour, the leg colours in turn
-  const drawn = await bar.evaluate((el) => {
-    const legs = [...el.children] as HTMLElement[];
-    const style = (leg: HTMLElement | undefined) => (leg ? getComputedStyle(leg) : null);
-    return {
-      height: el.getBoundingClientRect().height,
-      gap: getComputedStyle(el).columnGap,
-      left: style(legs[0])?.borderTopLeftRadius !== '0px',
-      right: style(legs.at(-1))?.borderTopRightRadius !== '0px',
-      inner: style(legs[1])?.borderTopLeftRadius,
-      widths: legs.map((leg) => leg.getBoundingClientRect().width),
-      colours: legs.map((leg) => getComputedStyle(leg).backgroundColor),
-    };
-  });
-  expect(drawn).toMatchObject({ height: 24, gap: '2px', left: true, right: true, inner: '0px' });
-  expect(new Set(drawn.colours).size).toBe(4);
-  const all = drawn.widths.reduce((sum, w) => sum + w, 0);
-  // largest first: the three grouped holdings lead, then the three largest
-  expect((drawn.widths[0] ?? 0) / all).toBeCloseTo(0.4999, 2);
-  expect((drawn.widths[3] ?? 0) / all).toBeCloseTo(0.1667, 2);
-  // a row's swatch is the colour of the leg it is drawn in: the three grouped holdings share one
-  const swatches = await strategy
-    .locator('tbody [data-part="swatch"]')
-    .evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor));
-  expect(swatches).toEqual([...drawn.colours.slice(1), ...Array(3).fill(drawn.colours[0])]);
-  // pointing at a label rules its segment and dims nothing; the bar itself is not a control
-  await expect(bar).toHaveAttribute('aria-hidden', 'true');
-  await strategy.locator('[data-ui="plan-legs"] ol > li').nth(1).hover();
-  const pointed = await bar.evaluate((el) =>
-    ([...el.children] as HTMLElement[]).map((leg) => [
-      getComputedStyle(leg).borderTopWidth,
-      getComputedStyle(leg).opacity,
-    ]),
+  // the strip is one picture with the whole draft in words, and no control in it
+  await expect(strategy.locator('[role="img"]:has([data-ui="composition-strip"])')).toHaveAttribute(
+    'aria-label',
+    en.shared.composition.summary(
+      SIX.map(([symbol, bps]) => `${symbol} ${shareOf(bps)}`).join(', '),
+    ),
   );
-  expect(pointed).toEqual([
-    ['0px', '1'],
-    ['2px', '1'],
-    ['0px', '1'],
-    ['0px', '1'],
-  ]);
+  await expect(ring.locator('button, a, [tabindex]')).toHaveCount(0);
+  // pointing at a row lights its segment and dims the others
+  const row = strategy.locator('[data-ui="composition-list"] [data-row]').nth(1);
+  await row.hover();
+  await expect(row).toHaveAttribute('data-lit', 'true');
+  // the others ease to 30% over 160ms
+  await expect
+    .poll(async () => (await segmentsOf(page)).map((s) => s.opacity))
+    .toEqual(['0.3', '1', '0.3', '0.3', '0.3', '0.3']);
+  // and the keyboard does what the pointer does
   await page.mouse.move(0, 0);
+  await row.locator('button').focus();
+  await expect(row).toHaveAttribute('data-lit', 'true');
+  await row.locator('button').blur();
+  await expect(row).not.toHaveAttribute('data-lit', 'true');
 
   // the next turn: the draft stays, marked as the one from before, and cannot be used meanwhile
   await answerWith(page, CHANGED, new Promise<void>((done) => (release = done)));
@@ -258,13 +217,8 @@ test('a draft arrives on the plan bar with its rows, and the next one takes its 
     en.shared.vault.conversation.waitingAction,
   );
   expect(await shownShares(page)).toEqual(final);
-  // nothing is dimmed while it waits: the bar keeps its colours (plan-leg.md)
-  expect(
-    await bar.evaluate((el) => [
-      getComputedStyle(el).opacity,
-      ...[...el.children].map((leg) => getComputedStyle(leg).backgroundColor),
-    ]),
-  ).toEqual(['1', ...drawn.colours]);
+  // nothing is dimmed while it waits: the ring keeps its colours
+  await expect.poll(() => segmentsOf(page)).toEqual(drawn);
   // a wait can be long: every word and figure on the waiting card stays readable, in both themes
   for (const theme of ['light', 'dark'] as const) {
     await inTheme(page, theme);
@@ -275,29 +229,34 @@ test('a draft arrives on the plan bar with its rows, and the next one takes its 
   expect(await shownShares(page)).toEqual(
     CHANGED.map(([symbol, bps]) => [idOf(symbol), shareOf(bps)]),
   );
-  expect(await labels(page)).toEqual(legsOf(CHANGED));
+  await expect(strategy.locator('[data-ui="composition-segment"]')).toHaveCount(CHANGED.length);
   await expect(strategy.getByRole('button', { name: en.mix.preview.deposit })).toBeEnabled();
 });
 
-test('with reduced motion a draft crossfades in, and nothing slides', async ({ page }) => {
+test('with reduced motion nothing eases: a lit row dims the others at once', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
-  const bar = page.locator('[data-ui="goal-strategy"] [data-ui="plan-legs-bar"]');
+  const strategy = page.locator('[data-ui="goal-strategy"]');
   let release = () => {};
   await answerWith(page, SIX, new Promise<void>((done) => (release = done)));
   await say(page, 'Technology stocks, with some gold and cash');
   await expect(page.locator('[data-ui="draft-building"]')).toBeVisible();
   release();
-  await expect(bar.locator('> *')).toHaveCount(4);
-  // STYLE.md: every slide becomes a 120ms crossfade
-  const moving = await bar.evaluate((el) =>
-    el
-      .getAnimations({ subtree: true })
-      .map((a) => [(a as CSSAnimation).animationName, a.effect?.getComputedTiming().duration]),
-  );
-  for (const [name, duration] of moving) expect([name, duration]).toEqual(['fade', 120]);
-  expect(await labels(page)).toEqual(legsOf(SIX));
+  await expect(strategy.locator('[data-ui="composition-segment"]')).toHaveCount(6);
+  const eased = await strategy
+    .locator('[data-ui="composition-segment"]')
+    .evaluateAll((els) => els.map((el) => getComputedStyle(el).transitionProperty));
+  expect(new Set(eased)).toEqual(new Set(['none']));
+  await strategy.locator('[data-ui="composition-list"] [data-row]').first().hover();
+  expect((await segmentsOf(page)).map((s) => s.opacity)).toEqual([
+    '1',
+    '0.3',
+    '0.3',
+    '0.3',
+    '0.3',
+    '0.3',
+  ]);
 });
 
 for (const [name, mix] of [
@@ -309,12 +268,11 @@ for (const [name, mix] of [
     await page.setViewportSize({ width: 375, height: 812 });
     await signIn(page);
     const strategy = page.locator('[data-ui="goal-strategy"]');
-    const bar = strategy.locator('[data-ui="plan-legs-bar"]');
+    const ring = strategy.locator('[data-ui="composition-strip"]');
     await answerWith(page, mix);
     await say(page, 'A draft to look at');
-    await expect(bar.locator('> *')).toHaveCount(Math.min(mix.length, 4));
-    expect(await labels(page)).toEqual(legsOf(mix));
-    // every holding has a row with its exact share, however the bar groups them
+    // a segment a holding, however many, and every holding a row with its exact share
+    await expect(strategy.locator('[data-ui="composition-segment"]')).toHaveCount(mix.length);
     expect(await shownShares(page)).toEqual(
       mix.map(([symbol, bps]) => [idOf(symbol), shareOf(bps)]),
     );
@@ -324,15 +282,15 @@ for (const [name, mix] of [
         await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
         const wide = await page.evaluate(() => document.documentElement.scrollWidth);
         expect(wide, `${theme}, ${width}px: no sideways scroll`).toBeLessThanOrEqual(width);
-        // every leg lies inside the bar, and can be seen
-        const box = await bar.boundingBox();
-        const legs = await bar
-          .locator('> *')
+        // every segment lies inside the strip, and can be seen
+        const box = await ring.boundingBox();
+        const parts = await strategy
+          .locator('[data-ui="composition-segment"]')
           .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()));
-        for (const leg of legs) {
-          expect(leg.left).toBeGreaterThanOrEqual((box?.x ?? 0) - 0.5);
-          expect(leg.right).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0) + 0.5);
-          expect(leg.width).toBeGreaterThanOrEqual(2);
+        for (const part of parts) {
+          expect(part.left).toBeGreaterThanOrEqual((box?.x ?? 0) - 0.5);
+          expect(part.right).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0) + 0.5);
+          expect(Math.max(part.width, part.height)).toBeGreaterThanOrEqual(4);
         }
         if (SHOTS) {
           // a window tall enough for the whole card: the pane scrolls on a desk
