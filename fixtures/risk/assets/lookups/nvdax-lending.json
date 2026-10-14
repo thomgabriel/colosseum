@@ -1,0 +1,1671 @@
+{
+  "source": "Local Postgres colosseum, read-only on 2026-10-14 by the API-AGENT-LOOKUPS-1 build: token NVDAx (Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh) on Solana. Long sources and methods are cut at 160 characters.",
+  "markets": [
+    {
+      "account": "14R6LgJe6UNmExr3FgaYVqLgDh219ayRUUBpZuQwHzzm",
+      "venue": "jupiter_lend",
+      "market": "Jupiter Lend NVDAx/JupUSD",
+      "role": "vault",
+      "sheet": {
+        "chain": "solana",
+        "rates": {
+          "borrowApy": {
+            "unit": "fraction",
+            "value": 0.05960902950911495,
+            "method": "jupiter_lend_token_reserve_decode; APY = exp(APR) \u2212 1",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "supplyApy": {
+            "unit": "fraction",
+            "value": 0.04749332449844279,
+            "method": "jupiter_lend_token_reserve_decode; APY = exp(APR) \u2212 1",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "supplyApyVariation": {
+            "unit": "fraction",
+            "value": 0.0035336246414616836,
+            "method": "stdev of exp(supplyApr) \u2212 1 over the 5-minute rows (live only, D12)",
+            "source": "lending collector 5-minute liquidity-layer rows (JupUSD)",
+            "quality": "measured",
+            "samples": 3041,
+            "dataFrom": "2026-10-01T21:21:00.081Z",
+            "fetchedAt": "2026-10-14T13:16:05.704Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          }
+        },
+        "venue": "jupiter_lend",
+        "market": "Jupiter Lend NVDAx/JupUSD",
+        "symbol": "NVDAx/JupUSD",
+        "account": "14R6LgJe6UNmExr3FgaYVqLgDh219ayRUUBpZuQwHzzm",
+        "history": {
+          "liquidations": {
+            "unit": "count",
+            "value": 6,
+            "method": "lending-report-0.2",
+            "source": "risk_lending_events (Step 10b decode pass)",
+            "quality": "measured",
+            "fetchedAt": "2026-10-01T16:50:49.000Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          },
+          "liquidatedUsd": {
+            "unit": "usd",
+            "value": 0,
+            "method": "lending-report-0.2",
+            "source": "risk_lending_events (Step 10b decode pass)",
+            "quality": "lower_bound",
+            "samples": 0,
+            "fetchedAt": "2026-10-01T16:50:49.000Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          },
+          "socialisedLossUsd": {
+            "unit": "usd",
+            "value": null,
+            "detail": "Jupiter Lend absorbed debt is read live only (D12)",
+            "reason": "not_collected"
+          },
+          "parameterChanges30d": {
+            "unit": "count",
+            "value": 0,
+            "method": "config_change events except curated-vault allocations, last 30 days",
+            "source": "risk_lending_events (Step 10b decode pass)",
+            "quality": "measured",
+            "fetchedAt": "2026-10-01T16:50:49.000Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          }
+        },
+        "lenders": {
+          "top1Share": {
+            "unit": "fraction",
+            "value": null,
+            "detail": "Jupiter Lend liquidity-layer supply positions are not read",
+            "reason": "not_collected"
+          },
+          "top3Share": {
+            "unit": "fraction",
+            "value": null,
+            "detail": "Jupiter Lend liquidity-layer supply positions are not read",
+            "reason": "not_collected"
+          },
+          "top10Share": {
+            "unit": "fraction",
+            "value": null,
+            "detail": "Jupiter Lend liquidity-layer supply positions are not read",
+            "reason": "not_collected"
+          }
+        },
+        "coverage": {
+          "dataTo": "2026-10-14T13:11:03.949Z",
+          "dataFrom": "2026-04-12T09:00:00.000Z",
+          "verification": "onchain"
+        },
+        "collateral": [
+          {
+            "asset": "NVDAx",
+            "routes": [
+              {
+                "route": "routed_dex",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "us_market_hours",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "routed_dex_sale:margin",
+                  "regime": "us_market_hours",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 1.0000272256560236,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_market_hours",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input; lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-13T19:56:00.656Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_market_hours",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "market is open",
+                  "reason": "not_applicable",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "market is open",
+                  "reason": "not_applicable",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "routed_dex",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.997221524406722,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 12968,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T01:57:22.222Z",
+                  "fetchedAt": "2026-10-14T13:07:05.068Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.027044224102895198,
+                  "method": "routed_dex_sale:margin",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 1470,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T01:57:22.222Z",
+                  "fetchedAt": "2026-10-14T13:16:05.704Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 1.0000914722402636,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_offhours_weekday",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input; lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-14T13:16:05.704Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_offhours_weekday",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "sale_at_next_open:recovered",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "assumption",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "sale_at_next_open:margin",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_offhours_weekday",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_offhours_weekday",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "routed_dex",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9976068994291514,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 6592,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-03T00:07:21.409Z",
+                  "fetchedAt": "2026-10-11T23:04:46.541Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030524438670972653,
+                  "method": "routed_dex_sale:margin",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 826,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-03T00:07:21.409Z",
+                  "fetchedAt": "2026-10-11T23:04:46.541Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9970992126467162,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "weekend",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input; lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-11T23:04:46.540Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "weekend",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "sale_at_next_open:recovered",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "assumption",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "sale_at_next_open:margin",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "weekend",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "weekend",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "routed_dex",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9976068994291514,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "us_holiday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 6592,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-03T00:07:21.409Z",
+                  "fetchedAt": "2026-10-11T23:04:46.541Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "no oracle-against-DEX rows in this regime",
+                  "reason": "no_samples_in_regime",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "sale_at_next_open:recovered",
+                  "regime": "us_holiday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "assumption",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "sale_at_next_open:margin",
+                  "regime": "us_holiday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "no oracle-against-DEX rows in this regime",
+                  "reason": "no_samples_in_regime",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_holiday",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              }
+            ],
+            "observed": {
+              "liquidations": {
+                "unit": "count",
+                "value": 6,
+                "method": "lending-report-0.2",
+                "source": "risk_lending_events (liquidations, Step 10b decode pass) and Step 5b hourly pool mids",
+                "quality": "measured",
+                "fetchedAt": "2026-10-01T16:50:49.000Z",
+                "provenance": "live",
+                "methodVersion": "lending-report-0.2"
+              },
+              "realisedVsMid": {
+                "unit": "fraction",
+                "value": null,
+                "detail": "Step 5b pool mids start 2026-09-04; no followed sale since is in its pools",
+                "reason": "not_collected"
+              },
+              "soldInSameTxShare": {
+                "unit": "fraction",
+                "value": 0.8333333333333334,
+                "method": "lending-report-0.2",
+                "source": "risk_lending_events (liquidations, Step 10b decode pass) and Step 5b hourly pool mids",
+                "quality": "measured",
+                "samples": 6,
+                "fetchedAt": "2026-10-01T16:50:49.000Z",
+                "provenance": "live",
+                "methodVersion": "lending-report-0.2"
+              }
+            },
+            "oracleGap": [
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": 2.7225656023643907e-5,
+                  "method": "median(oracle / routed reference mid \u2212 1), matched within 180s",
+                  "regime": "us_market_hours",
+                  "source": "lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 606,
+                  "dataFrom": "2026-10-02T13:31:00.689Z",
+                  "fetchedAt": "2026-10-13T19:56:00.656Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "regime": "us_market_hours"
+              },
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": 9.147224026351264e-5,
+                  "method": "median(oracle / routed reference mid \u2212 1), matched within 180s",
+                  "regime": "us_offhours_weekday",
+                  "source": "lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 1470,
+                  "dataFrom": "2026-10-01T21:21:00.081Z",
+                  "fetchedAt": "2026-10-14T13:16:05.704Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "regime": "us_offhours_weekday"
+              },
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": -0.002900787353283807,
+                  "method": "median(oracle / routed reference mid \u2212 1), matched within 180s",
+                  "regime": "weekend",
+                  "source": "lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 826,
+                  "dataFrom": "2026-10-03T00:07:21.412Z",
+                  "fetchedAt": "2026-10-11T23:04:46.540Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "regime": "weekend"
+              },
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "no oracle-against-DEX rows in this regime",
+                  "reason": "no_samples_in_regime",
+                  "regime": "us_holiday"
+                },
+                "regime": "us_holiday"
+              }
+            ],
+            "collateralUsd": {
+              "unit": "usd",
+              "value": null,
+              "detail": "no_price_source",
+              "reason": "no_reference_price"
+            },
+            "coverageByGap": [
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": null,
+                  "detail": "no position is liquidated at this gap",
+                  "reason": "not_applicable"
+                },
+                "gapPct": 5
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 7005.749212088932,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 10
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 182.44490119825826,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 15
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 62.56737795449507,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 20
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 11.233571339995647,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 25
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 3.6462332469717285,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 30
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 1.8926253437945322,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 40
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 1.3875447097229459,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 50
+              }
+            ],
+            "regimesMissing": [],
+            "liquidationBonus": {
+              "unit": "fraction",
+              "value": 0.03,
+              "method": "jupiter_lend_vault_decode",
+              "source": "lending collector 5-minute vault row",
+              "quality": "measured",
+              "fetchedAt": "2026-10-14T13:01:05.159Z",
+              "provenance": "live",
+              "methodVersion": "lending-0.1"
+            },
+            "liquidationThreshold": {
+              "unit": "fraction",
+              "value": 0.75,
+              "method": "jupiter_lend_vault_decode",
+              "source": "lending collector 5-minute vault row",
+              "quality": "measured",
+              "fetchedAt": "2026-10-14T13:01:05.159Z",
+              "provenance": "live",
+              "methodVersion": "lending-0.1"
+            }
+          }
+        ],
+        "provenance": "live",
+        "withdrawal": {
+          "suppliedUsd": {
+            "unit": "usd",
+            "value": 52111122.088571,
+            "method": "jupiter_lend_token_reserve_decode; at par",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "availableUsd": {
+            "unit": "usd",
+            "value": 5633616.225899,
+            "method": "jupiter_lend_token_reserve_decode; at par",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "shareLentOut": {
+            "unit": "fraction",
+            "value": 0.891892,
+            "method": "jupiter_lend_token_reserve_decode",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "hoursAboveAlarmShare": {
+            "unit": "fraction",
+            "value": 0,
+            "method": "share_of_5min_rows_above_utilAlarmPct",
+            "source": "lending collector 5-minute liquidity-layer rows (JupUSD; > 95% lent out)",
+            "quality": "measured",
+            "samples": 3041,
+            "dataFrom": "2026-10-01T21:21:00.081Z",
+            "fetchedAt": "2026-10-14T13:16:05.704Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          }
+        },
+        "methodVersion": "facts-0.1"
+      }
+    },
+    {
+      "account": "Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke",
+      "venue": "jupiter_lend",
+      "market": "Jupiter Lend NVDAx/USDC",
+      "role": "vault",
+      "sheet": {
+        "chain": "solana",
+        "rates": {
+          "borrowApy": {
+            "unit": "fraction",
+            "value": 0.1031833997262559,
+            "method": "jupiter_lend_token_reserve_decode; APY = exp(APR) \u2212 1",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "supplyApy": {
+            "unit": "fraction",
+            "value": 0.0879552314251637,
+            "method": "jupiter_lend_token_reserve_decode; APY = exp(APR) \u2212 1",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "supplyApyVariation": {
+            "unit": "fraction",
+            "value": 0.011630616084159828,
+            "method": "stdev of exp(supplyApr) \u2212 1 over the 5-minute rows (live only, D12)",
+            "source": "lending collector 5-minute liquidity-layer rows (USDC)",
+            "quality": "measured",
+            "samples": 3040,
+            "dataFrom": "2026-10-01T21:21:00.081Z",
+            "fetchedAt": "2026-10-14T13:16:05.704Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          }
+        },
+        "venue": "jupiter_lend",
+        "market": "Jupiter Lend NVDAx/USDC",
+        "symbol": "NVDAx/USDC",
+        "account": "Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke",
+        "history": {
+          "liquidations": {
+            "unit": "count",
+            "value": 8,
+            "method": "lending-report-0.2",
+            "source": "risk_lending_events (Step 10b decode pass)",
+            "quality": "measured",
+            "fetchedAt": "2026-10-01T16:50:49.000Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          },
+          "liquidatedUsd": {
+            "unit": "usd",
+            "value": 0.8818264206910809,
+            "method": "lending-report-0.2",
+            "source": "risk_lending_events (Step 10b decode pass)",
+            "quality": "measured",
+            "samples": 8,
+            "fetchedAt": "2026-10-01T16:50:49.000Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          },
+          "socialisedLossUsd": {
+            "unit": "usd",
+            "value": null,
+            "detail": "Jupiter Lend absorbed debt is read live only (D12)",
+            "reason": "not_collected"
+          },
+          "parameterChanges30d": {
+            "unit": "count",
+            "value": 0,
+            "method": "config_change events except curated-vault allocations, last 30 days",
+            "source": "risk_lending_events (Step 10b decode pass)",
+            "quality": "measured",
+            "fetchedAt": "2026-10-01T16:50:49.000Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          }
+        },
+        "lenders": {
+          "top1Share": {
+            "unit": "fraction",
+            "value": null,
+            "detail": "Jupiter Lend liquidity-layer supply positions are not read",
+            "reason": "not_collected"
+          },
+          "top3Share": {
+            "unit": "fraction",
+            "value": null,
+            "detail": "Jupiter Lend liquidity-layer supply positions are not read",
+            "reason": "not_collected"
+          },
+          "top10Share": {
+            "unit": "fraction",
+            "value": null,
+            "detail": "Jupiter Lend liquidity-layer supply positions are not read",
+            "reason": "not_collected"
+          }
+        },
+        "coverage": {
+          "dataTo": "2026-10-14T13:11:03.949Z",
+          "dataFrom": "2026-03-25T13:00:00.000Z",
+          "verification": "onchain"
+        },
+        "collateral": [
+          {
+            "asset": "NVDAx",
+            "routes": [
+              {
+                "route": "routed_dex",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "us_market_hours",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "routed_dex_sale:margin",
+                  "regime": "us_market_hours",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 1.0000272256560236,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_market_hours",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input; lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-13T19:56:00.656Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_market_hours",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "us_market_hours",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "market is open",
+                  "reason": "not_applicable",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "market is open",
+                  "reason": "not_applicable",
+                  "regime": "us_market_hours",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "routed_dex",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.997221524406722,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 12968,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T01:57:22.222Z",
+                  "fetchedAt": "2026-10-14T13:07:05.068Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.027044224102895198,
+                  "method": "routed_dex_sale:margin",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 1470,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T01:57:22.222Z",
+                  "fetchedAt": "2026-10-14T13:16:05.704Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 1.0000914722402636,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_offhours_weekday",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input; lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-14T13:16:05.704Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_offhours_weekday",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "sale_at_next_open:recovered",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "assumption",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "sale_at_next_open:margin",
+                  "regime": "us_offhours_weekday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "us_offhours_weekday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_offhours_weekday",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_offhours_weekday",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "routed_dex",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9976068994291514,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 6592,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-03T00:07:21.409Z",
+                  "fetchedAt": "2026-10-11T23:04:46.541Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030524438670972653,
+                  "method": "routed_dex_sale:margin",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 826,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-03T00:07:21.409Z",
+                  "fetchedAt": "2026-10-11T23:04:46.541Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9970992126467162,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "weekend",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input; lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-11T23:04:46.540Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "weekend",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "sale_at_next_open:recovered",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "assumption",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "sale_at_next_open:margin",
+                  "regime": "weekend",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "weekend",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "weekend",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "weekend",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "routed_dex",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9976068994291514,
+                  "method": "routed_dex_sale:recovered",
+                  "regime": "us_holiday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "measured",
+                  "samples": 6592,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-03T00:07:21.409Z",
+                  "fetchedAt": "2026-10-11T23:04:46.541Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "no oracle-against-DEX rows in this regime",
+                  "reason": "no_samples_in_regime",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "wait_for_market_open",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": 0.9962487175614338,
+                  "method": "sale_at_next_open:recovered",
+                  "regime": "us_holiday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools)",
+                  "quality": "assumption",
+                  "samples": 5440,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.0261082426182202,
+                  "method": "sale_at_next_open:margin",
+                  "regime": "us_holiday",
+                  "source": "risk_depth_curves (risk-0.3, routed sale across dollar and SOL pools); lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "assumption",
+                  "samples": 606,
+                  "sizeUsd": 100000,
+                  "dataFrom": "2026-10-01T13:32:03.590Z",
+                  "fetchedAt": "2026-10-13T19:57:00.686Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              },
+              {
+                "route": "two_hop",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "119 pools ($907217 TVL at discovery) pair it with a token whose dollar leg is not collected",
+                  "reason": "not_collected",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                }
+              },
+              {
+                "route": "issuer_redemption",
+                "regime": "us_holiday",
+                "recovered": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "no oracle-against-DEX rows in this regime",
+                  "reason": "no_samples_in_regime",
+                  "regime": "us_holiday",
+                  "sizeUsd": 100000
+                },
+                "seizedUsd": 100000,
+                "liquidatorMargin": {
+                  "unit": "fraction",
+                  "value": 0.030000000000000027,
+                  "method": "issuer_redemption_at_oracle (settles in 120h, KYC required)",
+                  "regime": "us_holiday",
+                  "source": "xStocks FAQ (window, minimum, KYC); settlement T+5 from secondary source; capacity is a scenario input",
+                  "quality": "assumption",
+                  "sizeUsd": 100000,
+                  "fetchedAt": "2026-10-01T02:00:00Z",
+                  "provenance": "live",
+                  "methodVersion": "facts-0.1"
+                }
+              }
+            ],
+            "observed": {
+              "liquidations": {
+                "unit": "count",
+                "value": 8,
+                "method": "lending-report-0.2",
+                "source": "risk_lending_events (liquidations, Step 10b decode pass) and Step 5b hourly pool mids",
+                "quality": "measured",
+                "fetchedAt": "2026-10-01T16:50:49.000Z",
+                "provenance": "live",
+                "methodVersion": "lending-report-0.2"
+              },
+              "realisedVsMid": {
+                "unit": "fraction",
+                "value": null,
+                "detail": "Step 5b pool mids start 2026-09-04; no followed sale since is in its pools",
+                "reason": "not_collected"
+              },
+              "soldInSameTxShare": {
+                "unit": "fraction",
+                "value": 0.875,
+                "method": "lending-report-0.2",
+                "source": "risk_lending_events (liquidations, Step 10b decode pass) and Step 5b hourly pool mids",
+                "quality": "measured",
+                "samples": 8,
+                "fetchedAt": "2026-10-01T16:50:49.000Z",
+                "provenance": "live",
+                "methodVersion": "lending-report-0.2"
+              }
+            },
+            "oracleGap": [
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": 2.7225656023643907e-5,
+                  "method": "median(oracle / routed reference mid \u2212 1), matched within 180s",
+                  "regime": "us_market_hours",
+                  "source": "lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 606,
+                  "dataFrom": "2026-10-02T13:31:00.689Z",
+                  "fetchedAt": "2026-10-13T19:56:00.656Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "regime": "us_market_hours"
+              },
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": 9.147224026351264e-5,
+                  "method": "median(oracle / routed reference mid \u2212 1), matched within 180s",
+                  "regime": "us_offhours_weekday",
+                  "source": "lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 1470,
+                  "dataFrom": "2026-10-01T21:21:00.081Z",
+                  "fetchedAt": "2026-10-14T13:16:05.704Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "regime": "us_offhours_weekday"
+              },
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": -0.002900787353283807,
+                  "method": "median(oracle / routed reference mid \u2212 1), matched within 180s",
+                  "regime": "weekend",
+                  "source": "lending collector 5-minute rows (venue oracle) against risk_asset_snapshots refMidUsd",
+                  "quality": "measured",
+                  "samples": 826,
+                  "dataFrom": "2026-10-03T00:07:21.412Z",
+                  "fetchedAt": "2026-10-11T23:04:46.540Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "regime": "weekend"
+              },
+              {
+                "gap": {
+                  "unit": "fraction",
+                  "value": null,
+                  "detail": "no oracle-against-DEX rows in this regime",
+                  "reason": "no_samples_in_regime",
+                  "regime": "us_holiday"
+                },
+                "regime": "us_holiday"
+              }
+            ],
+            "collateralUsd": {
+              "unit": "usd",
+              "value": 1656671.9742975975,
+              "method": "lending_positions_aggregate",
+              "source": "risk_lending_positions (lending collector hourly positions (Solana RPC getProgramAccounts, decoded on-chain))",
+              "quality": "measured",
+              "fetchedAt": "2026-10-14T13:00:00.000Z",
+              "provenance": "live",
+              "methodVersion": "lending-import-0.1"
+            },
+            "coverageByGap": [
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": null,
+                  "detail": "no position is liquidated at this gap",
+                  "reason": "not_applicable"
+                },
+                "gapPct": 5
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 7005.749212088932,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 10
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 182.44490119825826,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 15
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 62.56737795449507,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 20
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 11.233571339995647,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 25
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 3.6462332469717285,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 30
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 1.8926253437945322,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 40
+              },
+              {
+                "value": {
+                  "unit": "ratio",
+                  "value": 1.3875447097229459,
+                  "method": "lending-report-0.2",
+                  "regime": "weekend",
+                  "source": "lending report section 7 (coverage on the liquidator's margin; positions hour 2026-10-14/13, all markets: the pools share the DEX)",
+                  "quality": "measured",
+                  "fetchedAt": "2026-10-14T13:01:05.159Z",
+                  "provenance": "live",
+                  "methodVersion": "lending-report-0.2"
+                },
+                "gapPct": 50
+              }
+            ],
+            "regimesMissing": [],
+            "liquidationBonus": {
+              "unit": "fraction",
+              "value": 0.03,
+              "method": "jupiter_lend_vault_decode",
+              "source": "lending collector 5-minute vault row",
+              "quality": "measured",
+              "fetchedAt": "2026-10-14T13:01:05.159Z",
+              "provenance": "live",
+              "methodVersion": "lending-0.1"
+            },
+            "liquidationThreshold": {
+              "unit": "fraction",
+              "value": 0.75,
+              "method": "jupiter_lend_vault_decode",
+              "source": "lending collector 5-minute vault row",
+              "quality": "measured",
+              "fetchedAt": "2026-10-14T13:01:05.159Z",
+              "provenance": "live",
+              "methodVersion": "lending-0.1"
+            }
+          }
+        ],
+        "provenance": "live",
+        "withdrawal": {
+          "suppliedUsd": {
+            "unit": "usd",
+            "value": 484995796.315847,
+            "method": "jupiter_lend_token_reserve_decode; at par",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "availableUsd": {
+            "unit": "usd",
+            "value": 21925788.856391,
+            "method": "jupiter_lend_token_reserve_decode; at par",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "shareLentOut": {
+            "unit": "fraction",
+            "value": 0.954791,
+            "method": "jupiter_lend_token_reserve_decode",
+            "source": "risk_lending_snapshots (jl_liquidity; Solana RPC getMultipleAccounts (Chainstack))",
+            "quality": "measured",
+            "fetchedAt": "2026-10-14T13:11:03.949Z",
+            "provenance": "live",
+            "methodVersion": "lending-0.1"
+          },
+          "hoursAboveAlarmShare": {
+            "unit": "fraction",
+            "value": 0.024671052631578948,
+            "method": "share_of_5min_rows_above_utilAlarmPct",
+            "source": "lending collector 5-minute liquidity-layer rows (USDC; > 95% lent out)",
+            "quality": "measured",
+            "samples": 3040,
+            "dataFrom": "2026-10-01T21:21:00.081Z",
+            "fetchedAt": "2026-10-14T13:16:05.704Z",
+            "provenance": "live",
+            "methodVersion": "lending-report-0.2"
+          }
+        },
+        "methodVersion": "facts-0.1"
+      }
+    }
+  ]
+}

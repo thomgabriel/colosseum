@@ -904,6 +904,7 @@ describe('the /v1 route table', () => {
     const app = await buildApp();
     await app.ready();
     expect(v1Paths(app.swagger())).toEqual([
+      '/v1/assets/{id}/facts',
       '/v1/baskets/intake',
       '/v1/baskets/personalize',
       '/v1/baskets/propose',
@@ -1022,6 +1023,10 @@ describe('no /v1 route can make the server sign', () => {
       // a shared portfolio's figures, from the plan inputs handed in: no file, no key, no chain call
       'orders/figures.ts',
       'orders/legs.ts',
+      // the conversations' lookup loop: tools that read through the reader handed in, no key, no file
+      'orders/lookup-loop.ts',
+      // the asset lookups' types: the reader itself is handed in (asset-lookups.ts)
+      'orders/lookups.ts',
       'orders/mix.ts',
       'orders/person.ts',
       'orders/personalize.ts',
@@ -1057,6 +1062,7 @@ describe('no /v1 route can make the server sign', () => {
       'portfolio/snapshots.ts',
       // why a vault's holdings are there, from stored reasons and the chain's asset list: no key
       'portfolio/why.ts',
+      'routes/v1/assets.ts',
       'routes/v1/baskets.ts',
       'routes/v1/config.ts',
       'routes/v1/funding.ts',
@@ -1107,12 +1113,17 @@ describe('no /v1 route can make the server sign', () => {
     ]);
     // jose is used to verify and nowhere to sign; node:crypto to hash and to make ids.
     expect([...(packages.get('jose') ?? [])]).toEqual(['plugins/auth.ts']);
-    // the model's client, for the intake, the vault conversation and the relaxed goal agent
+    // the model's client, for the intake, the vault conversation and the relaxed goal agent; the lookup
+    // loop takes the SDK's types only (its calls are the two agents')
     expect([...(packages.get('@anthropic-ai/sdk') ?? [])]).toEqual([
       'llm.ts',
       'orders/relaxed-goal-agent.ts',
       'vault-agent-model.ts',
+      'orders/lookup-loop.ts',
     ]);
+    expect(readFileSync(join(src, 'orders/lookup-loop.ts'), 'utf8')).toMatch(
+      /^import type Anthropic from '@anthropic-ai\/sdk';$/mu,
+    );
     for (const file of files) {
       // The code, without its comments.
       const text = readFileSync(file, 'utf8')

@@ -2,6 +2,244 @@
 // change the API's routes, run `pnpm openapi:emit`, then `pnpm --filter @colosseum/sdk api-types`.
 // scripts/api-types.test.ts fails while this file is not what the committed document gives.
 
+/** GET /v1/assets/{id}/facts: params. The facts the server holds of one listed asset */
+export type GetAssetsByIdFactsParams = {
+  id: string;
+};
+
+/** GET /v1/assets/{id}/facts: query. The facts the server holds of one listed asset */
+export type GetAssetsByIdFactsQuery = {
+  parts?: string;
+  window?: '24h' | '7d' | '30d';
+};
+
+/** GET /v1/assets/{id}/facts: response. The facts the server holds of one listed asset */
+export type GetAssetsByIdFactsResponse = {
+  assetId: string;
+  chain: 'solana' | 'base' | 'robinhood';
+  symbol: string;
+  provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  window: '24h' | '7d' | '30d';
+  parts: {
+    profile?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    price_history?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    pools?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    lending?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    bearing?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+  };
+  disclaimer: string;
+};
+
 /** POST /v1/baskets/intake: body. Read a goal into a sheet, ask what it leaves open, and say back what was understood */
 export type PostBasketsIntakeBody = {
   text: string;
@@ -4832,6 +5070,11 @@ export type PostVaultsByChainByAddressTargetsResponse =
 
 /** Every route of the document, by its method and path: what each takes and answers. */
 export interface ApiRoutes {
+  'GET /v1/assets/{id}/facts': {
+    params: GetAssetsByIdFactsParams;
+    query: GetAssetsByIdFactsQuery;
+    response: GetAssetsByIdFactsResponse;
+  };
   'POST /v1/baskets/intake': { body: PostBasketsIntakeBody; response: PostBasketsIntakeResponse };
   'POST /v1/baskets/personalize': {
     body: PostBasketsPersonalizeBody;

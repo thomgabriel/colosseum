@@ -133,8 +133,10 @@ describe('the committed OpenAPI document (packages/sdk/openapi.json)', () => {
     // The routes anybody may call, by name: a route opened by mistake fails here. The shelf and a
     // shared portfolio's page are the same for everyone (DESIGN-VAULT section 10). A plan proposed from
     // a link is made and read back with no sign-in (AGT-2, section 12). The platform's counts are the
-    // landing's, for every visitor.
+    // landing's, for every visitor. An asset's facts are the data the server holds of a listed asset, the
+    // same for everyone (FIGURES-BY-REFERENCE as amended 2026-10-14).
     expect(open).toEqual([
+      'GET /v1/assets/{id}/facts',
       'POST /v1/baskets/propose',
       'GET /v1/baskets/{id}',
       'GET /v1/config',
