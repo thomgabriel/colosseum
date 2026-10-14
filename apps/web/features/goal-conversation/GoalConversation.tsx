@@ -88,7 +88,7 @@ export function GoalConversation({
    * Called as a deposit is open on the pane (approved, its steps not all confirmed) whichever way the
    * pane came to show it, with whether a step is being signed now, and as it no longer is.
    */
-  onDeposit?: (state: { open: boolean; signing: boolean }) => void;
+  onDeposit?: (state: { open: boolean; signing: boolean; planId?: string }) => void;
   /**
    * The chain of this plan, drawn beside the box (GoalChain, gate CHAIN-AT-THE-PLAN): a choice while
    * the conversation has no words, its badge with "Change" once it has.
@@ -169,9 +169,15 @@ export function GoalConversation({
   lockedNow.current = locked;
   const tellDeposit = useRef(onDeposit);
   tellDeposit.current = onDeposit;
+  // The plan is said with it, so the panel can list the vault it opens in its place.
+  const openPlan = open?.planId;
   useEffect(() => {
-    tellDeposit.current?.({ open: locked, signing: locked && signing });
-  }, [locked, signing]);
+    tellDeposit.current?.({
+      open: locked,
+      signing: locked && signing,
+      ...(openPlan ? { planId: openPlan } : {}),
+    });
+  }, [locked, signing, openPlan]);
   useEffect(() => () => tellDeposit.current?.({ open: false, signing: false }), []);
   const [error, setError] = useState<string>();
   // The reply did not come: said in the transcript, where the reply would have been.

@@ -3,6 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 // `shortAddress` (features/shared/use-person.ts) cuts as `shorten` does; it imports the wallet
 import { shorten as shortAddress } from '../components/ui/format';
 import { dictionary } from '../i18n';
+import { openVault } from './conversations';
 import { pressInView, readyToInvest } from './invest';
 import { inTheme } from './theme';
 
@@ -89,7 +90,7 @@ async function toVault(page: Page): Promise<string> {
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
   await expect(page).toHaveURL(/\/invest$/);
-  await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   await expect(page.locator('[data-ui="vault-screen"]')).toHaveAttribute('data-pane', 'holdings');
   return address;
@@ -360,7 +361,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(here);
   await expect(screen.locator('[data-ui="vault-empty"]')).toHaveText(p.empty.noTargets);
   await expect(screen.locator('[data-ui="vault-empty-targets"]')).toHaveCount(0);

@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
+import { openVault } from './conversations';
 import { readyToInvest } from './invest';
 import { inTheme } from './theme';
 
@@ -277,17 +278,13 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
 
   // through the app's own links: the throwaway sign-in does not outlive a page load. The bar's
   // Portfolio is now the portfolio section's board (PORT-1); the person's own vaults are in the
-  // conversation picker on the goal page (GOAL-CHAT-PORT), each opening its page. The goal page
+  // conversations panel on the goal page, each opening its page. The goal page
   // reads them when it opens, so it is opened again (by way of the board) after the vault was made.
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
   await expect(page).toHaveURL(/\/invest$/);
-  const vaultOption = `vault:solana:${address}`;
-  await expect(page.locator(`[data-ui="goal-picker"] option[value="${vaultOption}"]`)).toHaveCount(
-    1,
-  );
-  await page.locator('[data-ui="goal-picker"]').selectOption(vaultOption);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   // By hand, behind "More" on the vault's own page: the editor, the review and the steps are in the
   // page's pane, at one address (gate VAULT-PAGE-ACTIONS). The editor's own page stays for old links.
