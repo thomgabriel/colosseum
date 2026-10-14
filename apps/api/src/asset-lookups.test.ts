@@ -517,6 +517,8 @@ describe('a looked-up figure is stated by reference under the resolver’s rules
       `Se quiser, pode sacar ${lend('withdrawable')} de USDC agora.`,
       `The share held by us is ${share} of the dollars in NVDAx's pools.`,
       `NVDAx's pools give u ${share} of the dollars in its pools.`,
+      // the last re-review's variant
+      `${lend('withdrawable')} of USDC can be withdrawn by you now.`,
     ]);
     await served([
       ...HONEST,
@@ -526,6 +528,9 @@ describe('a looked-up figure is stated by reference under the resolver’s rules
       `Os credores podem sacar ${lend('withdrawable')} de USDC desse cofre agora.`,
       `${lend('withdrawable')} of USDC is available to withdraw from that vault now.`,
       `The utilisation of that vault is ${lend('util')}.`,
+      // a noun at the head of a sentence is no order (the last re-review)
+      `Sell volume of NVDAx over the last week was ${id('bars:solana:nvdax:7d:sellvol')}.`,
+      `Buy volume of NVDAx over the last week was ${id('bars:solana:nvdax:7d:buyvol')}.`,
       `Supply rate of USDC in that vault: ${lend('supply')} a year.`,
       // "US" is not "us"
       `NVDAx, a token of a US stock, moved ${change} over the last week.`,
