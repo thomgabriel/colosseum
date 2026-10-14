@@ -5,6 +5,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IndexRegistry} from "../src/IndexRegistry.sol";
 import {IIndexRegistry} from "../src/interfaces/IIndexRegistry.sol";
+import {IndexRegistryV1} from "./legacy/IndexRegistryV1.sol";
 import {AssetConfig, IndexInfo, Limits, Weight} from "../src/interfaces/Types.sol";
 import {VaultFixture} from "./helpers/VaultFixture.sol";
 import {MockPlatform} from "./mocks/Platform.sol";
@@ -56,8 +57,9 @@ struct Case {
     Published waiting;
 }
 
-/// A16: the four author limits, case by case from `fixtures/creator-limits/vectors.json`, the file the
-/// TypeScript check and the Solana program are tested against too.
+/// A16: the four author limits, case by case from the shared files the TypeScript check is tested against
+/// too: the registry's logic against `fixtures/creator-limits/vectors-v2.json` (gate SHARED-RULES-V2), and the
+/// first logic, kept under `test/legacy/`, against `vectors.json`, the first rules the Solana program keeps.
 ///
 /// Each case is driven through the real registry: the state the case describes is built with real calls
 /// (`scenario`), the clock is set, and the version is published. An accepted case must report the turnover
@@ -78,7 +80,8 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
     string internal json;
     mapping(bytes32 name => address) internal tokenOf;
     mapping(bytes32 name => uint16) internal ceilingOf;
-    IndexRegistry internal reg;
+    /// The logic under test, through the interface both rule sets share: the first logic has no `rulesVersion`.
+    IIndexRegistry internal reg;
     bytes32 internal id;
 
     uint256 internal accepted;
@@ -89,12 +92,15 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
     /// Puts `token` on the platform list with `ceilingBps`, or changes its ceiling.
     function _setCeiling(address token, uint16 ceilingBps) internal virtual;
     function _setCash(address token, uint16 ceilingBps) internal virtual;
-    function _newRegistryUnderTest() internal virtual returns (IndexRegistry);
+    function _newRegistryUnderTest() internal virtual returns (IIndexRegistry);
     function _platformAdmin() internal view virtual returns (address);
+    /// The file of cases, its rules, and how many cases it has: a case added to the file and not read here fails.
+    function _file() internal pure virtual returns (string memory path, uint8 rules, uint256 count);
 
     function setUp() public {
         _deployPlatform();
-        json = vm.readFile("../fixtures/creator-limits/vectors.json");
+        (string memory path,,) = _file();
+        json = vm.readFile(path);
         reg = _newRegistryUnderTest();
         id = keccak256(abi.encode(author, FAMILY));
 
@@ -118,7 +124,16 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
     }
 
     /// The numbers in the file are the numbers in the contract.
-    function test_A16_limits_matchTheSharedFile() public view {
+    function test_A16_limits_matchTheSharedFile() public {
+        (, uint8 rules,) = _file();
+        if (rules == 1) {
+            // The first logic has no `rulesVersion`: that is how a reader tells the first rules.
+            vm.expectRevert();
+            reg.rulesVersion();
+        } else {
+            assertEq(reg.rulesVersion(), rules);
+            assertEq(json.readUint(".rules"), rules);
+        }
         Limits memory l = reg.limits();
         assertEq(l.minAssets, json.readUint(".limits.minAssets"));
         assertEq(l.maxAssets, json.readUint(".limits.maxAssets"));
@@ -131,15 +146,20 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
     }
 
     function test_A16_creatorLimits_everySharedVector() public {
+        (,, uint256 expected) = _file();
         uint256 count = json.readUint(".count");
-        assertEq(count, 87, "the file has a case this test has not been read against");
+        assertEq(count, expected, "the file has a case this test has not been read against");
         Case[] memory cases = abi.decode(vm.parseJson(json, ".cases"), (Case[]));
         assertEq(cases.length, count);
         // The decoder and the structs above agree on the order of the fields.
-        assertEq(cases[0].name, "three assets, the fewest allowed");
+        string memory last = string.concat(".cases[", vm.toString(count - 1), "]");
+        assertEq(cases[0].name, json.readString(".cases[0].name"));
         assertEq(cases[0].scenario, "first");
-        assertEq(cases[86].expect.reason, "TurnoverTooHigh");
-        assertEq(cases[86].expect.breaks.length, 2);
+        assertEq(cases[count - 1].expect.reason, json.readString(string.concat(last, ".expect.reason")));
+        assertEq(
+            cases[count - 1].expect.breaks.length,
+            json.readStringArray(string.concat(last, ".expect.breaks")).length
+        );
 
         for (uint256 i; i < count; ++i) {
             uint256 snap = vm.snapshotState();
@@ -157,8 +177,8 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
         for (uint256 reason = 1; reason <= 14; ++reason) {
             assertGt(seen[reason], 0, string.concat("no case is refused for reason ", vm.toString(reason)));
         }
-        // `previewPublish` takes no fee and no flags, so the five cases that set them cannot be previewed.
-        assertEq(previewsSkipped, 5);
+        // `previewPublish` takes no fee and no flags, so the cases that set them cannot be previewed.
+        assertEq(previewsSkipped, seen[1] + seen[2]);
     }
 
     function _case(Case memory c, string memory label) internal returns (bool previewed) {
@@ -328,11 +348,15 @@ abstract contract IndexRegistryVectorsTest is VaultFixture {
     }
 }
 
-/// Against the real factory. Its config holds a ceiling to 5,000, so the platform's 10,000 is stored as
-/// 5,000; the cases come out the same, since the registry's own cap is 5,000 too.
+/// The registry's logic against the second rules, on the real factory. Its config holds a ceiling to 5,000,
+/// and the second rules do not read it.
 contract IndexRegistryVectorsOnTheFactoryTest is IndexRegistryVectorsTest {
-    function _newRegistryUnderTest() internal view override returns (IndexRegistry) {
-        return registry;
+    function _file() internal pure virtual override returns (string memory, uint8, uint256) {
+        return ("../fixtures/creator-limits/vectors-v2.json", 2, 53);
+    }
+
+    function _newRegistryUnderTest() internal virtual override returns (IIndexRegistry) {
+        return IIndexRegistry(address(registry));
     }
 
     function _platformAdmin() internal view override returns (address) {
@@ -353,15 +377,22 @@ contract IndexRegistryVectorsOnTheFactoryTest is IndexRegistryVectorsTest {
     }
 }
 
-/// Against a platform list that holds the file's ceilings as they are, 10,000 included: the cap of 5,000 is
-/// then the registry's alone.
+/// The registry's logic against the second rules, on a platform list that holds any ceiling as it is.
 contract IndexRegistryVectorsOnAnOpenListTest is IndexRegistryVectorsTest {
     MockPlatform internal platform;
 
-    function _newRegistryUnderTest() internal override returns (IndexRegistry) {
+    function _file() internal pure virtual override returns (string memory, uint8, uint256) {
+        return ("../fixtures/creator-limits/vectors-v2.json", 2, 53);
+    }
+
+    function _logic() internal virtual returns (address) {
+        return address(new IndexRegistry());
+    }
+
+    function _newRegistryUnderTest() internal override returns (IIndexRegistry) {
         platform = new MockPlatform(admin, guardian);
         bytes memory init = abi.encodeCall(IndexRegistry.initialize, (address(platform), PUBLISH_DELAY));
-        return IndexRegistry(address(new ERC1967Proxy(address(new IndexRegistry()), init)));
+        return IIndexRegistry(address(new ERC1967Proxy(_logic(), init)));
     }
 
     function _platformAdmin() internal view override returns (address) {
@@ -375,5 +406,30 @@ contract IndexRegistryVectorsOnAnOpenListTest is IndexRegistryVectorsTest {
     function _setCash(address token, uint16 ceilingBps) internal override {
         platform.list(token, ceilingBps);
         platform.setCashToken(token);
+    }
+}
+
+/// The first logic against the first rules, on the real factory. Its config holds a ceiling to 5,000, so the
+/// platform's 10,000 is stored as 5,000; the cases come out the same, since the first rules cap at 5,000 too.
+contract IndexRegistryV1VectorsOnTheFactoryTest is IndexRegistryVectorsOnTheFactoryTest {
+    function _file() internal pure override returns (string memory, uint8, uint256) {
+        return ("../fixtures/creator-limits/vectors.json", 1, 87);
+    }
+
+    function _newRegistryUnderTest() internal override returns (IIndexRegistry) {
+        bytes memory init = abi.encodeCall(IndexRegistryV1.initialize, (address(factory), PUBLISH_DELAY));
+        return IIndexRegistry(address(new ERC1967Proxy(address(new IndexRegistryV1()), init)));
+    }
+}
+
+/// The first logic against the first rules, on a list that holds the file's ceilings unchanged (10,000
+/// included): the cap of 5,000 is then the registry's alone.
+contract IndexRegistryV1VectorsOnAnOpenListTest is IndexRegistryVectorsOnAnOpenListTest {
+    function _file() internal pure override returns (string memory, uint8, uint256) {
+        return ("../fixtures/creator-limits/vectors.json", 1, 87);
+    }
+
+    function _logic() internal override returns (address) {
+        return address(new IndexRegistryV1());
     }
 }

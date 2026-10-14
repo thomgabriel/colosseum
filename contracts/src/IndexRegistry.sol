@@ -10,13 +10,19 @@ import {IndexInfo, IndexVersion, Limits, Weight} from "./interfaces/Types.sol";
 /// The shared portfolios of one chain, and the four limits on what their authors may publish
 /// (DESIGN-VAULT.md section 6). The logic contract behind a UUPS proxy.
 ///
+/// The second rules (gate SHARED-RULES-V2, Thom, 2026-10-14), which replaced the first behind the same proxy
+/// and the same storage: 1 to 16 assets, each from 0.5% to 100% in 0.5% steps; the weights add up to at most
+/// 100% and what they leave is cash, as in a person's own vault; an asset's `maxWeightBps` on the factory is
+/// not read here (the app shows it as a warning). The turnover and the delay are unchanged.
+///
 /// It keeps two versions of each portfolio, the one in effect and the one waiting, and nothing older:
 /// history is in the `RecipePublished` events. A waiting version takes effect when its time comes with no
 /// transaction; every read here answers for the time it is asked at.
 ///
 /// The limits are constants. They are checked against the platform's asset list, read from the factory at
 /// the moment of publishing. The rules, their numbers and their order are those of
-/// `fixtures/creator-limits/README.md`, and a refusal names the lowest-numbered rule broken.
+/// `fixtures/creator-limits/README.md` (the second rules, `vectors-v2.json`), and a refusal names the
+/// lowest-numbered rule broken.
 ///
 /// It has no admin of its own. The factory's admin sets the publish delay and replaces this logic; the
 /// factory's guardian can cancel a waiting version; the factory's `launched()` raises the delay's floor.
@@ -55,11 +61,14 @@ contract IndexRegistry is Initializable, UUPSUpgradeable, IIndexRegistry {
     bytes32 private constant REGISTRY_STORAGE = 0x0cb72df5e712c16f02df7d588d4d4376c1ac0e18f09e3767b1d21dd34bde3500;
 
     // The four limits (section 6). Constants, not settings.
-    uint8 internal constant MIN_ASSETS = 3;
-    uint8 internal constant MAX_ASSETS = 12;
-    uint16 internal constant MIN_WEIGHT_BPS = 200;
-    uint16 internal constant MAX_WEIGHT_BPS = 5000;
+    uint8 internal constant RULES_VERSION = 2;
+    uint8 internal constant MIN_ASSETS = 1;
+    /// As many as a vault holds targets (`BasketVault.MAX_TARGETS`).
+    uint8 internal constant MAX_ASSETS = 16;
+    uint16 internal constant MIN_WEIGHT_BPS = 50;
+    uint16 internal constant MAX_WEIGHT_BPS = 10_000;
     uint16 internal constant STEP_BPS = 50;
+    /// The most the weights add up to. What they leave under it is cash.
     uint16 internal constant SUM_BPS = 10_000;
     uint16 internal constant MAX_TURNOVER_BPS = 2000;
     /// The least the publish delay can be: a minute while only the team's money is in, 48 hours once the
@@ -244,6 +253,11 @@ contract IndexRegistry is Initializable, UUPSUpgradeable, IIndexRegistry {
     }
 
     /// @inheritdoc IIndexRegistry
+    function rulesVersion() external pure returns (uint8) {
+        return RULES_VERSION;
+    }
+
+    /// @inheritdoc IIndexRegistry
     function publishDelay() external view returns (uint32) {
         return _delay(_registry());
     }
@@ -284,21 +298,19 @@ contract IndexRegistry is Initializable, UUPSUpgradeable, IIndexRegistry {
             if (i != 0 && token == c[i - 1].token) reason = _first(reason, DUPLICATE_ASSET);
             if (bps < MIN_WEIGHT_BPS) reason = _first(reason, WEIGHT_BELOW_MIN);
             if (bps % STEP_BPS != 0) reason = _first(reason, WEIGHT_OFF_STEP);
-            // Every weight is held to today's ceiling, whether it changed or not.
-            uint256 ceiling = platform.asset(token).maxWeightBps;
-            if (bps > (ceiling < MAX_WEIGHT_BPS ? ceiling : MAX_WEIGHT_BPS)) {
-                reason = _first(reason, WEIGHT_ABOVE_CEILING);
-            }
+            // The asset's own ceiling on the factory is not read: it is a warning in the app, not a limit.
+            if (bps > MAX_WEIGHT_BPS) reason = _first(reason, WEIGHT_ABOVE_CEILING);
+            // Cash is what the weights leave, never a line of its own: a vault holds it that way.
             if (token == cash) reason = _first(reason, CASH_NOT_ALLOWED);
             sum += bps;
         }
-        if (sum != SUM_BPS) reason = _first(reason, WEIGHT_SUM);
+        if (sum > SUM_BPS) reason = _first(reason, WEIGHT_SUM);
 
         if (index.creator != address(0)) {
             if (_hasWaiting(index)) reason = _first(reason, VERSION_PENDING);
             if (block.timestamp < index.lastPublishAt + delay) reason = _first(reason, VERSION_TOO_SOON);
             // Twice the turnover, so that nothing is divided: the absolute weight changes against the
-            // version in effect, an added asset counted from zero and a removed one to zero.
+            // version in effect, an added asset counted from zero and a removed one to zero, and cash's.
             uint256 moved = _moved(index.slots[_inEffect(index)].components, c);
             if (moved > 2 * uint256(MAX_TURNOVER_BPS)) reason = _first(reason, TURNOVER_TOO_HIGH);
             turnoverBps = uint16((moved + 1) / 2);
@@ -317,22 +329,32 @@ contract IndexRegistry is Initializable, UUPSUpgradeable, IIndexRegistry {
         require(err == bytes4(0), CreatorLimit(reason));
     }
 
-    /// The sum of `|next - prev|` over every asset in either list. Both are sorted, so one walk does it.
+    /// The sum of `|next - prev|` over every asset in either list, and over cash, which is what each list
+    /// leaves of 10,000. Both are sorted, so one walk does it. The sum is even: both sides add up to 10,000.
     function _moved(Weight[] storage prev, Weight[] calldata next) private view returns (uint256 moved) {
         uint256 i;
         uint256 j;
         uint256 n = prev.length;
+        uint256 before;
+        uint256 after_;
         while (i < n || j < next.length) {
             if (j == next.length || (i < n && prev[i].token < next[j].token)) {
-                moved += prev[i++].bps;
+                uint256 a = prev[i++].bps;
+                before += a;
+                moved += a;
             } else if (i == n || next[j].token < prev[i].token) {
-                moved += next[j++].bps;
+                uint256 b = next[j++].bps;
+                after_ += b;
+                moved += b;
             } else {
                 uint256 a = prev[i++].bps;
                 uint256 b = next[j++].bps;
+                before += a;
+                after_ += b;
                 moved += a > b ? a - b : b - a;
             }
         }
+        moved += before > after_ ? before - after_ : after_ - before;
     }
 
     // ---- internals
