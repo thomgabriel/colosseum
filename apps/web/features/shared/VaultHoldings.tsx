@@ -14,7 +14,7 @@ import { Status } from '../../components/ui/StatusMark';
 import { type Lang, LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { tokenName } from '../order/amounts';
-import { displayName } from '../order/plain';
+import { displayName, plainNames } from '../order/plain';
 import { explorerAddressTemplateFor } from '../order/readiness';
 import { dollars, share, shareTenths, tokens, utc } from '../portfolio/figures';
 import { type HoldingRow, holdingsOf, unpriced } from '../portfolio/portfolio';
@@ -80,7 +80,8 @@ export function VaultHoldings({
       ? read.vault.cash.why
       : read.vault.positions.find((p) => p.asset === row.asset)?.why;
     if (!why) return undefined;
-    if (why.text) return why.text;
+    // the engine's sentences name test-network tokens by their test names: said as every screen says them
+    if (why.text) return plainNames(why.text);
     if (row.cash) return v.page.keptAsCash;
     return why.cls ? t.shared.product.why[why.cls] : undefined;
   };

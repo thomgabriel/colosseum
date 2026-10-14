@@ -182,8 +182,8 @@ export type BasketLine = z.infer<typeof BasketLine>;
  * The rules that say what stopped a holding where it is, most telling first: the person's credit
  * limit, the cap on one token or one issuer, what selling would cost. One of these on a line is why it
  * holds what it holds; the sleeve's starting share is not, once a cap has cut it. On cash, first why
- * money that was meant for something else stayed. The same order as `bindingReason` on the plan's page
- * (apps/web/features/order/plain.ts), so a line is given one reason wherever it is shown.
+ * money that was meant for something else stayed. The plan's page (`bindingReason`) and the vault read
+ * both choose by `decidingReason` below, so a line is given one reason wherever it is shown.
  */
 const BINDING_RULES = [
   'CREDIT_BUDGET',
@@ -195,7 +195,8 @@ const BINDING_RULES = [
   'EXIT_CEILING',
   'TIER_CEILING',
 ];
-const BINDING_CASH_RULES = [
+/** On cash: why money that was meant for something else stayed. */
+export const BINDING_CASH_RULES = [
   'UNPLACED',
   'NO_DOLLAR_YIELD',
   'YIELD_TOO_SMALL',

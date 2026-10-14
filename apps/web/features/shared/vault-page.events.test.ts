@@ -542,7 +542,7 @@ describe('the owner’s page at rest', () => {
             valueUsd: '150',
             weightBps: 2_000,
             driftBps: 0,
-            why: { source: 'plan', text: 'Capped by your limit on one issuer.' },
+            why: { source: 'plan', text: 'Capped by your limit on one issuer, as tsyrupUSDC is.' },
           },
         ] as unknown as VaultView['positions'],
         valueUsd: '1200',
@@ -553,7 +553,8 @@ describe('the owner’s page at rest', () => {
     const why = (asset: string) =>
       find(plan, `[data-row="${asset}"] [data-ui="holding-why"]`).textContent;
     expect(why(SPYX)).toContain(en.shared.product.why.etf);
-    expect(why('solana:usdy')).toContain('Capped by your limit on one issuer.');
+    // the engine's sentence, with a test-network token said by its plain name
+    expect(why('solana:usdy')).toBe('Capped by your limit on one issuer, as syrupUSDC is.');
     // cash the vault plans a share of is kept as cash
     expect(why(CASH)).toContain(p.keptAsCash);
     await unmountAll();
