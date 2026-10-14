@@ -318,25 +318,38 @@ export function ownerRebalanceOffered(
   slippageBps: number,
   valueUsd: number,
 ): boolean {
-  if (idleCashToInvest(cashOverBps, valueUsd)) return true;
+  if (idleCashToInvest(rows, cashOverBps, slippageBps, valueUsd)) return true;
   if (!outsideOwnerBand(rows, cashOverBps, slippageBps)) return false;
-  const usable = 1 - slippageBps / 10_000;
-  return rows.some(
-    (r) =>
-      (Math.abs(r.targetBps - r.weightBps) / 10_000) * valueUsd * usable >=
-      OWNER_REBALANCE_MIN_TRADE_USD,
-  );
+  return rows.some((r) => tradeWorth(Math.abs(r.targetBps - r.weightBps), slippageBps, valueUsd));
 }
+
+/** A move of `bps` of a vault worth `valueUsd` is a trade of the smallest a rebalance makes, after slippage. */
+const tradeWorth = (bps: number, slippageBps: number, valueUsd: number) =>
+  (bps / 10_000) * valueUsd * (1 - slippageBps / 10_000) >= OWNER_REBALANCE_MIN_TRADE_USD;
 
 /**
  * Whether the cash over its share is worth a trade of its own: at least
  * `OWNER_REBALANCE_MIN_TRADE_USD`. Inside the band such cash is still spent by a rebalance of
  * purchases alone, whose amounts are the cash itself, so nothing is held back for a sale's slippage
  * and nothing is left. What a change of targets leaves when its sales bring more than their minimums
- * (Vault #4 on devnet, Oct 14) is offered this way, and a vault that holds it is off target.
+ * (Vault #4 on devnet, Oct 14) is offered this way, and a vault that holds it is off target. Only
+ * where a purchase of it reaches that size: an asset under its target by a trade's worth. Idle cash
+ * spread under four targets by $1.60 each is no trade the planner makes, and nothing is offered.
  */
-export function idleCashToInvest(cashOverBps: number, valueUsd: number): boolean {
-  return cashOverBps > 0 && (cashOverBps / 10_000) * valueUsd >= OWNER_REBALANCE_MIN_TRADE_USD;
+export function idleCashToInvest(
+  rows: readonly { targetBps: number; weightBps: number }[],
+  cashOverBps: number,
+  slippageBps: number,
+  valueUsd: number,
+): boolean {
+  return (
+    cashOverBps > 0 &&
+    (cashOverBps / 10_000) * valueUsd >= OWNER_REBALANCE_MIN_TRADE_USD &&
+    rows.some(
+      (r) =>
+        r.targetBps > r.weightBps && tradeWorth(r.targetBps - r.weightBps, slippageBps, valueUsd),
+    )
+  );
 }
 
 /**

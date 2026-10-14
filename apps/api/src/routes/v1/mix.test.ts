@@ -903,7 +903,9 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
     const spent = Object.fromEntries(trades.map((t) => [t.buy, Number(t.amountInRaw) / 1e6]));
     expect(Object.keys(spent).every((id) => FOLLOWED.some((t) => t.asset === id))).toBe(true);
     // Gold from nothing to 20% of the vault and the second asset from 25% to 30%: each purchase sized
-    // so that what it buys, once it loses the order's slippage, stops at its target.
+    // so that what it buys, once it loses the order's slippage, stops at its target. So the cash spent
+    // may pass 20% by that slippage; the step's guard judges the purchase the same way (`pastTarget`,
+    // tested against the planner in orders/rebalance-guard.test.ts).
     expect(spent['solana:gold']).toBeGreaterThan(before.total * 0.19);
     expect((spent['solana:gold'] ?? 0) * 0.99).toBeLessThanOrEqual(before.total * 0.2);
     expect(spent['solana:spy']).toBeGreaterThan(before.total * 0.04);

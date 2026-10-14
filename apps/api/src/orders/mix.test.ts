@@ -726,7 +726,11 @@ describe('cash a change or a rebalance leaves (Vault #4 on devnet, Oct 14)', () 
     const planned = await planVaultRebalance(s.entry, vault, { slippageBps: 100, now: NOW, owner });
     expect(planned.planned).toBeNull();
     // $4 of $1,000: under one $5 trade
-    expect(idleCashToInvest(40, 1000)).toBe(false);
+    expect(idleCashToInvest([{ targetBps: 10_000, weightBps: 9960 }], 40, 100, 1000)).toBe(false);
+    // $6.40 idle, but under four targets by $1.60 each: no purchase reaches a trade, nothing offered
+    const four = [0, 1, 2, 3].map(() => ({ targetBps: 2500, weightBps: 2484 }));
+    expect(idleCashToInvest(four, 64, 100, 1000)).toBe(false);
+    expect(ownerRebalanceOffered(four, 64, 100, 1000)).toBe(false);
     expect(ownerRebalanceOffered([{ targetBps: 10_000, weightBps: 9960 }], 40, 100, 1000)).toBe(
       false,
     );

@@ -918,7 +918,8 @@ async function placeRebalance(address: string): Promise<RebalanceVaultResponse> 
   const invested = seen.positions.reduce((n, p) => n + p.weightBps, 0);
   const cashOver = targets.reduce((n, t) => n + t.weightBps, 0) - invested;
   const inside = !outsideOwnerBand(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS);
-  const idle = inside && idleCashToInvest(cashOver, total);
+  const idle =
+    inside && idleCashToInvest(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS, total);
   if (inside && !idle) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
   const plan = rebalancePlan(
     state,
