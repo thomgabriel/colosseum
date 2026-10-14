@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { AssetClass } from './basket-asset';
 import { BasketCard, BasketSheet, ObservationRef, Verdict } from './basket-sheet';
 import { BasketTx } from './basket-tx';
 import { Address, ChainId } from './chain';
 import { Provenance } from './enums';
 import { ChainMode } from './flags';
 import { Attempt, ConsentKind, LegStatus, LegWithdrawal, OrderBase } from './order';
-import { Price, VaultName, VaultNumber, VaultView } from './vault';
+import { Holding, Price, VaultName, VaultNumber, VaultView } from './vault';
 
 // The bodies of the order routes (DESIGN-VAULT 3.3), named once so the API, the SDK and the web share
 // them. POST /v1/orders takes an IntentRequest. Every order route but the build answers with an
@@ -260,6 +261,33 @@ export const VaultRouteParams = z.object({ chain: ChainId, address: z.string().m
 export type VaultRouteParams = z.infer<typeof VaultRouteParams>;
 
 /**
+ * Why a holding is in a vault, from what the server already holds, and where that came from:
+ * - `portfolio`: the vault follows a shared portfolio, and the portfolio holds the asset. `cls` is
+ *   the asset's kind as the chain's list has it, which a screen says in its own words; the server holds
+ *   no sentence of a portfolio's per holding. Left out for a token that list does not have.
+ * - `plan`: the plan the vault was opened for put it there. `text` is the reason the engine wrote
+ *   for the line, from a template, the one that decided it.
+ * - `owner`: the person chose the share themselves, or confirmed the one proposed in their
+ *   conversation, and the vault was opened for that mix. `text` is the line's stored reason.
+ * Nothing here is written for this answer: no text is made, and none comes from a model.
+ */
+export const VaultHoldingWhy = z.object({
+  source: z.enum(['portfolio', 'plan', 'owner']),
+  text: z.string().min(1).optional(),
+  cls: AssetClass.optional(),
+});
+export type VaultHoldingWhy = z.infer<typeof VaultHoldingWhy>;
+
+/**
+ * Per holding, why it is there (`VaultHoldingWhy`), or null where the server holds no reason that
+ * still stands. A plan's and a mix's reasons are what the plan says, so they are answered to the
+ * vault's owner alone, as the plan is; anybody is answered a shared portfolio's. A reason stands only
+ * while the vault's target for the asset is the one the plan or the portfolio set: a holding the person
+ * has since changed, or one the vault is selling down, has none. Left out by a server that predates it.
+ */
+const HoldingWhyField = VaultHoldingWhy.nullable().optional();
+
+/**
  * GET /v1/vaults/{chain}/{address}: one vault as its chain has it, for anybody (DESIGN-VAULT section
  * 11, the public vault page). The same figures as the portfolio's, read for this answer.
  */
@@ -268,6 +296,12 @@ export const VaultResponse = z.object({
   name: z.string(),
   mode: ChainMode,
   provenance: Provenance,
+  /**
+   * The chain's height, asked just before the vault was read, so the vault is as the chain had it at
+   * this height or after: a slot on Solana (at `confirmed`), a block on EVM, the mock's own second.
+   * Null where the chain did not say it in time; left out by a server that predates it.
+   */
+  blockOrSlot: z.string().regex(/^\d+$/).nullable().optional(),
   vault: VaultView.extend({
     provenance: Provenance,
     /**
@@ -275,6 +309,9 @@ export const VaultResponse = z.object({
      * whose wallets owns the vault. Left out for anybody else, and where the server holds none.
      */
     number: VaultNumber.optional(),
+    /** `why` only where the vault keeps a share in cash: its target, what the positions leave, is above 0. */
+    cash: Holding.extend({ why: HoldingWhyField }),
+    positions: z.array(VaultView.shape.positions.element.extend({ why: HoldingWhyField })),
   }),
   prices: z.array(Price),
   disclaimer: z.string(),

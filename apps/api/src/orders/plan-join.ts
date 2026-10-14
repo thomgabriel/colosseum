@@ -407,8 +407,56 @@ export async function plansOf(
   addresses: readonly Address[],
   privyId: string | undefined,
 ): Promise<Map<Address, JoinedPlan>> {
-  if (!privyId || addresses.length === 0) return new Map();
-  const rows = await db
+  const rows = await joinedRows(db, chain, addresses, privyId);
+  return new Map(
+    rows.map((row) => [
+      row.address,
+      {
+        joinId: row.joinId,
+        plan: {
+          kind: row.kind,
+          placedAt: row.placedAt.toISOString(),
+          ...(row.proposalId ? { proposalId: row.proposalId } : {}),
+          ...(row.familyId ? { familyId: row.familyId } : {}),
+          // The rule of `loadReadablePlan` (store.ts): what a stored plan says is answered to the
+          // person its row names, and to anybody for a plan made from a link, and only while the
+          // whole stored plan still reads (`goalOf`). A plan that names another person, or nobody,
+          // is held, and what it says is not this person's to read.
+          ...(readable(row) ? goalOf(row.proposal) : {}),
+        },
+      },
+    ]),
+  );
+}
+
+/**
+ * The whole stored plan the person's vault was opened for, where `plansOf` would answer its goal: the
+ * vault is joined to a plan of the person's own `baskets` row, the plan is theirs or made from a link,
+ * and it still reads as a `BasketProposal`. Null otherwise: a vault that follows a shared portfolio, one
+ * nobody joined, one joined to another person's plan, and one whose plan no longer reads. For the
+ * reasons of its lines, which say what the plan says and so go only where its goal goes.
+ */
+export async function readablePlanOf(
+  db: Db,
+  chain: ChainId,
+  address: Address,
+  privyId: string | undefined,
+): Promise<BasketProposal | null> {
+  const [row] = await joinedRows(db, chain, [address], privyId);
+  if (!row || !readable(row)) return null;
+  const plan = BasketProposal.safeParse(row.proposal);
+  return plan.success ? plan.data : null;
+}
+
+/** The joins of the person's vaults on one chain, with the stored plan of each where there is one. */
+async function joinedRows(
+  db: Db,
+  chain: ChainId,
+  addresses: readonly Address[],
+  privyId: string | undefined,
+) {
+  if (!privyId || addresses.length === 0) return [];
+  return db
     .select({
       address: vaults.address,
       joinId: baskets.id,
@@ -432,28 +480,14 @@ export async function plansOf(
         eq(users.privyId, privyId),
       ),
     );
-  return new Map(
-    rows.map((row) => [
-      row.address,
-      {
-        joinId: row.joinId,
-        plan: {
-          kind: row.kind,
-          placedAt: row.placedAt.toISOString(),
-          ...(row.proposalId ? { proposalId: row.proposalId } : {}),
-          ...(row.familyId ? { familyId: row.familyId } : {}),
-          // The rule of `loadReadablePlan` (store.ts): what a stored plan says is answered to the
-          // person its row names, and to anybody for a plan made from a link, and only while the
-          // whole stored plan still reads (`goalOf`). A plan that names another person, or nobody,
-          // is held, and what it says is not this person's to read.
-          ...(row.fromLink || (row.madeBy !== null && row.madeBy === row.heldBy)
-            ? goalOf(row.proposal)
-            : {}),
-        },
-      },
-    ]),
-  );
 }
+
+/** Whether what a joined plan says is the person's to read: theirs, or made from a link. */
+const readable = (row: {
+  heldBy: string;
+  madeBy: string | null;
+  fromLink: boolean | null;
+}): boolean => row.fromLink === true || (row.madeBy !== null && row.madeBy === row.heldBy);
 
 /**
  * The goal a stored plan was made for: its sheet, its card and, for an income goal, the engine's

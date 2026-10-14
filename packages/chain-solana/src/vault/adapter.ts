@@ -21,7 +21,14 @@ import {
   type TradeMinimum,
   WithdrawInKindArgs,
 } from '@colosseum/schemas';
-import { type Address, type Commitment, getAddressDecoder, type IInstruction } from '@solana/kit';
+import {
+  type Address,
+  type Commitment,
+  type GetSlotApi,
+  getAddressDecoder,
+  type IInstruction,
+  type Rpc,
+} from '@solana/kit';
 import { z } from 'zod';
 import {
   type AssetRegistryAccount,
@@ -83,7 +90,7 @@ import {
   type RouteSource,
   testExchange,
 } from './routes';
-import { getAccounts, type RawAccount, type VaultWriteRpc } from './rpc';
+import { ask, getAccounts, type RawAccount, type VaultWriteRpc } from './rpc';
 import { createSolanaProbe } from './send';
 import {
   associatedTokenAddress,
@@ -475,10 +482,16 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
 
   // ---- the builders ----
 
+  // The client answers getSlot though its type does not list it: no build or read needed a slot before.
+  const slots = rpc as unknown as Rpc<GetSlotApi>;
+
   const adapter: SolanaVaultAdapter = {
     ...reader,
     ...probe,
     capabilities: reader.capabilities,
+
+    // At the reads' own commitment, so the slot is of the view of the chain a read then sees.
+    height: () => ask('getSlot', () => slots.getSlot({ commitment }).send()),
 
     buildApprove: () =>
       guarded(async () =>

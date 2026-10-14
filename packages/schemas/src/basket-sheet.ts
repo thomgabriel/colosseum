@@ -178,6 +178,58 @@ export const BasketLine = z.object({
 });
 export type BasketLine = z.infer<typeof BasketLine>;
 
+/**
+ * The rules that say what stopped a holding where it is, most telling first: the person's credit
+ * limit, the cap on one token or one issuer, what selling would cost. One of these on a line is why it
+ * holds what it holds; the sleeve's starting share is not, once a cap has cut it. On cash, first why
+ * money that was meant for something else stayed. The same order as `bindingReason` on the plan's page
+ * (apps/web/features/order/plain.ts), so a line is given one reason wherever it is shown.
+ */
+const BINDING_RULES = [
+  'CREDIT_BUDGET',
+  'CREDIT_BUDGET_UNSAID',
+  'ASSET_CAP',
+  'ISSUER_CAP_PLAN',
+  'ISSUER_CAP',
+  'SINGLE_STOCK_CAP',
+  'EXIT_CEILING',
+  'TIER_CEILING',
+];
+const BINDING_CASH_RULES = [
+  'UNPLACED',
+  'NO_DOLLAR_YIELD',
+  'YIELD_TOO_SMALL',
+  'SET_ASIDE_CASH',
+  'COVERAGE_CASH',
+  'CASH_MAY_NEED',
+];
+/** Where a line starts from, not what decided it: said only when nothing else is. */
+const STARTING_RULES = new Set([
+  'SLEEVE',
+  'SLEEVE_DEFAULT',
+  'SLEEVE_FILLED',
+  'CASH_NEAR_DATE',
+  'GLIDE',
+]);
+
+/**
+ * The reason that decided a plan's line: the cap or limit that binds it, in the engine's own sentence.
+ * With none of those, its first reason that is not only where it started; with none of those either,
+ * its first. Undefined for a line the engine gave no reason. `cash` says the line is the chain's cash.
+ */
+export function decidingReason(
+  line: Pick<BasketLine, 'reasons'>,
+  cash: boolean,
+): Reason | undefined {
+  const order = cash ? [...BINDING_CASH_RULES, ...BINDING_RULES] : BINDING_RULES;
+  for (const rule of order) {
+    const found = line.reasons.find((r) => r.rule === rule || r.rule.startsWith(`${rule}_`));
+    if (found) return found;
+  }
+  const overflow = line.reasons.find((r) => r.rule.startsWith('OVERFLOW_'));
+  return overflow ?? line.reasons.find((r) => !STARTING_RULES.has(r.rule)) ?? line.reasons[0];
+}
+
 export const BasketCard = z.object({
   moneyTodayUsd: z.number().nonnegative(),
   /** The goal's term; null for a goal with no date (`horizonOpen`), shown as "no date set". */

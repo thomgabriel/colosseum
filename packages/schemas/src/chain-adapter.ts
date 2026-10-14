@@ -211,6 +211,14 @@ export interface ChainReader {
   funding(owner: Address, need: FundingNeed): Promise<Funding>;
   quote(trade: Trade, taker: Address): Promise<Quote>;
   track(txId: string, validUntil?: string): Promise<TxStatus>;
+  /**
+   * The chain's height now, as the reads see it: the slot on Solana at the adapter's commitment, the
+   * block number on EVM, the mock's own second (it mints a block a second). Asked before a read, it
+   * says the read is of this height or later. A caller never stands on it: it waits a short while and
+   * goes on without it. Left out by an adapter that cannot say it; one that can throws a `ChainError`
+   * when the node does not answer.
+   */
+  height?(): Promise<bigint>;
 }
 
 /**
