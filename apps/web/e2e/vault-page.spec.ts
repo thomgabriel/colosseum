@@ -230,11 +230,12 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
         };
       }),
     );
-    // the sample chain has no explorer, so its row is not here: the weights by hand and sharing are
+    // the sample chain has no explorer, so its row is not here: the weights by hand, sharing and
+    // closing the vault are
     expect(
       rows.map((row) => row.text),
       at,
-    ).toEqual([p.editWeights, en.shared.publish.shareStrategy]);
+    ).toEqual([p.editWeights, en.shared.publish.shareStrategy, p.close.action]);
     for (const row of rows) {
       expect(row.inside, `${at}: ${row.text} is inside the window`).toBe(true);
       expect(row.met, `${at}: ${row.text} is not covered`).toBe(true);

@@ -1356,6 +1356,8 @@ export const en = {
       lead: 'Explore shared portfolios on every chain we run. Each names the chain it is on. Open one to see its assets and sources, then deposit or follow.',
       loading: 'Reading the shared portfolios…',
       empty: 'No portfolio is shared yet.',
+      /** Where the server lists live portfolios only (gate PRODUCTS-MAINNET-ONLY): the mainnets it runs. */
+      emptyOn: (chains: string) => `No portfolio is shared on ${chains} yet.`,
       publish: 'Publish a portfolio',
       /** Where publishing is not offered yet: said, in place of the link. */
       publishSoon: (chain: string) =>
@@ -1611,6 +1613,11 @@ export const en = {
       lead: (chain: string) =>
         `Publish the targets recorded in your own vault on ${chain} as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.`,
       signIn: 'Sign in to publish a portfolio.',
+      /** Where the server lists live portfolios only: a vault on another chain would never be shown. */
+      liveOnly: (chain: string, live: string) =>
+        live
+          ? `Products lists portfolios on ${live} only, so one published from a vault on ${chain} wouldn’t be shown. Publish from your vault on ${live}: open its page and choose Publish as a portfolio.`
+          : `Products lists live portfolios only, and ${chain} isn’t live here, so a portfolio published on it wouldn’t be shown.`,
       shareStrategy: 'Publish as a portfolio',
       sourceVault: 'Your source vault',
       sourceHint: 'Choose a vault you own on the active chain.',
@@ -1785,6 +1792,29 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** Closing an empty vault (gate VAULT-CLOSE-REUSE): a confirm, then the closed vault's note. */
+        close: {
+          action: 'Close this vault',
+          title: 'Close this vault?',
+          body: 'It leaves your portfolio, its totals and your lists of vaults. Nothing moves on the chain: the vault stays at its address, empty, and you can open it again from Closed vaults.',
+          confirm: 'Close vault',
+          closing: 'Closing…',
+          keep: 'Keep it open',
+          /** Worth a cent or more, or holding a token with no price. */
+          notEmpty: 'This vault still holds something. Withdraw it first, then close it.',
+          failed: 'I couldn’t close it: our server didn’t answer. Try again.',
+          /** An order on the vault is still under way. */
+          orderOpen:
+            'An order on this vault isn’t finished yet. Finish it, or let it run out, then close the vault.',
+        },
+        closed: {
+          title: 'This vault is closed',
+          body: (date: string) =>
+            `You closed it on ${date}. It isn’t in your portfolio or its totals. Nothing moved on the chain.`,
+          reopen: 'Open it again',
+          reopening: 'Opening…',
+          failed: 'I couldn’t open it again: our server didn’t answer. Try again.',
+        },
         /** The press that trades the vault to the targets it has, and the sentence that offers it. */
         rebalance: 'Rebalance',
         offTarget:

@@ -59,6 +59,11 @@ export const SERVED_TAGS = [
     description: 'The person’s vaults: holdings, history, rebalances, names and targets.',
   },
   {
+    name: 'assets',
+    description:
+      'The facts the server holds of one listed asset: its profile, price history, pools, lending markets and Bearing’s figures, each with its source.',
+  },
+  {
     name: 'platform',
     description: 'The deployment’s flags and chains, the platform’s counts, and the health check.',
   },

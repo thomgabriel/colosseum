@@ -580,6 +580,7 @@ describe('the newest snapshot and the status', () => {
         plan: null,
         openedFor: null,
         putIn: null,
+        countsFrom: null,
         newest: null,
         status: expect.objectContaining({
           status: null,

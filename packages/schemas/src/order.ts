@@ -525,6 +525,10 @@ export const OrderErrorCode = z.enum([
   'NOTHING_LEFT',
   /** The vault holds less cash than the steps left would spend. */
   'VAULT_CASH_SHORT',
+  /** A vault that still holds something is not closed: what it holds is withdrawn first (VAULT-CLOSE-REUSE). */
+  'NOT_EMPTY',
+  /** A vault with an order under way on it is not closed: the order is finished, or runs out, first. */
+  'ORDER_UNFINISHED',
   /** The order's deposit has not landed: its own steps are signed first. */
   'DEPOSIT_NOT_LANDED',
   /** Another request is working on the order, and the wait for it ran out. Retryable. */

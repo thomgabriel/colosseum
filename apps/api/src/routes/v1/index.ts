@@ -44,6 +44,7 @@ import {
 } from '../../orders/chains';
 import { Refusal, refusalFromChainError } from '../../orders/errors';
 import type { OrderDeps } from '../../orders/legs';
+import type { AssetLookups } from '../../orders/lookups';
 import type { PlanInputs } from '../../orders/personalize';
 import { type RelaxedGoalAgent, relaxedGoalAgentFromEnv } from '../../orders/relaxed-goal-agent';
 import type { AgentAnalytics } from '../../orders/vault-agent';
@@ -51,6 +52,7 @@ import { authFromEnv, enforceSignIn, identify, type TokenIssuer } from '../../pl
 import { refuseNonFinite } from '../../plugins/finite';
 import { type Limits, registerLimits, requireDeclared } from '../../plugins/limits';
 import { loggable } from '../../plugins/loggable';
+import { noteLifetimes } from '../../portfolio/scope';
 import {
   createAnthropicVaultAgentModel,
   type VaultAgentModel,
@@ -58,6 +60,7 @@ import {
   vaultAgentModelId,
   vaultAgentTimeoutMs,
 } from '../../vault-agent-model';
+import { registerAssetFactsRoute } from './assets';
 import { type LinkedPlanLimits, registerBasketRoutes } from './baskets';
 import { buildConfig, registerConfigRoute } from './config';
 import { registerFundingRoute } from './funding';
@@ -115,6 +118,13 @@ export type V1Deps = {
   agentAnalytics?: AgentAnalytics;
   /** Read each live chain's analytics from the start and keep them current. Default: off. */
   warmAgentAnalytics?: boolean;
+  /**
+   * The facts the server holds of one listed asset (`GET /v1/assets/{id}/facts`, gate
+   * FIGURES-BY-REFERENCE as amended 2026-10-14), and what the conversations' models may look up.
+   * Default: none, and the route answers 503 and the models have no tools. The server hands in its
+   * reader (asset-lookups.ts).
+   */
+  assetLookups?: AssetLookups;
   /**
    * The model the guided intake reads a goal with. Default: Anthropic's when `ANTHROPIC_API_KEY` is
    * set, else none, and the intake reads with the rules parser alone. A test hands in a replay.
@@ -174,6 +184,12 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       solana,
       robinhood,
     });
+  // Whether the database has the table of closed vaults yet (migration 0025): asked once the server
+  // is ready, and never waited on (portfolio/scope.ts).
+  const asked = db;
+  app.addHook('onReady', async () => {
+    void noteLifetimes(asked);
+  });
   const orderDeps: OrderDeps = {
     db,
     chains,
@@ -309,7 +325,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     registerPortfolioPlansRoute(scope, orderDeps);
     registerPortfolioRebalancesRoute(scope, orderDeps);
     registerPortfolioExposureRoute(scope, orderDeps, planInputs);
-    registerSharedRoutes(scope, orderDeps, deps.planInputs);
+    registerSharedRoutes(scope, orderDeps, deps.planInputs, { liveOnly: flags.shelfLiveOnly });
     registerVaultRoute(scope, orderDeps);
     registerVaultConversationRoutes(scope, orderDeps);
     registerVaultConversationReplyRoute(
@@ -319,7 +335,10 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       deps.planInputs,
       deps.agentAnalytics,
       undefined,
-      { keeperEnabled: flags.keeperEnabled },
+      {
+        keeperEnabled: flags.keeperEnabled,
+        ...(deps.assetLookups ? { lookups: deps.assetLookups } : {}),
+      },
     );
     registerGoalConversationReplyRoute(
       scope,
@@ -328,8 +347,11 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       deps.planInputs,
       deps.agentAnalytics,
       relaxedGoalAgent,
+      deps.assetLookups,
     );
     registerMixRoutes(scope, orderDeps, deps.planInputs);
+    // The facts of one listed asset, for outside agents: public and read-only.
+    registerAssetFactsRoute(scope, orderDeps, deps.assetLookups);
     // Out of the route table altogether unless a chain runs on the mock.
     if (chains.active().some((entry) => entry.mock)) registerMockRoutes(scope, orderDeps);
   });
