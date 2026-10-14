@@ -51,6 +51,7 @@ import {
 } from '../../../../components/ui/KitTable';
 import { LatticeStatus } from '../../../../components/ui/Lattice';
 import { MockFrame, MockPlate, StalePlate } from '../../../../components/ui/MockPlate';
+import { OptionCards } from '../../../../components/ui/OptionCards';
 import {
   HeroFigure,
   Panel,
@@ -861,7 +862,7 @@ export function Showcase() {
       <Section
         spec="house-kit.md"
         title="The house kit"
-        note="The pieces of the portfolio overview, for every screen: a panel, its head, a hero figure, small figures, the quiet pill and the table. Made-up figures."
+        note="The pieces of the portfolio overview, for every screen: a panel, its head, a hero figure, small figures, the quiet pill, the table, and a choice between a few ways. Made-up figures."
       >
         <Specimen state="panel: hero figure, small figures, the pill" wide>
           <Panel aria-label="Made-up board">
@@ -936,6 +937,35 @@ export function Showcase() {
               </tr>
             </KitTable>
           </Panel>
+        </Specimen>
+        <Specimen state="one chosen, one that cannot be taken here">
+          <OptionCards
+            legend="Made-up ways"
+            value="new"
+            onChange={() => {}}
+            options={[
+              { value: 'new', title: 'Start a new vault', line: 'Opened with your first deposit.' },
+              {
+                value: 'follow',
+                title: 'Follow with a vault of yours',
+                line: 'You have no other vault on Solana to follow it with.',
+                disabled: true,
+              },
+            ]}
+          />
+        </Specimen>
+        <Specimen state="named, nothing to choose yet">
+          <OptionCards
+            legend="Made-up ways"
+            options={[
+              { value: 'new', title: 'Start a new vault', line: 'Opened with your first deposit.' },
+              {
+                value: 'follow',
+                title: 'Follow with a vault of yours',
+                line: 'One of yours takes its weights.',
+              },
+            ]}
+          />
         </Specimen>
       </Section>
 
