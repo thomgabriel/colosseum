@@ -49,12 +49,12 @@ async function check(page: Page, name: string) {
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
   // the bar's "Sign in" opens the sign-in dialog over the goal (SIGN-IN-FLOW); the person stays there
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 
 /**
@@ -69,7 +69,7 @@ async function toShelf(page: Page) {
     .getByRole('link', { name: en.shell.products })
     .click();
   // one list of every chain's portfolios: the address names no chain (gate CHAIN-AT-THE-PLAN)
-  await expect(page).toHaveURL(/\/shelf$/);
+  await expect(page).toHaveURL(/\/products$/);
 }
 
 /** A portfolio's page, from the shelf. */
@@ -104,7 +104,7 @@ async function publish(page: Page, name: string, weights: [string, string][], ph
   const { address } = await source.json();
   await toShelf(page);
   await page.getByRole('link', { name: en.shared.shelf.publish }).first().click();
-  await expect(page).toHaveURL(/\/publish$/);
+  await expect(page).toHaveURL(/\/products\/publish$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.publish.title);
   await page
     .getByRole('combobox', { name: en.shared.publish.sourceVault, exact: true })
@@ -130,7 +130,7 @@ async function publish(page: Page, name: string, weights: [string, string][], ph
   if (photograph) await check(page, 'publish');
   await page.getByRole('button', { name: en.shared.publish.review }).click();
 
-  await expect(page).toHaveURL(/\/orders\/[^/]+$/);
+  await expect(page).toHaveURL(/\/portfolio\/orders\/[^/]+$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.order.review.title);
   await expect(page.getByRole('region', { name: en.order.shared.publishTitle })).toContainText(
     name,
@@ -167,7 +167,7 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   await check(page, 'shelf');
 
   await card.getByRole('link', { name: 'Three of the largest' }).click();
-  await expect(page).toHaveURL(/\/indexes\/three-of-the-largest$/);
+  await expect(page).toHaveURL(/\/products\/three-of-the-largest$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Three of the largest');
   // The mock has no chain to read: the page says the version is the server's word.
   await expect(page.locator('[data-ui="source-mark"]').first()).toContainText(
@@ -186,7 +186,7 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   const press = await readyToInvest(page, { amount: '40' });
   await check(page, 'family-buy');
   // the review is on the invest card, under where the version and weights were read from
-  await expect(page).toHaveURL(/\/indexes\/three-of-the-largest$/);
+  await expect(page).toHaveURL(/\/products\/three-of-the-largest$/);
   const steps = page.locator('[data-ui="order-step"]');
   // a vault that follows the portfolio, opened with the deposit, then a swap per asset
   await expect(steps).toHaveCount(4);
@@ -200,14 +200,23 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   for (let i = 0; i < 4; i += 1)
     await expect(steps.nth(i)).toHaveAttribute('data-status', 'confirmed');
 
+  // The vault it opened is said on the pane at once, as following it (audit F3), the steps still in view
+  await expect(page.locator('[data-ui="my-vault"]')).toHaveCount(1);
+  await expect(steps).toHaveCount(4);
+
   // The vault follows it now, and its public page reads it from the chain.
   await toFamily(page, 'Three of the largest');
   const mine = page.locator('[data-ui="my-vault"]');
   await expect(mine).toHaveCount(1);
-  await expect(mine).toContainText(en.shared.vaults.following);
+  // a state on the page's actions pane, with the way to it (gate SHARED-TWO-WAYS), not a place
+  // to deposit into: the first way says so
+  await expect(mine).toContainText(en.shared.actions.follows);
+  await expect(
+    page.locator('[data-ui="family-ways"] [data-option="new"]').getByRole('radio'),
+  ).toBeDisabled();
   await expect(mine.getByRole('button', { name: en.shared.vaults.autoOn })).toBeVisible();
   await mine.getByRole('link').first().click();
-  await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+$/);
+  await expect(page).toHaveURL(/\/portfolio\/vaults\/solana\/[^/]+$/);
   // This fixture follows a shared strategy and has no private name or goal record.
   // The owner-proved workspace calls it "Your vault", says its chain once beside the value, and
   // leads with Deposit, which opens in the page's own pane (gate VAULT-PAGE-ACTIONS).
@@ -355,7 +364,7 @@ test('a portfolio with a recipe on both chains: both named on its card, and its 
   await check(page, 'shelf-both-chains');
   await card.getByRole('link', { name: both.name }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(both.name);
-  // the page asks which chain to invest on, as /goal asks for a new plan's: a radio group of two
+  // the page asks which chain to invest on, as /invest asks for a new plan's: a radio group of two
   const chains = page.getByRole('group', { name: en.shared.family.which }).getByRole('radio');
   await expect(chains).toHaveCount(2);
   await expect(chains.first()).toBeChecked();

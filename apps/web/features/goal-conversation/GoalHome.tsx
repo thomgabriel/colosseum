@@ -10,7 +10,7 @@ export function GoalHome() {
   return (
     <div className="group/goal flex min-w-0 flex-col gap-8 md:min-h-0 md:flex-1">
       <GoalEntry portfolio={state} />
-      {/* Not drawn under the locked invest screen; /monitor keeps the full portfolio. */}
+      {/* Not drawn under the locked invest screen; /portfolio/monitor keeps the full portfolio. */}
       <div className="md:group-has-[[data-ui=goal-conversation]]/goal:hidden">
         <PortfolioSummary state={state} />
       </div>

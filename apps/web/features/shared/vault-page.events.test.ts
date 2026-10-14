@@ -710,6 +710,26 @@ describe('the pane’s states, and the way out of each', () => {
     expect(document.activeElement).toBe(find(host, '[data-action="vault-deposit"]'));
   });
 
+  it('withdraw, when the vault cannot be read again: the sentence, the pane’s own heading and its way back', async () => {
+    let failing = false;
+    api({
+      more: (path) =>
+        failing && path.startsWith('/v1/vaults/solana/') && !path.includes('/conversation')
+          ? json({ error: 'down' }, 500)
+          : undefined,
+    });
+    const host = await show();
+    failing = true;
+    await click(find(host, '[data-action="vault-withdraw"]'));
+    for (let i = 0; i < 3; i += 1) await settle(30);
+    // no card is drawn: the pane keeps its own heading and the way out
+    expect(pane(host).querySelector('[data-ui="amount-panel"]')).toBeNull();
+    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.withdraw.title);
+    expect(pane(host).querySelectorAll('[data-action="leave-action"]')).toHaveLength(1);
+    await click(find(pane(host), '[data-action="leave-action"]'));
+    expect(screen(host).dataset.pane).toBe('holdings');
+  });
+
   it('deposit, for a vault the portfolio does not list: one sentence in the pane, no second title and no link away', async () => {
     api({
       more: (path) => (path === PORTFOLIO_PATH ? json({ chains: [], disclaimer: 'd' }) : undefined),
@@ -724,7 +744,7 @@ describe('the pane’s states, and the way out of each', () => {
     expect(pane(host).querySelector('h1')).toBeNull();
     // the one way to the portfolio is the page's own, to the board: nothing leads to the monitor
     expect(find(host, '[data-ui="vault-back"]').getAttribute('href')).toBe('/portfolio');
-    expect(host.querySelector('a[href="/monitor"]')).toBeNull();
+    expect(host.querySelector('a[href="/portfolio/monitor"]')).toBeNull();
     expect(pane(host).querySelector('[data-action="leave-action"]')).not.toBeNull();
   });
 
@@ -773,7 +793,7 @@ describe('the pane’s states, and the way out of each', () => {
     // done: the page's own way on, and no link of the order's
     expect(pane(again).querySelector('[data-ui="order-next"]')).toBeNull();
     expect(find(again, '[data-ui="vault-back"]').getAttribute('href')).toBe('/portfolio');
-    expect(again.querySelector('a[href="/monitor"]')).toBeNull();
+    expect(again.querySelector('a[href="/portfolio/monitor"]')).toBeNull();
     expect(pane(again).querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
     expect(find(again, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.done);
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();

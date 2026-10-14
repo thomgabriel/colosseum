@@ -46,7 +46,7 @@ export function TargetsScreen({ chain: chainText, address }: { chain: string; ad
 
   const back = (
     <Link
-      href={`/vaults/${encodeURIComponent(chainText)}/${encodeURIComponent(address)}`}
+      href={`/portfolio/vaults/${encodeURIComponent(chainText)}/${encodeURIComponent(address)}`}
       className={buttonClass({ variant: 'secondary' })}
     >
       {e.back}
@@ -72,7 +72,7 @@ export function TargetsScreen({ chain: chainText, address }: { chain: string; ad
     return page(
       t.plan.signedOut,
       <Link
-        href={`/sign-in?next=${encodeURIComponent(`/vaults/${chainText}/${address}/targets`)}`}
+        href={`/sign-in?next=${encodeURIComponent(`/portfolio/vaults/${chainText}/${address}/targets`)}`}
         className={buttonClass({ variant: 'secondary' })}
       >
         {t.shell.signIn}

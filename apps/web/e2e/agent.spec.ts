@@ -75,7 +75,7 @@ test('an agent makes a plan through the MCP server, and the person buys it from 
     },
   });
   const link = new URL(String(plan.approvalUrl));
-  expect(link.pathname).toBe(`/plan/${plan.planId}`);
+  expect(link.pathname).toBe(`/invest/plan/${plan.planId}`);
 
   // The person opens the link: signed out, the app asks them to sign in and brings them back to it.
   await page.goto(`/sign-in?next=${encodeURIComponent(link.pathname)}`);
@@ -86,10 +86,10 @@ test('an agent makes a plan through the MCP server, and the person buys it from 
   await check(page, 'plan-from-link');
 
   await page.getByRole('link', { name: en.plan.invest('$40') }).click();
-  await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+\/buy$/);
   // the order is reviewed on the buy's own card, and one press signs its steps
   await (await readyToInvest(page)).click();
-  await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+\/buy$/);
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(
     en.order.outcome.done('Solana'),
     { timeout: 90_000 },

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 import { frameHeaders } from './lib/frame-policy';
+import { movedRedirects } from './lib/moved-routes';
 import { securityHeaders } from './lib/security-headers';
 
 // The env file lives at the repo root; Next only reads its own directory. Existing variables win.
@@ -17,12 +18,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [...frameHeaders(process.env), ...securityHeaders()];
   },
-  // The /risk pages became Bearing's analytics (/analytics); their addresses still lead there.
+  // The /risk pages became Bearing's analytics (/analytics); their addresses still lead there. The
+  // pages renamed after the bar's items (lib/moved-routes.ts) answer their old addresses too.
   async redirects() {
     return [
       { source: '/risk', destination: '/analytics/stocks', permanent: false },
       { source: '/risk/methodology', destination: '/analytics/methodology', permanent: false },
       { source: '/risk/:asset', destination: '/analytics/stocks?asset=:asset', permanent: false },
+      ...movedRedirects(),
     ];
   },
 };

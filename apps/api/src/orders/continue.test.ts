@@ -45,7 +45,7 @@ const stored = (legs: Leg[], over: Partial<Order> = {}): StoredOrder => ({
     fees: [],
     preparedBy: 'app',
     status: 'open',
-    approvalUrl: '/orders/order-1',
+    approvalUrl: '/portfolio/orders/order-1',
     expiresAt: 0,
     createdAt: '2026-10-06T00:00:00.000Z',
     disclaimer: 'd',

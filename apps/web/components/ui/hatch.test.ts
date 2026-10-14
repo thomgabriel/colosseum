@@ -106,9 +106,11 @@ describe('a screen cannot reach half of the MOCK mark', () => {
     expect(outside.length).toBeGreaterThan(10);
   });
 
+  // Every source file of the app read and its classes parsed, 1 s here: a loaded runner took more than
+  // vitest's default 5 s (#283, #295). Its own limit; what it finds is unchanged.
   it('finds no import of the halves and no hatch or plate class written by hand', () => {
     expect(outside.flatMap((file) => reaches(file, read(file)))).toEqual([]);
-  });
+  }, 30_000);
 
   it('exports no half from a primitive', () => {
     const exported = [...sourceFiles()]

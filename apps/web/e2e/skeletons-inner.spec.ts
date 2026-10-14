@@ -32,10 +32,10 @@ async function withVault(page: Page): Promise<string> {
   await page.request.post(`${STUB}/__stub/reset`);
   await page.goto('/sign-in?next=%2Fshelf');
   await page.getByRole('button', { name: en.signIn.passkey.continue }).click();
-  const on = page.locator('main a[href="/shelf"]');
+  const on = page.locator('main a[href="/products"]');
   if (await on.isVisible({ timeout: 3_000 }).catch(() => false))
     await on.click({ timeout: 3_000 }).catch(() => {});
-  await expect(page).toHaveURL(/\/shelf/);
+  await expect(page).toHaveURL(/\/products/);
   const made = await page.request.post(`${STUB}/__stub/source-vault`, {
     data: {
       owner: await walletAddress(page),
@@ -96,7 +96,7 @@ for (const width of WIDTHS) {
       const address = await withVault(page);
       await waitsInPlace(page, {
         name: 'vault',
-        path: `/vaults/solana/${address}`,
+        path: `/portfolio/vaults/solana/${address}`,
         // the vault's read; the name comes with the portfolio, which the page waits for by itself
         held: /\/v1\/vaults\//,
         settled: '[data-ui="vault-screen"]',
@@ -130,7 +130,7 @@ for (const width of WIDTHS) {
       const address = await withVault(page);
       await waitsInPlace(page, {
         name: 'withdraw',
-        path: `/vaults/solana/${address}/withdraw`,
+        path: `/portfolio/vaults/solana/${address}/withdraw`,
         held: /\/v1\/vaults\//,
         settled: '[data-ui="withdraw-screen"]',
         regions: [
@@ -157,7 +157,7 @@ for (const width of WIDTHS) {
       const address = await withVault(page);
       await waitsInPlace(page, {
         name: 'add-money',
-        path: `/vaults/solana/${address}/add`,
+        path: `/portfolio/vaults/solana/${address}/add`,
         held: /\/v1\/portfolio(\?|$)/,
         settled: '[data-ui="add-money-screen"]',
         regions: [
@@ -189,7 +189,7 @@ for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await withVault(page);
       const h = await hold(page, /\/v1\/(portfolio|vaults)/);
-      await push(page, '/publish');
+      await push(page, '/products/publish');
       const form = page.locator('[data-ui="publish-screen"] form');
       await expect(form.locator('[data-ui="publish-rows-wait"]')).toBeVisible();
       // the outlines are hidden from a screen reader and draw no share
@@ -236,7 +236,7 @@ test('a vault page read by someone signed out waits as its head and holdings: no
   const address = await withVault(page);
   const h = await hold(page, /\/v1\/vaults\//);
   // a load of the address itself: the throwaway wallet lives in the page, so this reader is signed out
-  await page.goto(`/vaults/solana/${address}`);
+  await page.goto(`/portfolio/vaults/solana/${address}`);
   const wait = page.locator('[data-ui="vault-wait"]');
   await expect(wait).toHaveAttribute('data-visitor', 'true');
   await expect(wait.locator('[data-wait="holdings"]')).toBeVisible();
@@ -262,7 +262,7 @@ test('the publish form stops waiting when its vaults cannot be read, and says so
   await page.setViewportSize({ width: 375, height: 812 });
   await withVault(page);
   const h = await hold(page, /\/v1\/(portfolio|vaults)/, () => 'fail');
-  await push(page, '/publish');
+  await push(page, '/products/publish');
   const form = page.locator('[data-ui="publish-screen"] form');
   await expect(form.locator('[data-ui="publish-rows-wait"]')).toBeVisible();
   await expect(form.locator('[data-ui="publish-source-wait"]')).toBeVisible();

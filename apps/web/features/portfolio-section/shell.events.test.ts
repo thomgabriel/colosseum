@@ -61,7 +61,7 @@ describe('the addresses of the section', () => {
     expect(pageOf('/portfolio/methodology')).toBe('methodology');
     expect(pageOf(planHref('solana', SOL_GROW))).toBe('plan');
     expect(pageOf('/portfolio/nothing')).toBe('overview');
-    expect(pageOf('/monitor')).toBe('overview');
+    expect(pageOf('/invest')).toBe('overview');
   });
 });
 

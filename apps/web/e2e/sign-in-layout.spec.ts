@@ -26,7 +26,7 @@ for (const size of SIZES)
           { name: 'tf-theme', value: theme, url: baseURL ?? '' },
           { name: 'tf-lang', value: lang, url: baseURL ?? '' },
         ]);
-        await page.goto('/goal');
+        await page.goto('/invest');
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`));
         await page.locator('header a[href^="/sign-in"]').click();
         const dialog = page.getByRole('dialog');
@@ -35,7 +35,7 @@ for (const size of SIZES)
           timeout: 60_000,
         });
         // the page stays where it was
-        await expect(page).toHaveURL(/\/goal$/);
+        await expect(page).toHaveURL(/\/invest$/);
 
         const panel = await box(page, '[role="dialog"]');
         // The scrim covers the window but for the scrollbar's room, which the locked page keeps
@@ -134,7 +134,7 @@ test('a direct link to /sign-in still gets the panel, as a page', async ({ page 
 test('the bar keeps its height: signed out, on /sign-in, and signed in', async ({ page }) => {
   const height = async () =>
     Math.round((await page.locator('[data-ui="compact-nav-bar"]').boundingBox())?.height ?? 0);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await expect(page.locator('header a[href^="/sign-in"]')).toBeVisible({ timeout: 60_000 });
   const out = await height();
   expect(out).toBe(58);

@@ -3,7 +3,7 @@ import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Skeleton, SkeletonLine } from '../../components/ui/Skeleton';
 import { WaitMark } from '../../components/ui/WaitMark';
 
-// Waiting for a reply in a conversation (/goal and a vault's own), said where the reply will be: a row
+// Waiting for a reply in a conversation (/invest and a vault's own), said where the reply will be: a row
 // in the assistant's place under the person's message, with the loader and one plain line. A reply
 // can take many seconds, so the line changes with time. It only ever says what the server does on
 // every reply, in the order it does it, and never that a step is over: this page cannot know that.

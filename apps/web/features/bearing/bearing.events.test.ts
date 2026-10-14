@@ -5,15 +5,16 @@ import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TimeChart } from '../../components/ui/TimeChart';
 import { click, find, fire, mount, press, unmountAll } from '../../components/ui/test/dom';
-import { BearingProvider, TICK_MS } from './BearingProvider';
+import { BearingProvider, DEX_BATCH, TICK_MS, useBearing } from './BearingProvider';
 import { Banner } from './BearingShell';
 import { DexPage, HISTORIES_AT_ONCE } from './DexPage';
-import { R } from './data';
+import { makeReader, R, type Res } from './data';
 import { mk, none, sumFact } from './fact';
 import { LendingPage } from './LendingPage';
 import { Fig, MultiSelect, Pie } from './parts';
+import { StablePage } from './StablePage';
 import { inPortuguese, onSnapshot } from './test/cases';
-import { snapshotReader } from './test/snapshot';
+import { answer, snapshotReader } from './test/snapshot';
 import type { LiqHistBody, LiquidityBody } from './types';
 
 // Bearing's pages as a person uses them, in happy-dom, on Rodrigo's recording of the risk API.
@@ -60,7 +61,9 @@ describe('the commodities page on the recording', () => {
     await settle(host, (h) => h.querySelector('[data-ui="bearing-kpis"]') != null && !busy(h));
     const banner = find(host, '[data-ui="bearing-banner"]');
     expect(banner.getAttribute('data-mode')).toBe('stale');
-    expect(banner.textContent).toContain('Every figure is stale: measured, only old.');
+    expect(find(banner, '[data-ui="bearing-banner-said"]').textContent).toContain(
+      'Every figure is stale: measured, only old.',
+    );
     const figures = [...host.querySelectorAll('[data-ui="figure"]')];
     expect(figures.length).toBeGreaterThan(10);
     for (const f of figures) {
@@ -781,7 +784,7 @@ describe('the language of the person', () => {
       (h) => h.querySelector('[data-ui="heatmap-tile"] table') != null && !busy(h),
     );
     const text = host.textContent ?? '';
-    expect(find(host, '[data-ui="bearing-banner"]').textContent).toContain(
+    expect(find(host, '[data-ui="bearing-banner-said"]').textContent).toContain(
       'Todo número está defasado',
     );
     expect(find(host, 'h1').textContent).toBe(
@@ -818,6 +821,9 @@ describe('the language of the person', () => {
 
 describe('the banner: live, stale with time, or the API down', () => {
   const banner = (h: HTMLElement) => find(h, '[data-ui="bearing-banner"]');
+  /** What the banner says: the one state in force, of the four it lays out. */
+  const said = (h: HTMLElement) =>
+    find(h, '[data-ui="bearing-banner"] [data-ui="bearing-banner-said"]').textContent;
   const settled = (h: HTMLElement) => banner(h).getAttribute('data-mode') !== 'loading';
 
   it('says live from the collectors, with the newest reading’s time, when it is recent', async () => {
@@ -830,8 +836,8 @@ describe('the banner: live, stale with time, or the API down', () => {
     );
     await settle(host, settled);
     expect(banner(host).getAttribute('data-mode')).toBe('live');
-    expect(banner(host).textContent).toContain('Newest reading from the collectors: 15:07 UTC.');
-    expect(banner(host).textContent).toContain('now: weekend');
+    expect(said(host)).toContain('Newest reading from the collectors: 15:07 UTC.');
+    expect(said(host)).toContain('now: weekend');
   });
 
   it('waits in the page’s own boxes: its figures’ labels, the chart cards and the table, busy', async () => {
@@ -866,6 +872,21 @@ describe('the banner: live, stale with time, or the API down', () => {
     expect(region.querySelector('[data-ui="skeleton-rows"]')).not.toBeNull();
     // the banner keeps its box, still, and says nothing a screen reader would read twice
     expect(banner(host).getAttribute('aria-hidden')).toBe('true');
+    // every state laid out in one cell, only the bars seen, so the box is as tall as the tallest
+    const layers = [...banner(host).children];
+    expect(layers).toHaveLength(4);
+    expect(layers.filter((l) => l.classList.contains('invisible'))).toHaveLength(3);
+    expect(layers.map((l) => l.textContent)).toEqual([
+      '',
+      expect.stringMatching(/^Newest reading from the collectors: .+\.now: .+$/),
+      expect.stringMatching(/^The collectors’ newest reading is from .+, .+ old\./),
+      expect.stringMatching(/did not answer/),
+    ]);
+    expect(
+      find(banner(host), '[data-ui="bearing-banner-said"]').querySelectorAll(
+        '[data-ui="skeleton"]',
+      ),
+    ).toHaveLength(2);
     expect(banner(host).getAttribute('role')).toBeNull();
     expect(host.querySelectorAll('[data-ui="figure"]')).toHaveLength(0);
   });
@@ -887,9 +908,81 @@ describe('the banner: live, stale with time, or the API down', () => {
     );
     await settle(host, (h) => settled(h) && !busy(h));
     expect(banner(host).getAttribute('data-mode')).toBe('none');
-    expect(banner(host).textContent).toContain('did not answer');
+    expect(said(host)).toContain('did not answer');
     expect(host.textContent).toContain('the API returned no answer');
     expect(host.querySelectorAll('[data-ui="figure"]')).toHaveLength(0);
+  });
+
+  // A cold start of the hosted API can outlast the probe's tries; the page's own read then comes in.
+  it('takes back that the API did not answer as soon as the page’s own read comes in', async () => {
+    const recorded = snapshotReader();
+    let answer: () => void = () => {};
+    const late = new Promise<void>((done) => {
+      answer = done;
+    });
+    const heard = new Set<() => void>();
+    const cold = {
+      get: async <T>(path: string) => {
+        await late;
+        const r = await recorded.get<T>(path);
+        for (const h of heard) h();
+        return r;
+      },
+      probe: async () => false,
+      onAnswer: (h: () => void) => {
+        heard.add(h);
+        return () => heard.delete(h);
+      },
+    };
+    const host = await mount(
+      createElement(BearingProvider, {
+        reader: cold,
+        now: Date.parse('2026-10-03T15:17:00Z'),
+        children: [
+          createElement(Banner, { key: 'b' }),
+          createElement(DexPage, { key: 'p', page: 'stocks' }),
+        ],
+      } as never),
+    );
+    await settle(host, (h) => banner(h).getAttribute('data-mode') === 'none');
+    expect(said(host)).toContain('did not answer');
+    answer();
+    await settle(host, (h) => banner(h).getAttribute('data-mode') === 'live' && ready(h));
+    expect(said(host)).not.toContain('did not answer');
+    expect(said(host)).toContain('Newest reading from the collectors: 15:07 UTC.');
+    expect(host.querySelectorAll('[data-ui="figure"]').length).toBeGreaterThan(0);
+  });
+
+  // The review of #298: a retry starts afresh, so an API cut after the page went live is said.
+  it('says the API did not answer when it is cut after the page went live and the page retries', async () => {
+    let up = true;
+    const fetcher = async (url: string) => {
+      if (!up) throw new Error('cut');
+      const r = answer(new URL(url).pathname + new URL(url).search);
+      return new Response(JSON.stringify(r.body), { status: r.ok ? 200 : r.status || 500 });
+    };
+    let retry: () => void = () => {};
+    function Retry() {
+      retry = useBearing().retry;
+      return null;
+    }
+    const host = await mount(
+      createElement(BearingProvider, {
+        reader: makeReader('http://api', fetcher as unknown as typeof fetch),
+        now: Date.parse('2026-10-03T15:17:00Z'),
+        children: [createElement(Banner, { key: 'b' }), createElement(Retry, { key: 'r' })],
+      } as never),
+    );
+    await settle(host, (h) => banner(h).getAttribute('data-mode') === 'live');
+    up = false;
+    await act(async () => retry());
+    // the probe's three tries, a second apart, find nothing
+    for (let i = 0; i < 100 && banner(host).getAttribute('data-mode') !== 'none'; i++)
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+    expect(banner(host).getAttribute('data-mode')).toBe('none');
+    expect(said(host)).toContain('did not answer');
   });
 
   it('turns stale while it is open, once its newest reading ages past two hours', async () => {
@@ -909,7 +1002,7 @@ describe('the banner: live, stale with time, or the API down', () => {
         vi.advanceTimersByTime(TICK_MS);
       });
       expect(banner(host).getAttribute('data-mode')).toBe('stale');
-      expect(banner(host).textContent).toContain('Every figure is stale');
+      expect(said(host)).toContain('Every figure is stale');
     } finally {
       vi.useRealTimers();
     }
@@ -1019,5 +1112,104 @@ describe('a missing figure is never drawn as a zero (STYLE rule 2)', () => {
     expect(legend[0]).toContain('75');
     expect(legend[1]).toContain('25');
     expect(legend.join(' ')).not.toMatch(/∞|NaN|Infinity/);
+  });
+});
+
+describe('what a page waits for', () => {
+  it('the stablecoins page reads its pools without waiting for the chain’s assets', async () => {
+    const base = snapshotReader();
+    const reader = {
+      ...base,
+      // the slowest list never answers: the stablecoins page has no use for it
+      get: <T>(path: string) =>
+        path.startsWith('/risk/assets?') ? new Promise<never>(() => {}) : base.get<T>(path),
+    };
+    const host = await mount(onSnapshot(createElement(StablePage), reader));
+    await settle(host, (h) => h.querySelector('[data-ui="bearing-kpis"]') != null && !busy(h));
+    expect(base.read).toContain(R.lendList());
+  });
+
+  it('no page reads the chain’s whole pool list; the stocks page reads the pools of its assets', async () => {
+    const reader = snapshotReader();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'commodities' }), reader));
+    await settle(host, ready);
+    expect(reader.read).not.toContain(R.pools());
+    expect(reader.read.some((p) => p.startsWith('/risk/pools?asset='))).toBe(true);
+  });
+});
+
+describe('the stocks page reads its assets a few to an answer', () => {
+  /** The recording, with `GET /risk/dex` served from the three answers of each asset it names. */
+  function batched(hold?: (ids: string[]) => boolean) {
+    const recording = snapshotReader();
+    const asked: string[] = [];
+    const reader = {
+      ...recording,
+      get: async <T>(path: string): Promise<Res<T>> => {
+        if (!path.startsWith('/risk/dex?')) return recording.get<T>(path);
+        asked.push(path);
+        const ids = (new URLSearchParams(path.split('?')[1]).get('ids') ?? '').split(',');
+        if (hold?.(ids)) return new Promise<never>(() => {});
+        const as = (r: Res) => ({ status: r.status, body: r.body });
+        const assets = ids.map((id) => ({
+          id,
+          sheet: as(answer(R.sheet(id, 100_000))),
+          hist: as(answer(R.hist(id, 0.01))),
+          pools: as(answer(R.poolsOf(id))),
+        }));
+        return { ok: true, status: 200, body: { assets } as T, reason: null };
+      },
+    };
+    return { reader, recording, asked };
+  }
+  const kpiText = (h: HTMLElement) => find(h, '[data-ui="bearing-kpis"]').textContent;
+
+  it('reads the assets in answers of eight, and shows the figures the one-by-one reads show', async () => {
+    const one = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' })));
+    await settle(one, ready);
+    const want = kpiText(one);
+    await unmountAll();
+    const { reader, recording, asked } = batched();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' }), reader));
+    await settle(host, ready);
+    expect(kpiText(host)).toBe(want);
+    expect(asked.length).toBeGreaterThan(1);
+    for (const p of asked)
+      expect(
+        new URLSearchParams(p.split('?')[1]).get('ids')?.split(',').length,
+      ).toBeLessThanOrEqual(DEX_BATCH);
+    expect(recording.read.filter((p) => p.startsWith('/risk/facts/assets/'))).toEqual([]);
+  });
+
+  it('draws each asset’s row as its answer lands, in the table’s order, while the figures wait', async () => {
+    // the second answer never comes
+    let first: string[] | null = null;
+    const { reader } = batched((ids) => {
+      first ??= ids;
+      return ids !== first;
+    });
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' }), reader));
+    const table = '[aria-labelledby="bearing-table"] table tbody tr';
+    await settle(host, (h) => h.querySelector(table) != null);
+    for (let i = 0; i < 20; i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
+    const rows = [...host.querySelectorAll<HTMLTableRowElement>(table)];
+    const ids = rows.map((r) => r.querySelector('th, td')?.textContent?.trim());
+    const loaded = (r: HTMLTableRowElement) => r.querySelector('[data-ui="skeleton"]') == null;
+    // the first answer's assets are drawn, the rest still waiting, in the order of the asset list
+    expect(rows.filter(loaded).map((r) => r.querySelector('th, td')?.textContent?.trim())).toEqual(
+      ids.filter((id) => first?.includes(id as string)),
+    );
+    expect(rows.some((r) => !loaded(r))).toBe(true);
+    // the counters over every asset are not drawn from part of them
+    expect(host.querySelector('[data-ui="waiting"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="bearing-kpis"] [data-ui="figure"]')).toBeNull();
+  });
+
+  it('reads one by one where the API has no such route', async () => {
+    const reader = snapshotReader();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'commodities' }), reader));
+    await settle(host, ready);
+    expect(reader.read.some((p) => p.startsWith('/risk/dex?'))).toBe(true);
+    expect(reader.read.some((p) => p.startsWith('/risk/facts/assets/'))).toBe(true);
   });
 });

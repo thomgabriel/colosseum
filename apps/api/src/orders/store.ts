@@ -134,7 +134,7 @@ function toOrder(r: OrderRow, legRows: LegRow[]): Order {
     preparedBy: r.preparedBy,
     ...(r.agentLabel ? { agentLabel: r.agentLabel } : {}),
     status: r.status,
-    approvalUrl: `/orders/${r.id}`,
+    approvalUrl: `/portfolio/orders/${r.id}`,
     expiresAt: Math.floor(r.expiresAt.getTime() / 1000),
     createdAt: r.createdAt.toISOString(),
     disclaimer: r.disclaimer,

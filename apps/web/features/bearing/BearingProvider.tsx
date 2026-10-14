@@ -18,13 +18,14 @@ import {
   rememberBearingChain,
   withChain,
 } from './chain';
-import { inPool, makeReader, R, type Reader, type Res } from './data';
+import { gate, inPool, makeReader, R, type Reader, type Res, resOf } from './data';
 import type { DexAsset } from './dex';
 import { type Clock, maxT, STALE_AFTER_MS } from './fact';
 import { REGIMES } from './format';
 import type { LendRow } from './lending';
 import type {
   AssetsBody,
+  DexBody,
   HistBody,
   LendBody,
   LendHistBody,
@@ -40,12 +41,14 @@ import type {
 // simulated). It lives in the section's layout, so it outlives a page.
 
 export const TAU = 0.01;
+/** Assets asked in one `GET /risk/dex`, and how many of those answers are read at once. */
+export const DEX_BATCH = 8;
+export const DEX_BATCHES_AT_ONCE = 3;
 /** How often an open page looks at its clock again. */
 export const TICK_MS = 60_000;
 
 export type Base = {
   assets: Res<AssetsBody>;
-  pools: Res<PoolsBody>;
   lendList: Res<LendListBody>;
   recorded: Set<string>;
 };
@@ -72,10 +75,18 @@ type Ctx = {
   clock: Clock;
   /** The newest reading of the collectors, when the API gave one. */
   newest: string | null;
-  /** The chain's lists: its assets, pools, lending pools and recorded pools. */
+  /** The chain's lists: its assets, lending pools and recorded pools. */
   base: () => Promise<Base>;
-  /** Per asset of the chain, by the symbol the page shows. */
-  dex: (ids: readonly string[]) => Promise<Record<string, DexAsset>>;
+  /** Solana's lending pools alone, for a page that needs no other list. */
+  lendList: () => Promise<Res<LendListBody>>;
+  /**
+   * Per asset of the chain, by the symbol the page shows. `onOne` hears each asset as its answer lands,
+   * so a page can show it before the rest.
+   */
+  dex: (
+    ids: readonly string[],
+    onOne?: (id: string, d: DexAsset) => void,
+  ) => Promise<Record<string, DexAsset>>;
   lending: () => Promise<LendRow[]>;
   ui: UiState;
   setUi: (f: (s: UiState) => UiState) => void;
@@ -177,23 +188,21 @@ export function BearingProvider({
   const api = useMemo(() => {
     if (memo.current.generation !== gen)
       memo.current = { base: new Map(), dex: new Map(), generation: gen };
+    const lendListOf = () => reader.get<LendListBody>(R.lendList());
     const baseOf = (c: BearingChain) => {
       let p = memo.current.base.get(c);
       if (!p) {
         // Solana's addresses are read as they always were; Robinhood Chain's name it. Lending pools
-        // and recorded pools are Solana's only.
+        // and recorded pools are Solana's only. The chain's whole pool list is not read: a page reads
+        // the pools of its assets (`dex`).
         p = Promise.all([
           reader.get<AssetsBody>(R.assets(TAU, c)),
-          reader.get<PoolsBody>(R.pools(c)),
-          c === 'solana'
-            ? reader.get<LendListBody>(R.lendList())
-            : Promise.resolve(notOnChain<LendListBody>()),
+          c === 'solana' ? lendListOf() : Promise.resolve(notOnChain<LendListBody>()),
           c === 'solana'
             ? reader.get<RecordedBody>(R.recorded())
             : Promise.resolve(notOnChain<RecordedBody>()),
-        ]).then(([assets, pools, lendList, rec]) => ({
+        ]).then(([assets, lendList, rec]) => ({
           assets,
-          pools,
           lendList,
           recorded: new Set(rec.ok ? rec.body.pools.map((p) => p.address) : []),
         }));
@@ -208,35 +217,69 @@ export function BearingProvider({
       const b = await baseOf(chain);
       return (b.assets.ok && b.assets.body.assets.find((a) => a.symbol === id)?.assetMint) || id;
     };
-    const dexOne = (id: string) => {
-      const k = `${chain}:${id}`;
-      let p = memo.current.dex.get(k);
-      if (!p) {
-        // Per asset: the sheet at $100k (volume, LP share), 30 days of hourly capacity, its pools.
-        // The unfiltered pool list stops at 500 rows, so pools are read per asset.
-        p = keyOf(id).then((key) =>
-          Promise.all([
-            reader.get<SheetBody>(R.sheet(key, 100_000)),
-            reader.get<HistBody>(R.hist(key, TAU)),
-            reader.get<PoolsBody>(R.poolsOf(key, chain)),
-          ]).then(([sheet, hist, pools]) => ({ sheet, hist, pools })),
+    // Per asset: the sheet at $100k (volume, LP share), 30 days of hourly capacity, its pools. The
+    // unfiltered pool list stops at 500 rows, so pools are read per asset.
+    const oneByOne = (key: string): Promise<DexAsset> =>
+      Promise.all([
+        reader.get<SheetBody>(R.sheet(key, 100_000)),
+        reader.get<HistBody>(R.hist(key, TAU)),
+        reader.get<PoolsBody>(R.poolsOf(key, chain)),
+      ]).then(([sheet, hist, pools]) => ({ sheet, hist, pools }));
+    // A few assets in one answer (`GET /risk/dex`), a few answers at once. An API without that route,
+    // or one whose answer failed, has each of those assets read on its own, as before.
+    const batches = gate(DEX_BATCHES_AT_ONCE);
+    const dexBatch = (keys: readonly string[]) =>
+      batches(async () => {
+        const r = await reader.get<DexBody>(R.dex(keys, 100_000, chain));
+        const got = new Map<string, DexAsset>();
+        if (r.ok)
+          for (const a of r.body.assets)
+            got.set(a.id, {
+              sheet: resOf(a.sheet.status, a.sheet.body) as Res<SheetBody>,
+              hist: resOf(a.hist.status, a.hist.body) as Res<HistBody>,
+              pools: resOf(a.pools.status, a.pools.body) as Res<PoolsBody>,
+            });
+        await inPool(
+          keys.filter((k) => !got.has(k)),
+          2,
+          async (k) => {
+            got.set(k, await oneByOne(k));
+          },
         );
-        memo.current.dex.set(k, p);
-      }
-      return p;
-    };
-    const dex = async (ids: readonly string[]) => {
-      if (!known) return waitForChain<Record<string, DexAsset>>();
-      const out: Record<string, DexAsset> = {};
-      await inPool(ids, 6, async (id) => {
-        out[id] = await dexOne(id);
+        return got;
       });
+    const dex = async (ids: readonly string[], onOne?: (id: string, d: DexAsset) => void) => {
+      if (!known) return waitForChain<Record<string, DexAsset>>();
+      // the reads kept for this generation, whatever happens to the provider meanwhile
+      const kept = memo.current.dex;
+      const keys = await Promise.all(ids.map(keyOf));
+      const todo = ids
+        .map((id, i) => ({ id, key: keys[i] as string, k: `${chain}:${id}` }))
+        .filter((x) => !kept.has(x.k));
+      for (let i = 0; i < todo.length; i += DEX_BATCH) {
+        const part = todo.slice(i, i + DEX_BATCH);
+        const answer = dexBatch(part.map((x) => x.key));
+        for (const x of part)
+          kept.set(
+            x.k,
+            answer.then((m) => m.get(x.key) as DexAsset),
+          );
+      }
+      const out: Record<string, DexAsset> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          const d = (await kept.get(`${chain}:${id}`)) as DexAsset;
+          out[id] = d;
+          onOne?.(id, d);
+        }),
+      );
       return out;
     };
     const lending = () => {
       if (!known) return waitForChain<LendRow[]>();
-      memo.current.lend ??= baseOf('solana').then(async (b) => {
-        const list = b.lendList.ok ? b.lendList.body.pools : [];
+      // The lending pools' list alone: the reads of each pool need not wait for the chain's assets.
+      memo.current.lend ??= lendListOf().then(async (lendList) => {
+        const list = lendList.ok ? lendList.body.pools : [];
         const rows = await inPool(list, 4, async (meta) => {
           const [sheet, h7, h30] = await Promise.all([
             reader.get<LendBody>(R.lend(meta.account)),
@@ -250,29 +293,46 @@ export function BearingProvider({
       });
       return memo.current.lend;
     };
-    return { base, dex, lending };
+    const lendList = () => (known ? lendListOf() : waitForChain<Res<LendListBody>>());
+    return { base, lendList, dex, lending };
   }, [reader, gen, chain, known]);
 
   useEffect(() => {
     let live = true;
+    // Whether the API has answered a read in this run: a run starts afresh on a retry or another
+    // chain, whatever the banner said before, so a probe that gives up then says so. An answer kept
+    // from before is not one.
+    let answered = false;
     const say = (m: Mode) => {
       modeRef.current = m;
       setMode(m);
     };
-    reader.probe().then(async (up) => {
-      if (!live) return;
-      if (!up) {
-        say('none');
-        return;
-      }
-      const b = await api.base();
-      if (!live) return;
+    const from = (b: Base) => {
       const at = fixedNow ?? Date.now();
       const last = newestReading(b.assets);
       newestRef.current = last;
       setNow(at);
       setNewest(last);
       say(isStale(last, at) ? 'stale' : 'live');
+    };
+    reader.probe().then(async (up) => {
+      if (!live) return;
+      if (!up) {
+        // unless this run's read came in: it says more than a probe that gave up
+        if (!answered) say('none');
+        return;
+      }
+      const b = await api.base();
+      if (live) from(b);
+    });
+    // A cold API can answer after the probe has given up: any read it answers says it is there, so
+    // the banner never says it did not answer beside the figures it gave.
+    const off = reader.onAnswer?.(() => {
+      if (answered || !live) return;
+      answered = true;
+      api.base().then((b) => {
+        if (live) from(b);
+      });
     });
     // Every minute: an open page turns stale when its readings age past the limit, and a page whose
     // API did not answer asks again, and reads everything afresh when it does.
@@ -293,6 +353,7 @@ export function BearingProvider({
         : undefined;
     return () => {
       live = false;
+      off?.();
       if (tick) clearInterval(tick);
     };
   }, [reader, api, fixedNow]);

@@ -262,7 +262,7 @@ describe('the words of the product, in each language', () => {
   });
 
   it('points nobody at the bar for a chain, in both (CHAIN-AT-THE-PLAN)', () => {
-    // the bar shows and switches none: where a plan starts is chosen on /goal
+    // the bar shows and switches none: where a plan starts is chosen on /invest
     for (const d of [en, pt])
       expect(JSON.stringify(d)).not.toMatch(
         /from the bar|bar at the top|pela barra|na barra no topo/i,

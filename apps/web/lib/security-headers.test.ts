@@ -20,7 +20,7 @@ const answered = (path: string) =>
 
 describe('the security headers', () => {
   it('are on every address: a page, the embed, an asset and one no route has', () => {
-    for (const path of [...HEADER_CASES, '/embed/solana/abc', '/plan/abc/buy', '/icon.svg'])
+    for (const path of [...HEADER_CASES, '/embed/solana/abc', '/invest/plan/abc/buy', '/icon.svg'])
       expect(judgeHeaders(path, answered(path)), path).toEqual([]);
   });
 
@@ -39,12 +39,12 @@ describe('the security headers', () => {
   });
 
   it('are judged header by header: one missing or weakened is named', () => {
-    const headers = answered('/goal');
+    const headers = answered('/invest');
     headers.delete('referrer-policy');
     headers.set('x-content-type-options', 'sniff');
-    expect(judgeHeaders('/goal', headers)).toEqual([
-      '/goal: x-content-type-options is sniff',
-      '/goal: referrer-policy is (none)',
+    expect(judgeHeaders('/invest', headers)).toEqual([
+      '/invest: x-content-type-options is sniff',
+      '/invest: referrer-policy is (none)',
     ]);
     expect(WANTED).toHaveLength(SECURITY_HEADERS.length);
   });

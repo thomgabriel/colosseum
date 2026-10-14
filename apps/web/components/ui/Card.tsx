@@ -100,7 +100,7 @@ export function Card({
 
 /**
  * The room a sample card's tag line takes, for an outline drawn before the card it stands for (the
- * draft on /goal), so nothing moves when the card lands. It holds no words and is not read.
+ * draft on /invest), so nothing moves when the card lands. It holds no words and is not read.
  */
 export function CardSampleRoom({ density = 'default' }: { density?: CardDensity }) {
   return (
