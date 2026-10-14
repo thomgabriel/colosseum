@@ -202,14 +202,19 @@ export const recipes = pgTable(
       .notNull()
       .references(() => indexFamilies.familyId),
     chainId: chainId(),
+    /**
+     * The network of the chain the recipe was published on (gate PRODUCTS-MAINNET-ONLY): a test
+     * network's recipe is never served while the chain runs mainnet, and a family may have one on each.
+     */
+    network: text('network').$type<Network>().notNull(),
     onchainId: text('onchain_id'),
     creator: text('creator').notNull(),
     kind: text('kind').$type<'community' | 'personal'>().notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [
-    unique('recipes_family_chain_key').on(t.familyId, t.chainId),
-    unique('recipes_chain_onchain_key').on(t.chainId, t.onchainId),
+    unique('recipes_family_chain_network_key').on(t.familyId, t.chainId, t.network),
+    unique('recipes_chain_network_onchain_key').on(t.chainId, t.network, t.onchainId),
   ],
 );
 
