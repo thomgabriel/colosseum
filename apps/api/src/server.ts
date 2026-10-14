@@ -2,6 +2,7 @@ import './env';
 import { createDb, seedChains } from '@colosseum/db';
 import { parseChainConfigs } from '@colosseum/schemas';
 import { buildApp } from './app';
+import { warmRiskReads } from './routes/risk-dex';
 
 // The vault tables point at `chains`. Write its rows before serving, and stop if this database was
 // seeded for another network than the one the environment names.
@@ -13,3 +14,7 @@ const app = await buildApp();
 const port = Number(process.env.API_PORT ?? 3001);
 await app.listen({ port, host: '0.0.0.0' });
 app.log.info(`docs at http://localhost:${port}/docs`);
+// What the analytics pages read first is read once now, so the first visitor after a start does not wait.
+warmRiskReads(app, { log: (msg) => app.log.info(msg) }).catch((err) =>
+  app.log.warn({ err }, 'risk reads not warmed'),
+);

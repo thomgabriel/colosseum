@@ -57,8 +57,16 @@ export function midAgainst(gapToAnswer: number | null | undefined): number | nul
 
 const ROOT = process.env.REPO_ROOT ?? join(import.meta.dirname, '..', '..', '..');
 const CURVE_METHOD_VERSION = RISK_METHOD_VERSION;
-const fixture = (name: string) =>
-  JSON.parse(readFileSync(join(ROOT, 'fixtures/risk', name), 'utf8'));
+// A fixture's text is read once; each caller still gets its own parse.
+const fixtureText = new Map<string, string>();
+const fixture = (name: string) => {
+  let text = fixtureText.get(name);
+  if (text === undefined) {
+    text = readFileSync(join(ROOT, 'fixtures/risk', name), 'utf8');
+    fixtureText.set(name, text);
+  }
+  return JSON.parse(text);
+};
 
 /** Where the split keys on the curve points come from (`pnpm risk:cost-breakdown`, PLAN-ANALYTICS item 4). */
 const SPLIT_META = {
@@ -343,9 +351,11 @@ export async function loadAssetFacts(
       lendingCollateral: null,
       tracking: [],
       issuer: null,
-      marketRisk: await loadMarketSeries(db, mint, now, params.marketRiskWindowDays),
-      flow: await loadFlow(db, mint),
-      oracle: await loadOracleInput(db, mint, now),
+      ...(await allOf({
+        marketRisk: loadMarketSeries(db, mint, now, params.marketRiskWindowDays),
+        flow: loadFlow(db, mint),
+        oracle: loadOracleInput(db, mint, now),
+      })),
     });
 
   const side = (s: 'sell' | 'buy'): AssetCurves | null => {
@@ -374,71 +384,120 @@ export async function loadAssetFacts(
   };
 
   // LP concentration: latest row of the asset's largest dollar pool that has one
-  const dollarPools = await db
-    .select({ address: riskPools.address })
-    .from(riskPools)
-    .where(and(eq(riskPools.assetMint, mint as string), eq(riskPools.exitPath, 'direct_usd')))
-    .orderBy(desc(riskPools.tvlUsd))
-    .limit(5);
-  let lp: AssetFactsInput['lp'] = null;
-  for (const p of dollarPools) {
-    const [row] = await db
-      .select()
-      .from(riskLpConcentration)
-      .where(eq(riskLpConcentration.pool, p.address))
-      .orderBy(desc(riskLpConcentration.fetchedAt))
-      .limit(1);
-    if (!row) continue;
-    lp = {
-      source: row.source,
-      method: row.method,
-      methodVersion: row.methodVersion,
-      provenance: row.provenance,
-      fetchedAt: row.fetchedAt.toISOString(),
-      top1: row.top1,
-      top3: row.top3,
-      top10: row.top10,
-      lpExitN: row.lpExitN,
-      sellWithoutTopN: row.sellWithoutTopN as NonNullable<AssetFactsInput['lp']>['sellWithoutTopN'],
-    };
-    break;
-  }
+  const loadLp = async (): Promise<AssetFactsInput['lp']> => {
+    const dollarPools = await db
+      .select({ address: riskPools.address })
+      .from(riskPools)
+      .where(and(eq(riskPools.assetMint, mint as string), eq(riskPools.exitPath, 'direct_usd')))
+      .orderBy(desc(riskPools.tvlUsd))
+      .limit(5);
+    for (const p of dollarPools) {
+      const [row] = await db
+        .select()
+        .from(riskLpConcentration)
+        .where(eq(riskLpConcentration.pool, p.address))
+        .orderBy(desc(riskLpConcentration.fetchedAt))
+        .limit(1);
+      if (!row) continue;
+      return {
+        source: row.source,
+        method: row.method,
+        methodVersion: row.methodVersion,
+        provenance: row.provenance,
+        fetchedAt: row.fetchedAt.toISOString(),
+        top1: row.top1,
+        top3: row.top3,
+        top10: row.top10,
+        lpExitN: row.lpExitN,
+        sellWithoutTopN: row.sellWithoutTopN as NonNullable<
+          AssetFactsInput['lp']
+        >['sellWithoutTopN'],
+      };
+    }
+    return null;
+  };
 
   const weekAgo = new Date(now.getTime() - params.capacityWindowDays * 86_400_000);
-  const [withdrawals] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(riskEvents)
-    .where(
-      and(
-        eq(riskEvents.kind, 'lp_withdrawal'),
-        eq(riskEvents.asset, symbol),
-        gte(riskEvents.fetchedAt, weekAgo),
+  // The reads below do not depend on each other: they are asked together.
+  const read = allOf({
+    lp: loadLp(),
+    withdrawals: db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(riskEvents)
+      .where(
+        and(
+          eq(riskEvents.kind, 'lp_withdrawal'),
+          eq(riskEvents.asset, symbol),
+          gte(riskEvents.fetchedAt, weekAgo),
+        ),
+      )
+      .then((rows) => rows[0]),
+    snaps: db
+      .select({
+        fetchedAt: riskAssetSnapshots.fetchedAt,
+        sell: riskAssetSnapshots.sell,
+        source: riskAssetSnapshots.source,
+        methodVersion: riskAssetSnapshots.methodVersion,
+        provenance: riskAssetSnapshots.provenance,
+      })
+      .from(riskAssetSnapshots)
+      .where(
+        and(
+          eq(riskAssetSnapshots.assetMint, mint as string),
+          gte(riskAssetSnapshots.fetchedAt, weekAgo),
+        ),
       ),
-    );
+    // stock collateral in lending markets
+    posRows: db
+      .select()
+      .from(riskLendingPositions)
+      .where(
+        and(
+          eq(riskLendingPositions.collateralAsset, symbol),
+          gte(riskLendingPositions.observedAt, new Date(now.getTime() - 2 * 86_400_000)),
+        ),
+      )
+      .orderBy(desc(riskLendingPositions.observedAt)),
+    // pool mid against each lending oracle: Step 11's hourly reference prices
+    refRows: db
+      .select({
+        observedAt: riskReferencePrices.observedAt,
+        regime: riskReferencePrices.regime,
+        others: riskReferencePrices.others,
+        methodVersion: riskReferencePrices.methodVersion,
+        source: riskReferencePrices.source,
+        provenance: riskReferencePrices.provenance,
+      })
+      .from(riskReferencePrices)
+      .where(
+        and(
+          eq(riskReferencePrices.mint, mint as string),
+          eq(riskReferencePrices.priceSource, 'pool_mid'),
+          gte(riskReferencePrices.observedAt, weekAgo),
+        ),
+      ),
+    depthRecovery: loadDepthRecovery(db, symbol),
+    flow: loadFlow(db, mint),
+    marketRisk: loadMarketSeries(db, mint, now, params.marketRiskWindowDays),
+    // the fee table below is Solana's: not another chain's
+    networkFee:
+      base.chain === 'solana'
+        ? loadNetworkFee(db, params.splitMinSamples)
+        : Promise.resolve(undefined),
+    oracle: loadOracleInput(db, mint, now),
+  });
+  const { lp, withdrawals, snaps, posRows, refRows, ...tail } = await read;
 
   // exit capacity at tau in every snapshot of the window, by regime
   const regimeParams = defaultRegimeParams(fixture('us-market-holidays.json'));
-  const snaps = await db
-    .select({
-      fetchedAt: riskAssetSnapshots.fetchedAt,
-      sell: riskAssetSnapshots.sell,
-      source: riskAssetSnapshots.source,
-      methodVersion: riskAssetSnapshots.methodVersion,
-      provenance: riskAssetSnapshots.provenance,
-    })
-    .from(riskAssetSnapshots)
-    .where(
-      and(
-        eq(riskAssetSnapshots.assetMint, mint as string),
-        gte(riskAssetSnapshots.fetchedAt, weekAgo),
-      ),
-    );
   const series: Partial<Record<Regime, number[]>> = {};
   for (const s of snaps) {
     const cap = capacityAtTau(s.sell, tau).capacityUsd;
     if (cap === null) continue;
     const r = regimeAt(s.fetchedAt, regimeParams);
-    series[r] = [...(series[r] ?? []), cap];
+    const xs = series[r] ?? [];
+    xs.push(cap);
+    series[r] = xs;
   }
   const lastSnap = snaps.reduce<(typeof snaps)[number] | null>(
     (a, s) => (!a || s.fetchedAt > a.fetchedAt ? s : a),
@@ -446,16 +505,6 @@ export async function loadAssetFacts(
   );
 
   // stock collateral in lending markets: each market's latest hour with a USD value
-  const posRows = await db
-    .select()
-    .from(riskLendingPositions)
-    .where(
-      and(
-        eq(riskLendingPositions.collateralAsset, symbol),
-        gte(riskLendingPositions.observedAt, new Date(now.getTime() - 2 * 86_400_000)),
-      ),
-    )
-    .orderBy(desc(riskLendingPositions.observedAt));
   const latestByMarket = new Map<string, (typeof posRows)[number]>();
   for (const r of posRows)
     if (r.collateralUsd !== null && !latestByMarket.has(r.market)) latestByMarket.set(r.market, r);
@@ -474,23 +523,6 @@ export async function loadAssetFacts(
 
   // pool mid against each lending oracle, by regime: Step 11's hourly reference prices, in the hours whose answer is
   // the pool mid, each live oracle's gap to it (`others`). The median over the window; (mid − oracle) ÷ oracle.
-  const refRows = await db
-    .select({
-      observedAt: riskReferencePrices.observedAt,
-      regime: riskReferencePrices.regime,
-      others: riskReferencePrices.others,
-      methodVersion: riskReferencePrices.methodVersion,
-      source: riskReferencePrices.source,
-      provenance: riskReferencePrices.provenance,
-    })
-    .from(riskReferencePrices)
-    .where(
-      and(
-        eq(riskReferencePrices.mint, mint as string),
-        eq(riskReferencePrices.priceSource, 'pool_mid'),
-        gte(riskReferencePrices.observedAt, weekAgo),
-      ),
-    );
   const gaps = new Map<string, { xs: number[]; from: Date; to: Date }>();
   for (const r of refRows)
     for (const o of (r.others ?? []) as Array<{
@@ -546,13 +578,12 @@ export async function loadAssetFacts(
     buy: side('buy'),
     curveMeta,
     splitMeta: SPLIT_META,
-    depthRecovery: await loadDepthRecovery(db, symbol),
-    flow: await loadFlow(db, mint),
-    marketRisk: await loadMarketSeries(db, mint, now, params.marketRiskWindowDays),
+    depthRecovery: tail.depthRecovery,
+    flow: tail.flow,
+    marketRisk: tail.marketRisk,
     splitMinSamples: params.splitMinSamples,
-    // the fee table and the issuer model below are Solana's and the xStocks issuer's: not another chain's
-    networkFee:
-      base.chain === 'solana' ? await loadNetworkFee(db, params.splitMinSamples) : undefined,
+    // the fee table and the issuer model are Solana's and the xStocks issuer's: not another chain's
+    networkFee: tail.networkFee,
     lp,
     lpWithdrawals: {
       count: withdrawals?.n ?? 0,
@@ -576,8 +607,19 @@ export async function loadAssetFacts(
     tracking: lendingCollateral ? tracking : [],
     issuer:
       xstocks && base.chain === 'solana' ? { ...xstocks, fetchedAt: issuers.fetchedAt } : null,
-    oracle: await loadOracleInput(db, mint, now),
+    oracle: tail.oracle,
   });
+}
+
+/** Every promise of `reads` at once, answered under the same names. */
+async function allOf<T extends Record<string, unknown>>(
+  reads: T,
+): Promise<{ [K in keyof T]: Awaited<T[K]> }> {
+  const keys = Object.keys(reads) as Array<keyof T>;
+  const values = await Promise.all(keys.map((k) => reads[k]));
+  return Object.fromEntries(keys.map((k, i) => [k, values[i]])) as {
+    [K in keyof T]: Awaited<T[K]>;
+  };
 }
 
 /** Mints of the assets that have a sell curve: the sheets that hold measured facts today. */
