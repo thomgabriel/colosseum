@@ -13,6 +13,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { ChainEntry } from '../../orders/chains';
 import type { OrderDeps } from '../../orders/legs';
 import { STALE_AFTER_SECONDS } from '../../portfolio/plans';
+import { thisLife } from '../../portfolio/scope';
 import { chainAnsweredAt, SNAPSHOT_LOOKBACK_DAYS } from '../../portfolio/snapshots';
 
 // GET /v1/stats: the platform's numbers under the landing's hero, from the vault product's tables.
@@ -23,7 +24,8 @@ import { chainAnsweredAt, SNAPSHOT_LOOKBACK_DAYS } from '../../portfolio/snapsho
 // one: named by the cache, or read by the worker in the last week (`SNAPSHOT_LOOKBACK_DAYS`). The value
 // is the snapshot worker's, and only when a pass of it in the last hour stands behind every chain of
 // the block and every vault counted has a snapshot in that hour; otherwise it is null, never 0 and
-// never a sum with a vault missing from it. Anybody may ask, so an answer is kept for a minute.
+// never a sum with a vault missing from it. A vault its person closed is not counted (gate
+// VAULT-CLOSE-REUSE). Anybody may ask, so an answer is kept for a minute.
 
 export const STATS_SOURCE = 'tenonfi API /v1/stats';
 /** How long an answer is kept, in milliseconds. */
@@ -50,7 +52,9 @@ async function readVaults(
   const cached = db
     .select({ chainId: vaults.chainId, address: vaults.address, owner: vaults.owner })
     .from(vaults)
-    .where(and(inArray(vaults.chainId, chains), eq(vaults.provenance, provenance)));
+    .where(
+      and(inArray(vaults.chainId, chains), eq(vaults.provenance, provenance), thisLife(vaults)),
+    );
   const snapped = db
     .select({
       chainId: vaultSnapshots.chainId,
@@ -63,6 +67,7 @@ async function readVaults(
         inArray(vaultSnapshots.chainId, chains),
         eq(vaultSnapshots.provenance, provenance),
         gt(vaultSnapshots.observedAt, a.seen),
+        thisLife(vaultSnapshots),
       ),
     );
   const known = cached.union(snapped).as('known');

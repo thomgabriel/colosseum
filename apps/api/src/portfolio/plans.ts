@@ -87,6 +87,8 @@ export async function putInOf(
   scoped: ScopedChain,
   vaults: readonly NumberedVault[],
   privyId: string | undefined,
+  /** Where a vault was opened again, when: its deposits count from then (gate VAULT-CLOSE-REUSE). */
+  countsFrom: ReadonlyMap<string, Date> = new Map(),
 ): Promise<Map<string, PlanPutIn>> {
   if (vaults.length === 0) return new Map();
   const { entry } = scoped;
@@ -138,9 +140,10 @@ export async function putInOf(
   const answers = new Map<string, PlanPutIn>();
   for (const vault of vaults) {
     // Oldest first, and by the order's id where two were learned of at the same instant.
-    const mine = [...(deposits.get(vaultKey(vault.owner, vault.basketId)) ?? [])].sort(
-      (a, b) => a.at.getTime() - b.at.getTime() || (a.orderId < b.orderId ? -1 : 1),
-    );
+    const from = countsFrom.get(vault.address);
+    const mine = [...(deposits.get(vaultKey(vault.owner, vault.basketId)) ?? [])]
+      .filter((deposit) => !from || deposit.at >= from)
+      .sort((a, b) => a.at.getTime() - b.at.getTime() || (a.orderId < b.orderId ? -1 : 1));
     const newest = mine.at(-1);
     if (!newest) continue;
     answers.set(vault.address, {

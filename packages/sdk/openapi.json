@@ -1676,6 +1676,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -4093,6 +4094,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -6269,6 +6271,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -7059,6 +7062,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -7730,6 +7734,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -8610,6 +8615,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -8973,6 +8979,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -10548,6 +10555,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -11410,6 +11418,7 @@
                             "STEP_LANDED",
                             "NOTHING_LEFT",
                             "VAULT_CASH_SHORT",
+                            "NOT_EMPTY",
                             "DEPOSIT_NOT_LANDED",
                             "ORDER_BUSY",
                             "CONTINUE_NOT_SUPPORTED",
@@ -11879,6 +11888,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -12507,6 +12517,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -12813,6 +12824,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -13069,6 +13081,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -13343,6 +13356,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -13928,6 +13942,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -14314,6 +14329,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -15326,6 +15342,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -15990,6 +16007,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -16654,6 +16672,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -17149,6 +17168,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -17823,6 +17843,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -18530,6 +18551,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -19134,6 +19156,254 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/portfolio/closed": {
+      "get": {
+        "summary": "The signed-in person's closed vaults, newest close first",
+        "tags": ["portfolio"],
+        "description": "The vaults the person closed (gate VAULT-CLOSE-REUSE), on every chain of theirs this server runs, from the database alone: each with the name they gave it, its number among their vaults where the server holds one, when it was closed and its label. A vault is theirs as the portfolio’s routes read it: owned by a wallet of their verified identity token, on the chain, under the label the chain carries here. Each can be opened again with `POST /v1/vaults/{chain}/{address}/reopen`.",
+        "security": [
+          {
+            "accessToken": [],
+            "identityToken": []
+          }
+        ],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "vaults": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain": {
+                            "type": "string",
+                            "enum": ["solana", "base", "robinhood"]
+                          },
+                          "chainName": {
+                            "type": "string"
+                          },
+                          "address": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "number": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "closedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "provenance": {
+                            "type": "string",
+                            "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                          }
+                        },
+                        "required": [
+                          "chain",
+                          "chainName",
+                          "address",
+                          "name",
+                          "closedAt",
+                          "provenance"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["vaults"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -19770,6 +20040,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -20213,6 +20484,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -20811,6 +21083,18 @@
                                         "deposits"
                                       ],
                                       "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "countsFrom": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                                     },
                                     {
                                       "type": "null"
@@ -21432,6 +21716,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -22041,6 +22326,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -22663,6 +22949,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -22948,6 +23235,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -23275,6 +23563,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -23675,6 +23964,18 @@
                           "type": "integer",
                           "exclusiveMinimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "closedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -23918,6 +24219,253 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/vaults/{chain}/{address}/close": {
+      "post": {
+        "summary": "Close an empty vault of yours",
+        "tags": ["portfolio"],
+        "description": "Owner only: a vault that is not the signed-in person’s answers 404, as one that does not exist. Only an empty vault closes: one worth 0.01 dollars or more, or holding a token with no price, answers 409 `NOT_EMPTY`, to withdraw from first. Nothing is signed and nothing moves on chain: the vault stays at its address, and is left out of the person’s portfolio, its sums and histories, the lists of their vaults and the snapshot rollups until it is reopened. Closing a closed vault answers it as it is.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["solana", "base", "robinhood"]
+            },
+            "in": "path",
+            "name": "chain",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "address",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "accessToken": [],
+            "identityToken": []
+          }
+        ],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "closedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reopenedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["chain", "address", "closedAt", "reopenedAt"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -24597,6 +25145,7 @@
                             "STEP_LANDED",
                             "NOTHING_LEFT",
                             "VAULT_CASH_SHORT",
+                            "NOT_EMPTY",
                             "DEPOSIT_NOT_LANDED",
                             "ORDER_BUSY",
                             "CONTINUE_NOT_SUPPORTED",
@@ -25759,6 +26308,7 @@
                             "STEP_LANDED",
                             "NOTHING_LEFT",
                             "VAULT_CASH_SHORT",
+                            "NOT_EMPTY",
                             "DEPOSIT_NOT_LANDED",
                             "ORDER_BUSY",
                             "CONTINUE_NOT_SUPPORTED",
@@ -26594,6 +27144,7 @@
                             "STEP_LANDED",
                             "NOTHING_LEFT",
                             "VAULT_CASH_SHORT",
+                            "NOT_EMPTY",
                             "DEPOSIT_NOT_LANDED",
                             "ORDER_BUSY",
                             "CONTINUE_NOT_SUPPORTED",
@@ -26872,6 +27423,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -27634,6 +28186,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -28152,6 +28705,253 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/vaults/{chain}/{address}/reopen": {
+      "post": {
+        "summary": "Open a closed vault of yours again",
+        "tags": ["portfolio"],
+        "description": "Owner only: a vault that is not the signed-in person’s answers 404, as one that does not exist. Nothing is signed. The vault is back in the person’s portfolio, and its deposits, withdrawals and snapshots count from `reopenedAt` on: what it held and moved before it was closed is not added up again. Reopening an open vault answers it as it is.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["solana", "base", "robinhood"]
+            },
+            "in": "path",
+            "name": "chain",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "address",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "accessToken": [],
+            "identityToken": []
+          }
+        ],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "closedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reopenedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["chain", "address", "closedAt", "reopenedAt"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",
@@ -29583,6 +30383,7 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",

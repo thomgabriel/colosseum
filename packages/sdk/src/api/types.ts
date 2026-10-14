@@ -3248,6 +3248,19 @@ export type GetPortfolioResponse = {
   disclaimer: string;
 };
 
+/** GET /v1/portfolio/closed: response. The signed-in person's closed vaults, newest close first */
+export type GetPortfolioClosedResponse = {
+  vaults: {
+    chain: 'solana' | 'base' | 'robinhood';
+    chainName: string;
+    address: string;
+    name: string | null;
+    number?: number;
+    closedAt: string;
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  }[];
+};
+
 /** GET /v1/portfolio/exposure: query. What the signed-in person holds across their vaults, by underlying and by issuer */
 export type GetPortfolioExposureQuery = {
   chain?: 'solana' | 'base' | 'robinhood';
@@ -3505,6 +3518,7 @@ export type GetPortfolioPlansResponse = {
           usd: string;
         }[];
       } | null;
+      countsFrom?: string | null;
       newest: {
         observedAt: string;
         ageSeconds: number;
@@ -3899,6 +3913,7 @@ export type GetVaultsByChainByAddressResponse = {
     valueUsd: string;
     provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
     number?: number;
+    closedAt?: string | null;
   };
   prices: {
     source: string;
@@ -3912,6 +3927,20 @@ export type GetVaultsByChainByAddressResponse = {
     market: 'open' | 'closed' | 'unknown';
   }[];
   disclaimer: string;
+};
+
+/** POST /v1/vaults/{chain}/{address}/close: params. Close an empty vault of yours */
+export type PostVaultsByChainByAddressCloseParams = {
+  chain: 'solana' | 'base' | 'robinhood';
+  address: string;
+};
+
+/** POST /v1/vaults/{chain}/{address}/close: response. Close an empty vault of yours */
+export type PostVaultsByChainByAddressCloseResponse = {
+  chain: 'solana' | 'base' | 'robinhood';
+  address: string;
+  closedAt: string | null;
+  reopenedAt: string | null;
 };
 
 /** GET /v1/vaults/{chain}/{address}/conversation: params. Read the private conversation for a vault you own */
@@ -4582,6 +4611,20 @@ export type PostVaultsByChainByAddressRebalanceQuoteResponse = {
   disclaimer: string;
 };
 
+/** POST /v1/vaults/{chain}/{address}/reopen: params. Open a closed vault of yours again */
+export type PostVaultsByChainByAddressReopenParams = {
+  chain: 'solana' | 'base' | 'robinhood';
+  address: string;
+};
+
+/** POST /v1/vaults/{chain}/{address}/reopen: response. Open a closed vault of yours again */
+export type PostVaultsByChainByAddressReopenResponse = {
+  chain: 'solana' | 'base' | 'robinhood';
+  address: string;
+  closedAt: string | null;
+  reopenedAt: string | null;
+};
+
 /** POST /v1/vaults/{chain}/{address}/targets: params. Review new targets for a vault you own, and order them once confirmed */
 export type PostVaultsByChainByAddressTargetsParams = {
   chain: 'solana' | 'base' | 'robinhood';
@@ -4896,6 +4939,7 @@ export interface ApiRoutes {
     response: PostOrdersByIdLegsByLegIdReportResponse;
   };
   'GET /v1/portfolio': { response: GetPortfolioResponse };
+  'GET /v1/portfolio/closed': { response: GetPortfolioClosedResponse };
   'GET /v1/portfolio/exposure': {
     query: GetPortfolioExposureQuery;
     response: GetPortfolioExposureResponse;
@@ -4915,6 +4959,10 @@ export interface ApiRoutes {
   'GET /v1/vaults/{chain}/{address}': {
     params: GetVaultsByChainByAddressParams;
     response: GetVaultsByChainByAddressResponse;
+  };
+  'POST /v1/vaults/{chain}/{address}/close': {
+    params: PostVaultsByChainByAddressCloseParams;
+    response: PostVaultsByChainByAddressCloseResponse;
   };
   'GET /v1/vaults/{chain}/{address}/conversation': {
     params: GetVaultsByChainByAddressConversationParams;
@@ -4944,6 +4992,10 @@ export interface ApiRoutes {
     params: PostVaultsByChainByAddressRebalanceQuoteParams;
     body: PostVaultsByChainByAddressRebalanceQuoteBody;
     response: PostVaultsByChainByAddressRebalanceQuoteResponse;
+  };
+  'POST /v1/vaults/{chain}/{address}/reopen': {
+    params: PostVaultsByChainByAddressReopenParams;
+    response: PostVaultsByChainByAddressReopenResponse;
   };
   'POST /v1/vaults/{chain}/{address}/targets': {
     params: PostVaultsByChainByAddressTargetsParams;

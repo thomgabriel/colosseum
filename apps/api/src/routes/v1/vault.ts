@@ -3,21 +3,29 @@ import {
   type BasketAsset,
   type ChainAdapter,
   ChainError,
+  type ChainId,
+  CLOSE_DUST_USD,
   chainFamily,
   DISCLAIMER,
   isAddressOf,
   OrderError,
+  type Principal,
+  VaultLifetimeResponse,
   VaultNameRequest,
   VaultNameResponse,
   VaultResponse,
   VaultRouteParams,
+  type VaultState,
+  type VaultView,
 } from '@colosseum/schemas';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { Refusal, refusing } from '../../orders/errors';
+import { userIdOf } from '../../orders/families';
 import type { OrderDeps } from '../../orders/legs';
 import { sameVaultAddress } from '../../orders/prepare';
 import { cacheVault, nameVault } from '../../orders/store';
+import { closeVault, type Lifetime, lifetimesOf, reopenVault } from '../../portfolio/lifetimes';
 import { numbered, vaultNumbersOf } from '../../portfolio/numbers';
 import { personScope } from '../../portfolio/scope';
 import { ownerWhy, publicWhy } from '../../portfolio/why';
@@ -104,11 +112,20 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
             w.family === entry.config.family && sameVaultAddress(chain, w.address, vault.owner),
         );
         if (!owns) return answer;
-        const [numbers, reasoned] = await Promise.all([
+        const [numbers, reasoned, lives] = await Promise.all([
           vaultNumbersOf(deps.db, personScope(deps.chains, principal), principal, req.log),
           ownerWhy(deps.db, chain, vault, listed, principal.userId, req.log),
+          lifetimesOf(deps.db, chain, [vault.address]),
         ]);
-        return { ...answer, vault: { ...reasoned, ...numbered(numbers, chain, vault.address) } };
+        return {
+          ...answer,
+          vault: {
+            ...reasoned,
+            ...numbered(numbers, chain, vault.address),
+            // whether the owner closed it (gate VAULT-CLOSE-REUSE): theirs alone, as the number is
+            closedAt: lives.get(vault.address)?.closedAt?.toISOString() ?? null,
+          },
+        };
       };
       const hit = kept.get(key);
       if (hit && now - hit.at < VAULT_KEPT_MS) return forCaller(hit.answer, hit.listed);
@@ -178,31 +195,104 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
       },
     },
     async (req): Promise<VaultNameResponse> => {
-      const principal = signedIn(req);
-      const { chain, address } = req.params;
-      const missing = () => new Refusal(404, 'no vault with that address that is yours');
-      const family = chainFamily(chain);
-      if (!isAddressOf(family, address)) throw missing();
-      const entry = deps.chains.get(chain);
-      const owners = principal.wallets.filter((w) => w.family === family).map((w) => w.address);
-      const mine = await refusing(async () =>
-        (await Promise.all(owners.map((o) => entry.adapter.getVaults(o)))).flat(),
-      );
-      const state = mine.find((v) => sameVaultAddress(chain, v.address, address));
-      if (!state) throw missing();
+      const { chain } = req.params;
       // The row the name is kept on is the cache's, written from this read of the chain.
-      const seen = await refusing(async () => {
-        const listed = await entry.adapter.listAssets();
-        const known = new Set(listed.map((a) => a.id));
-        const assets = [state.cash.asset, ...state.positions.map((p) => p.asset)].filter((id) =>
-          known.has(id),
-        );
-        const prices = assets.length ? await entry.adapter.getPrices([...new Set(assets)]) : [];
-        return view(state, prices, listed);
-      });
-      await cacheVault(deps.db, seen, entry.provenance);
+      const { state } = await ownVault(deps, signedIn(req), req.params);
       await nameVault(deps.db, chain, state.address, req.body.name);
       return { chain, address: state.address, name: req.body.name };
     },
   );
+  // A person closes an empty vault of theirs, or opens it again (gate VAULT-CLOSE-REUSE). Nothing is
+  // signed and nothing moves on chain: the vault stays at its address, and the server stops counting
+  // it in the person's lists, sums and histories, or counts it again from now.
+  scope.withTypeProvider<ZodTypeProvider>().post(
+    '/v1/vaults/:chain/:address/close',
+    {
+      config: { auth: 'user', limit: 'standard' },
+      schema: {
+        tags: ['portfolio'],
+        summary: 'Close an empty vault of yours',
+        description: `Owner only: a vault that is not the signed-in person’s answers 404, as one that does not exist. Only an empty vault closes: one worth ${CLOSE_DUST_USD} dollars or more, or holding a token with no price, answers 409 \`NOT_EMPTY\`, to withdraw from first. Nothing is signed and nothing moves on chain: the vault stays at its address, and is left out of the person’s portfolio, its sums and histories, the lists of their vaults and the snapshot rollups until it is reopened. Closing a closed vault answers it as it is.`,
+        params: VaultRouteParams,
+        response: { 200: VaultLifetimeResponse, default: OrderError },
+      },
+    },
+    async (req): Promise<VaultLifetimeResponse> => {
+      const principal = signedIn(req);
+      const { chain } = req.params;
+      const { state, seen } = await ownVault(deps, principal, req.params);
+      const unpriced = seen.positions.some((p) => p.valueUsd === null && p.raw !== '0');
+      if (unpriced || Number(seen.valueUsd ?? 0) >= CLOSE_DUST_USD)
+        throw new Refusal(409, 'this vault still holds something: withdraw it first', {
+          code: 'NOT_EMPTY',
+          fix: 'Withdraw what the vault holds, then close it.',
+          details: { retryable: false },
+        });
+      const userId = await userIdOf(deps.db, principal.userId);
+      const life = await closeVault(deps.db, chain, state.address, userId, deps.now());
+      kept.delete(`${chain}:${state.address}`);
+      return lifetimeAnswer(chain, state.address, life);
+    },
+  );
+  scope.withTypeProvider<ZodTypeProvider>().post(
+    '/v1/vaults/:chain/:address/reopen',
+    {
+      config: { auth: 'user', limit: 'standard' },
+      schema: {
+        tags: ['portfolio'],
+        summary: 'Open a closed vault of yours again',
+        description:
+          'Owner only: a vault that is not the signed-in person’s answers 404, as one that does not exist. Nothing is signed. The vault is back in the person’s portfolio, and its deposits, withdrawals and snapshots count from `reopenedAt` on: what it held and moved before it was closed is not added up again. Reopening an open vault answers it as it is.',
+        params: VaultRouteParams,
+        response: { 200: VaultLifetimeResponse, default: OrderError },
+      },
+    },
+    async (req): Promise<VaultLifetimeResponse> => {
+      const { chain } = req.params;
+      const { state } = await ownVault(deps, signedIn(req), req.params);
+      const life = await reopenVault(deps.db, chain, state.address, deps.now());
+      kept.delete(`${chain}:${state.address}`);
+      return lifetimeAnswer(chain, state.address, life);
+    },
+  );
+}
+
+const lifetimeAnswer = (chain: ChainId, address: string, life: Lifetime) => ({
+  chain,
+  address,
+  closedAt: life.closedAt?.toISOString() ?? null,
+  reopenedAt: life.reopenedAt?.toISOString() ?? null,
+});
+
+/**
+ * A vault of the signed-in person's, read from the chain, with its figures, and kept in the cache from
+ * this read. One that is not among the vaults of their wallets on the chain answers 404, as one that
+ * does not exist, whoever it belongs to.
+ */
+async function ownVault(
+  deps: OrderDeps,
+  principal: Principal,
+  { chain, address }: VaultRouteParams,
+): Promise<{ state: VaultState; seen: VaultView }> {
+  const missing = () => new Refusal(404, 'no vault with that address that is yours');
+  const family = chainFamily(chain);
+  if (!isAddressOf(family, address)) throw missing();
+  const entry = deps.chains.get(chain);
+  const owners = principal.wallets.filter((w) => w.family === family).map((w) => w.address);
+  const mine = await refusing(async () =>
+    (await Promise.all(owners.map((o) => entry.adapter.getVaults(o)))).flat(),
+  );
+  const state = mine.find((v) => sameVaultAddress(chain, v.address, address));
+  if (!state) throw missing();
+  const seen = await refusing(async () => {
+    const listed = await entry.adapter.listAssets();
+    const known = new Set(listed.map((a) => a.id));
+    const assets = [state.cash.asset, ...state.positions.map((p) => p.asset)].filter((id) =>
+      known.has(id),
+    );
+    const prices = assets.length ? await entry.adapter.getPrices([...new Set(assets)]) : [];
+    return view(state, prices, listed);
+  });
+  await cacheVault(deps.db, seen, entry.provenance);
+  return { state, seen };
 }
