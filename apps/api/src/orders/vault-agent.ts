@@ -1029,8 +1029,7 @@ const REPAIR_HINTS: Record<string, string> = {
     'Prose said something was applied, created, funded, traded or approved. A proposal is only a private preview; nothing has been applied.',
   allocation_unlisted: "An allocation named an assetId that is not in this chain's catalog.",
   allocation_duplicate: 'The same assetId appeared in more than one allocation.',
-  allocation_lines:
-    'The proposal held more than sixteen assets besides cash; a vault holds at most sixteen.',
+  allocation_lines: `The proposal held more than ${VAULT_MAX_TARGETS} assets besides cash; a vault holds at most ${VAULT_MAX_TARGETS}.`,
   allocation_ineligible:
     'An allocation used an asset that is in outsideGoal and not in requestedOutsideGoal, so the server left it out. A plan for eligibilityGoal cannot hold it: a stock only when the person asks for it themselves, any other class never. Remove it and every mention of it as proposed. For a stock the person seems to want but has not plainly asked for, ask them to confirm in question; for any other class, say that a plan with this goal cannot hold it.',
   asked_not_proposed:

@@ -16,8 +16,10 @@ export const Component = z.discriminatedUnion('kind', [
 export type Component = z.infer<typeof Component>;
 
 /**
- * The most targets a vault holds, cash not one of them: 16 in the Solana program and in the EVM vault,
- * and the most assets a shared portfolio holds on chain. Every limit of 16 lines reads this one.
+ * The most targets a person's vault holds, cash not one of them: 16 in the Solana program and in the
+ * EVM vault. Every limit of 16 lines reads this one. A shared portfolio's recipe on chain holds 12 today
+ * (the Solana program and the deployed EVM registry), and 16 only once Robinhood Chain's registry is
+ * redeployed; that limit is the chain's, not this one.
  */
 export const VAULT_MAX_TARGETS = 16;
 
