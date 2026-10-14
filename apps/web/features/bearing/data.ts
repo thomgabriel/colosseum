@@ -36,10 +36,16 @@ export type Reader = {
   get: <T>(path: string) => Promise<Res<T>>;
   /** True when the API answered its methodology route: the one probe for "is it there". */
   probe: () => Promise<boolean>;
+  /**
+   * Calls `heard` each time the API answers a read from here on, one kept from before not counted;
+   * gives back the way to stop. A reader of a stub may leave it out.
+   */
+  onAnswer?: (heard: () => void) => () => void;
 };
 
 export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetch): Reader {
   const cache = new Map<string, Promise<Res>>();
+  const listeners = new Set<() => void>();
   const get = <T>(path: string): Promise<Res<T>> => {
     let p = cache.get(path);
     if (!p) {
@@ -61,15 +67,20 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
           // An answer is kept; a failure (no answer, or the server's own error) is not, so the next
           // read asks again.
           if (notKept(r)) cache.delete(path);
+          else for (const heard of listeners) heard();
           return r;
         });
       cache.set(path, p);
     }
     return p as Promise<Res<T>>;
   };
+  // The probe asks the API each time, never an answer kept from before: after a retry, the API that
+  // answered an hour ago says nothing about the API now.
   const once = () =>
     Promise.race([
-      get(R.methodology()).then((r) => r.ok),
+      fetcher(`${base}${R.methodology()}`, { cache: 'no-store' })
+        .then((r) => r.ok)
+        .catch(() => false),
       new Promise<boolean>((done) => setTimeout(() => done(false), PROBE_MS)),
     ]);
   // A slow first answer is not "the API is down": three tries, a second apart.
@@ -80,7 +91,13 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
     }
     return false;
   };
-  return { get, probe };
+  const onAnswer = (heard: () => void) => {
+    listeners.add(heard);
+    return () => {
+      listeners.delete(heard);
+    };
+  };
+  return { get, probe, onAnswer };
 }
 
 /**
