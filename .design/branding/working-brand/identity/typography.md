@@ -48,7 +48,7 @@
 | body-sm | Inter | 400 | 0.875rem | 1.375rem | 0 |
 | caption | Inter | 500 | 0.75rem | 1rem | +0.04em, uppercase |
 | figure-lg | Inter Tight | 600 | 1.75rem | 2rem | −0.02em |
-| sample-line | Inter | 400 | 0.78125rem | 1.25rem | 0 ("Sample figures · test network", muted, once per card) |
+| sample-line | Inter | 400 | 0.78125rem | 1.25rem | 0 (a sample panel's or the embed's quiet line, "Sample figures · test network", muted; a card has its tag) |
 | source | Plex Mono | 400 | 0.8125rem | 1.25rem | 0 |
 
 ### Productive (Bearing): 13 px base, fixed

@@ -762,25 +762,21 @@ describe('the sign-in panel: when sign-in is off', () => {
 });
 
 describe('the sign-in panel: the throwaway wallet of development', () => {
-  it('carries the hatch and a quiet line on both ways in, and no hatch without it', () => {
-    portStore.set(fakePort({ found: FOUND, test: true }));
-    const page = render(createElement(SignIn));
-    expect(hatchProblems(page)).toEqual([]);
-    expect(all(page, ui('sample-note'))).toHaveLength(2);
-    expect(all(page, ui('hatch-band'))).toHaveLength(2);
-    // a real wallet draws neither
-    portStore.set(fakePort({ found: FOUND }));
-    const real = render(createElement(SignIn));
-    expect(hatchProblems(real)).toEqual([]);
-    expect(all(real, (el) => ui('hatch-band')(el) || ui('sample-note')(el))).toEqual([]);
+  it('marks neither way in as sample: the cards hold no figure (the UI audit, G9)', () => {
+    for (const port of [fakePort({ found: FOUND, test: true }), fakePort({ found: FOUND })]) {
+      portStore.set(port);
+      const page = render(createElement(SignIn));
+      expect(hatchProblems(page)).toEqual([]);
+      expect(all(page, (el) => ui('hatch-band')(el) || ui('sample-tag')(el))).toEqual([]);
+    }
   });
 
-  it('says the quiet line in the language of the page', async () => {
+  it('says nothing of sample figures on the throwaway wallet, in either language', async () => {
     portStore.set(fakePort({ found: FOUND, test: true }));
     for (const lang of ['en', 'pt'] as const) {
       const host = await screen(lang);
-      const lines = [...host.querySelectorAll('[data-ui="sample-note"]')].map((p) => p.textContent);
-      expect(lines).toEqual(Array(2).fill(dictionary(lang).shell.mockAnnounce));
+      expect(host.querySelectorAll('[data-ui="sample-tag"]')).toHaveLength(0);
+      expect(host.textContent).not.toContain(dictionary(lang).shell.mockAnnounce);
       expect(host.textContent).not.toContain('MOCK');
       await unmountAll();
     }

@@ -1,7 +1,7 @@
 # Embed shell
 > Type: custom | Route: `/embed/[id]` | Replaces: `app/embed/[id]/layout.tsx` (which inherits Nav, wallet button, `max-w-4xl` and the footer from the root layout) | Revised 2026-10-08 (honey on night)
 
-Inside a partner's app the brand recedes. The partner's colours, font, radius and buttons take over. What survives is the proof: the pin and its popover, the hatched edge with its sample line, hairline structure, the disclaimer block, explorer links, and a small "Powered by tenonfi" credit with the 16px cut of the mark in the partner's muted colour.
+Inside a partner's app the brand recedes. The partner's colours, font, radius and buttons take over. What survives is the proof: the pin and its popover, the sample tag or line, hairline structure, the disclaimer block, explorer links, and a small "Powered by tenonfi" credit with the 16px cut of the mark in the partner's muted colour.
 
 ## Routing fix (blocking)
 
@@ -44,7 +44,7 @@ A verify check (`scripts/verify`) fetches `/embed/<fixture-id>` and fails if the
 | Survives (non-negotiable) | Recedes |
 |---|---|
 | Provenance pin + popover (partner mono or `ui-monospace`), outline and square in `--embed-muted` | Honey, night, paper, the glow, the tints |
-| The hatched edge + muted sample line on any card with non-live figures ("Sample figures · test network" on sandbox), hatched pins on the figures | Inter Tight and Inter (unless the partner uses them) |
+| The sample tag on any card with non-live figures ("Test network" on sandbox), or the shell's muted sample line, hatched pins on the figures | Inter Tight and Inter (unless the partner uses them) |
 | Hairline structure in drawings and tables | The lattice, photography, the joint drawings in colour |
 | Disclaimer block from `DISCLAIMER`, ≥ 1em | Our radii (8 / 10 / 20px; the partner's `--embed-radius` applies; the composer doesn't appear) |
 | Explorer links on every mainnet transaction | Nav, wallet button, CTAs, subscribe, chips |

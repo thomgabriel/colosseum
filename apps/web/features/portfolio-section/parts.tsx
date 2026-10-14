@@ -41,7 +41,7 @@ export function useChainName(): (chain: ChainId) => string {
 }
 
 /**
- * The quiet line of a card whose figures are not live (gate MOCK-QUIET): "Test network" where they
+ * The tag of a card whose figures are not live (gate MOCK-QUIET): "Test network" where they
  * are read from one, "Sample figures" for anything else that is not live.
  */
 export const sampleLine = (words: Dictionary['shell'], provenance: Provenance): string =>

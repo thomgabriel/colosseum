@@ -70,9 +70,9 @@ Always **word + shape + colour**, never colour alone (WCAG 2.2, 1.4.1).
 | **On track** | `leaf` #3FC47C | `leaf-l` #117940 | rgba(63,196,124,.14) | Solid square | On track |
 | **Watch** | `clay` #F0703A | `clay-l` #A64618 | rgba(240,112,58,.14) | Half-filled square | Watch |
 | **Off track / error** | `madder` #EF5A6F | `madder-l` #B52F44 | rgba(239,90,111,.14) | Square outline with a notch | Off track |
-| **Sample (mock)** | `muted` + 45° hatch | `muted-l` + hatch | none | Hatched pin or glyph, hatched card edge | the quiet line "Sample figures" (gate `MOCK-QUIET`: never a boxed MOCK word) |
+| **Sample (mock)** | `muted` + 45° hatch | `muted-l` + hatch | none | Hatched pin or glyph; the card's quiet tag (no hatched card edge since Oct 13) | the tag "Sample figures" (gate `MOCK-QUIET`: never a boxed MOCK word) |
 | **Stale** | hollow pin | hollow pin | none | Hollow square | stale · age |
-| **Test network (sandbox)** | as sample | as sample | none | as sample | "Sample figures · test network"; the buy card: "Test network · <chain> · not live" |
+| **Test network (sandbox)** | as sample | as sample | none | as sample | the tag "Test network"; the buy card: "Test network · <chain> · not live" |
 
 **Deltas** are signed (+ / U+2212) and coloured by direction: leaf up, madder down, muted flat. They sit beside or under the value they qualify, in a smaller size, never alone. Honey is never a status colour: watch is clay, so a honey button beside a watch badge never confuses.
 
