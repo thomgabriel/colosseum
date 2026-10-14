@@ -212,7 +212,7 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   // to deposit into: the first way says so
   await expect(mine).toContainText(en.shared.actions.follows);
   await expect(
-    page.locator('[data-ui="family-way"][data-way="new"]').getByRole('radio'),
+    page.locator('[data-ui="family-ways"] [data-option="new"]').getByRole('radio'),
   ).toBeDisabled();
   await expect(mine.getByRole('button', { name: en.shared.vaults.autoOn })).toBeVisible();
   await mine.getByRole('link').first().click();

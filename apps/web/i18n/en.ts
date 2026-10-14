@@ -1489,7 +1489,8 @@ export const en = {
     },
     offer: {
       title: 'Auto-follow',
-      offered: 'Offered. Our keeper rebalances a following vault when a new version takes effect.',
+      offered:
+        'Offered. With auto-follow on, our keeper rebalances a vault that follows it, within its limits, when a new version takes effect.',
       noOracle: (assets: string, chain: string) =>
         `Not offered: ${assets} has no price oracle on ${chain}. You rebalance in one tap when it changes.`,
       switchedOff: (chain: string) =>
@@ -1506,7 +1507,7 @@ export const en = {
         title: 'Start a new vault',
         line: 'A vault that copies this portfolio, opened with your first deposit.',
         /** The person's vault for this portfolio is open: a deposit goes there, from its own page. */
-        open: 'Your vault for this portfolio is open. Deposit into it from its page.',
+        open: 'Your vault for this portfolio is open. Deposit into it from its page:',
       },
       follow: {
         title: 'Follow with a vault of yours',
@@ -1534,15 +1535,10 @@ export const en = {
       },
     },
     vaults: {
-      title: 'Your vaults',
-      none: 'You have no vault on this chain yet. Deposit into this portfolio to open one that follows it.',
-      following: 'Follows this portfolio',
       notFollowing: 'Follows another portfolio',
       /** A vault bought from a goal: it follows no shared portfolio. */
       ownPlan: 'Holds your own targets',
       followWith: 'Follow with this vault',
-      noFollowers: 'None of your vaults on this chain follows this portfolio yet.',
-      noHoldings: 'No holdings yet.',
       useExisting: 'Use an existing vault',
       closeChooser: 'Close vault chooser',
       choose: 'Choose this vault',
@@ -1586,8 +1582,6 @@ export const en = {
       autoOn: 'Switch auto-follow on',
       autoOff: 'Switch auto-follow off',
       autoIs: (on: boolean): string => (on ? 'Auto-follow is on.' : 'Auto-follow is off.'),
-      oneTap:
-        'This portfolio isn’t rebalanced for you. When it changes, I ask you here to accept the new version and rebalance.',
       address: (address: string) => `Vault ${address}`,
       open: 'Open the vault',
       failure: 'I couldn’t read your vaults: our server didn’t answer. Try again.',
@@ -2169,8 +2163,6 @@ export const en = {
       ownOrNew: 'Your vault for this portfolio, or a new one',
       /** A vault of the person's that already follows the portfolio: a deposit adds to it. */
       follows: (name: string) => `${name} · follows this portfolio`,
-      /** One that does not: choosing it switches it to follow, and deposits nothing. */
-      other: (name: string) => `${name} · switch to this portfolio`,
     },
     field: { deposit: 'You deposit', withdraw: 'You withdraw' },
     /** The token the amount is paid in, named for screen readers beside its mark. */

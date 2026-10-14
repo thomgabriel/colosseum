@@ -1291,7 +1291,7 @@ export const pt: Dictionary = {
     offer: {
       title: 'Seguir automático',
       offered:
-        'Oferecido. Nosso operador rebalanceia um cofre que segue o portfólio quando uma versão nova entra em vigor.',
+        'Oferecido. Com o seguir automático ativado, nosso operador rebalanceia um cofre que o segue, dentro dos limites dele, quando uma versão nova entra em vigor.',
       noOracle: (assets: string, chain: string) =>
         `Não oferecido: ${assets} não tem oráculo de preço na ${chain}. Você rebalanceia com um toque quando ele mudar.`,
       switchedOff: (chain: string) =>
@@ -1303,7 +1303,7 @@ export const pt: Dictionary = {
       newVault: {
         title: 'Abrir um cofre novo',
         line: 'Um cofre que copia este portfólio, aberto com o seu primeiro depósito.',
-        open: 'O seu cofre deste portfólio já está aberto. Deposite nele pela página dele.',
+        open: 'O seu cofre deste portfólio já está aberto. Deposite nele pela página dele:',
       },
       follow: {
         title: 'Seguir com um cofre seu',
@@ -1329,14 +1329,9 @@ export const pt: Dictionary = {
       },
     },
     vaults: {
-      title: 'Seus cofres',
-      none: 'Você ainda não tem um cofre nesta rede. Deposite neste portfólio para abrir um que o segue.',
-      following: 'Segue este portfólio',
       notFollowing: 'Segue outro portfólio',
       ownPlan: 'Guarda o seu próprio plano',
       followWith: 'Seguir com este cofre',
-      noFollowers: 'Nenhum dos seus cofres nesta rede segue este portfólio ainda.',
-      noHoldings: 'Ainda não há ativos neste cofre.',
       useExisting: 'Usar um cofre existente',
       closeChooser: 'Fechar seleção de cofres',
       choose: 'Escolher este cofre',
@@ -1377,8 +1372,6 @@ export const pt: Dictionary = {
       autoOff: 'Desativar o seguir automático',
       autoIs: (on: boolean): string =>
         on ? 'O seguir automático está ativado.' : 'O seguir automático está desativado.',
-      oneTap:
-        'Este portfólio não é rebalanceado automaticamente. Quando ele mudar, peço aqui que você aceite a versão nova e rebalanceie.',
       address: (address: string) => `Cofre ${address}`,
       open: 'Abrir o cofre',
       failure: 'Não consegui ler seus cofres: nosso servidor não respondeu. Tente de novo.',
@@ -1918,7 +1911,6 @@ export const pt: Dictionary = {
       reading: 'Lendo seus cofres…',
       ownOrNew: 'Seu cofre deste portfólio, ou um novo',
       follows: (name: string) => `${name} · segue este portfólio`,
-      other: (name: string) => `${name} · passar a seguir este portfólio`,
     },
     field: { deposit: 'Você deposita', withdraw: 'Você saca' },
     token: (symbol: string) => `Pago em ${symbol}`,

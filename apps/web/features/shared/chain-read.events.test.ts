@@ -301,7 +301,7 @@ describe('a shared portfolio this app could read from the chain and could not', 
     const tampered = en.shared.family.tampered('Solana');
     // no deposit and no follow: no amount card and no vault to choose, and the sentence that says why
     expect(page.querySelector('[data-ui="amount-card"]')).toBeNull();
-    expect(page.querySelector('[data-ui="family-way"]')).toBeNull();
+    expect(page.querySelector('[data-ui="family-ways"] input')).toBeNull();
     expect(find(page, '[data-ui="family-blocked"]').textContent).toBe(tampered);
     expect(page.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
     const mark = find(page, '[data-ui="source-mark"]');

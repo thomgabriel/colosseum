@@ -113,7 +113,6 @@ export function followedOf(recipe: SharedRecipe, check: ChainCheck): Followed | 
 
 export function FamilyScreen({ slug }: { slug: string }) {
   const t = useT();
-  const lang = useLang();
   const apiFetch = useApiFetch();
   const port = useWalletPort();
   const person = useSharedPerson();
@@ -206,16 +205,6 @@ export function FamilyScreen({ slug }: { slug: string }) {
         )}
       </header>
 
-      {person.kind === 'ready' && usable.length === 0 && family.recipes.length > 0 && (
-        // On a chain no wallet of theirs signs on: shown, and said plainly why nothing is offered.
-        <p data-ui="family-no-wallet" className="max-w-(--tf-measure-body) text-body">
-          {f.noWalletFor(
-            new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
-              family.recipes.map((r) => nameOf(r.chain)),
-            ),
-          )}
-        </p>
-      )}
       {chosen && usable.length > 1 && (
         <ChainChoice
           data-ui="family-chain"

@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { cn } from '../../components/ui/cn';
 import { utcMinute } from '../../components/ui/ExecutionList';
+import { OptionCards } from '../../components/ui/OptionCards';
 import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { ScreenWait } from '../../components/waits/ScreenWait';
@@ -341,7 +342,6 @@ export function FamilyActions(props: FamilyActionsProps) {
     recipe,
     followed,
   );
-  if (person.kind !== 'signed-out' && !ready) return null;
   const chainName = t.chain.names[recipe.chain];
 
   const panel = (body: ReactNode) => (
@@ -368,6 +368,19 @@ export function FamilyActions(props: FamilyActionsProps) {
     </Panel>
   );
 
+  // Signed in with no wallet on this chain, or not yet known: both ways named, why neither is offered,
+  // and whether auto-follow is (PRODUCTS-PLAN-PANE). Not an invest step: nothing here can be taken.
+  if (!ready && person.kind !== 'signed-out')
+    return panel(
+      <>
+        <Ways chainName={chainName} />
+        {person.kind === 'no-wallet' && (
+          <p data-ui="family-no-wallet" className="text-body-sm">
+            {t.shared.family.noWalletFor(chainName)}
+          </p>
+        )}
+      </>,
+    );
   // Signed out: both ways named, and sign-in first.
   const content = !ready ? (
     panel(
@@ -415,20 +428,14 @@ export function FamilyActions(props: FamilyActionsProps) {
 function Ways({ chainName }: { chainName: string }) {
   const x = useT().shared.actions;
   return (
-    <ul data-ui="family-ways" className="flex flex-col gap-3">
-      {[
-        [x.newVault.title, x.newVault.line],
-        [x.follow.title, x.follow.line(chainName)],
-      ].map(([title, line]) => (
-        <li
-          key={title}
-          className="flex flex-col gap-0.5 rounded-md border border-border px-3 py-2.5"
-        >
-          <span className="text-body-sm font-medium">{title}</span>
-          <span className="text-caption text-muted-foreground">{line}</span>
-        </li>
-      ))}
-    </ul>
+    <OptionCards
+      ui="family-ways"
+      legend={x.legend}
+      options={[
+        { value: 'new', title: x.newVault.title, line: x.newVault.line },
+        { value: 'follow', title: x.follow.title, line: x.follow.line(chainName) },
+      ]}
+    />
   );
 }
 
@@ -458,7 +465,6 @@ function Chosen({
   const t = useT();
   const x = t.shared.actions;
   const v = t.shared.vaults;
-  const name = useId();
   const chainName = t.chain.names[recipe.chain];
   // A deposit started on this card: it stays, through its last step, whatever the vaults read says.
   const [ran, setRan] = useState(false);
@@ -468,7 +474,10 @@ function Chosen({
   const vaults = Array.isArray(mine.vaults) ? mine.vaults : [];
   const own = vaults.find((vault) => vault.basketId === ownBasket);
   const switchable = mine.eligible.filter((vault) => vault.basketId !== ownBasket);
-  const canNew = !own || ran;
+  // Unread, the person's vault for it may be open, and a deposit would go there: no new vault is
+  // promised until the vaults are read.
+  const failed = mine.vaults === 'failed';
+  const canNew = (!own && !failed) || ran;
   const canFollow = switchable.length > 0;
   const way: Way | null =
     mine.way === 'follow' && canFollow
@@ -490,18 +499,28 @@ function Chosen({
     {
       value: 'new' as const,
       title: x.newVault.title,
-      line: canNew ? x.newVault.line : x.newVault.open,
+      line: canNew ? (
+        x.newVault.line
+      ) : own ? (
+        <>
+          {x.newVault.open}{' '}
+          <Link
+            href={`/vaults/${own.chain}/${encodeURIComponent(own.address)}`}
+            title={own.address}
+            className="font-medium text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
+          >
+            {mine.nameOf(own)}
+          </Link>
+        </>
+      ) : (
+        v.failure
+      ),
       open: canNew,
     },
     {
       value: 'follow' as const,
       title: x.follow.title,
-      line:
-        mine.vaults === 'failed'
-          ? v.failure
-          : canFollow
-            ? x.follow.line(chainName)
-            : x.follow.none(chainName),
+      line: failed ? v.failure : canFollow ? x.follow.line(chainName) : x.follow.none(chainName),
       open: canFollow,
     },
   ];
@@ -514,40 +533,17 @@ function Chosen({
             <Following mine={mine} recipe={recipe} followed={followed} onReread={onReread} />
           )}
           {/* both ways, always: one that cannot be taken here says why in its own line */}
-          <fieldset data-ui="family-ways" className="flex min-w-0 flex-col gap-2">
-            <legend className="sr-only">{x.legend}</legend>
-            {ways.map((option) => (
-              <label
-                key={option.value}
-                data-ui="family-way"
-                data-way={option.value}
-                className={cn(
-                  'flex cursor-pointer items-start gap-3 rounded-md border border-input px-3 py-2.5 hover:bg-muted',
-                  'has-checked:border-transparent has-checked:bg-accent has-checked:hover:bg-accent',
-                  'has-disabled:cursor-not-allowed has-disabled:hover:bg-transparent has-disabled:has-checked:hover:bg-accent',
-                  'has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring',
-                )}
-              >
-                <input
-                  type="radio"
-                  name={name}
-                  value={option.value}
-                  className="mt-0.5 size-4 shrink-0 accent-primary"
-                  checked={way === option.value}
-                  disabled={!option.open || (locked && way !== option.value)}
-                  onChange={() => {
-                    if (locked) return;
-                    mine.clear();
-                    mine.setWay(option.value);
-                  }}
-                />
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-body-sm font-medium">{option.title}</span>
-                  <span className="text-caption text-muted-foreground">{option.line}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <OptionCards
+            ui="family-ways"
+            legend={x.legend}
+            value={way}
+            locked={locked}
+            options={ways.map((option) => ({ ...option, disabled: !option.open }))}
+            onChange={(next) => {
+              mine.clear();
+              mine.setWay(next);
+            }}
+          />
         </>,
       )}
       {way === 'new' && (
@@ -757,7 +753,6 @@ function Following({
           );
         })}
       </ul>
-      {!offered && <p className="text-caption text-muted-foreground">{v.oneTap}</p>}
       <FollowFailure mine={mine} from="list" onReread={onReread} />
     </div>
   );
