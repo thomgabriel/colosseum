@@ -15,7 +15,6 @@ import { dollars } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import { MAX_USD, MIN_USD } from '../order/limits';
 import type { BuyOf } from '../order/order-api';
-import { AssetMark } from '../order/PlanView';
 import { displayName } from '../order/plain';
 import { unitsFor } from '../order/units';
 import { holdingsOf, type Vault } from '../portfolio/portfolio';
@@ -61,6 +60,8 @@ export type DepositCardProps = {
   } | null;
   /** The way back out of the pane the card heads. */
   leave?: { label: string; onLeave: () => void };
+  /** Told as the amount card is drawn and taken away. */
+  onShown?: (shown: boolean) => void;
   /** The deposit lands as cash for the keeper to invest (auto-follow on): said in the preview. */
   keeperInvests?: boolean;
   into?: AmountCardProps['into'];
@@ -117,6 +118,7 @@ export function DepositCard({
   keeper,
   held = null,
   leave,
+  onShown,
   keeperInvests = false,
   into,
   onMode,
@@ -240,7 +242,8 @@ export function DepositCard({
   // deposit at the vault's weights. The after shares are worked out from the vault's values as read
   // with its prices; where a holding has no price, the comparison is left out and the weights stand.
   const afterShares = (() => {
-    if (amount === null) return null;
+    // no targets read (yet, or at all): nothing to split the deposit by, so nothing is said of it
+    if (amount === null || lines.length === 0) return null;
     const priced = held && held.rows.every((r) => r.valueUsd !== null) && held.totalUsd > 0;
     if (!held || !priced)
       return lines.map(
@@ -264,6 +267,14 @@ export function DepositCard({
       };
     });
   })();
+  // Now against after only where there is a now (a vault that exists, read with its prices), and both
+  // strips only where a share moves at the precision the rows write it; otherwise the one.
+  const compare = (afterShares ?? []).some((item) => item.beforeBps !== undefined);
+  const moves = (afterShares ?? []).some(
+    (item) =>
+      item.beforeBps !== undefined &&
+      formatBps(item.beforeBps, locale) !== formatBps(item.bps, locale),
+  );
   const preview =
     amount !== null && (keeperInvests || (afterShares && afterShares.length > 0))
       ? {
@@ -273,7 +284,8 @@ export function DepositCard({
           ) : (
             <div data-ui="deposit-holds">
               <Composition
-                mode="compare"
+                mode={compare ? 'compare' : 'single'}
+                {...(compare && !moves ? { strips: 'one' as const } : {})}
                 size="compact"
                 labels={{ caption: a.preview.deposit }}
                 items={(afterShares ?? []).map((item) => ({
@@ -336,6 +348,8 @@ export function DepositCard({
       {...(title ? { title } : {})}
       {...(focusOnOpen ? { focusOnOpen } : {})}
       {...(leave ? { leave } : {})}
+      {...(onShown ? { onShown } : {})}
+      reserve={keeperInvests || lines.length > 0}
       chain={chain}
       chainName={chainName}
       provenance={figures}

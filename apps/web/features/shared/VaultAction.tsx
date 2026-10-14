@@ -148,6 +148,8 @@ export function VaultAction({
   const { chain, vault } = read;
   // A deposit's amount was pressed on its card: from then on the pane's own heading is back.
   const [entered, setEntered] = useState(false);
+  // The amount card is on the pane now (it says so as it is drawn and taken away).
+  const [cardOn, setCardOn] = useState(false);
   // The pane took the holdings' place: its heading takes the focus, so it is read from the top. Where
   // the amount card is the pane's first thing, the card is the heading and its amount takes the focus.
   useEffect(() => {
@@ -201,6 +203,7 @@ export function VaultAction({
             title: words.title,
             onPressed: (at) => setEntered(at !== null),
             leave: { label: p.backToHoldings, onLeave },
+            onShown: setCardOn,
           },
           ...(open.resumed && open.orderId ? { resumeOrder: open.orderId } : {}),
           ...told,
@@ -217,6 +220,7 @@ export function VaultAction({
             onOrder: (orderId) => onOrder(orderId, false),
             title: words.title,
             leave: { label: p.backToHoldings, onLeave },
+            onShown: setCardOn,
             ...(onMode ? { onMode } : {}),
           }}
         />
@@ -278,6 +282,9 @@ export function VaultAction({
   const done = phase === 'done';
   // The amount card heads the pane while it is shown (gate AMOUNT-CARD, one rule for both actions).
   const cardHeads =
+    // only while the card is drawn: a pane that waits for its read, or says why it has no card,
+    // keeps its own heading and its way back
+    cardOn &&
     phase === 'open' &&
     !finishes &&
     !open.resumed &&

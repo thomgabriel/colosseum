@@ -1,6 +1,6 @@
 'use client';
 import { type ChainId, type Provenance, TRUST_STATUS } from '@colosseum/schemas';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/cn';
 import { Hint } from '../../components/ui/Hint';
@@ -115,6 +115,13 @@ export type AmountCardProps = {
   focusOnOpen?: boolean;
   /** The way back out of the pane the card heads, in its head on the right. */
   leave?: { label: string; onLeave: () => void };
+  /**
+   * The preview's column is kept from the start, empty until there is a figure, so the amount's field
+   * does not change width under the first digit.
+   */
+  reserve?: boolean;
+  /** Told as the card is drawn and taken away: a host that holds its way back while it is not. */
+  onShown?: (shown: boolean) => void;
   className?: string;
 };
 
@@ -122,7 +129,6 @@ export function AmountCard({
   mode,
   onMode,
   chain,
-  chainName,
   provenance,
   into,
   field,
@@ -139,6 +145,8 @@ export function AmountCard({
   title,
   focusOnOpen = false,
   leave,
+  reserve = false,
+  onShown,
   className,
 }: AmountCardProps) {
   const t = useT();
@@ -153,6 +161,12 @@ export function AmountCard({
   const ticked = trust?.ticked ?? tickedHere;
   const setTicked = trust?.onTick ?? setTickedHere;
   const [viewTrust, setViewTrust] = useState(false);
+  const shown = useRef(onShown);
+  shown.current = onShown;
+  useEffect(() => {
+    shown.current?.(true);
+    return () => shown.current?.(false);
+  }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, as the card opens
   useEffect(() => {
     if (focusOnOpen) document.getElementById(amountId)?.focus();
@@ -197,9 +211,8 @@ export function AmountCard({
   const modes: readonly AmountMode[] = ['deposit', 'withdraw'];
   const choosable = into?.onChange !== undefined && into.options.length > 1;
   // What the figures are, in the kit's one quiet pill, as the portfolio board says it (MOCK-QUIET):
-  // "Test network" for a test network's real reads, "Sample figures" for the mock's. Beside the
-  // amount's label, or in the head where there is no amount. The long line of BUY-STEPS is the order
-  // card's, after the press.
+  // "Test network" for a test network's real reads, "Sample figures" for the mock's, in the head's
+  // top-right corner. The long line of BUY-STEPS is the order card's, after the press.
   const plate =
     provenance === 'sandbox' ? (
       <Plate ui="data-note">{t.shell.testNetworkLine}</Plate>
@@ -230,8 +243,9 @@ export function AmountCard({
     </fieldset>
   );
   return (
-    // A panel of the house kit (HOUSE-KIT): its head names the action, Deposit | Withdraw on its
-    // right; the amount and what it leads to; then what stands between the person and the press.
+    // A panel of the house kit (HOUSE-KIT): its head is Deposit | Withdraw where both apply (else the
+    // action's name), with the quiet tag and the way back on its right (MOCK-QUIET: the tag top right);
+    // the amount and what it leads to; then what stands between the person and the press.
     <Panel
       as="section"
       aria-labelledby={titleId}
@@ -245,9 +259,9 @@ export function AmountCard({
         title={title ?? a.modes[mode]}
         {...(tabs ? { tabs } : {})}
         actions={
-          (!field && plate) || leave ? (
+          plate || leave ? (
             <>
-              {!field && plate}
+              {plate}
               {leave && (
                 <Button
                   variant="link"
@@ -270,7 +284,7 @@ export function AmountCard({
           data-mode={mode}
           className={cn(
             'grid min-w-0 gap-x-8 gap-y-4',
-            preview && '@2xl/amount:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
+            (preview || reserve) && '@2xl/amount:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
           )}
         >
           <div className="flex min-w-0 flex-col gap-4">
@@ -336,7 +350,6 @@ export function AmountCard({
                 chipsLabel={field.chipsLabel}
                 problem={problem}
                 note={!problem && field.note && settled ? field.note : null}
-                plate={plate}
                 locked={locked}
               />
             )}

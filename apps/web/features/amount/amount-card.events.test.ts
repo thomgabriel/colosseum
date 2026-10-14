@@ -241,7 +241,7 @@ describe('the amount card on a deposit', () => {
     const preview = find(host, '[data-ui="amount-preview"]');
     expect(preview.textContent).toContain(en.amount.preview.deposit);
     // the shared composition, now and after: a new vault holds nothing now; after, the weights
-    expect(find(preview, '[data-ui="composition"]').dataset.mode).toBe('compare');
+    expect(find(preview, '[data-ui="composition"]').dataset.mode).toBe('single');
     expect(preview.textContent).toContain('40%');
     expect(preview.textContent).toContain('30%');
     expect(preview.textContent).toContain(en.amount.preview.cash);
@@ -277,12 +277,86 @@ describe('the amount card on a deposit', () => {
     await type(field(host), '100');
     const composition = find(host, '[data-ui="amount-preview"] [data-ui="composition"]');
     expect(composition.dataset.mode).toBe('compare');
+    // SPY moves from 100% to 70%: both strips, now over after
+    expect(composition.querySelectorAll('[data-bar]').length).toBeGreaterThan(0);
     const rows = [...composition.querySelectorAll('[data-ui="composition-list"] li')].map(
       (li) => li.textContent,
     );
     // after: SPY (100 + 40) of 200, NVDA 30 of 200, cash 30 of 200
     expect(rows.join(' | ')).toContain('70%');
     expect(rows.join(' | ')).toContain('15%');
+  });
+
+  it('says nothing of what the vault will hold while its targets are not read', async () => {
+    api();
+    acceptTrust(USER, TRUST_STATUS.textVersion, true);
+    const host = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          holdings: null,
+          held: {
+            rows: [{ asset: 'solana:spy', valueUsd: 100, weightBps: 10_000 }],
+            totalUsd: 100,
+          },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(host), '100');
+    // never "SPY 50%": with no targets the deposit goes nowhere the card can say
+    expect(host.querySelector('[data-ui="amount-preview"]')).toBeNull();
+  });
+
+  it('draws one strip where no share moves, at the precision the rows write it, and for a new vault', async () => {
+    api();
+    acceptTrust(USER, TRUST_STATUS.textVersion, true);
+    // on its targets: SPY 40, NVDA 30, cash 30 of $100; $100 more at the same weights moves nothing
+    const onTarget = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          held: {
+            rows: [
+              { asset: 'solana:spy', valueUsd: 40, weightBps: 4_000 },
+              { asset: 'solana:nvda', valueUsd: 30, weightBps: 3_000 },
+              { asset: 'solana:usdc', valueUsd: 30, weightBps: 3_000, cash: true },
+            ],
+            totalUsd: 100,
+          },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(onTarget), '100');
+    const same = find(onTarget, '[data-ui="amount-preview"] [data-ui="composition"]');
+    expect(same.dataset.mode).toBe('compare');
+    expect(same.querySelectorAll('[data-bar]')).toHaveLength(0);
+    await unmountAll();
+
+    // a new vault: nothing now to compare with, one composition
+    const fresh = await mount(inLanguage('en', deposit()));
+    await settle(10);
+    await type(field(fresh), '100');
+    expect(find(fresh, '[data-ui="amount-preview"] [data-ui="composition"]').dataset.mode).toBe(
+      'single',
+    );
+    await unmountAll();
+
+    // a holding with no price: no comparison, the weights alone
+    const unpriced = await mount(
+      inLanguage(
+        'en',
+        deposit({
+          held: { rows: [{ asset: 'solana:spy', valueUsd: null, weightBps: 0 }], totalUsd: 100 },
+        }),
+      ),
+    );
+    await settle(10);
+    await type(field(unpriced), '100');
+    expect(find(unpriced, '[data-ui="amount-preview"] [data-ui="composition"]').dataset.mode).toBe(
+      'single',
+    );
   });
 
   it('keeps the line without its way back once the steps are being signed', async () => {
@@ -338,15 +412,19 @@ describe('what the card says of the chain', () => {
     expect(host.querySelector('[data-ui="sample-note"]')).toBeNull();
   });
 
-  it('says sample figures on the mock in the kit’s pill, beside the amount, with no hatch on the panel', async () => {
+  it('says sample figures on the mock in the kit’s one pill, in the head’s top right, with no hatch on the panel', async () => {
     api({ provenance: 'mock' });
     const host = await mount(inLanguage('en', deposit({ mock: true, provenance: 'mock' })));
     await settle(10);
     expect(host.querySelector('[data-ui="data-note"]')).toBeNull();
     expect(find(host, '[data-ui="sample-plate"]').textContent).toBe(en.shell.mockAnnounce);
+    // in the panel's head, with its actions on the right, not beside the amount
     expect(
       find(host, '[data-ui="hero-figure"]').contains(find(host, '[data-ui="sample-plate"]')),
-    ).toBe(true);
+    ).toBe(false);
+    expect(find(host, '[data-ui="sample-plate"]').closest('.ml-auto')).not.toBeNull();
+    // one pill, not the card's own tag beside it
+    expect(host.querySelector('[data-ui="sample-tag"]')).toBeNull();
     expect(host.querySelector('[data-ui="hatch-band"]')).toBeNull();
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });

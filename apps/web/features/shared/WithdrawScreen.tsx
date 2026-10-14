@@ -88,6 +88,8 @@ export function WithdrawScreen({
     title?: string;
     /** The way back out of the pane, in the card's head. */
     leave?: { label: string; onLeave: () => void };
+    /** Told as the amount card is drawn and taken away. */
+    onShown?: (shown: boolean) => void;
   };
 }) {
   const t = useT();
@@ -705,6 +707,8 @@ export function WithdrawScreen({
       headingLevel={embedded && !embedded.title ? 3 : 2}
       {...(embedded?.title ? { title: embedded.title, focusOnOpen: true } : {})}
       {...(embedded?.leave ? { leave: embedded.leave } : {})}
+      {...(embedded?.onShown ? { onShown: embedded.onShown } : {})}
+      reserve
       chain={chain}
       chainName={chainName}
       provenance={provenance}

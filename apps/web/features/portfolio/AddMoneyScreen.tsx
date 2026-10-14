@@ -3,7 +3,6 @@ import { ChainId, chainFamily, type Target } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useState } from 'react';
 import { CardWait } from '../../components/shell/Wait';
-import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { Card } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
@@ -59,6 +58,8 @@ export type AddEntry = {
   onPressed?: (amount: number | null) => void;
   /** The way back out of the pane, in the card's head. */
   leave?: { label: string; onLeave: () => void };
+  /** Told as the amount card is drawn and taken away. */
+  onShown?: (shown: boolean) => void;
 };
 
 export function AddMoneyScreen({
@@ -111,21 +112,9 @@ export function AddMoneyScreen({
     // in a host's pane: the sentence alone, under the host's heading and beside its way back
     if (embedded)
       return (
-        <div className="flex flex-col items-start gap-3">
-          <p data-ui="add-money-missing" className="max-w-(--tf-measure-body) text-body">
-            {signedOut ? t.portfolio.signedOut : words.missing}
-          </p>
-          {/* no card to hold the way back: it stays beside the sentence */}
-          {embedded.entry?.leave && (
-            <Button
-              variant="link"
-              data-action="leave-action"
-              onClick={embedded.entry.leave.onLeave}
-            >
-              {embedded.entry.leave.label}
-            </Button>
-          )}
-        </div>
+        <p data-ui="add-money-missing" className="max-w-(--tf-measure-body) text-body">
+          {signedOut ? t.portfolio.signedOut : words.missing}
+        </p>
       );
     return (
       <section data-ui="add-money-missing" className="flex flex-col items-start gap-4">
@@ -379,6 +368,7 @@ export function AddMoneyScreen({
       {...(embedded?.entry?.title ? { title: embedded.entry.title, focusOnOpen: true } : {})}
       {...(embedded?.entry?.onPressed ? { onPressed: embedded.entry.onPressed } : {})}
       {...(embedded?.entry?.leave ? { leave: embedded.entry.leave } : {})}
+      {...(embedded?.entry?.onShown ? { onShown: embedded.entry.onShown } : {})}
       flow={(amount, change) => cardFor(amount, change)}
     />
   );
