@@ -116,6 +116,7 @@ describe('the routes of the app', () => {
       'app/(app)/plan/[id]/buy/page.tsx',
       'app/(app)/plan/[id]/loading.tsx',
       'app/(app)/plan/[id]/page.tsx',
+      'app/(app)/portfolio/closed/page.tsx',
       'app/(app)/portfolio/exposure/loading.tsx',
       'app/(app)/portfolio/exposure/page.tsx',
       'app/(app)/portfolio/layout.tsx',

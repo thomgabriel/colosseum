@@ -40,6 +40,7 @@ import {
   type PlansChain,
   readHistory,
 } from './api';
+import { ClosedLink } from './ClosedVaultsPage';
 import { OverviewChart } from './OverviewChart';
 import {
   chainsOf,
@@ -89,6 +90,8 @@ export function OverviewPage() {
       <SectionGate read={plans} skeleton={<OverviewWait />}>
         {(answer) => <Board answer={answer} />}
       </SectionGate>
+      {/* The vaults the person closed are on their own page (gate VAULT-CLOSE-REUSE). */}
+      <ClosedLink />
     </div>
   );
 }
