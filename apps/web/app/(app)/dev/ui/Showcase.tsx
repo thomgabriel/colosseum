@@ -882,6 +882,34 @@ export function Showcase() {
             </PanelBody>
           </Panel>
         </Specimen>
+        <Specimen state="panel head with tabs">
+          <Panel aria-labelledby="kit-sample-tabs">
+            <PanelHead
+              id="kit-sample-tabs"
+              title="Deposit into your vault"
+              tabs={
+                <fieldset className="inline-flex rounded-md border border-input p-0.5">
+                  <legend className="sr-only">Deposit or withdraw</legend>
+                  <button
+                    type="button"
+                    aria-pressed="true"
+                    className="h-8 rounded-sm bg-honey-tint px-3 text-body-sm font-semibold text-honey-text"
+                  >
+                    Deposit
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    className="h-8 rounded-sm px-3 text-body-sm font-semibold text-muted-foreground"
+                  >
+                    Withdraw
+                  </button>
+                </fieldset>
+              }
+              actions={<Plate>Test network</Plate>}
+            />
+          </Panel>
+        </Specimen>
         <Specimen state="panel head and table" wide>
           <Panel aria-labelledby="kit-sample-head">
             <PanelHead

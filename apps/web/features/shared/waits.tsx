@@ -161,7 +161,7 @@ export function AmountCardWait({ wait }: { wait: string }) {
     <div
       aria-hidden="true"
       data-wait={wait}
-      className="flex w-full max-w-[32.5rem] flex-col gap-4 rounded-xl border border-border bg-card p-5"
+      className="flex w-full flex-col gap-4 rounded-xl border border-border bg-card p-5"
     >
       <SkeletonLine className="text-h4" width="w-24" />
       <Skeleton className="h-28 w-full rounded-md" />
