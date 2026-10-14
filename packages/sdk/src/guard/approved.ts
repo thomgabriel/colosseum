@@ -98,6 +98,45 @@ function heldToRebalance(
 }
 
 /**
+ * A follow of a vault the person has (an order with an accept) swaps only to sell what the vault holds
+ * of the assets the version drops, as its review named them: each for the cash token, each once, all
+ * of the amount shown, with a minimum above zero, and before the accept.
+ */
+function heldToLeftovers(legs: Leg[], plan: PlanTerms, cash: string): void {
+  const accept = legs.find((l) => l.kind === 'accept_version');
+  if (!accept) return;
+  const swaps = legs.filter((l) => l.kind === 'swap');
+  if (!swaps.length) return;
+  const reviewed = new Map((plan.leftovers ?? []).map((s) => [s.asset, s.amountRaw]));
+  if (!reviewed.size)
+    throw refuse('a follow trades only to sell what the version drops, and no sale was reviewed');
+  const sold = new Set<string>();
+  for (const leg of swaps) {
+    if (leg.seq > accept.seq)
+      throw refuse('a sale of what the version drops comes after the accept it is for', leg.id);
+    if (leg.expected.length !== leg.trades.length)
+      throw refuse('a trade was shown with no minimum, so it has none to be held to', leg.id);
+    for (const [i, t] of leg.trades.entries()) {
+      if (t.buy !== cash || t.sell === cash)
+        throw refuse(
+          `a follow sells what the version drops for the cash token: this step trades ${t.sell} for ${t.buy}`,
+          leg.id,
+        );
+      if (sold.has(t.sell)) throw refuse(`${t.sell} is sold twice`, leg.id);
+      if (reviewed.get(t.sell) !== t.amountInRaw)
+        throw refuse(
+          `this step sells ${t.amountInRaw} of ${t.sell}, and the review sold ${reviewed.get(t.sell) ?? 'none'}`,
+          leg.id,
+        );
+      const least = leg.expected[i]?.minOutRaw;
+      if (!least || !isRawAmount(least) || BigInt(least) === 0n)
+        throw refuse('a sale states no minimum', leg.id);
+      sold.add(t.sell);
+    }
+  }
+}
+
+/**
  * One approved step per leg, in the order they are signed. Throws a `GuardRefusal` with code `order`
  * when the order cannot mean what it says, and `unsupported` for a step this guard signs none of.
  */
@@ -147,6 +186,7 @@ export function approvedSteps(
   if (plan.publish && legs.length !== 1)
     throw refuse('the order publishes one shared portfolio, in one step');
   if (plan.rebalance) heldToRebalance(order, legs, plan, deployment.cash);
+  heldToLeftovers(legs, plan, deployment.cash);
 
   // The cash an order moves is said once, by the order (`depositRaw`), and one step moves it: the create
   // or the deposit. An approval exists only to serve that step, for that exact amount. An order that

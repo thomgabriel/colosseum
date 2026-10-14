@@ -239,8 +239,27 @@ export function sharedShapeOk(
   terms: Extract<SharedTerms, { kind: 'follow' | 'publish' | 'withdraw' }>,
 ): boolean {
   if (order.depositRaw !== undefined || order.legs.length === 0) return false;
-  if (order.legs.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;
-  const kinds = order.legs.map((l) => l.kind);
+  // A follow may sell first what the vault holds of the assets the version drops (SHARED-RULES-V2):
+  // those sales, as its review named them, each for the cash, before the accept. Nothing else trades.
+  const sales = terms.kind === 'follow' ? (terms.leftovers ?? []) : [];
+  const ordered = order.legs.slice().sort((a, b) => a.seq - b.seq);
+  const acceptAt = ordered.findIndex((l) => l.kind === 'accept_version');
+  const sold = ordered.filter((l) => l.kind === 'swap');
+  if (sold.length > 0) {
+    if (terms.kind !== 'follow' || !sales.length || acceptAt < 0) return false;
+    const named = new Map(sales.map((s) => [s.asset, s.amountRaw]));
+    const trades = sold.flatMap((l) => l.trades);
+    if (
+      sold.some((l) => ordered.indexOf(l) > acceptAt || l.cashRaw !== undefined) ||
+      trades.length !== sales.length ||
+      new Set(trades.map((t) => t.sell)).size !== trades.length ||
+      trades.some((t) => named.get(t.sell) !== t.amountInRaw || t.buy === t.sell)
+    )
+      return false;
+  } else if (sales.length) return false;
+  const rest = order.legs.filter((l) => l.kind !== 'swap');
+  if (rest.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;
+  const kinds = rest.map((l) => l.kind);
   if (terms.kind === 'withdraw') {
     // In dollars it trades: that order has a check of its own (`dollarsShapeOk`), never this one.
     if (terms.dollars) return false;

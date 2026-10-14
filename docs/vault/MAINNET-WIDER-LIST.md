@@ -93,16 +93,3 @@ Not measured on chain, and not listable today: the six stock tokens with no Chai
 ## How the app shows them
 
 The deploy record keeps the twelve under `pending` with the batch's operation id. Nothing that trades, shows or limits reads `pending` (`deploymentAssets`, `deploymentPools`, `deploymentLimits` read `assets` only), and the guard's file does not name them, so neither the app nor the guard accepts a trade in them before the chain does. Once the execute has landed, `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads `isOperationDone` and each token's `asset()` from the factory, refuses a token listed with other settings than the file's, and moves each listed one into `assets` and the guard's file together, regenerating the guard's tables. Then the rows are filled (`scripts/robinhood/basket-assets.ts deployments/robinhood-mainnet.json`) and the API restarted.
-
-## In the same batch: the registry's second rules
-
-Gate `SHARED-RULES-V2` (Thom, 2026-10-14). The batch ends with one more call: `upgradeToAndCall(0x3200F7b8F56590F41D3F2fD9448F706A04bF3129, "")` on the registry proxy `0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc`, by the timelock, which is the factory's admin. The new logic holds shared portfolios to 1 to 16 assets, 0.5% to 100% each, the rest in cash, with an asset's ceiling a warning; the turnover and the delay are unchanged, and so is the storage.
-
-In order:
-
-1. **Thom deploys the logic** (anyone may; it owns nothing and changes nothing until step 3): `ROBINHOOD_RPC_URL=<node> scripts/mainnet/deploy-registry-v2.sh` is the dry run, `--send` sends one transaction from the keystore account `deployer-rh` (about 3.1M gas, 0.00014 ETH on 2026-10-14). The script refuses any code that does not give the address the batch names. The owners can then read the code at that address on `https://robin.etherscan.io` before they sign.
-2. **The Safe schedules the batch** (file 1 of 2), as for the tokens.
-3. **48 hours later, the Safe executes it** (file 2 of 2). It reverts as a whole if the logic is not there.
-4. **After the execute**, `registryLogic` in `deployments/robinhood-mainnet.json` becomes `0x3200F7b8F56590F41D3F2fD9448F706A04bF3129` (the authority check reads the implementation slot against it), and `GET /v1/shared/limits?chain=robinhood` answers `rules: 2`. Until then the app holds publishing to the first rules, which it reads from the same registry.
-
-On a fork: `RH_FORK_URL=<node> forge test --match-contract RobinhoodForkSharedRules` (`contracts/test/fork/RobinhoodForkSharedRules.t.sol`) deploys the logic, has the real Safe schedule and execute an upgrade batch through the real timelock, and publishes the shapes the first rules refused.

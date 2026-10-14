@@ -1441,6 +1441,7 @@ export const pt: Dictionary = {
         overCap: (asset: string, weight: string, cap: string) =>
           `${asset} com ${weight} pesa mais que ${cap}, o teto dele na lista de ativos, definido pelo que dá para vender dele. Quem segue pode pagar mais para vender tudo isso.`,
         cash: 'Caixa',
+        capOnList: 'Teto na lista de ativos',
       },
       asset: 'Ativo',
       weight: 'Peso, em %',

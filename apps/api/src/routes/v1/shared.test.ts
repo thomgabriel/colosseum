@@ -4,6 +4,7 @@ import { mockRecipeId } from '@colosseum/chain-mock';
 import { chains, indexFamilies, recipes } from '@colosseum/db';
 import {
   type BasketAsset,
+  CEILING_METHOD,
   ChainError,
   CREATOR_LIMITS_V2,
   CreatorLimitsResponse,
@@ -597,6 +598,7 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
     expect(robinhood.limits).toEqual(CREATOR_LIMITS_V2);
     expect(robinhood.ceilings).toContainEqual({ asset: 'robinhood:spy', maxWeightBps: 5000 });
     expect(robinhood.ceilings.some((c) => c.asset === 'robinhood:usdc')).toBe(false);
+    expect(robinhood.ceilingsFrom).toMatchObject({ method: CEILING_METHOD, provenance: 'mock' });
     expect((await get(null, '/v1/shared/limits')).statusCode).toBe(400);
     // A chain that does not answer is said, never assumed.
     const limits = vi
@@ -617,7 +619,9 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
     expect(placed.warnings).toEqual([
       {
         code: 'OVER_LISTED_CAP',
-        text: expect.stringMatching(/SPY.*100%.*50%.*cap on the asset list/),
+        text: expect.stringMatching(
+          /SPY.*100%.*50%.*cap on the asset list.*Read from .*measured exit capacity/,
+        ),
       },
     ]);
     expect((await settleAll(creator, placed)).status).toBe('done');

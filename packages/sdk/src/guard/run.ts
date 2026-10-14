@@ -249,8 +249,8 @@ function stepProblem(step: ApprovedStep): string | null {
         return 'the text hash handed over is not the hash of the text shown';
       if (!targets(step.components) || !step.components.length)
         return 'an asset is not of its chain';
-      // At most the whole: what the weights leave is cash where the chain's rules let it
-      // (SHARED-RULES-V2), and the chain's registry holds a version to its own rules.
+      // What the weights leave is cash on every chain, whose registry or program holds the second
+      // rules (SHARED-RULES-V2); the chain holds the rest of its rules itself.
       return step.components.reduce((n, c) => n + c.weightBps, 0) <= 10_000
         ? null
         : 'the weights add up to more than 10,000';

@@ -16,12 +16,18 @@ export const Component = z.discriminatedUnion('kind', [
 export type Component = z.infer<typeof Component>;
 
 /**
- * The most targets a person's vault holds, cash not one of them: 16 in the Solana program and in the
- * EVM vault. Every limit of 16 lines reads this one. A shared portfolio's recipe on chain holds 12 today
- * (the Solana program and the deployed EVM registry), and 16 only once Robinhood Chain's registry is
- * redeployed; that limit is the chain's, not this one.
+ * The most targets above zero a person's vault holds, cash not one of them: 16 in the Solana program and
+ * in the EVM vault. Every limit of 16 lines reads this one, and so does the most assets a shared
+ * portfolio holds under the second rules (gate SHARED-RULES-V2).
  */
 export const VAULT_MAX_TARGETS = 16;
+
+/**
+ * The most targets a vault holds in all, those at zero included: the assets a followed version drops
+ * while the vault still holds them stay as targets of zero until they are sold. The EVM vault has room
+ * for eight of them beside the sixteen (`MAX_LINES` of BasketVault); the Solana program has none.
+ */
+export const VAULT_MAX_LINES = { solana: 16, evm: 24 } as const;
 
 /** What a vault stores: one asset and its weight. A weight of nothing is not a target. */
 export const Target = z.object({ asset: AssetId, weightBps: Weight });

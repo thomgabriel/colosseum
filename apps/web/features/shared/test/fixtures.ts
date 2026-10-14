@@ -119,6 +119,12 @@ export const limitsOf = (
   chain: chain as CreatorLimitsResponse['chain'],
   limits: (over.rules ?? 2) === 1 ? CREATOR_LIMITS_V1 : CREATOR_LIMITS_V2,
   ceilings: over.ceilings ?? [],
+  ceilingsFrom: {
+    source: 'a test chain: the asset list',
+    method: 'written for this test',
+    fetchedAt: '2026-10-14T12:00:00.000Z',
+    provenance: 'sandbox',
+  },
   source: 'chain',
   observedAt: '2026-10-14T12:00:00.000Z',
   provenance: 'sandbox',

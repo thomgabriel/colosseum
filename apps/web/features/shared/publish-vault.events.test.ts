@@ -471,9 +471,10 @@ describe('the rules a publish is held to are the chain’s, read from it (SHARED
     );
     expect(find(host, '[data-ui="publish-cash"]').textContent).toContain('40%');
     // A warning that cites the cap, not a refusal (ANY-COMPOSITION, EXIT-SOURCE).
-    expect(find(host, '[data-ui="publish-over-cap"]').textContent).toBe(
-      p.rules.overCap('SPYx', '60%', '25%'),
-    );
+    const warning = find(host, '[data-ui="publish-over-cap"]');
+    expect(warning.textContent).toContain(p.rules.overCap('SPYx', '60%', '25%'));
+    // The cap is a figure with its pin: where it was read and how it is set.
+    expect(warning.querySelector('[data-ui="figure"]')).not.toBeNull();
     await click(button(host));
     await settle(10);
     expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({

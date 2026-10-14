@@ -93,6 +93,7 @@ export const CREATOR_LIMITS_V1: CreatorLimits = {
 export const CREATOR_LIMITS_V2: CreatorLimits = {
   rules: 2,
   minAssets: 1,
+  // As many as a vault holds targets: a shared portfolio follows a person's own vault's rules.
   maxAssets: VAULT_MAX_TARGETS,
   minWeightBps: 50,
   maxWeightBps: 10_000,

@@ -160,6 +160,13 @@ describe('the guard on Solana: a creator publishes, updates and takes back a sha
     expect(recipeAddress(BASKET_PROGRAM.address, OWNER, FAMILY)).toBe(RECIPE);
   });
 
+  it('passes a version that leaves part in cash, as the program holds the second rules', () => {
+    const components = [{ asset: 'solana:spy', weightBps: 9000 }];
+    const step: ApprovedStep = { ...publishStep, components } as ApprovedStep;
+    const given = input(step, wire([...BUDGET, publishIx({ components })]));
+    expect(refusalOf(() => guardTransaction(given))?.message ?? null).toBeNull();
+  });
+
   it('passes each, on both message versions, with the consent the review screen collects', () => {
     const cases: [ApprovedStep, Ix][] = [
       [publishStep, publishIx()],
