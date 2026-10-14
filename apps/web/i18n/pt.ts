@@ -1549,6 +1549,8 @@ export const pt: Dictionary = {
           keep: 'Manter aberto',
           notEmpty: 'Este cofre ainda guarda algo. Saque primeiro e depois encerre.',
           failed: 'Não consegui encerrar: nosso servidor não respondeu. Tente de novo.',
+          orderOpen:
+            'Uma ordem neste cofre ainda não terminou. Conclua-a, ou espere ela expirar, e então encerre o cofre.',
         },
         closed: {
           title: 'Este cofre está encerrado',

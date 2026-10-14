@@ -1668,6 +1668,23 @@ describe('closing a vault (gate VAULT-CLOSE-REUSE)', () => {
     expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
   });
 
+  it('says an order on the vault is not finished, where the server refuses the close for one', async () => {
+    api({
+      vault: nothing(0),
+      more: (path, method) =>
+        path === CLOSE && method === 'POST'
+          ? json({ error: 'an order on this vault is not finished', code: 'ORDER_UNFINISHED' }, 409)
+          : undefined,
+    });
+    const host = await show();
+    await askClose(host);
+    await click(find(host, '[data-action="vault-close-confirm"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(find(confirm, '[role="alert"]').textContent).toBe(c.orderOpen);
+    expect(host.querySelector('[data-ui="vault-closed"]')).toBeNull();
+  });
+
   it('opens a closed vault again from its note', async () => {
     const server = api({
       vault: { ...nothing(0), closedAt: '2026-10-14T12:00:00.000Z' } as never,

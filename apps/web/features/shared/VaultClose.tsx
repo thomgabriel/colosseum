@@ -37,7 +37,7 @@ export function CloseConfirm({
   const apiFetch = useApiFetch();
   const titleId = useId();
   const title = useRef<HTMLHeadingElement>(null);
-  const [state, setState] = useState<'asking' | 'busy' | 'failed' | 'not-empty'>(
+  const [state, setState] = useState<'asking' | 'busy' | 'failed' | 'not-empty' | 'order-open'>(
     empty ? 'asking' : 'not-empty',
   );
   // The confirm takes the focus as it opens, so a keyboard is where the question is.
@@ -46,7 +46,7 @@ export function CloseConfirm({
     setState('busy');
     const done = await closeVault(apiFetch, vault);
     if (done.kind === 'done') return onClosed();
-    setState(done.kind === 'not-empty' ? 'not-empty' : 'failed');
+    setState(done.kind === 'not-empty' || done.kind === 'order-open' ? done.kind : 'failed');
   };
   return (
     <Panel as="section" aria-labelledby={titleId} data-ui="vault-close-confirm">
@@ -62,9 +62,9 @@ export function CloseConfirm({
         <p className="max-w-(--tf-measure-body) text-body-sm">
           {state === 'not-empty' ? c.notEmpty : c.body}
         </p>
-        {state === 'failed' && (
+        {(state === 'failed' || state === 'order-open') && (
           <p role="alert" className="text-body-sm text-destructive">
-            {c.failed}
+            {state === 'failed' ? c.failed : c.orderOpen}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-3">

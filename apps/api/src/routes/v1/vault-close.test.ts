@@ -1,4 +1,4 @@
-import { vaultLifetimes } from '@colosseum/db';
+import { orders, vaultLifetimes } from '@colosseum/db';
 import {
   ClosedVaultsResponse,
   OrderDetail,
@@ -141,6 +141,25 @@ describe.each(CHAINS)('closing a vault on %s', (chain) => {
     // a second close is the first: its time stands
     const again = VaultLifetimeResponse.parse((await close(a, chain, address)).json());
     expect(again.closedAt).toBe(closed.closedAt);
+  });
+
+  it('does not close a vault while an order on it is unfinished, and does once it has run out', async () => {
+    const a = await someone(chain);
+    await openVault(a);
+    const { address } = await vaultOf(a, chain);
+    await empty(a, chain, address);
+    // a deposit into it, made and not signed: its steps could still put money in it
+    await fund(a);
+    const pending = await order(a, { amountUsd: 40 });
+    const refused = await close(a, chain, address);
+    expect(refused.statusCode).toBe(409);
+    expect(OrderError.parse(refused.json()).code).toBe('ORDER_UNFINISHED');
+    // run out, it moves nothing more
+    await data.db
+      .update(orders)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(orders.id, pending.id));
+    expect((await close(a, chain, address)).statusCode).toBe(200);
   });
 
   it('leaves a closed vault out of every list and sum, and names it among the closed ones', async () => {

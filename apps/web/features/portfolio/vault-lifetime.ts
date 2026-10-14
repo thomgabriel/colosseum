@@ -3,6 +3,7 @@ import {
   CLOSE_DUST_USD,
   type ClosedVault,
   ClosedVaultsResponse,
+  OrderError,
   VaultLifetimeResponse,
 } from '@colosseum/schemas';
 import type { ApiFetch } from '../account/person';
@@ -26,6 +27,8 @@ export type LifetimeOutcome =
   | { kind: 'done'; closedAt: string | null }
   /** 409: it still holds something, to withdraw first. */
   | { kind: 'not-empty' }
+  /** 409: an order on it is not finished yet. */
+  | { kind: 'order-open' }
   /** 401 or 403. */
   | { kind: 'signed-out' }
   /** 404: no vault with that address that is this person's. */
@@ -47,7 +50,12 @@ async function lifetime(
   } catch {
     return { kind: 'unreachable' };
   }
-  if (res.status === 409) return { kind: 'not-empty' };
+  if (res.status === 409) {
+    const said = OrderError.safeParse(await res.json().catch(() => null));
+    return said.success && said.data.code === 'ORDER_UNFINISHED'
+      ? { kind: 'order-open' }
+      : { kind: 'not-empty' };
+  }
   if (res.status === 401 || res.status === 403) return { kind: 'signed-out' };
   if (res.status === 404) return { kind: 'not-yours' };
   if (res.status === 429) return { kind: 'busy' };

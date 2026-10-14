@@ -1,4 +1,4 @@
-import { vaultLifetimes } from '@colosseum/db';
+import { type Db, vaultLifetimes } from '@colosseum/db';
 import {
   type Address,
   type ChainId,
@@ -100,10 +100,34 @@ export function openOn(
 }
 
 /**
+ * Whether the database has `vault_lifetimes` (migration 0025, gate VAULT-CLOSE-REUSE). A server that
+ * starts before the migration is applied reads every vault as open, in its first life, and answers a
+ * close or a reopen 503, rather than fail every read of the portfolio on a table that is not there.
+ * Read once the server is ready (`noteLifetimes`); assumed there until then.
+ */
+let lifetimesHeld = true;
+export const lifetimesReady = () => lifetimesHeld;
+
+/** Asks the database whether `vault_lifetimes` is there. A database that does not answer changes nothing. */
+export async function noteLifetimes(db: Db): Promise<boolean> {
+  try {
+    const [row] = await db.execute<{ t: string | null }>(
+      sql`select to_regclass('public.vault_lifetimes')::text as t`,
+    );
+    lifetimesHeld = row?.t != null;
+  } catch {
+    // no answer: the reads that need it fail on their own, and say so
+  }
+  return lifetimesHeld;
+}
+
+/**
  * A row of a vault that is open, in its present life: not closed, and, where `at` names the row's
  * time, read since the vault was last reopened. Whoever the vault is whose (the platform's counts).
  */
 export function thisLife(table: { chainId: AnyColumn; address: AnyColumn }, at?: AnyColumn): SQL {
+  // Until migration 0025 is applied the table is not there, and no vault is closed: nothing to cut.
+  if (!lifetimesHeld) return sql`true`;
   const l = vaultLifetimes;
   const ended = at
     ? sql`(${l.closedAt} is not null or ${l.reopenedAt} > ${at})`

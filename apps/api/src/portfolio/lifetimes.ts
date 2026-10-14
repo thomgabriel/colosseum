@@ -1,7 +1,7 @@
-import { type Db, users, vaultLifetimes, vaultNumbers, vaults } from '@colosseum/db';
+import { type Db, orders, users, vaultLifetimes, vaultNumbers, vaults } from '@colosseum/db';
 import { type ChainId, type ClosedVault, chainFamily } from '@colosseum/schemas';
-import { and, desc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
-import { ownedOn, type PersonScope } from './scope';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
+import { lifetimesReady, ownedOn, type PersonScope } from './scope';
 
 // A vault's lives (gate VAULT-CLOSE-REUSE): a person closes an empty vault of theirs, and it leaves
 // their lists, sums and histories; opened again, it counts from then on. Nothing of this is on chain:
@@ -17,7 +17,7 @@ export async function lifetimesOf(
   chain: ChainId,
   addresses: readonly string[],
 ): Promise<Map<string, Lifetime>> {
-  if (addresses.length === 0) return new Map();
+  if (addresses.length === 0 || !lifetimesReady()) return new Map();
   const rows = await db
     .select({
       address: vaultLifetimes.address,
@@ -27,6 +27,42 @@ export async function lifetimesOf(
     .from(vaultLifetimes)
     .where(and(eq(vaultLifetimes.chainId, chain), inArray(vaultLifetimes.address, [...addresses])));
   return new Map(rows.map((r) => [r.address, { closedAt: r.closedAt, reopenedAt: r.reopenedAt }]));
+}
+
+/**
+ * The id of an order on this vault that is not finished, or null: one still open and not run out,
+ * whatever its kind. A buy is the vault's by its owner and the plan's number on chain; every other
+ * kind names the vault. A vault is not closed while one is: its steps can still move money into it.
+ */
+export async function unfinishedOrderOn(
+  db: Db,
+  chain: ChainId,
+  vault: { address: string; owner: string; basketId: string },
+  now: Date,
+): Promise<string | null> {
+  const evm = chainFamily(chain) === 'evm';
+  const owner = evm ? orders.ownerEvm : orders.ownerSolana;
+  const same = (a: string) =>
+    evm ? a.toLowerCase() === vault.address.toLowerCase() : a === vault.address;
+  const open = await db
+    .select({ id: orders.id, basketId: orders.basketId, request: orders.request })
+    .from(orders)
+    .where(and(eq(owner, vault.owner), eq(orders.status, 'open'), gt(orders.expiresAt, now)));
+  const found = open.find(({ basketId, request: r }) => {
+    switch (r.type) {
+      case 'buy':
+        return r.vault ? same(r.vault.address) : basketId === vault.basketId;
+      case 'rebalance':
+      case 'withdraw':
+        return r.vaults.some(same);
+      case 'follow':
+      case 'settings':
+        return same(r.vault);
+      default:
+        return false;
+    }
+  });
+  return found?.id ?? null;
 }
 
 /** Whether a vault is closed now. */
@@ -95,7 +131,7 @@ export async function closedVaultsOf(
   scope: PersonScope,
   privyId: string | undefined,
 ): Promise<ClosedVault[]> {
-  if (scope.chains.length === 0) return [];
+  if (scope.chains.length === 0 || !lifetimesReady()) return [];
   const rows = await db
     .select({
       chain: vaults.chainId,

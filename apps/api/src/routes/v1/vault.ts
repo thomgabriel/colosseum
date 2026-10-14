@@ -25,9 +25,15 @@ import { userIdOf } from '../../orders/families';
 import type { OrderDeps } from '../../orders/legs';
 import { sameVaultAddress } from '../../orders/prepare';
 import { cacheVault, nameVault } from '../../orders/store';
-import { closeVault, type Lifetime, lifetimesOf, reopenVault } from '../../portfolio/lifetimes';
+import {
+  closeVault,
+  type Lifetime,
+  lifetimesOf,
+  reopenVault,
+  unfinishedOrderOn,
+} from '../../portfolio/lifetimes';
 import { numbered, vaultNumbersOf } from '../../portfolio/numbers';
-import { personScope } from '../../portfolio/scope';
+import { lifetimesReady, personScope } from '../../portfolio/scope';
 import { ownerWhy, publicWhy } from '../../portfolio/why';
 import { signedIn } from './orders';
 
@@ -220,6 +226,7 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
     async (req): Promise<VaultLifetimeResponse> => {
       const principal = signedIn(req);
       const { chain } = req.params;
+      notYet();
       const { state, seen } = await ownVault(deps, principal, req.params);
       const unpriced = seen.positions.some((p) => p.valueUsd === null && p.raw !== '0');
       if (unpriced || Number(seen.valueUsd ?? 0) >= CLOSE_DUST_USD)
@@ -228,6 +235,18 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
           fix: 'Withdraw what the vault holds, then close it.',
           details: { retryable: false },
         });
+      // An order still under way on it can move money into it yet: it is finished, or runs out, first.
+      const pending = await unfinishedOrderOn(deps.db, chain, state, deps.now());
+      if (pending)
+        throw new Refusal(
+          409,
+          'an order on this vault is not finished: finish it or let it run out first',
+          {
+            code: 'ORDER_UNFINISHED',
+            fix: 'Finish the order, or let it run out, then close the vault.',
+            details: { retryable: true },
+          },
+        );
       const userId = await userIdOf(deps.db, principal.userId);
       const life = await closeVault(deps.db, chain, state.address, userId, deps.now());
       kept.delete(`${chain}:${state.address}`);
@@ -249,12 +268,22 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
     },
     async (req): Promise<VaultLifetimeResponse> => {
       const { chain } = req.params;
+      notYet();
       const { state } = await ownVault(deps, signedIn(req), req.params);
       const life = await reopenVault(deps.db, chain, state.address, deps.now());
       kept.delete(`${chain}:${state.address}`);
       return lifetimeAnswer(chain, state.address, life);
     },
   );
+}
+
+/** A server whose database has no `vault_lifetimes` yet (migration 0025) closes nothing. */
+function notYet() {
+  if (!lifetimesReady())
+    throw new Refusal(503, 'closing a vault is not open on this server yet', {
+      code: 'CHAIN_UNAVAILABLE',
+      details: { retryable: false },
+    });
 }
 
 const lifetimeAnswer = (chain: ChainId, address: string, life: Lifetime) => ({

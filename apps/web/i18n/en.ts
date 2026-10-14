@@ -1783,6 +1783,9 @@ export const en = {
           /** Worth a cent or more, or holding a token with no price. */
           notEmpty: 'This vault still holds something. Withdraw it first, then close it.',
           failed: 'I couldn’t close it: our server didn’t answer. Try again.',
+          /** An order on the vault is still under way. */
+          orderOpen:
+            'An order on this vault isn’t finished yet. Finish it, or let it run out, then close the vault.',
         },
         closed: {
           title: 'This vault is closed',
