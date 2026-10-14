@@ -274,7 +274,7 @@ describe('the reader, made', () => {
       capabilities: {
         trade: 'readonly',
         autoFollow: false,
-        maxTradesPerTx: 16,
+        maxTradesPerTx: 10,
         tradesInCreate: true,
         needsApprove: true,
         ownerCallsInOne: true,

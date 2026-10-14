@@ -42,13 +42,13 @@ import { type AverageRefusal, readPoolAverageFeed } from './pool-average';
 import { ask, type EvmRpc, isRevert } from './rpc';
 
 /**
- * The most trades one transaction makes (`Capabilities.maxTradesPerTx`): as many as a vault holds
- * assets besides its cash (gate `ANY-COMPOSITION`), so a deposit and every purchase it makes are one
- * transaction (gate `EVM-MULTICALL-STEPS`). Measured on a copy of 46630 on 2026-10-14: a deposit and
- * eight purchases used 1.75 million gas, about 0.2 million a trade, so sixteen stay under the guard's
- * 5 million.
+ * The most trades one transaction makes (`Capabilities.maxTradesPerTx`), measured and not extrapolated
+ * (gate `EVM-MULTICALL-STEPS`): on a copy of 46630 on 2026-10-14 a deposit and ten purchases stated
+ * 2,975,009 gas, auto-follow off and ten sales 2,434,918, and new targets with ten trades 2,298,076,
+ * all well under the guard's 5 million. A vault of more assets than this makes its other trades in a
+ * step of their own.
  */
-export const MAX_TRADES = 16;
+export const MAX_TRADES = 10;
 
 import { unlistedAssetId, unlistedToken } from './unlisted';
 

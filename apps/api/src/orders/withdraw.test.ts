@@ -352,9 +352,10 @@ describe.each(CHAINS)('a withdrawal on %s', (chain) => {
       { ...everything(w), withdrawals: [{ asset: w.cash, amountRaw: usd(1) }] },
     ] satisfies WithdrawRequest[]) {
       const plan = await planWithdraw(request, ctx);
-      if (inOne) {
-        // On EVM the switch rides in the withdrawal, before it, in one transaction
-        // (gate EVM-MULTICALL-STEPS).
+      // On EVM the switch rides in a withdrawal of more than one token, before it, in one transaction
+      // (gate EVM-MULTICALL-STEPS); never in one of a single token, which a token that cannot move
+      // skips, and the switch with it.
+      if (inOne && (request.withdrawals?.length ?? 2) > 1) {
         expect(plan.steps.map((s) => [s.kind, s.switchAutoFollow])).toEqual([['withdraw', false]]);
         expect(plan.steps[0]?.description).toMatch(/^Switch auto-follow off, .*then: withdraw /);
         continue;
@@ -379,6 +380,24 @@ describe.each(CHAINS)('a withdrawal on %s', (chain) => {
     expect(await adapter.listAutoFollowVaults()).not.toContain(w.vault);
     for (const step of rest)
       await mock?.send(await buildWithdraw(request, legOf(step), w.entry, w.owner, undefined));
+    expect(await inVault(w, w.cash)).toBe(0n);
+  });
+
+  it('on EVM, a sweep that also switches auto-follow off is built though a token left the vault since', async () => {
+    const { adapter, mock } = w.entry;
+    if (!adapter.capabilities.ownerCallsInOne) return;
+    await mock?.send(await adapter.buildSetAutoFollow({ vault: w.vault, on: true }));
+    const ctx = { principal: w.me, chains: w.chains };
+    const request = everything(w);
+    const [step] = (await planWithdraw(request, ctx)).steps;
+    if (!step) throw new Error('no step');
+    expect(step.switchAutoFollow).toBe(false);
+    // Another order takes the stock first: the sweep takes what is left, and the switch lands.
+    const [stock] = await adapter.buildWithdrawInKind({ vault: w.vault, assets: [w.spy] });
+    if (!stock) throw new Error('no withdrawal of the stock');
+    await mock?.send(stock);
+    await mock?.send(await buildWithdraw(request, legOf(step), w.entry, w.owner, undefined));
+    expect((await adapter.getVault(w.vault))?.autoFollow).toBe(false);
     expect(await inVault(w, w.cash)).toBe(0n);
   });
 

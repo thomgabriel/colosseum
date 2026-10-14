@@ -21,7 +21,7 @@ import {
 export const Capabilities = z.object({
   trade: z.enum(['live', 'readonly', 'mock']),
   autoFollow: z.boolean(),
-  /** 1 on Solana, 16 on EVM: as many as a vault holds assets besides its cash. */
+  /** 1 on Solana, 10 on EVM: what a transaction was measured to take under the guard's gas. */
   maxTradesPerTx: z.number().int().min(1),
   /** False on Solana, true on EVM. */
   tradesInCreate: z.boolean(),

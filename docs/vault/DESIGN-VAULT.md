@@ -247,7 +247,7 @@ type TxStatus = { status: 'pending' | 'confirmed' | 'reverted' | 'expired'; expl
 
 ```ts
 type Capabilities = { trade: 'live' | 'readonly' | 'mock'; autoFollow: boolean;
-  maxTradesPerTx: number;        // 1 on Solana, 16 on EVM (EVM-MULTICALL-STEPS, Oct 14; 8 until then)
+  maxTradesPerTx: number;        // 1 on Solana, 10 on EVM (EVM-MULTICALL-STEPS, Oct 14, measured; 8 until then)
   tradesInCreate: boolean;       // false on Solana, true on EVM
   needsApprove: boolean;         // false on Solana, true on EVM
   ownerCallsInOne: boolean };    // false on Solana, true on EVM: a step may make several vault calls
@@ -1296,7 +1296,7 @@ The roll-up states the share of the plan that is measured.
 |---|---|
 | Passkey (embedded) | Reads our review screen, taps once. Each leg is built fresh, checked by the guard, signed with no pop-up and sent |
 | External, Solana | One prompt signs up to three legs; they are relayed in order; a leg that misses is rebuilt |
-| External, EVM | First buy of a plan: `createVault`, then `approve`, then one `multicall` of `deposit` and `ownerSwap` with every purchase, up to 16 (gate `CREATE-BEFORE-APPROVE`). Later: `approve`, then the `multicall`. Every other order's vault calls ride together in one `multicall` (gate `EVM-MULTICALL-STEPS`): a follow, new targets, a rebalance and a withdrawal of the tokens are one signature each, a withdrawal in dollars two |
+| External, EVM | First buy of a plan: `createVault`, then `approve`, then one `multicall` of `deposit` and `ownerSwap` with up to ten purchases, the rest in a swap step after it (gate `CREATE-BEFORE-APPROVE`). Later: `approve`, then the `multicall`. Every other order's vault calls ride together in one `multicall` (gate `EVM-MULTICALL-STEPS`): a follow, new targets, a rebalance and a withdrawal of the tokens are one signature each, a withdrawal in dollars two |
 
 "One confirmation" is literally true only for the passkey wallet. The demo uses it.
 

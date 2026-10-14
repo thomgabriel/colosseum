@@ -883,7 +883,9 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         if (a.assets === undefined) {
           const tokens = await view<readonly string[]>(vault, BASKET_VAULT_ABI, 'tokens');
           const held = await Promise.all(tokens.map((t) => balanceOf(lower(t), vault)));
-          if (!held.some((h) => h > 0n)) return [];
+          // An empty vault has nothing to build, unless the step also switches auto-follow off: the
+          // sweep then takes nothing and the switch still lands.
+          if (!held.some((h) => h > 0n) && a.switchAutoFollow === undefined) return [];
           const all = encodeFunctionData({ abi: BASKET_VAULT_ABI, functionName: 'withdrawAll' });
           return [
             await built({

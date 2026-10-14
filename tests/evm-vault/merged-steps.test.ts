@@ -61,7 +61,9 @@ describe.skipIf(!FORK_URL)('several of the vault calls in one step, on a copy of
     const receipt = await w.client.getTransactionReceipt({ hash: txId as `0x${string}` });
     expect(receipt.status, tx.description).toBe('success');
     // The fork's hashes, for the record of the run: a copy of 46630, never the network itself.
-    console.info(`fork ${tx.legKind}: ${receipt.transactionHash} (${tx.description})`);
+    console.info(
+      `fork ${tx.legKind}: ${receipt.transactionHash}, stated ${tx.evm?.gas} gas, used ${receipt.gasUsed} (${tx.description.slice(0, 120)})`,
+    );
     return receipt;
   };
   let n = 0;
@@ -296,5 +298,30 @@ describe.skipIf(!FORK_URL)('several of the vault calls in one step, on a copy of
       await land(w, tx);
     }
     expect((await adapter.getVault(vault.address))?.autoFollow).toBe(false);
+  });
+
+  it("new targets and ten trades toward them in one step, under the guard's gas", async () => {
+    const w = await start();
+    const { adapter } = w;
+    const vault = (await adapter.getVaults(owner)).find((v) => v.basketId === '601');
+    if (!vault) throw new Error('the buy above opened no vault');
+    for (const s of ALL) await w.movePrice(id(s), 0);
+    const now = (await adapter.getVault(vault.address)) ?? vault;
+    // All of one stock: nine sales of what it holds, then a dollar of what they bring into tSPY.
+    const sales = now.positions
+      .filter((p) => p.asset !== id('tspy') && BigInt(p.raw) > 0n)
+      .map((p) => ({ sell: p.asset, buy: id('tusdg'), amountInRaw: p.raw }));
+    const trades = [...sales, { sell: id('tusdg'), buy: id('tspy'), amountInRaw: '1000000' }];
+    expect(trades).toHaveLength(10);
+    const targets = [{ asset: id('tspy'), weightBps: 10_000 }];
+    const tx = await adapter.buildSetTargets({
+      vault: vault.address,
+      targets,
+      trades,
+      slippageBps: 100,
+    });
+    guard({ kind: 'set_targets', basketId: '601', targets, trades: tradesOf(tx) }, tx);
+    await land(w, tx);
+    expect(tx.evm?.gas).toBeLessThan(5_000_000);
   });
 });

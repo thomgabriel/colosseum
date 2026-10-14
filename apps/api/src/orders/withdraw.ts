@@ -287,12 +287,15 @@ const AUTO_FOLLOW_OFF =
 /**
  * The steps of a withdrawal with its switch of auto-follow off. Where the vault takes several of the
  * owner's calls in one transaction, the switch rides in the first step that moves anything, before its
- * own calls (gate EVM-MULTICALL-STEPS); elsewhere it is a step of its own, first.
+ * own calls (gate EVM-MULTICALL-STEPS); elsewhere it is a step of its own, first. It never rides in a
+ * withdrawal of one token, which a token that cannot move skips (`SkippedStep`): the switch would be
+ * skipped with it.
  */
 function offFirst(entry: ChainEntry, autoFollow: boolean, steps: WithdrawStep[]): WithdrawStep[] {
   if (!autoFollow) return steps;
   const [first, ...rest] = steps;
-  if (first && entry.adapter.capabilities.ownerCallsInOne)
+  const skippable = first?.kind === 'withdraw' && first.withdrawals?.length === 1;
+  if (first && entry.adapter.capabilities.ownerCallsInOne && !skippable)
     return [
       {
         ...first,
@@ -613,7 +616,10 @@ export async function buildWithdraw(
       throw new Refusal(409, 'this step cannot be built as one transaction now', again);
     return tx;
   }
-  for (const w of leg.withdrawals) {
+  // Everything, on a chain that takes it in one call: the vault's own sweep takes what is there. With
+  // the switch off riding in it, a token gone since the order was made does not hold the switch up.
+  const everything = !request.withdrawals && entry.config.family === 'evm';
+  for (const w of everything && leg.switchAutoFollow === false ? [] : leg.withdrawals) {
     const has = holdings.get(w.asset) ?? 0n;
     if (has === 0n)
       throw new Refusal(409, `the vault holds no ${w.asset} any more: nothing was built`, again);
@@ -626,7 +632,6 @@ export async function buildWithdraw(
   }
   // Everything, on a chain that takes it in one call: the vault's own sweep, which one frozen token
   // cannot hold up. Otherwise the tokens the step names.
-  const everything = !request.withdrawals && entry.config.family === 'evm';
   const amounts = leg.withdrawals.flatMap((w) =>
     w.amountRaw === null ? [] : [[w.asset, w.amountRaw] as const],
   );

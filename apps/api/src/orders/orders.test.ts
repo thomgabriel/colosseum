@@ -134,7 +134,7 @@ describe('the chain registry', () => {
         expect([entry.mode, entry.provenance, entry.mock]).toEqual([mode, 'sandbox', undefined]);
         expect(entry.adapter.capabilities).toMatchObject({
           trade: mode,
-          maxTradesPerTx: 16,
+          maxTradesPerTx: 10,
           tradesInCreate: true,
           needsApprove: true,
           ownerCallsInOne: true,

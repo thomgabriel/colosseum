@@ -266,7 +266,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
       : {
           trade: 'mock',
           autoFollow: true,
-          maxTradesPerTx: 16,
+          maxTradesPerTx: 10,
           tradesInCreate: true,
           needsApprove: true,
           ownerCallsInOne: true,
@@ -1142,8 +1142,13 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
           return named.length ? { amounts: Object.fromEntries(named) } : {};
         };
         // Solana withdraws one mint per call; EVM takes everything in one.
+        // An EVM sweep that also switches auto-follow off is built though nothing is left to take.
         const groups =
-          family === 'solana' ? wanted.map((id) => [id]) : wanted.length ? [wanted] : [];
+          family === 'solana'
+            ? wanted.map((id) => [id])
+            : wanted.length || args.switchAutoFollow === false
+              ? [wanted]
+              : [];
         // On EVM the one transaction takes the nonce; Solana, which makes several, has none.
         return groups.map((ids) =>
           ownerTx(
