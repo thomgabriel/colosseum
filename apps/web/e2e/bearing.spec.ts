@@ -90,6 +90,39 @@ test.describe('Bearing analytics on the recorded risk API', () => {
     expect(after).toEqual(before);
   });
 
+  test('the stocks table does not move when its last assets land', async ({ page }) => {
+    await page.clock.setFixedTime(CAPTURED + 3 * 3600e3);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // the first answer of assets comes, the rest are held: rows are drawn while the figures wait
+    let asked = 0;
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(/\/risk\/dex\?/, async (route) => {
+      if (asked++ > 0) await held;
+      await route.continue();
+    });
+    await page.goto('/analytics/stocks');
+    const head = page.locator('main [aria-labelledby="bearing-table"] thead');
+    await expect(head).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('main [data-ui="waiting"]')).toHaveCount(1);
+    const before = await head.boundingBox();
+    release();
+    await expect(page.locator('main [data-ui="waiting"]')).toHaveCount(0, { timeout: 60_000 });
+    await expect(
+      page.locator('main [data-ui="bearing-kpis"] [data-ui="figure"]').first(),
+    ).toBeVisible();
+    const after = await head.boundingBox();
+    expect(before).not.toBeNull();
+    // the head stays where it was; its columns may settle by a fraction of a pixel as cells fill
+    expect({ x: after?.x, y: after?.y, height: after?.height }).toEqual({
+      x: before?.x,
+      y: before?.y,
+      height: before?.height,
+    });
+  });
+
   for (const id of PAGES)
     test(`${id}: stale figures with their pins, axe, no sideways scroll`, async ({ page }) => {
       await open(page, `/analytics/${id}`);

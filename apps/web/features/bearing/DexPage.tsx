@@ -77,6 +77,12 @@ export function usePageState(page: string) {
 export const picked = (set: readonly string[] | null, id: string) => !set || set.includes(id);
 
 /**
+ * The frame of the chart cards' wait: the pie and the chart with its title, panes, legend and source
+ * line stand 546px high at desktop width, so the table under them does not move when they come.
+ */
+const DEX_CHART_FRAME = 'h-[30.75rem]';
+
+/**
  * The stocks and commodities pages while their data is read: five figures by their labels. `rows`
  * false leaves out the table, for the page that draws its table row by row as its assets are read.
  */
@@ -87,6 +93,7 @@ export function DexWait({ rows = true }: { rows?: boolean } = {}) {
     <PageWait
       label={t.dex.reading}
       rows={rows}
+      chartFrame={DEX_CHART_FRAME}
       kpis={[
         { label: k.tvl, note: k.tvlNote },
         { label: k.pools, note: k.poolsNote('0') },

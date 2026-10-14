@@ -445,6 +445,7 @@ export function PageWait({
   filters = 2,
   lead,
   charts = true,
+  chartFrame = CHART_FRAME,
   rows = true,
 }: {
   label: string;
@@ -459,6 +460,8 @@ export function PageWait({
   lead?: ReactNode;
   /** The two chart cards under the figures; a page without them has its table next. */
   charts?: boolean;
+  /** The height of each chart card's frame, as the page's own cards draw theirs. */
+  chartFrame?: string;
   /** The table under it all; false when the page draws its table itself, row by row as it is read. */
   rows?: boolean;
 }) {
@@ -486,10 +489,10 @@ export function PageWait({
           {charts && (
             <div className="mt-4 grid grid-cols-[minmax(0,1fr)] items-stretch gap-4 min-[1100px]:grid-cols-[minmax(260px,1fr)_minmax(0,2.6fr)]">
               <Card>
-                <SkeletonChart frame={CHART_FRAME} />
+                <SkeletonChart frame={chartFrame} />
               </Card>
               <Card>
-                <SkeletonChart frame={CHART_FRAME} />
+                <SkeletonChart frame={chartFrame} />
               </Card>
             </div>
           )}
