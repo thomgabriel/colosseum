@@ -520,7 +520,13 @@ function Chosen({
     {
       value: 'follow' as const,
       title: x.follow.title,
-      line: failed ? v.failure : canFollow ? x.follow.line(chainName) : x.follow.none(chainName),
+      line: failed
+        ? v.failure
+        : canFollow
+          ? x.follow.line(chainName)
+          : vaults.length === 0
+            ? x.follow.none(chainName)
+            : x.follow.noOther(chainName),
       open: canFollow,
     },
   ];

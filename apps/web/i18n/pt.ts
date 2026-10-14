@@ -1309,7 +1309,8 @@ export const pt: Dictionary = {
       follow: {
         title: 'Seguir com um cofre seu',
         line: (chain: string) => `Um dos seus cofres na ${chain} passa a ter os pesos dele.`,
-        none: (chain: string) => `Você não tem outro cofre na ${chain} para segui-lo.`,
+        none: (chain: string) => `Você não tem cofre na ${chain} para segui-lo.`,
+        noOther: (chain: string) => `Você não tem outro cofre na ${chain} para segui-lo.`,
       },
       signedOut: 'Entre primeiro para usar qualquer um.',
       signIn: 'Entrar',

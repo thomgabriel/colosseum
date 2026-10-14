@@ -8,7 +8,7 @@ import {
   type VersionsResponse,
 } from '@colosseum/schemas';
 import Link from 'next/link';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { DataTable } from '../../components/ui/DataTable';
@@ -267,6 +267,40 @@ export function FamilyScreen({ slug }: { slug: string }) {
   );
 }
 
+/** Where the actions pane is held in view: under the bar, 96px from the window's top. */
+const STICKY_TOP = 96;
+
+/**
+ * Whether the actions pane fits the window under the bar: then it stays in view as the plan scrolls.
+ * Taller (a deposit's steps, a follow's quote), it scrolls with the page, so nothing of it is ever
+ * out of reach under the window's foot.
+ */
+function useStickyFit() {
+  const [fits, setFits] = useState(true);
+  const node = useRef<HTMLElement | null>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  const measure = useCallback(() => {
+    const el = node.current;
+    if (el) setFits(el.scrollHeight <= window.innerHeight - STICKY_TOP - 16);
+  }, []);
+  const ref = useCallback(
+    (el: HTMLElement | null) => {
+      observer.current?.disconnect();
+      node.current = el;
+      if (!el || typeof ResizeObserver === 'undefined') return;
+      observer.current = new ResizeObserver(measure);
+      observer.current.observe(el);
+      measure();
+    },
+    [measure],
+  );
+  useEffect(() => {
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure]);
+  return { ref, fits };
+}
+
 /** One chain's recipe, read from that chain where this app can, with what the person can do with it. */
 function RecipeSection({
   family,
@@ -290,6 +324,7 @@ function RecipeSection({
 }) {
   const t = useT();
   const lang = useLang();
+  const aside = useStickyFit();
   // The person on this recipe's own chain, with their wallet there: a buy and a follow are on it.
   const person = useSharedPerson(recipe.chain);
   // A deposit is being signed: the chain and the card's amount are locked until it ends.
@@ -488,7 +523,11 @@ function RecipeSection({
         {versions}
       </div>
       {/* The two ways to use it, beside the plan and in view as it scrolls (F1) */}
-      <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-24">
+      <aside
+        ref={aside.ref}
+        data-sticky={aside.fits}
+        className="flex min-w-0 flex-col gap-4 lg:data-[sticky=true]:sticky lg:data-[sticky=true]:top-24"
+      >
         <FamilyActions
           family={family}
           recipe={recipe}

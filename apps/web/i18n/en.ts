@@ -1514,7 +1514,10 @@ export const en = {
       follow: {
         title: 'Follow with a vault of yours',
         line: (chain: string) => `One of your vaults on ${chain} takes its weights.`,
-        none: (chain: string) => `You have no other vault on ${chain} to follow it with.`,
+        /** No vault of theirs on the chain at all. */
+        none: (chain: string) => `You have no vault on ${chain} to follow it with.`,
+        /** Vaults there, each following it already or opened for it. */
+        noOther: (chain: string) => `You have no other vault on ${chain} to follow it with.`,
       },
       signedOut: 'Sign in first to use either.',
       signIn: 'Sign in',

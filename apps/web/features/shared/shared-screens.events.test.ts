@@ -463,6 +463,10 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(find(host, '[data-ui="family-ways"] [data-option="new"]').textContent).toContain(
       en.shared.actions.newVault.open,
     );
+    // a vault there, which follows it already: no *other* vault to follow it with
+    expect(find(host, '[data-ui="family-ways"] [data-option="follow"]').textContent).toContain(
+      en.shared.actions.follow.noOther('Solana'),
+    );
     expect(wayChecked(host)).toBeNull();
     expect(host.querySelector('[data-ui="amount-panel"]')).toBeNull();
     expect(host.textContent).not.toContain(en.amount.into.follows('Rent'));
