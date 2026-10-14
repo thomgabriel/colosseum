@@ -153,7 +153,7 @@ export type WarmOptions = {
   /** It stops after this long, whatever is left. */
   maxMs?: number;
   /** How long it waits before looking again while requests from outside are under way. */
-  yieldMs?: number;
+  pauseMs?: number;
 };
 
 /**
@@ -164,14 +164,14 @@ export type WarmOptions = {
  * under way, and stops after `maxMs`.
  */
 export async function warmRiskReads(app: FastifyInstance, opts: WarmOptions = {}) {
-  const { log = () => {}, firstMs = 30_000, maxMs = 180_000, yieldMs = 250 } = opts;
+  const { log = () => {}, firstMs = 30_000, maxMs = 180_000, pauseMs = 250 } = opts;
   const seen = traffic.get(app);
   const pause = (ms: number) => new Promise((d) => setTimeout(d, ms).unref?.());
   if (seen) await Promise.race([seen.served, pause(firstMs)]);
   const started = Date.now();
   const late = () => Date.now() - started > maxMs;
   const behind = async () => {
-    while (seen && seen.inFlight > 0 && !late()) await pause(yieldMs);
+    while (seen && seen.inFlight > 0 && !late()) await pause(pauseMs);
   };
   const get = async (url: string) => {
     const r = await app.inject({ method: 'GET', url });

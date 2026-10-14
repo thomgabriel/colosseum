@@ -154,7 +154,7 @@ describe('the warm-up', () => {
       return { ok: 1 };
     });
     const browser = { 'user-agent': 'a browser' };
-    const warm = warmRiskReads(a, { firstMs: 60_000, yieldMs: 5 });
+    const warm = warmRiskReads(a, { firstMs: 60_000, pauseMs: 5 });
     await new Promise((d) => setTimeout(d, 30));
     // nothing is read before a request from outside is answered
     expect(read).toEqual([]);
@@ -175,7 +175,7 @@ describe('the warm-up', () => {
     a.get('/v1/hung', () => new Promise(() => {}));
     void a.inject({ url: '/v1/hung', headers: { 'user-agent': 'a browser' } });
     const t = Date.now();
-    await warmRiskReads(a, { firstMs: 0, maxMs: 50, yieldMs: 5 });
+    await warmRiskReads(a, { firstMs: 0, maxMs: 50, pauseMs: 5 });
     expect(Date.now() - t).toBeLessThan(1_000);
     expect(read.filter((u) => u.startsWith('/risk/facts/assets/'))).toEqual([]);
   });
