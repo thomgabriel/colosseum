@@ -342,38 +342,42 @@ export function PlanView({
               measured is an empty meter, said once. */}
           <div data-ui="exit-plan-line" className="flex flex-col gap-3">
             <h3 className="text-body-sm font-medium">{t.plan.exitPlan}</h3>
-            <ul className="flex flex-col gap-3">
-              {exit.tiers.map((tier) => (
-                <li
-                  key={`${tier.name ?? ''}:${tier.text}`}
-                  data-ui="exit-tier"
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1"
-                >
-                  <span className="min-w-0 text-body-sm">
-                    {tier.name && <span className="font-medium">{tier.name}: </span>}
-                    {tier.text}
-                  </span>
-                  <span className="text-right text-body-sm tabular-nums">
-                    {tier.cost ? (
-                      <>
-                        <span className="text-muted-foreground">{t.plan.costPrefix} </span>
-                        <ProvenancePin
-                          value={tier.cost.figure}
-                          obs={tier.cost.obs}
-                          labels={t.pin}
-                        />
-                      </>
-                    ) : null}
-                  </span>
-                  {tier.meter !== undefined && <Meter value={tier.meter} className="col-span-2" />}
-                  {tier.meter !== undefined && tier.cost && tier.scale && (
-                    <span className="col-span-2 text-caption text-muted-foreground">
-                      {tier.scale}
+            {exit.tiers.length > 0 && (
+              <ul className="flex flex-col gap-3">
+                {exit.tiers.map((tier) => (
+                  <li
+                    key={`${tier.name ?? ''}:${tier.text}`}
+                    data-ui="exit-tier"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1"
+                  >
+                    <span className="min-w-0 text-body-sm">
+                      {tier.name && <span className="font-medium">{tier.name}: </span>}
+                      {tier.text}
                     </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    <span className="text-right text-body-sm tabular-nums">
+                      {tier.cost ? (
+                        <>
+                          <span className="text-muted-foreground">{t.plan.costPrefix} </span>
+                          <ProvenancePin
+                            value={tier.cost.figure}
+                            obs={tier.cost.obs}
+                            labels={t.pin}
+                          />
+                        </>
+                      ) : null}
+                    </span>
+                    {tier.meter !== undefined && (
+                      <Meter value={tier.meter} className="col-span-2" />
+                    )}
+                    {tier.meter !== undefined && tier.cost && tier.scale && (
+                      <span className="col-span-2 text-caption text-muted-foreground">
+                        {tier.scale}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
             {exit.caveat && (
               <p data-ui="exit-caveat" className="text-body-sm text-muted-foreground">
                 {exit.caveat}
