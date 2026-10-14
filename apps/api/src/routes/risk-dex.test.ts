@@ -44,7 +44,9 @@ async function app() {
     points: [],
   }));
   a.get('/risk/pools', async () => ({ pools: [POOL], disclaimer: 'd' }));
-  a.get('/risk/assets', async () => ({ assets: [{ symbol: 'AAAx', assetMint: 'MINT' }] }));
+  a.get('/risk/assets', async () => ({
+    assets: ['AAAx', 'BBBx', 'CCCx'].map((symbol) => ({ symbol, assetMint: `MINT-${symbol}` })),
+  }));
   a.get('/risk/facts/lending', async () => ({ pools: [{ account: 'L1' }] }));
   a.get('/risk/facts/lending/:account', async () => ({ ok: 1 }));
   a.get('/risk/facts/lending/:account/history', async () => ({ ok: 1 }));
@@ -109,7 +111,7 @@ describe('GET /risk/dex', () => {
 describe('the warm-up', () => {
   it('reads each chain’s list, each asset’s three answers and the lending pools, and keeps them', async () => {
     const { a, read } = await app();
-    await warmRiskReads(a);
+    await warmRiskReads(a, { firstMs: 0 });
     expect(read).toEqual(
       expect.arrayContaining([
         '/risk/assets?tau=0.01',
@@ -117,8 +119,8 @@ describe('the warm-up', () => {
         '/risk/facts/assets/AAAx?sizeUsd=100000',
         '/risk/assets/AAAx/history?days=30&tau=0.01',
         '/risk/pools?asset=AAAx',
-        '/risk/facts/assets/MINT?sizeUsd=100000',
-        '/risk/pools?asset=MINT&chain=robinhood',
+        '/risk/facts/assets/MINT-AAAx?sizeUsd=100000',
+        '/risk/pools?asset=MINT-AAAx&chain=robinhood',
         '/risk/facts/lending/L1',
         '/risk/facts/lending/L1/history?days=7',
         '/risk/facts/lending/L1/history?days=30',
@@ -131,5 +133,59 @@ describe('the warm-up', () => {
     expect((await a.inject({ url: '/risk/dex?ids=AAAx' })).statusCode).toBe(200);
     await a.inject({ url: '/risk/facts/assets/AAAx?sizeUsd=100000' });
     expect(read.length).toBe(before);
+  });
+
+  it('stays behind the people it is for: after the first answer, one asset at a time, never beside a request', async () => {
+    const { a, read } = await app();
+    let open = 0;
+    let most = 0;
+    a.addHook('onRequest', async (req) => {
+      if (req.url.startsWith('/risk/facts/assets/')) most = Math.max(most, ++open);
+    });
+    a.addHook('onResponse', async (req) => {
+      if (req.url.startsWith('/risk/facts/assets/')) open--;
+    });
+    let release: () => void = () => {};
+    const held = new Promise<void>((d) => {
+      release = d;
+    });
+    a.get('/v1/slow', async () => {
+      await held;
+      return { ok: 1 };
+    });
+    const browser = { 'user-agent': 'a browser' };
+    const warm = warmRiskReads(a, { firstMs: 60_000, yieldMs: 5 });
+    await new Promise((d) => setTimeout(d, 30));
+    // nothing is read before a request from outside is answered
+    expect(read).toEqual([]);
+    // the first request from outside is still under way: still nothing
+    const person = a.inject({ url: '/v1/slow', headers: browser });
+    await new Promise((d) => setTimeout(d, 30));
+    expect(read).toEqual(['/v1/slow']);
+    release();
+    await person;
+    await warm;
+    expect(read.length).toBeGreaterThan(1);
+    expect(most).toBe(1);
+  });
+
+  it('stops at its time limit', async () => {
+    const { a, read } = await app();
+    // a request from outside that never ends: the warm-up waits behind it, and gives up in time
+    a.get('/v1/hung', () => new Promise(() => {}));
+    void a.inject({ url: '/v1/hung', headers: { 'user-agent': 'a browser' } });
+    const t = Date.now();
+    await warmRiskReads(a, { firstMs: 0, maxMs: 50, yieldMs: 5 });
+    expect(Date.now() - t).toBeLessThan(1_000);
+    expect(read.filter((u) => u.startsWith('/risk/facts/assets/'))).toEqual([]);
+  });
+
+  it('keeps no batch: it is put together from kept parts each time', async () => {
+    const { a, read } = await app();
+    await a.inject({ url: '/risk/dex?ids=AAAx' });
+    const second = await a.inject({ url: '/risk/dex?ids=AAAx' });
+    expect(second.headers['x-read-cache']).toBeUndefined();
+    // its parts were kept: the second batch read nothing new
+    expect(read.filter((u) => u.startsWith('/risk/facts/assets/'))).toHaveLength(1);
   });
 });

@@ -69,6 +69,23 @@ async function inTurn<I, O>(items: readonly I[], n: number, fn: (item: I) => Pro
 
 export async function registerRiskDexRoute(app: FastifyInstance) {
   const f = app.withTypeProvider<ZodTypeProvider>();
+  // What the warm-up stays behind: requests from outside under way, and the first one answered.
+  let first = () => {};
+  const t = { inFlight: 0, served: new Promise<void>((d) => (first = d)) };
+  traffic.set(app, t);
+  const counted = new WeakSet<object>();
+  app.addHook('onRequest', async (req) => {
+    if (fromSelf(req)) return;
+    counted.add(req);
+    t.inFlight++;
+  });
+  const over = async (req: object) => {
+    if (!counted.delete(req)) return;
+    t.inFlight--;
+    first();
+  };
+  app.addHook('onResponse', over);
+  app.addHook('onRequestAbort', over);
   const ask = async (url: string): Promise<Answer> => {
     const r = await app.inject({ method: 'GET', url });
     let body: unknown = null;
@@ -123,13 +140,39 @@ export async function registerRiskDexRoute(app: FastifyInstance) {
   );
 }
 
+/** Requests from outside under way, and whether one has been answered, per app (`registerRiskDexRoute`). */
+const traffic = new WeakMap<FastifyInstance, { inFlight: number; served: Promise<void> }>();
+/** A request the app asks of itself: the batch's parts, the warm-up's reads. */
+const fromSelf = (req: { headers: Record<string, unknown> }) =>
+  req.headers['user-agent'] === 'lightMyRequest';
+
+export type WarmOptions = {
+  log?: (msg: string) => void;
+  /** It starts once the first request from outside is answered, or after this long without one. */
+  firstMs?: number;
+  /** It stops after this long, whatever is left. */
+  maxMs?: number;
+  /** How long it waits before looking again while requests from outside are under way. */
+  yieldMs?: number;
+};
+
 /**
- * Reads what the Bearing pages read first, once the server is up, so the first visitor after a start
- * (the host sleeps when idle) is not the one who waits: each chain's asset list and each asset's three
- * answers, and Solana's lending pools with their histories. A few at a time, and nothing is waited for.
+ * Reads what the Bearing pages read first, so the first visitor after a start (the host sleeps when
+ * idle) mostly finds it kept: each chain's asset list and each asset's three answers, and Solana's
+ * lending pools with their histories. It stays behind the people it is for: it starts after the request
+ * that woke the server is answered, reads one asset at a time, waits while any request from outside is
+ * under way, and stops after `maxMs`.
  */
-export async function warmRiskReads(app: FastifyInstance, log: (msg: string) => void = () => {}) {
+export async function warmRiskReads(app: FastifyInstance, opts: WarmOptions = {}) {
+  const { log = () => {}, firstMs = 30_000, maxMs = 180_000, yieldMs = 250 } = opts;
+  const seen = traffic.get(app);
+  const pause = (ms: number) => new Promise((d) => setTimeout(d, ms).unref?.());
+  if (seen) await Promise.race([seen.served, pause(firstMs)]);
   const started = Date.now();
+  const late = () => Date.now() - started > maxMs;
+  const behind = async () => {
+    while (seen && seen.inFlight > 0 && !late()) await pause(yieldMs);
+  };
   const get = async (url: string) => {
     const r = await app.inject({ method: 'GET', url });
     try {
@@ -138,13 +181,22 @@ export async function warmRiskReads(app: FastifyInstance, log: (msg: string) => 
       return null;
     }
   };
+  /** One at a time, each behind the requests from outside, until the time is up. */
+  const each = async <I>(items: readonly I[], fn: (item: I) => Promise<unknown>) => {
+    for (const item of items) {
+      if (late()) return;
+      await behind();
+      await fn(item);
+    }
+  };
   let n = 0;
   for (const chain of ['solana', 'robinhood'] as const) {
+    await behind();
     const list = (await get(
       `/risk/assets?tau=0.01${chain === 'solana' ? '' : `&chain=${chain}`}`,
     )) as { assets?: Array<{ symbol: string; assetMint: string }> } | null;
     const ids = (list?.assets ?? []).map((a) => (chain === 'solana' ? a.symbol : a.assetMint));
-    await inTurn(ids, ASSETS_AT_ONCE, async (id) => {
+    await each(ids, async (id) => {
       const p = dexPaths(id, { chain, sizeUsd: 100_000, days: 30, tau: 0.01 });
       await Promise.all([get(p.sheet), get(p.hist), get(p.pools)]);
       n++;
@@ -153,7 +205,7 @@ export async function warmRiskReads(app: FastifyInstance, log: (msg: string) => 
   const lending = (await get('/risk/facts/lending')) as {
     pools?: Array<{ account: string }>;
   } | null;
-  await inTurn(lending?.pools ?? [], ASSETS_AT_ONCE, async ({ account }) => {
+  await each(lending?.pools ?? [], async ({ account }) => {
     const a = enc(account);
     await Promise.all([
       get(`/risk/facts/lending/${a}`),
@@ -161,6 +213,8 @@ export async function warmRiskReads(app: FastifyInstance, log: (msg: string) => 
       get(`/risk/facts/lending/${a}/history?days=30`),
     ]);
   });
-  await Promise.all([get('/risk/pools/recorded'), get('/risk/chains?tau=0.01')]);
-  log(`risk reads warmed: ${n} assets in ${Math.round((Date.now() - started) / 1000)} s`);
+  await each(['/risk/pools/recorded', '/risk/chains?tau=0.01'], get);
+  log(
+    `risk reads warmed: ${n} assets in ${Math.round((Date.now() - started) / 1000)} s${late() ? ' (stopped at its time limit)' : ''}`,
+  );
 }
