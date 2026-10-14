@@ -1772,6 +1772,29 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** Closing an empty vault (gate VAULT-CLOSE-REUSE): a confirm, then the closed vault's note. */
+        close: {
+          action: 'Close this vault',
+          title: 'Close this vault?',
+          body: 'It leaves your portfolio, its totals and your lists of vaults. Nothing moves on the chain: the vault stays at its address, empty, and you can open it again from Closed vaults.',
+          confirm: 'Close vault',
+          closing: 'Closing…',
+          keep: 'Keep it open',
+          /** Worth a cent or more, or holding a token with no price. */
+          notEmpty: 'This vault still holds something. Withdraw it first, then close it.',
+          failed: 'I couldn’t close it: our server didn’t answer. Try again.',
+          /** An order on the vault is still under way. */
+          orderOpen:
+            'An order on this vault isn’t finished yet. Finish it, or let it run out, then close the vault.',
+        },
+        closed: {
+          title: 'This vault is closed',
+          body: (date: string) =>
+            `You closed it on ${date}. It isn’t in your portfolio or its totals. Nothing moved on the chain.`,
+          reopen: 'Open it again',
+          reopening: 'Opening…',
+          failed: 'I couldn’t open it again: our server didn’t answer. Try again.',
+        },
         /** The press that trades the vault to the targets it has, and the sentence that offers it. */
         rebalance: 'Rebalance',
         offTarget:

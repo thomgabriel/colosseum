@@ -126,6 +126,7 @@ describe('the routes sign-in knows', () => {
       '/invest/plan/[id]',
       '/invest/plan/[id]/buy',
       '/portfolio',
+      '/portfolio/closed',
       '/portfolio/exposure',
       '/portfolio/methodology',
       '/portfolio/monitor',

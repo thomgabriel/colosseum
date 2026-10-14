@@ -12,6 +12,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { OrderDeps } from '../../orders/legs';
 import { plansOf } from '../../orders/plan-join';
 import { vaultNames } from '../../orders/store';
+import { lifetimesOf } from '../../portfolio/lifetimes';
 import { numbered, type VaultNumbers, vaultNumbersOf } from '../../portfolio/numbers';
 import { familiesOf, followsOf, newestOf, openedForOf, putInOf } from '../../portfolio/plans';
 import { frame, personScope, type ScopedChain } from '../../portfolio/scope';
@@ -43,11 +44,18 @@ async function chainPlans(
   const followed = vaults.flatMap((v) =>
     v.newest?.recipeOnchainId ? [v.newest.recipeOnchainId] : [],
   );
+  // A vault opened again counts from then (gate VAULT-CLOSE-REUSE); a closed one is not among these.
+  const lives = await lifetimesOf(deps.db, entry.chain, addresses);
+  const countsFrom = new Map(
+    [...lives].flatMap(([address, life]) =>
+      life.reopenedAt ? [[address, life.reopenedAt] as const] : [],
+    ),
+  );
   // One read a chain for each of the four, never one a vault.
   const [plans, names, putIn, families] = await Promise.all([
     plansOf(deps.db, entry.chain, addresses, principal.userId),
     vaultNames(deps.db, entry.chain, addresses),
-    putInOf(deps.db, scoped, vaults, principal.userId),
+    putInOf(deps.db, scoped, vaults, principal.userId, countsFrom),
     familiesOf(deps.db, entry.chain, followed),
   ]);
   // And one more, which waits for the plans: the shared portfolios they follow are named from the
@@ -68,6 +76,7 @@ async function chainPlans(
         plan: plans.get(address)?.plan ?? null,
         openedFor: openedFor.get(address) ?? null,
         putIn: putIn.get(address) ?? null,
+        countsFrom: countsFrom.get(address)?.toISOString() ?? null,
         newest: newest ? newestOf(newest, a.now) : null,
         // No verdict is handed in. The verdict stored with a plan is a figure from when the plan was
         // built, not the engine's word on the vault today, and must not stand in for the rule.

@@ -40,6 +40,7 @@ import {
 import { noteOrder } from '../../orders/thread';
 import { holds } from '../../plugins/auth';
 import { loggable } from '../../plugins/loggable';
+import { isClosed, lifetimesOf, reopenVault } from '../../portfolio/lifetimes';
 
 // The bodies and answers of these routes are named in packages/schemas (order-api.ts), so the SDK and
 // the web read the same shapes.
@@ -175,7 +176,7 @@ export function registerOrderRoutes(scope: FastifyInstance, deps: OrderDeps) {
       },
     },
     async (req) => {
-      const { order, request } = await prepareOrder(req.body, {
+      const { order, request, into } = await prepareOrder(req.body, {
         principal: signedIn(req),
         chains: deps.chains,
         // The caller's own plan, or one from a link: another person's id buys nothing (store.ts).
@@ -192,6 +193,13 @@ export function registerOrderRoutes(scope: FastifyInstance, deps: OrderDeps) {
       });
       // Stored as the order holds to it: a follow's version, a publish's family id.
       await insertOrder(deps.db, Order.parse(order), request);
+      // A deposit into a vault its person closed opens it again: money in it is never out of sight,
+      // and its figures count from now (gate VAULT-CLOSE-REUSE).
+      if (
+        into &&
+        isClosed((await lifetimesOf(deps.db, into.chain, [into.address])).get(into.address))
+      )
+        await reopenVault(deps.db, into.chain, into.address, deps.now());
       return detail({ order, request, attempts: [] });
     },
   );
