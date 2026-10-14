@@ -2384,6 +2384,7 @@ export type PostConversationsByChainGoalReplyResponse = {
         }
     )[];
   };
+  action?: 'rebalance';
   chain: 'solana' | 'base' | 'robinhood';
   /** Which agent wrote this reply: the relaxed intake (gate RELAXED-INTAKE), or the model-led conversation the server answers with when it runs with `GOAL_AGENT=model-led`. Said so that neither is ever taken for the other. */
   agent: 'relaxed' | 'model_led';
@@ -4635,6 +4636,7 @@ export type PostVaultsByChainByAddressConversationReplyResponse = {
         }
     )[];
   };
+  action?: 'rebalance';
   chain: 'solana' | 'base' | 'robinhood';
   address: string;
 };
