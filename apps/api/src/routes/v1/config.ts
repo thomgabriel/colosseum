@@ -44,6 +44,7 @@ export function registerConfigRoute(app: FastifyInstance, config: ConfigResponse
       // Read before anybody is signed in: the web compares its networks with these first.
       config: { auth: 'public', limit: 'standard' },
       schema: {
+        tags: ['platform'],
         summary: 'Feature flags and the chains this deployment runs on',
         description:
           'A feature shows only when its flag and the chain allow it. Each chain names its network (mainnet, testnet or local) and the provenance label its figures carry: anything that is not `live` is shown as a test network or as MOCK.',
