@@ -204,13 +204,27 @@ export type BarKey = (typeof BAR_KEYS)[number];
 
 const floorHour = (ms: number) => Math.floor(ms / HOUR_MS) * HOUR_MS;
 
+/**
+ * Two method versions in order, by their numbers part by part ('bars-0.10' after 'bars-0.9'); a version with
+ * no number, or the same numbers, by its text.
+ */
+export function compareVersions(a: string, b: string): number {
+  const parts = (v: string) => (v.match(/\d+/gu) ?? []).map(Number);
+  const [x, y] = [parts(a), parts(b)];
+  for (let at = 0; at < Math.max(x.length, y.length); at += 1) {
+    const d = (x[at] ?? -1) - (y[at] ?? -1);
+    if (d) return d;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /** One row an hour: where a bar was built by two method versions, the later version's. */
 function oneAnHour<T extends BarRow>(rows: readonly T[]): T[] {
   const byHour = new Map<number, T>();
   for (const row of rows) {
     const at = Date.parse(row.hour);
     const kept = byHour.get(at);
-    if (!kept || row.methodVersion > kept.methodVersion) byHour.set(at, row);
+    if (!kept || compareVersions(row.methodVersion, kept.methodVersion) > 0) byHour.set(at, row);
   }
   return [...byHour.entries()].sort(([a], [b]) => a - b).map(([, row]) => row);
 }
@@ -221,28 +235,47 @@ export function windowStart(window: LookupWindow, now: Date): Date {
 }
 
 /**
- * Whether the bars cover the window: they reach back to its start (a bar at or before it, or `before`, the
- * latest bar older than the window, which says the history goes back further and the hours between were
- * quiet), and forward to `now` (their last hour ended at most `BARS_FRESH_MS` ago). Otherwise, the hours of
- * the window the bars do not reach.
+ * Whether the bars cover the window. `chainHours` are the hours in which any asset of the chain has a bar: an
+ * hour of the window in which none has is an hour the collector did not run (an outage), never a quiet hour,
+ * and a window with one is not covered. A quiet hour is one the chain has bars for and this asset has none: a
+ * gap. The asset's own history must reach back to the window's start (a bar at or before it, or `before`, the
+ * latest bar older than the window), and the chain's latest collected hour must have ended at most
+ * `BARS_FRESH_MS` before `now`: the hours after it, within that tolerance, are neither covered nor missing.
+ * Covered: `collectedHours`, the window's hours up to the chain's latest collected one. Otherwise, how many
+ * of the window's hours were not collected.
  */
 export function barCoverage(
   bars: readonly { hour: string }[],
   before: string | null,
   window: LookupWindow,
   now: Date,
-): { covered: true } | { covered: false; missingHours: number } {
+  chainHours: readonly string[],
+): { covered: true; collectedHours: number } | { covered: false; missingHours: number } {
   const total = WINDOW_HOURS[window];
   const start = windowStart(window, now).getTime();
-  const hours = bars.map((bar) => Date.parse(bar.hour)).filter((at) => at >= start);
-  if (!hours.length) return { covered: false, missingHours: total };
-  const first = Math.min(...hours);
-  const last = Math.max(...hours);
-  const head = before !== null || first <= start ? 0 : Math.round((first - start) / HOUR_MS);
-  const behind = now.getTime() - (last + HOUR_MS);
-  const tail = behind > BARS_FRESH_MS ? Math.ceil(behind / HOUR_MS) : 0;
-  const gap = Math.min(total, head + tail);
-  return gap ? { covered: false, missingHours: gap } : { covered: true };
+  const end = start + total * HOUR_MS;
+  const inside = (at: number) => Number.isFinite(at) && at >= start && at < end;
+  const own = bars.map((bar) => Date.parse(bar.hour)).filter(inside);
+  if (!own.length) return { covered: false, missingHours: total };
+  // an asset's bar is a bar of its chain: the chain was collected that hour
+  const collected = new Set([
+    ...chainHours.map((hour) => floorHour(Date.parse(hour))).filter(inside),
+    ...own.map(floorHour),
+  ]);
+  const latest = Math.max(...collected);
+  const uncollected = new Set<number>();
+  // the asset's history does not reach back to the window's start
+  if (before === null)
+    for (let at = start; at < Math.min(...own); at += HOUR_MS) uncollected.add(at);
+  // an hour in which no asset of the chain has a bar
+  for (let at = start; at <= latest; at += HOUR_MS) if (!collected.has(at)) uncollected.add(at);
+  // the chain's bars stop short of now by more than the tolerance
+  if (now.getTime() - (latest + HOUR_MS) > BARS_FRESH_MS)
+    for (let at = latest + HOUR_MS; at < now.getTime() && at < end; at += HOUR_MS)
+      uncollected.add(at);
+  return uncollected.size
+    ? { covered: false, missingHours: Math.min(total, uncollected.size) }
+    : { covered: true, collectedHours: Math.round((latest - start) / HOUR_MS) + 1 };
 }
 
 /** How the bars put their quotes in dollars, without the pools' addresses: `implied_from_<pool>`. */
@@ -257,7 +290,9 @@ function quoteMethods(rows: readonly BarRow[]): string {
 /** The pin of a figure made of `rows`: the newest row's source, the oldest read behind it. */
 function barPin(rows: readonly BarRow[]) {
   const last = rows.at(-1) as BarRow;
-  const versions = [...new Set(rows.map((row) => row.methodVersion))].sort().join(', ');
+  const versions = [...new Set(rows.map((row) => row.methodVersion))]
+    .sort(compareVersions)
+    .join(', ');
   return {
     source: `market_bars (DEX swaps; ${last.source})`,
     method: `${last.method}; quote in dollars by ${quoteMethods(rows)} (${versions})`,
@@ -276,18 +311,21 @@ function barPin(rows: readonly BarRow[]) {
  * The asset's price history over one window, from its `pool = 'asset'` bars in dollars: the latest close,
  * the window's high and low, the change from its first priced close to its last (a past figure, as a
  * fraction), the volume and the volume of purchases and of sales in dollars, the swaps, and the hours with
- * no priced swap. A window the bars do not cover answers every figure `not_collected` with the hours missing:
- * never a part of the window shown as the whole of it.
+ * no priced swap among the hours the chain was collected (up to its latest collected hour). A window the bars
+ * do not cover (`barCoverage`: an outage of the chain's collector, a history that starts inside the window,
+ * bars that stop short of now) answers every figure `not_collected` with the hours missing: never a part of
+ * the window shown as the whole of it.
  */
 export function priceHistoryFigures(
   rows: readonly BarRow[],
   before: string | null,
   window: LookupWindow,
   now: Date,
+  chainHours: readonly string[],
 ): AssetFigure[] {
   const start = windowStart(window, now).getTime();
   const bars = oneAnHour(rows.filter((row) => Date.parse(row.hour) >= start));
-  const coverage = barCoverage(bars, before, window, now);
+  const coverage = barCoverage(bars, before, window, now, chainHours);
   if (!coverage.covered)
     return BAR_KEYS.map((key) => missing(key, 'not_collected', coverage.missingHours));
   const priced = bars.filter((bar) => bar.closeUsd !== null && Number.isFinite(bar.closeUsd));
@@ -346,7 +384,8 @@ export function priceHistoryFigures(
       'count',
     ),
   );
-  out.push(figure('gaps', bars, WINDOW_HOURS[window] - valued.length, 'hours'));
+  // the hours the chain was collected with no priced swap of the asset; the tolerated tail is not counted
+  out.push(figure('gaps', bars, coverage.collectedHours - valued.length, 'hours'));
   return out;
 }
 
@@ -368,6 +407,7 @@ export type PoolFigures = { rank: number; pool: string; venue: string; figures: 
  * swaps, not balances. So the pools, their TVL and the shares all come from one reading, with its age.
  * The volume is each pool's own bars (`market_bars`, `pool` = its address) over the last day, served only
  * when the asset's bars cover that day (`dayCovered`); a pool with no bar in it is not collected, never zero.
+ * Where the reading's sum is a lower bound (a pool it could not measure), no pool's share is served.
  */
 export function poolFigures(
   reading: ObservationRow | null,
@@ -417,8 +457,11 @@ export function poolFigures(
                 unit: 'usd',
                 ...barPin(valued),
               };
-      const share: AssetFigure =
-        whole.value > 0
+      // A sum that left a pool out (`detail.lowerBound`) is less than the whole: a share of it would be
+      // overstated, so it is not measured. The pool's own TVL stands.
+      const share: AssetFigure = whole.lowerBound
+        ? missing('share', 'not_collected')
+        : whole.value > 0
           ? {
               key: 'share',
               value: pool.tvl / whole.value,
@@ -459,9 +502,41 @@ export type LendingMarketRow = {
   market: string;
   /** The pool's role in its market: `debt` lends the token, `vault` and `collateral` take it as collateral. */
   role: string | null;
+  /**
+   * The symbol of the token whose supply and borrow rates the sheet holds: a Jupiter Lend vault's debt token,
+   * or the reserve's own token. When the row does not say, it is read from the sheet's symbol (`lentOf`).
+   */
+  lent?: string | null;
   sheet: LendingPoolFacts;
 };
-export type LendingFigures = Omit<LendingMarketRow, 'sheet'> & { figures: AssetFigure[] };
+export type LendingFigures = Omit<LendingMarketRow, 'sheet' | 'lent'> & {
+  /** The token whose rates these are, or null when it cannot be named. */
+  lent: string | null;
+  /** The token a vault takes as collateral (`vault` role), or null. */
+  collateral: string | null;
+  figures: AssetFigure[];
+};
+
+/** A symbol that may stand in a label: letters first, no digit, short. */
+const SYMBOL = /^\p{L}[\p{L}.-]{0,15}$/u;
+const symbolOrNull = (symbol: string | null | undefined) =>
+  symbol && SYMBOL.test(symbol.trim()) ? symbol.trim() : null;
+
+/**
+ * The token a market lends and the one it takes as collateral, by its sheet's symbol: a Jupiter Lend vault's
+ * is `<collateral>/<debt>`, a reserve's is its own token. A symbol with a digit or out of shape is not named.
+ */
+export function lentOf(row: Pick<LendingMarketRow, 'lent' | 'sheet' | 'role'>): {
+  lent: string | null;
+  collateral: string | null;
+} {
+  const [first, second] = row.sheet.symbol.split('/');
+  const pair = second !== undefined;
+  return {
+    lent: symbolOrNull(row.lent ?? (pair ? second : first)),
+    collateral: row.role === 'vault' && pair ? symbolOrNull(first) : null,
+  };
+}
 
 /** A fact of a stored sheet as a figure: its pin, its quality, and its age past the report's limit. */
 export function factFigure(key: string, fact: Fact, now: Date, staleAfter: number): AssetFigure {
@@ -491,8 +566,9 @@ export function factFigure(key: string, fact: Fact, now: Date, staleAfter: numbe
 export function lendingFigures(markets: readonly LendingMarketRow[], now: Date): LendingFigures[] {
   return [...markets]
     .sort((a, b) => a.venue.localeCompare(b.venue) || a.account.localeCompare(b.account))
-    .map(({ sheet, ...market }) => ({
+    .map(({ sheet, lent: _lent, ...market }) => ({
       ...market,
+      ...lentOf({ lent: _lent, sheet, role: market.role }),
       figures: [
         factFigure('supply', sheet.rates.supplyApy, now, LENDING_STALE_SEC),
         factFigure('borrow', sheet.rates.borrowApy, now, LENDING_STALE_SEC),

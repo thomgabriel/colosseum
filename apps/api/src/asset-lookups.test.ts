@@ -5,7 +5,7 @@ import type { BarRow, LendingMarketRow, ObservationRow, PoolBarRow } from '@colo
 import type { BasketAsset, VaultAgentSource } from '@colosseum/schemas';
 import { describe, expect, it, vi } from 'vitest';
 import { launchShelf } from '../../../packages/engine/src/personal/testing';
-import { createAssetLookups, type LookupReads } from './asset-lookups';
+import { bearingAnswer, createAssetLookups, type LookupReads } from './asset-lookups';
 import type { LookupAnswer, LookupFact } from './orders/lookups';
 import { MEASURED } from './orders/relaxed-figures';
 import { figureResolver } from './orders/vault-figures';
@@ -31,9 +31,19 @@ const cash = shelf.find((a) => a.chain === 'solana' && a.cls === 'cash') as Bask
 // Bars that reach the present at this hour, and the lending report's hour.
 const NOW = Date.parse('2026-10-06T06:30:00.000Z');
 
+// The chain's collector ran every hour from the fixture's first bar to its last.
+const HOUR = 3_600_000;
+const chainHours = Array.from(
+  {
+    length:
+      (Date.parse((bars.at(-1) as BarRow).hour) - Date.parse((bars[0] as BarRow).hour)) / HOUR + 1,
+  },
+  (_, at) => new Date(Date.parse((bars[0] as BarRow).hour) + at * HOUR).toISOString(),
+);
+
 const reads = (over: Partial<LookupReads> = {}): LookupReads => ({
   observations: vi.fn(async () => observations),
-  bars: vi.fn(async () => ({ rows: bars, before: null })),
+  bars: vi.fn(async () => ({ rows: bars, before: null, chainHours })),
   poolReading: vi.fn(async () => pools.reading),
   poolBars: vi.fn(async () => pools.poolBars),
   lending: vi.fn(async () => lending),
@@ -219,7 +229,18 @@ describe('the asset lookups', () => {
 });
 
 describe('a looked-up figure is stated by reference under the resolver’s rules', () => {
-  const resolverOf = async () => {
+  // The assets a text names, by symbol: NVDAx, USDC and TSLAx are listed; JupUSD is not.
+  const LISTED: Array<[RegExp, string]> = [
+    [/\bNVDAx\b/u, 'solana:nvdax'],
+    [/\bUSDC\b/u, 'solana:usdc'],
+    [/\bTSLAx\b/u, 'solana:tslax'],
+  ];
+  const named = (text: string) => ({
+    own: LISTED.filter(([name]) => name.test(text)).map(([, id]) => id),
+    classes: [],
+  });
+  /** The relaxed intake's resolver (`kindRequired`), or the vault conversation's (neither rule). */
+  const resolverOf = async (vault = false) => {
     const lookups = make(reads());
     const facts: LookupFact[] = [
       ...(await lookups.priceHistory({ ...query, window: '7d' })).facts,
@@ -234,8 +255,10 @@ describe('a looked-up figure is stated by reference under the resolver’s rules
       lowerBound: new Set(),
       language: 'en',
       sentences: (text) => text.match(/[^.!?]+[.!?]*\s*/gu) ?? [text],
-      kindRequired: true,
-      noComparison: true,
+      named,
+      namesOf: (assetId) => (assetId === 'solana:nvdax' ? ['NVDAx', 'Nvidia'] : []),
+      kindRequired: !vault,
+      noComparison: !vault,
     });
   };
   const id = (part: string) => `{{fact:${part}}}`;
@@ -249,7 +272,7 @@ describe('a looked-up figure is stated by reference under the resolver’s rules
       `There were ${id('bars:solana:nvdax:7d:swaps')} swaps on its pools.`,
       `Its largest pool holds ${id('pool:solana:nvdax:1:tvl')} in TVL.`,
       `In the market that takes it as collateral, ${id(`lend:solana:nvdax:${account}:withdrawable`)} is available to withdraw now.`,
-      `Its quoted rate is ${id(`lend:solana:nvdax:${account}:supply`)} a year.`,
+      `Its supply rate is ${id(`lend:solana:nvdax:${account}:supply`)} a year.`,
     ])
       expect([sentence, resolver.unbacked(sentence)]).toEqual([sentence, []]);
   });
@@ -268,5 +291,107 @@ describe('a looked-up figure is stated by reference under the resolver’s rules
         `The change was ${id('bars:solana:nvdax:7d:change')}, more than ${id('bars:solana:nvdax:7d:volume')} in volume.`,
       ),
     ).not.toEqual([]);
+  });
+
+  // The reviewer's probes (review of API-AGENT-LOOKUPS-1): each served before the fix.
+  const account = lending[0]?.account as string;
+  const lend = (key: string) => id(`lend:solana:nvdax:${account}:${key}`);
+  // the vault that lends USDC against NVDAx (the first lends JupUSD, which is not listed)
+  const usdc = lending.find((m) => m.market.endsWith('/USDC'))?.account as string;
+  const lendUsdc = (key: string) => id(`lend:solana:nvdax:${usdc}:${key}`);
+  const share = id('pool:solana:nvdax:1:share');
+  const change = id('bars:solana:nvdax:7d:change');
+  const both = async (sentence: string) => [
+    (await resolverOf()).unbacked(sentence),
+    (await resolverOf(true)).unbacked(sentence),
+  ];
+
+  it("B1: a lending rate is the lent token's rate, never the asset's yield", async () => {
+    for (const sentence of [
+      `NVDAx currently yields ${lend('borrow')} a year.`,
+      `Its quoted yield is ${lend('borrow')} a year.`,
+      `NVDAx currently yields ${lend('supply')} a year.`,
+      `The supply rate is ${lend('supply')} a year, what lenders earn.`,
+      `Its borrow rate is ${lend('borrow')} a year, a return for lenders.`,
+      // a rate not called a supply or a borrow rate
+      `Its rate is ${lend('borrow')} a year.`,
+      `The supply rate of NVDAx is ${lend('borrow')} a year.`,
+      // a promise beside it, in its sentence or the next
+      `Its supply rate is ${lend('supply')} a year. It will stay there.`,
+      `Its supply rate is ${lend('supply')} a year, always.`,
+      // another asset than the lent token
+      `The borrow rate of TSLAx is ${lend('borrow')} a year.`,
+      `The borrow rate of USDC is ${lend('borrow')} a year.`,
+      `The borrow rate of USDC against TSLAx is ${lendUsdc('borrow')} a year.`,
+    ])
+      for (const why of await both(sentence)) expect([sentence, why]).not.toEqual([sentence, []]);
+    for (const sentence of [
+      `Its borrow rate is ${lend('borrow')} a year.`,
+      `The supply rate in the vault is ${lend('supply')} a year, at the last report.`,
+      `The rate to borrow USDC against NVDAx there is ${lendUsdc('borrow')} a year.`,
+      `The borrow rate of USDC in that vault is ${lendUsdc('borrow')} a year.`,
+    ])
+      for (const why of await both(sentence)) expect([sentence, why]).toEqual([sentence, []]);
+  });
+
+  it('B1: the lending label names the lent token and the market, with no digit', async () => {
+    const answer = await make(reads()).lending(query);
+    const borrow = answer.facts.find((f) => f.id === `lend:solana:nvdax:${account}:borrow`);
+    expect(borrow?.label).toBe(
+      'Borrow rate of JupUSD a year in the Jupiter Lend vault that takes NVDAx as collateral, at the last report; a past figure',
+    );
+    for (const fact of answer.facts) expect(/\p{N}/u.test(fact.label)).toBe(false);
+  });
+
+  it("B3: a market's figure is never read back as the person's own", async () => {
+    for (const sentence of [
+      `Your share of NVDAx is ${share}.`,
+      `Your NVDAx share is ${share}.`,
+      `You can withdraw ${lend('withdrawable')} of NVDAx now.`,
+      `NVDAx's share is ${share}.`,
+      `The share of NVDAx in its largest pool is ${share}.`,
+      `Your stake in NVDAx changed by ${change} over the last week.`,
+      `I see the price change over the last week was ${change}.`,
+      `A sua parcela de NVDAx é ${share}.`,
+    ])
+      for (const why of await both(sentence)) expect([sentence, why]).not.toEqual([sentence, []]);
+    for (const sentence of [
+      `Its largest pool holds ${share} of the dollars in its pools.`,
+      `NVDAx's largest pool has ${share} of its pool liquidity.`,
+      `Lenders can withdraw ${lend('withdrawable')} from that vault now.`,
+      `The price change of NVDAx over the last week was ${change}.`,
+    ])
+      for (const why of await both(sentence)) expect([sentence, why]).toEqual([sentence, []]);
+  });
+
+  it('S3: a change is never called a performance or a result', async () => {
+    for (const sentence of [
+      `NVDAx's performance over the last week was a change of ${change}.`,
+      `NVDAx performed a change of ${change} over the last week.`,
+      `NVDAx made a change of ${change} over the last week.`,
+      `O desempenho do NVDAx foi uma variação de ${change} na semana.`,
+    ])
+      for (const why of await both(sentence)) expect([sentence, why]).not.toEqual([sentence, []]);
+  });
+});
+
+describe("Bearing's figures in the lookups", () => {
+  it('O2: a unit the answer cannot carry is a missing figure, never a fact without a unit', () => {
+    const built = bearingAnswer('solana:nvdax', [
+      {
+        metric: 'exit_worst',
+        regime: 'us_market_hours',
+        value: 120,
+        unit: 'seconds',
+        source: 'test',
+        method: 'test',
+        fetchedAt: '2026-10-14T00:00:00.000Z',
+        provenance: 'live',
+      },
+    ]);
+    expect(built.facts).toEqual([]);
+    expect(built.missing).toEqual([
+      expect.objectContaining({ id: 'exit:solana:nvdax:worst', reason: 'not_a_number' }),
+    ]);
   });
 });
