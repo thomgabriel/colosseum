@@ -212,3 +212,52 @@ test('on the landing, "Sign in" opens the dialog over it, the URL stays /, and E
     /^\/sign-in/,
   );
 });
+
+for (const size of SIZES)
+  test(`on the landing at ${size.width}, nothing of the page paints over the dialog`, async ({
+    page,
+  }) => {
+    // The landing's numbers come after its bar, and their pins sit at the bar's own level: a dialog
+    // drawn inside the bar had them on top of it (the UI audit, G7).
+    await page.setViewportSize(size);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    const cta = page.locator('[data-ui="landing-bar"] a[href^="/sign-in"]').first();
+    await expect(cta).toBeVisible({ timeout: 60_000 });
+    await cta.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('[data-ui="sign-in"][data-state="ready"]')).toBeVisible({
+      timeout: 60_000,
+    });
+    // What paints on top at the middle of every figure and pin of the strip in the window. The page
+    // under the dialog is inert, and an inert element is never hit, so it is let back for the reading:
+    // what is asked is the order things paint in, not what takes a press.
+    const tops = await page.evaluate(() => {
+      const inert = [...document.querySelectorAll<HTMLElement>('[inert]')];
+      for (const el of inert) el.inert = false;
+      const found = [
+        ...document.querySelectorAll(
+          '[data-ui="landing-stats"] dd, [data-ui="landing-stats"] [data-ui="pin"]',
+        ),
+      ]
+        .map((el) => el.getBoundingClientRect())
+        // the middle in the window: a point below it hits nothing, whatever paints there
+        .filter((r) => {
+          const middle = r.top + r.height / 2;
+          return middle >= 0 && middle < window.innerHeight && r.width > 0;
+        })
+        .map((r) => {
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return hit?.closest('[data-ui="sign-in-dialog"]')
+            ? 'dialog'
+            : (hit?.outerHTML.slice(0, 80) ?? 'none');
+        });
+      for (const el of inert) el.inert = true;
+      return found;
+    });
+    expect(tops.length).toBeGreaterThan(0);
+    expect(
+      tops.every((top) => top === 'dialog'),
+      tops.join('\n'),
+    ).toBe(true);
+  });

@@ -15,22 +15,18 @@ import { SkeletonPlan } from '../../components/ui/Skeleton';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainChoice } from '../account/ChainChoice';
-import { parseNumber } from '../goal/sheet';
-import {
-  AmountField,
-  InvestCard,
-  type InvestEmbedded,
-  type InvestPlaced,
-  MAX_USD,
-  MIN_USD,
-} from '../order/InvestCard';
+import { DepositCard, heldOf } from '../amount/DepositCard';
+import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { keepOrder } from '../order/order-record';
+import { basketOfPlan } from '../order/readiness';
+import type { Vault } from '../portfolio/portfolio';
+import { vaultTitle } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor, useChainRecipe } from './chain-recipe';
 import { followedOf } from './FamilyScreen';
 import { sharedRefusal } from './refusal';
 import { SourceMark } from './SourceMark';
-import { placeShared, readFamily } from './shared-api';
+import { placeShared, readFamily, readPortfolio } from './shared-api';
 import type { SharedTerms } from './terms';
 import { useSharedPerson } from './use-person';
 
@@ -43,7 +39,7 @@ import { useSharedPerson } from './use-person';
 // trust notice the first time, and the order as our server made it with the button that names the
 // amount. The version and the weights the buy is held to are the chain's where this app read them,
 // and our server's, said to be unverified, where it could not (chain-recipe.ts). With `embedded`,
-// another screen gives the amount and mounts the card with its source line alone.
+// another screen gives the amount and says where the version and weights were read.
 
 /** The recipe and terms already shown by a product page; a buy must not replace them with a reread. */
 export type FamilyBuySnapshot = {
@@ -73,7 +69,6 @@ export function FamilyBuyScreen({
   const [loaded, setLoaded] = useState<SharedFamily | null | 'failed'>(null);
   const shown = embedded ? snapshot : undefined;
   const family = shown?.family ?? loaded;
-  const [text, setText] = useState('100');
   const [locked, setLocked] = useState(false);
   const [round, setRound] = useState(0);
   // Our server said the portfolio changed: the way back to its page is offered under the card.
@@ -111,6 +106,45 @@ export function FamilyBuyScreen({
   const person = useSharedPerson(recipe?.chain);
   const chain = person.kind === 'ready' && recipe ? person.chain : null;
   const owner = person.kind === 'ready' ? person.owner : null;
+  // The vault a buy of this portfolio adds to, where the person has one (`planFamilyBuy`: the vault's
+  // number is the portfolio's own): named in "Into", and a new vault only where there is none.
+  const [ownVault, setOwnVault] = useState<
+    | { kind: 'reading' }
+    | { kind: 'none' }
+    | { kind: 'unknown' }
+    | { kind: 'own'; name: string; vault: Vault }
+  >({ kind: 'reading' });
+  const whose = chain && owner ? `${chain}:${owner}` : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `whose` stands for the chain and the wallet
+  useEffect(() => {
+    if (embedded || !chain || !owner) return;
+    let mine = true;
+    setOwnVault({ kind: 'reading' });
+    readPortfolio(apiFetch).then((read) => {
+      if (!mine) return;
+      if (read.kind !== 'read') return setOwnVault({ kind: 'unknown' });
+      const basket = basketOfPlan(familyIdFor(slug));
+      const vault = read.value.chains
+        .find((c) => c.chain === chain)
+        ?.vaults.find((v) => v.basketId === basket);
+      setOwnVault(
+        vault
+          ? {
+              kind: 'own',
+              vault,
+              name: vaultTitle(
+                vault,
+                { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+                t.chain.names[chain],
+              ),
+            }
+          : { kind: 'none' },
+      );
+    });
+    return () => {
+      mine = false;
+    };
+  }, [apiFetch, whose, slug, embedded]);
   const mock = person.kind === 'ready' ? person.mock : false;
   const check = useChainRecipe(
     chain ?? 'solana',
@@ -119,12 +153,6 @@ export function FamilyBuyScreen({
     recipe,
   );
   const followed = recipe ? followedOf(recipe, check) : null;
-  const parsed = parseNumber(text, lang);
-  const own =
-    parsed !== null && !Number.isNaN(parsed) && parsed >= MIN_USD && parsed <= MAX_USD
-      ? parsed
-      : null;
-  const amount = embedded ? embedded.amount : own;
 
   if (person.kind === 'loading' || (person.kind === 'ready' && family === null))
     return (
@@ -246,7 +274,7 @@ export function FamilyBuyScreen({
     };
   }
 
-  const card = (
+  const cardFor = (amount: number | null, onAmount: ((next: number) => void) | undefined) => (
     <InvestCard
       chain={chain}
       chainName={chainName}
@@ -267,14 +295,14 @@ export function FamilyBuyScreen({
       onDone={embedded?.onDone}
       onStopped={embedded?.onStopped}
       onVersionChanged={embedded?.onVersionChanged}
-      onAmount={embedded ? embedded.onAmount : (next) => setText(String(next))}
+      onAmount={onAmount}
     />
   );
   if (embedded)
     return (
+      // the host says where the version and weights were read, over the amount card
       <div data-ui="family-invest" className="flex flex-col gap-3">
-        <SourceMark check={check} chain={chain} />
-        {card}
+        {cardFor(embedded.amount, embedded.onAmount)}
       </div>
     );
 
@@ -312,14 +340,40 @@ export function FamilyBuyScreen({
         />
       )}
 
-      <AmountField
-        text={text}
-        onText={setText}
-        hint={t.shared.buy.amountHint}
-        value={own}
-        disabled={locked}
+      {/* The amount card (gate AMOUNT-CARD): its press hands the amount to the invest card. */}
+      <DepositCard
+        chain={chain}
+        chainName={chainName}
+        mock={mock}
+        provenance={recipe.provenance}
+        owner={owner}
+        userId={person.userId}
+        buyOf={{ family: slug, chain }}
+        holdings={followed?.targets ?? null}
+        keeper
+        held={ownVault.kind === 'own' ? heldOf(ownVault.vault) : null}
+        into={{
+          label: t.amount.into.label,
+          value: 'family',
+          options: [
+            {
+              value: 'family',
+              label:
+                ownVault.kind === 'own'
+                  ? t.amount.into.follows(ownVault.name)
+                  : ownVault.kind === 'none'
+                    ? t.amount.into.newVault
+                    : ownVault.kind === 'unknown'
+                      ? t.amount.into.ownOrNew
+                      : t.amount.into.reading,
+            },
+          ],
+        }}
+        blocked={blocked}
+        initialText="100"
+        running={locked}
+        flow={(amount, change) => cardFor(amount, change)}
       />
-      {card}
       {changed && (
         <Link
           data-ui="family-reopen"

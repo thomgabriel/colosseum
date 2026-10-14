@@ -1,9 +1,17 @@
 'use client';
-import { ChainId, chainFamily, type VaultResponse } from '@colosseum/schemas';
+import {
+  ChainId,
+  chainFamily,
+  isAddressOf,
+  OWNER_REBALANCE_SLIPPAGE_BPS,
+  ownerRebalanceOffered,
+  type VaultResponse,
+} from '@colosseum/schemas';
 import Link from 'next/link';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
+import { ChainBadge } from '../../components/ui/ChainBadge';
 import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
@@ -22,6 +30,7 @@ import { VaultConversation } from '../vault-conversation/VaultConversation';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { MORE_ROW, MoreMenu } from './MoreMenu';
 import { readVault } from './shared-api';
+import { shortAddress } from './use-person';
 import {
   type ActionKind,
   type ActionPhase,
@@ -41,7 +50,16 @@ import { VaultWait } from './waits';
 // the digit. Every price carries its pin (STYLE.md rule 1); a vault on the mock or a test network says
 // so in its card's line. It leads back to the portfolio, and to the chain's explorer where there is one.
 
-type Load = { kind: 'loading' } | { kind: 'read'; read: VaultResponse } | { kind: CallFailure };
+/**
+ * How long a read of the vault may take before the page says it couldn't read it, with "Read it
+ * again": past this a server or a node that hangs would leave "Reading the vault…" up for good.
+ */
+export const VAULT_READ_MS = 20_000;
+
+type Load =
+  | { kind: 'loading' }
+  | { kind: 'read'; read: VaultResponse }
+  | { kind: CallFailure; code?: string };
 
 export function VaultScreen({ chain, address }: { chain: string; address: string }) {
   const t = useT();
@@ -59,6 +77,22 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   const shown = useRef<string | null>(null);
   const titleId = useId();
   const known = ChainId.safeParse(chain);
+  // Someone signed out has no portfolio to go back to: they came from Products, or from a link.
+  // Until the wallet is known nobody is named either way: no "Back to Products" flashes by for a
+  // person whose sign-in is still loading.
+  const signedIn = port.status !== 'signed-out' && port.userId !== null;
+  const backLink = (ui?: string) =>
+    port.status === 'loading' ? (
+      <span data-ui={ui && `${ui}-wait`} aria-hidden="true" className="inline-block h-5" />
+    ) : signedIn ? (
+      <Link href="/portfolio" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+        {v.back}
+      </Link>
+    ) : (
+      <Link href="/shelf" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+        {v.backVisitor}
+      </Link>
+    );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `round` reads the vault again
   useEffect(() => {
@@ -68,7 +102,13 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     // read is here; one that fails leaves the last read standing.
     const again = shown.current === `${chain}:${address}`;
     if (!again) setLoad({ kind: 'loading' });
-    readVault(fetcher.current, known.data, address).then((read) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<{ kind: 'unreachable' }>((done) => {
+      timer = setTimeout(() => done({ kind: 'unreachable' }), VAULT_READ_MS);
+    });
+    // A read that answers after its time is nobody's: the page already said it couldn't read it.
+    Promise.race([readVault(fetcher.current, known.data, address), late]).then((read) => {
+      clearTimeout(timer);
       if (!mine) return;
       if (read.kind === 'read') shown.current = `${chain}:${address}`;
       setLoad((before) =>
@@ -81,6 +121,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     });
     return () => {
       mine = false;
+      clearTimeout(timer);
     };
   }, [chain, address, round]);
 
@@ -92,30 +133,71 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         !sameAddress(load.read.chain, load.read.vault.address, address)))
   )
     return <VaultWait visitor={port.status === 'signed-out'} />;
-  if (load.kind !== 'read')
+  if (load.kind !== 'read') {
+    // An address that is not a vault (404), or not an address of the chain (400): said once, with
+    // one way back. A chain switched off on the server is an answer, said as one, with nothing to
+    // retry. A server that did not answer is asked again from here.
+    const missing = load.kind === 'no-plan' || load.kind === 'refused';
+    const off = load.code === 'CHAIN_UNAVAILABLE' && known.success;
+    // An address of the other family (0x… on Solana's page, base58 on an EVM chain's) may be a vault
+    // there: each running chain of that family is offered, by its own page.
+    const family = known.success ? chainFamily(known.data) : null;
+    const elsewhere =
+      missing && family
+        ? ChainId.options.filter(
+            (c) =>
+              chainFamily(c) !== family &&
+              isAddressOf(chainFamily(c), address) &&
+              port.network(c)?.on === true,
+          )
+        : [];
     return (
-      <section aria-labelledby={titleId} className="flex flex-col items-start gap-4">
+      <section
+        data-ui="vault-unread"
+        aria-labelledby={titleId}
+        className="flex flex-col items-start gap-4"
+      >
         <h1 id={titleId} className={PAGE_TITLE}>
-          {load.kind === 'no-plan' || load.kind === 'refused' ? v.missing : v.title}
+          {missing ? v.missing : t.shared.vaults.address(shortAddress(address))}
         </h1>
-        {load.kind !== 'no-plan' && load.kind !== 'refused' && (
+        {elsewhere.length > 0 && (
+          <p className="max-w-(--tf-measure-body) text-body">
+            {known.success && v.otherFamily(t.chain.names[known.data])}
+          </p>
+        )}
+        {elsewhere.map((c) => (
+          <Link
+            key={c}
+            data-ui="vault-elsewhere"
+            href={`/vaults/${c}/${encodeURIComponent(address)}`}
+            className={buttonClass({ variant: 'secondary' })}
+          >
+            {v.openOn(t.chain.names[c])}
+          </Link>
+        ))}
+        {off && known.success && (
+          <p className="max-w-(--tf-measure-body) text-body">
+            {v.chainOff(t.chain.names[known.data])}
+          </p>
+        )}
+        {!missing && !off && (
           <>
             <p className="max-w-(--tf-measure-body) text-body">
-              {load.kind === 'busy' ? t.shell.slowDown : t.shared.shelf.failure.unreachable}
+              {load.kind === 'busy'
+                ? t.shell.slowDown
+                : load.kind === 'unreadable'
+                  ? t.shared.shelf.failure.unreadable
+                  : v.unreachable}
             </p>
             <Button variant="secondary" onClick={() => setRound((n) => n + 1)}>
-              {t.shared.shelf.failure.retry}
+              {v.retry}
             </Button>
           </>
         )}
-        <Link href="/shelf" className={buttonClass({ variant: 'secondary' })}>
-          {t.shared.family.backToShelf}
-        </Link>
-        <Link href="/portfolio" className={buttonClass({ variant: 'link' })}>
-          {v.back}
-        </Link>
+        {backLink('vault-back')}
       </section>
     );
+  }
 
   const { read } = load;
   const { vault } = read;
@@ -127,8 +209,9 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     !!wallet &&
     sameAddress(read.chain, wallet.address, vault.owner);
   const chainName = port.network(read.chain)?.name ?? t.chain.names[read.chain];
-  // The vault's value on its pin, with what kind of figure it is where it is not a live one.
-  const value = (
+  // The vault's value on its pin, with what kind of figure it is where it is not a live one. The
+  // owner's head says the chain beside it; a visitor's says it once, by the title.
+  const valueRow = (withChain: boolean) => (
     <p
       data-ui="vault-value"
       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm text-muted-foreground"
@@ -141,9 +224,10 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
           labels={t.pin}
         />
       </span>
-      <span data-ui="vault-chain">{chainName}</span>
+      {withChain && <span data-ui="vault-chain">{chainName}</span>}
     </p>
   );
+  const value = valueRow(true);
   /** The vault on its chain's explorer: a link in a visitor's head, a row in the owner's "More". */
   const explorerLinkAs = (className: string) =>
     explorer && (
@@ -160,11 +244,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     );
   const explorerLink = explorerLinkAs(buttonClass({ variant: 'link' }));
   const explorerRow = explorerLinkAs(MORE_ROW);
-  const back = (
-    <Link href="/portfolio" data-ui="vault-back" className={buttonClass({ variant: 'link' })}>
-      {v.back}
-    </Link>
-  );
+  const back = backLink('vault-back');
 
   // The owner's vault is a workbench (Rodrigo, Oct 8), the conversation beside the vault, and the page
   // leads with what a person comes to do (gate VAULT-PAGE-ACTIONS, Thom, Oct 9): Deposit and Withdraw,
@@ -191,10 +271,13 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     <div data-ui="vault-screen" className="flex flex-col gap-6">
       <header className="flex flex-col items-start gap-3">
         <p>{back}</p>
-        <h1 id={titleId} className={PAGE_TITLE}>
-          {v.title}
-        </h1>
-        {value}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 id={titleId} className={PAGE_TITLE}>
+            {t.shared.vaults.address(shortAddress(vault.address))}
+          </h1>
+          <ChainBadge chain={read.chain} />
+        </div>
+        {valueRow(false)}
         <p className="max-w-(--tf-measure-body) text-body text-muted-foreground">
           {v.lead(chainName)}
         </p>
@@ -203,6 +286,33 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
       <VaultHoldings read={read} />
       <VaultDetails read={read} />
     </div>
+  );
+}
+
+/**
+ * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it has a target, it is
+ * outside the owner's band as the server reads it, with a trade of at least the smallest a rebalance
+ * makes (`ownerRebalanceOffered`: what a rebalance leaves in cash for its slippage is not drift), and
+ * auto-follow is off, so no keeper trades it. With a holding that has no price the shares
+ * are not known and nothing is offered. The server decides again when asked.
+ */
+export function offTarget(
+  vault: Pick<VaultResponse['vault'], 'autoFollow' | 'positions' | 'valueUsd'>,
+): boolean {
+  if (vault.autoFollow) return false;
+  const held = vault.positions.filter((p) => !/^0+$/.test(p.raw));
+  if (!vault.positions.some((p) => p.targetBps > 0) || held.some((p) => p.valueUsd === null))
+    return false;
+  const total = Number(vault.valueUsd);
+  if (!(total > 0)) return false;
+  const invested = vault.positions.reduce((n, p) => n + p.weightBps, 0);
+  const planned = vault.positions.reduce((n, p) => n + p.targetBps, 0);
+  // cash over its share is what the positions together are under theirs; the server's own rule
+  return ownerRebalanceOffered(
+    vault.positions,
+    planned - invested,
+    OWNER_REBALANCE_SLIPPAGE_BPS,
+    total,
   );
 }
 
@@ -233,6 +343,7 @@ function OwnVault({
   const { vault } = read;
   const empty = [vault.cash, ...vault.positions].every((h) => /^0+$/.test(h.raw));
   const targeted = vault.positions.some((position) => position.targetBps > 0);
+  const away = !empty && offTarget(vault);
   const deposit = (
     <Button
       variant="primary"
@@ -305,6 +416,21 @@ function OwnVault({
     setOpen(null);
     setPhase('open');
   };
+  // Opened from a follow that is done (`?do=rebalance`, features/order/order-api.ts): the pane opens
+  // on the rebalance once, where one is offered, as the press here would.
+  const arrived = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: read once, when the page is first shown
+  useEffect(() => {
+    if (arrived.current) return;
+    arrived.current = true;
+    let asked = false;
+    try {
+      asked = new URLSearchParams(window.location.search).get('do') === 'rebalance';
+    } catch {
+      // no address to read: nothing is opened
+    }
+    if (asked && away && !openNow.current) start('rebalance', '[data-action="vault-rebalance"]');
+  }, []);
 
   const action = open && {
     why:
@@ -342,6 +468,18 @@ function OwnVault({
           leave();
           onReadAgain();
         }}
+        // Deposit | Withdraw on the amount card, where the vault holds something to withdraw.
+        {...(!empty && (open.kind === 'deposit' || open.kind === 'withdraw')
+          ? {
+              onMode: (mode: 'deposit' | 'withdraw') =>
+                start(
+                  mode,
+                  mode === 'deposit'
+                    ? '[data-action="vault-deposit"]'
+                    : '[data-action="vault-withdraw"]',
+                ),
+            }
+          : {})}
       />
     ),
   };
@@ -387,7 +525,7 @@ function OwnVault({
               page
               fallback={
                 <h1 id={titleId} className={WORKSPACE_TITLE}>
-                  {v.title}
+                  {t.shared.vaults.address(shortAddress(vault.address))}
                 </h1>
               }
               // The name (the person's own, or "Vault #N") comes with their portfolio, read once the
@@ -415,6 +553,15 @@ function OwnVault({
                 >
                   {/* an empty vault's one action is on its empty card, in the pane */}
                   {!empty && deposit}
+                  {away && (
+                    <Button
+                      variant="secondary"
+                      data-action="vault-rebalance"
+                      onClick={() => start('rebalance', '[data-action="vault-rebalance"]')}
+                    >
+                      {p.rebalance}
+                    </Button>
+                  )}
                   {!empty && (
                     <Button
                       variant="secondary"
@@ -452,6 +599,14 @@ function OwnVault({
         }
         current={
           <>
+            {away && (
+              <p
+                data-ui="vault-off-target"
+                className="max-w-(--tf-measure-body) border-l-2 border-primary pl-4 text-body-sm"
+              >
+                {p.offTarget}
+              </p>
+            )}
             <VaultHoldings read={read} deposit={empty ? deposit : undefined} />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">

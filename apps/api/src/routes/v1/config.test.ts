@@ -36,7 +36,6 @@ describe('GET /v1/config', () => {
       keeperEnabled: false,
       agentSurface: false,
       // Off: the structurer's server-signing routes are registered only when it is on.
-      legacyStructurer: false,
     });
     expect(body.chains.map((c) => [c.id, c.mode, c.network, c.provenance])).toEqual([
       ['solana', 'mock', 'testnet', 'mock'],

@@ -173,7 +173,7 @@ describe('private strategy exploration for a new goal', () => {
         dictionary(lang).goal.explore.empty,
       );
       expect(host.querySelector('[data-ui="invest-screen"]')).toBeNull();
-      expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+      expect(host.querySelector('[data-ui="composition"]')).toBeNull();
       expect(host.querySelector('[data-ui="buy-card"]')).toBeNull();
       expect(host.querySelector('a[href^="/vaults/"]')).toBeNull();
       await send(host, 'I want a strategy with gold and cash');
@@ -196,12 +196,18 @@ describe('private strategy exploration for a new goal', () => {
       expect(find(host, '[data-ui="goal-strategy"]').textContent).not.toContain(
         dictionary(lang).shared.vault.conversation.comparison,
       );
+      // the ring draws the draft in its own order, a segment and a row a holding (gate WEIGHTS-RING)
+      const strategyCard = find(host, '[data-ui="goal-strategy"]');
       expect(
-        [...find(host, '[data-ui="plan-legs-bar"]').children].map(
-          (e) => (e as HTMLElement).style.width,
+        [...strategyCard.querySelectorAll('[data-ui="composition-segment"]')].map((e) =>
+          e.getAttribute('data-key'),
         ),
-        // the bar's legs lie largest first (plan-leg.md), whatever the draft's order
-      ).toEqual(['60%', '40%']);
+      ).toEqual(['solana:gldx', 'solana:usdc']);
+      expect(
+        [...strategyCard.querySelectorAll('[data-ui="composition-share"]')].map(
+          (e) => e.textContent,
+        ),
+      ).toEqual([4000, 6000].map((bps) => sourceValue(lang, bps / 10000, 'fraction')));
       expect(host.querySelector('[data-ui="buy-card"]')).toBeNull();
       // The preview's one primary button is "Deposit" (gate DEPOSIT-STEP, Thom, Oct 8): it opens the
       // deposit step, and neither buys, funds nor signs anything.
@@ -243,12 +249,12 @@ describe('private strategy exploration for a new goal', () => {
   it('shows the last preview again on return, offers no funding, and keeps earlier conversations to reopen', async () => {
     let host = await show();
     await send(host, 'Consider gold');
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     await unmountAll();
     host = await show();
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(host.querySelector('[data-ui="goal-empty-preview"]')).toBeNull();
     expect(host.querySelector('[data-ui="buy-card"]')).toBeNull();
     expect(
@@ -261,12 +267,12 @@ describe('private strategy exploration for a new goal', () => {
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
     expect(host.querySelector('[data-ui="goal-empty-preview"]')).not.toBeNull();
-    expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     // The earlier conversation is kept, listed by its first words, and comes back with its preview.
     await unmountAll();
     host = await show();
     await settle();
-    expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     const saved = [...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options].find((o) =>
       o.value.startsWith('conversation:'),
     );
@@ -275,7 +281,7 @@ describe('private strategy exploration for a new goal', () => {
     await mode(host, saved?.value ?? '');
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(calls).toHaveLength(1);
   });
   it('preserves exact plain words across unavailable API and reopen without fabricating reply', async () => {
@@ -460,7 +466,7 @@ describe('private strategy exploration for a new goal', () => {
     );
     await act(async () => release(json(response(messageId))));
     await settle();
-    expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     expect(localStorage.getItem(goalConversationKey(userId, 'solana', 'live'))).toBeNull();
     expect(localStorage.getItem(goalConversationKey(userId, 'solana', 'sandbox'))).toContain(
       'Sandbox-only words',
@@ -497,7 +503,7 @@ describe('private strategy exploration for a new goal', () => {
       const host = await show();
       await send(host, 'Consider gold');
       expect(host.textContent).toContain(en.goal.explore.failed);
-      expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+      expect(host.querySelector('[data-ui="composition"]')).toBeNull();
       expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
     },
   );
@@ -523,7 +529,7 @@ describe('the deposit step of a new goal', () => {
   const accept = '/v1/conversations/solana/goal/accept';
   const strategy = (host: HTMLElement) => find(host, '[data-ui="goal-strategy"]');
   const amount = (host: HTMLElement) =>
-    find<HTMLInputElement>(host, '[data-ui="amount-large"] input');
+    find<HTMLInputElement>(host, '[data-ui="amount-well"] input');
   /** Replies in turn; a null is a reply that failed. */
   const replies = (...turns: (Record<string, unknown> | null)[]) => {
     let n = 0;
@@ -557,7 +563,7 @@ describe('the deposit step of a new goal', () => {
     expect(step.querySelectorAll('input')).toHaveLength(1);
     // the same rows the preview drew, read only
     for (const line of preview.allocations)
-      expect(step.querySelector(`[data-asset="${line.assetId}"]`)).not.toBeNull();
+      expect(step.querySelector(`[data-row="${line.assetId}"]`)).not.toBeNull();
     // nothing is signed or ordered from /goal
     expect(calls.map((call) => call.path)).toEqual([path]);
     expect(router.push).not.toHaveBeenCalled();
@@ -600,7 +606,10 @@ describe('the deposit step of a new goal', () => {
     expect(host.querySelector('[data-ui="deposit-purpose"]')).toBeNull();
     expect(host.querySelector('[data-ui="deposit-goal"]')).toBeNull();
     expect(host.querySelector('[data-ui="deposit-risk"]')).toBeNull();
-    expect(host.querySelectorAll('[aria-pressed]')).toHaveLength(0);
+    // no toggle to tap a goal or a risk; a holding's row in the picture is the only pressable thing
+    expect(host.querySelectorAll('[aria-pressed]:not([data-ui="composition-row"])')).toHaveLength(
+      0,
+    );
     await type(amount(host), '250');
     await settle(CHECK_MS + 50);
     expect(calls.filter((call) => call.path === accept).at(-1)?.body).toMatchObject({
@@ -666,7 +675,7 @@ describe('the deposit step of a new goal', () => {
     await send(host, 'US$ 1.500,50 em ouro');
     await click(find(host, '[data-action="deposit"]'));
     expect(amount(host).value).toBe('1500,5');
-    expect(host.querySelector('[data-ui="amount-large"] [aria-invalid="true"]')).toBeNull();
+    expect(host.querySelector('[data-ui="amount-well"] [aria-invalid="true"]')).toBeNull();
   });
 
   it('changes the mix in the conversation: the box takes focus, and the proposal and amount stay', async () => {
@@ -698,7 +707,7 @@ describe('the deposit step of a new goal', () => {
     expect(find(host, '[data-ui="goal-retry"]').textContent).toContain(en.goal.explore.retry);
     expect(amount(host).value).toBe('250');
     expect(
-      strategy(host).querySelector(`[data-asset="${preview.allocations[0]?.assetId}"]`),
+      strategy(host).querySelector(`[data-row="${preview.allocations[0]?.assetId}"]`),
     ).not.toBeNull();
 
     // a reply that only talks changes what was said, not the mix
@@ -804,19 +813,33 @@ describe('the draft drawn on the plan bar', () => {
       await settle();
     };
   };
-  /** The bar's legs as drawn: each segment's width and colour, in order. */
+  /** The strip's segments as drawn: each holding and its colour, in order. */
   const legs = (host: HTMLElement) =>
-    [...find(host, '[data-ui="goal-strategy"] [data-ui="plan-legs-bar"]').children].map((el) => [
-      `${Number(Number.parseFloat((el as HTMLElement).style.width).toFixed(2))}%`,
-      el.className.match(/bg-leg-\d/)?.[0],
-    ]);
-  /** The label under the bar for each leg: its name and its share. */
+    [
+      ...find(
+        host,
+        '[data-ui="goal-strategy"] [data-ui="composition-strip"]',
+      ).querySelectorAll<HTMLElement>('[data-ui="composition-segment"]'),
+    ].map((el) => [el.getAttribute('data-key'), el.style.background]);
+  /** The row under the strip for each holding: its name and its share. */
   const labels = (host: HTMLElement) =>
-    [...find(host, '[data-ui="goal-strategy"] [data-ui="plan-legs"] ol').children].map(
-      (el) => el.textContent,
+    [
+      ...find(host, '[data-ui="preview-draft"] [data-ui="composition-list"]').querySelectorAll(
+        '[data-row]',
+      ),
+    ].map(
+      (el) =>
+        `${el.querySelector('[data-part="name"]')?.textContent}·${el.querySelector('[data-ui="composition-share"]')?.textContent}`,
     );
   const rowOf = (host: HTMLElement, symbol: string) =>
-    find(host, `tr[data-row="solana:${symbol.toLowerCase()}"]`);
+    find(host, `[data-ui="preview-draft"] [data-row="solana:${symbol.toLowerCase()}"]`);
+  /** The colour a holding is drawn in: its segment's, in the order the rows come. */
+  const swatchOf = (host: HTMLElement, symbol: string) =>
+    find<HTMLElement>(
+      host,
+      `[data-ui="goal-strategy"] [data-ui="composition-segment"][data-key="solana:${symbol.toLowerCase()}"]`,
+    ).style.background;
+  const id = (symbol: string) => `solana:${symbol.toLowerCase()}`;
   const SIX: [string, number][] = [
     ['SPY', 1667],
     ['QQQ', 1667],
@@ -828,41 +851,39 @@ describe('the draft drawn on the plan bar', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it.each(['en', 'pt'] as const)(
-    'draws four legs at most: the three largest holdings and the rest as one, with every holding in the rows (%s)',
+    'draws every holding as its own segment and row, coloured in the draft’s order, cash in its neutral (%s)',
     async (lang) => {
-      // six holdings, the first four a hair larger: SPY, QQQ and NVDA are a leg each, the other three
-      // one; the legs lie largest first, so the grouped one, which is the largest, leads
+      // six holdings: no grouping any more (gate WEIGHTS-RING); each is a segment and a row
       answer([{ proposal: mixOf(...SIX) }]);
       const host = await show(lang);
       await send(host, 'Six things');
-      const others = dictionary(lang).shared.vault.conversation.others(3);
       const share = (bps: number) => sourceValue(lang, bps / 10000, 'fraction');
-      expect(find(host, '[data-ui="holding-legs"]').getAttribute('data-legs')).toBe('4');
-      expect(legs(host)).toEqual([
-        ['49.99%', 'bg-leg-1'],
-        ['16.67%', 'bg-leg-2'],
-        ['16.67%', 'bg-leg-3'],
-        ['16.67%', 'bg-leg-4'],
-      ]);
-      // each leg is labelled right under the bar; the grouped one says how many it holds and their sum
-      expect(labels(host)).toEqual([
-        `${others}·${share(4999)}`,
-        `SPY·${share(1667)}`,
-        `QQQ·${share(1667)}`,
-        `NVDA·${share(1667)}`,
-      ]);
-      // every holding has its own row with its exact share, and the swatch of the leg it is drawn in
+      const fills = [1, 2, 3, 4, 5]
+        .map((n) => `var(--tf-share-${n})`)
+        .concat('var(--tf-share-cash)');
+      expect(legs(host)).toEqual(SIX.map(([symbol], i) => [id(symbol), fills[i]]));
+      // the strip is said once in words, every holding with its share
+      expect(find(host, '[data-ui="goal-strategy"] [role="img"]').getAttribute('aria-label')).toBe(
+        dictionary(lang).shared.composition.summary(
+          SIX.map(([symbol, bps]) => `${symbol} ${share(bps)}`).join(', '),
+        ),
+      );
+      // every holding has its own row with its exact share, and a segment in its colour
       for (const [i, [symbol, bps]] of SIX.entries()) {
-        expect(find(rowOf(host, symbol), '[data-part="share"]').textContent).toBe(share(bps));
-        expect(find(rowOf(host, symbol), '[data-part="swatch"]').className).toContain(
-          `bg-leg-${i < 3 ? i + 2 : 1}`,
+        expect(find(rowOf(host, symbol), '[data-ui="composition-share"]').textContent).toBe(
+          share(bps),
         );
+        expect(swatchOf(host, symbol)).toBe(fills[i]);
       }
-      expect(find(host, '[data-ui="goal-strategy"]').querySelectorAll('tbody tr')).toHaveLength(6);
+      expect(
+        find(host, '[data-ui="preview-draft"] [data-ui="composition-list"]').querySelectorAll(
+          '[data-row]',
+        ),
+      ).toHaveLength(6);
     },
   );
 
-  it('groups by size, not by place: a large holding late in the draft keeps its own leg', async () => {
+  it('colours by place, not by size: a large holding late in the draft keeps its place and its slot', async () => {
     answer([
       {
         proposal: mixOf(['USDC', 500], ['SPY', 4000], ['QQQ', 500], ['GLD', 3000], ['NVDA', 2000]),
@@ -870,47 +891,37 @@ describe('the draft drawn on the plan bar', () => {
     ]);
     const host = await show();
     await send(host, 'Five things');
-    // the three largest, largest first, then the two small ones together; the rows keep the draft's order
-    expect(labels(host)).toEqual([
-      'SPY·40%',
-      'GLD·30%',
-      'NVDA·20%',
-      `${en.shared.vault.conversation.others(2)}·10%`,
+    // the rows and the segments keep the draft's order; a colour follows the holding, not its size
+    expect(labels(host)).toEqual(['USDC·5%', 'SPY·40%', 'QQQ·5%', 'GLD·30%', 'NVDA·20%']);
+    expect(['USDC', 'SPY', 'QQQ', 'GLD', 'NVDA'].map((symbol) => swatchOf(host, symbol))).toEqual([
+      'var(--tf-share-cash)',
+      'var(--tf-share-1)',
+      'var(--tf-share-2)',
+      'var(--tf-share-3)',
+      'var(--tf-share-4)',
     ]);
-    expect(legs(host).map(([width]) => width)).toEqual(['40%', '30%', '20%', '10%']);
-    const swatch = (symbol: string) =>
-      find(rowOf(host, symbol), '[data-part="swatch"]').className.match(/bg-leg-\d/)?.[0];
-    expect(['USDC', 'SPY', 'QQQ', 'GLD', 'NVDA'].map(swatch)).toEqual([
-      'bg-leg-4',
-      'bg-leg-1',
-      'bg-leg-4',
-      'bg-leg-2',
-      'bg-leg-3',
-    ]);
+    expect(legs(host).map(([key]) => key)).toEqual(['USDC', 'SPY', 'QQQ', 'GLD', 'NVDA'].map(id));
   });
 
-  it('gives four holdings or fewer a leg each, and is his bar: pill ends, no button, nothing dimmed', async () => {
+  it('draws a few holdings as a strip that is a picture: no control in it, nothing lit at rest, no motion', async () => {
     answer([{ proposal: mixOf(['SPY', 5000], ['GLD', 3000], ['USDC', 2000]) }]);
     const host = await show();
     await send(host, 'A fund, gold and cash');
     expect(legs(host)).toEqual([
-      ['50%', 'bg-leg-1'],
-      ['30%', 'bg-leg-2'],
-      ['20%', 'bg-leg-3'],
+      [id('SPY'), 'var(--tf-share-1)'],
+      [id('GLD'), 'var(--tf-share-2)'],
+      [id('USDC'), 'var(--tf-share-cash)'],
     ]);
     expect(labels(host)).toEqual(['SPY·50%', 'GLD·30%', 'USDC·20%']);
-    const bar = find(host, '[data-ui="goal-strategy"] [data-ui="plan-legs-bar"]');
-    // a picture: the labels and the rows carry everything, and the bar is not a control
-    expect(bar.getAttribute('aria-hidden')).toBe('true');
-    expect(bar.querySelector('button, [tabindex]')).toBeNull();
-    expect(bar.firstElementChild?.className).toContain('first:rounded-l-full');
-    expect(bar.lastElementChild?.className).toContain('last:rounded-r-full');
-    // pointing at a label rules its segment; no class dims a segment or lifts one, and no row lights
+    const strip = find(host, '[data-ui="goal-strategy"] [role="img"]');
+    // a picture: the rows carry everything, and the strip is not a control
+    expect(strip.querySelector('button, [tabindex]')).toBeNull();
+    // at rest nothing is lit or dimmed
     const strategy = find(host, '[data-ui="goal-strategy"]');
-    expect(bar.innerHTML).not.toMatch(/opacity-|translate-y/);
+    expect(strategy.querySelector('[data-dim]')).toBeNull();
     expect(strategy.querySelector('[data-lit], [data-part="piece"], [role="toolbar"]')).toBeNull();
-    // the legs seat once when a draft arrives (plan-lock; a crossfade under reduced motion, in CSS)
-    expect([...bar.children].every((el) => el.className.includes('animate-seat'))).toBe(true);
+    // the plan-lock went with the bar (gate WEIGHTS-RING): the draft arrives with no motion
+    expect(find(strategy, '[data-ui="composition"]').innerHTML).not.toMatch(/animate-/);
   });
 
   it('keeps the last mix when the next reply is only a question, and never called it a new draft', async () => {
@@ -969,7 +980,7 @@ describe('the draft drawn on the plan bar', () => {
     expect(boxes.getAttribute('aria-hidden')).toBe('true');
     expect(boxes.textContent).toBe('');
     expect(boxes.querySelectorAll('[data-ui="skeleton"]').length).toBeGreaterThan(6);
-    expect(strategy.querySelector('[data-ui="holding-legs"]')).toBeNull();
+    expect(strategy.querySelector('[data-ui="composition"]')).toBeNull();
     expect(strategy.textContent).not.toMatch(/\d\s?%/);
     // the wait is announced by the conversation, once: the card is busy, and is no live region
     expect(strategy.getAttribute('aria-busy')).toBe('true');
@@ -994,7 +1005,7 @@ describe('the draft drawn on the plan bar', () => {
     expect(pendingLine.textContent).toBe('');
     expect(strategy.querySelector('[data-set-back]')).toBeNull();
     const shares = () =>
-      [...strategy.querySelectorAll('[data-part="share"]')].map((el) => el.textContent);
+      [...strategy.querySelectorAll('[data-ui="composition-share"]')].map((el) => el.textContent);
     const before = shares();
     await send(host, 'Swap the gold for a second fund');
     // the banner leads the card: it is the first thing in it, with the mark of a wait beside its words
@@ -1011,10 +1022,11 @@ describe('the draft drawn on the plan bar', () => {
     const back = find(strategy, '[data-set-back]');
     expect(back.className).toContain('text-muted-foreground');
     expect(back.className).not.toMatch(/(^| )opacity-/);
-    expect(back.contains(find(strategy, '[data-ui="plan-legs-bar"]'))).toBe(true);
-    // nothing is dimmed, the bar included (plan-leg.md): no opacity anywhere in what is set back
-    expect(`${back.className} ${back.innerHTML}`).not.toMatch(/opacity-/);
-    expect(back.contains(find(strategy, 'table'))).toBe(true);
+    expect(back.contains(find(strategy, '[data-ui="composition-strip"]'))).toBe(true);
+    // nothing is dimmed, the strip included: no opacity on what is set back, and no segment dimmed
+    expect(back.className).not.toMatch(/(^| )opacity-/);
+    expect(back.querySelector('[data-dim]')).toBeNull();
+    expect(back.contains(find(strategy, '[data-ui="composition-list"]'))).toBe(true);
     expect(back.textContent).toContain(preview.objective);
     // the banner and the action are not set back
     expect(back.contains(pendingLine)).toBe(false);
@@ -1044,13 +1056,13 @@ describe('the draft drawn on the plan bar', () => {
     expect(strategy.querySelector('[data-set-back]')).toBeNull();
     // the next draft is simply the new bar and rows: each figure the proposal's own
     expect(legs(host)).toEqual([
-      ['60%', 'bg-leg-1'],
-      ['20%', 'bg-leg-2'],
-      ['20%', 'bg-leg-3'],
+      [id('SPY'), 'var(--tf-share-1)'],
+      [id('USDC'), 'var(--tf-share-cash)'],
+      [id('QQQ'), 'var(--tf-share-2)'],
     ]);
     expect(labels(host)).toEqual(['SPY·60%', 'USDC·20%', 'QQQ·20%']);
-    expect(find(rowOf(host, 'SPY'), '[data-part="share"]').textContent).toBe('60%');
-    expect(strategy.querySelector('tr[data-row="solana:gld"]')).toBeNull();
+    expect(find(rowOf(host, 'SPY'), '[data-ui="composition-share"]').textContent).toBe('60%');
+    expect(strategy.querySelector('[data-row="solana:gld"]')).toBeNull();
   });
 
   it('keeps the mix before it when the next reply does not come', async () => {
@@ -1062,12 +1074,12 @@ describe('the draft drawn on the plan bar', () => {
     });
     const host = await show();
     await send(host, 'Gold and cash');
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     fail = true;
     await send(host, 'Something else');
     // the settled rule (gate DEPOSIT-STEP): the chat says it failed, and the last mix stays usable
     expect(find(host, '[role="alert"]').textContent).toBe(en.goal.explore.failed);
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(host.querySelector('[data-ui="goal-empty-preview"]')).toBeNull();
     expect(find(host, '[data-ui="preview-pending"]').textContent).toBe('');
     expect(find(host, '[data-action="deposit"]').getAttribute('aria-disabled')).toBeNull();
@@ -1465,7 +1477,7 @@ describe('the relaxed intake’s plan on /goal (RELAXED-INTAKE)', () => {
     const host = await show();
     await send(host, 'Grow $2,000');
     expect(
-      find(host, '[data-ui="goal-strategy"]').querySelector('[data-ui="holding-legs"]'),
+      find(host, '[data-ui="goal-strategy"]').querySelector('[data-ui="composition"]'),
     ).not.toBeNull();
     expect(host.querySelector('[data-ui="preview-view"]')).toBeNull();
     expect(host.querySelector('[data-ui="projection-chart"]')).toBeNull();

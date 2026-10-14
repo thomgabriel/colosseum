@@ -27,7 +27,7 @@ import {
   walletsFromClaim,
 } from '../plugins/auth';
 import { registerV1Routes } from '../routes/v1';
-import { planFixture, testIssuer } from '../testing/harness';
+import { planFixture, testIssuer, WHOLE } from '../testing/harness';
 import { createChainRegistry } from './chains';
 import { Refusal, refusalFromChainError, UNSAID_CHAIN_ERROR } from './errors';
 import { attemptFor, orderStatus } from './legs';
@@ -654,6 +654,78 @@ describe('prepareIntent holds a buy to the caps itself, for a caller that does n
   });
 });
 
+describe('a first deposit where the chain needs an approval opens the vault first', () => {
+  // Gate CREATE-BEFORE-APPROVE: a wallet warns about an approval to an address with no code, so the
+  // vault is opened, empty, before the approval that names it. Solana needs no approval and keeps its
+  // steps.
+  const evm = mockAddress('robinhood', 'a first depositor');
+  const planId = '7c0f1d2e-5a4b-4c3d-8e2f-1a0b9c8d7e6f';
+  const chains = registry();
+  const prepare = () =>
+    prepareIntent(
+      {
+        type: 'buy',
+        owner: { evm },
+        amountUsd: 600,
+        proposalId: planId,
+      } as IntentRequest,
+      {
+        principal: {
+          kind: 'user',
+          wallets: [{ family: 'evm', address: evm, kind: 'external' }],
+          ip: '',
+        },
+        chains,
+        loadProposal: async (id) => (id === planId ? planFixture('robinhood') : null),
+        homeChain: async () => 'robinhood',
+        loadFamilies: async () => [],
+        now: '2026-10-13T15:00:00.000Z',
+      },
+    );
+
+  it('plans the create, empty, then the approval, then the deposit with its trades', async () => {
+    const order = await prepare();
+    expect(order.legs.map((l) => [l.seq, l.kind, l.trades.length, l.cashRaw])).toEqual([
+      [0, 'create_vault', 0, undefined],
+      [1, 'approve', 0, '600000000'],
+      [2, 'deposit', 3, '600000000'],
+    ]);
+    expect(order.depositRaw).toBe('600000000');
+    // Each trade keeps the minimum the order states for it, on the step that makes it.
+    expect(order.legs[2]?.expected).toHaveLength(3);
+    expect(order.legs.map((l) => l.description.replace(/ and swap into .*/, ''))).toEqual([
+      'Open the vault for this plan',
+      'Allow your vault to take $600.00 of cash',
+      'Deposit $600.00 into the vault',
+    ]);
+  });
+
+  it('stopped after the create: the plan opened again goes on from the approval', async () => {
+    const { adapter, mock } = chains.get('robinhood');
+    if (!mock) throw new Error('not on the mock');
+    const first = await prepare();
+    mock.fund(evm, { gasRaw: (10n ** 18n).toString() });
+    await mock.send(
+      await adapter.buildCreateVault({
+        owner: evm,
+        basketId: first.basketId ?? '',
+        targets: Object.entries(WHOLE).map(([slug, weightBps]) => ({
+          asset: `robinhood:${slug}`,
+          weightBps,
+        })),
+        autoFollow: false,
+        slippageBps: 100,
+      }),
+    );
+    const again = await prepare();
+    expect(again.basketId).toBe(first.basketId);
+    expect(again.legs.map((l) => [l.kind, l.trades.length, l.cashRaw])).toEqual([
+      ['approve', 0, '600000000'],
+      ['deposit', 3, '600000000'],
+    ]);
+  });
+});
+
 describe('a plan’s number onchain', () => {
   it('is a 64-bit number, the same for the same plan and in any letter case', () => {
     const id = '4b1c0f0e-3f8e-4d0e-9d2b-0d7a3a6b1c2d';
@@ -867,6 +939,8 @@ describe('the /v1 route table', () => {
       '/v1/vaults/{chain}/{address}/conversation',
       '/v1/vaults/{chain}/{address}/conversation/reply',
       '/v1/vaults/{chain}/{address}/name',
+      '/v1/vaults/{chain}/{address}/rebalance',
+      '/v1/vaults/{chain}/{address}/rebalance/quote',
       '/v1/vaults/{chain}/{address}/targets',
     ]);
     // No route lets a caller through without a token: 503 with no Privy app set, 401 with one.
@@ -981,6 +1055,8 @@ describe('no /v1 route can make the server sign', () => {
       'portfolio/rebalances.ts',
       'portfolio/scope.ts',
       'portfolio/snapshots.ts',
+      // why a vault's holdings are there, from stored reasons and the chain's asset list: no key
+      'portfolio/why.ts',
       'routes/v1/baskets.ts',
       'routes/v1/config.ts',
       'routes/v1/funding.ts',

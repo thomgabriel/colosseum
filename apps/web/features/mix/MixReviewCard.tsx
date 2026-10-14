@@ -8,6 +8,7 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { AssetMark } from '../order/PlanView';
+import { displayName, plainNames } from '../order/plain';
 import { dollars } from '../portfolio/figures';
 import { unticked } from './mix';
 
@@ -142,7 +143,8 @@ export function MixReviewCard({
                   <span className="flex min-w-0 items-center gap-2">
                     <AssetMark asset={line.assetId} />
                     <span className="min-w-0 [overflow-wrap:anywhere]">
-                      {line.cls === 'cash' ? r.cash : line.symbol}
+                      {/* the one name every step uses for it, never the chain's symbol */}
+                      {line.cls === 'cash' ? r.cash : displayName(line.assetId, t.plan)}
                     </span>
                   </span>
                   <span className="mt-2 flex flex-col gap-1 text-caption text-muted-foreground">
@@ -201,7 +203,8 @@ export function MixReviewCard({
                   onChange={(e) => onTick(warning.id, e.currentTarget.checked)}
                 />
                 <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {warning.text}
+                  {/* the server's sentence, with a test network's token named as the rows name it */}
+                  {plainNames(warning.text)}
                   {warning.figures.map((figure) => (
                     <span
                       key={`${figure.label}:${figure.fetchedAt}`}

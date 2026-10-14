@@ -13,6 +13,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ChainRegistry } from '../../orders/chains';
 import { basketIdOf } from '../../orders/prepare';
+import { insertOrder } from '../../orders/store';
 import { chainOf, orderFlow, type Sent, walletOf } from '../../testing/flow';
 import {
   type HomeChain,
@@ -98,8 +99,9 @@ const mockOf = (chain: HomeChain, reg = registry) => {
 describe('the walking skeleton: a buy on the chain of the person’s wallet, on the mock', () => {
   it('goes from an intent to settled legs, and reads back in the portfolio, on each chain', async () => {
     // One leg per step, in the order they are signed, all on the person's own chain. Solana opens the
-    // vault with the cash, then trades one asset per transaction; Robinhood Chain approves, then opens
-    // and buys in one. The step that moves the cash carries the whole deposit.
+    // vault with the cash, then trades one asset per transaction; Robinhood Chain opens the vault
+    // empty, approves it, then deposits and buys in one (gate CREATE-BEFORE-APPROVE). The step that
+    // moves the cash carries the whole deposit.
     const steps = {
       solana: [
         ['solana', 0, 'create_vault', 0, '1000000000'],
@@ -108,8 +110,9 @@ describe('the walking skeleton: a buy on the chain of the person’s wallet, on 
         ['solana', 3, 'swap', 1, undefined],
       ],
       robinhood: [
-        ['robinhood', 0, 'approve', 0, '1000000000'],
-        ['robinhood', 1, 'create_vault', 3, '1000000000'],
+        ['robinhood', 0, 'create_vault', 0, undefined],
+        ['robinhood', 1, 'approve', 0, '1000000000'],
+        ['robinhood', 2, 'deposit', 3, '1000000000'],
       ],
     };
     for (const chain of CHAINS) {
@@ -501,9 +504,10 @@ describe('what a leg is expected to pay out', () => {
         }
       }
       if (chain === 'robinhood') {
-        // On the EVM chain the first trades ride in the create: one leg, three trades, three figures.
-        expect(placed.legs.find((l) => l.kind === 'create_vault')?.expected).toHaveLength(3);
-        expect(first(placed, 0)).toMatchObject({ kind: 'approve', expected: [] });
+        // On the EVM chain the first trades ride in the deposit: one leg, three trades, three figures.
+        expect(placed.legs.find((l) => l.kind === 'deposit')?.expected).toHaveLength(3);
+        expect(first(placed, 0)).toMatchObject({ kind: 'create_vault', expected: [] });
+        expect(first(placed, 1)).toMatchObject({ kind: 'approve', expected: [] });
       }
       // Solana trades one a transaction: three swap legs with one figure each.
       else expect(placed.legs.map((l) => l.expected.length)).toEqual([0, 1, 1, 1]);
@@ -514,13 +518,15 @@ describe('what a leg is expected to pay out', () => {
     const a = await someone('robinhood');
     await fund(a);
     const placed = await order(a);
-    const [approve, create] = [first(placed, 0), first(placed, 1)];
-    const approved = await build(a, placed, approve.id);
-    expect(approved.tx.preview.minimums).toEqual([]);
-    await report(a, placed, approve.id, { txId: await land(a, placed, approve.id) });
+    const [create, approve, deposit] = [first(placed, 0), first(placed, 1), first(placed, 2)];
+    for (const step of [create, approve]) {
+      const built = await build(a, placed, step.id);
+      expect(built.tx.preview.minimums).toEqual([]);
+      await report(a, placed, step.id, { txId: await land(a, placed, step.id) });
+    }
 
-    const { tx } = await build(a, placed, create.id);
-    const leg = legOf(await read(a, placed), create.id);
+    const { tx } = await build(a, placed, deposit.id);
+    const leg = legOf(await read(a, placed), deposit.id);
     expect(tx.preview.minimums).toEqual(
       leg.trades.map((t, i) => ({
         sell: t.sell,
@@ -530,6 +536,110 @@ describe('what a leg is expected to pay out', () => {
       })),
     );
     expect(leg.expected).toHaveLength(3);
+  });
+
+  it('a first deposit on an EVM chain approves a vault that is there: the create lands before the approval is built', async () => {
+    // Gate CREATE-BEFORE-APPROVE. A wallet warns in red about an approval to an address with no code.
+    const a = await someone('robinhood');
+    await fund(a);
+    const { adapter } = registry.get('robinhood');
+    const placed = await order(a);
+    const [create, approve, deposit] = [first(placed, 0), first(placed, 1), first(placed, 2)];
+    expect([create.kind, approve.kind, deposit.kind]).toEqual([
+      'create_vault',
+      'approve',
+      'deposit',
+    ]);
+    // Nothing is approved before the vault exists: the approval waits for the create.
+    const early = await post(a, legUrl(placed, approve.id, 'build'));
+    expect([early.statusCode, early.json().error]).toEqual([
+      409,
+      'an earlier step on this chain has not settled yet',
+    ]);
+    expect(await adapter.getVaults(a.evm)).toEqual([]);
+
+    // The create moves no cash and trades nothing.
+    const opened = await build(a, placed, create.id);
+    expect([opened.tx.preview.changes, opened.tx.preview.minimums]).toEqual([[], []]);
+    const before = await adapter.getWalletHoldings(a.evm);
+    await report(a, placed, create.id, { txId: await land(a, placed, create.id) });
+    expect(await adapter.getWalletHoldings(a.evm)).toEqual(before);
+
+    // The spender the approval's bytes name is the vault that now exists, the person's own.
+    const { tx } = await build(a, placed, approve.id);
+    const sent = JSON.parse(Buffer.from(tx.payload.replace(/^0x/, ''), 'hex').toString('utf8'));
+    const spender = sent.op.a.spender as string;
+    const vault = await adapter.getVault(spender);
+    expect(vault).toMatchObject({ owner: a.evm, basketId: placed.basketId });
+    expect(vault?.cash.raw).toBe('0');
+    await report(a, placed, approve.id, { txId: await land(a, placed, approve.id) });
+
+    // The deposit is the one step that moves the cash, and the vault's trades ride in it.
+    const done = await settleAll(a, { ...placed, legs: [deposit] });
+    expect(done.status).toBe('done');
+    const after = await adapter.getVault(spender);
+    expect(
+      after?.positions
+        .filter((p) => p.raw !== '0')
+        .map((p) => p.asset)
+        .sort(),
+    ).toEqual(['robinhood:gold', 'robinhood:nvda', 'robinhood:spy']);
+  });
+
+  it('a first deposit stopped after another order opened the vault: its create is refused with what to do', async () => {
+    // Two orders for one plan, made before either opened the vault. The first opens it; the second's
+    // empty create would be refused on chain (`VaultExists`). The API says to make the deposit again,
+    // which plans the approval and the deposit into the open vault.
+    const a = await someone('robinhood');
+    await fund(a);
+    const [one, two] = [await order(a, { amountUsd: 400 }), await order(a, { amountUsd: 300 })];
+    const opened = first(one, 0);
+    await build(a, one, opened.id);
+    await report(a, one, opened.id, { txId: await land(a, one, opened.id) });
+
+    const refused = await post(a, legUrl(two, first(two, 0).id, 'build'));
+    expect([refused.statusCode, refused.json()]).toEqual([
+      409,
+      {
+        error: 'the vault for this plan is open already: make the deposit again',
+        fix: 'Make the deposit again: it goes into the vault that is open.',
+      },
+    ]);
+    expect((await read(a, two)).attempts).toEqual([]);
+    const again = await order(a, { amountUsd: 300 });
+    expect(again.legs.map((l) => l.kind)).toEqual(['approve', 'deposit']);
+  });
+
+  it('refuses to build a create that takes the cash in an order that deposits it again', async () => {
+    // No order the API plans has this shape: one stored by hand stands for an order made by an older
+    // or a wrong planner. Its create is never built with the cash.
+    const a = await someone('robinhood');
+    await fund(a);
+    const placed = await order(a, { amountUsd: 400 });
+    const id = randomUUID();
+    const crafted = {
+      ...placed,
+      id,
+      legs: placed.legs.map((l) => ({
+        ...l,
+        id: randomUUID(),
+        orderId: id,
+        ...(l.kind === 'create_vault' ? { cashRaw: placed.depositRaw } : {}),
+      })),
+    };
+    const { attempts: _, ...stored } = crafted;
+    await insertOrder(data.db, Order.parse(stored), {
+      type: 'buy',
+      owner: a.owner,
+      amountUsd: 400,
+      proposalId: plans.robinhood,
+    });
+    const refused = await post(a, legUrl(crafted, first(crafted, 0).id, 'build'));
+    expect([refused.statusCode, refused.json().error]).toEqual([
+      409,
+      'this order opens its vault with cash and deposits again: make it again',
+    ]);
+    expect(await registry.get('robinhood').adapter.getVaults(a.evm)).toEqual([]);
   });
 
   it('builds with the slippage the buy asked for, up to the cap and no further', async () => {
@@ -614,7 +724,9 @@ describe('ownership: an order belongs to the wallets that made it', () => {
           const entry = inner.get(chain);
           const buildApprove: typeof entry.adapter.buildApprove = (args) =>
             entry.adapter.buildApprove({ ...args, owner: b.evm });
-          return { ...entry, adapter: { ...entry.adapter, buildApprove } };
+          const buildCreateVault: typeof entry.adapter.buildCreateVault = (args) =>
+            entry.adapter.buildCreateVault({ ...args, owner: b.evm });
+          return { ...entry, adapter: { ...entry.adapter, buildApprove, buildCreateVault } };
         },
       }),
     });
@@ -1178,7 +1290,8 @@ describe('on an EVM chain an attempt is the pair (message, nonce)', () => {
 
   it('does not take an older identical call of the same wallet for a step built after it', async () => {
     const a = await someone('robinhood');
-    await fund(a);
+    // The vault is open, so the order's first step is the approval.
+    await openVault(a);
     const mock = mockOf('robinhood');
     const { adapter } = registry.get('robinhood');
     const basketId = basketIdOf(plans.robinhood);
@@ -1390,7 +1503,9 @@ describe('on an EVM chain an attempt is the pair (message, nonce)', () => {
 
   it('does not build two orders of one wallet on the same nonce: the second waits for the first', async () => {
     const a = await someone('robinhood');
-    await fund(a);
+    // The vault is open: each order is an approval and a deposit, and the second does not depend on
+    // the first's create.
+    await openVault(a);
     const [one, two] = [await order(a, { amountUsd: 400 }), await order(a, { amountUsd: 300 })];
     const built = await build(a, one, first(one).id);
 
@@ -1681,7 +1796,8 @@ describe('refusals', () => {
     let clock = Date.now();
     const timed = await testApp({ issuer: issuer.issuer, db: data.db, now: () => new Date(clock) });
     const on = timed.app;
-    await fund(a, on);
+    // The vault is open, so each order's first step is an approval for its own amount.
+    await openVault(a, on, timed.registry);
 
     // An id that matches the attempt but was never sent: the chain has not seen it, the clock stays.
     const unsent = await order(a, { amountUsd: 400 }, on);

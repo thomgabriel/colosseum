@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Captures the snapshot the analytics view falls back to when the risk API does not answer.
 // Every route the page reads, once, as JSON under snapshot/, with manifest.json mapping the exact request
-// (path + query, or "POST path body") to its file and carrying captured_at.
+// (path + query, or "POST path body") to its file and carrying captured_at. Both stay local (.gitignore).
 //   node capture.mjs [apiBase]        default http://localhost:3011
 // Keys must match the request strings built in ../analytics.js (the R.* route builders).
 // Wallets: none are captured. scan.mjs checks every file for base58 strings that are not a displayed pool,

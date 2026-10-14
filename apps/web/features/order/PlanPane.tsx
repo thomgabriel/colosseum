@@ -24,7 +24,7 @@ import type { StoredPlan } from './plan-store';
 // that decided it (the rest are under "Details"); the exit plan as its own block; the figures and the
 // chart; and one button, "Invest $X". A plan carries no yield and no exit figure per holding
 // (`BasketLine` has neither), so the range and the exit cost are the plan's, each with its pin, said
-// once. A plan built on anything that is not live is hatched and says so in one line.
+// once. A plan built on anything that is not live says so once, in the card's sample tag.
 
 /** The first observation of a kind, as a pin takes it. Null when the plan names none: the pin shows a dash. */
 const observed = (observations: readonly ObservationRef[], kind: ObservationRef['kind']) => {
@@ -33,6 +33,9 @@ const observed = (observations: readonly ObservationRef[], kind: ObservationRef[
     ? { source: o.source, fetchedAt: o.fetchedAt, method: o.method, provenance: o.provenance }
     : null;
 };
+
+/** The kinds of asset a bad fall does not touch: cash and dollar yield. Any other, `unknown` too, may fall. */
+const HOLDS: ReadonlySet<string> = new Set(['cash', 'dollar_yield']);
 
 const percent = (value: number, lang: Lang) =>
   new Intl.NumberFormat(LOCALE[lang], {
@@ -102,6 +105,14 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
   const asked = income ? (sheet.incomeTargetUsdMonthly ?? null) : null;
   const monthly = income && ranged;
   const fall = card.expectedReturn.lossInFallUsd;
+  // A bad fall is said only where it stands on known kinds of asset. A loss above zero is the
+  // engine's count of the stocks, crypto and gold it found. A zero is said, in the headline and in
+  // the figure, only where the plan came with its spread by kind and that spread is all cash and
+  // dollar yield: a plan read back, or made from a mix, carries no spread, and its zero may be no
+  // more than kinds nobody sent (the UI audit, F2).
+  const kinds = plan.rollUp?.byClass ?? [];
+  const noneFalls = kinds.length > 0 && kinds.every((k) => HOLDS.has(k.key.replace(/-/g, '_')));
+  const fallSaid = fall > 0 || noneFalls;
   // The income meter's two ends, as shares of what was asked. Whether the plan reaches the ask is
   // the engine's verdict where it gave one, never this page's rounding: short of it, the solid part
   // stops short of the end.
@@ -172,8 +183,10 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
         ) : top && !income ? (
           fall > 0 ? (
             t.plan.answer.inFall(share(top.bps), top.what, dollars(fall, lang))
-          ) : (
+          ) : noneFalls ? (
             t.plan.answer.inNoFall(share(top.bps), top.what)
+          ) : (
+            t.plan.answer.inOnly(share(top.bps), top.what)
           )
         ) : ranged ? (
           <>
@@ -184,20 +197,18 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
         )
       }
       aside={
-        <>
-          {/* The ways the engine found to close the gap. Each is the engine's own sentence, with
-                its own figures. */}
-          {verdict && !verdict.met && verdict.ways.length > 0 && (
-            <div data-ui="plan-ways" className="flex flex-col items-start gap-2">
-              <p className="text-body-sm">{t.plan.verdict.ways}</p>
-              <ul className="flex list-disc flex-col gap-1 pl-5 text-body-sm">
-                {verdict.ways.map((way) => (
-                  <li key={way.change}>{way.change}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+        // The ways the engine found to close the gap, each the engine's own sentence with its own
+        // figures; with none, nothing, so the board keeps no empty gap for them.
+        verdict && !verdict.met && verdict.ways.length > 0 ? (
+          <div data-ui="plan-ways" className="flex flex-col items-start gap-2">
+            <p className="text-body-sm">{t.plan.verdict.ways}</p>
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-body-sm">
+              {verdict.ways.map((way) => (
+                <li key={way.change}>{way.change}</li>
+              ))}
+            </ul>
+          </div>
+        ) : undefined
       }
       under={
         <>
@@ -282,29 +293,31 @@ export function PlanPane({ plan, chain, blocked = null, invest, level = 2 }: Pla
         <>
           {/* What a bad fall could cost, as a bar against what goes in: the engine's own figure,
               which is an estimate and is said as one. No price is projected, so none is drawn. */}
-          <figure data-ui="plan-fall" className="m-0 flex flex-col gap-1.5">
-            <div
-              aria-hidden="true"
-              className="flex h-5 w-full justify-end border border-border bg-leg-3"
-            >
-              <span
-                data-ui="plan-fall-loss"
-                className="block h-full bg-foreground motion-safe:transition-[width] motion-safe:duration-300"
-                style={{ width: `${Math.min(100, (fall / sheet.amountUsd) * 100)}%` }}
-              />
-            </div>
-            <figcaption className="flex flex-col gap-0.5">
-              <span data-ui="plan-bad-fall" className="text-body">
-                {fall > 0 ? t.plan.badFall.some(dollars(fall, lang)) : t.plan.badFall.none}
-              </span>
-              <span className="text-caption text-muted-foreground">
-                {/* a goal with no date shows none, never the months it is built over (GLIDE-OPT-IN) */}
-                {sheet.horizonOpen
-                  ? `${t.plan.fall.putOpen(amount)} ${t.goal.card.noDate}.`
-                  : t.plan.fall.put(amount, t.goal.card.months(sheet.horizonMonths))}
-              </span>
-            </figcaption>
-          </figure>
+          {fallSaid && (
+            <figure data-ui="plan-fall" className="m-0 flex flex-col gap-1.5">
+              <div
+                aria-hidden="true"
+                className="flex h-5 w-full justify-end border border-border bg-leg-3"
+              >
+                <span
+                  data-ui="plan-fall-loss"
+                  className="block h-full bg-foreground motion-safe:transition-[width] motion-safe:duration-300"
+                  style={{ width: `${Math.min(100, (fall / sheet.amountUsd) * 100)}%` }}
+                />
+              </div>
+              <figcaption className="flex flex-col gap-0.5">
+                <span data-ui="plan-bad-fall" className="text-body">
+                  {fall > 0 ? t.plan.badFall.some(dollars(fall, lang)) : t.plan.badFall.none}
+                </span>
+                <span className="text-caption text-muted-foreground">
+                  {/* a goal with no date shows none, never the months it is built over (GLIDE-OPT-IN) */}
+                  {sheet.horizonOpen
+                    ? `${t.plan.fall.putOpen(amount)} ${t.goal.card.noDate}.`
+                    : t.plan.fall.put(amount, t.goal.card.months(sheet.horizonMonths))}
+                </span>
+              </figcaption>
+            </figure>
+          )}
           {/* Income: what the yield pays out over the months, from a range that has a source. A
               plan to grow or protect gets no curve: the engine projects no price. */}
           {card.cashFlow === 'monthly' && ranged && (

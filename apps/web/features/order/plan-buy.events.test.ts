@@ -164,7 +164,10 @@ describe('the plan screen', () => {
     const legs = find(host, '[data-ui="plan-legs"]').textContent;
     expect(legs).toContain('SPYx');
     expect(legs).not.toMatch(/solana:|spyx/);
-    expect(legs).toContain('Gold steadies the plan.');
+    // why each holding is there: in the card's one fold
+    expect(find(host, '[data-ui="plan-more"] [data-ui="plan-why"]').textContent).toContain(
+      'Gold steadies the plan.',
+    );
     // the projected range carries its pin, and the exit cost its own
     expect(host.querySelectorAll('[data-ui="pin"]').length).toBeGreaterThanOrEqual(2);
     expect(host.querySelector('[data-ui="exit-plan-line"]')?.textContent).toContain(
@@ -178,10 +181,10 @@ describe('the plan screen', () => {
     expect(find(host, '[data-ui="plan-details"]').textContent).toContain('How it was worked out');
     // the API sent no risk roll-up, so there is no panel for one
     expect(host.textContent).not.toContain(en.plan.risk.title);
-    // a plan built on a test network: the hatch and one quiet line, never the word MOCK
+    // a plan built on a test network: one quiet tag, never the word MOCK
     expect(host.textContent).not.toContain('MOCK');
     // figures read from a test network are not samples: the card says "Test network", once
-    expect(host.querySelector('[data-ui="sample-note"]')?.textContent).toBe(
+    expect(host.querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
       en.shell.testNetworkLine,
     );
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
@@ -299,9 +302,13 @@ describe('the plan screen', () => {
       },
     });
     const host = await plan();
-    // one picture whatever the count: a row per holding, and no table of holdings
+    // one strip and one table whatever the count: a row per holding, no second table of holdings
     expect(host.querySelectorAll('[data-ui="plan-legs"] [data-row]')).toHaveLength(5);
-    expect(host.querySelector('[data-ui="plan-legs"] table')).toBeNull();
+    expect(
+      [...host.querySelectorAll('[data-ui="plan-legs"] table')].map((t) =>
+        t.getAttribute('data-ui'),
+      ),
+    ).toEqual(['composition-table']);
     expect(host.textContent).toContain(en.plan.risk.title);
     expect(host.textContent).toContain('issuer one');
     expect(host.textContent).toContain(en.plan.risk.notMeasured);
@@ -535,7 +542,7 @@ describe('the buy screen', () => {
     const host = await buy();
     expect(host.textContent).not.toMatch(/MOCK/);
     // The buy card's own line (gate BUY-STEPS): a test network's figures are real reads, not samples.
-    const lines = [...host.querySelectorAll('[data-ui="data-note"], [data-ui="sample-note"]')].map(
+    const lines = [...host.querySelectorAll('[data-ui="data-note"], [data-ui="sample-tag"]')].map(
       (l) => l.textContent,
     );
     expect(lines).toEqual([en.buy.steps.note.testNetwork('Solana')]);
@@ -600,9 +607,10 @@ describe('the buy screen', () => {
     expect(funded.to('/v1/orders').flatMap((c) => (c.method === 'POST' ? [c.body] : []))).toEqual([
       { type: 'buy', owner: { evm: EVM }, amountUsd: 10, proposalId: PLAN_ID },
     ]);
-    // the order's two steps on the card, the permission first, and the press that names the amount
+    // the order's three steps on the card (the vault, the permission, the deposit), and the press
+    // that names the amount
     expect(ready.querySelectorAll('[data-ui="invest-card"] [data-ui="order-step"]')).toHaveLength(
-      2,
+      3,
     );
     expect(label(find(ready, SIGN))).toBe(en.invest.press('$10'));
     expect(router.push).not.toHaveBeenCalled();

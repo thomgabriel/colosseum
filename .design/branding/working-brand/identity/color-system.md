@@ -70,9 +70,9 @@ Always **word + shape + colour**, never colour alone (WCAG 2.2, 1.4.1).
 | **On track** | `leaf` #3FC47C | `leaf-l` #117940 | rgba(63,196,124,.14) | Solid square | On track |
 | **Watch** | `clay` #F0703A | `clay-l` #A64618 | rgba(240,112,58,.14) | Half-filled square | Watch |
 | **Off track / error** | `madder` #EF5A6F | `madder-l` #B52F44 | rgba(239,90,111,.14) | Square outline with a notch | Off track |
-| **Sample (mock)** | `muted` + 45° hatch | `muted-l` + hatch | none | Hatched pin or glyph, hatched card edge | the quiet line "Sample figures" (gate `MOCK-QUIET`: never a boxed MOCK word) |
+| **Sample (mock)** | `muted` + 45° hatch | `muted-l` + hatch | none | Hatched pin or glyph; the card's quiet tag (no hatched card edge since Oct 13) | the tag "Sample figures" (gate `MOCK-QUIET`: never a boxed MOCK word) |
 | **Stale** | hollow pin | hollow pin | none | Hollow square | stale · age |
-| **Test network (sandbox)** | as sample | as sample | none | as sample | "Sample figures · test network"; the buy card: "Test network · <chain> · not live" |
+| **Test network (sandbox)** | as sample | as sample | none | as sample | the tag "Test network"; the buy card: "Test network · <chain> · not live" |
 
 **Deltas** are signed (+ / U+2212) and coloured by direction: leaf up, madder down, muted flat. They sit beside or under the value they qualify, in a smaller size, never alone. Honey is never a status colour: watch is clay, so a honey button beside a watch badge never confuses.
 
@@ -86,7 +86,8 @@ Badges and chips are pills with the 14% tint as fill and the colour as text. Thi
 - **Projections:** the base case is a 2 px `honey` line with `curve-fill` (honey 35% → 0) beneath; stress cases are dashed `muted` and dashed `madder`; the measured past is solid. Dashed means projected, everywhere. The "today" marker is a 1 px dashed `chalk` vertical with a Plex Mono label.
 - **Sparklines:** coloured by direction (leaf, madder, muted), 1.5 px, no fill.
 - **Heatmaps (depth by hour of week):** a single ramp from the ground to pale honey, colour-blind safe because it is lightness-led. Night: `#1A1D26 → #5C3707 → #B06C12 → #F5A83A → #FFE9C2`. Day: reversed. No-sample cells are empty with an en dash, never hatched (the hatch means sample data).
-- **Never** a rainbow categorical palette. Direction colours carry direction only.
+- **What a vault holds (holdings):** the share palette, the one categorical set ([share-palette.md](./share-palette.md), gate `WEIGHTS-RING`, Thom, Oct 13): honey, pine, lagoon, plum, heather, bronze, then one neutral for the rest and one for cash, in the holdings' order. For holdings only.
+- **Never** a rainbow categorical palette elsewhere. Direction colours carry direction only.
 
 ---
 

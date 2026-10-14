@@ -84,9 +84,53 @@ describe('a plan to grow', () => {
         card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
       })),
     );
-    expect(answer(host)).toBe(en.plan.answer.inNoFall('60%', 'stocks'));
-    expect(width(find(host, '[data-ui="plan-fall-loss"]'))).toBe('0%');
+    // no "no loss counted" and no "$0 since nothing here is stocks": the spread holds stocks
+    expect(answer(host)).toBe(en.plan.answer.inOnly('60%', 'stocks'));
+    expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
     expect(host.querySelector('[data-ui="plan-yield"]')).toBeNull();
+  });
+
+  it('says $0 in a bad fall only where the spread holds no stocks, crypto or gold', async () => {
+    const host = await pane({
+      ...of('grow', (p) => ({
+        card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
+      })),
+      rollUp: {
+        ...ROLL_UP,
+        byClass: [
+          { key: 'dollar_yield', bps: 9500 },
+          { key: 'cash', bps: 500 },
+        ],
+      },
+    });
+    expect(answer(host)).toBe(en.plan.answer.inNoFall('95%', 'dollar yield'));
+    expect(find(host, '[data-ui="plan-bad-fall"]').textContent).toBe(en.plan.badFall.none);
+    expect(width(find(host, '[data-ui="plan-fall-loss"]'))).toBe('0%');
+  });
+
+  it('counts a kind the asset list does not know as one that may fall', async () => {
+    const host = await pane({
+      ...of('grow', (p) => ({
+        card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
+      })),
+      rollUp: { ...ROLL_UP, byClass: [{ key: 'unknown', bps: 10_000 }] },
+    });
+    expect(answer(host)).not.toMatch(/fall/);
+    expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
+  });
+
+  it('says nothing of a fall where the kinds are not known and the engine counted none', async () => {
+    // a plan made from a mix, or read back: no spread by kind, and a zero that may only mean that
+    const host = await pane({
+      ...of('grow', (p) => ({
+        card: { ...p.card, expectedReturn: { ...p.card.expectedReturn, lossInFallUsd: 0 } },
+      })),
+      rollUp: null,
+    });
+    expect(answer(host)).toBe(en.plan.answer.inOnly('60%', 'SPYx'));
+    expect(answer(host)).not.toMatch(/fall/);
+    expect(host.querySelector('[data-ui="plan-fall"]')).toBeNull();
+    expect(host.textContent).not.toContain(en.plan.badFall.none);
   });
 });
 
@@ -271,88 +315,101 @@ describe('the allocation, as the picture', () => {
     }
   });
 
-  it('draws one bar as a picture, a part per holding by its share, with a label to press under each', async () => {
+  it('draws a strip of what it holds over one list, a segment and a row per holding, cash in its neutral', async () => {
     const host = await pane(of('grow'));
-    const bar = find(host, '[data-ui="plan-bar"]');
-    const picture = find(bar, '[role="img"]');
+    const legs = find(host, '[data-ui="plan-legs"]');
+    const picture = find(legs, '[role="img"]');
+    expect(picture.querySelector('[data-ui="composition-strip"]')).not.toBeNull();
     // the picture is said once in words, and nothing in it can be pressed or focused
-    expect(picture.getAttribute('aria-label')).toBe('SPYx, 60%; GLDx, 35%; Cash (USDC), 5%');
+    expect(picture.getAttribute('aria-label')).toBe(
+      en.shared.composition.summary('SPYx 60%, GLDx 35%, Cash (USDC) 5%'),
+    );
     expect(picture.querySelector('button, a, [tabindex]')).toBeNull();
-    expect(picture.style.gridTemplateColumns).toBe('6000fr 3500fr 500fr');
-    const parts = [...picture.querySelectorAll('[data-part]')];
-    // the warm ramp, in order; nothing blue or violet
-    expect(parts.map((p) => p.className.match(/bg-leg-\d/)?.[0])).toEqual([
-      'bg-leg-1',
-      'bg-leg-2',
-      'bg-leg-3',
-    ]);
-    // a part too thin for its mark is plain: 5% of a phone's bar is under 24px
+    // the share palette in the order the holdings come; cash its neutral (gate WEIGHTS-RING)
     expect(
-      parts.map((p) => p.querySelector('[data-ui="asset-mark"] img')?.getAttribute('src') ?? null),
-    ).toEqual(['/assets/tokens/spyx.png', '/assets/tokens/gldx.png', null]);
-    // every holding has a label under the bar, a real target with its mark, name and share
-    const labels = [...bar.querySelectorAll('[data-ui="plan-labels"] button')];
-    expect(labels.map((l) => l.getAttribute('aria-label'))).toEqual([
-      'SPYx, 60%',
-      'GLDx, 35%',
-      'Cash (USDC), 5%',
+      [...legs.querySelectorAll<HTMLElement>('[data-ui="composition-segment"]')].map(
+        (p) => p.style.background,
+      ),
+    ).toEqual(['var(--tf-share-1)', 'var(--tf-share-2)', 'var(--tf-share-cash)']);
+    // one picture, one list: a single strip of three segments over one table
+    expect(legs.querySelectorAll('[data-ui="composition-strip"]')).toHaveLength(1);
+    expect(legs.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(3);
+    expect(legs.querySelectorAll('[data-ui="composition-list"]')).toHaveLength(1);
+    const rows = [...legs.querySelectorAll('[data-ui="composition-list"] [data-row]')];
+    expect(rows.map((r) => r.querySelector('[data-ui="composition-share"]')?.textContent)).toEqual([
+      '60%',
+      '35%',
+      '5%',
     ]);
-    for (const label of labels) {
-      expect(label.className).toMatch(/min-h-8 min-w-8/);
-      expect(label.className).toContain('focus-visible:outline-2');
-      expect(label.querySelector('[data-ui="asset-mark"]')).not.toBeNull();
+    for (const row of rows) {
+      expect(row.querySelector('[data-ui="asset-mark"]')).not.toBeNull();
+      expect(row.querySelector('button')?.className).toContain('focus-visible:outline-2');
     }
-    expect(labels[2]?.textContent).toContain('5%');
-    // it settles in as the plan arrives, only where motion is wanted
-    for (const part of parts) expect(part.className).toContain('motion-safe:animate-seat');
-    expect(bar.innerHTML).not.toMatch(/(?<!motion-safe:)animate-/);
   });
 
-  it('lights the part and the row of the label that is focused, pointed at or pressed, the thin one too', async () => {
+  it('lights the segment and the row of the holding focused, pointed at or pressed, the thin one too', async () => {
     const host = await pane(of('grow'));
     for (const asset of ['solana:gldx', 'solana:usdc']) {
-      const label = find(host, `[data-ui="plan-labels"] button[data-label^="${asset}"]`);
-      const row = () => find(host, `[data-ui="plan-rows"] [data-row^="${asset}"]`);
-      const part = () => find(host, `[data-ui="plan-bar"] [data-part^="${asset}"]`);
-      const lit = () => [row().getAttribute('data-lit'), part().getAttribute('data-lit')];
+      const row = () => find(host, `[data-ui="composition-list"] [data-row^="${asset}"]`);
+      const button = find(row(), 'button[data-ui="composition-row"]');
+      const segment = () => find(host, `[data-ui="composition-segment"][data-key^="${asset}"]`);
+      const lit = () => [row().getAttribute('data-lit'), segment().getAttribute('data-dim')];
+      const dimmed = () =>
+        host.querySelectorAll('[data-ui="composition-segment"][data-dim]').length;
       expect(lit()).toEqual([null, null]);
-      await click(label);
-      expect(lit()).toEqual(['true', 'true']);
-      expect(label.getAttribute('aria-pressed')).toBe('true');
+      await click(button);
+      expect(lit()).toEqual(['true', null]);
+      expect(dimmed()).toBe(2);
+      expect(button.getAttribute('aria-pressed')).toBe('true');
       expect(host.querySelectorAll('[data-row][data-lit]')).toHaveLength(1);
-      await click(label);
+      await click(button);
       expect(lit()).toEqual([null, null]);
+      expect(dimmed()).toBe(0);
       // the keyboard does what the pointer does
-      await fire(label, new FocusEvent('focusin', { bubbles: true }));
-      expect(lit()).toEqual(['true', 'true']);
-      await fire(label, new FocusEvent('focusout', { bubbles: true }));
-      expect(lit()).toEqual([null, null]);
+      await fire(button, new FocusEvent('focusin', { bubbles: true }));
+      expect(lit()).toEqual(['true', null]);
+      expect(dimmed()).toBe(2);
+      await fire(button, new FocusEvent('focusout', { bubbles: true }));
+      expect(dimmed()).toBe(0);
       const over = () =>
         new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body });
       const out = () => new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body });
-      for (const el of [label, part(), row()]) {
+      for (const el of [segment(), row()]) {
         await fire(el, over());
-        expect(lit()).toEqual(['true', 'true']);
+        expect(lit()).toEqual(['true', null]);
+        expect(dimmed()).toBe(2);
         await fire(el, out());
         expect(lit()).toEqual([null, null]);
       }
     }
   });
 
-  it('has one line a holding, with the reason closed under "Why this share"', async () => {
+  it('has one line a holding, and the reasons closed under one "Why these shares"', async () => {
     const host = await pane(of('grow'));
-    const rows = [...host.querySelectorAll('[data-ui="plan-rows"] [data-row]')];
+    const rows = [...host.querySelectorAll('[data-ui="composition-list"] [data-row]')];
     expect(rows).toHaveLength(3);
     const gold = rows[1] as HTMLElement;
     expect(gold.textContent).toContain('GLDx');
     expect(gold.textContent).toContain('35%');
     expect(gold.textContent).toContain('$14,000');
-    const fold = find<HTMLDetailsElement>(gold, 'details[data-ui="row-why"]');
-    expect(fold.open).toBe(false);
-    expect(find(fold, 'summary').textContent).toBe(en.plan.whyShare);
-    expect(fold.textContent).toContain('Gold steadies the plan.');
-    // a holding with no reason has no fold, and a plan's lines carry no yield of their own
-    expect(rows[0]?.querySelector('details')).toBeNull();
+    // no fold in a row: one for the card, a line for each holding that has a reason
+    for (const row of rows) expect(row.querySelector('details')).toBeNull();
+    // the card's one fold, closed, holds them
+    const more = find<HTMLDetailsElement>(host, 'details[data-ui="plan-more"]');
+    expect(more.open).toBe(false);
+    // the way out stays in view, outside the fold, in the holdings' panel
+    expect(more.querySelector('[data-ui="exit-plan-line"]')).toBeNull();
+    expect(find(host, '[data-ui="plan-legs"] [data-ui="exit-plan-line"]')).toBeTruthy();
+    // and the holdings' panel carries the sample mark on its figures, as the board does
+    expect(find(host, '[data-ui="plan-legs"] [data-ui="sample-tag"]')).toBeTruthy();
+    expect(find(more, 'summary').textContent).toBe(en.plan.aboutHoldings);
+    const fold = find(more, '[data-ui="plan-why"]');
+    expect(find(fold, 'h3').textContent).toBe(en.plan.whyShares);
+    expect(find(fold, '[data-row-why^="solana:gldx"]').textContent).toContain(
+      'Gold steadies the plan.',
+    );
+    // a holding with no reason has no line in it, and a plan's lines carry no yield of their own
+    expect(fold.querySelector('[data-row-why^="solana:spyx"]')).toBeNull();
     expect(host.querySelector('[data-ui="row-yield"]')).toBeNull();
   });
 });
@@ -393,6 +450,6 @@ describe('the pane in Portuguese', () => {
     const host = await pane(of('grow'), 'pt');
     expect(answer(host)).toMatch(/^60% em ações · numa queda forte, cerca de −US\$\s4\.000$/);
     expect(answer(host)).toContain(pt.plan.answer.inFall('60%', 'ações', '').trim());
-    expect(host.textContent).toContain(pt.plan.whyShare);
+    expect(host.textContent).toContain(pt.plan.whyShares);
   });
 });

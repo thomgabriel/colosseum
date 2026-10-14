@@ -80,7 +80,7 @@ export const rebalancing: Rebalancing = {
       'Quando um passo seu foi confirmado na rede. A hora mostrada é a de quando o passo foi montado.',
       'Quanto uma operação pagou. O custo mostrado é o de uma cotação, em pontos-base: 100 bps são 1%.',
       'As operações do nosso operador, uma por uma. Cada uma é deduzida de duas leituras de um cofre nos últimos trinta dias, então não tem transação, cotação nem motivo, e várias operações de um ativo entre duas leituras aparecem como uma só.',
-      'Uma versão que nosso operador adotou para você, e seus próprios rebalanceamentos, saques e mudanças de configuração: essas ordens ainda não existem.',
+      'Uma versão que nosso operador adotou para você, e seus próprios saques e mudanças de configuração: essas ordens ainda não existem.',
     ],
     more: 'Leia como estas páginas funcionam e o que mais não dizem',
   },

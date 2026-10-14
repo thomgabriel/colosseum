@@ -225,13 +225,14 @@ describe('the steps of the person’s own that traded', () => {
 
       // Solana opens the vault with the cash and then trades one asset a step: the three swaps are
       // listed and the step that opens the vault, which trades nothing, is not. Robinhood Chain
-      // approves, then opens and buys in one step: that step is listed and the approval is not.
+      // opens the vault empty, approves it, then deposits and buys in one step: that step is listed
+      // and the other two are not.
       const trading = done.legs.filter((l) => l.trades.length > 0).reverse();
       expect(trading.map((l) => l.kind)).toEqual(
-        chain === 'solana' ? ['swap', 'swap', 'swap'] : ['create_vault'],
+        chain === 'solana' ? ['swap', 'swap', 'swap'] : ['deposit'],
       );
       expect(done.legs.filter((l) => l.trades.length === 0).map((l) => l.kind)).toEqual(
-        chain === 'solana' ? ['create_vault'] : ['approve'],
+        chain === 'solana' ? ['create_vault'] : ['create_vault', 'approve'],
       );
       const entries = entriesOn(answer, chain);
       expect(entries).toEqual(
@@ -1307,7 +1308,7 @@ describe('the whole list: newest first, cut, and narrowed', () => {
     const shape = (answer: Answer) =>
       answer.chains.map((c) => [c.chain, c.provenance, c.entries.map((e) => [e.orderId, e.kind])]);
     const solana = ['solana', 'mock', Array.from({ length: 3 }, () => [onSolana.id, 'swap'])];
-    const robinhood = ['robinhood', 'mock', [[onRobinhood.id, 'create_vault']]];
+    const robinhood = ['robinhood', 'mock', [[onRobinhood.id, 'deposit']]];
     expect(shape(await rebalances(both))).toEqual([solana, robinhood]);
     expect(shape(await rebalances(both, '?chain=solana'))).toEqual([solana]);
     expect(shape(await rebalances(both, '?chain=robinhood'))).toEqual([robinhood]);

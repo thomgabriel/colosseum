@@ -174,7 +174,7 @@ function Deposit({ said, onChangeMix }: { said: Purpose; onChangeMix: () => void
 const goalMix = (lang: 'en' | 'pt' = 'en', said: Purpose = SAID, onChangeMix = () => {}) =>
   mount(withAccount(lang, createElement(Deposit, { said, onChangeMix })));
 const amountBox = (host: HTMLElement) =>
-  find<HTMLInputElement>(host, '[data-ui="amount-large"] input');
+  find<HTMLInputElement>(host, '[data-ui="amount-well"] input');
 /** Types the amount and waits for the server's check of it to land. */
 const deposit = async (host: HTMLElement, text: string) => {
   await type(amountBox(host), text);
@@ -188,10 +188,12 @@ const openEditor = (host: HTMLElement) => click(find(host, '[data-action="edit-b
 /** What each row of the read-only mix says in its dollars column, by asset. */
 const amounts = (host: HTMLElement) =>
   Object.fromEntries(
-    [...host.querySelectorAll('[data-ui="mix-lines"] tbody tr')].map((row) => [
-      row.getAttribute('data-asset'),
-      row.querySelector('[data-ui="mix-line-amount"]')?.textContent,
-    ]),
+    [...host.querySelectorAll('[data-ui="mix-lines"] [data-ui="composition-list"] [data-row]')].map(
+      (row) => [
+        row.getAttribute('data-row'),
+        row.querySelector('[data-ui="mix-line-amount"]')?.textContent,
+      ],
+    ),
   );
 
 /**
@@ -298,7 +300,14 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     });
     // Every figure of the review carries its pin; the confirm waits for the tick.
     const lines = find(host, '[data-ui="mix-review-lines"]');
-    expect(lines.textContent).toContain('tGLDx');
+    // each row by the name every other step gives it, never the chain's symbol (the UI audit, I4)
+    expect(lines.textContent).toContain('GLDx');
+    expect(lines.textContent).not.toContain('tGLDx');
+    // and the server's warning names it the same way
+    expect(find(host, '[data-ui="mix-review-warnings"]').textContent).toContain(
+      'GLDx is larger than',
+    );
+    expect(find(host, '[data-ui="mix-review-warnings"]').textContent).not.toContain('tGLDx');
     expect(find(host, '[data-ui="exit-ceiling"]').textContent).toContain(en.mix.review.measured);
     const confirm = find<HTMLButtonElement>(host, '[data-action="mix-confirm"]');
     expect(confirm.getAttribute('aria-disabled')).toBe('true');
@@ -784,7 +793,7 @@ describe('a new goal’s mix, made into a plan', () => {
     }
     expect(calls.map((call) => call.body.amountUsd)).toEqual([10, 1_000_000]);
     // a quick amount types itself, and the press names it
-    await click(find(host, '[data-ui="deposit-quick"] li:nth-child(2) button'));
+    await click(find(host, '[data-ui="amount-chips"] li:nth-child(2) button'));
     expect(amountBox(host).value).toBe('500');
     expect(press().textContent).toContain(en.mix.deposit.reviewOf('$500'));
   });
@@ -803,7 +812,10 @@ describe('a new goal’s mix, made into a plan', () => {
     expect(host.querySelector('[data-ui="deposit-goal"]')).toBeNull();
     expect(host.querySelector('[data-ui="deposit-risk"]')).toBeNull();
     expect(host.querySelectorAll('select')).toHaveLength(0);
-    expect(host.querySelectorAll('[aria-pressed]')).toHaveLength(0);
+    // no toggle to tap a goal or a risk; a holding's row in the picture is the only pressable thing
+    expect(host.querySelectorAll('[aria-pressed]:not([data-ui="composition-row"])')).toHaveLength(
+      0,
+    );
     await deposit(host, '100');
     expect(calls).toHaveLength(1);
     expect(calls[0]?.body).toMatchObject({ goal: null, risk: null, confirm: false });

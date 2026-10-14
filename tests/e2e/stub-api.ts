@@ -4,9 +4,10 @@ import {
   createMockAdapter,
   type MockAdapter,
   mockAddress,
+  mockAssets,
   mockRecipeId,
 } from '@colosseum/chain-mock';
-import { purposeOfMix } from '@colosseum/engine/personal';
+import { PERSONAL_PARAMS, purposeOfMix, sleeveOfClass } from '@colosseum/engine/personal';
 import {
   AcceptGoalMixRequest,
   AcceptGoalMixResponse,
@@ -16,9 +17,11 @@ import {
   ChainError,
   ChainId,
   ConfigResponse,
+  chainFamily,
   chainProvenance,
   DEFAULT_FLAGS,
   DISCLAIMER,
+  isAddressOf,
   MixReview,
   type OrderDetail,
   PortfolioExposureResponse,
@@ -150,14 +153,25 @@ let linked: ReturnType<typeof proposal> | null = null;
 let built: ReturnType<typeof proposal> | null = null;
 /** The weights of a mix confirmed for a new goal (POST /v1/conversations/{chain}/goal/accept): the buy's. */
 let mixTargets: Target[] | null = null;
-/** The risk roll-up of a plan an agent proposed: MOCK, nothing measured, as on the mock chain. */
-const ROLL_UP = {
-  byIssuer: [{ key: 'mock', bps: 10_000 }],
-  byChain: [{ key: CHAIN, bps: 10_000 }],
-  byClass: [{ key: 'stock', bps: 10_000 }],
-  flags: ['exit_not_measured', 'exit_quote_missing'],
-  exit: { quotedBps: null, quotedAt: null, measuredWorstBps: null, measuredShareBps: 0 },
-};
+/**
+ * A plan's risk roll-up, as apps/api sends it with every plan it makes (`rollUp`): its spread by kind
+ * from the mock's asset list, its cash as cash; MOCK, nothing measured, as on the mock chain.
+ */
+function rollUpOf(lines: { assetId: string; weightBps: number }[]) {
+  const byClass = new Map<string, number>();
+  for (const l of lines) {
+    const key =
+      l.assetId === world.adapter.mock.cash ? 'cash' : (CLASSES.get(l.assetId) ?? 'unknown');
+    byClass.set(key, (byClass.get(key) ?? 0) + l.weightBps);
+  }
+  return {
+    byIssuer: [{ key: 'mock', bps: 10_000 }],
+    byChain: [{ key: CHAIN, bps: 10_000 }],
+    byClass: [...byClass].sort((a, b) => b[1] - a[1]).map(([key, bps]) => ({ key, bps })),
+    flags: ['exit_not_measured', 'exit_quote_missing'],
+    exit: { quotedBps: null, quotedAt: null, measuredWorstBps: null, measuredShareBps: 0 },
+  };
+}
 /** The steps the web reported signed bytes or an id for, in order. */
 let reports: string[] = [];
 
@@ -178,6 +192,23 @@ function config(): ConfigResponse {
       provenance: chainProvenance(configs[id].network, DEFAULT_FLAGS.chainMode[id]),
     })),
   });
+}
+
+/** What kind each token of the mock's list is, as the server's asset list says it. */
+const CLASSES = new Map(mockAssets(CHAIN).map((a) => [a.id, a.cls]));
+
+/**
+ * What a bad fall could cost, as the engine counts it (packages/engine/src/personal/card.ts): the
+ * part in stocks, crypto and gold, down by `fallBps`. Never a flat zero: a zero says nothing here is
+ * those, and the plan's page says so in words.
+ */
+function lossInFall(lines: { assetId: string; amountUsd: number }[]) {
+  const priced = lines.filter((l) => {
+    const cls = CLASSES.get(l.assetId);
+    return cls !== undefined && ['growth', 'gold'].includes(sleeveOfClass(cls));
+  });
+  const cents = priced.reduce((n, l) => n + Math.round(l.amountUsd * 100), 0);
+  return Math.ceil((cents * PERSONAL_PARAMS.fallBps) / 10_000) / 100;
 }
 
 function proposal(sheet: BasketSheet, weights: Target[] = WEIGHTS) {
@@ -224,7 +255,7 @@ function proposal(sheet: BasketSheet, weights: Target[] = WEIGHTS) {
       moneyTodayUsd: sheet.amountUsd,
       termMonths: sheet.horizonMonths,
       cashFlow: 'none',
-      expectedReturn: { lowPct: 0, highPct: 0, basis: 'sample', lossInFallUsd: 0 },
+      expectedReturn: { lowPct: 0, highPct: 0, basis: 'sample', lossInFallUsd: lossInFall(lines) },
       exit: { text: 'Sample: up to the whole amount within a day', costBps: 25 },
     },
     flags: [],
@@ -329,6 +360,15 @@ async function familyOf(p: Published): Promise<SharedFamily | null> {
         source: 'chain',
         observedAt: new Date().toISOString(),
         provenance: 'mock',
+        // each holding's kind, as apps/api sends it from the chain's asset list; nothing measured
+        figures: {
+          holdings: active.components.map((c) => ({
+            asset: c.asset,
+            cls: CLASSES.get(c.asset) ?? null,
+            yield: null,
+            exit: null,
+          })),
+        },
       },
     ],
   };
@@ -355,6 +395,94 @@ function tradesFor(targets: Target[], cashRaw: bigint) {
 type Body = Record<string, unknown> & { type: string };
 
 /**
+ * A withdrawal in dollars, as apps/api plans one (`planDollars` of orders/withdraw.ts, gate
+ * WITHDRAW-DOLLARS): the share of each holding sold for the cash token, a step per sale on Solana
+ * and one for all on an EVM chain, then the cash out, stating the least it pays: the share of the
+ * cash held plus each sale's minimum, at the 1% the double plans every trade with.
+ */
+async function placeDollars(
+  body: Body,
+  state: NonNullable<Awaited<ReturnType<typeof world.adapter.getVault>>>,
+): Promise<OrderDetail> {
+  const { adapter } = world;
+  const shareBps = typeof body.shareBps === 'number' ? body.shareBps : 10_000;
+  const shareOf = (raw: bigint) => (shareBps >= 10_000 ? raw : (raw * BigInt(shareBps)) / 10_000n);
+  const cash = state.cash.asset;
+  const trades = state.positions
+    .map((p) => ({ sell: p.asset, buy: cash, amountInRaw: shareOf(BigInt(p.raw)).toString() }))
+    .filter((t) => BigInt(t.amountInRaw) > 0n);
+  let least = shareOf(BigInt(state.cash.raw));
+  let quoted = 0n;
+  for (const trade of trades) {
+    const out = BigInt((await adapter.quote(trade, state.owner)).outRaw);
+    least += (out * 9_900n) / 10_000n;
+    quoted += out;
+  }
+  const most = shareOf(BigInt(state.cash.raw)) + quoted + (quoted * 300n) / 10_000n;
+  if (least === 0n)
+    throw new ApiRefusal(409, {
+      error: 'nothing this vault holds can be withdrawn in dollars now',
+    });
+  const keep = BigInt(state.cash.raw) - shareOf(BigInt(state.cash.raw));
+  const groups = CHAIN === 'solana' ? trades.map((t) => [t]) : trades.length ? [trades] : [];
+  return doubleFor(state.owner).place({
+    type: 'withdraw',
+    summary: `Withdraw from your vault on ${CHAIN_NAME} in dollars, to your own wallet`,
+    needsConsent: [],
+    steps: [
+      ...(state.autoFollow
+        ? [{ kind: 'set_auto_follow' as const, description: 'Switch auto-follow off', trades: [] }]
+        : []),
+      ...groups.map((group) => ({
+        kind: 'swap' as const,
+        description: 'Sell for cash',
+        trades: group,
+      })),
+      {
+        kind: 'withdraw' as const,
+        description: 'Withdraw the cash to your own wallet',
+        trades: [],
+        withdrawals: [
+          {
+            asset: cash,
+            amountRaw: null,
+            heldRaw: state.cash.raw,
+            leastRaw: least.toString(),
+            mostRaw: most.toString(),
+          },
+        ],
+      },
+    ],
+    build: async (leg, nonce) => {
+      const at = nonce === undefined ? {} : { nonce };
+      if (leg.kind === 'set_auto_follow')
+        return adapter.buildSetAutoFollow({ vault: state.address, on: false, ...at });
+      if (leg.kind === 'swap')
+        return adapter.buildOwnerSwap({
+          vault: state.address,
+          trades: leg.trades,
+          slippageBps: 100,
+          minimums: leg.expected.map((e) => e.minOutRaw),
+          ...at,
+        });
+      const now = await adapter.getVault(state.address);
+      const there = BigInt(now?.cash.raw ?? '0') - keep;
+      const amount = there > most ? most : there;
+      if (amount < least)
+        throw new ApiRefusal(409, { error: 'the vault holds less cash than the order stated' });
+      const [tx] = await adapter.buildWithdrawInKind({
+        vault: state.address,
+        assets: [cash],
+        amounts: { [cash]: amount.toString() },
+        ...at,
+      });
+      if (!tx) throw new ApiRefusal(409, { error: 'the vault holds none of it any more' });
+      return tx;
+    },
+  });
+}
+
+/**
  * POST /v1/orders for a withdrawal, as apps/api plans one (orders/withdraw.ts): the vault's tokens, all
  * of them or the ones named, each in full or by amount, a step per token on Solana and one for all on
  * an EVM chain. Built for the vault's owner, from the vault as it is when the step is built.
@@ -363,12 +491,8 @@ async function placeWithdraw(body: Body): Promise<OrderDetail> {
   const { adapter } = world;
   const [address] = body.vaults as string[];
   const state = await adapter.getVault(String(address));
-  if (!state || body.sellToCash)
-    throw new ApiRefusal(state ? 422 : 404, {
-      error: state
-        ? 'Selling to cash before withdrawing isn’t offered yet; you can withdraw the tokens themselves'
-        : 'no vault of yours at that address',
-    });
+  if (!state) throw new ApiRefusal(404, { error: 'no vault of yours at that address' });
+  if (body.sellToCash) return placeDollars(body, state);
   const held = new Map(
     [state.cash, ...state.positions]
       .filter((h) => BigInt(h.raw) > 0n)
@@ -857,7 +981,30 @@ async function vaultView(address: string) {
   const listed = await world.adapter.listAssets();
   const ids = [state.cash.asset, ...state.positions.map((p) => p.asset)];
   const prices = await world.adapter.getPrices([...new Set(ids)]);
-  return { vault: { ...view(state, prices, listed), provenance: 'mock' as const }, prices };
+  const seen = view(state, prices, listed);
+  // Why each holding is there, in the shapes the API answers (`why`, apps/api/src/portfolio/why.ts):
+  // a vault that follows a shared portfolio, the kind of each asset it targets, from the chain's list;
+  // any other, the owner's stored choice of share, in the engine's own sentence (MIX_FROM_PERSON).
+  // The API says the owner's to the owner alone; the stub, which never tells callers apart, says it
+  // to every caller, as the e2e runs read their own vaults.
+  const byId = new Map(listed.map((a) => [a.id, a]));
+  const positions = seen.positions.map((p) => {
+    const asset = byId.get(p.asset);
+    if (p.targetBps <= 0 || !asset) return { ...p, why: null };
+    return {
+      ...p,
+      why: seen.recipeOnchainId
+        ? { source: 'portfolio' as const, cls: asset.cls }
+        : {
+            source: 'owner' as const,
+            text: `You chose ${p.targetBps / 100}% for ${asset.symbol}.`,
+          },
+    };
+  });
+  return {
+    vault: { ...seen, positions, cash: { ...seen.cash, why: null }, provenance: 'mock' as const },
+    prices,
+  };
 }
 
 const read = (req: IncomingMessage) =>
@@ -1046,7 +1193,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (path === '/v1/baskets/propose' && method === 'POST') {
     const body = (await read(req)) as { sheet: BasketSheet };
     linked = proposal(body.sheet);
-    return send(res, 200, { id: PLAN_ID, proposal: linked, rollUp: ROLL_UP });
+    return send(res, 200, { id: PLAN_ID, proposal: linked, rollUp: rollUpOf(linked.lines) });
   }
   if (path.startsWith('/v1/baskets/') && method === 'GET') {
     if (path !== `/v1/baskets/${PLAN_ID}` || !(linked || built))
@@ -1058,7 +1205,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (path === '/v1/baskets/personalize' && method === 'POST') {
     const body = (await read(req)) as { sheet: BasketSheet };
     built = proposal(body.sheet);
-    return send(res, 200, { id: PLAN_ID, proposal: built });
+    return send(res, 200, { id: PLAN_ID, proposal: built, rollUp: rollUpOf(built.lines) });
   }
   if (path === `/v1/conversations/${CHAIN}/goal/reply` && method === 'POST')
     return send(res, 200, goalReply((await read(req)) as Parameters<typeof goalReply>[0]));
@@ -1278,7 +1425,11 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   }
   const vault = /^\/v1\/vaults\/([^/]+)\/([^/]+)$/.exec(path);
   if (vault) {
-    const read = vault[1] === CHAIN ? await vaultView(decodeURIComponent(vault[2] ?? '')) : null;
+    // apps/api answers an address that is not one of the chain's with 400, before any read
+    const address = decodeURIComponent(vault[2] ?? '');
+    if (vault[1] === CHAIN && !isAddressOf(chainFamily(CHAIN), address))
+      return send(res, 400, { error: `that is not an address of ${CHAIN_NAME}` });
+    const read = vault[1] === CHAIN ? await vaultView(address) : null;
     if (!read) return send(res, 404, { error: 'no vault at that address' });
     return send(res, 200, {
       chain: CHAIN,

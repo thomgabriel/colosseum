@@ -502,6 +502,8 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
     ...reader,
     ...probe,
 
+    height: () => ask('getBlockNumber', () => rpc.getBlockNumber()),
+
     quote: (tradeArg, takerArg) =>
       guarded(async (): Promise<Quote> => {
         const t = input(Trade, tradeArg, 'trade');
@@ -545,6 +547,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           trade: t,
           outRaw: out.toString(),
           minOutRaw: minOut.toString(),
+          ...(feedFloor !== null ? { floorRaw: feedFloor.toString() } : {}),
           costBps: costBps ?? 0,
           against: reference ? 'reference' : 'pool_mid',
           venue: `Uniswap v4 (fee ${pool.fee}) through Universal Router ${router ?? 'unset'}`,

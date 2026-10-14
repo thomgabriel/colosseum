@@ -283,6 +283,344 @@
       }
     }
   ],
+  "pending": [
+    {
+      "id": "robinhood:mstr",
+      "symbol": "MSTR",
+      "name": "Strategy",
+      "address": "0xec262a75e413fafd0df80480274532c79d42da09",
+      "decimals": 18,
+      "modelOf": "MSTR",
+      "kind": "stock",
+      "feed": "0x396118bdfb181e6240e74d243f266b061c0edc3d",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 2500,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 2400,
+        "tickSpacing": 24
+      },
+      "maxTradeUsd": 50000,
+      "average": {
+        "pool": "0x17578c0e0d15da44f31677263114f71ae76653ea",
+        "minLiquidity": "290000000000000000",
+        "usable": true
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:crcl",
+      "symbol": "CRCL",
+      "name": "Circle Internet Group",
+      "address": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+      "decimals": 18,
+      "modelOf": "CRCL",
+      "kind": "stock",
+      "feed": "0x6652edf64ba3731c4f2d3ce821a0fb1f1f6b482a",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 500,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 3000,
+        "tickSpacing": 30
+      },
+      "maxTradeUsd": 10000,
+      "average": {
+        "pool": "0x654e4143e82a5824445ade0824351c2a9acd95a8",
+        "minLiquidity": "910000000000000000",
+        "usable": true
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:uso",
+      "symbol": "USO",
+      "name": "United States Oil Fund",
+      "address": "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344",
+      "decimals": 18,
+      "modelOf": "USO",
+      "kind": "commodity",
+      "feed": "0x75a9c76ef439e2c7c2e5a34ab105ecfe3766431c",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 500,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 1200,
+        "tickSpacing": 15
+      },
+      "maxTradeUsd": 10000,
+      "average": {
+        "pool": "0x02175608f1b5e6b5ed221ccfdc7be197d111d915",
+        "minLiquidity": "1700000000000000000",
+        "usable": true
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:pltr",
+      "symbol": "PLTR",
+      "name": "Palantir Technologies",
+      "address": "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a",
+      "decimals": 18,
+      "modelOf": "PLTR",
+      "kind": "stock",
+      "feed": "0x820abedff239034956b7a9d2f0a331f9f075eb4c",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 500,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 1500,
+        "tickSpacing": 15
+      },
+      "maxTradeUsd": 10000,
+      "average": {
+        "pool": "0x851680416a4f4e1c463d45171d61acddbc8554c0",
+        "minLiquidity": "110000000000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:weth",
+      "symbol": "WETH",
+      "name": "Wrapped Ether",
+      "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "decimals": 18,
+      "modelOf": "WETH",
+      "kind": "crypto",
+      "feed": "0x78f3556b67e17df817d51ef5a990cdaf09e8d3a9",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 0,
+      "maxWeightBps": 500,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 200,
+        "tickSpacing": 4
+      },
+      "maxTradeUsd": 10000,
+      "average": {
+        "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+        "minLiquidity": "1700000000000000000",
+        "usable": true
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:cbbtc",
+      "symbol": "cbBTC",
+      "name": "Coinbase Wrapped BTC",
+      "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+      "decimals": 8,
+      "modelOf": "cbBTC",
+      "kind": "crypto",
+      "feed": "0xa2c5184bf03d373dc9de4876eb4bce595b460251",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 0,
+      "maxWeightBps": 2500,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 1500,
+        "tickSpacing": 15
+      },
+      "maxTradeUsd": 50000,
+      "average": {
+        "pool": "0x9664d869540e9d0a76f12c6623946c6d5d201e09",
+        "minLiquidity": "28000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:dell",
+      "symbol": "DELL",
+      "name": "Dell Technologies",
+      "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
+      "decimals": 18,
+      "modelOf": "DELL",
+      "kind": "stock",
+      "feed": "0x1c6c8cadbe02e19129c39ddb92281ce4c0bf206b",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 5000,
+        "tickSpacing": 25
+      },
+      "maxTradeUsd": 2500,
+      "average": {
+        "pool": "0xc30c89cb7815a1488b7998d15eec73961707fc5a",
+        "minLiquidity": "100000000000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:spcx",
+      "symbol": "SPCX",
+      "name": "SpaceX",
+      "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+      "decimals": 18,
+      "modelOf": "SPCX",
+      "kind": "stock",
+      "feed": "0xb265810950ba6c5c0ff821c9963014a56fd8bffb",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 3000,
+        "tickSpacing": 60
+      },
+      "maxTradeUsd": 2500,
+      "average": {
+        "pool": "0xc61284332117c3fb23a2a56cceffd07f7af60029",
+        "minLiquidity": "470000000000000000",
+        "usable": true
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:coin",
+      "symbol": "COIN",
+      "name": "Coinbase Global",
+      "address": "0x6330d8c3178a418788df01a47479c0ce7ccf450b",
+      "decimals": 18,
+      "modelOf": "COIN",
+      "kind": "stock",
+      "feed": "0xa3a468a452940b7d6b69991207b508c609a98ef2",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 2500,
+        "tickSpacing": 25
+      },
+      "maxTradeUsd": 2500,
+      "average": {
+        "pool": "0x3a6ec0aa6c702323414d449b5f60f4b742a82ded",
+        "minLiquidity": "340000000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:tsm",
+      "symbol": "TSM",
+      "name": "Taiwan Semiconductor Manufacturing",
+      "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
+      "decimals": 18,
+      "modelOf": "TSM",
+      "kind": "stock",
+      "feed": "0x874cf94aa8ec88fd9560094dd065f2fb3e41fc2f",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 7500,
+        "tickSpacing": 75
+      },
+      "maxTradeUsd": 2500,
+      "average": {
+        "pool": "0x07e8ea83d4c1340774c8965125e26e12bf943bf1",
+        "minLiquidity": "29000000000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:baba",
+      "symbol": "BABA",
+      "name": "Alibaba Group",
+      "address": "0xad25ac6c84d497db898fa1e8387bf6af3532a1c4",
+      "decimals": 18,
+      "modelOf": "BABA",
+      "kind": "stock",
+      "feed": "0x62cc8f9b5f56a33c9c8a60c8b92779f523c4e984",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 1000,
+        "tickSpacing": 10
+      },
+      "maxTradeUsd": 2500,
+      "average": {
+        "pool": "0xa57ab582b310dd6f9e934ea1eeea152741545e6a",
+        "minLiquidity": "41000000000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    },
+    {
+      "id": "robinhood:sgov",
+      "symbol": "SGOV",
+      "name": "iShares 0-3 Month Treasury Bond",
+      "address": "0x92fd66527192e3e61d4ddd13322aa222de86f9b5",
+      "decimals": 18,
+      "modelOf": "SGOV",
+      "kind": "dollar_yield",
+      "feed": "0xa0df4ee0fff975306345875e3548fcc519577a11",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": {
+        "fee": 200,
+        "tickSpacing": 2
+      },
+      "maxTradeUsd": 1000,
+      "average": {
+        "pool": "0xfab520051f96f4d2a32c22b6a3dd7fffdf231bfe",
+        "minLiquidity": "17000000000000000000",
+        "usable": false
+      },
+      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+    }
+  ],
   "retired": [],
   "timelock": {
     "address": "0x749f6aeb956b9f490e316599068ba8a6bd248342",

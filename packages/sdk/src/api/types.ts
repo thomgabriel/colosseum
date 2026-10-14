@@ -1705,7 +1705,6 @@ export type GetConfigResponse = {
     autoFollow: Record<'solana' | 'base' | 'robinhood', boolean>;
     keeperEnabled: boolean;
     agentSurface: boolean;
-    legacyStructurer: boolean;
   };
   chains: {
     id: 'solana' | 'base' | 'robinhood';
@@ -2473,6 +2472,8 @@ export type GetMeWithdrawalsResponse = {
         asset: string;
         amountRaw: string | null;
         heldRaw: string;
+        leastRaw?: string;
+        mostRaw?: string;
         valued?: {
           source: string;
           method: string;
@@ -2553,6 +2554,8 @@ export type PostOrdersBody =
       type: 'withdraw';
       vaults: (string | string)[];
       sellToCash: boolean;
+      shareBps?: number;
+      maxSlippageBps?: number;
       withdrawals?: {
         asset: string;
         amountRaw?: string | null;
@@ -2600,6 +2603,8 @@ export type PostOrdersResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2703,6 +2708,8 @@ export type GetOrdersByIdResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2806,6 +2813,8 @@ export type PostOrdersByIdContinueResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -2984,6 +2993,8 @@ export type PostOrdersByIdLegsByLegIdCancelResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -3097,6 +3108,8 @@ export type PostOrdersByIdLegsByLegIdReportResponse = {
       asset: string;
       amountRaw: string | null;
       heldRaw: string;
+      leastRaw?: string;
+      mostRaw?: string;
       valued?: {
         source: string;
         method: string;
@@ -3831,6 +3844,7 @@ export type GetVaultsByChainByAddressResponse = {
   name: string;
   mode: 'live' | 'readonly' | 'mock' | 'off';
   provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  blockOrSlot?: string | null;
   vault: {
     chain: 'solana' | 'base' | 'robinhood';
     address: string | string;
@@ -3849,6 +3863,11 @@ export type GetVaultsByChainByAddressResponse = {
         multiplier: string;
         effectiveAt: number;
       };
+      why?: {
+        source: 'portfolio' | 'plan' | 'owner';
+        text?: string;
+        cls?: 'stock' | 'etf' | 'gold' | 'commodity' | 'dollar_yield' | 'crypto' | 'cash';
+      } | null;
     };
     positions: {
       asset: string;
@@ -3864,6 +3883,11 @@ export type GetVaultsByChainByAddressResponse = {
       valueUsd: string | null;
       weightBps: number;
       driftBps: number;
+      why?: {
+        source: 'portfolio' | 'plan' | 'owner';
+        text?: string;
+        cls?: 'stock' | 'etf' | 'gold' | 'commodity' | 'dollar_yield' | 'crypto' | 'cash';
+      } | null;
     }[];
     lossUsedBps: number;
     observedAt: string;
@@ -4365,6 +4389,199 @@ export type PutVaultsByChainByAddressNameResponse = {
   name: string | null;
 };
 
+/** POST /v1/vaults/{chain}/{address}/rebalance: params. Rebalance a vault you own to the targets it has */
+export type PostVaultsByChainByAddressRebalanceParams = {
+  chain: 'solana' | 'base' | 'robinhood';
+  address: string;
+};
+
+/** POST /v1/vaults/{chain}/{address}/rebalance: body. Rebalance a vault you own to the targets it has */
+export type PostVaultsByChainByAddressRebalanceBody = {
+  maxSlippageBps?: number;
+};
+
+/** POST /v1/vaults/{chain}/{address}/rebalance: response. Rebalance a vault you own to the targets it has */
+export type PostVaultsByChainByAddressRebalanceResponse =
+  | {
+      status: 'on_target';
+      targets: {
+        asset: string;
+        weightBps: number;
+      }[];
+    }
+  | {
+      status: 'ordered';
+      targets: {
+        asset: string;
+        weightBps: number;
+      }[];
+      order: {
+        id: string;
+        type: 'buy' | 'rebalance' | 'follow' | 'publish' | 'withdraw' | 'settings';
+        owner: {
+          solana?: string;
+          evm?: string;
+        };
+        summary: string;
+        depositRaw?: string;
+        basketId?: string;
+        continues?: string;
+        legs: {
+          id: string;
+          orderId: string | null;
+          chain: 'solana' | 'base' | 'robinhood';
+          seq: number;
+          kind:
+            | 'approve'
+            | 'create_vault'
+            | 'deposit'
+            | 'swap'
+            | 'set_targets'
+            | 'accept_version'
+            | 'set_auto_follow'
+            | 'withdraw'
+            | 'publish'
+            | 'adopt_version'
+            | 'keeper_leg';
+          signer: 'owner' | 'keeper';
+          description: string;
+          cashRaw?: string;
+          withdrawals?: {
+            asset: string;
+            amountRaw: string | null;
+            heldRaw: string;
+            leastRaw?: string;
+            mostRaw?: string;
+            valued?: {
+              source: string;
+              method: string;
+              fetchedAt: string;
+              provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+              usd: string;
+            };
+          }[];
+          trades: {
+            sell: string;
+            buy: string;
+            amountInRaw: string;
+          }[];
+          expected: {
+            inRaw: string;
+            outRaw: string;
+            minOutRaw: string;
+            costBps: number;
+          }[];
+          status: 'planned' | 'built' | 'sent' | 'confirmed' | 'failed' | 'expired' | 'skipped';
+          attempt: number;
+          txId: string | null;
+          explorerUrl: string | null;
+          validUntil: string | null;
+          error: {
+            code: string;
+            message: string;
+            retryable: boolean;
+          } | null;
+          trigger: 'manual' | 'index_update' | 'drift' | 'liquidity_breach';
+          provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        }[];
+        warnings: {
+          code: string;
+          text: string;
+        }[];
+        needsConsent: ('auto_follow_on' | 'new_asset' | 'publish')[];
+        fees: {
+          kind: string;
+          bps: number;
+        }[];
+        preparedBy: 'app' | 'api' | 'mcp';
+        agentLabel?: string;
+        status: 'open' | 'partial' | 'done' | 'failed' | 'expired';
+        approvalUrl: string;
+        expiresAt: number;
+        createdAt: string;
+        disclaimer: string;
+        attempts: {
+          id: string;
+          legId: string;
+          n: number;
+          messageHash: string;
+          nonce: number | null;
+          status: 'built' | 'sent' | 'confirmed' | 'failed' | 'expired';
+          txId: string | null;
+          explorerUrl: string | null;
+          validUntil: string | null;
+          builtAt: string;
+        }[];
+      };
+    };
+
+/** POST /v1/vaults/{chain}/{address}/rebalance/quote: params. Quote what a rebalance of a vault you own would trade now */
+export type PostVaultsByChainByAddressRebalanceQuoteParams = {
+  chain: 'solana' | 'base' | 'robinhood';
+  address: string;
+};
+
+/** POST /v1/vaults/{chain}/{address}/rebalance/quote: body. Quote what a rebalance of a vault you own would trade now */
+export type PostVaultsByChainByAddressRebalanceQuoteBody = {
+  family?: string;
+  version?: number;
+  maxSlippageBps?: number;
+};
+
+/** POST /v1/vaults/{chain}/{address}/rebalance/quote: response. Quote what a rebalance of a vault you own would trade now */
+export type PostVaultsByChainByAddressRebalanceQuoteResponse = {
+  status: 'quoted' | 'on_target' | 'unavailable';
+  chain: 'solana' | 'base' | 'robinhood';
+  provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  version: number | null;
+  targets: {
+    asset: string;
+    weightBps: number;
+  }[];
+  slippageBps: number;
+  valueUsd: string | null;
+  trades: {
+    sell: string;
+    buy: string;
+    amountInRaw: string;
+    valueUsd: string;
+    expectedOutRaw: string;
+    minOutRaw: string;
+    costBps: number;
+  }[];
+  holdings: {
+    asset: string;
+    cash: boolean;
+    targetBps: number;
+    beforeBps: number;
+    afterBps: number;
+  }[];
+  costUsd: string | null;
+  prices: {
+    source: string;
+    method: string;
+    fetchedAt: string;
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+    asset: string;
+    usdPerToken: string;
+    ageSeconds: number;
+    maxAgeSeconds: number;
+    market: 'open' | 'closed' | 'unknown';
+  }[];
+  quote: {
+    source: string;
+    method: string;
+    fetchedAt: string;
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  };
+  unavailable: {
+    reason: string;
+    issues: string[];
+  } | null;
+  quotedAt: string;
+  disclaimer: string;
+};
+
 /** POST /v1/vaults/{chain}/{address}/targets: params. Review new targets for a vault you own, and order them once confirmed */
 export type PostVaultsByChainByAddressTargetsParams = {
   chain: 'solana' | 'base' | 'robinhood';
@@ -4546,6 +4763,8 @@ export type PostVaultsByChainByAddressTargetsResponse =
             asset: string;
             amountRaw: string | null;
             heldRaw: string;
+            leastRaw?: string;
+            mostRaw?: string;
             valued?: {
               source: string;
               method: string;
@@ -4715,6 +4934,16 @@ export interface ApiRoutes {
     params: PutVaultsByChainByAddressNameParams;
     body: PutVaultsByChainByAddressNameBody;
     response: PutVaultsByChainByAddressNameResponse;
+  };
+  'POST /v1/vaults/{chain}/{address}/rebalance': {
+    params: PostVaultsByChainByAddressRebalanceParams;
+    body: PostVaultsByChainByAddressRebalanceBody;
+    response: PostVaultsByChainByAddressRebalanceResponse;
+  };
+  'POST /v1/vaults/{chain}/{address}/rebalance/quote': {
+    params: PostVaultsByChainByAddressRebalanceQuoteParams;
+    body: PostVaultsByChainByAddressRebalanceQuoteBody;
+    response: PostVaultsByChainByAddressRebalanceQuoteResponse;
   };
   'POST /v1/vaults/{chain}/{address}/targets': {
     params: PostVaultsByChainByAddressTargetsParams;

@@ -981,6 +981,8 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
         const v = s.vaults.get(input(Address, vault, 'vault'));
         return v ? vaultState(s, v) : null;
       }),
+    // The mock mints a block a second, so its height is its clock.
+    height: async () => BigInt(state.seconds),
     listAutoFollowVaults: (recipeOnchainId) =>
       guarded(() =>
         [...live().vaults.values()]

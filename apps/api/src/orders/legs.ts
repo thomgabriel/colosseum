@@ -171,9 +171,19 @@ async function buildFor(
   const { request, order } = stored;
   if (request.type === 'publish' || request.type === 'follow')
     return buildShared(deps, stored, leg, entry, owner, nonce);
-  if (request.type === 'withdraw') return buildWithdraw(request, leg, entry, owner, nonce);
+  if (request.type === 'withdraw')
+    return buildWithdraw(request, leg, entry, owner, nonce, order.legs);
   // A vault's own targets, from a mix the person confirmed (orders/mix.ts).
-  if (request.type === 'rebalance') return buildRetarget(request, leg, entry, owner, nonce);
+  // ... or the vault's holdings brought to the targets it has, by an order that sets none.
+  if (request.type === 'rebalance')
+    return buildRetarget(
+      request,
+      leg,
+      entry,
+      owner,
+      nonce,
+      !order.legs.some((l) => l.kind === 'set_targets'),
+    );
   if (request.type !== 'buy' || !(request.proposalId || request.family || request.vault))
     throw new Refusal(501, `a ${request.type} order cannot be built yet`);
   const { adapter } = entry;
@@ -239,6 +249,23 @@ async function buildFor(
       // Adding to a vault opens none: a step that would is not this order's.
       if (request.vault)
         throw new Refusal(409, 'an order that adds to a vault opens no vault: make it again');
+      // Where the chain needs an approval the vault is opened empty, and a later step of the order
+      // deposits (gate CREATE-BEFORE-APPROVE): the create carries no cash and no trade, and the
+      // amount the order's trades were planned from is on the step that deposits.
+      const later = order.legs.find((l) => l.kind === 'deposit');
+      if (later && (leg.cashRaw !== undefined || trades))
+        throw new Refusal(
+          409,
+          'this order opens its vault with cash and deposits again: make it again',
+        );
+      // A vault another order opened meanwhile: this one's create would be refused on chain
+      // (`VaultExists`). An order made now deposits into it with no create.
+      if (later && (await planVault(entry, owner, basketId)))
+        throw new Refusal(409, 'the vault for this plan is open already: make the deposit again', {
+          fix: 'Make the deposit again: it goes into the vault that is open.',
+        });
+      const opening = later ? {} : { depositRaw: cashOf(leg), trades };
+      const planCash = BigInt(cashOf(later ?? leg));
       if (request.family) {
         // A vault that follows the version the order holds to: it copies that version's weights, and
         // the trades are the ones planned for them. Once it is open the order's swaps buy what it
@@ -251,7 +278,7 @@ async function buildFor(
         if (!cash) throw new Error(`${entry.chain} lists no cash token`);
         const targets = recipeTargets(followed.onchain.active);
         const planned = order.legs.flatMap((l) => l.trades);
-        if (!sameTrades(planned, tradesFor(targets, BigInt(cashOf(leg)), cash.id)))
+        if (!sameTrades(planned, tradesFor(targets, planCash, cash.id)))
           throw new Refusal(409, 'the shared portfolio has changed since the order was made', {
             code: 'VERSION_CHANGED',
             fix: 'Make the order again.',
@@ -263,8 +290,7 @@ async function buildFor(
           recipeOnchainId: followed.recipe.onchainId,
           expectedVersion: followed.onchain.active.version,
           autoFollow: false,
-          depositRaw: cashOf(leg),
-          trades,
+          ...opening,
           slippageBps,
           ...shared,
         });
@@ -281,7 +307,7 @@ async function buildFor(
       // The vault's targets are fixed here. They have to be the ones the order's trades were planned
       // for: a shared portfolio in the plan that changed since the order was made gives others.
       const planned = order.legs.flatMap((l) => l.trades);
-      if (!sameTrades(planned, tradesFor(targets, BigInt(cashOf(leg)), cash.id)))
+      if (!sameTrades(planned, tradesFor(targets, planCash, cash.id)))
         throw new Refusal(
           409,
           'a shared portfolio in this plan has changed since the order was made',
@@ -292,9 +318,9 @@ async function buildFor(
         basketId,
         targets,
         autoFollow: false,
-        // The whole deposit. The trades spend the invested share of it; the rest stays as cash.
-        depositRaw: cashOf(leg),
-        trades,
+        // The whole deposit, where the create makes it. The trades spend the invested share of it;
+        // the rest stays as cash.
+        ...opening,
         slippageBps,
         ...shared,
       });

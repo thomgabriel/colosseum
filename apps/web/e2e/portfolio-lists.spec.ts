@@ -44,7 +44,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(income).toHaveAttribute('data-vault', INCOME);
     await expect(income.locator('h2')).toHaveText('Earn income from $80,000 for 60 months.');
     await expect(income.locator('[data-ui="chain-badge"]')).toHaveText('Solana');
-    await expect(income.locator('[data-ui="sample-note"]')).toHaveText(t.shell.testNetworkLine);
+    await expect(income.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.testNetworkLine);
     await expect(income.locator('header a')).toHaveAttribute(
       'href',
       `/portfolio/plan/solana/${INCOME}`,
@@ -80,7 +80,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(failed.locator('[data-ui="step-outcome"] svg')).toBeVisible();
     // the sample chain's step: its own quiet line, and a transaction no explorer shows
     const silent = page.locator(`main [data-ui="vault-steps"][data-vault="${SILENT}"]`);
-    await expect(silent.locator('[data-ui="sample-note"]')).toHaveText(t.shell.mockAnnounce);
+    await expect(silent.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.mockAnnounce);
     await expect(silent.locator('[data-ui="step-tx"]')).toContainText(w.rebalancing.noExplorer);
     await expect(page.locator('main a[href^="mock:"]')).toHaveCount(0);
     // once, what the list cannot tell, with the way to the methodology
@@ -131,18 +131,24 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(solana.locator('[data-ui="exposure-oldest"]')).toContainText(
       'Oct 7, 2026, 08:55 UTC',
     );
-    await expect(solana.locator('[data-ui="sample-note"]')).toHaveText(t.shell.testNetworkLine);
-    // the shares, largest first, each a bar that is drawn
-    const underlying = solana.locator('ol[data-ui="shares"][data-by="underlying"] > li');
+    await expect(solana.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.testNetworkLine);
+    // the shares, largest first, a ring beside its list, each share a segment that is drawn
+    const shares = solana.locator('[data-ui="shares"][data-by="underlying"]');
+    const underlying = shares.locator('[data-ui="composition-list"] > tr');
     await expect(underlying).toHaveCount(5);
     await expect(underlying.first()).toContainText('USDY');
-    await expect(underlying.first().locator('[data-ui="share-percent"]')).toHaveText('62.9%');
-    const widths = await underlying
-      .locator('[data-ui="share-fill"]')
-      .evaluateAll((bars) => bars.map((bar) => bar.getBoundingClientRect().width));
-    expect(widths.every((width) => width > 0)).toBe(true);
-    expect(widths).toEqual([...widths].sort((a, b) => b - a));
-    await expect(solana.locator('ol[data-ui="shares"][data-by="issuer"] > li')).toHaveCount(5);
+    await expect(underlying.first().locator('[data-ui="composition-share"]')).toHaveText('62.9%');
+    const sizes = await shares.locator('[data-ui="composition-segment"]').evaluateAll((parts) =>
+      parts.map((part) => {
+        const box = part.getBoundingClientRect();
+        return Math.max(box.width, box.height);
+      }),
+    );
+    expect(sizes).toHaveLength(5);
+    expect(sizes.every((size) => size > 0)).toBe(true);
+    await expect(
+      solana.locator('[data-ui="shares"][data-by="issuer"] [data-ui="composition-list"] > tr'),
+    ).toHaveCount(5);
     // what selling would cost: a measured cost with its pin, or the sentence that says why not
     await expect(
       solana.locator('[data-ui="exit"][data-asset="solana:usdy"] [data-ui="exit-cost"]'),
@@ -162,7 +168,7 @@ test.describe('the lists of the portfolio section on the stub', () => {
     await expect(solana.locator('[data-ui="unvalued"] li')).toHaveCount(1);
     // the sample chain says its figures are samples, and shows no split by issuer
     const robinhood = page.locator('main [data-ui="chain-exposure"][data-chain="robinhood"]');
-    await expect(robinhood.locator('[data-ui="sample-note"]')).toHaveText(t.shell.mockAnnounce);
+    await expect(robinhood.locator('[data-ui="sample-tag"]')).toHaveText(t.shell.mockAnnounce);
     await expect(robinhood.locator('[data-ui="issuer-stand-ins"]')).toHaveText(
       w.exposure.shares.standIns,
     );
@@ -180,7 +186,10 @@ test.describe('the lists of the portfolio section on the stub', () => {
       '/portfolio/exposure',
     );
     await pinned(page, 'exposure');
-    await expect(page.locator('main .font-display')).toHaveCount(1);
+    // the title in the display face; each ring's centre figure is the only other (composition.md)
+    await expect(
+      page.locator('main .font-display:not([data-ui="composition-centre"] *)'),
+    ).toHaveCount(1);
     await expect(page.locator('[data-ui="disclaimer"]:visible')).toHaveCount(1);
     await expect(page.locator('main [data-variant="primary"]')).toHaveCount(0);
     await check(page, 'exposure');

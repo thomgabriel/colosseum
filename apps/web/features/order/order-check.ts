@@ -1,4 +1,11 @@
-import type { OrderDetail, Target, Trade } from '@colosseum/schemas';
+import {
+  type Leg,
+  ORDER_LIMITS,
+  type OrderDetail,
+  type Target,
+  type Trade,
+  WITHDRAW_DOLLARS_MARGIN_BPS,
+} from '@colosseum/schemas';
 import { type SharedTerms, tradesOf } from '../shared/terms';
 import type { ChainUnits } from './units';
 
@@ -50,11 +57,17 @@ export function checkDeposit(
 
 type Standing = Pick<OrderDetail, 'status' | 'legs'>;
 
+/**
+ * The step moves the order's cash into the vault: a deposit, or a create that carries the cash. A
+ * create that a later step deposits after opens the vault empty (gate CREATE-BEFORE-APPROVE). The
+ * guard counts the same steps (`approvedSteps`).
+ */
+export const movesCash = (leg: Pick<Leg, 'kind' | 'cashRaw'>): boolean =>
+  leg.kind === 'deposit' || (leg.kind === 'create_vault' && (leg.cashRaw ?? '0') !== '0');
+
 /** The order's deposit is confirmed on its chain: the cash is in the vault whatever came after. */
 export const depositLanded = (order: Pick<OrderDetail, 'legs'>): boolean =>
-  order.legs.some(
-    (leg) => (leg.kind === 'create_vault' || leg.kind === 'deposit') && leg.status === 'confirmed',
-  );
+  order.legs.some((leg) => movesCash(leg) && leg.status === 'confirmed');
 
 /** The order goes no further, with a step not done: it failed or ran out of time, or a step did. */
 export const stoppedShort = (order: Standing): boolean =>
@@ -229,6 +242,8 @@ export function sharedShapeOk(
   if (order.legs.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;
   const kinds = order.legs.map((l) => l.kind);
   if (terms.kind === 'withdraw') {
+    // In dollars it trades: that order has a check of its own (`dollarsShapeOk`), never this one.
+    if (terms.dollars) return false;
     // Only withdrawals, of the tokens and the amounts the review showed, in its order, each once;
     // before them, the switch that turns auto-follow off, exactly where the review said there is one.
     const inOrder = order.legs.slice().sort((a, b) => a.seq - b.seq);
@@ -281,5 +296,110 @@ export function retargetShapeOk(
       l.kind === 'swap' &&
       l.trades.length > 0 &&
       l.trades.every((t) => t.sell !== t.buy && buys.has(t.buy)),
+  );
+}
+
+/**
+ * A withdrawal in dollars (gate WITHDRAW-DOLLARS): nothing deposited; the switch that turns auto-follow
+ * off first, exactly where the review said there is one; then only sales, each of a holding the review
+ * named, of exactly the amount it named, into the chain's cash token, each holding at most once and
+ * each with its minimum; and last one withdrawal of the cash token alone, which states the least it
+ * pays: the share of the cash the review showed plus the minimum of every sale, and not a unit less.
+ * A holding the server left unsold is not in the order, and that is no fault: selling less is the
+ * person's own to decide, and the order says which. The guard holds every step's bytes to the same
+ * (`PlanTerms.dollars`); this holds the order's shape to the review before anything is offered.
+ */
+export function dollarsShapeOk(
+  order: Pick<OrderDetail, 'depositRaw' | 'legs' | 'warnings'>,
+  terms: Extract<SharedTerms, { kind: 'withdraw' }>,
+  units: Pick<ChainUnits, 'cash'> | null,
+): boolean {
+  const dollars = terms.dollars;
+  if (!dollars || !units || order.depositRaw !== undefined || order.legs.length === 0) return false;
+  const legs = order.legs.slice().sort((a, b) => a.seq - b.seq);
+  if (legs.some((l) => l.cashRaw !== undefined)) return false;
+  const first = legs[0]?.kind === 'set_auto_follow' ? legs[0] : null;
+  if ((first !== null) !== terms.autoFollowOff) return false;
+  if (first && (first.trades.length > 0 || first.withdrawals !== undefined)) return false;
+  const last = legs.at(-1);
+  const sales = legs.slice(first ? 1 : 0, -1);
+  const may = new Map(dollars.sales.map((s) => [s.asset, s.amountRaw]));
+  let least = BigInt(dollars.cashRaw);
+  let quoted = 0n;
+  for (const leg of sales) {
+    if (leg.kind !== 'swap' || leg.withdrawals !== undefined || leg.trades.length === 0)
+      return false;
+    if (leg.expected.length !== leg.trades.length) return false;
+    for (const [i, trade] of leg.trades.entries()) {
+      if (trade.buy !== units.cash || trade.sell === units.cash) return false;
+      if (may.get(trade.sell) !== trade.amountInRaw) return false;
+      may.delete(trade.sell);
+      const min = leg.expected[i]?.minOutRaw;
+      if (min === undefined || !RAW.test(min) || BigInt(min) === 0n) return false;
+      least += BigInt(min);
+      const out = leg.expected[i]?.outRaw;
+      if (out === undefined || !RAW.test(out)) return false;
+      // The quote sets the most the cash step pays and is no figure the person reads: it is held to
+      // its minimum, which is at most `maxSlippageBps` under it, rounded down (the guard's
+      // `quoteCeiling`).
+      const keep = BigInt(10_000 - ORDER_LIMITS.maxSlippageBps);
+      if (BigInt(out) > ((BigInt(min) + 1n) * 10_000n + keep - 1n) / keep) return false;
+      quoted += BigInt(out);
+    }
+  }
+  // A reviewed holding the order does not sell is one the chain would not sell now, and the order
+  // says so; one left out with no word is not the order that was reviewed.
+  const said = new Set(order.warnings.map((x) => x.code));
+  if ([...may.keys()].some((asset) => !said.has(`NOT_SOLD:${asset}`))) return false;
+  // The most the cash step pays: the cash reviewed, every sale's quote, and the margin for a fill
+  // above its quote (WITHDRAW_DOLLARS_MARGIN_BPS), which the guard holds the bytes to as well.
+  const most =
+    BigInt(dollars.cashRaw) + quoted + (quoted * BigInt(WITHDRAW_DOLLARS_MARGIN_BPS)) / 10_000n;
+  const [out, ...more] = last?.withdrawals ?? [];
+  return (
+    last?.kind === 'withdraw' &&
+    last !== first &&
+    last.trades.length === 0 &&
+    out !== undefined &&
+    more.length === 0 &&
+    out.asset === units.cash &&
+    out.amountRaw === null &&
+    least > 0n &&
+    out.leastRaw === least.toString() &&
+    out.mostRaw === most.toString()
+  );
+}
+
+/**
+ * A rebalance of a vault to the targets it has (HANDOFF-VAULT, MVP item 6): only swaps. No deposit, no
+ * cash moved, nothing withdrawn, no target set, no portfolio taken and no switch thrown. Every trade
+ * has the chain's cash on one side: a sale is for cash, and a purchase is of one of the vault's
+ * targets. The guard holds each swap to the vault and to its bytes and minimums.
+ */
+export function rebalanceShapeOk(
+  order: Pick<OrderDetail, 'depositRaw' | 'legs'>,
+  terms: Extract<SharedTerms, { kind: 'rebalance' }>,
+  units: Pick<ChainUnits, 'cash'> | null,
+): boolean {
+  if (!units || order.depositRaw !== undefined || order.legs.length === 0) return false;
+  if (
+    order.legs.some(
+      (l) => (l.cashRaw !== undefined && l.cashRaw !== '0') || l.withdrawals !== undefined,
+    )
+  )
+    return false;
+  const targets = new Set(terms.targets.map((t) => t.asset));
+  return order.legs.every(
+    (l) =>
+      l.kind === 'swap' &&
+      l.trades.length > 0 &&
+      l.expected.length === l.trades.length &&
+      l.trades.every(
+        (t) =>
+          t.sell !== t.buy &&
+          (t.buy === units.cash
+            ? t.sell !== units.cash
+            : t.sell === units.cash && targets.has(t.buy)),
+      ),
   );
 }

@@ -10,7 +10,7 @@ import { read, sourceFiles, WEB } from '../ui/test/css';
 // What the product's routes are built from, read from the imports themselves. Three rules:
 //   1. nothing the product ships imports from a `dev`, `test` or `fixtures` folder;
 //   2. the product's routes do not reach the wallet adapter, whose button renders one thing on the
-//      server and another in the browser, nor the bar and the providers of the pages not yet rebuilt;
+//      server and another in the browser;
 //   3. no screen can reach a key except through the executor of packages/sdk, which runs the guard on
 //      the bytes first. The port a screen is handed has no signing member, the whole port and the
 //      wallet libraries are importable only inside the wallet's seam, and outside it no signing
@@ -91,10 +91,9 @@ const product = routes.filter(
     file.startsWith('app/(embed)/'),
 );
 const embed = routes.filter((file) => file.startsWith('app/(embed)/'));
-const older = routes.filter((file) => file.startsWith('app/(structurer)/'));
 
 describe('the routes of the app', () => {
-  it('are the product’s, under one layout, and the pages not yet rebuilt, under theirs', () => {
+  it('are the product’s', () => {
     expect(product.sort()).toEqual([
       // an address no route answers: 404 in the product's shell (not-found.tsx, below)
       'app/(app)/[...missing]/page.tsx',
@@ -143,12 +142,8 @@ describe('the routes of the app', () => {
       'app/(marketing)/layout.tsx',
       'app/(marketing)/page.tsx',
     ]);
-    expect(older.sort()).toEqual([
-      'app/(structurer)/layout.tsx',
-      'app/(structurer)/plans/[id]/page.tsx',
-    ]);
-    // every route is in one group or the other: there is no layout above the two
-    expect(routes.filter((file) => !product.includes(file) && !older.includes(file))).toEqual([]);
+    // every route is in one of the three groups: there is no layout above them
+    expect(routes.filter((file) => !product.includes(file))).toEqual([]);
     expect(files).not.toContain('app/layout.tsx');
   });
 
@@ -298,24 +293,6 @@ describe('rule 2: the product’s routes do not reach the wallet adapter', () =>
     // the wallet comes through the port, which the routes do reach
     expect([...built.packages.keys()]).toContain('@privy-io/react-auth');
   });
-
-  it('does not render the bar or the providers of the pages not yet rebuilt', () => {
-    for (const file of [
-      'components/Nav.tsx',
-      'app/(structurer)/providers.tsx',
-      'components/PlanView.tsx',
-    ])
-      expect(built.files.has(file), file).toBe(false);
-  });
-
-  it('bites: those pages do reach all three, by the same reading', () => {
-    const theirs = reach(older);
-    expect(theirs.files.has('components/Nav.tsx')).toBe(true);
-    expect(theirs.files.has('app/(structurer)/providers.tsx')).toBe(true);
-    expect([...theirs.packages.keys()].filter((spec) => ADAPTER.test(spec)).length).toBeGreaterThan(
-      1,
-    );
-  });
 });
 
 describe('rule 3: no screen can reach a key', () => {
@@ -387,6 +364,10 @@ describe('rule 3: no screen can reach a key', () => {
     // the hold says a run is open, so the wallet provider is not mounted again under it
     [RUNNER]: { [SIGNING]: ['useSigningPort', 'useSigningHold'] },
     'features/order/readiness.ts': {
+      'features/wallet/chains.ts': ['publicWalletEnv', 'walletChains'],
+    },
+    // the vault's "Read at" links its slot or block from the same table's explorer, public config only
+    'features/shared/explorer-height.ts': {
       'features/wallet/chains.ts': ['publicWalletEnv', 'walletChains'],
     },
     // "Try again" for a slow sign-in mounts the wallet provider again: a function that takes and

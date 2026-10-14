@@ -1606,6 +1606,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -4021,6 +4023,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -6195,6 +6199,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -6983,6 +6989,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -7652,6 +7660,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -8530,6 +8540,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -8663,18 +8675,9 @@
                         },
                         "agentSurface": {
                           "type": "boolean"
-                        },
-                        "legacyStructurer": {
-                          "type": "boolean"
                         }
                       },
-                      "required": [
-                        "chainMode",
-                        "autoFollow",
-                        "keeperEnabled",
-                        "agentSurface",
-                        "legacyStructurer"
-                      ],
+                      "required": ["chainMode", "autoFollow", "keeperEnabled", "agentSurface"],
                       "additionalProperties": false
                     },
                     "chains": {
@@ -8900,6 +8903,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -10473,6 +10478,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -11333,6 +11340,8 @@
                                 "NotSupported",
                                 "TooManyTrades",
                                 "BadTrade",
+                                "TradeOverAssetLimit",
+                                "TradeOverClosedLimit",
                                 "VaultNotFound",
                                 "VaultExists",
                                 "RecipeNotFound",
@@ -11800,6 +11809,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -12426,6 +12437,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -12730,6 +12743,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -12984,6 +12999,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -13256,6 +13273,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -13839,6 +13858,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -14064,6 +14085,16 @@
                                         "maxLength": 78,
                                         "pattern": "^(?:0|[1-9]\\d*)$"
                                       },
+                                      "leastRaw": {
+                                        "type": "string",
+                                        "maxLength": 78,
+                                        "pattern": "^(?:0|[1-9]\\d*)$"
+                                      },
+                                      "mostRaw": {
+                                        "type": "string",
+                                        "maxLength": 78,
+                                        "pattern": "^(?:0|[1-9]\\d*)$"
+                                      },
                                       "valued": {
                                         "type": "object",
                                         "properties": {
@@ -14213,6 +14244,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -14597,6 +14630,16 @@
                       "sellToCash": {
                         "type": "boolean"
                       },
+                      "shareBps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
+                      },
+                      "maxSlippageBps": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 300
+                      },
                       "withdrawals": {
                         "minItems": 1,
                         "type": "array",
@@ -14789,6 +14832,16 @@
                                   ]
                                 },
                                 "heldRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -15203,6 +15256,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -15445,6 +15500,16 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -15855,6 +15920,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -16097,6 +16164,16 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -16507,6 +16584,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -17000,6 +17079,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -17248,6 +17329,16 @@
                                   ]
                                 },
                                 "heldRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
                                   "type": "string",
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
@@ -17662,6 +17753,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -17947,6 +18040,16 @@
                                   "maxLength": 78,
                                   "pattern": "^(?:0|[1-9]\\d*)$"
                                 },
+                                "leastRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
+                                "mostRaw": {
+                                  "type": "string",
+                                  "maxLength": 78,
+                                  "pattern": "^(?:0|[1-9]\\d*)$"
+                                },
                                 "valued": {
                                   "type": "object",
                                   "properties": {
@@ -18357,6 +18460,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -18959,6 +19064,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -19593,6 +19700,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -20034,6 +20143,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -21251,6 +21362,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -21858,6 +21971,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -22478,6 +22593,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -22761,6 +22878,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -23086,6 +23205,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -23178,7 +23299,7 @@
       "get": {
         "summary": "One vault, read from its chain, for anybody",
         "tags": ["portfolio"],
-        "description": "The vault's holdings, targets, value, weights and drift, read from its chain for this answer, with the reference prices they were worked out with. Anybody may read it: a vault's state is public on its chain. A chain this server has switched off answers `CHAIN_UNAVAILABLE`; an address in the other chain family's form answers 400, and one where there is no vault 404. Every figure carries `provenance`. A sign-in is never needed. To a signed-in caller one of whose wallets owns the vault, `vault.number` is its number among their vaults, where the server holds one; anybody else is answered none, and nothing of how many vaults the owner has.",
+        "description": "The vault's holdings, targets, value, weights and drift, read from its chain for this answer, with the reference prices they were worked out with. Anybody may read it: a vault's state is public on its chain. A chain this server has switched off answers `CHAIN_UNAVAILABLE`; an address in the other chain family's form answers 400, and one where there is no vault 404. Every figure carries `provenance`. A sign-in is never needed. To a signed-in caller one of whose wallets owns the vault, `vault.number` is its number among their vaults, where the server holds one; anybody else is answered none, and nothing of how many vaults the owner has. `blockOrSlot` is the chain's height at the read: on Solana the slot the vault's account was read at; on EVM the block number asked alongside the read, and on the mock its second; null where the chain did not say it in time. Each holding's `why` is the reason the server holds for it, with its source: the shared portfolio the vault follows (the asset's kind), to anybody; the plan the vault was opened for, or the person's own choice of share, to the owner alone, as the plan is theirs. Null where there is none that still stands.",
         "parameters": [
           {
             "schema": {
@@ -23224,6 +23345,17 @@
                     "provenance": {
                       "type": "string",
                       "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                    },
+                    "blockOrSlot": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\d+$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "vault": {
                       "type": "object",
@@ -23326,6 +23458,40 @@
                               },
                               "required": ["multiplier", "effectiveAt"],
                               "additionalProperties": false
+                            },
+                            "why": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "source": {
+                                      "type": "string",
+                                      "enum": ["portfolio", "plan", "owner"]
+                                    },
+                                    "text": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "cls": {
+                                      "type": "string",
+                                      "enum": [
+                                        "stock",
+                                        "etf",
+                                        "gold",
+                                        "commodity",
+                                        "dollar_yield",
+                                        "crypto",
+                                        "cash"
+                                      ]
+                                    }
+                                  },
+                                  "required": ["source"],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": ["asset", "raw", "multiplier", "display"],
@@ -23406,6 +23572,40 @@
                                 "type": "integer",
                                 "minimum": -10000,
                                 "maximum": 10000
+                              },
+                              "why": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "enum": ["portfolio", "plan", "owner"]
+                                      },
+                                      "text": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "cls": {
+                                        "type": "string",
+                                        "enum": [
+                                          "stock",
+                                          "etf",
+                                          "gold",
+                                          "commodity",
+                                          "dollar_yield",
+                                          "crypto",
+                                          "cash"
+                                        ]
+                                      }
+                                    },
+                                    "required": ["source"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -23648,6 +23848,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -24325,6 +24527,8 @@
                                 "NotSupported",
                                 "TooManyTrades",
                                 "BadTrade",
+                                "TradeOverAssetLimit",
+                                "TradeOverClosedLimit",
                                 "VaultNotFound",
                                 "VaultExists",
                                 "RecipeNotFound",
@@ -25485,6 +25689,8 @@
                                 "NotSupported",
                                 "TooManyTrades",
                                 "BadTrade",
+                                "TradeOverAssetLimit",
+                                "TradeOverClosedLimit",
                                 "VaultNotFound",
                                 "VaultExists",
                                 "RecipeNotFound",
@@ -25579,7 +25785,7 @@
       "post": {
         "summary": "Discuss an owned vault and preview a model-proposed strategy",
         "tags": ["portfolio"],
-        "description": "Fresh chain ownership on every call; missing and other-owned vaults return the same 404. The model receives the supplied conversation, real current vault state, listed assets and sourced risk inputs. It picks assets and the server sets the preview weights, without calling the allocation engine. The goal is the one of the plan the vault was opened for, read on the server as `POST /v1/vaults/{chain}/{address}/targets` reads it, never from the request: in an income or protect plan a stock is proposed only where the person asked for it in their own words, with the warning `outside_goal_requested`, and any other pick outside the goal is left out with the note `pick_outside_goal`, since the targets review would refuse it; a target the vault already has may be kept at its current weight or below, and raised it is held to the goal like a new one. The model is also given what the server knows of the vault: the shared portfolio it follows (read from the chain for this reply, with its lines and weights), whose its targets are, each holding against its target, auto-follow and the keeper on this server, and the network. A request to bring the holdings to the targets (a rebalance) is answered by the server itself, with each holding against its target and, once the page of the vault has the action, its name; no model is called for it, nothing is drafted, and no order is made. A bare confirmation the server cannot tie to one question is answered with a question and no proposal. A vault the server holds no plan for has no goal to check against, and `proposal.unknowns` says so. Sources and numerical metrics are server-authored. The model writes no number: where it states a measured figure it names one the server gave it, and the server writes the value in its place in `message`, `question` and the prose of the proposal (plain text, no markup). `figures` is then present: `figures.prose` is the same prose with each figure a `{{fact:<id>}}` placeholder and `figures.facts` what each one is, with its value, unit, shown text, source, fetchedAt, method, provenance and, for a price past the age the chain accepts, `staleAgeSec`; a figure that is not measured has a null value and its reason, and its text says so. A reference to anything the server did not measure never becomes a number: its sentence is left out. No history, plan, order, target or account-chain change is stored. Existing configured model and shared intake call quota apply. Cache-Control: private, no-store.",
+        "description": "Fresh chain ownership on every call; missing and other-owned vaults return the same 404. The model receives the supplied conversation, real current vault state, listed assets and sourced risk inputs. It picks assets and the server sets the preview weights, without calling the allocation engine. The goal is the one of the plan the vault was opened for, read on the server as `POST /v1/vaults/{chain}/{address}/targets` reads it, never from the request: in an income or protect plan a stock is proposed only where the person asked for it in their own words, with the warning `outside_goal_requested`, and any other pick outside the goal is left out with the note `pick_outside_goal`, since the targets review would refuse it; a target the vault already has may be kept at its current weight or below, and raised it is held to the goal like a new one. The model is also given what the server knows of the vault: the shared portfolio it follows (read from the chain for this reply, with its lines and weights), whose its targets are, each holding against its target, auto-follow and the keeper on this server, and the network. A request to bring the holdings to the targets (a rebalance) is answered by the server itself, with each holding against its target and, where the page of the vault offers the action (by the rule the page reads), its name; no model is called for it, nothing is drafted, and no order is made. A bare confirmation the server cannot tie to one question is answered with a question and no proposal. A vault the server holds no plan for has no goal to check against, and `proposal.unknowns` says so. Sources and numerical metrics are server-authored. The model writes no number: where it states a measured figure it names one the server gave it, and the server writes the value in its place in `message`, `question` and the prose of the proposal (plain text, no markup). `figures` is then present: `figures.prose` is the same prose with each figure a `{{fact:<id>}}` placeholder and `figures.facts` what each one is, with its value, unit, shown text, source, fetchedAt, method, provenance and, for a price past the age the chain accepts, `staleAgeSec`; a figure that is not measured has a null value and its reason, and its text says so. A reference to anything the server did not measure never becomes a number: its sentence is left out. No history, plan, order, target or account-chain change is stored. Existing configured model and shared intake call quota apply. Cache-Control: private, no-store.",
         "requestBody": {
           "required": true,
           "content": {
@@ -26318,6 +26524,8 @@
                                 "NotSupported",
                                 "TooManyTrades",
                                 "BadTrade",
+                                "TradeOverAssetLimit",
+                                "TradeOverClosedLimit",
                                 "VaultNotFound",
                                 "VaultExists",
                                 "RecipeNotFound",
@@ -26594,6 +26802,1288 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/vaults/{chain}/{address}/rebalance": {
+      "post": {
+        "summary": "Rebalance a vault you own to the targets it has",
+        "tags": ["portfolio"],
+        "description": "Brings what the vault holds to the targets it has on chain now, and changes nothing else: no target is set, so a vault that follows a shared portfolio goes on following it, at the version it accepted. This is what a person does after following a portfolio with a vault that already holds something (following trades nothing), and whenever a vault has moved off its targets and no keeper trades it. Ownership is read from the chain on every call; a missing vault and another person’s answer the same 404. The body names no target and no asset: the targets are the vault’s own, and they are not checked against a goal, since they are not being changed. `on_target`: the vault is inside the owner’s band (`outsideOwnerBand` in packages/schemas: no asset more than 50 bps over its target or more than that and its part of the slippage under it, and the cash no more than the band and the slippage over its share), so there is nothing to trade, and nothing is built or stored. No trade is smaller than the smallest line a plan holds. `ordered`: an order (`type` rebalance) of `swap` steps only, the sales of what is over its target and then the purchases of what is under, sized at the prices now so that the purchases have their cash even if every trade loses the order’s slippage, each with the minimum it states, as many per step as the chain takes. It is read, built, signed, reported and cancelled through `/v1/orders/{id}` like any order. A step is built only while the vault’s targets are still the ones in `targets` (409 `TARGETS_CHANGED` in `details.issues` otherwise: rebalance again). Refused with 409 and `details.issues`: `NO_TARGETS` (the vault has no target), `AUTO_FOLLOW_ON` (auto-follow is on and this chain runs a keeper, which rebalances the vault), `NO_PRICE:<asset>` (a target or a holding has no price the vault can trade on now; retryable). A rebalance that would sell or buy more than one order may move is refused (422 `MIX_NOT_VALID`, `OVER_ORDER_LIMIT`). A step is built only while auto-follow is not on where the chain runs a keeper (`AUTO_FOLLOW_ON`) and while none of its trades would take an asset past its target given what the vault holds then (`PAST_TARGET:<asset>`). On EVM each trade’s minimum is the higher of the order’s slippage and the quote’s own, which carries the reference price’s floor; a trade whose pool pays under that floor is refused (409 `PRICE_BOUND:<asset>`), one larger than the network takes of the asset in one go is refused for good (422 `TRADE_TOO_LARGE:<asset>`, not retryable), and one over the smaller limit of a closed market waits for it to open (409 `TRADE_WAITS_FOR_OPEN:<asset>`, retryable). Cache-Control: private, no-store.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "maxSlippageBps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["solana", "base", "robinhood"]
+            },
+            "in": "path",
+            "name": "chain",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "address",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "accessToken": [],
+            "identityToken": []
+          }
+        ],
+        "x-rate-limit": "build",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["on_target"]
+                        },
+                        "targets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                              },
+                              "weightBps": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10000
+                              }
+                            },
+                            "required": ["asset", "weightBps"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["status", "targets"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["ordered"]
+                        },
+                        "targets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "asset": {
+                                "type": "string",
+                                "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                              },
+                              "weightBps": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10000
+                              }
+                            },
+                            "required": ["asset", "weightBps"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "order": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "buy",
+                                "rebalance",
+                                "follow",
+                                "publish",
+                                "withdraw",
+                                "settings"
+                              ]
+                            },
+                            "owner": {
+                              "type": "object",
+                              "properties": {
+                                "solana": {
+                                  "type": "string",
+                                  "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+                                },
+                                "evm": {
+                                  "type": "string",
+                                  "pattern": "^0x[0-9a-f]{40}$"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            "summary": {
+                              "type": "string"
+                            },
+                            "depositRaw": {
+                              "type": "string",
+                              "maxLength": 78,
+                              "pattern": "^(?:0|[1-9]\\d*)$"
+                            },
+                            "basketId": {
+                              "type": "string",
+                              "pattern": "^\\d{1,20}$"
+                            },
+                            "continues": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "orderId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "chain": {
+                                    "type": "string",
+                                    "enum": ["solana", "base", "robinhood"]
+                                  },
+                                  "seq": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "approve",
+                                      "create_vault",
+                                      "deposit",
+                                      "swap",
+                                      "set_targets",
+                                      "accept_version",
+                                      "set_auto_follow",
+                                      "withdraw",
+                                      "publish",
+                                      "adopt_version",
+                                      "keeper_leg"
+                                    ]
+                                  },
+                                  "signer": {
+                                    "type": "string",
+                                    "enum": ["owner", "keeper"]
+                                  },
+                                  "description": {
+                                    "type": "string"
+                                  },
+                                  "cashRaw": {
+                                    "type": "string",
+                                    "maxLength": 78,
+                                    "pattern": "^(?:0|[1-9]\\d*)$"
+                                  },
+                                  "withdrawals": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "asset": {
+                                          "type": "string",
+                                          "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                        },
+                                        "amountRaw": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 78,
+                                              "pattern": "^(?:0|[1-9]\\d*)$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "heldRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "leastRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "mostRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "valued": {
+                                          "type": "object",
+                                          "properties": {
+                                            "source": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "method": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "fetchedAt": {
+                                              "type": "string",
+                                              "format": "date-time",
+                                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                            },
+                                            "provenance": {
+                                              "type": "string",
+                                              "enum": [
+                                                "live",
+                                                "mock",
+                                                "sandbox",
+                                                "fixture",
+                                                "prior_dataset"
+                                              ]
+                                            },
+                                            "usd": {
+                                              "type": "string",
+                                              "pattern": "^\\d+(\\.\\d+)?$"
+                                            }
+                                          },
+                                          "required": [
+                                            "source",
+                                            "method",
+                                            "fetchedAt",
+                                            "provenance",
+                                            "usd"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      },
+                                      "required": ["asset", "amountRaw", "heldRaw"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "trades": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "sell": {
+                                          "type": "string",
+                                          "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                        },
+                                        "buy": {
+                                          "type": "string",
+                                          "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                        },
+                                        "amountInRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        }
+                                      },
+                                      "required": ["sell", "buy", "amountInRaw"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "expected": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "inRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "outRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "minOutRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "costBps": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": ["inRaw", "outRaw", "minOutRaw", "costBps"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "planned",
+                                      "built",
+                                      "sent",
+                                      "confirmed",
+                                      "failed",
+                                      "expired",
+                                      "skipped"
+                                    ]
+                                  },
+                                  "attempt": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "txId": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "explorerUrl": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "validUntil": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "error": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "code": {
+                                            "type": "string"
+                                          },
+                                          "message": {
+                                            "type": "string"
+                                          },
+                                          "retryable": {
+                                            "type": "boolean"
+                                          }
+                                        },
+                                        "required": ["code", "message", "retryable"],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "trigger": {
+                                    "type": "string",
+                                    "enum": ["manual", "index_update", "drift", "liquidity_breach"]
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "orderId",
+                                  "chain",
+                                  "seq",
+                                  "kind",
+                                  "signer",
+                                  "description",
+                                  "trades",
+                                  "expected",
+                                  "status",
+                                  "attempt",
+                                  "txId",
+                                  "explorerUrl",
+                                  "validUntil",
+                                  "error",
+                                  "trigger",
+                                  "provenance"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "warnings": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["code", "text"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "needsConsent": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": ["auto_follow_on", "new_asset", "publish"]
+                              }
+                            },
+                            "fees": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "bps": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": ["kind", "bps"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "preparedBy": {
+                              "type": "string",
+                              "enum": ["app", "api", "mcp"]
+                            },
+                            "agentLabel": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": ["open", "partial", "done", "failed", "expired"]
+                            },
+                            "approvalUrl": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "expiresAt": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "disclaimer": {
+                              "type": "string"
+                            },
+                            "attempts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "legId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "n": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "messageHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "nonce": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": ["built", "sent", "confirmed", "failed", "expired"]
+                                  },
+                                  "txId": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "explorerUrl": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "validUntil": {
+                                    "type": ["string", "null"]
+                                  },
+                                  "builtAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "legId",
+                                  "n",
+                                  "messageHash",
+                                  "nonce",
+                                  "status",
+                                  "txId",
+                                  "explorerUrl",
+                                  "validUntil",
+                                  "builtAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "type",
+                            "owner",
+                            "summary",
+                            "legs",
+                            "warnings",
+                            "needsConsent",
+                            "fees",
+                            "preparedBy",
+                            "status",
+                            "approvalUrl",
+                            "expiresAt",
+                            "createdAt",
+                            "disclaimer",
+                            "attempts"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": ["status", "targets", "order"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/vaults/{chain}/{address}/rebalance/quote": {
+      "post": {
+        "summary": "Quote what a rebalance of a vault you own would trade now",
+        "tags": ["portfolio"],
+        "description": "What `POST /v1/vaults/{chain}/{address}/rebalance` would order now, as figures to show before anything is signed: nothing is built or stored. With `family`, the quote is against the weights of that shared portfolio’s version in effect on the vault’s chain, which is what the vault trades to once it follows it (a follow’s own step trades nothing); a portfolio that is not there answers 404, one not on this chain 422, and a `version` that is not the one in effect 409 `VERSION_CHANGED`. Without `family`, against the targets the vault has. `quoted`: each trade, the sales first, with what goes in and its dollar value at the reference price, what the quote says comes out, the least an order would take at `slippageBps`, and the quote’s cost against the reference in bps; `holdings`, cash first, each with its target and its share of the vault before and after the trades; `costUsd`, the trades’ quoted costs together. `on_target`: there is nothing to trade. `unavailable`: no order could be made now, and `unavailable.reason` and `unavailable.issues` say why, as the rebalance route’s refusals do (`NO_PRICE:<asset>`, `AUTO_FOLLOW_ON`, `NO_TARGETS`, `OVER_ORDER_LIMIT`, or a chain’s own code such as a closed market or a size limit); the holdings are still answered against the targets. The figures are indicative: an order is planned and quoted again when it is made, and its own minimums are the ones signed. `prices` are the reference prices the shares are worked out with, each with its `source`, `fetchedAt` and `method`, and `quote` is the same for the trades’ own figures; `provenance` says whether the chain is the sample one or a test network. Ownership is read from the chain on every call; a missing vault and another person’s answer the same 404. Cache-Control: private, no-store.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "family": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "maxSlippageBps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["solana", "base", "robinhood"]
+            },
+            "in": "path",
+            "name": "chain",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "address",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "accessToken": [],
+            "identityToken": []
+          }
+        ],
+        "x-rate-limit": "build",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["quoted", "on_target", "unavailable"]
+                    },
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "provenance": {
+                      "type": "string",
+                      "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                    },
+                    "version": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "targets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "weightBps": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10000
+                          }
+                        },
+                        "required": ["asset", "weightBps"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "slippageBps": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10000
+                    },
+                    "valueUsd": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "trades": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sell": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "buy": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "amountInRaw": {
+                            "type": "string",
+                            "pattern": "^\\d+$"
+                          },
+                          "valueUsd": {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                          },
+                          "expectedOutRaw": {
+                            "type": "string",
+                            "pattern": "^\\d+$"
+                          },
+                          "minOutRaw": {
+                            "type": "string",
+                            "pattern": "^\\d+$"
+                          },
+                          "costBps": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "sell",
+                          "buy",
+                          "amountInRaw",
+                          "valueUsd",
+                          "expectedOutRaw",
+                          "minOutRaw",
+                          "costBps"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "holdings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "cash": {
+                            "type": "boolean"
+                          },
+                          "targetBps": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "beforeBps": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "afterBps": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          }
+                        },
+                        "required": ["asset", "cash", "targetBps", "beforeBps", "afterBps"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "costUsd": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "prices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "method": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "fetchedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "provenance": {
+                            "type": "string",
+                            "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                          },
+                          "asset": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "usdPerToken": {
+                            "type": "string",
+                            "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                          },
+                          "ageSeconds": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "maxAgeSeconds": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "market": {
+                            "type": "string",
+                            "enum": ["open", "closed", "unknown"]
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "method",
+                          "fetchedAt",
+                          "provenance",
+                          "asset",
+                          "usdPerToken",
+                          "ageSeconds",
+                          "maxAgeSeconds",
+                          "market"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "quote": {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "method": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "fetchedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                        }
+                      },
+                      "required": ["source", "method", "fetchedAt", "provenance"],
+                      "additionalProperties": false
+                    },
+                    "unavailable": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "reason": {
+                              "type": "string"
+                            },
+                            "issues": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": ["reason", "issues"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "quotedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "disclaimer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "chain",
+                    "provenance",
+                    "version",
+                    "targets",
+                    "slippageBps",
+                    "valueUsd",
+                    "trades",
+                    "holdings",
+                    "costUsd",
+                    "prices",
+                    "quote",
+                    "unavailable",
+                    "quotedAt",
+                    "disclaimer"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",
@@ -27597,6 +29087,16 @@
                                           "maxLength": 78,
                                           "pattern": "^(?:0|[1-9]\\d*)$"
                                         },
+                                        "leastRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
+                                        "mostRaw": {
+                                          "type": "string",
+                                          "maxLength": 78,
+                                          "pattern": "^(?:0|[1-9]\\d*)$"
+                                        },
                                         "valued": {
                                           "type": "object",
                                           "properties": {
@@ -28013,6 +29513,8 @@
                             "NotSupported",
                             "TooManyTrades",
                             "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
                             "VaultNotFound",
                             "VaultExists",
                             "RecipeNotFound",

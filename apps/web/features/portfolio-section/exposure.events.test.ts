@@ -43,13 +43,13 @@ const block = (host: HTMLElement, chain: string) =>
   find(host, `[data-ui="chain-exposure"][data-chain="${chain}"]`);
 const pins = (root: ParentNode) => [...root.querySelectorAll('[data-ui="figure"]')];
 const shares = (root: Element, by: string) => [
-  ...find(root, `[data-ui="shares"][data-by="${by}"]`).querySelectorAll('[data-ui="share"]'),
+  ...find(root, `[data-ui="shares"][data-by="${by}"]`).querySelectorAll('[data-row]'),
 ];
 /** A list of shares as "name dollars percent". */
 const said = (root: Element, by: string) =>
   shares(root, by).map(
     (s) =>
-      `${part(s, 'share-name')} ${text(find(s, '[data-ui="figure"] .tf-figure'))} ${part(s, 'share-percent')}`,
+      `${text(find(s, '.truncate'))} ${text(find(s, '[data-ui="share-dollars"] [data-ui="figure"] .tf-figure'))} ${part(s, 'composition-share')}`,
   );
 const exit = (root: Element, asset: string) =>
   find(root, `[data-ui="exit"][data-asset="${asset}"]`);
@@ -134,24 +134,26 @@ describe('the exposure page, for a person who holds on two chains', () => {
     ]);
     // the percentages of each list add up to the whole
     for (const list of host.querySelectorAll('[data-ui="shares"]')) {
-      const sum = [...list.querySelectorAll('[data-ui="share-percent"]')]
+      const sum = [...list.querySelectorAll('[data-ui="composition-share"]')]
         .map((p) => Math.round(Number.parseFloat(text(p)) * 10))
         .reduce((a, b) => a + b, 0);
       expect(sum).toBe(1000);
-      // a real list, named by its heading; the bars are a picture, hidden from a screen reader
-      expect(list.tagName).toBe('OL');
-      const heading = document.getElementById(list.getAttribute('aria-labelledby') ?? '');
+      // a list under its heading, beside a ring that is one picture said in words
+      const heading = list.closest('section')?.querySelector('h3');
       expect(['By what each asset tracks', 'By who issues it']).toContain(heading?.textContent);
-      for (const item of list.children) {
-        expect(item.tagName).toBe('LI');
-        expect(find(item, 'svg[data-ui="share-bar"]').getAttribute('aria-hidden')).toBe('true');
-      }
+      const first = list.querySelector('[data-ui="composition-share"]');
+      expect(find(list, '[role="img"]').getAttribute('aria-label')).toContain(
+        text(first as Element),
+      );
     }
-    // a bar is as long as its share, and a small share is still drawn
-    const widths = shares(solana, 'underlying').map((s) =>
-      Number(find(s, '[data-ui="share-fill"]').getAttribute('width')),
-    );
-    expect(widths).toEqual([62.9, 27.17, 8.58, 1.22, 0.75]);
+    // a segment a share, in the order of the list, and a small share is still drawn
+    expect(
+      [
+        ...find(solana, '[data-ui="shares"][data-by="underlying"]').querySelectorAll(
+          '[data-ui="composition-segment"]',
+        ),
+      ].map((s) => s.getAttribute('data-key')),
+    ).toEqual(shares(solana, 'underlying').map((s) => s.getAttribute('data-row')));
     // an answer in another order is still listed largest first
     await unmountAll();
     serve(portStore, {
@@ -353,8 +355,8 @@ describe('the exposure page, for a person who holds on two chains', () => {
     signIn();
     const host = await page();
     const robinhood = block(host, 'robinhood');
-    expect(part(robinhood, 'sample-note')).toBe(t.shell.mockAnnounce);
-    expect(robinhood.querySelector('[data-ui="hatch-band"]')).not.toBeNull();
+    expect(part(robinhood, 'sample-tag')).toBe(t.shell.mockAnnounce);
+    expect(robinhood.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
     expect(robinhood.querySelector('[data-ui="shares"][data-by="issuer"]')).toBeNull();
     expect(part(robinhood, 'issuer-stand-ins')).toBe(
       'On our sample chain every issuer and tier is a stand-in, so there is no split by issuer to show.',
@@ -363,7 +365,7 @@ describe('the exposure page, for a person who holds on two chains', () => {
     expect(text(robinhood)).not.toContain(words.flags.say.issuer_concentration);
     expect(text(robinhood)).not.toContain(words.shares.byIssuer);
     // a test network keeps its split, under its own line
-    expect(part(block(host, 'solana'), 'sample-note')).toBe(t.shell.testNetworkLine);
+    expect(part(block(host, 'solana'), 'sample-tag')).toBe(t.shell.testNetworkLine);
     expect(block(host, 'solana').querySelector('[data-ui="issuer-stand-ins"]')).toBeNull();
   });
 });
@@ -389,14 +391,14 @@ describe('the figures of the exposure page', () => {
     expect(text(copy)).not.toMatch(/\d\s?bps/);
   });
 
-  it('draws a test network and the sample chain as the hatch and one quiet line, never as live (rule 2)', async () => {
+  it('draws a test network and the sample chain with one quiet tag, never as live (rule 2)', async () => {
     serve(portStore);
     signIn();
     const host = await page();
     expect(new Set(pins(host).map((pin) => pin.getAttribute('data-state')))).toEqual(
       new Set(['mock']),
     );
-    expect(host.querySelectorAll('[data-ui="sample-note"]')).toHaveLength(2);
+    expect(host.querySelectorAll('[data-ui="sample-tag"]')).toHaveLength(2);
     expect(text(host)).not.toContain('MOCK');
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     // the only status on the page is a word with its shape
@@ -412,7 +414,7 @@ describe('the figures of the exposure page', () => {
     expect(new Set(pins(host).map((pin) => pin.getAttribute('data-state')))).toEqual(
       new Set(['live']),
     );
-    expect(host.querySelector('[data-ui="hatch-band"], [data-ui="sample-note"]')).toBeNull();
+    expect(host.querySelector('[data-ui="hatch-band"], [data-ui="sample-tag"]')).toBeNull();
     expect(block(host, 'solana').querySelector('[data-ui="chain-mark"]')).toBeNull();
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
@@ -575,14 +577,14 @@ describe('the exposure page in Portuguese', () => {
     const solana = block(host, 'solana');
     expect(at(solana, 'exposure-total')).toContain('Os 4 cofres que foram lidos têm US$ 84.047,10');
     expect(read(shares(solana, 'underlying')[0] as Element)).toContain('US$ 52.865,00');
-    expect(at(shares(solana, 'underlying')[0] as Element, 'share-percent')).toBe('62,9%');
+    expect(at(shares(solana, 'underlying')[0] as Element, 'composition-share')).toBe('62,9%');
     expect(at(exit(solana, 'solana:usdy'), 'exit-cost')).toContain(
       'Custo medido de vender tudo 7,25 bps',
     );
     expect(at(exit(solana, 'solana:spyx'), 'exit-cost')).toBe(pt.exit.undated);
     expect(at(exit(solana, 'solana:syrupusdc'), 'exit-cost')).toContain('A faixa dele, B,');
     expect(at(solana, 'unvalued-note')).toBe(pt.unvalued.note);
-    expect(at(solana, 'sample-note')).toBe(dictionary('pt').shell.testNetworkLine);
+    expect(at(solana, 'sample-tag')).toBe(dictionary('pt').shell.testNetworkLine);
     expect(at(block(host, 'robinhood'), 'issuer-stand-ins')).toBe(pt.shares.standIns);
     expect(read(find(host, '[data-ui="exposure-notes"]'))).toContain(pt.notes.chains);
     for (const english of [words.title, words.exit.heading, words.shares.byUnderlying])
@@ -601,8 +603,11 @@ describe('the exposure page inside the section’s frame', () => {
       '/portfolio/exposure',
     );
     expect(host.querySelectorAll('[data-ui="disclaimer"]')).toHaveLength(1);
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
-    expect(find(host, '.font-display').tagName).toBe('H1');
+    // the display face: the title, and the big figure in each ring's centre (composition.md)
+    const display = [...host.querySelectorAll('.font-display')].filter(
+      (el) => !el.closest('[data-ui="composition-centre"]'),
+    );
+    expect(display.map((el) => el.tagName)).toEqual(['H1']);
   });
 });
 

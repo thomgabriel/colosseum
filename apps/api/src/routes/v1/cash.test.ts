@@ -112,8 +112,9 @@ describe('a buy when the plan keeps cash', () => {
               ['swap', undefined, 1],
             ]
           : [
+              ['create_vault', undefined, 0],
               ['approve', '1000000000', 0],
-              ['create_vault', '1000000000', 3],
+              ['deposit', '1000000000', 3],
             ],
       );
       expect(placed.legs.flatMap((l) => l.trades).map((t) => [t.buy, t.amountInRaw])).toEqual([
@@ -125,11 +126,12 @@ describe('a buy when the plan keeps cash', () => {
         `Deposit $1,000.00 into your plan’s vault on ${registry.name(chain)}`,
       );
 
-      // The transaction that opens the vault takes the whole deposit from the wallet.
+      // The transaction that moves the cash takes the whole deposit from the wallet: the create on
+      // Solana, the deposit after the empty create on Robinhood Chain.
       let latest = placed;
       for (const leg of placed.legs) {
         const { tx } = await build(a, placed, leg.id);
-        if (leg.kind === 'create_vault') {
+        if (leg.cashRaw !== undefined && leg.kind !== 'approve') {
           const wallet = tx.preview.changes.filter((c) => c.holder === 'wallet');
           expect(wallet).toEqual([
             { holder: 'wallet', asset: `${chain}:usdc`, deltaRaw: '-1000000000' },
@@ -137,7 +139,7 @@ describe('a buy when the plan keeps cash', () => {
           const kept = tx.preview.changes.find(
             (c) => c.holder === 'vault' && c.asset === `${chain}:usdc`,
           );
-          // Where the trades ride in the create, what is left in the vault is the cash share.
+          // Where the trades ride in the step, what is left in the vault is the cash share.
           expect(kept?.deltaRaw).toBe(chain === 'solana' ? '1000000000' : '50000000');
         }
         latest = await report(a, placed, leg.id, { txId: await land(a, placed, leg.id) });
@@ -180,8 +182,9 @@ describe('a buy when the plan keeps cash', () => {
         chain === 'solana'
           ? [['create_vault', '1000000000', [], []]]
           : [
+              ['create_vault', undefined, [], []],
               ['approve', '1000000000', [], []],
-              ['create_vault', '1000000000', [], []],
+              ['deposit', '1000000000', [], []],
             ],
       );
       expect(placed.warnings).toEqual([]);

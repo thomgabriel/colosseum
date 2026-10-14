@@ -581,6 +581,7 @@ export const en = {
     order: (when: string) => `Order · ${when}`,
     follow: (when: string) => `Follow a shared portfolio · ${when}`,
     withdraw: (when: string) => `Withdrawal · ${when}`,
+    rebalance: (when: string) => `Rebalance to your vault’s targets · ${when}`,
     publish: (when: string) => `Publish a portfolio · ${when}`,
     noneVault:
       'Nothing from your deposits has reached the chain yet. The keeper’s trades, and orders about a shared portfolio placed in another browser, are not listed here yet.',
@@ -1042,6 +1043,18 @@ export const en = {
     costPrefix: 'cost',
     /** The fold under a holding's row: every reason behind its share. */
     whyShare: 'Why this share',
+    /** One fold for the whole plan: each holding's reason. */
+    whyShares: 'Why these shares',
+    /** The one fold at the foot of a plan's card: why each share, the way out, who published it. */
+    aboutHoldings: 'Methodology',
+    /** The head of the panel of a plan's holdings. */
+    holdingsTitle: 'Holdings',
+    /** The heading over the strip and the table of what a plan holds. */
+    allocation: 'Allocation',
+    /** The first figure under a plan's answer: how many assets it holds. */
+    kpiAssets: 'Assets',
+    /** In the exit cost column, where Bearing measures nothing. */
+    notMeasured: 'Not measured',
     /** Under the meter of what leaving costs. */
     exitScale: 'A full bar is 1%, the cost at which selling is measured.',
     income: {
@@ -1060,6 +1073,8 @@ export const en = {
       amount: 'Amount',
       yield: 'Yield after haircut',
       why: 'Why',
+      kind: 'Type',
+      exit: 'Exit cost',
     },
     noReason: 'No reason given.',
     projected: 'Projected range a year, not a promise',
@@ -1070,7 +1085,7 @@ export const en = {
     exitUnmeasured: 'Not measured yet, so no cost is shown.',
     exitCost: (cost: string) => `≤ ${cost}`,
     inKind:
-      'You can take the tokens themselves out of your vault at any time. Selling them to cash for you isn’t offered yet.',
+      'You can take the tokens themselves out of your vault at any time. You can also withdraw in dollars: your vault sells its holdings and the dollars go to your wallet.',
     risk: {
       /** On a plan read back from the server, which keeps the plan and not this summary. */
       notKept:
@@ -1113,6 +1128,8 @@ export const en = {
         `${share} in ${what} · in a bad fall about −${loss}`,
       inNoFall: (share: string, what: string) =>
         `${share} in ${what} · no loss counted in a bad fall`,
+      /** Where the kinds of asset are not known, so nothing is said of a fall. */
+      inOnly: (share: string, what: string) => `${share} in ${what}`,
       /** After the yield, where it is a small figure under the answer. */
       yieldAfter: 'a year from its dollar yield, projected. Not a promise.',
       range: (low: string, high: string) => `${low} to ${high} a year`,
@@ -1284,6 +1301,34 @@ export const en = {
   },
 
   shared: {
+    /** What a vault holds, as a ring and a list, or as two bars before and after (Composition.tsx). */
+    composition: {
+      /** In the ring's centre when nothing is pointed at. */
+      count: (n: number) => (n === 1 ? '1 asset' : `${n} assets`),
+      /** The two bars of a comparison, top then bottom. */
+      before: 'Now',
+      after: 'After',
+      /** The bottom bar of a draft that changes a vault's targets. */
+      proposed: 'Proposed',
+      /** The table's name, and the heads of its columns. */
+      caption: 'What it holds',
+      asset: 'Asset',
+      weight: 'Weight',
+      changeHead: 'Change',
+      /** Under the largest holdings on a card in a list: how many are not listed. */
+      more: (n: number) => `and ${n} more`,
+      /** The ring as one sentence, for a screen reader: "SPY 50%, NVDA 30%". */
+      summary: (parts: string) => `What it holds: ${parts}`,
+      /** Under a share in a comparison: where it was. */
+      from: (share: string) => `from ${share}`,
+      /** The same, said whole for a screen reader. */
+      change: (before: string, after: string, difference: string) =>
+        `${before} before, ${after} after, ${difference}`,
+      unchanged: 'unchanged',
+      /** A holding that is new in the comparison, or gone. */
+      added: 'new',
+      removed: 'removed',
+    },
     meta: {
       shelf: 'Shared portfolios',
       family: 'Shared portfolio',
@@ -1356,6 +1401,8 @@ export const en = {
           `Selling ${names} isn’t measured yet, so no cost is shown for it.`,
       },
       publisher: 'Published by',
+      /** The figures under a shared portfolio's answer. */
+      kpi: { version: 'Version', since: 'In effect since' },
     },
     /** What a refusal of a buy or a follow of a shared portfolio says (features/shared/refusal.ts). */
     refusal: {
@@ -1479,7 +1526,38 @@ export const en = {
       reviewTarget: (vault: string, portfolio: string, version: number) =>
         `“${vault}” will follow ${portfolio}, version ${version}. Review the change before signing.`,
       followNote:
-        'Your vault takes this portfolio’s weights. Nothing is traded in that step: you rebalance after, or the keeper does with auto-follow on.',
+        'The first step gives your vault this portfolio’s weights as its targets. The trades below then bring what it holds to them: once the follow is signed, you rebalance with one press and sign each trade.',
+      /** The same, where auto-follow stays on and a keeper makes the trades. */
+      followNoteKeeper:
+        'The first step gives your vault this portfolio’s weights as its targets. Auto-follow is on, so our keeper then trades what it holds to them.',
+      /** In a follow's review: what the vault would trade to reach the portfolio's weights, quoted now. */
+      quote: {
+        title: 'What following trades',
+        lead: 'A quote, taken now. The trades are planned and quoted again when you rebalance, and each is signed with the minimum shown then.',
+        reading: 'Quoting the trades…',
+        sell: (amount: string, asset: string) => `Sell ${amount} of ${asset} for cash`,
+        into: (amount: string, asset: string) => `Swap ${amount} of cash into ${asset}`,
+        /** A trade whose token this app has no units for: named, with its dollar value only. */
+        sellPlain: (asset: string) => `Sell ${asset} for cash`,
+        intoPlain: (asset: string) => `Swap cash into ${asset}`,
+        worth: 'Worth',
+        receive: 'Quoted to give',
+        minimum: 'At least',
+        cost: 'Quoted cost',
+        /** A cost in basis points and in dollars: "10 bps" and "$16.02". */
+        costOf: (bps: string, usd: string) => `${bps} bps, about ${usd}`,
+        total: 'Quoted cost of all the trades',
+        slippage: (bps: string) =>
+          `Each minimum is the quote less ${bps} bps. A trade that would give less is not made.`,
+        holdings: 'Your vault before and after',
+        columns: { asset: 'Asset', before: 'Now', after: 'After', target: 'Target' },
+        cash: 'Cash',
+        onTarget: 'Your vault already holds these weights, so following trades nothing.',
+        unavailable: (reason: string) =>
+          `The trades can’t be quoted now: ${reason}. You can still follow, and rebalance from the vault’s page once they can be made.`,
+        failed:
+          'I couldn’t quote the trades: our server didn’t answer. You can still review the follow.',
+      },
       autoOn: 'Switch auto-follow on',
       autoOff: 'Switch auto-follow off',
       autoIs: (on: boolean): string => (on ? 'Auto-follow is on.' : 'Auto-follow is off.'),
@@ -1515,7 +1593,9 @@ export const en = {
       privacy:
         'Only these reviewed targets, the name and the description become public. Your vault conversation stays private.',
       holdings: 'Tokens held now · separate from target weights',
-      strategySource: (source: string) => `Targets read from ${source}.`,
+      strategySource: (chain: string) => `Targets read from your vault on ${chain}.`,
+      /** The vault was read from the sample chain, not from a network. */
+      strategySample: 'Targets read from your vault on the sample chain.',
       strategyChanged:
         'The vault’s targets changed. The latest are now shown. Review them before publishing again.',
       sourceProblems: {
@@ -1634,6 +1714,8 @@ export const en = {
         /** In a figure's place, in a kept reply whose figures are no longer kept. No number. */
         figureNotKept: '(figure no longer kept)',
         comparison: 'Current target → proposed share',
+        /** A draft's comparison: the vault's targets as they are, over the proposed ones. */
+        currentTarget: 'Current target',
         reasons: 'Tradeoffs and sources',
         tradeoffs: 'Tradeoffs',
         unknowns: 'What is not known',
@@ -1676,12 +1758,63 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** The press that trades the vault to the targets it has, and the sentence that offers it. */
+        rebalance: 'Rebalance',
+        offTarget:
+          'What this vault holds is away from its targets, and nothing trades it for you. Rebalance swaps it to them: you see every trade with the least it may give, and sign each step here.',
+        rebalancing: {
+          preparing: 'Working out the trades…',
+          onTarget: 'This vault is at its targets. There is nothing to trade.',
+          keeper:
+            'Auto-follow is on, so our keeper rebalances this vault. Switch auto-follow off to rebalance it yourself.',
+          noTargets: 'This vault has no targets yet. Tell the conversation what it should hold.',
+          notYours: 'This vault isn’t one of yours, so I can’t rebalance it.',
+          readOnly: 'This chain only reads for now, so no order can be made.',
+          /** Why no order was made, as a part of a sentence: after "I can’t rebalance now:". */
+          cannot: (why: string) => `I can’t rebalance now: ${why}.`,
+          why: {
+            tooLarge: (asset: string, chain: string) =>
+              `it needs one trade of ${asset} over ${chain}’s limit`,
+            waitsForOpen: (asset: string) =>
+              `${asset}’s market is closed; trades this size wait until it opens`,
+            overLimit: 'it would trade more than one order may move',
+            priceBound: (asset: string) =>
+              `the pool for ${asset} is too far from its reference price`,
+            priceStale: 'a reference price isn’t fresh, often because its market is closed',
+            priceDeviation: 'a pool is too far from its reference price',
+            targetsChanged: 'the vault’s targets changed since the order was made',
+            pastTarget: 'the vault has moved since the order was made',
+            noPrice: (assets: string) => `${assets} has no price the vault can trade on`,
+            keeper: 'auto-follow is on, so our keeper makes the trades',
+            noTargets: 'the vault has no targets',
+            other: 'the chain refused one of the trades',
+          },
+          unreachable: 'I couldn’t make the order: our server didn’t answer. Try again.',
+          noStore: 'I couldn’t keep the order in this browser, so I haven’t opened it.',
+          again: 'Try again',
+          reviewTitle: 'What this rebalance trades to',
+          reviewNote:
+            'These are the targets your vault has now. Every step is a swap with its minimum. The targets, and what the vault follows, stay as they are.',
+          cash: (share: string) => `The rest stays in cash: ${share}.`,
+        },
         holdings: 'What it holds',
         /** The bar's leg for the smaller holdings, past the three largest. */
         others: (count: number) => `${count} others`,
         /** Under a share: how far it is from the planned share, for a reader who cannot see the colour. */
         against: (difference: string) => `${difference} against its target`,
         onPlan: 'on target',
+        /** With a plan and every share on it, said once above the ring. */
+        allOnTarget: 'On target',
+        /** In the head of the holdings when a share is off its target. */
+        offTargetShort: 'Off target',
+        /** A holding's status pill when it is off its target: "Drift +2%". */
+        drift: (signed: string) => `Drift ${signed}`,
+        /** Why cash is kept, where the vault plans a share of cash. */
+        keptAsCash: 'Kept as cash',
+        /** Between an amount and its price: "225.49 GOOGLx at $355.38". */
+        at: 'at',
+        /** What a holding is worth, named for its pin. */
+        value: 'Value',
         change:
           'To change what this vault holds, say it in the conversation: more of one asset, less of another.',
         details: 'Details',
@@ -1697,6 +1830,9 @@ export const en = {
         sourcesAsWritten: (count: number) =>
           count === 1 ? '1 source, as written' : `${count} sources, as written`,
         read: 'Read from the chain',
+        /** The row of the slot or block the vault was read at, and when. */
+        readAt: 'Read at',
+        height: { slot: 'Slot', block: 'Block' },
         copyVault: 'vault address',
         copyOwner: 'owner address',
         /** A vault that holds nothing: said once, with the one thing to do next. */
@@ -1741,6 +1877,14 @@ export const en = {
               'You approved this withdrawal before this page was opened again. Its steps are where they were.',
             stopped: 'This withdrawal stopped, and its order is kept.',
           },
+          rebalance: {
+            title: 'Rebalance your vault',
+            signTitle: 'Sign your rebalance',
+            lead: 'The steps swap what your vault holds to reach its targets. Nothing else about the vault changes. You sign each step here.',
+            resumed:
+              'You approved this rebalance before this page was opened again. Its steps are where they were.',
+            stopped: 'This rebalance stopped, and its order is kept.',
+          },
           change: {
             title: 'Edit weights by hand',
             signTitle: 'Sign the change to your vault',
@@ -1758,6 +1902,8 @@ export const en = {
             'The conversation waits while this withdrawal is open. Finish it, or go back to your holdings.',
           change:
             'The conversation waits while this change is open. Finish it, or go back to your holdings.',
+          rebalance:
+            'The conversation waits while this rebalance is open. Finish it, or go back to your holdings.',
           signing: 'The conversation waits while the steps are signed.',
           done: 'Go back to your vault to carry on the conversation.',
         },
@@ -1770,6 +1916,15 @@ export const en = {
       loading: 'Reading the vault…',
       missing: 'There is no vault at this address.',
       back: 'Back to your portfolio',
+      /** A visitor's way back: they have no portfolio here. */
+      backVisitor: 'Back to Products',
+      unreachable: 'I couldn’t read this vault: our server didn’t answer. Try again.',
+      chainOff: (chain: string) =>
+        `${chain} is switched off on our server for now, so this vault can’t be read here.`,
+      /** An address of another kind of chain than the page's: it can't be a vault here. */
+      otherFamily: (chain: string) => `This address isn’t one of ${chain}’s.`,
+      openOn: (chain: string) => `Open it on ${chain}`,
+      retry: 'Read it again',
       /** The link to the vault's address on its chain's explorer. */
       explorer: (explorer: string) => `See it on ${explorer}`,
       owner: 'Owner',
@@ -1789,6 +1944,7 @@ export const en = {
         weight: 'Share now',
         target: 'Planned',
         drift: 'Difference',
+        status: 'Status',
       },
       on: 'On',
       off: 'Off',
@@ -1799,7 +1955,7 @@ export const en = {
     meta: 'Withdraw',
     title: 'Withdraw from your vault',
     lead: (chain: string) =>
-      `The tokens leave your vault as they are and go to your own wallet on ${chain}. Nothing is sold.`,
+      `What leaves your vault goes to your own wallet on ${chain}: the tokens themselves, or dollars after your holdings are sold.`,
     loading: 'Reading your vault…',
     failed: 'I couldn’t read your vaults: our server didn’t answer. Try again.',
     notYours: 'This isn’t a vault of yours, so there is nothing to withdraw here.',
@@ -1811,6 +1967,25 @@ export const en = {
       names: { what: 'What', check: 'Review', confirm: 'Sign' },
       done: 'done',
       next: 'Continue',
+    },
+    /** The two ways out (gate WITHDRAW-DOLLARS): the tokens as they are, or sold for the chain's cash token. */
+    way: {
+      legend: 'How do you want it?',
+      tokens: 'The tokens themselves',
+      tokensHint: 'Nothing is sold. This way is always open: it needs no market.',
+      dollars: (cash: string) => `In dollars, as ${cash}`,
+      dollarsHint: (cash: string) =>
+        `Your vault sells its holdings for ${cash}, then the ${cash} goes to your wallet. You sign each step.`,
+    },
+    share: {
+      legend: 'How much of the vault?',
+      all: 'All of it',
+      part: 'A share of it',
+      label: 'Share of the vault, in percent',
+      hint: 'From 0.01 to 100. That share of each holding is sold, and that share of the cash leaves.',
+      error: 'Enter a share from 0.01 to 100.',
+      summaryAll: 'All of it, in dollars',
+      summaryPart: (percent: string) => `${percent}% of it, in dollars`,
     },
     what: {
       legend: 'What do you want to take out?',
@@ -1843,10 +2018,37 @@ export const en = {
       emptied: 'The vault will be empty afterwards.',
       autoFollow:
         'Automatic following stops for this vault. Auto-follow is on, and the first step switches it off, so our keeper doesn’t trade the vault while you withdraw or afterwards. To switch it on again, open the shared portfolio this vault follows; the vault’s page links there.',
-      noSale:
-        'Selling to cash before withdrawing isn’t offered yet; you can withdraw the tokens themselves.',
+      noSale: 'Nothing is sold: the tokens leave as they are.',
       seen: 'Reviewed',
       confirm: 'This is what I want to withdraw',
+      /** The review of a withdrawal in dollars. */
+      dollars: {
+        sold: 'What is sold',
+        holding: 'Holding',
+        amount: 'Amount sold',
+        cost: 'Measured cost of selling',
+        /** The column's heading: short, so three columns fit a phone. */
+        costHeader: 'Cost to sell',
+        costBps: (bps: string) => `${bps} bps`,
+        notMeasured: 'Not measured',
+        costNote:
+          'Each cost is Bearing’s measure of selling your vault’s whole holding of that asset, alone. A basis point is a hundredth of a percent. The sale itself is held to the minimum it states.',
+        nothing: 'This vault holds only cash: nothing is sold.',
+        cash: (amount: string) => `${amount} of the vault’s cash leaves with what the sales bring.`,
+        noCash: 'The vault holds no cash now: what leaves is what the sales bring.',
+        quotes:
+          'The next view states, for each sale, the least it accepts, and the least you receive in total. No sale is made below its minimum.',
+        notSold:
+          'A holding that can’t be sold now stays in your vault, and the order says which and why: a closed market, a pool too far from the reference price, or a sale larger than its pool is trusted to fill. You can withdraw the tokens themselves for that part.',
+        targets:
+          'Your vault’s targets don’t change. Selling the same share of everything leaves its weights where they are.',
+        stays: 'The rest stays in the vault.',
+        emptied:
+          'Afterwards the vault holds only what can’t be sold now and amounts too small to sell.',
+        onlyOwner: (cash: string) =>
+          `A vault pays only its owner. Your wallet is asked to sign only sales of these holdings for ${cash}, and the withdrawal of that ${cash} to this address.`,
+        confirm: 'This is what I want to sell and withdraw',
+      },
     },
     confirm: {
       lead: 'Next you review each step of the order, then sign it in your wallet. The network fee is paid from your wallet.',
@@ -1907,6 +2109,8 @@ export const en = {
       deposited: 'Deposit confirmed',
       depositingAndBuying: (names: string) => `Depositing and swapping into ${names}`,
       depositedAndBought: (names: string) => `Deposit confirmed, ${names} in your vault`,
+      opening: 'Opening your vault',
+      opened: 'Vault open',
       approving: 'Allowing the deposit',
       approved: 'Deposit allowed',
       buying: (names: string) => `Swapping into ${names}`,
@@ -1918,6 +2122,7 @@ export const en = {
     things: {
       deposit: 'the deposit',
       approval: 'the permission for the deposit',
+      vault: 'the opening of your vault',
       step: 'a step',
     },
     stopped: {
@@ -1925,6 +2130,109 @@ export const en = {
       all: (landed: string) => `What landed: ${landed}.`,
       some: (landed: string, not: string) => `What landed: ${landed}. What didn’t: ${not}.`,
     },
+  },
+
+  /** The amount card: one card where a deposit or a withdrawal starts (gate AMOUNT-CARD). */
+  amount: {
+    modes: { label: 'Deposit or withdraw', deposit: 'Deposit', withdraw: 'Withdraw' },
+    into: {
+      label: 'Into',
+      from: 'From',
+      newVault: 'New vault',
+      reading: 'Reading your vaults…',
+      /** Our server could not say whether the person has this portfolio's vault. */
+      ownOrNew: 'Your vault for this portfolio, or a new one',
+      /** A vault of the person's that already follows the portfolio: a deposit adds to it. */
+      follows: (name: string) => `${name} · follows this portfolio`,
+      /** One that does not: choosing it switches it to follow, and deposits nothing. */
+      other: (name: string) => `${name} · switch to this portfolio`,
+    },
+    field: { deposit: 'You deposit', withdraw: 'You withdraw' },
+    /** The token the amount is paid in, named for screen readers beside its mark. */
+    token: (symbol: string) => `Paid in ${symbol}`,
+    tokenOut: (symbol: string) => `Paid out in ${symbol}`,
+    balance: {
+      wallet: 'Balance',
+      vault: 'In your vault',
+      reading: 'Reading your balance…',
+      failed: 'Your balance couldn’t be read. You can still continue.',
+      max: 'Max',
+      maxLabel: (amount: string) => `Use your whole balance, ${amount}`,
+    },
+    errors: {
+      notAmount: 'Type an amount in dollars.',
+      belowMin: (least: string) => `At least ${least}`,
+      aboveMax: (most: string) => `At most ${most}`,
+      overBalance: 'More than your balance',
+      overVault: 'More than your vault holds',
+      /** Short, where the next step offers test funds or sample funds: said, and the press not held. */
+      overFunded: 'More than your balance. The next step offers test funds.',
+      overSample: 'More than your balance. The next step adds sample funds.',
+    },
+    preview: {
+      deposit: 'Your vault will hold',
+      /** A vault switched to follow a portfolio: no money moves, its targets change. */
+      targets: 'Its targets become',
+      asset: 'Asset',
+      weight: 'Weight',
+      amount: 'Amount',
+      add: 'Your deposit goes into',
+      withdraw: 'You get',
+      cash: 'Cash',
+      empty: 'Type an amount to see what your vault will hold.',
+      keeper: 'With auto-follow on, the deposit lands as cash and our keeper invests it.',
+      switch: (vault: string, portfolio: string, version: number) =>
+        `“${vault}” will follow ${portfolio}, version ${version}.`,
+      about: (amount: string) => `About ${amount}`,
+      tokens: 'The tokens themselves, each the same share of what your vault holds.',
+      toWallet: 'To your own wallet',
+    },
+    details: {
+      summary: 'Details',
+      least: 'Least',
+      most: 'Most',
+      slippage: 'Slippage',
+      tradeLimits: 'Trade limits',
+      tradeLimitsValue:
+        'Each swap is also held to its token’s own limit, lower while its price feed isn’t live, and to a bound from that feed. The next step checks the order against them.',
+      slippageValue: (most: string) => `At most ${most} a trade`,
+      fee: 'Network fee',
+      feeValue: (amount: string) => `Up to ${amount}`,
+      source: 'Read from',
+      to: 'To',
+    },
+    trust: {
+      accepted: 'You accepted what you’re trusting',
+      view: 'view',
+      hide: 'hide',
+    },
+    /** The amount as a fact once the person pressed, with the way back while nothing is signed. */
+    pressed: (amount: string) => `Deposit of ${amount}`,
+    pressedWithdraw: (what: string) => `Withdrawal of ${what}`,
+    press: {
+      deposit: (amount: string) => `Deposit ${amount}`,
+      withdraw: (amount: string) => `Withdraw ${amount}`,
+      withdrawAll: 'Withdraw everything',
+      withdrawShare: (share: string) => `Withdraw ${share} of your vault`,
+      withdrawPicked: (n: number) => (n === 1 ? 'Withdraw 1 token' : `Withdraw ${n} tokens`),
+    },
+    /** The withdrawal on the amount card: a share of the whole vault, or tokens chosen one by one. */
+    out: {
+      chips: 'Quick shares',
+      /** The two ways out, short enough for a segment on a phone (gate WITHDRAW-DOLLARS). */
+      asTokens: 'As tokens',
+      asCash: (cash: string) => `As ${cash}`,
+      max: 'Max',
+      choose: 'Choose tokens yourself',
+      byShare: 'Withdraw a share instead',
+      noValue:
+        'Some holdings have no price now, so the vault’s value isn’t known: choose a share of it.',
+      what: 'What happens',
+      to: 'To your own wallet',
+    },
+    change: 'Change',
+    busy: 'Making your order…',
+    review: 'Review vault update',
   },
 
   order: {
@@ -2017,12 +2325,28 @@ export const en = {
         'Your wallet is asked to sign only a transaction that publishes exactly this name, description and these weights, under this id.',
       signPublish: 'Sign and publish',
       signFollow: 'Sign and follow',
+      signRebalance: 'Sign and rebalance',
+      /** Under a follow that is done: its targets are set, and the trades to them are the next press. */
+      followDone:
+        'Your vault follows the portfolio now, and has its weights as targets. What it holds hasn’t been traded yet.',
+      followRebalance: 'Rebalance this vault',
       resume: 'Continue',
       withdrawTitle: 'What you withdraw',
       signWithdraw: 'Sign and withdraw',
       /** One line of a withdraw step: what leaves, for the owner's own wallet. */
       withdraws: (amount: string) => `${amount} to your own wallet`,
       withdrawsAll: (held: string) => `All of it, ${held} when reviewed, to your own wallet`,
+      /** The cash step of a withdrawal in dollars: the least it pays, whatever the sales bring. */
+      withdrawsAtLeast: (amount: string) => `At least ${amount}, to your own wallet`,
+      /** Over the steps of a withdrawal in dollars: the least its cash step pays out. */
+      receiveAtLeast: 'You receive at least',
+      /** A withdrawal in dollars that stopped after some of its sales landed. */
+      soldBefore: (what: string, least: string) =>
+        `Sold before this stopped: ${what}. Their dollars, at least ${least}, are in your vault now.`,
+      notAgain:
+        'Withdrawing the same share in dollars again would sell those holdings again. To take out only the dollars already there, withdraw the tokens themselves and choose the dollar token.',
+      /** After a withdrawal in dollars that left a holding unsold: the other way out. */
+      tokensInstead: 'Withdraw the tokens themselves',
       withdrawDone: 'What you withdrew is in your wallet now.',
       autoFollowStops: 'Automatic following stops for this vault: the first step switches it off.',
       /** A step whose token could not be moved: it stayed in the vault, and the others went on. */
@@ -2047,6 +2371,8 @@ export const en = {
     kind: {
       approve: 'Allow the deposit',
       create_vault: 'Open your vault and deposit',
+      /** The same step where it moves no cash: a later step deposits (Robinhood Chain). */
+      open_vault: 'Open your vault',
       /** The same step where it also buys (Robinhood Chain): the buys are named, not hidden. */
       create_vault_buy: 'Open your vault, deposit and swap',
       deposit_buy: 'Deposit and swap',

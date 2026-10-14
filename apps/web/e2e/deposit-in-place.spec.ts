@@ -85,7 +85,7 @@ async function toSteps(page: Page, shots = false) {
   const step = page.locator('[data-ui="deposit-step"]');
   await expect(step.getByRole('heading', { name: en.mix.deposit.title })).toBeVisible();
   if (shots) await check(page, '03-deposit');
-  await page.getByLabel(en.buy.amount.label, { exact: true }).fill('100');
+  await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
   await expect(step.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checked);
   if (shots) await check(page, '04-amount');
   await page.getByRole('button', { name: en.mix.deposit.reviewOf('$100') }).click();
@@ -118,7 +118,7 @@ async function toSteps(page: Page, shots = false) {
   await expect(card).toContainText(en.order.review.steps);
   await expect(card).toContainText(en.order.review.expires);
   await expect(card.locator('[data-ui="order-step"]').first()).toContainText('100');
-  // sample figures on the mock: the card's hatch says so, and nothing reads as live
+  // sample figures on the mock: the card's tag says so, and nothing reads as live
   await expect(pane(page)).toContainText(en.shell.mockAnnounce);
 }
 

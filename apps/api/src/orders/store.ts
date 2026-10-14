@@ -686,6 +686,9 @@ export async function listPersonPlans(
             ),
             inArray(legs.kind, ['create_vault', 'deposit']),
             eq(legs.status, 'confirmed'),
+            // A create that a later step deposits after opened the vault empty (gate
+            // CREATE-BEFORE-APPROVE): only a step that carries the cash counts.
+            isNotNull(legs.cashRaw),
           ),
         )
     : [];

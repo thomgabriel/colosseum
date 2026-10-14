@@ -16,26 +16,63 @@ async function bought(chain: 'solana' | 'robinhood') {
 }
 
 describe('the approved steps of an order', () => {
-  it('a buy on an EVM chain: the approval and the create are both about the deposit, said once each', async () => {
+  it('a first buy on an EVM chain: the vault opens empty, then the approval and the deposit are about the cash, said once each', async () => {
     const { w, double, order } = await bought('robinhood');
     // What the double answers is an order the shared type takes.
     expect(Order.safeParse(order).success).toBe(true);
     const steps = approvedSteps(order, double.plan, w.deployment);
-    expect(steps.map((s) => s.kind)).toEqual(['approve', 'create_vault']);
-    const [approve, create] = steps;
-    expect(approve).toMatchObject({ amountRaw: '1000000000', owner: w.owner, basketId: '9001' });
+    // Gate CREATE-BEFORE-APPROVE: the approval names a vault that is there.
+    expect(steps.map((s) => s.kind)).toEqual(['create_vault', 'approve', 'deposit']);
+    const [create, approve, deposit] = steps;
     expect(create).toMatchObject({
-      depositRaw: '1000000000',
+      depositRaw: '0',
+      trades: [],
       targets: double.plan.targets,
       follow: null,
       autoFollow: false,
     });
+    expect(approve).toMatchObject({ amountRaw: '1000000000', owner: w.owner, basketId: '9001' });
+    expect(deposit).toMatchObject({ amountRaw: '1000000000', basketId: '9001' });
     // The trades spend what the plan invests, 95%, and each carries the minimum the order showed.
-    if (create?.kind !== 'create_vault') throw new Error('a create');
-    expect(create.trades.reduce((n, t) => n + BigInt(t.inRaw), 0n)).toBe(950_000_000n);
-    expect(create.trades.map((t) => t.minOutRaw)).toEqual(
-      order.legs[1]?.expected.map((e) => e.minOutRaw),
+    if (deposit?.kind !== 'deposit') throw new Error('a deposit');
+    expect(deposit.trades.reduce((n, t) => n + BigInt(t.inRaw), 0n)).toBe(950_000_000n);
+    expect(deposit.trades.map((t) => t.minOutRaw)).toEqual(
+      order.legs[2]?.expected.map((e) => e.minOutRaw),
     );
+  });
+
+  it('where the order has an approval, the vault is opened before it and opened empty', async () => {
+    // Gate CREATE-BEFORE-APPROVE: an approval names a vault that is there. The client holds the order
+    // to that, whatever the API plans.
+    const { w, double, order } = await bought('robinhood');
+    const [create, approve, deposit] = order.legs;
+    if (!create || !approve || !deposit) throw new Error('three steps');
+    const refused = (legs: unknown[]) =>
+      refusalOf(() => approvedSteps({ ...order, legs } as never, double.plan, w.deployment));
+    // The approval first, then the empty create, then the deposit.
+    const early = refused([
+      { ...approve, seq: 0 },
+      { ...create, seq: 1 },
+      { ...deposit, seq: 2 },
+    ]);
+    expect([early?.code, early?.legId]).toEqual(['order', approve.id]);
+    // The shape before the gate: the approval, then a create that takes the cash it approves.
+    const old = refused([
+      { ...approve, seq: 0 },
+      { ...deposit, kind: 'create_vault', seq: 1 },
+    ]);
+    expect(old?.code).toBe('order');
+    // A create that takes the cash after its approval: the cash goes in as the vault is made, to an
+    // address that had no code when it was approved.
+    expect(
+      refused([
+        { ...create, seq: 0 },
+        { ...approve, seq: 1 },
+        { ...deposit, kind: 'create_vault', seq: 2 },
+      ])?.code,
+    ).toBe('order');
+    // As the API plans it: passes.
+    expect(refused(order.legs)).toBeNull();
   });
 
   it('a buy on Solana: the create carries the cash, and each trade is a step of its own', async () => {
@@ -84,14 +121,15 @@ describe('the approved steps of an order', () => {
 
   it('refuses an order that cannot mean what it says', async () => {
     const { w, double, order } = await bought('robinhood');
-    const [approve, create] = order.legs;
+    // The approval and the step that moves the cash, with its trades.
+    const [, approve, create] = order.legs;
     if (!approve || !create) throw new Error('two steps');
     const cases: [string, object, string][] = [
       ['no steps', { legs: [] }, 'order'],
       ['an owner with no address on the chain', { owner: { solana: w.owner } }, 'order'],
       ['a step on another chain', { legs: [approve, { ...create, chain: 'base' }] }, 'order'],
       ['a step of another order', { legs: [approve, { ...create, orderId: 'x' }] }, 'order'],
-      ['two steps in one place', { legs: [approve, { ...create, seq: 0 }] }, 'order'],
+      ['two steps in one place', { legs: [approve, { ...create, seq: approve.seq }] }, 'order'],
       ['two steps with one id', { legs: [approve, { ...create, id: approve.id }] }, 'order'],
       [
         'an approval that states no cash',
@@ -138,9 +176,10 @@ describe('the approved steps of an order', () => {
 
   it('an order moves the cash it states, once, and an approval only serves that step', async () => {
     const { w, double, order } = await bought('robinhood');
-    const [approve, create] = order.legs;
-    if (!approve || !create) throw new Error('two steps');
-    const deposit = { ...create, kind: 'deposit' as const };
+    const [, approve, deposit] = order.legs;
+    if (!approve || !deposit) throw new Error('two steps');
+    // A create that carries the cash, as where the chain needs no approval.
+    const create = { ...deposit, kind: 'create_vault' as const };
     const refused = (change: object) =>
       refusalOf(() => approvedSteps({ ...order, ...change } as never, double.plan, w.deployment));
     const cases: [string, object][] = [
@@ -192,7 +231,7 @@ describe('the approved steps of an order', () => {
       ],
       [
         'two steps that move the cash',
-        { legs: [approve, create, { ...deposit, id: 'another', seq: 2 }] },
+        { legs: [approve, create, { ...deposit, id: 'another', seq: 3 }] },
       ],
       [
         'a deposit stated and no step that moves it',
@@ -204,7 +243,7 @@ describe('the approved steps of an order', () => {
       ],
       [
         'cash on a trade step beside the deposit',
-        { legs: [approve, create, { ...create, id: 'another', kind: 'swap', seq: 2 }] },
+        { legs: [approve, create, { ...create, id: 'another', kind: 'swap', seq: 3 }] },
       ],
     ];
     for (const [name, change] of cases) expect(refused(change)?.code, name).toBe('order');
@@ -251,7 +290,10 @@ describe('the approved steps of an order', () => {
 describe('the approved steps of an order that adds to a vault', () => {
   async function adding(chain: 'solana' | 'robinhood') {
     const { w, order } = await bought(chain);
-    const legs = order.legs.map((l) => (l.kind === 'create_vault' ? { ...l, kind: 'deposit' } : l));
+    // A first buy on a chain that approves opens its vault empty first: an add has no such step.
+    const legs = order.legs
+      .filter((l) => l.kind !== 'create_vault' || l.cashRaw !== undefined)
+      .map((l) => (l.kind === 'create_vault' ? { ...l, kind: 'deposit' } : l));
     const terms: PlanTerms = { basketId: '424242' };
     return { w, order: { ...order, legs } as typeof order, terms };
   }
@@ -294,4 +336,98 @@ describe('the approved steps of an order that adds to a vault', () => {
     const twice = { ...order, legs: [...order.legs, { ...deposit, id: 'again', seq: 99 }] };
     expect(refusalOf(() => approvedSteps(twice as never, terms, w.deployment))?.code).toBe('order');
   });
+});
+
+// A rebalance to the targets a vault has: swaps only, every trade through the chain's cash, every
+// purchase one of the targets, each with a minimum above zero, and each trade the one reviewed.
+describe('the approved steps of a rebalance', () => {
+  async function rebalancing(chain: 'solana' | 'robinhood') {
+    const { w, order } = await bought(chain);
+    const template = order.legs.find((l) => l.kind === 'swap' || l.kind === 'create_vault');
+    if (!template) throw new Error('a step');
+    const cash = w.deployment.cash;
+    const spy = `${chain}:spy`;
+    const gold = `${chain}:gold`;
+    const swap = (seq: number, sell: string, buy: string, inRaw: string, minOutRaw = '1000') => ({
+      ...template,
+      id: `leg-${seq}`,
+      seq,
+      kind: 'swap' as const,
+      cashRaw: undefined,
+      trades: [{ sell, buy, amountInRaw: inRaw }],
+      expected: [{ inRaw, outRaw: '2000', minOutRaw, costBps: 10 }],
+    });
+    const legs = [swap(0, spy, cash, '300'), swap(1, cash, gold, '400')];
+    const rebalance = {
+      ...order,
+      depositRaw: undefined,
+      legs,
+    } as unknown as typeof order;
+    const terms: PlanTerms = {
+      basketId: '42',
+      rebalance: {
+        targets: [
+          { asset: spy, weightBps: 5_000 },
+          { asset: gold, weightBps: 5_000 },
+        ],
+        trades: legs.flatMap((l) => l.trades),
+      },
+    };
+    const refused = (change: (legs: ReturnType<typeof swap>[]) => unknown[], plan = terms) =>
+      refusalOf(() =>
+        approvedSteps({ ...rebalance, legs: change(legs) } as never, plan, w.deployment),
+      )?.code ?? null;
+    return { w, cash, spy, gold, swap, legs, rebalance, terms, refused };
+  }
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s signs the reviewed swaps and nothing else',
+    async (chain) => {
+      const { w, rebalance, terms } = await rebalancing(chain);
+      expect(approvedSteps(rebalance, terms, w.deployment).map((s) => s.kind)).toEqual([
+        'swap',
+        'swap',
+      ]);
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses a withdrawal and a zero minimum riding along (the review of #265)',
+    async (chain) => {
+      const { swap, cash, gold, refused } = await rebalancing(chain);
+      const withdraw = { ...swap(2, cash, gold, '1'), kind: 'withdraw', trades: [], expected: [] };
+      expect(refused((legs) => [...legs, withdraw])).toBe('order');
+      expect(refused(([a]) => [a, swap(1, cash, gold, '400', '0')])).toBe('order');
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses any step but a swap, a trade with no cash side, a purchase that is no target, and a trade not as reviewed',
+    async (chain) => {
+      const { swap, spy, cash, gold, refused, legs } = await rebalancing(chain);
+      for (const kind of ['set_targets', 'accept_version', 'set_auto_follow', 'deposit'])
+        expect(
+          refused((ls) => [...ls, { ...swap(2, cash, gold, '1'), kind, trades: [], expected: [] }]),
+          kind,
+        ).toBe('order');
+      // straight from one asset into another
+      expect(refused(([, b]) => [swap(0, spy, gold, '300'), b])).toBe('order');
+      // a purchase of something the vault has no target in
+      expect(refused(([a]) => [a, swap(1, cash, `${chain}:nvda`, '400')])).toBe('order');
+      // another amount than reviewed, and a step the review did not have
+      expect(refused(([a]) => [a, swap(1, cash, gold, '401')])).toBe('order');
+      expect(refused((ls) => [...ls, swap(2, cash, gold, '5')])).toBe('order');
+      // a missing minimum
+      expect(refused(([a, b]) => [a, { ...b, expected: [] }])).toBe('order');
+      expect(refused(() => legs)).toBeNull();
+      // and no withdrawal in dollars rides with a rebalance's terms
+      expect(
+        refused(() => legs, {
+          basketId: '42',
+          rebalance: { targets: [{ asset: gold, weightBps: 10_000 }], trades: [] },
+          dollars: { cashRaw: '1', sales: [] },
+        }),
+      ).toBe('order');
+    },
+  );
 });

@@ -479,6 +479,7 @@ export const pt: Dictionary = {
     order: (when: string) => `Ordem · ${when}`,
     follow: (when: string) => `Seguir um portfólio compartilhado · ${when}`,
     withdraw: (when: string) => `Saque · ${when}`,
+    rebalance: (when: string) => `Rebalanceamento para as metas do cofre · ${when}`,
     publish: (when: string) => `Publicar um portfólio · ${when}`,
     noneVault:
       'Nada dos seus depósitos chegou à rede ainda. As operações do agente, e as ordens sobre um portfólio compartilhado feitas em outro navegador, ainda não aparecem aqui.',
@@ -884,6 +885,12 @@ export const pt: Dictionary = {
     exitPlan: 'Plano de saída',
     costPrefix: 'custo',
     whyShare: 'Por que essa parcela',
+    whyShares: 'Por que essas parcelas',
+    aboutHoldings: 'Metodologia',
+    holdingsTitle: 'Ativos',
+    allocation: 'Alocação',
+    kpiAssets: 'Ativos',
+    notMeasured: 'Não medido',
     exitScale: 'A barra cheia é 1%, o custo em que a venda é medida.',
     income: {
       asked: (amount: string) => `pedido: ${amount} por mês`,
@@ -899,6 +906,8 @@ export const pt: Dictionary = {
       amount: 'Valor',
       yield: 'Rendimento após desconto',
       why: 'Por quê',
+      kind: 'Tipo',
+      exit: 'Custo de saída',
     },
     noReason: 'Nenhum motivo informado.',
     projected: 'Faixa projetada por ano, não é uma promessa',
@@ -909,7 +918,7 @@ export const pt: Dictionary = {
     exitUnmeasured: 'Ainda não foi medido, então nenhum custo é mostrado.',
     exitCost: (cost: string) => `≤ ${cost}`,
     inKind:
-      'Você pode tirar os próprios tokens do seu cofre a qualquer momento. Vendê-los por dinheiro para você ainda não é oferecido.',
+      'Você pode tirar os próprios tokens do seu cofre a qualquer momento. Também pode sacar em dólares: seu cofre vende seus ativos e os dólares vão para a sua carteira.',
     risk: {
       notKept:
         'Como este plano se divide, e quanto custa vendê-lo, é calculado quando um plano é montado e não fica guardado com ele. Monte o plano de novo a partir do seu objetivo para ver.',
@@ -943,6 +952,7 @@ export const pt: Dictionary = {
         `${share} em ${what} · numa queda forte, cerca de −${loss}`,
       inNoFall: (share: string, what: string) =>
         `${share} em ${what} · nenhuma perda contada numa queda forte`,
+      inOnly: (share: string, what: string) => `${share} em ${what}`,
       yieldAfter: 'ao ano do rendimento em dólar, projetado. Não é promessa.',
       range: (low: string, high: string) => `${low} a ${high} ao ano`,
       rangeAfter: 'projetado. Uma faixa, não uma promessa.',
@@ -1115,6 +1125,24 @@ export const pt: Dictionary = {
   },
 
   shared: {
+    composition: {
+      count: (n: number) => (n === 1 ? '1 ativo' : `${n} ativos`),
+      before: 'Agora',
+      after: 'Depois',
+      proposed: 'Proposta',
+      caption: 'O que tem',
+      asset: 'Ativo',
+      weight: 'Peso',
+      changeHead: 'Mudança',
+      more: (n: number) => `e mais ${n}`,
+      summary: (parts: string) => `O que tem: ${parts}`,
+      from: (share: string) => `antes ${share}`,
+      change: (before: string, after: string, difference: string) =>
+        `${before} antes, ${after} depois, ${difference}`,
+      unchanged: 'sem mudança',
+      added: 'novo',
+      removed: 'sai',
+    },
     meta: {
       shelf: 'Portfólios compartilhados',
       family: 'Portfólio compartilhado',
@@ -1181,6 +1209,7 @@ export const pt: Dictionary = {
           `A venda de ${names} ainda não foi medida, então nenhum custo é mostrado para ela.`,
       },
       publisher: 'Publicado por',
+      kpi: { version: 'Versão', since: 'Em vigor desde' },
     },
     refusal: {
       versionChanged:
@@ -1297,7 +1326,34 @@ export const pt: Dictionary = {
       reviewTarget: (vault: string, portfolio: string, version: number) =>
         `“${vault}” seguirá ${portfolio}, versão ${version}. Revise a mudança antes de assinar.`,
       followNote:
-        'Seu cofre assume os pesos deste portfólio. Nada é negociado nesse passo: você rebalanceia depois, ou o operador faz isso com o seguir automático ativado.',
+        'O primeiro passo dá ao seu cofre os pesos deste portfólio como metas. As trocas abaixo levam o que ele guarda até elas: assinado o seguir, você rebalanceia com um toque e assina cada troca.',
+      followNoteKeeper:
+        'O primeiro passo dá ao seu cofre os pesos deste portfólio como metas. O seguir automático está ativado, então nosso operador troca o que ele guarda até elas.',
+      quote: {
+        title: 'O que seguir negocia',
+        lead: 'Uma cotação, feita agora. As trocas são planejadas e cotadas de novo quando você rebalanceia, e cada uma é assinada com o mínimo mostrado nessa hora.',
+        reading: 'Cotando as trocas…',
+        sell: (amount: string, asset: string) => `Vender ${amount} de ${asset} por caixa`,
+        into: (amount: string, asset: string) => `Trocar ${amount} de caixa por ${asset}`,
+        sellPlain: (asset: string) => `Vender ${asset} por caixa`,
+        intoPlain: (asset: string) => `Trocar caixa por ${asset}`,
+        worth: 'Vale',
+        receive: 'Cotado para render',
+        minimum: 'No mínimo',
+        cost: 'Custo cotado',
+        costOf: (bps: string, usd: string) => `${bps} bps, cerca de ${usd}`,
+        total: 'Custo cotado de todas as trocas',
+        slippage: (bps: string) =>
+          `Cada mínimo é a cotação menos ${bps} bps. Uma troca que renderia menos não é feita.`,
+        holdings: 'Seu cofre antes e depois',
+        columns: { asset: 'Ativo', before: 'Agora', after: 'Depois', target: 'Meta' },
+        cash: 'Caixa',
+        onTarget: 'Seu cofre já guarda estes pesos, então seguir não negocia nada.',
+        unavailable: (reason: string) =>
+          `As trocas não podem ser cotadas agora: ${reason}. Você ainda pode seguir, e rebalancear na página do cofre quando elas puderem ser feitas.`,
+        failed:
+          'Não consegui cotar as trocas: nosso servidor não respondeu. Você ainda pode revisar o seguir.',
+      },
       autoOn: 'Ativar o seguir automático',
       autoOff: 'Desativar o seguir automático',
       autoIs: (on: boolean): string =>
@@ -1335,7 +1391,8 @@ export const pt: Dictionary = {
       privacy:
         'Só esta estratégia revisada, o nome e a descrição ficam públicos. A conversa do cofre permanece privada.',
       holdings: 'Tokens mantidos agora · separados dos pesos-alvo',
-      strategySource: (source: string) => `Estratégia lida de ${source}.`,
+      strategySource: (chain: string) => `Metas lidas do seu cofre na ${chain}.`,
+      strategySample: 'Metas lidas do seu cofre na rede de exemplo.',
       strategyChanged:
         'A estratégia do cofre mudou. As metas atuais estão na tela. Revise antes de compartilhar novamente.',
       sourceProblems: {
@@ -1441,6 +1498,7 @@ export const pt: Dictionary = {
         figureSaidAged: '{value}, um valor medido, {age}',
         figureNotKept: '(valor não guardado)',
         comparison: 'Meta atual → fatia proposta',
+        currentTarget: 'Meta atual',
         reasons: 'Escolhas e fontes',
         tradeoffs: 'Escolhas e consequências',
         unknowns: 'O que não sabemos',
@@ -1484,10 +1542,53 @@ export const pt: Dictionary = {
         deposit: 'Depositar',
         more: 'Mais',
         editWeights: 'Editar pesos à mão',
+        rebalance: 'Rebalancear',
+        offTarget:
+          'O que este cofre guarda está fora das metas, e nada o negocia por você. Rebalancear troca até elas: você vê cada troca com o mínimo que ela pode render, e assina cada passo aqui.',
+        rebalancing: {
+          preparing: 'Calculando as trocas…',
+          onTarget: 'Este cofre está nas metas. Não há nada a negociar.',
+          keeper:
+            'O seguir automático está ativado, então nosso operador rebalanceia este cofre. Desative o seguir automático para rebalancear você mesmo.',
+          noTargets: 'Este cofre ainda não tem metas. Diga na conversa o que ele deve guardar.',
+          notYours: 'Este cofre não é seu, então não consigo rebalanceá-lo.',
+          readOnly: 'Esta rede só lê por enquanto, então nenhuma ordem pode ser feita.',
+          cannot: (why: string) => `Não consigo rebalancear agora: ${why}.`,
+          why: {
+            tooLarge: (asset: string, chain: string) =>
+              `precisa de uma troca de ${asset} acima do limite de ${chain}`,
+            waitsForOpen: (asset: string) =>
+              `o mercado de ${asset} está fechado; trocas deste tamanho esperam a abertura`,
+            overLimit: 'negociaria mais do que uma ordem pode mover',
+            priceBound: (asset: string) =>
+              `o pool de ${asset} está longe demais do preço de referência`,
+            priceStale: 'um preço de referência não está atualizado, talvez com o mercado fechado',
+            priceDeviation: 'um pool está longe demais do preço de referência',
+            targetsChanged: 'as metas do cofre mudaram desde que a ordem foi feita',
+            pastTarget: 'o cofre mudou desde que a ordem foi feita',
+            noPrice: (assets: string) => `${assets} não tem preço em que o cofre possa negociar`,
+            keeper: 'o seguir automático está ativado, então nosso operador faz as trocas',
+            noTargets: 'o cofre não tem metas',
+            other: 'a rede recusou uma das trocas',
+          },
+          unreachable: 'Não consegui fazer a ordem: nosso servidor não respondeu. Tente de novo.',
+          noStore: 'Não consegui guardar a ordem neste navegador, então não a abri.',
+          again: 'Tentar de novo',
+          reviewTitle: 'Para onde este rebalanceamento negocia',
+          reviewNote:
+            'Estas são as metas que seu cofre tem agora. Cada passo é uma troca com seu mínimo. As metas, e o que o cofre segue, ficam como estão.',
+          cash: (share: string) => `O resto fica em caixa: ${share}.`,
+        },
         holdings: 'O que ele guarda',
         others: (count: number) => `${count} outros`,
         against: (difference: string) => `${difference} em relação ao plano`,
         onPlan: 'no plano',
+        allOnTarget: 'No plano',
+        offTargetShort: 'Fora do plano',
+        drift: (signed: string) => `Desvio ${signed}`,
+        keptAsCash: 'Mantido em caixa',
+        at: 'a',
+        value: 'Valor',
         change:
           'Para mudar o que este cofre guarda, diga na conversa: mais de um ativo, menos de outro.',
         details: 'Detalhes',
@@ -1500,6 +1601,8 @@ export const pt: Dictionary = {
         sourcesAsWritten: (count: number) =>
           count === 1 ? '1 fonte, como foi escrita' : `${count} fontes, como foram escritas`,
         read: 'Lido da rede',
+        readAt: 'Lido em',
+        height: { slot: 'Slot', block: 'Bloco' },
         copyVault: 'endereço do cofre',
         copyOwner: 'endereço de quem é dono',
         empty: {
@@ -1540,6 +1643,14 @@ export const pt: Dictionary = {
               'Você aprovou este saque antes de esta página ser aberta de novo. Os passos estão onde estavam.',
             stopped: 'Este saque parou, e a ordem dele está guardada.',
           },
+          rebalance: {
+            title: 'Rebalancear seu cofre',
+            signTitle: 'Assine seu rebalanceamento',
+            lead: 'Os passos trocam o que seu cofre guarda para chegar às metas. Nada mais muda no cofre. Você assina cada passo aqui.',
+            resumed:
+              'Você aprovou este rebalanceamento antes de esta página ser aberta de novo. Os passos estão onde estavam.',
+            stopped: 'Este rebalanceamento parou, e a ordem dele está guardada.',
+          },
           change: {
             title: 'Editar pesos à mão',
             signTitle: 'Assine a mudança no seu cofre',
@@ -1556,6 +1667,8 @@ export const pt: Dictionary = {
             'A conversa espera enquanto este saque está aberto. Termine, ou volte ao que você tem.',
           change:
             'A conversa espera enquanto esta mudança está aberta. Termine, ou volte ao que você tem.',
+          rebalance:
+            'A conversa espera enquanto este rebalanceamento está aberto. Termine, ou volte ao que você tem.',
           signing: 'A conversa espera enquanto os passos são assinados.',
           done: 'Volte ao seu cofre para continuar a conversa.',
         },
@@ -1568,6 +1681,13 @@ export const pt: Dictionary = {
       loading: 'Lendo o cofre…',
       missing: 'Não há cofre neste endereço.',
       back: 'Voltar ao seu portfólio',
+      backVisitor: 'Voltar aos Produtos',
+      unreachable: 'Não consegui ler este cofre: nosso servidor não respondeu. Tente de novo.',
+      chainOff: (chain: string) =>
+        `${chain} está indisponível no nosso servidor por enquanto, então não consigo ler este cofre aqui.`,
+      otherFamily: (chain: string) => `Este endereço não é da ${chain}.`,
+      openOn: (chain: string) => `Abrir na ${chain}`,
+      retry: 'Ler de novo',
       explorer: (explorer: string) => `Ver no ${explorer}`,
       owner: 'Dono',
       follows: 'Segue',
@@ -1586,6 +1706,7 @@ export const pt: Dictionary = {
         weight: 'Fatia agora',
         target: 'Planejado',
         drift: 'Diferença',
+        status: 'Situação',
       },
       on: 'Ativado',
       off: 'Desativado',
@@ -1596,7 +1717,7 @@ export const pt: Dictionary = {
     meta: 'Sacar',
     title: 'Sacar do seu cofre',
     lead: (chain: string) =>
-      `Os tokens saem do seu cofre como estão e vão para a sua própria carteira em ${chain}. Nada é vendido.`,
+      `O que sai do seu cofre vai para a sua própria carteira em ${chain}: os próprios tokens, ou dólares depois que seus ativos são vendidos.`,
     loading: 'Lendo seu cofre…',
     failed: 'Não consegui ler seus cofres: nosso servidor não respondeu. Tente de novo.',
     notYours: 'Este cofre não é seu, então não há nada para sacar aqui.',
@@ -1608,6 +1729,24 @@ export const pt: Dictionary = {
       names: { what: 'O quê', check: 'Revisar', confirm: 'Assinar' },
       done: 'feito',
       next: 'Continuar',
+    },
+    way: {
+      legend: 'Como você quer receber?',
+      tokens: 'Os próprios tokens',
+      tokensHint: 'Nada é vendido. Este caminho está sempre aberto: não precisa de mercado.',
+      dollars: (cash: string) => `Em dólares, como ${cash}`,
+      dollarsHint: (cash: string) =>
+        `Seu cofre vende seus ativos por ${cash}, e o ${cash} vai para a sua carteira. Você assina cada passo.`,
+    },
+    share: {
+      legend: 'Quanto do cofre?',
+      all: 'Tudo',
+      part: 'Uma parte',
+      label: 'Parte do cofre, em porcentagem',
+      hint: 'De 0,01 a 100. Essa parte de cada ativo é vendida, e essa parte do caixa sai.',
+      error: 'Digite uma parte de 0,01 a 100.',
+      summaryAll: 'Tudo, em dólares',
+      summaryPart: (percent: string) => `${percent}% do cofre, em dólares`,
     },
     what: {
       legend: 'O que você quer tirar?',
@@ -1640,10 +1779,36 @@ export const pt: Dictionary = {
       emptied: 'O cofre ficará vazio depois.',
       autoFollow:
         'O seguir automático para neste cofre. Ele está ativado, e o primeiro passo o desativa, para que nosso operador não negocie o cofre enquanto você saca nem depois. Para ativar de novo, abra o portfólio compartilhado que este cofre segue; a página do cofre leva até lá.',
-      noSale:
-        'Vender por dinheiro antes de sacar ainda não é oferecido; você pode sacar os próprios tokens.',
+      noSale: 'Nada é vendido: os tokens saem como estão.',
       seen: 'Revisado',
       confirm: 'É isto que quero sacar',
+      dollars: {
+        sold: 'O que é vendido',
+        holding: 'Ativo',
+        amount: 'Quantidade vendida',
+        cost: 'Custo medido de vender',
+        costHeader: 'Custo de venda',
+        costBps: (bps: string) => `${bps} bps`,
+        notMeasured: 'Não medido',
+        costNote:
+          'Cada custo é a medida do Bearing para vender, sozinha, toda a posição do seu cofre naquele ativo. Um ponto-base é um centésimo de um por cento. A venda em si fica presa ao mínimo que ela declara.',
+        nothing: 'Este cofre só tem caixa: nada é vendido.',
+        cash: (amount: string) =>
+          `${amount} do caixa do cofre sai junto com o que as vendas trazem.`,
+        noCash: 'O cofre não tem caixa agora: o que sai é o que as vendas trazem.',
+        quotes:
+          'A próxima tela diz, para cada venda, o mínimo que ela aceita, e o mínimo que você recebe no total. Nenhuma venda é feita abaixo do seu mínimo.',
+        notSold:
+          'Um ativo que não pode ser vendido agora fica no seu cofre, e a ordem diz qual e por quê: um mercado fechado, um pool longe demais do preço de referência, ou uma venda maior do que o pool comporta. Você pode sacar os próprios tokens dessa parte.',
+        targets:
+          'As metas do seu cofre não mudam. Vender a mesma parte de tudo deixa os pesos onde estão.',
+        stays: 'O resto fica no cofre.',
+        emptied:
+          'Depois o cofre só guarda o que não pode ser vendido agora e quantias pequenas demais para vender.',
+        onlyOwner: (cash: string) =>
+          `Um cofre só paga ao seu dono. Sua carteira só é chamada a assinar vendas destes ativos por ${cash}, e o saque desse ${cash} para este endereço.`,
+        confirm: 'É isto que quero vender e sacar',
+      },
     },
     confirm: {
       lead: 'Em seguida você revisa cada passo da ordem e assina na sua carteira. A taxa da rede é paga pela sua carteira.',
@@ -1702,6 +1867,8 @@ export const pt: Dictionary = {
       deposited: 'Depósito confirmado',
       depositingAndBuying: (names: string) => `Depositando e trocando por ${names}`,
       depositedAndBought: (names: string) => `Depósito confirmado, ${names} no seu cofre`,
+      opening: 'Abrindo seu cofre',
+      opened: 'Cofre aberto',
       approving: 'Autorizando o depósito',
       approved: 'Depósito autorizado',
       buying: (names: string) => `Trocando por ${names}`,
@@ -1713,6 +1880,7 @@ export const pt: Dictionary = {
     things: {
       deposit: 'o depósito',
       approval: 'a autorização do depósito',
+      vault: 'a abertura do seu cofre',
       step: 'um passo',
     },
     stopped: {
@@ -1720,6 +1888,100 @@ export const pt: Dictionary = {
       all: (landed: string) => `O que chegou: ${landed}.`,
       some: (landed: string, not: string) => `O que chegou: ${landed}. O que não chegou: ${not}.`,
     },
+  },
+
+  amount: {
+    modes: { label: 'Depositar ou sacar', deposit: 'Depositar', withdraw: 'Sacar' },
+    into: {
+      label: 'Para',
+      from: 'De',
+      newVault: 'Novo cofre',
+      reading: 'Lendo seus cofres…',
+      ownOrNew: 'Seu cofre deste portfólio, ou um novo',
+      follows: (name: string) => `${name} · segue este portfólio`,
+      other: (name: string) => `${name} · passar a seguir este portfólio`,
+    },
+    field: { deposit: 'Você deposita', withdraw: 'Você saca' },
+    token: (symbol: string) => `Pago em ${symbol}`,
+    tokenOut: (symbol: string) => `Recebido em ${symbol}`,
+    balance: {
+      wallet: 'Saldo',
+      vault: 'No seu cofre',
+      reading: 'Lendo seu saldo…',
+      failed: 'Não consegui ler seu saldo. Você ainda pode continuar.',
+      max: 'Máx.',
+      maxLabel: (amount: string) => `Usar todo o saldo, ${amount}`,
+    },
+    errors: {
+      notAmount: 'Digite um valor em dólares.',
+      belowMin: (least: string) => `No mínimo ${least}`,
+      aboveMax: (most: string) => `No máximo ${most}`,
+      overBalance: 'Mais do que o seu saldo',
+      overVault: 'Mais do que o seu cofre tem',
+      overFunded: 'Mais do que o seu saldo. A próxima etapa oferece fundos de teste.',
+      overSample: 'Mais do que o seu saldo. A próxima etapa adiciona fundos de exemplo.',
+    },
+    preview: {
+      deposit: 'Seu cofre vai ter',
+      targets: 'Os alvos dele passam a ser',
+      asset: 'Ativo',
+      weight: 'Peso',
+      amount: 'Valor',
+      add: 'Seu depósito vai para',
+      withdraw: 'Você recebe',
+      cash: 'Dinheiro',
+      empty: 'Digite um valor para ver o que seu cofre vai ter.',
+      keeper:
+        'Com o seguir automático ativado, o depósito entra como caixa e nosso operador o investe.',
+      switch: (vault: string, portfolio: string, version: number) =>
+        `“${vault}” vai seguir ${portfolio}, versão ${version}.`,
+      about: (amount: string) => `Cerca de ${amount}`,
+      tokens: 'Os próprios tokens, cada um na mesma parte do que seu cofre tem.',
+      toWallet: 'Para a sua própria carteira',
+    },
+    details: {
+      summary: 'Detalhes',
+      least: 'Mínimo',
+      most: 'Máximo',
+      slippage: 'Variação de preço',
+      tradeLimits: 'Limites por troca',
+      tradeLimitsValue:
+        'Cada troca também respeita o limite do próprio token, menor enquanto o preço dele não está ao vivo, e uma margem em relação a esse preço. A próxima etapa confere a ordem com eles.',
+      slippageValue: (most: string) => `No máximo ${most} por troca`,
+      fee: 'Taxa da rede',
+      feeValue: (amount: string) => `Até ${amount}`,
+      source: 'Lido de',
+      to: 'Para',
+    },
+    trust: {
+      accepted: 'Você aceitou aquilo em que está confiando',
+      view: 'ver',
+      hide: 'ocultar',
+    },
+    pressed: (amount: string) => `Depósito de ${amount}`,
+    pressedWithdraw: (what: string) => `Saque de ${what}`,
+    press: {
+      deposit: (amount: string) => `Depositar ${amount}`,
+      withdraw: (amount: string) => `Sacar ${amount}`,
+      withdrawAll: 'Sacar tudo',
+      withdrawShare: (share: string) => `Sacar ${share} do seu cofre`,
+      withdrawPicked: (n: number) => (n === 1 ? 'Sacar 1 token' : `Sacar ${n} tokens`),
+    },
+    out: {
+      chips: 'Partes rápidas',
+      asTokens: 'Em tokens',
+      asCash: (cash: string) => `Em ${cash}`,
+      max: 'Máx.',
+      choose: 'Escolher os tokens você mesmo',
+      byShare: 'Sacar uma parte em vez disso',
+      noValue:
+        'Alguns ativos estão sem preço agora, então o valor do cofre não é conhecido: escolha uma parte dele.',
+      what: 'O que acontece',
+      to: 'Para a sua própria carteira',
+    },
+    change: 'Alterar',
+    busy: 'Preparando sua ordem…',
+    review: 'Revisar a mudança do cofre',
   },
 
   order: {
@@ -1806,10 +2068,21 @@ export const pt: Dictionary = {
         'Sua carteira só é chamada para assinar uma transação que publique exatamente este nome, esta descrição e estes pesos, com este identificador.',
       signPublish: 'Assinar e publicar',
       signFollow: 'Assinar e seguir',
+      signRebalance: 'Assinar e rebalancear',
+      followDone:
+        'Seu cofre segue o portfólio agora, e tem os pesos dele como metas. O que ele guarda ainda não foi negociado.',
+      followRebalance: 'Rebalancear este cofre',
       withdrawTitle: 'O que você saca',
       signWithdraw: 'Assinar e sacar',
       withdraws: (amount: string) => `${amount} para a sua própria carteira`,
       withdrawsAll: (held: string) => `Tudo, ${held} na revisão, para a sua própria carteira`,
+      withdrawsAtLeast: (amount: string) => `Pelo menos ${amount}, para a sua própria carteira`,
+      receiveAtLeast: 'Você recebe pelo menos',
+      soldBefore: (what: string, least: string) =>
+        `Vendido antes de parar: ${what}. Os dólares dessas vendas, pelo menos ${least}, estão no seu cofre agora.`,
+      notAgain:
+        'Sacar a mesma parte em dólares de novo venderia esses ativos de novo. Para tirar só os dólares que já estão lá, saque os próprios tokens e escolha o token de dólar.',
+      tokensInstead: 'Sacar os próprios tokens',
       withdrawDone: 'O que você sacou está na sua carteira agora.',
       autoFollowStops: 'O seguir automático para neste cofre: o primeiro passo o desativa.',
       skipped: (what: string) =>
@@ -1834,6 +2107,7 @@ export const pt: Dictionary = {
     kind: {
       approve: 'Autorizar o depósito',
       create_vault: 'Abrir seu cofre e depositar',
+      open_vault: 'Abrir seu cofre',
       create_vault_buy: 'Abrir seu cofre, depositar e trocar',
       deposit_buy: 'Depositar e trocar',
       deposit: 'Depositar',

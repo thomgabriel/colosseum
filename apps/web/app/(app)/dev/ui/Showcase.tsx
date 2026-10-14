@@ -42,17 +42,34 @@ import {
 import { GoalCard } from '../../../../components/ui/GoalCard';
 import { type HeatmapState, HeatmapTile } from '../../../../components/ui/HeatmapTile';
 import { Icon, type IconName } from '../../../../components/ui/Icon';
+import {
+  KIT_CELL,
+  KIT_NUMERIC,
+  KIT_ROW,
+  KitTable,
+  KitTh,
+} from '../../../../components/ui/KitTable';
 import { LatticeStatus } from '../../../../components/ui/Lattice';
 import { MockFrame, MockPlate, StalePlate } from '../../../../components/ui/MockPlate';
+import {
+  HeroFigure,
+  Panel,
+  PanelBody,
+  PanelHead,
+  PanelStat,
+  Plate,
+  StatGrid,
+} from '../../../../components/ui/Panel';
 import { PlanLegs } from '../../../../components/ui/PlanLegs';
 import { ProvenancePin } from '../../../../components/ui/ProvenancePin';
 import type { PinSource } from '../../../../components/ui/provenance';
 import { Status, StatusBadge } from '../../../../components/ui/StatusMark';
 import { SubscribeBlock, type SubscribeStatus } from '../../../../components/ui/SubscribeBlock';
+import { Composition, type CompositionItem } from '../../../../features/shared/Composition';
 
 // The showcase of the design system: every primitive in every state, light beside dark, with the name
 // of its spec. Development only (see page.dev.tsx). Everything on it is made up, and every panel says
-// so as sample (a hatched pin, a quiet line); the live and stale pins are specimens of a state, not of data.
+// so as sample (a hatched pin, a quiet tag); the live and stale pins are specimens of a state, not of data.
 
 const noop = () => {};
 const SPECS = '.design/branding/working-brand/patterns/components';
@@ -221,6 +238,21 @@ const PARTNER: CSSProperties = {
 type Parsed = { readonly parsed: true };
 const PARSED: Parsed = { parsed: true };
 const CREDIT = { name: 'tenonfi', href: '#embed-shell-md', symbol: <Mark size={16} mono /> };
+
+/** Made-up holdings for the composition (composition.md). */
+const SHARES: CompositionItem[] = [
+  { key: 'a', name: 'Treasury token', venue: 'Example issuer', bps: 4500 },
+  { key: 'b', name: 'Dollar lending', bps: 3000 },
+  { key: 'c', name: 'Gold token', bps: 1500 },
+  { key: 'cash', name: 'Cash', cash: true, bps: 1000 },
+];
+const MOVED: CompositionItem[] = [
+  { key: 'a', name: 'Treasury token', beforeBps: 4500, bps: 5000 },
+  { key: 'b', name: 'Dollar lending', beforeBps: 3000, bps: 3000 },
+  { key: 'c', name: 'Gold token', beforeBps: 1500, bps: 0 },
+  { key: 'd', name: 'Index token', bps: 1500 },
+  { key: 'cash', name: 'Cash', cash: true, beforeBps: 1000, bps: 500 },
+];
 
 function WhyThisPlan() {
   const [parted, setParted] = useState(false);
@@ -523,7 +555,7 @@ export function Showcase() {
             <CardHeader title="Trip fund" meta="March 2029" />
           </Card>
         </Specimen>
-        <Specimen state="sample: band on the edge, one quiet line at the foot">
+        <Specimen state="sample: one quiet tag in the top-right corner">
           <Card mock>
             <CardHeader title="Sample plan" meta="as of 14:02 UTC" />
             <CardBody>
@@ -633,7 +665,7 @@ export function Showcase() {
       <Section
         spec="mock-plate.md"
         title="Sample mark"
-        note="Sample is never shown as live, and never by a boxed word: a hatched glyph named for a screen reader, and one quiet line per card. Text never sits on the hatch."
+        note="Sample is never shown as live, and never by the word MOCK: a hatched glyph named for a screen reader, and one tag per card that holds figures. Text never sits on the hatch."
       >
         <Specimen state="inline: after a figure and its hatched pin">
           <p className="text-h4 font-medium">
@@ -807,6 +839,103 @@ export function Showcase() {
         </Specimen>
         <Specimen state="“Why this plan?”: the segments part and the reasons show" wide>
           <WhyThisPlan />
+        </Specimen>
+      </Section>
+
+      <Section
+        spec="composition.md"
+        title="Composition"
+        note="What a vault holds: one strip and roomy rows, or two strips before and after. Point at a row or a segment, or Tab to a logo, to light it. Made-up holdings."
+      >
+        <Specimen state="one composition: three holdings and cash" wide>
+          <Composition items={SHARES} />
+        </Specimen>
+        <Specimen state="before and after: a holding added, one gone" wide>
+          <Composition items={MOVED} mode="compare" />
+        </Specimen>
+        <Specimen state="compact, on a card in a list">
+          <Composition items={SHARES} size="compact" />
+        </Specimen>
+      </Section>
+
+      <Section
+        spec="house-kit.md"
+        title="The house kit"
+        note="The pieces of the portfolio overview, for every screen: a panel, its head, a hero figure, small figures, the quiet pill and the table. Made-up figures."
+      >
+        <Specimen state="panel: hero figure, small figures, the pill" wide>
+          <Panel aria-label="Made-up board">
+            <PanelBody>
+              <HeroFigure label="Total value" plate={<Plate>Sample figures</Plate>}>
+                $12,345.67
+              </HeroFigure>
+              <StatGrid>
+                <PanelStat label="Vaults">3</PanelStat>
+                <PanelStat label="Net deposited">$12,000.00</PanelStat>
+                <PanelStat label="Goes to" wide>
+                  <span className="font-mono text-source">
+                    So1anaWa11et1111111111111111111111111111111
+                  </span>
+                </PanelStat>
+              </StatGrid>
+            </PanelBody>
+          </Panel>
+        </Specimen>
+        <Specimen state="panel head with tabs">
+          <Panel aria-labelledby="kit-sample-tabs">
+            <PanelHead
+              id="kit-sample-tabs"
+              title="Deposit into your vault"
+              tabs={
+                <fieldset className="inline-flex rounded-md border border-input p-0.5">
+                  <legend className="sr-only">Deposit or withdraw</legend>
+                  <button
+                    type="button"
+                    aria-pressed="true"
+                    className="h-8 rounded-sm bg-honey-tint px-3 text-body-sm font-semibold text-honey-text"
+                  >
+                    Deposit
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    className="h-8 rounded-sm px-3 text-body-sm font-semibold text-muted-foreground"
+                  >
+                    Withdraw
+                  </button>
+                </fieldset>
+              }
+              actions={<Plate>Test network</Plate>}
+            />
+          </Panel>
+        </Specimen>
+        <Specimen state="panel head and table" wide>
+          <Panel aria-labelledby="kit-sample-head">
+            <PanelHead
+              id="kit-sample-head"
+              title="Holdings"
+              stats={[{ label: 'Assets', value: <span className="font-medium">2</span> }]}
+            />
+            <KitTable
+              caption="Made-up holdings"
+              minWidth="min-w-[480px]"
+              head={
+                <>
+                  <KitTh>Asset</KitTh>
+                  <KitTh numeric>Weight</KitTh>
+                </>
+              }
+            >
+              <tr className={KIT_ROW}>
+                <td className={KIT_CELL}>Treasury token</td>
+                <td className={`${KIT_CELL} ${KIT_NUMERIC}`}>60%</td>
+              </tr>
+              <tr className={KIT_ROW}>
+                <td className={KIT_CELL}>Dollar lending</td>
+                <td className={`${KIT_CELL} ${KIT_NUMERIC}`}>40%</td>
+              </tr>
+            </KitTable>
+          </Panel>
         </Specimen>
       </Section>
 

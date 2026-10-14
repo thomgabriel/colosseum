@@ -16,10 +16,10 @@ import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainBadgeMarked } from '../account/ChainName';
 import { formatBps, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
-import { AssetMark } from '../order/PlanView';
+import { isCashId } from '../order/plain';
 import { networkFor } from '../order/readiness';
 import { useApiFetch } from '../wallet/WalletProvider';
-import { HoldingsBar } from './HoldingsBar';
+import { Composition } from './Composition';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, rate } from './product-figures';
 import { readShelf } from './shared-api';
@@ -213,29 +213,22 @@ function FamilyCard({ family }: { family: SharedFamily }) {
         meta={recipe ? <ChainBadges chains={family.chains} /> : undefined}
       />
       <CardBody className="flex flex-col gap-3">
-        {/* The figures first: what it holds, as one bar with each share said under it, then its yield. */}
+        {/* The figures first: what it holds, as a ring beside its list (Composition.tsx), then its
+            yield. The card is one link, so nothing in the picture is a control. */}
         {recipe && (
-          <div className="flex flex-col gap-2">
-            <HoldingsBar
-              shares={recipe.active.components.map((x) => ({
-                key: x.asset,
-                shareBps: x.weightBps,
-              }))}
-            />
-            <ul className="grid gap-x-5 gap-y-2 sm:grid-cols-2">
-              {recipe.active.components.map((component) => (
-                <li key={component.asset} className="flex min-w-0 items-center gap-2 text-body-sm">
-                  <AssetMark asset={component.asset} />
-                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                    {tokenName(component.asset)}
-                  </span>{' '}
-                  <span className="shrink-0 tabular-nums">
-                    {formatBps(component.weightBps, locale)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Composition
+            size="compact"
+            top={3}
+            still
+            share={(bps) => formatBps(bps, locale)}
+            items={recipe.active.components.map((x) => ({
+              key: x.asset,
+              name: tokenName(x.asset),
+              asset: x.asset,
+              cash: isCashId(x.asset),
+              bps: x.weightBps,
+            }))}
+          />
         )}
         {recipe && (
           // Each holding that has a reading, with its own yield and pin: nothing is added up across

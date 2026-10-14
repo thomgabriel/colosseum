@@ -114,24 +114,23 @@ describe('home', () => {
       const card = owned(await home(lang))[0];
       const held = find(card, '[data-ui="owned-vault-holdings"]');
       expect(held.textContent).toContain(t.plan.holds);
-      const bar = find(held, '[data-ui="holdings-bar"]');
-      expect([...bar.children].map((el) => (el as HTMLElement).style.width)).toEqual([
-        '63.46%',
-        '12.5%',
-        '24.04%',
-      ]);
-      const labels = [...held.querySelectorAll('[data-asset]')];
-      const shares = sharesOf(lang, [6346, 1250, 2404]);
-      expect(labels.map((el) => el.querySelector('span.min-w-0')?.textContent)).toEqual([
-        `USDY ${shares[0]}`,
-        `PAXG ${shares[1]}`,
-        `USDC ${shares[2]}`,
-      ]);
+      // a strip by the shares held, cash in its neutral, and nothing in it a control
       expect(
-        labels.every(
-          (el) => el.classList.contains('min-w-0') && el.classList.contains('max-w-full'),
+        [...held.querySelectorAll<HTMLElement>('[data-ui="composition-segment"]')].map(
+          (el) => el.style.background,
         ),
-      ).toBe(true);
+      ).toEqual(['var(--tf-share-1)', 'var(--tf-share-2)', 'var(--tf-share-cash)']);
+      expect(held.querySelectorAll('button')).toHaveLength(0);
+      const labels = [...held.querySelectorAll('[data-row]')];
+      const shares = sharesOf(lang, [6346, 1250, 2404]);
+      // the list on a card is its largest holdings first
+      expect(labels.map((el) => el.textContent)).toEqual([
+        `USDY ${shares[0]}`,
+        `USDC ${shares[2]}`,
+        `PAXG ${shares[1]}`,
+      ]);
+      // a long name wraps inside its row rather than widening the card
+      expect(labels.every((el) => el.classList.contains('min-w-0'))).toBe(true);
       expect(held.querySelectorAll('[data-ui="asset-mark"]')).toHaveLength(3);
       expect(card.querySelector('[data-ui="card"]')?.classList.contains('h-full')).toBe(false);
       expect(calls.filter((path) => path === PORTFOLIO_PATH)).toHaveLength(1);
@@ -154,12 +153,11 @@ describe('home', () => {
     api(onSolana, () => json(portfolioBody(chainOf([cashOnly]))));
     portStore.set(signedInPort(PHANTOM));
     const held = find(owned(await home())[0], '[data-ui="owned-vault-holdings"]');
-    expect(held.querySelectorAll('[data-asset]')).toHaveLength(1);
+    expect(held.querySelectorAll('[data-row]')).toHaveLength(1);
     expect(held.textContent).toContain('USDC 100%');
     expect(held.textContent).not.toMatch(/USDY|PAXG/);
-    expect(
-      (find(held, '[data-ui="holdings-bar"]').firstElementChild as HTMLElement).style.width,
-    ).toBe('100%');
+    // cash alone is the whole: a row, and no strip of one
+    expect(held.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(0);
   });
 
   it('names an empty vault honestly without a target allocation bar', async () => {
@@ -179,8 +177,8 @@ describe('home', () => {
     portStore.set(signedInPort(PHANTOM));
     const card = owned(await home())[0];
     expect(find(card, '[data-ui="owned-vault-holdings"]').textContent).toContain(en.withdraw.empty);
-    expect(card.querySelector('[data-ui="holdings-bar"]')).toBeNull();
-    expect(card.querySelectorAll('[data-asset]')).toHaveLength(0);
+    expect(card.querySelector('[data-ui="composition"]')).toBeNull();
+    expect(card.querySelectorAll('[data-row]')).toHaveLength(0);
     expect(find(card, '[data-ui="figure"]').textContent).toBe('$0.00\u202f');
     expect(find(card, 'a').getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
   });
@@ -214,9 +212,9 @@ describe('home', () => {
     // that link is the portfolio section, the same plans over time (PORT-3): no second link to it
     expect(card.querySelector('[data-ui="plans-over-time"]')).toBeNull();
     expect(card.querySelectorAll('[data-ui="button"]')).toHaveLength(0);
-    // a test network: the hatch and one quiet line with the words, never MOCK
+    // a test network: one quiet tag with the words, never MOCK
     expect(card.textContent).not.toContain('MOCK');
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     expect(find(owned(host)[0], 'a').getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
     // still one serif line on the page, and no primary button but the goal's own
@@ -261,7 +259,7 @@ describe('home', () => {
       '$1,040.00\u202f',
       '$26.50\u202f',
     ]);
-    expect(owned(host).map((vault) => find(vault, '[data-ui="sample-note"]').textContent)).toEqual([
+    expect(owned(host).map((vault) => find(vault, '[data-ui="sample-tag"]').textContent)).toEqual([
       en.shell.testNetworkLine,
       en.shell.mockAnnounce,
     ]);
@@ -370,16 +368,15 @@ describe('home', () => {
     portStore.set(signedInPort(PHANTOM));
     const host = await home();
     const card = owned(host)[0];
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(card.textContent).toContain(en.portfolio.vault.unpriced(1));
     const held = find(card, '[data-ui="owned-vault-holdings"]');
-    expect(find(held, '[data-asset="solana:usdy"]').textContent).toContain('USDY —');
-    expect(find(held, '[data-ui="holdings-bar"]').children).toHaveLength(2);
+    expect(find(held, '[data-row="solana:usdy"]').textContent).toContain('USDY —');
+    // the unpriced holding is a row with its dash, and nothing is drawn for it
+    expect(held.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(2);
     expect(
-      [...find(held, '[data-ui="holdings-bar"]').children].map(
-        (el) => (el as HTMLElement).style.width,
-      ),
-    ).toEqual(['12.5%', '24.04%']);
+      held.querySelector('[data-ui="composition-segment"][data-key="solana:usdy"]'),
+    ).toBeNull();
     expect(find(card, '[data-ui="figure"]').textContent).toBe('$380.00\u202f');
     const pin = find(card, '[data-ui="figure"]').querySelector('button') as HTMLElement;
     await click(pin);

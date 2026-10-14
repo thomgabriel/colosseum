@@ -54,6 +54,7 @@ export type {
   Loaded,
   MockDeployment,
   PlanTerms,
+  Rebalance,
   SolanaDeployment,
   Withdrawal,
 } from './types';
