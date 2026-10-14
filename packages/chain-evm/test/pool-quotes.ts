@@ -20,7 +20,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import {
   type Address,
   createPublicClient,
+  decodeFunctionResult,
   encodeAbiParameters,
+  encodeFunctionData,
   type Hex,
   http,
   keccak256,
@@ -136,6 +138,23 @@ const FEED_ABI = parseAbi([
   'function decimals() view returns (uint8)',
   'function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)',
   'function aggregator() view returns (address)',
+]);
+/**
+ * RH_POOLS_V3_QUOTES=1 also quotes each v3 pool, as a route through Universal Router's v3 command would
+ * fill: Bearing's read-only quoter (scripts/risk-evm/ClQuoter.sol), put in place by a state override for
+ * the one call and never deployed. It swaps inside the pool and reverts in the callback, so nothing is paid.
+ */
+const V3_QUOTES = Boolean(process.env.RH_POOLS_V3_QUOTES);
+const CL_QUOTER = '0x00000000000000000000000000000000c1c1c1c1' as Address;
+const CL_QUOTER_CODE = V3_QUOTES
+  ? (
+      JSON.parse(
+        readFileSync(new URL('../../../scripts/risk-evm/cl-quoter.json', import.meta.url), 'utf8'),
+      ) as { deployedBytecode: Hex }
+    ).deployedBytecode
+  : ('0x' as Hex);
+const CL_QUOTER_ABI = parseAbi([
+  'function quote(address pool, bool zeroForOne, uint256[] amountsIn, uint256 gasPerSwap) returns (uint256[] ins, uint256[] outs)',
 ]);
 const V3_ABI = parseAbi([
   'function getPool(address, address, uint24) view returns (address)',
@@ -409,6 +428,65 @@ async function main() {
       )
         .then(() => true)
         .catch(() => false);
+      // The pool's own mid, dollars per whole token, and what each size costs against it, fee included.
+      const ratio = (Number(slot0[0]) / 2 ** 96) ** 2;
+      const v3Mid = stockIs0
+        ? ratio * 10 ** (decimals - usdgDecimals)
+        : (1 / ratio) * 10 ** (decimals - usdgDecimals);
+      const v3Quotes: { usd: number; buyBps: number | null; sellBps: number | null }[] = [];
+      if (V3_QUOTES && liquidity > 0n && slot0[0] > 0n) {
+        const run = async (zeroForOne: boolean, amounts: bigint[]) => {
+          try {
+            const data = encodeFunctionData({
+              abi: CL_QUOTER_ABI,
+              functionName: 'quote',
+              args: [pool, zeroForOne, amounts, 3_000_000n],
+            });
+            const { data: out } = await slow(`${t.symbol} v3 quote`, () =>
+              client.call({
+                to: CL_QUOTER,
+                data,
+                blockNumber: at,
+                gas: 45_000_000n,
+                stateOverride: [{ address: CL_QUOTER, code: CL_QUOTER_CODE }],
+              }),
+            );
+            const [ins, outs] = decodeFunctionResult({
+              abi: CL_QUOTER_ABI,
+              functionName: 'quote',
+              data: out as Hex,
+            }) as readonly [readonly bigint[], readonly bigint[]];
+            // Filled only where the pool took the whole amount.
+            return amounts.map((a, i) => (ins[i] === a ? (outs[i] ?? null) : null));
+          } catch {
+            return amounts.map(() => null);
+          }
+        };
+        const digits = Math.min(decimals, 9);
+        const usdgIns = SIZES_USD.map((usd) => BigInt(usd) * 10n ** BigInt(usdgDecimals));
+        const stockIns = SIZES_USD.map(
+          (usd) =>
+            BigInt(Math.round((usd / v3Mid) * 10 ** digits)) * 10n ** BigInt(decimals - digits),
+        );
+        // USDG in is zeroForOne when USDG is currency0.
+        const bought = await run(!stockIs0, usdgIns);
+        const sold = await run(stockIs0, stockIns);
+        SIZES_USD.forEach((usd, i) => {
+          const b = bought[i];
+          const so = sold[i];
+          v3Quotes.push({
+            usd,
+            buyBps:
+              b == null
+                ? null
+                : Math.round((1 - ((Number(b) / 10 ** decimals) * v3Mid) / usd) * 100_000) / 10,
+            sellBps:
+              so == null
+                ? null
+                : Math.round((1 - Number(so) / 10 ** usdgDecimals / usd) * 100_000) / 10,
+          });
+        });
+      }
       averages.push({
         pool: pool.toLowerCase(),
         fee,
@@ -417,6 +495,9 @@ async function main() {
         observationCardinality: slot0[3],
         observationCardinalityNext: slot0[4],
         hourReadable,
+        midUsd: Math.round(v3Mid * 1e4) / 1e4,
+        midVsFeedBps: Math.round((v3Mid / feedUsd - 1) * 100_000) / 10,
+        quotes: v3Quotes,
       });
     }
     averages.sort((a, b) => (BigInt(b.liquidity) > BigInt(a.liquidity) ? 1 : -1));
@@ -454,12 +535,14 @@ async function main() {
       );
     for (const a of averages)
       console.log(
-        `   v3 ${String(a.fee).padStart(5)} ${a.pool} L=${a.liquidity} observations ${a.observationCardinality}/${a.observationCardinalityNext} hour ${a.hourReadable ? 'readable' : 'not readable'}`,
+        `   v3 ${String(a.fee).padStart(5)} ${a.pool} L=${a.liquidity} observations ${a.observationCardinality}/${a.observationCardinalityNext} hour ${a.hourReadable ? 'readable' : 'not readable'} mid $${a.midUsd} (${a.midVsFeedBps} bps vs feed)  ${a.quotes
+          .map((q) => `$${q.usd}: buy ${q.buyBps ?? 'x'} sell ${q.sellBps ?? 'x'}`)
+          .join(' | ')}`,
       );
   }
   const result = {
     source: `Uniswap v4 StateView ${STATE_VIEW} and Quoter ${QUOTER} on Robinhood Chain (4663) through ${new URL(URL_).host}; pools listed through ${new URL(LOGS_URL).host}`,
-    method: `pool-quotes-0.2: hookless v4 pools against USDG; quoteExactInputSingle for ${SIZES_USD.map((x) => `$${x.toLocaleString('en-US')}`).join(', ')} each way; cost in bps against the pool mid of the same block, fee included; pools of a fee above 1% listed and not quoted; the v3 pools of the token and USDG at fees 100, 500, 3000 and 10000 with their liquidity, observations kept and whether observe([3600, 0]) answers`,
+    method: `pool-quotes-0.3: hookless v4 pools against USDG; quoteExactInputSingle for ${SIZES_USD.map((x) => `$${x.toLocaleString('en-US')}`).join(', ')} each way; cost in bps against the pool mid of the same block, fee included; pools of a fee above 1% listed and not quoted; the v3 pools of the token and USDG at fees 100, 500, 3000 and 10000 with their liquidity, observations kept and whether observe([3600, 0]) answers${V3_QUOTES ? ', each quoted at the same sizes by ClQuoter through a state override, cost against its own mid' : ''}`,
     fetchedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
     blockNumber: Number(at),
     provenance: 'live',

@@ -12,6 +12,10 @@ import {VaultFactory} from "../src/VaultFactory.sol";
 import {AssetConfig, Swap, Weight} from "../src/interfaces/Types.sol";
 import {UniV4Calldata} from "../test/fork/UniV4Calldata.sol";
 
+interface IUniswapV3Factory {
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address);
+}
+
 interface IAddAssetsFeed {
     function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80);
 }
@@ -55,7 +59,25 @@ contract AddAssets is Script, StdCheats {
         string[] feedDescriptions;
         uint256[] maxTradeUsd;
         UniV4Calldata.PoolKey[] pools;
+        /// Per token, the Uniswap v3 pool and fee it trades through instead of a v4 pool; zero for a v4 token.
+        address[] v3Pools;
+        uint24[] v3Fees;
+        /// Per token, listed by the batch but held out of the app for now (`heldBack` in the file, with why):
+        /// `check()` holds its listing to the file and does not trade it.
+        bool[] heldBack;
+        /// Calls after the listings in the same batch, each to its own target (the registry's upgrade).
+        address[] callTargets;
+        bytes[] callData;
+        /// A contract one of those calls needs, deployed beforehand through the CREATE2 deployer below so its
+        /// address depends only on its code: none when `create2Address` is zero.
+        address create2Address;
+        bytes32 create2Salt;
+        string create2Artifact;
     }
+
+    /// Arachnid's deterministic deployer, on Robinhood Chain as on most chains: calldata salt ‖ init code.
+    address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address internal constant UNISWAP_V3_FACTORY = 0x1f7d7550B1b028f7571E69A784071F0205FD2EfA;
 
     /// Robinhood Chain's one router (Universal Router 2.1.2), as the deploy file names it.
     address internal constant UNIVERSAL_ROUTER = 0x204FAca1764B154221e35c0d20aBb3c525710498;
@@ -141,26 +163,32 @@ contract AddAssets is Script, StdCheats {
         }
         address person = makeAddr("add-assets person");
         for (uint256 i; i < f.assets.length; ++i) {
-            roundTrip(f, i, person);
+            if (f.heldBack[i]) console2.log(string.concat("held back, not traded: ", f.feedDescriptions[i]));
+            else roundTrip(f, i, person);
         }
         console2.log("every token listed, and each traded in its own pool within (bps):", f.priceBoundBps);
     }
 
     // ---- the batch
 
-    /// One `setAsset` on the factory per token, in the file's order.
+    /// One `setAsset` on the factory per token, in the file's order, then the file's `calls` in theirs.
     function batch(File memory f)
         public
         pure
         returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
     {
         uint256 n = f.assets.length;
-        targets = new address[](n);
-        values = new uint256[](n);
-        payloads = new bytes[](n);
+        uint256 m = f.callTargets.length;
+        targets = new address[](n + m);
+        values = new uint256[](n + m);
+        payloads = new bytes[](n + m);
         for (uint256 i; i < n; ++i) {
             targets[i] = f.factory;
             payloads[i] = abi.encodeCall(IVaultConfig.setAsset, (f.assets[i].token, f.assets[i].config));
+        }
+        for (uint256 j; j < m; ++j) {
+            targets[n + j] = f.callTargets[j];
+            payloads[n + j] = f.callData[j];
         }
     }
 
@@ -212,9 +240,43 @@ contract AddAssets is Script, StdCheats {
                 AddAssetsRefused(string.concat(name, " has no Chainlink feed: an owner's trade would have no witness"))
             );
             require(f.maxTradeUsd[i] != 0, AddAssetsRefused(string.concat(name, " states no maxTradeUsd")));
-            require(f.pools[i].tickSpacing != 0, AddAssetsRefused(string.concat(name, " states no pool")));
+            if (f.v3Pools[i] == address(0)) {
+                require(f.pools[i].tickSpacing != 0, AddAssetsRefused(string.concat(name, " states no pool")));
+            } else {
+                // A v3 route: the pool is the v3 factory's own for the token, the cash and the fee.
+                (address t0, address t1) = a.token < f.cashToken ? (a.token, f.cashToken) : (f.cashToken, a.token);
+                require(
+                    IUniswapV3Factory(UNISWAP_V3_FACTORY).getPool(t0, t1, f.v3Fees[i]) == f.v3Pools[i],
+                    AddAssetsRefused(string.concat(name, ": its v3 pool is not the v3 factory's for the pair and fee"))
+                );
+            }
             helperDeploy().checkMainnetAsset(a, f.feedDescriptions[i], f.cashToken);
         }
+        for (uint256 j; j < f.callTargets.length; ++j) {
+            require(f.callTargets[j].code.length != 0, AddAssetsRefused("a call's target has no code"));
+        }
+        if (f.create2Address != address(0)) {
+            require(
+                create2AddressOf(f) == f.create2Address,
+                AddAssetsRefused("the CREATE2 address is not the one the artifact's code and the salt give")
+            );
+        }
+    }
+
+    /// Where the CREATE2 deployer puts the file's artifact with the file's salt, from the code built here.
+    function create2AddressOf(File memory f) public view returns (address) {
+        bytes32 initCodeHash = keccak256(vm.getCode(f.create2Artifact));
+        return address(
+            uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, f.create2Salt, initCodeHash))))
+        );
+    }
+
+    /// On a copy of the chain only: deploys the file's artifact where the CREATE2 deployer puts it, as the
+    /// transaction a person sends before the schedule would. Nothing when it is there already.
+    function deployCreate2(File memory f) public {
+        if (f.create2Address == address(0) || f.create2Address.code.length != 0) return;
+        (bool ok,) = CREATE2_DEPLOYER.call(abi.encodePacked(f.create2Salt, vm.getCode(f.create2Artifact)));
+        require(ok && f.create2Address.code.length != 0, AddAssetsRefused("the CREATE2 deploy failed"));
     }
 
     function readFile(string memory path) public returns (File memory f) {
@@ -233,18 +295,44 @@ contract AddAssets is Script, StdCheats {
         f.feedDescriptions = new string[](n);
         f.maxTradeUsd = new uint256[](n);
         f.pools = new UniV4Calldata.PoolKey[](n);
+        f.v3Pools = new address[](n);
+        f.v3Fees = new uint24[](n);
+        f.heldBack = new bool[](n);
         for (uint256 i; i < n; ++i) {
             string memory entry = string.concat(".assets[", vm.toString(i), "]");
             (f.assets[i], f.feedDescriptions[i], f.maxTradeUsd[i]) = helperDeploy().parseAsset(json, entry);
             address token = f.assets[i].token;
             (address currency0, address currency1) = token < f.cashToken ? (token, f.cashToken) : (f.cashToken, token);
-            f.pools[i] = UniV4Calldata.PoolKey(
-                currency0,
-                currency1,
-                uint24(json.readUint(string.concat(entry, ".pool.fee"))),
-                int24(int256(json.readUint(string.concat(entry, ".pool.tickSpacing")))),
-                address(0)
-            );
+            f.heldBack[i] = vm.keyExistsJson(json, string.concat(entry, ".heldBack"));
+            bool v4 = vm.keyExistsJson(json, string.concat(entry, ".pool"));
+            bool v3 = vm.keyExistsJson(json, string.concat(entry, ".v3Pool"));
+            require(v4 != v3, AddAssetsRefused("a token states one route: a v4 pool or a v3 pool"));
+            if (v4) {
+                f.pools[i] = UniV4Calldata.PoolKey(
+                    currency0,
+                    currency1,
+                    uint24(json.readUint(string.concat(entry, ".pool.fee"))),
+                    int24(int256(json.readUint(string.concat(entry, ".pool.tickSpacing")))),
+                    address(0)
+                );
+            } else {
+                f.v3Pools[i] = json.readAddress(string.concat(entry, ".v3Pool.pool"));
+                f.v3Fees[i] = uint24(json.readUint(string.concat(entry, ".v3Pool.fee")));
+            }
+        }
+        uint256 m;
+        while (vm.keyExistsJson(json, string.concat(".calls[", vm.toString(m), "]"))) ++m;
+        f.callTargets = new address[](m);
+        f.callData = new bytes[](m);
+        for (uint256 j; j < m; ++j) {
+            string memory entry = string.concat(".calls[", vm.toString(j), "]");
+            f.callTargets[j] = json.readAddress(string.concat(entry, ".target"));
+            f.callData[j] = json.readBytes(string.concat(entry, ".data"));
+        }
+        if (vm.keyExistsJson(json, ".create2")) {
+            f.create2Address = json.readAddress(".create2.address");
+            f.create2Salt = json.readBytes32(".create2.salt");
+            f.create2Artifact = json.readString(".create2.artifact");
         }
     }
 
@@ -278,7 +366,7 @@ contract AddAssets is Script, StdCheats {
 
         uint256 fair = ROUND_TRIP_TRADE * scale / price;
         uint256 minOut = fair * (10_000 - bound) / 10_000;
-        vault.ownerSwap(_one(usdg, token, ROUND_TRIP_TRADE, minOut, f.pools[i]), type(uint64).max);
+        vault.ownerSwap(_one(f, i, usdg, token, ROUND_TRIP_TRADE, minOut), type(uint64).max);
         uint256 bought = IAddAssetsToken(token).balanceOf(address(vault));
         require(bought >= minOut, AddAssetsRefused(string.concat(name, ": the buy filled outside the bound")));
         require(
@@ -288,7 +376,7 @@ contract AddAssets is Script, StdCheats {
 
         uint256 sold = bought / 2;
         uint256 minDollars = sold * price / scale * (10_000 - bound) / 10_000;
-        vault.ownerSwap(_one(token, usdg, sold, minDollars, f.pools[i]), type(uint64).max);
+        vault.ownerSwap(_one(f, i, token, usdg, sold, minDollars), type(uint64).max);
         uint256 dollars = IAddAssetsToken(usdg).balanceOf(address(vault));
         require(
             dollars >= ROUND_TRIP_DEPOSIT - ROUND_TRIP_TRADE + minDollars,
@@ -315,11 +403,15 @@ contract AddAssets is Script, StdCheats {
         );
     }
 
-    function _one(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut, UniV4Calldata.PoolKey memory key)
+    /// One trade of token `i` through its own route: its v4 pool, or its v3 pool by Universal Router's v3 command.
+    function _one(File memory f, uint256 i, address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut)
         internal
         view
         returns (Swap[] memory list)
     {
+        bytes memory data = f.v3Pools[i] == address(0)
+            ? UniV4Calldata.exactInSingle(f.pools[i], tokenIn, amountIn, minOut, address(0), block.timestamp + 300)
+            : UniV4Calldata.exactInV3(tokenIn, f.v3Fees[i], tokenOut, amountIn, minOut, block.timestamp + 300);
         list = new Swap[](1);
         list[0] = Swap({
             router: UNIVERSAL_ROUTER,
@@ -327,7 +419,7 @@ contract AddAssets is Script, StdCheats {
             tokenOut: tokenOut,
             amountIn: amountIn,
             minOut: minOut,
-            data: UniV4Calldata.exactInSingle(key, tokenIn, amountIn, minOut, address(0), block.timestamp + 300)
+            data: data
         });
     }
 

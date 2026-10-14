@@ -21,7 +21,9 @@ import { writeBoth } from './mainnet-records';
 //   pnpm ops:add-assets --safe-files <dir>       writes the two files the Safe app's Transaction Builder
 //                                                imports: the scheduleBatch now, the executeBatch after the delay
 //   pnpm ops:add-assets --status --rpc-env NAME  says whether the batch has run and which tokens the chain lists
-//   pnpm ops:add-assets --promote --rpc-env NAME moves every token the chain lists with the file's settings
+//   pnpm ops:add-assets --promote --rpc-env NAME [--except SYM,SYM]
+//                                                moves every token the chain lists with the file's settings,
+//                                                but those the file holds back (`heldBack`) or the command names
 //                                                from the record's `pending` to its `assets`, adds it to the
 //                                                guard's file and regenerates the guard's tables
 //
@@ -80,15 +82,25 @@ export function heldToFile(record: Json, file: AddAssetsFile): void {
     fail("the record's pending tokens are not the file's: write them from the file again");
 }
 
-/** The record and the guard's file with the tokens the chain lists moved in. Pure. */
-export function promote(record: Json, guard: Json, listed: readonly string[]) {
-  const moving = (record.pending ?? []).filter((p: Json) => listed.includes(p.address));
+/**
+ * The record and the guard's file with the tokens the chain lists moved in. Pure. A token held back by
+ * symbol (`except`), or routed through v3, which no builder routes yet, stays pending.
+ */
+export function promote(
+  record: Json,
+  guard: Json,
+  listed: readonly string[],
+  except: readonly string[] = [],
+) {
+  const moves = (p: Json) =>
+    listed.includes(p.address) && p.pool !== null && !except.includes(p.symbol.toUpperCase());
+  const moving = (record.pending ?? []).filter(moves);
   const nextRecord = structuredClone(record);
   nextRecord.assets = [
     ...record.assets,
     ...moving.map(({ operation: _, ...entry }: Json) => entry),
   ];
-  nextRecord.pending = (record.pending ?? []).filter((p: Json) => !listed.includes(p.address));
+  nextRecord.pending = (record.pending ?? []).filter((p: Json) => !moves(p));
   const nextGuard = structuredClone(guard);
   for (const p of moving)
     nextGuard.chains.robinhood.assets[p.id] = {
@@ -136,7 +148,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         );
       if (args.includes('--promote')) {
         const guard = JSON.parse(readFileSync(DEFAULTS.guard, 'utf8'));
-        const next = promote(record, guard, listed);
+        // Held back by the file (`heldBack`, with why) or by name on the command line.
+        const except = [
+          ...file.assets.filter((a) => a.heldBack !== undefined).map((a) => a.symbol),
+          ...(value('--except') ?? '').split(','),
+        ]
+          .filter(Boolean)
+          .map((x) => x.toUpperCase());
+        const next = promote(record, guard, listed, except);
         if (next.moved.length === 0)
           fail('nothing to promote: the chain lists none of the pending tokens');
         EvmDeploymentRecord.parse(next.record);
