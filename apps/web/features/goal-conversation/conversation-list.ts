@@ -19,6 +19,13 @@ export type DraftRow = {
   current: boolean;
   /** The plan an approved deposit from it was for, where one was. */
   planId: string | null;
+  /** Whether it is in this browser's list: a new one with no words yet is not, and has nothing to rename. */
+  kept: boolean;
+  /**
+   * Whether the ids of a deposit from it are kept beside it (DEPOSIT-IN-PLACE): one not finished, set
+   * aside or not, is reached again from it, so it is never deleted and never stood for by its vault.
+   */
+  depositing: boolean;
 };
 
 export type VaultRow = {
@@ -42,7 +49,8 @@ export const SEARCH_FROM = 9;
 
 /**
  * The rows, newest first: every draft but one a deposit went from to a vault that is listed (that
- * vault stands for it, at the later of the two times); the one on screen always, at the top of its day.
+ * vault stands for it, at the later of the two times) and whose deposit's ids are no longer kept; the
+ * one on screen always, at the top of its day.
  */
 export function mergeRows(
   drafts: readonly DraftRow[],
@@ -59,7 +67,7 @@ export function mergeRows(
     if (seen.has(draft.key)) continue;
     seen.add(draft.key);
     const vault = draft.planId ? vaultOf.get(draft.planId) : undefined;
-    if (vault && !draft.current) {
+    if (vault && !draft.current && !draft.depositing) {
       if (draft.at !== null) latest.set(vault.key, Math.max(latest.get(vault.key) ?? 0, draft.at));
       continue;
     }

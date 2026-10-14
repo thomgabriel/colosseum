@@ -252,7 +252,6 @@ export const pt: Dictionary = {
         search: 'Buscar conversas',
         noMatch: (words: string) => `Nenhuma conversa tem “${words}” no nome.`,
         empty: 'Suas conversas e seus cofres aparecem aqui.',
-        here: 'aberta agora',
         vault: 'Cofre',
         draft: 'Rascunho',
         openVault: (title: string) => `Abrir o cofre: ${title}`,
@@ -262,6 +261,8 @@ export const pt: Dictionary = {
         cancel: 'Cancelar',
         remove: (title: string) => `Apagar: ${title}`,
         confirm: 'Apagar este rascunho deste navegador? Não dá para recuperar.',
+        depositing:
+          'Este rascunho tem um depósito que não terminou, então ele fica. Abra-o para ver as etapas do depósito.',
         yes: 'Apagar',
         keep: 'Manter',
         removed: (title: string) => `Apagado: ${title}`,

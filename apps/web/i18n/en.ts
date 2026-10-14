@@ -339,8 +339,6 @@ export const en = {
         search: 'Search conversations',
         noMatch: (words: string) => `No conversation has “${words}” in its name.`,
         empty: 'Your conversations and vaults are listed here.',
-        /** For a screen reader, after the name of the conversation on screen. */
-        here: 'open now',
         vault: 'Vault',
         draft: 'Draft',
         openVault: (title: string) => `Open the vault: ${title}`,
@@ -350,6 +348,9 @@ export const en = {
         cancel: 'Cancel',
         remove: (title: string) => `Delete: ${title}`,
         confirm: 'Delete this draft from this browser? It can’t be brought back.',
+        /** A draft with a deposit that is not finished: it is not deleted. */
+        depositing:
+          'This draft has a deposit that isn’t finished, so it stays. Open it to see the deposit’s steps.',
         yes: 'Delete',
         keep: 'Keep',
         removed: (title: string) => `Deleted: ${title}`,

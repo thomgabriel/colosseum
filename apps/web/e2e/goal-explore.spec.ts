@@ -23,7 +23,7 @@ test('new-goal exploration opens a responsive preview-only workbench', async ({ 
   await expect(page.locator('[data-ui="goal-mode"]')).toHaveCount(0);
   await expect(page.locator('[data-ui="conversations-open"]')).toBeVisible();
   await expect(
-    page.locator('aside[data-ui="conversations"] [data-ui="conversation-row"]'),
+    page.locator('div[data-ui="conversations"] [data-ui="conversation-row"]'),
   ).toHaveCount(0);
   await expect(page.locator('[data-ui="goal-conversation"]')).toBeVisible();
   // The chain of the plan is chosen here, beside the box (gate CHAIN-AT-THE-PLAN): two options, one
@@ -159,7 +159,7 @@ test('the conversations panel: a new conversation, an earlier one opened, and a 
       await inTheme(page, theme);
       const result = await new AxeBuilder({ page })
         .include(
-          width < 1024 ? '[data-ui="conversations-sheet"]' : 'aside[data-ui="conversations"]',
+          width < 1024 ? '[data-ui="conversations-sheet"]' : 'div[data-ui="conversations"]',
         )
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();

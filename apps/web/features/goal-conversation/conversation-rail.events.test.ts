@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
 import { withAccount } from '../account/test/screen';
+import { chainOf, portfolioBody, VAULT, vault } from '../portfolio/test/portfolio';
 import { plans } from '../portfolio-section/test/fixtures';
+import { shortAddress } from '../shared/use-person';
 import { json, PHANTOM, signedInPort } from '../wallet/test/fake-port';
 import { portStore } from '../wallet/test/mock-provider';
 import { goalConversationKey } from './GoalConversation';
@@ -70,15 +72,18 @@ const groups = (host: HTMLElement) =>
   );
 
 let served = answer as unknown;
+let portfolio: unknown = null;
 beforeEach(() => {
   window.history.replaceState(null, '', '/invest');
   localStorage.clear();
   sessionStorage.clear();
   served = answer;
+  portfolio = null;
   portStore.set(signedInPort(PHANTOM, { userId }));
   portStore.setApi(async (url) => {
     if (url === '/v1/me') return json(person);
     if (url === '/v1/portfolio/plans') return json(served);
+    if (url === '/v1/portfolio' && portfolio) return json(portfolio);
     return json({}, 404);
   });
 });
@@ -99,8 +104,9 @@ describe('the conversations panel', () => {
     expect(earlier?.startsWith('earlier: ')).toBe(true);
     // the one on screen is marked, for the eye and for a reader
     const here = find(row(host, w.current), '[data-ui="conversation-open"]');
+    // said once: by `aria-current`, with no hidden words of its own besides
     expect(here.getAttribute('aria-current')).toBe('true');
-    expect(here.textContent).toContain(w.here);
+    expect(here.querySelector('.sr-only')).toBeNull();
     // every vault the plans read lists is a row, each linking to its own page
     const vaults = [
       ...rail(host).querySelectorAll<HTMLElement>(
@@ -197,8 +203,11 @@ describe('the conversations panel', () => {
     await click(find(row(host, 'Consider gold'), '[data-ui="conversation-delete"]'));
     await click(find(rail(host), '[data-ui="conversation-delete-yes"]'));
     expect(titles(host)).not.toContain('Consider gold');
-    expect(rail(host).querySelector('[role="status"]')?.textContent).toBe(
-      w.removed('Consider gold'),
+    // said on the page, where it outlives the row and the sheet
+    expect(find(host, '[data-ui="goal-chain-said"]').textContent).toBe(w.removed('Consider gold'));
+    // the focus goes to the row now in its place
+    expect(document.activeElement).toBe(
+      find(row(host, 'Protect my savings'), '[data-ui="conversation-open"]'),
     );
     expect(localStorage.getItem(`${base()}:c:d1`)).toBeNull();
     expect(localStorage.getItem(`${base()}:c:d2`)).not.toBeNull();
@@ -369,12 +378,99 @@ describe('the conversations panel', () => {
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
   });
 
+  it('after the last draft is deleted, the focus goes to "New conversation"', async () => {
+    served = { ...answer, chains: [] };
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(0) }]);
+    const host = await show();
+    await settle();
+    await click(find(row(host, 'Consider gold'), '[data-ui="conversation-delete"]'));
+    await click(find(rail(host), '[data-ui="conversation-delete-yes"]'));
+    await settle();
+    // the one on screen is a new one with no words, and has no row's name to take the focus
+    expect(document.activeElement).toBe(
+      find(row(host, w.current), '[data-ui="conversation-open"]'),
+    );
+  });
+
+  it('in the sheet, deleting the one on screen gives the focus back to the sheet’s button, and says it', async () => {
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(0) }]);
+    const host = await show();
+    await settle();
+    await open(host, 'Consider gold');
+    await settle();
+    await click(find(host, '[data-ui="conversations-open"]'));
+    const sheet = find(host, '[data-ui="conversations-sheet"]');
+    const gold = [...sheet.querySelectorAll<HTMLElement>('[data-ui="conversation-row"]')].find(
+      (one) => one.querySelector('[data-ui="conversation-title"]')?.textContent === 'Consider gold',
+    ) as HTMLElement;
+    await click(find(gold, '[data-ui="conversation-delete"]'));
+    await click(find(gold, '[data-ui="conversation-delete-yes"]'));
+    await settle();
+    expect(current(host)).toBe(w.current);
+    expect(find(host, '[data-ui="goal-chain-said"]').textContent).toBe(w.removed('Consider gold'));
+    expect(find<HTMLDialogElement>(host, '[data-ui="conversations-sheet"]').open).toBe(false);
+    expect(document.activeElement).toBe(find(host, '[data-ui="conversations-open"]'));
+  });
+
+  it('has nothing to rename or delete on a new conversation with no words yet', async () => {
+    const host = await show();
+    await settle();
+    const fresh = row(host, w.current);
+    expect(fresh.querySelector('[data-ui="conversation-rename"]')).toBeNull();
+    expect(fresh.querySelector('[data-ui="conversation-delete"]')).toBeNull();
+  });
+
+  it('moves to the next row from a row’s rename or delete, not to the first', async () => {
+    served = { ...answer, chains: [] };
+    keep([
+      { id: 'd1', words: 'First', at: ago(0) },
+      { id: 'd2', words: 'Second', at: ago(1) },
+    ]);
+    const host = await show();
+    await settle();
+    const rename = find<HTMLButtonElement>(row(host, 'First'), '[data-ui="conversation-rename"]');
+    rename.focus();
+    await press(rename, 'ArrowDown');
+    expect(document.activeElement).toBe(find(row(host, 'Second'), '[data-ui="conversation-open"]'));
+    const remove = find<HTMLButtonElement>(row(host, 'Second'), '[data-ui="conversation-delete"]');
+    remove.focus();
+    await press(remove, 'ArrowUp');
+    expect(document.activeElement).toBe(find(row(host, 'First'), '[data-ui="conversation-open"]'));
+  });
+
+  it('is one navigation, with no landmark for each day', async () => {
+    const host = await show();
+    await settle();
+    expect(rail(host).tagName).not.toBe('ASIDE');
+    expect(rail(host).querySelectorAll('nav')).toHaveLength(1);
+    expect(rail(host).querySelectorAll('section, [role="region"]')).toHaveLength(0);
+  });
+
+  it('names a vault with no name and no goal by its chain, in Portuguese too, and never by its address', async () => {
+    served = { ...answer, chains: [] };
+    portfolio = portfolioBody(chainOf([vault({ name: null })]));
+    for (const lang of ['en', 'pt'] as const) {
+      const host = await show(lang);
+      await settle();
+      const one = find(rail(host), '[data-ui="conversation-row"][data-kind="vault"]');
+      const title = find(one, '[data-ui="conversation-title"]').textContent ?? '';
+      const t = dictionary(lang);
+      expect([
+        t.portfolio.actions.unnamed('Solana devnet'),
+        t.portfolio.actions.unnamed(t.chain.names.solana),
+      ]).toContain(title.replace(/^Vault #\d+$|^Cofre #\d+$/, title));
+      expect(one.textContent).not.toContain(VAULT);
+      expect(one.textContent).not.toContain(shortAddress(VAULT));
+      await unmountAll();
+    }
+  });
+
   it('speaks Portuguese', async () => {
     const pt = dictionary('pt').goal.explore.picker;
     keep([{ id: 'd1', words: 'Considerar ouro', at: ago(1) }]);
     const host = await show('pt');
     await settle();
-    expect(rail(host).getAttribute('aria-label')).toBe(pt.label);
+    expect(find(rail(host), 'nav').getAttribute('aria-label')).toBe(pt.label);
     expect(groups(host)[1]).toBe(`yesterday: Considerar ouro`);
     expect(find(row(host, 'Considerar ouro'), 'time').textContent).toBe('ontem');
     expect(find(rail(host), '[data-ui="conversation-new"]').textContent).toBe(pt.fresh);

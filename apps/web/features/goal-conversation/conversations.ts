@@ -157,17 +157,20 @@ export function linkPlan(base: string, index: ConversationIndex, id: string, pla
 }
 
 /**
- * A conversation taken off this browser: its entry, its turns, the preview kept with them and its
- * deposit's ids. The one on screen gives way to a new, empty one.
+ * A conversation taken off this browser: its entry, its turns and the preview kept with them. The one
+ * on screen gives way to a new, empty one. One whose deposit's ids are kept (`depositPlan`) is not
+ * deleted at all: a deposit not finished, set aside or not, is reached again from its conversation
+ * (DEPOSIT-IN-PLACE), so the index comes back as it was.
  */
 export function deleteConversation(
   base: string,
   index: ConversationIndex,
   id: string,
 ): ConversationIndex {
+  if (depositPlan(base, id) !== null) return index;
   const key = conversationStoreKey(base, id);
   try {
-    for (const k of [key, `${key}:preview`, `${key}:deposit`]) localStorage.removeItem(k);
+    for (const k of [key, `${key}:preview`]) localStorage.removeItem(k);
   } catch {
     // storage blocked: the entry still leaves the list
   }

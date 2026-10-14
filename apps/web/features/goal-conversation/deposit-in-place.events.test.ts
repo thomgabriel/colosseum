@@ -1026,16 +1026,59 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
     expect(pane(host).getAttribute('data-state')).toBe('approved');
   });
 
-  it('deleting the conversation on screen asks first too, and keeps it until the person says so', async () => {
+  // The review of #313: a deposit not finished is reached again from its conversation, so the panel
+  // never deletes one whose deposit's ids are kept, open, left or set aside. It says why instead.
+  const refuses = async (host: HTMLElement, name: string) => {
+    await click(find(row(host, name), '[data-ui="conversation-delete"]'));
+    expect(find(row(host, name), '[data-ui="conversation-confirm"]').textContent).toBe(
+      en.goal.explore.picker.depositing,
+    );
+    expect(row(host, name).querySelector('[data-ui="conversation-delete-yes"]')).toBeNull();
+    expect(document.activeElement).toBe(
+      find(row(host, name), '[data-ui="conversation-delete-keep"]'),
+    );
+    await click(find(row(host, name), '[data-ui="conversation-delete-keep"]'));
+    await settle();
+  };
+
+  it('never deletes the conversation on screen while its deposit is open: says why, and keeps its ids', async () => {
     const { host } = await resumed();
-    const shown = current(host) ?? '';
-    await click(find(row(host, shown), '[data-ui="conversation-delete"]'));
-    await click(find(row(host, shown), '[data-ui="conversation-delete-yes"]'));
-    const ask = find(host, '[data-ui="leave-deposit"]');
+    await refuses(host, 'Gold');
+    expect(current(host)).toBe('Gold');
+    expect(host.querySelector('[data-ui="leave-deposit"]')).toBeNull();
     expect(pane(host).getAttribute('data-state')).toBe('approved');
-    await click(find(ask, '[data-action="stay"]'));
-    expect(current(host)).toBe(shown);
-    expect(pane(host).getAttribute('data-state')).toBe('approved');
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(ENTRY);
+  });
+
+  it('never deletes one left in the middle of its deposit, nor once it is opened again with the deposit set aside', async () => {
+    const { host } = await resumed();
+    await choose(host, 'new');
+    await click(find(host, '[data-ui="leave-deposit"] [data-action="leave"]'));
+    await settle();
+    // the deposit's ids stay with its own conversation, as they were
+    const left = JSON.parse(localStorage.getItem(POINTER) ?? 'null');
+    expect(left).toMatchObject(ENTRY);
+    // not the one on screen
+    await refuses(host, 'Gold');
+    expect(titles(host)).toContain('Gold');
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(left);
+    // the one on screen again, its deposit set aside
+    await choose(host, 'Gold');
+    expect(current(host)).toBe('Gold');
+    await refuses(host, 'Gold');
+    expect(current(host)).toBe('Gold');
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(left);
+  });
+
+  it('after "Start over" and "Leave", the deposit’s ids stay: the empty conversation has nothing to delete', async () => {
+    const { host } = await resumed();
+    await click(named(host, en.talk.startOver));
+    await click(find(host, '[data-ui="leave-deposit"] [data-action="leave"]'));
+    await settle();
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual({ ...ENTRY, left: true });
+    const shown = row(host, current(host) ?? '');
+    expect(shown.querySelector('[data-ui="conversation-delete"]')).toBeNull();
+    expect(shown.querySelector('[data-ui="conversation-rename"]')).toBeNull();
   });
 
   it('a change of where new plans start, made elsewhere, moves the account’s chain and not the pane: the deposit stays on its chain', async () => {

@@ -6,7 +6,7 @@ import type { Locator, Page } from '@playwright/test';
 /** The panel's list, opened first where it is a sheet. */
 export async function conversations(page: Page): Promise<Locator> {
   const width = page.viewportSize()?.width ?? 0;
-  if (width >= 1024) return page.locator('aside[data-ui="conversations"]');
+  if (width >= 1024) return page.locator('div[data-ui="conversations"]');
   const sheet = page.locator('[data-ui="conversations-sheet"]');
   if (!(await sheet.evaluate((node) => (node as HTMLDialogElement).open)))
     await page.locator('[data-ui="conversations-open"]').click();

@@ -14,7 +14,7 @@ const click = (el: Element) =>
     (el as HTMLElement).click();
   });
 
-export const rail = (host: HTMLElement) => find(host, 'aside[data-ui="conversations"]');
+export const rail = (host: HTMLElement) => find(host, 'div[data-ui="conversations"]');
 
 const rows = (host: HTMLElement) => [
   ...rail(host).querySelectorAll<HTMLElement>('[data-ui="conversation-row"]'),

@@ -22,6 +22,8 @@ const draft = (id: string, when: string | null, more: Partial<DraftRow> = {}): D
   at: when === null ? null : at(when),
   current: false,
   planId: null,
+  kept: true,
+  depositing: false,
   ...more,
 });
 const vault = (address: string, when: string | null, more: Partial<VaultRow> = {}): VaultRow => ({
@@ -77,6 +79,14 @@ describe('mergeRows', () => {
       'draft:solana:waiting',
       'vault:solana:v1',
     ]);
+  });
+
+  it('keeps a draft whose deposit’s ids are still kept beside it, whatever vault its plan opened', () => {
+    const rows = mergeRows(
+      [draft('mid', '2026-10-12T09:00:00Z', { planId: 'plan-1', depositing: true })],
+      [vault('v1', '2026-10-11T09:00:00Z', { planId: 'plan-1' })],
+    );
+    expect(rows.map((row) => row.key)).toEqual(['draft:solana:mid', 'vault:solana:v1']);
   });
 
   it('lists a draft named twice once', () => {

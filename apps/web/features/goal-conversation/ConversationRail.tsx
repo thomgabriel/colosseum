@@ -101,7 +101,11 @@ export function ConversationSheet({
       actions.onOpen(row);
     },
     onRename: actions.onRename,
-    onDelete: actions.onDelete,
+    // the one on screen deleted draws the head again, and this button with it: the focus comes back
+    onDelete: (row) => {
+      if (row.current) onChosen?.();
+      actions.onDelete(row);
+    },
   };
   const current = rows.find((row) => row.current);
 
@@ -197,8 +201,7 @@ export function ConversationRail({
 
   // From 1024px: the rail beside the conversation, under the app's fixed bar.
   return (
-    <aside
-      aria-label={w.label}
+    <div
       data-ui="conversations"
       data-closed={closed || undefined}
       className={cn(
@@ -241,7 +244,7 @@ export function ConversationRail({
       <div id={listId} hidden={closed} className="flex min-h-0 flex-1 flex-col">
         {!closed && <ConversationList rows={rows} now={now} {...actions} />}
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -256,9 +259,28 @@ function ConversationList({
 }: RailActions & { rows: readonly ConversationRow[]; now: number }) {
   const w = useT().goal.explore.picker;
   const [query, setQuery] = useState('');
-  const [said, setSaid] = useState('');
   const searchId = useId();
   const nav = useRef<HTMLElement>(null);
+  const fresh = useRef<HTMLButtonElement>(null);
+  /** Where the focus goes once a deleted row is gone: the row now in its place, else the one before. */
+  const refocus = useRef<number | null>(null);
+  const names = () => [
+    ...(nav.current?.querySelectorAll<HTMLElement>('[data-ui="conversation-open"]') ?? []),
+  ];
+  const rowsDrawn = () => [
+    ...(nav.current?.querySelectorAll<HTMLElement>('[data-ui="conversation-row"]') ?? []),
+  ];
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once the rows are drawn without the deleted one
+  useEffect(() => {
+    const at = refocus.current;
+    if (at === null) return;
+    refocus.current = null;
+    const all = rowsDrawn();
+    const target = all[Math.min(at, all.length - 1)]?.querySelector<HTMLElement>(
+      '[data-ui="conversation-open"]',
+    );
+    (target ?? fresh.current)?.focus();
+  }, [rows]);
   const searching = rows.length >= SEARCH_FROM;
   const shown = useMemo(
     () => (searching ? matching(rows, query) : [...rows]),
@@ -272,11 +294,11 @@ function ConversationList({
     if (!keys.includes(event.key)) return;
     const target = event.target as HTMLElement;
     if (target.closest('input')) return;
-    const all = [
-      ...(nav.current?.querySelectorAll<HTMLElement>('[data-ui="conversation-open"]') ?? []),
-    ];
+    const all = names();
     if (all.length === 0) return;
-    const at = all.findIndex((el) => el === target || el.contains(target));
+    // from a row's name or its rename and delete: the row it is in
+    const row = target.closest('[data-ui="conversation-row"]');
+    const at = all.findIndex((el) => row?.contains(el));
     const next =
       event.key === 'Home'
         ? 0
@@ -292,6 +314,7 @@ function ConversationList({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
       <button
+        ref={fresh}
         type="button"
         data-ui="conversation-new"
         onClick={onNew}
@@ -320,9 +343,6 @@ function ConversationList({
           />
         </div>
       )}
-      <span role="status" className="sr-only">
-        {said}
-      </span>
       <nav
         ref={nav}
         aria-label={w.label}
@@ -349,7 +369,10 @@ function ConversationList({
                     onOpen={onOpen}
                     onRename={onRename}
                     onDelete={(it) => {
-                      setSaid(w.removed(it.title));
+                      refocus.current = Math.max(
+                        0,
+                        rowsDrawn().findIndex((one) => one.dataset.key === it.key),
+                      );
                       onDelete(it);
                     }}
                   />
@@ -372,14 +395,12 @@ function Group({
   group: DayGroup;
   children: ReactNode;
 }) {
-  const id = useId();
+  // a heading and a list, and no landmark of its own: the panel's navigation is the one
   return (
-    <section data-ui="conversation-group" data-group={group} aria-labelledby={id} className="mb-3">
-      <h3 id={id} className="px-2 pb-1 text-caption font-medium text-muted-foreground">
-        {title}
-      </h3>
+    <div data-ui="conversation-group" data-group={group} className="mb-3">
+      <h3 className="px-2 pb-1 text-caption font-medium text-muted-foreground">{title}</h3>
       <ul className="grid list-none grid-cols-[minmax(0,1fr)] gap-0.5 p-0">{children}</ul>
-    </section>
+    </div>
   );
 }
 
@@ -432,6 +453,7 @@ function DraftItem({
     'data-kind': 'draft',
     'data-chain': row.chain,
     'data-id': row.id,
+    'data-key': row.key,
     'data-current': row.current || undefined,
   };
 
@@ -503,18 +525,21 @@ function DraftItem({
         <p data-ui="conversation-title" className="text-body-sm font-medium">
           {row.title}
         </p>
+        {/* A draft with a deposit's ids beside it stays (DEPOSIT-IN-PLACE): said, with nothing to press but "Keep". */}
         <p data-ui="conversation-confirm" className="text-caption text-muted-foreground">
-          {w.confirm}
+          {row.depositing ? w.depositing : w.confirm}
         </p>
         <div className="flex gap-2">
-          <button
-            type="button"
-            data-ui="conversation-delete-yes"
-            onClick={() => onDelete(row)}
-            className={buttonClass({ variant: 'destructive', size: 'dense' })}
-          >
-            {w.yes}
-          </button>
+          {!row.depositing && (
+            <button
+              type="button"
+              data-ui="conversation-delete-yes"
+              onClick={() => onDelete(row)}
+              className={buttonClass({ variant: 'destructive', size: 'dense' })}
+            >
+              {w.yes}
+            </button>
+          )}
           <button
             ref={keep}
             type="button"
@@ -544,36 +569,38 @@ function DraftItem({
         >
           {row.title}
         </span>
-        {row.current && <span className="sr-only">, {w.here}</span>}
         <Meta row={row} now={now} />
       </button>
       {/* On the row the pointer or the focus is on, and always on a touch screen: the name has the row's
-          width otherwise. Shown with the focus, they are the next stops of Tab. */}
-      <span className="flex shrink-0 gap-0.5 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-focus-within/row:flex [@media(hover:hover)]:group-hover/row:flex">
-        <button
-          type="button"
-          data-ui="conversation-rename"
-          onClick={() => {
-            setName(row.title);
-            setMode('naming');
-          }}
-          className={cn(buttonClass({ variant: 'icon', size: 'dense' }), 'size-7 border-0')}
-          aria-label={w.rename(row.title)}
-          title={w.rename(row.title)}
-        >
-          <Icon name="Pencil" size={16} />
-        </button>
-        <button
-          type="button"
-          data-ui="conversation-delete"
-          onClick={() => setMode('deleting')}
-          className={cn(buttonClass({ variant: 'icon', size: 'dense' }), 'size-7 border-0')}
-          aria-label={w.remove(row.title)}
-          title={w.remove(row.title)}
-        >
-          <Icon name="X" size={16} />
-        </button>
-      </span>
+          width otherwise. Shown with the focus, they are the next stops of Tab. A new conversation
+          with no words is in no list yet: it has nothing to rename or delete. */}
+      {row.kept && (
+        <span className="flex shrink-0 gap-0.5 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-focus-within/row:flex [@media(hover:hover)]:group-hover/row:flex">
+          <button
+            type="button"
+            data-ui="conversation-rename"
+            onClick={() => {
+              setName(row.title);
+              setMode('naming');
+            }}
+            className={cn(buttonClass({ variant: 'icon', size: 'dense' }), 'size-7 border-0')}
+            aria-label={w.rename(row.title)}
+            title={w.rename(row.title)}
+          >
+            <Icon name="Pencil" size={16} />
+          </button>
+          <button
+            type="button"
+            data-ui="conversation-delete"
+            onClick={() => setMode('deleting')}
+            className={cn(buttonClass({ variant: 'icon', size: 'dense' }), 'size-7 border-0')}
+            aria-label={w.remove(row.title)}
+            title={w.remove(row.title)}
+          >
+            <Icon name="X" size={16} />
+          </button>
+        </span>
+      )}
     </li>
   );
 }

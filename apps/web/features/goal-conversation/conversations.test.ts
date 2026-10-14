@@ -90,19 +90,30 @@ describe('linkPlan and depositPlan', () => {
 });
 
 describe('deleteConversation', () => {
-  it('takes a draft off this browser: its entry, its turns, its preview and its deposit’s ids', () => {
+  it('takes a draft off this browser: its entry, its turns and its preview', () => {
     const index = { current: 'b', items: [saved('a'), saved('b')] };
     writeIndex(base, index);
     const key = conversationStoreKey(base, 'a');
-    for (const k of [key, `${key}:preview`, `${key}:deposit`]) localStorage.setItem(k, '{}');
+    for (const k of [key, `${key}:preview`]) localStorage.setItem(k, '{}');
     const other = conversationStoreKey(base, 'b');
     localStorage.setItem(other, '{}');
     const next = deleteConversation(base, index, 'a');
     expect(next).toEqual({ current: 'b', items: [saved('b')] });
     expect(readIndex(base)).toEqual(next);
-    for (const k of [key, `${key}:preview`, `${key}:deposit`])
-      expect(localStorage.getItem(k)).toBeNull();
+    for (const k of [key, `${key}:preview`]) expect(localStorage.getItem(k)).toBeNull();
     expect(localStorage.getItem(other)).toBe('{}');
+  });
+
+  it('deletes nothing of a draft whose deposit’s ids are kept: a deposit not finished is reached from it', () => {
+    const index = { current: 'b', items: [saved('a'), saved('b')] };
+    writeIndex(base, index);
+    const key = conversationStoreKey(base, 'a');
+    localStorage.setItem(key, '{"turns":1}');
+    localStorage.setItem(`${key}:deposit`, JSON.stringify({ planId: 'plan-1', orderId: 'o-1' }));
+    expect(deleteConversation(base, index, 'a')).toBe(index);
+    expect(localStorage.getItem(key)).toBe('{"turns":1}');
+    expect(localStorage.getItem(`${key}:deposit`)).not.toBeNull();
+    expect(readIndex(base)).toEqual(index);
   });
 
   it('gives the one on screen way to a new, empty one', () => {

@@ -92,7 +92,11 @@ describe('home', () => {
         ),
       ];
       expect(listed.map((row) => row.dataset.address)).toEqual([VAULT, SECOND_VAULT]);
-      for (const row of listed) expect(row.textContent).not.toContain(shortAddress(VAULT));
+      for (const row of listed)
+        for (const address of [VAULT, SECOND_VAULT]) {
+          expect(row.textContent).not.toContain(address);
+          expect(row.textContent).not.toContain(shortAddress(address));
+        }
       expect(titles(host)[0]).toBe(dictionary(lang).goal.explore.picker.current);
       expect(find(switcher, 'summary').textContent).toBe(dictionary(lang).portfolio.summary.title);
       expect(find(switcher, 'summary + ul').className).not.toMatch(/grid-cols/);

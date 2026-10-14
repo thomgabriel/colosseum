@@ -1596,7 +1596,7 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     // before any message: the neutral name, in the panel named by its label
     expect(named(host)).toEqual([en.goal.explore.picker.current]);
     expect(en.goal.explore.picker.current).toBe('New conversation');
-    expect(rail(host).getAttribute('aria-label')).toBe(en.goal.explore.picker.label);
+    expect(find(rail(host), 'nav').getAttribute('aria-label')).toBe(en.goal.explore.picker.label);
     await send(host, words);
     expect(named(host)).toEqual([title]);
     expect(current(host)).toBe(title);

@@ -134,6 +134,7 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
   // What the panel lists: each draft by the name given it, else by its first request ("New
   // conversation" while the one on screen has no words), and each vault by its goal.
   const [now, setNow] = useState(() => Date.now());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a deposit that opens or closes writes or takes away the ids a draft keeps (`depositing`), read from this browser
   const rows = useMemo(() => {
     const draft = (
       on: ChainId,
@@ -153,6 +154,8 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
         at: Number.isFinite(written) ? written : null,
         current,
         planId: item?.planId ?? depositPlan(at, id),
+        kept: item !== null,
+        depositing: depositPlan(at, id) !== null,
       };
     };
     const drafts: DraftRow[] = [
@@ -252,7 +255,7 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
         .flatMap((key) => fromPlan(key) ?? []),
     ];
     return mergeRows(drafts, vaults);
-  }, [base, chain, index, elsewhere, plans, portfolio, userId, lang, t, w, words, port]);
+  }, [base, chain, index, elsewhere, plans, portfolio, userId, lang, t, w, words, port, deposit]);
   // How long ago each row was written is said against a clock that moves while the page is open.
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 60_000);
@@ -351,11 +354,15 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
         ),
       );
   }
-  /** A draft deleted from this browser; the one on screen gives way to a new, empty one. */
-  function remove(row: DraftRow, sure = false) {
-    if (row.current && deposit.open && !sure) return setPending({ go: () => remove(row, true) });
-    if (sure) leave();
-    const kept = deleteConversation(row.base, readIndex(row.base), row.id);
+  /**
+   * A draft deleted from this browser, and said; the one on screen gives way to a new, empty one. One
+   * with a deposit's ids kept beside it is not deleted (`deleteConversation`): the panel says so first.
+   */
+  function remove(row: DraftRow) {
+    const was = readIndex(row.base);
+    const kept = deleteConversation(row.base, was, row.id);
+    if (kept === was) return;
+    setSaid(w.removed(row.title));
     if (row.base === base) setIndex(kept);
     else
       setElsewhere((now) =>
