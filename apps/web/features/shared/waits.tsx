@@ -379,7 +379,7 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
             </Link>
             <div aria-hidden="true" className="flex flex-col gap-2">
               {/* the name and its Rename button (PAGE-SHELL: a button, not a link) */}
-              <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1">
+              <div className="flex w-full flex-wrap items-start gap-x-4 gap-y-1">
                 <SkeletonLine className={PAGE_TITLE} width="w-40" />
                 <Skeleton className="h-9 w-[5.5rem] rounded-md" />
               </div>

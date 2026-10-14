@@ -118,7 +118,8 @@ export function VaultActions({
       <div
         className={
           page
-            ? 'flex w-full flex-wrap items-center gap-x-4 gap-y-1'
+            ? // the title on the row's top, where every page's sits under its way back (PAGE-SHELL)
+              'flex w-full flex-wrap items-start gap-x-4 gap-y-1'
             : 'flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-2'
         }
       >

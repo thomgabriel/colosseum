@@ -2,6 +2,7 @@
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import GoalPage from '../../app/(app)/invest/page';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { click, find, mount, pinLine, settle, unmountAll } from '../../components/ui/test/dom';
 import { hatchProblems } from '../../components/ui/test/hatch';
 import { parse } from '../../components/ui/test/html';
@@ -188,6 +189,7 @@ describe('home', () => {
     expect(find(host, 'h1').textContent).toBe(en.talk.workbench.title);
     // the page's title is the display face (PAGE-SHELL); under it, one display-face line
     expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
     expect(find(host, 'textarea')).toBeTruthy();
     expect(summary(host)).toBeNull();
     // nothing about a vault is asked for someone who is not signed in
@@ -223,6 +225,7 @@ describe('home', () => {
     // still one serif line on the page, and no primary button but the goal's own
     // the page's title is the display face (PAGE-SHELL); under it, one display-face line
     expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
     expect(card.querySelector('[data-variant="primary"]')).toBeNull();
   });
 
@@ -345,6 +348,7 @@ describe('home', () => {
     expect(cards.every((card) => card.querySelectorAll('a').length === 1)).toBe(true);
     // the page's title is the display face (PAGE-SHELL); under it, one display-face line
     expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
   });
 
   it('marks a live-labelled vault whose held price is sandbox, retains stale source details, and explains omitted holdings', async () => {
