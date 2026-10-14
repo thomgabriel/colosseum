@@ -18,13 +18,14 @@ import {
   rememberBearingChain,
   withChain,
 } from './chain';
-import { inPool, makeReader, R, type Reader, type Res } from './data';
+import { gate, inPool, makeReader, R, type Reader, type Res, resOf } from './data';
 import type { DexAsset } from './dex';
 import { type Clock, maxT, STALE_AFTER_MS } from './fact';
 import { REGIMES } from './format';
 import type { LendRow } from './lending';
 import type {
   AssetsBody,
+  DexBody,
   HistBody,
   LendBody,
   LendHistBody,
@@ -40,6 +41,9 @@ import type {
 // simulated). It lives in the section's layout, so it outlives a page.
 
 export const TAU = 0.01;
+/** Assets asked in one `GET /risk/dex`, and how many of those answers are read at once. */
+export const DEX_BATCH = 8;
+export const DEX_BATCHES_AT_ONCE = 3;
 /** How often an open page looks at its clock again. */
 export const TICK_MS = 60_000;
 
@@ -75,8 +79,14 @@ type Ctx = {
   base: () => Promise<Base>;
   /** Solana's lending pools alone, for a page that needs no other list. */
   lendList: () => Promise<Res<LendListBody>>;
-  /** Per asset of the chain, by the symbol the page shows. */
-  dex: (ids: readonly string[]) => Promise<Record<string, DexAsset>>;
+  /**
+   * Per asset of the chain, by the symbol the page shows. `onOne` hears each asset as its answer lands,
+   * so a page can show it before the rest.
+   */
+  dex: (
+    ids: readonly string[],
+    onOne?: (id: string, d: DexAsset) => void,
+  ) => Promise<Record<string, DexAsset>>;
   lending: () => Promise<LendRow[]>;
   ui: UiState;
   setUi: (f: (s: UiState) => UiState) => void;
@@ -207,29 +217,62 @@ export function BearingProvider({
       const b = await baseOf(chain);
       return (b.assets.ok && b.assets.body.assets.find((a) => a.symbol === id)?.assetMint) || id;
     };
-    const dexOne = (id: string) => {
-      const k = `${chain}:${id}`;
-      let p = memo.current.dex.get(k);
-      if (!p) {
-        // Per asset: the sheet at $100k (volume, LP share), 30 days of hourly capacity, its pools.
-        // The unfiltered pool list stops at 500 rows, so pools are read per asset.
-        p = keyOf(id).then((key) =>
-          Promise.all([
-            reader.get<SheetBody>(R.sheet(key, 100_000)),
-            reader.get<HistBody>(R.hist(key, TAU)),
-            reader.get<PoolsBody>(R.poolsOf(key, chain)),
-          ]).then(([sheet, hist, pools]) => ({ sheet, hist, pools })),
+    // Per asset: the sheet at $100k (volume, LP share), 30 days of hourly capacity, its pools. The
+    // unfiltered pool list stops at 500 rows, so pools are read per asset.
+    const oneByOne = (key: string): Promise<DexAsset> =>
+      Promise.all([
+        reader.get<SheetBody>(R.sheet(key, 100_000)),
+        reader.get<HistBody>(R.hist(key, TAU)),
+        reader.get<PoolsBody>(R.poolsOf(key, chain)),
+      ]).then(([sheet, hist, pools]) => ({ sheet, hist, pools }));
+    // A few assets in one answer (`GET /risk/dex`), a few answers at once. An API without that route,
+    // or one whose answer failed, has each of those assets read on its own, as before.
+    const batches = gate(DEX_BATCHES_AT_ONCE);
+    const dexBatch = (keys: readonly string[]) =>
+      batches(async () => {
+        const r = await reader.get<DexBody>(R.dex(keys, 100_000, chain));
+        const got = new Map<string, DexAsset>();
+        if (r.ok)
+          for (const a of r.body.assets)
+            got.set(a.id, {
+              sheet: resOf(a.sheet.status, a.sheet.body) as Res<SheetBody>,
+              hist: resOf(a.hist.status, a.hist.body) as Res<HistBody>,
+              pools: resOf(a.pools.status, a.pools.body) as Res<PoolsBody>,
+            });
+        await inPool(
+          keys.filter((k) => !got.has(k)),
+          2,
+          async (k) => {
+            got.set(k, await oneByOne(k));
+          },
         );
-        memo.current.dex.set(k, p);
-      }
-      return p;
-    };
-    const dex = async (ids: readonly string[]) => {
-      if (!known) return waitForChain<Record<string, DexAsset>>();
-      const out: Record<string, DexAsset> = {};
-      await inPool(ids, 6, async (id) => {
-        out[id] = await dexOne(id);
+        return got;
       });
+    const dex = async (ids: readonly string[], onOne?: (id: string, d: DexAsset) => void) => {
+      if (!known) return waitForChain<Record<string, DexAsset>>();
+      // the reads kept for this generation, whatever happens to the provider meanwhile
+      const kept = memo.current.dex;
+      const keys = await Promise.all(ids.map(keyOf));
+      const todo = ids
+        .map((id, i) => ({ id, key: keys[i] as string, k: `${chain}:${id}` }))
+        .filter((x) => !kept.has(x.k));
+      for (let i = 0; i < todo.length; i += DEX_BATCH) {
+        const part = todo.slice(i, i + DEX_BATCH);
+        const answer = dexBatch(part.map((x) => x.key));
+        for (const x of part)
+          kept.set(
+            x.k,
+            answer.then((m) => m.get(x.key) as DexAsset),
+          );
+      }
+      const out: Record<string, DexAsset> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          const d = (await kept.get(`${chain}:${id}`)) as DexAsset;
+          out[id] = d;
+          onOne?.(id, d);
+        }),
+      );
       return out;
     };
     const lending = () => {

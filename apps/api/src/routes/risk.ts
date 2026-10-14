@@ -47,6 +47,7 @@ import { curveVersionOf, EVM_METHOD_VERSION } from '../curve-version';
 import { loadAssetFacts, loadPlanFacts } from '../facts';
 import { FACTS_METHODOLOGY } from '../facts-methodology';
 import { type RiskCacheOptions, registerRiskReadCache } from './risk-cache';
+import { registerRiskDexRoute } from './risk-dex';
 import { registerRiskHistoryRoutes } from './risk-history';
 import { registerPoolLiquidityRoute } from './risk-pool-liquidity';
 import { registerRiskSplitRoute } from './risk-split';
@@ -181,6 +182,8 @@ export async function registerRiskRoutes(
   await registerPoolLiquidityRoute(app, db);
   // how a routed sale divides across the pools, leg by leg, from the hourly split snapshot (risk-split.ts)
   await registerRiskSplitRoute(app, db, resolveAsset, REGIME_PARAMS);
+  // what the stocks and commodities pages read of each asset, many assets in one answer (risk-dex.ts)
+  await registerRiskDexRoute(app);
 
   /** Sell capacity at tau per regime, as `/risk/assets` lists it. */
   function capacityAt(c: AssetCurves, tau: number) {

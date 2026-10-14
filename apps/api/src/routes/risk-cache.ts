@@ -38,7 +38,8 @@ const HALF_HOUR_MS = 30 * 60_000;
 const JOIN_MS = 30_000;
 /** What a `GET /risk/*` answer tells a browser: a minute fresh, five more served while asked again. */
 export const RISK_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
-const NOT_KEPT = new Set(['/risk/pools/:address/liquidity', '/risk/assets/:id/score']);
+// `/risk/dex` is put together from answers that are kept themselves: keeping it too would add their ages.
+const NOT_KEPT = new Set(['/risk/pools/:address/liquidity', '/risk/assets/:id/score', '/risk/dex']);
 const BY_HALF_HOUR = new Set(['/risk/chains']);
 
 type Kept = { at: number; body: string; type: string };
