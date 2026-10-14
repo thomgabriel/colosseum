@@ -273,7 +273,7 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
   const pane = page.locator('[data-ui="vault-action-pane"]');
   await page.locator('[data-ui="vault-more"]').click();
   await page.locator('[data-action="vault-edit-weights"]').click();
-  await expect(pane.locator(':scope > header h2')).toHaveText(
+  await expect(pane.locator('[data-ui="pane-title"]')).toHaveText(
     en.shared.vault.page.panes.change.title,
   );
   // from 60/40 to 70 SPY, nothing in NVDA, 30 left in cash
@@ -286,18 +286,20 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
   // the change reviewed as one screen (gate SIGN-ONE-STEP): a few words, the targets now and after,
   // the warnings to tick, every line's figures under "Details", one "Continue"
   const review = page.locator('[data-ui="change-review"]');
-  await expect(review.locator('[data-ui="sign-hero"]')).toHaveText('More SPY, less NVDA');
+  await expect(review.locator('[data-ui="sign-figure"]')).toHaveText('More SPY, less NVDA');
   await expect(page.locator('[data-ui="mix-review-lines"]')).toContainText('SPY');
   await check(page, 'vault-review');
   const confirm = await tickAll(page, en.order.flow.continue);
   await confirm.click();
 
-  await expect(pane.locator(':scope > header h2')).toHaveText(
+  await expect(pane.locator('[data-ui="pane-title"]')).toHaveText(
     en.shared.vault.page.panes.change.signTitle,
   );
   await expect(page).toHaveURL(here);
   // reviewed already: the pane opens on the first step, with a button that names it
-  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText('More SPY, less NVDA');
+  await expect(pane.locator('[data-ui="sign-step"] [data-ui="sign-figure"]')).toHaveText(
+    'More SPY, less NVDA',
+  );
   await check(page, 'vault-order');
   await pane.getByRole('button', { name: en.order.flow.press.change }).click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });

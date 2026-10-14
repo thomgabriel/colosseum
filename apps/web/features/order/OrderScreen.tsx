@@ -1538,7 +1538,8 @@ export function OrderScreen({
     terms?.kind === 'withdraw'
       ? terms.dollars && leastFigure
         ? leastFigure.shown
-        : withdrawn
+        : // said on its own line: "All of your SPY", never mid-sentence lower case
+          withdrawn.charAt(0).toLocaleUpperCase(locale) + withdrawn.slice(1)
       : buying && !record.continues && shown.depositRaw !== undefined
         ? amount
         : reviewHero;
@@ -1696,11 +1697,8 @@ export function OrderScreen({
           {stageBody}
         </section>
       ) : (
-        <Panel aria-labelledby={`${titleId}-panel`}>
-          <PanelHead
-            id={`${titleId}-panel`}
-            title={stage === 'done' ? flow.ended.title : t.order.stepsTitle}
-          />
+        <Panel data-ui="order-panel" aria-labelledby={`${titleId}-panel`}>
+          <PanelHead id={`${titleId}-panel`} title={t.order.stepsTitle} />
           <PanelBody>{stageBody}</PanelBody>
         </Panel>
       )}

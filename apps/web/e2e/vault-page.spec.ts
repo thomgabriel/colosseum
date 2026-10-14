@@ -164,7 +164,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   const here = new RegExp(`/vaults/solana/${address}$`);
   const screen = page.locator('[data-ui="vault-screen"]');
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  const title = pane.locator(':scope > header h2');
+  const title = pane.locator('[data-ui="pane-title"]');
 
   // The head: the name in full, the value with what kind of figure it is, the chain as a quiet label.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(p.yourVault);
@@ -296,8 +296,8 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await expect(actions).toHaveCount(0);
   await check(page, 'deposit-amount');
   const press = await readyToInvest(page, { amount: '40' });
-  // what the deposit does in one sentence, where it goes, and every step one fold away
-  await expect(pane.locator('[data-ui="sign-sentence"]')).toContainText('$40');
+  // the deposit as the figure the review leads with, where it goes, and every step one fold away
+  await expect(pane.locator('[data-ui="sign-figure"]')).toHaveText('$40');
   await expect(pane.locator('[data-ui="sign-picture"]')).toBeVisible();
   await expect(pane.locator('[data-ui="order-step"]').first()).toBeHidden();
   await check(page, 'deposit-review');
@@ -536,7 +536,7 @@ test('a change proposed in the conversation is applied in place, and the weights
   const here = new RegExp(`/vaults/solana/${address}$`);
   const screen = page.locator('[data-ui="vault-screen"]');
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  const title = pane.locator(':scope > header h2');
+  const title = pane.locator('[data-ui="pane-title"]');
   // The stub has no model: the reply is answered here, as apps/api declares it, for this vault.
   await page.route('**/conversation/reply', async (route) => {
     const asked = route.request().postDataJSON() as { messageId: string };
@@ -598,7 +598,7 @@ test('a change proposed in the conversation is applied in place, and the weights
   // place: a few words, the targets now beside the new ones, the warnings to tick, one "Continue";
   // every line's figures are folded
   const review = page.locator('[data-ui="change-review"]');
-  await expect(review.locator('[data-ui="sign-hero"]')).toHaveText('More SPY, less NVDA');
+  await expect(review.locator('[data-ui="sign-figure"]')).toHaveText('More SPY, less NVDA');
   const picture = review.locator('[data-ui="sign-picture"]');
   await expect(picture).toContainText('60%');
   await expect(picture).toContainText('70%');
@@ -614,7 +614,9 @@ test('a change proposed in the conversation is applied in place, and the weights
   await expect(title).toHaveText(p.panes.change.signTitle);
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.change);
   // one press of the passkey wallet signs every step: the screen is the whole change's
-  await expect(pane.locator('[data-ui="sign-step"] h3')).toHaveText('More SPY, less NVDA');
+  await expect(pane.locator('[data-ui="sign-step"] [data-ui="sign-figure"]')).toHaveText(
+    'More SPY, less NVDA',
+  );
   const targetsPress = pane.getByRole('button', { name: en.order.flow.press.change });
   await expect(targetsPress).toBeVisible();
   await expect(pane.getByRole('region', { name: en.mix.order.title })).toBeHidden();
@@ -669,8 +671,9 @@ test('a vault away from its targets: the rebalance reviewed, signed and done in 
   const pane = page.locator('[data-ui="vault-action-pane"]');
   await screen.locator('[data-action="vault-rebalance"]').click();
   await expect(screen).toHaveAttribute('data-pane', 'rebalance');
-  // the review: what the vault holds now beside its targets, one sentence, one "Continue"
-  await expect(pane.locator('[data-ui="sign-hero"]')).toHaveText(en.order.flow.hero.rebalance);
+  // the review: its figure, what the vault holds now beside its targets, one "Continue"
+  await expect(pane.locator('[data-ui="sign-label"]')).toHaveText(en.order.flow.label.rebalance);
+  await expect(pane.locator('[data-ui="sign-figure"]')).toHaveText(en.order.flow.hero.rebalance);
   const picture = pane.locator('[data-ui="sign-picture"]');
   await expect(picture).toContainText('40%');
   await expect(picture).toContainText('60%');
@@ -684,7 +687,7 @@ test('a vault away from its targets: the rebalance reviewed, signed and done in 
   await fitsPane(page, 'rebalance step');
   await press.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
-  await expect(pane.locator('[data-ui="sign-hero"]')).toHaveText(en.order.flow.ended.title);
+  await expect(pane.locator('[data-ui="sign-figure"]')).toHaveText(en.order.flow.ended.title);
   await check(page, 'rebalance-done');
   await fitsPane(page, 'rebalance done');
   await pane.getByRole('button', { name: p.backToVault }).click();

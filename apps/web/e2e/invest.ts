@@ -29,7 +29,7 @@ export async function readyToInvest(
     .click();
   // the wallet holds it now: the funds leave the card, and the order is there: what it does in one
   // sentence, with its steps one fold away (gate SIGN-ONE-STEP)
-  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
   await expect(card.locator('[data-ui="order-step"]').first()).toBeAttached();
   // test funds that were sent are still said; sample cash on the mock leaves nothing to say
   if (o.fund === 'test') await expect(card.locator('[data-ui="test-funds-sent"]')).toBeVisible();

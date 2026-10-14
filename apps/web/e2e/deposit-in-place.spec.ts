@@ -109,7 +109,7 @@ async function toSteps(page: Page, shots = false) {
   if (shots) await check(page, '06-sign-wallet-short');
   await card.getByRole('button', { name: en.buy.funding.mockFund }).click();
   // the order is on the card: what it does in one sentence, its steps one fold away (SIGN-ONE-STEP)
-  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
   // a first deposit: the notice is in the pane and holds the press until it is ticked
   await expect(press(page)).toHaveAttribute('aria-disabled', 'true');
   await page.getByLabel(en.trust.accept).check();
@@ -247,6 +247,6 @@ test('a quote that ran out before the press: the pane says so and offers a fresh
   await expect(card.locator('[data-ui="order-step"]')).toHaveCount(0);
   await check(page, '12-quote-ran-out');
   await card.getByRole('button', { name: en.invest.again }).click();
-  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
   await expect(page).toHaveURL(/\/goal$/);
 });

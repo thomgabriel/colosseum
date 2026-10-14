@@ -1977,6 +1977,7 @@ export const pt: Dictionary = {
       continue: 'Continuar',
       details: 'Detalhes',
       back: 'Voltar à revisão',
+      changeTitle: 'Revise a mudança',
       changeWeights: 'Mudar os pesos',
       understand: 'Entendo estes avisos',
       progress: 'Onde você está nos passos',

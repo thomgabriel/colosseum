@@ -72,7 +72,7 @@ export function ChangeReview({
   return (
     <div data-ui="change-review">
       <Panel aria-labelledby={titleId}>
-        <PanelHead id={titleId} title={t.mix.review.title} />
+        <PanelHead id={titleId} title={f.changeTitle} />
         <PanelBody className="min-w-0">
           <OrderHero
             label={f.label.change}

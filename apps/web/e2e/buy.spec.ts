@@ -305,7 +305,7 @@ test('the invest card by keyboard, at 375 and 1440 px', async ({ page }) => {
   // by keyboard to the end: the funds, the notice, and the one press
   await ask.focus();
   await page.keyboard.press('Enter');
-  await expect(card.locator('[data-ui="sign-sentence"]')).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
   const accept = page.getByLabel(en.trust.accept);
   await accept.focus();
   await page.keyboard.press('Space');
@@ -454,10 +454,13 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await expect(page.locator('[data-ui="withdraw-least"]')).toHaveText(/^[\d.,]+ USDC$/);
     await expect(page.locator('[data-ui="order-withdrawal"]')).toHaveCount(1);
     // the review says what is sold and the least that reaches the wallet, with one way on
-    await expect(page.locator('[data-ui="sign-hero"]')).toHaveText(
-      /^At least \$[\d.,]+ to your wallet$/,
+    await expect(page.locator('[data-ui="sign-label"]')).toHaveText(
+      en.order.flow.label.withdrawAtLeast,
     );
-    await expect(page.locator('[data-ui="sign-sentence"]')).toContainText('is sold for cash');
+    await expect(page.locator('[data-ui="sign-figure"]')).toHaveText(/^\$[\d.,]+$/);
+    await expect(page.locator('[data-ui="sign-picture"] caption')).toHaveText(
+      en.order.flow.picture.sold,
+    );
     await expect(page.locator('[data-variant="primary"]')).toHaveCount(1);
     await check(page, emptied ? 'withdraw-dollars-order-all' : 'withdraw-dollars-order');
     await page.locator('[data-action="order-continue"]').click();

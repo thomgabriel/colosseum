@@ -242,19 +242,29 @@ export function FundsWait({ label }: { label?: string }) {
 }
 
 /**
- * An order's review in outline (gate SIGN-ONE-STEP): the sentence of what it does, a row a line of the
- * picture of what changes, and the fold of its details. No amount is drawn: none is known yet.
+ * An order's review in outline (gate SIGN-ONE-STEP), drawn as the house kit draws it (HOUSE-KIT): the
+ * label and the figure it leads with, its small figures two by two, a row a line of the table of what
+ * changes, and the fold of its details. No amount is drawn: none is known yet.
  */
 function ReviewWait({ rows }: { rows: number }) {
   return (
     <>
-      <div data-ui="skeleton-sentence" className="flex w-full max-w-(--tf-measure-body) flex-col">
-        <SkeletonLine className="text-body" width="w-full" lines={2} />
+      <div data-ui="skeleton-figure" className="flex flex-col gap-1">
+        <SkeletonLine className="text-body-sm" width="w-24" />
+        <SkeletonLine className="text-[2rem]/10" width="w-40" />
       </div>
-      <div className="flex flex-col divide-y divide-border">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+        {['w-16', 'w-20', 'w-14', 'w-12'].map((width) => (
+          <div key={width} className="flex flex-col gap-1">
+            <SkeletonLine className="text-caption" width="w-20" />
+            <SkeletonLine className="text-body" width={width} />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col">
         {Array.from({ length: rows }, (_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-          <div key={i} className="flex items-center justify-between py-2">
+          <div key={i} className="flex items-center justify-between border-t border-border py-4">
             <SkeletonLine className="text-body-sm" width={i % 2 ? 'w-16' : 'w-20'} />
             <SkeletonLine className="text-body-sm" width="w-12" />
           </div>

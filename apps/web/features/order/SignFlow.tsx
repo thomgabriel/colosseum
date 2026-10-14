@@ -138,6 +138,16 @@ export function Rounded({ figure }: { figure: Figure }) {
   );
 }
 
+/**
+ * The kit's table inside a host's padding, a panel's or a card's: its outer cells lose theirs, so its
+ * names and figures line up with the rest of the screen whatever the host pads with. On a phone the
+ * cells between sit closer, so four columns fit with nothing to scroll.
+ */
+const FLUSH = cn(
+  '[&_td:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:first-child]:pl-0 [&_th:last-child]:pr-0',
+  'max-sm:[&_td]:px-2 max-sm:[&_th]:px-2',
+);
+
 /** A holding's name in a table row: its mark, then its name. */
 function Holding({ name, asset }: { name: string; asset?: string }) {
   return (
@@ -174,7 +184,7 @@ export function ShareList({
   const signed = (bps: number) =>
     `${bps > 0 ? '+' : '\u2212'}${share(Math.abs(bps)) === share(0) ? `<${share(100)}` : share(Math.abs(bps))}`;
   return (
-    <div data-ui="sign-picture" className="-mx-5">
+    <div data-ui="sign-picture" className={FLUSH}>
       <KitTable
         caption={caption}
         minWidth="min-w-0"
@@ -235,7 +245,7 @@ export function AmountList({
   labels: { holding: string; amount: string };
 }) {
   return (
-    <div data-ui="sign-picture" className="-mx-5">
+    <div data-ui="sign-picture" className={FLUSH}>
       <KitTable
         caption={picture.caption}
         minWidth="min-w-0"

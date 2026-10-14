@@ -2208,6 +2208,8 @@ export const en = {
     flow: {
       continue: 'Continue',
       details: 'Details',
+      /** The change's review, as its panel's title. */
+      changeTitle: 'Review the change',
       changeWeights: 'Change the weights',
       /** One box for every warning of a change. */
       understand: 'I understand these',
