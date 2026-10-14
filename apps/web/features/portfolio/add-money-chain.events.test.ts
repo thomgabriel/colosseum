@@ -210,10 +210,9 @@ describe('an add, held to the vault’s targets as this app reads them from the 
     const orders = api();
     const host = await ready();
     expect(NODE.asked).toContainEqual({ method: 'getAccountInfo', address: MY_VAULT });
-    const mark = find(host, '[data-ui="source-mark"]');
-    expect(mark.getAttribute('data-source')).toBe('chain');
-    expect(mark.textContent).toContain(en.shared.check.verified);
-    expect(mark.textContent).toContain(en.portfolio.add.source.read('Solana'));
+    // a read that matches says nothing of where it came from (Thom, Oct 14)
+    expect(host.querySelector('[data-ui="source-mark"]')).toBeNull();
+    expect(host.textContent).not.toMatch(/read from|our server/i);
     expect(orders).toHaveLength(1);
     expect(recallOrder(ORDER_ID, USER)?.terms).toEqual({
       kind: 'vault',

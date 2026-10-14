@@ -633,7 +633,6 @@ export const pt: Dictionary = {
       pending: (version: number, when: string) =>
         `A versão ${version} do portfólio que você segue começa a valer em ${when}.`,
       pendingAssets: (assets: string) => `Ela inclui ${assets}, que você ainda não aceitou.`,
-      observed: (when: string) => `Lido da rede em ${when}.`,
       valueMethod: 'posições lidas do cofre, vezes seus preços; caixa a um dólar',
       takenOut: 'Sacado, conforme pedido',
       takenOrdered:
@@ -703,11 +702,6 @@ export const pt: Dictionary = {
       newerVersion: (version: number) =>
         `O portfólio que este cofre segue tem uma versão mais nova, a versão ${version}. Este aporte vai para as metas atuais do cofre; aceitar a nova versão é um passo separado.`,
       source: {
-        read: (chain: string) =>
-          `Lido da ${chain} por este app, não do nosso servidor: as metas para onde vai este aporte são as da rede.`,
-        mock: 'Rede de exemplo: não há rede para ler, então as metas são palavras do nosso servidor, sem conferência.',
-        notRead: (chain: string) =>
-          `Sem conferência com a ${chain}: este app não tem um nó próprio para ler. As metas são palavras do nosso servidor.`,
         failed: (chain: string) =>
           `Não consegui ler este cofre na ${chain}: o nó que este app lê não respondeu, ou o que nosso servidor indicou não é o cofre que a rede guarda. Não ofereço adicionar dinheiro até conseguir.`,
         missing: (chain: string) =>
@@ -1267,26 +1261,12 @@ export const pt: Dictionary = {
     },
     check: {
       reading: 'Lendo da rede…',
-      read: (chain: string) =>
-        `Lido da ${chain} por este app, não do nosso servidor: a versão e os pesos mostrados são os da rede.`,
       differs: (chain: string) =>
-        `A resposta do nosso servidor difere do que a ${chain} tem. Mostro a versão e os pesos da rede, e seguir fica preso a eles.`,
-      unverified: {
-        mock: 'Rede de exemplo: não há rede para ler, então estas são palavras do nosso servidor, não conferidas.',
-        'no-node': (chain: string) =>
-          `Não conferido na ${chain}: este app não tem um nó próprio para ler. Estas são palavras do nosso servidor.`,
-        'no-reader': (chain: string) =>
-          `Não conferido na ${chain}: este app ainda não lê o registro da ${chain}. Estas são palavras do nosso servidor.`,
-        'no-deployment': (chain: string) =>
-          `Não conferido na ${chain}: este app não tem registro dos tokens nesta rede. Estas são palavras do nosso servidor.`,
-        'family-id':
-          'Não conferido na rede: este portfólio não foi publicado por este app, então o identificador dele vem do nosso servidor. Estas são palavras do nosso servidor.',
-      },
+        `A ${chain} tem outra versão ou outros pesos do que os mostrados antes. Mostro os da rede, e seguir fica preso a eles.`,
       failed: (chain: string) =>
         `Não consegui verificar este portfólio na ${chain}: o nó de onde este app lê não respondeu, ou o que nosso servidor indicou não é o portfólio que a rede tem. Ele pode ter sido adulterado, então não vou oferecer segui-lo.`,
       missing: (chain: string) =>
         `Li a ${chain}, e ela não tem este portfólio: o que aparece é só a palavra do nosso servidor.`,
-      verified: 'Lido da rede',
       notChecked: 'Não conferido na rede',
     },
     offer: {
@@ -1391,7 +1371,6 @@ export const pt: Dictionary = {
       privacy:
         'Só esta estratégia revisada, o nome e a descrição ficam públicos. A conversa do cofre permanece privada.',
       holdings: 'Tokens mantidos agora · separados dos pesos-alvo',
-      strategySource: (source: string) => `Estratégia lida de ${source}.`,
       strategyChanged:
         'A estratégia do cofre mudou. As metas atuais estão na tela. Revise antes de compartilhar novamente.',
       sourceProblems: {
@@ -1599,7 +1578,6 @@ export const pt: Dictionary = {
         copyPriceOwner: 'endereço do programa de preços',
         sourcesAsWritten: (count: number) =>
           count === 1 ? '1 fonte, como foi escrita' : `${count} fontes, como foram escritas`,
-        read: 'Lido da rede',
         readAt: 'Lido em',
         height: { slot: 'Slot', block: 'Bloco' },
         copyVault: 'endereço do cofre',
@@ -1675,8 +1653,7 @@ export const pt: Dictionary = {
       address: 'Endereço do cofre',
       workspaceLead: (chain: string) =>
         `Seus ativos e estratégia na ${chain}. Continue a conversa aqui conforme seus planos mudam.`,
-      lead: (chain: string) =>
-        `Lido da ${chain} para esta página. Qualquer pessoa pode ver um cofre: o que ele tem é público na rede.`,
+      lead: 'Qualquer pessoa pode ver um cofre: o que ele tem é público na rede.',
       loading: 'Lendo o cofre…',
       missing: 'Não há cofre neste endereço.',
       back: 'Voltar ao seu portfólio',
@@ -2197,7 +2174,7 @@ export const pt: Dictionary = {
     showSchedule: 'Mostrar o cronograma',
     vault: {
       title: (chain: string) => `Seu cofre na ${chain}`,
-      lead: 'O que ele guarda agora, lido da rede.',
+      lead: 'O que ele guarda agora.',
       value: 'Valor',
       parts: 'As partes',
       see: 'Ver na tenonfi',

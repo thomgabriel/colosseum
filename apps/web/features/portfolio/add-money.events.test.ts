@@ -442,8 +442,8 @@ describe('the add-money screen', () => {
         source: 'api',
       },
     });
-    expect(find(host, '[data-ui="source-mark"]').textContent).toContain(
-      en.portfolio.add.source.notRead('Solana'),
+    expect(find(host, '[data-ui="source-mark"]').textContent).toBe(
+      `${en.shared.check.notChecked}.`,
     );
   });
 

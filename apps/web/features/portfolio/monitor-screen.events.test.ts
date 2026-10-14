@@ -256,7 +256,8 @@ describe('the monitor, for a person with a vault on their chain', () => {
     expect(find(panel(host), 'h2').textContent).toBe(words.title);
     expect(text(host)).toContain(words.value);
     expect(text(host)).toContain('$1,040.00');
-    expect(text(host)).toContain(words.observed('Oct 5, 2026, 14:00 UTC'));
+    // and no line of where it was read from (Thom, Oct 14)
+    expect(text(host)).not.toMatch(/read from/i);
     // the first view has no chips and no tiles of the vault's own facts (the flow audit, 31)
     expect(host.querySelector('[data-ui="stat"]')).toBeNull();
     const card = panel(host);

@@ -3,7 +3,7 @@ import { chainFamily } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useId } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
-import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { type Column, DataTable } from '../../components/ui/DataTable';
 import { shorten } from '../../components/ui/format';
@@ -316,12 +316,6 @@ export function VaultPanel({
           </Link>
         )}
       </CardBody>
-      <CardFooter
-        density="dense"
-        className="flex flex-wrap justify-between gap-3 font-mono text-[11px] text-muted-foreground"
-      >
-        <span>{words.observed(utc(lang, vault.observedAt))}</span>
-      </CardFooter>
     </Card>
   );
 }

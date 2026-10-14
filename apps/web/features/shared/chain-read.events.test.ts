@@ -374,10 +374,7 @@ describe('a shared portfolio the chain does not hold', () => {
       for (let i = 0; i < 5; i += 1) await settle(50);
       const mark = find(host, '[data-ui="source-mark"]');
       expect(mark.getAttribute('data-source')).toBe('api');
-      expect(mark.textContent).toContain(
-        en.shared.check.unverified['no-reader']('Robinhood Chain'),
-      );
-      expect(mark.textContent).not.toContain('no node of its own');
+      expect(mark.textContent).toBe(`${en.shared.check.notChecked}.`);
       expect(NODE.asked).toEqual([]);
     } finally {
       delete process.env.NEXT_PUBLIC_CHAIN_READ_RPC_ROBINHOOD;
