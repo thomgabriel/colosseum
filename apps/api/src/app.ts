@@ -12,7 +12,15 @@ import {
 import { z } from 'zod';
 import { bearingAgentAnalytics } from './agent-analytics';
 import { DEPLOYMENTS_DIR, evmDeployment, solanaDeployment } from './deployments';
-import { V1_SECURITY_SCHEMES, v1Transform } from './openapi';
+import {
+  API_TITLE,
+  API_VERSION,
+  groupOf,
+  SERVED_DESCRIPTION,
+  SERVED_TAGS,
+  V1_SECURITY_SCHEMES,
+  v1Transform,
+} from './openapi';
 import { bearingPlanInputs } from './plan-inputs';
 import { corsAllowlist, corsByPath } from './plugins/cors';
 import { hideServerErrors } from './plugins/errors';
@@ -91,19 +99,24 @@ export async function buildApp(
   await app.register(swagger, {
     openapi: {
       openapi: '3.1.0',
-      info: {
-        title: 'Colosseum structuring API',
-        version: '0.1.0',
-        description: `Goal-based structuring for self-custody wallets: goals in BRL, allocations across on-chain legs, BRL cash-flow schedule with stresses, per-leg risk sheet, and unsigned transactions for the partner wallet to sign.\n\n**${DISCLAIMER.en}**\n\n${DISCLAIMER.pt}`,
-      },
+      info: { title: API_TITLE, version: API_VERSION, description: SERVED_DESCRIPTION },
+      tags: [...SERVED_TAGS],
       servers: [{ url: process.env.PUBLIC_API_URL ?? 'http://localhost:3001' }],
       // The two tokens a signed-in /v1 route takes. No other route names them.
       components: { securitySchemes: V1_SECURITY_SCHEMES },
     },
-    // jsonSchemaTransform for every route; a /v1 route also shows who may call it.
-    transform: v1Transform,
+    // jsonSchemaTransform for every route; a /v1 route also shows who may call it, and a route outside
+    // /v1 is put in its group by its path.
+    transform: (input) => {
+      const out = v1Transform(input);
+      const group = groupOf(input.url);
+      const schema = out.schema as { tags?: string[] } | undefined;
+      return group && schema && !schema.tags
+        ? { ...out, schema: { ...schema, tags: [group] } }
+        : out;
+    },
   });
-  await app.register(scalar, { routePrefix: '/docs' });
+  await app.register(scalar, { routePrefix: '/docs', configuration: { pageTitle: API_TITLE } });
 
   app.get(
     '/health',

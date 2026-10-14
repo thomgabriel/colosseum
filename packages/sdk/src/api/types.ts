@@ -317,7 +317,7 @@ export type PostBasketsIntakeResponse = {
   }[];
 };
 
-/** POST /v1/baskets/personalize: body. Make a plan from a goal and its limits, and store it. Nothing is bought */
+/** POST /v1/baskets/personalize: body. Make a plan from a goal and its limits, and store it. Nothing is deposited */
 export type PostBasketsPersonalizeBody = {
   sheet: {
     basketType: 'standard';
@@ -438,7 +438,7 @@ export type PostBasketsPersonalizeBody = {
   previousPlanId?: string;
 };
 
-/** POST /v1/baskets/personalize: response. Make a plan from a goal and its limits, and store it. Nothing is bought */
+/** POST /v1/baskets/personalize: response. Make a plan from a goal and its limits, and store it. Nothing is deposited */
 export type PostBasketsPersonalizeResponse = {
   id: string;
   proposal: {
@@ -814,7 +814,7 @@ export type PostBasketsPersonalizeResponse = {
   }[];
 };
 
-/** POST /v1/baskets/propose: body. Make a plan from a goal and its limits for a person to open from a link. Nothing is bought */
+/** POST /v1/baskets/propose: body. Make a plan from a goal and its limits for a person to open from a link. Nothing is deposited */
 export type PostBasketsProposeBody = {
   sheet: {
     basketType: 'standard';
@@ -874,7 +874,7 @@ export type PostBasketsProposeBody = {
   };
 };
 
-/** POST /v1/baskets/propose: response. Make a plan from a goal and its limits for a person to open from a link. Nothing is bought */
+/** POST /v1/baskets/propose: response. Make a plan from a goal and its limits for a person to open from a link. Nothing is deposited */
 export type PostBasketsProposeResponse = {
   id: string;
   proposal: {
@@ -1727,12 +1727,12 @@ export type GetConfigResponse = {
   }[];
 };
 
-/** POST /v1/conversations/{chain}/goal/accept: params. Review a mix for a new goal, and store it as a plan once confirmed */
+/** POST /v1/conversations/{chain}/goal/accept: params. Review the holdings proposed for a new goal, and store them as a plan once confirmed */
 export type PostConversationsByChainGoalAcceptParams = {
   chain: 'solana' | 'base' | 'robinhood';
 };
 
-/** POST /v1/conversations/{chain}/goal/accept: body. Review a mix for a new goal, and store it as a plan once confirmed */
+/** POST /v1/conversations/{chain}/goal/accept: body. Review the holdings proposed for a new goal, and store them as a plan once confirmed */
 export type PostConversationsByChainGoalAcceptBody = {
   version: 1;
   origin: 'model' | 'person';
@@ -1750,7 +1750,7 @@ export type PostConversationsByChainGoalAcceptBody = {
   horizonMonths?: number;
 };
 
-/** POST /v1/conversations/{chain}/goal/accept: response. Review a mix for a new goal, and store it as a plan once confirmed */
+/** POST /v1/conversations/{chain}/goal/accept: response. Review the holdings proposed for a new goal, and store them as a plan once confirmed */
 export type PostConversationsByChainGoalAcceptResponse =
   | {
       status: 'review';
@@ -2148,7 +2148,7 @@ export type PostConversationsByChainGoalReplyResponse = {
   chain: 'solana' | 'base' | 'robinhood';
   /** Which agent wrote this reply: the relaxed intake (gate RELAXED-INTAKE), or the model-led conversation the server answers with when it runs with `GOAL_AGENT=model-led`. Said so that neither is ever taken for the other. */
   agent: 'relaxed' | 'model_led';
-  /** What the person said the money is for, read by the server from plain statements in their own messages; the latest one stands. Null until they have plainly said it, and after they take it back or question it. Never the model’s reading, and never filled in here: `goal/accept` works out a null one from the mix and says so. */
+  /** What the person said the money is for, read by the server from plain statements in their own messages; the latest one stands. Null until they have plainly said it, and after they take it back or question it. Never the model’s reading, and never filled in here: `goal/accept` works out a null one from the proposed lines and says so. */
   goal: ('grow' | 'income' | 'protect') | null;
   /** The risk the person said they accept, read the same way. Null until they have plainly said it; never filled in here. */
   risk: ('low' | 'medium' | 'high') | null;
@@ -2356,13 +2356,13 @@ export type PutMeChainResponse = {
   chainOptions: ('solana' | 'base' | 'robinhood')[];
 };
 
-/** GET /v1/me/plans: query. The signed-in person’s plans, with the goal each was built for and its buys */
+/** GET /v1/me/plans: query. The signed-in person’s plans, with the goal each was built for and its deposits */
 export type GetMePlansQuery = {
   limit?: number;
   before?: string;
 };
 
-/** GET /v1/me/plans: response. The signed-in person’s plans, with the goal each was built for and its buys */
+/** GET /v1/me/plans: response. The signed-in person’s plans, with the goal each was built for and its deposits */
 export type GetMePlansResponse = {
   plans: {
     id: string;
@@ -2772,12 +2772,12 @@ export type GetOrdersByIdResponse = {
   }[];
 };
 
-/** POST /v1/orders/{id}/continue: params. Finish a buy with the cash already in its vault. Nothing is deposited */
+/** POST /v1/orders/{id}/continue: params. Finish a deposit’s trades with the cash already in its vault. Nothing is deposited */
 export type PostOrdersByIdContinueParams = {
   id: string;
 };
 
-/** POST /v1/orders/{id}/continue: response. Finish a buy with the cash already in its vault. Nothing is deposited */
+/** POST /v1/orders/{id}/continue: response. Finish a deposit’s trades with the cash already in its vault. Nothing is deposited */
 export type PostOrdersByIdContinueResponse = {
   id: string;
   type: 'buy' | 'rebalance' | 'follow' | 'publish' | 'withdraw' | 'settings';
@@ -3802,7 +3802,7 @@ export type GetStatsResponse = {
   disclaimer: string;
 };
 
-/** POST /v1/testnet/fund: body. Test network only: send the signed-in wallet the test tokens and gas a buy is missing */
+/** POST /v1/testnet/fund: body. Test network only: send the signed-in wallet the test tokens and gas a deposit is missing */
 export type PostTestnetFundBody = {
   wallet?: string | string;
   amountUsd: number;
@@ -3813,7 +3813,7 @@ export type PostTestnetFundBody = {
   vaultChain?: 'solana' | 'base' | 'robinhood';
 };
 
-/** POST /v1/testnet/fund: response. Test network only: send the signed-in wallet the test tokens and gas a buy is missing */
+/** POST /v1/testnet/fund: response. Test network only: send the signed-in wallet the test tokens and gas a deposit is missing */
 export type PostTestnetFundResponse = {
   chain: 'solana' | 'base' | 'robinhood';
   provenance: 'sandbox';

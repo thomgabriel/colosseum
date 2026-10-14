@@ -5,9 +5,13 @@ import { DISCLAIMER } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app';
 import {
+  API_TITLE,
+  API_VERSION,
   emitV1OpenApi,
+  groupOf,
   OPENAPI_FILE,
   type OpenApiDocument,
+  SERVED_TAGS,
   V1_SECURITY_SCHEMES,
   v1Transform,
 } from './openapi';
@@ -72,6 +76,17 @@ describe('the committed OpenAPI document (packages/sdk/openapi.json)', () => {
         expect(summary, `${method} ${path}`).toBeTruthy();
         expect(Object.keys(responses ?? {}), `${method} ${path}`).toContain('200');
       }
+  });
+
+  it('names each route in the product’s words: a deposit, never a buy or a mix (WORDS-VAULT-DEPOSIT)', () => {
+    const off: string[] = [];
+    for (const [path, methods] of Object.entries(committed.paths))
+      for (const [method, operation] of Object.entries(methods)) {
+        const { summary } = operation as { summary?: string };
+        if (/\b(mix|mixes|buy|buys|bought|buyer)\b/i.test(summary ?? ''))
+          off.push(`${method.toUpperCase()} ${path}: ${summary}`);
+      }
+    expect(off).toEqual([]);
   });
 
   it('says who may call each route and which budget it counts against, as the route declares', async () => {
@@ -162,5 +177,58 @@ describe('the committed OpenAPI document (packages/sdk/openapi.json)', () => {
       'GET /v1/funding',
       'GET /v1/orders/{id}',
     ]);
+  });
+});
+
+describe('the document the server serves at /docs', () => {
+  it('names the product as the committed document does, and carries the disclaimer in both languages', async () => {
+    const app = await buildApp({ env: {} });
+    await app.ready();
+    const { info } = app.swagger() as unknown as OpenApiDocument;
+    const page = await app.inject({ method: 'GET', url: '/docs/' });
+    await app.close();
+    expect([info.title, info.version]).toEqual([API_TITLE, API_VERSION]);
+    expect([committed.info.title, committed.info.version]).toEqual([API_TITLE, API_VERSION]);
+    expect(info.description).toContain(DISCLAIMER.en);
+    expect(info.description).toContain(DISCLAIMER.pt);
+    // The page's own title, in the browser's tab, is the API's name and not the viewer's.
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain(`<title>${API_TITLE}</title>`);
+  });
+
+  it('puts every route in one of its groups, each group declared once', async () => {
+    const app = await buildApp({ env: {} });
+    await app.ready();
+    const whole = app.swagger() as unknown as OpenApiDocument & { tags: { name: string }[] };
+    await app.close();
+    const declared = whole.tags.map((t) => t.name);
+    expect(declared).toEqual(SERVED_TAGS.map((t) => t.name));
+    const loose: string[] = [];
+    const used = new Set<string>();
+    // The routes that exist only while a chain runs on the mock carry their own group, MOCK, and are
+    // not served by a deployment on real chains. Bearing's /risk/* keep the risk API's own documents.
+    const served = Object.entries(whole.paths).filter(
+      ([p]) => !p.startsWith('/v1/mock/') && !p.startsWith('/risk/'),
+    );
+    for (const [path, methods] of served)
+      for (const [method, operation] of Object.entries(methods)) {
+        const tags = (operation as { tags?: string[] }).tags ?? [];
+        if (tags.length !== 1 || !declared.includes(tags[0] as string))
+          loose.push(`${method.toUpperCase()} ${path} ${tags.join(',')}`);
+        for (const tag of tags) used.add(tag);
+      }
+    expect(loose).toEqual([]);
+    // A group with no route would be an empty heading on the page.
+    expect(declared.filter((name) => !used.has(name))).toEqual([]);
+  });
+
+  it('self-check: a route outside /v1 is grouped by its path, and Bearing’s are left as they are', () => {
+    expect(groupOf('/risk/assets/{id}/depth')).toBeNull();
+    expect(groupOf('/goals')).toBe('structurer');
+    expect(groupOf('/plans/{id}/transactions')).toBe('structurer');
+    expect(groupOf('/executions/{id}/report')).toBe('structurer');
+    expect(groupOf('/health')).toBe('platform');
+    expect(groupOf('/plansx')).toBeNull();
+    expect(groupOf('/v1/me')).toBeNull();
   });
 });
