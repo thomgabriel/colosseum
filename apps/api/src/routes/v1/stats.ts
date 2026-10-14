@@ -153,7 +153,7 @@ export function registerStatsRoute(scope: FastifyInstance, deps: OrderDeps) {
     {
       config: { auth: 'public', limit: 'standard' },
       schema: {
-        tags: ['portfolio'],
+        tags: ['platform'],
         summary: 'The platform in numbers: vaults, the wallets that own them, what they hold',
         description:
           'One block per label the active chains carry (`live` for a mainnet, `sandbox` for a test network, `mock`), so figures of different networks are never added together. Every figure carries `source`, `fetchedAt` and `method`. A vault is counted when the server’s cache names it or the snapshot worker read it in the last 7 days. `valueUsd` is the sum of each vault’s newest snapshot, and null when the snapshot worker has not finished a pass in the last hour on every chain of the block or a vault counted has no snapshot in that hour: an unknown value is null, never 0 and never a partial sum. An answer is kept for 60 seconds.',
