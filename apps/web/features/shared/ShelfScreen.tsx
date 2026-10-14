@@ -88,7 +88,10 @@ export function ShelfScreen() {
         </h1>
         <p className="max-w-(--tf-measure-body) text-body-lg">{t.shared.shelf.lead}</p>
         {person.kind === 'ready' && person.publishable && (
-          <Link href="/publish" className={`${buttonClass({ variant: 'link' })} self-start`}>
+          <Link
+            href="/products/publish"
+            className={`${buttonClass({ variant: 'link' })} self-start`}
+          >
             {t.shared.shelf.publish}
           </Link>
         )}
@@ -130,7 +133,7 @@ export function ShelfScreen() {
             sentence={t.shared.shelf.empty}
             action={
               person.kind === 'ready' && person.publishable ? (
-                <Link href="/publish" className={buttonClass({ variant: 'link' })}>
+                <Link href="/products/publish" className={buttonClass({ variant: 'link' })}>
                   {t.shared.shelf.publish}
                 </Link>
               ) : undefined
@@ -161,7 +164,7 @@ function FamilyCard({ family }: { family: SharedFamily }) {
   // weights, creator or version are never drawn under another chain's label.
   const [first, ...more] = family.recipes;
   const recipe = more.length === 0 ? first : undefined;
-  const href = `/indexes/${encodeURIComponent(family.slug)}`;
+  const href = `/products/${encodeURIComponent(family.slug)}`;
   const notLive = family.recipes.some((r) => r.provenance !== 'live');
   const marks = { testNetwork: t.shell.testNetwork, mockAnnounce: t.shell.sampleFigure };
   const paying = recipe

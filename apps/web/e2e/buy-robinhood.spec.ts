@@ -3,7 +3,7 @@ import { dictionary } from '../i18n';
 import { openPlan, readyToInvest } from './invest';
 
 // A person's buy on Robinhood Chain, end to end in a browser, on the mock chain: the shelf is one list
-// whatever the chain, they choose Robinhood Chain for their plan on /goal before they sign in, and the
+// whatever the chain, they choose Robinhood Chain for their plan on /invest before they sign in, and the
 // plan they open is on it (gates CHAIN-AT-THE-PLAN, CHAIN-SWITCH).
 // The stub runs its mock as Robinhood Chain (E2E_CHAIN=robinhood sets STUB_CHAIN), so the order is what apps/api plans
 // on an EVM chain: an approval of the deposit, then a create that deposits and trades. The executor
@@ -26,13 +26,13 @@ test('a buy on Robinhood Chain on the mock: the vault opened, the approval, then
 }) => {
   await page.request.post(`${STUB}/__stub/reset`);
   // signed out, the shelf is every chain's portfolios: one lead, and no chain in the address
-  await page.goto('/shelf');
+  await page.goto('/products');
   await expect(page.locator('main')).toContainText(en.shared.shelf.lead, { timeout: 60_000 });
-  await expect(page).toHaveURL(/\/shelf$/);
+  await expect(page).toHaveURL(/\/products$/);
 
-  // the chain of a new plan is chosen on /goal, beside the box; the bar's "Sign in" then opens the
+  // the chain of a new plan is chosen on /invest, beside the box; the bar's "Sign in" then opens the
   // sign-in dialog over the goal (SIGN-IN-FLOW), and nothing more is asked
-  await page.goto('/goal');
+  await page.goto('/invest');
   const chains = page.getByRole('group', { name: en.chain.choice.legend }).getByRole('radio');
   await expect(chains).toHaveCount(2);
   await page.getByRole('radio', { name: new RegExp(`^${NAME}`) }).check();
@@ -41,7 +41,7 @@ test('a buy on Robinhood Chain on the mock: the vault opened, the approval, then
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   // signed in: the bar's account control shows the person, and no chain
   await expect(page.locator('header [data-ui="account-menu-button"]')).toHaveAttribute(
     'data-ready',
@@ -49,15 +49,15 @@ test('a buy on Robinhood Chain on the mock: the vault opened, the approval, then
   );
 
   await openPlan(page);
-  await expect(page).toHaveURL(/\/plan\/[^/]+$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+$/);
   await named(page);
   await page.getByRole('link', { name: en.plan.invest('$40') }).click();
 
-  await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+\/buy$/);
   const press = await readyToInvest(page);
   await named(page);
   // the review is on the buy's own card
-  await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+\/buy$/);
   const steps = page.locator('[data-ui="order-step"]');
   await expect(steps).toHaveCount(3);
   // the vault is opened empty first, so the approval names a vault that is there
@@ -89,7 +89,7 @@ test('a buy on Robinhood Chain on the mock: the vault opened, the approval, then
     .locator('[data-ui="order-next"]')
     .getByRole('link', { name: en.order.outcome.seePortfolio })
     .click();
-  await expect(page).toHaveURL(/\/monitor$/);
+  await expect(page).toHaveURL(/\/portfolio\/monitor$/);
   const vault = page.locator('[data-ui="vault"]');
   await expect(vault).toHaveCount(1);
   await expect(vault.locator('[data-ui="chain-badge"]').first()).toHaveText(NAME);

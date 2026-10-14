@@ -103,7 +103,7 @@ const orderNo = (n: number, amountUsd = 10): OrderDetail => {
   return {
     ...order,
     id,
-    approvalUrl: `/orders/${id}`,
+    approvalUrl: `/portfolio/orders/${id}`,
     ...(order.depositRaw ? { depositRaw: scaled(order.depositRaw) } : {}),
     legs: order.legs.map((leg) => ({
       ...leg,

@@ -50,7 +50,7 @@ const hinted = () => document.cookie.includes(`${SIGNED_IN_COOKIE}=1`);
 beforeEach(() => {
   vi.useFakeTimers();
   window.localStorage.clear();
-  location.pathname = '/goal';
+  location.pathname = '/invest';
   router.push.mockClear();
   restarts.count = 0;
   left.count = 0;

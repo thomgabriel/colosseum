@@ -128,7 +128,7 @@ const F: Record<string, string> = {
   NA: r(`volume:${nv}`),
   NS: r(`exit:${nv}:worst`),
   NT: r(`lp:${nv}:top1`),
-  // of a vault only: nothing on /goal answers to them
+  // of a vault only: nothing on /invest answers to them
   CS: r(`holding:${cash}:share`),
   W: r('vault:value'),
   // the review of #230's own keys

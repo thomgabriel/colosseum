@@ -68,7 +68,7 @@ async function mode(host: HTMLElement, value: string) {
   await fire(selector, new Event('change', { bubbles: true }));
 }
 beforeEach(() => {
-  window.history.replaceState(null, '', '/goal');
+  window.history.replaceState(null, '', '/invest');
   router.push.mockClear();
   localStorage.clear();
   sessionStorage.clear();
@@ -175,7 +175,7 @@ describe('private strategy exploration for a new goal', () => {
       expect(host.querySelector('[data-ui="invest-screen"]')).toBeNull();
       expect(host.querySelector('[data-ui="composition"]')).toBeNull();
       expect(host.querySelector('[data-ui="buy-card"]')).toBeNull();
-      expect(host.querySelector('a[href^="/vaults/"]')).toBeNull();
+      expect(host.querySelector('a[href^="/portfolio/vaults/"]')).toBeNull();
       await send(host, 'I want a strategy with gold and cash');
       expect(calls).toHaveLength(1);
       expect(calls[0].path).toBe(path);
@@ -317,7 +317,7 @@ describe('private strategy exploration for a new goal', () => {
       const retry = find(host, '[data-ui="goal-retry"]');
       const again = find<HTMLButtonElement>(retry, 'button[data-act="goal-retry"]');
       expect(again.textContent).toBe(copy.retry);
-      const way = find<HTMLAnchorElement>(retry, 'a[href="/shelf"]');
+      const way = find<HTMLAnchorElement>(retry, 'a[href="/products"]');
       expect(way.textContent).toBe(copy.elsewhere);
       expect(again.tabIndex).toBe(0);
       expect(way.tabIndex).toBe(0);
@@ -564,7 +564,7 @@ describe('the deposit step of a new goal', () => {
     // the same rows the preview drew, read only
     for (const line of preview.allocations)
       expect(step.querySelector(`[data-row="${line.assetId}"]`)).not.toBeNull();
-    // nothing is signed or ordered from /goal
+    // nothing is signed or ordered from /invest
     expect(calls.map((call) => call.path)).toEqual([path]);
     expect(router.push).not.toHaveBeenCalled();
   });
@@ -1402,7 +1402,7 @@ describe('existing entry handoffs', () => {
   });
   it('keeps a bounded goal fragment as unconfirmed Explore prefill until explicit send', async () => {
     const words = 'Consider gold with a small budget';
-    window.history.replaceState(null, '', `/goal#goal=${encodeURIComponent(words)}`);
+    window.history.replaceState(null, '', `/invest#goal=${encodeURIComponent(words)}`);
     const host = await show();
     expect(find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').value).toBe('current');
     expect(find<HTMLTextAreaElement>(host, 'textarea').value).toBe(words);
@@ -1438,7 +1438,7 @@ describe('sourced metrics in a strategy preview', () => {
   );
 });
 
-describe('the relaxed intake’s plan on /goal (RELAXED-INTAKE)', () => {
+describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
   const sheet = { goal: 'grow', amountUsd: 2000, chains: ['solana'] };
   const projection = {
     currency: 'USD',

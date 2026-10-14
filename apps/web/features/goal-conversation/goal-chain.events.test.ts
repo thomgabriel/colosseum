@@ -35,7 +35,7 @@ vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider')
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
 vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
-// The chain of a new plan on /goal (gate CHAIN-AT-THE-PLAN): chosen beside the box before the
+// The chain of a new plan on /invest (gate CHAIN-AT-THE-PLAN): chosen beside the box before the
 // conversation has words, a badge with "Change" after, and never a mode of the app. It reads and
 // writes the same thing the bar's switch does (`account.chain`, PUT /v1/me/chain), so the two agree.
 
@@ -117,7 +117,7 @@ const picker = (host: HTMLElement) => find<HTMLSelectElement>(host, '[data-ui="g
 const bar = (host: HTMLElement) => find(host, '[data-ui="start-chain"]').getAttribute('data-chain');
 
 beforeEach(() => {
-  window.history.replaceState(null, '', '/goal');
+  window.history.replaceState(null, '', '/invest');
   localStorage.clear();
   sessionStorage.clear();
   replies.length = 0;
@@ -128,7 +128,7 @@ beforeEach(() => {
 });
 afterEach(unmountAll);
 
-describe('the chain of a new plan, chosen on /goal', () => {
+describe('the chain of a new plan, chosen on /invest', () => {
   it('starts on the person’s last chain, as two options with each wallet and the test-network mark', async () => {
     api(passkey('robinhood'));
     const host = await show();
