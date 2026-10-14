@@ -43,6 +43,18 @@ export type Reader = {
   onAnswer?: (heard: () => void) => () => void;
 };
 
+/** An answer as the pages read it: its body when the API answered 2xx, else the reason it did not. */
+export function resOf(status: number, body: unknown): Res {
+  return status >= 200 && status < 300
+    ? { ok: true, status, body, reason: null }
+    : {
+        ok: false,
+        status,
+        body: body as { error?: string; message?: string } | null,
+        reason: notServed(status, body) ? 'not_served' : 'api_error',
+      };
+}
+
 export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetch): Reader {
   const cache = new Map<string, Promise<Res>>();
   const listeners = new Set<() => void>();
@@ -51,17 +63,7 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
     if (!p) {
       // The API says how long an answer may be kept (a minute); the probe always asks the API itself.
       p = fetcher(`${base}${path}`, { cache: path === R.methodology() ? 'no-store' : 'default' })
-        .then(async (r): Promise<Res> => {
-          const body = await r.json().catch(() => null);
-          return r.ok
-            ? { ok: true, status: r.status, body, reason: null }
-            : {
-                ok: false,
-                status: r.status,
-                body,
-                reason: notServed(r.status, body) ? 'not_served' : 'api_error',
-              };
-        })
+        .then(async (r): Promise<Res> => resOf(r.status, await r.json().catch(() => null)))
         .catch((): Res => ({ ok: false, status: 0, body: null, reason: 'api_error' }))
         .then((r) => {
           // An answer is kept; a failure (no answer, or the server's own error) is not, so the next
@@ -170,6 +172,9 @@ export const R = {
   liqHist: (pool: string) => `/risk/pools/${enc(pool)}/liquidity/history?hours=720`,
   split: (asset: string, n: number) =>
     `/risk/assets/${enc(asset)}/split?side=sell&sizeUsd=${size(n)}`,
+  /** Many assets' sheet at `n`, 30-day history and pools in one answer (`GET /risk/dex`). */
+  dex: (assets: readonly string[], n: number, chain: BearingChain = 'solana') =>
+    `/risk/dex?ids=${assets.map(enc).join(',')}&sizeUsd=${size(n)}${chain === 'solana' ? '' : `&chain=${chain}`}`,
   recov: (asset: string, n: number) =>
     `/risk/recoverable?asset=${enc(asset)}&notional=${Math.round(n)}&hours=168&holderKyc=false`,
 };
