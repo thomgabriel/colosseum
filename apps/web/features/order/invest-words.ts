@@ -152,4 +152,9 @@ export type OrderEmbed = {
   endsAt?: { href: string; label: string };
   /** The order's screen moved: its review, its steps, or its end (gate SIGN-ONE-STEP). */
   onStage?: (stage: 'review' | 'steps' | 'done') => void;
+  /**
+   * The order ended, and whether plainly: every step confirmed and no token left behind. A host says
+   * "done" over it only then.
+   */
+  onEnded?: (plainly: boolean) => void;
 };

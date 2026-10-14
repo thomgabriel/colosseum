@@ -514,7 +514,7 @@ describe('a withdrawal on the order screen', () => {
     // the review leads on to the first step, whose button names what it takes out
     expect(sign(host)?.textContent).toContain(en.order.flow.continue);
     await onward(host);
-    // one press signs both steps: the button names everything that leaves
+    // one press signs both steps: the button names everything that leaves, each with its amount
     expect(sign(host)?.textContent).toContain(
       en.order.flow.press.withdraw('$250 and all of your SPYx'),
     );
@@ -543,6 +543,25 @@ describe('a withdrawal on the order screen', () => {
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({ basketId: '42' });
+  });
+
+  it('everything in two steps: one press, its button says all of each token once', async () => {
+    const BOTH: SharedTerms = {
+      ...PART,
+      everything: true,
+      items: [term(CASH, null, '600000000'), term(SPYX, null, '250000000')],
+    };
+    api({
+      order: () =>
+        withdrawOrder([[item(CASH, null, '600000000')], [item(SPYX, null, '250000000')]]),
+    });
+    seed(BOTH);
+    const host = await screen();
+    await onward(host);
+    // the amount is still named, "all of your", once for the list and not before each token
+    expect(sign(host)?.textContent).toContain(
+      en.order.flow.press.withdraw(en.order.flow.allOf('USDC and SPYx')),
+    );
   });
 
   it('a vault with auto-follow on: the switch off comes first, and the guard is told off and nothing else', async () => {

@@ -1588,6 +1588,12 @@ export const pt: Dictionary = {
           lead: 'Estes passos trocam o dinheiro que já está no seu cofre. Nenhum dinheiro novo é depositado.',
         },
         ended: 'Os passos terminaram',
+        doneTitle: {
+          deposit: 'Depósito concluído',
+          withdraw: 'Saque concluído',
+          rebalance: 'Rebalanceamento concluído',
+          change: 'Mudança concluída',
+        },
         panes: {
           deposit: {
             title: 'Depositar no seu cofre',
@@ -2048,6 +2054,12 @@ export const pt: Dictionary = {
         withdrawAtLeast: 'Para a sua carteira, pelo menos',
         order: 'Sua ordem',
       },
+      doneLabel: {
+        change: 'Mudança',
+        rebalance: 'Rebalanceamento',
+        deposit: 'Depósito',
+        withdraw: 'Saque',
+      },
       stat: {
         swapped: 'Trocado',
         expected: 'Custo esperado',
@@ -2055,6 +2067,10 @@ export const pt: Dictionary = {
         steps: 'Passos',
         least: 'Pelo menos',
         under: 'Abaixo do preço de hoje, no pior caso',
+        swappedEstimate: 'Trocado, estimado',
+        worstEstimate: 'No pior caso, estimado',
+        estimate:
+          'Estimado aos preços de hoje. A próxima tela mostra os valores cotados que você assina.',
       },
       table: { holding: 'Ativo', change: 'Mudança', amount: 'Valor' },
       press: {
@@ -2078,9 +2094,10 @@ export const pt: Dictionary = {
       picture: {
         cash: 'Caixa',
         amount: 'Valor',
-        now: 'Agora',
+        before: 'Antes',
         next: 'Depois',
         unchanged: 'igual',
+        points: (n: string) => `${n} p.p.`,
         holdsNow: 'Tem agora',
         target: 'Meta',
         targets: 'As metas do seu cofre',

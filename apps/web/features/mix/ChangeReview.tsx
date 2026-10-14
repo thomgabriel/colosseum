@@ -83,13 +83,15 @@ export function ChangeReview({
             stats={
               figures
                 ? [
+                    // worked out from the vault's prices before any quote: said as estimates, so
+                    // the quoted figures the steps then show never read as the same figure changed
                     {
-                      label: f.stat.swapped,
+                      label: f.stat.swappedEstimate,
                       value: <Rounded figure={figures.swapped} />,
                       ui: 'stat-swapped',
                     },
                     {
-                      label: f.stat.worst,
+                      label: f.stat.worstEstimate,
                       value: `${figures.worst.shown} · ${figures.pct}`,
                       ui: 'stat-worst',
                     },
@@ -97,6 +99,11 @@ export function ChangeReview({
                 : []
             }
           />
+          {figures && (
+            <p data-ui="change-estimate" className="text-caption text-muted-foreground">
+              {f.stat.estimate}
+            </p>
+          )}
           {changed && (
             <p role="status" className="flex items-start gap-1.5 text-body-sm">
               <StatusMark status="watch" className="mt-1.5" />
@@ -108,11 +115,15 @@ export function ChangeReview({
             items={shareItems(review.targets, before, words)}
             share={share}
             labels={{
-              before: f.picture.now,
+              before: f.picture.before,
               after: f.picture.next,
               unchanged: f.picture.unchanged,
               holding: f.table.holding,
               change: f.table.change,
+              points: (bps: number) =>
+                f.picture.points(
+                  new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(bps / 100),
+                ),
             }}
           />
           <MixReviewAck review={review} ticked={ticked} onTick={onTick} named={named} />

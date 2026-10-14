@@ -1796,6 +1796,13 @@ export const en = {
           lead: 'These steps swap the cash already in your vault. No new money is deposited.',
         },
         ended: 'The steps have ended',
+        /** Over the end of an order that is plainly done: no step skipped, no token left behind. */
+        doneTitle: {
+          deposit: 'Deposit done',
+          withdraw: 'Withdrawal done',
+          rebalance: 'Rebalance done',
+          change: 'Change done',
+        },
         panes: {
           deposit: {
             title: 'Deposit into your vault',
@@ -2296,6 +2303,13 @@ export const en = {
         withdrawAtLeast: 'To your wallet, at least',
         order: 'Your order',
       },
+      /** Over "Done": the action the order was. */
+      doneLabel: {
+        change: 'Change',
+        rebalance: 'Rebalance',
+        deposit: 'Deposit',
+        withdraw: 'Withdrawal',
+      },
       /** The small figures under it. */
       stat: {
         swapped: 'Swapped',
@@ -2304,6 +2318,10 @@ export const en = {
         steps: 'Steps',
         least: 'At least',
         under: 'Under today’s price, at worst',
+        /** A change's review, before its order is quoted: worked out from the vault's prices. */
+        swappedEstimate: 'Swapped, estimated',
+        worstEstimate: 'At worst, estimated',
+        estimate: 'Estimated at today’s prices. The next screen shows the quoted figures you sign.',
       },
       /** The heads of the table of what changes. */
       table: { holding: 'Holding', change: 'Change', amount: 'Amount' },
@@ -2330,9 +2348,11 @@ export const en = {
       picture: {
         cash: 'Cash',
         amount: 'Amount',
-        now: 'Now',
+        before: 'Before',
         next: 'After',
         unchanged: 'unchanged',
+        /** A move of a target's share, in percentage points. */
+        points: (n: string) => `${n} pp`,
         holdsNow: 'Holds now',
         target: 'Target',
         targets: 'Your vault’s targets',

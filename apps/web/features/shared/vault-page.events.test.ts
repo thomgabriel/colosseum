@@ -660,7 +660,11 @@ describe('the pane’s states, and the way out of each', () => {
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(pane(again).dataset.state).toBe('done');
-    expect(find(pane(again), '[data-ui="pane-title"]').textContent).toBe(p.ended);
+    // plainly done, so the panel's head says so, and the figure is under the action's name
+    expect(find(pane(again), '[data-ui="pane-title"]').textContent).toBe(p.doneTitle.withdraw);
+    expect(find(pane(again), '[data-ui="sign-label"]').textContent).toBe(
+      en.order.flow.doneLabel.withdraw,
+    );
     // how it ended is the order's own sentence, said once: here, plainly done
     expect(find(pane(again), '[data-ui="order-status"]').textContent).toContain(
       en.order.outcome.done('Solana'),
@@ -1326,6 +1330,9 @@ describe('a vault away from its targets is offered one press that trades it to t
       en.order.flow.picture.target,
       en.order.flow.table.change,
     ]);
+    // the way back is the order panel's own, under its button, not loose on the pane
+    const way = find(pane(host), '[data-action="leave-action"]');
+    expect(way.closest('[data-ui="pane-panel"]')).not.toBeNull();
     const before = server.reads();
     await click(button(pane(host), en.order.flow.continue));
     await settle();

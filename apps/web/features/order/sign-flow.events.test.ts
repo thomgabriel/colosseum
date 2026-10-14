@@ -64,11 +64,12 @@ describe('the strip over the steps', () => {
 
 describe('the picture of what changes', () => {
   const labels = {
-    before: 'Now',
+    before: 'Before',
     after: 'After',
     unchanged: 'unchanged',
     holding: 'Holding',
     change: 'Change',
+    points: (bps: number) => `${Math.round(bps / 100)} pp`,
   };
   const share = (bps: number) => `${bps / 100}%`;
 
@@ -91,17 +92,18 @@ describe('the picture of what changes', () => {
       }),
     );
     const heads = [...host.querySelectorAll('thead th')].map((th) => th.textContent);
-    expect(heads).toEqual(['Holding', 'Now', 'After', 'Change']);
+    expect(heads).toEqual(['Holding', 'Before', 'After', 'Change']);
     expect(find(host, 'caption').textContent).toBe('Your vault’s targets');
     const rows = cells(host);
     // the holding's mark is a picture: its name and figures are what is read
-    expect(rows[0]?.slice(1)).toEqual(['60%', '70%', '+10%']);
+    // the move in points: a share's change is never said as a percent of a percent
+    expect(rows[0]?.slice(1)).toEqual(['60%', '70%', '+10 pp']);
     expect(rows[0]?.[0]).toContain('SPY');
-    expect(rows[1]?.[3]).toBe('\u221210%');
+    expect(rows[1]?.[3]).toBe('\u221210 pp');
     expect(rows[2]?.[3]).toBe('unchanged');
   });
 
-  it('says a move smaller than a whole share as under one, never as +0%', async () => {
+  it('says a move smaller than a whole point as under one, never as +0 pp', async () => {
     const host = await mount(
       h(ShareList, {
         caption: 'c',
@@ -114,7 +116,7 @@ describe('the picture of what changes', () => {
         ],
       }),
     );
-    expect(cells(host).map((row) => row[3])).toEqual(['+<1%', '\u2212<1%']);
+    expect(cells(host).map((row) => row[3])).toEqual(['+<1 pp', '\u2212<1 pp']);
   });
 
   it('shows one share a holding where nothing before is known', async () => {

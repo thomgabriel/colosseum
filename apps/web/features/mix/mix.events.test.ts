@@ -288,6 +288,25 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     expect(find(host, '[data-ui="change-review"] [data-ui="sign-figure"]').textContent).toBe(
       'More GLDx',
     );
+    // the targets before and after, never "now" (that is what the vault holds), and each move in points
+    const change = find(host, '[data-ui="change-review"]');
+    expect(
+      [...change.querySelectorAll('[data-ui="sign-picture"] thead th')].map((th) => th.textContent),
+    ).toEqual([
+      en.order.flow.table.holding,
+      en.order.flow.picture.before,
+      en.order.flow.picture.next,
+      en.order.flow.table.change,
+    ]);
+    for (const delta of change.querySelectorAll('[data-ui="sign-share-delta"]'))
+      expect(delta.textContent).toMatch(/^(?:[+\u2212]<?\d+ pp|unchanged)$/);
+    // worked out before any quote: its dollars are said as estimates, and why the steps' may differ
+    expect(find(change, '[data-ui="stat-swapped"] dt').textContent).toBe(
+      en.order.flow.stat.swappedEstimate,
+    );
+    expect(find(change, '[data-ui="change-estimate"]').textContent).toBe(
+      en.order.flow.stat.estimate,
+    );
     const asked = calls.find((c) => c.url.endsWith('/targets'));
     expect(asked?.url).toBe(`/v1/vaults/solana/${read.vault.address}/targets`);
     expect(asked?.body).toMatchObject({

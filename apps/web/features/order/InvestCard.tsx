@@ -126,6 +126,8 @@ export type InvestCardProps = {
   onFollowUp?: (orderId: string) => void;
   /** The host says where to go once every step is confirmed: no link of the card's own. */
   hostEnds?: boolean;
+  /** The order ended, and whether plainly (OrderEmbed's `onEnded`). */
+  onEnded?: (plainly: boolean) => void;
 };
 
 /** What a host that mounts a buy inside its own screen passes: the amount, and what it is told. */
@@ -139,6 +141,7 @@ export type InvestEmbedded = Pick<
   | 'onAmount'
   | 'hostEnds'
   | 'onFollowUp'
+  | 'onEnded'
 > & {
   /** The id of an order approved on this card before it was lost: the card takes it up again. */
   resumeOrder?: string;
@@ -174,6 +177,7 @@ export function InvestCard({
   resume,
   hostEnds,
   onFollowUp,
+  onEnded,
 }: InvestCardProps) {
   const t = useT();
   const lang = useLang();
@@ -640,6 +644,7 @@ export function InvestCard({
               key={made.orderId}
               id={made.orderId}
               embed={{
+                ...(onEnded ? { onEnded } : {}),
                 blocked: [
                   ...(trustHeld ? [t.buy.blocked.trust] : []),
                   ...(fresh ? [t.invest.updatedHold] : []),

@@ -169,6 +169,8 @@ export function VaultAction({
   const [followed, setFollowed] = useState(false);
   // Which screen of the order is on the pane: its review, its steps, or its end (SIGN-ONE-STEP).
   const [orderStage, setOrderStage] = useState<'review' | 'steps' | 'done' | null>(null);
+  // The order ended plainly: every step confirmed, nothing left behind. Only then is "done" said over it.
+  const [plainly, setPlainly] = useState(false);
   const finishes =
     followed || (record ? latestOf(record, recallOrders(userId)).continues !== undefined : false);
   const told = {
@@ -183,6 +185,7 @@ export function VaultAction({
     },
     onDone: () => onPhase('done'),
     onStopped: () => onPhase('stopped'),
+    onEnded: setPlainly,
   };
 
   const backToVault = (
@@ -192,10 +195,29 @@ export function VaultAction({
       </Button>
     </div>
   );
+  // The way back, whenever no step is being signed; what was sent stays sent. Before the first
+  // signature the steps have "Back to the review" of their own: one way back.
+  const wayBack = phase !== 'signing' &&
+    phase !== 'done' &&
+    !(
+      phase === 'open' &&
+      orderStage === 'steps' &&
+      !open.resumed &&
+      paneOf(open.kind) !== 'change'
+    ) && (
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
+        {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
+        <Button variant="link" data-action="leave-action" onClick={onLeave}>
+          {p.backToHoldings}
+        </Button>
+      </p>
+    );
   // The pane's title, and the one line under it where one is said.
   const titleText =
     phase === 'done'
-      ? p.ended
+      ? plainly
+        ? p.doneTitle[paneOf(open.kind)]
+        : p.ended
       : finishes
         ? p.finish.title
         : open.orderId || pressed
@@ -305,7 +327,7 @@ export function VaultAction({
             the order is held to, as its review showed it, is in its details */}
         {/* the house kit's panel (HOUSE-KIT): the pane's title its head, the order's screens in it;
             whether the figures are live is the order's own pill */}
-        <Panel aria-labelledby={titleId}>
+        <Panel data-ui="pane-panel" aria-labelledby={titleId}>
           <PanelHead id={titleId} title={<span data-ui="pane-title">{titleText}</span>} />
           <PanelBody>
             {lead && (
@@ -313,6 +335,7 @@ export function VaultAction({
             )}
             <OrderScreen key={open.orderId} id={open.orderId} embed={embed} />
             {phase === 'done' && backToVault}
+            {wayBack}
           </PanelBody>
         </Panel>
       </>
@@ -350,23 +373,8 @@ export function VaultAction({
           it ended is the order's own sentence, above, which never says plainly done of a step that
           was skipped or a token that stayed (OrderScreen): nothing here says more than it does. */}
       {done && !doneInCard && backToVault}
-      {/* the way back, whenever no step is being signed; what was sent stays sent */}
-      {/* Before the first signature the steps have "Back to the review" of their own: one way back. */}
-      {phase !== 'signing' &&
-        !done &&
-        !(
-          phase === 'open' &&
-          orderStage === 'steps' &&
-          !open.resumed &&
-          paneOf(open.kind) !== 'change'
-        ) && (
-          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
-            {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
-            <Button variant="link" data-action="leave-action" onClick={onLeave}>
-              {p.backToHoldings}
-            </Button>
-          </p>
-        )}
+      {/* the way back, under the order's own button where its panel is on the pane */}
+      {!doneInCard && wayBack}
     </section>
   );
 }

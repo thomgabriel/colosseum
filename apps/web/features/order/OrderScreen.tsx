@@ -881,7 +881,11 @@ export function OrderScreen({
     new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(
       bps / 10_000,
     );
-  // a rebalance sets what the vault holds now beside its targets; a change, its targets now and after
+  const pointsOf = (bps: number) =>
+    flow.picture.points(
+      new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(bps / 100),
+    );
+  // a rebalance sets what the vault holds now beside its targets; a change, its targets before and after
   const shareLabels =
     terms?.kind === 'rebalance'
       ? {
@@ -889,7 +893,12 @@ export function OrderScreen({
           after: flow.picture.target,
           unchanged: flow.picture.unchanged,
         }
-      : { before: flow.picture.now, after: flow.picture.next, unchanged: flow.picture.unchanged };
+      : {
+          // the targets before the change, never "now": what the vault holds now is another figure
+          before: flow.picture.before,
+          after: flow.picture.next,
+          unchanged: flow.picture.unchanged,
+        };
 
   // The one primary button of the view: sign, carry on, approve a step again, or nothing.
   const next: NextStep | { kind: 'first' } =
@@ -944,6 +953,17 @@ export function OrderScreen({
   const withdrawn = new Intl.ListFormat(locale, { type: 'conjunction' }).format(
     words.flatMap((w) => (w.subject ? [w.subject] : [])),
   );
+  // Where every token leaves whole, the button says so once: "Sign: withdraw all of your SPY and
+  // NVDA", not "all of your" before each. A button that signs still names its amount (apps/web).
+  const outs = legs.flatMap((leg) => leg.withdrawals ?? []);
+  const withdrawnNames =
+    outs.length > 0 && outs.every((w) => w.amountRaw === null)
+      ? flow.allOf(
+          new Intl.ListFormat(locale, { type: 'conjunction' }).format([
+            ...new Set(outs.map((w) => units?.tokens[w.asset]?.symbol ?? tokenName(w.asset))),
+          ]),
+        )
+      : withdrawn;
   const wholePress =
     terms?.kind === 'retarget'
       ? flow.press.change
@@ -951,7 +971,7 @@ export function OrderScreen({
         ? flow.press.rebalance
         : terms?.kind === 'withdraw'
           ? flow.press.withdraw(
-              terms.dollars && leastFigure ? flow.atLeast(leastFigure.shown) : withdrawn,
+              terms.dollars && leastFigure ? flow.atLeast(leastFigure.shown) : withdrawnNames,
             )
           : terms?.kind === 'publish'
             ? flow.press.publish
@@ -1492,7 +1512,12 @@ export function OrderScreen({
       caption={caption}
       items={items}
       share={shareOf}
-      labels={{ ...shareLabels, holding: flow.table.holding, change: flow.table.change }}
+      labels={{
+        ...shareLabels,
+        holding: flow.table.holding,
+        change: flow.table.change,
+        points: pointsOf,
+      }}
     />
   );
   // What a screen reader is told as the order moves, from one region that stays on the screen in
@@ -1646,7 +1671,21 @@ export function OrderScreen({
     ) : (
       <>
         {strip}
-        <OrderHero label={flow.label.order} figure={flow.ended.title} plate={plate} />
+        {embed?.onEnded && <Ended plainly={plainlyDone} onEnded={embed.onEnded} />}
+        {/* over "Done", the action the order was: "Change", "Withdrawal" */}
+        <OrderHero
+          label={
+            terms?.kind === 'retarget'
+              ? flow.doneLabel.change
+              : terms?.kind === 'rebalance' || terms?.kind === 'withdraw'
+                ? flow.doneLabel[terms.kind]
+                : buying
+                  ? flow.doneLabel.deposit
+                  : flow.label.order
+          }
+          figure={flow.ended.title}
+          plate={plate}
+        />
         {statusBlock}
         {(terms?.kind === 'retarget' || terms?.kind === 'rebalance') &&
           sharesOf(flow.ended.targets, shareItems(terms.targets, null, summary))}
@@ -1704,6 +1743,12 @@ export function OrderScreen({
       )}
     </div>
   );
+}
+
+/** Tells the host how the order ended, once and again whenever that reading changes. */
+function Ended({ plainly, onEnded }: { plainly: boolean; onEnded: (plainly: boolean) => void }) {
+  useEffect(() => onEnded(plainly), [plainly, onEnded]);
+  return null;
 }
 
 function Notice({

@@ -177,12 +177,21 @@ export function ShareList({
   caption: string;
   items: readonly ShareItem[];
   share: (bps: number) => string;
-  labels: { before: string; after: string; unchanged: string; holding: string; change: string };
+  labels: {
+    before: string;
+    after: string;
+    unchanged: string;
+    holding: string;
+    change: string;
+    /** A move of a share, unsigned, in percentage points: "10 pp". */
+    points: (bps: number) => string;
+  };
 }) {
   const compare = items.some((item) => item.beforeBps !== undefined);
   // a move too small to show as a whole share is still said as one, never as "+0%"
+  // a move is said in points, never as a share of a share; one too small to show whole is still a move
   const signed = (bps: number) =>
-    `${bps > 0 ? '+' : '\u2212'}${share(Math.abs(bps)) === share(0) ? `<${share(100)}` : share(Math.abs(bps))}`;
+    `${bps > 0 ? '+' : '\u2212'}${labels.points(Math.abs(bps)) === labels.points(0) ? `<${labels.points(100)}` : labels.points(Math.abs(bps))}`;
   return (
     <div data-ui="sign-picture" className={FLUSH}>
       <KitTable
