@@ -5,16 +5,16 @@ import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TimeChart } from '../../components/ui/TimeChart';
 import { click, find, fire, mount, press, unmountAll } from '../../components/ui/test/dom';
-import { BearingProvider, TICK_MS } from './BearingProvider';
+import { BearingProvider, DEX_BATCH, TICK_MS } from './BearingProvider';
 import { Banner } from './BearingShell';
 import { DexPage, HISTORIES_AT_ONCE } from './DexPage';
-import { R } from './data';
+import { R, type Res } from './data';
 import { mk, none, sumFact } from './fact';
 import { LendingPage } from './LendingPage';
 import { Fig, MultiSelect, Pie } from './parts';
 import { StablePage } from './StablePage';
 import { inPortuguese, onSnapshot } from './test/cases';
-import { snapshotReader } from './test/snapshot';
+import { answer, snapshotReader } from './test/snapshot';
 import type { LiqHistBody, LiquidityBody } from './types';
 
 // Bearing's pages as a person uses them, in happy-dom, on Rodrigo's recording of the risk API.
@@ -1043,5 +1043,81 @@ describe('what a page waits for', () => {
     await settle(host, ready);
     expect(reader.read).not.toContain(R.pools());
     expect(reader.read.some((p) => p.startsWith('/risk/pools?asset='))).toBe(true);
+  });
+});
+
+describe('the stocks page reads its assets a few to an answer', () => {
+  /** The recording, with `GET /risk/dex` served from the three answers of each asset it names. */
+  function batched(hold?: (ids: string[]) => boolean) {
+    const recording = snapshotReader();
+    const asked: string[] = [];
+    const reader = {
+      ...recording,
+      get: async <T>(path: string): Promise<Res<T>> => {
+        if (!path.startsWith('/risk/dex?')) return recording.get<T>(path);
+        asked.push(path);
+        const ids = (new URLSearchParams(path.split('?')[1]).get('ids') ?? '').split(',');
+        if (hold?.(ids)) return new Promise<never>(() => {});
+        const as = (r: Res) => ({ status: r.status, body: r.body });
+        const assets = ids.map((id) => ({
+          id,
+          sheet: as(answer(R.sheet(id, 100_000))),
+          hist: as(answer(R.hist(id, 0.01))),
+          pools: as(answer(R.poolsOf(id))),
+        }));
+        return { ok: true, status: 200, body: { assets } as T, reason: null };
+      },
+    };
+    return { reader, recording, asked };
+  }
+  const kpiText = (h: HTMLElement) => find(h, '[data-ui="bearing-kpis"]').textContent;
+
+  it('reads the assets in answers of eight, and shows the figures the one-by-one reads show', async () => {
+    const one = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' })));
+    await settle(one, ready);
+    const want = kpiText(one);
+    await unmountAll();
+    const { reader, recording, asked } = batched();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' }), reader));
+    await settle(host, ready);
+    expect(kpiText(host)).toBe(want);
+    expect(asked.length).toBeGreaterThan(1);
+    for (const p of asked)
+      expect(
+        new URLSearchParams(p.split('?')[1]).get('ids')?.split(',').length,
+      ).toBeLessThanOrEqual(DEX_BATCH);
+    expect(recording.read.filter((p) => p.startsWith('/risk/facts/assets/'))).toEqual([]);
+  });
+
+  it('draws each asset’s row as its answer lands, in the table’s order, while the figures wait', async () => {
+    // the second answer never comes
+    let first: string[] | null = null;
+    const { reader } = batched((ids) => {
+      first ??= ids;
+      return ids !== first;
+    });
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' }), reader));
+    const table = '[aria-labelledby="bearing-table"] table tbody tr';
+    await settle(host, (h) => h.querySelector(table) != null);
+    for (let i = 0; i < 20; i++) await act(async () => new Promise((r) => setTimeout(r, 5)));
+    const rows = [...host.querySelectorAll<HTMLTableRowElement>(table)];
+    const ids = rows.map((r) => r.querySelector('th, td')?.textContent?.trim());
+    const loaded = (r: HTMLTableRowElement) => r.querySelector('[data-ui="skeleton"]') == null;
+    // the first answer's assets are drawn, the rest still waiting, in the order of the asset list
+    expect(rows.filter(loaded).map((r) => r.querySelector('th, td')?.textContent?.trim())).toEqual(
+      ids.filter((id) => first?.includes(id as string)),
+    );
+    expect(rows.some((r) => !loaded(r))).toBe(true);
+    // the counters over every asset are not drawn from part of them
+    expect(host.querySelector('[data-ui="waiting"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="bearing-kpis"] [data-ui="figure"]')).toBeNull();
+  });
+
+  it('reads one by one where the API has no such route', async () => {
+    const reader = snapshotReader();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'commodities' }), reader));
+    await settle(host, ready);
+    expect(reader.read.some((p) => p.startsWith('/risk/dex?'))).toBe(true);
+    expect(reader.read.some((p) => p.startsWith('/risk/facts/assets/'))).toBe(true);
   });
 });

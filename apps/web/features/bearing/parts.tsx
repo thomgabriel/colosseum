@@ -445,6 +445,7 @@ export function PageWait({
   filters = 2,
   lead,
   charts = true,
+  rows = true,
 }: {
   label: string;
   /**
@@ -458,6 +459,8 @@ export function PageWait({
   lead?: ReactNode;
   /** The two chart cards under the figures; a page without them has its table next. */
   charts?: boolean;
+  /** The table under it all; false when the page draws its table itself, row by row as it is read. */
+  rows?: boolean;
 }) {
   const { retry } = useBearing();
   return (
@@ -490,9 +493,11 @@ export function PageWait({
               </Card>
             </div>
           )}
-          <div className="mt-8">
-            <SkeletonRows rows={5} columns={5} />
-          </div>
+          {rows && (
+            <div className="mt-8">
+              <SkeletonRows rows={5} columns={5} />
+            </div>
+          )}
         </div>
       }
     />
