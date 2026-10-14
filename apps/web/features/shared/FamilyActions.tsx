@@ -36,7 +36,7 @@ import { FollowQuote } from './FollowQuote';
 import { sharedRefusal } from './refusal';
 import { Offer } from './ShelfScreen';
 import { placeShared, readPortfolio } from './shared-api';
-import type { SharedTerms } from './terms';
+import { type SharedTerms, withLeftovers } from './terms';
 import { type SharedPerson, shortAddress } from './use-person';
 import { ActionsWait } from './waits';
 
@@ -215,7 +215,10 @@ function useFamilyVaults(
       chain: person.chain,
       amountUsd: 0,
       lines: [],
-      terms,
+      // The sales of what the vault holds of the assets the version drops, which the order makes before
+      // its accept when the vault's lines are full (SHARED-RULES-V2): the order's review shows each, and
+      // the guard holds those steps to them and to nothing else.
+      terms: withLeftovers(terms, placed.order),
       approved: null,
     });
     if (!kept) {

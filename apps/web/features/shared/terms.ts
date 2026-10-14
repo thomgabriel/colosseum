@@ -38,6 +38,11 @@ export type SharedTerms =
       follow: FollowTerms | null;
       autoFollow: boolean;
       source: TermsSource;
+      /**
+       * What the vault holds of the assets the version drops, sold for cash before the accept, as the
+       * order's review shows it (gate SHARED-RULES-V2): each asset and the amount sold. Left out: none.
+       */
+      leftovers?: { asset: string; amountRaw: string }[];
     }
   /**
    * A withdrawal from a vault the person owns, as its review showed it: each token that leaves, with
@@ -220,6 +225,23 @@ export function readTerms(value: unknown): SharedTerms | null {
       !source
     )
       return null;
+    const leftovers =
+      t.leftovers === undefined
+        ? undefined
+        : Array.isArray(t.leftovers) &&
+            (t.leftovers as Record<string, unknown>[]).every(
+              (x) =>
+                isText(x?.asset) &&
+                x.asset.length > 0 &&
+                isText(x?.amountRaw) &&
+                RAW.test(x.amountRaw),
+            )
+          ? (t.leftovers as { asset: string; amountRaw: string }[]).map((x) => ({
+              asset: x.asset,
+              amountRaw: x.amountRaw,
+            }))
+          : null;
+    if (leftovers === null) return null;
     return {
       kind: 'follow',
       slug: t.slug,
@@ -229,6 +251,7 @@ export function readTerms(value: unknown): SharedTerms | null {
       follow,
       autoFollow: t.autoFollow,
       source,
+      ...(leftovers ? { leftovers } : {}),
     };
   }
   if (t.kind === 'withdraw') {
@@ -389,4 +412,22 @@ export function tradesOf(
   });
   shares[largest] = (shares[largest] ?? 0n) + invested - shares.reduce((n, s) => n + s, 0n);
   return targets.map((t, i) => ({ asset: t.asset, amountInRaw: String(shares[i] ?? 0n) }));
+}
+
+/**
+ * Follow terms with the sales the order makes before its accept, as the order states them: every trade
+ * of its swap steps, the asset sold and the amount. Terms of any other kind, and an order with no sale,
+ * come back as they were.
+ */
+export function withLeftovers(
+  terms: SharedTerms,
+  order: {
+    legs: readonly { kind: string; trades: readonly { sell: string; amountInRaw: string }[] }[];
+  },
+): SharedTerms {
+  if (terms.kind !== 'follow') return terms;
+  const leftovers = order.legs
+    .filter((l) => l.kind === 'swap')
+    .flatMap((l) => l.trades.map((x) => ({ asset: x.sell, amountRaw: x.amountInRaw })));
+  return leftovers.length ? { ...terms, leftovers } : terms;
 }

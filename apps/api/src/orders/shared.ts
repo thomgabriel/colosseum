@@ -1,4 +1,10 @@
-import { checkCreatorLimits, familyIdOf, metaHash, overCeilings } from '@colosseum/basket';
+import {
+  batchTrades,
+  checkCreatorLimits,
+  familyIdOf,
+  metaHash,
+  overCeilings,
+} from '@colosseum/basket';
 import { indexIdOf } from '@colosseum/chain-evm/vault';
 import { mockRecipeId } from '@colosseum/chain-mock';
 import { recipeAddress } from '@colosseum/chain-solana/vault';
@@ -15,10 +21,14 @@ import {
   type IntentRequest,
   isAddressOf,
   type Leg,
+  ORDER_DEFAULT_SLIPPAGE_BPS,
   type Principal,
   type Recipe,
   TAKEN_SLUGS,
   type Target,
+  type Trade,
+  VAULT_MAX_LINES,
+  type VaultState,
 } from '@colosseum/schemas';
 import { holds } from '../plugins/auth';
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
@@ -206,7 +216,14 @@ export type SharedContext = {
 };
 
 /** A step of a shared-portfolio order before it is a leg. */
-export type SharedStep = { chain: ChainId; kind: Leg['kind']; description: string };
+export type SharedStep = {
+  chain: ChainId;
+  kind: Leg['kind'];
+  description: string;
+  /** A sale step of a follow: the leftovers it sells for cash, each with its minimum. */
+  trades?: Trade[];
+  expected?: Leg['expected'];
+};
 
 /**
  * The family a publish is for: the stored one of that slug, or a new one with the id `familyIdOf(slug)`.
@@ -348,6 +365,76 @@ export async function followedOn(
 }
 
 /**
+ * The sales a follow needs before its accept: none while the version and the assets the vault holds
+ * that it drops fit the vault's lines (`VAULT_MAX_LINES`); past that, every such leftover sold for cash,
+ * all the vault holds of it, each quoted now with the default slippage and a minimum the chain will take.
+ * A leftover that cannot be sold now refuses the follow in plain words, before anything is signed.
+ */
+export async function leftoverSales(
+  entry: ChainEntry,
+  vault: Pick<VaultState, 'owner' | 'positions' | 'cash'>,
+  version: Target[],
+): Promise<SharedStep[]> {
+  const inVersion = new Set(version.map((t) => t.asset));
+  const leftovers = vault.positions.filter(
+    (p) => BigInt(p.raw) > 0n && !inVersion.has(p.asset) && p.asset !== vault.cash.asset,
+  );
+  const lines = VAULT_MAX_LINES[chainFamily(entry.chain)];
+  if (version.length + leftovers.length <= lines) return [];
+  const assets = await entry.adapter.listAssets();
+  const symbol = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
+  const why = (asset: string, reason: string) =>
+    new Refusal(
+      409,
+      `this version and the ${leftovers.length} assets your vault still holds of the ones it drops come to ${version.length + leftovers.length} lines, more than the vault's ${lines}, and ${symbol(asset)} cannot be sold now: ${reason}. Sell or withdraw it, then follow`,
+      {
+        fix: 'Sell or withdraw what the vault holds of the assets this version drops, then follow.',
+        details: { retryable: false },
+      },
+    );
+  const sales: { trade: Trade; expected: Leg['expected'][number] }[] = [];
+  for (const held of leftovers) {
+    const trade: Trade = { sell: held.asset, buy: vault.cash.asset, amountInRaw: held.raw };
+    if (!assets.some((a) => a.id === held.asset))
+      throw why(held.asset, `this app does not list it on ${entry.config.name}`);
+    let quote: Awaited<ReturnType<typeof entry.adapter.quote>>;
+    try {
+      quote = await entry.adapter.quote(trade, vault.owner);
+    } catch (e) {
+      if (e instanceof ChainError) throw why(held.asset, e.message);
+      throw e;
+    }
+    const out = BigInt(quote.outRaw);
+    const ours = (out * BigInt(10_000 - ORDER_DEFAULT_SLIPPAGE_BPS)) / 10_000n;
+    const theirs = BigInt(quote.minOutRaw);
+    const least = theirs > ours ? theirs : ours;
+    if (out <= 0n || least <= 0n || least > out)
+      throw why(held.asset, 'its pool pays too little for a sale held to a minimum');
+    sales.push({
+      trade,
+      expected: {
+        inRaw: trade.amountInRaw,
+        outRaw: out.toString(),
+        minOutRaw: least.toString(),
+        costBps: quote.costBps,
+      },
+    });
+  }
+  return batchTrades(
+    sales.map((x) => x.trade),
+    entry.adapter.capabilities.maxTradesPerTx,
+  ).map((group) => ({
+    chain: entry.chain,
+    kind: 'swap' as const,
+    description: `Sell what your vault holds of ${group.map((t) => symbol(t.sell)).join(', ')}, which this version drops, for ${symbol(vault.cash.asset)}`,
+    trades: group,
+    expected: group.map(
+      (t) => (sales.find((x) => x.trade === t) as (typeof sales)[number]).expected,
+    ),
+  }));
+}
+
+/**
  * An existing vault of the person's, made to follow a shared portfolio, or its auto-follow switched:
  * `accept_version` where it does not follow the version in effect, then `set_auto_follow` where the
  * switch changes. Auto-follow on is refused on a portfolio that does not offer it (GOLD-ONE-TAP).
@@ -389,6 +476,10 @@ export async function planFollow(
     if (!offer.offered) refuseAutoFollow(entry, offer);
   }
   if (vault.recipeOnchainId !== active.onchainId || vault.acceptedVersion !== active.version) {
+    // The assets the vault still holds and the version drops stay beside it as targets of zero. Past
+    // the vault's lines, the accept would revert: their sales come first, in this order (gate
+    // SHARED-RULES-V2).
+    steps.push(...(await leftoverSales(entry, vault, recipeTargets(active))));
     // The vault takes the version's weights, assets it has no target on included: the guard asks the
     // person's own tap for every accept.
     needsConsent.push('new_asset');

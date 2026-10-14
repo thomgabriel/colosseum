@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CREATOR_LIMITS_V2, VAULT_MAX_TARGETS } from '@colosseum/schemas';
+import { CREATOR_LIMITS_V2, VAULT_MAX_LINES, VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 
 // The numbers the app holds a shared portfolio and a vault to, against the contracts that hold them on
@@ -21,7 +21,7 @@ describe('the vault and the registry hold the numbers the app holds', () => {
 
   it('a vault holds VAULT_MAX_TARGETS above zero, with room for leftovers beside them', () => {
     expect(constant(vault, 'MAX_TARGETS')).toBe(VAULT_MAX_TARGETS);
-    expect(constant(vault, 'MAX_LINES')).toBeGreaterThan(VAULT_MAX_TARGETS);
+    expect(constant(vault, 'MAX_LINES')).toBe(VAULT_MAX_LINES.evm);
   });
 
   it('the registry holds the second rules', () => {

@@ -104,6 +104,7 @@ export function planTermsOf(terms: SharedTerms): PlanTerms {
         basketId: terms.basketId,
         ...(terms.follow ? { follow: terms.follow } : {}),
         autoFollow: terms.autoFollow,
+        ...(terms.leftovers?.length ? { leftovers: terms.leftovers } : {}),
       };
     case 'vault':
       // The guard derives the vault from this number and the signing wallet: every step is held to it.
