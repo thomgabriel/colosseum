@@ -7,7 +7,8 @@ import { RouterLinks } from './RouterLinks';
 // The one frame of the product's routes: the bar, the page, and the foot. The bar is his compact bar,
 // fixed at the top (AppNav), with the way past it for a keyboard as its first link; the page starts
 // below it. The page is as wide as the system's page (1280px) with its side margins; Bearing's
-// analytics, a dense instrument with a side menu and wide tables, takes the whole width. The
+// analytics, a dense instrument with a side menu and wide tables, takes the whole width; the
+// portfolio section and a shared portfolio's two panes take the overview's. The
 // disclaimer is in the foot of every product screen,
 // from the one DISCLAIMER constant, at body size, in the language of the view: the foot is where it
 // stands while a screen has no plan to sit under. A screen that carries its own under its plan or
@@ -21,7 +22,7 @@ export function AppShell({ lang, children }: AppShellProps) {
   return (
     <div
       data-ui="app-shell"
-      className="group/shell mx-auto flex min-h-dvh w-full max-w-page flex-col px-[clamp(16px,4vw,56px)] has-[[data-ui=bearing]]:max-w-none md:has-[[data-workbench]]:h-dvh md:has-[[data-workbench]]:min-h-0 md:has-[[data-workbench]]:max-w-[calc(640px+50vw)] md:has-[[data-workbench]]:overflow-hidden md:has-[[data-workbench]]:px-[clamp(8px,2vw,28px)] has-[[data-ui=portfolio]]:max-w-[1600px] has-[[data-ui=portfolio]]:px-[clamp(12px,2vw,28px)]"
+      className="group/shell mx-auto flex min-h-dvh w-full max-w-page flex-col px-[clamp(16px,4vw,56px)] has-[[data-ui=bearing]]:max-w-none md:has-[[data-workbench]]:h-dvh md:has-[[data-workbench]]:min-h-0 md:has-[[data-workbench]]:max-w-[calc(640px+50vw)] md:has-[[data-workbench]]:overflow-hidden md:has-[[data-workbench]]:px-[clamp(8px,2vw,28px)] has-[[data-ui=portfolio]]:max-w-[1600px] has-[[data-ui=portfolio]]:px-[clamp(12px,2vw,28px)] has-[[data-ui=family-screen]]:max-w-[1600px] has-[[data-ui=family-screen]]:px-[clamp(12px,2vw,28px)] has-[[data-ui=family-wait]]:max-w-[1600px] has-[[data-ui=family-wait]]:px-[clamp(12px,2vw,28px)]"
     >
       <AppNav />
       <RouterLinks />

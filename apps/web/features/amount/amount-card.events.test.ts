@@ -367,11 +367,9 @@ describe('the amount card on a deposit', () => {
     expect(host.querySelector('button[data-action="amount-change"]')).toBeNull();
   });
 
-  it('sets the details as labelled figures: least and most, slippage, the network fee with its pin, and where it was read', async () => {
+  it('sets the details as labelled figures: least and most, slippage, the network fee with its pin, and no line of where it was read', async () => {
     api();
-    const host = await mount(
-      inLanguage('en', deposit({ source: createElement('span', { 'data-ui': 'src' }, 'read') })),
-    );
+    const host = await mount(inLanguage('en', deposit()));
     await settle(10);
     // the figures once there is an amount to hold them to
     expect(host.querySelector('[data-ui="amount-details"]')).toBeNull();
@@ -389,7 +387,7 @@ describe('the amount card on a deposit', () => {
     // Solana's swaps have no per-token limits of their own: nothing said of them
     expect(text).not.toContain(en.amount.details.tradeLimits);
     expect(text).toContain('0.0101 SOL');
-    expect(details.querySelector('[data-ui="src"]')).not.toBeNull();
+    expect(text).not.toMatch(/read from/i);
     expect(details.querySelectorAll('button[data-ui="pin"]').length).toBeGreaterThan(0);
   });
 

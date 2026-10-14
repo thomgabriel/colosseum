@@ -302,7 +302,10 @@ export function PlanView({
             ...(holdings.some((h) => h.exitCost !== undefined)
               ? [{ key: 'exit', header: t.plan.columns.exit, numeric: true }]
               : []),
-            ...(reasoned.length > 0 ? [{ key: 'why', header: t.plan.columns.why }] : []),
+            // why, where the table has room for it; every reason is in the fold under it as well
+            ...(reasoned.length > 0
+              ? [{ key: 'why', header: t.plan.columns.why, roomy: true }]
+              : []),
           ]}
           items={holdings.map((h) => {
             const reasons = h.why ? [h.why] : (h.reasons ?? []);

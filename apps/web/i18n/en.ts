@@ -758,7 +758,6 @@ export const en = {
       pending: (version: number, when: string) =>
         `Version ${version} of the portfolio you follow takes effect on ${when}.`,
       pendingAssets: (assets: string) => `It adds ${assets}, which you haven’t accepted yet.`,
-      observed: (when: string) => `Read from the chain on ${when}.`,
       /** The method line in the pin of a vault's whole value. */
       valueMethod: 'holdings read from the vault, times their prices; cash at one dollar',
       takenOut: 'Taken out, as ordered',
@@ -843,17 +842,12 @@ export const en = {
         `The portfolio this vault follows has a newer version, version ${version}. This deposit goes into the vault’s current targets; accepting the new version is a separate step.`,
       /** Where the targets an add is held to come from. */
       source: {
-        read: (chain: string) =>
-          `Read from ${chain} by this app, not from our server: the targets this deposit goes into are the chain’s.`,
-        mock: 'Sample chain: there is no chain to read, so the targets are our server’s words, not checked.',
-        notRead: (chain: string) =>
-          `Not checked against ${chain}: this app has no node of its own to read it from. The targets are our server’s words.`,
         failed: (chain: string) =>
           `I couldn’t read this vault on ${chain}: the node this app reads from didn’t answer, or what our server named isn’t the vault the chain holds. I won’t offer a deposit until I can.`,
         missing: (chain: string) =>
           `I read ${chain}, and it holds no such vault for your wallet, so I won’t offer a deposit into it.`,
         differs: (chain: string) =>
-          `Our server’s answer differs from the targets ${chain} holds for this vault, so I won’t offer a deposit now. Read your portfolio again in a moment.`,
+          `Our server’s answer differs from what ${chain} holds for this vault, so I won’t offer a deposit now. Read your portfolio again in a moment.`,
         unlisted:
           'This vault has a target on a token this app doesn’t list, so I can’t hold a deposit to it and won’t offer one.',
       },
@@ -1416,7 +1410,6 @@ export const en = {
         'One asset of this portfolio isn’t available on this chain now, so the portfolio can’t take a deposit as it stands.',
     },
     family: {
-      nextStep: 'Review the portfolio, then choose how much to deposit.',
       loading: 'Reading this portfolio…',
       missing: 'I can’t find a shared portfolio with that name.',
       backToShelf: 'Back to the shared portfolios',
@@ -1466,36 +1459,56 @@ export const en = {
     },
     check: {
       reading: 'Reading it from the chain…',
-      read: (chain: string) =>
-        `Read from ${chain} by this app, not from our server: the version and weights shown are the chain’s.`,
       differs: (chain: string) =>
         `Our server’s answer differs from what ${chain} holds. I show the chain’s version and weights, and a follow is held to them.`,
-      unverified: {
-        mock: 'Sample chain: there is no chain to read, so these are our server’s words, not checked.',
-        'no-node': (chain: string) =>
-          `Not checked against ${chain}: this app has no node of its own to read it from. These are our server’s words.`,
-        'no-reader': (chain: string) =>
-          `Not checked against ${chain}: this app doesn’t read ${chain}’s registry yet. These are our server’s words.`,
-        'no-deployment': (chain: string) =>
-          `Not checked against ${chain}: this app has no record of the tokens on this network. These are our server’s words.`,
-        'family-id':
-          'Not checked against the chain: this portfolio wasn’t published through this app, so its id comes from our server. These are our server’s words.',
-      },
       failed: (chain: string) =>
         `I couldn’t verify this portfolio on ${chain}: the node this app reads from didn’t answer, or what our server named isn’t the portfolio the chain holds. It may have been tampered with, so I won’t offer to follow it.`,
       missing: (chain: string) =>
         `I read ${chain}, and it holds no such portfolio: what’s shown is only our server’s word.`,
-      verified: 'Read from the chain',
       notChecked: 'Not checked against the chain',
     },
     offer: {
       title: 'Auto-follow',
       offered:
-        'Offered: with auto-follow on, our keeper rebalances a vault that follows this portfolio when a new version takes effect, within the vault’s limits.',
+        'Offered. With auto-follow on, our keeper rebalances a vault that follows it, within its limits, when a new version takes effect.',
       noOracle: (assets: string, chain: string) =>
-        `Not offered: this portfolio holds ${assets}, which has no price oracle on ${chain}, so our keeper can’t rebalance it. If you follow it, I ask you to rebalance, in one tap, when it changes.`,
+        `Not offered: ${assets} has no price oracle on ${chain}. You rebalance in one tap when it changes.`,
       switchedOff: (chain: string) =>
-        `Not offered on ${chain} yet: our keeper doesn’t run there. If you follow it, I ask you to rebalance, in one tap, when it changes.`,
+        `Not offered on ${chain} yet. You rebalance in one tap when it changes.`,
+    },
+    /**
+     * A shared portfolio's page, its panel of actions: two ways to use the portfolio, and the vaults
+     * that already follow it.
+     */
+    actions: {
+      title: 'Use this portfolio',
+      legend: 'How to use it',
+      newVault: {
+        title: 'Start a new vault',
+        line: 'A vault that copies this portfolio, opened with your first deposit.',
+        /** The person's vault for this portfolio is open: a deposit goes there, from its own page. */
+        open: 'Your vault for this portfolio is open.',
+        /** The way to it, a link: a deposit goes there. */
+        depositThere: (name: string) => `Deposit into ${name} from its page.`,
+      },
+      follow: {
+        title: 'Follow with a vault of yours',
+        line: (chain: string) => `One of your vaults on ${chain} takes its weights.`,
+        /** No vault of theirs on the chain at all. */
+        none: (chain: string) => `You have no vault on ${chain} to follow it with.`,
+        /** Vaults there, each following it already or opened for it. */
+        noOther: (chain: string) => `You have no other vault on ${chain} to follow it with.`,
+      },
+      signedOut: 'Sign in first to use either.',
+      signIn: 'Sign in',
+      /** A vault of the person's that follows it: a state, with the way to the vault. */
+      follows: 'follows this portfolio',
+      version: (n: number) => `version ${n}`,
+      /** The follow card's choice of vault. */
+      vault: 'Vault',
+      firstDeposit: 'First deposit',
+      /** While the portfolio and the person's vaults are read. */
+      loading: 'Loading your vaults…',
     },
     buy: {
       title: 'Deposit and follow',
@@ -1509,15 +1522,10 @@ export const en = {
       },
     },
     vaults: {
-      title: 'Your vaults',
-      none: 'You have no vault on this chain yet. Deposit into this portfolio to open one that follows it.',
-      following: 'Follows this portfolio',
       notFollowing: 'Follows another portfolio',
       /** A vault bought from a goal: it follows no shared portfolio. */
       ownPlan: 'Holds your own targets',
       followWith: 'Follow with this vault',
-      noFollowers: 'None of your vaults on this chain follows this portfolio yet.',
-      noHoldings: 'No holdings yet.',
       useExisting: 'Use an existing vault',
       closeChooser: 'Close vault chooser',
       choose: 'Choose this vault',
@@ -1561,8 +1569,6 @@ export const en = {
       autoOn: 'Switch auto-follow on',
       autoOff: 'Switch auto-follow off',
       autoIs: (on: boolean): string => (on ? 'Auto-follow is on.' : 'Auto-follow is off.'),
-      oneTap:
-        'This portfolio isn’t rebalanced for you. When it changes, I ask you here to accept the new version and rebalance.',
       address: (address: string) => `Vault ${address}`,
       open: 'Open the vault',
       failure: 'I couldn’t read your vaults: our server didn’t answer. Try again.',
@@ -1593,9 +1599,6 @@ export const en = {
       privacy:
         'Only these reviewed targets, the name and the description become public. Your vault conversation stays private.',
       holdings: 'Tokens held now · separate from target weights',
-      strategySource: (chain: string) => `Targets read from your vault on ${chain}.`,
-      /** The vault was read from the sample chain, not from a network. */
-      strategySample: 'Targets read from your vault on the sample chain.',
       strategyChanged:
         'The vault’s targets changed. The latest are now shown. Review them before publishing again.',
       sourceProblems: {
@@ -1829,7 +1832,6 @@ export const en = {
         /** A source written in a way this page does not read, kept word for word behind this. */
         sourcesAsWritten: (count: number) =>
           count === 1 ? '1 source, as written' : `${count} sources, as written`,
-        read: 'Read from the chain',
         /** The row of the slot or block the vault was read at, and when. */
         readAt: 'Read at',
         height: { slot: 'Slot', block: 'Block' },
@@ -1917,8 +1919,7 @@ export const en = {
       address: 'Vault address',
       workspaceLead: (chain: string) =>
         `Your holdings and targets on ${chain}. Keep the conversation here as your plans change.`,
-      lead: (chain: string) =>
-        `Read from ${chain} for this page. Anyone can see a vault: what it holds is public on its chain.`,
+      lead: 'Anyone can see a vault: what it holds is public on its chain.',
       loading: 'Reading the vault…',
       missing: 'There is no vault at this address.',
       back: 'Back to your portfolio',
@@ -2150,8 +2151,6 @@ export const en = {
       ownOrNew: 'Your vault for this portfolio, or a new one',
       /** A vault of the person's that already follows the portfolio: a deposit adds to it. */
       follows: (name: string) => `${name} · follows this portfolio`,
-      /** One that does not: choosing it switches it to follow, and deposits nothing. */
-      other: (name: string) => `${name} · switch to this portfolio`,
     },
     field: { deposit: 'You deposit', withdraw: 'You withdraw' },
     /** The token the amount is paid in, named for screen readers beside its mark. */
@@ -2204,7 +2203,6 @@ export const en = {
       slippageValue: (most: string) => `At most ${most} a trade`,
       fee: 'Network fee',
       feeValue: (amount: string) => `Up to ${amount}`,
-      source: 'Read from',
       to: 'To',
     },
     trust: {
@@ -2712,7 +2710,7 @@ export const en = {
     showSchedule: 'Show schedule',
     vault: {
       title: (chain: string) => `Your vault on ${chain}`,
-      lead: 'What it holds now, read from the chain.',
+      lead: 'What it holds now.',
       value: 'Value',
       parts: 'Its parts',
       see: 'See it in tenonfi',

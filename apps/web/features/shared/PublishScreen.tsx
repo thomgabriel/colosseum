@@ -649,9 +649,6 @@ export function PublishScreen() {
             )}
             {sourceRead?.kind === 'read' && (
               <>
-                <p className="font-mono text-source text-muted-foreground">
-                  {sourceRead.source === 'mock' ? p.strategySample : p.strategySource(chainName)}
-                </p>
                 <h2 className="text-caption font-medium">{p.holdings}</h2>
                 <ul className="flex flex-col gap-2 text-body-sm">
                   {[sourceRead.value.vault.cash, ...sourceRead.value.vault.positions].map(

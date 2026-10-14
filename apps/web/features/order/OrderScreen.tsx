@@ -1229,12 +1229,7 @@ export function OrderScreen({
           className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body font-medium"
         >
           <StatusMark status="watch" size={12} className="mt-1.5" />
-          <span>
-            {t.shared.check.notChecked}.{' '}
-            {onMock(port, chain)
-              ? t.portfolio.add.source.mock
-              : t.portfolio.add.source.notRead(t.chain.names[chain])}
-          </span>
+          <span>{t.shared.check.notChecked}.</span>
         </p>
       )}
       {check.ok &&
