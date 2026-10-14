@@ -283,6 +283,73 @@ describe('the approved steps of an order', () => {
     for (const kind of ['set_targets', 'accept_version', 'set_auto_follow'])
       expect(refusalOf(() => stepOf(kind, { basketId: '5' }))?.code, kind).toBe('order');
   });
+
+  it('a switch of auto-follow beside a step is the way the review said, and only where it may go (EVM-MULTICALL-STEPS)', async () => {
+    const { w, order } = await bought('robinhood');
+    const leg = order.legs[2];
+    if (!leg) throw new Error('a step');
+    const legsOf = (...shapes: object[]) => ({
+      ...order,
+      depositRaw: undefined,
+      legs: shapes.map((shape, seq) => ({
+        ...leg,
+        cashRaw: undefined,
+        seq,
+        id: `l${seq}`,
+        ...shape,
+      })),
+    });
+    const follow = { recipeOnchainId: `0x${'5a'.repeat(32)}`, version: 2 };
+    const steps = (terms: PlanTerms, ...shapes: object[]) =>
+      approvedSteps(legsOf(...shapes) as never, terms, w.deployment);
+    const refused = (terms: PlanTerms, ...shapes: object[]) =>
+      refusalOf(() => steps(terms, ...shapes))?.code;
+    const accept = { kind: 'accept_version', trades: [], expected: [] };
+    const sale = { kind: 'swap' };
+    const out = { kind: 'withdraw', trades: [], expected: [] };
+
+    // as the review said: on after the version, off before it, off before a sale or a withdrawal
+    expect(
+      steps({ basketId: '5', follow, autoFollow: true }, { ...accept, switchAutoFollow: true })[0],
+    ).toMatchObject({ kind: 'accept_version', follow, switchAutoFollow: true });
+    expect(
+      steps(
+        { basketId: '5', follow, autoFollow: false },
+        { ...accept, switchAutoFollow: false },
+      )[0],
+    ).toMatchObject({ switchAutoFollow: false });
+    expect(
+      steps({ basketId: '5', autoFollow: false }, { ...out, switchAutoFollow: false })[0],
+    ).toMatchObject({ kind: 'withdraw', switchAutoFollow: false });
+    expect(
+      steps({ basketId: '5', autoFollow: false }, { ...sale, switchAutoFollow: false })[0],
+    ).toMatchObject({ kind: 'swap', switchAutoFollow: false });
+    // none where the step names none
+    expect(steps({ basketId: '5', follow, autoFollow: true }, accept)[0]).not.toHaveProperty(
+      'switchAutoFollow',
+    );
+
+    // the other way from the review, or with nothing in the review about it
+    expect(
+      refused({ basketId: '5', follow, autoFollow: false }, { ...accept, switchAutoFollow: true }),
+    ).toBe('order');
+    expect(refused({ basketId: '5', follow }, { ...accept, switchAutoFollow: true })).toBe('order');
+    expect(refused({ basketId: '5' }, { ...out, switchAutoFollow: false })).toBe('order');
+    // off anywhere but the first step, where something moved before it
+    expect(
+      refused({ basketId: '5', autoFollow: false }, sale, { ...out, switchAutoFollow: false }),
+    ).toBe('order');
+    // on beside a sale or a withdrawal, and any switch beside another kind of step
+    expect(refused({ basketId: '5', autoFollow: true }, { ...out, switchAutoFollow: true })).toBe(
+      'order',
+    );
+    expect(
+      refused(
+        { basketId: '5', targets: [{ asset: 'robinhood:spy', weightBps: 100 }], autoFollow: false },
+        { kind: 'set_targets', trades: [], expected: [], switchAutoFollow: false },
+      ),
+    ).toBe('order');
+  });
 });
 
 // Add money: a buy that names a vault of the person's. Its order is a deposit and its swaps, and the

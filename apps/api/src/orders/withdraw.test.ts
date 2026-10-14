@@ -116,6 +116,7 @@ const legOf = (step: Awaited<ReturnType<typeof planWithdraw>>['steps'][number]):
     kind: step.kind,
     chain: step.chain,
     withdrawals: step.withdrawals,
+    ...(step.switchAutoFollow === undefined ? {} : { switchAutoFollow: step.switchAutoFollow }),
     trades: step.trades ?? [],
     expected: step.expected ?? [],
   }) as Leg;
@@ -341,6 +342,7 @@ describe.each(CHAINS)('a withdrawal on %s', (chain) => {
 
   it('switches auto-follow off first on a vault that has it on, whatever is withdrawn, and the keeper no longer visits it', async () => {
     const { adapter, mock } = w.entry;
+    const inOne = adapter.capabilities.ownerCallsInOne;
     await mock?.send(await adapter.buildSetAutoFollow({ vault: w.vault, on: true }));
     expect(await adapter.listAutoFollowVaults()).toContain(w.vault);
     const ctx = { principal: w.me, chains: w.chains };
@@ -350,19 +352,27 @@ describe.each(CHAINS)('a withdrawal on %s', (chain) => {
       { ...everything(w), withdrawals: [{ asset: w.cash, amountRaw: usd(1) }] },
     ] satisfies WithdrawRequest[]) {
       const plan = await planWithdraw(request, ctx);
+      if (inOne) {
+        // On EVM the switch rides in the withdrawal, before it, in one transaction
+        // (gate EVM-MULTICALL-STEPS).
+        expect(plan.steps.map((s) => [s.kind, s.switchAutoFollow])).toEqual([['withdraw', false]]);
+        expect(plan.steps[0]?.description).toMatch(/^Switch auto-follow off, .*then: withdraw /);
+        continue;
+      }
       expect(plan.steps.map((s) => s.kind)).toEqual([
         'set_auto_follow',
         ...plan.steps.slice(1).map(() => 'withdraw'),
       ]);
       expect(plan.steps[0]?.withdrawals).toBeUndefined();
       expect(plan.steps[0]?.description).toMatch(/automatic following stops for this vault/);
+      expect(plan.steps.slice(1).every((s) => s.switchAutoFollow === undefined)).toBe(true);
     }
     // built as a switch off, for the owner, and never on; once it lands the keeper's list drops the vault
     const request = everything(w);
     const [off, ...rest] = (await planWithdraw(request, ctx)).steps;
     if (!off) throw new Error('no first step');
     const tx = await buildWithdraw(request, legOf(off), w.entry, w.owner, undefined);
-    expect(tx.legKind).toBe('set_auto_follow');
+    expect(tx.legKind).toBe(inOne ? 'withdraw' : 'set_auto_follow');
     expect(tx.signer).toBe(w.owner);
     await mock?.send(tx);
     expect((await adapter.getVault(w.vault))?.autoFollow).toBe(false);
@@ -779,7 +789,19 @@ describe.each(CHAINS)('a withdrawal in dollars on %s', (chain) => {
     await mock?.send(await adapter.buildSetAutoFollow({ vault: w.vault, on: true }));
     const request = dollars(w);
     const plan = await planWithdraw(request, ctx);
-    expect(plan.steps.map((s) => s.kind)).toEqual(['set_auto_follow', 'swap', 'withdraw']);
+    // On EVM the switch rides in the first sale, before it (gate EVM-MULTICALL-STEPS).
+    expect(plan.steps.map((s) => [s.kind, s.switchAutoFollow])).toEqual(
+      adapter.capabilities.ownerCallsInOne
+        ? [
+            ['swap', false],
+            ['withdraw', undefined],
+          ]
+        : [
+            ['set_auto_follow', undefined],
+            ['swap', undefined],
+            ['withdraw', undefined],
+          ],
+    );
     await run(request, plan);
     expect((await adapter.getVault(w.vault))?.autoFollow).toBe(false);
     expect(await inVault(w, w.cash)).toBe(0n);

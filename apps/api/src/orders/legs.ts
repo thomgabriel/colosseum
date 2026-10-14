@@ -419,6 +419,8 @@ async function buildShared(
         vault: request.vault,
         recipeOnchainId: onchain.active.onchainId ?? '',
         expectedVersion: onchain.active.version,
+        // The switch the order planned beside the version, as it planned it (gate EVM-MULTICALL-STEPS).
+        ...(leg.switchAutoFollow === undefined ? {} : { switchAutoFollow: leg.switchAutoFollow }),
         ...shared,
       });
     }

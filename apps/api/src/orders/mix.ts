@@ -791,25 +791,34 @@ export async function planRetarget(
   }
   const id = randomUUID();
   const { owner } = a;
+  const said = (group: Trade[], after = false) =>
+    group
+      .map((t) =>
+        t.buy === ctx.cash.id
+          ? `${after ? 'sell' : 'Sell'} ${symbol(t.sell)} for cash`
+          : `${after ? 'swap' : 'Swap'} into ${symbol(t.buy)}`,
+      )
+      .join(', ');
+  const groups = batchTrades(trades, entry.adapter.capabilities.maxTradesPerTx);
+  // Where the chain takes them in one transaction, the first trades ride with the targets they trade
+  // toward (gate EVM-MULTICALL-STEPS); elsewhere the targets are a step of their own.
+  const riding = !a.keepTargets && entry.adapter.capabilities.ownerCallsInOne ? groups.shift() : [];
+  const setTargets = `Set your vault's targets: ${checked.targets
+    .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
+    .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`;
   const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
     ...(a.keepTargets
       ? []
       : [
           {
             kind: 'set_targets' as const,
-            description: `Set your vault's targets: ${checked.targets
-              .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
-              .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`,
-            trades: [],
+            description: riding?.length ? `${setTargets}; then ${said(riding, true)}` : setTargets,
+            trades: riding ?? [],
           },
         ]),
-    ...batchTrades(trades, entry.adapter.capabilities.maxTradesPerTx).map((group) => ({
+    ...groups.map((group) => ({
       kind: 'swap' as const,
-      description: group
-        .map((t) =>
-          t.buy === ctx.cash.id ? `Sell ${symbol(t.sell)} for cash` : `Swap into ${symbol(t.buy)}`,
-        )
-        .join(', '),
+      description: said(group),
       trades: group,
     })),
   ];
@@ -1161,8 +1170,26 @@ export async function buildRetarget(
   if (!vault || !same(vault.owner, owner))
     throw new Refusal(404, 'no vault of yours at that address');
   const at = nonce === undefined ? {} : { nonce };
-  if (leg.kind === 'set_targets')
-    return entry.adapter.buildSetTargets({ vault: vault.address, targets: request.targets, ...at });
+  if (leg.kind === 'set_targets') {
+    // Where the chain takes them in one transaction, the trades toward the targets ride after them
+    // (gate EVM-MULTICALL-STEPS), each at the minimum the order stated.
+    if (!leg.trades.length)
+      return entry.adapter.buildSetTargets({
+        vault: vault.address,
+        targets: request.targets,
+        ...at,
+      });
+    if (leg.expected.length !== leg.trades.length)
+      throw new Refusal(409, 'this step states no minimum for its trades: make the order again');
+    return entry.adapter.buildSetTargets({
+      vault: vault.address,
+      targets: request.targets,
+      trades: leg.trades,
+      slippageBps: request.maxSlippageBps,
+      minimums: leg.expected.map((e) => e.minOutRaw),
+      ...at,
+    });
+  }
   if (leg.kind !== 'swap' || !leg.trades.length)
     throw new Refusal(501, `a ${leg.kind} step of a rebalance cannot be built`);
   if (keepsTargets) {

@@ -62,6 +62,17 @@ const littleEndian = (bytes: Uint8Array) =>
 /** The vault program's instructions a step is made of, in order. Null: any number of withdrawals. */
 function slotsOf(step: ApprovedStep): Slot[] | null {
   const swaps = (trades: ApprovedTrade[]) => trades.map((trade) => ({ name: 'owner_swap', trade }));
+  // Each owner call is its own step on Solana: none switches auto-follow beside it or trades with the
+  // targets it sets.
+  if (
+    ('switchAutoFollow' in step && step.switchAutoFollow !== undefined) ||
+    (step.kind === 'set_targets' && step.trades?.length)
+  )
+    throw new GuardRefusal(
+      'unsupported',
+      'on Solana a switch of auto-follow and a trade are steps of their own',
+      step.legId,
+    );
   switch (step.kind) {
     case 'create_vault':
       return [

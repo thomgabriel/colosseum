@@ -631,8 +631,9 @@ describe('POST /v1/vaults/{chain}/{address}/targets', () => {
     );
     const ordered = ApplyVaultMixResponse.parse(res.json());
     if (ordered.status !== 'ordered') throw new Error(res.body);
-    // EVM trades ride together: the sale of SPY and the purchase of NVDA are one step.
-    expect(ordered.order.legs.map((l) => l.kind)).toEqual(['set_targets', 'swap']);
+    // EVM trades ride together, and with the targets: the targets, the sale of SPY and the purchase of
+    // NVDA are one step (gate EVM-MULTICALL-STEPS).
+    expect(ordered.order.legs.map((l) => l.kind)).toEqual(['set_targets']);
     expect(ordered.order.owner.evm?.toLowerCase()).toBe(owner.toLowerCase());
   });
 
@@ -682,9 +683,11 @@ describe('POST /v1/vaults/{chain}/{address}/targets', () => {
     expect(res.body).not.toMatch(/Infinity|NaN/);
     const ordered = ApplyVaultMixResponse.parse(res.json());
     if (ordered.status !== 'ordered') throw new Error(res.body);
-    const [, swap] = ordered.order.legs;
-    expect(ordered.order.legs.map((l) => l.kind)).toEqual(['set_targets', 'swap']);
-    expect(swap?.description).toBe('Sell TSLA for cash, Swap into NVDA');
+    const [swap] = ordered.order.legs;
+    expect(ordered.order.legs.map((l) => l.kind)).toEqual(['set_targets']);
+    expect(swap?.description).toBe(
+      "Set your vault's targets: NVDA 100%; then sell TSLA for cash, swap into NVDA",
+    );
     expect(swap?.trades[0]).toEqual({
       sell: 'robinhood:tsla',
       buy: 'robinhood:usdc',

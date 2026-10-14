@@ -40,6 +40,16 @@ import {
 import { dayOf, marketAt } from './market';
 import { type AverageRefusal, readPoolAverageFeed } from './pool-average';
 import { ask, type EvmRpc, isRevert } from './rpc';
+
+/**
+ * The most trades one transaction makes (`Capabilities.maxTradesPerTx`): as many as a vault holds
+ * assets besides its cash (gate `ANY-COMPOSITION`), so a deposit and every purchase it makes are one
+ * transaction (gate `EVM-MULTICALL-STEPS`). Measured on a copy of 46630 on 2026-10-14: a deposit and
+ * eight purchases used 1.75 million gas, about 0.2 million a trade, so sixteen stay under the guard's
+ * 5 million.
+ */
+export const MAX_TRADES = 16;
+
 import { unlistedAssetId, unlistedToken } from './unlisted';
 
 // The read side of the EVM adapter (DESIGN-VAULT 3.2, ADE-1): one codebase for every EVM chain, with
@@ -287,9 +297,10 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
   const capabilities: Capabilities = {
     trade: options.trade ?? 'readonly',
     autoFollow: options.autoFollow ?? false,
-    maxTradesPerTx: 8,
+    maxTradesPerTx: MAX_TRADES,
     tradesInCreate: true,
     needsApprove: true,
+    ownerCallsInOne: true,
   };
 
   // ---- calls, all at one block

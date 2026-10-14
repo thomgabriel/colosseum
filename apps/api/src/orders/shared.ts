@@ -200,7 +200,13 @@ export type SharedContext = {
 };
 
 /** A step of a shared-portfolio order before it is a leg. */
-export type SharedStep = { chain: ChainId; kind: Leg['kind']; description: string };
+export type SharedStep = {
+  chain: ChainId;
+  kind: Leg['kind'];
+  description: string;
+  /** The auto-follow switch the step makes beside its own call (`Leg.switchAutoFollow`). */
+  switchAutoFollow?: boolean;
+};
 
 /**
  * The family a publish is for: the stored one of that slug, or a new one with the id `familyIdOf(slug)`.
@@ -391,6 +397,26 @@ export async function planFollow(
     throw new Refusal(409, 'the vault already follows this shared portfolio as asked', {
       details: { retryable: false },
     });
+  // Where the vault takes several of the owner's calls in one transaction, the switch rides beside the
+  // version: one step, off before it or on after it, as the two steps went (gate EVM-MULTICALL-STEPS).
+  const accept = steps.find((s) => s.kind === 'accept_version');
+  if (accept && steps.length === 2 && entry.adapter.capabilities.ownerCallsInOne)
+    return {
+      entry,
+      owner: vault.owner,
+      version: active.version,
+      steps: [
+        {
+          chain,
+          kind: 'accept_version',
+          switchAutoFollow: req.autoFollow,
+          description: req.autoFollow
+            ? `Follow version ${active.version} of this shared portfolio: your vault's targets become its weights, and auto-follow goes on, so the keeper on ${name} rebalances the vault when this portfolio changes. Nothing is traded in this step`
+            : `Switch auto-follow off, then follow version ${active.version} of this shared portfolio: your vault's targets become its weights, and you are asked to rebalance when it changes. Nothing is traded in this step`,
+        },
+      ],
+      needsConsent,
+    };
   return { entry, owner: vault.owner, version: active.version, steps, needsConsent };
 }
 

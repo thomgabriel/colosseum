@@ -277,6 +277,7 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
     maxTradesPerTx: 1,
     tradesInCreate: false,
     needsApprove: false,
+    ownerCallsInOne: false,
   };
 
   let configPda: Promise<Address> | undefined;

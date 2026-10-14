@@ -751,11 +751,15 @@ describe('planRetarget: a vault the person owns, to its new targets', () => {
     // What goes out validates, and no number in it is Infinity or NaN.
     expect(Order.safeParse(order).error).toBeUndefined();
     expect(nonFinitePaths(order)).toEqual([]);
-    expect(order.legs.map((l) => l.kind)).toEqual(['set_targets', 'swap']);
-    const [targets, swap] = order.legs;
-    if (!targets || !swap) throw new Error('no steps');
+    // One step: the targets, then the sale and the purchase toward them, in one transaction (gate
+    // EVM-MULTICALL-STEPS).
+    expect(order.legs.map((l) => l.kind)).toEqual(['set_targets']);
+    const [swap] = order.legs;
+    if (!swap) throw new Error('no steps');
     // The sale reads as a sale: the stock in, in its own raw units, and cash out; then the purchase.
-    expect(swap.description).toBe('Sell TSLA for cash, Swap into NVDA');
+    expect(swap.description).toBe(
+      "Set your vault's targets: NVDA 100%; then sell TSLA for cash, swap into NVDA",
+    );
     expect(swap.trades).toHaveLength(2);
     const [sale, purchase] = swap.trades;
     expect(sale).toEqual({ sell: 'robinhood:tsla', buy: cash, amountInRaw: tsla?.raw });

@@ -118,6 +118,13 @@ export const LegBase = z.object({
   cashRaw: RawAmount.optional(),
   /** What a `withdraw` step takes out, each token once. Absent on any other step. */
   withdrawals: z.array(LegWithdrawal).min(1).optional(),
+  /**
+   * The step also switches the vault's auto-follow in its own transaction, where the chain takes
+   * several of the owner's calls in one (`Capabilities.ownerCallsInOne`, gate `EVM-MULTICALL-STEPS`):
+   * off before the step's own call, on after it. Only an `accept_version` switches it on; a `swap` or a
+   * `withdraw` only off. Absent where the step switches nothing, and on every step of a chain without it.
+   */
+  switchAutoFollow: z.boolean().optional(),
   trades: z.array(Trade),
   /**
    * One entry per trade, in the order of `trades`: entry `i` is trade `i`. Empty for a leg with no
@@ -153,7 +160,18 @@ export const Leg = LegBase.refine((l) => (l.signer === 'keeper') === (l.orderId 
   .refine((l) => l.expected.length === 0 || l.expected.length === l.trades.length, {
     message: 'one expected figure per trade, or none',
     path: ['expected'],
-  });
+  })
+  .refine(
+    (l) =>
+      l.switchAutoFollow === undefined ||
+      l.kind === 'accept_version' ||
+      ((l.kind === 'swap' || l.kind === 'withdraw') && l.switchAutoFollow === false),
+    {
+      message:
+        'only a follow switches auto-follow on beside its step; a swap or a withdrawal only off',
+      path: ['switchAutoFollow'],
+    },
+  );
 export type Leg = z.infer<typeof Leg>;
 
 export const AttemptStatus = z.enum(['built', 'sent', 'confirmed', 'failed', 'expired']);

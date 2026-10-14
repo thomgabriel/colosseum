@@ -718,6 +718,7 @@ function sharedOrder(
     withdrawals?: Leg['withdrawals'];
     trades?: Leg['trades'];
     expected?: Leg['expected'];
+    switchAutoFollow?: boolean;
   }[],
   needsConsent: Order['needsConsent'],
   provenance?: Leg['provenance'],
@@ -736,6 +737,7 @@ function sharedOrder(
       kind: step.kind,
       description: step.description,
       ...(step.withdrawals ? { withdrawals: step.withdrawals } : {}),
+      ...(step.switchAutoFollow === undefined ? {} : { switchAutoFollow: step.switchAutoFollow }),
       trades: step.trades ?? [],
       signer: 'owner',
       expected: step.expected ?? [],
