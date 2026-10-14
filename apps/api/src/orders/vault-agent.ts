@@ -20,6 +20,7 @@ import {
   OWNER_REBALANCE_SLIPPAGE_BPS,
   outsideOwnerBand,
   ownerRebalanceOffered,
+  VAULT_MAX_TARGETS,
   type VaultAgentFigure,
   VaultAgentModelReply,
   VaultAgentReply,
@@ -3100,7 +3101,10 @@ export async function replyToVaultConversation(
       }
     }
     const kept = proposal.allocations.filter(({ assetId }) => !leftOut.includes(assetId));
-    if (kept.filter((allocation) => catalog.get(allocation.assetId)?.cls !== 'cash').length > 16)
+    if (
+      kept.filter((allocation) => catalog.get(allocation.assetId)?.cls !== 'cash').length >
+      VAULT_MAX_TARGETS
+    )
       return rejected('allocation_lines');
     // Said, never silent, and the model is asked once to write the reply without them. Should that
     // fail too, the reply stands as corrected here.

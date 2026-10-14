@@ -5,7 +5,7 @@ import { AssetId, Bps, ChainId, DecimalString, Sourced } from './chain';
 import { Language, Provenance } from './enums';
 import { ORDER_LIMITS } from './order';
 import { OrderDetail } from './order-api';
-import { Target } from './recipe';
+import { Target, VAULT_MAX_TARGETS } from './recipe';
 import { Price } from './vault';
 
 // A mix a person takes from the vault or new-goal conversation, or chooses themselves, made into
@@ -139,7 +139,7 @@ export const MixReview = z.strictObject({
   /** Cash first where there is any, then each asset in the order sent. They add up to 10,000. */
   lines: z.array(MixReviewLine).min(1),
   /** What a vault is given: each asset that is not cash, with its weight. Cash is what they leave. */
-  targets: z.array(Target).max(16),
+  targets: z.array(Target).max(VAULT_MAX_TARGETS),
   cashBps: Bps,
   warnings: z.array(MixWarning),
   /** The warnings `acceptedWarnings` does not name yet. Empty: the mix can be confirmed as sent. */

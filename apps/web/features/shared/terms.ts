@@ -1,4 +1,4 @@
-import { Hex32, Target, TradeBase } from '@colosseum/schemas';
+import { Hex32, Target, TradeBase, VAULT_MAX_TARGETS } from '@colosseum/schemas';
 
 // What a shared-portfolio order is held to, as the screen that made it showed it (WEB-4). The order
 // screen hands these to the executor (features/order/run-order.ts), which turns them into the guard's
@@ -297,7 +297,7 @@ export function readTerms(value: unknown): SharedTerms | null {
     };
   }
   if (t.kind === 'retarget') {
-    const targets = Target.array().min(1).max(16).safeParse(t.targets);
+    const targets = Target.array().min(1).max(VAULT_MAX_TARGETS).safeParse(t.targets);
     if (
       !isText(t.vault) ||
       !t.vault ||
@@ -318,7 +318,7 @@ export function readTerms(value: unknown): SharedTerms | null {
     };
   }
   if (t.kind === 'rebalance') {
-    const targets = Target.array().min(1).max(16).safeParse(t.targets);
+    const targets = Target.array().min(1).max(VAULT_MAX_TARGETS).safeParse(t.targets);
     if (
       !isText(t.vault) ||
       !t.vault ||

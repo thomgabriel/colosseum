@@ -15,6 +15,12 @@ export const Component = z.discriminatedUnion('kind', [
 ]);
 export type Component = z.infer<typeof Component>;
 
+/**
+ * The most targets a vault holds, cash not one of them: 16 in the Solana program and in the EVM vault,
+ * and the most assets a shared portfolio holds on chain. Every limit of 16 lines reads this one.
+ */
+export const VAULT_MAX_TARGETS = 16;
+
 /** What a vault stores: one asset and its weight. A weight of nothing is not a target. */
 export const Target = z.object({ asset: AssetId, weightBps: Weight });
 export type Target = z.infer<typeof Target>;

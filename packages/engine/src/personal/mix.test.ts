@@ -1,4 +1,4 @@
-import type { ChainId } from '@colosseum/schemas';
+import { type ChainId, VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { candidates, compose, composeAs, riskForMix } from './index';
@@ -1678,6 +1678,63 @@ describe('properties: any mix', () => {
       expect(violations(c.plan, launch, context), c.id).toEqual([]);
     expect(plan.lines.map((l) => l.assetId)).toContain('solana:aaplx');
     expect(plan.sleeves.find((x) => x.sleeve === 'growth')?.amountUsd).toBe(73_720.41);
+  });
+
+  it('two sets of a plan never come to more lines than a vault holds', () => {
+    // The counterexample of Oct 14 (seed 992140469): $10 to grow, half in stocks and crypto, half in
+    // gold, three themes, on a table of 14 lines a set and caps so small every name is its own line.
+    // Each set kept to its 14, and the plan came to 17 lines on Solana: a vault holds 16.
+    const s = PersonalSheet.parse({
+      ...sheet(),
+      amountUsd: 10,
+      horizonMonths: 1,
+      risk: 'medium',
+      themes: ['home-team', 'the-seven', 'crypto-in-a-suit'],
+      rules: { useHoldings: false, glide: false },
+      mix: mix({ growthBps: 5000, dollarYieldBps: 0, goldBps: 5000, cashBps: 0 }),
+    });
+    const context: ComposeContext = {
+      now: NOW,
+      holdings: [],
+      yields: fixtureYields().filter((y) =>
+        ['solana:jlusdc', 'solana:syrupusdc'].includes(y.assetId),
+      ),
+      liquidity: fixtureLiquidity({}),
+      liquiditySource: LIQUIDITY_SOURCE,
+      params: PersonalParameters.parse({
+        ...PERSONAL_PARAMS,
+        capPerStockBps: { low: 0, medium: 20, high: 0 },
+        capPerIssuerBps: { low: 0, medium: 100, high: 0 },
+        issuerCapBps: 10,
+        minLineBps: 0,
+        minLineUsd: 0,
+        maxLinesPerChain: 14,
+        version: 'generated',
+      }),
+      fx: [usdBrl()],
+    };
+    const plans = [
+      compose(s, launch, context),
+      ...candidates(s, launch, context).shown.map((c) => c.plan),
+    ];
+    for (const plan of plans) {
+      expect(violations(plan, launch, context)).toEqual([]);
+      const held = plan.lines.filter((l) => !l.assetId.endsWith(':usdc'));
+      expect(held).toHaveLength(VAULT_MAX_TARGETS);
+      const why = (o: unknown): unknown[] =>
+        o && typeof o === 'object'
+          ? 'rule' in o && (o as { rule: string }).rule.endsWith('MAX_LINES')
+            ? [o]
+            : Object.values(o).flatMap(why)
+          : [];
+      // what got no line is left out by the vault's limit, said for the plan as a whole
+      expect(why(plan)).toContainEqual(
+        expect.objectContaining({
+          rule: 'MAX_LINES',
+          params: expect.objectContaining({ max: VAULT_MAX_TARGETS, scope: 'plan' }),
+        }),
+      );
+    }
   });
 
   it('the plan and each candidate shown keep every rule, and nothing makes the engine give up', () => {
