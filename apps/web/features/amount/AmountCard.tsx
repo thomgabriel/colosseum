@@ -64,6 +64,8 @@ export type AmountCardProps = {
     balance?: { label: string } & AmountBalance;
     /** Quick amounts under the field (25% · 50% · 75% · Max). */
     chips?: readonly AmountChip[];
+    /** The name of the list of quick amounts, for screen readers. */
+    chipsLabel?: string;
     /** What is wrong with the amount, in the card's words. Said once it has been still. */
     problem: string | null;
     /** A quiet line under the field that holds nothing: short, with a way to fill it on the next step. */
@@ -305,6 +307,7 @@ export function AmountCard({
               token={field.token}
               balance={field.balance}
               chips={field.chips}
+              chipsLabel={field.chipsLabel}
               problem={problem}
               note={!problem && field.note && settled ? field.note : null}
               plate={plate}

@@ -209,17 +209,31 @@ test('the deposit step by keyboard', async ({ page }) => {
   await page.keyboard.type('100.50');
   await expect(dollarsOf(step, 'spy')).toHaveText(/50\.25/);
   await check(page, 'deposit-keyboard');
-  // from the amount: the balance's pin (and Max, where the wallet holds enough), the three quick
-  // amounts, then the press, which Enter takes to the review (the plan bar is a picture with its
-  // labels, not a stop)
+  // from the amount, each stop in its order: the balance's pin, the three quick amounts, then the
+  // press, which Enter takes to the review (the plan bar is a picture with its labels, not a stop)
   const press = page.getByRole('button', { name: en.mix.deposit.reviewOf('$100.50') });
-  let tabs = 0;
-  while (tabs < 8 && !(await press.evaluate((el) => el === document.activeElement))) {
+  const stops: string[] = [];
+  for (let i = 0; i < 8 && !(await press.evaluate((el) => el === document.activeElement)); i += 1) {
     await page.keyboard.press('Tab');
-    tabs += 1;
+    stops.push(
+      await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return (
+          el?.getAttribute('aria-label') ?? el?.getAttribute('data-ui') ?? el?.textContent ?? ''
+        );
+      }),
+    );
   }
   await expect(press).toBeFocused();
-  expect(tabs).toBeLessThanOrEqual(6);
+  // the mock wallet holds no dollars: no Max; the pin and its details, then the quick amounts
+  expect(stops).toEqual([
+    'Source for 0.00 USDC, sample figure',
+    'pin-details',
+    en.mix.deposit.quickOne('$100'),
+    en.mix.deposit.quickOne('$500'),
+    en.mix.deposit.quickOne('$1,000'),
+    'button',
+  ]);
   await page.keyboard.press('Enter');
   // the review's heading takes focus, and it says what the mix was checked for
   await expect(page.getByRole('heading', { name: en.mix.review.title })).toBeFocused();

@@ -13,7 +13,7 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { AmountWell } from '../amount/AmountWell';
-import { maxText } from '../amount/amount-check';
+import { maxText, shownBalance } from '../amount/amount-check';
 import { useWalletBalance } from '../amount/use-balance';
 import { dollars, parseNumber } from '../goal/sheet';
 import { MAX_USD, MIN_USD } from '../order/limits';
@@ -425,7 +425,7 @@ export function DepositStep({
                     ? {
                         label: t.amount.balance.wallet,
                         state: 'read',
-                        figure: `${wallet.cash.amount.toLocaleString(LOCALE[lang], { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${wallet.cash.symbol}`,
+                        figure: shownBalance(wallet.cash.amount, wallet.cash.symbol, LOCALE[lang]),
                         obs: wallet.cash.obs,
                         ...(wallet.cash.amount >= MIN_USD
                           ? {

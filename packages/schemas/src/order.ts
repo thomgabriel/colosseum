@@ -270,6 +270,12 @@ export const ORDER_LIMITS = {
 } as const;
 
 /**
+ * The slippage an order's trades are built with where the request names none (the web names none),
+ * in bps: the API's `ORDER_POLICY.slippageBps` is this, and the amount card says it.
+ */
+export const ORDER_DEFAULT_SLIPPAGE_BPS = 100;
+
+/**
  * How far above the sum of its sales' quotes the cash step of a withdrawal in dollars may pay (gate
  * WITHDRAW-DOLLARS), in bps of those quotes. A fill can land above its quote when the price moves the
  * person's way; this allows it the same distance an order's trade may be built below its quote

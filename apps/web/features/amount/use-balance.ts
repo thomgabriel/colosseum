@@ -75,12 +75,15 @@ export function useWalletBalance(
         : readFunding(apiFetch, { ...buyOf, amountUsd: MIN_USD, wallet: owner });
     asked.then((read) => {
       if (!mine) return;
-      // a read of another chain than this deposit's (the person's current one moved) is not shown
-      if (read.kind !== 'read' || read.funding.chain !== chain)
-        return setBalance({ kind: 'failed' });
+      if (read.kind !== 'read') return setBalance({ kind: 'failed' });
+      // GET /v1/funding with the wallet alone reads the person's current chain: where that is not this
+      // deposit's (a conversation on another chain), no balance is said at all, rather than a wrong one.
+      if (read.funding.chain !== chain) return setBalance({ kind: 'idle' });
       const f = read.funding;
       const units = unitsFor(chain, mock);
-      const cashDecimals = units?.tokens[f.cash.asset]?.decimals ?? f.cash.decimals;
+      // this repository's decimals for the chain's dollar, never the answer's: none, no figure
+      const cashDecimals = units?.tokens[f.cash.asset]?.decimals;
+      if (cashDecimals === undefined) return setBalance({ kind: 'failed' });
       const stamp = (figure: typeof f.cash | typeof f.gas): PinSource => ({
         source: figure.source,
         fetchedAt: figure.fetchedAt,

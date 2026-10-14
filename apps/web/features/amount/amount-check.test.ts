@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dictionary } from '../../i18n';
-import { maxText, readAmount } from './amount-check';
+import { maxText, readAmount, shownBalance } from './amount-check';
 
 // The words the amount card says of an amount, for each way it can be wrong, and what Max types.
 
@@ -44,5 +44,13 @@ describe('maxText', () => {
     expect(maxText(1234.567, 'pt')).toBe('1234,56');
     expect(maxText(40, 'en')).toBe('40');
     expect(maxText(0.1 + 0.2, 'en')).toBe('0.30');
+  });
+});
+
+describe('shownBalance', () => {
+  it('cuts a balance down to the cent, so the figure typed back is never more than there is', () => {
+    expect(shownBalance(1234.567, 'USDC', 'en-US')).toBe('1,234.56 USDC');
+    expect(shownBalance(0.999, 'USDC', 'en-US')).toBe('0.99 USDC');
+    expect(shownBalance(1234.5, 'USDC', 'pt-BR')).toBe('1.234,50 USDC');
   });
 });

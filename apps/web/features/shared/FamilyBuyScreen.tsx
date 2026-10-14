@@ -18,12 +18,14 @@ import { ChainChoice } from '../account/ChainChoice';
 import { DepositCard } from '../amount/DepositCard';
 import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { keepOrder } from '../order/order-record';
+import { basketOfPlan } from '../order/readiness';
+import { vaultTitle } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor, useChainRecipe } from './chain-recipe';
 import { followedOf } from './FamilyScreen';
 import { sharedRefusal } from './refusal';
 import { SourceMark } from './SourceMark';
-import { placeShared, readFamily } from './shared-api';
+import { placeShared, readFamily, readPortfolio } from './shared-api';
 import type { SharedTerms } from './terms';
 import { useSharedPerson } from './use-person';
 
@@ -103,6 +105,41 @@ export function FamilyBuyScreen({
   const person = useSharedPerson(recipe?.chain);
   const chain = person.kind === 'ready' && recipe ? person.chain : null;
   const owner = person.kind === 'ready' ? person.owner : null;
+  // The vault a buy of this portfolio adds to, where the person has one (`planFamilyBuy`: the vault's
+  // number is the portfolio's own): named in "Into", and a new vault only where there is none.
+  const [ownVault, setOwnVault] = useState<
+    { kind: 'reading' } | { kind: 'none' } | { kind: 'unknown' } | { kind: 'own'; name: string }
+  >({ kind: 'reading' });
+  const whose = chain && owner ? `${chain}:${owner}` : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `whose` stands for the chain and the wallet
+  useEffect(() => {
+    if (embedded || !chain || !owner) return;
+    let mine = true;
+    setOwnVault({ kind: 'reading' });
+    readPortfolio(apiFetch).then((read) => {
+      if (!mine) return;
+      if (read.kind !== 'read') return setOwnVault({ kind: 'unknown' });
+      const basket = basketOfPlan(familyIdFor(slug));
+      const vault = read.value.chains
+        .find((c) => c.chain === chain)
+        ?.vaults.find((v) => v.basketId === basket);
+      setOwnVault(
+        vault
+          ? {
+              kind: 'own',
+              name: vaultTitle(
+                vault,
+                { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
+                t.chain.names[chain],
+              ),
+            }
+          : { kind: 'none' },
+      );
+    });
+    return () => {
+      mine = false;
+    };
+  }, [apiFetch, whose, slug, embedded]);
   const mock = person.kind === 'ready' ? person.mock : false;
   const check = useChainRecipe(
     chain ?? 'solana',
@@ -312,7 +349,19 @@ export function FamilyBuyScreen({
         into={{
           label: t.amount.into.label,
           value: 'family',
-          options: [{ value: 'family', label: t.amount.into.newVault }],
+          options: [
+            {
+              value: 'family',
+              label:
+                ownVault.kind === 'own'
+                  ? t.amount.into.follows(ownVault.name)
+                  : ownVault.kind === 'none'
+                    ? t.amount.into.newVault
+                    : ownVault.kind === 'unknown'
+                      ? t.amount.into.ownOrNew
+                      : t.amount.into.reading,
+            },
+          ],
         }}
         blocked={blocked}
         initialText="100"

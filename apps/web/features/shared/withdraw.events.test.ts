@@ -298,6 +298,45 @@ describe('the withdraw screen', () => {
     ]);
   });
 
+  it('on a $1,000,000 vault: refuses less than one basis point, and names what the basis points come to', async () => {
+    const server = api({
+      vault: holdingVault({ valueUsd: '1000000' }),
+      order: () =>
+        withdrawOrder([[item(CASH, '60000', '600000000')], [item(SPYX, '25000', '250000000')]]),
+    });
+    const host = await show();
+    // a cent, and $99.99, are less than one basis point ($100): refused, with the least named
+    for (const under of ['0.01', '99.99']) {
+      await type(field(host), under);
+      await settle(SETTLE_MS + 50);
+      expect(find(host, '[data-ui="amount-problem"]').textContent, under).toBe(
+        en.amount.errors.belowMin('$100'),
+      );
+      expect(held(host), under).toBe(true);
+    }
+    // $150 is one basis point, cut down: the button and "You get" say $100, never $150
+    await type(field(host), '150');
+    await settle(SETTLE_MS + 50);
+    expect(host.querySelector('[data-ui="amount-problem"]')).toBeNull();
+    expect(label(host)).toBe(en.amount.press.withdraw('$100'));
+    expect(find(host, '[data-ui="withdraw-worth"]').textContent).toContain(
+      en.amount.preview.about('$100'),
+    );
+    expect(tokens(host)).toEqual(['0.06 USDC', '0.00025 SPYx']);
+    await through(host);
+    expect(server.placed().map((c) => c.body)).toEqual([
+      {
+        type: 'withdraw',
+        vaults: [MY_VAULT],
+        sellToCash: false,
+        withdrawals: [
+          { asset: CASH, amountRaw: '60000' },
+          { asset: SPYX, amountRaw: '25000' },
+        ],
+      },
+    ]);
+  });
+
   it('says quietly when the amount is more than the vault holds, and holds the press', async () => {
     api();
     const host = await show();

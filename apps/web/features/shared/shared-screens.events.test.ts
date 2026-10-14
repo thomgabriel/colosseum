@@ -1218,6 +1218,28 @@ describe('buying a portfolio, which follows it', () => {
     );
   });
 
+  it('names where the deposit goes: the person’s vault for this portfolio, or a new one', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      funded: true,
+      vaults: [
+        {
+          ...vaultOf({ address: MY_VAULT, basketId: basketOfPlan(FAMILY_ID) }),
+          name: 'Long term',
+        },
+      ],
+    });
+    const mine = await show(createElement(FamilyBuyScreen, { slug: SLUG }));
+    // a buy of this portfolio adds to the vault that follows it (planFamilyBuy): said so
+    expect(find(mine, '[data-ui="amount-into"]').textContent).toContain(
+      en.amount.into.follows('Long term'),
+    );
+    await unmountAll();
+    api({ family: familyOf(FAMILY_ID), funded: true, vaults: [] });
+    const none = await show(createElement(FamilyBuyScreen, { slug: SLUG }));
+    expect(find(none, '[data-ui="amount-into"]').textContent).toContain(en.amount.into.newVault);
+  });
+
   it('asks for the version the page showed, and keeps the weights the buy is held to', async () => {
     const calls = api({ family: familyOf(FAMILY_ID), order: () => familyBuyOrder(), funded: true });
     const host = await show(createElement(FamilyBuyScreen, { slug: SLUG }));

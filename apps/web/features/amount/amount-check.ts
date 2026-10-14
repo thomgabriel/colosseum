@@ -60,3 +60,12 @@ export function maxText(available: number, lang: Lang): string {
   if (rest === 0) return String(whole);
   return `${whole}${lang === 'pt' ? ',' : '.'}${String(rest).padStart(2, '0')}`;
 }
+
+/**
+ * A balance as the card shows it: cut down to the cent, never rounded up, so typing the figure as it
+ * is shown is never more than there is.
+ */
+export function shownBalance(amount: number, symbol: string, locale: string): string {
+  const cut = Math.floor(amount * 100 + 1e-6) / 100;
+  return `${cut.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+}

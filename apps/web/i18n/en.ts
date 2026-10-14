@@ -2075,6 +2075,9 @@ export const en = {
       label: 'Into',
       from: 'From',
       newVault: 'New vault',
+      reading: 'Reading your vaults…',
+      /** Our server could not say whether the person has this portfolio's vault. */
+      ownOrNew: 'Your vault for this portfolio, or a new one',
       /** A vault of the person's that already follows the portfolio: a deposit adds to it. */
       follows: (name: string) => `${name} · follows this portfolio`,
       /** One that does not: choosing it switches it to follow, and deposits nothing. */
@@ -2104,6 +2107,8 @@ export const en = {
     },
     preview: {
       deposit: 'Your vault will hold',
+      /** A vault switched to follow a portfolio: no money moves, its targets change. */
+      targets: 'Its targets become',
       asset: 'Asset',
       weight: 'Weight',
       amount: 'Amount',
@@ -2124,6 +2129,9 @@ export const en = {
       least: 'Least',
       most: 'Most',
       slippage: 'Slippage',
+      tradeLimits: 'Trade limits',
+      tradeLimitsValue:
+        'Each swap is also held to its token’s own limit, lower while its price feed isn’t live, and to a bound from that feed. The next step checks the order against them.',
       slippageValue: (most: string) => `At most ${most} a trade`,
       fee: 'Network fee',
       feeValue: (amount: string) => `Up to ${amount}`,

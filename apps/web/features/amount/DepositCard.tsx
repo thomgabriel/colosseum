@@ -1,6 +1,12 @@
 'use client';
-import { type ChainId, ORDER_LIMITS, type Provenance, type Target } from '@colosseum/schemas';
-import { type ReactNode, useState } from 'react';
+import {
+  type ChainId,
+  chainFamily,
+  ORDER_DEFAULT_SLIPPAGE_BPS,
+  type Provenance,
+  type Target,
+} from '@colosseum/schemas';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { LOCALE } from '../../i18n';
@@ -13,7 +19,7 @@ import { AssetMark } from '../order/PlanView';
 import { displayName } from '../order/plain';
 import { unitsFor } from '../order/units';
 import { AmountCard, type AmountCardProps, type AmountMode } from './AmountCard';
-import { maxText, readAmount } from './amount-check';
+import { maxText, readAmount, shownBalance } from './amount-check';
 import { useWalletBalance } from './use-balance';
 
 // A deposit on the amount card (gate AMOUNT-CARD): the amount in dollars with the token it is paid in,
@@ -125,6 +131,15 @@ export function DepositCard({
   // Taken up after a reload, the deposit is the one its order was made for: no way back to the field.
   const [pressed, setPressed] = useState<number | null>(resumed);
   const takenUp = resumed !== null;
+  // The press takes the card's button away: the focus goes to what took its place, the line that says
+  // the amount (or the order's own card under it), never to the page. Not on a deposit taken up again.
+  const after = useRef<HTMLDivElement>(null);
+  const pressedHere = useRef(false);
+  useEffect(() => {
+    if (pressed === null || !pressedHere.current) return;
+    pressedHere.current = false;
+    after.current?.focus();
+  }, [pressed]);
   // Read for the field only: once the amount is pressed, the invest card reads the wallet itself.
   const balance = useWalletBalance(owner && pressed === null ? buyOf : null, owner, chain, mock);
   const read = balance.kind === 'read' ? balance : null;
@@ -146,6 +161,7 @@ export function DepositCard({
   const blocking = over && !fillable ? problem : over ? null : problem;
 
   function press(at: number) {
+    pressedHere.current = true;
     setPressed(at);
     onPressed?.(at);
   }
@@ -156,7 +172,12 @@ export function DepositCard({
 
   if (pressed !== null)
     return (
-      <div data-ui="deposit-pressed" className="flex min-w-0 flex-col gap-4">
+      <div
+        ref={after}
+        tabIndex={-1}
+        data-ui="deposit-pressed"
+        className="flex min-w-0 flex-col gap-4 outline-none"
+      >
         {fact && (
           <p
             data-ui="deposit-fact"
@@ -233,8 +254,13 @@ export function DepositCard({
       ? [
           {
             term: a.details.slippage,
-            value: a.details.slippageValue(formatBps(ORDER_LIMITS.maxSlippageBps, locale)),
+            value: a.details.slippageValue(formatBps(ORDER_DEFAULT_SLIPPAGE_BPS, locale)),
           },
+          // An EVM vault's swaps have limits of their own, per token, in the deployment: said in
+          // words, so a larger deposit is not a surprise at the next step.
+          ...(chainFamily(chain) === 'evm'
+            ? [{ term: a.details.tradeLimits, value: a.details.tradeLimitsValue, wide: true }]
+            : []),
         ]
       : []),
     ...(read
@@ -258,9 +284,7 @@ export function DepositCard({
     ...(source ? [{ term: a.details.source, value: source, wide: true }] : []),
   ];
 
-  const balanceFigure = read
-    ? `${read.cash.amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${read.cash.symbol}`
-    : '';
+  const balanceFigure = read ? shownBalance(read.cash.amount, read.cash.symbol, locale) : '';
   return (
     <AmountCard
       mode="deposit"

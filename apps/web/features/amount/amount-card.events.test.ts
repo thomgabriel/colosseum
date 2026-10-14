@@ -50,8 +50,8 @@ const funding = (o: {
     wallet: WALLET,
     cash: {
       ...stamp,
-      asset: evm ? 'robinhood:usdg' : 'solana:usdc',
-      symbol: evm ? 'USDG' : 'USDC',
+      asset: evm ? 'robinhood:tusdg' : 'solana:usdc',
+      symbol: evm ? 'tUSDG' : 'USDC',
       decimals: 6,
       haveRaw: o.haveRaw ?? '1234560000',
       needRaw: '10000000',
@@ -159,6 +159,8 @@ describe('the amount card on a deposit', () => {
     expect(find(host, '[data-ui="amount-problem"]').textContent).toBe(
       en.amount.errors.belowMin('$10'),
     );
+    // said where a screen reader hears it, by someone still in the field
+    expect(find(host, '[data-ui="amount-problem"]').closest('[role="status"]')).not.toBeNull();
     expect(field(host).getAttribute('aria-invalid')).toBe('true');
     // no sentence under the disabled button for it: the field says it
     expect(host.querySelector('[data-ui="amount-reasons"]')).toBeNull();
@@ -246,6 +248,8 @@ describe('the amount card on a deposit', () => {
     expect(primary(host).textContent).toBe(en.amount.press.deposit('$250'));
     await click(primary(host));
     expect(find(host, '[data-ui="the-flow"]').textContent).toBe('flow for 250');
+    // the button went with the press: the focus is on what took its place, never the page
+    expect(document.activeElement).toBe(find(host, '[data-ui="deposit-pressed"]'));
     expect(find(host, '[data-ui="deposit-fact"]').textContent).toContain(en.amount.pressed('$250'));
     await click(find(host, 'button[data-action="amount-change"]'));
     expect(host.querySelector('[data-ui="the-flow"]')).toBeNull();
@@ -274,6 +278,10 @@ describe('the amount card on a deposit', () => {
     expect(text).toContain('$10');
     expect(text).toContain('$1,000,000');
     expect(text).toContain(en.amount.details.slippage);
+    // the slippage the order is built with (ORDER_DEFAULT_SLIPPAGE_BPS), not the request's cap
+    expect(text).toContain(en.amount.details.slippageValue('1%'));
+    // Solana's swaps have no per-token limits of their own: nothing said of them
+    expect(text).not.toContain(en.amount.details.tradeLimits);
     expect(text).toContain('0.0101 SOL');
     expect(details.querySelector('[data-ui="src"]')).not.toBeNull();
     expect(details.querySelectorAll('button[data-ui="pin"]').length).toBeGreaterThan(0);
@@ -321,7 +329,7 @@ describe('what the card says of the chain', () => {
           chain: 'robinhood',
           chainName: 'Robinhood Chain',
           buyOf: { family: 'three-of-the-largest', chain: 'robinhood' },
-          holdings: null,
+          holdings: [{ asset: 'robinhood:tsla', weightBps: 5000 }],
         }),
       ),
     );
@@ -330,6 +338,10 @@ describe('what the card says of the chain', () => {
     expect(find(host, '[data-ui="amount-balance"]').textContent).toMatch(/1,234\.56 t?USDG/);
     expect(find(host, '[data-ui="data-note"]').textContent).toBe(
       en.buy.steps.note.testNetwork('Robinhood Chain'),
+    );
+    // its swaps are held to each token's own limit: said in the details, in words
+    expect(find(host, '[data-ui="amount-details"]').textContent).toContain(
+      en.amount.details.tradeLimitsValue,
     );
   });
 

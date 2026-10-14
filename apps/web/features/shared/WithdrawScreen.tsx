@@ -1,5 +1,10 @@
 'use client';
-import { ChainId, chainFamily, ORDER_LIMITS, type VaultResponse } from '@colosseum/schemas';
+import {
+  ChainId,
+  chainFamily,
+  ORDER_DEFAULT_SLIPPAGE_BPS,
+  type VaultResponse,
+} from '@colosseum/schemas';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
@@ -216,19 +221,32 @@ export function WithdrawScreen({
     vault,
     t.portfolio.vault.valueMethod,
   );
+  // The least a withdrawal by amount can be: one basis point of the vault, the smallest share an
+  // order names, up to the cent. Anything under it is refused here, never rounded up to it.
+  const leastUsd = priced ? Math.ceil((value / 10_000) * 100) / 100 : 0.01;
   const typed = readAmount(
     text,
     lang,
-    { least: 0.01, most: Number.MAX_SAFE_INTEGER, available: priced ? value : null, of: 'vault' },
+    {
+      least: leastUsd,
+      most: Number.MAX_SAFE_INTEGER,
+      available: priced ? value : null,
+      of: 'vault',
+    },
     t,
   );
+  // The share the typed dollars come to, cut down to the basis point: what the order sends.
+  const typedBps =
+    priced && typed.amount !== null && !typed.over
+      ? Math.min(10_000, Math.floor((typed.amount / value) * 10_000))
+      : 0;
   const shareBps: number | null = picking
     ? null
     : chosen !== null
       ? chosen
-      : !priced || typed.amount === null || typed.over
-        ? null
-        : Math.max(1, Math.min(10_000, Math.floor((typed.amount / value) * 10_000)));
+      : typedBps >= 1
+        ? typedBps
+        : null;
   const cashSymbol = symbol(vault.cash.asset);
   const dollars: DollarsTerms | null =
     way === 'dollars' && shareBps !== null
@@ -381,7 +399,9 @@ export function WithdrawScreen({
   const percent = (bps: number) => formatBps(bps, locale);
   const usd = (n: number) => wholeDollars(n, lang);
   // What the share is worth, by the prices the vault's value is read with: said "about".
-  const worth = shareBps !== null && priced ? (value * shareBps) / 10_000 : null;
+  // What that share is worth, cut down to the cent: what the button and "You get" say, never the
+  // figure typed, which the share may come to less than.
+  const worth = shareBps !== null && priced ? cents((value * shareBps) / 10_000) : null;
   const pin = (n: number) => (
     <ProvenancePin
       value={a.preview.about(usd(n))}
@@ -613,8 +633,11 @@ export function WithdrawScreen({
       ? [
           {
             term: a.details.slippage,
-            value: a.details.slippageValue(percent(ORDER_LIMITS.maxSlippageBps)),
+            value: a.details.slippageValue(percent(ORDER_DEFAULT_SLIPPAGE_BPS)),
           },
+          ...(chainFamily(chain) === 'evm'
+            ? [{ term: a.details.tradeLimits, value: a.details.tradeLimitsValue, wide: true }]
+            : []),
         ]
       : []),
   ];
@@ -658,8 +681,7 @@ export function WithdrawScreen({
       change(() => {
         setPicking(false);
         setChosen(bps);
-        // to the nearest cent, as "About" says it: the share itself is the chip's, exactly
-        if (priced) setText(maxText(Math.round((value * bps) / 100) / 100, lang));
+        if (priced) setText(maxText((value * bps) / 10_000, lang));
       }),
   }));
 
@@ -716,11 +738,12 @@ export function WithdrawScreen({
                 ? {
                     label: t.amount.balance.vault,
                     state: 'read',
-                    figure: usd(value),
+                    figure: usd(cents(value)),
                     obs: valueObs,
                   }
                 : undefined,
               chips: shareChips,
+              chipsLabel: a.out.chips,
               problem: priced && chosen === null ? typed.problem : null,
               note: priced ? null : a.out.noValue,
             }
@@ -761,7 +784,7 @@ export function WithdrawScreen({
             : everything || (way === 'dollars' && shareBps === 10_000)
               ? a.press.withdrawAll
               : priced && worth !== null
-                ? a.press.withdraw(usd(typed.amount ?? worth))
+                ? a.press.withdraw(usd(worth))
                 : a.press.withdrawShare(percent(shareBps ?? 0)),
         held: !valid,
         reasons: blocked,
@@ -802,3 +825,6 @@ function AssetCell({ asset, name }: { asset: string; name: string }) {
     </span>
   );
 }
+
+/** An amount of dollars cut down to the cent, never rounded up: what is shown is never more than there is. */
+const cents = (usd: number) => Math.floor(usd * 100 + 1e-6) / 100;

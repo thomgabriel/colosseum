@@ -317,6 +317,10 @@ function RecipeSection({
   // recipe is read again, and the person's amount and tick stay with them.
   const [amountText, setAmountText] = useState('');
   const [ticked, setTicked] = useState(false);
+  // the tick is the person's own: another person signed in on this page has not ticked it
+  const tickedBy = person.kind === 'ready' ? person.userId : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tickedBy` is whose tick it is
+  useEffect(() => setTicked(false), [tickedBy]);
   const setPressed = (now: boolean) => {
     setPressedHere(now);
     onRunning(now);
@@ -989,6 +993,8 @@ function FamilyDeposit({
       <div data-ui="review-follow" className="flex min-w-0 flex-col gap-4">
         <AmountCard
           mode="deposit"
+          // a follow moves no money: the card says what it does, not "Deposit"
+          title={t.shared.vaults.followWith}
           headingLevel={3}
           chain={recipe.chain}
           chainName={chainName}
@@ -996,7 +1002,7 @@ function FamilyDeposit({
           into={choice}
           field={null}
           preview={{
-            title: a.preview.deposit,
+            title: a.preview.targets,
             body: (
               <div className="flex flex-col gap-2">
                 <p className="text-body-sm [overflow-wrap:anywhere]">

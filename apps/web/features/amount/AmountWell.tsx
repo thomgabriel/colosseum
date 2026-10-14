@@ -202,21 +202,25 @@ export function AmountWell({
           ))}
         </ul>
       )}
-      {note && (
-        <p data-ui="amount-note" className="text-body-sm text-muted-foreground">
-          {note}
-        </p>
-      )}
-      {problem && (
-        <p
-          id={problemId}
-          data-ui="amount-problem"
-          className="flex items-start gap-1.5 text-body-sm text-destructive"
-        >
-          <StatusMark status="off-track" size={12} className="mt-1.5" />
-          <span>{problem}</span>
-        </p>
-      )}
+      {/* Always there and polite: what is wrong with the amount, or the quiet note, is heard as it
+          appears, by someone still in the field. */}
+      <div role="status" data-ui="amount-said" className="empty:hidden">
+        {note && (
+          <p data-ui="amount-note" className="text-body-sm text-muted-foreground">
+            {note}
+          </p>
+        )}
+        {problem && (
+          <p
+            id={problemId}
+            data-ui="amount-problem"
+            className="flex items-start gap-1.5 text-body-sm text-destructive"
+          >
+            <StatusMark status="off-track" size={12} className="mt-1.5" />
+            <span>{problem}</span>
+          </p>
+        )}
+      </div>
     </div>
   );
 }

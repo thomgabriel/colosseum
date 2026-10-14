@@ -1858,6 +1858,8 @@ export const pt: Dictionary = {
       label: 'Para',
       from: 'De',
       newVault: 'Novo cofre',
+      reading: 'Lendo seus cofres…',
+      ownOrNew: 'Seu cofre deste portfólio, ou um novo',
       follows: (name: string) => `${name} · segue este portfólio`,
       other: (name: string) => `${name} · passar a seguir este portfólio`,
     },
@@ -1883,6 +1885,7 @@ export const pt: Dictionary = {
     },
     preview: {
       deposit: 'Seu cofre vai ter',
+      targets: 'Os alvos dele passam a ser',
       asset: 'Ativo',
       weight: 'Peso',
       amount: 'Valor',
@@ -1904,6 +1907,9 @@ export const pt: Dictionary = {
       least: 'Mínimo',
       most: 'Máximo',
       slippage: 'Variação de preço',
+      tradeLimits: 'Limites por troca',
+      tradeLimitsValue:
+        'Cada troca também respeita o limite do próprio token, menor enquanto o preço dele não está ao vivo, e uma margem em relação a esse preço. A próxima etapa confere a ordem com eles.',
       slippageValue: (most: string) => `No máximo ${most} por troca`,
       fee: 'Taxa da rede',
       feeValue: (amount: string) => `Até ${amount}`,

@@ -285,7 +285,8 @@ export function VaultAction({
       data-ui="vault-action-pane"
       data-kind={open.kind}
       data-state={phase}
-      aria-labelledby={titleId}
+      // named by the amount card's title while the card heads the pane, by the pane's own after
+      {...(cardHeads ? { 'aria-label': words.title } : { 'aria-labelledby': titleId })}
       className="flex min-w-0 flex-col gap-4"
     >
       {!cardHeads && (
