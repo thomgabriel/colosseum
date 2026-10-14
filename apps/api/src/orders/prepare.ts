@@ -248,6 +248,8 @@ export type BuyPlan = {
   version?: number;
   /** What the review says about this buy, beside what any buy is told. */
   warnings?: Order['warnings'];
+  /** The vault the buy deposits into, where it is open already; left out where the buy opens one. */
+  into?: Address;
 };
 
 /** An add to a vault with auto-follow on only deposits: said on the order's review. */
@@ -592,6 +594,7 @@ async function buySteps(
     targets,
     steps,
     need: { cashRaw: deposit, legs: steps.length, newVault: !existing, newAccounts },
+    ...(existing ? { into: existing.address } : {}),
   };
 }
 
@@ -635,8 +638,15 @@ export async function expectedOf(
   return expected;
 }
 
-/** An order and the request it is stored with: the caller's, with what the order holds to filled in. */
-export type Prepared = { order: Order; request: IntentRequest };
+/**
+ * An order and the request it is stored with: the caller's, with what the order holds to filled in.
+ * `into` is the open vault a buy deposits into, which is shown again if its person had closed it.
+ */
+export type Prepared = {
+  order: Order;
+  request: IntentRequest;
+  into?: { chain: ChainId; address: string };
+};
 
 export async function prepareIntent(req: IntentRequest, ctx: PrepareContext): Promise<Order> {
   return (await prepareOrder(req, ctx)).order;
@@ -848,5 +858,9 @@ async function prepareBuy(
     createdAt: ctx.now,
     disclaimer: DISCLAIMER.en,
   };
-  return { order, request: plan.version === undefined ? req : { ...req, version: plan.version } };
+  return {
+    order,
+    request: plan.version === undefined ? req : { ...req, version: plan.version },
+    ...(plan.into ? { into: { chain: entry.chain, address: plan.into } } : {}),
+  };
 }

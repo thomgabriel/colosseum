@@ -822,7 +822,14 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
       creatorKind: 'community',
       platform: false,
       recipes: [
-        { id: 'r1', chain: 'solana', onchainId: published.onchainId, creator, versions: [] },
+        {
+          id: 'r1',
+          chain: 'solana',
+          network: 'testnet',
+          onchainId: published.onchainId,
+          creator,
+          versions: [],
+        },
       ],
     });
     if (opts.accept !== false)

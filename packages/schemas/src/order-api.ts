@@ -256,6 +256,42 @@ export const VaultNameResponse = z.object({
 });
 export type VaultNameResponse = z.infer<typeof VaultNameResponse>;
 
+/**
+ * The most an empty vault may still be worth and be closed (gate `VAULT-CLOSE-REUSE`): under a cent,
+ * the dust a withdrawal can leave. A vault worth this or more is withdrawn from first.
+ */
+export const CLOSE_DUST_USD = 0.01;
+
+/**
+ * POST /v1/vaults/{chain}/{address}/close and `/reopen`: a person closes an empty vault of theirs, or
+ * opens one again (gate `VAULT-CLOSE-REUSE`). Bookkeeping only: nothing is signed and nothing moves on
+ * chain. A closed vault is in none of the person's lists, sums or histories; a reopened one counts its
+ * figures from `reopenedAt` on.
+ */
+export const VaultLifetimeResponse = z.object({
+  chain: ChainId,
+  address: z.string(),
+  closedAt: z.string().datetime().nullable(),
+  reopenedAt: z.string().datetime().nullable(),
+});
+export type VaultLifetimeResponse = z.infer<typeof VaultLifetimeResponse>;
+
+/** A vault the person closed, as GET /v1/portfolio/closed lists it, newest close first. */
+export const ClosedVault = z.object({
+  chain: ChainId,
+  /** The chain's name as a person reads it. */
+  chainName: z.string(),
+  address: z.string(),
+  name: VaultName.nullable(),
+  /** Its number among the person's vaults (`VAULT-NUMBER`); left out where the server holds none. */
+  number: VaultNumber.optional(),
+  closedAt: z.string().datetime(),
+  provenance: Provenance,
+});
+export type ClosedVault = z.infer<typeof ClosedVault>;
+export const ClosedVaultsResponse = z.object({ vaults: z.array(ClosedVault) });
+export type ClosedVaultsResponse = z.infer<typeof ClosedVaultsResponse>;
+
 /** The path of GET /v1/vaults/{chain}/{address}: any vault, read from its chain. */
 export const VaultRouteParams = z.object({ chain: ChainId, address: z.string().min(1).max(64) });
 export type VaultRouteParams = z.infer<typeof VaultRouteParams>;
@@ -309,6 +345,11 @@ export const VaultResponse = z.object({
      * whose wallets owns the vault. Left out for anybody else, and where the server holds none.
      */
     number: VaultNumber.optional(),
+    /**
+     * When its owner closed it (gate `VAULT-CLOSE-REUSE`), answered to the owner alone, as the number
+     * is; null while it is open. Left out for anybody else.
+     */
+    closedAt: z.string().datetime().nullable().optional(),
     /** `why` only where the vault keeps a share in cash: its target, what the positions leave, is above 0. */
     cash: Holding.extend({ why: HoldingWhyField }),
     positions: z.array(VaultView.shape.positions.element.extend({ why: HoldingWhyField })),

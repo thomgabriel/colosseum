@@ -344,6 +344,12 @@ export const PortfolioPlan = z.object({
    */
   openedFor: z.object({ familyId: z.string(), slug: z.string(), name: z.string() }).nullable(),
   putIn: PlanPutIn.nullable(),
+  /**
+   * When the person last opened the vault again after closing it (gate `VAULT-CLOSE-REUSE`): its
+   * deposits, withdrawals, snapshots and status count from here, and nothing before it is added up.
+   * Null for a vault in its first life. Left out by a server that predates it.
+   */
+  countsFrom: z.string().datetime().nullable().optional(),
   newest: PlanNewest.nullable(),
   status: TrackStatus,
   follows: PlanFollows.nullable(),

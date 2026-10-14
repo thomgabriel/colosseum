@@ -1,5 +1,6 @@
 import {
   baskets,
+  chains,
   type Db,
   indexFamilies,
   legAttempts,
@@ -812,6 +813,8 @@ export async function loadFamilies(db: Db, chain: ChainId): Promise<Shelf['famil
     .from(recipeVersions)
     .innerJoin(recipes, eq(recipeVersions.recipeId, recipes.id))
     .innerJoin(indexFamilies, eq(recipes.familyId, indexFamilies.familyId))
+    // the recipes of the network the chain runs now (gate PRODUCTS-MAINNET-ONLY)
+    .innerJoin(chains, and(eq(chains.id, recipes.chainId), eq(chains.network, recipes.network)))
     .where(and(eq(recipes.chainId, chain), eq(recipeVersions.status, 'active')));
   const families = new Map<string, Shelf['families'][number]>();
   for (const { family, recipe, version } of rows) {

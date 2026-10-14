@@ -202,14 +202,19 @@ export const recipes = pgTable(
       .notNull()
       .references(() => indexFamilies.familyId),
     chainId: chainId(),
+    /**
+     * The network of the chain the recipe was published on (gate PRODUCTS-MAINNET-ONLY): a test
+     * network's recipe is never served while the chain runs mainnet, and a family may have one on each.
+     */
+    network: text('network').$type<Network>().notNull(),
     onchainId: text('onchain_id'),
     creator: text('creator').notNull(),
     kind: text('kind').$type<'community' | 'personal'>().notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [
-    unique('recipes_family_chain_key').on(t.familyId, t.chainId),
-    unique('recipes_chain_onchain_key').on(t.chainId, t.onchainId),
+    unique('recipes_family_chain_network_key').on(t.familyId, t.chainId, t.network),
+    unique('recipes_chain_network_onchain_key').on(t.chainId, t.network, t.onchainId),
   ],
 );
 
@@ -381,6 +386,30 @@ export const vaultNumbers = pgTable(
     unique('vault_numbers_user_number_key').on(t.userId, t.number),
     check('vault_numbers_number_positive', sql`${t.number} > 0`),
   ],
+);
+
+/**
+ * Whether a person has closed a vault, and since when it counts again (gate `VAULT-CLOSE-REUSE`). A
+ * close is bookkeeping: nothing moves on chain, and the vault stays there, empty. A closed vault is in
+ * none of the person's lists, sums or histories until it is reopened; a reopened one counts its
+ * deposits, withdrawals and snapshots from `reopened_at` on, so a new life does not carry the old
+ * one's figures. Named by chain and address, as `vault_numbers` is, and not hung off the cache row,
+ * which is rewritten on every read. No row is the same as open, counted from the start.
+ */
+export const vaultLifetimes = pgTable(
+  'vault_lifetimes',
+  {
+    chainId: chainId(),
+    address: text('address').notNull(),
+    /** When its owner closed it; null while it is open. */
+    closedAt: ts('closed_at'),
+    /** Who closed it, among the people the server holds. */
+    closedBy: uuid('closed_by').references(() => users.id, { onDelete: 'set null' }),
+    /** When it was last opened again; its figures count from here. Null for a first life. */
+    reopenedAt: ts('reopened_at'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.chainId, t.address] })],
 );
 
 /**

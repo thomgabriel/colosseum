@@ -1,6 +1,19 @@
 # apps/mcp
 
-Tenonfi's MCP server (AGT-2, `docs/vault/DESIGN-VAULT.md` section 12): seven tools on the API, over stateless Streamable HTTP at `/mcp`, with no login. It reaches the API only through `@colosseum/sdk`'s client, and the tools' schemas are cut from the API's OpenAPI document (`packages/sdk/openapi.json`).
+Tenonfi's MCP server (AGT-2, `docs/vault/DESIGN-VAULT.md` section 12): eight tools on the API, over stateless Streamable HTTP at `/mcp`, with no login. It reaches the API only through `@colosseum/sdk`'s client, and the tools' schemas are cut from the API's OpenAPI document (`packages/sdk/openapi.json`).
+
+| Tool | What it reads or does | Route |
+|---|---|---|
+| `get_chains` | the chains, each with its mode and provenance, and the switches | `GET /v1/config` |
+| `get_portfolio` | a vault by its chain and address, or the signed-in person's own | `GET /v1/vaults/{chain}/{address}`, `GET /v1/portfolio` |
+| `build_plan` | a plan from a goal sheet, and the link the person approves it at | `POST /v1/baskets/propose` |
+| `get_shared_portfolios` | the shelf, or one shared portfolio by its slug; the creator's words under `untrusted` | `GET /v1/shelf`, `GET /v1/indexes/{slug}` |
+| `prepare_order` | checks a plan or a shared portfolio and answers the page the person signs a buy or a follow on | `GET /v1/baskets/{id}`, `GET /v1/indexes/{slug}` |
+| `get_order_status` | an order and its steps, with the person's sign-in; otherwise the link | `GET /v1/orders/{id}` |
+| `get_asset_risk` | Bearing's fact sheet for one asset at a trade size | `GET /risk/facts/assets/{id}` |
+| `get_asset_facts` | the facts the server holds of one listed asset (`chain`, `assetId`, `parts`, `window`): profile, price history, pools, lending, Bearing; each fact with its source, time, method and provenance, the ones not measured with why, a `plate` when figures are MOCK, a test network or recorded, and the disclaimer. An id of another chain than `chain` is refused before the API is asked | `GET /v1/assets/{id}/facts` |
+
+Every tool but `build_plan`, which stores a plan, is read-only.
 
 It never signs. `build_plan` and `prepare_order` answer a link; the person opens it in the app, signed in, reviews every step and signs with their own wallet. A client that holds a person's sign-in may send it in the two headers the API reads (`Authorization: Bearer` and `privy-id-token`); those two are passed to the API as they came, and nothing else of the request.
 
