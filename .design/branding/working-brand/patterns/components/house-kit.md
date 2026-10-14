@@ -15,4 +15,6 @@ The one way to build a screen: the pieces of Rodrigo's portfolio overview (`feat
 | `Plate` | The quiet pill that says the figures are not live | honey edge at 60% on its tint, ink text, `text-caption` |
 | `KitTable`, `KitTh`, `KIT_ROW`, `KIT_CELL`, `KIT_NUMERIC`, `KIT_ROW_LINK`, `KIT_ABOVE_LINK` | The table a panel holds | across the panel, in a scrolling box with a minimum width; always named (`caption`, `label` or `labelledBy`); small muted heads; a hairline over each row; cells 20px by 16px; figures right-aligned and tabular (`KIT_NUMERIC`); a row that opens something stretches its link over the row (`KIT_ROW_LINK`), and its pins and controls sit over it (`KIT_ABOVE_LINK`); a row tints on hover and focus |
 
-Pins, status pills (`Status`), chain chips (`ChainBadge`) and `ProvenancePin` sit in these as they do on the overview.
+Pins, status pills (`Status`), chain chips (`ChainBadge`) and `ProvenancePin` sit in these as they do on the overview. The PnL period chip and the delta chip beside a figure stay in the overview for now; a second screen that needs them moves them into the kit.
+
+What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Bearing's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head.

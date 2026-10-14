@@ -32,7 +32,7 @@ New screens are built from the house kit (gate `HOUSE-KIT`, Thom, Oct 13): the p
 
 Pins, `Status` pills and `ChainBadge` chips sit in them as on the overview. A screen that needs a piece the kit does not have adds it to the kit, with a showcase specimen; it does not style its own. Spec: [components/house-kit.md](./components/house-kit.md).
 
-What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Bearing's dense data rows (data-table.md); `MockPlate` and the hatched edge for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head, as the overview does.
+What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Bearing's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head, as the overview does.
 
 ---
 

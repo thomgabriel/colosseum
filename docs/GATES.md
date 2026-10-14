@@ -547,7 +547,7 @@ Thom, after seeing three screens each read the portfolio overview differently: "
 
 | Gate | Status | Decision | Facts |
 |---|---|---|---|
-| **HOUSE-KIT** — how a screen is built | DECIDED (Thom, 2026-10-13) | The portfolio overview's pieces are the house kit, in `components/ui`: `Panel`, `PanelHead`, `HeroFigure`, `StatGrid` / `PanelStat`, `Plate`, `KitTable` (with `KitTh`, `KIT_ROW`, `KIT_CELL`, `KIT_PINNED`). Every screen is built from them; a missing piece is added to the kit, not styled on a screen. The overview is drawn with them and looks as before | STYLE.md "The house kit"; spec `patterns/components/house-kit.md`; a specimen on `/dev/ui`. The overview's screenshots at 1440 and 375, light and dark, compared with staging's pixel for pixel: three identical, one differing in the 386 pixels by which staging also differs from itself between runs (the first row's link) |
+| **HOUSE-KIT** — how a screen is built | DECIDED (Thom, 2026-10-13) | The portfolio overview's pieces are the house kit, in `components/ui`: `Panel`, `PanelHead`, `HeroFigure`, `StatGrid` / `PanelStat`, `Plate`, `PanelBody`, `KitTable` (with `KitTh`, `KIT_ROW`, `KIT_CELL`, `KIT_NUMERIC`, `KIT_ROW_LINK`, `KIT_ABOVE_LINK`; always named). Every screen is built from them; a missing piece is added to the kit, not styled on a screen. The overview is drawn with them and looks as before | STYLE.md "The house kit"; spec `patterns/components/house-kit.md`; a specimen on `/dev/ui`. The overview's screenshots at 1440 and 375, light and dark, compared with staging's pixel for pixel: all four identical (#280) |
 
 ## Decided on 2026-10-13 (Thom, more tokens on Robinhood Chain mainnet)
 

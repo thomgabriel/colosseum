@@ -27,7 +27,7 @@ export function KitTable({
   minWidth?: string;
   /** The head's cells (`KitTh`). */
   head: ReactNode;
-  /** The rows (`KitTr`). */
+  /** The rows: `<tr className={KIT_ROW}>` with `KIT_CELL` cells. */
   children: ReactNode;
 } & KitTableName) {
   return (
