@@ -14,7 +14,7 @@ import {
 } from './chain';
 import { ChainErrorCode } from './chain-error';
 import { Provenance } from './enums';
-import { RecipeDraft, Target } from './recipe';
+import { RecipeDraft, Target, VAULT_MAX_TARGETS } from './recipe';
 import { Trade } from './vault';
 import { WalletAccount } from './wallet';
 
@@ -482,7 +482,7 @@ export const IntentRequest = z.discriminatedUnion('type', [
      * by `POST /v1/vaults/{chain}/{address}/rebalance`, which sets none. `POST /v1/orders` plans no
      * rebalance yet.
      */
-    targets: z.array(Target).max(16).optional(),
+    targets: z.array(Target).max(VAULT_MAX_TARGETS).optional(),
     /** With `targets`: the slippage the order's trades are built with. */
     maxSlippageBps: Bps.max(ORDER_LIMITS.maxSlippageBps).optional(),
   }),

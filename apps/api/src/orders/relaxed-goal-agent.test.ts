@@ -100,7 +100,12 @@ const STATED = {
   risk: null,
 };
 
-async function run(model: ModelReply, words: string | string[], ctx = context()) {
+async function run(
+  model: ModelReply,
+  words: string | string[],
+  ctx = context(),
+  language: 'en' | 'pt' = 'en',
+) {
   const calls: unknown[] = [];
   const agent = createRelaxedGoalAgent({
     apiKey: 'placeholder',
@@ -131,7 +136,7 @@ async function run(model: ModelReply, words: string | string[], ctx = context())
   const result = await agent.reply(
     {
       version: 1,
-      language: 'en',
+      language,
       messageId: 'm1',
       messages: texts.flatMap((text, i) => [
         ...(i ? [{ who: 'app' as const, text: 'Noted.' }] : []),
@@ -965,6 +970,19 @@ describe('relaxed intake: the most a vault holds', () => {
     expect(reply.proposal).toBeNull();
     expect(reply.message).toBe(
       'That names 18 holdings, and a vault holds at most 16 besides cash. Tell me which to keep, or ask for a shorter list.',
+    );
+  });
+  it('says it in the person’s language', async () => {
+    const stocks = many(18);
+    const reply = await run(
+      { shape: 'pick', lines: stocks.map((a) => line(a.id)) },
+      'toda a tecnologia que vocês têm',
+      ctx(stocks),
+      'pt',
+    );
+    expect(reply.proposal).toBeNull();
+    expect(reply.message).toBe(
+      'Isso dá 18 ativos, e um cofre guarda no máximo 16 além do caixa. Diga quais manter, ou peça uma lista menor.',
     );
   });
 });

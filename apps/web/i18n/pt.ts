@@ -1,3 +1,4 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import type { Dictionary } from './en';
 
 // The same sentences as en.ts, as a Brazilian reads them: "você", answer first, no exclamation marks.
@@ -2474,9 +2475,9 @@ export const pt: Dictionary = {
       remove: (name: string) => `Remover ${name}`,
       weight: (name: string) => `Peso de ${name}`,
       cash: (share: string) => `Caixa: ${share}`,
-      lines: (n: number) => `${n} de 16 ativos`,
+      lines: (n: number) => `${n} de ${VAULT_MAX_TARGETS} ativos`,
       issues: {
-        'too-many': 'Um cofre guarda 16 ativos além do caixa. Remova um.',
+        'too-many': `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa. Remova um.`,
         duplicate: 'Cada ativo uma vez. Remova a repetição.',
         'cash-line': 'O caixa é o que os outros deixam. Remova-o como linha.',
         'not-whole': 'Use porcentagens com até duas casas decimais, ou pontos-base inteiros.',
@@ -2516,7 +2517,7 @@ export const pt: Dictionary = {
         case 'SUM_NOT_10000':
           return 'Os pesos não somam o todo.';
         case 'TOO_MANY_LINES':
-          return 'Um cofre guarda 16 ativos além do caixa.';
+          return `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa.`;
         case 'NO_PRICE':
           return `${asset} não tem um preço usável agora.`;
         case 'NOT_FOR_GOAL':
