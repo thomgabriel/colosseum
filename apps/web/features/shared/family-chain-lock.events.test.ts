@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement, useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { click, find, mount, settle, unmountAll } from '../../components/ui/test/dom';
+import { click, find, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { useAccount } from '../account/AccountProvider';
 import { withAccount } from '../account/test/screen';
@@ -115,6 +115,19 @@ const radios = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLInputElement>('[data-ui="family-chain"] input[type="radio"]'),
 ];
 const checked = (host: HTMLElement) => radios(host).find((r) => r.checked)?.value;
+/**
+ * The amount card's press (gate AMOUNT-CARD): an amount, the trust notice ticked, and the amount
+ * handed to the invest card, which is the stand-in. The run itself starts with the stand-in's press.
+ */
+const enter = async (host: HTMLElement) => {
+  await type(find<HTMLInputElement>(host, '[data-ui="amount-well"] input'), '100');
+  const box = host.querySelector<HTMLInputElement>(
+    '[data-ui="amount-trust"] input[type="checkbox"]',
+  );
+  if (box && !box.checked) await click(box);
+  await click(find(host, 'button[data-action="amount-deposit"]'));
+  await settle(50);
+};
 const showOther = (host: HTMLElement) => find(host, '[data-ui="vaults-elsewhere"] button');
 
 beforeEach(() => {
@@ -130,7 +143,7 @@ describe('a portfolio’s page while a deposit runs', () => {
   const page = async () => {
     const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
     for (let i = 0; i < 6; i += 1) await settle(50);
-    await click(find(host, '[data-ui="amount-field"] input, input[inputmode="decimal"]'));
+    await enter(host);
     return host;
   };
 
@@ -183,6 +196,7 @@ describe('a portfolio’s page while a deposit runs', () => {
     );
     for (let i = 0; i < 6; i += 1) await settle(50);
     expect(checked(host)).toBe('robinhood');
+    await enter(host);
     await click(find(host, '[data-act="press"]'));
     await act(async () => {
       await choose('solana');

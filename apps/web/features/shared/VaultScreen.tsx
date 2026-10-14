@@ -468,6 +468,18 @@ function OwnVault({
           leave();
           onReadAgain();
         }}
+        // Deposit | Withdraw on the amount card, where the vault holds something to withdraw.
+        {...(!empty && (open.kind === 'deposit' || open.kind === 'withdraw')
+          ? {
+              onMode: (mode: 'deposit' | 'withdraw') =>
+                start(
+                  mode,
+                  mode === 'deposit'
+                    ? '[data-action="vault-deposit"]'
+                    : '[data-action="vault-withdraw"]',
+                ),
+            }
+          : {})}
       />
     ),
   };

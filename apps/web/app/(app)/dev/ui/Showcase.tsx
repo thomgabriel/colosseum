@@ -872,6 +872,11 @@ export function Showcase() {
               <StatGrid>
                 <PanelStat label="Vaults">3</PanelStat>
                 <PanelStat label="Net deposited">$12,000.00</PanelStat>
+                <PanelStat label="Goes to" wide>
+                  <span className="font-mono text-source">
+                    So1anaWa11et1111111111111111111111111111111
+                  </span>
+                </PanelStat>
               </StatGrid>
             </PanelBody>
           </Panel>
