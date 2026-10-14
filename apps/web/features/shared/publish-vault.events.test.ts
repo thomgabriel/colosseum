@@ -262,6 +262,18 @@ describe('sharing a selected vault strategy', () => {
     });
     expect(router.push).toHaveBeenCalledOnce();
   });
+  it('marks only the card with figures as not live, once, and names where the targets were read (the UI audit, G9)', async () => {
+    api();
+    const host = await show();
+    const form = find(host, `section[aria-label="${en.shared.publish.about}"]`);
+    expect(form.querySelector('[data-ui="sample-tag"]')).toBeNull();
+    const assets = find(host, `section[aria-label="${en.shared.publish.assets}"]`);
+    const tags = [...assets.querySelectorAll('[data-ui="sample-tag"]')].map((t) => t.textContent);
+    expect(tags).toHaveLength(1);
+    expect([en.shell.testNetworkLine, en.shell.mockAnnounce]).toContain(tags[0]);
+    // and no line of where the targets were read from (gate SOURCE-LINES)
+    expect(assets.textContent).not.toMatch(/read from/i);
+  });
   it('preserves the existing reviewed update terms after rereading the current recipe', async () => {
     let version = 2;
     const calls = api({

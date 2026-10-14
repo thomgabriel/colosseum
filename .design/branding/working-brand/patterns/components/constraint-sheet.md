@@ -28,7 +28,7 @@ Capital (USD, from USDC/USDT in your wallet) [1.000]      [ Build my plan ]   �
 - Wrapper: [card](./card.md) (`rounded-lg p-6`), fields grouped in `<fieldset>` with `<legend>` (Inter 500 caption, 12px uppercase +0.04em, muted) and a 1px `--border` rule.
 - Fields: [field.md](./field.md). Human labels and option names (`monthly_cashflow` → "Monthly income", `accept_fx` → "Accept FX risk"); the schema key is available in a `title`/dev tooltip only.
 - Fields changed by the person vs the parser get the "edited" marker (6px honey square + "edited").
-- Source line: `parser: {method} ({model}) · fetched_at` in Plex Mono muted. If the parser was a fixture or mock, the sheet card keeps a 6px hatched left edge and this source line reads "Sample reading · parser fixture" in muted, no box ([mock-plate.md](./mock-plate.md), gate MOCK-QUIET).
+- Source line: `parser: {method} ({model}) · fetched_at` in Plex Mono muted. If the parser was a fixture or mock, this source line carries the hatched sample glyph and reads "Sample reading · parser fixture" in muted, no box ([mock-plate.md](./mock-plate.md), gate MOCK-QUIET).
 
 ## Validation states
 

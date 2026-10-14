@@ -23,7 +23,7 @@
 | Hover (interactive card only) | edge line-l → line-l2 (line → line-2). No lift, no shadow. Whole-card links use one `<a>` on the title with a stretched `::after` |
 | Focus-within | 2px chalk ring on the card, following the 10px radius |
 | Selected | tint-rise: `bg-accent` (honey at 14% over the ground) plus `aria-current` or `aria-selected`. No inset shadow, no honey outline |
-| Sample / test network | the card's 6px hatched left edge + one muted sample line ("Sample figures" / "Sample figures · test network"), no box; figures keep the hatched pin ([mock-plate.md](./mock-plate.md), gate MOCK-QUIET). Never a hatched body |
+| Sample / test network | one quiet tag in the card's top-right corner ("Sample figures" / "Test network"): after the header's meta when the card opens with a header, else in a line of its own; drawn as the portfolio overview's plate (a pill on the honey tint). Only on a card that holds figures. Figures keep the hatched pin ([mock-plate.md](./mock-plate.md), gate MOCK-QUIET, amended Oct 13). No hatched edge, no foot line, never a hatched body |
 | Loading | the 3-segment honey loader + a label inside the body, `role="status"` |
 | Empty | one sentence + one action. No pattern fill |
 

@@ -57,8 +57,6 @@ export type DepositCardProps = {
   blocked: readonly string[];
   /** Over the button, never folded: a read that failed or differs. */
   notice?: ReactNode;
-  /** Where what is deposited into was read, in the details. */
-  source?: ReactNode;
   /** A quiet line under the button, and under the order once pressed: where the vault was read. */
   foot?: ReactNode;
   /** The amount the card opens with, as typed. */
@@ -108,7 +106,6 @@ export function DepositCard({
   onMode,
   blocked,
   notice,
-  source,
   foot,
   initialText = '',
   entry,
@@ -281,7 +278,6 @@ export function DepositCard({
           },
         ]
       : []),
-    ...(source ? [{ term: a.details.source, value: source, wide: true }] : []),
   ];
 
   const balanceFigure = read ? shownBalance(read.cash.amount, read.cash.symbol, locale) : '';

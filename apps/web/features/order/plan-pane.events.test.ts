@@ -401,7 +401,7 @@ describe('the allocation, as the picture', () => {
     expect(more.querySelector('[data-ui="exit-plan-line"]')).toBeNull();
     expect(find(host, '[data-ui="plan-legs"] [data-ui="exit-plan-line"]')).toBeTruthy();
     // and the holdings' panel carries the sample mark on its figures, as the board does
-    expect(find(host, '[data-ui="plan-legs"] [data-ui="sample-note"]')).toBeTruthy();
+    expect(find(host, '[data-ui="plan-legs"] [data-ui="sample-tag"]')).toBeTruthy();
     expect(find(more, 'summary').textContent).toBe(en.plan.aboutHoldings);
     const fold = find(more, '[data-ui="plan-why"]');
     expect(find(fold, 'h3').textContent).toBe(en.plan.whyShares);

@@ -1927,7 +1927,6 @@ export const pt: Dictionary = {
       slippageValue: (most: string) => `No máximo ${most} por troca`,
       fee: 'Taxa da rede',
       feeValue: (amount: string) => `Até ${amount}`,
-      source: 'Lido de',
       to: 'Para',
     },
     trust: {

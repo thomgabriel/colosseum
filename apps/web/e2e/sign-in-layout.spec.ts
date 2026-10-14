@@ -241,7 +241,11 @@ for (const size of SIZES)
         ),
       ]
         .map((el) => el.getBoundingClientRect())
-        .filter((r) => r.bottom > 0 && r.top < window.innerHeight && r.width > 0)
+        // the middle in the window: a point below it hits nothing, whatever paints there
+        .filter((r) => {
+          const middle = r.top + r.height / 2;
+          return middle >= 0 && middle < window.innerHeight && r.width > 0;
+        })
         .map((r) => {
           const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
           return hit?.closest('[data-ui="sign-in-dialog"]')

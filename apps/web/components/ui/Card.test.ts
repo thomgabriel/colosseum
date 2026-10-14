@@ -13,8 +13,9 @@ describe('Card (card.md)', () => {
     expect(list).toEqual(
       expect.arrayContaining(['bg-card', 'border', 'border-border', 'rounded-lg']),
     );
+    // the sample tag is the portfolio overview's plate, not part of the card's face
     for (const node of Object.values(card))
-      for (const el of all(render(node)))
+      for (const el of all(render(node), (e) => !ui('sample-tag')(e)))
         expect(classes(el).join(' ')).not.toMatch(
           /shadow|rounded-(md|xl|2xl|full|none)\b|backdrop|\b(bg|border)-[a-z0-9-]+\/\d+/,
         );
@@ -51,40 +52,57 @@ describe('Card (card.md)', () => {
     expect(c.attrs['aria-current']).toBe('page');
   });
 
-  it('when mocked draws the hatch band on its edge and one quiet line, never the word MOCK', () => {
+  it('when mocked says so in one quiet tag in its top-right corner: no hatch, never the word MOCK', () => {
     const { tree, card: c } = root(card.mock);
-    expect(all(c, ui('hatch-band'))).toHaveLength(1);
-    const line = one(tree, ui('sample-note'));
-    expect(text(line)).toBe('Sample figures');
-    expect(classes(line)).toEqual(
-      expect.arrayContaining(['text-sample-line', 'text-sample-foreground']),
+    const tag = one(tree, ui('sample-tag'));
+    expect(text(tag)).toBe('Sample figures');
+    // drawn as the portfolio overview's plate for figures that are not live (OverviewPage's
+    // `board-plate`): a pill on the honey tint with a honey edge, ink text at caption size; no status hue
+    expect(classes(tag)).toEqual(
+      expect.arrayContaining([
+        'rounded-full',
+        'border',
+        'border-primary/60',
+        'bg-honey-tint',
+        'px-2.5',
+        'py-0.5',
+        'text-caption',
+        'font-medium',
+        'text-foreground',
+      ]),
     );
+    expect(classes(tag).join(' ')).not.toMatch(/status|leaf|clay|madder/);
+    // in the header's row, at its right, after the meta
+    const header = one(tree, ui('card-header'));
+    expect(all(header, ui('sample-tag'))).toHaveLength(1);
+    expect(text(header).endsWith('as of 14:02 UTC' + 'Sample figures')).toBe(true);
+    expect(all(c, ui('sample-tag-row'))).toHaveLength(0);
+    // the hatched edge and the foot line are gone
+    expect(all(tree, (e) => classes(e).includes('tf-hatch'))).toHaveLength(0);
+    expect(all(tree, ui('hatch-band'))).toHaveLength(0);
+    expect(all(tree, ui('sample-note'))).toHaveLength(0);
     expect(text(tree)).not.toContain('MOCK');
-    expect(classes(c)).not.toContain('tf-hatch');
-    expect(all(tree, (e) => classes(e).includes('tf-hatch') && text(e) !== '')).toHaveLength(0);
-    // with nothing inside it but a body, and with nothing at all: the card needs no help
+    // with nothing inside it but a body, and with nothing at all: the tag has a row of its own, first
     for (const node of [card.mockBody, card.mockEmpty]) {
       const bare = root(node);
-      expect(all(bare.card, ui('hatch-band'))).toHaveLength(1);
-      expect(all(bare.card, ui('sample-note'))).toHaveLength(1);
+      expect(all(bare.card, ui('sample-tag'))).toHaveLength(1);
+      expect(bare.card.children[0]).toMatchObject({ attrs: { 'data-ui': 'sample-tag-row' } });
+      expect(text(one(bare.card, ui('sample-tag')))).toBe('Sample figures');
     }
-    // the line is at the foot: a body is still the first thing in the card
-    const body = one(root(card.mockBody).tree, ui('card-body'));
-    expect(body.parent?.children[0]).toBe(body);
-    expect(body.parent?.parent?.children.at(-1)).toMatchObject({
-      attrs: { 'data-ui': 'sample-note' },
-    });
+    // a live card has no tag, and draws its header as it always has
+    for (const node of [card.plain, card.dense, card.interactive, card.selected, card.table]) {
+      const live = root(node);
+      expect(all(live.tree, ui('sample-tag'))).toHaveLength(0);
+      expect(all(live.tree, ui('sample-tag-row'))).toHaveLength(0);
+    }
   });
 
-  it('says its line in the language it is told, with the test network after it', () => {
+  it('says its tag in the language it is told, with the test network after it', () => {
     const told = root(card.mockNoted);
-    expect(text(one(told.tree, ui('sample-note')))).toBe('Números de exemplo · rede de teste');
-    expect(all(told.card, ui('hatch-band'))).toHaveLength(1);
-    expect(all(told.tree, (e) => classes(e).includes('tf-hatch') && text(e) !== '')).toHaveLength(
-      0,
-    );
+    expect(text(one(told.tree, ui('sample-tag')))).toBe('Números de exemplo · rede de teste');
+    expect(all(told.tree, (e) => classes(e).includes('tf-hatch'))).toHaveLength(0);
     // with no note, no note
-    expect(text(one(root(card.mockTold).tree, ui('sample-note')))).toBe('Números de exemplo');
+    expect(text(one(root(card.mockTold).tree, ui('sample-tag')))).toBe('Números de exemplo');
   });
 
   it('has the same 10px corners as a table panel', () => {

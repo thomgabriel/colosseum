@@ -2174,7 +2174,6 @@ export const en = {
       slippageValue: (most: string) => `At most ${most} a trade`,
       fee: 'Network fee',
       feeValue: (amount: string) => `Up to ${amount}`,
-      source: 'Read from',
       to: 'To',
     },
     trust: {
