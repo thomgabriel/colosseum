@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { DISCLAIMER } from '@colosseum/schemas';
 import { familyIdOf } from '@colosseum/sdk';
 import openapi from '@colosseum/sdk/openapi.json' with { type: 'json' };
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -229,6 +230,65 @@ describe('the MCP tools against the API, held to its OpenAPI document', () => {
     });
   });
 
+  it('reads the facts of a listed asset, each with its source, time and method, labelled MOCK on the mock', async () => {
+    const server = mcp();
+    const parts = ['profile', 'price_history', 'pools', 'lending', 'bearing'];
+    const read = ok(
+      await callTool(server, 'get_asset_facts', {
+        chain: 'solana',
+        assetId: 'solana:nvda',
+        parts,
+        window: '24h',
+      }),
+    );
+    expect(read).toMatchObject({
+      assetId: 'solana:nvda',
+      chain: 'solana',
+      provenance: 'mock',
+      window: '24h',
+      disclaimer: DISCLAIMER.en,
+    });
+    expect(read.plate).toMatch(/^MOCK: /);
+    const answered = read.parts as Record<
+      string,
+      { facts: Record<string, unknown>[]; missing: { reason: string }[] }
+    >;
+    expect(Object.keys(answered).sort()).toEqual([...parts].sort());
+    for (const part of Object.values(answered)) {
+      for (const fact of part.facts) {
+        expect(fact).toMatchObject({ provenance: 'mock' });
+        for (const key of ['source', 'method', 'fetchedAt', 'label', 'unit'])
+          expect(fact[key], `${String(fact.id)} ${key}`).toBeTruthy();
+      }
+      for (const gap of part.missing) expect(gap.reason).toBeTruthy();
+    }
+    // something is said of the asset: a fact, or a figure not measured with its reason, never a zero
+    const said = Object.values(answered).flatMap((part) => [...part.facts, ...part.missing]);
+    expect(said.length).toBeGreaterThan(0);
+    // the default window, and every part when none is named
+    const all = ok(
+      await callTool(server, 'get_asset_facts', { chain: 'solana', assetId: 'solana:nvda' }),
+    );
+    expect(all.window).toBe('7d');
+    expect(Object.keys(all.parts as object).sort()).toEqual([...parts].sort());
+    // an asset of another chain is refused before the API is asked; one not listed is the API's 404
+    const before = exchanges.length;
+    const other = await callTool(server, 'get_asset_facts', {
+      chain: 'robinhood',
+      assetId: 'solana:nvda',
+    });
+    expect(failureOf(other).code).toBe('INVALID_INPUT');
+    expect(exchanges).toHaveLength(before);
+    const unknown = await callTool(server, 'get_asset_facts', {
+      chain: 'solana',
+      assetId: 'solana:not-listed',
+    });
+    expect(failureOf(unknown)).toMatchObject({
+      status: 404,
+      error: 'no listed asset with that id',
+    });
+  });
+
   it('sent only routes of the document, as its schemas take them, and was answered as they say', () => {
     expect(exchanges.length).toBeGreaterThan(10);
     for (const ex of exchanges) {
@@ -262,6 +322,7 @@ describe('the MCP tools against the API, held to its OpenAPI document', () => {
         'GET /v1/portfolio',
         'GET /v1/vaults/{chain}/{address}',
         'GET /v1/orders/{id}',
+        'GET /v1/assets/{id}/facts',
       ]),
     );
   });

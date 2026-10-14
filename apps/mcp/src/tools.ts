@@ -6,9 +6,9 @@ import {
 } from '@colosseum/sdk';
 import { type CallToolResult, fromJsonSchema, type McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { bodyOf, type JsonSchema, objectOf, propertyOf, responseOf } from './contract';
+import { bodyOf, type JsonSchema, objectOf, parameterOf, propertyOf, responseOf } from './contract';
 
-// The seven tools (AGT-2, DESIGN-VAULT section 12). Each reads the API through the SDK's client, or
+// The eight tools (AGT-2, DESIGN-VAULT section 12). Each reads the API through the SDK's client, or
 // asks it to make a plan; none signs, builds a transaction or holds a key. What a person's money does is
 // decided in the app: a tool that prepares something answers a link, and the person opens it, reviews
 // every step and signs there with their own wallet.
@@ -94,6 +94,41 @@ function shown(family: Family, appUrl: string): Json {
   };
 }
 
+type Facts = Awaited<ReturnType<TenonfiClient['assetFacts']>>;
+type FactsPart = keyof Facts['parts'];
+type FactsWindow = Facts['window'];
+
+const FACTS = 'GET /v1/assets/{id}/facts';
+/** The parts and windows of an asset's facts, and the form of its id, as the API's document has them. */
+const FACT_PARTS = Object.keys(
+  propertyOf(responseOf(FACTS), 'parts').properties as object,
+) as FactsPart[];
+const FACT_WINDOWS = parameterOf(FACTS, 'query', 'window').enum as FactsWindow[];
+const ASSET_ID = new RegExp(parameterOf(FACTS, 'path', 'id').pattern as string);
+
+/**
+ * What an asset's figures are when they are not live, in words an agent repeats: MOCK for a chain on the
+ * mock, the test network (and the mainnet token its facts are read from) for a test-network token, and
+ * recorded data for a fixture. Nothing when every figure is live.
+ */
+function plateOf(facts: Facts): string | undefined {
+  const parts = Object.values(facts.parts).filter((part) => part !== undefined);
+  const seen = new Set([
+    facts.provenance,
+    ...parts.flatMap((p) => p.facts.map((f) => f.provenance)),
+  ]);
+  const models = [...new Set(parts.map((p) => p.modelledOn).filter((m) => m !== null))];
+  const said: string[] = [];
+  if (seen.has('mock')) said.push('MOCK: sample figures from a chain on the mock, not live.');
+  if (seen.has('sandbox'))
+    said.push(
+      `Test network: not live${models.length > 0 ? `; the figures are those of the mainnet token ${models.join(', ')}` : ''}.`,
+    );
+  if (seen.has('fixture') || seen.has('prior_dataset'))
+    said.push('Recorded data: some figures come from a recorded dataset, not a live read.');
+  return said.length > 0 ? said.join(' ') : undefined;
+}
+
 /** A link into the app. */
 const linkTo = (appUrl: string, path: string) => new URL(path, appUrl).toString();
 
@@ -118,6 +153,7 @@ export const TOOL_NAMES = [
   'prepare_order',
   'get_order_status',
   'get_asset_risk',
+  'get_asset_facts',
 ] as const;
 
 export function registerTools(server: McpServer, ctx: ToolContext): void {
@@ -375,5 +411,71 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       annotations: readOnly,
     },
     ({ asset, sizeUsd }) => calling(async () => answer(await api.assetRisk(asset, sizeUsd))),
+  );
+
+  const facts = responseOf(FACTS);
+  server.registerTool(
+    'get_asset_facts',
+    {
+      title: 'Read the facts Tenonfi holds of one listed asset',
+      description:
+        'The facts the server holds of one listed asset of a chain, by its id (`solana:nvdax`, the chain first): `profile` (the newest reading of each metric: supply, the issuer’s supply, the twenty largest holders’ share, pool TVL, DEX volume over a day, protocol TVL, exchange rate, each yield reading), `price_history` over `window` (latest close, high, low, the change from the window’s first close to its last, volume, swaps, the hours with no priced swap), `pools` (its pools by dollars held, at most five), `lending` (per market: supply and borrow rate, the share lent out, what can be withdrawn now) and `bearing` (Bearing’s exit, liquidity and market figures). Every part when `parts` is left out; 7 days when `window` is. Each fact has its id, what it measures (`label`), value, unit, source, method, `fetchedAt` and `provenance`; one not measured is under `missing` with its reason, never zero. `plate` says when figures are MOCK, a test network or recorded: say so with them. A change over a window is a past figure, never a forecast or a return. One named asset per call; no ranking.',
+      inputSchema: z.object({
+        chain: z.enum(CHAINS).describe('The chain the asset is listed on; the id starts with it.'),
+        assetId: z
+          .string()
+          .regex(ASSET_ID, 'an asset id is its chain, a colon and its slug, such as solana:nvdax')
+          .describe('The asset’s id, such as solana:nvdax.'),
+        parts: z
+          .array(z.enum(FACT_PARTS as [FactsPart, ...FactsPart[]]))
+          .min(1)
+          .optional()
+          .describe('The parts to read; every part when left out.'),
+        window: z
+          .enum(FACT_WINDOWS as [FactsWindow, ...FactsWindow[]])
+          .optional()
+          .describe('The window of the price history; 7d when left out.'),
+      }),
+      outputSchema: fromJsonSchema(
+        objectOf(
+          {
+            ...(facts.properties as Record<string, JsonSchema>),
+            plate: { type: 'string' },
+            next: { type: 'string' },
+          },
+          ['plate'],
+        ),
+      ),
+      annotations: readOnly,
+    },
+    ({ chain, assetId, parts, window }) =>
+      calling(async () => {
+        if (assetId.split(':')[0] !== chain)
+          return failure(
+            'INVALID_INPUT',
+            `the asset ${assetId} is not of the chain ${chain}`,
+            'Send the asset’s own chain as `chain`: an asset id starts with its chain. A person’s plan lives on one chain.',
+          );
+        const read = await api.assetFacts(assetId, {
+          ...(parts ? { parts } : {}),
+          ...(window ? { window } : {}),
+        });
+        const plate = plateOf(read);
+        const unread = Object.values(read.parts).some((part) => part?.unread !== undefined);
+        return answer({
+          ...read,
+          ...(plate ? { plate } : {}),
+          next: [
+            'Say each figure with what it measures, its unit, its source and when it was read; one under `missing` is not measured: say why, never guess it.',
+            plate ? `Say with every figure what \`plate\` says: ${plate}` : '',
+            unread
+              ? 'A part with `unread: "reading"` is still being read: ask again in a moment; one with `unread: "failed"` could not be read: its figures are unknown, never zero.'
+              : '',
+            'Show the person the disclaimer.',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        });
+      }),
   );
 }

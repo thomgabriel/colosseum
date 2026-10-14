@@ -5,12 +5,15 @@ import type {
   OrderDetail,
   PortfolioResponse,
   ShelfResponse,
+  Sourced,
   VaultResponse,
 } from '@colosseum/schemas';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { ApiRefusal } from '../executor/api';
-import { createTenonfiClient, pathOf } from './client';
+import { type AssetFactsPart, createTenonfiClient, pathOf } from './client';
 import type {
+  GetAssetsByIdFactsQuery,
+  GetAssetsByIdFactsResponse,
   GetConfigResponse,
   GetIndexesBySlugResponse,
   GetOrdersByIdResponse,
@@ -98,6 +101,42 @@ describe('the API client', () => {
       '/risk/facts/assets/SPYx?sizeUsd=10000',
       '/risk/facts/assets/SPYx',
     ]);
+  });
+
+  it('reads the facts of one listed asset: its id as one segment, the parts named once each, the window', async () => {
+    const { client, sent } = double({ status: 200, body: { parts: {}, disclaimer: 'd' } });
+    await client.assetFacts('solana:nvdax', {
+      parts: ['profile', 'price_history', 'profile'],
+      window: '24h',
+    });
+    await client.assetFacts('solana:nvdax');
+    await client.assetFacts('robinhood:tsla', { parts: ['bearing'] });
+    expect(sent.map((s) => [s.method, s.path])).toEqual([
+      ['GET', '/v1/assets/solana%3Anvdax/facts?parts=profile%2Cprice_history&window=24h'],
+      ['GET', '/v1/assets/solana%3Anvdax/facts'],
+      ['GET', '/v1/assets/robinhood%3Atsla/facts?parts=bearing'],
+    ]);
+    // an empty list asks for nothing, and an id that is a step up the path is not sent
+    expect(() => client.assetFacts('solana:nvdax', { parts: [] })).toThrow('at least one part');
+    expect(() => client.assetFacts('..')).toThrow('not a path segment');
+    expect(sent).toHaveLength(3);
+    // a refusal comes back with the API's words
+    const missing = double({ status: 404, body: { error: 'no listed asset with that id' } });
+    await expect(missing.client.assetFacts('solana:nope')).rejects.toMatchObject({
+      status: 404,
+      body: { error: 'no listed asset with that id' },
+    });
+  });
+
+  it('types an asset’s facts as the route answers them, every fact with its source, time and method', () => {
+    type Parts = GetAssetsByIdFactsResponse['parts'];
+    expectTypeOf<AssetFactsPart>().toEqualTypeOf<
+      'profile' | 'price_history' | 'pools' | 'lending' | 'bearing'
+    >();
+    expectTypeOf<NonNullable<GetAssetsByIdFactsQuery['window']>>().toEqualTypeOf<
+      '24h' | '7d' | '30d'
+    >();
+    expectTypeOf<NonNullable<Parts[AssetFactsPart]>['facts'][number]>().toMatchTypeOf<Sourced>();
   });
 
   it('types each answer as the shared schema the route answers with', () => {

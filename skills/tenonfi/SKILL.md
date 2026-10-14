@@ -15,7 +15,7 @@ Tenonfi's MCP server speaks Streamable HTTP at `/mcp` and needs no login. Its `/
 claude mcp add --transport http tenonfi https://<the MCP server>/mcp
 ```
 
-The tools: `get_chains`, `get_portfolio`, `build_plan`, `get_shared_portfolios`, `prepare_order`, `get_order_status`, `get_asset_risk`. The REST API under `/v1` is the same contract: its OpenAPI document is served at `/openapi.json` beside the MCP server.
+The tools: `get_chains`, `get_portfolio`, `build_plan`, `get_shared_portfolios`, `prepare_order`, `get_order_status`, `get_asset_risk`, `get_asset_facts`. The REST API under `/v1` is the same contract: its OpenAPI document is served at `/openapi.json` beside the MCP server.
 
 ## Make a plan
 
@@ -35,6 +35,7 @@ To buy one, which also follows it, call `prepare_order` with `action: "buy"` and
 - `get_portfolio` with a vault's `chain` and address: anybody may read a vault, read from its chain.
 - `get_portfolio` with nothing, and `get_order_status`: only when the person's client sent their sign-in to the server. Without it the tool says `SIGN_IN_REQUIRED` and gives the link where they see it themselves.
 - `get_asset_risk`: Bearing's measured facts for one asset at a trade size: what it costs to get out, by market hours, and how much can get out. A fact with no data is null with its reason: say it is not measured, never guess.
+- `get_asset_facts` with the asset's `chain` and its id (`solana:nvdax`): the facts Tenonfi holds of one listed asset, its profile, price history over a window, pools, lending markets and Bearing's figures. Say each figure with what it measures, its unit, its source and when it was read. One under `missing` is not measured: say why. When the answer has a `plate` (MOCK, a test network, recorded data), say it with the figures. A change over a window is a past figure, never a forecast or a return.
 
 ## Rules
 
