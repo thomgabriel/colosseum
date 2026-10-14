@@ -1907,7 +1907,6 @@ export const pt: Dictionary = {
       withdraw: 'Você recebe',
       cash: 'Dinheiro',
       empty: 'Digite um valor para ver o que seu cofre vai ter.',
-      emptyWithdraw: 'Escolha quanto para ver o que chega à sua carteira.',
       keeper:
         'Com o seguir automático ativado, o depósito entra como caixa e nosso operador o investe.',
       switch: (vault: string, portfolio: string, version: number) =>
@@ -1936,7 +1935,6 @@ export const pt: Dictionary = {
     },
     pressed: (amount: string) => `Depósito de ${amount}`,
     pressedWithdraw: (what: string) => `Saque de ${what}`,
-    enter: 'Digite um valor',
     press: {
       deposit: (amount: string) => `Depositar ${amount}`,
       withdraw: (amount: string) => `Sacar ${amount}`,

@@ -13,7 +13,7 @@ import { SkeletonSummary } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { useT } from '../../i18n/I18nProvider';
 import type { AmountMode } from '../amount/AmountCard';
-import { DepositCard } from '../amount/DepositCard';
+import { DepositCard, heldOf } from '../amount/DepositCard';
 import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { addMoneyPath, placeOrder } from '../order/order-api';
 import { keepOrder, latestOf, recallOrder, recallOrders } from '../order/order-record';
@@ -70,6 +70,10 @@ export type AddEntry = {
   title?: string;
   /** The amount was pressed (a number) or taken back (null). */
   onPressed?: (amount: number | null) => void;
+  /** The way back out of the pane, in the card's head. */
+  leave?: { label: string; onLeave: () => void };
+  /** Told as the amount card is drawn and taken away. */
+  onShown?: (shown: boolean) => void;
 };
 
 export function AddMoneyScreen({
@@ -338,6 +342,7 @@ export function AddMoneyScreen({
       holdings={held ? (held.keeper ? null : held.targets) : null}
       keeper
       keeperInvests={held?.keeper === true}
+      held={heldOf(vault)}
       // in the vault's own pane the vault is the page: no "Into" to say it again
       into={
         embedded
@@ -379,6 +384,8 @@ export function AddMoneyScreen({
       fact={embedded?.entry?.fact ?? true}
       {...(embedded?.entry?.title ? { title: embedded.entry.title, focusOnOpen: true } : {})}
       {...(embedded?.entry?.onPressed ? { onPressed: embedded.entry.onPressed } : {})}
+      {...(embedded?.entry?.leave ? { leave: embedded.entry.leave } : {})}
+      {...(embedded?.entry?.onShown ? { onShown: embedded.entry.onShown } : {})}
       flow={(amount, change) => cardFor(amount, change)}
     />
   );
