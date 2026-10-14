@@ -1150,6 +1150,7 @@ export const pt: Dictionary = {
       lead: 'Explore estratégias publicadas em todas as redes que rodamos. Cada uma diz em qual rede está. Abra uma para ver seus ativos, fontes e opções para investir ou seguir.',
       loading: 'Lendo os portfólios compartilhados…',
       empty: 'Nenhum portfólio foi compartilhado ainda.',
+      emptyOn: (chains: string) => `Nenhum portfólio foi compartilhado na ${chains} ainda.`,
       publish: 'Publicar um portfólio',
       publishSoon: (chain: string) =>
         `Publicar um portfólio na ${chain} está a caminho. Por enquanto dá para publicar na Solana.`,
@@ -1373,6 +1374,10 @@ export const pt: Dictionary = {
       lead: (chain: string) =>
         `Compartilhe a estratégia registrada no seu cofre na ${chain}. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.`,
       signIn: 'Entre para publicar um portfólio.',
+      liveOnly: (chain: string, live: string) =>
+        live
+          ? `Produtos lista só portfólios na ${live}, então um publicado de um cofre na ${chain} não apareceria. Publique do seu cofre na ${live}: abra a página dele e escolha Compartilhar estratégia.`
+          : `Produtos lista só portfólios ao vivo, e a ${chain} não está ao vivo aqui, então um portfólio publicado nela não apareceria.`,
       shareStrategy: 'Compartilhar estratégia',
       sourceVault: 'Seu cofre de origem',
       sourceHint: 'Escolha um cofre seu na rede ativa.',
