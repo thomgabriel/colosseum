@@ -69,3 +69,42 @@ export function shownBalance(amount: number, symbol: string, locale: string): st
   const cut = Math.floor(amount * 100 + 1e-6) / 100;
   return `${cut.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
 }
+
+/** A decimal string of dollars ("349.65", "1000000") as an integer and its power of ten, exactly. */
+function scaled(usd: string): { units: bigint; scale: bigint } | null {
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(usd.trim());
+  if (!m) return null;
+  const frac = m[2] ?? '';
+  return { units: BigInt(`${m[1]}${frac}`), scale: 10n ** BigInt(frac.length) };
+}
+
+/**
+ * A share of a vault, in whole basis points, of an amount in whole cents, cut down: what an order for
+ * that amount sends. In integers, so the least amount is never a hair under one basis point by a
+ * float's rounding. Null where the vault's value is not a figure, or is nothing.
+ */
+export function shareOfCents(cents: bigint, vaultUsd: string): number | null {
+  const v = scaled(vaultUsd);
+  if (!v || v.units === 0n) return null;
+  // cents / 100 / (units / scale) * 10,000, cut down
+  const bps = (cents * v.scale * 100n) / v.units;
+  return Number(bps > 10_000n ? 10_000n : bps);
+}
+
+/** The least amount, in cents, that is one basis point of the vault: what is under it is refused. */
+export function leastCentsOf(vaultUsd: string): bigint | null {
+  const v = scaled(vaultUsd);
+  if (!v || v.units === 0n) return null;
+  const per = v.scale * 100n;
+  return (v.units + per - 1n) / per;
+}
+
+/** What a share of the vault comes to, in whole cents, cut down. */
+export function centsOfShare(bps: number, vaultUsd: string): bigint | null {
+  const v = scaled(vaultUsd);
+  if (!v) return null;
+  return (v.units * BigInt(bps)) / (v.scale * 100n);
+}
+
+/** An amount in dollars, at most two places, as whole cents. */
+export const toCents = (usd: number): bigint => BigInt(Math.round(usd * 100));

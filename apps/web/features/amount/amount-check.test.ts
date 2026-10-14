@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { dictionary } from '../../i18n';
-import { maxText, readAmount, shownBalance } from './amount-check';
+import {
+  centsOfShare,
+  leastCentsOf,
+  maxText,
+  readAmount,
+  shareOfCents,
+  shownBalance,
+} from './amount-check';
 
 // The words the amount card says of an amount, for each way it can be wrong, and what Max types.
 
@@ -52,5 +59,35 @@ describe('shownBalance', () => {
     expect(shownBalance(1234.567, 'USDC', 'en-US')).toBe('1,234.56 USDC');
     expect(shownBalance(0.999, 'USDC', 'en-US')).toBe('0.99 USDC');
     expect(shownBalance(1234.5, 'USDC', 'pt-BR')).toBe('1.234,50 USDC');
+  });
+});
+
+describe('a share of a vault, in integers', () => {
+  it('names the least amount as one basis point, up to the cent, and it is one', () => {
+    expect(leastCentsOf('300')).toBe(3n);
+    expect(shareOfCents(3n, '300')).toBe(1);
+    expect(shareOfCents(2n, '300')).toBe(0);
+    expect(leastCentsOf('1000000')).toBe(10_000n);
+    expect(shareOfCents(15_000n, '1000000')).toBe(1);
+    expect(leastCentsOf('349.65')).toBe(4n);
+    expect(shareOfCents(4n, '349.65')).toBe(1);
+  });
+
+  it('for every vault of whole hundreds up to $5,000,000: the least is one basis point, a cent less is none', () => {
+    for (let usd = 100; usd <= 5_000_000; usd += 100) {
+      const value = String(usd);
+      const least = leastCentsOf(value) as bigint;
+      expect(shareOfCents(least, value), value).toBe(1);
+      expect(shareOfCents(least - 1n, value), value).toBe(0);
+    }
+  });
+
+  it('cuts a share down, never past the whole, and says what it comes to in cents, cut down', () => {
+    expect(shareOfCents(33_330n, '1000')).toBe(3333);
+    expect(shareOfCents(200_000n, '1000')).toBe(10_000);
+    expect(centsOfShare(5000, '349.65')).toBe(17_482n);
+    expect(centsOfShare(1, '1000000')).toBe(10_000n);
+    expect(shareOfCents(1n, 'not a figure')).toBeNull();
+    expect(shareOfCents(1n, '0')).toBeNull();
   });
 });

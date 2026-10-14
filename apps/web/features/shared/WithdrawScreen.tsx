@@ -20,7 +20,14 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { AmountCard, type AmountMode } from '../amount/AmountCard';
-import { maxText, readAmount } from '../amount/amount-check';
+import {
+  centsOfShare,
+  leastCentsOf,
+  maxText,
+  readAmount,
+  shareOfCents,
+  toCents,
+} from '../amount/amount-check';
 import { dollars as wholeDollars } from '../goal/sheet';
 import { formatBps, formatRaw, parseRaw, rawOfShown, shownRaw, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
@@ -223,7 +230,8 @@ export function WithdrawScreen({
   );
   // The least a withdrawal by amount can be: one basis point of the vault, the smallest share an
   // order names, up to the cent. Anything under it is refused here, never rounded up to it.
-  const leastUsd = priced ? Math.ceil((value / 10_000) * 100) / 100 : 0.01;
+  const leastCents = priced ? leastCentsOf(vault.valueUsd) : null;
+  const leastUsd = leastCents !== null ? Number(leastCents) / 100 : 0.01;
   const typed = readAmount(
     text,
     lang,
@@ -235,10 +243,11 @@ export function WithdrawScreen({
     },
     t,
   );
-  // The share the typed dollars come to, cut down to the basis point: what the order sends.
+  // The share the typed dollars come to, cut down to the basis point: what the order sends. In
+  // integer cents against the vault's value as our server wrote it, never a float's division.
   const typedBps =
     priced && typed.amount !== null && !typed.over
-      ? Math.min(10_000, Math.floor((typed.amount / value) * 10_000))
+      ? (shareOfCents(toCents(typed.amount), vault.valueUsd) ?? 0)
       : 0;
   const shareBps: number | null = picking
     ? null
@@ -401,7 +410,8 @@ export function WithdrawScreen({
   // What the share is worth, by the prices the vault's value is read with: said "about".
   // What that share is worth, cut down to the cent: what the button and "You get" say, never the
   // figure typed, which the share may come to less than.
-  const worth = shareBps !== null && priced ? cents((value * shareBps) / 10_000) : null;
+  const worthCents = shareBps !== null && priced ? centsOfShare(shareBps, vault.valueUsd) : null;
+  const worth = worthCents !== null ? Number(worthCents) / 100 : null;
   const pin = (n: number) => (
     <ProvenancePin
       value={a.preview.about(usd(n))}
@@ -681,7 +691,8 @@ export function WithdrawScreen({
       change(() => {
         setPicking(false);
         setChosen(bps);
-        if (priced) setText(maxText((value * bps) / 10_000, lang));
+        const chipCents = priced ? centsOfShare(bps, vault.valueUsd) : null;
+        if (chipCents !== null) setText(maxText(Number(chipCents) / 100, lang));
       }),
   }));
 

@@ -337,6 +337,33 @@ describe('the withdraw screen', () => {
     ]);
   });
 
+  it('on a $300 vault: the least it names, three cents, is one basis point, and goes on', async () => {
+    const server = api({
+      vault: holdingVault({ valueUsd: '300' }),
+      order: () =>
+        withdrawOrder([[item(CASH, '60000', '600000000')], [item(SPYX, '25000', '250000000')]]),
+    });
+    const host = await show();
+    await type(field(host), '0.02');
+    await settle(SETTLE_MS + 50);
+    expect(find(host, '[data-ui="amount-problem"]').textContent).toBe(
+      en.amount.errors.belowMin('$0.03'),
+    );
+    await type(field(host), '0.03');
+    await settle(SETTLE_MS + 50);
+    // not a hair under one basis point: no problem, and the button names what it sends
+    expect(host.querySelector('[data-ui="amount-problem"]')).toBeNull();
+    expect(held(host)).toBe(false);
+    expect(label(host)).toBe(en.amount.press.withdraw('$0.03'));
+    await through(host);
+    expect(server.placed().at(-1)?.body).toMatchObject({
+      withdrawals: [
+        { asset: CASH, amountRaw: '60000' },
+        { asset: SPYX, amountRaw: '25000' },
+      ],
+    });
+  });
+
   it('says quietly when the amount is more than the vault holds, and holds the press', async () => {
     api();
     const host = await show();
