@@ -791,13 +791,13 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
             minimums: [],
           });
         } catch (e) {
-          // As on Solana: the version and what the vault still holds of the assets it drops do not fit
-          // sixteen targets (`InvalidTargets(1)`), which a sixteen-asset portfolio can now meet
-          // (SHARED-RULES-V2). The owner sells or withdraws a leftover first.
+          // The version and what the vault still holds of the assets it drops come to more than the
+          // vault's 24 lines (`InvalidTargets(1)`). The follow plans the leftovers' sales first, so this
+          // is a vault holding more leftovers than that: the owner sells or withdraws some first.
           if (e instanceof ChainError && e.code === 'InvalidTargets')
             throw new ChainError(
               'InvalidTargets',
-              'the version and the assets the vault still holds of the ones it drops do not fit 16 lines: sell or withdraw a leftover first, then accept',
+              'the version and the assets the vault still holds of the ones it drops do not fit the vault’s 24 lines: sell or withdraw a leftover first, then accept',
             );
           throw e;
         }
