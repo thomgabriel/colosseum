@@ -56,7 +56,8 @@ export type LimitAsset = z.infer<typeof LimitAsset>;
  * chain says them (`limits()` and `rulesVersion()` of the EVM registry). Read from the chain, never kept
  * here, so the app follows whichever registry is live.
  *
- * - `rules: 1`, the first rules (Oct 2), which the Solana program and the mock keep: the weights add up to
+ * - `rules: 1`, the first rules (Oct 2), which the EVM registry's first logic keeps, and the Solana program
+ *   kept until Oct 14 (a program that has no `creator_limits` answers them): the weights add up to
  *   exactly 10,000, and each is held to the lower of `maxWeightBps` and the asset's own ceiling.
  * - `rules: 2` (gate SHARED-RULES-V2, Thom, Oct 14): the weights add up to at most 10,000 and what they
  *   leave is cash, as in a person's own vault; an asset's own ceiling is a warning that cites its figure,

@@ -23532,6 +23532,8 @@
                         "STEP_LANDED",
                         "NOTHING_LEFT",
                         "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
+                        "ORDER_UNFINISHED",
                         "DEPOSIT_NOT_LANDED",
                         "ORDER_BUSY",
                         "CONTINUE_NOT_SUPPORTED",

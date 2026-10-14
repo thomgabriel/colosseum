@@ -1404,6 +1404,25 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     if (body.vault !== undefined) return send(res, 200, await placeVaultAdd(body, owner));
     return send(res, 200, await doubleFor(owner).buy(body.amountUsd));
   }
+  // The author limits as apps/api answers them: the chain's own, from its adapter (SHARED-RULES-V2).
+  if (path === '/v1/shared/limits' && method === 'GET') {
+    const chain = url.searchParams.get('chain');
+    if (chain !== CHAIN) return send(res, 400, { error: `the stub runs ${CHAIN} alone` });
+    const [limits, assets] = await Promise.all([
+      world.adapter.creatorLimits(),
+      world.adapter.listAssets(),
+    ]);
+    return send(res, 200, {
+      chain: CHAIN,
+      limits,
+      ceilings: assets
+        .filter((a) => a.cls !== 'cash')
+        .map((a) => ({ asset: a.id, maxWeightBps: a.maxWeightBps })),
+      source: 'chain',
+      observedAt: new Date().toISOString(),
+      provenance: 'mock',
+    });
+  }
   if (path === '/v1/shelf') {
     const families = [];
     for (const p of world.published.values()) {
