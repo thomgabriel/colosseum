@@ -1,6 +1,6 @@
 import { LimitResult } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
-import { checkCreatorLimits } from './creator-limits';
+import { CREATOR_LIMITS_V1, checkCreatorLimits } from './creator-limits';
 
 // A refusal says from when the same version would be accepted, where waiting is all it takes.
 
@@ -16,6 +16,7 @@ const prev = weights({ a: 5000, b: 3000, c: 2000 });
 const DELAY = 172_800;
 const LAST = 1_791_212_400;
 const ctx = {
+  limits: CREATOR_LIMITS_V1,
   assets: LISTED,
   now: LAST + 60,
   lastPublishAt: LAST,

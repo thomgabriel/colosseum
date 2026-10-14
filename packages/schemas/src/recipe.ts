@@ -27,7 +27,8 @@ const componentKey = (c: Component) => (c.kind === 'asset' ? c.asset : `index:${
  * A person's own vault targets: each asset once, each weight at least 1 bp, and the weights add up to
  * at most 10,000. What is left of 10,000 is the plan's cash share: cash is never a target. The vaults
  * hold to the same rule (DESIGN-VAULT 3.7, `InvalidTargets`), and the planner leaves that share in
- * cash. A shared portfolio is `Components`, which adds up to exactly 10,000.
+ * cash. A shared portfolio is `Components`, which holds the same way where its chain's rules let it
+ * (`CreatorLimits`, rules 2).
  */
 export const Targets = z
   .array(Target)
@@ -36,11 +37,16 @@ export const Targets = z
   .refine((t) => unique(t.map((x) => x.asset)), 'an asset appears once');
 export type Targets = z.infer<typeof Targets>;
 
-/** The components of a recipe: each asset or family once, adding up to exactly 10,000. */
+/**
+ * The components of a recipe: each asset or family once, adding up to at most 10,000. A personal recipe
+ * adds up to exactly 10,000 (`Recipe`). A shared portfolio may leave the rest in cash where its chain's
+ * rules let it (`CreatorLimits`, rules 2, gate SHARED-RULES-V2): cash is what the weights leave, never a
+ * line, as in a vault. The chain's registry holds a version to its rules; this holds the shape.
+ */
 export const Components = z
   .array(Component)
   .min(1)
-  .refine((c) => sumBps(c) === 10_000, 'weights must add up to exactly 10,000')
+  .refine((c) => sumBps(c) <= 10_000, 'weights must add up to at most 10,000')
   .refine((c) => unique(c.map(componentKey)), 'an asset appears once');
 export type Components = z.infer<typeof Components>;
 
@@ -76,6 +82,10 @@ export const Recipe = RecipeBase.refine(onOwnChain, {
   // Design 3.1 says index components are for personal recipes only; enforced here.
   .refine((r) => r.kind === 'personal' || assetsOnly(r), {
     message: 'a shared portfolio lists assets only',
+    path: ['components'],
+  })
+  .refine((r) => r.kind === 'community' || sumBps(r.components) === 10_000, {
+    message: 'a personal recipe adds up to exactly 10,000',
     path: ['components'],
   });
 export type Recipe = z.infer<typeof Recipe>;

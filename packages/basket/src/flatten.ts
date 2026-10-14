@@ -49,7 +49,10 @@ const FINE = 10_000;
  * - Lines under `minLineBps` are dropped, then the smallest are dropped until `maxLines` are left.
  *   What they held is shared out over the lines kept, in proportion. Each dropped line is in
  *   `dropped`; a kept line that this pushed over its ceiling on the shelf is in `overCeiling`.
- * - The targets add up to exactly what the recipe's components add up to (10,000 for a valid one).
+ * - The targets add up to exactly what the recipe's components add up to (10,000 for a valid one),
+ *   less what a shared portfolio in it leaves in cash where its chain's rules let it (SHARED-RULES-V2):
+ *   that share stays cash, as in the portfolio itself, with the part of a basis point that does not
+ *   divide.
  *
  * The order is largest first, ties by asset id.
  */
@@ -88,10 +91,10 @@ export function flattenReport(
         `the shelf holds ${onChain.length} recipes for "${c.family}" on ${recipe.chain}; it takes one`,
       );
     const innerSum = inner.components.reduce((n, x) => n + x.weightBps, 0);
-    if (innerSum !== FINE)
+    if (innerSum > FINE)
       throw new FlattenError(
         'BadFamilyRecipe',
-        `the shared portfolio "${c.family}" does not add up to 100%`,
+        `the shared portfolio "${c.family}" adds up to more than 100%`,
       );
     for (const x of inner.components) {
       if (x.kind !== 'asset')
@@ -103,7 +106,8 @@ export function flattenReport(
     }
   }
 
-  const total = recipe.components.reduce((n, c) => n + c.weightBps, 0);
+  // What the lines come to: the recipe's total, less the cash its shared portfolios leave.
+  const total = Math.floor([...fine.values()].reduce((n, amount) => n + amount, 0) / FINE);
   // A target is at least 1 bp, so a line under that cannot stay whatever the minimum says.
   const floor = Math.max(1, p.minLineBps) * FINE;
   const bySize = [...fine].sort(([a, x], [b, y]) => y - x || (a < b ? -1 : 1));
