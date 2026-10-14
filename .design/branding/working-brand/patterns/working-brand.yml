@@ -119,6 +119,14 @@ tokens:
     chalk: { 50: "#EAF4FC", 100: "#D1E6F8", 200: "#A8CFF1", 300: "#8FC1EC", 400: "#78B4E8", 500: "#4F93D0", 600: "#2A73B0", 700: "#1F588A", 800: "#174065", 900: "#0F2A43", 950: "#081827" }
     heatmap-dark: ["#1A1D26", "#5C3707", "#B06C12", "#F5A83A", "#FFE9C2"]   # low → high depth: night → honey → pale
     heatmap-light: ["#FFE9C2", "#F5A83A", "#B06C12", "#5C3707", "#1A1D26"]  # reversed
+    # What a vault holds (gate WEIGHTS-RING, Thom, Oct 13 2026; identity/share-palette.md): honey first, five
+    # more in a fixed order, then one colour for every holding past the sixth, and cash neutral. Assigned in
+    # the order the holdings come, never by size. Validated with the dataviz validator (adjacent pairs, the
+    # ring's wrap included): worst CVD ΔE 15.0 light / 13.8 dark, worst normal-vision ΔE 20.2 / 19.2.
+    share-light: ["#F5A83A", "#803668", "#33A6A0", "#975C17", "#CD7AA2", "#12695C"]
+    share-dark: ["#F5A83A", "#9F4D86", "#5FBDB7", "#AF7033", "#DF93B5", "#218373"]
+    share-rest: { light: "#9A9DAD", dark: "#6E7282" }   # neutral 400 / 500: holdings past the sixth
+    share-cash: { light: "#C9C4B9", dark: "#4B4F5E" }   # neutral 300 / 600: cash
 
   typography:
     font-family-primary: '"Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Arial, sans-serif'
@@ -360,6 +368,11 @@ patterns:
     colours-dark: "honey, wood, honey-deep, muted"
     labels: "direct label per leg (leg · weight · after-haircut yield + pin · 'quoted x%' muted), never legend-only"
     mock-leg: "hatched segment; its label says 'sample'"
+  composition:
+    rule: "gate WEIGHTS-RING (Thom, Oct 13 2026), on the house kit (HOUSE-KIT): what a vault or portfolio holds is one 8px strip and one table in a Panel; no ring, no legend, no bar per row. components/composition.md"
+    table: "Asset (logo, name, muted line) | caller columns | Weight (share + 48px bar of its colour) | caller columns; Why a short muted line, full text on hover; scrolled sideways, never squeezed; folded into rows under 32rem"
+    compare: "two strips, before over after, and the share before plus the change (signed delta, or a status pill on the vault page); a vault on target shows one strip and says it once in the head"
+    compact: "the strip and the three largest holdings, then 'and N more'"
   data-row:
     anatomy: "asset (avatar 22px, name 600, type chip) · sparkline coloured by direction (leaf / madder / muted) · values tabular with a signed delta beneath · status cell (pin, stale, MOCK)"
     selected: "honey-tint fill across the row"
@@ -367,7 +380,7 @@ patterns:
     base-case: "honey 2px line with curve-fill beneath"
     stress: "dashed muted and dashed madder"
     today: "1px dashed chalk vertical with a Plex Mono label"
-    rule: "dashed = projected, solid = measured, everywhere; never a rainbow categorical palette"
+    rule: "dashed = projected, solid = measured, everywhere; never a rainbow categorical palette. What a vault holds takes the share palette (scales.share-*), the one categorical set (gate WEIGHTS-RING)"
   disclaimer:
     rule: "rendered from the DISCLAIMER constant, never paraphrased; hairline-boxed block directly under the plan and at the top of API reference; Inter 400 at body size (>= 1em in embed); never footer micro-text"
   embed:
