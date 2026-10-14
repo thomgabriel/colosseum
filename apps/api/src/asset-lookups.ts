@@ -6,6 +6,7 @@ import {
   defaultFactsParams,
   type FigureUnit,
   type LendingMarketRow,
+  largestLendingMarkets,
   lendingFigures,
   type ObservationRow,
   type PoolBarRow,
@@ -166,11 +167,20 @@ const VENUE_NAMES: Record<string, string> = {
   kamino: 'Kamino',
   kamino_vault: 'Kamino',
 };
+/** The market in words: a Jupiter Lend vault by what it takes as collateral, any other by its name. */
+function marketPlace(
+  market: { role: string | null; market: string; venue: string },
+  collateral: string | null,
+): string {
+  if (market.role === 'vault')
+    return `the ${VENUE_NAMES[market.venue] ?? wordsOnly(market.venue) ?? 'lending'} vault that takes ${collateral ?? 'another token'} as collateral`;
+  const name = marketWords(market.market, market.venue);
+  return `the ${name}${/market$/iu.test(name) ? '' : ' market'}`;
+}
+
 /**
- * What a lending figure measures, naming the token whose rate or supply it is (`lent`) and the market: a
- * Jupiter Lend vault that takes the asset as collateral lends another token (USDC, JupUSD), and its rates are
- * that token's, never the asset's yield. Each label opens with "<what> of <token>", which the resolver reads
- * to let a sentence about the figure name that token (vault-figures.ts, `lentName`).
+ * What a lending figure measures, naming the token whose rate or supply it is (`lent`: the token the market
+ * lends, which is the asset the figure is served under) and the market.
  */
 export function lendLabel(
   key: string,
@@ -178,13 +188,7 @@ export function lendLabel(
   tokens: { lent: string | null; collateral: string | null },
 ): string {
   const lent = tokens.lent ?? 'the lent token';
-  const where =
-    market.role === 'vault'
-      ? `the ${VENUE_NAMES[market.venue] ?? wordsOnly(market.venue) ?? 'lending'} vault that takes ${tokens.collateral ?? 'this asset'} as collateral`
-      : (() => {
-          const name = marketWords(market.market, market.venue);
-          return `the ${name}${/market$/iu.test(name) ? '' : ' market'}`;
-        })();
+  const where = marketPlace(market, tokens.collateral);
   return {
     supply: `Supply rate of ${lent} a year in ${where}, at the last report; a past figure`,
     borrow: `Borrow rate of ${lent} a year in ${where}, at the last report; a past figure`,
@@ -338,10 +342,42 @@ export function poolsAnswer(
   );
 }
 
-export function lendingAnswer(assetId: string, markets: LendingMarketRow[], now: Date): Built {
-  return answerOf(
-    assetId,
-    lendingFigures(markets, now).flatMap((market) =>
+/**
+ * Where a market only takes the asset as collateral: what it lends and where to ask for its rates, in words.
+ * No figure: the market's rates are the lent token's, never this asset's.
+ */
+export function collateralLabel(
+  market: { role: string | null; market: string; venue: string },
+  tokens: { lent: string | null; collateral: string | null },
+  asset: string,
+): string {
+  // no digit in a label: a symbol that holds one is not named
+  const symbol = /\p{N}/u.test(asset) ? 'this asset' : asset;
+  const lent = market.role === 'vault' ? tokens.lent : null;
+  return lent
+    ? `${symbol} is accepted as collateral in the ${VENUE_NAMES[market.venue] ?? wordsOnly(market.venue) ?? 'lending'} vault that lends ${lent}: its rates are ${lent}'s, never ${symbol}'s; ask for ${lent}'s lending markets for them`
+    : `${symbol} is accepted as collateral in ${marketPlace(market, symbol)}: its rates are those of the tokens it lends, never ${symbol}'s; ask for their lending markets for them`;
+}
+
+/**
+ * The lending part of one asset (FIGURES-BY-REFERENCE as amended 2026-10-14): a lending figure is the figure
+ * of the token the market lends. So the asset's rates, share lent out and withdrawable dollars come only from
+ * the markets that lend it (`lends`), at most five, the largest by what a lender can withdraw now
+ * (`largestLendingMarkets`), each under `lend:<asset>:<account>:<metric>`. A market that only takes the asset
+ * as collateral gives no figure under it: it is one missing entry, `lend:<asset>:<account>:collateral`,
+ * `not_applicable`, whose label says what the market lends and to ask for that token's markets.
+ */
+export function lendingAnswer(
+  assetId: string,
+  markets: LendingMarketRow[],
+  now: Date,
+  symbol = assetId.split(':').at(-1) ?? assetId,
+): Built {
+  const all = lendingFigures(markets, now);
+  const lent = largestLendingMarkets(all);
+  const collateral = all.filter((market) => !market.lends).slice(0, MAX_COLLATERAL_NOTES);
+  return answerOf(assetId, [
+    ...lent.flatMap((market) =>
       market.figures.map((figure) => ({
         id: `lend:${assetId}:${market.account}:${figure.key}`,
         label: lendLabel(figure.key, market, market),
@@ -354,8 +390,15 @@ export function lendingAnswer(assetId: string, markets: LendingMarketRow[], now:
               },
       })),
     ),
-  );
+    ...collateral.map((market) => ({
+      id: `lend:${assetId}:${market.account}:collateral`,
+      label: collateralLabel(market, market, symbol),
+      figure: { key: 'collateral', value: null, reason: 'not_applicable' as const },
+    })),
+  ]);
 }
+/** At most this many markets that only take the asset as collateral are named. */
+const MAX_COLLATERAL_NOTES = 5;
 
 /** Bearing's figures at the reference size, under the ids and words the conversations already use. */
 export function bearingAnswer(assetId: string, figures: AnalyticsFigure[] | null): Built {
@@ -639,8 +682,10 @@ export function createAssetLookups(
     part: string,
     load: (address: string, at: Date) => { key: string; read: () => Promise<T> },
     build: (rows: T, at: Date) => Built,
+    /** The cash token has only its lending markets: the rest of its parts answer nothing. */
+    cash = false,
   ): Promise<LookupAnswer> => {
-    if (q.asset.cls === 'cash') return { facts: [], missing: [], modelledOn: null };
+    if (q.asset.cls === 'cash' && !cash) return { facts: [], missing: [], modelledOn: null };
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<'late'>((resolve) => {
       timer = setTimeout(() => resolve('late'), q.waitMs ?? deps.waitMs ?? WAIT_MS);
@@ -719,7 +764,8 @@ export function createAssetLookups(
         q,
         'lending',
         (address) => ({ key: '', read: () => reads.lending(q.db, q.chain, address) }),
-        (rows, at) => lendingAnswer(q.asset.id, rows, at),
+        (rows, at) => lendingAnswer(q.asset.id, rows, at, q.asset.symbol),
+        true,
       ),
     bearing: (q) =>
       answer(

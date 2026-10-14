@@ -507,15 +507,33 @@ export type LendingMarketRow = {
    * or the reserve's own token. When the row does not say, it is read from the sheet's symbol (`lentOf`).
    */
   lent?: string | null;
+  /**
+   * Whether the token the market was read for is the one it lends (supplied and borrowed there), so the
+   * sheet's rates are that token's own; false where the market only takes it as collateral. When the row does
+   * not say, a `vault` or `collateral` role takes it as collateral and any other role lends it (`lendsIt`).
+   */
+  lends?: boolean;
   sheet: LendingPoolFacts;
 };
-export type LendingFigures = Omit<LendingMarketRow, 'sheet' | 'lent'> & {
+export type LendingFigures = Omit<LendingMarketRow, 'sheet' | 'lent' | 'lends'> & {
   /** The token whose rates these are, or null when it cannot be named. */
   lent: string | null;
   /** The token a vault takes as collateral (`vault` role), or null. */
   collateral: string | null;
+  /** The token read is the one this market lends: its figures are that token's (`lendsIt`). */
+  lends: boolean;
   figures: AssetFigure[];
 };
+
+/** At most this many markets that lend a token are served, the largest by what a lender can withdraw now. */
+export const MAX_LENDING_MARKETS = 5;
+
+/**
+ * Whether a market lends the token it was read for: what the row says, or by its role (a `vault` or
+ * `collateral` pool takes the token as collateral; a reserve, a curated vault or a `debt` pool lends it).
+ */
+export const lendsIt = (row: Pick<LendingMarketRow, 'lends' | 'role'>): boolean =>
+  row.lends ?? !(row.role === 'vault' || row.role === 'collateral');
 
 /** A symbol that may stand in a label: letters first, no digit, short. */
 const SYMBOL = /^\p{L}[\p{L}.-]{0,15}$/u;
@@ -566,9 +584,10 @@ export function factFigure(key: string, fact: Fact, now: Date, staleAfter: numbe
 export function lendingFigures(markets: readonly LendingMarketRow[], now: Date): LendingFigures[] {
   return [...markets]
     .sort((a, b) => a.venue.localeCompare(b.venue) || a.account.localeCompare(b.account))
-    .map(({ sheet, lent: _lent, ...market }) => ({
+    .map(({ sheet, lent: _lent, lends, ...market }) => ({
       ...market,
       ...lentOf({ lent: _lent, sheet, role: market.role }),
+      lends: lendsIt({ lends, role: market.role }),
       figures: [
         factFigure('supply', sheet.rates.supplyApy, now, LENDING_STALE_SEC),
         factFigure('borrow', sheet.rates.borrowApy, now, LENDING_STALE_SEC),
@@ -576,4 +595,39 @@ export function lendingFigures(markets: readonly LendingMarketRow[], now: Date):
         factFigure('withdrawable', sheet.withdrawal.availableUsd, now, LENDING_STALE_SEC),
       ],
     }));
+}
+
+/** A figure's value, or its reason when it has none: what two markets are compared on. */
+const said = (figure: AssetFigure | undefined) =>
+  figure === undefined ? '' : figure.value === null ? figure.reason : String(figure.value);
+
+/**
+ * The markets that lend the token (`lends`), as many as are served: markets of one venue lending one token
+ * whose four figures are the same draw on one pool (Jupiter Lend's vaults all lend from its liquidity layer)
+ * and are served once, the first by account; then the largest by what a lender can withdraw now, at most
+ * `MAX_LENDING_MARKETS`, a market whose withdrawable dollars are not measured after those that are.
+ */
+export function largestLendingMarkets(markets: readonly LendingFigures[]): LendingFigures[] {
+  const seen = new Set<string>();
+  const withdrawable = (market: LendingFigures) => {
+    const figure = market.figures.find((f) => f.key === 'withdrawable');
+    return figure?.value ?? Number.NEGATIVE_INFINITY;
+  };
+  return [...markets]
+    .filter((market) => market.lends)
+    .sort((a, b) => a.account.localeCompare(b.account))
+    .filter((market) => {
+      const key = [
+        market.venue,
+        market.lent ?? '',
+        ...['supply', 'borrow', 'util', 'withdrawable'].map((k) =>
+          said(market.figures.find((f) => f.key === k)),
+        ),
+      ].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => withdrawable(b) - withdrawable(a) || a.account.localeCompare(b.account))
+    .slice(0, MAX_LENDING_MARKETS);
 }
