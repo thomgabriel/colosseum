@@ -52,7 +52,7 @@ export function VaultGoalCard({
   // Rodrigo, Oct 8: a plan opens on its vault's workbench, the chat beside the plan, as the invest
   // page is, so the owner edits and rebalances it there (VaultScreen).
   const workbench = `/portfolio/vaults/${encodeURIComponent(chain.chain)}/${encodeURIComponent(vault.address)}`;
-  // The card's quiet line, in the language of the view: "Test network" where the figures are one's.
+  // The card's sample tag, in the language of the view: "Test network" where the figures are one's.
   const labels = {
     sample: vault.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
   };

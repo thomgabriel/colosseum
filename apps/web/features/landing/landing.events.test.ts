@@ -147,14 +147,14 @@ describe('the bar', () => {
 });
 
 describe('the numbers', () => {
-  it('pins every figure, and marks a sample strip with the hatch and its quiet line', async () => {
+  it('pins every figure, and marks a sample strip with its quiet tag', async () => {
     const host = await landing();
     const strip = find(host, '[data-ui="landing-stats"]');
     expect(strip.hasAttribute('data-sample')).toBe(true);
     expect(strip.querySelectorAll('dt')).toHaveLength(3);
     expect(strip.querySelectorAll('[data-ui="pin-glyph"][data-state="mock"]')).toHaveLength(3);
-    expect(strip.querySelector('[data-ui="hatch-band"]')).not.toBeNull();
-    expect(find(strip, '[data-ui="sample-note"]').textContent).toBe(en.shell.mockAnnounce);
+    expect(strip.querySelector('[data-ui="card"] > [data-ui="hatch-band"]')).toBeNull();
+    expect(find(strip, '[data-ui="sample-tag"]').textContent).toBe(en.shell.mockAnnounce);
     // the word MOCK never shows (MOCK-QUIET)
     expect(host.textContent).not.toContain('MOCK');
   });
@@ -179,19 +179,19 @@ describe('the numbers', () => {
     expect(strip.textContent).not.toMatch(/[+−]\d/);
   });
 
-  it('says "Test network" on a test network’s numbers, and keeps the hatch', async () => {
+  it('says "Test network" on a test network’s numbers, in the tag', async () => {
     const host = await landing({ stats: fromReply(only('sandbox')) ?? SAMPLE_STATS });
     const strip = find(host, '[data-ui="landing-stats"]');
     expect(strip.hasAttribute('data-sample')).toBe(true);
     expect(strip.querySelectorAll('[data-ui="pin-glyph"][data-state="mock"]')).toHaveLength(3);
-    expect(find(strip, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    expect(find(strip, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
   });
 
   it('says "Sample figures" on the mock’s numbers', async () => {
     const host = await landing({ stats: fromReply(only('mock')) ?? SAMPLE_STATS });
     const strip = find(host, '[data-ui="landing-stats"]');
     expect(strip.hasAttribute('data-sample')).toBe(true);
-    expect(find(strip, '[data-ui="sample-note"]').textContent).toBe(en.shell.mockAnnounce);
+    expect(find(strip, '[data-ui="sample-tag"]').textContent).toBe(en.shell.mockAnnounce);
   });
 
   it('leaves the value out, never 0, when the API has none', async () => {

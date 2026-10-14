@@ -72,7 +72,7 @@ export function VaultHoldings({
   // not live: said in words on the panel's head, as the portfolio overview says it (the kit's Plate)
   const plate =
     read.provenance !== 'live' ? (
-      <Plate ui="sample-note">{sampleLine(t.shell, read.provenance)}</Plate>
+      <Plate ui="sample-tag">{sampleLine(t.shell, read.provenance)}</Plate>
     ) : undefined;
   /** Why a holding is there, as the server has it (`why`), in words: its stored reason, or its kind. */
   const whyOf = (row: HoldingRow): string | undefined => {

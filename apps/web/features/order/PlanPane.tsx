@@ -24,7 +24,7 @@ import type { StoredPlan } from './plan-store';
 // that decided it (the rest are under "Details"); the exit plan as its own block; the figures and the
 // chart; and one button, "Invest $X". A plan carries no yield and no exit figure per holding
 // (`BasketLine` has neither), so the range and the exit cost are the plan's, each with its pin, said
-// once. A plan built on anything that is not live is hatched and says so in one line.
+// once. A plan built on anything that is not live says so once, in the card's sample tag.
 
 /** The first observation of a kind, as a pin takes it. Null when the plan names none: the pin shows a dash. */
 const observed = (observations: readonly ObservationRef[], kind: ObservationRef['kind']) => {

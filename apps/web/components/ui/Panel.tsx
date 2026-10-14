@@ -161,13 +161,17 @@ export function StatGrid({ spacing, children }: { spacing?: string; children: Re
   return <dl className={cn('m-0 grid grid-cols-2', spacing ?? 'gap-x-6 gap-y-4')}>{children}</dl>;
 }
 
-/** The quiet pill: honey edge on its tint, ink text. Says, in words, that figures are not live. */
+/** The quiet pill's look, shared with a sample card's tag (`Card mock`), so the two are one mark. */
+export const PLATE =
+  'rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground';
+
+/**
+ * The quiet pill: honey edge on its tint, ink text. Says, in words, that figures are not live. A
+ * panel's sample mark is `ui="sample-tag"`, the hook a sample card's tag has (MOCK-QUIET).
+ */
 export function Plate({ children, ui }: { children: ReactNode; ui?: string }) {
   return (
-    <span
-      data-ui={ui}
-      className="rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground"
-    >
+    <span data-ui={ui} className={PLATE}>
       {children}
     </span>
   );

@@ -45,7 +45,7 @@ Chrome or Safari, at `http://localhost:3010`.
 
 1. **Sign in** with "Use my passkey" (or "Create a passkey" the first time). Use the passkey, not Phantom: Phantom adds instructions of its own to a devnet transaction and the guard refuses them. Choose **Solana** as the chain your plan lives on. The bar shows your Solana address.
 2. **Invest** (`/invest`): say the goal (about $20 is plenty), answer what is asked, confirm the sheet, "Build my plan".
-3. **See your plan** (`/invest/plan/<id>`): the holdings with their pins, the card's line "Sample figures · test network", the disclaimer. "Deposit $20".
+3. **See your plan** (`/invest/plan/<id>`): the holdings with their pins, the card's tag "Test network", the disclaimer. "Deposit $20".
 4. **Fund** (`/invest/plan/<id>/buy`): "What your wallet needs" with tUSDC and SOL. Short: press "Get test funds" (with the faucet key), or fund by hand and "Read my wallet again".
 5. Tick "I've read this and I accept it", then "Deposit $20".
 6. **Order** (`/portfolio/orders/<id>`): "Sign and deposit $20". No passkey prompt and no Privy window; each step turns "Confirmed" with "Tx ↗" (Solscan on devnet).
@@ -55,7 +55,7 @@ The step-by-step table with what each screen should say is in `apps/web/features
 
 ## How to tell it is devnet
 
-- The buy card's line reads "Test network · Solana · not live" (gate `BUY-STEPS`); cards with figures carry "Sample figures · test network" and the hatch (gate `MOCK-QUIET`).
+- The buy card's line reads "Test network · Solana · not live" (gate `BUY-STEPS`); cards with figures carry the tag "Test network" in their top-right corner (gate `MOCK-QUIET`).
 - Every Solscan link ends in `?cluster=devnet`.
 - `curl -s localhost:3002/v1/config` shows Solana `"network":"testnet"`, `"networkName":"devnet"`, `"provenance":"sandbox"`.
 
