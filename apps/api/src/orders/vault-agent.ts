@@ -31,6 +31,7 @@ import {
 } from '@colosseum/schemas';
 import type { VaultAgentModel, VaultAgentRepair } from '../vault-agent-model';
 import type { ChainEntry } from './chains';
+import { type LookupBase, type LookupCounts, mergeLooked } from './lookup-loop';
 import type { PlanInputs } from './personalize';
 import { statedPurpose } from './stated-purpose';
 import {
@@ -416,6 +417,38 @@ const MEASURES: Record<AnalyticsFigure['metric'], { id: string; says: string }> 
 /** Ends the label of a figure whose true value is at least what is measured. */
 export const LOWER_BOUND = '; a lower bound, the true figure is at least this';
 
+/** The evidence id of one of Bearing's figures of an asset (`exit:<asset>:worst`, `vol:<asset>`, …). */
+export function analyticsId(figure: AnalyticsFigure, assetId: string): string {
+  return MEASURES[figure.metric].id
+    .replace('<asset>', assetId)
+    .replace('<regime>', figure.regime ?? 'unknown');
+}
+
+/**
+ * What one of Bearing's figures measures, in words: `size` says the size the costs refer to ("the
+ * reference size"), and the regime is named where the figure is of one. No number is in it.
+ */
+export function analyticsLabel(figure: AnalyticsFigure, size: string): string {
+  const regime = figure.regime ? REGIME_NAMES[figure.regime] : null;
+  const larger = figure.value !== null && figure.sizeUsd !== undefined;
+  const said = MEASURES[figure.metric].says.replace(
+    '{size}',
+    larger ? `the nearest measured size above ${size}` : size,
+  );
+  return figure.metric === 'exit_worst' ||
+    figure.metric === 'exit' ||
+    figure.metric === 'cap_variation'
+    ? `${said}${regime ? ` (${regime})` : ''}`
+    : said;
+}
+
+/** The method of one of Bearing's figures, with the size it was measured at when that is not the asked one. */
+export function analyticsMethod(figure: Extract<AnalyticsFigure, { value: number }>): string {
+  return figure.sizeUsd === undefined
+    ? figure.method
+    : `${figure.method}; measured at $${figure.sizeUsd.toLocaleString('en-US')}`;
+}
+
 /**
  * Bearing's analytics as evidence: each measured figure an id the model may cite, with a label that says
  * the size and the regime it refers to in words (the figures themselves are structured, so a label holds
@@ -473,24 +506,11 @@ function analyticsEvidence(
     read.push(asset.symbol);
     const compact: (typeof assets)[number] = { assetId: asset.id, values: {}, provenance: {} };
     for (const figure of row.figures) {
-      const regime = figure.regime ? REGIME_NAMES[figure.regime] : null;
-      const measure = MEASURES[figure.metric];
-      const id = measure.id
-        .replace('<asset>', asset.id)
-        .replace('<regime>', figure.regime ?? 'unknown');
+      const id = analyticsId(figure, asset.id);
       if (taken.has(id)) continue;
       taken.add(id);
       const larger = figure.value !== null && figure.sizeUsd !== undefined;
-      const said = measure.says.replace(
-        '{size}',
-        larger ? `the nearest measured size above ${size}` : size,
-      );
-      const label =
-        figure.metric === 'exit_worst' ||
-        figure.metric === 'exit' ||
-        figure.metric === 'cap_variation'
-          ? `${said}${regime ? ` (${regime})` : ''}`
-          : said;
+      const label = analyticsLabel(figure, size);
       const twin = row.modelledOn ? `; ${row.modelledOn} mainnet figures on a test network` : '';
       // A stored figure that does not make a valid source is unknown too: it never fails the reply.
       const parsed =
@@ -504,10 +524,7 @@ function analyticsEvidence(
               unit: UNITS[figure.unit],
               source: figure.source,
               // the size it was measured at is a figure: it goes in the pin, not in the words
-              method:
-                figure.sizeUsd === undefined
-                  ? figure.method
-                  : `${figure.method}; measured at $${figure.sizeUsd.toLocaleString('en-US')}`,
+              method: analyticsMethod(figure),
               fetchedAt: figure.fetchedAt,
               provenance: figure.provenance,
             });
@@ -2385,6 +2402,12 @@ export async function replyToVaultConversation(
   request: VaultAgentRequest,
   context: ConversationAgentContext,
   model: VaultAgentModel | null,
+  /**
+   * The asset lookups this server holds (FIGURES-BY-REFERENCE as amended 2026-10-14): a vault's own
+   * conversation may look up the facts of a listed asset of its chain. Absent, and for a new goal (which
+   * states no figure), the model has no tools.
+   */
+  lookups?: LookupBase,
 ): Promise<VaultAgentResult> {
   const invalid = (detail: string): VaultAgentResult => ({
     kind: 'failure',
@@ -2701,14 +2724,28 @@ export async function replyToVaultConversation(
   // `problems` marks a check the model may repair once; `failed` names it. A broken stated limit already
   // has its final reply (asking the person about the limit), which stands if the repair fails too.
   type Checked = { result: VaultAgentResult; failed?: string; problems?: string[] };
+  const scope =
+    lookups && context.kind !== 'new_goal'
+      ? { ...lookups, chain, catalog: [...catalog.values()] }
+      : undefined;
+  // What the model looked up, for the log: counts only.
+  let lookupCounts: LookupCounts | undefined;
   const ask = async (repair?: VaultAgentRepair): Promise<Output> => {
+    let output: Output;
     try {
-      return await (repair
-        ? model.read(context.person, prompt, repair)
-        : model.read(context.person, prompt));
+      output = await (scope
+        ? model.read(context.person, prompt, repair, scope)
+        : repair
+          ? model.read(context.person, prompt, repair)
+          : model.read(context.person, prompt));
     } catch {
       return { reply: null, why: 'unavailable', detail: 'model_threw' };
     }
+    // What it looked up is evidence of this request, for the references alone: never a share, a
+    // weight or a pick's evidence (`sourceById` is unchanged). An id the context gave keeps its figure.
+    mergeLooked(lookedInto, output.looked);
+    if (output.looked?.counts.rounds) lookupCounts = output.looked.counts;
+    return output;
   };
   // Where a schema check failed and its limit, for the model's repair turn only; never logged.
   const where = (issues: readonly { path: PropertyKey[]; message: string }[]) =>
@@ -2734,15 +2771,24 @@ export async function replyToVaultConversation(
       .map((row) => row.company),
     ...sayable,
   ].map(withoutMark);
-  // Figures by reference (vault-figures.ts): only the vault's own conversation states one.
+  // Figures by reference (vault-figures.ts): only the vault's own conversation states one. The
+  // resolver reads the context's evidence and what the model looks up in this reply, merged in by `ask`.
+  const lookedInto = {
+    sources: new Map(sourceById),
+    references: {
+      missing: { ...(context.references?.missing ?? {}) },
+      staleAgeSec: { ...(context.references?.staleAgeSec ?? {}) },
+    },
+    lowerBound: new Set((context.analytics?.assets ?? []).flatMap((row) => row.lowerBound ?? [])),
+  };
   const references = conversationFigures({
     enabled: context.kind !== 'new_goal',
     catalog,
     companies,
     catalogNames,
-    sources: sourceById,
-    references: context.references,
-    lowerBound: new Set((context.analytics?.assets ?? []).flatMap((row) => row.lowerBound ?? [])),
+    sources: lookedInto.sources,
+    references: lookedInto.references,
+    lowerBound: lookedInto.lowerBound,
     language: parsed.data.language,
   });
   // References over both attempts that named no figure of this request; a count for the log.
@@ -3367,17 +3413,20 @@ export async function replyToVaultConversation(
     return checked.problems ? checked : corrected(checked.result);
   };
   /** The served result with what became of its references, when there were any. */
-  const counted = (result: VaultAgentResult): VaultAgentResult =>
-    result.kind === 'reply' && (result.figures || unknownReferences)
+  const counted = (result: VaultAgentResult): VaultAgentResult => {
+    const looked =
+      result.kind === 'reply' && lookupCounts ? { ...result, lookups: lookupCounts } : result;
+    return looked.kind === 'reply' && (looked.figures || unknownReferences)
       ? {
-          ...result,
+          ...looked,
           figures: {
-            resolved: result.figures?.resolved ?? 0,
-            missing: result.figures?.missing ?? 0,
+            resolved: looked.figures?.resolved ?? 0,
+            missing: looked.figures?.missing ?? 0,
             unknown: unknownReferences,
           },
         }
-      : result;
+      : looked;
+  };
   const started = Date.now();
   const first = await ask();
   const checked = check(first);
@@ -3387,6 +3436,8 @@ export async function replyToVaultConversation(
       previous: first.reply,
       problems: checked.problems,
       elapsedMs: Date.now() - started,
+      // the first attempt's calls, so the repair still sees what it looked up
+      ...(first.looked ? { transcript: first.looked.transcript } : {}),
     }),
     true,
   );

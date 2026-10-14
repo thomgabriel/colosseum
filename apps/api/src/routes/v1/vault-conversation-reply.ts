@@ -13,6 +13,7 @@ import { z } from 'zod';
 import type { ChainEntry } from '../../orders/chains';
 import { refusing } from '../../orders/errors';
 import type { OrderDeps } from '../../orders/legs';
+import type { AssetLookups } from '../../orders/lookups';
 import { type PlanInputs, preparePersonalInputs } from '../../orders/personalize';
 import { planSheetOf } from '../../orders/plan-join';
 import { readRecipe } from '../../orders/shared';
@@ -78,6 +79,11 @@ export function registerVaultConversationReplyRoute(
      * conversation names no control.
      */
     rebalanceOnPage?: boolean;
+    /**
+     * The facts the server holds of one listed asset (FIGURES-BY-REFERENCE as amended 2026-10-14): the
+     * model may look them up. Default: none, and it has no tools.
+     */
+    lookups?: AssetLookups;
   } = {},
 ) {
   const followedOf: FollowedReader =
@@ -184,7 +190,14 @@ export function registerVaultConversationReplyRoute(
           ...(plan ? { currentGoals: [{ goal: plan.goal, risk: plan.risk }] } : {}),
         });
       });
-      const result = await replyToVaultConversation(req.body, context, model);
+      const result = await replyToVaultConversation(
+        req.body,
+        context,
+        model,
+        ...(more.lookups
+          ? [{ service: more.lookups, db: deps.db, provenance: entry.provenance }]
+          : []),
+      );
       if (result.kind === 'failure') {
         // The reason and which check failed: never the person's words or the model's reply.
         req.log.warn(
@@ -225,6 +238,12 @@ export function registerVaultConversationReplyRoute(
         req.log.info(
           { figures: result.figures, chain: identity.chain },
           'the vault conversation reply stated figures by reference',
+        );
+      if (result.lookups)
+        // Counts only: never an asset, an id, a value or the model's reply.
+        req.log.info(
+          { lookups: result.lookups, chain: identity.chain },
+          'the vault conversation looked figures up',
         );
       return { ...result.reply, chain: identity.chain, address: identity.address };
     },

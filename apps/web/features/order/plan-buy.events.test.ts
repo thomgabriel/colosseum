@@ -190,7 +190,7 @@ describe('the plan screen', () => {
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     const next = primaryLink(host);
     expect(next?.textContent).toBe(en.plan.invest('$40,000'));
-    expect(next?.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
+    expect(next?.getAttribute('href')).toBe(`/invest/plan/${PLAN_ID}/buy`);
   });
 
   it('a goal with no date says "no date set", draws no chart over the months it is built on, and shows none of them', async () => {
@@ -331,7 +331,7 @@ describe('the plan screen', () => {
     expect(server.to('/v1/baskets/').map((c) => c.path)).toEqual([`/v1/baskets/${PLAN_ID}`]);
     expect(find(host, '[data-ui="plan-screen"]')).toBeTruthy();
     expect(find(host, '[data-ui="plan-from-link"]').textContent).toBe(en.plan.fromLink);
-    expect(primaryLink(host)?.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
+    expect(primaryLink(host)?.getAttribute('href')).toBe(`/invest/plan/${PLAN_ID}/buy`);
     await unmountAll();
     // kept in the tab, so the buy screen opens on it without asking again, and buys it by its id
     const bought = await buy();
@@ -354,7 +354,7 @@ describe('the plan screen', () => {
     expect(host.textContent).not.toContain(en.plan.missing.title);
     // their own plan, not one from a link: it does not say it came from one, and its buy is not kept as one
     expect(host.querySelector('[data-ui="plan-from-link"]')).toBeNull();
-    expect(primaryLink(host)?.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
+    expect(primaryLink(host)?.getAttribute('href')).toBe(`/invest/plan/${PLAN_ID}/buy`);
     // the server keeps the plan and not its risk summary: the screen says so where the summary was
     expect(find(host, '[data-ui="plan-risk-not-kept"]').textContent).toBe(en.plan.risk.notKept);
     await unmountAll();
@@ -416,7 +416,7 @@ describe('the plan screen', () => {
     const server = api({ chain: 'robinhood' });
     rememberPlan(planOn('solana'));
     const host = await plan();
-    expect(primaryLink(host)?.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
+    expect(primaryLink(host)?.getAttribute('href')).toBe(`/invest/plan/${PLAN_ID}/buy`);
     await unmountAll();
     // the buy reads the Solana wallet, the plan's, not the EVM wallet of the current chain
     await buy();
@@ -441,7 +441,7 @@ describe('the plan screen', () => {
     expect(host.textContent).not.toContain(en.plan.chainNotReady('Robinhood Chain'));
     const next = primaryLink(host);
     expect(next?.textContent).toBe(en.plan.invest('$40,000'));
-    expect(next?.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
+    expect(next?.getAttribute('href')).toBe(`/invest/plan/${PLAN_ID}/buy`);
   });
 });
 

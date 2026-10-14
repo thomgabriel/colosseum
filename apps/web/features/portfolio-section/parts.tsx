@@ -164,7 +164,7 @@ export function SectionGate<T>({
         <Say
           sentence={w.shell.failure.unavailable}
           action={
-            <Link href="/goal" className={link}>
+            <Link href="/invest" className={link}>
               {w.shell.startGoal}
             </Link>
           }

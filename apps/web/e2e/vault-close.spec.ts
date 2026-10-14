@@ -48,7 +48,7 @@ async function shot(page: Page, name: string) {
 /** Signed in, with a vault of the person's own on its page: empty, or holding $100. */
 async function toVault(page: Page, empty: boolean): Promise<string> {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
@@ -76,9 +76,9 @@ async function toVault(page: Page, empty: boolean): Promise<string> {
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
-  await expect(page).toHaveURL(new RegExp(`/vaults/solana/${address}$`));
+  await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   await expect(page.locator('[data-ui="vault-screen"]')).toHaveAttribute('data-pane', 'holdings');
   return address;
 }
@@ -111,7 +111,7 @@ test('an empty vault is closed after a confirm, leaves the lists, and comes back
 
   // gone from the lists of the person's vaults: the one Invest picks from
   await go(page, en.shell.invest);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await expect(page.locator('[data-ui="goal-picker"]')).toBeVisible();
   await expect(offered(page, address)).toHaveCount(0);
 

@@ -12,21 +12,22 @@ import { ThemeToggle } from './ThemeToggle';
 // start because no product page has a stage: the mark and the wordmark, then his items mapped to the
 // product's routes, then the wallet. A solid bar with a hairline, fixed at the top; no glass, no blur.
 //
-//   Invest      the goal and its plan (/goal)
-//   Portfolio   the person's vaults (/monitor), for someone signed in
+//   Invest      the goal and its plan (/invest)
+//   Portfolio   the person's vaults (/portfolio), for someone signed in
 //   Analytics   Bearing's analytics (/analytics/stocks), current on every page under /analytics,
 //               its methodology too, which its side menu links (no Resources item: Thom, Oct 6)
 //   the account one control, the same on the landing's bar (Thom, Oct 9; AccountControl.tsx): a still
 //               placeholder until it is known who is here, "Sign in" for nobody, and for a person
 //               "Account", opening their wallets (one for each chain they have one on, each with
 //               "Copy address" and the explorer) and "Sign out" (AccountMenu.tsx). The bar shows and
-//               switches no chain (gate CHAIN-AT-THE-PLAN): where a plan starts is chosen on /goal
+//               switches no chain (gate CHAIN-AT-THE-PLAN): where a plan starts is chosen on /invest
 //
-//   Products    the shelf of shared portfolios (/shelf), and a portfolio's page under it
+//   Products    the shelf of shared portfolios (/products), and a portfolio's page under it
 //
-// An order's page (/orders/{id}) is under none of them: an order is a plan's deposit, a shared
-// portfolio's publish, buy or follow, or a vault's change, and the page alone does not say which
-// section it came from, so no item is lit there.
+// A page's first segment is the name of the item it is under (gate ROUTES-MATCH-NAV, Thom, Oct 14):
+// a vault's page, the older monitor and an order's page (/portfolio/orders/{id}) are under Portfolio.
+// An order is a deposit into, a withdrawal from or a change of one of the person's vaults, or a
+// publish of a vault's targets, so it lights Portfolio even when it was started from Products.
 //
 // On a phone the links are in the sheet under the menu button, under the same account block (the
 // wallets, "Sign out"); the bar's control is the same "Account".
@@ -37,15 +38,10 @@ import { ThemeToggle } from './ThemeToggle';
 
 /** The product's routes in the bar, his order; `signedIn` marks the one a visitor does not get. */
 const ROUTES = [
-  { href: '/shelf', key: 'products', also: ['/indexes', '/publish'] },
-  { href: '/goal', key: 'invest', also: ['/plan'] },
-  // the portfolio section's board (/portfolio); the older monitor and a vault's page are under it
-  {
-    href: '/portfolio',
-    key: 'portfolio',
-    signedIn: true,
-    also: ['/portfolio', '/monitor', '/vaults'],
-  },
+  { href: '/products', key: 'products', also: ['/products'] },
+  { href: '/invest', key: 'invest', also: ['/invest'] },
+  // the portfolio section's board (/portfolio); a vault's page, an order's and the monitor are under it
+  { href: '/portfolio', key: 'portfolio', signedIn: true, also: ['/portfolio'] },
   // Bearing's analytics: every page of the section is under it
   { href: '/analytics/stocks', key: 'analytics', also: ['/analytics'] },
 ] as const;
@@ -53,8 +49,7 @@ const ROUTES = [
 /** The page a link stands for is the one in view: its own path, or one under it that it leads to. */
 const isCurrent = (pathname: string, route: (typeof ROUTES)[number]) =>
   pathname === route.href ||
-  ('also' in route &&
-    route.also.some((p) => pathname.startsWith(`${p}/`) || (p === '/monitor' && pathname === p)));
+  ('also' in route && route.also.some((p) => pathname.startsWith(`${p}/`)));
 
 export function AppNav() {
   const t = useT();

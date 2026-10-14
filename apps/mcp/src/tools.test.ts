@@ -204,7 +204,7 @@ describe('each tool', () => {
     expect(family).toMatchObject({
       slug: FAMILY.slug,
       untrusted: { name: FAMILY.name, copy: FAMILY.copy },
-      pageUrl: `${APP}/indexes/three-of-the-largest`,
+      pageUrl: `${APP}/products/three-of-the-largest`,
       recipes: FAMILY.recipes,
     });
     await callTool(mcp, 'get_shared_portfolios', { slug: FAMILY.slug });
@@ -232,15 +232,15 @@ describe('each tool', () => {
     });
     expect(plan.structuredContent).toMatchObject({
       action: 'buy',
-      approvalUrl: `${APP}/plan/${PLAN_ID}/buy`,
+      approvalUrl: `${APP}/invest/plan/${PLAN_ID}/buy`,
       chains: ['solana'],
       amountUsd: 50,
     });
     expect(plan.structuredContent?.signedBy).toMatch(/the person, in the app/);
     const buy = await callTool(mcp, 'prepare_order', { action: 'buy', slug: FAMILY.slug });
-    expect(buy.structuredContent?.approvalUrl).toBe(`${APP}/indexes/three-of-the-largest/buy`);
+    expect(buy.structuredContent?.approvalUrl).toBe(`${APP}/products/three-of-the-largest/buy`);
     const follow = await callTool(mcp, 'prepare_order', { action: 'follow', slug: FAMILY.slug });
-    expect(follow.structuredContent?.approvalUrl).toBe(`${APP}/indexes/three-of-the-largest`);
+    expect(follow.structuredContent?.approvalUrl).toBe(`${APP}/products/three-of-the-largest`);
     expect(sent.every((s) => s.method === 'GET')).toBe(true);
     // a follow of a plan, or both named, is not an order; nothing is asked of the API
     const before = sent.length;
@@ -259,7 +259,7 @@ describe('each tool', () => {
     const { mcp, sent } = serve({ 'GET /v1/portfolio': { status: 200, body: PORTFOLIO } });
     const anonymous = await callTool(mcp, 'get_portfolio');
     expect(failureOf(anonymous).code).toBe('SIGN_IN_REQUIRED');
-    expect(failureOf(anonymous).fix).toContain(`${APP}/monitor`);
+    expect(failureOf(anonymous).fix).toContain(`${APP}/portfolio/monitor`);
     expect(sent).toHaveLength(0);
     const theirs = await callTool(mcp, 'get_portfolio', {}, SIGN_IN);
     expect(theirs.structuredContent).toEqual({ readBy: 'sign-in', portfolio: PORTFOLIO });
@@ -282,7 +282,7 @@ describe('each tool', () => {
     const result = await callTool(mcp, 'get_order_status', { orderId: ORDER_ID });
     expect(failureOf(result)).toMatchObject({
       code: 'SIGN_IN_REQUIRED',
-      reviewUrl: `${APP}/orders/${ORDER_ID}`,
+      reviewUrl: `${APP}/portfolio/orders/${ORDER_ID}`,
     });
     expect(sent).toHaveLength(0);
     await callTool(mcp, 'get_order_status', { orderId: ORDER_ID }, SIGN_IN);

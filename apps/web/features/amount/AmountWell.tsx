@@ -11,7 +11,7 @@ import { AssetMark } from '../order/PlanView';
 
 // The amount as the amount card takes it (gate AMOUNT-CARD): the figure large in its well, the token
 // it moves in beside it, what there is to spend under it with Max, quick amounts, and a quiet line for
-// what is wrong. The card and the deposit step of /goal both draw it. Its host decides when a problem
+// what is wrong. The card and the deposit step of /invest both draw it. Its host decides when a problem
 // is said; this only says it.
 
 export type AmountBalance =

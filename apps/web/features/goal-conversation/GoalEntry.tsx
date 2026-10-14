@@ -27,7 +27,7 @@ import { GoalConversation, goalConversationKey, LeaveDeposit } from './GoalConve
 const NONE: ConversationIndex = { current: 'main', items: [] };
 
 /**
- * `/goal` is the strategy conversation, keyed to the person, the chain of the plan and its network. A
+ * `/invest` is the strategy conversation, keyed to the person, the chain of the plan and its network. A
  * picker above it (Rodrigo, Oct 8) holds the conversation on screen, a new one, the person's saved
  * conversations in this browser and their vaults, each with its chain as text: the list mixes chains
  * (gate CHAIN-AT-THE-PLAN). A conversation is named by its person's first request (title.ts). A vault opens its own page, where its owner-only conversation is
@@ -206,7 +206,9 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
     if (value.startsWith('vault:')) {
       const [, vaultChain, address] = value.split(':');
       if (vaultChain && address)
-        router.push(`/vaults/${encodeURIComponent(vaultChain)}/${encodeURIComponent(address)}`);
+        router.push(
+          `/portfolio/vaults/${encodeURIComponent(vaultChain)}/${encodeURIComponent(address)}`,
+        );
     }
   }
   return (

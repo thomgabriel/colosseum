@@ -10,7 +10,7 @@ import { goalLine, planSummary } from './plain';
 import { usePlan } from './use-plan';
 import { PlanScreenWait } from './waits';
 
-// The plan's own page (/plan/{id}): a link to a plan, a plan made from a link, the way back from the
+// The plan's own page (/invest/plan/{id}): a link to a plan, a plan made from a link, the way back from the
 // portfolio. The goal first, in one sentence, then the plan (`PlanPane`), full width. The disclaimer
 // from the one constant is the foot of every product page (components/shell/AppShell.tsx), so it is
 // on this one once. "Invest $X" leads to the buy; on a chain with no deployment committed for its
@@ -20,7 +20,7 @@ export function PlanScreen({ id }: { id: string }) {
   const t = useT();
   const lang = useLang();
   const state = usePlan(id);
-  const here = `/plan/${encodeURIComponent(id)}`;
+  const here = `/invest/plan/${encodeURIComponent(id)}`;
   if (state.kind === 'loading') return <PlanScreenWait />;
   if (state.kind !== 'ready') return <PlanGate state={state} next={here} />;
 

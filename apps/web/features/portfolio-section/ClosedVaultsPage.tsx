@@ -108,7 +108,7 @@ function Row({ vault }: { vault: ClosedVault }) {
       <th scope="row" className={`${KIT_CELL} text-left font-medium`}>
         {state === 'open' ? (
           <Link
-            href={`/vaults/${encodeURIComponent(vault.chain)}/${encodeURIComponent(vault.address)}`}
+            href={`/portfolio/vaults/${encodeURIComponent(vault.chain)}/${encodeURIComponent(vault.address)}`}
             className="underline"
           >
             {title}

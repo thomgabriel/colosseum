@@ -91,7 +91,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         {v.back}
       </Link>
     ) : (
-      <Link href="/shelf" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link href="/products" data-ui={ui} className={buttonClass({ variant: 'link' })}>
         {v.backVisitor}
       </Link>
     );
@@ -171,7 +171,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
           <Link
             key={c}
             data-ui="vault-elsewhere"
-            href={`/vaults/${c}/${encodeURIComponent(address)}`}
+            href={`/portfolio/vaults/${c}/${encodeURIComponent(address)}`}
             className={buttonClass({ variant: 'secondary' })}
           >
             {v.openOn(t.chain.names[c])}
@@ -261,7 +261,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
         // The owner's, on the vault's own chain: offered where a wallet of theirs signs on it,
         // whatever chain their new plans start on (gate CHAIN-AT-THE-PLAN).
         canShare={account.status === 'ready' && account.options.includes(read.chain)}
-        shareHref={`/publish?vault=${encodeURIComponent(vault.address)}&chain=${read.chain}`}
+        shareHref={`/products/publish?vault=${encodeURIComponent(vault.address)}&chain=${read.chain}`}
         value={value}
         back={back}
         explorerLink={explorerRow}

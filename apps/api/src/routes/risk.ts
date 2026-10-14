@@ -46,6 +46,9 @@ import { z } from 'zod';
 import { curveVersionOf, EVM_METHOD_VERSION } from '../curve-version';
 import { loadAssetFacts, loadPlanFacts } from '../facts';
 import { FACTS_METHODOLOGY } from '../facts-methodology';
+import { latestLendingReportAt } from '../lending-facts';
+import { type RiskCacheOptions, registerRiskReadCache } from './risk-cache';
+import { registerRiskDexRoute } from './risk-dex';
 import { registerRiskHistoryRoutes } from './risk-history';
 import { registerPoolLiquidityRoute } from './risk-pool-liquidity';
 import { registerRiskSplitRoute } from './risk-split';
@@ -84,10 +87,15 @@ type Chain = z.infer<typeof ChainName>;
 const EVM_POOLS_NOT_IN_REGISTRY =
   'not collected on Robinhood Chain: its pools are not in the pool registry (PLAN-UNIVERSE RU.14, DU6)';
 
-export async function registerRiskRoutes(app: FastifyInstance) {
+export async function registerRiskRoutes(
+  app: FastifyInstance,
+  opts: { cache?: RiskCacheOptions | false } = {},
+) {
   // The process's one pool (packages/db: `sharedDb`).
   const { db } = sharedDb();
   const f = app.withTypeProvider<ZodTypeProvider>();
+  // Every GET's answer kept in the process a while, and a browser told it may keep it a minute (risk-cache.ts).
+  if (opts.cache !== false) registerRiskReadCache(app, opts.cache);
 
   async function resolveAsset(id: string) {
     const rows = await db
@@ -124,20 +132,40 @@ export async function registerRiskRoutes(app: FastifyInstance) {
     return rows.flatMap((r) => (r.mint ? [{ id: r.id, symbol: r.symbol, mint: r.mint }] : []));
   }
   async function curvesFor(mint: string, side: 'sell' | 'buy' = 'sell'): Promise<AssetCurves> {
+    return (await curvesForMany([mint], side)).get(mint) as AssetCurves;
+  }
+  /** The curves of many addresses in one query, each under its own collector's version. */
+  async function curvesForMany(
+    mints: readonly string[],
+    side: 'sell' | 'buy' = 'sell',
+  ): Promise<Map<string, AssetCurves>> {
+    const out = new Map<string, AssetCurves>(
+      mints.map((m) => [m, { assetId: m, byRegime: {} } as AssetCurves]),
+    );
+    if (!mints.length) return out;
+    const byVersion = new Map<string, string[]>();
+    for (const m of mints) {
+      const v = curveVersionOf(m);
+      byVersion.set(v, [...(byVersion.get(v) ?? []), m]);
+    }
     const rows = await db
       .select()
       .from(riskDepthCurves)
       .where(
         and(
-          eq(riskDepthCurves.assetMint, mint),
           eq(riskDepthCurves.side, side),
           // each address under its own collector's version (curve-version.ts)
-          eq(riskDepthCurves.methodVersion, curveVersionOf(mint)),
+          or(
+            ...[...byVersion].map(([v, ms]) =>
+              and(eq(riskDepthCurves.methodVersion, v), inArray(riskDepthCurves.assetMint, ms)),
+            ),
+          ),
         ),
       );
-    const byRegime: Partial<Record<Regime, DepthCurve>> = {};
-    for (const r of rows)
-      byRegime[r.regime as Regime] = {
+    for (const r of rows) {
+      const c = out.get(r.assetMint);
+      if (!c) continue;
+      c.byRegime[r.regime as Regime] = {
         points: r.points as DepthCurve['points'],
         insufficientFrom: r.insufficientFrom,
         quantile: r.quantile,
@@ -146,7 +174,8 @@ export async function registerRiskRoutes(app: FastifyInstance) {
         to: r.dataTo?.toISOString() ?? null,
         samples: r.samples,
       };
-    return { assetId: mint, byRegime };
+    }
+    return out;
   }
   // time series for line charts: capacity, reference price, lending pool (risk-history.ts)
   await registerRiskHistoryRoutes(app, db, resolveAsset, REGIME_PARAMS);
@@ -154,6 +183,8 @@ export async function registerRiskRoutes(app: FastifyInstance) {
   await registerPoolLiquidityRoute(app, db);
   // how a routed sale divides across the pools, leg by leg, from the hourly split snapshot (risk-split.ts)
   await registerRiskSplitRoute(app, db, resolveAsset, REGIME_PARAMS);
+  // what the stocks and commodities pages read of each asset, many assets in one answer (risk-dex.ts)
+  await registerRiskDexRoute(app);
 
   /** Sell capacity at tau per regime, as `/risk/assets` lists it. */
   function capacityAt(c: AssetCurves, tau: number) {
@@ -221,8 +252,10 @@ export async function registerRiskRoutes(app: FastifyInstance) {
     async (req) => {
       const { tau, chain } = req.query;
       const assets = [];
-      for (const a of await chainAssets(chain)) {
-        const c = await curvesFor(a.mint);
+      const listed = await chainAssets(chain);
+      const curves = await curvesForMany(listed.map((a) => a.mint));
+      for (const a of listed) {
+        const c = curves.get(a.mint) as AssetCurves;
         assets.push({
           ...(chain === 'robinhood' ? { id: a.id } : {}),
           assetMint: a.mint,
@@ -273,14 +306,7 @@ export async function registerRiskRoutes(app: FastifyInstance) {
   );
 
   // PLAN-ANALYTICS item 11: the lending and plan fact sheets, and liquidation coverage under both definitions.
-  const latestReportAt = async () => {
-    const [r] = await db
-      .select({ t: riskLendingFacts.reportAt })
-      .from(riskLendingFacts)
-      .orderBy(desc(riskLendingFacts.reportAt))
-      .limit(1);
-    return r?.t ?? null;
-  };
+  const latestReportAt = () => latestLendingReportAt(db);
   f.get(
     '/risk/facts/methodology',
     {
@@ -1035,8 +1061,9 @@ export async function registerRiskRoutes(app: FastifyInstance) {
         let capacity = 0;
         let measured = 0;
         let capTo: string | null = null;
+        const curves = await curvesForMany(assets.map((a) => a.mint));
         for (const a of assets) {
-          const c = (await curvesFor(a.mint)).byRegime[regime];
+          const c = curves.get(a.mint)?.byRegime[regime];
           if (!c || c.insufficientFrom === 0) continue;
           capacity += maxNotionalAt(c, tau).notionalUsd;
           measured++;

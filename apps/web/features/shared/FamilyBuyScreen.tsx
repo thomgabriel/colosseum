@@ -181,8 +181,8 @@ export function FamilyBuyScreen({
         <Link
           href={
             person.kind === 'signed-out'
-              ? `/sign-in?next=/indexes/${encodeURIComponent(slug)}/buy`
-              : `/indexes/${encodeURIComponent(slug)}`
+              ? `/sign-in?next=/products/${encodeURIComponent(slug)}/buy`
+              : `/products/${encodeURIComponent(slug)}`
           }
           className={buttonClass({ variant: 'secondary' })}
         >
@@ -288,7 +288,7 @@ export function FamilyBuyScreen({
       blocked={blocked}
       place={place}
       onProgress={(progress) => {
-        // the recipe the run is on is this page's from here on, whatever /goal stores meanwhile
+        // the recipe the run is on is this page's from here on, whatever /invest stores meanwhile
         if (recipe) setPicked(recipe.chain);
         setLocked(true);
         embedded?.onProgress?.(progress);
@@ -378,7 +378,7 @@ export function FamilyBuyScreen({
       {changed && (
         <Link
           data-ui="family-reopen"
-          href={`/indexes/${encodeURIComponent(slug)}`}
+          href={`/products/${encodeURIComponent(slug)}`}
           className={`${buttonClass({ variant: 'secondary' })} self-start`}
         >
           {t.shared.refusal.reopen}
