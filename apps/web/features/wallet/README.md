@@ -129,7 +129,7 @@ An agent cannot do these: a real passkey, a real wallet's approval, and a real s
 - The API answers `GET /v1/me` only to a verified sign-in. If the screen says "I can't tell yet which chain your plan lives on" after a sign-in that worked, the API refused that call: `PRIVY_APP_ID` is not set for it (503), identity tokens are off in the dashboard (401), or the web's origin is not in `CORS_ORIGINS` (it is `http://localhost:3000` when unset).
 - `pnpm dev`, which starts the API and the web. Use `localhost`, not `127.0.0.1`.
 
-### Sign-in: the dialog over `http://localhost:3000/goal`, and the page at `/sign-in`
+### Sign-in: the dialog over `http://localhost:3000/invest`, and the page at `/sign-in`
 
 The steps below start from the bar's "Sign in" on `/invest`, which opens the sign-in dialog over the page; `/sign-in` itself shows the same panel as a page, for a direct link.
 
@@ -169,7 +169,7 @@ The page is inside the product's bar. Signed out it shows the same two cards; si
 
 If a step fails, the sentence on the page is the report: copy it with the step number.
 
-### A buy on devnet: `http://localhost:3000/goal` (WEB-3)
+### A buy on devnet: `http://localhost:3000/invest` (WEB-3)
 
 What only a person can check: a passkey wallet that buys a plan on Solana devnet, every step checked by the guard and signed with no prompt.
 

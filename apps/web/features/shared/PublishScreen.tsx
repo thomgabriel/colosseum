@@ -1,5 +1,11 @@
 'use client';
-import { ChainId, chainFamily, type SharedFamily, type Target } from '@colosseum/schemas';
+import {
+  ChainId,
+  chainFamily,
+  type SharedFamily,
+  TAKEN_SLUGS,
+  type Target,
+} from '@colosseum/schemas';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -56,9 +62,6 @@ export const slugOf = (name: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 64);
 
-/** Addresses under /products that are pages of their own, so no portfolio may take them. */
-const TAKEN = new Set(['publish']);
-
 export type Problem = 'chain' | 'name' | 'slug' | 'copy' | 'count' | 'weight' | 'sum' | 'twice';
 
 /** What the form breaks of the rules a portfolio follows, in the order the form reads. */
@@ -76,7 +79,8 @@ export function problemsOf(form: {
     LINK.test(form.name)
   )
     out.push('name');
-  if (!SLUG.test(form.slug) || form.slug.length > 64 || TAKEN.has(form.slug)) out.push('slug');
+  if (!SLUG.test(form.slug) || form.slug.length > 64 || TAKEN_SLUGS.includes(form.slug))
+    out.push('slug');
   if (form.copy.length > LIMITS.chars || LINK.test(form.copy) || HIDDEN.test(form.copy))
     out.push('copy');
   if (form.rows.length < LIMITS.min || form.rows.length > LIMITS.max) out.push('count');

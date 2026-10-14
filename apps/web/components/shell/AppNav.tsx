@@ -25,8 +25,9 @@ import { ThemeToggle } from './ThemeToggle';
 //   Products    the shelf of shared portfolios (/products), and a portfolio's page under it
 //
 // A page's first segment is the name of the item it is under (gate ROUTES-MATCH-NAV, Thom, Oct 14):
-// a vault's page, an order's page (/portfolio/orders/{id}: an order always acts on a vault of the
-// person's) and the older monitor are under Portfolio.
+// a vault's page, the older monitor and an order's page (/portfolio/orders/{id}) are under Portfolio.
+// An order is a deposit into, a withdrawal from or a change of one of the person's vaults, or a
+// publish of a vault's targets, so it lights Portfolio even when it was started from Products.
 //
 // On a phone the links are in the sheet under the menu button, under the same account block (the
 // wallets, "Sign out"); the bar's control is the same "Account".
