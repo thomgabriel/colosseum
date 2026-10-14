@@ -1663,6 +1663,8 @@ export const en = {
         overCap: (asset: string, weight: string, cap: string) =>
           `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Followers may pay more to sell that much of it.`,
         cash: 'Cash',
+        /** What the cited figure is, in its pin. */
+        capOnList: 'Cap on the asset list',
       },
       asset: 'Asset',
       weight: 'Weight, in %',

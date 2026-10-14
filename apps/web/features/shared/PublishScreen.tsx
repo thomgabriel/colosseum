@@ -15,6 +15,7 @@ import { buttonClass } from '../../components/ui/button-class';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Field, Input, Select, Textarea } from '../../components/ui/Field';
 import { PAGE_TITLE } from '../../components/ui/heading';
+import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { SkeletonLine, SkeletonListRow } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
@@ -47,7 +48,7 @@ import { PublishWait } from './waits';
 export const LIMITS = { chars: 280 } as const;
 
 /** The rules a chain holds a publish to, as the server read them from it. */
-export type ChainRules = Pick<CreatorLimitsResponse, 'limits' | 'ceilings'>;
+export type ChainRules = Pick<CreatorLimitsResponse, 'limits' | 'ceilings' | 'ceilingsFrom'>;
 
 // The server's rules for the creator's text (apps/api/src/orders/shared.ts), the same here so the
 // form says so before anything is sent: a link, a scheme or `www.` or a bare host (`evil.xyz/airdrop`),
@@ -280,7 +281,11 @@ export function PublishScreen() {
         key: identity,
         read:
           read.kind === 'read' && read.value.chain === chain
-            ? { limits: read.value.limits, ceilings: read.value.ceilings }
+            ? {
+                limits: read.value.limits,
+                ceilings: read.value.ceilings,
+                ceilingsFrom: read.value.ceilingsFrom,
+              }
             : 'unread',
       });
     });
@@ -785,7 +790,17 @@ export function PublishScreen() {
                 {overCaps.map((o) => (
                   <li key={o.asset} className="flex items-start gap-1.5">
                     <StatusMark status="watch" size={12} className="mt-1.5" />
-                    <span>{p.rules.overCap(symbolOf(o.asset), pct(o.bps), pct(o.ceilingBps))}</span>
+                    <span>
+                      {p.rules.overCap(symbolOf(o.asset), pct(o.bps), pct(o.ceilingBps))}{' '}
+                      {chainRules && (
+                        <ProvenancePin
+                          value={pct(o.ceilingBps)}
+                          obs={chainRules.ceilingsFrom}
+                          what={p.rules.capOnList}
+                          labels={t.pin}
+                        />
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -146,6 +146,13 @@ export type SharedFamily = z.infer<typeof SharedFamily>;
 export const ShelfResponse = z.object({ families: z.array(SharedFamily), disclaimer: z.string() });
 export type ShelfResponse = z.infer<typeof ShelfResponse>;
 
+/**
+ * How an asset's ceiling on a chain's list (`maxWeightBps`) is set, as a warning that cites it says
+ * (gate EXIT-SOURCE, DESIGN-VAULT section 6).
+ */
+export const CEILING_METHOD =
+  "the asset's maxWeightBps on the chain's asset list, set from Bearing's measured exit capacity: 10,000 × 0.25 × the largest sale that cost 1% or less / the portfolio capacity ($50,000 on EVM, $250,000 on Solana), down to a 50 bps step";
+
 /** The query of the author limits: the chain whose registry is read. */
 export const CreatorLimitsQuery = z.object({ chain: ChainId });
 export type CreatorLimitsQuery = z.infer<typeof CreatorLimitsQuery>;
@@ -163,6 +170,8 @@ export const CreatorLimitsResponse = z.object({
    * (gate EXIT-SOURCE): a limit under the first rules, a warning that cites it under the second.
    */
   ceilings: z.array(z.object({ asset: AssetId, maxWeightBps: z.number().int().nonnegative() })),
+  /** Where the ceilings were read and how they are set: the figure a warning cites carries it. */
+  ceilingsFrom: Sourced,
   source: z.literal('chain'),
   observedAt: z.string(),
   provenance: Provenance,

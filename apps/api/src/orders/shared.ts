@@ -8,6 +8,7 @@ import {
   type Address,
   type AutoFollowOffer,
   type BasketAsset,
+  CEILING_METHOD,
   ChainError,
   type ChainId,
   chainFamily,
@@ -300,13 +301,10 @@ export async function planPublish(
     if (limits.rules === 2)
       for (const over of overCeilings(next, assets)) {
         const symbol = assets.find((a) => a.id === over.asset)?.symbol ?? over.asset;
+        // The ceiling as a figure with where it was read and how it is set (EXIT-SOURCE).
         warnings.push({
           code: 'OVER_LISTED_CAP',
-          text: reason(
-            'MIX_OVER_LISTED',
-            { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps },
-            'en',
-          ).text,
+          text: `${reason('MIX_OVER_LISTED', { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps }, 'en').text} Read from ${entry.source}, the asset list on ${name}, now; it is ${CEILING_METHOD}.`,
         });
       }
     steps.push({

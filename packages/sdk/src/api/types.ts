@@ -3966,6 +3966,12 @@ export type GetSharedLimitsResponse = {
     asset: string;
     maxWeightBps: number;
   }[];
+  ceilingsFrom: {
+    source: string;
+    method: string;
+    fetchedAt: string;
+    provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  };
   source: 'chain';
   observedAt: string;
   provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';

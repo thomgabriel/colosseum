@@ -1,5 +1,6 @@
 import { metaHash } from '@colosseum/basket';
 import {
+  CEILING_METHOD,
   ChainError,
   CreatorLimitsQuery,
   CreatorLimitsResponse,
@@ -267,6 +268,12 @@ export function registerSharedRoutes(
         ceilings: assets
           .filter((a) => a.cls !== 'cash')
           .map((a) => ({ asset: a.id, maxWeightBps: a.maxWeightBps })),
+        ceilingsFrom: {
+          source: `${entry.source}: the asset list on ${entry.config.name}`,
+          method: CEILING_METHOD,
+          fetchedAt: deps.now().toISOString(),
+          provenance: entry.provenance,
+        },
         source: 'chain' as const,
         observedAt: deps.now().toISOString(),
         provenance: entry.provenance,

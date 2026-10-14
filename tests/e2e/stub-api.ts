@@ -14,6 +14,7 @@ import {
   ApplyVaultMixRequest,
   ApplyVaultMixResponse,
   type BasketSheet,
+  CEILING_METHOD,
   ChainError,
   ChainId,
   CLOSE_DUST_USD,
@@ -1416,6 +1417,12 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       ceilings: listed
         .filter((a) => a.cls !== 'cash')
         .map((a) => ({ asset: a.id, maxWeightBps: a.maxWeightBps })),
+      ceilingsFrom: {
+        source: 'chain-mock: the asset list',
+        method: CEILING_METHOD,
+        fetchedAt: new Date().toISOString(),
+        provenance: 'mock',
+      },
       source: 'chain',
       observedAt: new Date().toISOString(),
       provenance: 'mock',
