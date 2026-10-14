@@ -12,6 +12,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { Refusal, refusing } from '../../orders/errors';
 import type { OrderDeps } from '../../orders/legs';
+import type { AssetLookups } from '../../orders/lookups';
 import { type PlanInputs, preparePersonalInputs } from '../../orders/personalize';
 import type { RelaxedGoalAgent } from '../../orders/relaxed-goal-agent';
 import { statedAmountUsd } from '../../orders/stated-amount';
@@ -68,6 +69,9 @@ export function registerGoalConversationReplyRoute(
   // The relaxed intake (gate RELAXED-INTAKE): the goal agent behind /goal whenever it is configured.
   // Null leaves the model-led conversation (`replyToVaultConversation`) to answer.
   relaxed: RelaxedGoalAgent | null = null,
+  // The facts the server holds of one listed asset, which the relaxed intake may look up
+  // (FIGURES-BY-REFERENCE as amended 2026-10-14). The model-led conversation states no figure: none.
+  lookups?: AssetLookups,
 ) {
   const path = '/v1/conversations/:chain/goal/reply';
   scope.addHook('onSend', async (req, reply, payload) => {
@@ -154,7 +158,13 @@ export function registerGoalConversationReplyRoute(
         });
       });
       const result = relaxed
-        ? await relaxed.reply(req.body, context)
+        ? lookups
+          ? await relaxed.reply(req.body, context, {
+              service: lookups,
+              db: deps.db,
+              provenance: entry.provenance,
+            })
+          : await relaxed.reply(req.body, context)
         : await replyToVaultConversation(req.body, context, model);
       if (result.kind === 'failure') {
         // The reason and which check failed: never the person's words or the model's reply.
@@ -197,6 +207,12 @@ export function registerGoalConversationReplyRoute(
         req.log.info(
           { figures: result.figures, chain },
           'the new-goal conversation reply stated figures by reference',
+        );
+      if (result.lookups)
+        // Counts only: never an asset, an id, a value or the model's reply.
+        req.log.info(
+          { lookups: result.lookups, chain },
+          'the new-goal conversation looked figures up',
         );
       // Read from the person's messages alone, never from a reply's figures: the same whichever
       // model attempt is served.

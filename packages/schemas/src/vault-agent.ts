@@ -316,12 +316,23 @@ export type VaultAgentRepairNote = { failed: string; outcome: string; sentencesC
  * request, a malformed one, or one that did not stand alone as the figure it is.
  */
 export type VaultAgentFigureCounts = { resolved: number; missing: number; unknown: number };
+/**
+ * For the server log, when the model looked figures up (FIGURES-BY-REFERENCE as amended 2026-10-14):
+ * lookup rounds, tool calls, facts added to the request's evidence, and calls answered with an error.
+ */
+export type VaultAgentLookupCounts = {
+  rounds: number;
+  calls: number;
+  facts: number;
+  errors: number;
+};
 export type VaultAgentResult =
   | {
       kind: 'reply';
       reply: VaultAgentReply;
       repair?: VaultAgentRepairNote;
       figures?: VaultAgentFigureCounts;
+      lookups?: VaultAgentLookupCounts;
     }
   /** `detail` is a fixed code for the server log (which check failed); never the person's text. */
   | { kind: 'failure'; reason: VaultAgentFailure; detail?: string; repair?: VaultAgentRepairNote };

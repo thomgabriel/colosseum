@@ -22,6 +22,876 @@
     }
   },
   "paths": {
+    "/v1/assets/{id}/facts": {
+      "get": {
+        "summary": "The facts the server holds of one listed asset",
+        "tags": ["assets"],
+        "description": "One listed asset of a chain the server runs, by its catalog id (`solana:tslax`). Each part answers its facts and the ones that are not measured, with why: `profile`, the newest reading of each of the asset's metrics (supply, the issuer's supply, the twenty largest holders' share, pool TVL, DEX volume over a day, protocol TVL, exchange rate, each yield reading), served with `staleAgeSec` when it is older than three of its job's intervals; `price_history`, over `window` from the hourly bars of the asset's DEX pools in dollars: the latest close, the high, the low, the change from the window's first close to its last (a past figure, never a forecast), the volume, the volume traded on the entry side and on the exit side, the swaps and the hours with no priced swap, every one `not_collected` with `missingHours` when the bars do not cover the window; `pools`, its pools by dollars held, at most five; `lending`, per lending market that lends the asset itself (at most five, the largest by what a lender can withdraw now; markets of one venue that lend from one pool once), its supply and borrow rates, the share lent out and what a lender can withdraw now: a lending figure is always the figure of the token the market lends, so a market that only takes the asset as collateral gives no figure under it, only a missing `lend:<asset>:<account>:collateral` entry (`not_applicable`) whose label names the token it lends, whose own lending markets carry the rates; `bearing`, Bearing's exit, liquidity and market figures at the reference size. DEX prices and oracle prices are never blended. Every fact carries its source, method, `fetchedAt` and `provenance`: a test-network token's facts are its mainnet model's, labelled `sandbox` with the model named (`modelledOn`), and a chain on the mock labels them `mock`. A part whose read takes longer than a moment answers `unread: \"reading\"`: ask again. A cash token answers only `lending` (where it can be lent and at what rates); its other parts are empty. An unknown id is a 404.\n\nThis tool is not licensed investment advice. It structures and explains an allocation from a goal you state; the decision and custody are yours. The distributor embedding this tool holds the client relationship.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:profile|price_history|pools|lending|bearing)(?:,(?:profile|price_history|pools|lending|bearing))*$"
+            },
+            "in": "query",
+            "name": "parts",
+            "required": false,
+            "description": "A comma-separated list of profile, price_history, pools, lending, bearing; every part when left out"
+          },
+          {
+            "schema": {
+              "default": "7d",
+              "type": "string",
+              "enum": ["24h", "7d", "30d"]
+            },
+            "in": "query",
+            "name": "window",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assetId": {
+                      "type": "string",
+                      "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                    },
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "symbol": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "string",
+                      "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                    },
+                    "window": {
+                      "type": "string",
+                      "enum": ["24h", "7d", "30d"]
+                    },
+                    "parts": {
+                      "type": "object",
+                      "properties": {
+                        "profile": {
+                          "type": "object",
+                          "properties": {
+                            "facts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "description": "What the figure measures, in words; it holds no digit"
+                                  },
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "lowerBound": {
+                                    "description": "The true value is at least this",
+                                    "type": "boolean",
+                                    "enum": [true]
+                                  },
+                                  "staleAgeSec": {
+                                    "description": "The reading is past its age limit: its age, in seconds",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "assetId",
+                                  "label",
+                                  "value",
+                                  "unit",
+                                  "source",
+                                  "method",
+                                  "fetchedAt",
+                                  "provenance"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "missing": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "no_samples_in_regime",
+                                      "insufficient_samples",
+                                      "not_a_number",
+                                      "beyond_measured_size",
+                                      "no_reference_price",
+                                      "no_external_source",
+                                      "chain_not_covered",
+                                      "not_collected",
+                                      "not_imported",
+                                      "not_followed",
+                                      "gate_open",
+                                      "not_applicable",
+                                      "no_oracle"
+                                    ]
+                                  },
+                                  "missingHours": {
+                                    "description": "The hours of the window the data does not reach",
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["id", "assetId", "label", "reason"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modelledOn": {
+                              "description": "The mainnet token a test-network token's facts are read from",
+                              "type": ["string", "null"]
+                            },
+                            "unread": {
+                              "description": "The read is still running (ask again) or failed: its facts are unknown, not zero",
+                              "type": "string",
+                              "enum": ["reading", "failed"]
+                            }
+                          },
+                          "required": ["facts", "missing", "modelledOn"],
+                          "additionalProperties": false
+                        },
+                        "price_history": {
+                          "type": "object",
+                          "properties": {
+                            "facts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "description": "What the figure measures, in words; it holds no digit"
+                                  },
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "lowerBound": {
+                                    "description": "The true value is at least this",
+                                    "type": "boolean",
+                                    "enum": [true]
+                                  },
+                                  "staleAgeSec": {
+                                    "description": "The reading is past its age limit: its age, in seconds",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "assetId",
+                                  "label",
+                                  "value",
+                                  "unit",
+                                  "source",
+                                  "method",
+                                  "fetchedAt",
+                                  "provenance"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "missing": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "no_samples_in_regime",
+                                      "insufficient_samples",
+                                      "not_a_number",
+                                      "beyond_measured_size",
+                                      "no_reference_price",
+                                      "no_external_source",
+                                      "chain_not_covered",
+                                      "not_collected",
+                                      "not_imported",
+                                      "not_followed",
+                                      "gate_open",
+                                      "not_applicable",
+                                      "no_oracle"
+                                    ]
+                                  },
+                                  "missingHours": {
+                                    "description": "The hours of the window the data does not reach",
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["id", "assetId", "label", "reason"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modelledOn": {
+                              "description": "The mainnet token a test-network token's facts are read from",
+                              "type": ["string", "null"]
+                            },
+                            "unread": {
+                              "description": "The read is still running (ask again) or failed: its facts are unknown, not zero",
+                              "type": "string",
+                              "enum": ["reading", "failed"]
+                            }
+                          },
+                          "required": ["facts", "missing", "modelledOn"],
+                          "additionalProperties": false
+                        },
+                        "pools": {
+                          "type": "object",
+                          "properties": {
+                            "facts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "description": "What the figure measures, in words; it holds no digit"
+                                  },
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "lowerBound": {
+                                    "description": "The true value is at least this",
+                                    "type": "boolean",
+                                    "enum": [true]
+                                  },
+                                  "staleAgeSec": {
+                                    "description": "The reading is past its age limit: its age, in seconds",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "assetId",
+                                  "label",
+                                  "value",
+                                  "unit",
+                                  "source",
+                                  "method",
+                                  "fetchedAt",
+                                  "provenance"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "missing": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "no_samples_in_regime",
+                                      "insufficient_samples",
+                                      "not_a_number",
+                                      "beyond_measured_size",
+                                      "no_reference_price",
+                                      "no_external_source",
+                                      "chain_not_covered",
+                                      "not_collected",
+                                      "not_imported",
+                                      "not_followed",
+                                      "gate_open",
+                                      "not_applicable",
+                                      "no_oracle"
+                                    ]
+                                  },
+                                  "missingHours": {
+                                    "description": "The hours of the window the data does not reach",
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["id", "assetId", "label", "reason"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modelledOn": {
+                              "description": "The mainnet token a test-network token's facts are read from",
+                              "type": ["string", "null"]
+                            },
+                            "unread": {
+                              "description": "The read is still running (ask again) or failed: its facts are unknown, not zero",
+                              "type": "string",
+                              "enum": ["reading", "failed"]
+                            }
+                          },
+                          "required": ["facts", "missing", "modelledOn"],
+                          "additionalProperties": false
+                        },
+                        "lending": {
+                          "type": "object",
+                          "properties": {
+                            "facts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "description": "What the figure measures, in words; it holds no digit"
+                                  },
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "lowerBound": {
+                                    "description": "The true value is at least this",
+                                    "type": "boolean",
+                                    "enum": [true]
+                                  },
+                                  "staleAgeSec": {
+                                    "description": "The reading is past its age limit: its age, in seconds",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "assetId",
+                                  "label",
+                                  "value",
+                                  "unit",
+                                  "source",
+                                  "method",
+                                  "fetchedAt",
+                                  "provenance"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "missing": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "no_samples_in_regime",
+                                      "insufficient_samples",
+                                      "not_a_number",
+                                      "beyond_measured_size",
+                                      "no_reference_price",
+                                      "no_external_source",
+                                      "chain_not_covered",
+                                      "not_collected",
+                                      "not_imported",
+                                      "not_followed",
+                                      "gate_open",
+                                      "not_applicable",
+                                      "no_oracle"
+                                    ]
+                                  },
+                                  "missingHours": {
+                                    "description": "The hours of the window the data does not reach",
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["id", "assetId", "label", "reason"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modelledOn": {
+                              "description": "The mainnet token a test-network token's facts are read from",
+                              "type": ["string", "null"]
+                            },
+                            "unread": {
+                              "description": "The read is still running (ask again) or failed: its facts are unknown, not zero",
+                              "type": "string",
+                              "enum": ["reading", "failed"]
+                            }
+                          },
+                          "required": ["facts", "missing", "modelledOn"],
+                          "additionalProperties": false
+                        },
+                        "bearing": {
+                          "type": "object",
+                          "properties": {
+                            "facts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "description": "What the figure measures, in words; it holds no digit"
+                                  },
+                                  "value": {
+                                    "type": "number"
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "source": {
+                                    "type": "string"
+                                  },
+                                  "method": {
+                                    "type": "string"
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "lowerBound": {
+                                    "description": "The true value is at least this",
+                                    "type": "boolean",
+                                    "enum": [true]
+                                  },
+                                  "staleAgeSec": {
+                                    "description": "The reading is past its age limit: its age, in seconds",
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "assetId",
+                                  "label",
+                                  "value",
+                                  "unit",
+                                  "source",
+                                  "method",
+                                  "fetchedAt",
+                                  "provenance"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "missing": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "assetId": {
+                                    "type": "string",
+                                    "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "no_samples_in_regime",
+                                      "insufficient_samples",
+                                      "not_a_number",
+                                      "beyond_measured_size",
+                                      "no_reference_price",
+                                      "no_external_source",
+                                      "chain_not_covered",
+                                      "not_collected",
+                                      "not_imported",
+                                      "not_followed",
+                                      "gate_open",
+                                      "not_applicable",
+                                      "no_oracle"
+                                    ]
+                                  },
+                                  "missingHours": {
+                                    "description": "The hours of the window the data does not reach",
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": ["id", "assetId", "label", "reason"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "modelledOn": {
+                              "description": "The mainnet token a test-network token's facts are read from",
+                              "type": ["string", "null"]
+                            },
+                            "unread": {
+                              "description": "The read is still running (ask again) or failed: its facts are unknown, not zero",
+                              "type": "string",
+                              "enum": ["reading", "failed"]
+                            }
+                          },
+                          "required": ["facts", "missing", "modelledOn"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "disclaimer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "assetId",
+                    "chain",
+                    "symbol",
+                    "provenance",
+                    "window",
+                    "parts",
+                    "disclaimer"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/baskets/intake": {
       "post": {
         "summary": "Read a goal into a sheet, ask what it leaves open, and say back what was understood",
