@@ -27,15 +27,16 @@ import { ScreenWait } from '../../components/waits/ScreenWait';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainChoice } from '../account/ChainChoice';
-import { dollars, parseNumber } from '../goal/sheet';
+import { AmountCard } from '../amount/AmountCard';
+import { DepositCard, type DepositCardProps } from '../amount/DepositCard';
+import { dollars } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import { Invest } from '../order/Invest';
-import { AmountField, MAX_USD, MIN_USD } from '../order/InvestCard';
 import type { CallFailure } from '../order/order-api';
 import { keepOrder, type OrderRecord, recallOrders } from '../order/order-record';
-import { PlanView } from '../order/PlanView';
+import { AssetMark, PlanView } from '../order/PlanView';
 import { goalLine } from '../order/plain';
-import { networkFor } from '../order/readiness';
+import { basketOfPlan, networkFor } from '../order/readiness';
 import { share } from '../portfolio/figures';
 import { unpriced, holdingsOf as vaultHoldingsOf } from '../portfolio/portfolio';
 import { goalOfVault } from '../portfolio/vault-goal';
@@ -313,9 +314,16 @@ function RecipeSection({
   const lang = useLang();
   // The person on this recipe's own chain, with their wallet there: a buy and a follow are on it.
   const person = useSharedPerson(recipe.chain);
-  // The amount to invest, typed on this page; locked once the person has pressed.
-  const [amountText, setAmountText] = useState('');
+  // A deposit is being signed: the chain and the card's amount are locked until it ends.
   const [pressed, setPressedHere] = useState(false);
+  // What is typed and ticked on the amount card, kept here: the card is drawn again whenever the
+  // recipe is read again, and the person's amount and tick stay with them.
+  const [amountText, setAmountText] = useState('');
+  const [ticked, setTicked] = useState(false);
+  // the tick is the person's own: another person signed in on this page has not ticked it
+  const tickedBy = person.kind === 'ready' ? person.userId : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tickedBy` is whose tick it is
+  useEffect(() => setTicked(false), [tickedBy]);
   const setPressed = (now: boolean) => {
     setPressedHere(now);
     onRunning(now);
@@ -374,11 +382,14 @@ function RecipeSection({
                 : null;
   const p = t.shared.product;
   const holdings = holdingsOf(recipe, active.components, t);
-  const typed = parseNumber(amountText, lang);
-  const amount =
-    typed !== null && !Number.isNaN(typed) && typed >= MIN_USD && typed <= MAX_USD ? typed : null;
-  /** The invest card is on the page: the person is ready on this chain and nothing blocks a buy. */
-  const investing = person.kind === 'ready' && own && !blocked && followed !== null;
+  // The person's vaults on this chain, and the follow of one of them: for the card's "Into" and the
+  // list under it. Read only where a deposit is offered.
+  const mine = useFamilyVaults(
+    person.kind === 'ready' && own && followed && !blocked ? person : null,
+    family,
+    recipe,
+    followed,
+  );
   const unmeasured = holdings.filter((h) => !h.exit);
   const list = (items: string[]) =>
     new Intl.ListFormat(locale, { type: 'conjunction' }).format(items);
@@ -468,8 +479,8 @@ function RecipeSection({
             {/* Where the version and weights come from, and words that match no version: never
                 folded away (the flow audit, finding 41). */}
             {check.state === 'read' && check.textMatches === null && <TextMark matches={null} />}
-            {/* The invest card says the same line over itself: said once on the page. */}
-            {!investing && <SourceMark check={check} chain={recipe.chain} />}
+            {/* Never folded away, before the deposit or during it: said once, here. */}
+            <SourceMark check={check} chain={recipe.chain} />
           </>
         }
         figures={
@@ -533,48 +544,31 @@ function RecipeSection({
                   </p>
                 </>
               ) : (
-                <>
-                  <AmountField
-                    text={amountText}
-                    onText={setAmountText}
-                    hint={t.shared.buy.amountHint}
-                    value={amount}
-                    disabled={pressed}
+                // The amount card (gate AMOUNT-CARD): its press hands the amount to the one invest
+                // step (gate INVEST-ONE-PRESS), held to the recipe this pane shows. A new version
+                // draws the card again, empty, with the new displayed terms.
+                <div className="w-full">
+                  <FamilyDeposit
+                    key={`${recipe.active.version}:${active.version}`}
+                    entry={{ text: amountText, onText: setAmountText, ticked, onTick: setTicked }}
+                    family={family}
+                    recipe={recipe}
+                    followed={followed}
+                    targets={followed.targets}
+                    person={person}
+                    mock={mock}
+                    vaults={mine}
+                    running={pressed}
+                    onRunning={setPressed}
+                    onVersionChanged={() => {
+                      // No order is made for the new version until the person has seen it and
+                      // typed an amount again.
+                      setPressed(false);
+                      setAmountText('');
+                      onVersionChanged();
+                    }}
                   />
-                  {/* One invest step everywhere (gate INVEST-ONE-PRESS), held to the recipe this
-                      pane shows. A new version remounts it with the new displayed terms. */}
-                  <div className="w-full">
-                    <Invest
-                      key={`${recipe.active.version}:${active.version}`}
-                      of={{
-                        family: family.slug,
-                        snapshot: {
-                          family,
-                          recipe,
-                          terms: {
-                            kind: 'family',
-                            slug: family.slug,
-                            familyId: familyIdFor(family.slug),
-                            follow: followed.follow,
-                            targets: followed.targets,
-                            source: followed.source,
-                          },
-                        },
-                      }}
-                      amount={amount}
-                      onProgress={() => setPressed(true)}
-                      onDone={() => setPressed(false)}
-                      onStopped={() => setPressed(false)}
-                      onVersionChanged={() => {
-                        // The amount is cleared with it: no order is made for the new version
-                        // until the person has seen it and typed an amount again.
-                        setPressed(false);
-                        setAmountText('');
-                        onVersionChanged();
-                      }}
-                    />
-                  </div>
-                </>
+                </div>
               )}
             </div>
           ) : person.kind === 'signed-out' ? (
@@ -591,14 +585,7 @@ function RecipeSection({
       />
 
       {person.kind === 'ready' && own && followed && !blocked && (
-        <VaultsPanel
-          key={`${person.userId}:${person.owner}:${person.chain}:${person.mock}:${family.slug}:${recipe.onchainId}:${followed.follow.version}:${followed.source}`}
-          family={family}
-          recipe={recipe}
-          followed={followed}
-          person={person}
-          onReread={onReread}
-        />
+        <VaultsPanel recipe={recipe} followed={followed} mine={mine} onReread={onReread} />
       )}
     </div>
   );
@@ -710,54 +697,80 @@ function WeightsTable({
   );
 }
 
-/**
- * The person's vaults on this chain: each one that follows this portfolio, with the prompt when a newer
- * version has taken effect or waits, and the auto-follow switch where it is offered; each one that
- * does not is offered in a chooser. Selecting is local; following is reviewed and signed on the order screen.
- */
-function VaultsPanel({
-  family,
-  recipe,
-  followed,
-  person,
-  onReread,
-}: {
-  family: SharedFamily;
-  recipe: SharedRecipe;
-  followed: Followed;
-  person: Extract<SharedPerson, { kind: 'ready' }>;
-  /** Reads the portfolio again from our server, and with it the chain. */
-  onReread: () => void;
-}) {
+type OwnVault = PortfolioResponse['chains'][number]['vaults'][number];
+
+/** The card's "Into" for a buy of the portfolio itself: the person's vault for it, or a new one. */
+const INTO_FAMILY = 'family';
+/** The card's "Into" for a vault of theirs that follows another portfolio or none: a switch. */
+const INTO_SWITCH = 'switch:';
+
+/** The person's vaults on this chain, and a follow of one of them, for the amount card and the list. */
+type FamilyVaults = {
+  vaults: OwnVault[] | null | 'failed';
+  /** Those that follow this portfolio. */
+  related: OwnVault[];
+  /** Those that do not: each can be switched to follow it. */
+  eligible: OwnVault[];
+  nameOf: (vault: OwnVault) => string;
+  /** A follow order for this vault, kept with its terms, then the order screen. */
+  follow: (
+    vault: VaultView,
+    autoFollow: boolean,
+    accept: boolean,
+    from?: 'card' | 'list',
+  ) => Promise<void>;
+  /** The auto-follow switch an accept asks for. */
+  keep: (vault: VaultView) => boolean;
+  busy: string | null;
+  failure: string | null;
+  /** Where the follow that failed was asked for: the amount card's switch, or the list. */
+  failedFrom: 'card' | 'list';
+  /** Our server said the portfolio is another version now: reading it again is offered. */
+  changed: boolean;
+  clear: () => void;
+  /** The amount card's "Into": dropped with everything else for another person, chain or version. */
+  into: string;
+  setInto: (into: string) => void;
+};
+
+function useFamilyVaults(
+  person: Extract<SharedPerson, { kind: 'ready' }> | null,
+  family: SharedFamily,
+  recipe: SharedRecipe,
+  followed: Followed | null,
+): FamilyVaults {
   const t = useT();
   const lang = useLang();
   const v = t.shared.vaults;
   const router = useRouter();
   const apiFetch = useApiFetch();
-  type OwnVault = PortfolioResponse['chains'][number]['vaults'][number];
   const [vaults, setVaults] = useState<OwnVault[] | null | 'failed'>(null);
-  const [choosing, setChoosing] = useState(false);
-  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const submitting = useRef(false);
   const generation = useRef(0);
   // The orders this browser placed: a vault bought from a goal is named by that goal.
   const [records, setRecords] = useState<OrderRecord[]>([]);
-  useEffect(() => setRecords(recallOrders(person.userId)), [person.userId]);
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
-  // Our server said the portfolio is another version now: reading it again is offered.
   const [changed, setChanged] = useState(false);
-  const titleId = useId();
+  const [failedFrom, setFailedFrom] = useState<'card' | 'list'>('list');
+  const [into, setInto] = useState<string>(INTO_FAMILY);
+  // Everything is read again for another person, wallet, chain, portfolio or version.
+  const key = person
+    ? `${person.userId}:${person.owner}:${person.chain}:${person.mock}:${family.slug}:${recipe.onchainId}:${followed?.follow.version}:${followed?.source}`
+    : null;
+  const userId = person?.userId ?? null;
+  useEffect(() => setRecords(recallOrders(userId)), [userId]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for whose vaults these are
   useEffect(() => {
-    let mine = true;
     setVaults(null);
     submitting.current = false;
     setBusy(null);
-    setChoosing(false);
-    setSelectedAddress(null);
     setFailure(null);
     setChanged(false);
+    setInto(INTO_FAMILY);
+    if (!person) return;
+    let mine = true;
     readPortfolio(apiFetch).then((read) => {
       if (!mine) return;
       if (read.kind !== 'read') return setVaults('failed');
@@ -768,12 +781,17 @@ function VaultsPanel({
       mine = false;
       generation.current += 1;
     };
-  }, [apiFetch, person.chain]);
+  }, [apiFetch, key]);
 
-  /** A follow order for this vault, kept with its terms, then the order screen. */
-  async function follow(vault: VaultView, autoFollow: boolean, accept: boolean) {
-    if (!person.owner || !person.userId || submitting.current) return;
+  async function follow(
+    vault: VaultView,
+    autoFollow: boolean,
+    accept: boolean,
+    from: 'card' | 'list' = 'list',
+  ) {
+    if (!person || !followed || !person.owner || !person.userId || submitting.current) return;
     submitting.current = true;
+    setFailedFrom(from);
     setBusy(`${vault.address}:${autoFollow}:${accept}`);
     setFailure(null);
     // The plan number the step names has to be the vault's own, as the guard derives it.
@@ -848,37 +866,274 @@ function VaultsPanel({
   }
 
   const offered = recipe.autoFollow.offered;
-  /**
-   * The switch an accept asks for: the vault's own, but never on into a portfolio that does not offer
-   * it (gate GOLD-ONE-TAP). A vault with auto-follow on then switches it off before it takes the
-   * version, as the API plans it.
-   */
-  const keep = (vault: VaultView) => vault.autoFollow && offered;
   const readVaults = Array.isArray(vaults) ? vaults : [];
-  const related = readVaults.filter(
-    (vault) => vault.recipeOnchainId === followed.follow.recipeOnchainId,
-  );
-  const eligible = readVaults.filter(
-    (vault) => vault.recipeOnchainId !== followed.follow.recipeOnchainId,
-  );
-  // An address alone is not an authority: resolve it against this read, never a previous account's.
-  const selected = choosing
-    ? eligible.find((vault) => vault.address === selectedAddress)
-    : undefined;
-  const nameOf = (vault: OwnVault) => {
-    const goal = goalOfVault(vault, records)?.goal.sheet;
-    return (
-      vault.name ??
-      (goal
-        ? goalLine(goal, t, dollars(goal.amountUsd, lang), (usd) => dollars(usd, lang))
-        : v.address(shortAddress(vault.address)))
-    );
+  const following = followed?.follow.recipeOnchainId;
+  return {
+    vaults,
+    related: readVaults.filter((vault) => vault.recipeOnchainId === following),
+    eligible: readVaults.filter((vault) => vault.recipeOnchainId !== following),
+    nameOf: (vault) => {
+      const goal = goalOfVault(vault, records)?.goal.sheet;
+      return (
+        vault.name ??
+        (goal
+          ? goalLine(goal, t, dollars(goal.amountUsd, lang), (usd) => dollars(usd, lang))
+          : v.address(shortAddress(vault.address)))
+      );
+    },
+    follow,
+    /**
+     * The switch an accept asks for: the vault's own, but never on into a portfolio that does not
+     * offer it (gate GOLD-ONE-TAP). A vault with auto-follow on then switches it off before it takes
+     * the version, as the API plans it.
+     */
+    keep: (vault) => vault.autoFollow && offered,
+    busy,
+    failure,
+    failedFrom,
+    changed,
+    clear: () => {
+      setFailure(null);
+      setChanged(false);
+    },
+    into,
+    setInto,
   };
+}
+
+/** What a failed follow says, with the way to read the portfolio again where it changed. */
+function FollowFailure({
+  mine,
+  from,
+  onReread,
+}: {
+  mine: FamilyVaults;
+  from: 'card' | 'list';
+  onReread: () => void;
+}) {
+  const t = useT();
+  if (!mine.failure || mine.failedFrom !== from) return null;
+  return (
+    <>
+      <p
+        role="alert"
+        className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
+      >
+        <StatusMark status="off-track" size={12} className="mt-1.5" />
+        <span>{mine.failure}</span>
+      </p>
+      {mine.changed && (
+        <Button
+          variant="secondary"
+          className="self-start"
+          onClick={() => {
+            mine.clear();
+            onReread();
+          }}
+        >
+          {t.shared.refusal.reread}
+        </Button>
+      )}
+    </>
+  );
+}
+
+/**
+ * The deposit into this portfolio, on the amount card (gate AMOUNT-CARD): "Into" chooses the person's
+ * vault for it (a new one where they have none) or a vault of theirs to switch to it. A deposit hands
+ * its amount to the one invest step (gate INVEST-ONE-PRESS); a switch moves no money, and its press
+ * makes the follow order, reviewed and signed on the order's own screen.
+ */
+function FamilyDeposit({
+  family,
+  recipe,
+  followed,
+  targets,
+  person,
+  mock,
+  vaults: mine,
+  entry,
+  running,
+  onRunning,
+  onVersionChanged,
+}: {
+  family: SharedFamily;
+  recipe: SharedRecipe;
+  followed: Followed;
+  targets: Target[];
+  person: Extract<SharedPerson, { kind: 'ready' }>;
+  mock: boolean;
+  vaults: FamilyVaults;
+  entry: NonNullable<DepositCardProps['entry']>;
+  running: boolean;
+  onRunning: (running: boolean) => void;
+  onVersionChanged: () => void;
+}) {
+  const t = useT();
+  const a = t.amount;
+  const chainName = t.chain.names[recipe.chain];
+  // The vault a buy of this portfolio adds to, where the person has one: its number is the portfolio's.
+  const ownBasket = basketOfPlan(familyIdFor(family.slug));
+  const own = Array.isArray(mine.vaults)
+    ? mine.vaults.find((vault) => vault.basketId === ownBasket)
+    : undefined;
+  const switchable = mine.eligible.filter((vault) => vault.basketId !== ownBasket);
+  const { into } = mine;
+  const switching = into.startsWith(INTO_SWITCH)
+    ? switchable.find((vault) => vault.address === into.slice(INTO_SWITCH.length))
+    : undefined;
+  const choice = {
+    label: a.into.label,
+    value: switching ? into : INTO_FAMILY,
+    options: [
+      { value: INTO_FAMILY, label: own ? a.into.follows(mine.nameOf(own)) : a.into.newVault },
+      ...switchable.map((vault) => ({
+        value: `${INTO_SWITCH}${vault.address}`,
+        label: a.into.other(mine.nameOf(vault)),
+      })),
+    ],
+    hint: switching
+      ? mine.keep(switching)
+        ? t.shared.vaults.followNoteKeeper
+        : t.shared.vaults.followNote
+      : undefined,
+    // Held while a deposit is signed or a follow is being made: the choice is the one under way.
+    ...(running || mine.busy !== null
+      ? {}
+      : {
+          onChange: (next: string) => {
+            mine.clear();
+            mine.setInto(next);
+          },
+        }),
+  };
+
+  if (switching)
+    return (
+      <div data-ui="review-follow" className="flex min-w-0 flex-col gap-4">
+        <AmountCard
+          mode="deposit"
+          // a follow moves no money: the card says what it does, not "Deposit"
+          title={t.shared.vaults.followWith}
+          headingLevel={3}
+          chain={recipe.chain}
+          chainName={chainName}
+          provenance={mock ? 'mock' : recipe.provenance}
+          into={choice}
+          field={null}
+          preview={{
+            title: a.preview.targets,
+            body: (
+              <div className="flex flex-col gap-2">
+                <p className="text-body-sm [overflow-wrap:anywhere]">
+                  {a.preview.switch(mine.nameOf(switching), family.name, followed.follow.version)}
+                </p>
+                <p className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-source">
+                  {targets.map((target) => (
+                    <span key={target.asset} className="inline-flex items-center gap-1.5">
+                      <AssetMark asset={target.asset} className="size-5" />
+                      {tokenName(target.asset)}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            ),
+          }}
+          notice={<FollowFailure mine={mine} from="card" onReread={onVersionChanged} />}
+          action={{
+            label: a.review,
+            reasons: [],
+            busy: mine.busy !== null,
+            busyLabel: a.busy,
+            onPress: () => void mine.follow(switching, mine.keep(switching), true, 'card'),
+          }}
+        />
+        {/* what following would trade, quoted now: our keeper's to make where auto-follow stays on */}
+        {!mine.keep(switching) && (
+          <FollowQuote
+            key={`${switching.address}:${followed.follow.version}`}
+            chain={person.chain}
+            mock={person.mock}
+            address={switching.address}
+            slug={family.slug}
+            version={followed.follow.version}
+          />
+        )}
+      </div>
+    );
+
+  return (
+    <DepositCard
+      headingLevel={3}
+      entry={entry}
+      chain={recipe.chain}
+      chainName={chainName}
+      mock={mock}
+      provenance={recipe.provenance}
+      owner={person.owner}
+      userId={person.userId}
+      buyOf={{ family: family.slug, chain: recipe.chain }}
+      holdings={targets}
+      keeper
+      into={choice}
+      blocked={[]}
+      running={running}
+      flow={(amount, change) => (
+        <Invest
+          of={{
+            family: family.slug,
+            snapshot: {
+              family,
+              recipe,
+              terms: {
+                kind: 'family',
+                slug: family.slug,
+                familyId: familyIdFor(family.slug),
+                follow: followed.follow,
+                targets,
+                source: followed.source,
+              },
+            },
+          }}
+          amount={amount}
+          onProgress={() => onRunning(true)}
+          onDone={() => onRunning(false)}
+          onStopped={() => onRunning(false)}
+          onVersionChanged={onVersionChanged}
+          onAmount={change}
+        />
+      )}
+    />
+  );
+}
+
+/**
+ * The person's vaults on this chain that follow this portfolio, with the prompt when a newer version
+ * has taken effect or waits, and the auto-follow switch where it is offered. A vault that does not
+ * follow it is chosen in the amount card's "Into", where switching it is reviewed and signed.
+ */
+function VaultsPanel({
+  recipe,
+  followed,
+  mine,
+  onReread,
+}: {
+  recipe: SharedRecipe;
+  followed: Followed;
+  mine: FamilyVaults;
+  /** Reads the portfolio again from our server, and with it the chain. */
+  onReread: () => void;
+}) {
+  const t = useT();
+  const lang = useLang();
+  const v = t.shared.vaults;
+  const titleId = useId();
+  const { vaults, related, busy, follow, keep, nameOf } = mine;
+  const offered = recipe.autoFollow.offered;
   const cards = (items: OwnVault[]) => (
     <ul className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2">
       {items.map((vault) => {
-        const follows = vault.recipeOnchainId === followed.follow.recipeOnchainId;
-        const behind = follows && vault.acceptedVersion < followed.follow.version;
+        const behind = vault.acceptedVersion < followed.follow.version;
         const heading = `${titleId}-${vault.address}`;
         const holdings = vaultHoldingsOf(vault).filter((holding) => !/^0+$/.test(holding.raw));
         const unpricedCount = unpriced(vault);
@@ -887,7 +1142,6 @@ function VaultsPanel({
             <Card
               as="article"
               interactive
-              selected={selected?.address === vault.address}
               aria-labelledby={heading}
               mock={vault.provenance !== 'live'}
               mockLabels={{
@@ -925,17 +1179,9 @@ function VaultsPanel({
                     </p>
                   )}
                 </div>
-                <p className="text-body-sm text-muted-foreground">
-                  {follows
-                    ? v.following
-                    : vault.recipeOnchainId === null
-                      ? v.ownPlan
-                      : v.notFollowing}
-                </p>
-                {follows && (
-                  <p className="text-body-sm text-muted-foreground">{v.autoIs(vault.autoFollow)}</p>
-                )}
-                {follows && (behind || vault.pending) && (
+                <p className="text-body-sm text-muted-foreground">{v.following}</p>
+                <p className="text-body-sm text-muted-foreground">{v.autoIs(vault.autoFollow)}</p>
+                {(behind || vault.pending) && (
                   <FollowPrompt
                     vault={vault}
                     version={followed.follow.version}
@@ -944,7 +1190,7 @@ function VaultsPanel({
                     onAccept={() => follow(vault, keep(vault), true)}
                   />
                 )}
-                {follows && (offered || vault.autoFollow) && !behind && (
+                {(offered || vault.autoFollow) && !behind && (
                   <Button
                     variant="secondary"
                     disabled={busy !== null}
@@ -954,32 +1200,16 @@ function VaultsPanel({
                     {vault.autoFollow ? v.autoOff : v.autoOn}
                   </Button>
                 )}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <Hint
-                    tip={<span className="font-mono text-source break-all">{vault.address}</span>}
+                <Hint
+                  tip={<span className="font-mono text-source break-all">{vault.address}</span>}
+                >
+                  <Link
+                    href={`/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
+                    className={buttonClass({ variant: 'link' })}
                   >
-                    <Link
-                      href={`/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
-                      className={buttonClass({ variant: 'link' })}
-                    >
-                      {v.open}
-                    </Link>
-                  </Hint>
-                  {!follows && (
-                    <Button
-                      variant="secondary"
-                      pressed={selected?.address === vault.address}
-                      disabled={busy !== null}
-                      onClick={() => {
-                        setSelectedAddress(vault.address);
-                        setFailure(null);
-                        setChanged(false);
-                      }}
-                    >
-                      {selected?.address === vault.address ? v.selected : v.choose}
-                    </Button>
-                  )}
-                </div>
+                    {v.open}
+                  </Link>
+                </Hint>
               </div>
             </Card>
           </li>
@@ -1010,81 +1240,9 @@ function VaultsPanel({
               {v.oneTap}
             </p>
           )}
-          {eligible.length > 0 && (
-            <div>
-              <Button
-                variant="secondary"
-                pressed={choosing}
-                disabled={busy !== null}
-                onClick={() => {
-                  setChoosing((open) => !open);
-                  setSelectedAddress(null);
-                  setFailure(null);
-                  setChanged(false);
-                }}
-              >
-                {choosing ? v.closeChooser : v.useExisting}
-              </Button>
-            </div>
-          )}
-          {choosing && cards(eligible)}
-          {selected && (
-            <div
-              data-ui="review-follow"
-              className="flex flex-col items-start gap-3 border-l-2 border-primary pl-4"
-            >
-              <p className="max-w-(--tf-measure-body) text-body-sm [overflow-wrap:anywhere]">
-                {v.reviewTarget(nameOf(selected), family.name, followed.follow.version)}
-              </p>
-              <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-                {keep(selected) ? v.followNoteKeeper : v.followNote}
-              </p>
-              {/* what following would trade, quoted now: our keeper's to make where auto-follow stays on */}
-              {!keep(selected) && (
-                <FollowQuote
-                  key={`${selected.address}:${followed.follow.version}`}
-                  chain={person.chain}
-                  mock={person.mock}
-                  address={selected.address}
-                  slug={family.slug}
-                  version={followed.follow.version}
-                />
-              )}
-              <Button
-                variant="secondary"
-                disabled={busy !== null}
-                busy={busy === `${selected.address}:${keep(selected)}:true`}
-                onClick={() => follow(selected, keep(selected), true)}
-              >
-                {v.reviewFollow}
-              </Button>
-            </div>
-          )}
         </>
       )}
-      {failure && (
-        <p
-          role="alert"
-          className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-        >
-          <StatusMark status="off-track" size={12} className="mt-1.5" />
-          <span>{failure}</span>
-        </p>
-      )}
-      {failure && changed && (
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setFailure(null);
-            setChanged(false);
-            setChoosing(false);
-            setSelectedAddress(null);
-            onReread();
-          }}
-        >
-          {t.shared.refusal.reread}
-        </Button>
-      )}
+      <FollowFailure mine={mine} from="list" onReread={onReread} />
     </section>
   );
 }

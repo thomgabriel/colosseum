@@ -125,7 +125,7 @@ for (const width of WIDTHS) {
       await expect(page.locator('[data-ui="vault-back"]')).toHaveAttribute('href', '/portfolio');
     });
 
-    test('withdraw waits as its head and the card of its steps', async ({ page }) => {
+    test('withdraw waits as its head and the amount card', async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const address = await withVault(page);
       await waitsInPlace(page, {
@@ -141,16 +141,16 @@ for (const width of WIDTHS) {
             loaded: '[data-ui="withdraw-screen"] [data-ui="chain-badge"]',
           },
           {
-            name: 'steps',
-            waiting: '[data-wait="steps"]',
-            loaded: '[data-ui="withdraw-screen"] [data-ui="card"]',
+            name: 'the amount card',
+            waiting: '[data-wait="card"]',
+            loaded: '[data-ui="withdraw-screen"] [data-ui="amount-panel"]',
             sized: 'by-data',
           },
         ],
       });
     });
 
-    test('add money waits as its head, the amount, its card and where the deposit goes', async ({
+    test('add money waits as its head, the amount card and where the deposit goes', async ({
       page,
     }) => {
       await page.setViewportSize({ width, height: 900 });
@@ -163,15 +163,9 @@ for (const width of WIDTHS) {
         regions: [
           { name: 'title', waiting: 'main h1', loaded: 'main h1' },
           {
-            name: 'amount',
-            waiting: '[data-wait="amount"]',
-            loaded: '[data-ui="add-money-screen"] [data-ui="field"]',
-            sized: 'by-data',
-          },
-          {
             name: 'card',
             waiting: '[data-wait="card"]',
-            loaded: '[data-ui="add-money-screen"] section[data-ui="card"]',
+            loaded: '[data-ui="add-money-screen"] [data-ui="amount-panel"]',
             sized: 'by-data',
           },
           // beside the amount on a desk; under the card on a phone, where the card's data places it

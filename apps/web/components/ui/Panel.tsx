@@ -137,13 +137,16 @@ export function PanelStat({
   label,
   children,
   ui,
+  wide = false,
 }: {
   label: string;
   children: ReactNode;
   ui?: string;
+  /** Across both columns: a figure too long for one (an address). */
+  wide?: boolean;
 }) {
   return (
-    <div data-ui={ui} className="flex min-w-0 flex-col gap-1">
+    <div data-ui={ui} className={cn('flex min-w-0 flex-col gap-1', wide && 'col-span-2')}>
       <dt className="text-caption text-muted-foreground">{label}</dt>
       <dd className="m-0 text-body font-medium tabular-nums">{children}</dd>
     </div>
