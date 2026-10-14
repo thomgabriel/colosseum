@@ -417,6 +417,25 @@ describe('each tool', () => {
     });
     expect(fresh.structuredContent).not.toHaveProperty('plate');
     expect(fresh.structuredContent).toMatchObject(live);
+    // a recorded figure among live ones is said to be recorded
+    for (const recorded of ['fixture', 'prior_dataset'] as const) {
+      const kept = {
+        ...live,
+        parts: {
+          bearing: {
+            ...live.parts.bearing,
+            facts: [{ ...live.parts.bearing.facts[0], provenance: recorded }],
+          },
+        },
+      };
+      const onKept = serve({ 'GET /v1/assets/solana%3Anvdax/facts': { status: 200, body: kept } });
+      const said = await callTool(onKept.mcp, 'get_asset_facts', {
+        chain: 'solana',
+        assetId: 'solana:nvdax',
+        parts: ['bearing'],
+      });
+      expect(said.structuredContent?.plate, recorded).toMatch(/^Recorded data: /);
+    }
   });
 
   it('get_asset_facts refuses an asset of another chain before asking, and passes on the API’s refusal', async () => {
