@@ -5,9 +5,11 @@ import {
   BAR_KEYS,
   type BarRow,
   barCoverage,
+  compareVersions,
   factNullReason,
   type LendingMarketRow,
   lendingFigures,
+  lentOf,
   MAX_POOLS,
   newestByMetric,
   type ObservationRow,
@@ -34,6 +36,15 @@ const lending = load<{ markets: LendingMarketRow[] }>('nvdax-lending.json').mark
 
 const byKey = (figures: AssetFigure[]) => new Map(figures.map((f) => [f.key, f]));
 const HOUR = 3_600_000;
+/** Every hour from `from` to `to`, both included, as the bars write them. */
+const hoursBetween = (from: string | number, to: string | number): string[] => {
+  const out: string[] = [];
+  for (let at = new Date(from).getTime(); at <= new Date(to).getTime(); at += HOUR)
+    out.push(new Date(at).toISOString());
+  return out;
+};
+// The chain's collector ran every hour of the fixture: from its first bar to its last.
+const collected = hoursBetween((bars[0] as BarRow).hour, (bars.at(-1) as BarRow).hour);
 
 describe('profile: the newest reading of each metric', () => {
   // supply_total was read at 13:44; the pool TVL reading is the registry's build of Oct 1.
@@ -124,7 +135,7 @@ describe('price history: the asset bars of a window, in dollars', () => {
   const now = new Date('2026-10-06T06:30:00.000Z');
 
   it('serves the window when the bars cover it', () => {
-    const figures = byKey(priceHistoryFigures(bars, null, '24h', now));
+    const figures = byKey(priceHistoryFigures(bars, null, '24h', now, collected));
     expect([...figures.keys()]).toEqual([...BAR_KEYS]);
     const start = windowStart('24h', now).getTime();
     const inside = bars.filter((bar) => Date.parse(bar.hour) >= start);
@@ -151,7 +162,8 @@ describe('price history: the asset bars of a window, in dollars', () => {
       value: inside.reduce((s, b) => s + b.swaps, 0),
       unit: 'count',
     });
-    expect(figures.get('gaps')).toMatchObject({ value: 24 - valued.length, unit: 'hours' });
+    // the window's hours up to the chain's last collected one (05:00): the current hour is not a gap
+    expect(figures.get('gaps')).toMatchObject({ value: 23 - valued.length, unit: 'hours' });
     for (const figure of figures.values())
       expect(figure).toMatchObject({
         provenance: 'live',
@@ -161,23 +173,32 @@ describe('price history: the asset bars of a window, in dollars', () => {
 
   it('a window the bars do not reach back to is not collected, with the hours missing', () => {
     // 30 days back from Oct 6 is Sep 6; the fixture's bars start on Sep 29 and none is older.
-    const figures = priceHistoryFigures(bars, null, '30d', now);
+    const figures = priceHistoryFigures(bars, null, '30d', now, collected);
     const start = windowStart('30d', now).getTime();
     const missing = Math.round((Date.parse((bars[0] as BarRow).hour) - start) / HOUR);
     expect(missing).toBeGreaterThan(500);
     expect(figures).toEqual(
       BAR_KEYS.map((key) => ({ key, value: null, reason: 'not_collected', missingHours: missing })),
     );
-    // With an older bar before the window, the history goes back further: the hours between were quiet.
-    expect(barCoverage(bars, '2026-08-01T00:00:00.000Z', '30d', now)).toEqual({ covered: true });
+    // An older bar before the window says the asset's history goes back further; the hours between
+    // were quiet only where the chain was collected.
+    const all = hoursBetween(start, (bars.at(-1) as BarRow).hour);
+    expect(barCoverage(bars, '2026-08-01T00:00:00.000Z', '30d', now, all)).toEqual({
+      covered: true,
+      collectedHours: 720 - 1,
+    });
+    expect(barCoverage(bars, '2026-08-01T00:00:00.000Z', '30d', now, collected)).toEqual({
+      covered: false,
+      missingHours: missing,
+    });
   });
 
   it('bars that stop short of now are not collected, never a part shown as the whole', () => {
     const later = new Date('2026-10-06T12:00:00.000Z');
-    const figures = priceHistoryFigures(bars, null, '24h', later);
+    const figures = priceHistoryFigures(bars, null, '24h', later, collected);
     // the last bar ended at 06:00, six hours before
     expect(figures.every((f) => f.value === null && f.missingHours === 6)).toBe(true);
-    expect(priceHistoryFigures([], null, '7d', now)).toEqual(
+    expect(priceHistoryFigures([], null, '7d', now, collected)).toEqual(
       BAR_KEYS.map((key) => ({ key, value: null, reason: 'not_collected', missingHours: 168 })),
     );
   });
@@ -185,7 +206,7 @@ describe('price history: the asset bars of a window, in dollars', () => {
   it('reads the DEX bars in dollars only, never an oracle price', () => {
     // A row carrying more than the dollar columns: an oracle's price and the quote-token close.
     const odd = bars.map((bar) => ({ ...bar, oracleUsd: 1_000_000, closeQuote: 1_000_000 }));
-    const figures = byKey(priceHistoryFigures(odd, null, '7d', now));
+    const figures = byKey(priceHistoryFigures(odd, null, '7d', now, collected));
     const last = bars.filter((bar) => bar.closeUsd !== null).at(-1) as BarRow;
     expect(figures.get('close')?.value).toBe(last.closeUsd);
     expect(figures.get('high')?.value).toBeLessThan(1_000_000);
@@ -199,8 +220,75 @@ describe('price history: the asset bars of a window, in dollars', () => {
   it('keeps one row an hour, the later method version', () => {
     const last = bars.at(-1) as BarRow;
     const again = { ...last, methodVersion: 'bars-0.2', closeUsd: (last.closeUsd as number) * 2 };
-    const figures = byKey(priceHistoryFigures([...bars, again], null, '24h', now));
+    const figures = byKey(priceHistoryFigures([...bars, again], null, '24h', now, collected));
     expect(figures.get('close')?.value).toBe(again.closeUsd);
+  });
+
+  it('orders method versions by their numbers: bars-0.10 is later than bars-0.9', () => {
+    const last = bars.at(-1) as BarRow;
+    const nine = { ...last, methodVersion: 'bars-0.9', closeUsd: 1 };
+    const ten = { ...last, methodVersion: 'bars-0.10', closeUsd: 2 };
+    for (const rows of [
+      [...bars, nine, ten],
+      [...bars, ten, nine],
+    ])
+      expect(
+        byKey(priceHistoryFigures(rows, null, '24h', now, collected)).get('close')?.value,
+      ).toBe(2);
+    expect(compareVersions('bars-0.10', 'bars-0.9')).toBeGreaterThan(0);
+    expect(compareVersions('bars-1.0', 'bars-0.12')).toBeGreaterThan(0);
+    expect(compareVersions('bars-0.1', 'bars-0.1')).toBe(0);
+  });
+});
+
+describe("price history: an hour the chain's collector did not run is never a quiet hour", () => {
+  // The Robinhood Chain outage in the local data: no asset of the chain has a bar from Oct 6 03:00 to
+  // Oct 8 23:00 (69 hours). A week read on Oct 10 at 00:30 spans it.
+  const now = new Date('2026-10-10T00:30:00.000Z');
+  const start = windowStart('7d', now).getTime();
+  const outage = new Set(hoursBetween('2026-10-06T03:00:00.000Z', '2026-10-08T23:00:00.000Z'));
+  const week = hoursBetween(start, '2026-10-10T00:00:00.000Z');
+  const template = bars.find((bar) => bar.closeUsd !== null && bar.volumeUsd !== null) as BarRow;
+  const asset = (hours: string[]): BarRow[] => hours.map((hour) => ({ ...template, hour }));
+
+  it('a window with an outage is not collected, with the outage hours missing', () => {
+    const served = week.filter((hour) => !outage.has(hour));
+    expect(outage.size).toBe(69);
+    // the asset's bars on every hour the chain has any: its history starts before the window
+    const figures = priceHistoryFigures(
+      asset(served),
+      '2026-10-01T00:00:00.000Z',
+      '7d',
+      now,
+      served,
+    );
+    expect(figures).toEqual(
+      BAR_KEYS.map((key) => ({ key, value: null, reason: 'not_collected', missingHours: 69 })),
+    );
+  });
+
+  it('a quiet hour, where the chain has bars and this asset none, is a gap', () => {
+    const quiet = week.filter((hour) => !outage.has(hour));
+    const figures = byKey(
+      priceHistoryFigures(asset(quiet), '2026-10-01T00:00:00.000Z', '7d', now, week),
+    );
+    expect(figures.get('gaps')).toMatchObject({ value: 69, unit: 'hours' });
+    expect(figures.get('swaps')).toMatchObject({ value: quiet.length * template.swaps });
+  });
+
+  it('the tolerated tail after the chain’s last collected hour is not a gap', () => {
+    // collected to 23:00 on Oct 9; the hour of 00:00 has not ended: neither covered nor a gap
+    const upTo = week.slice(0, -1);
+    const figures = byKey(
+      priceHistoryFigures(asset(upTo), '2026-10-01T00:00:00.000Z', '7d', now, upTo),
+    );
+    expect(figures.get('gaps')).toMatchObject({ value: 0 });
+    // past the tolerance it is not collected
+    const late = new Date('2026-10-10T02:30:00.000Z');
+    expect(barCoverage(asset(upTo), null, '7d', late, upTo)).toEqual({
+      covered: false,
+      missingHours: 3,
+    });
   });
 });
 
@@ -211,6 +299,7 @@ describe('pools: by dollars held, at most five', () => {
     null,
     '24h',
     now,
+    collected,
   );
 
   it('serves the five largest with their TVL, share and day volume, the reading aged', () => {
@@ -242,7 +331,7 @@ describe('pools: by dollars held, at most five', () => {
 
   it('a day the bars do not cover leaves the volume not collected; no reading leaves the pools out', () => {
     const late = new Date('2026-10-06T12:00:00.000Z');
-    const stale = barCoverage(bars, null, '24h', late);
+    const stale = barCoverage(bars, null, '24h', late, collected);
     const { pools: served } = poolFigures(pools.reading, pools.poolBars, stale, late);
     expect(byKey((served[0] as (typeof served)[number]).figures).get('volume')).toEqual({
       key: 'volume',
@@ -255,6 +344,13 @@ describe('pools: by dollars held, at most five', () => {
       missing: { key: 'tvl', value: null, reason: 'not_collected' },
     });
     const none = { ...pools.reading, value: null, nullReason: 'no_registered_pool', detail: {} };
+    // A sum that left a pool out is a lower bound: no pool's share of it is served, its TVL is.
+    const partial = { ...pools.reading, detail: { ...pools.reading.detail, lowerBound: true } };
+    const [top] = poolFigures(partial, pools.poolBars, day, now).pools;
+    const f = byKey(top?.figures ?? []);
+    expect(f.get('share')).toEqual({ key: 'share', value: null, reason: 'not_collected' });
+    const listed = pools.reading.detail?.pools as Array<{ tvlUsd: number }>;
+    expect(f.get('tvl')).toMatchObject({ value: listed[0]?.tvlUsd });
     expect(poolFigures(none, [], day, now).missing).toEqual({
       key: 'tvl',
       value: null,
@@ -268,6 +364,12 @@ describe('lending: per market, from the report’s sheets', () => {
     const now = new Date('2026-10-14T14:00:00.000Z');
     const markets = lendingFigures(lending, now);
     expect(markets.map((m) => m.account)).toEqual([...lending.map((m) => m.account)].sort());
+    // each a Jupiter Lend vault that takes NVDAx as collateral and lends a dollar token: the rates are
+    // that token's
+    expect(markets.map((m) => [m.market, m.lent, m.collateral])).toEqual([
+      ['Jupiter Lend NVDAx/JupUSD', 'JupUSD', 'NVDAx'],
+      ['Jupiter Lend NVDAx/USDC', 'USDC', 'NVDAx'],
+    ]);
     for (const market of markets) {
       const sheet = (lending.find((m) => m.account === market.account) as LendingMarketRow).sheet;
       const f = byKey(market.figures);
@@ -304,5 +406,16 @@ describe('lending: per market, from the report’s sheets', () => {
       value: null,
       reason: 'not_collected',
     });
+  });
+});
+
+describe('lending: the token whose rates a market holds', () => {
+  const market = lending[0] as LendingMarketRow;
+  it('reads it from the row, or from the sheet’s symbol; a symbol with a digit is not named', () => {
+    expect(lentOf(market)).toEqual({ lent: 'JupUSD', collateral: 'NVDAx' });
+    expect(lentOf({ ...market, lent: 'USDC' })).toEqual({ lent: 'USDC', collateral: 'NVDAx' });
+    const reserve = { ...market, role: 'debt', sheet: { ...market.sheet, symbol: 'PYUSD' } };
+    expect(lentOf(reserve)).toEqual({ lent: 'PYUSD', collateral: null });
+    expect(lentOf({ ...market, lent: 'USDT0' })).toEqual({ lent: null, collateral: 'NVDAx' });
   });
 });
