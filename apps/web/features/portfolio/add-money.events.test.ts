@@ -27,7 +27,7 @@ import { VaultScreen } from '../shared/VaultScreen';
 import { EMBEDDED, fakePort, json, SOLANA, signedInPort } from '../wallet/test/fake-port';
 import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
-import { AddMoneyScreen, targetsOfVault } from './AddMoneyScreen';
+import { AddMoneyScreen, addFailure, targetsOfVault } from './AddMoneyScreen';
 import { MonitorScreen } from './MonitorScreen';
 import { PORTFOLIO_PATH } from './portfolio';
 import { chainOf, portfolioBody, vault as vaultFixture } from './test/portfolio';
@@ -851,5 +851,32 @@ describe('a vault’s goal, once money is added', () => {
   it('counts the add in what was put in, and joins it to no other vault', () => {
     expect(putInto(mine, [added, bought], new Set(['first', 'second']))).toBe(60);
     expect(putInto(vault({ basketId: '999' }), [added, bought], new Set(['second']))).toBeNull();
+  });
+});
+
+describe('why an add can’t be placed', () => {
+  const blocked = en.buy.blocked;
+  const other = en.portfolio.add.otherWallet('7xKX…gAsU');
+  it('names the real reason, never a read that is not happening', () => {
+    // signed out, or no wallet on the chain: the wallet, whatever was read
+    expect(
+      addFailure({ signedIn: false, owner: false, otherWallet: null, source: null }, blocked),
+    ).toBe(blocked.wallet);
+    // signed in with a wallet that is not the vault's owner
+    expect(
+      addFailure({ signedIn: true, owner: false, otherWallet: other, source: null }, blocked),
+    ).toBe(other);
+    // the owner, against a read that differs: the read's own sentence
+    const differs = en.portfolio.add.source.differs('Solana');
+    expect(
+      addFailure({ signedIn: true, owner: true, otherWallet: null, source: differs }, blocked),
+    ).toBe(differs);
+    // nothing left to say of the read (it matched): no "Reading it from the chain…"
+    const said = addFailure(
+      { signedIn: false, owner: true, otherWallet: null, source: null },
+      blocked,
+    );
+    expect(said).not.toBe(en.shared.check.reading);
+    expect(said).toBe(blocked.wallet);
   });
 });

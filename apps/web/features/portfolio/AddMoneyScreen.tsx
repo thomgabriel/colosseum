@@ -45,6 +45,20 @@ export const targetsOfVault = (vault: Pick<Vault, 'positions'>): Target[] =>
     .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
 
 /** The amount card of a host that has no amount of its own (the vault page's pane). */
+/**
+ * Why an add can't be placed, in the order `place` checks it: no wallet of the person's signed in on
+ * the chain, a wallet that isn't the vault's owner, then what was found of the vault's targets (still
+ * reading, a read that failed or differs). Never a sentence of a reason that isn't the one.
+ */
+export function addFailure(
+  o: { signedIn: boolean; owner: boolean; otherWallet: string | null; source: string | null },
+  t: { wallet: string },
+): string {
+  if (!o.signedIn || (!o.owner && o.otherWallet === null)) return t.wallet;
+  if (!o.owner && o.otherWallet !== null) return o.otherWallet;
+  return o.source ?? t.wallet;
+}
+
 export type AddEntry = {
   /** Deposit | Withdraw on the card, where the vault has something to withdraw. */
   onMode?: (mode: AmountMode) => void;
@@ -186,7 +200,17 @@ export function AddMoneyScreen({
   /** Makes the order for this amount and keeps what the add is held to with it. */
   async function place(amountUsd: number): Promise<InvestPlaced> {
     if (!chain || !vault || !owner || !port.userId || !held || differs)
-      return { failure: sourceSentence ?? t.shared.check.reading };
+      return {
+        failure: addFailure(
+          {
+            signedIn: port.userId !== null,
+            owner: owner !== null,
+            otherWallet: active && vault ? words.otherWallet(shorten(vault.owner)) : null,
+            source: sourceSentence,
+          },
+          t.buy.blocked,
+        ),
+      };
     // What the add is held to: the vault chosen and its targets as read, never the order the API answers.
     const terms: SharedTerms = {
       kind: 'vault',
