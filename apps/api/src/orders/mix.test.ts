@@ -684,6 +684,41 @@ describe('cash a change or a rebalance leaves (Vault #4 on devnet, Oct 14)', () 
     expect(Number((await s.entry.adapter.getVault(vault.address))?.cash.raw)).toBeLessThan(10);
   });
 
+  it('spends idle cash by purchases alone on an EVM chain too, its steps built and landed', async () => {
+    const s = await setup('robinhood');
+    const { entry, mock, cash } = s;
+    const owner = mockAddress('robinhood', 'idle');
+    mock.fund(owner, { gasRaw: '1000000000000000000', assets: { [cash]: '1000000000' } });
+    await mock.send(
+      await entry.adapter.buildApprove({ owner, basketId: '14', amountRaw: '1000000000' }),
+    );
+    // $1,000 in, $990 of it into TSLA (its target 100%): $10 idle, inside the band, worth a trade
+    await mock.send(
+      await entry.adapter.buildCreateVault({
+        owner,
+        basketId: '14',
+        targets: [{ asset: 'robinhood:tsla', weightBps: 10_000 }],
+        autoFollow: false,
+        depositRaw: '1000000000',
+        trades: [{ sell: cash, buy: 'robinhood:tsla', amountInRaw: '990000000' }],
+        slippageBps: 100,
+      }),
+    );
+    const [vault] = await entry.adapter.getVaults(owner);
+    if (!vault) throw new Error('no vault');
+    const planned = await planVaultRebalance(entry, vault, { slippageBps: 100, now: NOW, owner });
+    if (!planned.planned) throw new Error('nothing planned');
+    const { order, request } = planned.planned;
+    const trades = order.legs.flatMap((l) => l.trades);
+    expect(trades.map((t) => [t.sell, t.buy])).toEqual([[cash, 'robinhood:tsla']]);
+    for (const leg of order.legs) {
+      expect(leg.expected).toHaveLength(leg.trades.length);
+      await mock.send(await buildRetarget(request, leg, entry, owner, undefined, true));
+    }
+    const after = await entry.adapter.getVault(vault.address);
+    expect(Number(after?.cash.raw)).toBeLessThan(10);
+  });
+
   it('plans nothing for idle cash under one trade, and the page and the chat say on target', async () => {
     const s = await setup();
     const owner = mockAddress('solana', 'dust');
