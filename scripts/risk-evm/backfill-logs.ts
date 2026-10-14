@@ -17,7 +17,7 @@
 // `unknown_pool`.
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gunzipSync, gzipSync } from 'node:zlib';
+import { gzipSync } from 'node:zlib';
 import {
   addToManifest,
   BACKFILL_METHOD_VERSION,
@@ -28,6 +28,7 @@ import {
   type StratumCount,
   strata,
 } from '@colosseum/risk';
+import { gzLines } from '../risk/assets/gz-lines';
 import {
   type Call,
   decodeAggregate3,
@@ -682,8 +683,6 @@ export async function fetchLogs(deps: Deps, inp: FetchInput) {
     let k = keysOf.get(file);
     if (k) return k;
     k = new Set<number>();
-    // line by line over the bytes: a busy day unpacks past V8's longest string (~512 MB), so it is never one
-    // string (found 2026-10-14: "Cannot create a string longer than 0x1fffffe8 characters")
     if (existsSync(file)) for (const l of gzLines(readFileSync(file))) k.add(rowKey(l));
     keysOf.set(file, k);
     return k;
@@ -794,18 +793,7 @@ export const transferParties = (topics: string[], data: string) => ({
   to: wordToAddress(BigInt(topics[2] ?? ZERO_WORD)),
   value: (words(data)[0] ?? 0n).toString(),
 });
-export { ZERO_ADDRESS };
-
-/** The non-empty lines of a gzip file (members appended one after another), each decoded on its own. */
-export function* gzLines(gz: Buffer): Generator<string> {
-  const b = gunzipSync(gz);
-  for (let s = 0; s < b.length; ) {
-    let e = b.indexOf(0x0a, s);
-    if (e < 0) e = b.length;
-    if (e > s) yield b.toString('utf8', s, e);
-    s = e + 1;
-  }
-}
+export { gzLines, ZERO_ADDRESS };
 
 /** The key a log row is written once under: its block and log index. */
 const rowKey = (line: string) => {
