@@ -15,9 +15,10 @@ import { dollars } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import { MAX_USD, MIN_USD } from '../order/limits';
 import type { BuyOf } from '../order/order-api';
-import { AssetMark } from '../order/PlanView';
 import { displayName } from '../order/plain';
 import { unitsFor } from '../order/units';
+import { holdingsOf, type Vault } from '../portfolio/portfolio';
+import { Composition } from '../shared/Composition';
 import { AmountCard, type AmountCardProps, type AmountMode } from './AmountCard';
 import { maxText, readAmount, shownBalance } from './amount-check';
 import { useWalletBalance } from './use-balance';
@@ -49,6 +50,18 @@ export type DepositCardProps = {
   holdings: readonly Target[] | null;
   /** The keeper may trade the vault: its limits are among the trust notice's points. */
   keeper: boolean;
+  /**
+   * What the vault holds now, where the deposit goes into one that exists: each holding's value as
+   * read, in dollars (null with no price), its share now, and the vault's value. Left out: a new vault.
+   */
+  held?: {
+    rows: readonly { asset: string; valueUsd: number | null; weightBps: number; cash?: boolean }[];
+    totalUsd: number;
+  } | null;
+  /** The way back out of the pane the card heads. */
+  leave?: { label: string; onLeave: () => void };
+  /** Told as the amount card is drawn and taken away. */
+  onShown?: (shown: boolean) => void;
   /** The deposit lands as cash for the keeper to invest (auto-follow on): said in the preview. */
   keeperInvests?: boolean;
   into?: AmountCardProps['into'];
@@ -103,6 +116,9 @@ export function DepositCard({
   buyOf,
   holdings,
   keeper,
+  held = null,
+  leave,
+  onShown,
   keeperInvests = false,
   into,
   onMode,
@@ -221,28 +237,67 @@ export function DepositCard({
             : []),
         ]
       : [];
-  // What the vault will hold at this amount, once there is one: each holding in one compact line,
-  // its weight and its dollars, so the card's button stays in sight with the amount.
+  // What the vault will hold at this amount, once there is one, as the shared composition compares it:
+  // a new vault's "Now" empty, an existing one's its shares today, each against its shares after the
+  // deposit at the vault's weights. The after shares are worked out from the vault's values as read
+  // with its prices; where a holding has no price, the comparison is left out and the weights stand.
+  const afterShares = (() => {
+    // no targets read (yet, or at all): nothing to split the deposit by, so nothing is said of it
+    if (amount === null || lines.length === 0) return null;
+    const priced = held && held.rows.every((r) => r.valueUsd !== null) && held.totalUsd > 0;
+    if (!held || !priced)
+      return lines.map(
+        (line): { asset: string; name: string; bps: number; beforeBps?: number } => ({
+          asset: line.asset,
+          name: line.name,
+          bps: line.weightBps,
+        }),
+      );
+    const total = held.totalUsd + amount;
+    const keys = [...new Set([...held.rows.map((r) => r.asset), ...lines.map((l) => l.asset)])];
+    return keys.map((asset) => {
+      const now = held.rows.find((r) => r.asset === asset);
+      const line = lines.find((l) => l.asset === asset);
+      const value = (now?.valueUsd ?? 0) + (amount * (line?.weightBps ?? 0)) / 10_000;
+      return {
+        asset,
+        name: line?.name ?? (now?.cash ? a.preview.cash : displayName(asset, t.plan)),
+        bps: Math.round((value / total) * 10_000),
+        beforeBps: now?.weightBps ?? 0,
+      };
+    });
+  })();
+  // Now against after only where there is a now (a vault that exists, read with its prices), and both
+  // strips only where a share moves at the precision the rows write it; otherwise the one.
+  const compare = (afterShares ?? []).some((item) => item.beforeBps !== undefined);
+  const moves = (afterShares ?? []).some(
+    (item) =>
+      item.beforeBps !== undefined &&
+      formatBps(item.beforeBps, locale) !== formatBps(item.bps, locale),
+  );
   const preview =
-    amount !== null && (keeperInvests || lines.length > 0)
+    amount !== null && (keeperInvests || (afterShares && afterShares.length > 0))
       ? {
           title: a.preview.deposit,
           body: keeperInvests ? (
             <p className="text-body-sm">{a.preview.keeper}</p>
           ) : (
-            <ul
-              data-ui="deposit-holds"
-              className="flex flex-wrap gap-x-4 gap-y-1.5 text-body-sm tabular-nums"
-            >
-              {lines.map((line) => (
-                <li key={line.asset} className="inline-flex min-w-0 items-center gap-1.5">
-                  <AssetMark asset={line.asset} className="size-5" />
-                  <span className="font-medium">{line.name}</span>
-                  <span className="text-muted-foreground">{formatBps(line.weightBps, locale)}</span>
-                  <span>{dollars((amount * line.weightBps) / 10_000, lang)}</span>
-                </li>
-              ))}
-            </ul>
+            <div data-ui="deposit-holds">
+              <Composition
+                mode={compare ? 'compare' : 'single'}
+                {...(compare && !moves ? { strips: 'one' as const } : {})}
+                size="compact"
+                labels={{ caption: a.preview.deposit }}
+                items={(afterShares ?? []).map((item) => ({
+                  key: item.asset,
+                  name: item.name,
+                  asset: item.asset,
+                  cash: item.asset === cashAsset,
+                  bps: item.bps,
+                  ...(item.beforeBps !== undefined ? { beforeBps: item.beforeBps } : {}),
+                }))}
+              />
+            </div>
           ),
         }
       : null;
@@ -292,6 +347,9 @@ export function DepositCard({
       headingLevel={headingLevel}
       {...(title ? { title } : {})}
       {...(focusOnOpen ? { focusOnOpen } : {})}
+      {...(leave ? { leave } : {})}
+      {...(onShown ? { onShown } : {})}
+      reserve={keeperInvests || lines.length > 0}
       chain={chain}
       chainName={chainName}
       provenance={figures}
@@ -325,7 +383,8 @@ export function DepositCard({
             : null,
       }}
       preview={preview}
-      details={details}
+      // the figures once there is an amount to hold them to: no closed fold over nothing
+      {...(amount !== null ? { details } : {})}
       notice={notice}
       foot={foot}
       trust={{
@@ -334,11 +393,25 @@ export function DepositCard({
         ...(entry ? { ticked: entry.ticked, onTick: entry.onTick } : {}),
       }}
       action={{
-        label: amount !== null ? a.press.deposit(dollars(amount, lang)) : a.enter,
+        // with no amount yet, the button names the action alone, never a sentence of what is missing
+        label: amount !== null ? a.press.deposit(dollars(amount, lang)) : a.modes.deposit,
         held: amount === null || blocking !== null || !owner,
         reasons: [...blocked, ...(!owner ? [t.buy.blocked.wallet] : [])],
         onPress: () => amount !== null && press(amount),
       }}
     />
   );
+}
+
+/** What a vault of the person's holds now, as the deposit card compares it: from its portfolio row. */
+export function heldOf(vault: Vault): NonNullable<DepositCardProps['held']> {
+  return {
+    rows: holdingsOf(vault).map((row) => ({
+      asset: row.asset,
+      valueUsd: row.valueUsd === null ? null : Number(row.valueUsd),
+      weightBps: row.weightBps,
+      cash: 'cash' in row && row.cash === true,
+    })),
+    totalUsd: Number(vault.valueUsd),
+  };
 }
