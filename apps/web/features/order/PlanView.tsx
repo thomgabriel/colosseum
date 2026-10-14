@@ -275,6 +275,8 @@ export function PlanView({
           level={3}
           icon={<HoldingsIcon />}
           title={t.plan.holdingsTitle}
+          // its figures are the board's: the same sample mark on them
+          actions={plate}
           stats={[
             {
               label: t.plan.kpiAssets,
@@ -334,78 +336,80 @@ export function PlanView({
           })}
         />
         {figures && <PanelBody className="border-t border-border">{figures}</PanelBody>}
-        {/* The method behind it, behind one fold: why each share, and the way out. */}
-        <details data-ui="plan-more" className="border-t border-border px-5 py-4">
-          <summary className="w-fit cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-            {t.plan.aboutHoldings}
-          </summary>
-          <div className="flex flex-col gap-6 pt-4">
-            {more}
-            {reasoned.length > 0 && (
-              <div data-ui="plan-why" className="flex flex-col gap-3">
-                <h3 className="text-body-sm font-medium">{t.plan.whyShares}</h3>
-                <ul className="flex max-w-(--tf-measure-body) flex-col gap-3 text-body-sm">
-                  {reasoned.map(({ h, reasons }) => (
-                    <li key={keyOf(h)} data-row-why={keyOf(h)} className="flex flex-col gap-0.5">
-                      <span className="font-medium">{name(h.asset)}</span>
-                      {reasons.map((reason) => (
-                        <span key={reason} className="text-muted-foreground">
-                          {reason}
-                        </span>
-                      ))}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+        {/* The way out, in view: a plan's exit plan is a reason to read it before investing. */}
+        <PanelBody className="border-t border-border">
+          {/* The way out: a meter per tier, with what leaving costs and its pin. What is not
+              measured is an empty meter, said once. */}
+          <div data-ui="exit-plan-line" className="flex flex-col gap-3">
+            <h3 className="text-body-sm font-medium">{t.plan.exitPlan}</h3>
+            <ul className="flex flex-col gap-3">
+              {exit.tiers.map((tier) => (
+                <li
+                  key={`${tier.name ?? ''}:${tier.text}`}
+                  data-ui="exit-tier"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1"
+                >
+                  <span className="min-w-0 text-body-sm">
+                    {tier.name && <span className="font-medium">{tier.name}: </span>}
+                    {tier.text}
+                  </span>
+                  <span className="text-right text-body-sm tabular-nums">
+                    {tier.cost ? (
+                      <>
+                        <span className="text-muted-foreground">{t.plan.costPrefix} </span>
+                        <ProvenancePin
+                          value={tier.cost.figure}
+                          obs={tier.cost.obs}
+                          labels={t.pin}
+                        />
+                      </>
+                    ) : null}
+                  </span>
+                  {tier.meter !== undefined && <Meter value={tier.meter} className="col-span-2" />}
+                  {tier.meter !== undefined && tier.cost && tier.scale && (
+                    <span className="col-span-2 text-caption text-muted-foreground">
+                      {tier.scale}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {exit.caveat && (
+              <p data-ui="exit-caveat" className="text-body-sm text-muted-foreground">
+                {exit.caveat}
+              </p>
             )}
-
-            {/* The way out: a meter per tier, with what leaving costs and its pin. What is not
-                  measured is an empty meter, said once. */}
-            <div data-ui="exit-plan-line" className="flex flex-col gap-3">
-              <h3 className="text-body-sm font-medium">{t.plan.exitPlan}</h3>
-              <ul className="flex flex-col gap-3">
-                {exit.tiers.map((tier) => (
-                  <li
-                    key={`${tier.name ?? ''}:${tier.text}`}
-                    data-ui="exit-tier"
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1"
-                  >
-                    <span className="min-w-0 text-body-sm">
-                      {tier.name && <span className="font-medium">{tier.name}: </span>}
-                      {tier.text}
-                    </span>
-                    <span className="text-right text-body-sm tabular-nums">
-                      {tier.cost ? (
-                        <>
-                          <span className="text-muted-foreground">{t.plan.costPrefix} </span>
-                          <ProvenancePin
-                            value={tier.cost.figure}
-                            obs={tier.cost.obs}
-                            labels={t.pin}
-                          />
-                        </>
-                      ) : null}
-                    </span>
-                    {tier.meter !== undefined && (
-                      <Meter value={tier.meter} className="col-span-2" />
-                    )}
-                    {tier.meter !== undefined && tier.cost && tier.scale && (
-                      <span className="col-span-2 text-caption text-muted-foreground">
-                        {tier.scale}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {exit.caveat && (
-                <p data-ui="exit-caveat" className="text-body-sm text-muted-foreground">
-                  {exit.caveat}
-                </p>
-              )}
-              <p className="text-body-sm text-muted-foreground">{t.plan.inKind}</p>
-            </div>
+            <p className="text-body-sm text-muted-foreground">{t.plan.inKind}</p>
           </div>
-        </details>
+        </PanelBody>
+        {/* The method behind it, behind one fold: why each share. */}
+        {(more || reasoned.length > 0) && (
+          <details data-ui="plan-more" className="border-t border-border px-5 py-4">
+            <summary className="w-fit cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              {t.plan.aboutHoldings}
+            </summary>
+            <div className="flex flex-col gap-6 pt-4">
+              {more}
+              {reasoned.length > 0 && (
+                <div data-ui="plan-why" className="flex flex-col gap-3">
+                  <h3 className="text-body-sm font-medium">{t.plan.whyShares}</h3>
+                  <ul className="flex max-w-(--tf-measure-body) flex-col gap-3 text-body-sm">
+                    {reasoned.map(({ h, reasons }) => (
+                      <li key={keyOf(h)} data-row-why={keyOf(h)} className="flex flex-col gap-0.5">
+                        <span className="font-medium">{name(h.asset)}</span>
+                        {reasons.map((reason) => (
+                          <span key={reason} className="text-muted-foreground">
+                            {reason}
+                          </span>
+                        ))}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </details>
+        )}
       </Panel>
       {details}
       {invest}

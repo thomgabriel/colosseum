@@ -331,8 +331,10 @@ describe('the allocation, as the picture', () => {
         (p) => p.style.background,
       ),
     ).toEqual(['var(--tf-share-1)', 'var(--tf-share-2)', 'var(--tf-share-cash)']);
-    // no legend and no bar per row: one picture, one list
-    expect(legs.querySelectorAll('[data-ui="plan-bar"], [data-ui="plan-labels"]')).toHaveLength(0);
+    // one picture, one list: a single strip of three segments over one table
+    expect(legs.querySelectorAll('[data-ui="composition-strip"]')).toHaveLength(1);
+    expect(legs.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(3);
+    expect(legs.querySelectorAll('[data-ui="composition-list"]')).toHaveLength(1);
     const rows = [...legs.querySelectorAll('[data-ui="composition-list"] [data-row]')];
     expect(rows.map((r) => r.querySelector('[data-ui="composition-share"]')?.textContent)).toEqual([
       '60%',
@@ -395,6 +397,11 @@ describe('the allocation, as the picture', () => {
     // the card's one fold, closed, holds them
     const more = find<HTMLDetailsElement>(host, 'details[data-ui="plan-more"]');
     expect(more.open).toBe(false);
+    // the way out stays in view, outside the fold, in the holdings' panel
+    expect(more.querySelector('[data-ui="exit-plan-line"]')).toBeNull();
+    expect(find(host, '[data-ui="plan-legs"] [data-ui="exit-plan-line"]')).toBeTruthy();
+    // and the holdings' panel carries the sample mark on its figures, as the board does
+    expect(find(host, '[data-ui="plan-legs"] [data-ui="sample-note"]')).toBeTruthy();
     expect(find(more, 'summary').textContent).toBe(en.plan.aboutHoldings);
     const fold = find(more, '[data-ui="plan-why"]');
     expect(find(fold, 'h3').textContent).toBe(en.plan.whyShares);

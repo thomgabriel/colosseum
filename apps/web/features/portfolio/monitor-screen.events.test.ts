@@ -157,7 +157,16 @@ describe('the monitor, for a person with a vault on their chain', () => {
     expect(current.querySelectorAll('[data-ui="asset-mark"]')).toHaveLength(3);
     expect(current.textContent).toContain('USDY (Ondo) 63.5%');
     expect(current.textContent).toContain('Cash (USDC) 24%');
-    expect(cards[1]?.querySelector('[data-ui="holdings-bar"]')).toBeNull();
+    // the summary of the vault with holdings draws them; the empty one's draws no strip and no
+    // segment (its targets are drawn in its details, planned over now)
+    const summaryOf = (card: HTMLElement | undefined) =>
+      find(card as HTMLElement, '[data-ui="vault-summary"]');
+    expect(summaryOf(cards[0]).querySelector('[data-ui="composition-strip"]')).not.toBeNull();
+    expect(
+      summaryOf(cards[1]).querySelector(
+        '[data-ui="composition-strip"], [data-ui="composition-segment"]',
+      ),
+    ).toBeNull();
     expect(server.to(PORTFOLIO_PATH)).toHaveLength(1);
     expect(primary(host)).toBeNull();
   });

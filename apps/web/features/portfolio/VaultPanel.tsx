@@ -368,6 +368,8 @@ export function PlanParts({ vault }: { vault: Vault }) {
               still
               share={(bps) => share(lang, bps)}
               labels={{
+                // the table's name, as it was: "Its parts, by weight"
+                caption: words.parts,
                 before: t.shared.vault.columns.target,
                 after: t.shared.vault.columns.weight,
                 difference: t.shared.vault.page.against,
