@@ -455,9 +455,14 @@ for (const width of WIDTHS) {
         await waitsInPlace(page, {
           name: `analytics-${id}`,
           width,
-          held: /\/risk\//,
+          // The page's reads are held; the probe that asks whether the API is there is not. Held, it
+          // gives up after its tries and the banner says the API did not answer, on a slow runner
+          // only; answered late, it leaves the banner loading for a moment after the page has drawn.
+          held: /\/risk\/(?!facts\/methodology)/,
           arrive: (p) => p.goto(`/analytics/${id}`).then(() => {}),
-          settled: 'main [data-ui="bearing-kpis"] [data-ui="figure"]',
+          // the figures are there and the banner says what it will go on saying, as tall as its words
+          settled:
+            'main:has([data-ui="bearing-banner"]:not([data-mode="loading"])) [data-ui="bearing-kpis"] [data-ui="figure"]',
           // The banner over the page is as tall as what it says, and the recording's readings are
           // old, which takes more words than live ones: the page is held to its place under it.
           under: '[data-ui="bearing-banner"]',
