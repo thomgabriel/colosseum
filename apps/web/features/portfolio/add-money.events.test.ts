@@ -406,10 +406,14 @@ describe('the add-money screen', () => {
     const server = api();
     const host = await add(SECOND_VAULT);
     expect(find(host, 'h1').textContent).toBe(en.portfolio.add.title);
-    // this app has no node of its own here: the targets are our server's, said so over the button
-    expect(find(host, '[data-ui="source-mark"]').textContent).toBe(
-      `${en.shared.check.notChecked}.`,
-    );
+    // this app has no node of its own here: the targets are our server's, said so on the card
+    const marks = [...host.querySelectorAll<HTMLElement>('[data-ui="source-mark"]')];
+    expect(marks.length).toBeGreaterThan(0);
+    for (const mark of marks) {
+      expect(mark.textContent).toBe(`${en.shared.check.notChecked}.`);
+      // in sight, never inside the amount card's folded details
+      expect(mark.closest('details')).toBeNull();
+    }
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
     // the amount card's press hands the amount to the invest card (gate AMOUNT-CARD)
     await enter(host);
@@ -871,7 +875,7 @@ describe('why an add can’t be placed', () => {
     expect(
       addFailure({ signedIn: true, owner: true, otherWallet: null, source: differs }, blocked),
     ).toBe(differs);
-    // nothing left to say of the read (it matched): no "Reading it from the chain…"
+    // nothing left to say of the read (it matched): not the loading line
     const said = addFailure(
       { signedIn: false, owner: true, otherWallet: null, source: null },
       blocked,

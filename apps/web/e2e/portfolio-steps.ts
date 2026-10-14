@@ -53,6 +53,8 @@ export async function check(page: Page, name: string) {
         html.classList.add(t);
       }, theme);
       await page.waitForTimeout(100);
+      // a navigation inside the app leaves the page without its <title> for a moment (theme.ts)
+      await page.waitForFunction(() => document.title.trim() !== '');
       const result = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();

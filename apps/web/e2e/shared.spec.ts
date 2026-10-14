@@ -200,11 +200,20 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   for (let i = 0; i < 4; i += 1)
     await expect(steps.nth(i)).toHaveAttribute('data-status', 'confirmed');
 
+  // The vault it opened is said on the pane at once, as following it (audit F3), the steps still in view
+  await expect(page.locator('[data-ui="my-vault"]')).toHaveCount(1);
+  await expect(steps).toHaveCount(4);
+
   // The vault follows it now, and its public page reads it from the chain.
   await toFamily(page, 'Three of the largest');
   const mine = page.locator('[data-ui="my-vault"]');
   await expect(mine).toHaveCount(1);
-  await expect(mine).toContainText(en.shared.vaults.following);
+  // a state on the page's actions pane, with the way to it (gate SHARED-TWO-WAYS), not a place
+  // to deposit into: the first way says so
+  await expect(mine).toContainText(en.shared.actions.follows);
+  await expect(
+    page.locator('[data-ui="family-ways"] [data-option="new"]').getByRole('radio'),
+  ).toBeDisabled();
   await expect(mine.getByRole('button', { name: en.shared.vaults.autoOn })).toBeVisible();
   await mine.getByRole('link').first().click();
   await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+$/);
