@@ -372,9 +372,21 @@ export function buildRecords(input: {
   const assets = config.assets
     .filter((a) => lower(a.token) !== lower(config.cashToken) && a.hidden === undefined)
     .map((a) => {
+      // A token the guard's file does not list yet is added to it from the deploy file, by the symbol the
+      // file states (the redeploy's new tokens); one it lists is held to the file.
       const row =
-        byAddress.get(lower(a.token)) ?? fail(`the guard's file lists no token at ${a.token}`);
-      const symbol = row.id.replace(/^robinhood:/, '').toUpperCase();
+        byAddress.get(lower(a.token)) ??
+        (a.symbol && a.pool
+          ? {
+              id: `robinhood:${a.symbol.toLowerCase()}`,
+              address: a.token,
+              decimals: a.tokenDecimals,
+              pool: { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing },
+            }
+          : fail(
+              `the guard's file lists no token at ${a.token}, and the deploy file names no symbol for it`,
+            ));
+      const symbol = a.symbol ?? row.id.replace(/^robinhood:/, '').toUpperCase();
       if (row.decimals !== a.tokenDecimals)
         fail(
           `${symbol}: the guard's file says ${row.decimals} decimals and the deploy file ${a.tokenDecimals}`,
@@ -419,6 +431,16 @@ export function buildRecords(input: {
   const listed = new Set([lower(config.cashToken), ...assets.map((a) => a.address)]);
   const extra = [...byAddress.keys()].filter((address) => !listed.has(address));
   if (extra.length) fail(`the guard's file lists a token the deploy did not: ${extra.join(', ')}`);
+  // The guard's rows: every shown token, in the deploy file's order, the cash first.
+  const guardAssets: Json = {
+    [guard.chains.robinhood.cash]: guard.chains.robinhood.assets[guard.chains.robinhood.cash],
+  };
+  for (const a of assets)
+    guardAssets[a.id] = {
+      address: byAddress.get(a.address)?.address ?? a.address,
+      decimals: a.decimals,
+      pool: a.pool,
+    };
 
   const record: Json = {
     network: 'robinhood-mainnet',
@@ -489,6 +511,7 @@ export function buildRecords(input: {
         factory: contracts.factory,
         beacon: contracts.beacon,
         registry: contracts.registry,
+        assets: guardAssets,
       },
     },
   };

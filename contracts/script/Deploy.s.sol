@@ -197,6 +197,46 @@ contract Deploy is Script {
         console2.logBytes(data[1]);
     }
 
+    /// After a deploy with a `safe` and the Safe's batch: reads the factory `FACTORY` names and fails unless
+    /// it is what the file says. The Safe holds the factory's admin and the beacon with nothing proposed, the
+    /// registry is the factory's and holds the second rules, the guardian, the keeper, the cash token and every
+    /// router are the file's, and every asset is listed with the file's settings. It sends nothing.
+    function check() external view {
+        Config memory cfg = readConfig(_path());
+        VaultFactory factory = VaultFactory(vm.envAddress("FACTORY"));
+        VaultBeacon beacon = VaultBeacon(factory.beacon());
+        IndexRegistry registry = IndexRegistry(factory.registry());
+        require(cfg.safe != address(0), MainnetRefused("check() is for a deploy whose Safe holds the keys"));
+        require(factory.admin() == cfg.safe, HandoverIncomplete("the factory's admin is not the Safe"));
+        require(factory.pendingAdmin() == address(0), HandoverIncomplete("an admin hand-over is still proposed"));
+        require(beacon.owner() == cfg.safe, HandoverIncomplete("the beacon's owner is not the Safe"));
+        require(beacon.pendingOwner() == address(0), HandoverIncomplete("a beacon hand-over is still proposed"));
+        require(registry.factory() == address(factory), HandoverIncomplete("the registry is another factory's"));
+        require(registry.rulesVersion() == 2, HandoverIncomplete("the registry does not hold the second rules"));
+        require(registry.publishDelay() == cfg.publishDelay, HandoverIncomplete("the publish delay is not the file's"));
+        require(factory.guardian() == cfg.guardian, HandoverIncomplete("the guardian is not the file's"));
+        require(factory.keeper() == cfg.keeper, HandoverIncomplete("the keeper is not the file's"));
+        require(factory.cashToken() == cfg.cashToken, HandoverIncomplete("the cash token is not the file's"));
+        for (uint256 i; i < cfg.routers.length; ++i) {
+            require(
+                factory.routerPull(cfg.routers[i].router) == cfg.routers[i].pull,
+                HandoverIncomplete("a router is not allowed as the file says")
+            );
+        }
+        require(factory.assets().length == cfg.assets.length, HandoverIncomplete("the factory lists other assets"));
+        for (uint256 i; i < cfg.assets.length; ++i) {
+            Asset memory a = cfg.assets[i];
+            require(factory.isAsset(a.token), HandoverIncomplete("an asset of the file is not listed"));
+            require(
+                keccak256(abi.encode(factory.asset(a.token))) == keccak256(abi.encode(a.config)),
+                HandoverIncomplete("an asset is listed with other settings than the file's")
+            );
+        }
+        console2.log("checked: the Safe holds both keys; the registry, the roles and every asset are the file's");
+        console2.log("factory:", address(factory));
+        console2.log("assets listed:", cfg.assets.length);
+    }
+
     /// Lists the file's assets, routers, cash token and closed days on the factory `FACTORY` names, and sets
     /// the keeper's limits, as its admin. Nothing else: no role changes hands.
     function settings() external {

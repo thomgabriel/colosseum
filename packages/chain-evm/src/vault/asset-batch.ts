@@ -252,16 +252,20 @@ export type SafeBatchFile = {
   }[];
 };
 
-/** A file the Transaction Builder imports: one call from the Safe to the timelock, with its checksum. Addresses as the Safe app writes them, checksummed. */
-export function safeBatchFile(input: {
-  chainId: number;
-  safe: string;
-  to: string;
-  data: Hex;
-  name: string;
-  description: string;
-  createdAt: number;
-}): SafeBatchFile {
+/**
+ * A file the Transaction Builder imports, with its checksum: one call from the Safe (`to`, `data`), or
+ * several the Safe signs as one batch (`calls`). Addresses as the Safe app writes them, checksummed.
+ */
+export function safeBatchFile(
+  input: {
+    chainId: number;
+    safe: string;
+    name: string;
+    description: string;
+    createdAt: number;
+  } & ({ to: string; data: Hex } | { calls: readonly { to: string; data: Hex }[] }),
+): SafeBatchFile {
+  const calls = 'calls' in input ? input.calls : [{ to: input.to, data: input.data }];
   const batch: SafeBatchFile = {
     version: '1.0',
     chainId: String(input.chainId),
@@ -273,15 +277,13 @@ export function safeBatchFile(input: {
       createdFromSafeAddress: getAddress(input.safe),
       createdFromOwnerAddress: '',
     },
-    transactions: [
-      {
-        to: getAddress(input.to),
-        value: '0',
-        data: input.data,
-        contractMethod: null,
-        contractInputsValues: null,
-      },
-    ],
+    transactions: calls.map((c) => ({
+      to: getAddress(c.to),
+      value: '0',
+      data: c.data,
+      contractMethod: null,
+      contractInputsValues: null,
+    })),
   };
   return { ...batch, meta: { ...batch.meta, checksum: safeChecksum(batch) } };
 }
