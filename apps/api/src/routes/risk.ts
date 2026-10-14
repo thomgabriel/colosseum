@@ -63,6 +63,8 @@ const REGIME_PARAMS = defaultRegimeParams(calendar);
 const ISSUERS = JSON.parse(readFileSync(join(ROOT, 'fixtures/risk/issuer-models.json'), 'utf8'))
   .models as Record<string, IssuerModel>;
 const METHOD_VERSION = 'risk-0.3';
+/** What a `GET /risk/*` answer tells caches: a minute fresh, five more served while asked again. */
+export const RISK_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
 /** Largest `POST /risk/positions/assess` body: 50 years of monthly withdrawals, 50 legs (PLAN-ANALYTICS item 2). */
 export const ASSESS_MAX_WITHDRAWALS = 600;
 export const ASSESS_MAX_LEGS = 50;
@@ -88,6 +90,18 @@ export async function registerRiskRoutes(app: FastifyInstance) {
   // The process's one pool (packages/db: `sharedDb`).
   const { db } = sharedDb();
   const f = app.withTypeProvider<ZodTypeProvider>();
+  // A read is the same for everyone, and the collectors write at most every few minutes: a browser may
+  // keep an answer a minute and show it a few more while it asks again. Every answer carries its own
+  // reading's time, so a kept one never passes for newer than it is.
+  app.addHook('onSend', async (req, reply) => {
+    if (
+      req.method === 'GET' &&
+      req.url.startsWith('/risk/') &&
+      reply.statusCode === 200 &&
+      !reply.hasHeader('cache-control')
+    )
+      reply.header('cache-control', RISK_CACHE_CONTROL);
+  });
 
   async function resolveAsset(id: string) {
     const rows = await db
@@ -124,20 +138,40 @@ export async function registerRiskRoutes(app: FastifyInstance) {
     return rows.flatMap((r) => (r.mint ? [{ id: r.id, symbol: r.symbol, mint: r.mint }] : []));
   }
   async function curvesFor(mint: string, side: 'sell' | 'buy' = 'sell'): Promise<AssetCurves> {
+    return (await curvesForMany([mint], side)).get(mint) as AssetCurves;
+  }
+  /** The curves of many addresses in one query, each under its own collector's version. */
+  async function curvesForMany(
+    mints: readonly string[],
+    side: 'sell' | 'buy' = 'sell',
+  ): Promise<Map<string, AssetCurves>> {
+    const out = new Map<string, AssetCurves>(
+      mints.map((m) => [m, { assetId: m, byRegime: {} } as AssetCurves]),
+    );
+    if (!mints.length) return out;
+    const byVersion = new Map<string, string[]>();
+    for (const m of mints) {
+      const v = curveVersionOf(m);
+      byVersion.set(v, [...(byVersion.get(v) ?? []), m]);
+    }
     const rows = await db
       .select()
       .from(riskDepthCurves)
       .where(
         and(
-          eq(riskDepthCurves.assetMint, mint),
           eq(riskDepthCurves.side, side),
           // each address under its own collector's version (curve-version.ts)
-          eq(riskDepthCurves.methodVersion, curveVersionOf(mint)),
+          or(
+            ...[...byVersion].map(([v, ms]) =>
+              and(eq(riskDepthCurves.methodVersion, v), inArray(riskDepthCurves.assetMint, ms)),
+            ),
+          ),
         ),
       );
-    const byRegime: Partial<Record<Regime, DepthCurve>> = {};
-    for (const r of rows)
-      byRegime[r.regime as Regime] = {
+    for (const r of rows) {
+      const c = out.get(r.assetMint);
+      if (!c) continue;
+      c.byRegime[r.regime as Regime] = {
         points: r.points as DepthCurve['points'],
         insufficientFrom: r.insufficientFrom,
         quantile: r.quantile,
@@ -146,7 +180,8 @@ export async function registerRiskRoutes(app: FastifyInstance) {
         to: r.dataTo?.toISOString() ?? null,
         samples: r.samples,
       };
-    return { assetId: mint, byRegime };
+    }
+    return out;
   }
   // time series for line charts: capacity, reference price, lending pool (risk-history.ts)
   await registerRiskHistoryRoutes(app, db, resolveAsset, REGIME_PARAMS);
@@ -221,8 +256,10 @@ export async function registerRiskRoutes(app: FastifyInstance) {
     async (req) => {
       const { tau, chain } = req.query;
       const assets = [];
-      for (const a of await chainAssets(chain)) {
-        const c = await curvesFor(a.mint);
+      const listed = await chainAssets(chain);
+      const curves = await curvesForMany(listed.map((a) => a.mint));
+      for (const a of listed) {
+        const c = curves.get(a.mint) as AssetCurves;
         assets.push({
           ...(chain === 'robinhood' ? { id: a.id } : {}),
           assetMint: a.mint,
@@ -1035,8 +1072,9 @@ export async function registerRiskRoutes(app: FastifyInstance) {
         let capacity = 0;
         let measured = 0;
         let capTo: string | null = null;
+        const curves = await curvesForMany(assets.map((a) => a.mint));
         for (const a of assets) {
-          const c = (await curvesFor(a.mint)).byRegime[regime];
+          const c = curves.get(a.mint)?.byRegime[regime];
           if (!c || c.insufficientFrom === 0) continue;
           capacity += maxNotionalAt(c, tau).notionalUsd;
           measured++;
