@@ -72,6 +72,7 @@ const EXPECTED_VAULT = [
   'vault_conversations',
   'vaults',
   'vault_numbers',
+  'vault_lifetimes',
   'vault_snapshots',
   'snapshot_runs',
   'orders',
@@ -87,7 +88,7 @@ const EXPECTED_VAULT = [
 describe('db schema: vault tables', () => {
   const tables = (Object.values(basketSchema) as unknown[]).filter(isTable) as PgTable[];
 
-  it('declares the 24 vault tables, and none that the core schema already has', () => {
+  it('declares the 25 vault tables, and none that the core schema already has', () => {
     const names = tables.map((t) => getTableName(t));
     expect([...names].sort()).toEqual([...EXPECTED_VAULT].sort());
     expect(names.filter((n) => EXPECTED.includes(n))).toEqual([]);
