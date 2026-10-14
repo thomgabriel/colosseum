@@ -59,6 +59,12 @@ export type CompositionColumn = {
   place?: 'before' | 'after';
   /** Right-aligned, tabular: a figure. */
   numeric?: boolean;
+  /**
+   * Words that need room (why a holding is there): drawn where the table is 64rem wide or more, and
+   * under the row where it folds into rows; between, left out rather than cut at the panel's edge.
+   * The caller says them in full elsewhere (the plan's fold).
+   */
+  roomy?: boolean;
 };
 
 export type CompositionProps = {
@@ -122,6 +128,8 @@ const FADE =
 /** The kit's cell (KitTable.tsx), and none in a narrow box, where the row lays its cells out itself. */
 const CELL = `${KIT_CELL} @max-lg:p-0`;
 const FIGURE = 'text-right tabular-nums';
+/** A column of words that needs room: none between a narrow box's rows and a 64rem table. */
+const ROOMY = '@lg:hidden @5xl:table-cell';
 
 export function Composition({
   items,
@@ -354,6 +362,7 @@ export function Composition({
       className={cn(
         CELL,
         column.numeric && FIGURE,
+        column.roomy && ROOMY,
         '@max-lg:order-3 @max-lg:col-span-2 @max-lg:pl-11 @max-lg:text-left @max-lg:text-caption @max-lg:text-muted-foreground',
       )}
     >
@@ -361,11 +370,11 @@ export function Composition({
       {item.cells?.[column.key] ?? '—'}
     </td>
   );
-  const head = (text: string, numeric = false) => (
+  const head = (text: string, numeric = false, roomy = false) => (
     <th
       key={text}
       scope="col"
-      className={cn('px-5 py-3 font-medium @max-lg:p-0', numeric && 'text-right')}
+      className={cn('px-5 py-3 font-medium @max-lg:p-0', numeric && 'text-right', roomy && ROOMY)}
     >
       {text}
     </th>
@@ -392,11 +401,11 @@ export function Composition({
           <thead className="text-left text-caption text-muted-foreground @max-lg:sr-only">
             <tr>
               {head(labels?.asset ?? c.asset)}
-              {beforeColumns.map((column) => head(column.header, column.numeric))}
+              {beforeColumns.map((column) => head(column.header, column.numeric, column.roomy))}
               {head(labels?.weight ?? c.weight, true)}
               {compare && head(before, true)}
               {compare && head(labels?.change ?? c.changeHead, true)}
-              {afterColumns.map((column) => head(column.header, column.numeric))}
+              {afterColumns.map((column) => head(column.header, column.numeric, column.roomy))}
             </tr>
           </thead>
           <tbody data-ui="composition-list">
