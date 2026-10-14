@@ -255,6 +255,10 @@ export function BearingProvider({
 
   useEffect(() => {
     let live = true;
+    // Whether the API has answered a read in this run: a run starts afresh on a retry or another
+    // chain, whatever the banner said before, so a probe that gives up then says so. An answer kept
+    // from before is not one.
+    let answered = false;
     const say = (m: Mode) => {
       modeRef.current = m;
       setMode(m);
@@ -270,17 +274,21 @@ export function BearingProvider({
     reader.probe().then(async (up) => {
       if (!live) return;
       if (!up) {
-        // only while nothing has answered: a read that came in says more than a probe that gave up
-        if (modeRef.current === 'loading') say('none');
+        // unless this run's read came in: it says more than a probe that gave up
+        if (!answered) say('none');
         return;
       }
       const b = await api.base();
       if (live) from(b);
     });
-    // A cold API can answer after the probe has given up: the page's own read, once its assets come,
-    // says the API is there, so the banner never says it did not answer beside the figures it gave.
-    api.base().then((b) => {
-      if (live && b.assets.ok) from(b);
+    // A cold API can answer after the probe has given up: any read it answers says it is there, so
+    // the banner never says it did not answer beside the figures it gave.
+    const off = reader.onAnswer?.(() => {
+      if (answered || !live) return;
+      answered = true;
+      api.base().then((b) => {
+        if (live) from(b);
+      });
     });
     // Every minute: an open page turns stale when its readings age past the limit, and a page whose
     // API did not answer asks again, and reads everything afresh when it does.
@@ -301,6 +309,7 @@ export function BearingProvider({
         : undefined;
     return () => {
       live = false;
+      off?.();
       if (tick) clearInterval(tick);
     };
   }, [reader, api, fixedNow]);

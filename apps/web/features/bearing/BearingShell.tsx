@@ -11,7 +11,7 @@ import { Icon } from '../../components/ui/Icon';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Segmented } from '../../components/ui/TimeChart';
 import { useLang } from '../../i18n/I18nProvider';
-import { useBearing } from './BearingProvider';
+import { type Mode, useBearing } from './BearingProvider';
 import { BEARING_CHAINS, isBearingChain, onChain } from './chain';
 import { RISK_API } from './data';
 import { hhmm } from './format';
@@ -187,69 +187,82 @@ export function ChainToggle() {
   );
 }
 
-/** What the loading banner lays out in place of the newest reading's time and its age. */
+/** What a banner not shown lays out in place of the newest reading's time and its age. */
 const STAND_IN_READING = '2026-01-01T00:00:00Z';
 const STAND_IN_AGE_S = 4 * 3600;
 
-/** Live or stale, said once for the whole page; or that the API did not answer. */
+/**
+ * Live or stale, said once for the whole page; or that the API did not answer. Every state is laid out
+ * in the same cell and only the one in force is seen, so the box is as tall as the tallest at any width
+ * and in either language: nothing under it moves when the readings come, turn stale or stop.
+ */
 export function Banner() {
   const { mode, newest, clock } = useBearing();
   const t = useWords();
   const fm = useFmt();
   const w = t.banner;
-  const box =
-    'mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border border-l-2 border-border border-l-primary px-3 py-2';
-  // While the readings come, the banner keeps its box in the shape of what it will say; the page's own
-  // wait says in words what is awaited. The shape is the stale banner's, its words laid out unseen with
-  // a stand-in time and age under a bar each, so the box is as tall as they are at any width: at
-  // 375 px they take four lines, and two bars of a line each let the page jump when they came.
-  if (mode === 'loading') {
-    const bar = (words: string, className?: string) => (
-      <span className={cn('relative', className)}>
-        <span className="invisible">{words}</span>
-        <Skeleton className="absolute inset-x-0 top-1 h-3 w-3/4" />
-      </span>
-    );
-    return (
-      <div data-ui="bearing-banner" data-mode={mode} aria-hidden="true" className={box}>
-        {bar(
-          w.stale(fm.second(STAND_IN_READING), formatAge(STAND_IN_AGE_S)?.short ?? w.unknownAge),
-          'font-semibold',
-        )}
-        {bar(w.staleAll)}
-      </div>
-    );
-  }
-  const now = new Date(clock.now);
+  const now = new Date(clock.now || Date.parse(STAND_IN_READING));
+  const time = newest ? hhmm(newest) : w.unknownTime;
+  const longestRegime = Object.values(t.regimes).reduce((a, b) => (b.length > a.length ? b : a));
+  const stale = (seen: boolean) =>
+    newest || !seen
+      ? w.stale(
+          fm.second(newest ?? STAND_IN_READING),
+          formatAge(newest ? (clock.now - Date.parse(newest)) / 1000 : STAND_IN_AGE_S)?.short ??
+            w.unknownAge,
+        )
+      : w.noReading;
+  const states: Record<Mode, (seen: boolean) => ReactNode> = {
+    // While the readings come the page's own wait says in words what is awaited: here, two bars.
+    loading: () => (
+      <>
+        <Skeleton className="mt-1 h-3.5 w-56 max-w-full" />
+        <Skeleton className="mt-1 h-3 w-40 max-w-full" />
+      </>
+    ),
+    live: (seen) => (
+      <>
+        <b className="font-semibold">{w.live(time)}</b>
+        <span className="font-mono text-b-meta text-muted-foreground">
+          {w.now(seen ? t.regimes[regimeAt(now)] : longestRegime, etLabel(now, t.heat.days))}
+        </span>
+      </>
+    ),
+    stale: (seen) => (
+      <>
+        <b className="font-semibold">{stale(seen)}</b>
+        <span>{w.staleAll}</span>
+      </>
+    ),
+    none: () => (
+      <>
+        <b className="font-semibold">{w.down(RISK_API)}</b>
+        <span>{w.downAll}</span>
+      </>
+    ),
+  };
+  const loading = mode === 'loading';
   return (
-    <div role="status" data-ui="bearing-banner" data-mode={mode} className={box}>
-      {mode === 'live' && (
-        <>
-          <b className="font-semibold">{w.live(newest ? hhmm(newest) : w.unknownTime)}</b>
-          <span className="font-mono text-b-meta text-muted-foreground">
-            {w.now(t.regimes[regimeAt(now)], etLabel(now, t.heat.days))}
-          </span>
-        </>
-      )}
-      {mode === 'stale' && (
-        <>
-          <b className="font-semibold">
-            {newest
-              ? w.stale(
-                  fm.second(newest),
-                  formatAge((clock.now - Date.parse(newest)) / 1000)?.short ?? w.unknownAge,
-                )
-              : w.noReading}
-          </b>
-          <span>{w.staleAll}</span>
-        </>
-      )}
-      {mode === 'none' && (
-        <>
-          <b className="font-semibold">{w.down(RISK_API)}</b>
-          <span>{w.downAll}</span>
-        </>
-      )}
+    <div
+      data-ui="bearing-banner"
+      data-mode={mode}
+      role={loading ? undefined : 'status'}
+      aria-hidden={loading ? 'true' : undefined}
+      className="mt-3 grid border border-l-2 border-border border-l-primary px-3 py-2"
+    >
+      {(Object.keys(states) as Mode[]).map((m) => (
+        <div
+          key={m}
+          data-ui={m === mode ? 'bearing-banner-said' : undefined}
+          aria-hidden={m === mode ? undefined : 'true'}
+          className={cn(
+            'col-start-1 row-start-1 flex flex-wrap items-baseline gap-x-3 gap-y-1',
+            m !== mode && 'invisible',
+          )}
+        >
+          {states[m](m === mode)}
+        </div>
+      ))}
     </div>
   );
 }
