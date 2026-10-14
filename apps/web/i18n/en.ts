@@ -1593,6 +1593,11 @@ export const en = {
       lead: (chain: string) =>
         `Publish the targets recorded in your own vault on ${chain} as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.`,
       signIn: 'Sign in to publish a portfolio.',
+      /** Where the server lists live portfolios only: a vault on another chain would never be shown. */
+      liveOnly: (chain: string, live: string) =>
+        live
+          ? `Products lists portfolios on ${live} only, so one published from a vault on ${chain} wouldn’t be shown. Publish from your vault on ${live}: open its page and choose Publish as a portfolio.`
+          : `Products lists live portfolios only, and ${chain} isn’t live here, so a portfolio published on it wouldn’t be shown.`,
       shareStrategy: 'Publish as a portfolio',
       sourceVault: 'Your source vault',
       sourceHint: 'Choose a vault you own on the active chain.',

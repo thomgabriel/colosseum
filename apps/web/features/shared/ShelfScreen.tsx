@@ -1,5 +1,5 @@
 'use client';
-import { ChainId, type SharedFamily, type SharedRecipe } from '@colosseum/schemas';
+import type { SharedFamily, SharedRecipe } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
@@ -18,12 +18,13 @@ import { formatBps, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
 import { isCashId } from '../order/plain';
 import { networkFor } from '../order/readiness';
-import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
+import { useApiFetch } from '../wallet/WalletProvider';
 import { Composition } from './Composition';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, rate } from './product-figures';
 import { readShelf } from './shared-api';
 import { shortAddress, useSharedPerson } from './use-person';
+import { useShelfScope } from './use-shelf';
 import { ShelfWait } from './waits';
 
 // The shelf (DESIGN-VAULT section 11; gate PRODUCTS-PLAN-PANE): a card per shared portfolio, the
@@ -50,14 +51,11 @@ export function ShelfScreen() {
   const settled = person.kind !== 'loading';
   // Where publishing is offered or not is said of the chain the person's new plans start on.
   const chainName = person.kind === 'ready' ? t.chain.names[person.chain] : null;
-  // The mainnets this server runs: an empty shelf names them, where it lists live portfolios only
-  // (gate PRODUCTS-MAINNET-ONLY).
-  const port = useWalletPort();
+  // Where the server lists live portfolios only (gate PRODUCTS-MAINNET-ONLY), an empty shelf names
+  // the mainnets it runs: the flag is the server's (GET /v1/config), not a guess of this app's.
+  const scope = useShelfScope();
   const lang = useLang();
-  const live = ChainId.options.flatMap((chain) => {
-    const network = port.network(chain);
-    return network?.on && network.provenance === 'live' ? [network.name] : [];
-  });
+  const live = scope?.liveOnly ? scope.live.map((chain) => t.chain.names[chain]) : [];
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `round` reads the shelf again
   useEffect(() => {

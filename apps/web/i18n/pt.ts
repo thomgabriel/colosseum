@@ -1374,6 +1374,10 @@ export const pt: Dictionary = {
       lead: (chain: string) =>
         `Compartilhe a estratégia registrada no seu cofre na ${chain}. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.`,
       signIn: 'Entre para publicar um portfólio.',
+      liveOnly: (chain: string, live: string) =>
+        live
+          ? `Produtos lista só portfólios na ${live}, então um publicado de um cofre na ${chain} não apareceria. Publique do seu cofre na ${live}: abra a página dele e escolha Compartilhar estratégia.`
+          : `Produtos lista só portfólios ao vivo, e a ${chain} não está ao vivo aqui, então um portfólio publicado nela não apareceria.`,
       shareStrategy: 'Compartilhar estratégia',
       sourceVault: 'Seu cofre de origem',
       sourceHint: 'Escolha um cofre seu na rede ativa.',
