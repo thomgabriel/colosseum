@@ -12,6 +12,7 @@ import {
   poolFigures,
   priceHistoryFigures,
   profileFigures,
+  WINDOW_HOURS,
   windowStart,
 } from '@colosseum/risk';
 import {
@@ -78,6 +79,8 @@ const WAIT_MS = 2_500;
 const MAX_PENDING = 60;
 /** A read with no answer after this long is given up. */
 const READ_MS = 30_000;
+/** The longest window's hours, the bound of the chain's collected hours a read asks for. */
+const WINDOW_SPAN_MS = WINDOW_HOURS['30d'] * 3_600_000;
 
 /** How each unit is written beside a figure, as the conversation's resolver reads it (vault-figures.ts). */
 const DISPLAY_UNITS: Record<FigureUnit, string> = {
@@ -157,21 +160,36 @@ function marketWords(market: string, venue: string): string {
   const named = /\s/u.test(market) || market.length < 32 ? wordsOnly(market) : null;
   return named ?? wordsOnly(venue) ?? 'lending';
 }
-function lendLabel(key: string, role: string | null, market: string): string {
-  const m = `the ${market} market`;
-  if (role === 'debt')
-    return {
-      supply: `Supply rate for lending this asset in ${m}; a past reading`,
-      borrow: `Borrow rate for this asset in ${m}; a past reading`,
-      util: `Share of this asset's supply lent out in ${m}`,
-      withdrawable: `Dollars of this asset a lender can withdraw now from ${m}`,
-    }[key] as string;
-  const tail = 'which takes this asset as collateral';
+/** A venue as people name it. */
+const VENUE_NAMES: Record<string, string> = {
+  jupiter_lend: 'Jupiter Lend',
+  kamino: 'Kamino',
+  kamino_vault: 'Kamino',
+};
+/**
+ * What a lending figure measures, naming the token whose rate or supply it is (`lent`) and the market: a
+ * Jupiter Lend vault that takes the asset as collateral lends another token (USDC, JupUSD), and its rates are
+ * that token's, never the asset's yield. Each label opens with "<what> of <token>", which the resolver reads
+ * to let a sentence about the figure name that token (vault-figures.ts, `lentName`).
+ */
+export function lendLabel(
+  key: string,
+  market: { role: string | null; market: string; venue: string },
+  tokens: { lent: string | null; collateral: string | null },
+): string {
+  const lent = tokens.lent ?? 'the lent token';
+  const where =
+    market.role === 'vault'
+      ? `the ${VENUE_NAMES[market.venue] ?? wordsOnly(market.venue) ?? 'lending'} vault that takes ${tokens.collateral ?? 'this asset'} as collateral`
+      : (() => {
+          const name = marketWords(market.market, market.venue);
+          return `the ${name}${/market$/iu.test(name) ? '' : ' market'}`;
+        })();
   return {
-    supply: `Supply rate of the token lent in ${m}, ${tail}; a past reading`,
-    borrow: `Borrow rate of the token lent in ${m}, ${tail}; a past reading`,
-    util: `Share of the lent token's supply lent out in ${m}, ${tail}`,
-    withdrawable: `Dollars a lender can withdraw now from ${m}, ${tail}`,
+    supply: `Supply rate of ${lent} a year in ${where}, at the last report; a past figure`,
+    borrow: `Borrow rate of ${lent} a year in ${where}, at the last report; a past figure`,
+    util: `Share of ${lent} supplied that is lent out in ${where}`,
+    withdrawable: `Dollars of ${lent} a lender can withdraw now from ${where}`,
   }[key] as string;
 }
 
@@ -262,13 +280,13 @@ export function profileAnswer(assetId: string, rows: ObservationRow[], now: Date
 
 export function priceHistoryAnswer(
   assetId: string,
-  read: { rows: BarRow[]; before: string | null },
+  read: BarsRead,
   window: LookupWindow,
   now: Date,
 ): Built {
   return answerOf(
     assetId,
-    priceHistoryFigures(read.rows, read.before, window, now).map((figure) => ({
+    priceHistoryFigures(read.rows, read.before, window, now, read.chainHours).map((figure) => ({
       id: `bars:${assetId}:${window}:${figure.key}`,
       label: (BAR_LABELS[figure.key] as (w: string) => string)(WINDOW_WORDS[window]),
       figure,
@@ -281,7 +299,7 @@ export function poolsAnswer(
   read: {
     reading: ObservationRow | null;
     poolBars: PoolBarRow[];
-    day: { rows: BarRow[]; before: string | null };
+    day: BarsRead;
   },
   now: Date,
 ): Built {
@@ -290,6 +308,7 @@ export function poolsAnswer(
     read.day.before,
     '24h',
     now,
+    read.day.chainHours,
   );
   const { pools, missing } = poolFigures(read.reading, read.poolBars, day, now);
   if (missing)
@@ -325,7 +344,7 @@ export function lendingAnswer(assetId: string, markets: LendingMarketRow[], now:
     lendingFigures(markets, now).flatMap((market) =>
       market.figures.map((figure) => ({
         id: `lend:${assetId}:${market.account}:${figure.key}`,
-        label: lendLabel(figure.key, market.role, marketWords(market.market, market.venue)),
+        label: lendLabel(figure.key, market, market),
         figure:
           figure.value === null
             ? figure
@@ -360,16 +379,19 @@ export function bearingAnswer(assetId: string, figures: AnalyticsFigure[] | null
       figure:
         figure.value === null
           ? { key: figure.metric, value: null, reason: figure.reason }
-          : {
-              key: figure.metric,
-              value: figure.value,
-              unit: figure.unit as FigureUnit,
-              source: figure.source,
-              method: analyticsMethod(figure),
-              fetchedAt: figure.fetchedAt,
-              provenance: figure.provenance,
-              ...(figure.lowerBound ? { lowerBound: true as const } : {}),
-            },
+          : // a unit the answer cannot carry (Bearing's `seconds`) is not served as a figure without one
+            !Object.hasOwn(DISPLAY_UNITS, figure.unit)
+            ? { key: figure.metric, value: null, reason: 'not_a_number' }
+            : {
+                key: figure.metric,
+                value: figure.value,
+                unit: figure.unit as FigureUnit,
+                source: figure.source,
+                method: analyticsMethod(figure),
+                fetchedAt: figure.fetchedAt,
+                provenance: figure.provenance,
+                ...(figure.lowerBound ? { lowerBound: true as const } : {}),
+              },
     })),
   );
 }
@@ -378,16 +400,17 @@ export function bearingAnswer(assetId: string, figures: AnalyticsFigure[] | null
 
 const iso = (at: Date | string) => (typeof at === 'string' ? at : at.toISOString());
 
+/**
+ * The `asset` bars of a token from a window's first hour on, the hour of its latest bar before that, and the
+ * hours from that first hour on in which any asset of the chain has a bar (the hours the collector ran).
+ */
+export type BarsRead = { rows: BarRow[]; before: string | null; chainHours: string[] };
+
 /** What the lookups read; injected, so a test hands in its own rows. */
 export type LookupReads = {
   observations(db: Db, chain: string, address: string): Promise<ObservationRow[]>;
-  /** The `asset` bars from `from` on, and the hour of the latest one before it. */
-  bars(
-    db: Db,
-    chain: string,
-    address: string,
-    from: Date,
-  ): Promise<{ rows: BarRow[]; before: string | null }>;
+  /** The token's `asset` bars from `from` on, its latest before it, and the chain's collected hours. */
+  bars(db: Db, chain: string, address: string, from: Date): Promise<BarsRead>;
   /** The newest `pool_tvl_usd` reading, with the pools it lists. */
   poolReading(db: Db, chain: string, address: string): Promise<ObservationRow | null>;
   poolBars(
@@ -484,7 +507,7 @@ export const dbLookupReads: LookupReads = {
       eq(marketBars.address, address),
       eq(marketBars.pool, 'asset'),
     ];
-    const [rows, before] = await Promise.all([
+    const [rows, before, chainHours] = await Promise.all([
       db
         .select(barCols)
         .from(marketBars)
@@ -497,8 +520,26 @@ export const dbLookupReads: LookupReads = {
         .where(and(...where, lt(marketBars.hour, from)))
         .orderBy(desc(marketBars.hour))
         .limit(1),
+      // the hours the chain's collector ran: any asset's bar (market_bars_hour_idx); a window's hours at most
+      db
+        .selectDistinct({ hour: marketBars.hour })
+        .from(marketBars)
+        .where(
+          and(
+            eq(marketBars.chain, chain),
+            eq(marketBars.pool, 'asset'),
+            gte(marketBars.hour, from),
+            lt(marketBars.hour, new Date(from.getTime() + WINDOW_SPAN_MS)),
+          ),
+        )
+        .orderBy(marketBars.hour)
+        .limit(1_000),
     ]);
-    return { rows: rows.map(barOf), before: before[0] ? iso(before[0].hour) : null };
+    return {
+      rows: rows.map(barOf),
+      before: before[0] ? iso(before[0].hour) : null,
+      chainHours: chainHours.map((row) => iso(row.hour)),
+    };
   },
   async poolReading(db, chain, address) {
     const [row] = await db

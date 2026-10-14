@@ -4,6 +4,7 @@ import type { BasketAsset } from '@colosseum/schemas';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { dbLookupReads } from '../../asset-lookups';
 import type { ChainRegistry } from '../../orders/chains';
 import { testApp, testDb } from '../../testing/harness';
 import { AssetFactsResponse } from './assets';
@@ -21,6 +22,8 @@ const slug = `lookups-${address.slice(3, 11).toLowerCase()}`;
 const id = `solana:${slug}`;
 const POOL_A = `PoA${address.slice(3)}`;
 const POOL_B = `PoB${address.slice(3)}`;
+// another token of the chain, whose bars say the chain's collector ran in hours this one has none
+const OTHER = `Oth${address.slice(3)}`;
 
 /** The chain's catalog with one more token, the one this test writes rows for; `live` drops the mock. */
 const withToken =
@@ -136,6 +139,27 @@ describe.skipIf(!DB)('the facts of one asset, from the database', () => {
       ];
     });
     await data.db.insert(marketBars).values(rows);
+    await data.db.insert(marketBars).values(
+      [40, 41].map((back) => ({
+        chain: 'solana',
+        address: OTHER,
+        pool: 'asset',
+        hour: hour(back),
+        closeUsd: 1,
+        highUsd: 1,
+        lowUsd: 1,
+        swaps: 1,
+        buySwaps: 1,
+        sellSwaps: 0,
+        unpricedSwaps: 0,
+        volumeTokens: 1,
+        volumeUsd: 1,
+        buyVolumeUsd: 1,
+        sellVolumeUsd: 0,
+        quoteUsdMethod: 'usdc_at_par',
+        ...pin,
+      })),
+    );
     ({ app: mock } = await testApp({ issuer: null, db: data.db, wrap: withToken(false) }));
     ({ app: live } = await testApp({ issuer: null, db: data.db, wrap: withToken(true) }));
   });
@@ -145,6 +169,7 @@ describe.skipIf(!DB)('the facts of one asset, from the database', () => {
     if (data) {
       await data.db.delete(assetObservations).where(eq(assetObservations.address, address));
       await data.db.delete(marketBars).where(eq(marketBars.address, address));
+      await data.db.delete(marketBars).where(eq(marketBars.address, OTHER));
       await data.cleanUp();
     }
   });
@@ -225,6 +250,16 @@ describe.skipIf(!DB)('the facts of one asset, from the database', () => {
     );
     expect(body.parts.lending).toEqual({ facts: [], missing: [], modelledOn: null });
     expect(body.disclaimer.length).toBeGreaterThan(0);
+  });
+
+  it("reads the hours the chain's collector ran: any asset's bar, not only this token's", async () => {
+    const read = await dbLookupReads.bars(data.db, 'solana', address, hour(48));
+    expect(read.rows).toHaveLength(30);
+    expect(read.before).toBeNull();
+    // this token's thirty hours, and the two of the other token's, before them
+    for (const back of [0, 29, 40, 41]) expect(read.chainHours).toContain(hour(back).toISOString());
+    expect(read.chainHours.every((at) => Date.parse(at) >= hour(48).getTime())).toBe(true);
+    expect(new Set(read.chainHours).size).toBe(read.chainHours.length);
   });
 
   it('a cash token has no facts; an unknown id is a 404; an unknown part a 400', async () => {

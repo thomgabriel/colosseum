@@ -28,7 +28,12 @@ export async function lendingMarketsOf(
   address: string,
 ): Promise<LendingMarketRow[]> {
   const pools = await db
-    .select({ account: riskLendingPools.account, role: riskLendingPools.role })
+    .select({
+      account: riskLendingPools.account,
+      role: riskLendingPools.role,
+      symbol: riskLendingPools.symbol,
+      debtSymbol: riskLendingPools.debtSymbol,
+    })
     .from(riskLendingPools)
     .where(
       and(
@@ -57,7 +62,7 @@ export async function lendingMarketsOf(
         ),
       ),
     );
-  const roles = new Map(pools.map((pool) => [pool.account, pool.role]));
+  const byAccount = new Map(pools.map((pool) => [pool.account, pool]));
   return rows.flatMap((row) => {
     const sheet = LendingPoolFacts.safeParse(row.sheet);
     return sheet.success
@@ -66,7 +71,10 @@ export async function lendingMarketsOf(
             account: row.account,
             venue: row.venue,
             market: row.market,
-            role: roles.get(row.account) ?? null,
+            role: byAccount.get(row.account)?.role ?? null,
+            // the token whose rates the sheet holds: a vault's debt token, or the reserve's own
+            lent:
+              byAccount.get(row.account)?.debtSymbol ?? byAccount.get(row.account)?.symbol ?? null,
             sheet: sheet.data,
           },
         ]
