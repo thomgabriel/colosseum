@@ -1,14 +1,15 @@
 'use client';
 import type { ChainId, MixReview, Target } from '@colosseum/schemas';
+import { useId } from 'react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody } from '../../components/ui/Card';
+import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { tokenName } from '../order/amounts';
-import { changeCost, changeHero, shareItems } from '../order/order-summary';
+import { changeFigures, changeHero, shareItems } from '../order/order-summary';
 import { onMock } from '../order/readiness';
-import { Fold, Hero, ShareList } from '../order/SignFlow';
+import { Fold, OrderHero, OrderStats, Rounded, ShareList } from '../order/SignFlow';
 import { unitsFor } from '../order/units';
 import { useWalletPort } from '../wallet/WalletProvider';
 import { MixReviewAck, MixReviewLines } from './MixReviewCard';
@@ -50,37 +51,52 @@ export function ChangeReview({
   const lang = useLang();
   const port = useWalletPort();
   const f = t.order.flow;
+  const titleId = useId();
   const locale = LOCALE[lang];
   const units = unitsFor(chain, onMock(port, chain));
   const words = { units, t, locale };
   // one name for a holding everywhere on the screen: the rows', the warnings' and the details'
   const named = (asset: string) => units?.tokens[asset]?.symbol ?? tokenName(asset);
-  const cost = changeCost(review.targets, holds, review.amountUsd, words);
   const left = unticked(review, ticked).length;
   const share = (bps: number) =>
     new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(
       bps / 10_000,
     );
+  const figures = changeFigures(review.targets, holds, review.amountUsd, words);
+  const plate =
+    review.provenance === 'sandbox'
+      ? { text: t.buy.steps.note.testNetwork(t.chain.names[chain]), ui: 'data-note' }
+      : review.provenance === 'mock'
+        ? { text: t.shell.mockAnnounce, ui: 'sample-note' }
+        : null;
   return (
     <div data-ui="change-review">
-      <Card
-        as="section"
-        aria-label={t.mix.review.title}
-        mock={review.provenance !== 'live'}
-        mockLabels={{
-          announce: review.provenance === 'mock' ? t.shell.mockAnnounce : t.shell.testNetworkLine,
-        }}
-      >
-        <CardBody className="flex min-w-0 flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <Hero>{changeHero(review.targets, before, words)}</Hero>
-            <p
-              data-ui="change-cost"
-              className="max-w-(--tf-measure-body) text-body text-muted-foreground"
-            >
-              {cost ?? f.changeLead}
-            </p>
-          </div>
+      <Panel aria-labelledby={titleId}>
+        <PanelHead id={titleId} title={t.mix.review.title} />
+        <PanelBody className="min-w-0">
+          <OrderHero
+            label={f.label.change}
+            figure={changeHero(review.targets, before, words)}
+            plate={plate}
+          />
+          <OrderStats
+            stats={
+              figures
+                ? [
+                    {
+                      label: f.stat.swapped,
+                      value: <Rounded figure={figures.swapped} />,
+                      ui: 'stat-swapped',
+                    },
+                    {
+                      label: f.stat.worst,
+                      value: `${figures.worst.shown} · ${figures.pct}`,
+                      ui: 'stat-worst',
+                    },
+                  ]
+                : []
+            }
+          />
           {changed && (
             <p role="status" className="flex items-start gap-1.5 text-body-sm">
               <StatusMark status="watch" className="mt-1.5" />
@@ -95,6 +111,8 @@ export function ChangeReview({
               before: f.picture.now,
               after: f.picture.next,
               unchanged: f.picture.unchanged,
+              holding: f.table.holding,
+              change: f.table.change,
             }}
           />
           <MixReviewAck review={review} ticked={ticked} onTick={onTick} named={named} />
@@ -117,8 +135,8 @@ export function ChangeReview({
           <Fold ui="change-details" label={f.details}>
             <MixReviewLines review={review} named={named} />
           </Fold>
-        </CardBody>
-      </Card>
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

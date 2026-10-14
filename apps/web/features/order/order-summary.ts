@@ -4,8 +4,8 @@ import { formatBps, formatRaw, shortfallBps, shownRaw, tokenName } from './amoun
 import type { ChainUnits } from './units';
 
 // What the order screen says in plain words, one screen at a time (gate SIGN-ONE-STEP): before the
-// first signature, what changes and what it may cost at worst in one sentence; while signing, each
-// step by what it does ("Swap $1,354 of cash for GOOGLx") and a button that names it with its amount.
+// first signature, what changes and what it may cost at worst as figures (HOUSE-KIT); while signing,
+// each step by what it does ("Swap $1,354 of cash for GOOGLx") and a button that names it with its amount.
 // Figures are rounded for reading and never in the person's favour: a least amount is cut down, never
 // rounded up. Each keeps its exact value beside it, for the hover and for the details. Pure: every
 // word is the dictionary's, every figure the order's own read with the units this repository committed.
@@ -115,15 +115,13 @@ const sumRaw = (raws: readonly string[]) =>
   raws.reduce((n, raw) => n + (/^\d+$/.test(raw) ? BigInt(raw) : 0n), 0n).toString();
 
 /**
- * At worst: what the one trade receives at its least and how far under the quote, or, for several,
- * how far under the quote the worst of them may land, as a sentence and as the step's small line.
- * Null where no trade is quoted.
+ * At worst: how far under the quote the worst trade may land, and, where the step trades once, the
+ * least it receives. Null where no trade is quoted.
  */
 function worstOf(
   trades: readonly { trade: Trade; expected: TradeExpected | undefined }[],
   r: Reader,
-): { sentence: string; note: string } | null {
-  const w = r.t.order.flow.worst;
+): { least?: string; pct: string } | null {
   const quoted = trades.filter(
     (x): x is { trade: Trade; expected: TradeExpected } => x.expected !== undefined,
   );
@@ -134,13 +132,9 @@ function worstOf(
   const [one] = quoted;
   if (quoted.length === 1 && trades.length === 1 && one) {
     const least = r.amount(one.expected.minOutRaw, one.trade.buy);
-    if (least)
-      return {
-        sentence: w.one(least.shown, pct),
-        note: r.t.order.flow.note.least(least.shown, pct),
-      };
+    if (least) return { least: least.shown, pct };
   }
-  return { sentence: w.each(pct), note: w.each(pct) };
+  return { pct };
 }
 
 /** One step, said to the person signing it. */
@@ -153,12 +147,12 @@ export type StepWords = {
   press: string;
   /** The step's one large line: "$1,354 → GOOGLx", "Set the new targets". */
   hero: string;
-  /** Small under it, where the step trades: "at least 3.76 GOOGLx · 1% under today's price". */
-  note: string | null;
   /** What a withdraw step takes out: "$250 and all of your SPYx". */
   subject?: string;
-  /** What it may give up at worst, where it trades: "At worst you get 3.76 GOOGLx, 1% under today's price." */
-  worst: string | null;
+  /** Where the step trades once: the least it receives, "3.76 GOOGLx". */
+  least?: string;
+  /** Where it trades: how far under the quote it may land at worst, "1%". */
+  under?: string;
 };
 
 /** The parts of a step that trades: sales of what the vault holds, then cash spent. */
@@ -206,8 +200,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
   let swap = 0;
   return legs.map((leg): StepWords => {
     const at = worstOf(tradesOf([leg]), r);
-    const worst = at?.sentence ?? null;
-    const note = at?.note ?? null;
+    const bounds = at ? { ...(at.least ? { least: at.least } : {}), under: at.pct } : {};
     const deposit = leg.cashRaw ? r.money(leg.cashRaw) : null;
     const parts = tradeParts(leg, r);
     const fallback = r.t.order.kind[leg.kind];
@@ -216,8 +209,6 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
       title,
       press,
       hero: title,
-      note: null,
-      worst: null,
     });
     switch (leg.kind) {
       case 'approve':
@@ -245,8 +236,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
           title: parts.title.length > 0 ? f.andThen(head, listOf(parts.title, r.locale)) : head,
           press: deposit ? f.press.deposit(deposit.shown) : f.press.step,
           hero: deposit ? f.hero.arrow(deposit.shown, f.hero.yourVault) : head,
-          note,
-          worst,
+          ...bounds,
         };
       }
       case 'swap': {
@@ -264,7 +254,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
               : buys
                 ? f.short.into(of(leg.trades.map((x) => x.buy)))
                 : f.short.swapN(swap);
-        if (parts.title.length === 0) return { ...plain(name, fallback, f.press.step), worst };
+        if (parts.title.length === 0) return { ...plain(name, fallback, f.press.step), ...bounds };
         const title = capitalise(listOf(parts.title, r.locale), r.locale);
         const spent = buys ? r.money(sumRaw(leg.trades.map((x) => x.amountInRaw))) : null;
         const sold = sells
@@ -282,8 +272,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
             : sold
               ? f.hero.arrow(sold, f.hero.cash)
               : title,
-          note,
-          worst,
+          ...bounds,
         };
       }
       case 'set_targets':
@@ -309,7 +298,7 @@ export function stepWordsOf(order: Pick<OrderDetail, 'legs'>, words: SummaryWord
       case 'publish':
         return plain(f.short.publish, f.title.publish, f.press.publish);
       default:
-        return { ...plain(fallback, fallback, f.press.step), worst };
+        return { ...plain(fallback, fallback, f.press.step), ...bounds };
     }
   });
 }
@@ -395,8 +384,6 @@ export function shareItems(
 
 const capitalise = (text: string, locale: string) =>
   text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
-const lowerFirst = (text: string, locale: string) =>
-  text.charAt(0).toLocaleLowerCase(locale) + text.slice(1);
 
 /** One row of the picture of what changes. */
 export type PictureRow = {
@@ -491,78 +478,21 @@ export function withdrawLeast(
   return w?.leastRaw ? r.amount(w.leastRaw, w.asset) : null;
 }
 
-/**
- * What the order does to the person's money, and what it may cost at worst, in at most two
- * sentences: "About $1,354 of cash goes into GOOGLx. At worst you get 3.76 GOOGLx, 1% under today's
- * price." A deposit says the deposit first; an order that trades nothing says so.
- */
-export function costSentence(
-  order: Pick<OrderDetail, 'legs' | 'depositRaw'>,
-  words: SummaryWords,
-): string {
-  const r = reader(words);
-  const s = r.t.order.flow.sentence;
-  const trades = tradesOf(legsInOrder(order));
-  const spends = trades.filter((x) => r.cash === null || x.trade.sell === r.cash);
-  const sells = trades.filter((x) => r.cash !== null && x.trade.sell !== r.cash);
-  const into = listOf([...new Set(spends.map((x) => r.symbol(x.trade.buy)))], r.locale);
-  const spent = r.money(sumRaw(spends.map((x) => x.trade.amountInRaw)));
-  const sold = listOf([...new Set(sells.map((x) => r.symbol(x.trade.sell)))], r.locale);
-  // what the sales bring in, at the quote: "about"
-  const brings = r.money(
-    sumRaw(sells.filter((x) => x.trade.buy === r.cash).map((x) => x.expected?.outRaw ?? '0')),
-  );
-  const deposit = order.depositRaw ? r.money(order.depositRaw) : null;
-  // a withdrawal: what leaves for the owner's wallet, and the least it pays where it sells first
-  const out = legsInOrder(order).flatMap((leg) => leg.withdrawals ?? []);
-  const least = out.find((w) => w.leastRaw !== undefined);
-  const parts: string[] = [];
-  if (out.length > 0) {
-    // the screen's large line says the least that leaves: the sentence says what is sold for it
-    if (sells.length > 0) parts.push(brings ? s.sell(brings.shown, sold) : s.sellSome(sold));
-    else parts.push(s.withdraw);
-  } else if (deposit)
-    parts.push(
-      // the screen's large line says the deposit: the sentence says where it goes
-      spends.length === 0
-        ? s.depositCash(deposit.shown)
-        : spent
-          ? s.spend(spent.shown, into)
-          : s.spendSome(into),
-    );
-  else {
-    if (sells.length > 0)
-      parts.push(
-        brings && brings.exact !== exactDollars(0, r.locale)
-          ? s.sell(brings.shown, sold)
-          : s.sellSome(sold),
-      );
-    if (spends.length > 0) parts.push(spent ? s.spend(spent.shown, into) : s.spendSome(into));
-    if (parts.length === 0) parts.push(s.noTrade);
-  }
-  const [first = s.noTrade, second] = parts;
-  const head = second ? s.and(first.replace(/\.$/, ''), lowerFirst(second, r.locale)) : first;
-  // a withdrawal that sells says its least already: what reaches the wallet
-  const worst = least ? null : (worstOf(trades, r)?.sentence ?? null);
-  return worst ? `${head} ${worst}` : head;
-}
-
 /** The slippage a change of targets is built with, which its review states as the worst case. */
 export const CHANGE_SLIPPAGE_BPS = 100;
 
 /**
- * What a change of targets trades and what that may cost at worst, in one line, before its order is
- * made: the dollars that change hands (every holding's move from what the vault holds now to its new
+ * What a change of targets trades and what that may cost at worst, before its order is made: the dollars that change hands (every holding's move from what the vault holds now to its new
  * target, at the review's prices) and that times the slippage the order is built with, rounded up
  * since it is a cost. Null where nothing moves or what the vault holds is not known.
  */
-export function changeCost(
+export function changeFigures(
   after: readonly { asset: string; weightBps: number }[],
   holds: readonly { asset: string; weightBps: number }[] | null,
   valueUsd: number,
   words: SummaryWords,
   slippageBps = CHANGE_SLIPPAGE_BPS,
-): string | null {
+): { swapped: Figure; worst: Figure; pct: string } | null {
   if (!holds || !(valueUsd > 0)) return null;
   const r = reader(words);
   const assets = [...new Set([...holds, ...after].map((x) => x.asset))].filter(
@@ -574,9 +504,67 @@ export function changeCost(
   if (movedBps === 0) return null;
   const swapped = (valueUsd * movedBps) / 10_000;
   const worstCents = Math.ceil(Math.round(swapped * slippageBps * 100) / 10_000);
-  return r.t.order.flow.cost(
-    readDollars(swapped, r.locale),
-    exactDollars(worstCents / 100, r.locale).replace(/[.,]00$/, ''),
-    formatBps(slippageBps, r.locale),
-  );
+  const worst = exactDollars(worstCents / 100, r.locale);
+  return {
+    swapped: { shown: readDollars(swapped, r.locale), exact: exactDollars(swapped, r.locale) },
+    worst: { shown: worst.replace(/[.,]00$/, ''), exact: worst },
+    pct: formatBps(slippageBps, r.locale),
+  };
+}
+
+/** What an order's trades come to: the dollars that change hands, and what that may cost. */
+export type OrderCosts = {
+  /** The cash spent on purchases and brought in by sales, at the quotes. */
+  swapped: Figure;
+  /** The quotes' own cost against the reference price, in dollars, rounded up. */
+  expected: Figure | null;
+  /** What the trades may give up if each lands on its minimum, in dollars, rounded up. */
+  worst: Figure | null;
+};
+
+/**
+ * What an order's trades come to, from its quotes: what changes hands, the cost the quotes state
+ * (`costBps`, against the reference price) and the most the minimums let the trades give up. A trade
+ * with no cash on either side counts in none, and one with no quote only in what changes hands. Null
+ * where nothing is traded or the cash token's units are not known.
+ */
+export function orderCosts(
+  order: Pick<OrderDetail, 'legs'>,
+  words: SummaryWords,
+): OrderCosts | null {
+  const r = reader(words);
+  const cash = words.units?.cash;
+  const decimals = cash ? words.units?.tokens[cash]?.decimals : undefined;
+  if (!cash || decimals === undefined) return null;
+  // cents with two more places, so the rounding up at the end sees what a cent's fraction adds
+  const cents = (raw: bigint) => Number((raw * 10_000n) / 10n ** BigInt(decimals)) / 100;
+  let swappedRaw = 0n;
+  let expectedCents = 0;
+  let worstCents = 0;
+  let quoted = false;
+  for (const { trade, expected } of tradesOf(legsInOrder(order))) {
+    const buy = trade.sell === cash;
+    const sell = trade.buy === cash;
+    if (!buy && !sell) continue;
+    const cashRaw = buy ? BigInt(trade.amountInRaw) : expected ? BigInt(expected.outRaw) : 0n;
+    swappedRaw += cashRaw;
+    if (!expected) continue;
+    quoted = true;
+    const out = BigInt(expected.outRaw);
+    const min = BigInt(expected.minOutRaw);
+    expectedCents += (cents(cashRaw) * Math.max(0, expected.costBps)) / 10_000;
+    // the shortfall at the minimum, in cash: a purchase's share of its spend, a sale's cash itself
+    if (out > 0n) worstCents += buy ? cents((cashRaw * (out - min)) / out) : cents(out - min);
+  }
+  const swapped = r.money(swappedRaw.toString());
+  if (!swapped || swappedRaw === 0n) return null;
+  const up = (c: number): Figure => {
+    const exact = exactDollars(Math.max(0, Math.ceil(c - 1e-9)) / 100, r.locale);
+    return { shown: exact.replace(/[.,]00$/, ''), exact };
+  };
+  return {
+    swapped,
+    expected: quoted ? up(expectedCents) : null,
+    worst: quoted ? up(worstCents) : null,
+  };
 }

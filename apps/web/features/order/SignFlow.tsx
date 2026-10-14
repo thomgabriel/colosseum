@@ -4,6 +4,8 @@ import { cn } from '../../components/ui/cn';
 import { ExplorerLink, type ExplorerLinkLabels } from '../../components/ui/ExplorerLink';
 import { Hint } from '../../components/ui/Hint';
 import { Icon } from '../../components/ui/Icon';
+import { KIT_CELL, KIT_NUMERIC, KIT_ROW, KitTable, KitTh } from '../../components/ui/KitTable';
+import { HeroFigure, PanelStat, Plate, StatGrid } from '../../components/ui/Panel';
 import type { Figure, Picture, ShareItem } from './order-summary';
 import { AssetMark } from './PlanView';
 
@@ -12,17 +14,49 @@ import { AssetMark } from './PlanView';
 // rows with no rules between them, and the exact figures one fold away. Nothing here decides what is
 // signed: the order's screen (OrderScreen.tsx) hands each part its words.
 
-/** The one large line of a screen, in the display face. Takes the focus where a screen replaced another. */
-export function Hero({ id, children }: { id?: string; children: ReactNode }) {
+/**
+ * The line a screen leads with, as the house kit's HeroFigure (HOUSE-KIT): a muted label over one
+ * large figure, the quiet pill beside the label where the figures are not live. It takes the focus
+ * where a screen replaced another.
+ */
+export function OrderHero({
+  label,
+  figure,
+  plate,
+}: {
+  label: ReactNode;
+  figure: ReactNode;
+  /** "Test network · Solana · not live", "Sample figures": said once, beside the label. */
+  plate?: { text: string; ui: string } | null;
+}) {
   return (
-    <h3
-      id={id}
-      tabIndex={-1}
-      data-ui="sign-hero"
-      className="font-display text-[2rem]/10 font-semibold tracking-[-0.02em] text-balance tabular-nums outline-none [overflow-wrap:anywhere]"
-    >
-      {children}
-    </h3>
+    <div data-ui="sign-hero" tabIndex={-1} className="outline-none">
+      <HeroFigure
+        label={<span data-ui="sign-label">{label}</span>}
+        ui="sign-figure"
+        plate={plate ? <Plate ui={plate.ui}>{plate.text}</Plate> : undefined}
+      >
+        <span className="text-balance [overflow-wrap:anywhere]">{figure}</span>
+      </HeroFigure>
+    </div>
+  );
+}
+
+/** Small figures under the line a screen leads with, a muted label over each. */
+export function OrderStats({
+  stats,
+}: {
+  stats: readonly { label: string; value: ReactNode; ui?: string }[];
+}) {
+  if (stats.length === 0) return null;
+  return (
+    <StatGrid>
+      {stats.map((stat) => (
+        <PanelStat key={stat.label} label={stat.label} ui={stat.ui}>
+          {stat.value}
+        </PanelStat>
+      ))}
+    </StatGrid>
   );
 }
 
@@ -104,12 +138,25 @@ export function Rounded({ figure }: { figure: Figure }) {
   );
 }
 
-const ROW = 'flex min-w-0 items-center justify-between gap-4 py-2';
+/** A holding's name in a table row: its mark, then its name. */
+function Holding({ name, asset }: { name: string; asset?: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {asset ? (
+        <AssetMark asset={asset} />
+      ) : (
+        <span aria-hidden="true" className="inline-block size-6 shrink-0 rounded-full bg-muted" />
+      )}
+      <span className="min-w-0 truncate font-medium">{name}</span>
+    </span>
+  );
+}
 
 /**
- * What a vault aims at before and after, as short rows: the holding, its share now, its share after
- * and the signed difference. A stand-in for the shared composition's comparison
- * (`features/shared/Composition.tsx`, mode "compare"), which takes the same items.
+ * What a vault aims at before and after, as the house kit's table: the holding, its share now, its
+ * share after and the signed difference, figures right-aligned. A stand-in for the shared
+ * composition's comparison (`features/shared/Composition.tsx`, mode "compare"), which takes the same
+ * items.
  */
 export function ShareList({
   caption,
@@ -119,90 +166,104 @@ export function ShareList({
 }: {
   caption: string;
   items: readonly ShareItem[];
-  share: (bps: number, exact?: boolean) => string;
-  labels: { before: string; after: string; unchanged: string };
+  share: (bps: number) => string;
+  labels: { before: string; after: string; unchanged: string; holding: string; change: string };
 }) {
   const compare = items.some((item) => item.beforeBps !== undefined);
-  const signed = (bps: number) => `${bps > 0 ? '+' : '−'}${share(Math.abs(bps))}`;
+  // a move too small to show as a whole share is still said as one, never as "+0%"
+  const signed = (bps: number) =>
+    `${bps > 0 ? '+' : '\u2212'}${share(Math.abs(bps)) === share(0) ? `<${share(100)}` : share(Math.abs(bps))}`;
   return (
-    <section data-ui="sign-picture" aria-label={caption} className="flex flex-col">
-      <p className="text-body-sm text-muted-foreground">{caption}</p>
-      <ul className="flex flex-col">
+    <div data-ui="sign-picture" className="-mx-5">
+      <KitTable
+        caption={caption}
+        minWidth="min-w-0"
+        head={
+          <>
+            <KitTh>{labels.holding}</KitTh>
+            {compare && <KitTh numeric>{labels.before}</KitTh>}
+            <KitTh numeric>{labels.after}</KitTh>
+            {compare && <KitTh numeric>{labels.change}</KitTh>}
+          </>
+        }
+      >
         {items.map((item) => {
           const was = item.beforeBps ?? 0;
           const moved = item.bps - was;
           return (
-            <li key={item.key} data-ui="sign-share" className={ROW}>
-              <span className="flex min-w-0 items-center gap-3">
-                {item.asset && !item.cash ? (
-                  <AssetMark asset={item.asset} />
-                ) : (
-                  <span aria-hidden="true" className="inline-block size-6 rounded-full bg-muted" />
-                )}
-                <span className="min-w-0 truncate font-medium">{item.name}</span>
-              </span>
-              <span className="flex shrink-0 items-baseline gap-3 tabular-nums">
-                {compare && (
-                  <span className="text-body-sm text-muted-foreground">
-                    <span className="sr-only">{labels.before} </span>
-                    {share(was)}
-                    <span aria-hidden="true"> →</span>
-                  </span>
-                )}
-                <span className="text-body font-semibold">
-                  {compare && <span className="sr-only">{labels.after} </span>}
-                  {share(item.bps)}
-                </span>
-                {compare && (
-                  <span
-                    data-ui="sign-share-delta"
-                    className={cn(
-                      'w-14 text-end text-caption',
-                      moved > 0
-                        ? 'text-status-on'
-                        : moved < 0
-                          ? 'text-status-off'
-                          : 'text-muted-foreground',
-                    )}
-                  >
-                    {moved === 0 ? labels.unchanged : signed(moved)}
-                  </span>
-                )}
-              </span>
-            </li>
+            <tr key={item.key} data-ui="sign-share" className={KIT_ROW}>
+              <td className={KIT_CELL}>
+                <Holding
+                  name={item.name}
+                  {...(item.asset && !item.cash ? { asset: item.asset } : {})}
+                />
+              </td>
+              {compare && (
+                <td className={cn(KIT_CELL, KIT_NUMERIC, 'text-muted-foreground')}>{share(was)}</td>
+              )}
+              <td className={cn(KIT_CELL, KIT_NUMERIC, 'font-medium')}>{share(item.bps)}</td>
+              {compare && (
+                <td
+                  data-ui="sign-share-delta"
+                  className={cn(
+                    KIT_CELL,
+                    KIT_NUMERIC,
+                    moved > 0
+                      ? 'text-status-on'
+                      : moved < 0
+                        ? 'text-status-off'
+                        : 'text-muted-foreground',
+                  )}
+                >
+                  {moved === 0 ? labels.unchanged : signed(moved)}
+                </td>
+              )}
+            </tr>
           );
         })}
-      </ul>
-    </section>
+      </KitTable>
+    </div>
   );
 }
 
-/** Where an amount goes or what leaves, as short rows: the name, and its amount. */
-export function AmountList({ picture }: { picture: Picture }) {
+/** Where an amount goes or what leaves, as the house kit's table: the holding, and its amount. */
+export function AmountList({
+  picture,
+  labels,
+}: {
+  picture: Picture;
+  labels: { holding: string; amount: string };
+}) {
   return (
-    <section data-ui="sign-picture" aria-label={picture.caption} className="flex flex-col">
-      <p className="text-body-sm text-muted-foreground">{picture.caption}</p>
-      <ul className="flex flex-col">
+    <div data-ui="sign-picture" className="-mx-5">
+      <KitTable
+        caption={picture.caption}
+        minWidth="min-w-0"
+        head={
+          <>
+            <KitTh>{labels.holding}</KitTh>
+            <KitTh numeric>{labels.amount}</KitTh>
+          </>
+        }
+      >
         {picture.rows.map((row) => {
           const figure = row.cells[row.cells.length - 1];
           return (
-            <li key={row.key} data-ui="sign-share" className={ROW}>
-              <span className="flex min-w-0 items-center gap-3">
-                {row.key !== 'cash' && row.key.includes(':') ? (
-                  <AssetMark asset={row.key} />
-                ) : (
-                  <span aria-hidden="true" className="inline-block size-6 rounded-full bg-muted" />
-                )}
-                <span className="min-w-0 truncate font-medium">{row.name}</span>
-              </span>
-              <span className="shrink-0 text-body font-semibold">
+            <tr key={row.key} data-ui="sign-share" className={KIT_ROW}>
+              <td className={KIT_CELL}>
+                <Holding
+                  name={row.name}
+                  {...(row.key !== 'cash' && row.key.includes(':') ? { asset: row.key } : {})}
+                />
+              </td>
+              <td className={cn(KIT_CELL, KIT_NUMERIC, 'font-medium')}>
                 {figure ? <Rounded figure={figure} /> : '—'}
-              </span>
-            </li>
+              </td>
+            </tr>
           );
         })}
-      </ul>
-    </section>
+      </KitTable>
+    </div>
   );
 }
 
@@ -254,40 +315,40 @@ export function SignedSteps({
 }
 
 /**
- * The step being signed, alone: its large line (the focal element), what it may give up small under
- * it, where it stands, and the rest. Its place in the order is the strip's, and the screen reader's.
+ * The step being signed, alone: the line it leads with (what it does, in a figure), what it may give
+ * up as small figures under it, where it stands, and the rest. Its place in the order is the strip's,
+ * and the screen reader's.
  */
 export function StepPanel({
   place,
+  label,
   hero,
-  note,
+  stats,
   title,
+  plate,
   status,
   children,
 }: {
   /** "Step 2 of 3", for a screen reader: the strip shows it. */
   place: string;
+  /** Over the figure: what the step is, "Swap". */
+  label: string;
   /** "$1,354 → GOOGLx". */
   hero: string;
-  /** "at least 3.76 GOOGLx · 1% under today's price". */
-  note: string | null;
+  /** "At least 3.76 GOOGLx", "Under today's price 1%". */
+  stats: readonly { label: string; value: ReactNode; ui?: string }[];
   /** What the step does in a sentence: its name for a screen reader. */
   title: string;
+  plate?: { text: string; ui: string } | null;
   /** Where the step stands. Said aloud by the order's one announcer, not here. */
   status: ReactNode;
   children?: ReactNode;
 }) {
   return (
     <section data-ui="sign-step" aria-label={title} className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
-        <p className="sr-only">{place}</p>
-        <Hero>{hero}</Hero>
-        {note && (
-          <p data-ui="sign-worst" className="text-body-sm text-muted-foreground">
-            {note}
-          </p>
-        )}
-      </div>
+      <p className="sr-only">{place}</p>
+      <OrderHero label={label} figure={hero} plate={plate ?? null} />
+      <OrderStats stats={stats} />
       <div data-ui="sign-status" className="flex flex-col gap-2 empty:hidden">
         {status}
       </div>

@@ -1977,11 +1977,8 @@ export const pt: Dictionary = {
       continue: 'Continuar',
       details: 'Detalhes',
       back: 'Voltar à revisão',
-      changeLead: 'Nada é assinado ainda. Depois você assina cada passo, um de cada vez.',
       changeWeights: 'Mudar os pesos',
       understand: 'Entendo estes avisos',
-      cost: (swapped: string, worst: string, pct: string) =>
-        `Cerca de ${swapped} é trocado; no pior caso as trocas custam ${worst}, ${pct} abaixo do preço de hoje.`,
       progress: 'Onde você está nos passos',
       done: 'Pronto',
       doneWord: 'feito',
@@ -2034,10 +2031,23 @@ export const pt: Dictionary = {
         withdraw: (what: string) => `${what} para a sua carteira`,
         finish: 'Termine seu depósito',
       },
-      note: {
-        least: (amount: string, pct: string) =>
-          `pelo menos ${amount} · ${pct} abaixo do preço de hoje`,
+      label: {
+        change: 'Novas metas',
+        rebalance: 'Rebalancear',
+        deposit: 'No seu cofre',
+        withdraw: 'Para a sua carteira',
+        withdrawAtLeast: 'Para a sua carteira, pelo menos',
+        order: 'Sua ordem',
       },
+      stat: {
+        swapped: 'Trocado',
+        expected: 'Custo esperado',
+        worst: 'No pior caso',
+        steps: 'Passos',
+        least: 'Pelo menos',
+        under: 'Abaixo do preço de hoje, no pior caso',
+      },
+      table: { holding: 'Ativo', change: 'Mudança', amount: 'Valor' },
       press: {
         of: (what: string) => `Assinar: ${what}`,
         approve: (amount: string) => `Assinar: autorizar ${amount}`,
@@ -2055,23 +2065,6 @@ export const pt: Dictionary = {
         withdraw: (what: string) => `Assinar: sacar ${what}`,
         publish: 'Assinar: publicar',
         step: 'Assinar este passo',
-      },
-      worst: {
-        one: (amount: string, pct: string) =>
-          `No pior caso você recebe ${amount}, ${pct} abaixo do preço de hoje.`,
-        each: (pct: string) => `No pior caso cada troca fica ${pct} abaixo do preço de hoje.`,
-      },
-      sentence: {
-        depositCash: (amount: string) => `Seus ${amount} ficam no seu cofre como caixa.`,
-        sell: (amount: string, what: string) =>
-          `Cerca de ${amount} de ${what} é vendido por caixa.`,
-        sellSome: (what: string) => `Parte do seu ${what} é vendida por caixa.`,
-        spend: (amount: string, into: string) => `Cerca de ${amount} em caixa vão para ${into}.`,
-        spendSome: (into: string) => `Caixa vai para ${into}.`,
-        noTrade: 'Nada é trocado nesta ordem.',
-        withdraw: 'Nada é vendido: saem os próprios tokens.',
-        receive: (amount: string) => `Você recebe pelo menos ${amount} na sua própria carteira.`,
-        and: (a: string, b: string) => `${a}, e ${b}`,
       },
       picture: {
         cash: 'Caixa',

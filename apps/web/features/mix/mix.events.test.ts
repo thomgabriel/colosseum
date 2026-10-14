@@ -285,7 +285,7 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     expect(
       host.querySelector('[data-ui="vault-proposal"] [data-ui="change-review"]'),
     ).not.toBeNull();
-    expect(find(host, '[data-ui="change-review"] [data-ui="sign-hero"]').textContent).toBe(
+    expect(find(host, '[data-ui="change-review"] [data-ui="sign-figure"]').textContent).toBe(
       'More GLDx',
     );
     const asked = calls.find((c) => c.url.endsWith('/targets'));
@@ -538,7 +538,9 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     const pane = find(host, '[data-ui="vault-action-pane"]');
     expect(find(pane, '[data-ui="order-screen"]').dataset.stage).toBe('steps');
     // one press of the passkey wallet signs every step: the screen is the whole change's
-    expect(find(pane, '[data-ui="sign-step"] h3').textContent).toBe('More GLDx');
+    expect(find(pane, '[data-ui="sign-step"] [data-ui="sign-figure"]').textContent).toBe(
+      'More GLDx',
+    );
     expect(find(pane, '[data-ui="sign-step"] [data-variant="primary"]').textContent).toContain(
       en.order.flow.press.change,
     );

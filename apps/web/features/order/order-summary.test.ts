@@ -2,10 +2,10 @@ import { type Leg, OrderDetail } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { dictionary } from '../../i18n';
 import {
-  changeCost,
+  changeFigures,
   changeHero,
-  costSentence,
   depositPicture,
+  orderCosts,
   readDollars,
   shareItems,
   stepWordsOf,
@@ -81,61 +81,6 @@ const googl = {
 };
 const retarget = order([{ kind: 'set_targets' }, googl]);
 
-describe('what an order does, in one sentence', () => {
-  it('says the screenshot’s change as Thom asked for it, the least cut down, never rounded up', () => {
-    expect(costSentence(retarget, words)).toBe(
-      'About $1,354 of cash goes into GOOGLx. At worst you get 3.76 GOOGLx, 1% under today’s price.',
-    );
-  });
-
-  it('says sales and purchases together, and the worst of several swaps', () => {
-    const both = order([
-      {
-        trades: [
-          { sell: TSLA, buy: CASH, amountInRaw: '139142021' },
-          { sell: CASH, buy: GOOGL, amountInRaw: '97951023' },
-        ],
-        expected: [
-          { inRaw: '139142021', outRaw: '499900029', minOutRaw: '494901029', costBps: 0 },
-          { inRaw: '97951023', outRaw: '27762323', minOutRaw: '27207076', costBps: 0 },
-        ],
-      },
-    ]);
-    expect(costSentence(both, words)).toBe(
-      'About $499 of TSLAx is sold for cash, and about $97.95 of cash goes into GOOGLx. At worst each swap lands 2% under today’s price.',
-    );
-  });
-
-  it('says where a deposit goes, the deposit itself being the screen’s large line', () => {
-    expect(costSentence(orderOn('solana'), words)).toBe(
-      'About $6 of cash goes into SPYx. At worst you get 0.0099 SPYx, 1% under today’s price.',
-    );
-    const cash = order([{ kind: 'deposit', cashRaw: '250000000' }], '250000000');
-    expect(costSentence(cash, words)).toBe('Your $250 stays in your vault as cash.');
-  });
-
-  it('says so when nothing is swapped, and gives no worst case where no swap is quoted', () => {
-    expect(costSentence(order([{ kind: 'set_targets' }]), words)).toBe(
-      'Nothing is swapped in this order.',
-    );
-    const unquoted = order([{ trades: googl.trades, expected: [] }]);
-    expect(costSentence(unquoted, words)).toBe('About $1,354 of cash goes into GOOGLx.');
-  });
-
-  it('says it in Portuguese with the same figures', () => {
-    const said = costSentence(retarget, { units, t: pt, locale: 'pt-BR' });
-    expect(said).toContain('1.354');
-    expect(said).toContain('3,76 GOOGLx');
-    expect(said).toContain('1%');
-  });
-
-  it('names no token by its smallest units where this app has none for it', () => {
-    const said = costSentence(retarget, { units: null, t: en, locale: 'en' });
-    expect(said).not.toContain('1354139432');
-    expect(said).not.toContain('376851901');
-  });
-});
-
 describe('each step, by what it does', () => {
   it('names the screenshot’s steps for the strip, the card and the button', () => {
     const [targets, swap] = stepWordsOf(retarget, words);
@@ -144,8 +89,6 @@ describe('each step, by what it does', () => {
       title: 'Set your vault’s new targets on chain',
       press: 'Sign: set the new targets',
       hero: 'New targets',
-      note: null,
-      worst: null,
     });
     // the amount large, what it may give up small under it
     expect(swap).toEqual({
@@ -153,8 +96,9 @@ describe('each step, by what it does', () => {
       title: 'Swap $1,354 of cash for GOOGLx',
       press: 'Sign: swap $1,354 for GOOGLx',
       hero: '$1,354 → GOOGLx',
-      note: 'at least 3.76 GOOGLx · 1% under today’s price',
-      worst: 'At worst you get 3.76 GOOGLx, 1% under today’s price.',
+      // what it may give up, the least cut down, never rounded up
+      least: '3.76 GOOGLx',
+      under: '1%',
     });
   });
 
@@ -274,7 +218,8 @@ describe('the picture of what changes', () => {
         ],
       },
     ]);
-    expect(costSentence(inKind, words)).toBe('Nothing is sold: the tokens themselves leave.');
+    // nothing is sold: nothing is swapped, so there is no cost to say
+    expect(orderCosts(inKind, words)).toBeNull();
     const inDollars = order([
       {
         trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }],
@@ -287,7 +232,7 @@ describe('the picture of what changes', () => {
         ],
       },
     ]);
-    expect(costSentence(inDollars, words)).toBe('About $400 of TSLAx is sold for cash.');
+    expect(orderCosts(inDollars, words)?.swapped.shown).toBe('$400');
     expect(withdrawLeast(inDollars, words)).toEqual({ shown: '$996', exact: '$996.00' });
   });
 
@@ -306,7 +251,7 @@ describe('the picture of what changes', () => {
 });
 
 describe('a least in dollars', () => {
-  it('is cut down everywhere it is said: the sentence, the picture, the step and its button', () => {
+  it('is cut down everywhere it is said: the picture, the step and its button', () => {
     const out = order([
       {
         trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }],
@@ -325,7 +270,8 @@ describe('a least in dollars', () => {
       { key: TSLA, name: 'TSLAx', cells: [{ shown: '0.5 TSLAx', exact: '0.5 TSLAx' }] },
     ]);
     const [sale, cash] = stepWordsOf(out, words);
-    expect(sale?.worst).toBe('At worst you get $395, 1.09% under today’s price.');
+    expect(sale?.least).toBe('$395');
+    expect(sale?.under).toBe('1.09%');
     expect(cash?.press).toBe('Sign: withdraw at least $996');
     expect(cash?.title).not.toContain('$997');
     // under $100, to the cent below
@@ -349,13 +295,59 @@ describe('what a change of targets trades', () => {
     { asset: TSLA, weightBps: 3000 },
   ];
   it('says the dollars swapped and the worst they cost, the cost rounded up', () => {
-    expect(changeCost(after, holds, 99.9, words)).toBe(
-      'About $19.98 is swapped; at worst the swaps cost $0.20, 1% under today’s price.',
-    );
+    expect(changeFigures(after, holds, 99.9, words)).toEqual({
+      swapped: { shown: '$19.98', exact: '$19.98' },
+      worst: { shown: '$0.20', exact: '$0.20' },
+      pct: '1%',
+    });
   });
   it('says nothing where nothing moves or what the vault holds is not known', () => {
-    expect(changeCost(holds, holds, 99.9, words)).toBeNull();
-    expect(changeCost(after, null, 99.9, words)).toBeNull();
+    expect(changeFigures(holds, holds, 99.9, words)).toBeNull();
+    expect(changeFigures(after, null, 99.9, words)).toBeNull();
+  });
+});
+
+describe('what an order’s trades come to', () => {
+  it('reads the same figures in Portuguese', () => {
+    const pt$ = orderCosts(order([googl]), { units, t: pt, locale: 'pt-BR' });
+    expect(pt$?.swapped.shown).toContain('1.354');
+    expect(pt$?.worst?.shown).toContain('13,55');
+  });
+
+  it('says what changes hands, the quote’s own cost and the most the minimum gives up, rounded up', () => {
+    // $1,354.139432 spent on GOOGLx: the quote costs 0.1% ($1.3541…), its minimum 1% less GOOGLx
+    expect(orderCosts(order([googl]), words)).toEqual({
+      swapped: { shown: '$1,354', exact: '$1,354.13' },
+      expected: { shown: '$1.36', exact: '$1.36' },
+      worst: { shown: '$13.55', exact: '$13.55' },
+    });
+  });
+
+  it('counts a sale by the cash it brings in, and its shortfall in cash', () => {
+    const sale = {
+      trades: [{ sell: TSLA, buy: CASH, amountInRaw: '50000000' }],
+      expected: [{ inRaw: '50000000', outRaw: '200000000', minOutRaw: '198000000', costBps: 0 }],
+    };
+    expect(orderCosts(order([sale]), words)).toEqual({
+      swapped: { shown: '$200', exact: '$200.00' },
+      expected: { shown: '$0', exact: '$0.00' },
+      worst: { shown: '$2', exact: '$2.00' },
+    });
+  });
+
+  it('says nothing where nothing is traded for cash, or the cash’s units are not known', () => {
+    const swapOnly = { trades: [{ sell: TSLA, buy: GOOGL, amountInRaw: '50000000' }] };
+    expect(orderCosts(order([swapOnly]), words)).toBeNull();
+    expect(orderCosts(order([googl]), { ...words, units: null })).toBeNull();
+  });
+
+  it('says what changes hands, but no cost, where a trade has no quote', () => {
+    const unquoted = { trades: [{ sell: CASH, buy: GOOGL, amountInRaw: '10000000' }] };
+    expect(orderCosts(order([unquoted]), words)).toEqual({
+      swapped: { shown: '$10', exact: '$10.00' },
+      expected: null,
+      worst: null,
+    });
   });
 });
 

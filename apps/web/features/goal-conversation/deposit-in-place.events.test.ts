@@ -468,7 +468,7 @@ describe('the deposit signed in place on /goal', () => {
     expect(pane(host).getAttribute('data-state')).toBe('signing');
     // one step on the screen at a time (gate SIGN-ONE-STEP): the strip says where, the panel what
     const current = () => find(host, '[data-ui="sign-progress"] [aria-current="step"]').textContent;
-    const step = () => find(host, '[data-ui="sign-step"] h3').textContent;
+    const step = () => find(host, '[data-ui="sign-step"] [data-ui="sign-figure"]').textContent;
     expect(current()).toContain(en.order.flow.short.deposit);
     expect(step()).toBe('$10 → your vault');
     // the amount is no longer changed, the box is inert and says why, and the deposit is kept

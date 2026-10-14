@@ -2,7 +2,7 @@
 import type { ChainId, VaultResponse } from '@colosseum/schemas';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody } from '../../components/ui/Card';
+import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { parseNumber, dollars as whole } from '../goal/sheet';
 import { VaultMixFlow } from '../mix/VaultMixFlow';
@@ -148,7 +148,9 @@ export function VaultAction({
   const [text, setText] = useState('');
   // The pane took the holdings' place: its heading takes the focus, so it is read from the top.
   useEffect(() => {
-    document.getElementById(titleId)?.focus();
+    const title = document.getElementById(titleId);
+    title?.setAttribute('tabindex', '-1');
+    title?.focus();
   }, [titleId]);
 
   const record = open.orderId ? recallOrder(open.orderId, userId) : null;
@@ -190,6 +192,24 @@ export function VaultAction({
       </Button>
     </div>
   );
+  // The pane's title, and the one line under it where one is said.
+  const titleText =
+    phase === 'done'
+      ? p.ended
+      : finishes
+        ? p.finish.title
+        : open.orderId || pressed
+          ? words.signTitle
+          : words.title;
+  const lead =
+    phase !== 'done' && (!open.orderId || open.resumed || finishes)
+      ? // an order that finishes a deposit adds no money: never said as a deposit of the amount
+        finishes
+        ? p.finish.lead
+        : open.resumed
+          ? words.resumed
+          : words.lead
+      : null;
   let body: ReactNode;
   if (open.kind === 'deposit')
     body = (
@@ -283,22 +303,18 @@ export function VaultAction({
       <>
         {/* the order's screen says what changes, then each step on its own (gate SIGN-ONE-STEP); what
             the order is held to, as its review showed it, is in its details */}
-        <Card
-          as="section"
-          aria-label={t.order.stepsTitle}
-          mock={read.provenance === 'mock'}
-          mockLabels={{ announce: t.shell.mockAnnounce }}
-        >
-          <CardBody className="flex flex-col gap-5">
-            {read.provenance === 'sandbox' && (
-              <p data-ui="data-note" className="text-caption text-muted-foreground">
-                {t.buy.steps.note.testNetwork(t.chain.names[chain])}
-              </p>
+        {/* the house kit's panel (HOUSE-KIT): the pane's title its head, the order's screens in it;
+            whether the figures are live is the order's own pill */}
+        <Panel aria-labelledby={titleId}>
+          <PanelHead id={titleId} title={<span data-ui="pane-title">{titleText}</span>} />
+          <PanelBody>
+            {lead && (
+              <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">{lead}</p>
             )}
             <OrderScreen key={open.orderId} id={open.orderId} embed={embed} />
             {phase === 'done' && backToVault}
-          </CardBody>
-        </Card>
+          </PanelBody>
+        </Panel>
       </>
     );
   }
@@ -314,35 +330,21 @@ export function VaultAction({
       aria-labelledby={titleId}
       className="flex min-w-0 flex-col gap-4"
     >
-      <header className="flex min-w-0 flex-col gap-2">
-        {/* a quiet label over the order's own large line, as the portfolio's overview labels its figure */}
-        <h2
-          id={titleId}
-          tabIndex={-1}
-          className={
-            phase === 'done' && open.orderId
-              ? 'sr-only'
-              : open.orderId
-                ? 'text-body-sm font-medium text-muted-foreground outline-none'
-                : 'font-display text-h4 font-semibold outline-none'
-          }
-        >
-          {done
-            ? p.ended
-            : finishes
-              ? p.finish.title
-              : open.orderId || pressed
-                ? words.signTitle
-                : words.title}
-        </h2>
-        {/* once the order is on the pane, its screens say what it does: no lead over them */}
-        {!done && (!open.orderId || open.resumed || finishes) && (
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
-            {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
-          </p>
-        )}
-      </header>
+      {!doneInCard && (
+        <header className="flex min-w-0 flex-col gap-2">
+          <h2
+            id={titleId}
+            tabIndex={-1}
+            data-ui="pane-title"
+            className="font-display text-h4 font-semibold outline-none"
+          >
+            {titleText}
+          </h2>
+          {lead && (
+            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">{lead}</p>
+          )}
+        </header>
+      )}
       {body}
       {/* The end, under what the order did (gate SIGN-ONE-STEP: a short screen, not a long card). How
           it ended is the order's own sentence, above, which never says plainly done of a step that

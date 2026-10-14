@@ -2208,14 +2208,9 @@ export const en = {
     flow: {
       continue: 'Continue',
       details: 'Details',
-      /** Under a change's large line, before anything is made: what comes next. */
-      changeLead: 'Nothing is signed yet. Next you sign each step on its own.',
       changeWeights: 'Change the weights',
       /** One box for every warning of a change. */
       understand: 'I understand these',
-      /** What a change trades and its worst cost, before its order is made. */
-      cost: (swapped: string, worst: string, pct: string) =>
-        `About ${swapped} is swapped; at worst the swaps cost ${worst}, ${pct} under today’s price.`,
       /** Before the first signature: back to what changes. */
       back: 'Back to the review',
       /** The progress strip's name, read by a screen reader. */
@@ -2279,10 +2274,26 @@ export const en = {
         withdraw: (what: string) => `${what} to your wallet`,
         finish: 'Finish your deposit',
       },
-      /** Small under a step's large line. */
-      note: {
-        least: (amount: string, pct: string) => `at least ${amount} · ${pct} under today’s price`,
+      /** The muted label over a screen's figure (HOUSE-KIT). */
+      label: {
+        change: 'New targets',
+        rebalance: 'Rebalance',
+        deposit: 'Into your vault',
+        withdraw: 'To your wallet',
+        withdrawAtLeast: 'To your wallet, at least',
+        order: 'Your order',
       },
+      /** The small figures under it. */
+      stat: {
+        swapped: 'Swapped',
+        expected: 'Expected cost',
+        worst: 'At worst',
+        steps: 'Steps',
+        least: 'At least',
+        under: 'Under today’s price, at worst',
+      },
+      /** The heads of the table of what changes. */
+      table: { holding: 'Holding', change: 'Change', amount: 'Amount' },
       /** A button that signs names the action and the amount. */
       press: {
         of: (what: string) => `Sign: ${what}`,
@@ -2302,23 +2313,6 @@ export const en = {
         withdraw: (what: string) => `Sign: withdraw ${what}`,
         publish: 'Sign: publish',
         step: 'Sign this step',
-      },
-      worst: {
-        one: (amount: string, pct: string) =>
-          `At worst you get ${amount}, ${pct} under today’s price.`,
-        each: (pct: string) => `At worst each swap lands ${pct} under today’s price.`,
-      },
-      /** What the order does to the money; two are joined by `and`. */
-      sentence: {
-        depositCash: (amount: string) => `Your ${amount} stays in your vault as cash.`,
-        sell: (amount: string, what: string) => `About ${amount} of ${what} is sold for cash.`,
-        sellSome: (what: string) => `Some of your ${what} is sold for cash.`,
-        spend: (amount: string, into: string) => `About ${amount} of cash goes into ${into}.`,
-        spendSome: (into: string) => `Cash goes into ${into}.`,
-        noTrade: 'Nothing is swapped in this order.',
-        withdraw: 'Nothing is sold: the tokens themselves leave.',
-        receive: (amount: string) => `You receive at least ${amount} in your own wallet.`,
-        and: (a: string, b: string) => `${a}, and ${b}`,
       },
       picture: {
         cash: 'Cash',

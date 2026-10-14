@@ -580,7 +580,7 @@ describe('the pane’s states, and the way out of each', () => {
     await settle();
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(pane(host).dataset.state).toBe('open');
-    const title = find(pane(host), ':scope > header h2');
+    const title = find(pane(host), '[data-ui="pane-title"]');
     expect(title.textContent).toBe(p.panes.deposit.title);
     expect(document.activeElement).toBe(title);
     // the add-money card, with its amount field, in the pane
@@ -626,7 +626,7 @@ describe('the pane’s states, and the way out of each', () => {
     await click(find(host, '[data-action="vault-edit-weights"]'));
     await settle();
     expect(screen(host).dataset.pane).toBe('weights');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.change.title);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.panes.change.title);
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.change);
     expect(router.push).not.toHaveBeenCalled();
     await click(find(pane(host), '[data-action="leave-action"]'));
@@ -643,7 +643,9 @@ describe('the pane’s states, and the way out of each', () => {
     // the order is drawn in the pane, held to what was reviewed; nothing was opened
     expect(router.push).not.toHaveBeenCalled();
     expect(pane(again).dataset.state).toBe('open');
-    expect(find(pane(again), ':scope > header h2').textContent).toBe(p.panes.withdraw.signTitle);
+    expect(find(pane(again), '[data-ui="pane-title"]').textContent).toBe(
+      p.panes.withdraw.signTitle,
+    );
     expect(pane(again).querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
     expect(pane(again).textContent).toContain(SOLANA);
     expect(pane(again).querySelector('[data-ui="data-note"]')?.textContent).toBe(
@@ -656,7 +658,7 @@ describe('the pane’s states, and the way out of each', () => {
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(pane(again).dataset.state).toBe('done');
-    expect(find(pane(again), ':scope > header h2').textContent).toBe(p.ended);
+    expect(find(pane(again), '[data-ui="pane-title"]').textContent).toBe(p.ended);
     // how it ended is the order's own sentence, said once: here, plainly done
     expect(find(pane(again), '[data-ui="order-status"]').textContent).toContain(
       en.order.outcome.done('Solana'),
@@ -752,7 +754,7 @@ describe('an order that answers late', () => {
     gate.release();
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('deposit');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.deposit.title);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.panes.deposit.title);
     expect(pane(host).querySelector('input[inputmode="decimal"]')).not.toBeNull();
   });
 
@@ -768,7 +770,7 @@ describe('an order that answers late', () => {
     gate.release();
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('withdraw');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.withdraw.title);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.panes.withdraw.title);
     expect(pane(host).querySelector('[data-ui="order-step"]')).toBeNull();
   });
 });
@@ -795,14 +797,14 @@ describe('an order that is done, but not plainly', () => {
     expect(text).toContain(en.order.shared.doneExcept('Solana', 1));
     // nothing over the steps claims more than the order does
     const top = find(pane(host), '[data-ui="vault-action-done"]').textContent ?? '';
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.ended);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.ended);
     for (const claim of [
       /is done/i,
       /in your wallet/i,
       /follows its new targets/i,
       /in your vault\./i,
     ])
-      expect(`${top} ${find(pane(host), ':scope > header').textContent}`).not.toMatch(claim);
+      expect(`${top} ${find(pane(host), '[data-ui="pane-title"]').textContent}`).not.toMatch(claim);
     expect(text).not.toContain(en.order.outcome.done('Solana'));
     // and the way on is still the page's one button
     expect(find(pane(host), '[data-action="back-to-vault"]')).toBeTruthy();
@@ -888,7 +890,7 @@ describe('a reload in the middle of signing', () => {
     keepAction(USER, 'solana', MY_VAULT, { kind: 'apply', orderId: ORDER_ID });
     const host = await show();
     expect(screen(host).dataset.pane).toBe('apply');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.change.signTitle);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.panes.change.signTitle);
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.change);
   });
 
@@ -1099,7 +1101,7 @@ describe('a reload in the middle of signing', () => {
     expect(pane(host).querySelector('[data-ui="vault-action-amount"]')).toBeNull();
     expect(pane(host).textContent).not.toContain(p.amount);
     // and the pane is headed for what it is: no "Sign your deposit", no "the whole amount goes in"
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.finish.title);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.finish.title);
     expect(find(pane(host), ':scope > header').textContent).toContain(p.finish.lead);
     expect(pane(host).textContent).not.toContain(p.panes.deposit.signTitle);
     expect(pane(host).textContent).not.toContain(p.panes.deposit.lead);
@@ -1281,7 +1283,9 @@ describe('a vault away from its targets is offered one press that trades it to t
     ]);
     expect(router.push).not.toHaveBeenCalled();
     expect(screen(host).dataset.pane).toBe('rebalance');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.rebalance.signTitle);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(
+      p.panes.rebalance.signTitle,
+    );
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.rebalance);
     // what it is held to: the vault and the targets it has
     const review = find(pane(host), `section[aria-label="${p.rebalancing.reviewTitle}"]`);
@@ -1311,11 +1315,15 @@ describe('a vault away from its targets is offered one press that trades it to t
 
     // reviewed in the pane (gate SIGN-ONE-STEP): what the vault holds beside its targets, then
     // "Continue", then the first swap's own button
-    const share = pane(host).querySelector(
-      '[data-ui="sign-picture"] [data-ui="sign-share"]',
-    ) as HTMLElement;
-    expect(share.textContent).toContain(`${en.order.flow.picture.holdsNow} `);
-    expect(share.textContent).toContain(`${en.order.flow.picture.target} `);
+    const heads = [...pane(host).querySelectorAll('[data-ui="sign-picture"] thead th')].map(
+      (th) => th.textContent,
+    );
+    expect(heads).toEqual([
+      en.order.flow.table.holding,
+      en.order.flow.picture.holdsNow,
+      en.order.flow.picture.target,
+      en.order.flow.table.change,
+    ]);
     const before = server.reads();
     await click(button(pane(host), en.order.flow.continue));
     await settle();

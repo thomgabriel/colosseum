@@ -12,11 +12,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
-import { Card, CardBody, Stat, StatRow } from '../../components/ui/Card';
+import { Stat, StatRow } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { CopyButton } from '../../components/ui/CopyButton';
 import { ExplorerLink } from '../../components/ui/ExplorerLink';
 import { PAGE_TITLE } from '../../components/ui/heading';
+import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { type Dictionary, LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -65,8 +66,8 @@ import {
 } from './order-record';
 import {
   changeHero,
-  costSentence,
   depositPicture,
+  orderCosts,
   type Picture,
   shareItems,
   stepWordsOf,
@@ -81,7 +82,9 @@ import { planNumberOf, type RunOutcome, useOrderRunner } from './run-order';
 import {
   AmountList,
   Fold,
-  Hero,
+  OrderHero,
+  OrderStats,
+  Rounded,
   ShareList,
   type SignedStep,
   SignedSteps,
@@ -758,7 +761,6 @@ export function OrderScreen({
               : terms.kind === 'rebalance'
                 ? rebalancePath(chain, terms.vault)
                 : '/publish';
-  const testNetwork = shown.legs[0]?.provenance === 'sandbox';
   // The swaps the order left undone: what an order that finishes it would make, and is held to.
   // The trades are the approved order's own, step by step: of the API's later answer only where each
   // step stands is read, so an answer that changed a trade cannot widen what the next order may buy.
@@ -1486,7 +1488,12 @@ export function OrderScreen({
     />
   );
   const sharesOf = (caption: string, items: ReturnType<typeof shareItems>) => (
-    <ShareList caption={caption} items={items} share={shareOf} labels={shareLabels} />
+    <ShareList
+      caption={caption}
+      items={items}
+      share={shareOf}
+      labels={{ ...shareLabels, holding: flow.table.holding, change: flow.table.change }}
+    />
   );
   // What a screen reader is told as the order moves, from one region that stays on the screen in
   // every stage: the step under way and its phase, the last answer, the end.
@@ -1502,20 +1509,79 @@ export function OrderScreen({
         ? doneSentence
         : '';
 
+  // The figures beside the line a screen leads with (HOUSE-KIT): said once, in a pill, where they
+  // are not live. The invest card says it on its own card.
+  const provenance = shown.legs[0]?.provenance;
+  const plate = onePress
+    ? null
+    : provenance === 'sandbox'
+      ? { text: t.buy.steps.note.testNetwork(t.chain.names[chain]), ui: 'data-note' }
+      : provenance === 'mock'
+        ? { text: t.shell.mockAnnounce, ui: 'sample-note' }
+        : null;
+  // The review's line: a muted label over one figure, then the small figures of what it trades.
+  const heroLabel =
+    terms?.kind === 'retarget'
+      ? flow.label.change
+      : terms?.kind === 'rebalance'
+        ? flow.label.rebalance
+        : terms?.kind === 'withdraw'
+          ? terms.dollars && leastFigure
+            ? flow.label.withdrawAtLeast
+            : flow.label.withdraw
+          : terms?.kind === 'publish' || terms?.kind === 'follow'
+            ? flow.label.order
+            : record.continues
+              ? flow.hero.finish
+              : flow.label.deposit;
+  const heroFigure =
+    terms?.kind === 'withdraw'
+      ? terms.dollars && leastFigure
+        ? leastFigure.shown
+        : withdrawn
+      : buying && !record.continues && shown.depositRaw !== undefined
+        ? amount
+        : reviewHero;
+  const costs = orderCosts(shown, summary);
+  const reviewStats = [
+    ...(costs
+      ? [
+          {
+            label: flow.stat.swapped,
+            value: <Rounded figure={costs.swapped} />,
+            ui: 'stat-swapped',
+          },
+          ...(costs.expected
+            ? [{ label: flow.stat.expected, value: costs.expected.shown, ui: 'stat-expected' }]
+            : []),
+          ...(costs.worst
+            ? [{ label: flow.stat.worst, value: costs.worst.shown, ui: 'stat-worst' }]
+            : []),
+        ]
+      : []),
+    { label: flow.stat.steps, value: String(legs.length), ui: 'stat-steps' },
+  ];
+  const stepStats = [
+    ...(words[at]?.least
+      ? [{ label: flow.stat.least, value: words[at]?.least, ui: 'stat-least' }]
+      : []),
+    ...(words[at]?.under
+      ? [{ label: flow.stat.under, value: words[at]?.under, ui: 'stat-under' }]
+      : []),
+  ];
+  const tableWords = {
+    holding: flow.table.holding,
+    change: flow.table.change,
+    amount: flow.table.amount,
+  };
+
   const stageBody =
     stage === 'review' ? (
       <>
-        <div className="flex flex-col gap-2">
-          <Hero>{reviewHero}</Hero>
-          <p
-            data-ui="sign-sentence"
-            className="max-w-(--tf-measure-body) text-body text-muted-foreground"
-          >
-            {costSentence(shown, summary)}
-          </p>
-        </div>
+        <OrderHero label={heroLabel} figure={heroFigure} plate={plate} />
+        <OrderStats stats={reviewStats} />
         {shares && sharesOf(flow.picture.targets, shares)}
-        {picture && picture.rows.length > 0 && <AmountList picture={picture} />}
+        {picture && picture.rows.length > 0 && <AmountList picture={picture} labels={tableWords} />}
         {shown.warnings.length > 0 && (
           <ul
             aria-label={t.order.review.warnings}
@@ -1565,9 +1631,11 @@ export function OrderScreen({
         />
         <StepPanel
           place={flow.stepOf(at + 1, legs.length)}
-          hero={wholeOrder ? reviewHero : (words[at]?.hero ?? t.order.title)}
-          note={wholeOrder ? null : (words[at]?.note ?? null)}
+          label={wholeOrder ? heroLabel : (words[at]?.name ?? t.order.title)}
+          hero={wholeOrder ? heroFigure : (words[at]?.hero ?? t.order.title)}
+          stats={wholeOrder ? reviewStats : stepStats}
           title={words[at]?.title ?? t.order.title}
+          plate={plate}
           status={statusBlock}
         >
           {actions}
@@ -1577,10 +1645,8 @@ export function OrderScreen({
     ) : (
       <>
         {strip}
-        <div className="flex flex-col gap-2">
-          <Hero>{flow.ended.title}</Hero>
-          {statusBlock}
-        </div>
+        <OrderHero label={flow.label.order} figure={flow.ended.title} plate={plate} />
+        {statusBlock}
         {(terms?.kind === 'retarget' || terms?.kind === 'rebalance') &&
           sharesOf(flow.ended.targets, shareItems(terms.targets, null, summary))}
         {actions}
@@ -1630,16 +1696,13 @@ export function OrderScreen({
           {stageBody}
         </section>
       ) : (
-        <Card
-          as="section"
-          aria-label={t.order.stepsTitle}
-          mock={shown.legs[0]?.provenance !== 'live'}
-          mockLabels={{
-            announce: testNetwork ? t.shell.testNetworkLine : t.shell.mockAnnounce,
-          }}
-        >
-          <CardBody className="flex flex-col gap-6">{stageBody}</CardBody>
-        </Card>
+        <Panel aria-labelledby={`${titleId}-panel`}>
+          <PanelHead
+            id={`${titleId}-panel`}
+            title={stage === 'done' ? flow.ended.title : t.order.stepsTitle}
+          />
+          <PanelBody>{stageBody}</PanelBody>
+        </Panel>
       )}
     </div>
   );

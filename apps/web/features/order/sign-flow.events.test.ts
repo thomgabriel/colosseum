@@ -63,10 +63,21 @@ describe('the strip over the steps', () => {
 });
 
 describe('the picture of what changes', () => {
-  const labels = { before: 'Now', after: 'After', unchanged: 'unchanged' };
+  const labels = {
+    before: 'Now',
+    after: 'After',
+    unchanged: 'unchanged',
+    holding: 'Holding',
+    change: 'Change',
+  };
   const share = (bps: number) => `${bps / 100}%`;
 
-  it('sets each holding’s share now beside its share after, with the signed difference, and no table', async () => {
+  const cells = (host: HTMLElement) =>
+    [...host.querySelectorAll('[data-ui="sign-share"]')].map((tr) =>
+      [...tr.querySelectorAll('td')].map((td) => td.textContent),
+    );
+
+  it('sets each holding’s share now beside its share after and the signed difference, as the kit’s table', async () => {
     const host = await mount(
       h(ShareList, {
         caption: 'Your vault’s targets',
@@ -79,17 +90,31 @@ describe('the picture of what changes', () => {
         ],
       }),
     );
-    expect(host.querySelector('table')).toBeNull();
+    const heads = [...host.querySelectorAll('thead th')].map((th) => th.textContent);
+    expect(heads).toEqual(['Holding', 'Now', 'After', 'Change']);
+    expect(find(host, 'caption').textContent).toBe('Your vault’s targets');
+    const rows = cells(host);
     // the holding's mark is a picture: its name and figures are what is read
-    const rows = [...host.querySelectorAll('[data-ui="sign-share"]')].map((li) =>
-      [...li.querySelectorAll(':scope > span')].map((span) => span.textContent).join('|'),
+    expect(rows[0]?.slice(1)).toEqual(['60%', '70%', '+10%']);
+    expect(rows[0]?.[0]).toContain('SPY');
+    expect(rows[1]?.[3]).toBe('\u221210%');
+    expect(rows[2]?.[3]).toBe('unchanged');
+  });
+
+  it('says a move smaller than a whole share as under one, never as +0%', async () => {
+    const host = await mount(
+      h(ShareList, {
+        caption: 'c',
+        // whole shares, as the screens show them
+        share: (bps: number) => `${Math.round(bps / 100)}%`,
+        labels,
+        items: [
+          { key: 'spy', name: 'SPY', beforeBps: 4996, bps: 5000 },
+          { key: 'cash', name: 'Cash', cash: true, beforeBps: 5004, bps: 5000 },
+        ],
+      }),
     );
-    expect(rows[0]?.endsWith('SPY|Now 60% →After 70%+10%')).toBe(true);
-    expect(rows[1]).toContain('\u221210%');
-    expect(rows[2]).toContain('unchanged');
-    expect(find(host, '[data-ui="sign-picture"]').getAttribute('aria-label')).toBe(
-      'Your vault’s targets',
-    );
+    expect(cells(host).map((row) => row[3])).toEqual(['+<1%', '\u2212<1%']);
   });
 
   it('shows one share a holding where nothing before is known', async () => {
@@ -101,14 +126,18 @@ describe('the picture of what changes', () => {
         items: [{ key: 'spy', name: 'SPY', bps: 7000 }],
       }),
     );
-    expect(find(host, '[data-ui="sign-share"]').textContent).toBe('SPY70%');
+    expect([...host.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual([
+      'Holding',
+      'After',
+    ]);
+    expect(cells(host)).toEqual([['SPY', '70%']]);
     expect(host.querySelector('[data-ui="asset-mark"]')).toBeNull();
-    expect(host.querySelector('[data-ui="sign-share-delta"]')).toBeNull();
   });
 
   it('reads an amount rounded, with the exact one on hover', async () => {
     const host = await mount(
       h(AmountList, {
+        labels: { holding: 'Holding', amount: 'Amount' },
         picture: {
           caption: 'Where your $10 goes',
           columns: ['Amount'],
@@ -119,7 +148,6 @@ describe('the picture of what changes', () => {
         },
       }),
     );
-    expect(host.querySelector('table')).toBeNull();
     expect(await hintOf(find(host, '[data-ui="hint"]'))).toBe('$6.00');
     expect(host.querySelectorAll('[data-ui="hint"]')).toHaveLength(1);
   });
@@ -149,15 +177,20 @@ describe('the steps already signed', () => {
 });
 
 describe('the step being signed', () => {
-  it('leads with its large line, its worst case small under it, and its place for a screen reader', async () => {
+  it('leads with its figure, a label over it and its bounds under it, and its place for a screen reader', async () => {
     const host = await mount(
       h(
         StepPanel,
         {
           place: 'Step 2 of 2',
+          label: 'Swap',
           hero: '$1,354 → GOOGLx',
-          note: 'at least 3.76 GOOGLx · 1% under today’s price',
+          stats: [
+            { label: 'At least', value: '3.76 GOOGLx', ui: 'stat-least' },
+            { label: 'Under today’s price, at worst', value: '1%', ui: 'stat-under' },
+          ],
           title: 'Swap $1,354 of cash for GOOGLx',
+          plate: { text: 'Test network · Solana · not live', ui: 'data-note' },
           status: h('p', null, 'Waiting for the chain…'),
         },
         h('button', { type: 'button' }, 'Sign: swap $1,354 for GOOGLx'),
@@ -165,9 +198,13 @@ describe('the step being signed', () => {
     );
     const step = find(host, '[data-ui="sign-step"]');
     expect(step.getAttribute('aria-label')).toBe('Swap $1,354 of cash for GOOGLx');
-    expect(find(step, 'h3').textContent).toBe('$1,354 → GOOGLx');
-    expect(find(step, 'h3').getAttribute('tabindex')).toBe('-1');
-    expect(find(step, '[data-ui="sign-worst"]').textContent).toContain('3.76 GOOGLx');
+    expect(find(step, '[data-ui="sign-label"]').textContent).toBe('Swap');
+    expect(find(step, '[data-ui="sign-figure"]').textContent).toBe('$1,354 → GOOGLx');
+    expect(find(step, '[data-ui="sign-hero"]').getAttribute('tabindex')).toBe('-1');
+    expect(find(step, '[data-ui="stat-least"]').textContent).toBe('At least3.76 GOOGLx');
+    expect(find(step, '[data-ui="data-note"]').textContent).toBe(
+      'Test network · Solana · not live',
+    );
     expect(find(step, '.sr-only').textContent).toBe('Step 2 of 2');
     // the state is shown here and said by the order's one announcer, not a region of its own
     const status = find(step, '[data-ui="sign-status"]');
