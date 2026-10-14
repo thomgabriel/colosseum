@@ -113,11 +113,12 @@ describe('a continuous conversation for one vault', () => {
       row?.querySelector('[data-ui="composition-delta"]');
     expect(shareOf(rows[0])).toBe('100%');
     expect(rows[0]?.querySelector('[data-column="before"]')?.textContent).toContain('30%');
-    expect(deltaOf(rows[0])?.querySelector('[aria-hidden]')?.textContent).toBe('+70%');
+    // a change of targets is in percentage points, never a percent that reads as relative
+    expect(deltaOf(rows[0])?.querySelector('[aria-hidden]')?.textContent).toBe('+70 pp');
     expect(deltaOf(rows[0])?.getAttribute('data-direction')).toBe('up');
     expect(shareOf(rows[1])).toBe('0%');
     expect(rows[1]?.querySelector('[data-column="before"]')?.textContent).toContain('70%');
-    expect(deltaOf(rows[1])?.querySelector('[aria-hidden]')?.textContent).toBe('−70%');
+    expect(deltaOf(rows[1])?.querySelector('[aria-hidden]')?.textContent).toBe('−70 pp');
     expect(deltaOf(rows[1])?.getAttribute('data-direction')).toBe('down');
     expect(rows[1]?.textContent).toContain(en.shared.vault.conversation.removed);
     // the targets now over the proposed ones: the proposed bar holds what is proposed alone, and a
@@ -135,6 +136,16 @@ describe('a continuous conversation for one vault', () => {
       ['solana:usdc', '7000'],
     ]);
     expect(find(host, '[data-ui="composition-bars"]').textContent).toContain(c.proposed);
+    // what is compared is the vault's targets, never what it holds: "Now" is said nowhere
+    const conversation = en.shared.vault.conversation;
+    expect(find(host, '[data-ui="composition-bars"]').textContent).toContain(
+      conversation.currentTarget,
+    );
+    expect(host.textContent).not.toContain(c.before);
+    expect(find(host, '[data-ui="composition"] caption').textContent).toBe(conversation.comparison);
+    expect([...host.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual(
+      expect.arrayContaining([conversation.currentTarget, conversation.proposedShare]),
+    );
     // the same holding the same colour in both strips
     expect(
       [
@@ -184,12 +195,13 @@ describe('a continuous conversation for one vault', () => {
       expect(rows[0]?.querySelector('[data-column="before"]')?.textContent).toContain(
         `99${decimal}99%`,
       );
-      expect(deltaOf(rows[0])).toBe(`+0${decimal}01%`);
+      const points = dictionary(lang).shared.vault.conversation.points;
+      expect(deltaOf(rows[0])).toBe(`+0${decimal}01 ${points}`);
       expect(rows[1]?.querySelector('[data-ui="composition-share"]')?.textContent).toBe('0%');
       expect(rows[1]?.querySelector('[data-column="before"]')?.textContent).toContain(
         `0${decimal}01%`,
       );
-      expect(deltaOf(rows[1])).toBe(`−0${decimal}01%`);
+      expect(deltaOf(rows[1])).toBe(`−0${decimal}01 ${points}`);
       expect(rows[1]?.textContent).toContain(dictionary(lang).shared.vault.conversation.removed);
     },
   );

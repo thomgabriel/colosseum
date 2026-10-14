@@ -115,6 +115,9 @@ export function StrategyPreview({
   const nameOf = (asset: string) =>
     proposal.allocations.find((line) => line.assetId === asset)?.symbol ??
     displayName(asset, t.plan);
+  // a change of targets in percentage points: "+2 pp", never "+2%", which reads as a relative change
+  const change = (bps: number) =>
+    `${new Intl.NumberFormat(LOCALE[language], { maximumFractionDigits: 2, signDisplay: 'exceptZero' }).format(bps / 100).replace('-', '−')} ${copy.points}`;
   return (
     <>
       <Card
@@ -217,12 +220,20 @@ export function StrategyPreview({
                 )}
               />
             )}
-            {/* The draft as a ring beside its rows; a change to a vault's targets as the targets
-                now over the proposed ones (Composition.tsx, gate WEIGHTS-RING). */}
+            {/* The draft as a strip and its rows; a change to a vault's targets as its current
+                targets over the proposed ones, never as what it holds (Composition.tsx, gate
+                WEIGHTS-RING). */}
             <Composition
-              mode={targets ? 'compare' : 'ring'}
+              mode={targets ? 'compare' : 'single'}
               share={allocationShare}
-              labels={{ after: t.shared.composition.proposed }}
+              signed={change}
+              labels={{
+                caption: targets ? copy.comparison : copy.proposed,
+                weight: copy.proposedShare,
+                before: copy.currentTarget,
+                after: t.shared.composition.proposed,
+                change: copy.change,
+              }}
               items={rows.map((row) => ({
                 key: row.asset,
                 ...(row.symbol ? { name: row.symbol } : withVenue(displayName(row.asset, t.plan))),

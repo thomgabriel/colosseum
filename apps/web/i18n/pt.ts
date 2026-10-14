@@ -1497,6 +1497,7 @@ export const pt: Dictionary = {
         figureSaidAged: '{value}, um valor medido, {age}',
         figureNotKept: '(valor não guardado)',
         comparison: 'Meta atual → fatia proposta',
+        currentTarget: 'Meta atual',
         reasons: 'Escolhas e fontes',
         tradeoffs: 'Escolhas e consequências',
         unknowns: 'O que não sabemos',

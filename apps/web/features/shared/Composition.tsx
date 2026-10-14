@@ -67,6 +67,11 @@ export type CompositionProps = {
   mode?: 'single' | 'ring' | 'compare';
   /** A share as the rows write it. Left out, a percent with up to two decimals. */
   share?: (bps: number) => string;
+  /**
+   * A signed difference as the change column writes it: "+2 pp" where the shares are targets. Left
+   * out, a percent with up to two decimals and its sign.
+   */
+  signed?: (bps: number) => string;
   /** The caller's columns. */
   columns?: readonly CompositionColumn[];
   labels?: {
@@ -122,6 +127,7 @@ export function Composition({
   items,
   mode = 'single',
   share: shareOf,
+  signed: signedOf,
   columns = [],
   labels,
   size = 'default',
@@ -140,14 +146,16 @@ export function Composition({
   const lit = pointed ?? chosen;
   const share = shareOf ?? ((bps: number) => formatBps(bps, LOCALE[lang]));
   // signed, to two decimals so a change of one basis point is not written as nothing, a true minus
-  const difference = (bps: number) =>
-    new Intl.NumberFormat(LOCALE[lang], {
-      style: 'percent',
-      maximumFractionDigits: 2,
-      signDisplay: 'exceptZero',
-    })
-      .format(bps / 10_000)
-      .replace(/-/g, '−');
+  const difference =
+    signedOf ??
+    ((bps: number) =>
+      new Intl.NumberFormat(LOCALE[lang], {
+        style: 'percent',
+        maximumFractionDigits: 2,
+        signDisplay: 'exceptZero',
+      })
+        .format(bps / 10_000)
+        .replace(/-/g, '−'));
   const colours = coloursOf(items);
   const fill = (i: number) => {
     const item = items[i];

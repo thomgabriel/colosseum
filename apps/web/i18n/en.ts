@@ -1712,6 +1712,8 @@ export const en = {
         /** In a figure's place, in a kept reply whose figures are no longer kept. No number. */
         figureNotKept: '(figure no longer kept)',
         comparison: 'Current target → proposed share',
+        /** A draft's comparison: the vault's targets as they are, over the proposed ones. */
+        currentTarget: 'Current target',
         reasons: 'Tradeoffs and sources',
         tradeoffs: 'Tradeoffs',
         unknowns: 'What is not known',
