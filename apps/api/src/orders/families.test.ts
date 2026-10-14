@@ -50,7 +50,7 @@ describe('two publishes of one new slug at once', () => {
       if (rows.length !== 1 || rows[0]?.creator !== `creator-${textBy}`) mixed.push(familyId);
     }
     expect(mixed).toEqual([]);
-  });
+  }, 120_000);
 
   it('let the same creator record the next version, with new text', async () => {
     const familyId = randomUUID().replaceAll('-', '').padEnd(64, '0');

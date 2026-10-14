@@ -2,12 +2,10 @@ import { metaHash } from '@colosseum/basket';
 import {
   ChainError,
   DISCLAIMER,
-  type EnvLike,
   FamilyResponse,
   FamilyRouteParams,
   OrderError,
   type RecipeVersionView,
-  readEnv,
   SharedChainQuery,
   type SharedFamily,
   type SharedRecipe,
@@ -195,19 +193,6 @@ async function familyNamed(deps: OrderDeps, slug: string): Promise<StoredFamily>
   const family = await familyBySlug(deps.db, slug);
   if (!family) throw new Refusal(404, 'no shared portfolio with that slug');
   return family;
-}
-
-/**
- * `SHELF_LIVE_ONLY` (gate PRODUCTS-MAINNET-ONLY): on, the shelf lists only the recipes whose figures
- * are live, on a mainnet. Unset is off. A value that is neither on nor off stops the server at start,
- * and the message never repeats it.
- */
-export function shelfLiveOnlyFrom(env: EnvLike): boolean {
-  const v = readEnv(env, 'SHELF_LIVE_ONLY');
-  if (v === undefined) return false;
-  if (['on', 'true', '1', 'yes'].includes(v)) return true;
-  if (['off', 'false', '0', 'no'].includes(v)) return false;
-  throw new Error('SHELF_LIVE_ONLY: expected on or off');
 }
 
 export function registerSharedRoutes(

@@ -27,7 +27,6 @@ import {
   testDb,
   testIssuer,
 } from '../../testing/harness';
-import { shelfLiveOnlyFrom } from './shared';
 
 // The shared-portfolio routes (API-3) through HTTP on the mock chain and the real database: the shelf,
 // a portfolio's page and its versions, a creator's publish, a buy that follows a portfolio, and a
@@ -1188,19 +1187,37 @@ describe('a portfolio on a network its chain no longer runs (gate PRODUCTS-MAINN
     expect(shelf.families.some((f) => f.slug === text.slug)).toBe(true);
   });
 
-  it('reads SHELF_LIVE_ONLY as on or off, and refuses anything else without repeating it', () => {
-    expect(shelfLiveOnlyFrom({})).toBe(false);
-    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: '' })).toBe(false);
-    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'on' })).toBe(true);
-    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'TRUE' })).toBe(true);
-    expect(shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'off' })).toBe(false);
-    expect(() => shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'secret-ish' })).toThrow(
-      'SHELF_LIVE_ONLY: expected on or off',
-    );
+  it('keeps a live recipe on the shelf, with its chain, where SHELF_LIVE_ONLY is on', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    // the same chains, Solana reported live: what a mainnet's recipes are labelled
+    const live = (inner: ChainRegistry): ChainRegistry => {
+      const wrap = (entry: ReturnType<ChainRegistry['get']>) =>
+        entry.chain === 'solana' ? { ...entry, provenance: 'live' as const } : entry;
+      return {
+        ...inner,
+        get: (chain) => wrap(inner.get(chain)),
+        active: () => inner.active().map(wrap),
+      };
+    };
+    const { app: liveOnly } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      env: { SHELF_LIVE_ONLY: 'on' },
+      wrap: () => live(registry),
+    });
     try {
-      shelfLiveOnlyFrom({ SHELF_LIVE_ONLY: 'secret-ish' });
-    } catch (e) {
-      expect(String(e)).not.toContain('secret-ish');
+      const res = await liveOnly.inject({ method: 'GET', url: '/v1/shelf' });
+      expect(res.statusCode, res.body).toBe(200);
+      const card = ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+      expect(card?.chains).toEqual(['solana']);
+      expect(card?.recipes.map((r) => [r.chain, r.provenance])).toEqual([['solana', 'live']]);
+      // and the server says so on its config, for the app to follow
+      const config = await liveOnly.inject({ method: 'GET', url: '/v1/config' });
+      expect(config.json().flags.shelfLiveOnly).toBe(true);
+    } finally {
+      await liveOnly.close();
     }
   });
 });

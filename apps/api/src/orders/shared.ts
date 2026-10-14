@@ -226,18 +226,18 @@ export async function familyOfPublish(
       fix: 'Choose another name.',
     });
   if (stored) {
-    const theirs = (chain: ChainId) => {
-      const creator = req.creator[chainFamily(chain)];
-      const recipe = stored.recipes.find((r) => r.chain === chain);
-      return recipe ? recipe.creator !== creator : false;
-    };
     const me = await userIdOf(ctx.db, ctx.principal.userId);
-    const another =
-      req.recipes.some((d) => theirs(d.chain)) ||
-      // A family is its creator's on every chain: one with no recipe on this chain yet is not open to
-      // anybody else either.
-      (stored.creatorUserId !== null && stored.creatorUserId !== me) ||
-      (stored.creatorUserId === null && stored.recipes.every((r) => theirs(r.chain)));
+    // The same rule `writePublished` holds the write to, a chain at a time: the recipe here is the
+    // creator's own; with none here, the family's user row is theirs, or, for a family with no user
+    // row, it has no recipe on any chain yet. A family is its creator's on every chain.
+    const theirs = (chain: ChainId) => {
+      const here = stored.recipes.find((r) => r.chain === chain);
+      if (here) return here.creator !== req.creator[chainFamily(chain)];
+      return stored.creatorUserId !== null
+        ? stored.creatorUserId !== me
+        : stored.recipes.length > 0;
+    };
+    const another = req.recipes.some((d) => theirs(d.chain));
     if (another)
       throw new Refusal(409, "this shared portfolio is another creator's", {
         fix: 'Publish yours under another slug.',

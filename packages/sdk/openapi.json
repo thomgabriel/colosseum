@@ -8676,9 +8676,18 @@
                         },
                         "agentSurface": {
                           "type": "boolean"
+                        },
+                        "shelfLiveOnly": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["chainMode", "autoFollow", "keeperEnabled", "agentSurface"],
+                      "required": [
+                        "chainMode",
+                        "autoFollow",
+                        "keeperEnabled",
+                        "agentSurface",
+                        "shelfLiveOnly"
+                      ],
                       "additionalProperties": false
                     },
                     "chains": {

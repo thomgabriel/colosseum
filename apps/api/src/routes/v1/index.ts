@@ -72,7 +72,7 @@ import { registerPortfolioExposureRoute } from './portfolio-exposure';
 import { registerPortfolioHistoryRoute } from './portfolio-history';
 import { registerPortfolioPlansRoute } from './portfolio-plans';
 import { registerPortfolioRebalancesRoute } from './portfolio-rebalances';
-import { registerSharedRoutes, shelfLiveOnlyFrom } from './shared';
+import { registerSharedRoutes } from './shared';
 import { registerStatsRoute } from './stats';
 import { registerTestnetRoute } from './testnet';
 import { registerThreadRoutes } from './thread';
@@ -309,9 +309,7 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     registerPortfolioPlansRoute(scope, orderDeps);
     registerPortfolioRebalancesRoute(scope, orderDeps);
     registerPortfolioExposureRoute(scope, orderDeps, planInputs);
-    registerSharedRoutes(scope, orderDeps, deps.planInputs, {
-      liveOnly: shelfLiveOnlyFrom(env),
-    });
+    registerSharedRoutes(scope, orderDeps, deps.planInputs, { liveOnly: flags.shelfLiveOnly });
     registerVaultRoute(scope, orderDeps);
     registerVaultConversationRoutes(scope, orderDeps);
     registerVaultConversationReplyRoute(

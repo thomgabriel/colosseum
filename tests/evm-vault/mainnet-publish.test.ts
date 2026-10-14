@@ -49,13 +49,13 @@ export const MAINNET_PORTFOLIOS = [
   {
     slug: 'us-stocks-broad',
     name: 'US stocks, broad',
-    copy: 'Half the S&P 500, half the largest US companies by name.',
+    copy: 'Half in the S&P 500 fund, half in the largest US companies by name.',
     weights: { spy: 5000, aapl: 1500, nvda: 1500, meta: 1000, tsla: 500, msft: 250, googl: 250 },
   },
   {
     slug: 'large-us-tech',
     name: 'Large US tech',
-    copy: 'The biggest US tech names, each at the most its market can carry.',
+    copy: 'The biggest US tech names.',
     weights: { nvda: 2500, aapl: 2500, meta: 2500, tsla: 1500, googl: 500, msft: 500 },
   },
   {
@@ -67,7 +67,7 @@ export const MAINNET_PORTFOLIOS = [
   {
     slug: 'five-large-caps-even',
     name: 'Five large caps, even',
-    copy: 'Five holdings, one fifth each, rebalanced to equal.',
+    copy: 'Five holdings, one fifth each.',
     weights: { spy: 2000, nvda: 2000, aapl: 2000, meta: 2000, tsla: 2000 },
   },
 ] as const;
