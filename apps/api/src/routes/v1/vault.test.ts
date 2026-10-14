@@ -74,15 +74,35 @@ afterAll(async () => {
  * function, or null for an adapter that has none. A chain not named here keeps its adapter as it is.
  */
 let heightOn: Partial<Record<ChainId, ChainAdapter['height'] | null>> = {};
+/** The height of a read itself, where a test gives the adapter one (Solana's `context.slot`). */
+let readOn: Partial<Record<ChainId, NonNullable<ChainAdapter['heightOfRead']>>> = {};
+/** Called as a chain's adapter starts a vault's read. */
+let onRead: Partial<Record<ChainId, () => void>> = {};
 afterEach(() => {
   heightOn = {};
+  readOn = {};
+  onRead = {};
 });
 const heights = (inner: ChainRegistry): ChainRegistry => {
   const dress = (e: ChainEntry): ChainEntry => {
-    if (!(e.chain in heightOn)) return e;
+    if (!(e.chain in heightOn) && !(e.chain in readOn) && !(e.chain in onRead)) return e;
     const { height: _, ...adapter } = e.adapter;
-    const height = heightOn[e.chain];
-    return { ...e, adapter: height ? { ...adapter, height } : adapter };
+    const height = e.chain in heightOn ? heightOn[e.chain] : e.adapter.height?.bind(e.adapter);
+    const heightOfRead = readOn[e.chain];
+    const started = onRead[e.chain];
+    const getVault: ChainAdapter['getVault'] = (address) => {
+      started?.();
+      return e.adapter.getVault(address);
+    };
+    return {
+      ...e,
+      adapter: {
+        ...adapter,
+        getVault,
+        ...(height ? { height } : {}),
+        ...(heightOfRead ? { heightOfRead } : {}),
+      },
+    };
   };
   return { ...inner, get: (c) => dress(inner.get(c)), active: () => inner.active().map(dress) };
 };
@@ -176,7 +196,7 @@ async function read(who: Person | null, chain: ChainId, address: string) {
 
 describe('the chain height a vault was read at', () => {
   it.each<HomeChain>(['solana', 'robinhood'])(
-    'on the mock %s: the mock’s own second, asked just before the read',
+    'on the mock %s: the mock’s own second, asked beside the read',
     async (chain) => {
       const { vault } = await withVault(chain);
       const mock = registry.get(chain).mock;
@@ -191,7 +211,31 @@ describe('the chain height a vault was read at', () => {
     },
   );
 
-  it('on Solana: the slot the Solana adapter asks of its node, at confirmed', async () => {
+  it('on Solana: the slot the read of the vault’s account was answered at, and no height asked', async () => {
+    const { vault } = await withVault('solana');
+    const height = vi.fn(async () => 1n);
+    heightOn.solana = height;
+    readOn.solana = (state) => (state.address === vault.address ? 412_345_678n : undefined);
+    const answer = await read(null, 'solana', vault.address);
+    expect(answer.blockOrSlot).toBe('412345678');
+    expect(height).not.toHaveBeenCalled();
+  });
+
+  it('never waits on the height before the read: the two are asked together', async () => {
+    const { vault } = await withVault('solana');
+    // a height the node gives only once the vault's read has started: asked first and waited on,
+    // it would never come, and the answer would have none
+    let give: (height: bigint) => void = () => {};
+    heightOn.solana = () =>
+      new Promise<bigint>((resolve) => {
+        give = resolve;
+      });
+    onRead.solana = () => setTimeout(() => give(5n), 0);
+    const answer = await read(null, 'solana', vault.address);
+    expect(answer.blockOrSlot).toBe('5');
+  });
+
+  it('where the adapter cannot say the height of its read: the slot the Solana adapter asks of its node, at confirmed', async () => {
     const { record, env, contracts } = solanaDeployment({});
     if (!record) throw new Error('deployments/ has no Solana test network record');
     const asked: unknown[] = [];

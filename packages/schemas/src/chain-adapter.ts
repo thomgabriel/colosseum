@@ -219,6 +219,12 @@ export interface ChainReader {
    * when the node does not answer.
    */
   height?(): Promise<bigint>;
+  /**
+   * The height a state `getVault` answered was read at, where the adapter knows it exactly: on Solana
+   * the node's `context.slot` for the read of the vault's account. Undefined for any other state. An
+   * adapter that has it is not asked `height()` for that read.
+   */
+  heightOfRead?(state: VaultState): bigint | undefined;
 }
 
 /**

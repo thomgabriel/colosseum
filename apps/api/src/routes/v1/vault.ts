@@ -29,8 +29,8 @@ import { signedIn } from './orders';
 //
 // Anybody may ask, so an answer is kept for a few seconds per address: a link opened by many, or a
 // page asked again and again, reads the chain once in that time and not once per request. The chain's
-// height is asked just before the vault is read and kept with it: the kept answer says the height its
-// read was made at. Why each holding is there (`VaultHoldingWhy`) is kept too where it is anybody's (a
+// height at the read is kept with it: on Solana the slot the vault's account was read at, elsewhere the
+// height asked alongside the read, never waited on before it. Why each holding is there (`VaultHoldingWhy`) is kept too where it is anybody's (a
 // shared portfolio's); a plan's reasons are its owner's, added to the one answer like the number.
 
 /** How long an answer is kept, in milliseconds. */
@@ -72,7 +72,7 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
         tags: ['portfolio'],
         summary: 'One vault, read from its chain, for anybody',
         description:
-          "The vault's holdings, targets, value, weights and drift, read from its chain for this answer, with the reference prices they were worked out with. Anybody may read it: a vault's state is public on its chain. A chain this server has switched off answers `CHAIN_UNAVAILABLE`; an address in the other chain family's form answers 400, and one where there is no vault 404. Every figure carries `provenance`. A sign-in is never needed. To a signed-in caller one of whose wallets owns the vault, `vault.number` is its number among their vaults, where the server holds one; anybody else is answered none, and nothing of how many vaults the owner has. `blockOrSlot` is the chain's height asked just before the read (a slot on Solana, a block on EVM, the mock's second), null where the chain did not say it in time. Each holding's `why` is the reason the server holds for it, with its source: the shared portfolio the vault follows (the asset's kind), to anybody; the plan the vault was opened for, or the person's own choice of share, to the owner alone, as the plan is theirs. Null where there is none that still stands.",
+          "The vault's holdings, targets, value, weights and drift, read from its chain for this answer, with the reference prices they were worked out with. Anybody may read it: a vault's state is public on its chain. A chain this server has switched off answers `CHAIN_UNAVAILABLE`; an address in the other chain family's form answers 400, and one where there is no vault 404. Every figure carries `provenance`. A sign-in is never needed. To a signed-in caller one of whose wallets owns the vault, `vault.number` is its number among their vaults, where the server holds one; anybody else is answered none, and nothing of how many vaults the owner has. `blockOrSlot` is the chain's height at the read: on Solana the slot the vault's account was read at; on EVM the block number asked alongside the read, and on the mock its second; null where the chain did not say it in time. Each holding's `why` is the reason the server holds for it, with its source: the shared portfolio the vault follows (the asset's kind), to anybody; the plan the vault was opened for, or the person's own choice of share, to the owner alone, as the plan is theirs. Null where there is none that still stands.",
         params: VaultRouteParams,
         response: { 200: VaultResponse, default: OrderError },
       },
@@ -113,7 +113,10 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
       const hit = kept.get(key);
       if (hit && now - hit.at < VAULT_KEPT_MS) return forCaller(hit.answer, hit.listed);
       const { answer, listed } = await refusing(async () => {
-        const blockOrSlot = await heightOrNull(entry.adapter);
+        // The height beside the read, never before it, so a slow node adds no wait; an adapter that
+        // knows the height of the read itself (Solana: the account's own slot) is not asked.
+        const exact = entry.adapter.heightOfRead?.bind(entry.adapter);
+        const asked = exact ? Promise.resolve(null) : heightOrNull(entry.adapter);
         let state: Awaited<ReturnType<typeof entry.adapter.getVault>>;
         try {
           state = await entry.adapter.getVault(address);
@@ -122,6 +125,8 @@ export function registerVaultRoute(scope: FastifyInstance, deps: OrderDeps) {
           else throw e;
         }
         if (!state) throw new Refusal(404, 'no vault at that address');
+        const read = exact?.(state);
+        const blockOrSlot = read !== undefined ? read.toString() : await asked;
         const listed = await entry.adapter.listAssets();
         const known = new Set(listed.map((a) => a.id));
         const assets = [state.cash.asset, ...state.positions.map((p) => p.asset)].filter((id) =>

@@ -297,9 +297,9 @@ export const VaultResponse = z.object({
   mode: ChainMode,
   provenance: Provenance,
   /**
-   * The chain's height, asked just before the vault was read, so the vault is as the chain had it at
-   * this height or after: a slot on Solana (at `confirmed`), a block on EVM, the mock's own second.
-   * Null where the chain did not say it in time; left out by a server that predates it.
+   * The chain's height at the read: on Solana the slot the vault's account was read at (the node's
+   * `context.slot`, at `confirmed`); on EVM the block number asked alongside the read; the mock's own
+   * second. Null where the chain did not say it in time; left out by a server that predates it.
    */
   blockOrSlot: z.string().regex(/^\d+$/).nullable().optional(),
   vault: VaultView.extend({
