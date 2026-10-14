@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
-import { RISK_CACHE_CONTROL, registerRiskReadCache } from './risk-cache';
+import { MAX_KEY_CHARS, RISK_CACHE_CONTROL, registerRiskReadCache } from './risk-cache';
 
 // The kept answers of GET /risk/*, on an app with routes that count how often they are read.
 function app(opts: { slowMs?: number } = {}) {
@@ -93,7 +93,7 @@ describe('the kept answers of GET /risk/*', () => {
   it('lets the oldest answers go past its size', async () => {
     let t = 0;
     const a = Fastify();
-    registerRiskReadCache(a, { maxChars: 30, now: () => t });
+    registerRiskReadCache(a, { maxChars: 60, now: () => t });
     let n = 0;
     a.get('/risk/thing', async () => ({ n: ++n, pad: 'xxxxxxxx' }));
     await a.inject({ url: '/risk/thing?a' });
@@ -120,5 +120,104 @@ describe('the kept answers of GET /risk/*', () => {
     const start = performance.now();
     expect((await a.inject({ url: '/risk/thing' })).json()).toEqual({ n: 3 });
     expect(performance.now() - start).toBeLessThan(100);
+  });
+
+  it('counts the address in its size, keeps a bounded number of answers, and keeps no long address', async () => {
+    let t = 0;
+    const a = Fastify();
+    registerRiskReadCache(a, { maxChars: 10_000, maxEntries: 3, now: () => t });
+    let n = 0;
+    a.get('/risk/thing', async () => ({ n: ++n }));
+    const pad = 'p'.repeat(MAX_KEY_CHARS - 20);
+    for (const q of ['a', 'b', 'c', 'd']) await a.inject({ url: `/risk/thing?${q}` });
+    t = 1;
+    // four kept at most three: the oldest went
+    expect((await a.inject({ url: '/risk/thing?a' })).headers['x-read-cache']).toBe('miss');
+    expect((await a.inject({ url: '/risk/thing?d' })).headers['x-read-cache']).toBe('hit');
+    // an address past the limit is answered and not kept
+    const long = `/risk/thing?q=${'x'.repeat(MAX_KEY_CHARS)}`;
+    await a.inject({ url: long });
+    expect((await a.inject({ url: long })).headers['x-read-cache']).toBeUndefined();
+    // the size counts the address: two answers of near-limit addresses go past 1,000 characters
+    const b = Fastify();
+    registerRiskReadCache(b, { maxChars: 1_000, now: () => t });
+    b.get('/risk/thing', async () => ({ ok: 1 }));
+    await b.inject({ url: `/risk/thing?a=${pad}` });
+    await b.inject({ url: `/risk/thing?b=${pad}` });
+    expect((await b.inject({ url: `/risk/thing?a=${pad}` })).headers['x-read-cache']).toBe('miss');
+  });
+
+  it('keeps the chains side by side for its half hour only, and no answer worked out from now', async () => {
+    let t = Date.UTC(2026, 9, 14, 19, 50); // 15:50 ET, market hours
+    const a = Fastify();
+    registerRiskReadCache(a, { now: () => t });
+    const reads: Record<string, number> = {};
+    const count = (k: string) => {
+      reads[k] = (reads[k] ?? 0) + 1;
+      return { n: reads[k] };
+    };
+    a.get('/risk/chains', async () => count('chains'));
+    a.get('/risk/assets/:id/score', async () => count('score'));
+    a.get('/risk/recoverable', async (req) =>
+      count((req.query as { at?: string }).at ? 'recov-at' : 'recov-now'),
+    );
+    for (let i = 0; i < 2; i++) {
+      await a.inject({ url: '/risk/chains?tau=0.01' });
+      await a.inject({ url: '/risk/assets/X/score?nRef=1' });
+      await a.inject({ url: '/risk/recoverable?asset=X&notional=1' });
+      await a.inject({ url: '/risk/recoverable?asset=X&notional=1&at=2026-10-14T19:00:00Z' });
+    }
+    expect(reads).toEqual({ chains: 1, score: 2, 'recov-now': 2, 'recov-at': 1 });
+    // 16:00 ET: the market closed, and the chains are read again though the answer is minutes old
+    t = Date.UTC(2026, 9, 14, 20, 0);
+    const after = await a.inject({ url: '/risk/chains?tau=0.01' });
+    expect([after.json(), after.headers['x-read-cache']]).toEqual([{ n: 2 }, 'miss']);
+  });
+
+  it('a read that took over from a hung one is still waited for when the hung one ends', async () => {
+    const a = Fastify();
+    registerRiskReadCache(a, { joinMs: 20 });
+    const gates: Array<() => void> = [];
+    let n = 0;
+    a.get('/risk/thing', async (_req, reply) => {
+      const mine = ++n;
+      await new Promise<void>((d) => gates.push(d));
+      // the hung read ends in a failure, which is not kept
+      return mine === 1 ? reply.code(503).send({ error: 'late' }) : { n: mine };
+    });
+    const first = a.inject({ url: '/risk/thing' });
+    await new Promise((d) => setTimeout(d, 5));
+    // the second gives up on the first after 20 ms and reads itself
+    const second = a.inject({ url: '/risk/thing' });
+    await new Promise((d) => setTimeout(d, 40));
+    expect(n).toBe(2);
+    // the first ends now, failed; the second is still the read under way
+    gates[0]?.();
+    await first;
+    // a third arrives and waits for the second: no third read
+    const third = a.inject({ url: '/risk/thing' });
+    await new Promise((d) => setTimeout(d, 5));
+    gates[1]?.();
+    const [two, three] = await Promise.all([second, third]);
+    expect(n).toBe(2);
+    expect([two.json(), three.json()]).toEqual([{ n: 2 }, { n: 2 }]);
+  });
+
+  it('after a failed read the waiters share one more read, and its failure if it fails too', async () => {
+    const a = Fastify();
+    registerRiskReadCache(a);
+    let n = 0;
+    a.get('/risk/thing', async (_req, reply) => {
+      n += 1;
+      await new Promise((d) => setTimeout(d, 10));
+      return reply.code(503).send({ error: `down ${n}` });
+    });
+    const all = await Promise.all(
+      Array.from({ length: 6 }, () => a.inject({ url: '/risk/thing' })),
+    );
+    // the first read and one more, not one for each request
+    expect(n).toBe(2);
+    expect(all.map((r) => r.statusCode)).toEqual(Array(6).fill(503));
+    expect(all.filter((r) => r.headers['x-read-cache'] === 'shared')).toHaveLength(4);
   });
 });
