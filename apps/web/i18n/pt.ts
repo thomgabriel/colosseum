@@ -1150,6 +1150,7 @@ export const pt: Dictionary = {
       lead: 'Explore estratégias publicadas em todas as redes que rodamos. Cada uma diz em qual rede está. Abra uma para ver seus ativos, fontes e opções para investir ou seguir.',
       loading: 'Lendo os portfólios compartilhados…',
       empty: 'Nenhum portfólio foi compartilhado ainda.',
+      emptyOn: (chains: string) => `Nenhum portfólio foi compartilhado na ${chains} ainda.`,
       publish: 'Publicar um portfólio',
       publishSoon: (chain: string) =>
         `Publicar um portfólio na ${chain} está a caminho. Por enquanto dá para publicar na Solana.`,

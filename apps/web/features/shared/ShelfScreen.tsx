@@ -1,5 +1,5 @@
 'use client';
-import type { SharedFamily, SharedRecipe } from '@colosseum/schemas';
+import { ChainId, type SharedFamily, type SharedRecipe } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
@@ -18,7 +18,7 @@ import { formatBps, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
 import { isCashId } from '../order/plain';
 import { networkFor } from '../order/readiness';
-import { useApiFetch } from '../wallet/WalletProvider';
+import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { Composition } from './Composition';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, rate } from './product-figures';
@@ -50,6 +50,14 @@ export function ShelfScreen() {
   const settled = person.kind !== 'loading';
   // Where publishing is offered or not is said of the chain the person's new plans start on.
   const chainName = person.kind === 'ready' ? t.chain.names[person.chain] : null;
+  // The mainnets this server runs: an empty shelf names them, where it lists live portfolios only
+  // (gate PRODUCTS-MAINNET-ONLY).
+  const port = useWalletPort();
+  const lang = useLang();
+  const live = ChainId.options.flatMap((chain) => {
+    const network = port.network(chain);
+    return network?.on && network.provenance === 'live' ? [network.name] : [];
+  });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `round` reads the shelf again
   useEffect(() => {
@@ -130,7 +138,13 @@ export function ShelfScreen() {
       ) : load.families.length === 0 ? (
         <Card>
           <CardEmpty
-            sentence={t.shared.shelf.empty}
+            sentence={
+              live.length > 0
+                ? t.shared.shelf.emptyOn(
+                    new Intl.ListFormat(LOCALE[lang], { type: 'disjunction' }).format(live),
+                  )
+                : t.shared.shelf.empty
+            }
             action={
               person.kind === 'ready' && person.publishable ? (
                 <Link href="/products/publish" className={buttonClass({ variant: 'link' })}>

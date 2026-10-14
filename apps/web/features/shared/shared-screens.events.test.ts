@@ -276,6 +276,27 @@ describe('the shelf', () => {
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
 
+  it('names the mainnets it runs when nothing is shared on them yet (gate PRODUCTS-MAINNET-ONLY)', async () => {
+    api({ families: [] });
+    const testNetworks = await show(createElement(ShelfScreen));
+    // on test networks alone: the plain sentence
+    expect(testNetworks.textContent).toContain(en.shared.shelf.empty);
+    await unmountAll();
+    portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
+    api({ families: [] });
+    const live = await show(createElement(ShelfScreen));
+    expect(live.textContent).toContain(en.shared.shelf.emptyOn('Solana or Robinhood Chain'));
+  });
+
+  it('draws a live portfolio with no sample tag', async () => {
+    portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
+    api({ family: familyOf(FAMILY_ID, { recipes: [recipeOf({ provenance: 'live' })] }) });
+    const host = await show(createElement(ShelfScreen));
+    const card = find(host, '[data-ui="shelf-card"]');
+    expect(card.querySelector('[data-ui="sample-tag"]')).toBeNull();
+    expect(card.textContent).not.toContain(en.shell.testNetworkLine);
+  });
+
   /** A portfolio on Robinhood Chain, on the mock, and the one on Solana's test network. */
   const onRobinhood = () =>
     familyOf('cd'.repeat(32), {

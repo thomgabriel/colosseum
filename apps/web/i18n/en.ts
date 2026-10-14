@@ -1336,6 +1336,8 @@ export const en = {
       lead: 'Explore shared portfolios on every chain we run. Each names the chain it is on. Open one to see its assets and sources, then deposit or follow.',
       loading: 'Reading the shared portfolios…',
       empty: 'No portfolio is shared yet.',
+      /** Where the server lists live portfolios only (gate PRODUCTS-MAINNET-ONLY): the mainnets it runs. */
+      emptyOn: (chains: string) => `No portfolio is shared on ${chains} yet.`,
       publish: 'Publish a portfolio',
       /** Where publishing is not offered yet: said, in place of the link. */
       publishSoon: (chain: string) =>
