@@ -9,10 +9,9 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { WaitMark } from '../../components/ui/WaitMark';
 import { type Lang, LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
-import { AssetMark } from '../order/PlanView';
-import { displayName } from '../order/plain';
+import { displayName, isCashId } from '../order/plain';
 import { dollars } from '../portfolio/figures';
-import { HoldingLegs, legFill, legsOf } from '../shared/HoldingLegs';
+import { Composition, withVenue } from '../shared/Composition';
 import { type ReplyFigures, referencesIn, type VaultStrategyPreview } from './agent';
 import { FiguredText } from './Figures';
 import { ProjectionChart } from './ProjectionChart';
@@ -32,9 +31,9 @@ export function sourceValue(lang: Lang, value: number | null | undefined, unit?:
 /**
  * A sourced visual preview; this component has no order, signing or execution capability.
  *
- * The draft is drawn on the plan bar (plan-leg.md, HoldingLegs.tsx): at most four legs, each with its
- * label under the bar, and under them a row for every holding with its exact share. Every figure on
- * the card is the proposal's own from the first frame: nothing counts up to it.
+ * The draft is drawn as a ring beside a row for every holding with its exact share and why
+ * (Composition.tsx); a change to a vault's targets as the targets now over the proposed ones. Every
+ * figure on the card is the proposal's own from the first frame: nothing counts up to it.
  */
 export function StrategyPreview({
   proposal,
@@ -116,14 +115,6 @@ export function StrategyPreview({
   const nameOf = (asset: string) =>
     proposal.allocations.find((line) => line.assetId === asset)?.symbol ??
     displayName(asset, t.plan);
-  const change = (bps: number) =>
-    `${new Intl.NumberFormat(LOCALE[language], { maximumFractionDigits: 2, signDisplay: 'exceptZero' }).format(bps / 100).replace('-', '−')} ${copy.points}`;
-  const held = proposal.allocations.map((line) => ({
-    key: line.assetId,
-    name: line.symbol ?? displayName(line.assetId, t.plan),
-    bps: line.weightBps,
-  }));
-  const { legOf } = legsOf(held);
   return (
     <>
       <Card
@@ -176,8 +167,8 @@ export function StrategyPreview({
             </p>
           </div>
           {/* The draft from before, set back as a whole while a reply is on its way: its ink goes
-              grey. Nothing is dimmed: the bar keeps its colours (plan-leg.md) and every word and
-              figure stays readable. */}
+              grey. Nothing is dimmed: the picture keeps its colours and every word and figure stays
+              readable. */}
           <div
             data-ui="preview-draft"
             data-set-back={pending ? true : undefined}
@@ -226,70 +217,29 @@ export function StrategyPreview({
                 )}
               />
             )}
-            <HoldingLegs shares={held} share={allocationShare} others={copy.others} size="hero" />
-            <table className="w-full table-fixed border-collapse text-body-sm">
-              <caption className="sr-only">{targets ? copy.comparison : copy.proposed}</caption>
-              <thead className="text-caption text-muted-foreground">
-                <tr className="border-b border-border">
-                  <th scope="col" className="py-2 text-start font-normal">
-                    {t.shared.vault.columns.asset}
-                  </th>
-                  <th
-                    scope="col"
-                    className={`py-2 text-end font-normal ${targets ? 'w-[6.5rem] sm:w-[8.5rem]' : 'w-20'}`}
+            {/* The draft as a ring beside its rows; a change to a vault's targets as the targets
+                now over the proposed ones (Composition.tsx, gate WEIGHTS-RING). */}
+            <Composition
+              mode={targets ? 'compare' : 'ring'}
+              share={allocationShare}
+              labels={{ after: t.shared.composition.proposed }}
+              items={rows.map((row) => ({
+                key: row.asset,
+                ...(row.symbol ? { name: row.symbol } : withVenue(displayName(row.asset, t.plan))),
+                asset: row.asset,
+                cash: isCashId(row.asset),
+                bps: row.proposed,
+                ...(targets ? { beforeBps: row.current } : {}),
+                detail: (
+                  <span
+                    data-part="why"
+                    className="block text-caption text-muted-foreground [overflow-wrap:anywhere]"
                   >
-                    {targets ? copy.comparison : copy.proposedShare}
-                  </th>
-                  {targets && (
-                    <th scope="col" className="w-14 py-2 text-end font-normal">
-                      {copy.change}
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.asset}
-                    data-row={row.asset}
-                    className="border-b border-border align-top"
-                  >
-                    <th scope="row" className="py-3 pr-2 pl-1 text-start font-normal">
-                      <span className="flex min-w-0 items-center gap-2">
-                        {/* its leg's colour: holdings grouped into one leg share it */}
-                        <span
-                          aria-hidden="true"
-                          data-part="swatch"
-                          className={cn(
-                            'size-2.5 shrink-0',
-                            legFill(legOf.get(row.asset)) ?? 'border border-border',
-                          )}
-                        />
-                        <AssetMark asset={row.asset} />
-                        <span className="min-w-0 [overflow-wrap:anywhere]">
-                          {row.symbol ?? displayName(row.asset, t.plan)}
-                        </span>
-                      </span>
-                      <span className="mt-2 block text-caption text-muted-foreground [overflow-wrap:anywhere]">
-                        {said(row.why, placed?.why[row.asset])}
-                      </span>
-                    </th>
-                    <td className="py-3 pr-1 text-end tabular-nums">
-                      <span data-part="share">
-                        {targets
-                          ? `${allocationShare(row.current)} → ${allocationShare(row.proposed)}`
-                          : allocationShare(row.proposed)}
-                      </span>
-                    </td>
-                    {targets && (
-                      <td className="py-3 pr-1 text-end text-caption tabular-nums">
-                        {change(row.proposed - row.current)}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {said(row.why, placed?.why[row.asset])}
+                  </span>
+                ),
+              }))}
+            />
             <WeightNotes notes={proposal.weightNotes} allocations={proposal.allocations} />
             {proposal.warnings.length > 0 && (
               <div data-ui="mix-warnings" className="flex flex-col gap-2">

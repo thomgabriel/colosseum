@@ -885,6 +885,12 @@ export const pt: Dictionary = {
     exitPlan: 'Plano de saída',
     costPrefix: 'custo',
     whyShare: 'Por que essa parcela',
+    whyShares: 'Por que essas parcelas',
+    aboutHoldings: 'Metodologia',
+    holdingsTitle: 'Ativos',
+    allocation: 'Alocação',
+    kpiAssets: 'Ativos',
+    notMeasured: 'Não medido',
     exitScale: 'A barra cheia é 1%, o custo em que a venda é medida.',
     income: {
       asked: (amount: string) => `pedido: ${amount} por mês`,
@@ -900,6 +906,8 @@ export const pt: Dictionary = {
       amount: 'Valor',
       yield: 'Rendimento após desconto',
       why: 'Por quê',
+      kind: 'Tipo',
+      exit: 'Custo de saída',
     },
     noReason: 'Nenhum motivo informado.',
     projected: 'Faixa projetada por ano, não é uma promessa',
@@ -1117,6 +1125,24 @@ export const pt: Dictionary = {
   },
 
   shared: {
+    composition: {
+      count: (n: number) => (n === 1 ? '1 ativo' : `${n} ativos`),
+      before: 'Agora',
+      after: 'Depois',
+      proposed: 'Proposta',
+      caption: 'O que tem',
+      asset: 'Ativo',
+      weight: 'Peso',
+      changeHead: 'Mudança',
+      more: (n: number) => `e mais ${n}`,
+      summary: (parts: string) => `O que tem: ${parts}`,
+      from: (share: string) => `antes ${share}`,
+      change: (before: string, after: string, difference: string) =>
+        `${before} antes, ${after} depois, ${difference}`,
+      unchanged: 'sem mudança',
+      added: 'novo',
+      removed: 'sai',
+    },
     meta: {
       shelf: 'Portfólios compartilhados',
       family: 'Portfólio compartilhado',
@@ -1183,6 +1209,7 @@ export const pt: Dictionary = {
           `A venda de ${names} ainda não foi medida, então nenhum custo é mostrado para ela.`,
       },
       publisher: 'Publicado por',
+      kpi: { version: 'Versão', since: 'Em vigor desde' },
     },
     refusal: {
       versionChanged:
@@ -1554,6 +1581,12 @@ export const pt: Dictionary = {
         others: (count: number) => `${count} outros`,
         against: (difference: string) => `${difference} em relação ao plano`,
         onPlan: 'no plano',
+        allOnTarget: 'No plano',
+        offTargetShort: 'Fora do plano',
+        drift: (signed: string) => `Desvio ${signed}`,
+        keptAsCash: 'Mantido em caixa',
+        at: 'a',
+        value: 'Valor',
         change:
           'Para mudar o que este cofre guarda, diga na conversa: mais de um ativo, menos de outro.',
         details: 'Detalhes',
@@ -1566,6 +1599,8 @@ export const pt: Dictionary = {
         sourcesAsWritten: (count: number) =>
           count === 1 ? '1 fonte, como foi escrita' : `${count} fontes, como foram escritas`,
         read: 'Lido da rede',
+        readAt: 'Lido em',
+        height: { slot: 'Slot', block: 'Bloco' },
         copyVault: 'endereço do cofre',
         copyOwner: 'endereço de quem é dono',
         empty: {
@@ -1669,6 +1704,7 @@ export const pt: Dictionary = {
         weight: 'Fatia agora',
         target: 'Planejado',
         drift: 'Diferença',
+        status: 'Situação',
       },
       on: 'Ativado',
       off: 'Desativado',

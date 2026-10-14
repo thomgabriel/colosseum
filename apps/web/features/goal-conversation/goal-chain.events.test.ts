@@ -230,14 +230,14 @@ describe('the chain of a new plan, chosen on /goal', () => {
     const host = await show();
     await settle();
     await send(host, 'Consider gold');
-    expect(host.querySelector('[data-ui="holding-legs"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     await click(find(host, '[data-act="chain-change"]'));
     await click(find(host, '[data-act="chain-start"]'));
     await settle();
     expect(puts).toEqual(['robinhood']);
     // an empty conversation on Robinhood Chain, with the choice back and focus on it
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
-    expect(host.querySelector('[data-ui="holding-legs"]')).toBeNull();
+    expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     expect(checked(host)).toBe('robinhood');
     expect(document.activeElement).toBe(find(host, 'label[data-chain="robinhood"] input'));
     // both earlier conversations are kept, each under its first request with its chain as text: the

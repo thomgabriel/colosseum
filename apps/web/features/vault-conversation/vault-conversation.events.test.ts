@@ -84,7 +84,7 @@ describe('a continuous conversation for one vault', () => {
     },
   );
 
-  it('keeps removed targets in the proposal comparison and names the change in percentage points', async () => {
+  it('keeps removed targets in the proposal comparison and names the signed change', async () => {
     const proposal = agentReplyOf(reply, read)?.proposal;
     if (!proposal) throw new Error('The fixture provides a validated proposal.');
     const [first] = proposal.allocations;
@@ -104,22 +104,45 @@ describe('a continuous conversation for one vault', () => {
         }),
       ),
     );
-    const rows = [...host.querySelectorAll('tbody tr')];
+    const c = en.shared.composition;
+    const rows = [...host.querySelectorAll('[data-ui="composition-list"] [data-row]')];
     expect(rows).toHaveLength(2);
-    expect(rows[0]?.textContent).toContain('30% → 100%');
-    expect(rows[0]?.textContent).toContain('+70 pp');
-    expect(rows[1]?.textContent).toContain('70% → 0%');
-    expect(rows[1]?.textContent).toContain('−70 pp');
+    const shareOf = (row: Element | undefined) =>
+      row?.querySelector('[data-ui="composition-share"]')?.textContent;
+    const deltaOf = (row: Element | undefined) =>
+      row?.querySelector('[data-ui="composition-delta"]');
+    expect(shareOf(rows[0])).toBe('100%');
+    expect(rows[0]?.querySelector('[data-column="before"]')?.textContent).toContain('30%');
+    expect(deltaOf(rows[0])?.querySelector('[aria-hidden]')?.textContent).toBe('+70%');
+    expect(deltaOf(rows[0])?.getAttribute('data-direction')).toBe('up');
+    expect(shareOf(rows[1])).toBe('0%');
+    expect(rows[1]?.querySelector('[data-column="before"]')?.textContent).toContain('70%');
+    expect(deltaOf(rows[1])?.querySelector('[aria-hidden]')?.textContent).toBe('−70%');
+    expect(deltaOf(rows[1])?.getAttribute('data-direction')).toBe('down');
     expect(rows[1]?.textContent).toContain(en.shared.vault.conversation.removed);
-    // the plan bar beside a vault's targets: one leg for what is proposed, labelled with the proposed
-    // share alone, and a removed target has a row, an empty swatch and no leg
-    const bar = find(host, '[data-ui="plan-legs-bar"]');
-    expect([...bar.children].map((leg) => (leg as HTMLElement).style.width)).toEqual(['100%']);
+    // the targets now over the proposed ones: the proposed bar holds what is proposed alone, and a
+    // removed target is in the bar of the targets now and in no segment of the proposed one
+    const bar = (which: string) =>
+      [
+        ...find(
+          host,
+          `[data-ui="composition-bar"][data-bar="${which}"]`,
+        ).querySelectorAll<HTMLElement>('[data-ui="composition-segment"]'),
+      ].map((leg) => [leg.getAttribute('data-key'), leg.style.flexGrow]);
+    expect(bar('after')).toEqual([['solana:gldx', '10000']]);
+    expect(bar('before')).toEqual([
+      ['solana:gldx', '3000'],
+      ['solana:usdc', '7000'],
+    ]);
+    expect(find(host, '[data-ui="composition-bars"]').textContent).toContain(c.proposed);
+    // the same holding the same colour in both strips
     expect(
-      [...find(host, '[data-ui="plan-legs"] ol').children].map((label) => label.textContent),
-    ).toEqual(['tGLDx·100%']);
-    expect(find(rows[0] as Element, '[data-part="swatch"]').className).toContain('bg-leg-1');
-    expect(find(rows[1] as Element, '[data-part="swatch"]').className).not.toMatch(/bg-leg-/);
+      [
+        ...host.querySelectorAll<HTMLElement>(
+          '[data-ui="composition-segment"][data-key="solana:gldx"]',
+        ),
+      ].map((leg) => leg.style.background),
+    ).toEqual(['var(--tf-share-1)', 'var(--tf-share-1)']);
     // a vault's draft is never kept while the next is asked for: no pending line on it
     expect(find(host, '[data-ui="preview-pending"]').textContent).toBe('');
     expect(host.querySelector('[data-set-back]')).toBeNull();
@@ -153,16 +176,20 @@ describe('a continuous conversation for one vault', () => {
           }),
         ),
       );
-      const rows = [...host.querySelectorAll('tbody tr')];
+      const rows = [...host.querySelectorAll('[data-ui="composition-list"] [data-row]')];
       const decimal = lang === 'en' ? '.' : ',';
-      expect(rows[0]?.textContent).toContain(`99${decimal}99% → 100%`);
-      expect(rows[0]?.textContent).toContain(
-        `+0${decimal}01 ${dictionary(lang).shared.vault.conversation.points}`,
+      const deltaOf = (row: Element | undefined) =>
+        row?.querySelector('[data-ui="composition-delta"] [aria-hidden]')?.textContent;
+      expect(rows[0]?.querySelector('[data-ui="composition-share"]')?.textContent).toBe('100%');
+      expect(rows[0]?.querySelector('[data-column="before"]')?.textContent).toContain(
+        `99${decimal}99%`,
       );
-      expect(rows[1]?.textContent).toContain(`0${decimal}01% → 0%`);
-      expect(rows[1]?.textContent).toContain(
-        `−0${decimal}01 ${dictionary(lang).shared.vault.conversation.points}`,
+      expect(deltaOf(rows[0])).toBe(`+0${decimal}01%`);
+      expect(rows[1]?.querySelector('[data-ui="composition-share"]')?.textContent).toBe('0%');
+      expect(rows[1]?.querySelector('[data-column="before"]')?.textContent).toContain(
+        `0${decimal}01%`,
       );
+      expect(deltaOf(rows[1])).toBe(`−0${decimal}01%`);
       expect(rows[1]?.textContent).toContain(dictionary(lang).shared.vault.conversation.removed);
     },
   );
@@ -297,8 +324,12 @@ describe('a continuous conversation for one vault', () => {
     const host = await show();
     await send(host, 'Consider more gold.');
     const proposed = find(host, '[data-ui="vault-proposal"]');
-    expect(proposed.textContent).toContain('30% → 40%');
-    expect(proposed.textContent).toContain('70% → 60%');
+    const row = (asset: string) =>
+      find(proposed, `[data-ui="composition-list"] [data-row="${asset}"]`);
+    expect(find(row('solana:gldx'), '[data-ui="composition-share"]').textContent).toBe('40%');
+    expect(find(row('solana:gldx'), '[data-column="before"]').textContent).toContain('30%');
+    expect(find(row('solana:usdc'), '[data-ui="composition-share"]').textContent).toBe('60%');
+    expect(find(row('solana:usdc'), '[data-column="before"]').textContent).toContain('70%');
     expect(proposed.textContent).toContain('Measured cost: 0%');
     expect(proposed.textContent).toContain('Missing observation: —');
     expect(host.textContent).toContain(en.shared.vault.conversation.previewOnly);
@@ -662,15 +693,18 @@ describe('current context and truthful holdings', () => {
       const current = find(host, 'section[aria-labelledby$="-held"]');
       if (fixture === emptyRead) {
         expect(current.textContent).toContain(en.shared.vault.conversation.noHoldings);
-        expect(current.querySelector('[data-ui="holdings-bar"]')).toBeNull();
+        expect(current.querySelector('[data-ui="composition"]')).toBeNull();
       }
       if (fixture === cashRead) {
-        expect(current.querySelectorAll('[data-ui="holdings-bar"] span')).toHaveLength(1);
+        // one holding is the whole: a row, and no strip of one
+        expect(current.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(0);
+        expect(current.querySelectorAll('[data-ui="composition-list"] [data-row]')).toHaveLength(1);
         expect(current.textContent).toContain('100%');
       }
       if (fixture === unpricedRead) {
         expect(current.textContent).toContain(en.portfolio.vault.unpriced(1));
-        expect(current.querySelectorAll('[data-ui="holdings-bar"] span')).toHaveLength(1);
+        // the one priced holding is the whole, so no strip; the unpriced one is a row with a dash
+        expect(current.querySelectorAll('[data-ui="composition-segment"]')).toHaveLength(0);
         expect(current.textContent).toContain('—');
       }
       await unmountAll();

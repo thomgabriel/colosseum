@@ -3,31 +3,42 @@ import type { Price, VaultResponse } from '@colosseum/schemas';
 import Link from 'next/link';
 import { type ReactNode, useId } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { CopyButton } from '../../components/ui/CopyButton';
-import { cn } from '../../components/ui/cn';
-import { DataTable } from '../../components/ui/DataTable';
 import { shorten } from '../../components/ui/format';
 import { Hint } from '../../components/ui/Hint';
 import { MarketNote } from '../../components/ui/MarketNote';
+import { Panel, PanelBody, PanelHead, Plate } from '../../components/ui/Panel';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { pinSourceOfPrice } from '../../components/ui/price-source';
-import { LOCALE } from '../../i18n';
+import { Status } from '../../components/ui/StatusMark';
+import { type Lang, LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
-import { AssetMark } from '../order/PlanView';
+import { tokenName } from '../order/amounts';
 import { displayName } from '../order/plain';
 import { explorerAddressTemplateFor } from '../order/readiness';
-import { dollars, drift, share, shareTenths, tokens, utc } from '../portfolio/figures';
+import { dollars, share, shareTenths, tokens, utc } from '../portfolio/figures';
 import { type HoldingRow, holdingsOf, unpriced } from '../portfolio/portfolio';
-import { HoldingLegs } from './HoldingLegs';
+import { sampleLine } from '../portfolio-section/parts';
+import { Composition, withVenue } from './Composition';
+import { explorerHeightUrlFor, heightWord } from './explorer-height';
 import { type PriceSourceLine, priceSourceLines } from './price-sources';
 
-// What a vault holds, the centre of its page (gate VAULT-PAGE-ACTIONS): the plan bar (plan-leg.md,
-// through HoldingLegs) over one table of every holding, cash included, with its amount, its price on
-// its pin, the planned share and the share now. How far a share is from its plan is the signed delta
-// under it, coloured by direction and said in words for a screen reader (data-table.md). The figures
-// are written as the portfolio writes them (features/portfolio/figures.ts): the shares rounded together
-// so they add up to the whole, the difference the one between the two shares as written.
+// What a vault holds, the centre of its page (gate VAULT-PAGE-ACTIONS): one picture and one list
+// (Composition.tsx, gate WEIGHTS-RING). Off its plan, the picture is two bars, the planned shares over
+// the shares now, and each row says the share now and, where it is off, the planned share and the
+// signed difference, coloured by direction and said in words for a screen reader; on its plan, or with
+// none, a ring. Each row leads with what the holding is worth, on its price's pin, with the amount under
+// its name, rounded to read and exact one hover away. Cash at nothing is no row. The
+// figures are written as the portfolio writes them (features/portfolio/figures.ts): the shares rounded
+// together so they add up to the whole, the difference the one between the two shares as written.
+
+/** An amount of a token to read at a glance: two decimals from one up, three figures under it. */
+const readable = (lang: Lang, decimal: string) => {
+  const value = Number(decimal);
+  return new Intl.NumberFormat(LOCALE[lang], {
+    ...(Math.abs(value) >= 1 ? { maximumFractionDigits: 2 } : { maximumSignificantDigits: 3 }),
+  }).format(value);
+};
 
 export function VaultHoldings({
   read,
@@ -45,40 +56,45 @@ export function VaultHoldings({
   const priceOf = (asset: string): Price | undefined => read.prices.find((p) => p.asset === asset);
   const addressPage = explorerAddressTemplateFor(read.chain, read.provenance === 'mock');
   const rows = holdingsOf(vault);
-  const at = (asset: string) => rows.findIndex((r) => r.asset === asset);
+  // "syrupUSDC · Maple" in a row; cash keeps its name whole
+  const named = (row: HoldingRow) =>
+    row.cash ? { name: displayName(row.asset, t.plan) } : withVenue(displayName(row.asset, t.plan));
   const nowTenths = shareTenths(rows.map((r) => r.weightBps));
   const plannedTenths = shareTenths(rows.map((r) => r.targetBps));
-  // The bar draws what is held and priced: a holding with no price has no share that was worked out.
-  const held = rows
-    .filter((row) => row.valueUsd !== null && row.weightBps > 0)
-    .map((row) => ({
-      key: row.asset,
-      name: displayName(row.asset, t.plan),
-      bps: row.weightBps,
-    }));
   const empty = [vault.cash, ...vault.positions].every((h) => /^0+$/.test(h.raw));
   const missing = unpriced(vault);
   // A vault with no target has no plan to be over or under: no difference is drawn under a share.
   const planned = vault.positions.some((position) => position.targetBps > 0);
-  const mockLabels = {
-    announce: read.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
+  // every priced share as written on its plan: one picture, no comparison
+  const onTarget =
+    planned && rows.every((r, i) => r.valueUsd === null || nowTenths[i] === plannedTenths[i]);
+
+  // not live: said in words on the panel's head, as the portfolio overview says it (the kit's Plate)
+  const plate =
+    read.provenance !== 'live' ? (
+      <Plate ui="sample-note">{sampleLine(t.shell, read.provenance)}</Plate>
+    ) : undefined;
+  /** Why a holding is there, as the server has it (`why`), in words: its stored reason, or its kind. */
+  const whyOf = (row: HoldingRow): string | undefined => {
+    const why = row.cash
+      ? read.vault.cash.why
+      : read.vault.positions.find((p) => p.asset === row.asset)?.why;
+    if (!why) return undefined;
+    if (why.text) return why.text;
+    if (row.cash) return v.page.keptAsCash;
+    return why.cls ? t.shared.product.why[why.cls] : undefined;
   };
 
   // Nothing held: said once, with what a deposit would go into where the vault has targets, in place of
-  // a bar and a table of zeros.
+  // a picture and a list of zeros.
   if (empty) {
     const planned = rows.filter((row) => row.targetBps > 0);
     const targeted = vault.positions.some((position) => position.targetBps > 0);
     const tenths = shareTenths(planned.map((row) => row.targetBps));
     return (
-      <Card
-        as="section"
-        aria-labelledby={titleId}
-        mock={read.provenance !== 'live'}
-        mockLabels={mockLabels}
-      >
-        <CardHeader id={titleId} title={v.page.empty.title} level={2} />
-        <CardBody className="flex min-w-0 flex-col items-start gap-5">
+      <Panel aria-labelledby={titleId} data-ui="vault-holdings-panel">
+        <PanelHead id={titleId} title={v.page.empty.title} actions={plate} />
+        <PanelBody className="min-w-0 items-start">
           <p data-ui="vault-empty" className="max-w-(--tf-measure-body) text-body">
             {deposit
               ? targeted
@@ -87,164 +103,158 @@ export function VaultHoldings({
               : t.withdraw.empty}
           </p>
           {targeted && (
-            <div data-ui="vault-empty-targets" className="flex w-full min-w-0 flex-col gap-4">
-              <HoldingLegs
-                shares={planned.map((row) => ({
-                  key: row.asset,
-                  name: displayName(row.asset, t.plan),
-                  bps: row.targetBps,
-                }))}
+            <div
+              data-ui="vault-empty-targets"
+              className="-mx-5 flex w-[calc(100%+2.5rem)] min-w-0 flex-col"
+            >
+              <Composition
                 share={(bps) => share(lang, bps)}
-                others={v.page.others}
-              />
-              <DataTable<HoldingRow>
-                caption={v.page.empty.targets}
-                captionHidden
-                rows={planned}
-                rowKey={(r) => r.asset}
-                columns={[
-                  {
-                    key: 'asset',
-                    header: v.columns.asset,
-                    rowHeader: true,
-                    cell: (r) => (
-                      <span className="inline-flex min-w-0 items-center gap-2">
-                        <AssetMark asset={r.asset} />
-                        <span className="min-w-0 [overflow-wrap:anywhere]">
-                          {displayName(r.asset, t.plan)}
-                        </span>
-                      </span>
-                    ),
-                  },
-                  {
-                    key: 'target',
-                    header: v.columns.target,
-                    numeric: true,
-                    cell: (r) => share(lang, (tenths[planned.indexOf(r)] ?? 0) * 10),
-                  },
-                ]}
+                labels={{ caption: v.page.empty.targets, weight: v.columns.target }}
+                items={planned.map((row, i) => ({
+                  key: row.asset,
+                  ...named(row),
+                  asset: row.asset,
+                  cash: row.cash === true,
+                  bps: (tenths[i] ?? 0) * 10,
+                }))}
               />
             </div>
           )}
           {deposit}
-        </CardBody>
-      </Card>
+        </PanelBody>
+      </Panel>
     );
   }
 
+  const shown = rows.filter(
+    // cash at nothing, or dust under a cent, is no row
+    (r) => !(r.cash && r.weightBps === 0 && Number(r.valueUsd ?? 0) < 0.01),
+  );
+  const whys = shown.map((r) => whyOf(r));
   return (
-    <Card
-      as="section"
-      aria-labelledby={titleId}
-      mock={read.provenance !== 'live'}
-      mockLabels={mockLabels}
-    >
-      <CardHeader id={titleId} title={v.page.holdings} level={2} />
-      <CardBody className="flex min-w-0 flex-col gap-5">
-        {missing > 0 && (
-          // The value leaves out what has no price: said beside the holdings it leaves out.
-          <p data-ui="vault-unpriced" className="text-caption text-muted-foreground">
-            {t.portfolio.vault.unpriced(missing)}
-          </p>
-        )}
-        {held.length > 0 && (
-          <HoldingLegs shares={held} share={(bps) => share(lang, bps)} others={v.page.others} />
-        )}
-        <DataTable<HoldingRow>
-          caption={v.page.holdings}
-          captionHidden
-          rows={rows}
-          rowKey={(r) => r.asset}
-          columns={[
-            {
-              key: 'asset',
-              header: v.columns.asset,
-              rowHeader: true,
-              cell: (r) => (
-                <span className="inline-flex min-w-0 items-center gap-2">
-                  <AssetMark asset={r.asset} />
-                  <span className="min-w-0 [overflow-wrap:anywhere]">
-                    {displayName(r.asset, t.plan)}
-                  </span>
-                </span>
-              ),
-            },
-            {
-              key: 'held',
-              header: v.columns.held,
-              numeric: true,
-              cell: (r) => tokens(lang, r.display),
-            },
-            {
-              key: 'price',
-              header: v.columns.price,
-              numeric: true,
-              cell: (r) => {
-                const price = priceOf(r.asset);
-                return price ? (
-                  <>
-                    <ProvenancePin
-                      value={dollars(lang, price.usdPerToken)}
-                      // each address in the price's details links to this network's explorer
-                      obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
-                      what={v.columns.price}
-                      {...(price.market === 'closed' ? { detail: t.shell.marketClosedWhy } : {})}
-                      labels={t.pin}
-                    />
-                    <MarketNote market={price.market} label={t.shell.marketClosed} />
-                  </>
-                ) : (
-                  // a missing price says why, one hover, focus or tap away
-                  <Hint tip={t.portfolio.vault.noPriceWhy} label={t.portfolio.vault.noPrice}>
-                    —
+    <Panel aria-labelledby={titleId} data-ui="vault-holdings-panel">
+      <PanelHead
+        id={titleId}
+        title={v.page.holdings}
+        stats={[
+          {
+            label: t.plan.kpiAssets,
+            value: <span className="font-medium">{shown.filter((r) => !r.cash).length}</span>,
+          },
+          ...(planned
+            ? [
+                {
+                  label: v.columns.target,
+                  ui: 'vault-on-target',
+                  value: (
+                    <Status status={onTarget ? 'on-track' : 'watch'}>
+                      {onTarget ? v.page.allOnTarget : v.page.offTargetShort}
+                    </Status>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+        actions={plate}
+      />
+      {missing > 0 && (
+        // The value leaves out what has no price: said beside the holdings it leaves out.
+        <p data-ui="vault-unpriced" className="px-5 pt-4 text-caption text-muted-foreground">
+          {t.portfolio.vault.unpriced(missing)}
+        </p>
+      )}
+      <Composition
+        // Planned over Now, with the planned share and a status a row, only where they differ; on
+        // target the head says so once, and the table is the holdings as they are
+        mode={planned && !onTarget ? 'compare' : 'single'}
+        changeAs="status"
+        share={(bps) => share(lang, bps)}
+        labels={{
+          caption: v.page.holdings,
+          weight: v.columns.weight,
+          before: v.columns.target,
+          after: v.columns.weight,
+          change: v.columns.status,
+          difference: v.page.against,
+          unchanged: v.page.allOnTarget,
+          drift: v.page.drift,
+        }}
+        columns={[
+          { key: 'price', header: v.columns.price, place: 'before', numeric: true },
+          { key: 'value', header: v.page.value, place: 'before', numeric: true },
+        ]}
+        items={shown.map((r, i) => {
+          const price = priceOf(r.asset);
+          const at = rows.indexOf(r);
+          const why = whys[i];
+          return {
+            key: r.asset,
+            ...named(r),
+            asset: r.asset,
+            cash: r.cash === true,
+            // a holding with no price has no share that was worked out: never drawn as 0%
+            bps: r.valueUsd === null ? 0 : (nowTenths[at] ?? 0) * 10,
+            ...(planned ? { beforeBps: (plannedTenths[at] ?? 0) * 10 } : {}),
+            ...(r.valueUsd === null ? { unknown: t.portfolio.vault.noPrice } : {}),
+            // every holding is a row, whatever its share
+            listed: !/^0+$/.test(r.raw),
+            // under the name: the amount, rounded to read and exact one hover away, then why it is
+            // there, in full: the pane is narrow, so a column of its own would be cut
+            detail: (
+              <span className="flex flex-col">
+                <span data-ui="holding-detail">
+                  <Hint
+                    tip={`${tokens(lang, r.display)} ${tokenName(r.asset)}`}
+                    label={`${readable(lang, r.display)} ${tokenName(r.asset)}`}
+                    // a 24px target, as every control has (WCAG 2.5.8)
+                    triggerClassName="min-h-6 tabular-nums"
+                  >
+                    {readable(lang, r.display)} {tokenName(r.asset)}
                   </Hint>
-                );
-              },
-            },
-            {
-              key: 'target',
-              header: v.columns.target,
-              numeric: true,
-              cell: (r) => share(lang, (plannedTenths[at(r.asset)] ?? 0) * 10),
-            },
-            {
-              key: 'weight',
-              header: v.columns.weight,
-              numeric: true,
-              cell: (r) => {
-                // a holding with no price has no share that was worked out: never drawn as 0%
-                if (r.valueUsd === null) return '—';
-                const now = nowTenths[at(r.asset)] ?? 0;
-                // from the two shares as written, so they and their difference agree
-                const off = (now - (plannedTenths[at(r.asset)] ?? 0)) * 10;
-                return (
-                  <span className="inline-flex flex-col items-end">
-                    <span>{share(lang, now * 10)}</span>
-                    {planned && (
-                      <span
-                        data-ui="holding-drift"
-                        data-direction={off > 0 ? 'over' : off < 0 ? 'under' : 'on'}
-                        className={cn(
-                          'text-b-delta font-medium',
-                          off > 0 ? 'text-leaf' : off < 0 ? 'text-madder' : 'text-muted-foreground',
-                        )}
-                      >
-                        <span aria-hidden="true">
-                          {off === 0 ? v.page.onPlan : drift(lang, off)}
-                        </span>
-                        <span className="sr-only">
-                          {off === 0 ? v.page.onPlan : v.page.against(drift(lang, off))}
-                        </span>
-                      </span>
-                    )}
+                </span>
+                {why && (
+                  <span data-ui="holding-why" className="max-w-[32ch]">
+                    {why}
                   </span>
-                );
-              },
+                )}
+              </span>
+            ),
+            cells: {
+              price: price ? (
+                <span className="inline-flex flex-col items-end">
+                  <ProvenancePin
+                    value={dollars(lang, price.usdPerToken)}
+                    // each address in the price's details links to this network's explorer
+                    obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
+                    what={v.columns.price}
+                    {...(price.market === 'closed' ? { detail: t.shell.marketClosedWhy } : {})}
+                    labels={t.pin}
+                  />
+                  <MarketNote market={price.market} label={t.shell.marketClosed} />
+                </span>
+              ) : (
+                // a missing price says why, one hover, focus or tap away
+                <Hint tip={t.portfolio.vault.noPriceWhy} label={t.portfolio.vault.noPrice}>
+                  —
+                </Hint>
+              ),
+              // what it is worth, on the pin of the price it stands on
+              value:
+                r.valueUsd !== null && price ? (
+                  <ProvenancePin
+                    value={dollars(lang, r.valueUsd)}
+                    obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
+                    what={v.page.value}
+                    labels={t.pin}
+                  />
+                ) : (
+                  '—'
+                ),
             },
-          ]}
-        />
-      </CardBody>
-    </Card>
+          };
+        })}
+      />
+    </Panel>
   );
 }
 
@@ -333,6 +343,13 @@ export function VaultDetails({ read, mine = false }: { read: VaultResponse; mine
   const { vault } = read;
   const follows = vault.recipeOnchainId;
   const sources = [...new Set(read.prices.map((price) => price.source))];
+  const mock = read.provenance === 'mock';
+  const height =
+    !mock && read.blockOrSlot
+      ? new Intl.NumberFormat(LOCALE[lang]).format(BigInt(read.blockOrSlot))
+      : null;
+  const heightUrl =
+    !mock && read.blockOrSlot ? explorerHeightUrlFor(read.chain, read.blockOrSlot, false) : null;
   return (
     <details data-ui="vault-details" className="border-t border-border pt-4">
       <summary className="w-fit cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
@@ -374,8 +391,34 @@ export function VaultDetails({ read, mine = false }: { read: VaultResponse; mine
             </span>
           )}
         </dd>
-        <dt className="text-muted-foreground">{v.page.read}</dt>
-        <dd>
+        <dt className="text-muted-foreground">{v.page.readAt}</dt>
+        <dd data-ui="vault-read-at" className="flex flex-wrap items-baseline gap-x-2">
+          {/* the slot or block the chain was at when it was read, to its explorer; the mock has none */}
+          {height !== null && (
+            <>
+              <span>
+                {v.page.height[heightWord(read.chain)]}{' '}
+                {heightUrl ? (
+                  <a
+                    data-ui="vault-height"
+                    href={heightUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-source underline decoration-1 underline-offset-4 hover:decoration-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    {height}
+                  </a>
+                ) : (
+                  <span data-ui="vault-height" className="font-mono text-source">
+                    {height}
+                  </span>
+                )}
+              </span>
+              <span aria-hidden="true" className="text-muted-foreground">
+                ·
+              </span>
+            </>
+          )}
           <time dateTime={vault.observedAt}>{utc(lang, vault.observedAt)}</time>
         </dd>
         {sources.length > 0 && (

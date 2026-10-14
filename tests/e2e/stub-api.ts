@@ -981,7 +981,19 @@ async function vaultView(address: string) {
   const listed = await world.adapter.listAssets();
   const ids = [state.cash.asset, ...state.positions.map((p) => p.asset)];
   const prices = await world.adapter.getPrices([...new Set(ids)]);
-  return { vault: { ...view(state, prices, listed), provenance: 'mock' as const }, prices };
+  const seen = view(state, prices, listed);
+  // Why each holding is there, as the API answers it (`why`): on the mock, the kind of each asset the
+  // vault targets, from the chain's list, said as a followed portfolio's or the owner's.
+  const source = seen.recipeOnchainId ? ('portfolio' as const) : ('owner' as const);
+  const clsOf = new Map(listed.map((a) => [a.id, a.cls]));
+  const positions = seen.positions.map((p) => {
+    const cls = clsOf.get(p.asset);
+    return { ...p, why: p.targetBps > 0 && cls ? { source, cls } : null };
+  });
+  return {
+    vault: { ...seen, positions, cash: { ...seen.cash, why: null }, provenance: 'mock' as const },
+    prices,
+  };
 }
 
 const read = (req: IncomingMessage) =>

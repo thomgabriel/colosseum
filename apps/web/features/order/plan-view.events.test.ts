@@ -2,11 +2,13 @@
 import { createElement } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { find, mount, unmountAll } from '../../components/ui/test/dom';
+import { dictionary } from '../../i18n';
 import { inLanguage } from '../account/test/screen';
 import { PlanView, type PlanViewExitTier, type PlanViewHolding } from './PlanView';
 
-// PlanView with more holdings than the wood ramp has colours, and a yield on some of them.
+// PlanView with more holdings than the old four-leg bar took, and a yield on some of them.
 
+const en = dictionary('en');
 const OBS = {
   source: 'a test',
   fetchedAt: '2026-10-04T12:00:00.000Z',
@@ -46,7 +48,7 @@ describe('a plan with more than four holdings', () => {
       row('nvdax'),
       row('gldx'),
     ]);
-    const rows = [...host.querySelectorAll('[data-ui="plan-rows"] [data-row]')];
+    const rows = [...host.querySelectorAll('[data-ui="composition-list"] [data-row]')];
     expect(rows).toHaveLength(5);
     const yields = rows.map((r) => r.querySelector('[data-ui="row-yield"]'));
     // one figure for equal ends, a range otherwise, each with its pin
@@ -54,24 +56,27 @@ describe('a plan with more than four holdings', () => {
     expect(yields[1]?.textContent).toContain('5.00% to 6.50%');
     expect(yields[0]?.querySelector('[data-ui="pin"]')).not.toBeNull();
     expect(yields[1]?.querySelector('[data-ui="pin"]')).not.toBeNull();
-    // a holding with no yield: no line for one, never a zero or a dash
+    // a holding with no yield: no figure and no pin, its cell a dash, never a zero
     for (const none of yields.slice(2)) expect(none).toBeNull();
-    for (const r of rows.slice(2)) expect(r.textContent).not.toMatch(/0\.00%|—/);
-    // a fifth holding takes the first colour of the ramp again
-    const parts = [...host.querySelectorAll('[data-ui="plan-bar"] [data-part]')];
-    expect(parts.map((p) => p.className.match(/bg-leg-\d/)?.[0])).toEqual([
-      'bg-leg-1',
-      'bg-leg-2',
-      'bg-leg-3',
-      'bg-leg-4',
-      'bg-leg-1',
-    ]);
+    for (const r of rows.slice(2)) {
+      expect(find(r, '[data-column="yield"]').textContent).toMatch(/—$/);
+      expect(r.textContent).not.toMatch(/0\.00%/);
+    }
+    // a fifth holding takes the fifth colour of the share palette: none is repeated
+    const parts = [...host.querySelectorAll('[data-ui="composition-segment"]')];
+    expect(parts.map((p) => (p as HTMLElement).style.background)).toEqual(
+      [1, 2, 3, 4, 5].map((n) => `var(--tf-share-${n})`),
+    );
   });
 
   it('has no yield on any row when no holding has one, as a goal’s plan has none', async () => {
     const host = await view(['a', 'b', 'c', 'd', 'e'].map((a) => row(a)));
     expect(host.querySelector('[data-ui="row-yield"]')).toBeNull();
-    expect(host.querySelector('table')).toBeNull();
+    // and no column for one: a column is there only where some holding has the figure
+    expect(host.querySelector('[data-column="yield"]')).toBeNull();
+    expect([...host.querySelectorAll('thead th')].map((th) => th.textContent)).not.toContain(
+      en.plan.columns.yield,
+    );
   });
 
   it('draws a meter only for a tier that passes one: none left out, empty for null, filled for a figure', async () => {
