@@ -20,8 +20,9 @@ import { evalApp } from './lookup-eval-app';
 //   CHAIN_MODE_SOLANA=readonly CHAIN_NETWORK_SOLANA=testnet SOLANA_RPC_URL=https://api.devnet.solana.com \
 //     pnpm exec tsx --env-file=<the main checkout's .env> scripts/verify/lookup-eval-inprocess.ts
 // Each question is asked by a person of its own, so the per-person allowance is not what ends the run. It
-// prints counts and, per question, the eval's own id with the kinds of problem: never a reply, a figure's
-// id or a value.
+// prints counts and, per question, the eval's own id with the kinds of problem. To look at some answers,
+// `LOOKUP_EVAL_ONLY=<id>,<id>` asks only those questions and `LOOKUP_EVAL_SHOW=1` prints each reply's
+// message as served and the ids of the figures it served (the replies speak of listed assets only).
 
 const set = JSON.parse(
   readFileSync(new URL('../../apps/api/src/orders/lookup-eval.json', import.meta.url), 'utf8'),
@@ -31,7 +32,15 @@ const { app, issuer, real, close } = await evalApp();
 const scores: EvalScore[] = [];
 const skipped = { vault: 0, mock: 0 };
 const statuses: Record<string, number> = {};
+const only = new Set(
+  (process.env.LOOKUP_EVAL_ONLY ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean),
+);
+const show = process.env.LOOKUP_EVAL_SHOW === '1';
 for (const question of set.questions) {
+  if (only.size && !only.has(question.id)) continue;
   if (question.conversation !== 'goal') {
     skipped.vault += 1;
     continue;
@@ -47,9 +56,23 @@ for (const question of set.questions) {
     payload: { version: 1, language: 'en', messageId: question.id, messages: question.messages },
   });
   statuses[res.statusCode] = (statuses[res.statusCode] ?? 0) + 1;
-  scores.push(
-    scoreAnswer(question, res.statusCode === 200 ? (res.json() as never) : (null as never)),
-  );
+  const reply =
+    res.statusCode === 200
+      ? (res.json() as { message: string; figures?: { facts: Array<{ id: string }> } })
+      : null;
+  const score = scoreAnswer(question, reply as never);
+  scores.push(score);
+  if (show)
+    console.log(
+      JSON.stringify({
+        check: 'lookup-eval-inprocess',
+        question: question.id,
+        asked: question.messages.at(-1)?.text,
+        message: reply?.message ?? null,
+        served: (reply?.figures?.facts ?? []).map((fact) => fact.id),
+        problems: score.problems,
+      }),
+    );
 }
 const counts = evalCounts(scores);
 const problems: Record<string, number> = {};
