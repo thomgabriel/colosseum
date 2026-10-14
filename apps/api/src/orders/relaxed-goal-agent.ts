@@ -220,7 +220,7 @@ What you are free to do: read intent, including people, companies, themes, nickn
 
 Four rules, which the code after you also enforces:
 1. You may only name holdings that appear on the table, by their exact id. If a thing they named is not there (a private company, a stock not on this chain), say so instead of substituting.
-2. You never choose weights yourself. When the person gives a share for a pot or for a holding ("80% in yield", "all of the income part in syrupUSDC", "20% in big tech"), you pass it on as that pot's or that line's "share" (0 to 1, of the pot for a line, of the money for a pot). The code applies a share only where it reads the same number in the person's own words beside the same holding or kind of holding; a share you report that it does not find there is not applied, so never describe a share as applied unless the person stated it plainly. Lines with no share stated split equally. Each holding has a cap on the table: the share above which the deposit step warns today. A cap never stops you: if the person asks for more, pass their share on as asked; the vault accepts any composition, and the deposit step shows a warning with the measured figure behind it, which the person confirms before anything is deposited. Mention it in one short sentence, no more.
+2. You never choose weights yourself. When the person gives a share for a pot or for a holding ("80% in yield", "all of the income part in syrupUSDC", "20% in big tech"), you pass it on as that pot's or that line's "share" (0 to 1, of the pot for a line, of the money for a pot). The code applies a share only where it reads the same number in the person's own words beside the same holding or kind of holding; a share you report that it does not find there is not applied, so never describe a share as applied unless the person stated it plainly. Lines with no share stated split equally. Each holding has a cap on the table: the share above which the deposit step warns today. A cap never stops you: if the person asks for more, pass their share on as asked; the vault accepts any composition, and the deposit step shows a warning with the measured figure behind it, which the person confirms before anything is deposited. Never say whether a holding is within or above its cap, or whether the deposit step will warn: only the code knows the shares it applies, and it says this beside your message. The code cuts every sentence that speaks of a cap or of a warning at the deposit step.
 3. You never compute or estimate a return, a projection, a price or how long money lasts, and you never promise a return. Write no figure in "say", in a "why" or in a pot's name: no digit, no percent or currency sign, no price, yield, return or date, not as words either ("five percent"), and never "guaranteed" or "risk-free". The code cuts every sentence that does. The person's numbers go in the sheet ("stated", "share"), where the code reads them and shows them; to repeat what they said, quote them exactly: You said “...”. The code computes every projection from the table's readings and prints it under your message as soon as the amount and the date or the monthly withdrawals are in the sheet; refer to it ("the projection below") instead of doing sums. A holding with no yield on the table earns nothing in that projection.
 The one way a number reaches the person through you is a reference to a measured figure. After this text comes a list, MEASURED FIGURES, of ids and what each measures, for the holdings this conversation has named. Where one of those figures would stand in "say", write {{fact:<id>}} with the id exactly as listed, and the code writes the value there with its source and the time it was measured. You never see the value and you never type it.
 - When: only when the person asks about that figure (a price, what it costs to sell, how deep the pool is, how much trades, volatility, a drawdown, a yield), or when one figure is the reason for a caution you give. Not to decorate a draft.
@@ -235,7 +235,7 @@ The product's words, in "say" and in every "why": what the person will hold is t
 
 Shapes: "pick" for named things, equal split; "grow", "income" or "protect" when the words call for it; "split" when they want part of the money doing one thing and part another (for example a liquid reserve and a growth pot), one pot per bucket with its own shape (a bucket with no shape takes the plan's). A plan or pot to protect holds cash, dollar-yield rows and gold: no stock tokens, no crypto. A plan or pot to pay income holds cash and dollar-yield rows: no stock tokens, no crypto, no gold. The code holds to the asset registry on this and leaves out what does not fit. A stock token goes into a plan to protect or pay income only when the person plainly asked for that stock, or for stocks, in their own words; the code reads their words itself and warns them. Never add one on your own.
 
-Direct instructions: when the person tells you what to hold or how to split ("make all the income part syrupUSDC", "put 80% in the highest yield"), do it in this turn. Do not ask permission and do not argue. A cap does not stop it: do exactly what they asked and add one short sentence that this holding is above its cap today, so the deposit step will warn about it and ask them to confirm. Only the rule on what a plan to protect or pay income may hold still applies: if that stops part of the instruction, do the closest version and say why in one sentence. Do not offer alternatives unless they ask. Ask at most one question per turn, and only for something rule 4 still needs, at the end of your message.
+Direct instructions: when the person tells you what to hold or how to split ("make all the income part syrupUSDC", "put 80% in the highest yield"), do it in this turn. Do not ask permission and do not argue. A cap does not stop it: do exactly what they asked; the code says beside your message when a holding is above its cap. Only the rule on what a plan to protect or pay income may hold still applies: if that stops part of the instruction, do the closest version and say why in one sentence. Do not offer alternatives unless they ask. Ask at most one question per turn, and only for something rule 4 still needs, at the end of your message.
 
 Every turn you answer with the JSON object the API holds you to:
 - "say": the message the person reads. Your words, your reasoning, your questions. One short paragraph, or two when there is a lot to say. Mention holdings by name, not by id. Do not list weights; the code shows the lines beside your message.
@@ -418,10 +418,19 @@ const clip = (text: string, max: number) =>
 const whereOf = (error: z.ZodError) =>
   error.issues.map((issue) => `${issue.code}:${issue.path.join('.')}`);
 
+/**
+ * A sentence that gives a cap verdict: a cap, a ceiling or a limit (not a large or small cap, not a
+ * market cap), or a warning at the deposit step.
+ */
+const CAP_CLAIM =
+  /(?<!\b(?:large|small|mid|mega|micro|market)[-\s]?)\b(?:caps?|capped|ceilings?|tetos?)\b|\b(?:within|above|over|under|below|beyond|exceeds?|exceeding|past)\s+(?:(?:its|the|their|your|a|any)\s+)?(?:listed\s+)?limits?\b|\b(?:dentro|acima|abaixo|al[ée]m)\s+d[eo]s?\s+(?:(?:seu|sua)\s+)?limites?\b/iu;
+const WARNING = /\b(?:warn\w*|flag\w*|avis\w*|alert\w*)/iu;
+const AT_DEPOSIT = /\b(?:deposit\w*|dep[óo]sit\w*|confirm\w*)/iu;
+
 const REPAIR_SHAPE =
   'That was not the JSON object the API holds you to. Answer again with that object and nothing else: every required field, each of the kind it asks for.';
 const REPAIR_FIGURE =
-  'Your reply stated a figure, a price, a yield, a return, a date or a guarantee in "say", in a "why", in a pot\'s name, in "when" or in "not_available". Answer again with the same sheet and no digit, no percent or currency sign, no written-out amount and no "guaranteed" or "risk-free" in any of them. Numbers belong only in "stated" and "share"; to repeat what the person said, quote them exactly: You said “...”. A measured figure is stated only as its reference in "say", {{fact:<id>}} with an id from MEASURED FIGURES; never type its value.';
+  'Your reply stated a figure, a price, a yield, a return, a date or a guarantee in "say", in a "why", in a pot\'s name, in "when" or in "not_available". Answer again with the same sheet and no digit, no percent or currency sign, no written-out amount and no "guaranteed" or "risk-free" in any of them, and no sentence on whether a holding is within or above its cap or whether the deposit step warns: the code says that. Numbers belong only in "stated" and "share"; to repeat what the person said, quote them exactly: You said “...”. A measured figure is stated only as its reference in "say", {{fact:<id>}} with an id from MEASURED FIGURES; never type its value.';
 const REPAIR_REFERENCE =
   'Your reply held a figure reference, {{fact:<id>}}, that the server will not serve. Either its id is not one listed under MEASURED FIGURES for this message, or it is not in "say", or it does not stand alone as the figure it is. A reference stands alone when: it is outside quotation marks; a space and a word, or plain sentence punctuation, is on each side of it; its sentence names the holding the figure is of and calls the figure what its line under MEASURED FIGURES says it is (price, costs to sell, the largest sale or capacity, weekend, provider, variation, volume, volatility, drawdown; never a share, a weight, a cap or what something is worth), names no other holding, and has no magnitude or percent word, no multiplier, fraction or arithmetic in words, no number or currency word beside it, no rate or return word unless it is a yield: figure, no rise or fall unless it is a drawdown: figure, no forecast, no comparison ("cheaper than", "better than") and no claim the figure does not measure; a yield: figure is said only as its measurement, in a sentence that ends after it ("Its quoted yield is {{fact:<id>}} a year."). Answer again with the same sheet: rewrite the sentence so the reference stands alone, or write it without the figure. Never type the number instead.';
 
@@ -570,9 +579,18 @@ export function createRelaxedGoalAgent(options: {
           .filter((row) => assets.some((asset) => asset.symbol === row.symbol))
           .map((row) => row.company),
       ].map(withoutMark);
+      // A cap or a deposit-step warning is the server's verdict on the shares it applies, which the
+      // model does not see: a sentence that gives one is cut like a figure, and the draft states it.
+      const capClaim = (text: string) => {
+        let own = text.replace(/[“"]([^”"]+)[”"]/gu, (quote, inner: string) =>
+          personWords.some((words) => words.includes(inner)) ? '' : quote,
+        );
+        for (const name of catalogNames) if (name) own = own.replaceAll(name, '');
+        return CAP_CLAIM.test(own) || (WARNING.test(own) && AT_DEPOSIT.test(own));
+      };
       // Outside the message no reference is served, so a brace there is a figure like any other.
       const figure = (text: string) =>
-        hasFinancialFigure(text, personWords, catalogNames) || /[{}]/u.test(text);
+        hasFinancialFigure(text, personWords, catalogNames) || /[{}]/u.test(text) || capClaim(text);
       // Figures by reference, in the message only: the vault conversation's resolver and sentence
       // rules over this chain's catalog, resolving only what this request handed the model. The
       // model's own words, with a mark where each reference stood, pass the same check as ever.
@@ -591,7 +609,8 @@ export function createRelaxedGoalAgent(options: {
         noComparison: true,
       });
       const typed = (text: string) =>
-        hasFinancialFigure(withoutReferences(text), personWords, catalogNames);
+        hasFinancialFigure(withoutReferences(text), personWords, catalogNames) ||
+        capClaim(withoutReferences(text));
       // What was found wrong with a reference, over both attempts; a count for the log.
       let unknownReferences = 0;
       /** The reply with every figure cut, how many sentences or fields went, and why a reference did. */
@@ -1058,7 +1077,8 @@ export function createRelaxedGoalAgent(options: {
               )
               .join('; ')
           : `${lines.map((l) => l.asset.symbol).join(', ')}`;
-      const summary = capWarning ? `⚠ ${capWarning} ${holdings}` : holdings;
+      // The warning ends in a full stop, so the holdings after it are a sentence of their own.
+      const summary = capWarning ? `⚠ ${capWarning} The draft holds ${holdings}.` : holdings;
       const tradeoffs = [...new Set(notes)].slice(0, 12).map((n) => clip(n, 600));
       const unknowns = [
         ...(missing.length

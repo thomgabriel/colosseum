@@ -1050,6 +1050,64 @@ describe('relaxed intake: caps', () => {
     expect(JSON.stringify(reply)).not.toMatch(/would refuse|cap is lifted/);
     expect(reply.proposal?.summary).toMatch(/^⚠ Above the cap listed today/);
   });
+
+  // Thom on /invest, "all in SPY": the model said the line was within its cap while the draft
+  // warned it was above. Only the server knows the share it applies, so only the server says it.
+  it('cuts a sentence of the model that gives a cap or warning verdict, and the draft says it', async () => {
+    const reply = await run(
+      {
+        say: "All of it goes into SOL, as you asked. That's within its cap, so no warning at the deposit step.",
+        shape: 'pick',
+        lines: [
+          { id: 'solana:sol', why: 'You asked for it, and it stays under the cap.', share: 1 },
+        ],
+      },
+      'all in SOL',
+    );
+    expect(weights(reply)).toEqual({ SOL: 10_000 });
+    expect(reply.message).toContain('All of it goes into SOL, as you asked.');
+    expect(reply.message).not.toMatch(/cap|warning/i);
+    expect(reply.message).toContain('Part of this reply was left out');
+    expect(reply.proposal?.allocations[0]?.why).not.toMatch(/cap/i);
+    expect(notes(reply)).toContain('Above the cap listed today: SOL at 100% (cap 20%)');
+  });
+
+  it('cuts every way of giving the verdict, and keeps sentences that only sound like one', async () => {
+    const said = async (say: string) =>
+      (
+        await run(
+          { say, shape: 'pick', lines: [line('solana:nvdax'), line('solana:usdy')] },
+          'NVDAx and USDY',
+        )
+      ).message;
+    for (const verdict of [
+      'NVDAx sits above its cap today.',
+      'Both stay under the limit.',
+      'The deposit step will warn you about NVDAx.',
+      'Nothing gets flagged when you deposit.',
+      'You will be asked to confirm a warning first.',
+      'Está dentro do teto.',
+      'Fica acima do limite listado.',
+    ])
+      expect(await said(`Here is the draft. ${verdict}`)).not.toContain(verdict);
+    for (const kept of [
+      'NVDAx is a large-cap chip maker.',
+      'Its market cap is not measured here.',
+      'Nothing is deposited until you confirm.',
+      'A word of warning: stocks can fall hard.',
+    ])
+      expect(await said(`Here is the draft. ${kept}`)).toBe(`Here is the draft. ${kept}`);
+  });
+
+  it('ends the warning before the holdings in the summary', async () => {
+    const reply = await run({ shape: 'pick', lines: [line('solana:sol', 1)] }, 'all in SOL');
+    expect(reply.proposal?.summary).toMatch(
+      /^⚠ Above the cap listed today: SOL at 100% \(cap 20%\)/,
+    );
+    expect(reply.proposal?.summary).toMatch(
+      /before anything is deposited\. The draft holds SOL\.$/,
+    );
+  });
 });
 
 describe('splitShares', () => {
