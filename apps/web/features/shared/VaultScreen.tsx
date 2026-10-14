@@ -12,7 +12,8 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { cn } from '../../components/ui/cn';
+import { PAGE_BACK, PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -85,11 +86,19 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     port.status === 'loading' ? (
       <span data-ui={ui && `${ui}-wait`} aria-hidden="true" className="inline-block h-5" />
     ) : signedIn ? (
-      <Link href="/portfolio" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link
+        href="/portfolio"
+        data-ui={ui}
+        className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
+      >
         {v.back}
       </Link>
     ) : (
-      <Link href="/products" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link
+        href="/products"
+        data-ui={ui}
+        className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
+      >
         {v.backVisitor}
       </Link>
     );
@@ -270,7 +279,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   return (
     <div data-ui="vault-screen" className="flex flex-col gap-6">
       <header className="flex flex-col items-start gap-3">
-        <p>{back}</p>
+        {back}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 id={titleId} className={PAGE_TITLE}>
             {t.shared.vaults.address(shortAddress(vault.address))}
@@ -517,26 +526,21 @@ function OwnVault({
         }}
         heading={
           <>
-            <p className="text-caption">{back}</p>
+            {back}
             <OwnVaultActions
               chain={read.chain}
               address={vault.address}
               headingLevel={1}
               page
               fallback={
-                <h1 id={titleId} className={WORKSPACE_TITLE}>
+                <h1 id={titleId} className={PAGE_TITLE}>
                   {t.shared.vaults.address(shortAddress(vault.address))}
                 </h1>
               }
               // The name (the person's own, or "Vault #N") comes with their portfolio, read once the
               // sign-in is here: until then the title waits, so no other one flashes by before it.
               pending={
-                <h1
-                  id={titleId}
-                  className={WORKSPACE_TITLE}
-                  data-ui="vault-name-wait"
-                  aria-busy="true"
-                >
+                <h1 id={titleId} className={PAGE_TITLE} data-ui="vault-name-wait" aria-busy="true">
                   <span className="sr-only">{v.loading}</span>
                   <span aria-hidden="true" className="inline-block h-6 w-40 rounded-md bg-muted" />
                 </h1>

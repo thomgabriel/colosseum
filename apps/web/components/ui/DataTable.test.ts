@@ -26,13 +26,17 @@ describe('DataTable (data-table.md)', () => {
     expect(classes(hidden)).toContain('sr-only');
   });
 
-  it('scopes every header: columns in a muted head, one row header per row', () => {
+  it('scopes every header: columns in a muted head on the card, one row header per row', () => {
     const heads = all(one(tableEl, tag('thead')), tag('th'));
     expect(heads.map(text)).toEqual(['Leg', 'Weight', 'Target', 'Drift', 'Price', 'Status']);
     for (const th of heads) expect(th.attrs.scope).toBe('col');
-    expect(
-      classes(one(tableEl, (e) => e.tag === 'tr' && closest(e, tag('thead')) !== null)),
-    ).toContain('bg-muted');
+    // the house kit's head (PAGE-SHELL): no band of its own, the words muted, a hairline under it
+    const headRow = classes(
+      one(tableEl, (e) => e.tag === 'tr' && closest(e, tag('thead')) !== null),
+    );
+    expect(headRow).not.toContain('bg-muted');
+    expect(headRow).toContain('border-b');
+    for (const th of heads) expect(classes(th)).toContain('text-muted-foreground');
     const rows = all(one(tableEl, tag('tbody')), tag('tr'));
     expect(rows).toHaveLength(3);
     for (const tr of rows) expect(byRole(tr, 'rowheader')).toHaveLength(1);

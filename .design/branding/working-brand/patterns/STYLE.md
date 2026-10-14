@@ -30,6 +30,8 @@ New screens are built from the house kit (gate `HOUSE-KIT`, Thom, Oct 13): the p
 - `HeroFigure`: a muted label over a 2rem Inter Tight figure, the `Plate` beside the label. `StatGrid` / `PanelStat`: a muted label over each small figure. `Plate`: the quiet pill that says, in words, that figures are not live.
 - `KitTable` / `KitTh`: small muted heads, a hairline per row, always named (a caption, a label or the heading over it). `KIT_ROW` for a row, `KIT_CELL` for a cell, `KIT_NUMERIC` for a column of figures; a row that opens something stretches its one link over the row with `KIT_ROW_LINK`, and every pin or control in it sits over the link with `KIT_ABOVE_LINK`.
 
+The page shell (gate `PAGE-SHELL`, Thom, Oct 14): every product page (the landing excepted) sits in one frame, `AppShell`: the overview's width (`max-w-shell`, 1600px) and its side gutter (`clamp(12px, 2vw, 28px)`), so the left edge, the width and the title's place are the same on every route at every window width. A page's title is `PAGE_TITLE` (Inter Tight 600 at `text-h3`), on a workbench (Invest, an owner's vault) and on Bearing's analytics too; no hero titles in the app. An action in a page's head is a button (secondary, dense), never a link; a link only goes somewhere. A table's head has no band of its own, as `KitTable`'s. The disclaimer in the foot carries its heading, "Not licensed advice", on every page.
+
 Pins, `Status` pills and `ChainBadge` chips sit in them as on the overview. A screen that needs a piece the kit does not have adds it to the kit, with a showcase specimen; it does not style its own. Spec: [components/house-kit.md](./components/house-kit.md).
 
 What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Bearing's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head, as the overview does.
@@ -114,7 +116,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | Property | Rule |
 |----------|------|
 | archetype | **asymmetric-grid** |
-| max-width | 1280px page, 66ch body, 72ch docs prose, 16ch display |
+| max-width | 1600px for every product page (`PAGE-SHELL`), 1280px for the landing; 66ch body, 72ch docs prose, 16ch display |
 | section-spacing | 96px marketing, 64px docs and plan, 32px Bearing panels |
 | grid-gap | 24px (16px in Bearing) |
 | surfaces | Night or paper, flat. A honey glow (`--tf-glow`) behind heroes and the composer. P1 lattice on marketing section grounds only, faint, never in the app |

@@ -358,9 +358,10 @@ export function VaultConversation({
           is absolute) then belongs to the pane it is in, where without it the line's box is the page's,
           left where the pane's text runs on below the window, and the page scrolls (Oct 13). */}
       <header className="tf-scroll-thin relative flex flex-wrap items-start justify-between gap-3 md:col-span-12 md:min-h-0 md:overflow-y-auto">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">{heading}</div>
+        <div className="flex min-w-0 flex-1 flex-col gap-3">{heading}</div>
         <Button
-          variant="link"
+          variant="secondary"
+          size="dense"
           aria-expanded={chatOpen}
           aria-controls={`${id}-chat`}
           data-ui="vault-chat-toggle"

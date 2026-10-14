@@ -7,6 +7,7 @@ import { CHAIN_NAMES } from '../../components/ui/ChainBadge';
 import { cn } from '../../components/ui/cn';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { formatAge } from '../../components/ui/format';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Segmented } from '../../components/ui/TimeChart';
@@ -150,15 +151,13 @@ export function BearingShell({ children }: { children: ReactNode }) {
         {/* The page's head on the honey fog, as the landing's hero (Rodrigo, Oct 8). */}
         <div
           data-ui="bearing-head"
-          className="relative isolate -mx-4 overflow-hidden px-4 pt-4 pb-1 min-[900px]:mx-0 min-[900px]:rounded-lg"
+          className="relative isolate -mx-3 overflow-hidden px-3 pt-4 pb-1 min-[900px]:mx-0 min-[900px]:rounded-lg"
         >
           <HoneyFog className="pointer-events-none absolute inset-0 -z-10 size-full" />
           <div className="font-condensed text-b-head font-medium text-muted-foreground">
             {t.head}
           </div>
-          <h1 className="mt-2 mb-4 max-w-[34ch] font-display text-[clamp(1.75rem,1.3rem+1.4vw,2.5rem)]/[1.15] font-semibold tracking-[-0.02em]">
-            {page.lede}
-          </h1>
+          <h1 className={cn(PAGE_TITLE, 'mt-2 mb-4')}>{page.lede}</h1>
           <ChainToggle />
           <Banner />
         </div>

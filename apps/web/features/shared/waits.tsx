@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { Panel } from '../../components/ui/Panel';
 import {
   Skeleton,
@@ -350,7 +350,7 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
                 </Link>
               </p>
               <div aria-hidden="true" className="flex flex-col gap-2">
-                <SkeletonLine className={WORKSPACE_TITLE} width="w-40" />
+                <SkeletonLine className={PAGE_TITLE} width="w-40" />
                 <SkeletonLine className="font-display text-h3" width="w-36" />
               </div>
             </div>
@@ -378,7 +378,7 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
               </Link>
             </p>
             <div aria-hidden="true" className="flex flex-col gap-2">
-              <SkeletonLine className={WORKSPACE_TITLE} width="w-40" />
+              <SkeletonLine className={PAGE_TITLE} width="w-40" />
               <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
                 <SkeletonLine className="font-display text-h3" width="w-36" />
                 {/* on a phone the third action wraps under the pair, as the page's does */}

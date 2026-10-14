@@ -106,7 +106,7 @@ export function DataTable<Row>({
             {caption}
           </caption>
           <thead>
-            <tr className="border-b border-border bg-muted">
+            <tr className="border-b border-border">
               {columns.map((column) => (
                 <th
                   key={column.key}

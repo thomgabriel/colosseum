@@ -216,44 +216,6 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
       <span role="status" data-ui="goal-chain-said" className="sr-only">
         {said}
       </span>
-      {/* On a phone the picker gives way, so the row never pushes the page sideways. */}
-      <div className="flex max-w-full items-center gap-3 self-start">
-        <label htmlFor={pickerId} className="shrink-0 text-caption text-muted-foreground">
-          {w.label}
-        </label>
-        <Select
-          id={pickerId}
-          data-ui="goal-picker"
-          value="current"
-          width="34ch"
-          className="min-w-0 [&>select]:text-ellipsis"
-          onChange={(event) => pick(event.target.value)}
-        >
-          <option value="current">{names.current}</option>
-          <option value="new">{w.fresh}</option>
-          {names.saved.length > 0 && (
-            <optgroup label={w.saved}>
-              {names.saved.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {vaults.length > 0 && (
-            <optgroup label={w.vaults}>
-              {vaults.map((vault) => (
-                <option
-                  key={`${vault.chain}:${vault.address}`}
-                  value={`vault:${vault.chain}:${vault.address}`}
-                >
-                  {`${vault.name ?? t.shared.vaults.address(shortAddress(vault.address))} · ${t.chain.names[vault.chain]}`}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </Select>
-      </div>
       {pending && deposit.open && (
         <LeaveDeposit
           signing={deposit.signing}
@@ -294,6 +256,46 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
           });
         }}
         carried={carried}
+        // On a phone the picker gives way, so the row never pushes the page sideways.
+        picker={
+          <div className="flex min-w-0 max-w-full items-center gap-3">
+            <label htmlFor={pickerId} className="shrink-0 text-caption text-muted-foreground">
+              {w.label}
+            </label>
+            <Select
+              id={pickerId}
+              data-ui="goal-picker"
+              value="current"
+              width="34ch"
+              className="min-w-0 [&>select]:text-ellipsis"
+              onChange={(event) => pick(event.target.value)}
+            >
+              <option value="current">{names.current}</option>
+              <option value="new">{w.fresh}</option>
+              {names.saved.length > 0 && (
+                <optgroup label={w.saved}>
+                  {names.saved.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {vaults.length > 0 && (
+                <optgroup label={w.vaults}>
+                  {vaults.map((vault) => (
+                    <option
+                      key={`${vault.chain}:${vault.address}`}
+                      value={`vault:${vault.chain}:${vault.address}`}
+                    >
+                      {`${vault.name ?? t.shared.vaults.address(shortAddress(vault.address))} · ${t.chain.names[vault.chain]}`}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          </div>
+        }
         onDeposit={(state) =>
           setDeposit((now) =>
             state.open
