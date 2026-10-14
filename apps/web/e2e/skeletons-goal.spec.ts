@@ -45,7 +45,7 @@ for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await signIn(page);
       const strategy = page.locator('[data-ui="goal-strategy"]');
-      const h = await hold(page, /\/invest\/reply/);
+      const h = await hold(page, /\/goal\/reply/);
       await say(page, 'A broad fund and some gold, to grow, at medium risk');
       const building = strategy.locator('[data-ui="draft-building"]');
       await expect(building.locator('h2')).toHaveText(en.goal.explore.building);

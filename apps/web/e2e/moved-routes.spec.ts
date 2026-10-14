@@ -26,6 +26,8 @@ const MOVED: [string, string][] = [
 ];
 
 test('every old address leads, for good, to the page it is now', async ({ page }) => {
+  // under `next dev` each new address is built on its first visit
+  test.setTimeout(600_000);
   for (const [old, now] of MOVED) {
     const answer = await page.request.get(old, { maxRedirects: 0 });
     expect(answer.status(), old).toBe(308);
