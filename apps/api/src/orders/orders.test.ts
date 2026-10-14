@@ -904,6 +904,7 @@ describe('the /v1 route table', () => {
     const app = await buildApp();
     await app.ready();
     expect(v1Paths(app.swagger())).toEqual([
+      '/v1/assets/{id}/facts',
       '/v1/baskets/intake',
       '/v1/baskets/personalize',
       '/v1/baskets/propose',
@@ -1022,6 +1023,8 @@ describe('no /v1 route can make the server sign', () => {
       // a shared portfolio's figures, from the plan inputs handed in: no file, no key, no chain call
       'orders/figures.ts',
       'orders/legs.ts',
+      // the asset lookups' types: the reader itself is handed in (asset-lookups.ts)
+      'orders/lookups.ts',
       'orders/mix.ts',
       'orders/person.ts',
       'orders/personalize.ts',
@@ -1057,6 +1060,7 @@ describe('no /v1 route can make the server sign', () => {
       'portfolio/snapshots.ts',
       // why a vault's holdings are there, from stored reasons and the chain's asset list: no key
       'portfolio/why.ts',
+      'routes/v1/assets.ts',
       'routes/v1/baskets.ts',
       'routes/v1/config.ts',
       'routes/v1/funding.ts',

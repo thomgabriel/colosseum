@@ -416,6 +416,38 @@ const MEASURES: Record<AnalyticsFigure['metric'], { id: string; says: string }> 
 /** Ends the label of a figure whose true value is at least what is measured. */
 export const LOWER_BOUND = '; a lower bound, the true figure is at least this';
 
+/** The evidence id of one of Bearing's figures of an asset (`exit:<asset>:worst`, `vol:<asset>`, …). */
+export function analyticsId(figure: AnalyticsFigure, assetId: string): string {
+  return MEASURES[figure.metric].id
+    .replace('<asset>', assetId)
+    .replace('<regime>', figure.regime ?? 'unknown');
+}
+
+/**
+ * What one of Bearing's figures measures, in words: `size` says the size the costs refer to ("the
+ * reference size"), and the regime is named where the figure is of one. No number is in it.
+ */
+export function analyticsLabel(figure: AnalyticsFigure, size: string): string {
+  const regime = figure.regime ? REGIME_NAMES[figure.regime] : null;
+  const larger = figure.value !== null && figure.sizeUsd !== undefined;
+  const said = MEASURES[figure.metric].says.replace(
+    '{size}',
+    larger ? `the nearest measured size above ${size}` : size,
+  );
+  return figure.metric === 'exit_worst' ||
+    figure.metric === 'exit' ||
+    figure.metric === 'cap_variation'
+    ? `${said}${regime ? ` (${regime})` : ''}`
+    : said;
+}
+
+/** The method of one of Bearing's figures, with the size it was measured at when that is not the asked one. */
+export function analyticsMethod(figure: Extract<AnalyticsFigure, { value: number }>): string {
+  return figure.sizeUsd === undefined
+    ? figure.method
+    : `${figure.method}; measured at $${figure.sizeUsd.toLocaleString('en-US')}`;
+}
+
 /**
  * Bearing's analytics as evidence: each measured figure an id the model may cite, with a label that says
  * the size and the regime it refers to in words (the figures themselves are structured, so a label holds
@@ -473,24 +505,11 @@ function analyticsEvidence(
     read.push(asset.symbol);
     const compact: (typeof assets)[number] = { assetId: asset.id, values: {}, provenance: {} };
     for (const figure of row.figures) {
-      const regime = figure.regime ? REGIME_NAMES[figure.regime] : null;
-      const measure = MEASURES[figure.metric];
-      const id = measure.id
-        .replace('<asset>', asset.id)
-        .replace('<regime>', figure.regime ?? 'unknown');
+      const id = analyticsId(figure, asset.id);
       if (taken.has(id)) continue;
       taken.add(id);
       const larger = figure.value !== null && figure.sizeUsd !== undefined;
-      const said = measure.says.replace(
-        '{size}',
-        larger ? `the nearest measured size above ${size}` : size,
-      );
-      const label =
-        figure.metric === 'exit_worst' ||
-        figure.metric === 'exit' ||
-        figure.metric === 'cap_variation'
-          ? `${said}${regime ? ` (${regime})` : ''}`
-          : said;
+      const label = analyticsLabel(figure, size);
       const twin = row.modelledOn ? `; ${row.modelledOn} mainnet figures on a test network` : '';
       // A stored figure that does not make a valid source is unknown too: it never fails the reply.
       const parsed =
@@ -504,10 +523,7 @@ function analyticsEvidence(
               unit: UNITS[figure.unit],
               source: figure.source,
               // the size it was measured at is a figure: it goes in the pin, not in the words
-              method:
-                figure.sizeUsd === undefined
-                  ? figure.method
-                  : `${figure.method}; measured at $${figure.sizeUsd.toLocaleString('en-US')}`,
+              method: analyticsMethod(figure),
               fetchedAt: figure.fetchedAt,
               provenance: figure.provenance,
             });

@@ -46,6 +46,7 @@ import { z } from 'zod';
 import { curveVersionOf, EVM_METHOD_VERSION } from '../curve-version';
 import { loadAssetFacts, loadPlanFacts } from '../facts';
 import { FACTS_METHODOLOGY } from '../facts-methodology';
+import { latestLendingReportAt } from '../lending-facts';
 import { registerRiskHistoryRoutes } from './risk-history';
 import { registerPoolLiquidityRoute } from './risk-pool-liquidity';
 import { registerRiskSplitRoute } from './risk-split';
@@ -273,14 +274,7 @@ export async function registerRiskRoutes(app: FastifyInstance) {
   );
 
   // PLAN-ANALYTICS item 11: the lending and plan fact sheets, and liquidation coverage under both definitions.
-  const latestReportAt = async () => {
-    const [r] = await db
-      .select({ t: riskLendingFacts.reportAt })
-      .from(riskLendingFacts)
-      .orderBy(desc(riskLendingFacts.reportAt))
-      .limit(1);
-    return r?.t ?? null;
-  };
+  const latestReportAt = () => latestLendingReportAt(db);
   f.get(
     '/risk/facts/methodology',
     {

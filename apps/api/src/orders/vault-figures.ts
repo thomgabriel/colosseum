@@ -61,8 +61,20 @@ export type FigureReferences = {
 
 const LOCALE = { en: 'en-US', pt: 'pt-BR' } as const;
 const WORDS = {
-  en: { atLeast: 'at least', missing: 'not measured', hours: 'hours', seconds: 'seconds' },
-  pt: { atLeast: 'pelo menos', missing: 'não medido', hours: 'horas', seconds: 'segundos' },
+  en: {
+    atLeast: 'at least',
+    missing: 'not measured',
+    hours: 'hours',
+    seconds: 'seconds',
+    tokens: 'tokens',
+  },
+  pt: {
+    atLeast: 'pelo menos',
+    missing: 'não medido',
+    hours: 'horas',
+    seconds: 'segundos',
+    tokens: 'tokens',
+  },
 } as const;
 
 /**
@@ -94,7 +106,10 @@ export function figureText(
               ? [{}, { maximumFractionDigits: 1 }, ` ${words[unit]}`]
               : unit === 'units'
                 ? [{}, { maximumFractionDigits: 6 }, '']
-                : [{}, { maximumFractionDigits: 6 }, ` ${unit}`];
+                : // a token supply (the asset lookups): whole tokens to two places
+                  unit === 'tokens'
+                  ? [{}, { maximumFractionDigits: 2 }, ` ${words.tokens}`]
+                  : [{}, { maximumFractionDigits: 6 }, ` ${unit}`];
   const number = (digits: Intl.NumberFormatOptions) =>
     new Intl.NumberFormat(LOCALE[language], { ...style, ...digits })
       .format(value)
@@ -314,12 +329,93 @@ const yieldClauses = (names: readonly string[]): RegExp[] => {
   ].map((clause) => new RegExp(`${start}(?:${clause})${end}`, 'iu'));
 };
 
+/**
+ * The figures read under the yield grammar (rule 5): a stored yield (`yield:`), and of the asset lookups
+ * (FIGURES-BY-REFERENCE as amended 2026-10-14) a yield reading of an asset's profile and a lending market's
+ * supply or borrow rate. Each is a rate a year, so the rate words that cut any other figure are its own
+ * words, and the promise words around it cut it as they cut a yield.
+ */
+export const isYield = (id: string): boolean =>
+  id.startsWith('yield:') ||
+  /^profile:.+:yield_[a-z0-9_]+$/u.test(id) ||
+  /^lend:.+:(?:supply|borrow)$/u.test(id);
+
 // A holding's distance from its target, and a line's weight in the shared portfolio the vault follows.
 const GAP_WORDS =
   'gaps?|off\\s+(?:its\\s+)?target|away\\s+from|above|below|over|under|short|drift|dist[aâ]ncia|desvio|acima|abaixo';
 const WEIGHT_WORDS = 'weights?|weighs|portfolio|pesos?|pesa|portf[oó]lio|carteira';
+// The asset lookups' families (FIGURES-BY-REFERENCE as amended 2026-10-14): each called what it is. A
+// change over a window is a change or a move, never a return or a gain (those words cut it, rule 3).
+const LOOKUP_KINDS: Array<[RegExp, RegExp]> = [
+  [
+    /^profile:.+:supply_(?:total|issuer)$/u,
+    lone('supply|supplies|circulat\\p{L}*|issued|oferta|emitid\\p{L}*|emiss\\p{L}*|circula\\p{L}*'),
+  ],
+  [
+    /^profile:.+:holders_top\d+_share$/u,
+    lone(
+      'holders?|held|largest\\s+(?:accounts|wallets)|concentrat\\p{L}*|detentor\\p{L}*|concentra\\p{L}*',
+    ),
+  ],
+  [
+    /^profile:.+:pool_tvl_usd$/u,
+    lone('tvl|pools?|held\\s+in|deposited|locked|depositad\\p{L}*|bloquead\\p{L}*'),
+  ],
+  [
+    /^profile:.+:protocol_tvl_usd$/u,
+    lone('tvl|protocol|locked|deposited|protocolo|depositad\\p{L}*'),
+  ],
+  [/^profile:.+:dex_volume_\w+$/u, lone('volume|traded|negociad\\p{L}*')],
+  [
+    /^profile:.+:exchange_rate$/u,
+    lone(
+      'exchange|conversion|redemption|redeem\\p{L}*|underlying|c[aâ]mbio|convers[aã]o|resgate|subjacente',
+    ),
+  ],
+  [
+    /^bars:.+:close$/u,
+    lone('price[sd]?|close[sd]?|closing|pre[cç]os?|fechamento|fechou|cota[cç][aã]o'),
+  ],
+  [/^bars:.+:high$/u, lone('high|highest|peak|top|m[aá]xim\\p{L}*|pico')],
+  [/^bars:.+:low$/u, lone('low|lowest|bottom|trough|m[ií]nim\\p{L}*')],
+  [
+    /^bars:.+:change$/u,
+    lone(
+      'change[sd]?|changing|move[sd]?|movement|moving|varia\\p{L}*|mudan[cç]\\p{L}*|mud(?:ou|ar)|oscil\\p{L}*',
+    ),
+  ],
+  [/^bars:.+:volume$/u, lone('volume|traded|negociad\\p{L}*')],
+  [/^bars:.+:buyvol$/u, lone('bought|buys?|buying|purchases?|purchased|compras?|comprad\\p{L}*')],
+  [/^bars:.+:sellvol$/u, lone('sold|sells?|selling|sales?|vendas?|vendid\\p{L}*')],
+  [
+    /^bars:.+:swaps$/u,
+    lone('swaps?|trades|count|number\\s+of|trocas?|opera[cç](?:ão|ões|ao|oes)|n[uú]mero\\s+de'),
+  ],
+  [/^bars:.+:gaps$/u, lone('hours?|gaps?|quiet|horas?|lacunas?')],
+  [
+    /^pool:.+:tvl$/u,
+    lone('tvl|holds|held|deposited|locked|liquidity|liquidez|depositad\\p{L}*|bloquead\\p{L}*'),
+  ],
+  [/^pool:.+:volume$/u, lone('volume|traded|negociad\\p{L}*')],
+  [/^pool:.+:share$/u, lone('shares?|portion|parcela|participa[cç][aã]o|fatia')],
+  [
+    /^lend:.+:supply$/u,
+    lone(
+      'supply|supplied|supplying|lend|lending|lenders?|deposit\\p{L}*|empr[eé]st\\p{L}*|fornec\\p{L}*',
+    ),
+  ],
+  [/^lend:.+:borrow$/u, lone('borrow\\p{L}*|loans?|empr[eé]stimo\\p{L}*|tomad\\p{L}*|tomar')],
+  [
+    /^lend:.+:util$/u,
+    lone('utili[sz]\\p{L}*|lent\\s+out|in\\s+use|utiliza\\p{L}*|emprestad\\p{L}*'),
+  ],
+  [
+    /^lend:.+:withdrawable$/u,
+    lone('withdraw\\p{L}*|available|sac\\p{L}*|dispon[ií]ve\\p{L}*|resgat\\p{L}*'),
+  ],
+];
 // The kind of a figure, by its id, and the words that name it in a sentence.
-const KINDS: Array<[RegExp, RegExp]> = [
+const BASE_KINDS: Array<[RegExp, RegExp]> = [
   [
     /^(?:vault:value|holding:.*:value)$/u,
     lone(
@@ -357,7 +453,7 @@ const VAULT_WORD = lone('vault|cofre');
 // name each kind, narrower than `KINDS`. A cost is not a capacity, "trades" is a price and not a
 // volume, and "is at" and "goes for" say a price. A kind of the vault's own (worth, share, target,
 // amount) has no words here: no such figure exists where this is asked.
-const STRICT_KINDS: Array<[RegExp, RegExp]> = [
+const BASE_STRICT_KINDS: Array<[RegExp, RegExp]> = [
   [
     /^price:/u,
     lone(
@@ -379,7 +475,7 @@ const STRICT_KINDS: Array<[RegExp, RegExp]> = [
 // The words that bind to a figure: each names one kind and stands beside the figure it speaks of
 // ("priced at X", "X of the vault", "X units"). Narrower than `KINDS`: "holding" and "total" stand
 // in sentences about any figure, and "share" is also a unit of a stock.
-const BOUND_KINDS: Array<[RegExp, RegExp]> = [
+const BASE_BOUND_KINDS: Array<[RegExp, RegExp]> = [
   [/^(?:vault:value|holding:.*:value)$/u, lone('worth|values?|valued|vale|valem|valor')],
   [
     /^holding:.*:share$/u,
@@ -389,8 +485,17 @@ const BOUND_KINDS: Array<[RegExp, RegExp]> = [
   [/^holding:.*:amount$/u, lone('units?|tokens?|unidades?')],
   [/^holding:.*:gap$/u, lone(GAP_WORDS)],
   [/^recipe:.*:weight$/u, lone(WEIGHT_WORDS)],
-  ...STRICT_KINDS,
+  ...BASE_STRICT_KINDS,
 ];
+// A lookup's kind words count only in a sentence that names a lookup's figure: elsewhere ("selling",
+// "hours", "supply" beside a cost) they are plain words, as they were before the lookups.
+const LOOKUP_ID = /^(?:profile|bars|pool|lend):/u;
+const hasLookup = (ids: readonly (string | undefined)[]) =>
+  ids.some((id) => id !== undefined && LOOKUP_ID.test(id));
+const KINDS = [...BASE_KINDS, ...LOOKUP_KINDS];
+const STRICT_KINDS = [...BASE_STRICT_KINDS, ...LOOKUP_KINDS];
+const boundKinds = (ids: readonly (string | undefined)[]) =>
+  hasLookup(ids) ? [...BASE_BOUND_KINDS, ...LOOKUP_KINDS] : BASE_BOUND_KINDS;
 /**
  * Whether each figure stands beside a word of its own kind. Every kind word of the sentence binds to
  * the reference nearest it; a figure that words are bound to, none of them of its kind, is called
@@ -404,6 +509,7 @@ function boundToItsKind(words: string, ids: readonly (string | undefined)[]): bo
   const bound = marks.map(() => ({ any: false, own: false }));
   // every kind word, once, in the order it stands
   const spans = new Map<number, { from: number; to: number; word: string }>();
+  const BOUND_KINDS = boundKinds(ids);
   for (const [, named] of BOUND_KINDS)
     for (const match of words.matchAll(new RegExp(named.source, `g${named.flags}`)))
       spans.set(match.index, {
@@ -441,8 +547,11 @@ function boundToItsKind(words: string, ids: readonly (string | undefined)[]): bo
 }
 const strictlyNamed = (id: string, words: string) =>
   STRICT_KINDS.some(([of, named]) => of.test(id) && named.test(words));
-const anyKindWord = (words: string) =>
-  [...KINDS, ...STRICT_KINDS].some(([, named]) => named.test(words));
+const anyKindWord = (words: string, ids: readonly string[]) =>
+  [
+    ...(hasLookup(ids) ? KINDS : BASE_KINDS),
+    ...(hasLookup(ids) ? STRICT_KINDS : BASE_STRICT_KINDS),
+  ].some(([, named]) => named.test(words));
 /** One figure set against another, or against anything: a verdict, which no figure states. */
 const COMPARISON = lone(
   '(?:more|less|higher|lower|deeper|shallower|cheaper|costlier|pricier|better|worse|bigger|smaller|larger|greater|fewer|safer|riskier|easier|harder)\\s+than|than|compared\\s+(?:to|with)|versus|vs|(?:mais|menos|maior|menor|melhor|pior)\\s+(?:\\p{L}+\\s+)?(?:do\\s+)?que|do\\s+que',
@@ -593,8 +702,8 @@ export function figureResolver(input: {
   const worded = (sentence: string, before: string, next: string): Array<keyof typeof SAID> => {
     const ids = idsIn(sentence);
     // the figures that are not yields; an id that names no figure is refused where ids are read
-    const others = ids.filter((id) => !id.startsWith('yield:') && figure(id) !== undefined);
-    const yields = ids.some((id) => id.startsWith('yield:'));
+    const others = ids.filter((id) => !isYield(id) && figure(id) !== undefined);
+    const yields = ids.some((id) => isYield(id));
     const all = plainly(withoutReferences(sentence));
     const lead = plainly(withoutReferences(before));
     const found: Array<keyof typeof SAID> = [];
@@ -604,13 +713,11 @@ export function figureResolver(input: {
     let bindable = all;
     if (yields) {
       let rest = plainly(
-        sentence.replace(FIGURE_REFERENCE, (_whole, id: string) =>
-          id.startsWith('yield:') ? Y : MARK,
-        ),
+        sentence.replace(FIGURE_REFERENCE, (_whole, id: string) => (isYield(id) ? Y : MARK)),
       );
       const clauses = yieldClauses(
         ids.flatMap((id) => {
-          const of = id.startsWith('yield:') ? figure(id)?.assetId : undefined;
+          const of = isYield(id) ? figure(id)?.assetId : undefined;
           return of === undefined ? [] : (input.namesOf?.(of) ?? []);
         }),
       );
@@ -653,7 +760,7 @@ export function figureResolver(input: {
     if (
       !boundToItsKind(
         bindable,
-        ids.filter((id) => !id.startsWith('yield:')).map((id) => (figure(id) ? id : undefined)),
+        ids.filter((id) => !isYield(id)).map((id) => (figure(id) ? id : undefined)),
       )
     )
       found.push('bound');
@@ -679,7 +786,7 @@ export function figureResolver(input: {
     if (CLAIM.test(whole)) found.push('claim');
     if (FORECAST.test(whole)) found.push('forecast');
     if (input.kindRequired && others.length) {
-      const said = anyKindWord(own) ? own : lead;
+      const said = anyKindWord(own, ids) ? own : lead;
       if (!others.every((id) => strictlyNamed(id, said))) found.push('kind');
     }
     if (input.noComparison && COMPARISON.test(all)) found.push('comparison');
