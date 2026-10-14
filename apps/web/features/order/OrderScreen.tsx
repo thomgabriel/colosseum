@@ -1135,20 +1135,15 @@ export function OrderScreen({
             keeper={keeperTrades}
           />
         )}
-        {/* An add held to our server's targets, which this app could not read from the chain: said on
-            its own line over the button, where it cannot be missed. */}
+        {/* An add held to targets this app could not read from the chain: said once, on its own line
+            over the button, where it cannot be missed. */}
         {check.ok && !done && terms?.kind === 'vault' && terms.source === 'api' && (
           <p
             data-ui="not-checked"
             className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body font-medium"
           >
             <StatusMark status="watch" size={12} className="mt-1.5" />
-            <span>
-              {t.shared.check.notChecked}.{' '}
-              {onMock(port, chain)
-                ? t.portfolio.add.source.mock
-                : t.portfolio.add.source.notRead(t.chain.names[chain])}
-            </span>
+            <span>{t.shared.check.notChecked}.</span>
           </p>
         )}
         {check.ok &&

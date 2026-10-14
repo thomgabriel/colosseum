@@ -45,6 +45,20 @@ export const targetsOfVault = (vault: Pick<Vault, 'positions'>): Target[] =>
     .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
 
 /** The amount card of a host that has no amount of its own (the vault page's pane). */
+/**
+ * Why an add can't be placed, in the order `place` checks it: no wallet of the person's signed in on
+ * the chain, a wallet that isn't the vault's owner, then what was found of the vault's targets (still
+ * reading, a read that failed or differs). Never a sentence of a reason that isn't the one.
+ */
+export function addFailure(
+  o: { signedIn: boolean; owner: boolean; otherWallet: string | null; source: string | null },
+  t: { wallet: string },
+): string {
+  if (!o.signedIn || (!o.owner && o.otherWallet === null)) return t.wallet;
+  if (!o.owner && o.otherWallet !== null) return o.otherWallet;
+  return o.source ?? t.wallet;
+}
+
 export type AddEntry = {
   /** Deposit | Withdraw on the card, where the vault has something to withdraw. */
   onMode?: (mode: AmountMode) => void;
@@ -162,6 +176,8 @@ export function AddMoneyScreen({
     check.targets !== null &&
     (!sameTargets(check.targets, shown) || check.vault.autoFollow !== vault.autoFollow);
   const sourceWords = words.source;
+  // Nothing is said of a read that matches (Thom, Oct 14: the page does not say where a figure was
+  // read from); one that could not be made is said as not checked, and anything else is an alarm.
   const sourceSentence =
     check.state === 'reading'
       ? t.shared.check.reading
@@ -170,27 +186,35 @@ export function AddMoneyScreen({
         : check.state === 'missing'
           ? sourceWords.missing(chainName)
           : check.state === 'unverified'
-            ? check.why === 'mock'
-              ? sourceWords.mock
-              : sourceWords.notRead(chainName)
+            ? `${t.shared.check.notChecked}.`
             : !check.targets
               ? sourceWords.unlisted
               : differs
                 ? sourceWords.differs(chainName)
-                : sourceWords.read(chainName);
+                : null;
   const alarm = owner !== null && check.state !== 'reading' && (held === null || differs);
   const blocked = [
     ...(!chainReady(chain, mock) ? [t.plan.chainNotReady(chainName)] : []),
     ...(port.network(chain)?.on === false ? [t.plan.chainOff(chainName)] : []),
     ...(!active ? [t.buy.blocked.wallet] : !owner ? [words.otherWallet(shorten(vault.owner))] : []),
     // Nothing is offered until the vault is read, and never against a read that failed or differs.
-    ...(owner && (held === null || differs) ? [sourceSentence] : []),
+    ...(owner && (held === null || differs) && sourceSentence ? [sourceSentence] : []),
   ];
 
   /** Makes the order for this amount and keeps what the add is held to with it. */
   async function place(amountUsd: number): Promise<InvestPlaced> {
     if (!chain || !vault || !owner || !port.userId || !held || differs)
-      return { failure: sourceSentence };
+      return {
+        failure: addFailure(
+          {
+            signedIn: port.userId !== null,
+            owner: owner !== null,
+            otherWallet: active && vault ? words.otherWallet(shorten(vault.owner)) : null,
+            source: sourceSentence,
+          },
+          t.buy.blocked,
+        ),
+      };
     // What the add is held to: the vault chosen and its targets as read, never the order the API answers.
     const terms: SharedTerms = {
       kind: 'vault',
@@ -285,32 +309,25 @@ export function AddMoneyScreen({
     />
   );
 
-  // Where the vault's targets were read: on the card, never folded; over its button while it is wrong.
-  const sourceLine = owner && (
-    <p
-      data-ui="source-mark"
-      data-source={check.state === 'read' ? 'chain' : 'api'}
-      data-state={check.state}
-      className={
-        alarm
-          ? 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive'
-          : 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm'
-      }
-    >
-      <StatusMark
-        status={alarm ? 'off-track' : check.state === 'read' ? 'on-track' : 'watch'}
-        className="mt-1.5"
-      />
-      <span>
-        {check.state !== 'reading' && (
-          <span className="font-medium">
-            {check.state === 'read' ? t.shared.check.verified : t.shared.check.notChecked}.{' '}
-          </span>
-        )}
-        {sourceSentence}
-      </span>
-    </p>
-  );
+  // What the person needs to know of the vault's targets: nothing for a read that matches, one line
+  // where they could not be read, an alarm where they differ or the read failed (gate SOURCE-LINES).
+  // On the card, never folded; over its button while it is wrong.
+  const sourceLine =
+    owner && check.state !== 'reading' && sourceSentence ? (
+      <p
+        data-ui="source-mark"
+        data-source={check.state === 'read' ? 'chain' : 'api'}
+        data-state={check.state}
+        className={
+          alarm
+            ? 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive'
+            : 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm'
+        }
+      >
+        <StatusMark status={alarm ? 'off-track' : 'watch'} className="mt-1.5" />
+        <span>{sourceSentence}</span>
+      </p>
+    ) : null;
   // The amount card (gate AMOUNT-CARD): into this vault, its press handing the amount to the card.
   const entry = (
     <DepositCard
@@ -360,7 +377,7 @@ export function AddMoneyScreen({
           )}
         </>
       }
-      // read, or said to be our server's word: a quiet line at the card's foot, with its mark
+      // not checked against the chain: a quiet line at the card's foot, with its mark
       foot={alarm ? undefined : sourceLine}
       running={locked}
       pressed={embedded?.entry?.pressed ?? null}
@@ -377,31 +394,7 @@ export function AddMoneyScreen({
   const context = (
     <div className="flex max-w-3xl flex-col gap-3">
       {!embedded?.bare && <PlanParts vault={vault} />}
-      {owner && (
-        <p
-          data-ui="source-mark"
-          data-source={check.state === 'read' ? 'chain' : 'api'}
-          data-state={check.state}
-          className={
-            alarm
-              ? 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive'
-              : 'flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm'
-          }
-        >
-          <StatusMark
-            status={alarm ? 'off-track' : check.state === 'read' ? 'on-track' : 'watch'}
-            className="mt-1.5"
-          />
-          <span>
-            {check.state !== 'reading' && (
-              <span className="font-medium">
-                {check.state === 'read' ? t.shared.check.verified : t.shared.check.notChecked}.{' '}
-              </span>
-            )}
-            {sourceSentence}
-          </span>
-        </p>
-      )}
+      {sourceLine}
       {held?.keeper && (
         <p data-ui="add-keeper" className="max-w-(--tf-measure-body) text-body-sm">
           {words.keeper}

@@ -278,9 +278,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
           <ChainBadge chain={read.chain} />
         </div>
         {valueRow(false)}
-        <p className="max-w-(--tf-measure-body) text-body text-muted-foreground">
-          {v.lead(chainName)}
-        </p>
+        <p className="max-w-(--tf-measure-body) text-body text-muted-foreground">{v.lead}</p>
         {explorerLink && <p>{explorerLink}</p>}
       </header>
       <VaultHoldings read={read} />
