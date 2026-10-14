@@ -5,7 +5,7 @@ import { createTenonfiMcp } from './server';
 import { callTool, failureOf, listTools } from './test/rpc';
 import { TOOL_NAMES } from './tools';
 
-// The seven tools against a double of the API (AGT-2): what each sends, what it answers, the link a
+// The eight tools against a double of the API (AGT-2): what each sends, what it answers, the link a
 // person opens, the creator's words kept apart, a person's sign-in passed on and nothing else, and no
 // tool that can sign or reach a key. tests/mcp-contract.test.ts runs the same tools against the real
 // API and holds them to its OpenAPI document.
@@ -93,6 +93,57 @@ const PORTFOLIO = {
   disclaimer: 'Not advice.',
 };
 
+/** An asset's facts as the API answers them: one part read on a test network, one fact not measured. */
+const NVDAX_FACTS = {
+  assetId: 'solana:nvdax',
+  chain: 'solana',
+  symbol: 'NVDAx',
+  provenance: 'sandbox',
+  window: '24h',
+  parts: {
+    profile: {
+      facts: [
+        {
+          id: 'profile:solana:nvdax:supply_total',
+          assetId: 'solana:nvdax',
+          label: 'Tokens in circulation',
+          value: 1_234_567.5,
+          unit: 'tokens',
+          source: 'asset_observations',
+          method: 'getTokenSupply (rpc-0.1)',
+          fetchedAt: '2026-10-14T10:00:00.000Z',
+          provenance: 'sandbox',
+          staleAgeSec: 18_000,
+        },
+      ],
+      missing: [
+        {
+          id: 'profile:solana:nvdax:holders_top20_share',
+          assetId: 'solana:nvdax',
+          label: 'Share held by the twenty largest holders',
+          reason: 'not_collected',
+        },
+      ],
+      modelledOn: 'NVDAx (mainnet)',
+    },
+    price_history: {
+      facts: [],
+      missing: [
+        {
+          id: 'bars:solana:nvdax:24h:close',
+          assetId: 'solana:nvdax',
+          label: 'Latest hourly close',
+          reason: 'not_collected',
+          missingHours: 24,
+        },
+      ],
+      modelledOn: 'NVDAx (mainnet)',
+      unread: 'reading',
+    },
+  },
+  disclaimer: 'Not advice.',
+};
+
 const PLAN_ID = '7d4c1e2a-5b6f-4c8d-9e0a-1b2c3d4e5f60';
 const ORDER_ID = '3c9a1f0e-2b4d-4e6f-8a1b-2c3d4e5f6a7b';
 
@@ -123,7 +174,7 @@ function serve(answers: Record<string, Answer>) {
 }
 
 describe('the tool list', () => {
-  it('is the seven tools, each with an input and an output schema and its hints', async () => {
+  it('is the eight tools, each with an input and an output schema and its hints', async () => {
     const tools = await listTools(serve({}).mcp);
     expect(tools.map((t) => t.name)).toEqual([...TOOL_NAMES]);
     for (const tool of tools) {
@@ -297,6 +348,106 @@ describe('each tool', () => {
     expect(sent.map((s) => s.url)).toEqual(['/risk/facts/assets/SPYx?sizeUsd=10000']);
   });
 
+  it('get_asset_facts answers each fact with its source, time, method and provenance, what is not measured, the plate and the disclaimer', async () => {
+    const { mcp, sent } = serve({
+      'GET /v1/assets/solana%3Anvdax/facts': { status: 200, body: NVDAX_FACTS },
+    });
+    const result = await callTool(mcp, 'get_asset_facts', {
+      chain: 'solana',
+      assetId: 'solana:nvdax',
+      parts: ['profile', 'price_history', 'profile'],
+      window: '24h',
+    });
+    expect(sent.map((s) => `${s.method} ${s.url}`)).toEqual([
+      'GET /v1/assets/solana%3Anvdax/facts?parts=profile%2Cprice_history&window=24h',
+    ]);
+    const facts = result.structuredContent as typeof NVDAX_FACTS & { plate: string; next: string };
+    // every fact and every missing one as the API answered it: nothing dropped, nothing rounded
+    expect(facts).toMatchObject(NVDAX_FACTS);
+    expect(facts.parts.profile.facts[0]).toEqual(NVDAX_FACTS.parts.profile.facts[0]);
+    expect(facts.disclaimer).toBe('Not advice.');
+    // a test-network figure says so, with the mainnet token it is read from, in the text an agent reads
+    expect(facts.plate).toBe(
+      'Test network: not live; the figures are those of the mainnet token NVDAx (mainnet).',
+    );
+    const text = result.content[0]?.text ?? '';
+    expect(JSON.parse(text)).toEqual(facts);
+    expect(text).toContain('"provenance":"sandbox"');
+    expect(facts.next).toContain(facts.plate);
+    expect(facts.next).toMatch(/ask again in a moment/);
+    expect(facts.next).toMatch(/disclaimer/);
+  });
+
+  it('get_asset_facts labels a chain on the mock MOCK, and a live answer carries no plate', async () => {
+    const mock = {
+      ...NVDAX_FACTS,
+      provenance: 'mock',
+      window: '7d',
+      parts: {
+        bearing: {
+          facts: [{ ...NVDAX_FACTS.parts.profile.facts[0], provenance: 'mock' }],
+          missing: [],
+          modelledOn: null,
+        },
+      },
+    };
+    const live = {
+      ...mock,
+      provenance: 'live',
+      parts: {
+        bearing: {
+          ...mock.parts.bearing,
+          facts: [{ ...NVDAX_FACTS.parts.profile.facts[0], provenance: 'live' }],
+        },
+      },
+    };
+    const onMock = serve({ 'GET /v1/assets/solana%3Anvdax/facts': { status: 200, body: mock } });
+    const read = await callTool(onMock.mcp, 'get_asset_facts', {
+      chain: 'solana',
+      assetId: 'solana:nvdax',
+    });
+    expect(onMock.sent.map((s) => s.url)).toEqual(['/v1/assets/solana%3Anvdax/facts']);
+    expect(read.structuredContent?.plate).toMatch(/^MOCK: /);
+    expect(read.content[0]?.text).toContain('MOCK');
+    const onLive = serve({ 'GET /v1/assets/solana%3Anvdax/facts': { status: 200, body: live } });
+    const fresh = await callTool(onLive.mcp, 'get_asset_facts', {
+      chain: 'solana',
+      assetId: 'solana:nvdax',
+      parts: ['bearing'],
+    });
+    expect(fresh.structuredContent).not.toHaveProperty('plate');
+    expect(fresh.structuredContent).toMatchObject(live);
+  });
+
+  it('get_asset_facts refuses an asset of another chain before asking, and passes on the API’s refusal', async () => {
+    const { mcp, sent } = serve({});
+    for (const args of [
+      { chain: 'robinhood', assetId: 'solana:nvdax' },
+      { chain: 'solana', assetId: 'base:nvdax' },
+    ]) {
+      const wrong = await callTool(mcp, 'get_asset_facts', args);
+      expect(failureOf(wrong).code, JSON.stringify(args)).toBe('INVALID_INPUT');
+    }
+    // an id that is not chain:slug, a part or a window the API has not, and an empty list never reach it
+    for (const args of [
+      { chain: 'solana', assetId: 'nvdax' },
+      { chain: 'solana', assetId: 'solana:NVDAx' },
+      { chain: 'solana', assetId: 'solana:nvdax', parts: ['screener'] },
+      { chain: 'solana', assetId: 'solana:nvdax', parts: [] },
+      { chain: 'solana', assetId: 'solana:nvdax', window: '1y' },
+    ]) {
+      const bad = await callTool(mcp, 'get_asset_facts', args);
+      expect(bad.isError, JSON.stringify(args)).toBe(true);
+    }
+    expect(sent).toHaveLength(0);
+    const unknown = await callTool(mcp, 'get_asset_facts', {
+      chain: 'solana',
+      assetId: 'solana:nope',
+    });
+    expect(failureOf(unknown)).toMatchObject({ code: 'HTTP_404', status: 404 });
+    expect(sent.map((s) => s.url)).toEqual(['/v1/assets/solana%3Anope/facts']);
+  });
+
   it('says the API is out of reach when it does not answer, so the agent can try again', async () => {
     const mcp = createTenonfiMcp({ apiUrl: API, appUrl: APP }, async () => {
       throw new TypeError('fetch failed');
@@ -336,6 +487,9 @@ describe('what the server passes on, and what it cannot do', () => {
       ['get_portfolio', { chain: 'solana', vault: '..' }],
       ['get_asset_risk', { asset: '//evil.example' }],
       ['get_asset_risk', { asset: '..' }],
+      ['get_asset_facts', { chain: 'solana', assetId: '..' }],
+      ['get_asset_facts', { chain: 'solana', assetId: 'solana:../../v1/me' }],
+      ['get_asset_facts', { chain: 'solana', assetId: 'solana://evil.example' }],
     ] as const) {
       const result = await callTool(mcp, name, args, SIGN_IN);
       expect(result.isError, `${name} ${JSON.stringify(args)}`).toBe(true);
@@ -344,9 +498,11 @@ describe('what the server passes on, and what it cannot do', () => {
     // and what is sent stays on the API's origin and follows no redirect
     await callTool(mcp, 'get_shared_portfolios', { slug: FAMILY.slug }, SIGN_IN);
     await callTool(mcp, 'get_asset_risk', { asset: 'solana:spyx' }, SIGN_IN);
+    await callTool(mcp, 'get_asset_facts', { chain: 'solana', assetId: 'solana:spyx' }, SIGN_IN);
     expect(sent.map((s) => [s.origin, s.redirect, s.url])).toEqual([
       [API, 'error', '/v1/indexes/three-of-the-largest'],
       [API, 'error', '/risk/facts/assets/solana%3Aspyx'],
+      [API, 'error', '/v1/assets/solana%3Aspyx/facts'],
     ]);
   });
 
@@ -364,6 +520,7 @@ describe('what the server passes on, and what it cannot do', () => {
       ['prepare_order', { action: 'follow', slug: 's' }],
       ['get_order_status', { orderId: ORDER_ID }],
       ['get_asset_risk', { asset: 'SPYx' }],
+      ['get_asset_facts', { chain: 'solana', assetId: 'solana:spyx' }],
     ];
     for (const [name, args] of calls) {
       await callTool(mcp, name, args, SIGN_IN);

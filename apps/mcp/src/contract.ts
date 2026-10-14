@@ -7,6 +7,7 @@ import openapi from '@colosseum/sdk/openapi.json' with { type: 'json' };
 export type JsonSchema = { [key: string]: unknown };
 
 type Operation = {
+  parameters?: { in: string; name: string; schema: JsonSchema }[];
   requestBody?: { content: { 'application/json': { schema: JsonSchema } } };
   responses: Record<string, { content?: { 'application/json'?: { schema: JsonSchema } } }>;
 };
@@ -32,6 +33,13 @@ export function bodyOf(route: string): JsonSchema {
   const schema = operation(route).requestBody?.content['application/json'].schema;
   if (!schema) throw new Error(`${route} takes no body`);
   return schema;
+}
+
+/** The schema of one parameter a route takes: in its path or its query. */
+export function parameterOf(route: string, where: 'path' | 'query', name: string): JsonSchema {
+  const found = operation(route).parameters?.find((p) => p.in === where && p.name === name);
+  if (!found) throw new Error(`${route} takes no ${where} parameter ${name}`);
+  return found.schema;
 }
 
 /** One property of an object schema. */
