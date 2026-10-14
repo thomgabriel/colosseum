@@ -299,12 +299,10 @@ describe('a shared portfolio this app could read from the chain and could not', 
     const page = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
     for (let i = 0; i < 5; i += 1) await settle(50);
     const tampered = en.shared.family.tampered('Solana');
-    // no buy: a button that does nothing, and the sentence that says why; no vault is offered a follow
-    const buy = [...page.querySelectorAll<HTMLButtonElement>('button')].find(
-      (b) => b.textContent === en.shared.family.buy,
-    );
-    expect(buy?.getAttribute('aria-disabled')).toBe('true');
-    expect(page.textContent).toContain(tampered);
+    // no deposit and no follow: no amount card and no vault to choose, and the sentence that says why
+    expect(page.querySelector('[data-ui="amount-card"]')).toBeNull();
+    expect(page.querySelector('[data-ui="family-way"]')).toBeNull();
+    expect(find(page, '[data-ui="family-blocked"]').textContent).toBe(tampered);
     expect(page.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
     const mark = find(page, '[data-ui="source-mark"]');
     expect(mark.textContent).toContain(en.shared.check.failed('Solana'));

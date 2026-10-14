@@ -77,9 +77,13 @@ const both = familyOf(FAMILY_ID, {
 
 /** The person's new plans start on Robinhood Chain; a vault of theirs follows the portfolio on Solana. */
 let starts = 'robinhood';
+/** How often the person's vaults were read. */
+let vaultReads = 0;
 function api() {
   starts = 'robinhood';
+  vaultReads = 0;
   portStore.setApi(async (path, init) => {
+    if (path === '/v1/portfolio') vaultReads += 1;
     // where new plans start, as /goal's choice stores it
     if (path === '/v1/me/chain') starts = JSON.parse(String(init?.body)).chain;
     if (path === '/v1/me' || path === '/v1/me/chain')
@@ -214,5 +218,17 @@ describe('a portfolio’s page while a deposit runs', () => {
     await click(find(host, '[data-act="done"]'));
     expect(radios(host).some((r) => r.disabled)).toBe(false);
     expect(showOther(host).getAttribute('aria-disabled')).not.toBe('true');
+  });
+
+  it('reads the person’s vaults again once the deposit is done, and keeps the card that holds it', async () => {
+    const host = await page();
+    await click(find(host, '[data-act="press"]'));
+    const before = vaultReads;
+    await click(find(host, '[data-act="done"]'));
+    for (let i = 0; i < 3; i += 1) await settle(50);
+    // the vault it opened is said on the pane as following the portfolio (audit F3)
+    expect(vaultReads).toBeGreaterThan(before);
+    // and the card with the steps and their links stays where it was
+    expect([card.mounts, card.unmounts]).toEqual([1, 0]);
   });
 });

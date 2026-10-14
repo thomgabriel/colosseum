@@ -1416,7 +1416,6 @@ export const en = {
         'One asset of this portfolio isn’t available on this chain now, so the portfolio can’t take a deposit as it stands.',
     },
     family: {
-      nextStep: 'Review the portfolio, then choose how much to deposit.',
       loading: 'Reading this portfolio…',
       missing: 'I can’t find a shared portfolio with that name.',
       backToShelf: 'Back to the shared portfolios',
@@ -1490,12 +1489,38 @@ export const en = {
     },
     offer: {
       title: 'Auto-follow',
-      offered:
-        'Offered: with auto-follow on, our keeper rebalances a vault that follows this portfolio when a new version takes effect, within the vault’s limits.',
+      offered: 'Offered. Our keeper rebalances a following vault when a new version takes effect.',
       noOracle: (assets: string, chain: string) =>
-        `Not offered: this portfolio holds ${assets}, which has no price oracle on ${chain}, so our keeper can’t rebalance it. If you follow it, I ask you to rebalance, in one tap, when it changes.`,
+        `Not offered: ${assets} has no price oracle on ${chain}. You rebalance in one tap when it changes.`,
       switchedOff: (chain: string) =>
-        `Not offered on ${chain} yet: our keeper doesn’t run there. If you follow it, I ask you to rebalance, in one tap, when it changes.`,
+        `Not offered on ${chain} yet. You rebalance in one tap when it changes.`,
+    },
+    /**
+     * A shared portfolio's page, its panel of actions: two ways to use the portfolio, and the vaults
+     * that already follow it.
+     */
+    actions: {
+      title: 'Use this portfolio',
+      legend: 'How to use it',
+      newVault: {
+        title: 'Start a new vault',
+        line: 'A vault that copies this portfolio, opened with your first deposit.',
+        /** The person's vault for this portfolio is open: a deposit goes there, from its own page. */
+        open: 'Your vault for this portfolio is open. Deposit into it from its page.',
+      },
+      follow: {
+        title: 'Follow with a vault of yours',
+        line: (chain: string) => `One of your vaults on ${chain} takes its weights.`,
+        none: (chain: string) => `You have no other vault on ${chain} to follow it with.`,
+      },
+      signedOut: 'Sign in first to use either.',
+      signIn: 'Sign in',
+      /** A vault of the person's that follows it: a state, with the way to the vault. */
+      follows: 'follows this portfolio',
+      version: (n: number) => `version ${n}`,
+      /** The follow card's choice of vault. */
+      vault: 'Vault',
+      firstDeposit: 'First deposit',
     },
     buy: {
       title: 'Deposit and follow',

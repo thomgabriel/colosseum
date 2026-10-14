@@ -1222,7 +1222,6 @@ export const pt: Dictionary = {
         'Um ativo deste portfólio não está disponível nesta rede agora, então o portfólio não pode receber um depósito como está.',
     },
     family: {
-      nextStep: 'Revise a estratégia e escolha quanto investir.',
       loading: 'Lendo este portfólio…',
       missing: 'Não encontro um portfólio compartilhado com esse nome.',
       backToShelf: 'Voltar aos portfólios compartilhados',
@@ -1292,11 +1291,31 @@ export const pt: Dictionary = {
     offer: {
       title: 'Seguir automático',
       offered:
-        'Oferecido: com o seguir automático ativado, nosso operador rebalanceia um cofre que segue este portfólio quando uma versão nova entra em vigor, dentro dos limites do cofre.',
+        'Oferecido. Nosso operador rebalanceia um cofre que segue o portfólio quando uma versão nova entra em vigor.',
       noOracle: (assets: string, chain: string) =>
-        `Não oferecido: este portfólio tem ${assets}, que não tem oráculo de preço na ${chain}, então nosso operador não consegue rebalanceá-lo. Se você segui-lo, peço que rebalanceie, com um toque, quando ele mudar.`,
+        `Não oferecido: ${assets} não tem oráculo de preço na ${chain}. Você rebalanceia com um toque quando ele mudar.`,
       switchedOff: (chain: string) =>
-        `Ainda não oferecido na ${chain}: nosso operador não roda lá. Se você segui-lo, peço que rebalanceie, com um toque, quando ele mudar.`,
+        `Ainda não oferecido na ${chain}. Você rebalanceia com um toque quando ele mudar.`,
+    },
+    actions: {
+      title: 'Usar este portfólio',
+      legend: 'Como usar',
+      newVault: {
+        title: 'Abrir um cofre novo',
+        line: 'Um cofre que copia este portfólio, aberto com o seu primeiro depósito.',
+        open: 'O seu cofre deste portfólio já está aberto. Deposite nele pela página dele.',
+      },
+      follow: {
+        title: 'Seguir com um cofre seu',
+        line: (chain: string) => `Um dos seus cofres na ${chain} passa a ter os pesos dele.`,
+        none: (chain: string) => `Você não tem outro cofre na ${chain} para segui-lo.`,
+      },
+      signedOut: 'Entre primeiro para usar qualquer um.',
+      signIn: 'Entrar',
+      follows: 'segue este portfólio',
+      version: (n: number) => `versão ${n}`,
+      vault: 'Cofre',
+      firstDeposit: 'Primeiro depósito',
     },
     buy: {
       title: 'Depositar e seguir',
