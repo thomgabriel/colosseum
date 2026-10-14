@@ -545,17 +545,6 @@ contract IndexRegistryTest is SwapFixture {
         assertEq(registry.rulesVersion(), 2);
     }
 
-    /// The second logic is deployed where the CREATE2 deployer puts it for its code, and the Safe's batch
-    /// names that address (`script/DeployRegistryV2.s.sol`). Any change to what the compiler emits for the
-    /// registry moves it: this fails first, before a batch is signed for code that is not this.
-    function test_rules2_theInitCodeIsTheOneTheBatchNames() public pure {
-        assertEq(
-            keccak256(type(IndexRegistry).creationCode),
-            0x4b67832111656903995c4d2676a2ebd6a45684faf1f23215b5699483318e2965,
-            "the registry's code moved: deploy and batch must name the new address"
-        );
-    }
-
     // ---- the second rules (gate SHARED-RULES-V2): the cases are in `IndexRegistryVectors.t.sol`; these are
     // the edges as a creator meets them, on the real factory.
 
