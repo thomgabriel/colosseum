@@ -17,7 +17,7 @@ import { vaultTitle } from '../portfolio-section/vault-title';
 import { useWords } from '../portfolio-section/words';
 import { readLocal } from '../vault-conversation/storage';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
-import { ConversationRail } from './ConversationRail';
+import { ConversationRail, ConversationSheet } from './ConversationRail';
 import { type DraftRow, mergeRows, type VaultRow } from './conversation-list';
 import {
   type ConversationIndex,
@@ -357,19 +357,23 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
         now.filter((one) => !(one.base === row.base && one.item.id === row.id)),
       );
   }
+  // The panel's rows and what it does, for the rail and for the phone's sheet alike.
+  const panel = {
+    rows,
+    now,
+    onNew: () => pick('new'),
+    onOpen: (row: DraftRow) => {
+      if (!row.current) pick(`conversation:${row.chain}:${row.id}`);
+    },
+    onRename: rename,
+    onDelete: (row: DraftRow) => remove(row),
+  };
   return (
     <div className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1 lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-6">
-      <ConversationRail
-        rows={rows}
-        now={now}
-        onNew={() => pick('new')}
-        onOpen={(row) => {
-          if (!row.current) pick(`conversation:${row.chain}:${row.id}`);
-        }}
-        onRename={rename}
-        onDelete={(row) => remove(row)}
-      />
+      <ConversationRail {...panel} />
       <div ref={root} className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1">
+        {/* Under 1024px the panel is a sheet, opened from this button over the conversation. */}
+        <ConversationSheet {...panel} />
         <span role="status" data-ui="goal-chain-said" className="sr-only">
           {said}
         </span>

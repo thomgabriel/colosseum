@@ -54,35 +54,15 @@ export type RailActions = {
   onDelete: (row: DraftRow) => void;
 };
 
-export function ConversationRail({
+export function ConversationSheet({
   rows,
   now,
   ...actions
 }: RailActions & { rows: readonly ConversationRow[]; now: number }) {
   const w = useT().goal.explore.picker;
-  const [closed, setClosed] = useState(false);
   const [sheet, setSheet] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
-  const listId = useId();
-
-  // On a wide screen the rail opens as this browser last left it.
-  useEffect(() => {
-    try {
-      setClosed(localStorage.getItem(SIDE_KEY) === '1');
-    } catch {
-      // the rail works without storage
-    }
-  }, []);
-  const toggle = () => {
-    const next = !closed;
-    setClosed(next);
-    try {
-      localStorage.setItem(SIDE_KEY, next ? '1' : '0');
-    } catch {
-      // the rail works without storage
-    }
-  };
 
   // The sheet is a modal dialog: the page under it is out of reach, Escape closes it, and the focus
   // goes back to the button that opened it.
@@ -116,7 +96,7 @@ export function ConversationRail({
 
   return (
     <>
-      {/* Under 1024px: one button over the conversation, which names the one on screen. */}
+      {/* Under 1024px: one button that names the one on screen; the title row's place for it. */}
       <div className="flex min-w-0 lg:hidden">
         <button
           ref={opener}
@@ -172,54 +152,84 @@ export function ConversationRail({
           </div>
         )}
       </dialog>
+    </>
+  );
+}
 
-      {/* From 1024px: the rail beside the conversation, under the app's fixed bar. */}
-      <aside
-        aria-label={w.label}
-        data-ui="conversations"
-        data-closed={closed || undefined}
+export function ConversationRail({
+  rows,
+  now,
+  ...actions
+}: RailActions & { rows: readonly ConversationRow[]; now: number }) {
+  const w = useT().goal.explore.picker;
+  const [closed, setClosed] = useState(false);
+  const listId = useId();
+
+  // On a wide screen the rail opens as this browser last left it.
+  useEffect(() => {
+    try {
+      setClosed(localStorage.getItem(SIDE_KEY) === '1');
+    } catch {
+      // the rail works without storage
+    }
+  }, []);
+  const toggle = () => {
+    const next = !closed;
+    setClosed(next);
+    try {
+      localStorage.setItem(SIDE_KEY, next ? '1' : '0');
+    } catch {
+      // the rail works without storage
+    }
+  };
+
+  // From 1024px: the rail beside the conversation, under the app's fixed bar.
+  return (
+    <aside
+      aria-label={w.label}
+      data-ui="conversations"
+      data-closed={closed || undefined}
+      className={cn(
+        'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
+        closed ? 'lg:w-14' : 'lg:w-76',
+      )}
+    >
+      <div
         className={cn(
-          'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
-          closed ? 'lg:w-14' : 'lg:w-76',
+          'flex items-center gap-2 border-b border-border',
+          closed ? 'flex-col px-2 py-3' : 'justify-between px-4 py-3',
         )}
       >
-        <div
-          className={cn(
-            'flex items-center gap-2 border-b border-border',
-            closed ? 'flex-col px-2 py-3' : 'justify-between px-4 py-3',
-          )}
+        {!closed && <h2 className="text-body-lg font-semibold">{w.label}</h2>}
+        <button
+          type="button"
+          data-ui="conversations-toggle"
+          aria-expanded={!closed}
+          aria-controls={listId}
+          onClick={toggle}
+          className={buttonClass({ variant: 'icon', size: 'dense' })}
+          aria-label={closed ? w.show : w.hide}
+          title={closed ? w.show : w.hide}
         >
-          {!closed && <h2 className="text-body-lg font-semibold">{w.label}</h2>}
+          <Icon name="Menu" size={16} />
+        </button>
+        {closed && (
           <button
             type="button"
-            data-ui="conversations-toggle"
-            aria-expanded={!closed}
-            aria-controls={listId}
-            onClick={toggle}
+            data-ui="conversation-new"
+            onClick={actions.onNew}
             className={buttonClass({ variant: 'icon', size: 'dense' })}
-            aria-label={closed ? w.show : w.hide}
-            title={closed ? w.show : w.hide}
+            aria-label={w.fresh}
+            title={w.fresh}
           >
-            <Icon name="Menu" size={16} />
+            <Icon name="Plus" size={16} />
           </button>
-          {closed && (
-            <button
-              type="button"
-              data-ui="conversation-new"
-              onClick={actions.onNew}
-              className={buttonClass({ variant: 'icon', size: 'dense' })}
-              aria-label={w.fresh}
-              title={w.fresh}
-            >
-              <Icon name="Plus" size={16} />
-            </button>
-          )}
-        </div>
-        <div id={listId} hidden={closed} className="flex min-h-0 flex-1 flex-col">
-          {!closed && <ConversationList rows={rows} now={now} {...actions} />}
-        </div>
-      </aside>
-    </>
+        )}
+      </div>
+      <div id={listId} hidden={closed} className="flex min-h-0 flex-1 flex-col">
+        {!closed && <ConversationList rows={rows} now={now} {...actions} />}
+      </div>
+    </aside>
   );
 }
 
