@@ -1450,8 +1450,8 @@ describe('a vault away from its targets is offered one press that trades it to t
     );
     expect(heads).toEqual([
       en.order.flow.table.holding,
-      en.order.flow.picture.holdsNow,
       en.order.flow.picture.target,
+      en.order.flow.picture.holdsNow,
       en.order.flow.table.change,
     ]);
     // the way back is the order panel's own, under its button, not loose on the pane

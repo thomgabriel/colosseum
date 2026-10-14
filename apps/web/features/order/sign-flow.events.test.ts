@@ -73,12 +73,31 @@ describe('the picture of what changes', () => {
   };
   const share = (bps: number) => `${bps / 100}%`;
 
+  /** A cell's own words, without the label a narrow box writes before its figure. */
+  const own = (el: Element | null) =>
+    el
+      ? [...el.childNodes]
+          .filter((n) => n.nodeType === 3 || !(n as Element).matches?.('.\\@lg\\:hidden'))
+          .map((n) => n.textContent)
+          .join('')
+      : undefined;
+  /** Each row of the composition: its name, its share after, its share before and its move. */
   const cells = (host: HTMLElement) =>
-    [...host.querySelectorAll('[data-ui="sign-share"]')].map((tr) =>
-      [...tr.querySelectorAll('td')].map((td) => td.textContent),
+    [...host.querySelectorAll('[data-ui="composition-table"] tbody tr')].map((tr) =>
+      [
+        tr.querySelector('[data-part="name"]')?.textContent,
+        tr.querySelector('[data-ui="composition-share"]')?.textContent,
+        own(tr.querySelector('[data-column="before"]')),
+        tr.querySelector('[data-column="change"] [aria-hidden="true"]')?.textContent ??
+          tr.querySelector('[data-column="change"]')?.textContent,
+      ].filter((cell) => cell !== undefined),
+    );
+  const heads = (host: HTMLElement) =>
+    [...host.querySelectorAll('[data-ui="composition-table"] thead th')].map(
+      (th) => th.textContent,
     );
 
-  it('sets each holding’s share now beside its share after and the signed difference, as the kit’s table', async () => {
+  it('sets each holding’s share after beside its share before and the move, as the shared composition', async () => {
     const host = await mount(
       h(ShareList, {
         caption: 'Your vault’s targets',
@@ -86,19 +105,18 @@ describe('the picture of what changes', () => {
         labels,
         items: [
           { key: 'spy', name: 'SPY', asset: 'solana:spy', beforeBps: 6000, bps: 7000 },
-          { key: 'nvda', name: 'NVDA', asset: 'solana:nvda', beforeBps: 4000, bps: 3000 },
-          { key: 'gold', name: 'Gold', asset: 'solana:gold', bps: 0, beforeBps: 0 },
+          { key: 'nvda', name: 'NVDA', asset: 'solana:nvda', beforeBps: 3000, bps: 2000 },
+          { key: 'gold', name: 'Gold', asset: 'solana:gold', beforeBps: 1000, bps: 1000 },
         ],
       }),
     );
-    const heads = [...host.querySelectorAll('thead th')].map((th) => th.textContent);
-    expect(heads).toEqual(['Holding', 'Before', 'After', 'Change']);
+    // the composition's comparison (WEIGHTS-RING): two strips, and its columns in its own order
+    expect(find(host, '[data-ui="composition"]').dataset.mode).toBe('compare');
+    expect(heads(host)).toEqual(['Holding', 'After', 'Before', 'Change']);
     expect(find(host, 'caption').textContent).toBe('Your vault’s targets');
     const rows = cells(host);
-    // the holding's mark is a picture: its name and figures are what is read
     // the move in points: a share's change is never said as a percent of a percent
-    expect(rows[0]?.slice(1)).toEqual(['60%', '70%', '+10 pp']);
-    expect(rows[0]?.[0]).toContain('SPY');
+    expect(rows[0]).toEqual(['SPY', '70%', '60%', '+10 pp']);
     expect(rows[1]?.[3]).toBe('\u221210 pp');
     expect(rows[2]?.[3]).toBe('unchanged');
   });
@@ -119,7 +137,7 @@ describe('the picture of what changes', () => {
     expect(cells(host).map((row) => row[3])).toEqual(['+<1 pp', '\u2212<1 pp']);
   });
 
-  it('shows one share a holding where nothing before is known', async () => {
+  it('shows one composition where nothing before is known', async () => {
     const host = await mount(
       h(ShareList, {
         caption: 'c',
@@ -128,12 +146,9 @@ describe('the picture of what changes', () => {
         items: [{ key: 'spy', name: 'SPY', bps: 7000 }],
       }),
     );
-    expect([...host.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual([
-      'Holding',
-      'After',
-    ]);
+    expect(find(host, '[data-ui="composition"]').dataset.mode).toBe('single');
+    expect(heads(host)).toEqual(['Holding', 'After']);
     expect(cells(host)).toEqual([['SPY', '70%']]);
-    expect(host.querySelector('[data-ui="asset-mark"]')).toBeNull();
   });
 
   it('reads an amount rounded, with the exact one on hover', async () => {

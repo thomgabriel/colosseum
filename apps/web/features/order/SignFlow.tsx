@@ -6,6 +6,7 @@ import { Hint } from '../../components/ui/Hint';
 import { Icon } from '../../components/ui/Icon';
 import { KIT_CELL, KIT_NUMERIC, KIT_ROW, KitTable, KitTh } from '../../components/ui/KitTable';
 import { HeroFigure, PanelStat, Plate, StatGrid } from '../../components/ui/Panel';
+import { Composition } from '../shared/Composition';
 import type { Figure, Picture, ShareItem } from './order-summary';
 import { AssetMark } from './PlanView';
 
@@ -163,10 +164,10 @@ function Holding({ name, asset }: { name: string; asset?: string }) {
 }
 
 /**
- * What a vault aims at before and after, as the house kit's table: the holding, its share now, its
- * share after and the signed difference, figures right-aligned. A stand-in for the shared
- * composition's comparison (`features/shared/Composition.tsx`, mode "compare"), which takes the same
- * items.
+ * What a vault aims at before and after, as the shared composition draws it (gate WEIGHTS-RING, mode
+ * "compare"): the two strips, then a row a holding with its share after, its share before and the move
+ * in points. Where nothing before is known, one composition. It runs to the panel's edges, as the kit's
+ * table does: the hosts pad by the panel's 20px.
  */
 export function ShareList({
   caption,
@@ -188,59 +189,26 @@ export function ShareList({
   };
 }) {
   const compare = items.some((item) => item.beforeBps !== undefined);
-  // a move too small to show as a whole share is still said as one, never as "+0%"
   // a move is said in points, never as a share of a share; one too small to show whole is still a move
   const signed = (bps: number) =>
     `${bps > 0 ? '+' : '\u2212'}${labels.points(Math.abs(bps)) === labels.points(0) ? `<${labels.points(100)}` : labels.points(Math.abs(bps))}`;
   return (
-    <div data-ui="sign-picture" className={FLUSH}>
-      <KitTable
-        caption={caption}
-        minWidth="min-w-0"
-        head={
-          <>
-            <KitTh>{labels.holding}</KitTh>
-            {compare && <KitTh numeric>{labels.before}</KitTh>}
-            <KitTh numeric>{labels.after}</KitTh>
-            {compare && <KitTh numeric>{labels.change}</KitTh>}
-          </>
-        }
-      >
-        {items.map((item) => {
-          const was = item.beforeBps ?? 0;
-          const moved = item.bps - was;
-          return (
-            <tr key={item.key} data-ui="sign-share" className={KIT_ROW}>
-              <td className={KIT_CELL}>
-                <Holding
-                  name={item.name}
-                  {...(item.asset && !item.cash ? { asset: item.asset } : {})}
-                />
-              </td>
-              {compare && (
-                <td className={cn(KIT_CELL, KIT_NUMERIC, 'text-muted-foreground')}>{share(was)}</td>
-              )}
-              <td className={cn(KIT_CELL, KIT_NUMERIC, 'font-medium')}>{share(item.bps)}</td>
-              {compare && (
-                <td
-                  data-ui="sign-share-delta"
-                  className={cn(
-                    KIT_CELL,
-                    KIT_NUMERIC,
-                    moved > 0
-                      ? 'text-status-on'
-                      : moved < 0
-                        ? 'text-status-off'
-                        : 'text-muted-foreground',
-                  )}
-                >
-                  {moved === 0 ? labels.unchanged : signed(moved)}
-                </td>
-              )}
-            </tr>
-          );
-        })}
-      </KitTable>
+    <div data-ui="sign-picture" className="-mx-5">
+      <Composition
+        mode={compare ? 'compare' : 'single'}
+        items={items}
+        share={share}
+        signed={signed}
+        labels={{
+          caption,
+          asset: labels.holding,
+          weight: labels.after,
+          before: labels.before,
+          after: labels.after,
+          change: labels.change,
+          unchanged: labels.unchanged,
+        }}
+      />
     </div>
   );
 }

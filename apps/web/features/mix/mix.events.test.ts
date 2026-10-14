@@ -296,12 +296,15 @@ describe('a vault conversation’s preview, applied to the vault', () => {
       [...change.querySelectorAll('[data-ui="sign-picture"] thead th')].map((th) => th.textContent),
     ).toEqual([
       en.order.flow.table.holding,
-      en.order.flow.picture.before,
       en.order.flow.picture.next,
+      en.order.flow.picture.before,
       en.order.flow.table.change,
     ]);
-    for (const delta of change.querySelectorAll('[data-ui="sign-share-delta"]'))
-      expect(delta.textContent).toMatch(/^(?:[+\u2212]<?\d+ pp|unchanged)$/);
+    // the shared composition's comparison (WEIGHTS-RING), its moves in points
+    expect(find(change, '[data-ui="composition"]').dataset.mode).toBe('compare');
+    const moves = change.querySelectorAll('[data-ui="composition-delta"] [aria-hidden="true"]');
+    expect(moves.length).toBeGreaterThan(0);
+    for (const delta of moves) expect(delta.textContent).toMatch(/^[+\u2212]<?\d+ pp$/);
     // worked out before any quote: its dollars are said as estimates, and why the steps' may differ
     expect(find(change, '[data-ui="stat-swapped"] dt').textContent).toBe(
       en.order.flow.stat.swappedEstimate,
