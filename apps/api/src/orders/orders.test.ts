@@ -932,6 +932,7 @@ describe('the /v1 route table', () => {
       '/v1/portfolio/history',
       '/v1/portfolio/plans',
       '/v1/portfolio/rebalances',
+      '/v1/shared/limits',
       '/v1/shelf',
       '/v1/stats',
       '/v1/testnet/fund',

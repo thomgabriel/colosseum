@@ -14,6 +14,7 @@ import {
   type ChainErrorCode,
   ChainId,
   type ChainReader,
+  CreatorLimits,
   chainFamily,
   evmCallPreimage,
   Funding,
@@ -948,9 +949,13 @@ group('refusals', {
     if (!first || !second || rest.length === 0)
       throw new Error('the fixture recipe has fewer than three assets');
     const publish = (recipe: Recipe) => c.a.buildPublishRecipe({ creator: recipe.creator, recipe });
-    // Two assets, where three is the fewest.
-    const two = [first, second].map((x) => ({ ...x, weightBps: 5000 }));
-    await refuses(publish({ ...c.f.publishRecipe, components: two }), 'CreatorLimit');
+    // The chain says its own rules; under the first, two assets where three is the fewest. Under the
+    // second one asset is enough, and the cases below still break them.
+    const limits = CreatorLimits.parse(await c.a.creatorLimits());
+    if (limits.minAssets === 3) {
+      const two = [first, second].map((x) => ({ ...x, weightBps: 5000 }));
+      await refuses(publish({ ...c.f.publishRecipe, components: two }), 'CreatorLimit');
+    }
     // Half a step moved from one asset to another: weights go in steps of 50 bps.
     const offStep = [
       { ...first, weightBps: first.weightBps - 25 },

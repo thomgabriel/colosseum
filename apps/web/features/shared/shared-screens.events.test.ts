@@ -35,6 +35,7 @@ import {
   familyBuyOrder,
   familyOf,
   followOrder,
+  limitsOf,
   ORDER_ID,
   publishOrder,
   RECIPE,
@@ -141,6 +142,8 @@ function api(o: {
   chain?: Person['chain'];
   /** Answers POST /v1/vaults/{chain}/{address}/rebalance/quote. */
   quote?: () => Response;
+  /** Answers GET /v1/shared/limits; the chain's own rules unless said. */
+  limits?: () => Response;
 }) {
   const calls: Call[] = [];
   portStore.setApi(async (path, init) => {
@@ -153,6 +156,8 @@ function api(o: {
       o.chain = chain;
       return json({ ...person, ...o.person, chain });
     }
+    if (path.startsWith('/v1/shared/limits?chain='))
+      return o.limits?.() ?? json(limitsOf(path.split('=')[1] ?? ''));
     if (path.startsWith('/v1/shelf'))
       return json({ families: o.families ?? (o.family ? [o.family] : []), disclaimer: 'd' });
     if (path.startsWith(`/v1/indexes/${SLUG}/versions`))

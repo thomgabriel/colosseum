@@ -100,16 +100,17 @@ describe('the committed OpenAPI document (packages/sdk/openapi.json)', () => {
         // Every route is counted, so every route can refuse: a 429 has the one refusal shape.
         expect(Object.keys(responses), name).toContain('default');
       }
-    // The routes anybody may call, by name: a route opened by mistake fails here. The shelf and a
-    // shared portfolio's page are the same for everyone (DESIGN-VAULT section 10). A plan proposed from
-    // a link is made and read back with no sign-in (AGT-2, section 12). The platform's counts are the
-    // landing's, for every visitor.
+    // The routes anybody may call, by name: a route opened by mistake fails here. The shelf, a
+    // shared portfolio's page and a chain's author limits are the same for everyone (DESIGN-VAULT
+    // section 10). A plan proposed from a link is made and read back with no sign-in (AGT-2, section
+    // 12). The platform's counts are the landing's, for every visitor.
     expect(open).toEqual([
       'POST /v1/baskets/propose',
       'GET /v1/baskets/{id}',
       'GET /v1/config',
       'GET /v1/indexes/{slug}',
       'GET /v1/indexes/{slug}/versions',
+      'GET /v1/shared/limits',
       'GET /v1/shelf',
       'GET /v1/stats',
       'GET /v1/vaults/{chain}/{address}',

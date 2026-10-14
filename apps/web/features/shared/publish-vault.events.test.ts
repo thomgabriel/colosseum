@@ -15,6 +15,7 @@ import { readPublishVault } from './publish-vault';
 import {
   FAMILY_ID,
   familyOf,
+  limitsOf,
   ORDER_ID,
   publishOrder,
   recipeOf,
@@ -80,6 +81,8 @@ function api(
     chain?: string;
     /** The chains a wallet of theirs signs on; both unless said. */
     chainOptions?: string[];
+    /** Answers GET /v1/shared/limits; the chain's own rules unless said. */
+    limits?: () => Response;
   } = {},
 ) {
   let chain = options.chain ?? 'solana';
@@ -117,6 +120,8 @@ function api(
         ],
         disclaimer: 'd',
       });
+    if (path.startsWith('/v1/shared/limits?chain='))
+      return options.limits?.() ?? json(limitsOf(path.split('=')[1] ?? ''));
     if (path.startsWith('/v1/indexes/'))
       return options.family?.() ?? json({ error: 'missing' }, 404);
     if (path.startsWith('/v1/vaults/'))
@@ -421,10 +426,69 @@ describe('sharing a selected vault strategy', () => {
     const calls = api();
     read.mockResolvedValue(snapshots(first, [{ asset: 'solana:spyx', weightBps: 10000 }]));
     const host = await show();
-    expect(host.textContent).toContain(en.shared.publish.problems.count);
-    expect(host.textContent).toContain(en.shared.publish.problems.weight);
+    // Solana's program keeps the first rules: three assets at the fewest, 50% at the most.
+    expect(host.textContent).toContain(en.shared.publish.rules.count(3, 12));
+    expect(host.textContent).toContain(en.shared.publish.rules.weight('2%', '50%', '0.5%'));
     await click(button(host));
     expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(0);
     expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(1);
+  });
+});
+
+describe('the rules a publish is held to are the chain’s, read from it (SHARED-RULES-V2)', () => {
+  const sixty = [{ asset: 'solana:spyx', weightBps: 6000 }];
+
+  it('under the first rules, refuses one asset and a vault that keeps cash, as the chain would', async () => {
+    const calls = api();
+    read.mockResolvedValue(snapshots(first, sixty));
+    const host = await show();
+    expect(host.textContent).toContain(en.shared.publish.rules.count(3, 12));
+    expect(host.textContent).toContain(en.shared.publish.rules.weight('2%', '50%', '0.5%'));
+    expect(host.textContent).toContain(en.shared.publish.rules.sum);
+    // What the target leaves is shown as the vault's cash, not added to the token.
+    expect(find(host, '[data-ui="publish-cash"]').textContent).toContain('40%');
+    await click(button(host));
+    expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(0);
+  });
+
+  it('under the second, publishes one asset with the rest in cash, and warns on its cap with the figure', async () => {
+    const calls = api({
+      limits: () =>
+        json(
+          limitsOf('solana', {
+            rules: 2,
+            ceilings: [{ asset: 'solana:spyx', maxWeightBps: 2500 }],
+          }),
+        ),
+    });
+    read.mockResolvedValue(snapshots(first, sixty));
+    const host = await show();
+    const p = en.shared.publish;
+    expect(host.textContent).not.toContain(p.rules.count(1, 16));
+    expect(host.textContent).not.toContain(p.rules.sumAtMost);
+    expect(host.textContent).toContain(
+      p.rules.shape('Solana', 1, 16, '0.5%', '100%', '0.5%', true),
+    );
+    expect(find(host, '[data-ui="publish-cash"]').textContent).toContain('40%');
+    // A warning that cites the cap, not a refusal (ANY-COMPOSITION, EXIT-SOURCE).
+    expect(find(host, '[data-ui="publish-over-cap"]').textContent).toBe(
+      p.rules.overCap('SPYx', '60%', '25%'),
+    );
+    await click(button(host));
+    await settle(10);
+    expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({
+      recipes: [{ chain: 'solana', components: [{ kind: 'asset', ...sixty[0] }] }],
+    });
+  });
+
+  it('pauses publishing while the rules are read, and when the chain does not say them', async () => {
+    const calls = api({
+      limits: () => json({ error: 'the chain did not answer', code: 'CHAIN_UNAVAILABLE' }, 503),
+    });
+    const host = await show();
+    expect(host.textContent).toContain(en.shared.publish.rules.unread('Solana'));
+    expect(host.querySelector('[data-ui="publish-over-cap"]')).toBeNull();
+    await click(button(host));
+    expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(0);
   });
 });
