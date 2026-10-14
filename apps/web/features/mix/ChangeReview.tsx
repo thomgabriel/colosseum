@@ -72,38 +72,50 @@ export function ChangeReview({
   return (
     <div data-ui="change-review">
       <Panel aria-labelledby={titleId}>
-        <PanelHead id={titleId} title={f.changeTitle} />
+        {/* back to the editor is the head's action, as the overview's head holds its own */}
+        <PanelHead
+          id={titleId}
+          title={f.changeTitle}
+          actions={
+            <Button variant="link" disabled={busy} onClick={onBack}>
+              {f.changeWeights}
+            </Button>
+          }
+        />
         <PanelBody className="min-w-0">
           <OrderHero
             label={f.label.change}
             figure={changeHero(review.targets, before, words)}
             plate={plate}
           />
-          <OrderStats
-            stats={
-              figures
-                ? [
-                    // worked out from the vault's prices before any quote: said as estimates, so
-                    // the quoted figures the steps then show never read as the same figure changed
-                    {
-                      label: f.stat.swappedEstimate,
-                      value: <Rounded figure={figures.swapped} />,
-                      ui: 'stat-swapped',
-                    },
-                    {
-                      label: f.stat.worstEstimate,
-                      value: `${figures.worst.shown} · ${figures.pct}`,
-                      ui: 'stat-worst',
-                    },
-                  ]
-                : []
-            }
-          />
-          {figures && (
-            <p data-ui="change-estimate" className="text-caption text-muted-foreground">
-              {f.stat.estimate}
-            </p>
-          )}
+          {/* the estimates and why they may differ from the quoted figures, read together */}
+          <div className="flex flex-col gap-1">
+            <OrderStats
+              stats={
+                figures
+                  ? [
+                      // worked out from the vault's prices before any quote: said as estimates, so
+                      // the quoted figures the steps then show never read as the same figure changed
+                      {
+                        label: f.stat.swappedEstimate,
+                        value: <Rounded figure={figures.swapped} />,
+                        ui: 'stat-swapped',
+                      },
+                      {
+                        label: f.stat.worstEstimate,
+                        value: `${figures.worst.shown} · ${figures.pct}`,
+                        ui: 'stat-worst',
+                      },
+                    ]
+                  : []
+              }
+            />
+            {figures && (
+              <p data-ui="change-estimate" className="text-caption text-muted-foreground">
+                {f.stat.estimate}
+              </p>
+            )}
+          </div>
           {changed && (
             <p role="status" className="flex items-start gap-1.5 text-body-sm">
               <StatusMark status="watch" className="mt-1.5" />
@@ -138,9 +150,6 @@ export function ChangeReview({
               onClick={onConfirm}
             >
               {f.continue}
-            </Button>
-            <Button variant="link" className="self-start" disabled={busy} onClick={onBack}>
-              {f.changeWeights}
             </Button>
           </div>
           <Fold ui="change-details" label={f.details}>

@@ -51,7 +51,8 @@ export function OrderStats({
 }) {
   if (stats.length === 0) return null;
   return (
-    <StatGrid>
+    // more than two in one row on a wide screen: the review fits its pane without a scroll
+    <StatGrid columns={stats.length > 2 ? 4 : 2}>
       {stats.map((stat) => (
         <PanelStat key={stat.label} label={stat.label} ui={stat.ui}>
           {stat.value}
@@ -193,7 +194,8 @@ export function ShareList({
   const signed = (bps: number) =>
     `${bps > 0 ? '+' : '\u2212'}${labels.points(Math.abs(bps)) === labels.points(0) ? `<${labels.points(100)}` : labels.points(Math.abs(bps))}`;
   return (
-    <div data-ui="sign-picture" className="-mx-5">
+    // the composition pads its strips for a panel's head; in the body, the body's own gap spaces it
+    <div data-ui="sign-picture" className="-mx-5 -mt-4">
       <Composition
         mode={compare ? 'compare' : 'single'}
         items={items}

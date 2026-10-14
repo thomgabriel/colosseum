@@ -165,10 +165,29 @@ export function PanelStat({
 
 /**
  * Small figures in a grid, two columns, as the overview's board has them. `spacing` is the grid's gap,
- * in place of the board's own.
+ * in place of the board's own. `columns={4}` sets four in one row from the `sm` width up, two on a
+ * phone: a screen that must fit its height without a scroll (an order's review).
  */
-export function StatGrid({ spacing, children }: { spacing?: string; children: ReactNode }) {
-  return <dl className={cn('m-0 grid grid-cols-2', spacing ?? 'gap-x-6 gap-y-4')}>{children}</dl>;
+export function StatGrid({
+  spacing,
+  columns = 2,
+  children,
+}: {
+  spacing?: string;
+  columns?: 2 | 4;
+  children: ReactNode;
+}) {
+  return (
+    <dl
+      className={cn(
+        'm-0 grid grid-cols-2',
+        columns === 4 && 'sm:grid-cols-4',
+        spacing ?? 'gap-x-6 gap-y-4',
+      )}
+    >
+      {children}
+    </dl>
+  );
 }
 
 /** The quiet pill's look, shared with a sample card's tag (`Card mock`), so the two are one mark. */
