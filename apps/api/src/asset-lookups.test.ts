@@ -1,15 +1,17 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Db } from '@colosseum/db';
 import type { BarRow, LendingMarketRow, ObservationRow, PoolBarRow } from '@colosseum/risk';
 import type { BasketAsset, VaultAgentSource } from '@colosseum/schemas';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { launchShelf } from '../../../packages/engine/src/personal/testing';
 import {
   bearingAnswer,
   createAssetLookups,
   type LookupReads,
   lendingAnswer,
+  readUniverse,
 } from './asset-lookups';
 import { lendsToken } from './lending-facts';
 import type { LookupAnswer, LookupFact } from './orders/lookups';
@@ -319,6 +321,130 @@ describe('the asset lookups', () => {
     expect(answer.missing).toEqual([
       expect.objectContaining({ id: 'exit:solana:nvdax:worst', reason: 'not_collected' }),
     ]);
+  });
+});
+
+// A chain's asset universe list as the repo keeps it (scripts/risk/assets/<chain>.json), cut to the rows the
+// fallback reads: two USDC rows besides the listed one (a held-out mint and a candidate, both before it, so
+// order does not pick it), and jlUSDC's mainnet row.
+const USDC_LISTED = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDC_HELD_OUT = 'A9mUU4qviSctJVPJdBJWkb28deg915LYJKrzQ19ji3FM';
+const USDC_CANDIDATE = 'UsdcCandidate1111111111111111111111111111111';
+const JLUSDC = '9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D';
+const UNIVERSE = mkdtempSync(join(tmpdir(), 'lookups-universe-'));
+mkdirSync(join(UNIVERSE, 'scripts', 'risk', 'assets'), { recursive: true });
+writeFileSync(
+  join(UNIVERSE, 'scripts', 'risk', 'assets', 'solana.json'),
+  JSON.stringify({
+    chain: 'solana',
+    assets: [
+      { id: 'solana:usdc-a9muu4', symbol: 'USDC', address: USDC_HELD_OUT, status: 'held_out' },
+      { id: 'solana:usdc-cand', symbol: 'USDC', address: USDC_CANDIDATE, status: 'candidate' },
+      { id: 'solana:usdc', symbol: 'USDC', address: USDC_LISTED, status: 'listed' },
+      { id: 'solana:jlusdc', symbol: 'jlUSDC', address: JLUSDC, status: 'listed' },
+    ],
+  }),
+);
+afterAll(() => rmSync(UNIVERSE, { recursive: true, force: true }));
+
+describe("a test-network token with no Bearing twin reads its model from the chain's universe list", () => {
+  // the test network's tokens as deployments/solana-devnet.json makes them (chain-solana deployment.ts)
+  const tUSDC: BasketAsset = {
+    ...cash,
+    id: 'solana:usdc',
+    symbol: 'tUSDC',
+    address: 'AEtFZt8Fq4PYzBs4d8VoMypDDhjp9XTv6qvhJZhd8BUn',
+    underlying: 'USDC',
+    provenance: 'sandbox',
+  };
+  const dollarYield = shelf.find((a) => a.chain === 'solana' && a.cls === 'dollar_yield');
+  const tjlUSDC: BasketAsset = {
+    ...(dollarYield ?? asset),
+    id: 'solana:jlusdc',
+    symbol: 'tjlUSDC',
+    address: 'DevJlUsdcMint111111111111111111111111111111',
+    underlying: 'jlUSDC',
+    provenance: 'sandbox',
+  };
+  const devnet = { db, chain: 'solana' as const, provenance: 'sandbox' as const };
+  const withUniverse = (r: LookupReads, over: Parameters<typeof createAssetLookups>[0] = {}) =>
+    make(r, { universeRoot: UNIVERSE, ...over });
+
+  it('the cash token reads the lending markets of the listed USDC, labelled sandbox with the model named', async () => {
+    const r = reads();
+    const answer = await withUniverse(r).lending({ ...devnet, asset: tUSDC });
+    expect(r.lending).toHaveBeenCalledWith(db, 'solana', USDC_LISTED);
+    expect(r.lending).not.toHaveBeenCalledWith(db, 'solana', USDC_HELD_OUT);
+    expect(r.lending).not.toHaveBeenCalledWith(db, 'solana', USDC_CANDIDATE);
+    expect(answer.modelledOn).toBe('USDC');
+    expect(answer.facts.length).toBeGreaterThan(0);
+    for (const fact of answer.facts) {
+      expect(fact.id.startsWith('lend:solana:usdc:')).toBe(true);
+      expect(fact.provenance).toBe('sandbox');
+      expect(fact.source).toContain('mainnet USDC figures applied to the test-network token tUSDC');
+    }
+  });
+
+  it('the cash token as the deploy record makes it (underlying USD) is found by its mainnet id; its other parts answer nothing', async () => {
+    const r = reads();
+    const lookups = withUniverse(r);
+    const asUsd = { ...tUSDC, underlying: 'USD' };
+    const answer = await lookups.lending({ ...devnet, asset: asUsd });
+    expect(r.lending).toHaveBeenCalledWith(db, 'solana', USDC_LISTED);
+    expect(answer.modelledOn).toBe('USDC');
+    for (const part of [
+      await lookups.profile({ ...devnet, asset: asUsd }),
+      await lookups.pools({ ...devnet, asset: asUsd }),
+      await lookups.bearing({ ...devnet, asset: asUsd }),
+    ])
+      expect(part).toEqual({ facts: [], missing: [], modelledOn: null });
+    expect(r.observations).not.toHaveBeenCalled();
+  });
+
+  it('a dollar-yield stand-in reads its profile under its model’s mainnet address', async () => {
+    const r = reads();
+    const answer = await withUniverse(r).profile({ ...devnet, asset: tjlUSDC });
+    expect(r.observations).toHaveBeenCalledWith(db, 'solana', JLUSDC);
+    expect(answer.modelledOn).toBe('jlUSDC');
+    expect(answer.facts.length).toBeGreaterThan(0);
+    expect(answer.facts.every((f) => f.provenance === 'sandbox')).toBe(true);
+  });
+
+  it('a token with a Bearing twin keeps it', async () => {
+    const r = reads();
+    const lookups = withUniverse(r, {
+      twins: async (_db, assets) =>
+        assets.map((a) => ({ id: a.id, symbol: a.symbol, twinSymbol: 'NVDAx', twinMint: MINT })),
+    });
+    const answer = await lookups.profile({ ...devnet, asset: tjlUSDC });
+    expect(r.observations).toHaveBeenCalledWith(db, 'solana', MINT);
+    expect(answer.modelledOn).toBe('NVDAx');
+  });
+
+  it('a live chain reads each token under its own address', async () => {
+    for (const provenance of ['live', undefined] as const) {
+      const r = reads();
+      const lookups = withUniverse(r);
+      const answer = await lookups.profile({ ...devnet, provenance, asset: tjlUSDC });
+      expect(r.observations).toHaveBeenCalledWith(db, 'solana', tjlUSDC.address);
+      expect(answer.modelledOn).toBeNull();
+      await lookups.lending({ ...devnet, provenance, asset: tUSDC });
+      expect(r.lending).toHaveBeenCalledWith(db, 'solana', tUSDC.address);
+    }
+  });
+
+  it('with no universe file there is no fallback, and nothing throws', async () => {
+    const missing = join(UNIVERSE, 'nowhere');
+    expect(readUniverse(missing, 'solana')).toEqual([]);
+    const r = reads();
+    const lookups = withUniverse(r, { universeRoot: missing });
+    const answer = await lookups.lending({ ...devnet, asset: tUSDC });
+    expect(r.lending).toHaveBeenCalledWith(db, 'solana', tUSDC.address);
+    expect(answer.modelledOn).toBeNull();
+    expect(answer.unread).toBeUndefined();
+    const profile = await lookups.profile({ ...devnet, asset: tjlUSDC });
+    expect(r.observations).toHaveBeenCalledWith(db, 'solana', tjlUSDC.address);
+    expect(profile.modelledOn).toBeNull();
   });
 });
 
