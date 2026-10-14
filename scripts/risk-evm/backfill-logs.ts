@@ -682,12 +682,9 @@ export async function fetchLogs(deps: Deps, inp: FetchInput) {
     let k = keysOf.get(file);
     if (k) return k;
     k = new Set<number>();
-    if (existsSync(file))
-      for (const l of gunzipSync(readFileSync(file)).toString().split('\n')) {
-        if (!l) continue;
-        const r = JSON.parse(l) as { block: number; logIndex: number };
-        k.add(r.block * 1_000_000 + r.logIndex);
-      }
+    // line by line over the bytes: a busy day unpacks past V8's longest string (~512 MB), so it is never one
+    // string (found 2026-10-14: "Cannot create a string longer than 0x1fffffe8 characters")
+    if (existsSync(file)) for (const l of gzLines(readFileSync(file))) k.add(rowKey(l));
     keysOf.set(file, k);
     return k;
   };
@@ -798,3 +795,20 @@ export const transferParties = (topics: string[], data: string) => ({
   value: (words(data)[0] ?? 0n).toString(),
 });
 export { ZERO_ADDRESS };
+
+/** The non-empty lines of a gzip file (members appended one after another), each decoded on its own. */
+export function* gzLines(gz: Buffer): Generator<string> {
+  const b = gunzipSync(gz);
+  for (let s = 0; s < b.length; ) {
+    let e = b.indexOf(0x0a, s);
+    if (e < 0) e = b.length;
+    if (e > s) yield b.toString('utf8', s, e);
+    s = e + 1;
+  }
+}
+
+/** The key a log row is written once under: its block and log index. */
+const rowKey = (line: string) => {
+  const r = JSON.parse(line) as { block: number; logIndex: number };
+  return r.block * 1_000_000 + r.logIndex;
+};
