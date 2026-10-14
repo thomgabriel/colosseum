@@ -35,6 +35,7 @@ import {
   familyBuyOrder,
   familyOf,
   followOrder,
+  limitsOf,
   ORDER_ID,
   publishOrder,
   RECIPE,
@@ -141,6 +142,8 @@ function api(o: {
   chain?: Person['chain'];
   /** Answers POST /v1/vaults/{chain}/{address}/rebalance/quote. */
   quote?: () => Response;
+  /** Answers GET /v1/shared/limits; the chain's own rules unless said. */
+  limits?: () => Response;
   /** GET /v1/config's `shelfLiveOnly`; left out, the config is not answered. */
   liveOnly?: boolean;
 }) {
@@ -155,6 +158,8 @@ function api(o: {
       o.chain = chain;
       return json({ ...person, ...o.person, chain });
     }
+    if (path.startsWith('/v1/shared/limits?chain='))
+      return o.limits?.() ?? json(limitsOf(path.split('=')[1] ?? ''));
     if (path === '/v1/config' && o.liveOnly !== undefined)
       return json({ flags: { ...DEFAULT_FLAGS, shelfLiveOnly: o.liveOnly }, chains: [] });
     if (path.startsWith('/v1/shelf'))
@@ -1057,6 +1062,21 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       expect(host.querySelector('[role="alert"]')).toBeNull();
     },
   );
+
+  it('shows what a portfolio leaves of 100% as cash, on the shelf and on its page (SHARED-RULES-V2)', async () => {
+    const seventy = recipeOf({
+      active: { ...recipeOf().active, components: [{ asset: 'solana:spyx', weightBps: 7000 }] },
+    });
+    api({ family: familyOf(FAMILY_ID, { recipes: [seventy] }) });
+    const page = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const pane = find(page, '[data-ui="plan-pane"]');
+    expect(pane.textContent).toContain('70%');
+    expect(pane.textContent).toContain('30%');
+    expect(pane.textContent).toContain(en.plan.cash('USDC'));
+    await unmountAll();
+    const shelf = await show(createElement(ShelfScreen));
+    expect(shelf.textContent).toContain('30%');
+  });
 
   it('keeps the publisher and where the weights come from in view, and the routine check behind Details', async () => {
     api({ family: familyOf(FAMILY_ID) });

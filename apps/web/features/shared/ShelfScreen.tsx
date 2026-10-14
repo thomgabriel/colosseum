@@ -18,10 +18,11 @@ import { formatBps, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
 import { isCashId } from '../order/plain';
 import { networkFor } from '../order/readiness';
+import { unitsFor } from '../order/units';
 import { useApiFetch } from '../wallet/WalletProvider';
 import { Composition } from './Composition';
 import { isPlatformCreator } from './platform';
-import { holdingsOf, rate } from './product-figures';
+import { holdingsOf, rate, withCashLine } from './product-figures';
 import { readShelf } from './shared-api';
 import { shortAddress, useSharedPerson } from './use-person';
 import { useShelfScope } from './use-shelf';
@@ -180,9 +181,11 @@ function FamilyCard({ family }: { family: SharedFamily }) {
   const notLive = family.recipes.some((r) => r.provenance !== 'live');
   const marks = { testNetwork: t.shell.testNetwork, mockAnnounce: t.shell.sampleFigure };
   const paying = recipe
-    ? holdingsOf(recipe, recipe.active.components, t).flatMap((h) =>
-        h.yield ? [{ asset: h.asset, yield: h.yield }] : [],
-      )
+    ? holdingsOf(
+        recipe,
+        withCashLine(recipe.active.components, recipe.chain, cashOf(recipe)),
+        t,
+      ).flatMap((h) => (h.yield ? [{ asset: h.asset, yield: h.yield }] : []))
     : [];
   /** Who published a recipe and which version is in effect, on its chain. */
   const published = (r: SharedRecipe) => (
@@ -236,13 +239,15 @@ function FamilyCard({ family }: { family: SharedFamily }) {
             top={3}
             still
             share={(bps) => formatBps(bps, locale)}
-            items={recipe.active.components.map((x) => ({
-              key: x.asset,
-              name: tokenName(x.asset),
-              asset: x.asset,
-              cash: isCashId(x.asset),
-              bps: x.weightBps,
-            }))}
+            items={withCashLine(recipe.active.components, recipe.chain, cashOf(recipe)).map(
+              (x) => ({
+                key: x.asset,
+                name: tokenName(x.asset),
+                asset: x.asset,
+                cash: isCashId(x.asset),
+                bps: x.weightBps,
+              }),
+            )}
           />
         )}
         {recipe && (
@@ -313,11 +318,15 @@ function FamilyCard({ family }: { family: SharedFamily }) {
   );
 }
 
+/** The chain's dollar, which a portfolio's rest is held in: the recipe's own network's. */
+const cashOf = (recipe: Pick<SharedRecipe, 'chain' | 'provenance'>) =>
+  unitsFor(recipe.chain, recipe.provenance === 'mock')?.cash ?? null;
+
 /** The version in effect, as one line of asset and weight pairs in the mono face. */
 export function Weights({ recipe, locale }: { recipe: SharedRecipe; locale: string }) {
   return (
     <p className="font-mono text-source [overflow-wrap:anywhere]">
-      {recipe.active.components
+      {withCashLine(recipe.active.components, recipe.chain, cashOf(recipe))
         .map((c) => `${tokenName(c.asset)} ${formatBps(c.weightBps, locale)}`)
         .join(' · ')}
     </p>

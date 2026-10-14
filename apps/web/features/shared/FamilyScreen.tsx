@@ -28,11 +28,12 @@ import { formatBps, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
 import { PlanView } from '../order/PlanView';
 import { networkFor } from '../order/readiness';
+import { unitsFor } from '../order/units';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { type ChainCheck, useChainRecipe } from './chain-recipe';
 import { FamilyActions } from './FamilyActions';
 import { isPlatformCreator } from './platform';
-import { holdingsOf, kindsSaid } from './product-figures';
+import { holdingsOf, kindsSaid, withCashLine } from './product-figures';
 import { SourceMark } from './SourceMark';
 import { readFamily, readPortfolio, readVersions } from './shared-api';
 import type { FollowTerms } from './terms';
@@ -393,7 +394,12 @@ function RecipeSection({
                 ? f.foreign
                 : null;
   const p = t.shared.product;
-  const holdings = holdingsOf(recipe, active.components, t);
+  // What the lines leave of 100% is held in cash (SHARED-RULES-V2): shown as a line of its own.
+  const holdings = holdingsOf(
+    recipe,
+    withCashLine(active.components, recipe.chain, unitsFor(recipe.chain, mock)?.cash ?? null),
+    t,
+  );
   const unmeasured = holdings.filter((h) => !h.exit);
   const list = (items: string[]) =>
     new Intl.ListFormat(locale, { type: 'conjunction' }).format(items);

@@ -4,6 +4,9 @@ import {
   type BasketAsset,
   ChainError,
   type Component,
+  CREATOR_LIMITS_V1,
+  CREATOR_LIMITS_V2,
+  type CreatorLimits,
   PublishRecipeArgs,
   type Recipe,
 } from '@colosseum/schemas';
@@ -29,13 +32,17 @@ type Case = {
   ctx: { now: number; lastPublishAt: number; publishDelay: number; hasPending: number };
   expect: { ok: number; error: string; reason: string; effectiveAt: number };
 };
-const file = fileURLToPath(
-  new URL('../../../fixtures/creator-limits/vectors.json', import.meta.url),
-);
-const vectors: {
+type Vectors = {
   platform: { assets: string[]; ceilingsBps: number[]; cash: string };
   cases: Case[];
-} = JSON.parse(readFileSync(file, 'utf8'));
+};
+const read = (name: string): Vectors =>
+  JSON.parse(
+    readFileSync(
+      fileURLToPath(new URL(`../../../fixtures/creator-limits/${name}`, import.meta.url)),
+      'utf8',
+    ),
+  );
 
 const CHAIN = 'solana';
 const id = (name: string) => `${CHAIN}:${name.toLowerCase().replaceAll('_', '-')}`;
@@ -43,14 +50,14 @@ const [cash, template] = mockAssets(CHAIN);
 if (!cash || !template) throw new Error('the mock lists no assets');
 // The vectors name the chain's cash token and give it a ceiling like any asset's, so that the only
 // thing against it is that it is cash.
-const ASSETS: BasketAsset[] = vectors.platform.assets.map((name, i) => ({
-  ...(name === vectors.platform.cash ? cash : template),
-  id: id(name),
-  address: mockAddress(CHAIN, `asset:${name}`),
-  symbol: name,
-  maxWeightBps: vectors.platform.ceilingsBps[i] ?? 0,
-}));
-const PRICES = Object.fromEntries(ASSETS.map((a) => [a.id, '1']));
+const assetsOf = (vectors: Vectors): BasketAsset[] =>
+  vectors.platform.assets.map((name, i) => ({
+    ...(name === vectors.platform.cash ? cash : template),
+    id: id(name),
+    address: mockAddress(CHAIN, `asset:${name}`),
+    symbol: name,
+    maxWeightBps: vectors.platform.ceilingsBps[i] ?? 0,
+  }));
 const OWNER = mockAddress(CHAIN, 'author');
 const FAMILY = 'ef'.repeat(32);
 const RECIPE_ID = mockRecipeId(CHAIN, OWNER, FAMILY);
@@ -74,15 +81,17 @@ function recipe(v: Version, header = { flags: 0, maxFeeBps: 0 }): Recipe {
   };
 }
 
-/** The mock chain in the state the case's scenario describes, at the case's `now`. */
-async function arrange(c: Case) {
+/** The mock chain in the state the case's scenario describes, at the case's `now`, under `limits`. */
+async function arrange(c: Case, vectors: Vectors, limits: CreatorLimits) {
   const delay = c.ctx.publishDelay;
   const start = { first: c.ctx.now, next: c.ctx.lastPublishAt }[c.scenario];
+  const assets = assetsOf(vectors);
   const adapter = createMockAdapter({
     chain: CHAIN,
-    assets: ASSETS,
-    prices: PRICES,
+    assets,
+    prices: Object.fromEntries(assets.map((a) => [a.id, '1'])),
     publishDelaySeconds: delay,
+    creatorLimits: limits,
     now: new Date((start ?? c.ctx.lastPublishAt - delay) * 1000).toISOString(),
   });
   const { mock } = adapter;
@@ -116,80 +125,121 @@ async function arrange(c: Case) {
 
 /** What the mock cannot be brought to: it has one publish delay and one asset list for its lifetime. */
 const NOT_ON_THE_MOCK = ['pending_delay_lowered', 'next_ceiling_lowered'];
-const runnable = vectors.cases.filter((c) => !NOT_ON_THE_MOCK.includes(c.scenario));
 
-describe('chain-mock: publishing a shared portfolio is held to the author limits', () => {
-  const seen = { accepted: 0, refused: new Set<string>(), badInput: 0 };
+// Each file under its own rules: the first, which the mock keeps by default as the Solana program does,
+// and the second (SHARED-RULES-V2), which the EVM registry's second logic holds.
+const SUITES: [string, Vectors, CreatorLimits, { skipped: number; refused: string[] }][] = [
+  [
+    'the first rules',
+    read('vectors.json'),
+    CREATOR_LIMITS_V1,
+    {
+      skipped: 3,
+      refused: [
+        'AssetNotListed',
+        'CashNotAllowed',
+        'TooFewAssets',
+        'TooManyAssets',
+        'TurnoverTooHigh',
+        'VersionPending',
+        'VersionTooSoon',
+        'WeightAboveCeiling',
+        'WeightBelowMin',
+        'WeightOffStep',
+        'WeightSum',
+      ],
+    },
+  ],
+  [
+    'the second rules',
+    read('vectors-v2.json'),
+    CREATOR_LIMITS_V2,
+    {
+      skipped: 2,
+      refused: [
+        'AssetNotListed',
+        'CashNotAllowed',
+        'TooManyAssets',
+        'TurnoverTooHigh',
+        'VersionPending',
+        'VersionTooSoon',
+        'WeightBelowMin',
+        'WeightOffStep',
+      ],
+    },
+  ],
+];
 
-  it.each(runnable.map((c) => [c.name, c] as const))('%s', async (_name, c) => {
-    const adapter = await arrange(c);
-    const args = { creator: OWNER, recipe: recipe(c.next, c.next) };
-    const outcome = await adapter.buildPublishRecipe(args).then(
-      (tx) => ({ tx }),
-      (error: unknown) => ({ error }),
-    );
+describe.each(SUITES)(
+  'chain-mock: a shared portfolio held to %s',
+  (_rules, vectors, limits, expected) => {
+    const seen = { accepted: 0, refused: new Set<string>(), badInput: 0 };
+    const runnable = vectors.cases.filter((c) => !NOT_ON_THE_MOCK.includes(c.scenario));
 
-    if (c.expect.ok === 1) {
-      if ('error' in outcome) throw outcome.error;
-      const { txId } = await adapter.mock.send(outcome.tx);
-      expect((await adapter.track(txId)).status).toBe('confirmed');
-      const { active, pending } = await adapter.getRecipe(RECIPE_ID);
-      const published = c.prev.exists === 1 ? pending : active;
-      expect(published?.effectiveAt).toBe(c.expect.effectiveAt);
-      // Version 1 is `prev`, or the one before it. A version that waited or was cancelled took number 2,
-      // and a number is never used twice.
-      const skipped = c.scenario === 'cancelled' ? 1 : 0;
-      expect(published?.version).toBe(c.prev.exists === 1 ? active.version + 1 + skipped : 1);
-      expect(published?.components).toEqual(args.recipe.components);
-      seen.accepted += 1;
-      return;
-    }
-    const refusal = 'error' in outcome ? outcome.error : null;
-    if (!(refusal instanceof ChainError)) throw new Error('the mock built what it should refuse');
-    if (!PublishRecipeArgs.safeParse(args).success) {
-      expect(refusal.code).toBe('BadInput');
-      seen.badInput += 1;
-      return;
-    }
-    expect(refusal.code).toBe(c.expect.error);
-    expect(refusal.message.startsWith(`${c.expect.reason}: `), refusal.message).toBe(true);
-    expect(refusal.retryable).toBe(false);
-    seen.refused.add(c.expect.reason);
-  });
+    it.each(runnable.map((c) => [c.name, c] as const))('%s', async (_name, c) => {
+      const adapter = await arrange(c, vectors, limits);
+      const args = { creator: OWNER, recipe: recipe(c.next, c.next) };
+      const outcome = await adapter.buildPublishRecipe(args).then(
+        (tx) => ({ tx }),
+        (error: unknown) => ({ error }),
+      );
 
-  it('ran every scenario the mock can be brought to, and met most of the rules on the way', () => {
-    expect(vectors.cases.length - runnable.length).toBe(3);
-    expect(runnable.filter((c) => c.scenario === 'cancelled').length).toBe(2);
-    expect(runnable.filter((c) => c.scenario === 'matured').length).toBeGreaterThanOrEqual(3);
-    expect(seen.accepted).toBeGreaterThan(15);
-    expect(seen.badInput).toBeGreaterThan(10);
-    expect([...seen.refused].sort()).toEqual([
-      'AssetNotListed',
-      'CashNotAllowed',
-      'TooFewAssets',
-      'TooManyAssets',
-      'TurnoverTooHigh',
-      'VersionPending',
-      'VersionTooSoon',
-      'WeightAboveCeiling',
-      'WeightBelowMin',
-      'WeightOffStep',
-    ]);
-  });
-
-  it('refuses the same version when sent, if the limits bite between build and send', async () => {
-    // Built while allowed; another version lands first; the first is then one too many.
-    const c = vectors.cases.find((x) => x.name === 'exactly on time, 300-second delay');
-    if (!c) throw new Error('the vector is gone');
-    const adapter = await arrange(c);
-    const publish = () =>
-      adapter.buildPublishRecipe({ creator: OWNER, recipe: recipe(c.next, c.next) });
-    const [first, second] = [await publish(), await publish()];
-    await adapter.mock.send(first);
-    const { txId } = await adapter.mock.send(second);
-    expect(await adapter.track(txId)).toMatchObject({
-      status: 'reverted',
-      error: { code: 'CreatorLimit' },
+      if (c.expect.ok === 1) {
+        if ('error' in outcome) throw outcome.error;
+        const { txId } = await adapter.mock.send(outcome.tx);
+        expect((await adapter.track(txId)).status).toBe('confirmed');
+        const { active, pending } = await adapter.getRecipe(RECIPE_ID);
+        const published = c.prev.exists === 1 ? pending : active;
+        expect(published?.effectiveAt).toBe(c.expect.effectiveAt);
+        // Version 1 is `prev`, or the one before it. A version that waited or was cancelled took number 2,
+        // and a number is never used twice.
+        const skipped = c.scenario === 'cancelled' ? 1 : 0;
+        expect(published?.version).toBe(c.prev.exists === 1 ? active.version + 1 + skipped : 1);
+        expect(published?.components).toEqual(args.recipe.components);
+        seen.accepted += 1;
+        return;
+      }
+      const refusal = 'error' in outcome ? outcome.error : null;
+      if (!(refusal instanceof ChainError)) throw new Error('the mock built what it should refuse');
+      if (!PublishRecipeArgs.safeParse(args).success) {
+        expect(refusal.code).toBe('BadInput');
+        seen.badInput += 1;
+        return;
+      }
+      expect(refusal.code).toBe(c.expect.error);
+      expect(refusal.message.startsWith(`${c.expect.reason}: `), refusal.message).toBe(true);
+      expect(refusal.retryable).toBe(false);
+      seen.refused.add(c.expect.reason);
     });
-  });
-});
+
+    it('ran every scenario the mock can be brought to, and met most of the rules on the way', () => {
+      expect(vectors.cases.length - runnable.length).toBe(expected.skipped);
+      expect(runnable.filter((c) => c.scenario === 'cancelled').length).toBe(2);
+      expect(runnable.filter((c) => c.scenario === 'matured').length).toBeGreaterThanOrEqual(3);
+      expect(seen.accepted).toBeGreaterThan(15);
+      // What the schema cannot say is refused before the registry: a repeat, a weight of nothing, a
+      // weight over 100%, a non-zero header.
+      expect(seen.badInput).toBeGreaterThan(3);
+      expect([...seen.refused].sort()).toEqual(expected.refused);
+    });
+
+    it.runIf(limits.rules === 1)(
+      'refuses the same version when sent, if the limits bite between build and send',
+      async () => {
+        // Built while allowed; another version lands first; the first is then one too many.
+        const c = vectors.cases.find((x) => x.name === 'exactly on time, 300-second delay');
+        if (!c) throw new Error('the vector is gone');
+        const adapter = await arrange(c, vectors, limits);
+        const publish = () =>
+          adapter.buildPublishRecipe({ creator: OWNER, recipe: recipe(c.next, c.next) });
+        const [first, second] = [await publish(), await publish()];
+        await adapter.mock.send(first);
+        const { txId } = await adapter.mock.send(second);
+        expect(await adapter.track(txId)).toMatchObject({
+          status: 'reverted',
+          error: { code: 'CreatorLimit' },
+        });
+      },
+    );
+  },
+);

@@ -24,7 +24,11 @@ export type PublishVaultRead =
     }
   | { kind: 'unsupported' | 'unverified' | 'missing' | 'owner' | 'unreachable' };
 
-/** Exact positive targets only. Zero entries carry no allocation; no positive weight is changed. */
+/**
+ * Exact positive targets only. Zero entries carry no allocation; no positive weight is changed. They add
+ * up to at most 100%: what they leave is the vault's cash, which a chain under the second rules publishes
+ * as it is (SHARED-RULES-V2) and one under the first refuses, as the form says (`problemsOf`).
+ */
 export function exactPublishTargets(chain: ChainId, raw: unknown): Target[] | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const targets: Target[] = [];
@@ -38,7 +42,7 @@ export function exactPublishTargets(chain: ChainId, raw: unknown): Target[] | nu
   }
   if (targets.length === 0) return null;
   if (new Set(targets.map((t) => t.asset)).size !== targets.length) return null;
-  if (targets.reduce((n, t) => n + t.weightBps, 0) !== 10_000) return null;
+  if (targets.reduce((n, t) => n + t.weightBps, 0) > 10_000) return null;
   return targets;
 }
 

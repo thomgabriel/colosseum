@@ -1,30 +1,31 @@
 import {
   CreatorLimitReason,
+  type CreatorLimits,
+  type LimitAsset,
   type LimitContext,
   type LimitResult,
   type Target,
 } from '@colosseum/schemas';
 
-// The four limits on what an author may publish as a shared portfolio (DESIGN-VAULT section 6, decided
-// on Oct 2): 3 to 12 listed assets, never the cash token, each from 2% up to its ceiling in 50 bps
-// steps and adding up to 100%; one version per publish delay and none while one is pending; a version
-// moves at most 20% of the portfolio; a later version takes effect one publish delay after it is
-// published. There is one delay: it is both the notice a follower gets and the least time between two
-// versions. The first version takes effect at once and is exempt from the delay and from turnover.
+// The four limits on what an author may publish as a shared portfolio (DESIGN-VAULT section 6), under
+// the rules and with the numbers the chain's registry says (`ctx.limits`, read from the chain):
 //
-// The Solana program and the EVM registry enforce the same rules. All three are tested against
-// fixtures/creator-limits/vectors.json, and the README beside it defines each rule.
+// - The first rules (Oct 2; the Solana program and the mock): 3 to 12 listed assets, never the cash
+//   token, each from 2% up to the lower of 50% and its ceiling in 50 bps steps, adding up to 100%.
+// - The second (gate SHARED-RULES-V2, Thom, Oct 14; the EVM registry's second logic): 1 to 16 listed
+//   assets, each from 0.5% to 100% in 50 bps steps, adding up to at most 100%, what is left being cash;
+//   the cash token is still never a line, and an asset's own ceiling is a warning (`overCeilings`).
+//
+// Under both: one version per publish delay and none while one is pending; a version moves at most 20%
+// of the portfolio, cash counted; a later version takes effect one publish delay after it is published.
+// There is one delay: it is both the notice a follower gets and the least time between two versions.
+// The first version takes effect at once and is exempt from the delay and from turnover.
+//
+// The chains enforce the same rules: the Solana program and the registry's first logic are tested
+// against fixtures/creator-limits/vectors.json, the registry's second logic against vectors-v2.json, and
+// this check against both. The README beside them defines each rule.
 
-export const CREATOR_LIMITS = {
-  minAssets: 3,
-  maxAssets: 12,
-  minWeightBps: 200,
-  /** No asset is above 50%, whatever its own ceiling. */
-  maxWeightBps: 5000,
-  stepBps: 50,
-  sumBps: 10_000,
-  maxTurnoverBps: 2000,
-} as const;
+export { CREATOR_LIMITS_V1, CREATOR_LIMITS_V2 } from '@colosseum/schemas';
 
 /**
  * The rules, in the order a refusal names them: the lowest one a version breaks is its reason. The
@@ -47,15 +48,39 @@ const refuse = (code: CreatorLimitReason, detail: string): Refusal => ({
 
 const pct = (bps: number) => `${bps / 100}%`;
 
-/** The ceiling of one asset: 50%, or its own `maxWeightBps` when that is lower. */
-export function ceilingBps(maxWeightBps: number): number {
-  return Math.min(CREATOR_LIMITS.maxWeightBps, maxWeightBps);
+/**
+ * The most one asset may weigh: under the first rules the lower of `limits.maxWeightBps` and the
+ * asset's own `maxWeightBps`; under the second `limits.maxWeightBps` alone.
+ */
+export function ceilingBps(limits: CreatorLimits, maxWeightBps: number): number {
+  return limits.rules === 1 ? Math.min(limits.maxWeightBps, maxWeightBps) : limits.maxWeightBps;
 }
 
 /**
- * The sum of the absolute weight changes over every asset in either version, in bps. An added asset
- * counts from zero and a removed one to zero. This is the number the limit is on: at most 4,000,
- * twice `maxTurnoverBps`, so no division is needed to check it.
+ * The lines of a version over their asset's own ceiling on the list (`maxWeightBps`, set from Bearing's
+ * measured exit capacity, gate EXIT-SOURCE), heaviest first. Under the second rules these are a warning
+ * that cites the ceiling, not a refusal; under the first the check refuses them and this says why.
+ */
+export function overCeilings(
+  next: readonly Target[],
+  assets: readonly LimitAsset[],
+): { asset: string; weightBps: number; ceilingBps: number }[] {
+  const ceilings = new Map(assets.map((a) => [a.id, a.maxWeightBps]));
+  return next
+    .flatMap((t) => {
+      const ceiling = ceilings.get(t.asset);
+      return ceiling !== undefined && t.weightBps > ceiling
+        ? [{ asset: t.asset, weightBps: t.weightBps, ceilingBps: ceiling }]
+        : [];
+    })
+    .sort((a, b) => b.weightBps - a.weightBps || (a.asset < b.asset ? -1 : 1));
+}
+
+/**
+ * The sum of the absolute weight changes over every asset in either version, and over cash, which is
+ * what each version leaves of 10,000, in bps. An added asset counts from zero and a removed one to
+ * zero. This is the number the limit is on: at most 4,000, twice `maxTurnoverBps`, so no division is
+ * needed to check it. Under the first rules both versions add up to 10,000 and cash never moves.
  */
 export function movedBps(prev: readonly Target[], next: readonly Target[]): number {
   const before = new Map<string, number>();
@@ -65,7 +90,8 @@ export function movedBps(prev: readonly Target[], next: readonly Target[]): numb
   let moved = 0;
   for (const [asset, weight] of after) moved += Math.abs(weight - (before.get(asset) ?? 0));
   for (const [asset, weight] of before) if (!after.has(asset)) moved += weight;
-  return moved;
+  const sum = (m: Map<string, number>) => [...m.values()].reduce((n, w) => n + w, 0);
+  return moved + Math.abs(sum(after) - sum(before));
 }
 
 /**
@@ -85,13 +111,14 @@ export function versionEffectiveAt(
 }
 
 /**
- * Whether `next` may be published over `prev` (null for a first version). Pure: the time, the asset
- * list and the registry's state come in through `ctx`. A refusal carries the lowest-numbered rule
- * broken, in `LIMIT_REASONS` order, and a sentence with the numbers.
+ * Whether `next` may be published over `prev` (null for a first version). Pure: the rules, the time,
+ * the asset list and the registry's state come in through `ctx`. A refusal carries the lowest-numbered
+ * rule broken, in `LIMIT_REASONS` order, and a sentence with the numbers.
  *
  * The platform list in `ctx.assets` marks the chain's cash token with `cls: 'cash'`; a shared
- * portfolio may not hold it. `ctx.publishDelay` is the seconds between two versions, and between a
- * later version and its taking effect.
+ * portfolio never lists it, under either rules: under the second, cash is what the weights leave.
+ * `ctx.publishDelay` is the seconds between two versions, and between a later version and its taking
+ * effect.
  *
  * A version refused only for being too soon carries `allowedAt`: published at or after that time,
  * with nothing else changed, it is accepted. A version that is too soon and breaks a later rule as
@@ -106,7 +133,7 @@ export function checkCreatorLimits(
   ctx: LimitContext,
   header: RecipeHeader = { flags: 0, maxFeeBps: 0 },
 ): LimitResult {
-  const L = CREATOR_LIMITS;
+  const L = ctx.limits;
   // A missing delay or time would make every comparison below false and let a version through.
   for (const [name, value] of [
     ['publishDelay', ctx.publishDelay],
@@ -153,7 +180,7 @@ export function checkCreatorLimits(
       `${offStep.asset} is at ${offStep.weightBps} bps; weights move in steps of ${L.stepBps} bps`,
     );
   for (const t of next) {
-    const ceiling = ceilingBps(listed.get(t.asset) ?? 0);
+    const ceiling = ceilingBps(L, listed.get(t.asset) ?? 0);
     if (t.weightBps > ceiling)
       return refuse(
         'WeightAboveCeiling',
@@ -162,8 +189,13 @@ export function checkCreatorLimits(
   }
 
   const sum = next.reduce((n, t) => n + t.weightBps, 0);
-  if (sum !== L.sumBps)
-    return refuse('WeightSum', `the weights add up to ${pct(sum)}, not ${pct(L.sumBps)}`);
+  if (L.rules === 1 ? sum !== L.sumBps : sum > L.sumBps)
+    return refuse(
+      'WeightSum',
+      L.rules === 1
+        ? `the weights add up to ${pct(sum)}, not ${pct(L.sumBps)}`
+        : `the weights add up to ${pct(sum)}, more than ${pct(L.sumBps)}`,
+    );
 
   // Rules 11 to 13 are about a version that follows another. The first takes effect at once and has
   // nothing to wait for and nothing to be measured against, whatever the context says.
@@ -190,7 +222,9 @@ export function checkCreatorLimits(
     if (held)
       return refuse(
         'CashNotAllowed',
-        `${held.asset} is the cash token; a shared portfolio holds assets`,
+        L.rules === 1
+          ? `${held.asset} is the cash token; a shared portfolio holds assets`
+          : `${held.asset} is the cash token; cash is what the weights leave under 100%, not a line`,
       );
     return { ok: true, turnoverBps: turnover };
   })();

@@ -213,6 +213,7 @@ contract EntryPointsTest is Test {
         _entry("indexAt(uint256)", "view: every shared portfolio, with no event");
         _entry("previewPublish(bytes32,(address,uint16)[])", "view: what a publish would answer, before paying for it");
         _entry("limits()", "view: the numbers of the four limits");
+        _entry("rulesVersion()", "view: which rules the numbers are read under (2, SHARED-RULES-V2)");
         _entry("publishDelay()", "view: the delay in force");
         _entry("factory()", "view");
         _assertExactly("IndexRegistry");

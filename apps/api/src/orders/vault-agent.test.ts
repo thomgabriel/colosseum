@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { checkCreatorLimits } from '@colosseum/basket';
+import { CREATOR_LIMITS_V1, CREATOR_LIMITS_V2, checkCreatorLimits } from '@colosseum/basket';
 import type { Price, VaultAgentStatedShare, VaultState } from '@colosseum/schemas';
 import { VaultAgentRequest } from '@colosseum/schemas';
 import { describe, expect, it, vi } from 'vitest';
@@ -1107,8 +1107,10 @@ describe('model-led private vault proposals', () => {
     ]);
     expect(out.reply.warnings).toEqual([]);
     expect(out).not.toHaveProperty('repair');
-    // The same weights as a shared portfolio are still refused at the asset's ceiling.
+    // The same weights as a shared portfolio are refused at the asset's ceiling under the first rules,
+    // and pass under the second (SHARED-RULES-V2), where the ceiling is a warning there too.
     const limits = {
+      limits: CREATOR_LIMITS_V1,
       assets: [stock, reserve, otherReserve].map(({ id, maxWeightBps, cls }) => ({
         id,
         maxWeightBps,
@@ -1130,6 +1132,17 @@ describe('model-led private vault proposals', () => {
         limits,
       ),
     ).toMatchObject({ ok: false, code: 'WeightAboveCeiling' });
+    expect(
+      checkCreatorLimits(
+        null,
+        [
+          { asset: stock.id, weightBps: 7000 },
+          { asset: reserve.id, weightBps: 1500 },
+          { asset: otherReserve.id, weightBps: 1500 },
+        ],
+        { ...limits, limits: CREATOR_LIMITS_V2 },
+      ),
+    ).toEqual({ ok: true, turnoverBps: 0 });
   });
 
   it('warns on a weight above the measured exit share and cites that figure', async () => {

@@ -3944,6 +3944,33 @@ export type GetPortfolioRebalancesResponse = {
   disclaimer: string;
 };
 
+/** GET /v1/shared/limits: query. The author limits of one chain, as its registry says them now */
+export type GetSharedLimitsQuery = {
+  chain: 'solana' | 'base' | 'robinhood';
+};
+
+/** GET /v1/shared/limits: response. The author limits of one chain, as its registry says them now */
+export type GetSharedLimitsResponse = {
+  chain: 'solana' | 'base' | 'robinhood';
+  limits: {
+    rules: 1 | 2;
+    minAssets: number;
+    maxAssets: number;
+    minWeightBps: number;
+    maxWeightBps: number;
+    stepBps: number;
+    sumBps: 10000;
+    maxTurnoverBps: number;
+  };
+  ceilings: {
+    asset: string;
+    maxWeightBps: number;
+  }[];
+  source: 'chain';
+  observedAt: string;
+  provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+};
+
 /** GET /v1/shelf: query. Every shared portfolio, or those with a recipe on one chain */
 export type GetShelfQuery = {
   chain?: 'solana' | 'base' | 'robinhood';
@@ -5197,6 +5224,7 @@ export interface ApiRoutes {
     query: GetPortfolioRebalancesQuery;
     response: GetPortfolioRebalancesResponse;
   };
+  'GET /v1/shared/limits': { query: GetSharedLimitsQuery; response: GetSharedLimitsResponse };
   'GET /v1/shelf': { query: GetShelfQuery; response: GetShelfResponse };
   'GET /v1/stats': { response: GetStatsResponse };
   'POST /v1/testnet/fund': { body: PostTestnetFundBody; response: PostTestnetFundResponse };

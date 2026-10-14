@@ -1,8 +1,9 @@
-import { checkCreatorLimits, familyIdOf, metaHash } from '@colosseum/basket';
+import { checkCreatorLimits, familyIdOf, metaHash, overCeilings } from '@colosseum/basket';
 import { indexIdOf } from '@colosseum/chain-evm/vault';
 import { mockRecipeId } from '@colosseum/chain-mock';
 import { recipeAddress } from '@colosseum/chain-solana/vault';
 import type { Db } from '@colosseum/db';
+import { reason } from '@colosseum/engine/personal';
 import {
   type Address,
   type AutoFollowOffer,
@@ -249,12 +250,16 @@ export async function familyOfPublish(
 /**
  * A creator's publish, planned: one `publish` step per chain, each the first version (in effect at
  * once) or the next one (in effect after the publish delay), held to the four creator limits against
- * what the chain has now. The limit on time is the chain's to say when the step is built.
+ * what the chain has now, under the rules and numbers the chain's registry says (`creatorLimits`). The
+ * limit on time is the chain's to say when the step is built.
+ *
+ * Under the second rules (SHARED-RULES-V2) a weight over its asset's ceiling on the list is published,
+ * with a warning that cites the ceiling, as a person's own vault has it (ANY-COMPOSITION, EXIT-SOURCE).
  */
 export async function planPublish(
   req: PublishRequest,
   ctx: SharedContext,
-): Promise<{ familyId: string; steps: SharedStep[] }> {
+): Promise<{ familyId: string; steps: SharedStep[]; warnings: { code: string; text: string }[] }> {
   if (!holds(ctx.principal, req.creator))
     throw new Refusal(403, 'the creator in the request is not a wallet of the signed-in person');
   checkText(req);
@@ -263,6 +268,7 @@ export async function planPublish(
     throw new Refusal(422, 'a shared portfolio has one recipe per chain');
   const { familyId } = await familyOfPublish(req, ctx);
   const steps: SharedStep[] = [];
+  const warnings: { code: string; text: string }[] = [];
   for (const draft of req.recipes) {
     const family = chainFamily(draft.chain);
     const name = ctx.chains.name(draft.chain);
@@ -272,22 +278,37 @@ export async function planPublish(
     if (!creator)
       throw new Refusal(422, `the creator has no ${family} address, and the recipe is on ${name}`);
     const onchain = await readRecipe(entry, await recipeIdOf(entry, creator, familyId));
-    const verdict = checkCreatorLimits(
-      onchain ? recipeTargets(onchain.active) : null,
-      recipeTargets(draft),
-      {
-        assets: await entry.adapter.listAssets(),
-        now: 0,
-        lastPublishAt: null,
-        hasPending: Boolean(onchain?.pending),
-        publishDelay: 0,
-      },
-    );
+    const [assets, limits] = await Promise.all([
+      entry.adapter.listAssets(),
+      entry.adapter.creatorLimits(),
+    ]);
+    const next = recipeTargets(draft);
+    const verdict = checkCreatorLimits(onchain ? recipeTargets(onchain.active) : null, next, {
+      limits,
+      assets,
+      now: 0,
+      lastPublishAt: null,
+      hasPending: Boolean(onchain?.pending),
+      publishDelay: 0,
+    });
     if (!verdict.ok)
       throw new Refusal(422, verdict.detail, {
         code: 'CREATOR_LIMIT',
         fix: 'Change the weights within the limits a shared portfolio follows.',
       });
+    // Under the first rules a line over its ceiling was refused above; under the second it is said.
+    if (limits.rules === 2)
+      for (const over of overCeilings(next, assets)) {
+        const symbol = assets.find((a) => a.id === over.asset)?.symbol ?? over.asset;
+        warnings.push({
+          code: 'OVER_LISTED_CAP',
+          text: reason(
+            'MIX_OVER_LISTED',
+            { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps },
+            'en',
+          ).text,
+        });
+      }
     steps.push({
       chain: draft.chain,
       kind: 'publish',
@@ -296,7 +317,7 @@ export async function planPublish(
         : `Publish your shared portfolio on ${name}: version 1, in effect at once`,
     });
   }
-  return { familyId, steps };
+  return { familyId, steps, warnings };
 }
 
 /**

@@ -3,7 +3,7 @@ pragma solidity 0.8.37;
 
 import {BasketVault} from "../src/BasketVault.sol";
 import {IBasketVault} from "../src/interfaces/IBasketVault.sol";
-import {Swap, Weight} from "../src/interfaces/Types.sol";
+import {Snapshot, Swap, Weight} from "../src/interfaces/Types.sol";
 import {KeeperFixture} from "./helpers/KeeperFixture.sol";
 import {BackdoorToken} from "./mocks/Tokens.sol";
 
@@ -322,5 +322,34 @@ contract FollowTest is KeeperFixture {
         made.adoptVersion();
         (, version,) = made.following();
         assertEq(version, 2);
+    }
+
+    // ---- a portfolio that holds cash (gate SHARED-RULES-V2)
+
+    /// A shared portfolio may leave part of itself in cash. A vault that follows it takes the weights as they
+    /// are, its snapshot gives the cash what they leave, and the keeper buys up to the weights and no
+    /// further: the rest stays cash.
+    function test_followingAPortfolioWithCash_theKeeperLeavesTheCash() public {
+        Weight[] memory seventy = new Weight[](1);
+        seventy[0] = Weight(address(stockA), 7000);
+        vm.prank(creator);
+        bytes32 withCash = registry.create(keccak256("with-cash"), seventy, META, 0, 0);
+        vm.prank(owner);
+        vault.acceptVersion(withCash, 1);
+        _assertTargets(seventy);
+        Snapshot memory snap = vault.snapshot();
+        assertEq(snap.tokens.length, 2);
+        assertEq(snap.tokens[1], address(cash));
+        assertEq(snap.targetBps[1], 3000, "what the weights leave is the cash's");
+
+        _keeperSwap(_buy(direct, address(stockA), 6950 * USD, 0));
+        assertEq(_weightOf(address(stockA)), 6950);
+        vm.warp(block.timestamp + 3600);
+        _refresh();
+        _expectKeeperRevert(
+            _buy(direct, address(stockA), 600 * USD, 0),
+            abi.encodeWithSelector(IBasketVault.PastTarget.selector, address(stockA))
+        );
+        assertEq(cash.balanceOf(address(vault)), START - 6950 * USD);
     }
 }

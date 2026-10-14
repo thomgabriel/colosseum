@@ -8,7 +8,7 @@ Built so far:
 |---|---|---|
 | `src/BasketVault.sol` | One person's vault for one plan, the logic behind every vault's beacon proxy. The owner's path: deposit cash, swap, set targets, withdraw in kind, accept a version, switch auto-follow. The keeper's swap, and the adopt anyone may call | EVM-1, EVM-2, EVM-3 |
 | `src/VaultFactory.sol` on `src/VaultConfig.sol` | Creates the vaults and lists them; holds the platform's settings, the three roles and the guardian's switches. A UUPS proxy | EVM-1, EVM-2 |
-| `src/IndexRegistry.sol` | The shared portfolios and the four author limits. A UUPS proxy | EVM-2 |
+| `src/IndexRegistry.sol` | The shared portfolios and the four author limits, the second rules (`SHARED-RULES-V2`; the first logic is in `test/legacy/`). A UUPS proxy; `script/DeployRegistryV2.s.sol` deploys its logic through the CREATE2 deployer | EVM-2 |
 | `src/VaultBeacon.sol` | The one beacon of a chain, handed over in two steps | EVM-2 |
 | `src/price/PoolAverageFeed.sol`, `TickPrice.sol` | The keeper's one-hour average on a chain where Chainlink publishes none: one asset's Uniswap v3 pool against the dollar token, behind Chainlink's `latestRoundData`. One per asset, no owner, no setter, no storage. Not deployed anywhere; proposed for Robinhood Chain mainnet (gate `POOL-AVERAGE`). See "The pool average" | EVM-4 |
 | `testnet/` | TEST NETWORK ONLY: the test cash, the test stock token, the test price contract, the sequencer stub and the test market of the EVM test networks; never deployed on a mainnet. See "The Robinhood Chain test network" | TNET-1, TNET-2 |

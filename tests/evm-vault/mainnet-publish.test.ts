@@ -155,8 +155,11 @@ describe.skipIf(!FORK_URL)('the four mainnet portfolios, published on a copy of 
     );
   });
 
-  it('holds gold and AMZN at the least weight to the ceiling the factory states for them', async () => {
+  it('holds gold and AMZN at the least weight to the ceiling the factory states for them, under the first rules', async () => {
     const assets = await adapter.listAssets();
+    // Under the second rules (SHARED-RULES-V2) the ceiling is a warning, and this is moot.
+    const limits = await adapter.creatorLimits();
+    if (limits.rules !== 1) return;
     for (const asset of ['robinhood:gld', 'robinhood:amzn']) {
       const verdict = checkCreatorLimits(
         null,
@@ -165,7 +168,7 @@ describe.skipIf(!FORK_URL)('the four mainnet portfolios, published on a copy of 
           { asset: 'robinhood:meta', weightBps: 4800 },
           { asset, weightBps: 200 },
         ],
-        { assets, now: 0, lastPublishAt: null, hasPending: false, publishDelay: 0 },
+        { limits, assets, now: 0, lastPublishAt: null, hasPending: false, publishDelay: 0 },
       );
       // Under the least weight on this factory (0.5% on the deploy of Oct 12), it is refused.
       const ceiling = assets.find((a) => a.id === asset)?.maxWeightBps ?? 0;
@@ -180,8 +183,9 @@ describe.skipIf(!FORK_URL)('the four mainnet portfolios, published on a copy of 
         asset: `robinhood:${symbol}`,
         weightBps,
       }));
-      // The creator limits, as the API checks them against the factory's list on the chain.
+      // The creator limits, as the API checks them: the registry's rules, the factory's list.
       const verdict = checkCreatorLimits(null, components, {
+        limits: await adapter.creatorLimits(),
         assets: await adapter.listAssets(),
         now: 0,
         lastPublishAt: null,

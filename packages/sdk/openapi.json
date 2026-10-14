@@ -23257,6 +23257,301 @@
         }
       }
     },
+    "/v1/shared/limits": {
+      "get": {
+        "summary": "The author limits of one chain, as its registry says them now",
+        "tags": ["shared portfolios"],
+        "description": "What a shared portfolio published on `chain` is held to, read from the chain for this answer (`source: 'chain'`): on Robinhood Chain the registry's `limits()` and `rulesVersion()`, on Solana the program's own numbers. `ceilings` are each listed asset's `maxWeightBps`, set from its measured exit capacity. `rules` 1 are the first rules: 3 to 12 assets, each from 2% to the lower of 50% and the asset's ceiling, adding up to exactly 100%. `rules` 2 are the second (gate SHARED-RULES-V2): 1 to 16 assets, each from 0.5% to 100%, adding up to at most 100% with the rest in cash, and an asset's own ceiling a warning, not a limit. Both: steps of 0.5%, never the cash token as a line, at most 20% of the portfolio moved per version, cash counted, and one version per publish delay. A chain that does not answer is 503 `CHAIN_UNAVAILABLE`: nothing is assumed.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["solana", "base", "robinhood"]
+            },
+            "in": "query",
+            "name": "chain",
+            "required": true
+          }
+        ],
+        "security": [],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "limits": {
+                      "type": "object",
+                      "properties": {
+                        "rules": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "enum": [1]
+                            },
+                            {
+                              "type": "number",
+                              "enum": [2]
+                            }
+                          ]
+                        },
+                        "minAssets": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "maxAssets": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "minWeightBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "maxWeightBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "stepBps": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10000
+                        },
+                        "sumBps": {
+                          "type": "number",
+                          "enum": [10000]
+                        },
+                        "maxTurnoverBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "rules",
+                        "minAssets",
+                        "maxAssets",
+                        "minWeightBps",
+                        "maxWeightBps",
+                        "stepBps",
+                        "sumBps",
+                        "maxTurnoverBps"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "ceilings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "maxWeightBps": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": ["asset", "maxWeightBps"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": ["chain"]
+                    },
+                    "observedAt": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "string",
+                      "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                    }
+                  },
+                  "required": ["chain", "limits", "ceilings", "source", "observedAt", "provenance"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/shelf": {
       "get": {
         "summary": "Every shared portfolio, or those with a recipe on one chain",
