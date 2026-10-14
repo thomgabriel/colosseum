@@ -16,7 +16,7 @@ The kit's table (`KitTable` measures): small muted heads, a hairline over each r
 - **The caller's columns**, before or after the weight, each only where some holding has the figure:
   - shared portfolio and a plan: Type (the asset's class; a dash where the server sent none, never "Other"), Amount, Yield after haircut (pin), Exit cost (Bearing's figure with its pin, or "Not measured"), Why;
   - vault page: Price (pin), Value (pin).
-- **Why**: one short muted line, cut to the column, the whole of it one hover, focus or tap away. On a plan, the line's deciding reason, and nothing where the server sent no kind for the asset; on a vault (under the amount), what the server holds (`why` on GET /v1/vaults/{chain}/{address}): the followed portfolio's asset kind, the plan's deciding reason, or the owner's stored choice; cash "Kept as cash" where its target is above 0; nothing invented.
+- **Why**: at most two short muted lines, about 15rem wide, cut after them, the whole of it one hover, focus or tap away. It is a column wherever its two-line cap fits, a table 52rem wide or more (1440 beside the actions pane), and a line under the row where the table folds into rows; between, it is left out rather than cut at the panel's edge, and every reason stays in the plan's fold. On a plan, the line's deciding reason, and nothing where the server sent no kind for the asset; on a vault (under the amount), what the server holds (`why` on GET /v1/vaults/{chain}/{address}): the followed portfolio's asset kind, the plan's deciding reason, or the owner's stored choice; cash "Kept as cash" where its target is above 0; nothing invented.
 
 ## Before and after
 

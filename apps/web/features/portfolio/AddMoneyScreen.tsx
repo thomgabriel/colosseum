@@ -44,7 +44,6 @@ export const targetsOfVault = (vault: Pick<Vault, 'positions'>): Target[] =>
     .filter((p) => p.targetBps > 0)
     .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
 
-/** The amount card of a host that has no amount of its own (the vault page's pane). */
 /**
  * Why an add can't be placed, in the order `place` checks it: no wallet of the person's signed in on
  * the chain, a wallet that isn't the vault's owner, then what was found of the vault's targets (still
@@ -59,6 +58,7 @@ export function addFailure(
   return o.source ?? t.wallet;
 }
 
+/** The amount card of a host that has no amount of its own (the vault page's pane). */
 export type AddEntry = {
   /** Deposit | Withdraw on the card, where the vault has something to withdraw. */
   onMode?: (mode: AmountMode) => void;
