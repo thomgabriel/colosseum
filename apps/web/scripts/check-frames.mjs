@@ -24,7 +24,7 @@ export const CASES = [
   ['/EMBED/solana/abc', 'nobody'],
   ['/eMbEd/x', 'nobody'],
   ['/embedded', 'nobody'],
-  ['/goal', 'nobody'],
+  ['/invest', 'nobody'],
   ['/', 'nobody'],
   ['/sign-in', 'nobody'],
   ['/api/nothing', 'nobody'],

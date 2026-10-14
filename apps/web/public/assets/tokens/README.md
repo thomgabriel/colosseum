@@ -102,7 +102,7 @@ SHA-256:
 
 ## Chain marks
 
-Thom, 2026-10-09: a chain's own mark stands before its name (`components/ui/ChainLogo.tsx`: /goal's chain choice, the chain choice of a shared portfolio, `ChainBadge`). Open for Rodrigo, whose specs have no chain mark.
+Thom, 2026-10-09: a chain's own mark stands before its name (`components/ui/ChainLogo.tsx`: /invest's chain choice, the chain choice of a shared portfolio, `ChainBadge`). Open for Rodrigo, whose specs have no chain mark.
 
 | Chain | File | Official evidence | Original asset |
 |---|---|---|---|

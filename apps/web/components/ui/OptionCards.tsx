@@ -3,7 +3,7 @@ import { cn } from './cn';
 
 // The house kit's choice between a few ways (STYLE.md, "The house kit"): each way a bordered tile with
 // its title and one muted line under it, the chosen one on the accent tint, as the chain choice on
-// /goal draws its two chains. A way that cannot be taken here is shown, dimmed, and its line says why.
+// /invest draws its two chains. A way that cannot be taken here is shown, dimmed, and its line says why.
 // With no `onChange` the tiles are a plain list: the ways named, where none can be chosen yet (signed
 // out, a portfolio that cannot be followed).
 

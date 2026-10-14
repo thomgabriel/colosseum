@@ -51,7 +51,7 @@ export function VaultGoalCard({
   const mock = vault.provenance !== 'live';
   // Rodrigo, Oct 8: a plan opens on its vault's workbench, the chat beside the plan, as the invest
   // page is, so the owner edits and rebalances it there (VaultScreen).
-  const workbench = `/vaults/${encodeURIComponent(chain.chain)}/${encodeURIComponent(vault.address)}`;
+  const workbench = `/portfolio/vaults/${encodeURIComponent(chain.chain)}/${encodeURIComponent(vault.address)}`;
   // The card's sample tag, in the language of the view: "Test network" where the figures are one's.
   const labels = {
     sample: vault.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
@@ -71,7 +71,7 @@ export function VaultGoalCard({
         pinLabels={t.pin}
         action={
           followed
-            ? { label: words.seeShared, href: `/indexes/${encodeURIComponent(followed)}` }
+            ? { label: words.seeShared, href: `/products/${encodeURIComponent(followed)}` }
             : { label: words.seePlan, href: workbench }
         }
         mock={mock}
@@ -136,7 +136,10 @@ export function VaultGoalCard({
         // the vault's workbench; an order about a shared portfolio names no plan
         record.proposalId
           ? { label: words.seePlan, href: workbench }
-          : { label: words.seeOrder, href: `/orders/${encodeURIComponent(record.orderId)}` }
+          : {
+              label: words.seeOrder,
+              href: `/portfolio/orders/${encodeURIComponent(record.orderId)}`,
+            }
       }
       mock={mock}
       labels={labels}

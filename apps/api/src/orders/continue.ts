@@ -145,7 +145,7 @@ export async function continueBuy(
     fees: [],
     preparedBy: order.preparedBy,
     status: 'open',
-    approvalUrl: `/orders/${id}`,
+    approvalUrl: `/portfolio/orders/${id}`,
     expiresAt: Math.floor(Date.parse(ctx.now) / 1000) + ORDER_POLICY.unsignedSeconds,
     createdAt: ctx.now,
     disclaimer: DISCLAIMER.en,

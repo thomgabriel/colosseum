@@ -121,8 +121,8 @@ test('his landing page: the hero alone, its faces, its numbers, and "Start your 
     .locator('[data-ui="landing-hero"]')
     .getByRole('link', { name: en.landing.hero.start })
     .click();
-  await expect(page).toHaveURL(/\/goal$/);
-  // The hero's link opens /goal with nothing sent: no reply is asked for until an explicit Send.
+  await expect(page).toHaveURL(/\/invest$/);
+  // The hero's link opens /invest with nothing sent: no reply is asked for until an explicit Send.
   await expect(page.locator('[data-ui="goal-transcript"] li')).toHaveCount(0);
   await expect(page.locator('[data-ui="invest-screen"], [data-ui="invest-card"]')).toHaveCount(0);
   expect(automaticPosts).toEqual([]);
@@ -134,7 +134,7 @@ test('signed in, the logo leads to the landing, and its bar leads back into the 
   await page.request.post(`${STUB}/__stub/reset`);
   await page.goto('/sign-in');
   await page.getByRole('button', { name: en.signIn.passkey.continue }).click();
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await page.getByRole('link', { name: en.shell.home }).click();
   // the landing, not a redirect back to the goal
   await expect(page).toHaveURL(/\/$/);
@@ -154,7 +154,7 @@ test('signed in, the logo leads to the landing, and its bar leads back into the 
     .locator('[data-ui="landing-hero"]')
     .getByRole('link', { name: en.landing.hero.start })
     .click();
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 });
 
 /** From a signed-out page to the buy screen of a $40 plan, on the stub's mock or its test network. */
@@ -162,23 +162,23 @@ async function toBuy(page: Page, o: { fund?: 'mock' | 'test' } = {}) {
   await page.request.post(`${STUB}/__stub/reset`);
   if (o.fund === 'test') await page.request.post(`${STUB}/__stub/test-network`);
   // the bar's "Sign in" opens the sign-in dialog over the goal (SIGN-IN-FLOW); the person stays there
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await check(page, 'home');
 
   await openPlan(page);
 
-  await expect(page).toHaveURL(/\/plan\/[^/]+$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grow $40 over 36 months.');
   await expect(page.locator('main')).not.toContainText('MOCK');
   await check(page, 'plan');
   await page.getByRole('link', { name: en.plan.invest('$40') }).click();
 
-  await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+\/buy$/);
 }
 
 async function toReview(page: Page, o: { fund?: 'mock' | 'test' } = {}) {
@@ -190,7 +190,7 @@ async function toReview(page: Page, o: { fund?: 'mock' | 'test' } = {}) {
   await expect(page.locator('main')).not.toContainText('MOCK');
   await check(page, 'buy');
   // the review is on the buy's own card: no other page, and the chain named once over it
-  await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
+  await expect(page).toHaveURL(/\/invest\/plan\/[^/]+\/buy$/);
   await expect(page.locator('main [data-ui="chain-badge"]')).toHaveText(['Solana']);
   return press;
 }
@@ -233,7 +233,7 @@ test('a buy on the mock chain: plan, buy, review, sign, every step confirmed', a
     .locator('[data-ui="order-next"]')
     .getByRole('link', { name: en.order.outcome.seePortfolio })
     .click();
-  await expect(page).toHaveURL(/\/monitor$/);
+  await expect(page).toHaveURL(/\/portfolio\/monitor$/);
   const summary = page.locator('[data-ui="vault-summary"]');
   await expect(summary).toHaveCount(1);
   await expect(summary.locator('[data-ui="vault-add-money"]')).toBeVisible();
@@ -337,10 +337,10 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
   };
   /** From the portfolio to the withdraw screen of the one vault. */
   const open = async () => {
-    await expect(page).toHaveURL(/\/monitor$/);
+    await expect(page).toHaveURL(/\/portfolio\/monitor$/);
     await openDetails();
     await page.locator('a[data-ui="vault-withdraw"]').click();
-    await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+\/withdraw$/);
+    await expect(page).toHaveURL(/\/portfolio\/vaults\/solana\/[^/]+\/withdraw$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(w.title);
     // the disclaimer is on this page, once, in the foot
     await expect(page.locator('footer [data-ui="disclaimer"]')).toBeVisible();
@@ -352,7 +352,7 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
     await page.locator('[data-ui="amount-details"] > summary').click();
     await expect(page.locator('[data-ui="withdraw-to"]:visible')).toHaveText(/^\S+$/);
     await page.locator('button[data-action="amount-withdraw"]').click();
-    await expect(page).toHaveURL(/\/orders\/[^/]+$/);
+    await expect(page).toHaveURL(/\/portfolio\/orders\/[^/]+$/);
     await expect(page.locator('[data-ui="order-step"]')).toHaveCount(steps);
     await page.getByRole('button', { name: en.order.shared.signWithdraw }).click();
     const done = page.locator('[data-ui="withdraw-done"]');
@@ -394,7 +394,7 @@ test('a withdrawal: part of the cash, then everything, to the owner’s own wall
   await expect(page.locator('[data-ui="withdraw-tokens"] li:visible')).toHaveCount(4);
   await check(page, 'withdraw-review');
   await through(4);
-  await expect(page).toHaveURL(/\/monitor$/);
+  await expect(page).toHaveURL(/\/portfolio\/monitor$/);
   await expect(page.locator('[data-ui="vault-summary"]')).toContainText(
     en.shared.vault.conversation.noHoldings,
   );
@@ -416,7 +416,7 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
   const d = w.check.dollars;
   /** The vault's details on the portfolio, where its way to withdraw is, opened. */
   const openDetails = async () => {
-    await expect(page).toHaveURL(/\/monitor$/);
+    await expect(page).toHaveURL(/\/portfolio\/monitor$/);
     const details = page.locator('[data-ui="vault-read-details"]');
     await expect(details).toHaveCount(1);
     if ((await details.getAttribute('open')) === null)
@@ -426,7 +426,7 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
   const open = async () => {
     await openDetails();
     await page.locator('a[data-ui="vault-withdraw"]').click();
-    await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+\/withdraw$/);
+    await expect(page).toHaveURL(/\/portfolio\/vaults\/solana\/[^/]+\/withdraw$/);
     // the two ways, the tokens themselves chosen first
     await expect(page.getByLabel(en.amount.out.asTokens)).toBeChecked();
     await page.getByLabel(en.amount.out.asCash('USDC')).check();
@@ -445,7 +445,7 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     await expect(page.locator('[data-ui="withdraw-not-sold"]:visible')).toHaveText(d.notSold);
     await check(page, emptied ? 'withdraw-dollars-all' : 'withdraw-dollars-share');
     await page.locator('button[data-action="amount-withdraw"]').click();
-    await expect(page).toHaveURL(/\/orders\/[^/]+$/);
+    await expect(page).toHaveURL(/\/portfolio\/orders\/[^/]+$/);
     // a sale per holding, then the cash; the least received is said over the steps
     await expect(page.locator('[data-ui="order-step"]')).toHaveCount(4);
     await expect(page.locator('[data-ui="withdraw-least"]')).toHaveText(/^[\d.,]+ USDC$/);
@@ -485,7 +485,7 @@ test('a withdrawal in dollars: half of the vault is sold and paid out, then all 
     .getByRole('button', { name: en.amount.out.max })
     .click();
   await through(true);
-  await expect(page).toHaveURL(/\/monitor$/);
+  await expect(page).toHaveURL(/\/portfolio\/monitor$/);
   await expect(page.locator('[data-ui="vault-summary"]')).toContainText(
     en.shared.vault.conversation.noHoldings,
   );

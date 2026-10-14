@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 
-// The draft on /goal, drawn as a ring beside its rows (composition.md, Composition.tsx, gate
+// The draft on /invest, drawn as a ring beside its rows (composition.md, Composition.tsx, gate
 // WEIGHTS-RING): a segment and a row a holding, a row and its segment lighting each other, what the
 // card shows while a reply is on its way, and that it fits a phone and a desk. The stub answers
 // every turn with the same two picks, so each reply here is the stub's own with its allocations
@@ -107,12 +107,12 @@ async function answerWith(page: Page, mix: Mix, gate: Promise<void> = Promise.re
 
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 
 async function say(page: Page, words: string) {

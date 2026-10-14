@@ -20,7 +20,7 @@ vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider')
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
 vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
-// Measured figures on /goal (RELAXED-INTAKE as amended 2026-10-09): a reply's figures are drawn as the
+// Measured figures on /invest (RELAXED-INTAKE as amended 2026-10-09): a reply's figures are drawn as the
 // vault's conversation draws them, and kept in this browser as they were served.
 const userId = 'did:privy:test';
 const exit = 'exit:solana:tslax:worst';
@@ -99,7 +99,7 @@ const stored = (): Turn[] => {
   return key ? readLocal(key).transcript : [];
 };
 beforeEach(() => {
-  window.history.replaceState(null, '', '/goal');
+  window.history.replaceState(null, '', '/invest');
   localStorage.clear();
   sessionStorage.clear();
   sent.length = 0;

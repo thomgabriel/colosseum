@@ -9,7 +9,7 @@ import { withAccount } from './test/screen';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 
-// The hint the landing page reads (`/` sends a person signed in here on to /goal): set while someone is
+// The hint the landing page reads (`/` sends a person signed in here on to /invest): set while someone is
 // signed in, cleared when they sign out, and untouched while the wallet is still loading.
 
 const hint = () =>

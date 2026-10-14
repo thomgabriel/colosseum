@@ -447,6 +447,8 @@ describe('a creator publishes a shared portfolio', () => {
       [{ name: ' Padded' }, 422, /no space at either end/],
       [{ copy: 'x'.repeat(281) }, 422, /281 characters, and the most is 280/],
       [{ family: 'Not-A-Slug' }, 422, /lower-case letters/],
+      // a page of the web's Products takes this address (ROUTES-MATCH-NAV)
+      [{ family: 'publish' }, 422, /a page of Products/],
       [{ familyId: 'ab'.repeat(32) }, 409, /family id is not the one/],
       [
         {

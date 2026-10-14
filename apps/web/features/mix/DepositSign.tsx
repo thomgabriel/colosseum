@@ -11,7 +11,7 @@ import { readOrder } from '../order/order-api';
 import { depositLanded } from '../order/order-check';
 import { useApiFetch } from '../wallet/WalletProvider';
 
-// The deposit signed in place, on /goal (gate DEPOSIT-IN-PLACE): once the person has confirmed the
+// The deposit signed in place, on /invest (gate DEPOSIT-IN-PLACE): once the person has confirmed the
 // review, this takes the pane with the steps to sign, their progress and the finished state. It draws
 // nothing of its own that decides what is signed: the card is the one the plan's own page mounts
 // (Invest, gate INVEST-ONE-PRESS), with its line for a test network or its sample hatch, what the
@@ -132,7 +132,7 @@ export function DepositSign({
           <Link
             href={
               done.vault
-                ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(done.vault)}`
+                ? `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(done.vault)}`
                 : '/portfolio'
             }
             data-action="open-vault"
@@ -181,7 +181,10 @@ export function DepositSign({
       {approved && !running && !done && (
         <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
           <span className="text-muted-foreground">{s.leaveNote}</span>
-          <Link href={`/orders/${encodeURIComponent(orderId ?? '')}`} className="underline">
+          <Link
+            href={`/portfolio/orders/${encodeURIComponent(orderId ?? '')}`}
+            className="underline"
+          >
             {s.orderPage}
           </Link>
           <Button
@@ -250,7 +253,7 @@ export function UnfinishedDeposit({
         <Button variant="link" data-action="back-to-deposit" onClick={onBack}>
           {u.back}
         </Button>
-        <Link href={`/orders/${encodeURIComponent(orderId)}`} className="underline">
+        <Link href={`/portfolio/orders/${encodeURIComponent(orderId)}`} className="underline">
           {t.mix.deposit.signing.orderPage}
         </Link>
       </p>

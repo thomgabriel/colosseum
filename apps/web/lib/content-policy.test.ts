@@ -114,7 +114,7 @@ describe('the proxy', () => {
   const nonceOf = (policy: string | null) => policy?.match(/'nonce-([^']+)'/)?.[1];
 
   it('answers every page with the reported policy and a nonce of its own, and enforces none of it', () => {
-    const [a, b] = [at('/goal'), at('/goal')];
+    const [a, b] = [at('/invest'), at('/invest')];
     const policy = a.headers.get(REPORT_ONLY);
     expect(policy).toContain("script-src 'self' 'nonce-");
     expect(nonceOf(policy)).not.toBe(nonceOf(b.headers.get(REPORT_ONLY)));
@@ -133,7 +133,7 @@ describe('the proxy', () => {
   it('is reached by every page, and by no built file', () => {
     const pages = config.matcher.find((m) => typeof m !== 'string') as { source: string };
     const reaches = (path: string) => pathToRegexp(pages.source).test(path);
-    for (const path of ['/', '/goal', '/plan/abc/buy', '/embed', '/analytics/stocks'])
+    for (const path of ['/', '/invest', '/invest/plan/abc/buy', '/embed', '/analytics/stocks'])
       expect(reaches(path), path).toBe(true);
     for (const path of ['/_next/static/chunks/a.js', '/_next/image', '/favicon.ico', '/icon.svg'])
       expect(reaches(path), path).toBe(false);
@@ -144,14 +144,14 @@ describe('the build’s check of the reported policy', () => {
   const policy = "default-src 'self'; script-src 'self' 'nonce-abc' 'strict-dynamic'";
   it('passes a page whose every script carries the request’s nonce', () => {
     const html = '<script src="/a.js" nonce="abc"></script><script nonce="abc">x()</script>';
-    expect(judgeReported('/goal', policy, html)).toEqual([]);
+    expect(judgeReported('/invest', policy, html)).toEqual([]);
   });
 
   it('names a page with no policy, no script, or a script without the nonce', () => {
-    expect(judgeReported('/goal', null, '<script nonce="abc"></script>')).toHaveLength(1);
-    expect(judgeReported('/goal', policy, '<p>built ahead of time</p>')).toHaveLength(1);
+    expect(judgeReported('/invest', null, '<script nonce="abc"></script>')).toHaveLength(1);
+    expect(judgeReported('/invest', policy, '<p>built ahead of time</p>')).toHaveLength(1);
     const [problem] = judgeReported(
-      '/goal',
+      '/invest',
       policy,
       '<script nonce="abc"></script><script>y()</script>',
     );

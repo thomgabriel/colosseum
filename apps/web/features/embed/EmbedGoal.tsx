@@ -17,7 +17,7 @@ import { useHostHeight } from './host-height';
 // face and radius, a box for the goal, how it was read as limits, and the way out to build the plan in
 // tenonfi, in a new tab, where the person signs in with a wallet of their own. Nothing in the frame
 // signs, holds a wallet or calls a route that needs a sign-in: the goal is read by the public reader
-// (`POST /goals`), and the plan is built after sign-in, in the app (`/goal`, handed the text in the
+// (`POST /goals`), and the plan is built after sign-in, in the app (`/invest`, handed the text in the
 // address's fragment, which never reaches a server).
 
 /** A field of the partner's: their border, radius and ground, the focus ring in their accent. */
@@ -138,7 +138,7 @@ export function EmbedGoal({ style }: { style: CSSProperties }) {
               ))}
             </dl>
             <a
-              href={`/goal#goal=${encodeURIComponent(read.text)}`}
+              href={`/invest#goal=${encodeURIComponent(read.text)}`}
               target="_blank"
               rel="noopener"
               className={`${PARTNER_BUTTON} mt-[0.75em] no-underline`}
