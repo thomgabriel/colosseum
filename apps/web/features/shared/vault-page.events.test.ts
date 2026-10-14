@@ -698,7 +698,7 @@ describe('the pane’s states, and the way out of each', () => {
     expect(pane(host).querySelector('h1')).toBeNull();
     // the one way to the portfolio is the page's own, to the board: nothing leads to the monitor
     expect(find(host, '[data-ui="vault-back"]').getAttribute('href')).toBe('/portfolio');
-    expect(host.querySelector('a[href="/monitor"]')).toBeNull();
+    expect(host.querySelector('a[href="/portfolio/monitor"]')).toBeNull();
     expect(pane(host).querySelector('[data-action="leave-action"]')).not.toBeNull();
   });
 
@@ -747,7 +747,7 @@ describe('the pane’s states, and the way out of each', () => {
     // done: the page's own way on, and no link of the order's
     expect(pane(again).querySelector('[data-ui="order-next"]')).toBeNull();
     expect(find(again, '[data-ui="vault-back"]').getAttribute('href')).toBe('/portfolio');
-    expect(again.querySelector('a[href="/monitor"]')).toBeNull();
+    expect(again.querySelector('a[href="/portfolio/monitor"]')).toBeNull();
     expect(pane(again).querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
     expect(find(again, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.done);
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();

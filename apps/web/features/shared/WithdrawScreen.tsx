@@ -116,7 +116,7 @@ export function WithdrawScreen({
   }, [apiFetch, chain, address, way]);
 
   const back = (
-    <Link href="/monitor" className={buttonClass({ variant: 'secondary' })}>
+    <Link href="/portfolio/monitor" className={buttonClass({ variant: 'secondary' })}>
       {w.back}
     </Link>
   );
@@ -141,7 +141,7 @@ export function WithdrawScreen({
     return page(
       t.plan.signedOut,
       <Link
-        href={`/sign-in?next=${encodeURIComponent(`/vaults/${chainText}/${address}/withdraw`)}`}
+        href={`/sign-in?next=${encodeURIComponent(`/portfolio/vaults/${chainText}/${address}/withdraw`)}`}
         className={buttonClass({ variant: 'secondary' })}
       >
         {t.shell.signIn}
@@ -334,7 +334,7 @@ export function WithdrawScreen({
       setPlacing(false);
       return embedded.onOrder(placed.order.id);
     }
-    router.push(`/orders/${encodeURIComponent(placed.order.id)}`);
+    router.push(`/portfolio/orders/${encodeURIComponent(placed.order.id)}`);
   }
 
   const next = (step: StepId, ready: boolean) => (

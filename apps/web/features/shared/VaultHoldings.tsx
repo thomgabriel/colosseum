@@ -386,7 +386,7 @@ export function VaultDetails({ read, mine = false }: { read: VaultResponse; mine
               className="max-w-(--tf-measure-body) text-muted-foreground"
             >
               {v.autoFollowOff}{' '}
-              <Link href="/shelf" className={buttonClass({ variant: 'link' })}>
+              <Link href="/products" className={buttonClass({ variant: 'link' })}>
                 {v.autoFollowWhere}
               </Link>
             </span>

@@ -226,7 +226,7 @@ describe('the shelf', () => {
     ).toEqual([]);
     // the one link is the card's own, to the portfolio's page
     expect([...card.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
-      `/indexes/${SLUG}`,
+      `/products/${SLUG}`,
     ]);
     // words that match no version the creator published are said to be unverified
     expect(card.textContent).toContain(en.shared.text.unverified);
@@ -339,7 +339,7 @@ describe('the shelf', () => {
   describe('for someone signed out', () => {
     beforeEach(() => {
       portStore.set(fakePort());
-      window.history.replaceState(null, '', '/shelf');
+      window.history.replaceState(null, '', '/products');
     });
     afterEach(() => window.history.replaceState(null, '', '/'));
 
@@ -356,7 +356,7 @@ describe('the shelf', () => {
     });
 
     it('does not move to a chain an old link names: the list is whole, and this browser keeps its own', async () => {
-      window.history.replaceState(null, '', '/shelf?chain=robinhood');
+      window.history.replaceState(null, '', '/products?chain=robinhood');
       window.localStorage.setItem('tf-chain', 'solana');
       const calls = api({ families: [familyOf(FAMILY_ID), onRobinhood()] });
       const host = await show(createElement(ShelfScreen));
@@ -402,7 +402,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     await click(button(host, en.shared.vaults.useExisting) as HTMLElement);
     const mine = find(host, '[data-ui="my-vault"]');
     expect(find(mine, 'h3').textContent).toBe('Grow $40,000 over 36 months.');
-    expect(find(mine, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}`);
+    expect(find(mine, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}`);
     expect(mine.textContent).toContain(en.shared.vaults.ownPlan);
     expect(mine.textContent).not.toContain('something else');
   });
@@ -572,7 +572,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
         basketId: '44',
         follow: { recipeOnchainId: RECIPE, version: 2 },
       });
-      expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+      expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
     },
   );
 
@@ -775,7 +775,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(calls.find((c) => c.path === '/v1/orders')?.body?.vault).toBe(MY_VAULT);
     release();
     await settle(50);
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it('drops the chooser, selection and refusal when the account changes, including while its vault read waits', async () => {
@@ -882,7 +882,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
         await settle(50);
         if (outcome === 'placed') {
           expect(recallOrder(ORDER_ID, USER)?.chain).toBe('solana');
-          expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+          expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
         } else expect(host.querySelector('[role="alert"]')).not.toBeNull();
         return;
       }
@@ -959,7 +959,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       autoFollow: false,
       source: 'api',
     });
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it.each(['en', 'pt'] as const)(
@@ -1161,7 +1161,7 @@ describe('buying a portfolio, which follows it', () => {
       const reopen = find(host, 'a[data-ui="family-reopen"]');
       expect([reopen.textContent, reopen.getAttribute('href')]).toEqual([
         words.shared.refusal.reopen,
-        `/indexes/${SLUG}`,
+        `/products/${SLUG}`,
       ]);
       // and this page has read the portfolio again
       expect(calls.filter((c) => c.path.startsWith(`/v1/indexes/${SLUG}`)).length).toBeGreaterThan(
@@ -1486,11 +1486,22 @@ describe('the publish form', () => {
     expect(problemsOf(form('Three', 'two lines\nare fine'))).toEqual([]);
   });
 
+  it('keeps an address that is a page of Products for that page (ROUTES-MATCH-NAV)', () => {
+    const rows = [
+      { asset: 'solana:spyx', bps: 4000 },
+      { asset: 'solana:nvdax', bps: 3000 },
+      { asset: 'solana:tslax', bps: 3000 },
+    ];
+    const form = (slug: string) => ({ name: 'Publish', slug, copy: '', rows });
+    expect(problemsOf(form('publish'))).toEqual(['slug']);
+    expect(problemsOf(form('publish-2'))).toEqual([]);
+  });
+
   it('is offered on Robinhood Chain, whose deployment names its registry (AGT-4)', async () => {
     const calls = api({ family: null, chain: 'robinhood' });
     const shelf = await show(createElement(ShelfScreen));
     expect(calls.some((c) => c.path === '/v1/shelf')).toBe(true);
-    expect(shelf.querySelector('a[href="/publish"]')).not.toBeNull();
+    expect(shelf.querySelector('a[href="/products/publish"]')).not.toBeNull();
   });
 
   it('shows the form on Robinhood Chain, and not the notice that publishing is closed', async () => {
@@ -1506,7 +1517,7 @@ describe('the publish form', () => {
     try {
       const calls = api({ family: null, chain: 'robinhood' });
       const shelf = await show(createElement(ShelfScreen));
-      expect(shelf.querySelector('a[href="/publish"]')).toBeNull();
+      expect(shelf.querySelector('a[href="/products/publish"]')).toBeNull();
       expect(find(shelf, '[data-ui="shelf-publish-soon"]').textContent).toBe(
         en.shared.shelf.publishSoon('Robinhood Chain'),
       );
@@ -1673,7 +1684,7 @@ describe('a vault’s public page', () => {
     expect(find(host, 'h1').textContent).toBe(en.shared.vault.missing);
     const ways = [...host.querySelectorAll('a')];
     expect(ways.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.shared.vault.backVisitor, '/shelf'],
+      [en.shared.vault.backVisitor, '/products'],
     ]);
     expect(host.querySelectorAll('button')).toHaveLength(0);
   });
@@ -1690,7 +1701,9 @@ describe('a vault’s public page', () => {
     expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.textContent).toContain(en.shared.vault.unreachable);
     expect(host.textContent).not.toMatch(/shared portfolios/);
-    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
+      '/products',
+    ]);
     await click(find(host, 'button'));
     await settle();
     expect(asked).toBe(2);
@@ -1704,7 +1717,9 @@ describe('a vault’s public page', () => {
     expect(host.textContent).toContain(en.shared.vault.chainOff('Solana'));
     expect(host.textContent).not.toContain(en.shared.vault.unreachable);
     expect(host.querySelectorAll('button')).toHaveLength(0);
-    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
+      '/products',
+    ]);
   });
 
   it('gives up on a read that never answers, says it couldn’t read the vault, and reads it again', async () => {
@@ -1740,7 +1755,7 @@ describe('a vault’s public page', () => {
     // Robinhood Chain runs here; Base is switched off, and is not offered
     const there = [...host.querySelectorAll('[data-ui="vault-elsewhere"]')];
     expect(there.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.shared.vault.openOn('Robinhood Chain'), `/vaults/robinhood/${evm}`],
+      [en.shared.vault.openOn('Robinhood Chain'), `/portfolio/vaults/robinhood/${evm}`],
     ]);
     // and an address of Solana's own kind that holds no vault gets no such link
     await unmountAll();
@@ -1856,7 +1871,7 @@ describe('auto-follow on a vault’s page, after a withdrawal switched it off', 
     const host = await page({ autoFollow: false });
     const line = find(host, '[data-ui="vault-auto-follow-off"]');
     expect(line.textContent).toContain(en.shared.vault.autoFollowOff);
-    expect(find(line, 'a').getAttribute('href')).toBe('/shelf');
+    expect(find(line, 'a').getAttribute('href')).toBe('/products');
   });
 
   it('says nothing of it while auto-follow is on, for a vault that follows nothing, or to anybody else', async () => {
@@ -2022,7 +2037,7 @@ describe('the flow audit’s findings on these screens (34, 38, 42)', () => {
         expect(find(rh, '[data-ui="shelf-publish-soon"]').textContent).toBe(
           words.shared.shelf.publishSoon('Robinhood Chain'),
         );
-        expect(rh.querySelector('a[href="/publish"]')).toBeNull();
+        expect(rh.querySelector('a[href="/products/publish"]')).toBeNull();
         await unmountAll();
       } finally {
         deployed.withoutRegistry = false;
@@ -2030,7 +2045,9 @@ describe('the flow audit’s findings on these screens (34, 38, 42)', () => {
       api({ family: familyOf(FAMILY_ID) });
       const sol = await mount(withAccount(lang, createElement(ShelfScreen)));
       for (let i = 0; i < 4; i += 1) await settle(50);
-      expect(sol.querySelector('a[href="/publish"]')?.textContent).toBe(words.shared.shelf.publish);
+      expect(sol.querySelector('a[href="/products/publish"]')?.textContent).toBe(
+        words.shared.shelf.publish,
+      );
       expect(sol.querySelector('[data-ui="shelf-publish-soon"]')).toBeNull();
     },
   );

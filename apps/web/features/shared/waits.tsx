@@ -81,7 +81,7 @@ export function FamilyWait() {
         <div data-ui="family-wait" className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             {/* The way back works while the page waits: on a slow read it is what a person wants. */}
-            <Link href="/shelf" className={`${buttonClass({ variant: 'link' })} self-start`}>
+            <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
               {t.shared.family.backToShelf}
             </Link>
             <div aria-hidden="true" className="flex flex-col gap-3">

@@ -31,7 +31,7 @@ import {
 import { cleanProse, withoutMark, withoutReferences, withoutUnserved } from './vault-figures';
 
 // The relaxed intake (gate RELAXED-INTAKE, from scripts/relaxed/intake.ts and RELAXED-1): the goal
-// agent behind /goal whenever a model key is set (`relaxedGoalAgentFromEnv`). The model is free where
+// agent behind /invest whenever a model key is set (`relaxedGoalAgentFromEnv`). The model is free where
 // it talks and constrained where it touches money: it reads intent against this chain's live catalog,
 // says what it understood in its own words (the person's own numbers included) and names holdings by
 // id. Code then keeps only ids on the catalog, holds every line to the rule `goal/accept` applies
@@ -40,14 +40,14 @@ import { cleanProse, withoutMark, withoutReferences, withoutUnserved } from './v
 // exactly, the rest in cash and said), names any line above its cap in a warning on the plan, and
 // cites the server's own sources. Never a weight from the model, never a source from it, and never a
 // figure but a measured one it names by reference, which the server writes with its source
-// (FIGURES-BY-REFERENCE, on /goal since 2026-10-09; relaxed-figures.ts).
+// (FIGURES-BY-REFERENCE, on /invest since 2026-10-09; relaxed-figures.ts).
 
 /** The `GOAL_AGENT` values: unset or `relaxed` is the relaxed intake; `model-led` opts out of it. */
 export const GOAL_AGENT_RELAXED = 'relaxed';
 export const GOAL_AGENT_MODEL_LED = 'model-led';
 
 /**
- * The goal agent behind /goal from the environment: the relaxed intake whenever `ANTHROPIC_API_KEY` is
+ * The goal agent behind /invest from the environment: the relaxed intake whenever `ANTHROPIC_API_KEY` is
  * set, unless `GOAL_AGENT=model-led` asks for the model-led conversation (`replyToVaultConversation`)
  * instead. No key: null, and the route answers as it does with no model. Any other value stops the app,
  * so a misspelt opt-out is never silently ignored. `RELAXED_MODEL` names its model.

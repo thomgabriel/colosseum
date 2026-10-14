@@ -190,7 +190,7 @@ export function orderOn(chain: ChainId = 'solana', minOutRaw = '990000'): OrderD
     fees: [],
     preparedBy: 'app',
     status: 'open',
-    approvalUrl: `/orders/${ORDER_ID}`,
+    approvalUrl: `/portfolio/orders/${ORDER_ID}`,
     expiresAt: 1_791_200_000,
     createdAt: '2026-10-05T12:00:00.000Z',
     attempts: [],

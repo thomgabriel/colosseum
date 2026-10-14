@@ -302,7 +302,7 @@ describe('a shared portfolio this app could read from the chain and could not', 
     );
     expect(buy?.getAttribute('aria-disabled')).toBe('true');
     expect(page.textContent).toContain(tampered);
-    expect(page.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(page.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
     const mark = find(page, '[data-ui="source-mark"]');
     expect(mark.textContent).toContain(en.shared.check.failed('Solana'));
     // nothing was read, so the creator's words are said not to be checked: the server's word is not repeated
@@ -393,6 +393,6 @@ describe('a shared portfolio the chain does not hold', () => {
       en.shared.check.missing('Solana'),
     );
     expect(host.textContent).toContain(en.shared.family.missingOnChain('Solana'));
-    expect(host.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(host.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
   });
 });

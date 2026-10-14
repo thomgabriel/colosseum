@@ -380,7 +380,7 @@ describe('a product’s page, on the plan view', () => {
     const invest = find(pane, '[data-ui="product-invest"]');
     expect(find(invest, 'input[inputmode="decimal"]').getAttribute('value')).toBe('');
     expect(find(invest, '[data-ui="family-invest"]')).toBeTruthy();
-    expect(host.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(host.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
     // where the version and weights come from is said once on the page, over the card
     expect(host.querySelectorAll('[data-ui="source-mark"]')).toHaveLength(1);
     expect(find(invest, '[data-ui="source-mark"]')).toBeTruthy();

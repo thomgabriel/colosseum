@@ -137,7 +137,10 @@ describe('the monitor, for a person with a vault on their chain', () => {
     expect(host.querySelector('img[src="x"]')).toBeNull();
     expect(
       cards.map((card) => find(card, '[data-ui="vault-add-money"]').getAttribute('href')),
-    ).toEqual([`/vaults/solana/${VAULT}/add`, `/vaults/solana/${SECOND_VAULT}/add`]);
+    ).toEqual([
+      `/portfolio/vaults/solana/${VAULT}/add`,
+      `/portfolio/vaults/solana/${SECOND_VAULT}/add`,
+    ]);
     for (const [index, card] of cards.entries()) {
       const summary = find(card, '[data-ui="vault-summary"]');
       expect(summary.querySelector('table')).toBeNull();
@@ -146,7 +149,7 @@ describe('the monitor, for a person with a vault on their chain', () => {
         (link) => link.textContent === en.portfolio.overview.open,
       );
       expect(open?.getAttribute('href')).toBe(
-        `/vaults/solana/${index === 0 ? VAULT : SECOND_VAULT}`,
+        `/portfolio/vaults/solana/${index === 0 ? VAULT : SECOND_VAULT}`,
       );
       const details = find<HTMLDetailsElement>(card, '[data-ui="vault-read-details"]');
       expect(details.open).toBe(false);
@@ -243,9 +246,9 @@ describe('the monitor, for a person with a vault on their chain', () => {
     expect(display.length).toBeLessThanOrEqual(2);
     for (const el of display) expect(el.closest('[data-ui="goal-card"]')).not.toBeNull();
     expect(vaults(host)).toHaveLength(1);
-    expect(find(host, `a[href="/vaults/solana/${VAULT}#vault-conversation"]`).textContent).toBe(
-      en.shared.vault.conversation.resume,
-    );
+    expect(
+      find(host, `a[href="/portfolio/vaults/solana/${VAULT}#vault-conversation"]`).textContent,
+    ).toBe(en.shared.vault.conversation.resume);
     const goalDetails = [...host.querySelectorAll('details')].find(
       (details) => details.querySelector('summary')?.textContent === en.portfolio.planDetails,
     );
@@ -278,7 +281,7 @@ describe('the monitor, for a person with a vault on their chain', () => {
       [words.lossUsed, '0.12%'],
     ]);
     // and the address in the head leads to the vault's own page
-    const page = `/vaults/solana/${VAULT}`;
+    const page = `/portfolio/vaults/solana/${VAULT}`;
     expect(find(card, '[data-ui="vault-page-link"]').getAttribute('href')).toBe(page);
     expect(find(details, 'a').getAttribute('href')).toBe(page);
   });
@@ -593,7 +596,7 @@ describe('the monitor, for a person with a vault on their chain', () => {
     // Withdraw is said once, on a link that leads to the vault's own withdrawal page (WITHDRAW).
     const out = find(host, 'a[data-ui="vault-withdraw"]');
     expect(out.textContent).toBe(en.withdraw.action);
-    expect(out.getAttribute('href')).toMatch(/^\/vaults\/solana\/[^/]+\/withdraw$/);
+    expect(out.getAttribute('href')).toMatch(/^\/portfolio\/vaults\/solana\/[^/]+\/withdraw$/);
     expect(text(host).match(/withdraw/gi)).toHaveLength(1);
     expect(host.querySelector('[data-ui="vault-empty"]')).toBeNull();
   });
@@ -607,7 +610,7 @@ describe('the monitor, when there is nothing to read or the API cannot say', () 
     const link = find(host, 'a');
     expect([link.textContent, link.getAttribute('href')]).toEqual([
       en.shell.signIn,
-      '/sign-in?next=/monitor',
+      '/sign-in?next=/portfolio/monitor',
     ]);
     expect(server.to(PORTFOLIO_PATH)).toEqual([]);
     expect(host.querySelector('[data-ui="disclaimer"]')).toBeNull();
@@ -639,7 +642,7 @@ describe('the monitor, when there is nothing to read or the API cannot say', () 
     const link = find(host, 'a');
     expect([link.textContent, link.getAttribute('href')]).toEqual([
       en.portfolio.startGoal,
-      '/goal',
+      '/invest',
     ]);
     expect(host.querySelector('table')).toBeNull();
   });
@@ -753,7 +756,7 @@ it('shows a person only the answer read for them, when another signs in while a 
   const pages = [...host.querySelectorAll('[data-ui="vault-page-link"]')].map((link) =>
     link.getAttribute('href'),
   );
-  expect(pages).toEqual([`/vaults/solana/${SECOND_VAULT}`]);
+  expect(pages).toEqual([`/portfolio/vaults/solana/${SECOND_VAULT}`]);
 });
 
 describe('the throwaway wallet of development', () => {
@@ -856,7 +859,7 @@ describe('each vault as his guide’s goal card, plan and activity', () => {
         const link = find(said, 'a');
         expect([link.textContent, link.getAttribute('href')]).toEqual([
           t.order.outcome.finish,
-          `/orders/${ORDER_ID}`,
+          `/portfolio/orders/${ORDER_ID}`,
         ]);
         // the portfolio still signs nothing: a link to the order's page, and not the page's primary
         expect(primary(host)).toBeNull();
@@ -986,7 +989,9 @@ describe('each vault as his guide’s goal card, plan and activity', () => {
       const host = await screen();
       await settle();
       await settle();
-      expect(find(note(host) as HTMLElement, 'a').getAttribute('href')).toBe(`/orders/${NEXT_ID}`);
+      expect(find(note(host) as HTMLElement, 'a').getAttribute('href')).toBe(
+        `/portfolio/orders/${NEXT_ID}`,
+      );
     });
   });
 
@@ -1012,7 +1017,7 @@ describe('each vault as his guide’s goal card, plan and activity', () => {
     // the card leads to the vault's workbench: the chat beside the plan (VaultScreen)
     expect([link.textContent, link.getAttribute('href')]).toEqual([
       en.portfolio.goalCard.seePlan,
-      `/vaults/solana/${VAULT}`,
+      `/portfolio/vaults/solana/${VAULT}`,
     ]);
     // beside it, his plan: the parts by weight
     const titles = [...host.querySelectorAll('[data-ui="vault"] section h3')].map(
@@ -1073,7 +1078,7 @@ describe('each vault as his guide’s goal card, plan and activity', () => {
     const link = find(card, 'a');
     expect([link.textContent, link.getAttribute('href')]).toEqual([
       en.portfolio.goalCard.seePlan,
-      `/vaults/solana/${VAULT}`,
+      `/portfolio/vaults/solana/${VAULT}`,
     ]);
     // and what was done is the order's steps, read from the server by the order's id
     expect(server.to(`/v1/orders/${ORDER_ID}`)).toHaveLength(1);
@@ -1296,7 +1301,7 @@ describe('each vault as his guide’s goal card, plan and activity', () => {
     expect(find(card, 'h3').textContent).toBe(en.portfolio.goalCard.unknown('Solana'));
     expect(card.textContent).toContain(en.portfolio.goalCard.notJoined);
     expect(card.textContent).not.toMatch(/ of \$/);
-    expect(find(card, 'a').getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
+    expect(find(card, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${VAULT}`);
   });
 
   it('tags every activity line when one of them is on a chain the page’s head does not name', async () => {
@@ -1706,7 +1711,7 @@ describe('the way from a vault to its own page (flow audit, 34)', () => {
       signIn();
       const host = await screen(lang);
       const link = find<HTMLAnchorElement>(host, '[data-ui="vault-page-link"]');
-      expect(link.getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
+      expect(link.getAttribute('href')).toBe(`/portfolio/vaults/solana/${VAULT}`);
       expect(link.getAttribute('aria-label')).toBe(
         dictionary(lang).portfolio.vault.page(link.textContent ?? ''),
       );

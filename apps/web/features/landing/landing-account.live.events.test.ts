@@ -44,7 +44,7 @@ const live = (host: HTMLElement) =>
     { timeout: 5_000, interval: 5 },
   );
 const app = async () => {
-  location.pathname = '/goal';
+  location.pathname = '/invest';
   const host = await mount(inShell('en', 'auto', createElement('p', null, 'page')));
   await settle(10);
   return host;
@@ -112,7 +112,7 @@ describe('the landing’s account control, with the wallet loaded', () => {
     const inApp = await app();
     const theirs = find<HTMLAnchorElement>(control(inApp), 'a');
     expect(theirs.className).toContain('bg-primary');
-    expect(theirs.getAttribute('href')).toBe('/sign-in?next=/goal');
+    expect(theirs.getAttribute('href')).toBe('/sign-in?next=/invest');
     expect(theirs.textContent).toBe(way.textContent);
   });
 

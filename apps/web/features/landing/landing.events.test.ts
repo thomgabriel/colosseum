@@ -83,8 +83,8 @@ describe('the hero', () => {
       a.getAttribute('href'),
     ]);
     expect(actions).toEqual([
-      [t.start, '/goal'],
-      [t.see, '/shelf'],
+      [t.start, '/invest'],
+      [t.see, '/products'],
     ]);
   });
 

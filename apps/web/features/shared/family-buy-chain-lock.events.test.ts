@@ -15,7 +15,7 @@ vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
 // The deposit page of a shared portfolio shows the recipe of the chain the person's new plans start
 // on, when the page's own choice was never touched. Once a deposit is pressed that recipe is the
-// page's: where new plans start can change elsewhere (/goal in another tab) and the card that holds
+// page's: where new plans start can change elsewhere (/invest in another tab) and the card that holds
 // the run is not drawn again on another chain. The card is stood in for by one that says which chain
 // it is on and when it was pressed, and counts how often it was mounted.
 
@@ -67,7 +67,7 @@ let starts = 'robinhood';
 function api() {
   starts = 'robinhood';
   portStore.setApi(async (path, init) => {
-    // where new plans start, as /goal's choice stores it
+    // where new plans start, as /invest's choice stores it
     if (path === '/v1/me/chain') starts = JSON.parse(String(init?.body)).chain;
     if (path === '/v1/me' || path === '/v1/me/chain')
       return json({

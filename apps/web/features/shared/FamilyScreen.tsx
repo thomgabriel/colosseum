@@ -184,7 +184,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
               {t.shared.shelf.failure.retry}
             </Button>
           )}
-          <Link href="/shelf" className={buttonClass({ variant: 'secondary' })}>
+          <Link href="/products" className={buttonClass({ variant: 'secondary' })}>
             {t.shared.family.backToShelf}
           </Link>
         </div>
@@ -207,7 +207,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
   return (
     <div data-ui="family-screen" className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/shelf" className={`${buttonClass({ variant: 'link' })} self-start`}>
+        <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
           {f.backToShelf}
         </Link>
         <h1 id={titleId} className={`${PAGE_TITLE} [overflow-wrap:anywhere]`}>
@@ -262,7 +262,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
           changed={changed}
           onRunning={(now) => {
             // The run is on the recipe on the page. Where the page's own choice was never touched
-            // that recipe came from where the person's new plans start, which /goal can change in
+            // that recipe came from where the person's new plans start, which /invest can change in
             // another tab: it is pinned here, so the section is not drawn again under the run.
             if (now) setPicked(recipe.chain);
             setRunning(now);
@@ -284,7 +284,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
         />
       )}
       <VersionsPanel slug={family.slug} chain={chosen?.chain ?? null} />
-      <Link href="/shelf" className={`${buttonClass({ variant: 'link' })} self-start`}>
+      <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
         {f.backToShelf}
       </Link>
     </div>
@@ -580,7 +580,7 @@ function RecipeSection({
           ) : person.kind === 'signed-out' ? (
             <div data-ui="product-invest" className="flex flex-col items-start gap-2">
               <Link
-                href={`/sign-in?next=/indexes/${encodeURIComponent(family.slug)}`}
+                href={`/sign-in?next=/products/${encodeURIComponent(family.slug)}`}
                 className={buttonClass({ variant: 'secondary' })}
               >
                 {f.signIn}
@@ -844,7 +844,7 @@ function VaultsPanel({
       setFailure(t.shared.publish.failure.noStore);
       return;
     }
-    router.push(`/orders/${encodeURIComponent(placed.order.id)}`);
+    router.push(`/portfolio/orders/${encodeURIComponent(placed.order.id)}`);
   }
 
   const offered = recipe.autoFollow.offered;
@@ -959,7 +959,7 @@ function VaultsPanel({
                     tip={<span className="font-mono text-source break-all">{vault.address}</span>}
                   >
                     <Link
-                      href={`/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
+                      href={`/portfolio/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
                       className={buttonClass({ variant: 'link' })}
                     >
                       {v.open}

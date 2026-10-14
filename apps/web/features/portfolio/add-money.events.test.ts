@@ -598,7 +598,7 @@ describe('a vault’s actions', () => {
     api();
     const { host } = await actions();
     expect(find(host, '[data-ui="vault-add-money"]').getAttribute('href')).toBe(
-      `/vaults/solana/${VAULT}/add`,
+      `/portfolio/vaults/solana/${VAULT}/add`,
     );
     expect(find(host, '[data-ui="vault-name"]').textContent).toBe(
       en.portfolio.actions.unnamed('Solana'),
@@ -677,14 +677,14 @@ describe('the monitor, with the vaults’ actions', () => {
     const blocks = [...host.querySelectorAll('[data-ui="vault"]')];
     expect(blocks).toHaveLength(2);
     expect(blocks.map((b) => find(b, '[data-ui="vault-add-money"]').getAttribute('href'))).toEqual([
-      `/vaults/solana/${VAULT}/add`,
-      `/vaults/solana/${SECOND_VAULT}/add`,
+      `/portfolio/vaults/solana/${VAULT}/add`,
+      `/portfolio/vaults/solana/${SECOND_VAULT}/add`,
     ]);
     for (const block of blocks) expect(find(block, '[data-action="rename"]')).toBeTruthy();
     const fresh = find(host, '[data-ui="new-plan"]');
     expect([fresh.textContent, fresh.getAttribute('href')]).toEqual([
       en.portfolio.actions.newPlan,
-      '/goal',
+      '/invest',
     ]);
     // two vaults of $1,040 on the one chain: their sum, said as that chain's, with its pin
     const total = find(host, '[data-ui="chain-total"]');
@@ -699,7 +699,7 @@ describe('the monitor, with the vaults’ actions', () => {
     const host = await monitor();
     expect(host.querySelector('[data-ui="chain-total"]')).toBeNull();
     expect(host.querySelectorAll('[data-ui="vault-actions"]')).toHaveLength(1);
-    expect(find(host, '[data-ui="new-plan"]').getAttribute('href')).toBe('/goal');
+    expect(find(host, '[data-ui="new-plan"]').getAttribute('href')).toBe('/invest');
   });
 });
 
@@ -778,7 +778,7 @@ describe('a vault’s own page, which anybody can open', () => {
     const back = find<HTMLAnchorElement>(host, '[data-ui="vault-back"]');
     expect([back.textContent, back.getAttribute('href')]).toEqual([
       en.shared.vault.backVisitor,
-      '/shelf',
+      '/products',
     ]);
     expect(find(host, 'header [data-ui="chain-badge"]').getAttribute('data-chain')).toBe('solana');
     expect(host.querySelector('[data-ui="vault-chain"]')).toBeNull();

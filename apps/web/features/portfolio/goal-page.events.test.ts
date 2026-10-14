@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import GoalPage from '../../app/(app)/goal/page';
+import GoalPage from '../../app/(app)/invest/page';
 import { click, find, mount, pinLine, settle, unmountAll } from '../../components/ui/test/dom';
 import { hatchProblems } from '../../components/ui/test/hatch';
 import { parse } from '../../components/ui/test/html';
@@ -31,7 +31,7 @@ vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider')
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
 vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
-// The product's first screen (`/goal`): the goal comes first (DESIGN-VAULT section 11). Under it, for a
+// The product's first screen (`/invest`): the goal comes first (DESIGN-VAULT section 11). Under it, for a
 // person who already holds a vault, one line on where their money is and the way to the monitor; for
 // anyone else, the goal alone. A visitor at `/` gets his landing page (features/landing).
 
@@ -93,8 +93,8 @@ describe('home', () => {
       expect(switcher.open).toBe(true);
       expect(owned(host)).toHaveLength(2);
       expect(owned(host).map((row) => find(row, 'a').getAttribute('href'))).toEqual([
-        `/vaults/solana/${VAULT}`,
-        `/vaults/solana/${SECOND_VAULT}`,
+        `/portfolio/vaults/solana/${VAULT}`,
+        `/portfolio/vaults/solana/${SECOND_VAULT}`,
       ]);
       expect(
         owned(host).every((row) => row.querySelector('[data-ui="owned-vault-holdings"]') !== null),
@@ -180,7 +180,7 @@ describe('home', () => {
     expect(card.querySelector('[data-ui="composition"]')).toBeNull();
     expect(card.querySelectorAll('[data-row]')).toHaveLength(0);
     expect(find(card, '[data-ui="figure"]').textContent).toBe('$0.00\u202f');
-    expect(find(card, 'a').getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
+    expect(find(card, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${VAULT}`);
   });
   it('starts with the workbench, compact prompt and truthful empty strategy for a visitor', async () => {
     const calls = api(null);
@@ -216,7 +216,9 @@ describe('home', () => {
     expect(card.textContent).not.toContain('MOCK');
     expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
-    expect(find(owned(host)[0], 'a').getAttribute('href')).toBe(`/vaults/solana/${VAULT}`);
+    expect(find(owned(host)[0], 'a').getAttribute('href')).toBe(
+      `/portfolio/vaults/solana/${VAULT}`,
+    );
     // still one serif line on the page, and no primary button but the goal's own
     expect(host.querySelectorAll('.font-display')).toHaveLength(1);
     expect(card.querySelector('[data-variant="primary"]')).toBeNull();
@@ -233,8 +235,8 @@ describe('home', () => {
       '$1,040.00\u202f',
     ]);
     expect(cards.map((card) => find(card, 'a').getAttribute('href'))).toEqual([
-      `/vaults/solana/${VAULT}`,
-      `/vaults/solana/${SECOND_VAULT}`,
+      `/portfolio/vaults/solana/${VAULT}`,
+      `/portfolio/vaults/solana/${SECOND_VAULT}`,
     ]);
     expect(summary(host)?.getAttribute('data-ui')).toBe('owned-vaults');
     expect(summary(host)?.textContent).not.toContain(en.portfolio.summary.many(2, 'Solana'));

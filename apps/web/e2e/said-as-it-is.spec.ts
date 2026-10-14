@@ -63,7 +63,7 @@ test('a visitor on a vault’s page: its address for a title, its chain, and the
   });
   expect(source.ok(), await source.text()).toBe(true);
   const { address } = (await source.json()) as { address: string };
-  await page.goto(`/vaults/solana/${address}`);
+  await page.goto(`/portfolio/vaults/solana/${address}`);
   const head = page.locator('[data-ui="vault-screen"] header');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     en.shared.vaults.address(shortAddress(address)),
@@ -71,7 +71,7 @@ test('a visitor on a vault’s page: its address for a title, its chain, and the
   await expect(head.locator('[data-ui="chain-badge"]')).toHaveText('Solana');
   const back = head.locator('[data-ui="vault-back"]');
   await expect(back).toHaveText(en.shared.vault.backVisitor);
-  await expect(back).toHaveAttribute('href', '/shelf');
+  await expect(back).toHaveAttribute('href', '/products');
   await expect(page.getByText(en.shared.vault.back)).toHaveCount(0);
   await expect(page.getByText(en.shared.vault.title)).toHaveCount(0);
   await check(page, 'vault-visitor');
@@ -79,7 +79,7 @@ test('a visitor on a vault’s page: its address for a title, its chain, and the
 
 test('an address that is no vault says so, with one way back', async ({ page }) => {
   for (const address of ['not-a-vault', STRANGER]) {
-    await page.goto(`/vaults/solana/${address}`);
+    await page.goto(`/portfolio/vaults/solana/${address}`);
     const unread = page.locator('[data-ui="vault-unread"]');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.vault.missing);
     await expect(unread.getByRole('link')).toHaveCount(1);
@@ -90,21 +90,21 @@ test('an address that is no vault says so, with one way back', async ({ page }) 
   await check(page, 'vault-missing');
   // an EVM address on Solana's page: no vault here, and the way to its page on the EVM chain run here
   const evm = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
-  await page.goto(`/vaults/solana/${evm}`);
+  await page.goto(`/portfolio/vaults/solana/${evm}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.vault.missing);
   const there = page.locator('[data-ui="vault-elsewhere"]');
   await expect(there).toHaveCount(1);
   await expect(there).toHaveText(en.shared.vault.openOn('Robinhood Chain'));
-  await expect(there).toHaveAttribute('href', `/vaults/robinhood/${evm}`);
+  await expect(there).toHaveAttribute('href', `/portfolio/vaults/robinhood/${evm}`);
 });
 
 test('an order’s page lights no section of the bar', async ({ page }) => {
   // at 375 the bar's links are in the sheet under the menu button, and are read from there
-  const bar = page.locator('header nav a[href="/goal"]').first();
-  await page.goto('/orders/7d9e4a62-1f3b-4c5d-8e6f-a0b1c2d3e4f5');
+  const bar = page.locator('header nav a[href="/invest"]').first();
+  await page.goto('/portfolio/orders/7d9e4a62-1f3b-4c5d-8e6f-a0b1c2d3e4f5');
   await expect(bar).toBeAttached({ timeout: 60_000 });
   await expect(page.locator('header a[aria-current="page"]')).toHaveCount(0);
   // a plan's page is still under Invest
-  await page.goto('/plan/7d9e4a62-1f3b-4c5d-8e6f-a0b1c2d3e4f5');
+  await page.goto('/invest/plan/7d9e4a62-1f3b-4c5d-8e6f-a0b1c2d3e4f5');
   await expect(bar).toHaveAttribute('aria-current', 'page');
 });

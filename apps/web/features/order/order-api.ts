@@ -70,11 +70,11 @@ export type BuyOf =
 
 /** Where the screen that adds money to a vault lives. */
 export const addMoneyPath = (chain: ChainId, address: string) =>
-  `/vaults/${chain}/${encodeURIComponent(address)}/add`;
+  `/portfolio/vaults/${chain}/${encodeURIComponent(address)}/add`;
 
 /** The vault's own page, opened on its rebalance (features/shared/VaultScreen.tsx). */
 export const rebalancePath = (chain: ChainId, address: string) =>
-  `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(address)}?do=rebalance`;
+  `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(address)}?do=rebalance`;
 
 /**
  * What the wallet is missing for a buy of this plan, of this shared portfolio or into this vault, and

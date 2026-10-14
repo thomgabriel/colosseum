@@ -126,7 +126,7 @@ describe('a person who creates a wallet in the app', () => {
     const server = api(made());
     const signIn = signsInAs(EMBEDDED);
     portStore.set(fakePort({ found: FOUND, signIn }));
-    const host = await screen('en', '/goal');
+    const host = await screen('en', '/invest');
 
     await click(button(host, en.signIn.passkey.continue));
     await settle();
@@ -138,7 +138,7 @@ describe('a person who creates a wallet in the app', () => {
       { method: 'PUT', path: '/v1/me/chain', body: { chain: 'solana' } },
     ]);
     expect(state(host)).toBe('ready');
-    expect(router.replace).toHaveBeenCalledWith('/goal');
+    expect(router.replace).toHaveBeenCalledWith('/invest');
   });
 
   it('starts on Robinhood Chain when that is the chain they were looking at', async () => {
@@ -181,7 +181,7 @@ describe('a person who creates a wallet in the app', () => {
     expect(host.textContent).not.toContain('0x20…0498');
     // a person who arrived signed in is not moved on by the page: they asked to see it
     expect(router.replace).not.toHaveBeenCalled();
-    expect(button(host, en.signIn.done.next).getAttribute('href')).toBe('/goal');
+    expect(button(host, en.signIn.done.next).getAttribute('href')).toBe('/invest');
   });
 
   it('starts on the one chain a wallet of theirs signs on', async () => {
@@ -223,7 +223,7 @@ describe('a person who connects an outside wallet', () => {
       const server = api(connected(accounts, chain));
       const signIn = signsInAs(accounts);
       portStore.set(fakePort({ found: FOUND, signIn }));
-      const host = await screen('en', '/goal');
+      const host = await screen('en', '/invest');
       await connectWith(host, name);
       await settle();
       expect(host.querySelector('[role="group"]')).toBeNull();
@@ -232,7 +232,7 @@ describe('a person who connects an outside wallet', () => {
       });
       expect(host.textContent).toContain(en.chain.is.wallet(chainName));
       expect(server.count('PUT', '/v1/me/chain')).toBe(0);
-      expect(router.replace).toHaveBeenCalledWith('/goal');
+      expect(router.replace).toHaveBeenCalledWith('/invest');
     },
   );
 
@@ -587,7 +587,7 @@ describe('what this browser kept for a person', () => {
     window.sessionStorage.setItem(GOAL_HANDOFF, words);
     api(connected());
     portStore.set(fakePort({ found: FOUND, signIn: signsInAs(PHANTOM) }));
-    const host = await screen('en', '/goal');
+    const host = await screen('en', '/invest');
     await connectWith(host, 'Phantom');
     await settle();
     expect(state(host)).toBe('ready');
@@ -614,7 +614,7 @@ describe('the screen itself', () => {
     const server = api(made());
     const signIn = signsInAs(EMBEDDED);
     portStore.set(fakePort({ found: FOUND, signIn }));
-    const host = await screen('en', '/goal');
+    const host = await screen('en', '/invest');
     await click(find(host, '[data-act="passkey-create"]'));
     await settle();
     expect(signIn.mock.calls).toEqual([['passkey', { create: true }]]);
@@ -622,7 +622,7 @@ describe('the screen itself', () => {
       { method: 'PUT', path: '/v1/me/chain', body: { chain: 'solana' } },
     ]);
     expect(state(host)).toBe('ready');
-    expect(router.replace).toHaveBeenCalledWith('/goal');
+    expect(router.replace).toHaveBeenCalledWith('/invest');
   });
 
   it('says a wallet is being made while the port loads after a passkey sign-in', async () => {
@@ -644,10 +644,10 @@ describe('the screen itself', () => {
     api(connected());
     const signIn = signsInAs(PHANTOM);
     portStore.set(fakePort({ found: FOUND, signIn }));
-    const host = await screen('en', '/goal');
+    const host = await screen('en', '/invest');
     await connectWith(host, 'Phantom');
     await settle();
-    expect(router.replace.mock.calls).toEqual([['/goal']]);
+    expect(router.replace.mock.calls).toEqual([['/invest']]);
   });
 });
 
@@ -665,7 +665,7 @@ describe('where focus goes, and what a screen reader is told, when the screen ch
   it('goes to where new plans are built after a sign-in, and says it', async () => {
     api(made());
     portStore.set(fakePort({ found: FOUND, signIn: signsInAs(EMBEDDED) }));
-    const host = await screen('en', '/goal');
+    const host = await screen('en', '/invest');
     await pressing(button(host, en.signIn.passkey.continue));
     expect(state(host)).toBe('ready');
     // the button that was pressed is gone: focus is on what took its place, not on the page

@@ -65,7 +65,7 @@ export async function openPlan(page: Page, tail: '' | '/buy' = '') {
   });
   expect(made.status()).toBe(200);
   const { id } = (await made.json()) as { id: string };
-  await page.goto(`/sign-in?next=${encodeURIComponent(`/plan/${id}${tail}`)}`);
+  await page.goto(`/sign-in?next=${encodeURIComponent(`/invest/plan/${id}${tail}`)}`);
   await page.getByRole('button', { name: en.signIn.passkey.continue }).click();
-  await expect(page).toHaveURL(tail ? /\/plan\/[^/]+\/buy$/ : /\/plan\/[^/]+$/);
+  await expect(page).toHaveURL(tail ? /\/invest\/plan\/[^/]+\/buy$/ : /\/invest\/plan\/[^/]+$/);
 }

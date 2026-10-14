@@ -40,8 +40,13 @@ const OURS = '../../../../../../apps/web/';
 
 const CLEAN = {
   'static/chunks/app.js': `x.displayName="${WALLET_MARKER}"`,
-  'app-path-routes-manifest.json': JSON.stringify({ '/page': '/', '/monitor/page': '/monitor' }),
-  'routes-manifest.json': JSON.stringify({ staticRoutes: [{ page: '/' }, { page: '/monitor' }] }),
+  'app-path-routes-manifest.json': JSON.stringify({
+    '/page': '/',
+    '/portfolio/monitor/page': '/portfolio/monitor',
+  }),
+  'routes-manifest.json': JSON.stringify({
+    staticRoutes: [{ page: '/' }, { page: '/portfolio/monitor' }],
+  }),
   'server/pages-manifest.json': JSON.stringify({ '/404': 'pages/404.html' }),
   'server/app/monitor.html': '<html></html>',
   'server/chunks/ssr/1.js.map': map(`${OURS}app/(app)/layout.tsx`, `${OURS}${ALWAYS_BUILT}`),

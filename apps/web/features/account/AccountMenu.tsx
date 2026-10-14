@@ -23,7 +23,7 @@ import { usePopover } from './use-popover';
 // mark (ChainLogo, silent beside the name) and name, how it is run where it is not live ("Test network", "Sample": words, no glyph), the short
 // address with a copy icon beside it, and its page on the explorer. Then "Sign out" as a plain last
 // item. The same block heads the phone's sheet. Nothing in it switches a chain: where a plan starts
-// is chosen on /goal. It is a disclosure, not a menu of commands.
+// is chosen on /invest. It is a disclosure, not a menu of commands.
 
 export type SignOutState = {
   signOut: () => void;

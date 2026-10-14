@@ -18,7 +18,7 @@ import { PlanView } from './PlanView';
 import { displayName, flagSentences, kindLabel, leftOut, reasonsOf } from './plain';
 import type { StoredPlan } from './plan-store';
 
-// The plan, showing how: the block the plan's own page (/plan/{id}) draws. The answer first, in one
+// The plan, showing how: the block the plan's own page (/invest/plan/{id}) draws. The answer first, in one
 // line: whether the plan reaches the income asked of it, or the gap in dollars, or the range it
 // projects. Then the ways to close a gap, as sentences; one row per holding with its share, its dollars and the one reason
 // that decided it (the rest are under "Details"); the exit plan as its own block; the figures and the

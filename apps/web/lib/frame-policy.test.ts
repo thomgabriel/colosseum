@@ -30,8 +30,8 @@ describe('the framing policy', () => {
       ]);
     for (const path of [
       '/',
-      '/goal',
-      '/orders/1',
+      '/invest',
+      '/portfolio/orders/1',
       '/sign-in',
       '/embedded',
       '/dev/embed',
@@ -40,7 +40,7 @@ describe('the framing policy', () => {
       '/embed/solana/abc/more',
     ])
       expect(csp(path, env)).toEqual(["frame-ancestors 'none'"]);
-    expect(rulesFor('/goal').flatMap((r) => r.headers)).toContainEqual({
+    expect(rulesFor('/invest').flatMap((r) => r.headers)).toContainEqual({
       key: 'X-Frame-Options',
       value: 'DENY',
     });
@@ -84,7 +84,7 @@ describe('the framing policy', () => {
       expect(answer.headers.get('x-frame-options')).toBeNull();
     }
     // and they are reached by nothing else
-    for (const path of ['/goal', '/embedded', '/dev/embed'])
+    for (const path of ['/invest', '/embedded', '/dev/embed'])
       expect(reaches(path), path).toBe(false);
   });
 });

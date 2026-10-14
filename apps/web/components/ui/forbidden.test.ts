@@ -298,7 +298,7 @@ describe('the forbidden things', () => {
       expect(files).toContain('app/globals.css');
       expect(files).toContain('components/ui/Button.tsx');
       expect(files).toContain('app/(marketing)/page.tsx');
-      expect(files).toContain('app/(app)/monitor/page.tsx');
+      expect(files).toContain('app/(app)/portfolio/monitor/page.tsx');
       expect(files).toContain('components/shell/AppNav.tsx');
       expect(files.some(notScanned)).toBe(false);
     });

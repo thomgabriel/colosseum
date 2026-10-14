@@ -246,7 +246,7 @@ describe('the withdraw screen', () => {
       items: [term(CASH, null, '600000000'), term(SPYX, null, '250000000')],
       autoFollowOff: false,
     });
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it('part of the cash: that amount, in raw units, and the rest stays', async () => {
@@ -521,7 +521,7 @@ describe('a withdrawal on the order screen', () => {
     await settle();
     const done = find(host, '[data-ui="withdraw-done"]');
     expect(done.textContent).toContain(en.order.shared.withdrawDone);
-    expect(find(done, 'a').getAttribute('href')).toBe('/monitor');
+    expect(find(done, 'a').getAttribute('href')).toBe('/portfolio/monitor');
   });
 
   it('everything: the guard is held to the vault, and may take any token it holds to its owner', async () => {
@@ -795,7 +795,7 @@ describe('the withdraw screen, in dollars', () => {
       { type: 'withdraw', vaults: [MY_VAULT], sellToCash: true },
     ]);
     expect(recallOrder(ORDER_ID, USER)?.terms).toEqual(ALL_DOLLARS);
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it('a share: that share of each holding and of the cash, rounded down, and the rest stays', async () => {
@@ -1027,7 +1027,7 @@ describe('a withdrawal in dollars on the order screen', () => {
     const done = find(host, '[data-ui="withdraw-done"]');
     const link = find(done, '[data-ui="withdraw-tokens-instead"]');
     expect(link.textContent).toBe(en.order.shared.tokensInstead);
-    expect(link.getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}/withdraw`);
+    expect(link.getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}/withdraw`);
   });
 
   const least = '995000000';
@@ -1143,7 +1143,9 @@ describe('a withdrawal in dollars on the order screen', () => {
     const sold = find(host, '[data-ui="withdraw-sold-before"]');
     expect(sold.textContent).toContain(en.order.shared.soldBefore('SPYx', '197 USDC'));
     expect(sold.textContent).toContain(en.order.shared.notAgain);
-    expect(find(sold, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}/withdraw`);
+    expect(find(sold, 'a').getAttribute('href')).toBe(
+      `/portfolio/vaults/solana/${MY_VAULT}/withdraw`,
+    );
     expect(find(sold, 'a').textContent).toBe(en.order.shared.tokensInstead);
   });
 

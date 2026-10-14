@@ -406,7 +406,7 @@ describe('signed out here while the sign-in service could not be reached', () =>
         t.shell.signIn,
       );
       // "Portfolio" is a signed-in person's link
-      expect(host.querySelector('a[href="/monitor"]')).toBeNull();
+      expect(host.querySelector('a[href="/portfolio/monitor"]')).toBeNull();
       expect(document.cookie).not.toContain(`${SIGNED_IN_COOKIE}=1`);
       await later(60_000);
       expect(host.querySelector('[data-ui="account-menu-button"]')).toBeNull();

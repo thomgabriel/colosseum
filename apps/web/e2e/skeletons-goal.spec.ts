@@ -3,7 +3,7 @@ import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 import { axe, boxOf, hold, STUB, settled, shot, WIDTHS } from './waits';
 
-// The waits of /goal in outline (WEB-SKELETONS-2): the first draft's card, the funds check and the
+// The waits of /invest in outline (WEB-SKELETONS-2): the first draft's card, the funds check and the
 // order's steps in the pane where the deposit is signed. Each read is held, the wait is checked (its
 // outline hidden from a screen reader, its words said, axe clean) and its boxes are compared with
 // what lands, at 1440 px and at 375 px. The reply row, the box and the card's width are held by
@@ -15,12 +15,12 @@ test.skip(process.env.E2E_CHAIN === 'robinhood', 'the stub runs Robinhood Chain'
 
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 
 async function say(page: Page, words: string) {
@@ -45,7 +45,7 @@ for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await signIn(page);
       const strategy = page.locator('[data-ui="goal-strategy"]');
-      const h = await hold(page, /\/goal\/reply/);
+      const h = await hold(page, /\/invest\/reply/);
       await say(page, 'A broad fund and some gold, to grow, at medium risk');
       const building = strategy.locator('[data-ui="draft-building"]');
       await expect(building.locator('h2')).toHaveText(en.goal.explore.building);
