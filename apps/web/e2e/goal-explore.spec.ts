@@ -158,9 +158,7 @@ test('the conversations panel: a new conversation, an earlier one opened, and a 
     for (const theme of ['light', 'dark'] as const) {
       await inTheme(page, theme);
       const result = await new AxeBuilder({ page })
-        .include(
-          width < 1024 ? '[data-ui="conversations-sheet"]' : 'div[data-ui="conversations"]',
-        )
+        .include(width < 1024 ? '[data-ui="conversations-sheet"]' : 'div[data-ui="conversations"]')
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();
       expect(result.violations.flatMap((v) => v.nodes.map((n) => `${v.id}: ${n.html}`))).toEqual(
