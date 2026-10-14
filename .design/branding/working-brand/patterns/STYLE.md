@@ -24,11 +24,12 @@ These are product rules expressed as design. A screen that breaks one of them is
 
 ## The house kit (read before building a screen)
 
-New screens are built from the house kit (gate `HOUSE-KIT`, Thom, Oct 13): the pieces of the portfolio overview (`features/portfolio-section/OverviewPage.tsx`, Rodrigo), in `apps/web/components/ui/Panel.tsx` and `KitTable.tsx`.
+New screens are built from the house kit (gate `HOUSE-KIT`, Thom, Oct 13): the pieces of the portfolio overview (`features/portfolio-section/OverviewPage.tsx`, Rodrigo), in `apps/web/components/ui/Panel.tsx`, `KitTable.tsx` and `OptionCards.tsx`.
 
 - `Panel`: the wide rounded panel. `PanelHead`: an icon tile, the title, its figures in one line, actions on the right. `PanelBody`: a section of a panel (its margin, its pieces 16px apart; a hairline over it to start a second one).
 - `HeroFigure`: a muted label over a 2rem Inter Tight figure, the `Plate` beside the label. `StatGrid` / `PanelStat`: a muted label over each small figure. `Plate`: the quiet pill that says, in words, that figures are not live.
 - `KitTable` / `KitTh`: small muted heads, a hairline per row, always named (a caption, a label or the heading over it). `KIT_ROW` for a row, `KIT_CELL` for a cell, `KIT_NUMERIC` for a column of figures; a row that opens something stretches its one link over the row with `KIT_ROW_LINK`, and every pin or control in it sits over the link with `KIT_ABOVE_LINK`.
+- `OptionCards`: a choice between a few ways, a tile each with its title and one muted line; a way that cannot be taken here is dimmed and its line says why.
 
 The page shell (gate `PAGE-SHELL`, Thom, Oct 14): every product page (the landing excepted) sits in one frame, `AppShell`: the overview's width (`max-w-shell`, 1600px) and its side gutter (`clamp(12px, 2vw, 28px)`), so the left edge, the width and the title's place are the same on every route at every window width. A page's title is `PAGE_TITLE` (Inter Tight 600 at `text-h3`), on a workbench (Invest, an owner's vault) and on Bearing's analytics too; no hero titles in the app. An action in a page's head is a button (secondary, dense), never a link; a link only goes somewhere. A table's head has no band of its own, as `KitTable`'s. The disclaimer in the foot carries its heading, "Not licensed advice", on every page.
 

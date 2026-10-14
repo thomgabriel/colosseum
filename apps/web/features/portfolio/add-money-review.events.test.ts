@@ -99,8 +99,10 @@ describe('the review of an add of money to a vault', () => {
   it('says on its own line over the button that the targets were not checked against the chain', async () => {
     const host = await review(addOrder(), terms);
     const line = find(host, '[data-ui="not-checked"]');
-    expect(line.textContent).toContain(en.shared.check.notChecked);
-    expect(line.textContent).toContain(en.portfolio.add.source.notRead('Solana'));
+    expect(line.textContent).toBe(`${en.shared.check.notChecked}.`);
+    // said once: the card of what the order is held to does not say it again
+    expect(host.textContent?.split(en.shared.check.notChecked)).toHaveLength(2);
+    expect(host.querySelector('[data-ui="source-mark"]')).toBeNull();
     // body text at its medium weight, not the small print of the card above
     expect(line.className).toContain('text-body ');
     expect(line.className).toContain('font-medium');
@@ -118,9 +120,8 @@ describe('the review of an add of money to a vault', () => {
     const host = await review(addOrder(), { ...terms, source: 'chain' });
     expect(host.querySelector('[data-ui="not-checked"]')).toBeNull();
     expect(primary(host)).not.toBeNull();
-    expect(find(host, '[data-ui="source-mark"]').textContent).toContain(
-      en.portfolio.add.source.read('Solana'),
-    );
+    // and nothing of where they were read from
+    expect(host.querySelector('[data-ui="source-mark"]')).toBeNull();
   });
 
   it('shows and never offers an order with a withdrawal beside the deposit, or with other weights', async () => {

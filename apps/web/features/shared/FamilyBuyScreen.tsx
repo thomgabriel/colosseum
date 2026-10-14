@@ -203,7 +203,8 @@ export function FamilyBuyScreen({
 
   /** Makes the order for this amount and keeps the terms this page showed with it. */
   async function place(amountUsd: number): Promise<InvestPlaced> {
-    if (!family || family === 'failed' || !chain || !owner || !followed?.targets)
+    if (!owner) return { failure: t.buy.blocked.wallet };
+    if (!family || family === 'failed' || !chain || !followed?.targets)
       return { failure: t.shared.check.reading };
     if (person.kind !== 'ready' || !person.userId) return { failure: t.buy.failure.signedOut };
     // What the buy is held to: the version and weights shown, never the order the API answers.

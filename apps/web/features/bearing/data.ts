@@ -43,7 +43,8 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
   const get = <T>(path: string): Promise<Res<T>> => {
     let p = cache.get(path);
     if (!p) {
-      p = fetcher(`${base}${path}`, { cache: 'no-store' })
+      // The API says how long an answer may be kept (a minute); the probe always asks the API itself.
+      p = fetcher(`${base}${path}`, { cache: path === R.methodology() ? 'no-store' : 'default' })
         .then(async (r): Promise<Res> => {
           const body = await r.json().catch(() => null);
           return r.ok

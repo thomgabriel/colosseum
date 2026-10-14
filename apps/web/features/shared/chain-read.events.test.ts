@@ -180,6 +180,15 @@ afterEach(async () => {
 });
 
 describe('a shared portfolio read from the chain by this app', () => {
+  it('holds the buy with a plain "Loading…" while the chain is read, naming no source', async () => {
+    vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+    const host = await mount(withAccount('en', createElement(FamilyBuyScreen, { slug: SLUG })));
+    for (let i = 0; i < 4; i += 1) await settle(50);
+    expect(host.textContent).toContain(en.shared.check.reading);
+    expect(en.shared.check.reading).toBe('Loading…');
+    expect(host.textContent).not.toMatch(/from the chain|read from|our server/i);
+  });
+
   it('shows the chain’s version and weights, and says our server’s answer differs', async () => {
     const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
     for (let i = 0; i < 5; i += 1) await settle(50);
@@ -195,6 +204,49 @@ describe('a shared portfolio read from the chain by this app', () => {
     const legs = find(host, '[data-ui="plan-legs"]').textContent ?? '';
     for (const part of ['SPYx', '50%', 'NVDAx', '25%', 'TSLAx']) expect(legs).toContain(part);
     expect(legs).not.toContain('40%');
+  });
+
+  it('says nothing of where it was read when the chain holds what our server answered', async () => {
+    const read = await readSolanaRecipe(rpcAt(NODE.url), deploymentsOf('testnet').solana as never, {
+      creator: CREATOR,
+      familyId: FAMILY_ID,
+    });
+    NODE.asked.length = 0;
+    portStore.setApi(async (path) => {
+      if (path === '/v1/me') return json(person);
+      if (path.startsWith('/v1/indexes/') && !path.includes('versions'))
+        return json({
+          family: familyOf(FAMILY_ID, {
+            recipes: [
+              recipeOf({
+                onchainId: read?.address ?? '',
+                active: {
+                  version: 3,
+                  effectiveAt: 1_791_100_000,
+                  components: [
+                    { asset: 'solana:spyx', weightBps: 5000 },
+                    { asset: 'solana:nvdax', weightBps: 2500 },
+                    { asset: 'solana:tslax', weightBps: 2500 },
+                  ],
+                  metaHash: '00'.repeat(32),
+                  status: 'active',
+                },
+              }),
+            ],
+          }),
+          disclaimer: 'd',
+        });
+      if (path === '/v1/portfolio') return json({ chains: [], disclaimer: 'd' });
+      return json({ error: 'no' }, 404);
+    });
+    const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
+    for (let i = 0; i < 5; i += 1) await settle(50);
+    expect(NODE.asked).toContain('getMultipleAccounts');
+    expect(find(host, '[data-ui="kpi-version"] dd').textContent).toBe('3');
+    // a read that matches says nothing (gate SOURCE-LINES): no line, no "not checked", no alarm
+    expect(host.querySelector('[data-ui="source-mark"]')).toBeNull();
+    expect(host.textContent).not.toContain(en.shared.check.notChecked);
+    expect(host.textContent).not.toMatch(/read from|our server/i);
   });
 
   it('shows a line of the version that waits whose token this app does not list, by its mint', async () => {
@@ -299,12 +351,10 @@ describe('a shared portfolio this app could read from the chain and could not', 
     const page = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
     for (let i = 0; i < 5; i += 1) await settle(50);
     const tampered = en.shared.family.tampered('Solana');
-    // no buy: a button that does nothing, and the sentence that says why; no vault is offered a follow
-    const buy = [...page.querySelectorAll<HTMLButtonElement>('button')].find(
-      (b) => b.textContent === en.shared.family.buy,
-    );
-    expect(buy?.getAttribute('aria-disabled')).toBe('true');
-    expect(page.textContent).toContain(tampered);
+    // no deposit and no follow: no amount card and no vault to choose, and the sentence that says why
+    expect(page.querySelector('[data-ui="amount-card"]')).toBeNull();
+    expect(page.querySelector('[data-ui="family-ways"] input')).toBeNull();
+    expect(find(page, '[data-ui="family-blocked"]').textContent).toBe(tampered);
     expect(page.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
     const mark = find(page, '[data-ui="source-mark"]');
     expect(mark.textContent).toContain(en.shared.check.failed('Solana'));
@@ -377,10 +427,7 @@ describe('a shared portfolio the chain does not hold', () => {
       for (let i = 0; i < 5; i += 1) await settle(50);
       const mark = find(host, '[data-ui="source-mark"]');
       expect(mark.getAttribute('data-source')).toBe('api');
-      expect(mark.textContent).toContain(
-        en.shared.check.unverified['no-reader']('Robinhood Chain'),
-      );
-      expect(mark.textContent).not.toContain('no node of its own');
+      expect(mark.textContent).toBe(`${en.shared.check.notChecked}.`);
       expect(NODE.asked).toEqual([]);
     } finally {
       delete process.env.NEXT_PUBLIC_CHAIN_READ_RPC_ROBINHOOD;
