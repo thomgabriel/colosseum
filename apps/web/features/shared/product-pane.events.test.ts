@@ -465,14 +465,18 @@ describe('a product’s page, on the plan view', () => {
   });
 
   it('with no figures from the server: every holding is there, and nothing is measured', async () => {
-    const family = familyOf(FAMILY_ID, { recipes: [withFigures(null)] });
-    api([family]);
+    api([familyOf(FAMILY_ID, { recipes: [withFigures(null)] })]);
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     const pane = find(host, '[data-ui="plan-pane"]');
     expect(pane.querySelectorAll('[data-ui="composition-list"] > tr')).toHaveLength(3);
-    // no kind is known, so none is said: the answer is the portfolio's name, never "Other 100%",
-    // each type is a dash, and no reason is made up for a token the server said nothing of
-    expect(find(pane, '[data-ui="plan-answer"]').textContent).toBe(family.name);
+    // no kind is known, so none is said: the answer names each holding by itself (kindsSaid), never
+    // "Other 100%", each type is a dash, and no reason is made up for a token the server said nothing of
+    expect(find(pane, '[data-ui="plan-answer"]').textContent).toBe(
+      en.shared.product.answer(
+        'SPYx 50%, jlUSDC (Jupiter Lend) 30%, and syrupUSDC (Maple) 20%',
+        'Solana',
+      ),
+    );
     expect(
       [...pane.querySelectorAll('[data-column="kind"]')].map((cell) =>
         cell.textContent?.replace(en.plan.columns.kind, '').trim(),
