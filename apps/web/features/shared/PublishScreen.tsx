@@ -526,12 +526,8 @@ export function PublishScreen() {
           </CardBody>
         </Card>
 
-        <Card
-          as="section"
-          aria-label={p.about}
-          mock={mock}
-          mockLabels={{ announce: t.shell.mockAnnounce }}
-        >
+        {/* The form holds no figure, so it carries no sample tag (the UI audit, G9). */}
+        <Card as="section" aria-label={p.about}>
           <CardBody className="flex flex-col gap-5">
             <Field
               label={p.name}
@@ -621,8 +617,7 @@ export function PublishScreen() {
               sourceRead.value.provenance !== 'live')
           }
           mockLabels={{
-            announce: t.shell.mockAnnounce,
-            note:
+            announce:
               sourceRead?.kind === 'read' && sourceRead.source === 'mock'
                 ? t.shell.mockAnnounce
                 : t.shell.testNetworkLine,
@@ -655,9 +650,7 @@ export function PublishScreen() {
             {sourceRead?.kind === 'read' && (
               <>
                 <p className="font-mono text-source text-muted-foreground">
-                  {p.strategySource(
-                    sourceRead.source === 'mock' ? t.shell.mockAnnounce : chainName,
-                  )}
+                  {sourceRead.source === 'mock' ? p.strategySample : p.strategySource(chainName)}
                 </p>
                 <h2 className="text-caption font-medium">{p.holdings}</h2>
                 <ul className="flex flex-col gap-2 text-body-sm">

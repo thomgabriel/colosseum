@@ -72,7 +72,7 @@ Hand-written; values are `tokens.brand-color` verbatim. Kept out of `theme-css.j
   /* P4 hatch: sample and stale only; the sample line's text colour (gate MOCK-QUIET: no plate vars) */
   --tf-hatch: #676A75;              /* muted-l, 5.39 on white */
   --tf-hatch-pitch-ui: 6px; --tf-hatch-pitch-glyph: 3px;
-  --tf-sample-fg: #676A75;          /* muted-l: "Sample figures · test network", once per sample card */
+  --tf-sample-fg: #676A75;          /* muted-l: the sample card's tag, "Sample figures" / "Test network" */
   /* light as gradient: the only gradients allowed */
   --tf-glow: radial-gradient(60% 90% at 78% 30%, rgba(245,168,58,0.28), rgba(245,168,58,0) 70%);   /* glow-l */
   --tf-curve-fill: linear-gradient(to bottom, rgba(245,168,58,0.35), rgba(245,168,58,0));
@@ -170,7 +170,7 @@ The tints are translucent on purpose: `--tf-honey-tint` over night is `#2D2318`,
   --text-body-sm: 0.875rem;   --text-body-sm--line-height: 1.375rem;
   --text-caption: 0.75rem;    --text-caption--line-height: 1rem;      --text-caption--letter-spacing: 0.04em;   /* uppercase: eyebrows, column heads */
   --text-figure-lg: 1.75rem;  --text-figure-lg--line-height: 2rem;    --text-figure-lg--letter-spacing: -0.02em; /* the amount on a goal card */
-  --text-sample-line: 0.78125rem; --text-sample-line--line-height: 1.125rem;   /* "Sample figures · test network": Inter 400, muted, no box */
+  --text-sample-line: 0.78125rem; --text-sample-line--line-height: 1.125rem;   /* a sample panel's or the embed's quiet line: Inter 400, muted, no box; a card has its tag */
   --text-source: 0.8125rem;   --text-source--line-height: 1.25rem;
   /* productive scale (Bearing): 13px base, fixed */
   --text-b-kpi: 1.375rem;     --text-b-kpi--line-height: 1.75rem;     --text-b-kpi--letter-spacing: -0.02em;
@@ -275,7 +275,7 @@ Contrast is the partner's responsibility for their own colours, but the embed's 
 |---|---|---|---|
 | **RootLayout** `app/layout.tsx` | `bg-white text-gray-900`, `max-w-4xl`, DISCLAIMER as footer micro-text | `bg-background text-foreground font-sans`, `max-w-(--container-page)`; font vars on `<html>` | Split into route groups: `(app)/layout.tsx` (Nav, wallet), `(marketing)/layout.tsx` (compact nav), `embed/[id]/layout.tsx` (bare). Remove the footer disclaimer and render [disclaimer-block](./disclaimer-block.md) under the plan instead (footer micro-text is banned) |
 | **Nav** | links + `WalletMultiButton`, no active state | `border-b border-border bg-background`; mark (24 hint) + wordmark left; links `text-muted-foreground hover:text-foreground`; active `text-foreground underline decoration-2 decoration-honey underline-offset-[6px]` | App nav per `patterns.nav`; marketing uses [compact-nav](./compact-nav.md). Product name from one constant (Nav says "Structurer", metadata "Colosseum") |
-| **ProvenanceBadge** `Provenance.tsx` | green "live" / amber "MOCK" pill | `text-pin`, `stroke-pin-outline`, `text-hatch`, `text-sample-foreground` | **Replaced** by [provenance-pin](./provenance-pin.md) (`<ProvenancePin>`) for figures and the sample marking ([mock-plate.md](./mock-plate.md)) for cards. Both pills go (gate MOCK-QUIET): live is the solid square pin, not a badge, and a sample card keeps its hatched edge with one muted line, "Sample figures" or "Sample figures · test network" |
+| **ProvenanceBadge** `Provenance.tsx` | green "live" / amber "MOCK" pill | `text-pin`, `stroke-pin-outline`, `text-hatch`, `text-sample-foreground` | **Replaced** by [provenance-pin](./provenance-pin.md) (`<ProvenancePin>`) for figures and the sample marking ([mock-plate.md](./mock-plate.md)) for cards. Both pills go (gate MOCK-QUIET): live is the solid square pin, not a badge, and a sample card carries one quiet tag in its top-right corner, "Sample figures" or "Test network" |
 | **GoalFlow** | textarea, chips, 11-field sheet, buttons, red error list | [composer](./composer.md) for the goal textarea + "Interpretar objetivo" (round honey send), [field](./field.md) for sheet fields, [button](./button.md), `bg-card border-border rounded-lg` | Goal textarea becomes the composer; sheet extracted to [constraint-sheet](./constraint-sheet.md); human labels instead of schema keys; parser method shown as a source line; suggestion chips become pills |
 | **PlanView** | 7 sections, 4 tables, IIFE | [card](./card.md), [data-table](./data-table.md), `--chart-*`, `font-display` for the goal sentence and figures only | Split: GoalHeader ([goal-card](./goal-card.md) header form), ConstraintSheet (read-only), [plan-leg](./plan-leg.md) bar + table, ScheduleSection, RiskSheetTable, [exit-plan-line](./exit-plan-line.md), ExecutionList, [disclaimer-block](./disclaimer-block.md) |
 | **ScheduleChart** | raw hex SVG, red ticks, no legend | base case `stroke="var(--tf-honey)"` 2px with `bg-curve-fill` beneath (solid = measured/base), stresses `var(--muted-foreground)` dashed `4 3`, breaks `var(--destructive)` dashed + text label, "today" `var(--tf-chalk)` dashed 1px + Plex Mono label, grid `var(--border)`, axis text `fill="var(--muted-foreground)"` 12px Plex Mono | Direct labels at line ends instead of a legend; a visually hidden summary table; `currentColor` everywhere so dark works |
@@ -298,5 +298,5 @@ Contrast is the partner's responsibility for their own colours, but the embed's 
 | Display line, big number | `font-display font-semibold text-display text-balance max-w-[16ch]` / `font-display font-semibold text-figure-lg tabular-nums` |
 | Figures | `tabular-nums` in Inter everywhere; `font-mono` only for provenance, hashes, timestamps and code |
 | Delta | `text-b-delta font-medium text-leaf` (up) / `text-madder` (down) / `text-muted-foreground` (flat); signed, true minus |
-| Sample marking | `.tf-sample-card` (hatched left edge) + `text-sample-line text-sample-foreground` line, once per card (see [mock-plate.md](./mock-plate.md)) |
+| Sample marking | `SampleTag` (`rounded-full border border-primary/60 bg-honey-tint text-caption text-foreground`, as the overview's plate), once per card with figures in its top-right corner (see [mock-plate.md](./mock-plate.md)) |
 | Light | `bg-glow` behind a hero or the composer; `bg-curve-fill` under the base-case line. Nothing else |

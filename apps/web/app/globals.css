@@ -205,7 +205,7 @@
   --tf-pin: #9d5a00; /* honey-l */
   /* the hatch means sample or stale, and nothing else */
   --tf-hatch: #676a75; /* muted-l */
-  --tf-sample-fg: #676a75; /* muted-l: "Sample figures · test network" */
+  --tf-sample-fg: #676a75; /* muted-l: a sample panel's quiet line; a card's tag is ink on the honey tint */
   /* status: a word, a shape and a colour on its 14% tint, never the colour alone */
   --tf-status-on: #117940; /* leaf-l */
   --tf-status-on-bg: rgba(63, 196, 124, 0.14); /* leaf-tint */

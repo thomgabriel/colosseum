@@ -3,6 +3,7 @@ import type { ChainId, Network, Provenance } from '@colosseum/schemas';
 import Link from 'next/link';
 import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
+import { CardSampleRoom } from '../../components/ui/Card';
 import { Composer } from '../../components/ui/Composer';
 import { WORKSPACE_TITLE } from '../../components/ui/heading';
 import { LatticeGlyph } from '../../components/ui/Lattice';
@@ -721,22 +722,33 @@ export function GoalConversation({
           <div
             data-ui="goal-empty-preview"
             data-state={busy ? 'building' : 'empty'}
-            // while the first draft is built the card has the draft card's own padding, so the
-            // outline's boxes are where the draft's will be
-            className={`flex min-w-0 flex-col items-start gap-3 rounded-lg border border-border bg-card sm:min-h-60 ${busy ? 'shrink-0 justify-start p-6' : 'justify-center p-4'}`}
+            // while the first draft is built the card has the draft card's own padding, and the room
+            // of its sample tag where it will carry one, so the outline's boxes are where the draft's
+            // will be
+            className={`flex min-w-0 flex-col rounded-lg border border-border bg-card sm:min-h-60 ${busy ? 'shrink-0' : 'items-start justify-center gap-3 p-4'}`}
           >
             {busy ? (
-              // the first draft is being worked on: said at heading size, with the rows it will fill
-              <DraftBuilding title={copy.building} line={copy.working} note={copy.previewOnly} />
+              <>
+                {provenance !== 'live' && <CardSampleRoom />}
+                <div className="flex min-w-0 flex-col items-start gap-3 p-6">
+                  {/* the first draft is being worked on: said at heading size, with the rows it will fill */}
+                  <DraftBuilding
+                    title={copy.building}
+                    line={copy.working}
+                    note={copy.previewOnly}
+                  />
+                  {reply?.notes && <WeightNotes notes={reply.notes} />}
+                </div>
+              </>
             ) : (
               <>
                 <LatticeGlyph size={32} />
                 <h2 className="text-body-lg font-medium">{t.talk.workbench.strategy}</h2>
                 <p className="max-w-[48ch] text-body-sm text-muted-foreground">{copy.empty}</p>
                 <p className="text-caption text-muted-foreground">{copy.previewOnly}</p>
+                {reply?.notes && <WeightNotes notes={reply.notes} />}
               </>
             )}
-            {reply?.notes && <WeightNotes notes={reply.notes} />}
           </div>
         )}
       </div>

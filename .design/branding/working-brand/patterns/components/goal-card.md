@@ -23,7 +23,7 @@ One goal, where it stands, and where to look next. The card answers a person; it
 5. **Progress bar**: 6px, `rounded-full`, track `--border`, fill `--tf-honey`. Progress toward the amount, never toward a return.
 6. **Action**: "See your plan" (`button.md` link variant, honey-l / honey). One action only.
 
-Optional meta (`variant="header"`): `profile · solver version · created` in `text-caption uppercase text-muted-foreground`, and, if any input is non-live, the muted sample line ("Sample figures" / "Sample figures · test network") beside the card's hatched left edge.
+Optional meta (`variant="header"`): `profile · solver version · created` in `text-caption uppercase text-muted-foreground`, and, if any input is non-live, the card's sample tag ("Sample figures" / "Test network") in its top-right corner.
 
 ## Tokens
 
@@ -39,7 +39,7 @@ Optional meta (`variant="header"`): `profile · solver version · created` in `t
 | Selected (in a list) | tint-rise: `bg-accent` (honey 14%) + `aria-current` |
 | Watch / Off track | only the pill changes, plus one sentence of reason in body-sm ("A stress case breaks in month 14."). The card itself is not tinted and the bar stays honey |
 | Draft (sheet not validated) | no pill, no amount; "Draft: finish the sheet" + link "Edit sheet" |
-| Sample inputs | 6px hatched left edge + one muted sample line at the card's foot; figures keep the hatched pin (gate MOCK-QUIET) |
+| Sample inputs | one quiet tag in the card's top-right corner, above the sentence; figures keep the hatched pin; no hatched edge (gate MOCK-QUIET, amended Oct 13) |
 | Loading | the 3-segment honey loader + "Loading your goal", `role="status"` |
 
 ## Rules
