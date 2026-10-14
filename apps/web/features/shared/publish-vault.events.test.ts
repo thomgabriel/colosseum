@@ -170,7 +170,7 @@ async function select(host: HTMLElement, address: string) {
 }
 beforeEach(() => {
   window.localStorage.clear();
-  window.history.replaceState(null, '', '/publish');
+  window.history.replaceState(null, '', '/products/publish');
   router.push.mockClear();
   portStore.set(signedInPort(EMBEDDED, { userId: USER }));
   read.mockReset().mockImplementation(async (_api, at) => snapshots(at.address));
@@ -193,7 +193,7 @@ describe('sharing a selected vault strategy', () => {
     );
     await settle(30);
     // the link names the vault's chain, so the form opens on it
-    const href = `/publish?vault=${encodeURIComponent(first)}&chain=solana`;
+    const href = `/products/publish?vault=${encodeURIComponent(first)}&chain=solana`;
     expect(find(host, '[data-ui="vault-share-strategy"]').getAttribute('href')).toBe(href);
     // new plans now start on Robinhood Chain: the Solana vault is still theirs to share
     await click(button(host, 'Switch chain'));
@@ -227,7 +227,7 @@ describe('sharing a selected vault strategy', () => {
     window.history.replaceState(
       null,
       '',
-      `/publish?vault=${encodeURIComponent(second)}&chain=solana`,
+      `/products/publish?vault=${encodeURIComponent(second)}&chain=solana`,
     );
     const host = await show();
     expect(find<HTMLSelectElement>(host, 'select').value).toBe(second);
@@ -271,12 +271,8 @@ describe('sharing a selected vault strategy', () => {
     const tags = [...assets.querySelectorAll('[data-ui="sample-tag"]')].map((t) => t.textContent);
     expect(tags).toHaveLength(1);
     expect([en.shell.testNetworkLine, en.shell.mockAnnounce]).toContain(tags[0]);
-    expect(assets.textContent).toMatch(
-      new RegExp(
-        `${en.shared.publish.strategySource('Solana')}|${en.shared.publish.strategySample}`,
-      ),
-    );
-    expect(assets.textContent).not.toContain(`Targets read from ${en.shell.mockAnnounce}`);
+    // and no line of where the targets were read from (gate SOURCE-LINES)
+    expect(assets.textContent).not.toMatch(/read from/i);
   });
   it('preserves the existing reviewed update terms after rereading the current recipe', async () => {
     let version = 2;

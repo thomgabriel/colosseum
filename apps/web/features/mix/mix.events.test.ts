@@ -152,7 +152,7 @@ const moved = (over: Partial<MixReview> = {}): Partial<MixReview> => ({
 const box = (host: HTMLElement) =>
   find<HTMLInputElement>(host, '[data-ui="mix-review-warnings"] input[type="checkbox"]');
 const SAID: Purpose = { goal: 'grow', risk: 'medium' };
-/** The deposit step as /goal mounts it: the amount is the host's, so another proposal keeps it. */
+/** The deposit step as /invest mounts it: the amount is the host's, so another proposal keeps it. */
 function Deposit({ said, onChangeMix }: { said: Purpose; onChangeMix: () => void }) {
   const [amountText, setAmountText] = useState('');
   return createElement(DepositStep, {
@@ -337,7 +337,7 @@ describe('a vault conversation’s preview, applied to the vault', () => {
       reviewHash: hash,
       acceptedWarnings: ['EXIT_OVER_CAPACITY:solana:gldx'],
     });
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ordered.id}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ordered.id}`);
     expect(recallOrder(ordered.id, userId)?.terms).toEqual({
       kind: 'retarget',
       vault: read.vault.address,

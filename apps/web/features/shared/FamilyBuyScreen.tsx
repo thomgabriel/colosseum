@@ -15,10 +15,11 @@ import { SkeletonPlan } from '../../components/ui/Skeleton';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainChoice } from '../account/ChainChoice';
-import { DepositCard } from '../amount/DepositCard';
+import { DepositCard, heldOf } from '../amount/DepositCard';
 import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { keepOrder } from '../order/order-record';
 import { basketOfPlan } from '../order/readiness';
+import type { Vault } from '../portfolio/portfolio';
 import { vaultTitle } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor, useChainRecipe } from './chain-recipe';
@@ -108,7 +109,10 @@ export function FamilyBuyScreen({
   // The vault a buy of this portfolio adds to, where the person has one (`planFamilyBuy`: the vault's
   // number is the portfolio's own): named in "Into", and a new vault only where there is none.
   const [ownVault, setOwnVault] = useState<
-    { kind: 'reading' } | { kind: 'none' } | { kind: 'unknown' } | { kind: 'own'; name: string }
+    | { kind: 'reading' }
+    | { kind: 'none' }
+    | { kind: 'unknown' }
+    | { kind: 'own'; name: string; vault: Vault }
   >({ kind: 'reading' });
   const whose = chain && owner ? `${chain}:${owner}` : null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: `whose` stands for the chain and the wallet
@@ -127,6 +131,7 @@ export function FamilyBuyScreen({
         vault
           ? {
               kind: 'own',
+              vault,
               name: vaultTitle(
                 vault,
                 { ...t.portfolio.actions, unnamed: () => t.shared.vault.page.yourVault },
@@ -176,8 +181,8 @@ export function FamilyBuyScreen({
         <Link
           href={
             person.kind === 'signed-out'
-              ? `/sign-in?next=/indexes/${encodeURIComponent(slug)}/buy`
-              : `/indexes/${encodeURIComponent(slug)}`
+              ? `/sign-in?next=/products/${encodeURIComponent(slug)}/buy`
+              : `/products/${encodeURIComponent(slug)}`
           }
           className={buttonClass({ variant: 'secondary' })}
         >
@@ -198,7 +203,8 @@ export function FamilyBuyScreen({
 
   /** Makes the order for this amount and keeps the terms this page showed with it. */
   async function place(amountUsd: number): Promise<InvestPlaced> {
-    if (!family || family === 'failed' || !chain || !owner || !followed?.targets)
+    if (!owner) return { failure: t.buy.blocked.wallet };
+    if (!family || family === 'failed' || !chain || !followed?.targets)
       return { failure: t.shared.check.reading };
     if (person.kind !== 'ready' || !person.userId) return { failure: t.buy.failure.signedOut };
     // What the buy is held to: the version and weights shown, never the order the API answers.
@@ -282,7 +288,7 @@ export function FamilyBuyScreen({
       blocked={blocked}
       place={place}
       onProgress={(progress) => {
-        // the recipe the run is on is this page's from here on, whatever /goal stores meanwhile
+        // the recipe the run is on is this page's from here on, whatever /invest stores meanwhile
         if (recipe) setPicked(recipe.chain);
         setLocked(true);
         embedded?.onProgress?.(progress);
@@ -346,6 +352,7 @@ export function FamilyBuyScreen({
         buyOf={{ family: slug, chain }}
         holdings={followed?.targets ?? null}
         keeper
+        held={ownVault.kind === 'own' ? heldOf(ownVault.vault) : null}
         into={{
           label: t.amount.into.label,
           value: 'family',
@@ -371,7 +378,7 @@ export function FamilyBuyScreen({
       {changed && (
         <Link
           data-ui="family-reopen"
-          href={`/indexes/${encodeURIComponent(slug)}`}
+          href={`/products/${encodeURIComponent(slug)}`}
           className={`${buttonClass({ variant: 'secondary' })} self-start`}
         >
           {t.shared.refusal.reopen}

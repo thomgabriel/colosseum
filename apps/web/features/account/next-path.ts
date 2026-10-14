@@ -3,6 +3,8 @@
 // nothing but its plain path: a browser and a server each read slashes, dots and escapes in their own
 // way, and "//host" or "/..//host" is another site to one of them.
 
+import { movedPath } from '../../lib/moved-routes';
+
 /**
  * The product's pages a sign-in may lead on to, as Next names them: `[id]` stands for one segment.
  * next-path.test.ts holds this list to the pages under app/(app).
@@ -11,29 +13,29 @@ export const APP_ROUTES: readonly string[] = [
   '/analytics',
   '/analytics/[page]',
   '/analytics/methodology',
-  '/goal',
-  '/indexes/[slug]',
-  '/indexes/[slug]/buy',
-  '/monitor',
-  '/orders/[id]',
-  '/plan/[id]',
-  '/plan/[id]/buy',
+  '/invest',
+  '/invest/plan/[id]',
+  '/invest/plan/[id]/buy',
   '/portfolio',
   '/portfolio/exposure',
   '/portfolio/methodology',
+  '/portfolio/monitor',
+  '/portfolio/orders/[id]',
   '/portfolio/plan/[chain]/[address]',
   '/portfolio/rebalancing',
-  '/publish',
-  '/shelf',
+  '/portfolio/vaults/[chain]/[address]',
+  '/portfolio/vaults/[chain]/[address]/add',
+  '/portfolio/vaults/[chain]/[address]/targets',
+  '/portfolio/vaults/[chain]/[address]/withdraw',
+  '/products',
+  '/products/[slug]',
+  '/products/[slug]/buy',
+  '/products/publish',
   '/sign-in',
-  '/vaults/[chain]/[address]',
-  '/vaults/[chain]/[address]/add',
-  '/vaults/[chain]/[address]/targets',
-  '/vaults/[chain]/[address]/withdraw',
 ];
 
 /** Where sign-in leads when it is told nothing, or nothing it accepts: the goal. */
-export const AFTER_SIGN_IN = '/goal';
+export const AFTER_SIGN_IN = '/invest';
 
 const SEGMENT = /^[A-Za-z0-9_-]+$/;
 
@@ -57,6 +59,9 @@ export function nextPath(raw: unknown, routes: readonly string[] = APP_ROUTES): 
   if (raw === '/') return routes.includes('/') ? raw : AFTER_SIGN_IN;
   const segments = raw.slice(1).split('/');
   if (!segments.every((segment) => SEGMENT.test(segment))) return AFTER_SIGN_IN;
-  const known = routes.some((route) => route !== '/sign-in' && matches(route, segments));
-  return known ? raw : AFTER_SIGN_IN;
+  // an address from before the pages were renamed (lib/moved-routes.ts) leads where it is now
+  const path = movedPath(raw);
+  const now = path.slice(1).split('/');
+  const known = routes.some((route) => route !== '/sign-in' && matches(route, now));
+  return known ? path : AFTER_SIGN_IN;
 }

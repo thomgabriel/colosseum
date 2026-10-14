@@ -76,6 +76,11 @@ export type Pool = {
   fetchedAt: string;
 };
 export type PoolsBody = { pools: Pool[]; nullReason?: string };
+/** One asset of `GET /risk/dex`: each route's status and body, as that route answered. */
+type DexAnswer = { status: number; body: unknown };
+export type DexBody = {
+  assets: Array<{ id: string; sheet: DexAnswer; hist: DexAnswer; pools: DexAnswer }>;
+};
 export type RecordedBody = { pools: Array<{ address: string }> };
 
 export type Exit = {

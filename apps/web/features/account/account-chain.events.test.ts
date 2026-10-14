@@ -19,7 +19,7 @@ vi.mock('next/link', () => import('../wallet/test/mock-next'));
 // gone (Thom, Oct 9: the chain is not a mode, and the bar shows and switches none): this file was its
 // test, and holds what is left of it. The account still gives the screens one chain: signed out, the
 // one someone is looking at, kept in this browser; signed in, the one their new plans start on,
-// stored by the API. It is chosen on /goal (goal-chain.events.test.ts), and nowhere in the bar.
+// stored by the API. It is chosen on /invest (goal-chain.events.test.ts), and nowhere in the bar.
 
 const en = dictionary('en');
 
@@ -35,7 +35,7 @@ const view = () =>
     withAccount('en', [createElement(AppNav, { key: 'bar' }), createElement(Shown, { key: 'v' })]),
   );
 const shown = (host: HTMLElement) => find(host, '[data-ui="shown"]').textContent;
-/** A choice as /goal makes it, and why it was not stored if it was not. */
+/** A choice as /invest makes it, and why it was not stored if it was not. */
 const choose = async (chain: 'solana' | 'robinhood') => {
   let refused: unknown = null;
   await act(async () => {
@@ -122,7 +122,7 @@ describe('signed out', () => {
   });
 
   it('opens on the chain the address names', async () => {
-    window.history.replaceState(null, '', '/shelf?chain=robinhood');
+    window.history.replaceState(null, '', '/products?chain=robinhood');
     const host = await view();
     await settle();
     expect(shown(host)).toBe('robinhood');
@@ -161,7 +161,7 @@ describe('signed in', () => {
       const host = await view();
       await settle();
       const refused = await choose('robinhood');
-      // the sentence /goal's chain choice says for it
+      // the sentence /invest's chain choice says for it
       expect(switchFailure(en, refused, 'Robinhood Chain')).toBe(sentence);
       expect(shown(host)).toBe('solana');
       await unmountAll();

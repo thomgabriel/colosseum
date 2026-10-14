@@ -58,7 +58,7 @@ describe('ChainBadge', () => {
       createElement(GoalCard, {
         sentence: 'Grow $40 over 36 months.',
         status: null,
-        action: { label: 'See your plan', href: '/plan/1' },
+        action: { label: 'See your plan', href: '/invest/plan/1' },
         chain: 'robinhood',
       }),
     );

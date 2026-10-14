@@ -14,7 +14,7 @@ import type { PlatformStats } from './stats';
 // more. Dark unless the visitor chose light (token-mapping.md: marketing is dark by default).
 
 /** A plan to look at before starting one: the shared portfolios. */
-export const SEE_A_PLAN = '/shelf';
+export const SEE_A_PLAN = '/products';
 
 export function Landing({
   lang,

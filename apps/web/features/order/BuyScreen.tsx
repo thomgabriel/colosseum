@@ -27,7 +27,7 @@ import { BuyScreenWait } from './waits';
 // own to start with, then the card, which shows what the wallet is missing only when it is short, the
 // trust notice the first time, and the order as our server made it (POST /v1/orders) with the button
 // that names the action and the amount. The press approves that order as shown and runs its steps;
-// the order's own page (/orders/{id}) stays where a stopped order is picked up again. With
+// the order's own page (/portfolio/orders/{id}) stays where a stopped order is picked up again. With
 // `embedded`, another screen gives the amount and mounts the card alone.
 
 export type { Funding };
@@ -62,7 +62,7 @@ export function BuyScreen({ id, embedded }: { id: string; embedded?: InvestEmbed
     const gate = state.kind === 'ready' ? { kind: 'loading' as const } : state;
     // On its own page the wait is the page in outline; inside another screen, that screen's own.
     if (gate.kind === 'loading' && !embedded) return <BuyScreenWait />;
-    return <PlanGate state={gate} next={`/plan/${encodeURIComponent(id)}/buy`} />;
+    return <PlanGate state={gate} next={`/invest/plan/${encodeURIComponent(id)}/buy`} />;
   }
 
   const chainName = t.chain.names[chain];

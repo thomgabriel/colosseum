@@ -1,5 +1,5 @@
 # The house kit (panels, figures and the table)
-> Type: custom | Components: `<Panel>`, `<PanelHead>`, `<PanelBody>`, `<HeroFigure>`, `<StatGrid>` / `<PanelStat>`, `<Plate>` (`apps/web/components/ui/Panel.tsx`), `<KitTable>` / `<KitTh>` and the row classes (`KitTable.tsx`) | Added 2026-10-13 on `HOUSE-KIT` (docs/GATES.md, Thom)
+> Type: custom | Components: `<Panel>`, `<PanelHead>`, `<PanelBody>`, `<HeroFigure>`, `<StatGrid>` / `<PanelStat>`, `<Plate>` (`apps/web/components/ui/Panel.tsx`), `<KitTable>` / `<KitTh>` and the row classes (`KitTable.tsx`), `<OptionCards>` (`OptionCards.tsx`) | Added 2026-10-13 on `HOUSE-KIT` (docs/GATES.md, Thom)
 
 The one way to build a screen: the pieces of Rodrigo's portfolio overview (`features/portfolio-section/OverviewPage.tsx`), taken out as they are. The overview is drawn with them, and looks as it did before (its screenshots at 1440 and 375, light and dark, compared pixel for pixel). A screen that needs a piece the kit does not have adds it to the kit; it does not style its own.
 
@@ -9,11 +9,12 @@ The one way to build a screen: the pieces of Rodrigo's portfolio overview (`feat
 |---|---|---|
 | `Panel` | A wide panel: the overview's board, its list of vaults | `rounded-xl`, 1px `--border`, `--card`, no shadow, overflow hidden |
 | `PanelBody` | A section of a panel | 20px margin, its pieces 16px apart; with `border-t border-border`, a second section under the first |
-| `PanelHead` | A panel's head: an icon tile and a title, the panel's figures in one line, its actions on the right | icon tile 32px `rounded-lg` on the honey tint; title Inter 600 `text-body-lg`; each figure a muted label then the figure; actions pushed right; a hairline under it; 20px by 16px |
+| `PanelHead` | A panel's head: an icon tile and a title, the panel's figures in one line, its actions on the right; `tabs` in the title's place where tabs say what the panel is (the title then for screen readers alone) | icon tile 32px `rounded-lg` on the honey tint; title Inter 600 `text-body-lg`; each figure a muted label then the figure; actions pushed right; a hairline under it; 20px by 16px |
 | `HeroFigure` | The figure a panel leads with | a muted `text-body-sm` label over it, Inter Tight 600 at 2rem, tabular; the `Plate` on the right of the label |
 | `StatGrid` / `PanelStat` | Small figures, a muted label over each | two columns, 24px by 16px apart; label `text-caption` muted, figure Inter 500 `text-body`, tabular; `wide` takes both columns (an address) |
 | `Plate` | The quiet pill that says the figures are not live | honey edge at 60% on its tint, ink text, `text-caption`. The same look and the same hook (`data-ui="sample-tag"`) as a sample card's tag (`Card mock`, [mock-plate.md](./mock-plate.md)): one mark for figures that are not live |
 | `KitTable`, `KitTh`, `KIT_ROW`, `KIT_CELL`, `KIT_NUMERIC`, `KIT_ROW_LINK`, `KIT_ABOVE_LINK` | The table a panel holds | across the panel, in a scrolling box with a minimum width; always named (`caption`, `label` or `labelledBy`); small muted heads; a hairline over each row; cells 20px by 16px; figures right-aligned and tabular (`KIT_NUMERIC`); a row that opens something stretches its link over the row (`KIT_ROW_LINK`), and its pins and controls sit over it (`KIT_ABOVE_LINK`); a row tints on hover and focus |
+| `OptionCards` | A choice between a few ways (a shared portfolio's "Start a new vault" or "Follow with a vault of yours", `SHARED-TWO-WAYS`) | a tile per way, `rounded-md`, 1px `--input`, 12px by 10px: a radio, the title Inter 500 `text-body-sm`, one muted `text-caption` line under it; the chosen one on the accent tint with no border; a way that cannot be taken here dimmed, its line saying why; with no `onChange`, the same tiles as a plain list, nothing to choose |
 
 Pins, status pills (`Status`), chain chips (`ChainBadge`) and `ProvenancePin` sit in these as they do on the overview. The PnL period chip and the delta chip beside a figure stay in the overview for now; a second screen that needs them moves them into the kit.
 

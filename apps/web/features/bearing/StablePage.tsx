@@ -66,14 +66,14 @@ export function StablePage() {
 }
 
 function StableOnSolana() {
-  const { base, lending } = useBearing();
-  const b = useAnswer(() => base(), [base]);
+  const { lendList, lending } = useBearing();
+  const list = useAnswer(() => lendList(), [lendList]);
   const all = useAnswer(() => lending(), [lending]);
-  if (!b || !all) return <StableWait />;
-  if (!b.lendList.ok)
+  if (!list || !all) return <StableWait />;
+  if (!list.ok)
     return (
       <p className="mt-6">
-        <Reason code={b.lendList.reason} />
+        <Reason code={list.reason} />
       </p>
     );
   return (

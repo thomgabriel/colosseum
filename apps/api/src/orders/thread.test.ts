@@ -36,7 +36,7 @@ const order = (status: Order['status'], legs: Leg[], over: Partial<Order> = {}):
   fees: [],
   preparedBy: 'app',
   status,
-  approvalUrl: `/orders/${ID}`,
+  approvalUrl: `/portfolio/orders/${ID}`,
   expiresAt: 0,
   createdAt: '2026-10-07T00:00:00.000Z',
   disclaimer: '',

@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { dictionary, SIGNED_IN_COOKIE } from '../i18n';
 import { inTheme } from './theme';
 
-// The bar's one account control (Thom, Oct 9), in a browser, on the landing and on /goal: a still
+// The bar's one account control (Thom, Oct 9), in a browser, on the landing and on /invest: a still
 // placeholder until it is known who is here, "Sign in", and the account chip, with the page under it
 // saying the same. Sign-in from either page stays on it and needs no reload. A wait that lasts is
 // never the control's label: after half a minute the help is under it. axe at 375 px, light and dark.
@@ -74,10 +74,10 @@ test('from the landing: "Sign in" opens the dialog over it, and the bar is the p
   await check(page, 'landing, signed out');
 });
 
-test('from /goal: the page’s "Sign in" is the bar’s, and both are the person’s after it', async ({
+test('from /invest: the page’s "Sign in" is the bar’s, and both are the person’s after it', async ({
   page,
 }) => {
-  await page.goto('/goal');
+  await page.goto('/invest');
   await expect(control(page)).toHaveAttribute('data-state', 'signed-out', { timeout: 60_000 });
   const mine = page.locator('[data-ui="goal-sign-in"]');
   const theirs = control(page).getByRole('link', { name: en.shell.signIn });
@@ -88,7 +88,7 @@ test('from /goal: the page’s "Sign in" is the bar’s, and both are the person
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click({ timeout: 60_000 });
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await expect(chip(page)).toHaveAttribute('data-ready', '');
   await expect(page.getByText(en.goal.explore.signIn)).toHaveCount(0);
   await expect(mine).toHaveCount(0);
@@ -98,7 +98,7 @@ test('from /goal: the page’s "Sign in" is the bar’s, and both are the person
 
 for (const [name, path] of [
   ['the landing', '/'],
-  ['/goal', '/goal'],
+  ['/invest', '/invest'],
 ] as const)
   test(`on ${name}, a wait is a still box, then help under it: never a label, never "Sign in"`, async ({
     page,
@@ -116,7 +116,7 @@ for (const [name, path] of [
     );
     await expect(control(page).locator('a, button')).toHaveCount(0);
     await expect(page.locator('a[href^="/sign-in"]')).toHaveCount(0);
-    if (path === '/goal') {
+    if (path === '/invest') {
       await expect(page.getByText(en.goal.explore.signIn)).toHaveCount(0);
       await expect(page.locator('[data-ui="goal-conversation"]')).toContainText(
         en.goal.explore.loadingAccount,

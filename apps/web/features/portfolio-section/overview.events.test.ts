@@ -413,7 +413,7 @@ describe('the table of vaults', () => {
     signIn();
     const host = await overview();
     const fresh = find(host, '[data-ui="new-plan"]');
-    expect(fresh.getAttribute('href')).toBe('/goal');
+    expect(fresh.getAttribute('href')).toBe('/invest');
     expect(fresh.className).toContain('border-primary');
     expect(fresh.className).toContain('bg-honey-tint');
     // never a status colour, and never honey as small text
@@ -448,7 +448,7 @@ describe('the overview, when there is nothing to read or the API cannot say', ()
     signIn();
     const host = await overview();
     expect(text(host)).toContain(en.shell.empty);
-    expect(find(host, 'a[href="/goal"]').textContent).toBe(en.shell.startGoal);
+    expect(find(host, 'a[href="/invest"]').textContent).toBe(en.shell.startGoal);
     expect(rows(host)).toEqual([]);
     expect(pins(host)).toEqual([]);
   });

@@ -388,13 +388,14 @@ describe('a product’s page, on the plan view', () => {
     const creator = find(pane, '[data-ui="kpi-publisher"] [data-ui="creator"]');
     expect(await hintOf(creator)).toBe(CREATOR);
     expect(creator.closest('details')).toBeNull();
-    // one invest step, on the page: the amount card, whose press leads to the one-press card, and
-    // no way off to a buy page (gate AMOUNT-CARD)
-    const invest = find(pane, '[data-ui="product-invest"]');
+    // one invest step, on the page beside the plan (Thom, Oct 14): the amount card, whose press
+    // leads to the one-press card, and no way off to a buy page (gate AMOUNT-CARD)
+    const invest = find(host, '[data-ui="product-invest"]');
+    expect(pane.contains(invest)).toBe(false);
     expect(find(invest, 'input[inputmode="decimal"]').getAttribute('value')).toBe('');
     expect(find(invest, '[data-ui="amount-card"]')).toBeTruthy();
     expect(invest.querySelector('[data-ui="family-invest"]')).toBeNull();
-    expect(host.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(host.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
     // where the version and weights come from is said once on the page, in the pane, never folded
     expect(host.querySelectorAll('[data-ui="source-mark"]')).toHaveLength(1);
     expect(find(pane, '[data-ui="source-mark"]').closest('details')).toBeNull();
@@ -414,8 +415,11 @@ describe('a product’s page, on the plan view', () => {
     expect(pane.textContent).toContain(pt.shared.product.why.etf);
     expect(pane.textContent).toContain(pt.shared.product.exit.atLeast(dollars(250_000, 'pt'), 7));
     expect(pane.textContent).toContain(pt.shared.product.publisher);
-    const invest = find(pane, '[data-ui="product-invest"]');
-    expect(find(invest, 'a').textContent).toBe(pt.shared.family.signIn);
+    // both ways named, and sign-in first
+    const invest = find(host, '[data-ui="product-invest"]');
+    expect(invest.textContent).toContain(pt.shared.actions.newVault.title);
+    expect(invest.textContent).toContain(pt.shared.actions.follow.title);
+    expect(find(invest, 'a').textContent).toBe(pt.shared.actions.signIn);
     expect(host.textContent).not.toContain(pt.shared.family.buy);
   });
 
