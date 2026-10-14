@@ -1303,7 +1303,8 @@ export const pt: Dictionary = {
       newVault: {
         title: 'Abrir um cofre novo',
         line: 'Um cofre que copia este portfólio, aberto com o seu primeiro depósito.',
-        open: 'O seu cofre deste portfólio já está aberto. Deposite nele pela página dele:',
+        open: 'O seu cofre deste portfólio já está aberto.',
+        depositThere: (name: string) => `Deposite em ${name} pela página dele.`,
       },
       follow: {
         title: 'Seguir com um cofre seu',

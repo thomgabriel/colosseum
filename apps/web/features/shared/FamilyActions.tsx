@@ -509,7 +509,7 @@ function Chosen({
             title={own.address}
             className="font-medium text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
           >
-            {mine.nameOf(own)}
+            {x.newVault.depositThere(mine.nameOf(own))}
           </Link>
         </>
       ) : (

@@ -488,7 +488,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     const first = find(host, '[data-ui="family-ways"] [data-option="new"]');
     expect(first.textContent).toContain(en.shared.actions.newVault.open);
     expect(find(first, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}`);
-    expect(find(first, 'a').textContent).toBe('Rent');
+    expect(find(first, 'a').textContent).toBe(en.shared.actions.newVault.depositThere('Rent'));
   });
 
   it('promises no new vault where the person’s vaults could not be read', async () => {

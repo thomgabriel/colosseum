@@ -1507,7 +1507,9 @@ export const en = {
         title: 'Start a new vault',
         line: 'A vault that copies this portfolio, opened with your first deposit.',
         /** The person's vault for this portfolio is open: a deposit goes there, from its own page. */
-        open: 'Your vault for this portfolio is open. Deposit into it from its page:',
+        open: 'Your vault for this portfolio is open.',
+        /** The way to it, a link: a deposit goes there. */
+        depositThere: (name: string) => `Deposit into ${name} from its page.`,
       },
       follow: {
         title: 'Follow with a vault of yours',
