@@ -1,4 +1,4 @@
-import { type Db, indexFamilies, legs, orders, recipes } from '@colosseum/db';
+import { chains, type Db, indexFamilies, legs, orders, recipes } from '@colosseum/db';
 import {
   type ChainId,
   chainFamily,
@@ -211,6 +211,8 @@ export async function familiesOf(
     })
     .from(recipes)
     .innerJoin(indexFamilies, eq(indexFamilies.familyId, recipes.familyId))
+    // the recipes of the network the chain runs now (gate PRODUCTS-MAINNET-ONLY)
+    .innerJoin(chains, and(eq(chains.id, recipes.chainId), eq(chains.network, recipes.network)))
     .where(and(eq(recipes.chainId, chain), inArray(recipes.onchainId, ids)));
   return new Map(
     rows.flatMap(({ onchainId, ...family }) => (onchainId === null ? [] : [[onchainId, family]])),

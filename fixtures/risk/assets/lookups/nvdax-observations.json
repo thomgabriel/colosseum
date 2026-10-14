@@ -1,0 +1,113 @@
+{
+  "source": "Local Postgres colosseum, read-only on 2026-10-14 by the API-AGENT-LOOKUPS-1 build: token NVDAx (Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh) on Solana. Long sources and methods are cut at 160 characters.",
+  "observations": [
+    {
+      "metric": "dex_volume_24h_usd",
+      "value": 7166860.919999998,
+      "unit": "usd",
+      "nullReason": null,
+      "observedAt": "2026-10-13T17:46:42.258Z",
+      "fetchedAt": "2026-10-13T17:46:42.258Z",
+      "source": "DexScreener api.dexscreener.com/token-pairs/v1/solana (VOLUME-DEXSCREENER: DexScreener's figure)",
+      "method": "dexscreener_token_pairs_h24",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "exchange_rate",
+      "value": null,
+      "unit": "ratio",
+      "nullReason": "not_an_exchange_rate_token",
+      "observedAt": "2026-10-13T17:30:47.296Z",
+      "fetchedAt": "2026-10-13T17:30:47.296Z",
+      "source": "scripts/risk/assets/solana.json (assets-list-0.1) with scripts/risk/assets/metrics.sources.json reviewed 2026-10-11",
+      "method": "asset-metrics-plan",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "holders_top20_share",
+      "value": null,
+      "unit": "fraction",
+      "nullReason": "rpc_method_unavailable",
+      "observedAt": "2026-10-11T03:54:35.575Z",
+      "fetchedAt": "2026-10-11T03:54:35.575Z",
+      "source": "Solana RPC (the RPC in SOLANA_RPC_URL) getTokenLargestAccounts and getMultipleAccounts",
+      "method": "largest_accounts_top20_share",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "pool_tvl_usd",
+      "value": 5566429.126123928,
+      "unit": "usd",
+      "nullReason": null,
+      "observedAt": "2026-10-01T01:38:24.027Z",
+      "fetchedAt": "2026-10-11T03:54:35.879Z",
+      "source": "risk_pools.tvl_usd (the Solana pool registry, measured on chain at its build)",
+      "method": "risk_pools_tvl_sum",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "protocol_tvl_usd",
+      "value": null,
+      "unit": "usd",
+      "nullReason": "not_a_dollar_yield_token",
+      "observedAt": "2026-10-13T17:30:47.296Z",
+      "fetchedAt": "2026-10-13T17:30:47.296Z",
+      "source": "scripts/risk/assets/solana.json (assets-list-0.1) with scripts/risk/assets/metrics.sources.json reviewed 2026-10-11",
+      "method": "asset-metrics-plan",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "supply_issuer",
+      "value": null,
+      "unit": "tokens",
+      "nullReason": "no_issuer_source_in_map",
+      "observedAt": "2026-10-11T02:26:39.317Z",
+      "fetchedAt": "2026-10-11T02:26:39.317Z",
+      "source": "scripts/risk/assets/solana.json (assets-list-0.1) with scripts/risk/assets/metrics.sources.json reviewed 2026-10-11",
+      "method": "asset-metrics-plan",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "supply_total",
+      "value": 321263.09171123,
+      "unit": "tokens",
+      "nullReason": null,
+      "observedAt": "2026-10-14T13:44:01.000Z",
+      "fetchedAt": "2026-10-14T13:44:08.883Z",
+      "source": "Solana RPC (the RPC in SOLANA_RPC_URL) getMultipleAccounts",
+      "method": "spl_mint_supply",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "yield_quoted",
+      "value": null,
+      "unit": "fraction",
+      "nullReason": "not_a_dollar_yield_token",
+      "observedAt": "2026-10-13T17:30:47.296Z",
+      "fetchedAt": "2026-10-13T17:30:47.296Z",
+      "source": "scripts/risk/assets/solana.json (assets-list-0.1) with scripts/risk/assets/metrics.sources.json reviewed 2026-10-11",
+      "method": "asset-metrics-plan",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    },
+    {
+      "metric": "yield_realised_30d",
+      "value": null,
+      "unit": "fraction",
+      "nullReason": "not_a_dollar_yield_token",
+      "observedAt": "2026-10-13T17:30:47.296Z",
+      "fetchedAt": "2026-10-13T17:30:47.296Z",
+      "source": "scripts/risk/assets/solana.json (assets-list-0.1) with scripts/risk/assets/metrics.sources.json reviewed 2026-10-11",
+      "method": "asset-metrics-plan",
+      "methodVersion": "asset-metrics-0.1",
+      "provenance": "live"
+    }
+  ]
+}

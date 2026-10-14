@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { familyIdOf, metaHash } from '@colosseum/basket';
 import { mockRecipeId } from '@colosseum/chain-mock';
-import { indexFamilies } from '@colosseum/db';
+import { chains, indexFamilies, recipes } from '@colosseum/db';
 import {
   type BasketAsset,
   ChainError,
@@ -1206,6 +1206,113 @@ describe('a vault follows a shared portfolio, and auto-follow where it is offere
     const built = await post(who, `/v1/orders/${placed.id}/legs/${placed.legs[0]?.id}/build`);
     expect([built.statusCode, built.json().code]).toEqual([409, 'VERSION_CHANGED']);
     expect((await read(who, placed)).legs[0]?.status).toBe('planned');
+  });
+});
+
+describe('a portfolio on a network its chain no longer runs (gate PRODUCTS-MAINNET-ONLY)', () => {
+  it('records a publish on the network its chain runs now', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    const [row] = await data.db
+      .select({ network: recipes.network })
+      .from(recipes)
+      .where(eq(recipes.familyId, familyIdOf(text.slug)));
+    const [chain] = await data.db
+      .select({ network: chains.network })
+      .from(chains)
+      .where(eq(chains.id, 'solana'));
+    expect(row?.network).toBe(chain?.network);
+  });
+
+  it('keeps it in the tables, and serves it neither on the shelf nor on its page', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    expect((await page(text.slug)).recipes).toHaveLength(1);
+    // The chain moved: the recipe is now another network's than the one the chain runs.
+    const familyId = familyIdOf(text.slug);
+    await data.db.update(recipes).set({ network: 'local' }).where(eq(recipes.familyId, familyId));
+    const shelf = ShelfResponse.parse((await get(null, '/v1/shelf?chain=solana')).json());
+    expect(shelf.families.some((f) => f.slug === text.slug)).toBe(false);
+    const everything = ShelfResponse.parse((await get(null, '/v1/shelf')).json());
+    expect(everything.families.find((f) => f.slug === text.slug)?.recipes ?? []).toEqual([]);
+    const unserved = await page(text.slug);
+    expect(unserved.recipes).toEqual([]);
+    expect(unserved.chains).toEqual([]);
+    const versions = VersionsResponse.parse(
+      (await get(null, `/v1/indexes/${text.slug}/versions`)).json(),
+    );
+    expect(versions.chains).toEqual([]);
+    // nothing was deleted
+    const kept = await data.db.select().from(recipes).where(eq(recipes.familyId, familyId));
+    expect(kept.map((r) => r.network)).toEqual(['local']);
+  });
+
+  it('lists live portfolios only where SHELF_LIVE_ONLY is on, and still answers a page by its slug', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    // the mock's figures are not live: with the setting on, the shelf leaves the portfolio out
+    const { app: liveOnly } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      env: { SHELF_LIVE_ONLY: 'on' },
+    });
+    try {
+      for (const query of ['', '?chain=solana']) {
+        const res = await liveOnly.inject({ method: 'GET', url: `/v1/shelf${query}` });
+        expect(res.statusCode, res.body).toBe(200);
+        const shelf = ShelfResponse.parse(res.json());
+        expect(shelf.families.some((f) => f.slug === text.slug)).toBe(false);
+        expect(shelf.families.flatMap((f) => f.recipes).every((r) => r.provenance === 'live')).toBe(
+          true,
+        );
+      }
+      const res = await liveOnly.inject({ method: 'GET', url: `/v1/indexes/${text.slug}` });
+      expect(res.statusCode, res.body).toBe(200);
+      // (this second app runs its own mock chain, which holds no such recipe: the page is the point)
+      expect(FamilyResponse.parse(res.json()).family.slug).toBe(text.slug);
+    } finally {
+      await liveOnly.close();
+    }
+    // off, the same shelf lists it
+    const shelf = ShelfResponse.parse((await get(null, '/v1/shelf')).json());
+    expect(shelf.families.some((f) => f.slug === text.slug)).toBe(true);
+  });
+
+  it('keeps a live recipe on the shelf, with its chain, where SHELF_LIVE_ONLY is on', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    // the same chains, Solana reported live: what a mainnet's recipes are labelled
+    const live = (inner: ChainRegistry): ChainRegistry => {
+      const wrap = (entry: ReturnType<ChainRegistry['get']>) =>
+        entry.chain === 'solana' ? { ...entry, provenance: 'live' as const } : entry;
+      return {
+        ...inner,
+        get: (chain) => wrap(inner.get(chain)),
+        active: () => inner.active().map(wrap),
+      };
+    };
+    const { app: liveOnly } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      env: { SHELF_LIVE_ONLY: 'on' },
+      wrap: () => live(registry),
+    });
+    try {
+      const res = await liveOnly.inject({ method: 'GET', url: '/v1/shelf' });
+      expect(res.statusCode, res.body).toBe(200);
+      const card = ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+      expect(card?.chains).toEqual(['solana']);
+      expect(card?.recipes.map((r) => [r.chain, r.provenance])).toEqual([['solana', 'live']]);
+      // and the server says so on its config, for the app to follow
+      const config = await liveOnly.inject({ method: 'GET', url: '/v1/config' });
+      expect(config.json().flags.shelfLiveOnly).toBe(true);
+    } finally {
+      await liveOnly.close();
+    }
   });
 });
 

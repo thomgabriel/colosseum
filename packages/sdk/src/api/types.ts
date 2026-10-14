@@ -2,6 +2,244 @@
 // change the API's routes, run `pnpm openapi:emit`, then `pnpm --filter @colosseum/sdk api-types`.
 // scripts/api-types.test.ts fails while this file is not what the committed document gives.
 
+/** GET /v1/assets/{id}/facts: params. The facts the server holds of one listed asset */
+export type GetAssetsByIdFactsParams = {
+  id: string;
+};
+
+/** GET /v1/assets/{id}/facts: query. The facts the server holds of one listed asset */
+export type GetAssetsByIdFactsQuery = {
+  parts?: string;
+  window?: '24h' | '7d' | '30d';
+};
+
+/** GET /v1/assets/{id}/facts: response. The facts the server holds of one listed asset */
+export type GetAssetsByIdFactsResponse = {
+  assetId: string;
+  chain: 'solana' | 'base' | 'robinhood';
+  symbol: string;
+  provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  window: '24h' | '7d' | '30d';
+  parts: {
+    profile?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    price_history?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    pools?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    lending?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+    bearing?: {
+      facts: {
+        id: string;
+        assetId: string;
+        /** What the figure measures, in words; it holds no digit */
+        label: string;
+        value: number;
+        unit: string;
+        source: string;
+        method: string;
+        fetchedAt: string;
+        provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+        /** The true value is at least this */
+        lowerBound?: true;
+        /** The reading is past its age limit: its age, in seconds */
+        staleAgeSec?: number;
+      }[];
+      missing: {
+        id: string;
+        assetId: string;
+        label: string;
+        reason:
+          | 'no_samples_in_regime'
+          | 'insufficient_samples'
+          | 'not_a_number'
+          | 'beyond_measured_size'
+          | 'no_reference_price'
+          | 'no_external_source'
+          | 'chain_not_covered'
+          | 'not_collected'
+          | 'not_imported'
+          | 'not_followed'
+          | 'gate_open'
+          | 'not_applicable'
+          | 'no_oracle';
+        /** The hours of the window the data does not reach */
+        missingHours?: number;
+      }[];
+      /** The mainnet token a test-network token's facts are read from */
+      modelledOn: string | null;
+      /** The read is still running (ask again) or failed: its facts are unknown, not zero */
+      unread?: 'reading' | 'failed';
+    };
+  };
+  disclaimer: string;
+};
+
 /** POST /v1/baskets/intake: body. Read a goal into a sheet, ask what it leaves open, and say back what was understood */
 export type PostBasketsIntakeBody = {
   text: string;
@@ -317,7 +555,7 @@ export type PostBasketsIntakeResponse = {
   }[];
 };
 
-/** POST /v1/baskets/personalize: body. Make a plan from a goal and its limits, and store it. Nothing is bought */
+/** POST /v1/baskets/personalize: body. Make a plan from a goal and its limits, and store it. Nothing is deposited */
 export type PostBasketsPersonalizeBody = {
   sheet: {
     basketType: 'standard';
@@ -438,7 +676,7 @@ export type PostBasketsPersonalizeBody = {
   previousPlanId?: string;
 };
 
-/** POST /v1/baskets/personalize: response. Make a plan from a goal and its limits, and store it. Nothing is bought */
+/** POST /v1/baskets/personalize: response. Make a plan from a goal and its limits, and store it. Nothing is deposited */
 export type PostBasketsPersonalizeResponse = {
   id: string;
   proposal: {
@@ -814,7 +1052,7 @@ export type PostBasketsPersonalizeResponse = {
   }[];
 };
 
-/** POST /v1/baskets/propose: body. Make a plan from a goal and its limits for a person to open from a link. Nothing is bought */
+/** POST /v1/baskets/propose: body. Make a plan from a goal and its limits for a person to open from a link. Nothing is deposited */
 export type PostBasketsProposeBody = {
   sheet: {
     basketType: 'standard';
@@ -874,7 +1112,7 @@ export type PostBasketsProposeBody = {
   };
 };
 
-/** POST /v1/baskets/propose: response. Make a plan from a goal and its limits for a person to open from a link. Nothing is bought */
+/** POST /v1/baskets/propose: response. Make a plan from a goal and its limits for a person to open from a link. Nothing is deposited */
 export type PostBasketsProposeResponse = {
   id: string;
   proposal: {
@@ -1705,6 +1943,7 @@ export type GetConfigResponse = {
     autoFollow: Record<'solana' | 'base' | 'robinhood', boolean>;
     keeperEnabled: boolean;
     agentSurface: boolean;
+    shelfLiveOnly: boolean;
   };
   chains: {
     id: 'solana' | 'base' | 'robinhood';
@@ -1727,12 +1966,12 @@ export type GetConfigResponse = {
   }[];
 };
 
-/** POST /v1/conversations/{chain}/goal/accept: params. Review a mix for a new goal, and store it as a plan once confirmed */
+/** POST /v1/conversations/{chain}/goal/accept: params. Review the holdings proposed for a new goal, and store them as a plan once confirmed */
 export type PostConversationsByChainGoalAcceptParams = {
   chain: 'solana' | 'base' | 'robinhood';
 };
 
-/** POST /v1/conversations/{chain}/goal/accept: body. Review a mix for a new goal, and store it as a plan once confirmed */
+/** POST /v1/conversations/{chain}/goal/accept: body. Review the holdings proposed for a new goal, and store them as a plan once confirmed */
 export type PostConversationsByChainGoalAcceptBody = {
   version: 1;
   origin: 'model' | 'person';
@@ -1750,7 +1989,7 @@ export type PostConversationsByChainGoalAcceptBody = {
   horizonMonths?: number;
 };
 
-/** POST /v1/conversations/{chain}/goal/accept: response. Review a mix for a new goal, and store it as a plan once confirmed */
+/** POST /v1/conversations/{chain}/goal/accept: response. Review the holdings proposed for a new goal, and store them as a plan once confirmed */
 export type PostConversationsByChainGoalAcceptResponse =
   | {
       status: 'review';
@@ -2148,7 +2387,7 @@ export type PostConversationsByChainGoalReplyResponse = {
   chain: 'solana' | 'base' | 'robinhood';
   /** Which agent wrote this reply: the relaxed intake (gate RELAXED-INTAKE), or the model-led conversation the server answers with when it runs with `GOAL_AGENT=model-led`. Said so that neither is ever taken for the other. */
   agent: 'relaxed' | 'model_led';
-  /** What the person said the money is for, read by the server from plain statements in their own messages; the latest one stands. Null until they have plainly said it, and after they take it back or question it. Never the model’s reading, and never filled in here: `goal/accept` works out a null one from the mix and says so. */
+  /** What the person said the money is for, read by the server from plain statements in their own messages; the latest one stands. Null until they have plainly said it, and after they take it back or question it. Never the model’s reading, and never filled in here: `goal/accept` works out a null one from the proposed lines and says so. */
   goal: ('grow' | 'income' | 'protect') | null;
   /** The risk the person said they accept, read the same way. Null until they have plainly said it; never filled in here. */
   risk: ('low' | 'medium' | 'high') | null;
@@ -2356,13 +2595,13 @@ export type PutMeChainResponse = {
   chainOptions: ('solana' | 'base' | 'robinhood')[];
 };
 
-/** GET /v1/me/plans: query. The signed-in person’s plans, with the goal each was built for and its buys */
+/** GET /v1/me/plans: query. The signed-in person’s plans, with the goal each was built for and its deposits */
 export type GetMePlansQuery = {
   limit?: number;
   before?: string;
 };
 
-/** GET /v1/me/plans: response. The signed-in person’s plans, with the goal each was built for and its buys */
+/** GET /v1/me/plans: response. The signed-in person’s plans, with the goal each was built for and its deposits */
 export type GetMePlansResponse = {
   plans: {
     id: string;
@@ -2772,12 +3011,12 @@ export type GetOrdersByIdResponse = {
   }[];
 };
 
-/** POST /v1/orders/{id}/continue: params. Finish a buy with the cash already in its vault. Nothing is deposited */
+/** POST /v1/orders/{id}/continue: params. Finish a deposit’s trades with the cash already in its vault. Nothing is deposited */
 export type PostOrdersByIdContinueParams = {
   id: string;
 };
 
-/** POST /v1/orders/{id}/continue: response. Finish a buy with the cash already in its vault. Nothing is deposited */
+/** POST /v1/orders/{id}/continue: response. Finish a deposit’s trades with the cash already in its vault. Nothing is deposited */
 export type PostOrdersByIdContinueResponse = {
   id: string;
   type: 'buy' | 'rebalance' | 'follow' | 'publish' | 'withdraw' | 'settings';
@@ -3802,7 +4041,7 @@ export type GetStatsResponse = {
   disclaimer: string;
 };
 
-/** POST /v1/testnet/fund: body. Test network only: send the signed-in wallet the test tokens and gas a buy is missing */
+/** POST /v1/testnet/fund: body. Test network only: send the signed-in wallet the test tokens and gas a deposit is missing */
 export type PostTestnetFundBody = {
   wallet?: string | string;
   amountUsd: number;
@@ -3813,7 +4052,7 @@ export type PostTestnetFundBody = {
   vaultChain?: 'solana' | 'base' | 'robinhood';
 };
 
-/** POST /v1/testnet/fund: response. Test network only: send the signed-in wallet the test tokens and gas a buy is missing */
+/** POST /v1/testnet/fund: response. Test network only: send the signed-in wallet the test tokens and gas a deposit is missing */
 export type PostTestnetFundResponse = {
   chain: 'solana' | 'base' | 'robinhood';
   provenance: 'sandbox';
@@ -4830,6 +5069,11 @@ export type PostVaultsByChainByAddressTargetsResponse =
 
 /** Every route of the document, by its method and path: what each takes and answers. */
 export interface ApiRoutes {
+  'GET /v1/assets/{id}/facts': {
+    params: GetAssetsByIdFactsParams;
+    query: GetAssetsByIdFactsQuery;
+    response: GetAssetsByIdFactsResponse;
+  };
   'POST /v1/baskets/intake': { body: PostBasketsIntakeBody; response: PostBasketsIntakeResponse };
   'POST /v1/baskets/personalize': {
     body: PostBasketsPersonalizeBody;

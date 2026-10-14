@@ -2,6 +2,7 @@ export * from './assess';
 export * from './assets/backfill';
 export * from './assets/bars';
 export * from './assets/evm';
+export * from './assets/facts-of';
 export * from './assets/history';
 export * from './assets/metric-prices';
 export * from './assets/metric-rows';

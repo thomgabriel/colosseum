@@ -201,6 +201,7 @@ export function registerSharedRoutes(
   scope: FastifyInstance,
   deps: OrderDeps,
   planInputs: PlanInputs = async () => ({}),
+  shelf: { liveOnly: boolean } = { liveOnly: false },
 ) {
   const f = scope.withTypeProvider<ZodTypeProvider>();
   const tags = ['shared portfolios'];
@@ -213,7 +214,7 @@ export function registerSharedRoutes(
         tags,
         summary: 'Every shared portfolio, or those with a recipe on one chain',
         description:
-          "From the server's store, not the chains: each recipe's versions are the last the server read (`source: 'cache'`). With no `chain`, every portfolio, each with the chains it has a recipe on (`chains`): the app lists them together, each labelled with its chains (gate CHAIN-AT-THE-PLAN). `chain` limits the answer to the portfolios with a recipe on that chain. A recipe on a chain this server has switched off is left out. `autoFollow` says whether the auto-follow switch is offered: not on a portfolio that holds an asset with no price oracle on that chain, whose followers get the one-tap prompt instead. `name` and `copy` are the creator's words: `textMatches` says which version's hash they match, if any. `figures` is what the server has measured about the version in effect, the readings a plan is made from: each holding's stored yield and the most of it that can be sold within the exit window (each null where the server has none, never zero). Nothing is added up across the holdings.",
+          "From the server's store, not the chains: each recipe's versions are the last the server read (`source: 'cache'`). With no `chain`, every portfolio, each with the chains it has a recipe on (`chains`): the app lists them together, each labelled with its chains (gate CHAIN-AT-THE-PLAN). `chain` limits the answer to the portfolios with a recipe on that chain. A recipe on a chain this server has switched off is left out, and so is one published on a network its chain no longer runs. Where the server lists live portfolios only (`SHELF_LIVE_ONLY`), a recipe whose figures are not live is left out too, with a portfolio that has none left; its page still answers by its slug. `autoFollow` says whether the auto-follow switch is offered: not on a portfolio that holds an asset with no price oracle on that chain, whose followers get the one-tap prompt instead. `name` and `copy` are the creator's words: `textMatches` says which version's hash they match, if any. `figures` is what the server has measured about the version in effect, the readings a plan is made from: each holding's stored yield and the most of it that can be sold within the exit window (each null where the server has none, never zero). Nothing is added up across the holdings.",
         querystring: SharedChainQuery,
         response: { 200: ShelfResponse, default: OrderError },
       },
@@ -224,8 +225,19 @@ export function registerSharedRoutes(
       const figures = figuresReader(deps, planInputs);
       for (const stored of await allFamilies(deps.db)) {
         const family = await familyOf(deps, stored, chain, false, figures);
-        if (chain && !family.recipes.length) continue;
-        families.push(family);
+        // Live only: a recipe whose figures are not live is left off the shelf, and a portfolio with
+        // none left goes with it. Its page still answers by its address, for whoever follows it.
+        const shown = shelf.liveOnly
+          ? {
+              ...family,
+              recipes: family.recipes.filter((r) => r.provenance === 'live'),
+              chains: family.chains.filter((c) =>
+                family.recipes.some((r) => r.chain === c && r.provenance === 'live'),
+              ),
+            }
+          : family;
+        if ((chain || shelf.liveOnly) && !shown.recipes.length) continue;
+        families.push(shown);
       }
       return { families, disclaimer: DISCLAIMER.en };
     },

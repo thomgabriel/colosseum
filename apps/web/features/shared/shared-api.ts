@@ -1,5 +1,6 @@
 import {
   type ChainId,
+  ConfigResponse,
   CreatorLimitsResponse,
   chainFamily,
   FamilyResponse,
@@ -15,6 +16,7 @@ import type { CallFailure, OrderOutcome } from '../order/order-api';
 
 // The calls the shared-portfolio screens make (API-3, WEB-4), each answer read with the shared schema:
 //
+//   GET  /v1/config                             whether the shelf lists live portfolios only
 //   GET  /v1/shelf?chain=                       the shared portfolios, from the server's store
 //   GET  /v1/indexes/{slug}?chain=              one, its recipes read from their chains by the server
 //   GET  /v1/indexes/{slug}/versions?chain=     every version the server has seen
@@ -65,6 +67,8 @@ async function getAs<T>(
 }
 
 const chainQuery = (chain: ChainId | null) => (chain ? `?chain=${encodeURIComponent(chain)}` : '');
+
+export const readConfig = (apiFetch: ApiFetch) => getAs(apiFetch, '/v1/config', ConfigResponse);
 
 export const readShelf = (apiFetch: ApiFetch, chain: ChainId | null) =>
   getAs(apiFetch, `/v1/shelf${chainQuery(chain)}`, ShelfResponse);
