@@ -264,8 +264,10 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   // 1. A deposit, in the pane: the amount, the wallet's check, the order with its steps, one press.
   await actions.locator('[data-action="vault-deposit"]').click();
   await expect(screen).toHaveAttribute('data-pane', 'deposit');
-  await expect(title).toHaveText(p.panes.deposit.title);
-  await expect(title).toBeFocused();
+  // the amount card heads the pane (gate AMOUNT-CARD), its amount takes the focus
+  const cardTitle = pane.locator('[data-ui="amount-panel"] h2');
+  await expect(cardTitle).toHaveText(p.panes.deposit.title);
+  await expect(pane.locator('[data-ui="amount-well"] input')).toBeFocused();
   // the conversation's box is inert, and says why
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.deposit);
   await expect(page.locator('[data-ui="vault-chat"] [inert] textarea')).toHaveCount(1);
@@ -302,7 +304,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   // reaches the wallet, then the steps to sign.
   await actions.locator('[data-action="vault-withdraw"]').click();
   await expect(screen).toHaveAttribute('data-pane', 'withdraw');
-  await expect(title).toHaveText(p.panes.withdraw.title);
+  await expect(cardTitle).toHaveText(p.panes.withdraw.title);
   await check(page, 'withdraw-what');
   await pane
     .locator('[data-ui="amount-chips"]')

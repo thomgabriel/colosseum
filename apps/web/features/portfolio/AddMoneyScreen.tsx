@@ -52,6 +52,10 @@ export type AddEntry = {
   pressed?: number | null;
   /** Said once a deposit of the amount is under way: the order that finishes another adds nothing. */
   fact?: boolean;
+  /** The card's title, as the pane's heading. */
+  title?: string;
+  /** The amount was pressed (a number) or taken back (null). */
+  onPressed?: (amount: number | null) => void;
 };
 
 export function AddMoneyScreen({
@@ -306,7 +310,7 @@ export function AddMoneyScreen({
   // The amount card (gate AMOUNT-CARD): into this vault, its press handing the amount to the card.
   const entry = (
     <DepositCard
-      headingLevel={embedded ? 3 : 2}
+      headingLevel={embedded && !embedded.entry?.title ? 3 : 2}
       chain={chain}
       chainName={chainName}
       mock={mock}
@@ -356,6 +360,8 @@ export function AddMoneyScreen({
       running={locked}
       pressed={embedded?.entry?.pressed ?? null}
       fact={embedded?.entry?.fact ?? true}
+      {...(embedded?.entry?.title ? { title: embedded.entry.title, focusOnOpen: true } : {})}
+      {...(embedded?.entry?.onPressed ? { onPressed: embedded.entry.onPressed } : {})}
       flow={(amount, change) => cardFor(amount, change)}
     />
   );

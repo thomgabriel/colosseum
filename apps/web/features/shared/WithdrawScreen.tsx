@@ -69,7 +69,12 @@ export function WithdrawScreen({
    * Held in another screen's pane: no title of its own, and the order made is handed to the host.
    * `onMode`: Deposit | Withdraw on the amount card.
    */
-  embedded?: { onOrder: (orderId: string) => void; onMode?: (mode: AmountMode) => void };
+  embedded?: {
+    onOrder: (orderId: string) => void;
+    onMode?: (mode: AmountMode) => void;
+    /** The card's title, as the pane's heading; the amount takes the focus. */
+    title?: string;
+  };
 }) {
   const t = useT();
   const lang = useLang();
@@ -465,7 +470,7 @@ export function WithdrawScreen({
           <label
             key={option}
             className={cn(
-              'relative flex min-h-9 cursor-pointer items-center justify-center rounded-sm px-2 py-1.5 text-center text-body-sm font-semibold transition-colors',
+              'relative flex min-h-9 cursor-pointer items-center justify-center rounded-sm px-2 py-1.5 text-body-sm font-semibold transition-colors',
               'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring',
               way === option
                 ? 'bg-honey-tint text-honey-text'
@@ -663,7 +668,8 @@ export function WithdrawScreen({
     <AmountCard
       mode="withdraw"
       {...(embedded?.onMode ? { onMode: embedded.onMode } : {})}
-      headingLevel={embedded ? 3 : 2}
+      headingLevel={embedded && !embedded.title ? 3 : 2}
+      {...(embedded?.title ? { title: embedded.title, focusOnOpen: true } : {})}
       chain={chain}
       chainName={chainName}
       provenance={provenance}

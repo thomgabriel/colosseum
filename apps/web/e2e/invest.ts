@@ -17,7 +17,7 @@ export async function readyToInvest(
   // Where the deposit starts on the amount card (gate AMOUNT-CARD): the amount there, the trust
   // notice ticked on it (a first deposit in this browser), and its press, which hands the amount to
   // the invest card. A plan's own buy page still types it over the invest card.
-  const entry = page.locator('[data-ui="amount-card"]');
+  const entry = page.locator('[data-ui="amount-panel"]');
   let trusted = false;
   if (o.amount !== undefined && (await entry.count()) > 0) {
     await entry.getByLabel(en.amount.field.deposit, { exact: true }).fill(o.amount);
@@ -95,11 +95,11 @@ export async function openPlan(page: Page, tail: '' | '/buy' = '') {
 export async function pressInView(page: Page, name: string, o: { scroll?: boolean } = {}) {
   const before = page.viewportSize();
   await page.setViewportSize({ width: 1440, height: 900 });
-  const card = page.locator('section[data-ui="card"]:has([data-ui="amount-card"])').first();
+  const card = page.locator('[data-ui="amount-panel"]').first();
   if (o.scroll)
     await card.evaluate((el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
   const amount = card.locator('[data-ui="amount-well"] input');
-  const press = card.locator('[data-ui="amount-card"] [data-variant="primary"]');
+  const press = card.locator('button[data-action^="amount-"]');
   for (const [what, el] of [
     ['amount', amount],
     ['button', press],

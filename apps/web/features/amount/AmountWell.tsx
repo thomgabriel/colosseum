@@ -1,7 +1,8 @@
 'use client';
-import { useId } from 'react';
+import { type ReactNode, useId } from 'react';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/cn';
+import { HeroFigure } from '../../components/ui/Panel';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import type { PinSource } from '../../components/ui/provenance';
 import { StatusMark } from '../../components/ui/StatusMark';
@@ -55,6 +56,8 @@ export type AmountWellProps = {
   note?: string | null;
   /** A quiet caption under the field: the least and the most. */
   hint?: string;
+  /** The pill that says the figures are not live, beside the label (the kit's `Plate`). */
+  plate?: ReactNode;
   locked?: boolean;
 };
 
@@ -71,6 +74,7 @@ export function AmountWell({
   problem,
   note,
   hint,
+  plate,
   locked = false,
 }: AmountWellProps) {
   const t = useT();
@@ -83,51 +87,56 @@ export function AmountWell({
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div data-ui="amount-well" className="flex min-w-0 flex-col gap-1">
-        <label htmlFor={amountId} className="text-body-sm text-muted-foreground">
-          {label}
-        </label>
-        {/* The figure as the portfolio board sets its hero figure, on one hairline: the field. */}
-        <div
-          className={cn(
-            'flex min-w-0 items-center gap-2 border-b pb-1',
-            'focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-ring',
-            problem ? 'border-destructive' : 'border-input',
-          )}
+        {/* The amount as the portfolio board's hero figure: its label over it, the pill beside the
+            label, the figure on one hairline that is the field, the house ring on it alone. */}
+        <HeroFigure
+          ui="amount-figure"
+          plate={plate}
+          label={
+            <label htmlFor={amountId} className="text-body-sm text-muted-foreground">
+              {label}
+            </label>
+          }
         >
           <span
-            aria-hidden="true"
-            className="shrink-0 font-display text-[2rem]/10 font-semibold text-muted-foreground"
+            className={cn(
+              'flex min-w-0 items-center gap-2 rounded-sm border-b pb-1',
+              'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring',
+              problem ? 'border-destructive' : 'border-input',
+            )}
           >
-            {t.mix.deposit.currency}
-          </span>
-          <input
-            id={amountId}
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0"
-            disabled={locked}
-            value={text}
-            aria-invalid={problem ? true : undefined}
-            aria-describedby={
-              [hint ? hintId : null, balance ? balanceId : null, problem ? problemId : null]
-                .filter(Boolean)
-                .join(' ') || undefined
-            }
-            onChange={(e) => onText(e.currentTarget.value)}
-            onBlur={onBlur}
-            className="h-12 min-w-0 flex-1 bg-transparent font-display text-[2rem]/10 font-semibold tracking-[-0.02em] tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
-          />
-          {token && (
-            <span
-              data-ui="amount-token"
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card pr-3 pl-1 text-body-sm font-semibold"
-            >
-              <AssetMark asset={token.asset} className="size-6" />
-              <span aria-hidden="true">{token.symbol}</span>
-              <span className="sr-only">{token.name}</span>
+            <span aria-hidden="true" className="shrink-0 text-muted-foreground">
+              {t.mix.deposit.currency}
             </span>
-          )}
-        </div>
+            <input
+              id={amountId}
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0"
+              disabled={locked}
+              value={text}
+              aria-invalid={problem ? true : undefined}
+              aria-describedby={
+                [hint ? hintId : null, balance ? balanceId : null, problem ? problemId : null]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+              onChange={(e) => onText(e.currentTarget.value)}
+              onBlur={onBlur}
+              className="h-11 min-w-0 flex-1 bg-transparent tabular-nums text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
+            />
+            {token && (
+              <span
+                data-ui="amount-token"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-input bg-card pr-3 pl-1 font-sans text-body-sm font-semibold tracking-normal"
+              >
+                <AssetMark asset={token.asset} className="size-6" />
+                <span aria-hidden="true">{token.symbol}</span>
+                <span className="sr-only">{token.name}</span>
+              </span>
+            )}
+          </span>
+        </HeroFigure>
         {balance && (
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <p

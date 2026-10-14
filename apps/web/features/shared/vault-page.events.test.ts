@@ -593,9 +593,11 @@ describe('the pane’s states, and the way out of each', () => {
     await settle();
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(pane(host).dataset.state).toBe('open');
-    const title = find(pane(host), ':scope > header h2');
+    // the amount card heads the pane (gate AMOUNT-CARD), and its amount takes the focus
+    expect(pane(host).querySelector(':scope > header')).toBeNull();
+    const title = find(pane(host), '[data-ui="amount-panel"] h2');
     expect(title.textContent).toBe(p.panes.deposit.title);
-    expect(document.activeElement).toBe(title);
+    expect(document.activeElement).toBe(find(pane(host), '[data-ui="amount-well"] input'));
     // the add-money card, with its amount field, in the pane
     expect(pane(host).querySelector('[data-ui="vault-invest"]')).not.toBeNull();
     expect(pane(host).querySelector('input[inputmode="decimal"]')).not.toBeNull();
@@ -762,7 +764,7 @@ describe('an order that answers late', () => {
     gate.release();
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('deposit');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.deposit.title);
+    expect(find(pane(host), '[data-ui="amount-panel"] h2').textContent).toBe(p.panes.deposit.title);
     expect(pane(host).querySelector('input[inputmode="decimal"]')).not.toBeNull();
   });
 
@@ -778,7 +780,9 @@ describe('an order that answers late', () => {
     gate.release();
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('withdraw');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.withdraw.title);
+    expect(find(pane(host), '[data-ui="amount-panel"] h2').textContent).toBe(
+      p.panes.withdraw.title,
+    );
     expect(pane(host).querySelector('[data-ui="order-step"]')).toBeNull();
   });
 });

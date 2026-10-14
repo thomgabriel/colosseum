@@ -2,10 +2,10 @@
 import { type ChainId, type Provenance, TRUST_STATUS } from '@colosseum/schemas';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Hint } from '../../components/ui/Hint';
 import { Icon } from '../../components/ui/Icon';
+import { Panel, PanelBody, PanelHead, PanelStat, Plate, StatGrid } from '../../components/ui/Panel';
 import { useT } from '../../i18n/I18nProvider';
 import { acceptTrust, trustAccepted } from '../order/order-record';
 import { chainIsLive } from '../order/readiness';
@@ -105,8 +105,12 @@ export type AmountCardProps = {
   };
   /** The person pressed and the order is under way: nothing on the card changes. */
   locked?: boolean;
-  /** The card's title where it has no Deposit | Withdraw: a level under the screen's own heading. */
+  /** The card's heading level, under the screen's own heading. */
   headingLevel?: 2 | 3;
+  /** The card's title, where the screen says more than the action ("Deposit into your vault"). */
+  title?: string;
+  /** The card is the pane's first thing: the amount takes the focus, so it is typed at once. */
+  focusOnOpen?: boolean;
   className?: string;
 };
 
@@ -128,9 +132,10 @@ export function AmountCard({
   action,
   locked = false,
   headingLevel = 2,
+  title,
+  focusOnOpen = false,
   className,
 }: AmountCardProps) {
-  const Title = headingLevel === 3 ? 'h3' : 'h2';
   const t = useT();
   const a = t.amount;
   const titleId = useId();
@@ -143,6 +148,10 @@ export function AmountCard({
   const ticked = trust?.ticked ?? tickedHere;
   const setTicked = trust?.onTick ?? setTickedHere;
   const [viewTrust, setViewTrust] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, as the card opens
+  useEffect(() => {
+    if (focusOnOpen) document.getElementById(amountId)?.focus();
+  }, []);
 
   // Said once the amount has been still for a moment, never on the first digit. Not on leaving the
   // field: the line it adds would move the card under the press that left it (the trust box's tick).
@@ -180,63 +189,65 @@ export function AmountCard({
     action.onPress();
   }
 
-  const sample = provenance === 'mock';
   const modes: readonly AmountMode[] = ['deposit', 'withdraw'];
   const choosable = into?.onChange !== undefined && into.options.length > 1;
+  // What the figures are, said in the kit's quiet pill (MOCK-QUIET, BUY-STEPS): a test network's
+  // real reads in its words, the mock's samples in theirs. Beside the amount's label, or in the head
+  // where there is no amount.
+  const plate =
+    provenance === 'sandbox' ? (
+      <Plate ui="data-note">{t.buy.steps.note.testNetwork(chainName)}</Plate>
+    ) : provenance === 'mock' ? (
+      <Plate ui="sample-plate">{t.shell.mockAnnounce}</Plate>
+    ) : null;
+  const tabs = onMode && (
+    <fieldset data-ui="amount-modes" className="inline-flex rounded-md border border-input p-0.5">
+      <legend className="sr-only">{a.modes.label}</legend>
+      {modes.map((m) => (
+        <button
+          key={m}
+          type="button"
+          aria-pressed={m === mode}
+          disabled={locked}
+          onClick={() => m !== mode && onMode(m)}
+          className={cn(
+            'h-8 rounded-sm px-3 text-body-sm font-semibold transition-colors',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+            m === mode
+              ? 'bg-honey-tint text-honey-text'
+              : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+          )}
+        >
+          {a.modes[m]}
+        </button>
+      ))}
+    </fieldset>
+  );
   return (
-    <Card
+    // A panel of the house kit (HOUSE-KIT): its head names the action, Deposit | Withdraw on its
+    // right; the amount and what it leads to; then what stands between the person and the press.
+    <Panel
       as="section"
       aria-labelledby={titleId}
-      mock={sample}
-      mockLabels={{ announce: t.shell.mockAnnounce }}
-      className={cn('mx-auto w-full max-w-[32.5rem]', className)}
+      data-ui="amount-panel"
+      data-provenance={provenance ?? undefined}
+      className={cn('w-full max-w-[32.5rem]', className)}
     >
-      <CardBody className="flex flex-col gap-4">
-        <div data-ui="amount-card" data-mode={mode} className="flex min-w-0 flex-col gap-3.5">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            {onMode ? (
-              <fieldset
-                data-ui="amount-modes"
-                className="inline-flex rounded-md border border-input p-0.5"
-              >
-                <legend className="sr-only">{a.modes.label}</legend>
-                {modes.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    id={m === mode ? titleId : undefined}
-                    aria-pressed={m === mode}
-                    disabled={locked}
-                    onClick={() => m !== mode && onMode(m)}
-                    className={cn(
-                      'h-8 rounded-sm px-3 text-body-sm font-semibold transition-colors',
-                      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                      m === mode
-                        ? 'bg-honey-tint text-honey-text'
-                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                    )}
-                  >
-                    {a.modes[m]}
-                  </button>
-                ))}
-              </fieldset>
-            ) : (
-              <Title id={titleId} className="font-display text-h4 font-semibold">
-                {a.modes[mode]}
-              </Title>
-            )}
-            {provenance === 'sandbox' && (
-              // A test network's figures are real reads, not samples: one tag says where they are
-              // from (BUY-STEPS), never a plate on a figure; drawn as the portfolio board's plate.
-              <span
-                data-ui="data-note"
-                className="rounded-full border border-primary/60 bg-honey-tint px-2.5 py-0.5 text-caption font-medium text-foreground [overflow-wrap:anywhere]"
-              >
-                {t.buy.steps.note.testNetwork(chainName)}
-              </span>
-            )}
-          </div>
-
+      <PanelHead
+        id={titleId}
+        level={headingLevel}
+        title={title ?? a.modes[mode]}
+        actions={
+          tabs || (!field && plate) ? (
+            <>
+              {!field && plate}
+              {tabs}
+            </>
+          ) : undefined
+        }
+      />
+      <PanelBody>
+        <div data-ui="amount-card" data-mode={mode} className="flex min-w-0 flex-col gap-4">
           {into && (
             <div data-ui="amount-into" className="flex min-w-0 flex-col gap-1.5">
               <div className="flex min-w-0 items-center justify-between gap-3">
@@ -296,6 +307,7 @@ export function AmountCard({
               chips={field.chips}
               problem={problem}
               note={!problem && field.note && settled ? field.note : null}
+              plate={plate}
               locked={locked}
             />
           )}
@@ -308,11 +320,14 @@ export function AmountCard({
               {preview.body}
             </div>
           )}
-
+        </div>
+      </PanelBody>
+      <PanelBody className="border-t border-border">
+        <div className="flex min-w-0 flex-col gap-4">
           {details && details.length > 0 && (
             // The figures behind one fold, in a grid as the portfolio board sets them: one click away,
             // and the card's button stays in sight with its amount.
-            <details data-ui="amount-details" className="group border-t border-border pt-3">
+            <details data-ui="amount-details" className="group">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-body-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
                 <span className="font-medium">{a.details.summary}</span>
                 <Icon
@@ -321,19 +336,15 @@ export function AmountCard({
                   className="transition-transform group-open:rotate-180"
                 />
               </summary>
-              <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3">
-                {details.map((d) => (
-                  <div
-                    key={d.term}
-                    className={cn('flex min-w-0 flex-col gap-0.5', d.wide && 'col-span-2')}
-                  >
-                    <dt className="text-body-sm text-muted-foreground">{d.term}</dt>
-                    <dd className="min-w-0 text-body-sm font-medium tabular-nums [overflow-wrap:anywhere]">
-                      {d.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <div className="mt-3">
+                <StatGrid>
+                  {details.map((d) => (
+                    <PanelStat key={d.term} label={d.term} wide={d.wide}>
+                      <span className="[overflow-wrap:anywhere]">{d.value}</span>
+                    </PanelStat>
+                  ))}
+                </StatGrid>
+              </div>
               {more && (
                 <div data-ui="amount-more" className="mt-3 flex flex-col gap-2 text-body-sm">
                   <p className="font-medium">{more.label}</p>
@@ -421,8 +432,8 @@ export function AmountCard({
             )}
           </div>
         </div>
-      </CardBody>
-    </Card>
+      </PanelBody>
+    </Panel>
   );
 }
 

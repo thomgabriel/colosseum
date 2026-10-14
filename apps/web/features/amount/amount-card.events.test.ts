@@ -299,12 +299,16 @@ describe('what the card says of the chain', () => {
     expect(host.querySelector('[data-ui="sample-note"]')).toBeNull();
   });
 
-  it('hatches the card on the mock, with its one quiet line', async () => {
+  it('says sample figures on the mock in the kit’s pill, beside the amount, with no hatch on the panel', async () => {
     api({ provenance: 'mock' });
     const host = await mount(inLanguage('en', deposit({ mock: true, provenance: 'mock' })));
     await settle(10);
     expect(host.querySelector('[data-ui="data-note"]')).toBeNull();
-    expect(host.querySelector('[data-ui="sample-note"]')).not.toBeNull();
+    expect(find(host, '[data-ui="sample-plate"]').textContent).toBe(en.shell.mockAnnounce);
+    expect(
+      find(host, '[data-ui="hero-figure"]').contains(find(host, '[data-ui="sample-plate"]')),
+    ).toBe(true);
+    expect(host.querySelector('[data-ui="hatch-band"]')).toBeNull();
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
 

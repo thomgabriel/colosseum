@@ -146,7 +146,10 @@ export function VaultAction({
   const words = p.panes[paneOf(open.kind)];
   const titleId = useId();
   const { chain, vault } = read;
-  // The pane took the holdings' place: its heading takes the focus, so it is read from the top.
+  // A deposit's amount was pressed on its card: from then on the pane's own heading is back.
+  const [entered, setEntered] = useState(false);
+  // The pane took the holdings' place: its heading takes the focus, so it is read from the top. Where
+  // the amount card is the pane's first thing, the card is the heading and its amount takes the focus.
   useEffect(() => {
     document.getElementById(titleId)?.focus();
   }, [titleId]);
@@ -195,6 +198,8 @@ export function VaultAction({
             pressed: open.resumed ? amount : null,
             // An order that finishes a deposit deposits nothing: the amount is not said of it.
             fact: !finishes,
+            title: words.title,
+            onPressed: (at) => setEntered(at !== null),
           },
           ...(open.resumed && open.orderId ? { resumeOrder: open.orderId } : {}),
           ...told,
@@ -209,6 +214,7 @@ export function VaultAction({
           address={vault.address}
           embedded={{
             onOrder: (orderId) => onOrder(orderId, false),
+            title: words.title,
             ...(onMode ? { onMode } : {}),
           }}
         />
@@ -268,6 +274,12 @@ export function VaultAction({
   }
 
   const done = phase === 'done';
+  // The amount card heads the pane while it is shown (gate AMOUNT-CARD, one rule for both actions).
+  const cardHeads =
+    phase === 'open' &&
+    !finishes &&
+    !open.resumed &&
+    ((open.kind === 'deposit' && !entered) || (open.kind === 'withdraw' && !open.orderId));
   return (
     <section
       data-ui="vault-action-pane"
@@ -276,26 +288,34 @@ export function VaultAction({
       aria-labelledby={titleId}
       className="flex min-w-0 flex-col gap-4"
     >
-      <header className="flex min-w-0 flex-col gap-2">
-        <h2 id={titleId} tabIndex={-1} className="font-display text-h4 font-semibold outline-none">
-          {done
-            ? p.ended
-            : finishes
-              ? p.finish.title
-              : open.orderId || pressed
-                ? words.signTitle
-                : words.title}
-        </h2>
-        {/* the amount card says what a deposit and a withdrawal do: no line over it (gate AMOUNT-CARD),
+      {!cardHeads && (
+        <header className="flex min-w-0 flex-col gap-2">
+          <h2
+            id={titleId}
+            tabIndex={-1}
+            className="font-display text-h4 font-semibold outline-none"
+          >
+            {done
+              ? p.ended
+              : finishes
+                ? p.finish.title
+                : open.orderId || pressed
+                  ? words.signTitle
+                  : words.title}
+          </h2>
+          {/* the amount card says what a deposit and a withdrawal do: no line over it (gate AMOUNT-CARD),
             only one that says the pane was taken up again or finishes another */}
-        {!done &&
-          (finishes || open.resumed || !(open.kind === 'deposit' || open.kind === 'withdraw')) && (
-            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-              {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
-              {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
-            </p>
-          )}
-      </header>
+          {!done &&
+            (finishes ||
+              open.resumed ||
+              !(open.kind === 'deposit' || open.kind === 'withdraw')) && (
+              <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+                {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
+                {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
+              </p>
+            )}
+        </header>
+      )}
       {/* The end, over the steps: the one way on is not under a long card. How it ended is the order's
           own sentence, below, which never says plainly done of a step that was skipped or a token that
           stayed (OrderScreen): nothing here says more than it does. */}

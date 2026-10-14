@@ -143,7 +143,7 @@ for (const width of WIDTHS) {
           {
             name: 'the amount card',
             waiting: '[data-wait="card"]',
-            loaded: '[data-ui="withdraw-screen"] section[data-ui="card"]',
+            loaded: '[data-ui="withdraw-screen"] [data-ui="amount-panel"]',
             sized: 'by-data',
           },
         ],
@@ -165,7 +165,7 @@ for (const width of WIDTHS) {
           {
             name: 'card',
             waiting: '[data-wait="card"]',
-            loaded: '[data-ui="add-money-screen"] section[data-ui="card"]',
+            loaded: '[data-ui="add-money-screen"] [data-ui="amount-panel"]',
             sized: 'by-data',
           },
           // beside the amount on a desk; under the card on a phone, where the card's data places it

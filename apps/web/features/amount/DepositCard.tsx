@@ -80,6 +80,10 @@ export type DepositCardProps = {
   fact?: boolean;
   /** The card's title level, under the screen's own heading. */
   headingLevel?: 2 | 3;
+  /** The card's title, where the screen says more than the action. */
+  title?: string;
+  /** The amount takes the focus as the card opens. */
+  focusOnOpen?: boolean;
   flow: DepositFlow;
 };
 
@@ -107,6 +111,8 @@ export function DepositCard({
   pressed: resumed = null,
   fact = true,
   headingLevel,
+  title,
+  focusOnOpen,
   flow,
 }: DepositCardProps) {
   const t = useT();
@@ -260,6 +266,8 @@ export function DepositCard({
       mode="deposit"
       onMode={onMode}
       headingLevel={headingLevel}
+      {...(title ? { title } : {})}
+      {...(focusOnOpen ? { focusOnOpen } : {})}
       chain={chain}
       chainName={chainName}
       provenance={figures}
