@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { createDb } from '@colosseum/db';
 import { person, testApp, testIssuer } from '../../apps/api/src/testing/harness';
 import {
-  type EvalQuestion,
   type EvalScore,
   type EvalSet,
   evalCounts,
@@ -17,7 +16,11 @@ import {
 //
 // A person runs it once; it spends one reply's model calls per question from the shared quota:
 //   pnpm exec tsx --env-file=<the main checkout's .env> scripts/verify/lookup-eval-inprocess.ts
-// It prints counts only: never a reply, an id or a value.
+// The asset data is read from the local database, `LOOKUP_EVAL_DATABASE_URL` or this machine's Postgres
+// (never the environment's `DATABASE_URL`, which the env file may point at a hosted one with no asset
+// data). Each question is asked by a person of its own, so the per-person allowance is not what ends the
+// run. It prints counts and, per question, the eval's own id with the kinds of problem: never a reply, a
+// figure's id or a value.
 
 const env = process.env as Record<string, string | undefined>;
 const set = JSON.parse(
@@ -25,12 +28,10 @@ const set = JSON.parse(
 ) as EvalSet;
 
 const issuer = await testIssuer('lookup-eval');
-const { db, client } = createDb();
+const { db, client } = createDb(
+  process.env.LOOKUP_EVAL_DATABASE_URL ?? 'postgres://colosseum:colosseum@localhost:5433/colosseum',
+);
 const { app } = await testApp({ issuer: issuer.issuer, db, env });
-const who: Record<EvalQuestion['chain'], Awaited<ReturnType<typeof person>>> = {
-  solana: await person(issuer, 'solana'),
-  robinhood: await person(issuer, 'robinhood'),
-};
 
 const scores: EvalScore[] = [];
 let skipped = 0;
@@ -43,7 +44,7 @@ for (const question of set.questions) {
   const res = await app.inject({
     method: 'POST',
     url: `/v1/conversations/${question.chain}/goal/reply`,
-    headers: who[question.chain].headers,
+    headers: (await person(issuer, question.chain)).headers,
     payload: { version: 1, language: 'en', messageId: question.id, messages: question.messages },
   });
   statuses[res.statusCode] = (statuses[res.statusCode] ?? 0) + 1;
@@ -58,9 +59,13 @@ for (const score of scores)
     const kind = problem.replace(/^no \w+ figure/u, 'no figure');
     problems[kind] = (problems[kind] ?? 0) + 1;
   }
+const byQuestion = Object.fromEntries(
+  scores.filter((score) => score.problems.length).map((score) => [score.id, score.problems]),
+);
 console.log(
   JSON.stringify({ check: 'lookup-eval-inprocess', ...counts, skipped, statuses, problems }),
 );
+console.log(JSON.stringify({ check: 'lookup-eval-inprocess', byQuestion }));
 await app.close();
 await client.end();
 process.exit(counts.failed || counts.passed < counts.questions ? 1 : 0);
