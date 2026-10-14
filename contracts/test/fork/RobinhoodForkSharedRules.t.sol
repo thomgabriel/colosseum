@@ -11,6 +11,7 @@ import {IVaultConfig} from "../../src/interfaces/IVaultConfig.sol";
 import {AssetConfig, Limits, Snapshot, Weight} from "../../src/interfaces/Types.sol";
 import {VaultFactory} from "../../src/VaultFactory.sol";
 import {MockToken} from "../mocks/Tokens.sol";
+import {DeployRegistryV2} from "../../script/DeployRegistryV2.s.sol";
 
 /// The second author rules (gate SHARED-RULES-V2) reaching Robinhood Chain mainnet, on a copy of it: the new
 /// registry logic is deployed where the CREATE2 deployer puts it (`script/DeployRegistryV2.s.sol`, which
@@ -116,10 +117,11 @@ contract RobinhoodForkSharedRulesTest is Test {
         assertEq(err, IIndexRegistry.CreatorLimit.selector);
         assertEq(reason, 3, "the first rules refuse one asset");
 
-        // ---- the logic, where the CREATE2 deployer puts it: anyone's call, nothing to own
+        // ---- the logic, where the CREATE2 deployer puts it, by the script Thom runs: anyone's call, nothing
+        // to own. The script checks the address, the second rules and that the logic cannot be initialised.
         bytes memory initCode = type(IndexRegistry).creationCode;
-        (bool ok,) = CREATE2_DEPLOYER.call(abi.encodePacked(SALT, initCode));
-        assertTrue(ok, "the CREATE2 deploy");
+        new DeployRegistryV2().run();
+        bool ok;
         assertEq(
             address(
                 uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, SALT, keccak256(initCode)))))
