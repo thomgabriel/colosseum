@@ -102,4 +102,23 @@ describe('the kept answers of GET /risk/*', () => {
     expect((await a.inject({ url: '/risk/thing?b' })).headers['x-read-cache']).toBe('hit');
     expect((await a.inject({ url: '/risk/thing?a' })).headers['x-read-cache']).toBe('miss');
   });
+
+  it('stops waiting for a read that never ends: only the first request after it waits', async () => {
+    let t = 0;
+    const a = Fastify();
+    registerRiskReadCache(a, { freshMs: 1, staleMs: 2, joinMs: 200, now: () => t });
+    let n = 0;
+    a.get('/risk/thing', async () => {
+      n += 1;
+      if (n === 1) await new Promise(() => {});
+      return { n };
+    });
+    void a.inject({ url: '/risk/thing' });
+    await new Promise((d) => setTimeout(d, 5));
+    expect((await a.inject({ url: '/risk/thing' })).json()).toEqual({ n: 2 });
+    t = 10;
+    const start = performance.now();
+    expect((await a.inject({ url: '/risk/thing' })).json()).toEqual({ n: 3 });
+    expect(performance.now() - start).toBeLessThan(100);
+  });
 });

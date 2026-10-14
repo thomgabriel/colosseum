@@ -17,6 +17,8 @@ export type RiskCacheOptions = {
   staleMs?: number;
   /** The most the kept answers may hold, in characters; the oldest go first past it. */
   maxChars?: number;
+  /** How long a request waits for the same read another request started, before it reads on its own. */
+  joinMs?: number;
   now?: () => number;
 };
 
@@ -24,7 +26,6 @@ export type RiskCacheOptions = {
 export const RISK_FRESH_MS = 10 * 60_000;
 export const RISK_STALE_MS = 60 * 60_000;
 const MAX_CHARS = 64 * 1024 * 1024;
-/** How long a request waits for the same read another request started, before it reads on its own. */
 const JOIN_MS = 30_000;
 /** What a `GET /risk/*` answer tells a browser: a minute fresh, five more served while asked again. */
 export const RISK_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
@@ -37,6 +38,7 @@ export function registerRiskReadCache(app: FastifyInstance, opts: RiskCacheOptio
   const staleMs = opts.staleMs ?? RISK_STALE_MS;
   const maxChars = opts.maxChars ?? MAX_CHARS;
   const now = opts.now ?? Date.now;
+  const joinMs = opts.joinMs ?? JOIN_MS;
   const kept = new Map<string, Kept>();
   let chars = 0;
   /** Reads under way, by address: the requests that came after wait for them. */
@@ -91,7 +93,12 @@ export function registerRiskReadCache(app: FastifyInstance, opts: RiskCacheOptio
     }
     const under = reading.get(key);
     if (under) {
-      await Promise.race([under, new Promise((d) => setTimeout(d, JOIN_MS).unref?.())]);
+      const ended = await Promise.race([
+        under.then(() => true),
+        new Promise<false>((d) => setTimeout(() => d(false), joinMs).unref?.()),
+      ]);
+      // A read that never ended (its request went away unanswered) is no longer waited for.
+      if (!ended && reading.get(key) === under) reading.delete(key);
       k = kept.get(key);
       if (k && now() - k.at < staleMs) return serve(k, 'hit');
     }
@@ -128,6 +135,9 @@ export function registerRiskReadCache(app: FastifyInstance, opts: RiskCacheOptio
 
   // The read is over, answered or not: whoever waited for it looks again.
   app.addHook('onResponse', async (req) => {
+    done.get(req)?.();
+  });
+  app.addHook('onRequestAbort', async (req) => {
     done.get(req)?.();
   });
 }
