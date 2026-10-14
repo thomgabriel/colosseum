@@ -131,6 +131,8 @@ test('a new goal’s vault from the conversation: one amount, edited by hand, re
 
   const lines = page.locator('[data-ui="mix-review-lines"]');
   await expect(lines).toContainText('SPY');
+  // the name the draft and the amount gave it, never the chain's symbol (the UI audit, I4)
+  await expect(lines).not.toContainText('SPYx');
   await expect(lines).toContainText('$40.00');
   await expect(lines).toContainText('$10.00');
   await expect(lines.locator('[data-ui="exit-ceiling"]').first()).toContainText(en.mix.review.tier);

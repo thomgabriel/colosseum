@@ -34,6 +34,7 @@ import {
   vaultOf,
   withdrawOrder,
 } from './test/fixtures';
+import { shortAddress } from './use-person';
 import { keepAction, recallAction } from './VaultAction';
 import { offTarget, VaultScreen } from './VaultScreen';
 
@@ -314,6 +315,7 @@ describe('a direct load of the page', () => {
     // neither the visitor's title nor the unnamed one stands in for it
     expect(find(host, 'h1').textContent).toBe(en.shared.vault.loading);
     expect(host.textContent).not.toContain(en.shared.vault.title);
+    expect(host.textContent).not.toContain(en.shared.vaults.address(shortAddress(MY_VAULT)));
     answer(
       json({
         chains: [
@@ -336,7 +338,7 @@ describe('a direct load of the page', () => {
   it('as a visitor: the page’s own title at once, and nothing waits for a portfolio', async () => {
     api({ vault: held({ owner: CREATOR }) });
     const host = await show();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.title);
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(MY_VAULT)));
     expect(host.querySelector('[data-ui="vault-name-wait"]')).toBeNull();
     expect(host.querySelector('[data-ui="vault-name"]')).toBeNull();
   });
@@ -518,7 +520,7 @@ describe('who is offered the actions', () => {
   it('a visitor sees the vault and none of them', async () => {
     api({ vault: held({ owner: CREATOR }) });
     const host = await show();
-    expect(find(host, 'h1').textContent).toBe(en.shared.vault.title);
+    expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(MY_VAULT)));
     for (const selector of owned) expect(host.querySelector(selector), selector).toBeNull();
     expect(host.querySelector('[data-variant="primary"]')).toBeNull();
     // and still what it holds, and the way to its chain's explorer

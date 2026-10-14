@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+// `shortAddress` (features/shared/use-person.ts) cuts as `shorten` does; it imports the wallet
+import { shorten as shortAddress } from '../components/ui/format';
 import { dictionary } from '../i18n';
 import { readyToInvest } from './invest';
 import { inTheme } from './theme';
@@ -392,7 +394,9 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   // 3. Anybody else: the same vault with no owner's action and no conversation. A page load gives the
   // throwaway wallet new keys, so this load is not the owner's.
   await page.goto(`/vaults/solana/${address}`);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.vault.title);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    en.shared.vaults.address(shortAddress(address)),
+  );
   const visitor = page.locator('[data-ui="vault-screen"]');
   await expect(
     visitor.locator('[data-ui="vault-explorer"], [data-ui="vault-back"]'),
@@ -603,6 +607,8 @@ test('a change proposed in the conversation is applied in place, and the weights
   await expect(picture).toContainText('60%');
   await expect(picture).toContainText('70%');
   await expect(page.locator('[data-ui="mix-review-lines"]')).toBeHidden();
+  // every holding by the name the draft gave it, never the chain's symbol (the UI audit, I4)
+  await expect(review).not.toContainText(/SPYx|NVDAx/);
   const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
   for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
   await check(page, 'apply-review');

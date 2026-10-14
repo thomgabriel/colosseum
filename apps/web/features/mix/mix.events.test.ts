@@ -302,7 +302,7 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     });
     // Every figure of the review carries its pin; the confirm waits for the tick.
     const lines = find(host, '[data-ui="mix-review-lines"]');
-    // named as the rest of the screen names it (audit I4), not by the server's symbol
+    // each row by the name every other step gives it, never the chain's symbol (the UI audit, I4)
     expect(lines.textContent).toContain('GLDx');
     expect(lines.textContent).not.toContain('tGLDx');
     // and the server's warning names it the same way

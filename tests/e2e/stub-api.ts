@@ -4,9 +4,10 @@ import {
   createMockAdapter,
   type MockAdapter,
   mockAddress,
+  mockAssets,
   mockRecipeId,
 } from '@colosseum/chain-mock';
-import { purposeOfMix } from '@colosseum/engine/personal';
+import { PERSONAL_PARAMS, purposeOfMix, sleeveOfClass } from '@colosseum/engine/personal';
 import {
   AcceptGoalMixRequest,
   AcceptGoalMixResponse,
@@ -16,9 +17,11 @@ import {
   ChainError,
   ChainId,
   ConfigResponse,
+  chainFamily,
   chainProvenance,
   DEFAULT_FLAGS,
   DISCLAIMER,
+  isAddressOf,
   MixReview,
   type OrderDetail,
   PortfolioExposureResponse,
@@ -151,14 +154,25 @@ let linked: ReturnType<typeof proposal> | null = null;
 let built: ReturnType<typeof proposal> | null = null;
 /** The weights of a mix confirmed for a new goal (POST /v1/conversations/{chain}/goal/accept): the buy's. */
 let mixTargets: Target[] | null = null;
-/** The risk roll-up of a plan an agent proposed: MOCK, nothing measured, as on the mock chain. */
-const ROLL_UP = {
-  byIssuer: [{ key: 'mock', bps: 10_000 }],
-  byChain: [{ key: CHAIN, bps: 10_000 }],
-  byClass: [{ key: 'stock', bps: 10_000 }],
-  flags: ['exit_not_measured', 'exit_quote_missing'],
-  exit: { quotedBps: null, quotedAt: null, measuredWorstBps: null, measuredShareBps: 0 },
-};
+/**
+ * A plan's risk roll-up, as apps/api sends it with every plan it makes (`rollUp`): its spread by kind
+ * from the mock's asset list, its cash as cash; MOCK, nothing measured, as on the mock chain.
+ */
+function rollUpOf(lines: { assetId: string; weightBps: number }[]) {
+  const byClass = new Map<string, number>();
+  for (const l of lines) {
+    const key =
+      l.assetId === world.adapter.mock.cash ? 'cash' : (CLASSES.get(l.assetId) ?? 'unknown');
+    byClass.set(key, (byClass.get(key) ?? 0) + l.weightBps);
+  }
+  return {
+    byIssuer: [{ key: 'mock', bps: 10_000 }],
+    byChain: [{ key: CHAIN, bps: 10_000 }],
+    byClass: [...byClass].sort((a, b) => b[1] - a[1]).map(([key, bps]) => ({ key, bps })),
+    flags: ['exit_not_measured', 'exit_quote_missing'],
+    exit: { quotedBps: null, quotedAt: null, measuredWorstBps: null, measuredShareBps: 0 },
+  };
+}
 /** The steps the web reported signed bytes or an id for, in order. */
 let reports: string[] = [];
 
@@ -179,6 +193,23 @@ function config(): ConfigResponse {
       provenance: chainProvenance(configs[id].network, DEFAULT_FLAGS.chainMode[id]),
     })),
   });
+}
+
+/** What kind each token of the mock's list is, as the server's asset list says it. */
+const CLASSES = new Map(mockAssets(CHAIN).map((a) => [a.id, a.cls]));
+
+/**
+ * What a bad fall could cost, as the engine counts it (packages/engine/src/personal/card.ts): the
+ * part in stocks, crypto and gold, down by `fallBps`. Never a flat zero: a zero says nothing here is
+ * those, and the plan's page says so in words.
+ */
+function lossInFall(lines: { assetId: string; amountUsd: number }[]) {
+  const priced = lines.filter((l) => {
+    const cls = CLASSES.get(l.assetId);
+    return cls !== undefined && ['growth', 'gold'].includes(sleeveOfClass(cls));
+  });
+  const cents = priced.reduce((n, l) => n + Math.round(l.amountUsd * 100), 0);
+  return Math.ceil((cents * PERSONAL_PARAMS.fallBps) / 10_000) / 100;
 }
 
 function proposal(sheet: BasketSheet, weights: Target[] = WEIGHTS) {
@@ -225,7 +256,7 @@ function proposal(sheet: BasketSheet, weights: Target[] = WEIGHTS) {
       moneyTodayUsd: sheet.amountUsd,
       termMonths: sheet.horizonMonths,
       cashFlow: 'none',
-      expectedReturn: { lowPct: 0, highPct: 0, basis: 'sample', lossInFallUsd: 0 },
+      expectedReturn: { lowPct: 0, highPct: 0, basis: 'sample', lossInFallUsd: lossInFall(lines) },
       exit: { text: 'Sample: up to the whole amount within a day', costBps: 25 },
     },
     flags: [],
@@ -330,6 +361,15 @@ async function familyOf(p: Published): Promise<SharedFamily | null> {
         source: 'chain',
         observedAt: new Date().toISOString(),
         provenance: 'mock',
+        // each holding's kind, as apps/api sends it from the chain's asset list; nothing measured
+        figures: {
+          holdings: active.components.map((c) => ({
+            asset: c.asset,
+            cls: CLASSES.get(c.asset) ?? null,
+            yield: null,
+            exit: null,
+          })),
+        },
       },
     ],
   };
@@ -1173,7 +1213,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (path === '/v1/baskets/propose' && method === 'POST') {
     const body = (await read(req)) as { sheet: BasketSheet };
     linked = proposal(body.sheet);
-    return send(res, 200, { id: PLAN_ID, proposal: linked, rollUp: ROLL_UP });
+    return send(res, 200, { id: PLAN_ID, proposal: linked, rollUp: rollUpOf(linked.lines) });
   }
   if (path.startsWith('/v1/baskets/') && method === 'GET') {
     if (path !== `/v1/baskets/${PLAN_ID}` || !(linked || built))
@@ -1185,7 +1225,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   if (path === '/v1/baskets/personalize' && method === 'POST') {
     const body = (await read(req)) as { sheet: BasketSheet };
     built = proposal(body.sheet);
-    return send(res, 200, { id: PLAN_ID, proposal: built });
+    return send(res, 200, { id: PLAN_ID, proposal: built, rollUp: rollUpOf(built.lines) });
   }
   if (path === `/v1/conversations/${CHAIN}/goal/reply` && method === 'POST')
     return send(res, 200, goalReply((await read(req)) as Parameters<typeof goalReply>[0]));
@@ -1411,7 +1451,11 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   }
   const vault = /^\/v1\/vaults\/([^/]+)\/([^/]+)$/.exec(path);
   if (vault) {
-    const read = vault[1] === CHAIN ? await vaultView(decodeURIComponent(vault[2] ?? '')) : null;
+    // apps/api answers an address that is not one of the chain's with 400, before any read
+    const address = decodeURIComponent(vault[2] ?? '');
+    if (vault[1] === CHAIN && !isAddressOf(chainFamily(CHAIN), address))
+      return send(res, 400, { error: `that is not an address of ${CHAIN_NAME}` });
+    const read = vault[1] === CHAIN ? await vaultView(address) : null;
     if (!read) return send(res, 404, { error: 'no vault at that address' });
     return send(res, 200, {
       chain: CHAIN,

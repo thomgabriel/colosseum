@@ -43,7 +43,7 @@ import { type ChainCheck, familyIdFor, isVaultOf, useChainRecipe } from './chain
 import { FollowQuote } from './FollowQuote';
 import { HoldingsBar } from './HoldingsBar';
 import { isPlatformCreator } from './platform';
-import { holdingsOf, kindShares } from './product-figures';
+import { holdingsOf, kindsSaid } from './product-figures';
 import { sharedRefusal } from './refusal';
 import { Offer } from './ShelfScreen';
 import { SourceMark } from './SourceMark';
@@ -388,15 +388,7 @@ function RecipeSection({
           f.versionN(active.version),
           f.since(utcMinute(new Date(active.effectiveAt * 1000).toISOString())),
         )}
-        answer={p.answer(
-          // a sentence: only its first kind keeps its capital
-          list(
-            kindShares(holdings, locale, t.plan.kinds).map((kind, i) =>
-              i === 0 ? kind : kind.charAt(0).toLowerCase() + kind.slice(1),
-            ),
-          ),
-          chainName,
-        )}
+        answer={p.answer(kindsSaid(holdings, locale, t.plan.kinds), chainName)}
         chain={recipe.chain}
         provenance={recipe.provenance}
         holdings={holdings.map((h) => ({
