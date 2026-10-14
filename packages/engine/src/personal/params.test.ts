@@ -90,8 +90,9 @@ const ARITHMETIC = new Set([0, 1, 2, 10, 12, 100, 10_000]);
 // The table itself, and the builders of the tests. The wording (templates.ts) is read like the logic.
 const DATA = new Set(['params.ts', 'testing.ts']);
 // Constants a file of the folder may take from outside it. Two are numbers the table does not hold:
-// see "what this cannot see" below.
-const FROM_OUTSIDE = new Set(['EXIT_WINDOW_DAYS', 'DISCLAIMER']);
+// see "what this cannot see" below. VAULT_MAX_TARGETS is the vault's own limit on targets, which no
+// table can raise: two sets of the table's lines are held to it together.
+const FROM_OUTSIDE = new Set(['EXIT_WINDOW_DAYS', 'DISCLAIMER', 'VAULT_MAX_TARGETS']);
 
 type Found = { value: string; line: number };
 

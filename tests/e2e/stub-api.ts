@@ -36,6 +36,7 @@ import {
   type RecipeVersionView,
   type SharedFamily,
   Target,
+  VAULT_MAX_TARGETS,
   VaultAgentReplyShape,
   VaultAgentStatedPurpose,
   warningsBelong,
@@ -761,7 +762,9 @@ async function mixReview(
   const issues = [
     ...sent.filter((l) => !listed.has(l.assetId)).map((l) => `NOT_LISTED:${l.assetId}`),
     ...(sent.reduce((n, l) => n + l.weightBps, 0) !== 10_000 ? ['SUM_NOT_10000'] : []),
-    ...(sent.filter((l) => l.assetId !== cash).length > 16 ? ['TOO_MANY_LINES'] : []),
+    ...(sent.filter((l) => l.assetId !== cash).length > VAULT_MAX_TARGETS
+      ? ['TOO_MANY_LINES']
+      : []),
   ];
   if (issues.length)
     throw new ApiRefusal(422, {

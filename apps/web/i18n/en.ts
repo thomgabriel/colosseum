@@ -1,3 +1,5 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
+
 // Every sentence a person reads on the product screens, in English. pt.ts holds the same keys in
 // Brazilian Portuguese, and the type below is what keeps the two in step.
 //
@@ -2790,9 +2792,9 @@ export const en = {
       remove: (name: string) => `Remove ${name}`,
       weight: (name: string) => `Weight of ${name}`,
       cash: (share: string) => `Cash: ${share}`,
-      lines: (n: number) => `${n} of 16 assets`,
+      lines: (n: number) => `${n} of ${VAULT_MAX_TARGETS} assets`,
       issues: {
-        'too-many': 'A vault holds 16 assets besides cash. Remove one.',
+        'too-many': `A vault holds ${VAULT_MAX_TARGETS} assets besides cash. Remove one.`,
         duplicate: 'Each asset once. Remove the repeat.',
         'cash-line': 'Cash is what the others leave. Remove it as a line.',
         'not-whole': 'Use percents with up to two decimals, or whole basis points.',
@@ -2833,7 +2835,7 @@ export const en = {
         case 'SUM_NOT_10000':
           return 'The weights don’t add up to the whole.';
         case 'TOO_MANY_LINES':
-          return 'A vault holds 16 assets besides cash.';
+          return `A vault holds ${VAULT_MAX_TARGETS} assets besides cash.`;
         case 'NO_PRICE':
           return `${asset} has no usable price just now.`;
         case 'NOT_FOR_GOAL':
