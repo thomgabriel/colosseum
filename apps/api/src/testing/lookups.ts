@@ -22,6 +22,17 @@ export const LOOKUP_ROWS = {
   pools: load<{ reading: ObservationRow; poolBars: PoolBarRow[] }>('nvdax-pools.json'),
   lending: load<{ markets: LendingMarketRow[] }>('nvdax-lending.json').markets,
 };
+const HOUR_MS = 3_600_000;
+const firstBar = Date.parse(LOOKUP_ROWS.bars[0]?.hour ?? '');
+const lastBar = Date.parse(LOOKUP_ROWS.bars.at(-1)?.hour ?? '');
+/**
+ * The hours the chain's collector ran: every hour from the fixture's first bar to its last, as in
+ * asset-lookups.test.ts. An hour with no bar of the asset in it is then a quiet hour, never an outage.
+ */
+export const LOOKUP_CHAIN_HOURS = Array.from(
+  { length: (lastBar - firstBar) / HOUR_MS + 1 },
+  (_, at) => new Date(firstBar + at * HOUR_MS).toISOString(),
+);
 /** The hour the fixtures' bars reach and the lending report was read: their "now". */
 export const LOOKUP_NOW = Date.parse('2026-10-06T06:30:00.000Z');
 /** Stands in for the database: the reads below never touch it. */
@@ -41,7 +52,7 @@ export function fixtureReads(over: Partial<LookupReads> = {}): LookupReads {
       address.startsWith('9BEcn') || address.startsWith('AvZZ')
         ? LOOKUP_ROWS.yieldObservations
         : LOOKUP_ROWS.observations,
-    bars: async () => ({ rows: LOOKUP_ROWS.bars, before: null }),
+    bars: async () => ({ rows: LOOKUP_ROWS.bars, before: null, chainHours: LOOKUP_CHAIN_HOURS }),
     poolReading: async () => LOOKUP_ROWS.pools.reading,
     poolBars: async () => LOOKUP_ROWS.pools.poolBars,
     lending: async () => LOOKUP_ROWS.lending,

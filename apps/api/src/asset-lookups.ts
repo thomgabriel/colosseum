@@ -140,8 +140,11 @@ const BAR_LABELS: Record<string, (window: string) => string> = {
   low: (w) => `Lowest price in dollars across the asset's DEX pools over ${w}`,
   change: (w) => `Change in price over ${w}, first close to last; a past figure`,
   volume: (w) => `Volume traded in dollars across the asset's DEX pools over ${w}`,
-  buyvol: (w) => `Dollars of the asset bought on its DEX pools over ${w}`,
-  sellvol: (w) => `Dollars of the asset sold on its DEX pools over ${w}`,
+  // the entry and exit sides, as Bearing's market terms say: the product never writes "buy" (WORDS-VAULT-DEPOSIT)
+  buyvol: (w) =>
+    `Dollars of the asset traded on the entry side (swaps into the asset) on its DEX pools over ${w}`,
+  sellvol: (w) =>
+    `Dollars of the asset traded on the exit side (swaps out of the asset) on its DEX pools over ${w}`,
   swaps: (w) => `Number of swaps of the asset on its DEX pools over ${w}`,
   gaps: (w) => `Hours over ${w} with no priced swap of the asset`,
 };

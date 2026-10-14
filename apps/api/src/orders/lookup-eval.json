@@ -36,7 +36,7 @@
           ]
         ],
         "final": {
-          "say": "TSLAx's latest closing price over the last day was {{fact:bars:solana:tslax:24h:close}}. Tell me what the money is for and I can draft around it.",
+          "say": "TSLAx's latest closing price over the last day was {{fact:bars:solana:tslax:24h:close}}.",
           "shape": "pick",
           "lines": [],
           "buckets": null,
@@ -239,7 +239,7 @@
           ]
         ],
         "final": {
-          "say": "TSLAx's largest pool, on raydium clmm, holds {{fact:pool:solana:tslax:1:tvl}}. NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. Each figure stands on its own, and which suits you is your call.",
+          "say": "TSLAx's largest pool, on raydium clmm, holds {{fact:pool:solana:tslax:1:tvl}}. NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. Each figure stands on its own.",
           "shape": "pick",
           "lines": [],
           "buckets": null,
@@ -411,7 +411,7 @@
           ]
         ],
         "final": {
-          "say": "NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. The draft holds NVDAx and TSLAx as you said.",
+          "say": "NVDAx's largest pool, on raydium clmm, holds {{fact:pool:solana:nvdax:1:tvl}}. The draft holds NVDAx and TSLAx.",
           "shape": "pick",
           "lines": [
             {
@@ -1198,6 +1198,87 @@
         }
       },
       "note": "the model reports a share read off a figure; the server applies the person's"
+    },
+    {
+      "id": "vault-sol-sides-nvdax",
+      "conversation": "vault",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "how much NVDAx went in and out this week?"
+        }
+      ],
+      "expect": {
+        "families": ["bars"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_price_history",
+              "input": {
+                "assetId": "solana:nvdax",
+                "window": "7d"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "message": "Over the last week {{fact:bars:solana:nvdax:7d:buyvol}} of NVDAx traded on the entry side. Over the last week {{fact:bars:solana:nvdax:7d:sellvol}} of NVDAx traded on the exit side.",
+          "question": null,
+          "proposal": null
+        }
+      }
+    },
+    {
+      "id": "goal-sol-lend-nvdax",
+      "conversation": "goal",
+      "chain": "solana",
+      "messages": [
+        {
+          "who": "person",
+          "text": "what are the lending rates for NVDAx?"
+        }
+      ],
+      "expect": {
+        "families": ["lend"]
+      },
+      "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
+      "recorded": {
+        "mock": true,
+        "lookups": [
+          [
+            {
+              "name": "asset_lending",
+              "input": {
+                "assetId": "solana:nvdax"
+              }
+            }
+          ]
+        ],
+        "final": {
+          "say": "In the NVDAx/USDC market of Jupiter Lend, which takes NVDAx as collateral, the borrow rate of USDC is {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:borrow}} a year. In that market the supply rate of USDC is {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:supply}} a year.",
+          "shape": "pick",
+          "lines": [],
+          "buckets": null,
+          "stated": {
+            "amount": null,
+            "currency": null,
+            "when": null,
+            "need_by": null,
+            "monthly": null,
+            "withdraw_months": null,
+            "withdraw_start": null,
+            "weights": null,
+            "risk": null
+          },
+          "not_available": [],
+          "open": []
+        }
+      }
     },
     {
       "id": "vault-rh-price-tsla",

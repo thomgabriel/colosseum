@@ -30,7 +30,7 @@ export const LOOKUP_WAIT_MS = 2_500;
 const assetId = {
   type: 'string',
   description:
-    "The asset's id exactly as the catalog of this chain lists it (for example solana:nvdax); one listed asset of this chain, never the cash token.",
+    "The asset's id exactly as the catalog of this chain lists it (for example solana:nvdax); one listed asset of this chain; the cash token only for asset_lending.",
 } as const;
 const READ_ONLY = 'Read-only: it changes nothing and places no order.';
 const SAY =
@@ -66,7 +66,7 @@ export const LOOKUP_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'asset_price_history',
-    description: `The price history of one listed asset over a window, from hourly bars across its DEX pools in dollars: the latest close, the high, the low, the change from the window's first close to its last (a past change over that window, never a return), volume, the volume taken by buyers and by sellers, the number of swaps and the hours with no priced swap. ${READ_ONLY} ${SAY}`,
+    description: `The price history of one listed asset over a window, from hourly bars across its DEX pools in dollars: the latest close, the high, the low, the change from the window's first close to its last (a past change over that window, never a return), volume, the dollars traded on the entry side (swaps into the asset) and on the exit side (swaps out of it), the number of swaps and the hours with no priced swap. ${READ_ONLY} ${SAY}`,
     input_schema: {
       type: 'object',
       additionalProperties: false,
@@ -100,15 +100,15 @@ export const LOOKUP_TOOLS: Anthropic.Tool[] = [
  * request, so it stays in the cached prefix with the tools.
  */
 export const LOOKUP_RULES = [
-  'LOOKUPS. Four read-only tools give the figures the server holds of one listed asset of this chain: asset_profile (its supply, the share its largest holders hold, the dollars in its pools, its volume, its exchange rate, its yield readings), asset_price_history (its price over the last day, week or month: the latest close, the high, the low, the change, volume, the volume of buyers and of sellers, swaps), asset_pools (its pools by dollars held) and asset_lending (its lending markets: supply and borrow rate, how much is lent out, what can be withdrawn).',
+  'LOOKUPS. Four read-only tools give the figures the server holds of one listed asset of this chain: asset_profile (its supply, the share its largest holders hold, the dollars in its pools, its volume, its exchange rate, its yield readings), asset_price_history (its price over the last day, week or month: the latest close, the high, the low, the change, volume, the dollars traded on the entry side and on the exit side, swaps), asset_pools (its pools by dollars held) and asset_lending (its lending markets: supply and borrow rate, how much is lent out, what can be withdrawn).',
   "- When: the person asks about an asset's price, how it moved, its supply, who holds it, its pools or lending, or a caution you give needs a figure. The figures handed to you up front come first: look up only what they do not answer. Never to decorate a reply.",
-  '- How: name only assets listed on this chain, by their exact id, never the cash token; one asset a call, every call a round needs in that round. At most three rounds in one reply; then answer with what you have.',
+  '- How: name only assets listed on this chain, by their exact id, and the cash token only for its lending markets (asset_lending); one asset a call, every call a round needs in that round. At most three rounds in one reply; then answer with what you have.',
   '- What comes back: per figure its id, what it measures, its value, unit, time and provenance (sandbox: a test network, with the mainnet token it is modelled on), or that it is not measured and why. State a looked-up figure exactly as any other, by {{fact:<id>}} with its id, under the same rules: never its value typed, never a comparison, a ranking, arithmetic, a forecast or a promise.',
   '- Each looked-up figure is the asset\'s or its market\'s, never the person\'s: no "you", "your", "my" or "I" in a sentence that holds one.',
   '- A change over a window is a change in price over that window ("NVDAx\'s price changed by {{fact:<id>}} over the last week."), never a return, a gain, a profit, a loss or a performance.',
   '- A lending market\'s supply rate and borrow rate are rates a year: call each by its name, with the token it is of and the market ("The borrow rate of USDC in that market is {{fact:<id>}} a year."), never a yield, a return or what anyone earns. A yield reading of an asset\'s profile is a yield, said as its measurement alone, in a sentence that ends there ("Its quoted yield is {{fact:<id>}} a year.").',
   '- A pool\'s share is a share of the dollars in the asset\'s pools ("Its largest pool holds {{fact:<id>}} of the dollars in its pools."), never a bare share. Asked which of two is deeper or better, each figure in its own sentence and no verdict.',
-  '- A lookup that answers an error (not listed here, the cash token, could not be read) or that the figures are still being read: say so in words and state no figure of it. A lookup is never a reason to name an asset that is not listed.',
+  '- A lookup that answers an error (not listed here, the cash token for anything but lending, could not be read) or that the figures are still being read: say so in words and state no figure of it. A lookup is never a reason to name an asset that is not listed.',
 ].join('\n');
 
 /** The lookups a conversation may make, handed in by its route: the reader, its database and the chain's label. */
@@ -243,8 +243,12 @@ async function runTool(
     return failed(
       'That asset is not on the catalog of this chain: say it is not listed here, and name no other in its place.',
     );
-  if (asset.cls === 'cash')
-    return failed('That is the cash token of this chain: there are no figures to look up for it.');
+  // The cash token has lending markets and nothing else to look up (FIGURES-BY-REFERENCE as amended
+  // 2026-10-14, after the second review of #288): "can I lend USDC?" is answered by its markets.
+  if (asset.cls === 'cash' && part !== 'lending')
+    return failed(
+      'That is the cash token of this chain: only its lending markets can be looked up, with asset_lending.',
+    );
   const query = {
     db: scope.db,
     chain: scope.chain,

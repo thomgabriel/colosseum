@@ -164,6 +164,14 @@ describe("a vault's own conversation looks up the data we hold", () => {
     expect(toolResults(calls[1])).toHaveLength(1);
   });
 
+  it('serves the volume on the entry side', async () => {
+    const message = `Over the last week ${ref(`bars:${NVDA}:7d:buyvol`)} of NVDAx traded on the entry side.`;
+    const { result } = await ask({ lookups: [[week]], final: said(message) });
+    expect(served(result).message).toBe(
+      'Over the last week $51,163,435.96 of NVDAx traded on the entry side.',
+    );
+  });
+
   it('gives the new-goal conversation no tools: it states no figure', async () => {
     const goal: GoalAgentContext = {
       ...context,

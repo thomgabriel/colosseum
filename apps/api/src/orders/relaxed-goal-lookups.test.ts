@@ -137,6 +137,21 @@ describe('the relaxed intake looks up the data we hold', () => {
     expect(JSON.stringify(looked)).not.toMatch(/"source"|"method"/u);
   });
 
+  it('serves the volume on the entry side and the exit side, in the product\'s words (never "bought")', async () => {
+    const said = `Over the last week ${ref(`bars:${NVDA}:7d:buyvol`)} of NVDAx traded on the entry side. Over the last week ${ref(`bars:${NVDA}:7d:sellvol`)} of NVDAx traded on the exit side.`;
+    const { result, calls } = await ask({ lookups: [[week]], final: sheet(said) });
+    expect(served(result).message).toBe(
+      'Over the last week $51,163,435.96 of NVDAx traded on the entry side. Over the last week $49,941,620.05 of NVDAx traded on the exit side.',
+    );
+    // what each figure measures, as the model reads it (the ids keep their names)
+    const labels = ((toolResults(calls[1])[0]?.json.facts ?? []) as { measures: string }[])
+      .map((fact) => fact.measures)
+      .join('\n');
+    expect(labels).toContain('entry side (swaps into the asset)');
+    expect(labels).toContain('exit side (swaps out of the asset)');
+    expect(labels).not.toMatch(/\b(?:buy|bought|purchase)/iu);
+  });
+
   it('still cuts a looked-up figure said as a return, compared, scaled or forecast', async () => {
     for (const say of [
       `NVDAx returned ${ref(`bars:${NVDA}:7d:change`)} over the last week.`,
@@ -238,12 +253,12 @@ describe('the relaxed intake looks up the data we hold', () => {
         lookups: [
           [
             { name: 'asset_profile', input: { assetId: 'solana:bonk' } },
-            { name: 'asset_lending', input: { assetId: 'solana:usdc' } },
+            { name: 'asset_profile', input: { assetId: 'solana:usdc' } },
           ],
         ],
         final: sheet('BONK is not listed on this chain, and USDC is the cash line.'),
       },
-      'who holds BONK, and can I lend USDC?',
+      'who holds BONK, and who holds USDC?',
     );
     expect(toolResults(calls[1]).map((r) => r.error)).toEqual([true, true]);
     expect(served(result).message).toBe(

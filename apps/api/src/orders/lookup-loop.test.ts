@@ -210,7 +210,8 @@ describe('the lookup loop', () => {
       use('late', 'asset_profile', { assetId: NVDA }),
       use('unlisted', 'asset_profile', { assetId: 'solana:jitosolx' }),
       use('other-chain', 'asset_profile', { assetId: 'robinhood:nvda' }),
-      use('cash', 'asset_lending', { assetId: 'solana:usdc' }),
+      use('cash', 'asset_pools', { assetId: 'solana:usdc' }),
+      use('cash-lending', 'asset_lending', { assetId: 'solana:usdc' }),
       use('window', 'asset_price_history', { assetId: NVDA, window: '1y' }),
       use('no-id', 'asset_pools', {}),
       use('failed', 'asset_price_history', { assetId: NVDA, window: '24h' }),
@@ -242,12 +243,16 @@ describe('the lookup loop', () => {
     expect(by.unlisted?.json.error).toMatch(/not on the catalog of this chain/u);
     expect(by.cash?.json.error).toMatch(/cash token/u);
     expect(by.window?.json.error).toMatch(/24h, 7d or 30d/u);
-    // the cash token and an unknown asset are never read
-    expect(service.lending).not.toHaveBeenCalled();
+    // an unknown asset is never read, and the cash token only for its lending markets
+    expect(by['cash-lending']?.is_error).toBeUndefined();
+    expect(service.lending).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ asset: expect.objectContaining({ id: 'solana:usdc' }) }),
+    );
+    expect(service.pools).toHaveBeenCalledTimes(1);
     expect(service.profile).toHaveBeenCalledTimes(1);
     expect(run.kind === 'answered' && run.looked.counts).toEqual({
       rounds: 1,
-      calls: 9,
+      calls: 10,
       facts: 0,
       errors: 8,
     });
