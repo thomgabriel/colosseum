@@ -6,8 +6,8 @@ import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
-import { tokenName } from '../order/amounts';
 import { changeFigures, changeHero, shareItems } from '../order/order-summary';
+import { displayName } from '../order/plain';
 import { onMock } from '../order/readiness';
 import { Fold, OrderHero, OrderStats, Rounded, ShareList } from '../order/SignFlow';
 import { unitsFor } from '../order/units';
@@ -56,7 +56,7 @@ export function ChangeReview({
   const units = unitsFor(chain, onMock(port, chain));
   const words = { units, t, locale };
   // one name for a holding everywhere on the screen: the rows', the warnings' and the details'
-  const named = (asset: string) => units?.tokens[asset]?.symbol ?? tokenName(asset);
+  const named = (asset: string) => displayName(asset, t.plan);
   const left = unticked(review, ticked).length;
   const share = (bps: number) =>
     new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(

@@ -8,6 +8,7 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { AssetMark } from '../order/PlanView';
+import { displayName, plainNames } from '../order/plain';
 import { dollars } from '../portfolio/figures';
 import { unticked } from './mix';
 
@@ -178,7 +179,10 @@ export function MixReviewLines({
               <span className="flex min-w-0 items-center gap-2">
                 <AssetMark asset={line.assetId} />
                 <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {line.cls === 'cash' ? r.cash : (named?.(line.assetId) ?? line.symbol)}
+                  {/* the one name every step uses for it, never the chain's symbol */}
+                  {line.cls === 'cash'
+                    ? r.cash
+                    : (named?.(line.assetId) ?? displayName(line.assetId, t.plan))}
                 </span>
               </span>
               <span className="mt-2 flex flex-col gap-1 text-caption text-muted-foreground">
@@ -253,7 +257,8 @@ export function MixReviewWarnings({
             onChange={(e) => onTick(warning.id, e.currentTarget.checked)}
           />
           <span className="min-w-0 [overflow-wrap:anywhere]">
-            {warning.text}
+            {/* the server's sentence, with a test network's token named as the rows name it */}
+            {plainNames(warning.text)}
             {warning.figures.map((figure) => (
               <span
                 key={`${figure.label}:${figure.fetchedAt}`}
@@ -298,7 +303,7 @@ export function MixReviewAck({
   const all = unticked(review, ticked).length === 0;
   const said = (text: string, assetId: string | undefined) => {
     const symbol = assetId ? review.lines.find((l) => l.assetId === assetId)?.symbol : undefined;
-    return assetId && symbol ? text.split(symbol).join(named(assetId)) : text;
+    return plainNames(assetId && symbol ? text.split(symbol).join(named(assetId)) : text);
   };
   return (
     <fieldset data-ui="mix-review-warnings" className="flex min-w-0 flex-col gap-2">
