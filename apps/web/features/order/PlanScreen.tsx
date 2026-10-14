@@ -38,7 +38,7 @@ export function PlanScreen({ id }: { id: string }) {
     <div data-ui="plan-screen" className="flex flex-col gap-8">
       <header className="flex flex-col items-start gap-3">
         <ChainBadge chain={chain} />
-        <h1 className={PAGE_TITLE}>{goal}</h1>
+        <h1 className={`${PAGE_TITLE} w-full`}>{goal}</h1>
         <p data-ui="plan-summary" className="max-w-(--tf-measure-body) text-body-lg">
           {planSummary(proposal, t, lang, chainName)}
         </p>

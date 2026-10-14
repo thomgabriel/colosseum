@@ -38,6 +38,10 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
   const t = useT();
   const w = t.goal.explore.picker;
   const pickerId = useId();
+  // The picker is drawn in the conversation's head (PAGE-SHELL), which is keyed and drawn again on a
+  // pick, a change of chain or a sign-in. Focus that was on it goes back to it in the new head, not to
+  // the page's body: this holds the key it was on when it had focus.
+  const pickerHeld = useRef<string | null>(null);
   const router = useRouter();
   const { account, chain: current, choose, view } = useAccount();
   const port = useWalletPort();
@@ -211,49 +215,20 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
         );
     }
   }
+  const headKey = `${port.userId}:${chain}:${network?.provenance}:${index.current}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: after every draw of the head
+  useEffect(() => {
+    const held = pickerHeld.current;
+    if (held === null || held === headKey) return;
+    pickerHeld.current = null;
+    const picker = document.getElementById(pickerId);
+    if (picker && document.activeElement !== picker) picker.focus();
+  });
   return (
     <div ref={root} className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1">
       <span role="status" data-ui="goal-chain-said" className="sr-only">
         {said}
       </span>
-      {/* On a phone the picker gives way, so the row never pushes the page sideways. */}
-      <div className="flex max-w-full items-center gap-3 self-start">
-        <label htmlFor={pickerId} className="shrink-0 text-caption text-muted-foreground">
-          {w.label}
-        </label>
-        <Select
-          id={pickerId}
-          data-ui="goal-picker"
-          value="current"
-          width="34ch"
-          className="min-w-0 [&>select]:text-ellipsis"
-          onChange={(event) => pick(event.target.value)}
-        >
-          <option value="current">{names.current}</option>
-          <option value="new">{w.fresh}</option>
-          {names.saved.length > 0 && (
-            <optgroup label={w.saved}>
-              {names.saved.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {vaults.length > 0 && (
-            <optgroup label={w.vaults}>
-              {vaults.map((vault) => (
-                <option
-                  key={`${vault.chain}:${vault.address}`}
-                  value={`vault:${vault.chain}:${vault.address}`}
-                >
-                  {`${vault.name ?? t.shared.vaults.address(shortAddress(vault.address))} · ${t.chain.names[vault.chain]}`}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </Select>
-      </div>
       {pending && deposit.open && (
         <LeaveDeposit
           signing={deposit.signing}
@@ -279,7 +254,7 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
         </p>
       )}
       <GoalConversation
-        key={`${port.userId}:${chain}:${network?.provenance}:${index.current}`}
+        key={headKey}
         account={view}
         userId={port.userId}
         chain={chain}
@@ -294,6 +269,57 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
           });
         }}
         carried={carried}
+        // On a phone the picker gives way, so the row never pushes the page sideways.
+        picker={
+          <div className="flex min-w-0 max-w-full items-center gap-3">
+            <label htmlFor={pickerId} className="shrink-0 text-caption text-muted-foreground">
+              {w.label}
+            </label>
+            <Select
+              id={pickerId}
+              data-ui="goal-picker"
+              value="current"
+              width="34ch"
+              className="min-w-0 [&>select]:text-ellipsis"
+              onFocus={() => {
+                pickerHeld.current = headKey;
+              }}
+              onBlur={(event) => {
+                // the person moved on: let go. A picker taken out with its head is not on the page
+                // a moment later, and its focus is still held for the new one.
+                const left = event.currentTarget;
+                setTimeout(() => {
+                  if (left.isConnected) pickerHeld.current = null;
+                }, 0);
+              }}
+              onChange={(event) => pick(event.target.value)}
+            >
+              <option value="current">{names.current}</option>
+              <option value="new">{w.fresh}</option>
+              {names.saved.length > 0 && (
+                <optgroup label={w.saved}>
+                  {names.saved.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {vaults.length > 0 && (
+                <optgroup label={w.vaults}>
+                  {vaults.map((vault) => (
+                    <option
+                      key={`${vault.chain}:${vault.address}`}
+                      value={`vault:${vault.chain}:${vault.address}`}
+                    >
+                      {`${vault.name ?? t.shared.vaults.address(shortAddress(vault.address))} · ${t.chain.names[vault.chain]}`}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          </div>
+        }
         onDeposit={(state) =>
           setDeposit((now) =>
             state.open
