@@ -187,6 +187,20 @@ describe('the eval scoring', () => {
       ).problems,
     ).toEqual([]);
   });
+
+  it("takes any of a family's alternatives, and none outside them", () => {
+    const deeper = { ...q, expect: { families: ['pool|capacity|exit'] } };
+    const capacity = { ...fact, id: 'capacity:solana:nvdax' };
+    const served = (one: typeof fact) => ({
+      ...reply('NVDAx can sell $3,627,618.88.'),
+      figures: { prose: { message: '', question: null, proposal: null }, facts: [one] },
+    });
+    expect(scoreAnswer(deeper, served(capacity)).problems).toEqual([]);
+    expect(scoreAnswer(deeper, served(fact)).problems).toEqual([]);
+    expect(scoreAnswer(deeper, served({ ...fact, id: 'vol:solana:nvdax' })).problems).toEqual([
+      'no pool|capacity|exit figure served with its pin',
+    ]);
+  });
 });
 
 describe('the eval set of the lookups, offline (recorded replies, MOCK)', () => {

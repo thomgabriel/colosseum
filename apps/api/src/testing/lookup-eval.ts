@@ -11,6 +11,7 @@ export type EvalQuestion = {
   conversation: 'goal' | 'vault';
   chain: 'solana' | 'robinhood';
   messages: EvalTurn[];
+  /** Each family the answer must serve, or `a|b|c` where any of them serves. */
   expect: { families: string[]; weights?: Record<string, number> };
   mustNot: string[];
   /** MOCK: the model's recorded reply, replayed offline. */
@@ -57,8 +58,9 @@ export function scoreAnswer(question: EvalQuestion, reply: Served | null): EvalS
       ? Boolean(fact.reason)
       : Boolean(fact.source && fact.method && fact.fetchedAt && fact.provenance),
   );
+  // A family may name its alternatives ("pool|capacity|exit"): any of them answers it.
   for (const family of question.expect.families)
-    if (!pinned.some((fact) => fact.id.startsWith(`${family}:`)))
+    if (!pinned.some((fact) => family.split('|').some((one) => fact.id.startsWith(`${one}:`))))
       problems.push(`no ${family} figure served with its pin`);
   const said = [reply.message, reply.question ?? ''].join('\n');
   for (const name of question.mustNot) {

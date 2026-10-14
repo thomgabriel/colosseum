@@ -217,7 +217,7 @@
         }
       ],
       "expect": {
-        "families": ["pool"]
+        "families": ["pool|capacity|liquidity|exit"]
       },
       "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
       "recorded": {
@@ -841,7 +841,7 @@
         }
       ],
       "expect": {
-        "families": ["pool"]
+        "families": ["pool|capacity|liquidity|exit"]
       },
       "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
       "recorded": {
@@ -1028,7 +1028,7 @@
         }
       ],
       "expect": {
-        "families": ["pool"]
+        "families": ["pool|capacity|liquidity|exit"]
       },
       "mustNot": ["promise", "verdict", "forecast", "typed_number", "share_from_figure"],
       "recorded": {
