@@ -377,7 +377,7 @@ describe('an income plan and its gap (the flow audit, findings 11 and 14)', () =
     expect(host.textContent).not.toMatch(/\btab\b/);
     const again = find(host, 'a');
     expect(again.textContent).toBe(en.plan.missing.again);
-    expect(again.getAttribute('href')).toBe('/goal');
+    expect(again.getAttribute('href')).toBe('/invest');
     expect(again.className).toContain(buttonClass({ variant: 'primary' }));
   });
 });

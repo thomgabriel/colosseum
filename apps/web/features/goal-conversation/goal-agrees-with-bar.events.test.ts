@@ -14,7 +14,7 @@ vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider')
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
 vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
-// /goal says what the bar says (Thom, Oct 9: the bar's control read "Sign-in is slow" over a page
+// /invest says what the bar says (Thom, Oct 9: the bar's control read "Sign-in is slow" over a page
 // that read "Sign in to explore a private strategy."). Both read the account's one answer to "who is
 // here": while it is not known the page waits as the bar's control does, and once nobody is signed in
 // the page's "Sign in" is the bar's.
@@ -51,7 +51,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   window.localStorage.clear();
   window.sessionStorage.clear();
-  location.pathname = '/goal';
+  location.pathname = '/invest';
   router.push.mockClear();
   portStore.setApi(async (path) => (path === '/v1/me' ? json(person) : json({}, 404)));
   portStore.set(fakePort({ status: 'loading' }));

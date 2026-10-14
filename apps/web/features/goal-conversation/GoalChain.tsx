@@ -12,7 +12,7 @@ import { switchFailure } from '../account/chain-failure';
 import type { WebWalletPort } from '../wallet/port';
 import { useWalletPort } from '../wallet/WalletProvider';
 
-// The chain of a new plan, chosen on /goal where the plan starts (gate CHAIN-AT-THE-PLAN; ONE-CHAIN
+// The chain of a new plan, chosen on /invest where the plan starts (gate CHAIN-AT-THE-PLAN; ONE-CHAIN
 // holds: one plan, one chain). Before the conversation has words it is a choice of two beside the box,
 // starting on the person's last one (`account.chain`, which the choice stores: PUT /v1/me/chain). Once
 // it has words the chain is a quiet badge with "Change": each chain has its own assets, so a change

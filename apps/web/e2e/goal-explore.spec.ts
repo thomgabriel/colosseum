@@ -17,7 +17,7 @@ test('new-goal exploration opens a responsive preview-only workbench', async ({ 
     )
       financialPosts.push(request.url());
   });
-  await page.goto('/goal');
+  await page.goto('/invest');
   // The one picker over the conversation chooses a conversation (GOAL-CHAT-PORT), never a guided
   // mode: this one, or a new one.
   await expect(page.locator('[data-ui="goal-mode"]')).toHaveCount(0);
@@ -87,12 +87,12 @@ test('an unknown address answers 404 in the product’s shell, with one way on',
     await expect(page).toHaveTitle(`${en.shell.missing.title} · tenonfi`);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     // the product's own bar, and nothing of the first shell
-    await expect(page.locator('header a[href="/goal"]').first()).toBeAttached();
+    await expect(page.locator('header a[href="/invest"]').first()).toBeAttached();
     await expect(page.getByText('Select Wallet')).toHaveCount(0);
     await expect(page.getByText('Structurer')).toHaveCount(0);
     await expect(missing.getByRole('link', { name: en.shell.missing.action })).toHaveAttribute(
       'href',
-      '/goal',
+      '/invest',
     );
   }
   const result = await new AxeBuilder({ page })
@@ -107,12 +107,12 @@ test('an unknown address answers 404 in the product’s shell, with one way on',
 test('the picker names a conversation by its first request', async ({ page }) => {
   // signed in, as a person who can send is; the stub answers, no model is called
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   const picker = page.locator('[data-ui="goal-picker"]');
   const shown = () => picker.locator('option:checked');
   await expect(picker).toHaveValue('current');

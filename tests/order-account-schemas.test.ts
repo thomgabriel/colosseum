@@ -50,7 +50,7 @@ const order = (type: string, legs: object[]) => ({
   fees: [],
   preparedBy: 'app',
   status: 'open',
-  approvalUrl: `/orders/${ID}`,
+  approvalUrl: `/portfolio/orders/${ID}`,
   expiresAt: 1,
   createdAt: '2026-10-05T15:00:00.000Z',
   disclaimer: DISCLAIMER.en,

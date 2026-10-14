@@ -93,7 +93,7 @@ describe('the embed’s goal', () => {
     expect(out.getAttribute('target')).toBe('_blank');
     // the goal goes in the fragment, which no server sees
     expect(out.getAttribute('href')).toBe(
-      `/goal#goal=${encodeURIComponent('Grow $40,000 for 36 months, medium risk')}`,
+      `/invest#goal=${encodeURIComponent('Grow $40,000 for 36 months, medium risk')}`,
     );
     expect(limits.textContent).toContain(en.embed.buildNote);
   });
@@ -187,7 +187,7 @@ describe('the embed’s vault', () => {
     expect(host.textContent).not.toContain('MOCK');
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
     // the way out, and the credit, both to the public vault page, in a new tab
-    const out = [...host.querySelectorAll(`a[href="/vaults/solana/${VAULT}"]`)];
+    const out = [...host.querySelectorAll(`a[href="/portfolio/vaults/solana/${VAULT}"]`)];
     expect(out.map((a) => a.getAttribute('target'))).toEqual(['_blank', '_blank']);
     expect(out[0]?.textContent).toBe(en.embed.vault.see);
     expect(find(host, '[data-ui="disclaimer"] p').textContent).toBe(DISCLAIMER.en);

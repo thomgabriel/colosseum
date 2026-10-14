@@ -8,7 +8,7 @@ import { vi } from 'vitest';
 //   vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
 export const router = { replace: vi.fn(), push: vi.fn(), refresh: vi.fn() };
-export const location = { pathname: '/goal' };
+export const location = { pathname: '/invest' };
 
 export const useRouter = () => router;
 export const usePathname = () => location.pathname;

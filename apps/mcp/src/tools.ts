@@ -90,7 +90,7 @@ function shown(family: Family, appUrl: string): Json {
   return {
     ...rest,
     untrusted: { name, copy },
-    pageUrl: linkTo(appUrl, `/indexes/${encodeURIComponent(family.slug)}`),
+    pageUrl: linkTo(appUrl, `/products/${encodeURIComponent(family.slug)}`),
   };
 }
 
@@ -173,7 +173,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
           return failure(
             'SIGN_IN_REQUIRED',
             'a person’s own portfolio needs their sign-in, and this server was called without it',
-            `Ask the person for their vault’s address and send it as \`vault\` with its chain, or send them to ${linkTo(appUrl, '/monitor')}.`,
+            `Ask the person for their vault’s address and send it as \`vault\` with its chain, or send them to ${linkTo(appUrl, '/portfolio/monitor')}.`,
           );
         return answer({ readBy: 'sign-in', portfolio: await api.call('GET /v1/portfolio') });
       }),
@@ -212,8 +212,8 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         const id = encodeURIComponent(made.id);
         return answer({
           planId: made.id,
-          approvalUrl: linkTo(appUrl, `/plan/${id}`),
-          buyUrl: linkTo(appUrl, `/plan/${id}/buy`),
+          approvalUrl: linkTo(appUrl, `/invest/plan/${id}`),
+          buyUrl: linkTo(appUrl, `/invest/plan/${id}/buy`),
           proposal: made.proposal,
           rollUp: made.rollUp,
           next: `Show the person the plan and its reasons, then give them approvalUrl: they open it signed in, on ${made.proposal.sheet.chains.join(', ')}, and buy it there. ${NOT_ADVICE}`,
@@ -297,7 +297,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
           const plan = await api.call('GET /v1/baskets/{id}', { params: { id: planId } });
           return answer({
             action,
-            approvalUrl: linkTo(appUrl, `/plan/${encodeURIComponent(plan.id)}/buy`),
+            approvalUrl: linkTo(appUrl, `/invest/plan/${encodeURIComponent(plan.id)}/buy`),
             chains: plan.proposal.sheet.chains,
             ...told,
             signedBy,
@@ -306,7 +306,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
         }
         if (slug && !planId) {
           const { family } = await api.call('GET /v1/indexes/{slug}', { params: { slug } });
-          const page = `/indexes/${encodeURIComponent(family.slug)}`;
+          const page = `/products/${encodeURIComponent(family.slug)}`;
           return answer({
             action,
             approvalUrl: linkTo(appUrl, action === 'buy' ? `${page}/buy` : page),
@@ -341,7 +341,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     },
     ({ orderId }) =>
       calling(async () => {
-        const reviewUrl = linkTo(appUrl, `/orders/${encodeURIComponent(orderId)}`);
+        const reviewUrl = linkTo(appUrl, `/portfolio/orders/${encodeURIComponent(orderId)}`);
         if (!ctx.signedIn)
           return failure(
             'SIGN_IN_REQUIRED',

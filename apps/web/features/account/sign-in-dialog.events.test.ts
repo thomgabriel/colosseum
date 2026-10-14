@@ -31,7 +31,11 @@ let person: Person = {
 
 /** A page with the action that asks for sign-in, as the guarded screens draw it. */
 const page = () =>
-  createElement('a', { href: '/sign-in?next=/orders/o1', 'data-ui': 'page-action' }, 'Buy');
+  createElement(
+    'a',
+    { href: '/sign-in?next=/portfolio/orders/o1', 'data-ui': 'page-action' },
+    'Buy',
+  );
 
 const shell = () => mount(inShellWithSignIn('en', 'auto', page()));
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
@@ -51,7 +55,7 @@ beforeEach(() => {
     now += 1_000;
     return now;
   });
-  location.pathname = '/goal';
+  location.pathname = '/invest';
   router.push.mockClear();
   router.replace.mockClear();
   person = { ...person, chain: null, chainSource: null, chainOptions: ['solana', 'robinhood'] };
@@ -191,7 +195,7 @@ describe('the sign-in dialog', () => {
     // a wallet made here: nothing is asked, the chain they were looking at is stored (CHAIN-SWITCH)
     expect(dialog()).toBeNull();
     // on to the order the action was for
-    expect(router.push.mock.calls).toEqual([['/orders/o1']]);
+    expect(router.push.mock.calls).toEqual([['/portfolio/orders/o1']]);
   });
 
   it('leaves the person on the page when the sign-in was asked for by the bar', async () => {
@@ -289,7 +293,7 @@ describe('the sign-in dialog', () => {
     expect(on?.tagName).toBe('BUTTON');
     await click(on as HTMLElement);
     expect(dialog()).toBeNull();
-    expect(router.push.mock.calls).toEqual([['/orders/o1']]);
+    expect(router.push.mock.calls).toEqual([['/portfolio/orders/o1']]);
   });
 
   it('opened while signed in with no chain yet, starts them on one, and its link carries on', async () => {
@@ -304,7 +308,7 @@ describe('the sign-in dialog', () => {
     expect(box.textContent).toContain(en.chain.is.picked('Solana'));
     await click(button(box, en.signIn.done.next));
     expect(dialog()).toBeNull();
-    expect(router.push.mock.calls).toEqual([['/orders/o1']]);
+    expect(router.push.mock.calls).toEqual([['/portfolio/orders/o1']]);
   });
 
   it('is not opened on the sign-in page itself, which is the panel already', async () => {
