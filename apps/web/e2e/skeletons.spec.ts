@@ -201,10 +201,18 @@ for (const width of WIDTHS) {
             waiting: '[data-ui="family-wait"] [data-ui="skeleton-line"]',
             loaded: 'main h1',
           },
+          // the pane as the kit's two panels: the board where its outline was, and the holdings'
+          // panel under it, as wide and where its outline was too
           {
-            name: 'pane',
-            waiting: '[data-ui="plan-pane-wait"]',
-            loaded: '[data-ui="plan-pane"] [data-ui="card"]',
+            name: 'board',
+            waiting: '[data-ui="plan-board-wait"]',
+            loaded: '[data-ui="plan-board"]',
+            sized: 'by-data',
+          },
+          {
+            name: 'holdings',
+            waiting: '[data-ui="plan-legs-wait"]',
+            loaded: '[data-ui="plan-legs"]',
             sized: 'by-data',
           },
         ],
@@ -360,10 +368,18 @@ for (const width of WIDTHS) {
             waiting: '[data-ui="plan-screen-wait"] [data-ui="skeleton-line"]',
             loaded: 'main h1',
           },
+          // the pane as the kit's two panels: the board where its outline was, and the holdings'
+          // panel under it, as wide and where its outline was too
           {
-            name: 'pane',
-            waiting: '[data-ui="plan-pane-wait"]',
-            loaded: '[data-ui="plan-pane"] [data-ui="card"]',
+            name: 'board',
+            waiting: '[data-ui="plan-board-wait"]',
+            loaded: '[data-ui="plan-board"]',
+            sized: 'by-data',
+          },
+          {
+            name: 'holdings',
+            waiting: '[data-ui="plan-legs-wait"]',
+            loaded: '[data-ui="plan-legs"]',
             sized: 'by-data',
           },
         ],

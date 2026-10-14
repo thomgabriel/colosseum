@@ -6,11 +6,12 @@ import type { ReactNode } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { Panel } from '../../components/ui/Panel';
 import {
   Skeleton,
   SkeletonLine,
   SkeletonListRow,
-  SkeletonTable,
+  SkeletonMark,
 } from '../../components/ui/Skeleton';
 import { ScreenWait } from '../../components/waits/ScreenWait';
 import { useT } from '../../i18n/I18nProvider';
@@ -91,7 +92,7 @@ export function FamilyWait() {
               <SkeletonLine className="max-w-(--tf-measure-body) text-body-lg" width="w-64" />
             </div>
           </div>
-          <PlanViewWait aside={2} />
+          <PlanViewWait kpis={4} />
         </div>
       }
     />
@@ -310,39 +311,36 @@ export function PublishWait() {
   );
 }
 
-/** What a vault holds, in outline: the card with one bar, a label a holding and their table. */
+/**
+ * What a vault holds, in outline, in the house kit's panel as it lands (VaultHoldings.tsx): its head,
+ * the strip, then a row a holding.
+ */
 function VaultHoldingsWait({ className }: { className?: string }) {
   const t = useT();
   const v = t.shared.vault;
   return (
-    <div
-      aria-hidden="true"
-      data-wait="holdings"
-      className={`min-w-0 rounded-lg border border-border bg-card ${className ?? ''}`}
-    >
-      <p className="p-6 text-h4 font-semibold">{v.page.holdings}</p>
-      <div className="flex min-w-0 flex-col gap-5 border-t border-border p-6">
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-3 w-full rounded-full" />
-          {[0, 1].map((i) => (
-            <div key={i} className="flex h-6 items-center gap-2">
-              <Skeleton className="size-2.5 rounded-none" />
-              <Skeleton className="h-3 w-24" />
+    <div aria-hidden="true" data-wait="holdings" className={`min-w-0 ${className ?? ''}`}>
+      <Panel as="div">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border px-5 py-4">
+          <p className="text-body-lg font-semibold whitespace-nowrap">{v.page.holdings}</p>
+          <SkeletonLine className="text-body-sm" width="w-16" />
+        </div>
+        <div className="px-5 pt-4">
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+        <div className="pt-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3 border-t border-border px-5 py-4">
+              <SkeletonMark />
+              <span className="flex flex-col gap-1">
+                <SkeletonLine className="text-body" width="w-16" />
+                <SkeletonLine className="text-caption" width="w-20" />
+              </span>
+              <SkeletonLine className="ml-auto text-body" width="w-12" />
             </div>
           ))}
         </div>
-        <SkeletonTable
-          framed={false}
-          rows={3}
-          columns={[
-            { track: 'minmax(0,2fr)' },
-            { align: 'end' },
-            { align: 'end' },
-            { align: 'end' },
-            { align: 'end' },
-          ]}
-        />
-      </div>
+      </Panel>
     </div>
   );
 }
