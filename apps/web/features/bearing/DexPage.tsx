@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { type Column, DataTable } from '../../components/ui/DataTable';
 import { DistChart } from '../../components/ui/DistChart';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -187,6 +187,14 @@ function DexView({
   dd: Record<string, DexAsset>;
   done: boolean;
 }) {
+  // The height the wait over the table held: what replaces it keeps at least that, so the table, drawn
+  // row by row under it, does not move up when the last assets land. The wait is drawn as high as the
+  // cards at desktop width (DEX_CHART_FRAME); where they come out shorter, this holds the table still.
+  const top = useRef<HTMLDivElement>(null);
+  const held = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (!done && top.current) held.current = top.current.getBoundingClientRect().height;
+  });
   const fm = useFmt();
   const { clock, chain } = useBearing();
   const all = useWords();
@@ -228,92 +236,94 @@ function DexView({
 
   return (
     <>
-      {done ? (
-        <>
-          <div className="mt-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <MultiSelect
-              label={t.assets}
-              options={assetOpts}
-              value={sel.assets}
-              onChange={(v) => setSel({ assets: v, pools: null })}
-            />
-            <MultiSelect
-              label={t.pools}
-              options={poolOpts}
-              value={sel.pools}
-              onChange={(v) => setSel({ pools: v })}
-            />
-            <span className="font-mono text-b-meta text-muted-foreground">
-              {t.summary(selIds.length, pools.length, rw)}
-            </span>
-          </div>
-          <Kpis>
-            <Kpi label={t.kpi.tvl} note={t.kpi.tvlNote}>
-              <Fig f={k.tvl} fmt={fm.usd1} />
-            </Kpi>
-            <Kpi label={t.kpi.pools} note={t.kpi.poolsNote(fm.num(allPools.length))}>
-              <Count>{fm.num(pools.length)}</Count>
-            </Kpi>
-            <Kpi label={t.kpi.capacity} note={t.kpi.capacityNote(rw)}>
-              <Fig f={k.cap} fmt={fm.usd1} />
-            </Kpi>
-            <Kpi
-              label={t.kpi.volume}
-              note={
-                k.volTo
-                  ? t.kpi.volumeNote(fm.minute(k.volTo))
-                  : k.vol.source === DEXSCREENER_24H
-                    ? t.kpi.volumeDexNote
-                    : ''
-              }
-            >
-              <Fig f={k.vol} fmt={fm.usd1} />
-            </Kpi>
-            <Kpi label={t.kpi.lp} note={t.kpi.lpNote}>
-              <Fig f={k.lp} fmt={fm.pct} />
-            </Kpi>
-          </Kpis>
-          <ChartGrid
-            pie={
-              <Pie
-                title={t.pie.title}
-                slices={pools.map((p) => ({
-                  label: poolLabel(p, many, t.liquidity.quoteNotNamed),
-                  value: p.tvlUsd ?? null,
-                }))}
-                total={k.tvl.value}
-                totalHtml={<Fig f={k.tvl} fmt={fm.usd1} />}
-                note={t.pie.note}
+      <div ref={top} style={done && held.current ? { minHeight: held.current } : undefined}>
+        {done ? (
+          <>
+            <div className="mt-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <MultiSelect
+                label={t.assets}
+                options={assetOpts}
+                value={sel.assets}
+                onChange={(v) => setSel({ assets: v, pools: null })}
               />
-            }
-            chart={
-              metric === 'capacity' ? (
-                <CapacityChart
-                  selIds={selIds}
-                  dd={dd}
-                  tools={tools}
-                  range={range}
-                  setRange={setRange}
+              <MultiSelect
+                label={t.pools}
+                options={poolOpts}
+                value={sel.pools}
+                onChange={(v) => setSel({ pools: v })}
+              />
+              <span className="font-mono text-b-meta text-muted-foreground">
+                {t.summary(selIds.length, pools.length, rw)}
+              </span>
+            </div>
+            <Kpis>
+              <Kpi label={t.kpi.tvl} note={t.kpi.tvlNote}>
+                <Fig f={k.tvl} fmt={fm.usd1} />
+              </Kpi>
+              <Kpi label={t.kpi.pools} note={t.kpi.poolsNote(fm.num(allPools.length))}>
+                <Count>{fm.num(pools.length)}</Count>
+              </Kpi>
+              <Kpi label={t.kpi.capacity} note={t.kpi.capacityNote(rw)}>
+                <Fig f={k.cap} fmt={fm.usd1} />
+              </Kpi>
+              <Kpi
+                label={t.kpi.volume}
+                note={
+                  k.volTo
+                    ? t.kpi.volumeNote(fm.minute(k.volTo))
+                    : k.vol.source === DEXSCREENER_24H
+                      ? t.kpi.volumeDexNote
+                      : ''
+                }
+              >
+                <Fig f={k.vol} fmt={fm.usd1} />
+              </Kpi>
+              <Kpi label={t.kpi.lp} note={t.kpi.lpNote}>
+                <Fig f={k.lp} fmt={fm.pct} />
+              </Kpi>
+            </Kpis>
+            <ChartGrid
+              pie={
+                <Pie
+                  title={t.pie.title}
+                  slices={pools.map((p) => ({
+                    label: poolLabel(p, many, t.liquidity.quoteNotNamed),
+                    value: p.tvlUsd ?? null,
+                  }))}
+                  total={k.tvl.value}
+                  totalHtml={<Fig f={k.tvl} fmt={fm.usd1} />}
+                  note={t.pie.note}
                 />
-              ) : metric === 'tvl' ? (
-                <TvlChart
-                  pools={pools}
-                  b={b}
-                  tvl={k.tvl.value}
-                  tools={tools}
-                  range={range}
-                  setRange={setRange}
-                />
-              ) : (
-                <LiquidityChart pools={pools} b={b} many={many} tools={tools} />
-              )
-            }
-          />
-        </>
-      ) : (
-        // the figures over many assets wait for every asset; the table below fills in as they land
-        <DexWait rows={false} />
-      )}
+              }
+              chart={
+                metric === 'capacity' ? (
+                  <CapacityChart
+                    selIds={selIds}
+                    dd={dd}
+                    tools={tools}
+                    range={range}
+                    setRange={setRange}
+                  />
+                ) : metric === 'tvl' ? (
+                  <TvlChart
+                    pools={pools}
+                    b={b}
+                    tvl={k.tvl.value}
+                    tools={tools}
+                    range={range}
+                    setRange={setRange}
+                  />
+                ) : (
+                  <LiquidityChart pools={pools} b={b} many={many} tools={tools} />
+                )
+              }
+            />
+          </>
+        ) : (
+          // the figures over many assets wait for every asset; the table below fills in as they land
+          <DexWait rows={false} />
+        )}
+      </div>
       {selIds.length === 1 && byId.get(selIds[0] as string) && (
         // one asset: its hours of the week, as its sheet in the first view and the old /risk/<asset> had them
         <div className="mt-4">

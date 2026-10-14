@@ -104,6 +104,9 @@ test.describe('Bearing analytics on the recorded risk API', () => {
       await route.continue();
     });
     await page.goto('/analytics/stocks');
+    // fonts differ from machine to machine, and with them the cards' height: make the wait taller than
+    // the cards it stands for, as a runner with other fonts does, and the table must still not move
+    await page.addStyleTag({ content: '[data-ui="skeleton-chart"] { padding-bottom: 40px; }' });
     const head = page.locator('main [aria-labelledby="bearing-table"] thead');
     await expect(head).toBeVisible({ timeout: 60_000 });
     await expect(page.locator('main [data-ui="waiting"]')).toHaveCount(1);
@@ -115,12 +118,8 @@ test.describe('Bearing analytics on the recorded risk API', () => {
     ).toBeVisible();
     const after = await head.boundingBox();
     expect(before).not.toBeNull();
-    // the head stays where it was; its columns may settle by a fraction of a pixel as cells fill
-    expect({ x: after?.x, y: after?.y, height: after?.height }).toEqual({
-      x: before?.x,
-      y: before?.y,
-      height: before?.height,
-    });
+    // the head's top stays where it was, to the whole pixel; its columns may settle by a fraction
+    expect(Math.round(after?.y ?? -1)).toBe(Math.round(before?.y ?? -2));
   });
 
   for (const id of PAGES)
