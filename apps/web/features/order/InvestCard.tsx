@@ -118,7 +118,7 @@ export type InvestCardProps = {
   amountFrom?: 'field' | 'goal';
   /**
    * An order the person already approved on this card, taken up again after the card was lost (a
-   * reload of /goal in the middle of its steps): the card opens on that order, as the order's own
+   * reload of /invest in the middle of its steps): the card opens on that order, as the order's own
    * record and our server have it, and makes no other. Nothing about it is read from the host.
    */
   resume?: { orderId: string; expiresAt: number; basketId?: string };
@@ -686,7 +686,7 @@ export function InvestCard({
                 ...(endsAt
                   ? {
                       endsAt: {
-                        href: `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(endsAt)}`,
+                        href: `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(endsAt)}`,
                         label: t.mix.deposit.signing.openVault,
                       },
                     }

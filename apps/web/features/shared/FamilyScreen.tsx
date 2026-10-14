@@ -169,7 +169,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
               {t.shared.shelf.failure.retry}
             </Button>
           )}
-          <Link href="/shelf" className={buttonClass({ variant: 'secondary' })}>
+          <Link href="/products" className={buttonClass({ variant: 'secondary' })}>
             {t.shared.family.backToShelf}
           </Link>
         </div>
@@ -192,7 +192,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
   return (
     <div data-ui="family-screen" className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/shelf" className={`${buttonClass({ variant: 'link' })} self-start`}>
+        <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
           {f.backToShelf}
         </Link>
         <h1 id={titleId} className={`${PAGE_TITLE} [overflow-wrap:anywhere]`}>
@@ -243,7 +243,7 @@ export function FamilyScreen({ slug }: { slug: string }) {
           changed={changed}
           onRunning={(now) => {
             // The run is on the recipe on the page. Where the page's own choice was never touched
-            // that recipe came from where the person's new plans start, which /goal can change in
+            // that recipe came from where the person's new plans start, which /invest can change in
             // another tab: it is pinned here, so the section is not drawn again under the run.
             if (now) setPicked(recipe.chain);
             setRunning(now);

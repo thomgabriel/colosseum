@@ -561,7 +561,7 @@ export function GoalConversation({
                 <Button variant="link" data-act="goal-retry" onClick={() => send(unanswered.text)}>
                   {copy.retry}
                 </Button>
-                <Link href="/shelf" className="underline">
+                <Link href="/products" className="underline">
                   {copy.elsewhere}
                 </Link>
               </p>
@@ -587,7 +587,7 @@ export function GoalConversation({
           ))}
         {account === 'signed-out' && (
           <Link
-            href={signInHref('/goal')}
+            href={signInHref('/invest')}
             data-ui="goal-sign-in"
             className="text-body-sm underline"
           >

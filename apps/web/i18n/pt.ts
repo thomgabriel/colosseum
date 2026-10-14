@@ -1259,7 +1259,7 @@ export const pt: Dictionary = {
         'Este portfólio não foi publicado por este app, então não consigo conferir o identificador dele pelo nome, e seguir ainda não é oferecido aqui.',
     },
     check: {
-      reading: 'Lendo da rede…',
+      reading: 'Carregando…',
       differs: (chain: string) =>
         `A resposta do nosso servidor difere do que a ${chain} tem. Mostro a versão e os pesos da rede, e seguir fica preso a eles.`,
       failed: (chain: string) =>
@@ -1424,7 +1424,7 @@ export const pt: Dictionary = {
       reviewing: 'Criando a ordem…',
       problems: {
         name: 'Um nome precisa de letras, números e pontuação simples, sem espaço nas pontas e sem link ou endereço web.',
-        slug: 'Um endereço precisa de letras minúsculas, números e hífens.',
+        slug: 'Um endereço precisa de letras minúsculas, números e hífens, e não pode ser “publish”.',
         copy: 'Uma descrição tem no máximo 280 caracteres, sem link ou endereço web e sem caracteres ocultos.',
         count: 'Um portfólio tem de 3 a 12 ativos.',
         weight: 'Cada peso vai de 2% a 50%, em passos de 0,5%.',

@@ -95,7 +95,7 @@ export function OverviewPage() {
 
 /** The vault's own page: its chat beside its plan. */
 export const vaultHref = (chain: string, address: string) =>
-  `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(address)}`;
+  `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(address)}`;
 
 /** What went into a vault, all time: its deposits less its withdrawals. */
 const netOf = (flows: readonly Flow[], chain: string, address: string): number =>
@@ -161,7 +161,7 @@ function Board({ answer }: { answer: PlansAnswer }) {
           <Say
             sentence={w.shell.empty}
             action={
-              <Link href="/goal" className="text-body-sm underline">
+              <Link href="/invest" className="text-body-sm underline">
                 {w.shell.startGoal}
               </Link>
             }
@@ -733,7 +733,7 @@ function Vaults({
             {/* Honey, so the way to a new plan stands out on the page: a honey edge on its tint, ink text (IDENTITY-2). */}
             <Link
               data-ui="new-plan"
-              href="/goal"
+              href="/invest"
               className="inline-flex h-9 items-center justify-center rounded-full border border-primary bg-honey-tint px-4 text-body-sm font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {words.newPlan}

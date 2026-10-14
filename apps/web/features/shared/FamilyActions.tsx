@@ -227,7 +227,7 @@ function useFamilyVaults(
       setFailure(t.shared.publish.failure.noStore);
       return;
     }
-    router.push(`/orders/${encodeURIComponent(placed.order.id)}`);
+    router.push(`/portfolio/orders/${encodeURIComponent(placed.order.id)}`);
   }
 
   const offered = recipe.autoFollow.offered;
@@ -391,7 +391,7 @@ export function FamilyActions(props: FamilyActionsProps) {
         <Ways chainName={chainName} />
         <p className="text-body-sm text-muted-foreground">{x.signedOut}</p>
         <Link
-          href={`/sign-in?next=/indexes/${encodeURIComponent(family.slug)}`}
+          href={`/sign-in?next=/products/${encodeURIComponent(family.slug)}`}
           className={cn(buttonClass({ variant: 'primary' }), 'w-full')}
         >
           {x.signIn}
@@ -509,7 +509,7 @@ function Chosen({
         <>
           {x.newVault.open}{' '}
           <Link
-            href={`/vaults/${own.chain}/${encodeURIComponent(own.address)}`}
+            href={`/portfolio/vaults/${own.chain}/${encodeURIComponent(own.address)}`}
             title={own.address}
             className="font-medium text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
           >
@@ -724,7 +724,7 @@ function Following({
                   {/* its name; its address on hover (AMOUNT-CARD) */}
                   <Link
                     title={vault.address}
-                    href={`/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
+                    href={`/portfolio/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
                     className="font-medium text-foreground underline decoration-1 underline-offset-4 hover:decoration-2"
                   >
                     {nameOf(vault)}

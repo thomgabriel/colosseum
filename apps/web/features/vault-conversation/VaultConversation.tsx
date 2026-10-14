@@ -368,7 +368,7 @@ export function VaultConversation({
     >
       {/* The panes keep a least height (the grid's second row): a head that outgrows what is left, with
           the rename form open on a short screen, scrolls inside itself and is never clipped. Each pane
-          that scrolls, and the workbench, is `relative`, as on /goal: a screen reader's line (`sr-only`
+          that scrolls, and the workbench, is `relative`, as on /invest: a screen reader's line (`sr-only`
           is absolute) then belongs to the pane it is in, where without it the line's box is the page's,
           left where the pane's text runs on below the window, and the page scrolls (Oct 13). */}
       <header className="tf-scroll-thin relative flex flex-wrap items-start justify-between gap-3 md:col-span-12 md:min-h-0 md:overflow-y-auto">

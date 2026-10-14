@@ -48,7 +48,7 @@ const pressed = (group: Element) =>
 beforeEach(() => {
   portStore.set(fakePort());
   portStore.setApi(async () => json({}, 404));
-  location.pathname = '/goal';
+  location.pathname = '/invest';
   router.refresh.mockClear();
   document.documentElement.className = 'fonts tf-auto';
   for (const name of ['tf-theme', 'tf-lang']) remember(name, null);
@@ -83,15 +83,15 @@ describe('a link drawn as a button', () => {
 
   it('goes through the router to a page of this app, with no reload of the whole page', async () => {
     router.push.mockClear();
-    const host = await page('/monitor');
+    const host = await page('/portfolio/monitor');
     const event = clickOn(find(host, 'main a'));
     expect(event.defaultPrevented).toBe(true);
-    expect(router.push).toHaveBeenCalledWith('/monitor');
+    expect(router.push).toHaveBeenCalledWith('/portfolio/monitor');
   });
 
   it('is left to the browser with a key held, to a fragment, another site or a new tab', async () => {
     router.push.mockClear();
-    const held = await page('/monitor');
+    const held = await page('/portfolio/monitor');
     expect(clickOn(find(held, 'main a'), { metaKey: true }).defaultPrevented).toBe(false);
     expect(clickOn(find(held, 'main a'), { button: 1 }).defaultPrevented).toBe(false);
     await unmountAll();
@@ -99,7 +99,7 @@ describe('a link drawn as a button', () => {
       ['#limits', {}],
       ['https://solscan.io/tx/x', {}],
       ['//elsewhere.example/x', {}],
-      ['/monitor', { target: '_blank' }],
+      ['/portfolio/monitor', { target: '_blank' }],
     ] as const) {
       const host = await page(href, attrs);
       expect(clickOn(find(host, 'main a')).defaultPrevented, href).toBe(false);
@@ -134,16 +134,16 @@ describe('the frame', () => {
     const links = (root: HTMLElement) => [...find(root, 'nav').querySelectorAll(':scope > a')];
     // a visitor: no portfolio to show
     expect(links(host).map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.products, '/shelf'],
-      [en.invest, '/goal'],
+      [en.products, '/products'],
+      [en.invest, '/invest'],
       [en.analytics, '/analytics/stocks'],
     ]);
     // no Resources item (Thom, Oct 6): the methodology is reached from Bearing's own side menu
     expect(host.querySelector('nav a[href="/analytics/methodology"]')).toBeNull();
     // the page a person is on is said, not only shown; a plan is under Invest
     expect(links(host).map((a) => a.getAttribute('aria-current'))).toEqual([null, 'page', null]);
-    // an order's page is under none: a publish started from Products is no plan of Invest's
-    location.pathname = '/orders/some-order';
+    // an order's page is under Portfolio, which someone signed out does not get (ROUTES-MATCH-NAV)
+    location.pathname = '/portfolio/orders/some-order';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
       null,
       null,
@@ -162,14 +162,14 @@ describe('the frame', () => {
       null,
       'page',
     ]);
-    location.pathname = '/plan/abc';
+    location.pathname = '/invest/plan/abc';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
       null,
       'page',
       null,
     ]);
     // a shared portfolio's page is under Products, the shelf
-    location.pathname = '/indexes/some-portfolio';
+    location.pathname = '/products/some-portfolio';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
       'page',
       null,
@@ -177,7 +177,7 @@ describe('the frame', () => {
     ]);
     // someone signed in gets their portfolio, after Invest
     portStore.set(signedInPort(EMBEDDED));
-    location.pathname = '/monitor';
+    location.pathname = '/portfolio/monitor';
     const signedIn = await shell();
     expect(links(signedIn).map((a) => [a.textContent, a.getAttribute('aria-current')])).toEqual([
       [en.products, null],
@@ -185,8 +185,13 @@ describe('the frame', () => {
       [en.portfolio, 'page'],
       [en.analytics, null],
     ]);
-    // the portfolio's board, a page of its section and a vault's own page are under it too
-    for (const path of ['/portfolio', '/portfolio/plan/solana/abc', '/vaults/solana/abc']) {
+    // the portfolio's board, a page of its section, a vault's own page and an order's are under it too
+    for (const path of [
+      '/portfolio',
+      '/portfolio/plan/solana/abc',
+      '/portfolio/vaults/solana/abc',
+      '/portfolio/orders/some-order',
+    ]) {
       location.pathname = path;
       expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
         null,
@@ -198,8 +203,8 @@ describe('the frame', () => {
     // on a phone the same links are in the sheet under the menu button
     const sheet = find(signedIn, '[data-ui="compact-nav-sheet"]');
     expect([...sheet.querySelectorAll(':scope > a')].map((a) => a.getAttribute('href'))).toEqual([
-      '/shelf',
-      '/goal',
+      '/products',
+      '/invest',
       '/portfolio',
       '/analytics/stocks',
     ]);
@@ -241,13 +246,13 @@ describe('who is signed in, in the bar', () => {
     const link = find<HTMLAnchorElement>(host, 'header a[href^="/sign-in"]');
     expect(link.textContent).toBe(en.signIn);
     // it comes back to the page the person is on (a link opened in a new tab too)
-    expect(link.getAttribute('href')).toBe('/sign-in?next=/goal');
+    expect(link.getAttribute('href')).toBe('/sign-in?next=/invest');
     expect(find(host, '[data-ui="account-control"]').getAttribute('data-state')).toBe('signed-out');
     expect(host.querySelector('[data-ui="account"]')).toBeNull();
   });
 
   it('draws "Sign in" as the bar’s one primary action on every page but the sign-in screen', async () => {
-    for (const path of ['/goal', '/shelf', '/analytics/stocks']) {
+    for (const path of ['/invest', '/products', '/analytics/stocks']) {
       location.pathname = path;
       const host = await shell();
       const link = find<HTMLAnchorElement>(host, 'header a[href^="/sign-in"]');
@@ -286,9 +291,9 @@ describe('who is signed in, in the bar', () => {
   });
 
   it('underlines the bar’s link to the page in view, as compact-nav.md marks a current link', async () => {
-    location.pathname = '/goal';
+    location.pathname = '/invest';
     const host = await shell();
-    const invest = find<HTMLAnchorElement>(host, 'nav > a[href="/goal"]');
+    const invest = find<HTMLAnchorElement>(host, 'nav > a[href="/invest"]');
     expect(invest.getAttribute('aria-current')).toBe('page');
     expect(invest.className).toContain('aria-[current=page]:underline');
   });

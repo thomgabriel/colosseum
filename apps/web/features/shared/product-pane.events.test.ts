@@ -395,7 +395,7 @@ describe('a product’s page, on the plan view', () => {
     expect(find(invest, 'input[inputmode="decimal"]').getAttribute('value')).toBe('');
     expect(find(invest, '[data-ui="amount-card"]')).toBeTruthy();
     expect(invest.querySelector('[data-ui="family-invest"]')).toBeNull();
-    expect(host.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(host.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
     // where the version and weights come from is said once on the page, in the pane, never folded
     expect(host.querySelectorAll('[data-ui="source-mark"]')).toHaveLength(1);
     expect(find(pane, '[data-ui="source-mark"]').closest('details')).toBeNull();

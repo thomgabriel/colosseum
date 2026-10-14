@@ -5,7 +5,7 @@ import { ChainLogo } from '../../components/ui/ChainLogo';
 import { cn } from '../../components/ui/cn';
 import { shortAddress } from '../shared/use-person';
 
-// The chain of one thing, chosen where it starts (gate CHAIN-AT-THE-PLAN): a new plan on /goal, a buy of
+// The chain of one thing, chosen where it starts (gate CHAIN-AT-THE-PLAN): a new plan on /invest, a buy of
 // a shared portfolio that has a recipe on each chain. Two options side by side, a radio group: the
 // chain's logo and name, the person's wallet there cut to its ends, and the words "Test network" or
 // "Sample" where the chain is not live. No hatched glyph: the hatch marks a sample figure, and an

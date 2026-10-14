@@ -180,6 +180,15 @@ afterEach(async () => {
 });
 
 describe('a shared portfolio read from the chain by this app', () => {
+  it('holds the buy with a plain "Loading…" while the chain is read, naming no source', async () => {
+    vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+    const host = await mount(withAccount('en', createElement(FamilyBuyScreen, { slug: SLUG })));
+    for (let i = 0; i < 4; i += 1) await settle(50);
+    expect(host.textContent).toContain(en.shared.check.reading);
+    expect(en.shared.check.reading).toBe('Loading…');
+    expect(host.textContent).not.toMatch(/from the chain|read from|our server/i);
+  });
+
   it('shows the chain’s version and weights, and says our server’s answer differs', async () => {
     const host = await mount(withAccount('en', createElement(FamilyScreen, { slug: SLUG })));
     for (let i = 0; i < 5; i += 1) await settle(50);
@@ -346,7 +355,7 @@ describe('a shared portfolio this app could read from the chain and could not', 
     expect(page.querySelector('[data-ui="amount-card"]')).toBeNull();
     expect(page.querySelector('[data-ui="family-ways"] input')).toBeNull();
     expect(find(page, '[data-ui="family-blocked"]').textContent).toBe(tampered);
-    expect(page.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(page.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
     const mark = find(page, '[data-ui="source-mark"]');
     expect(mark.textContent).toContain(en.shared.check.failed('Solana'));
     // nothing was read, so the creator's words are said not to be checked: the server's word is not repeated
@@ -434,6 +443,6 @@ describe('a shared portfolio the chain does not hold', () => {
       en.shared.check.missing('Solana'),
     );
     expect(host.textContent).toContain(en.shared.family.missingOnChain('Solana'));
-    expect(host.querySelector(`a[href="/indexes/${SLUG}/buy"]`)).toBeNull();
+    expect(host.querySelector(`a[href="/products/${SLUG}/buy"]`)).toBeNull();
   });
 });

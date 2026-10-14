@@ -72,7 +72,7 @@ test.describe('the portfolio section on the stub', () => {
     await check(page, 'overview');
 
     // a row opens the vault's own page, where its chat and its plan are
-    await expect(grow.locator('a')).toHaveAttribute('href', `/vaults/solana/${GROW}`);
+    await expect(grow.locator('a')).toHaveAttribute('href', `/portfolio/vaults/solana/${GROW}`);
   });
 
   test('the methodology: every line of the rule, plain text, the disclaimer once, axe clean', async ({

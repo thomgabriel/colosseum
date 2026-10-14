@@ -645,7 +645,7 @@ export const en = {
     explorer: 'View {address} on the explorer',
   },
 
-  /** The monitor (/monitor), and the line about it on the home page. */
+  /** The monitor (/portfolio/monitor), and the line about it on the home page. */
   portfolio: {
     overview: {
       title: 'Portfolio overview',
@@ -820,7 +820,7 @@ export const en = {
         unreachable: 'I couldn’t save the name: our server didn’t answer. Try again.',
       },
     },
-    /** More money into a vault the person has (/vaults/{chain}/{address}/add). */
+    /** More money into a vault the person has (/portfolio/vaults/{chain}/{address}/add). */
     add: {
       strategy: 'Where this deposit goes',
       title: 'Deposit into your vault',
@@ -865,7 +865,7 @@ export const en = {
     },
   },
 
-  /** The Invest workspace (`/goal`): its title, the preview's heading and who spoke. */
+  /** The Invest workspace (`/invest`): its title, the preview's heading and who spoke. */
   talk: {
     workbench: {
       title: 'Invest',
@@ -1458,7 +1458,11 @@ export const en = {
         'This portfolio wasn’t published through this app, so I can’t check its id against its name, and following it isn’t offered here yet.',
     },
     check: {
-      reading: 'Reading it from the chain…',
+      /**
+       * A reason held under a button while what it acts on is still loading. It names no source
+       * (gate SOURCE-LINES): the kit's wait says the rest.
+       */
+      reading: 'Loading…',
       differs: (chain: string) =>
         `Our server’s answer differs from what ${chain} holds. I show the chain’s version and weights, and a follow is held to them.`,
       failed: (chain: string) =>
@@ -1638,7 +1642,7 @@ export const en = {
       reviewing: 'Making the order…',
       problems: {
         name: 'A name needs plain letters, digits and punctuation, with no space at either end and no link or web address.',
-        slug: 'An address needs lower-case letters, digits and dashes.',
+        slug: 'An address needs lower-case letters, digits and dashes, and can’t be “publish”.',
         copy: 'A description is at most 280 characters, with no link or web address and no hidden characters.',
         count: 'A portfolio holds 3 to 12 assets.',
         weight: 'Each weight is from 2% to 50%, in steps of 0.5%.',

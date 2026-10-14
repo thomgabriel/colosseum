@@ -53,12 +53,12 @@ async function go(page: Page, name: string) {
 
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 
 /** Ticks every warning of the review on the page, and checks the confirm waits for the last one. */
@@ -140,9 +140,9 @@ test('a new goal’s vault from the conversation: one amount, edited by hand, re
   const confirm = await tickAll(page, en.mix.goal.confirm);
   await confirm.click();
 
-  // the stored plan's steps take the same pane, at the amount reviewed: nobody leaves /goal
+  // the stored plan's steps take the same pane, at the amount reviewed: nobody leaves /invest
   // (gate DEPOSIT-IN-PLACE; the whole walk is deposit-in-place.spec.ts)
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   const pane = page.locator('[data-ui="deposit-sign"]');
   await expect(pane.locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
   await expect(page.getByLabel(en.amount.field.deposit, { exact: true })).toHaveCount(0);
@@ -282,16 +282,16 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   const vaultOption = `vault:solana:${address}`;
   await expect(page.locator(`[data-ui="goal-picker"] option[value="${vaultOption}"]`)).toHaveCount(
     1,
   );
   await page.locator('[data-ui="goal-picker"]').selectOption(vaultOption);
-  await expect(page).toHaveURL(new RegExp(`/vaults/solana/${address}$`));
+  await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   // By hand, behind "More" on the vault's own page: the editor, the review and the steps are in the
   // page's pane, at one address (gate VAULT-PAGE-ACTIONS). The editor's own page stays for old links.
-  const here = new RegExp(`/vaults/solana/${address}$`);
+  const here = new RegExp(`/portfolio/vaults/solana/${address}$`);
   const pane = page.locator('[data-ui="vault-action-pane"]');
   await page.locator('[data-ui="vault-more"]').click();
   await page.locator('[data-action="vault-edit-weights"]').click();

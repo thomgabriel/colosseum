@@ -1,5 +1,11 @@
 'use client';
-import { ChainId, chainFamily, type SharedFamily, type Target } from '@colosseum/schemas';
+import {
+  ChainId,
+  chainFamily,
+  type SharedFamily,
+  TAKEN_SLUGS,
+  type Target,
+} from '@colosseum/schemas';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -73,7 +79,8 @@ export function problemsOf(form: {
     LINK.test(form.name)
   )
     out.push('name');
-  if (!SLUG.test(form.slug) || form.slug.length > 64) out.push('slug');
+  if (!SLUG.test(form.slug) || form.slug.length > 64 || TAKEN_SLUGS.includes(form.slug))
+    out.push('slug');
   if (form.copy.length > LIMITS.chars || LINK.test(form.copy) || HIDDEN.test(form.copy))
     out.push('copy');
   if (form.rows.length < LIMITS.min || form.rows.length > LIMITS.max) out.push('count');
@@ -255,7 +262,10 @@ export function PublishScreen() {
               ? t.chain.switch.noWallet(t.chain.names[person.chain])
               : p.signIn}
         </p>
-        <Link href="/sign-in?next=/publish" className={buttonClass({ variant: 'secondary' })}>
+        <Link
+          href="/sign-in?next=/products/publish"
+          className={buttonClass({ variant: 'secondary' })}
+        >
           {t.shell.signIn}
         </Link>
       </section>
@@ -455,7 +465,7 @@ export function PublishScreen() {
       setFailure(p.failure.noStore);
       return;
     }
-    router.push(`/orders/${encodeURIComponent(placed.order.id)}`);
+    router.push(`/portfolio/orders/${encodeURIComponent(placed.order.id)}`);
   }
 
   return (
@@ -493,7 +503,7 @@ export function PublishScreen() {
             </Field>
             {source && (
               <Link
-                href={`/vaults/${chain}/${encodeURIComponent(source.address)}`}
+                href={`/portfolio/vaults/${chain}/${encodeURIComponent(source.address)}`}
                 className={buttonClass({ variant: 'link' })}
               >
                 {p.editStrategy}

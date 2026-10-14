@@ -20,7 +20,7 @@ export default async function NotFound() {
         {t.title}
       </h1>
       <p className="max-w-(--tf-measure-body) text-body">{t.body}</p>
-      <Link href="/goal" className={buttonClass({ variant: 'primary' })}>
+      <Link href="/invest" className={buttonClass({ variant: 'primary' })}>
         {t.action}
       </Link>
     </section>

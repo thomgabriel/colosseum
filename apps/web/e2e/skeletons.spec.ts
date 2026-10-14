@@ -123,8 +123,8 @@ const SLUG = 'three-of-the-largest';
 /** To an order's page as its own browser opens it: the record kept here, for the wallet signed in. */
 async function toOrder(p: Page) {
   const { id, record } = await sample<{ id: string; record: object }>(p, 'order');
-  await (await signInTo(p, '/shelf'))();
-  await expect(p).toHaveURL(/\/shelf/);
+  await (await signInTo(p, '/products'))();
+  await expect(p).toHaveURL(/\/products/);
   // the person's Solana wallet, as the account menu lists it (the phone's sheet holds the same block)
   const wallet = p
     .locator(
@@ -138,7 +138,7 @@ async function toOrder(p: Page) {
     ([orderId, kept]) => {
       window.localStorage.setItem(`tf-order:${orderId}`, kept as string);
       (window as unknown as { next: { router: { push(h: string): void } } }).next.router.push(
-        `/orders/${orderId}`,
+        `/portfolio/orders/${orderId}`,
       );
     },
     [id, JSON.stringify({ ...record, userId: `test:${address.slice(0, 8)}` })],
@@ -156,7 +156,7 @@ for (const width of WIDTHS) {
           const body = await sample(p, 'shelf');
           return () => ({ body });
         },
-        arrive: (p) => p.goto('/shelf').then(() => {}),
+        arrive: (p) => p.goto('/products').then(() => {}),
         label: en.shared.shelf.loading,
         settled: '[data-ui="shelf-card"]',
         regions: [
@@ -192,7 +192,7 @@ for (const width of WIDTHS) {
           return (u) =>
             u.pathname.endsWith('/versions') ? { status: 404, body: { error: 'none' } } : { body };
         },
-        arrive: (p) => p.goto(`/indexes/${SLUG}`).then(() => {}),
+        arrive: (p) => p.goto(`/products/${SLUG}`).then(() => {}),
         label: en.shared.family.loading,
         settled: '[data-ui="family-screen"]',
         regions: [
@@ -324,7 +324,7 @@ for (const width of WIDTHS) {
           const body = await sample(p, 'monitor');
           return () => ({ body });
         },
-        arrive: async (p) => (await signInTo(p, '/monitor'))(),
+        arrive: async (p) => (await signInTo(p, '/portfolio/monitor'))(),
         settled: '[data-ui="vault"]',
         regions: [
           {
@@ -509,13 +509,13 @@ const OUTCOMES: Outcome[] = [
   {
     name: 'the shelf',
     held: /\/v1\/shelf/,
-    arrive: (p) => p.goto('/shelf').then(() => {}),
+    arrive: (p) => p.goto('/products').then(() => {}),
     empty: 'shelf-empty',
   },
   {
     name: 'a shared portfolio',
     held: /\/v1\/indexes\//,
-    arrive: (p) => p.goto(`/indexes/${SLUG}`).then(() => {}),
+    arrive: (p) => p.goto(`/products/${SLUG}`).then(() => {}),
   },
   {
     name: 'the portfolio board',
@@ -541,7 +541,7 @@ const OUTCOMES: Outcome[] = [
   {
     name: 'the monitor',
     held: /\/v1\/portfolio(\?|$)/,
-    arrive: async (p) => (await signInTo(p, '/monitor'))(),
+    arrive: async (p) => (await signInTo(p, '/portfolio/monitor'))(),
     empty: 'monitor-empty',
   },
   { name: 'an order’s page', held: /\/v1\/orders\//, arrive: toOrder },
@@ -613,7 +613,7 @@ test('a long wait says the server may be waking, in the one status line', async 
   await page.setViewportSize({ width: 1440, height: 900 });
   // the stub answers slowly, as the hosted API does on a first request after it slept
   await page.request.post(`${STUB}/__stub/delay`, { data: { ms: 6_000 } });
-  await page.goto('/shelf');
+  await page.goto('/products');
   const wait = waiting(page).first();
   await expect(wait).toHaveAttribute('data-phase', 'slow', { timeout: 10_000 });
   await expect(wait.locator('[role="status"]')).toContainText(en.shell.wait.slow);
@@ -641,13 +641,13 @@ test('a Bearing page with nothing collected on a chain says so at once, with no 
 test('a shared portfolio’s way back works while the page waits', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   const h = await hold(page, /\/v1\/indexes\//);
-  await page.goto(`/indexes/${SLUG}`);
+  await page.goto(`/products/${SLUG}`);
   await expect(waiting(page).first()).toBeVisible();
   // a link, to a screen reader too, and it leads back while the read is still held
   const back = page.locator('main').getByRole('link', { name: en.shared.family.backToShelf });
   await expect(back).toBeVisible();
   await back.click();
-  await expect(page).toHaveURL(/\/shelf/);
+  await expect(page).toHaveURL(/\/products/);
   h.release();
 });
 

@@ -416,8 +416,8 @@ describe('the review', () => {
     // the next step: the portfolio the buy filled, and another buy of the same plan beside it
     const next = [...find(host, '[data-ui="order-next"]').querySelectorAll('a')];
     expect(next.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.order.outcome.seePortfolio, '/monitor'],
-      [en.order.outcome.buyMore, `/plan/${PLAN_ID}/buy`],
+      [en.order.outcome.seePortfolio, '/portfolio/monitor'],
+      [en.order.outcome.buyMore, `/invest/plan/${PLAN_ID}/buy`],
     ]);
     expect(next[0]?.className).toContain(buttonClass({ variant: 'primary' }));
   });
@@ -546,7 +546,7 @@ describe('what the executor answers', () => {
     expect(announce.textContent).toContain(en.order.outcome.refused(2));
     const next = primary(host);
     expect(label(next)).toBe(en.order.outcome.newOrder);
-    expect(next.getAttribute('href')).toBe(`/plan/${PLAN_ID}/buy`);
+    expect(next.getAttribute('href')).toBe(`/invest/plan/${PLAN_ID}/buy`);
   });
 
   it('says the deposit is still in the vault when a later step fails, and leads to the portfolio', async () => {
@@ -574,8 +574,8 @@ describe('what the executor answers', () => {
     // the portfolio first, where the deposit is; a new order, which deposits again, beside it
     const stopped = [...find(host, '[data-ui="order-stopped"]').querySelectorAll('a')];
     expect(stopped.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.order.outcome.seePortfolio, '/monitor'],
-      [en.order.outcome.newOrder, `/plan/${PLAN_ID}/buy`],
+      [en.order.outcome.seePortfolio, '/portfolio/monitor'],
+      [en.order.outcome.newOrder, `/invest/plan/${PLAN_ID}/buy`],
     ]);
     expect(stopped[0]?.className).toContain(buttonClass({ variant: 'primary' }));
     // one primary: the new order, which deposits again, is beside it
@@ -603,7 +603,7 @@ describe('what the executor answers', () => {
       return {
         ...rest,
         id: NEXT_ID,
-        approvalUrl: `/orders/${NEXT_ID}`,
+        approvalUrl: `/portfolio/orders/${NEXT_ID}`,
         legs: first.legs
           .filter((leg) => leg.kind === 'swap')
           .map((leg) => ({ ...leg, orderId: NEXT_ID, seq: 0 })),
@@ -687,7 +687,7 @@ describe('what the executor answers', () => {
       expect(calls.filter((c) => c.path === `/v1/orders/${ORDER_ID}/continue`)).toEqual([
         { method: 'POST', path: `/v1/orders/${ORDER_ID}/continue` },
       ]);
-      expect(router.push).toHaveBeenCalledWith(`/orders/${NEXT_ID}`);
+      expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${NEXT_ID}`);
       const kept = recallOrder(NEXT_ID, USER);
       expect(kept?.approved).toBeNull();
       expect(kept?.continues).toEqual({
@@ -857,7 +857,7 @@ describe('what the executor answers', () => {
         if (sentence === o.finishOther)
           expect([link?.textContent, link?.getAttribute('href')]).toEqual([
             o.openThatOrder,
-            `/orders/${OTHER}`,
+            `/portfolio/orders/${OTHER}`,
           ]);
         else expect(link).toBeNull();
         expect(router.push).not.toHaveBeenCalled();
@@ -1025,7 +1025,7 @@ describe('what the executor answers', () => {
       expect(run.calls).toHaveLength(0);
       await click(primaries[0] as HTMLElement);
       await settle();
-      expect(router.push).toHaveBeenCalledWith(`/orders/${NEXT_ID}`);
+      expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${NEXT_ID}`);
       // held to the approved order's own trades, by step
       expect(recallOrder(NEXT_ID, USER)?.continues).toEqual({
         orderId: ORDER_ID,
@@ -1103,7 +1103,7 @@ describe('what the executor answers', () => {
         await click(finishButton(host) as HTMLElement);
         await settle();
         expect(calls.some((c) => c.path === `/v1/orders/${ORDER_ID}/continue`)).toBe(false);
-        expect(router.push).toHaveBeenCalledWith(`/orders/${NEXT_ID}`);
+        expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${NEXT_ID}`);
         // what the person approved in it is still there
         expect(recallOrder(NEXT_ID, USER)?.approved?.at).toBe('2026-10-05T12:00:00Z');
       });
@@ -1121,7 +1121,7 @@ describe('what the executor answers', () => {
         const host = await stop();
         await click(finishButton(host) as HTMLElement);
         await settle();
-        expect(router.push).toHaveBeenCalledWith(`/orders/${NEXT_ID}`);
+        expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${NEXT_ID}`);
         expect(recallOrder(NEXT_ID, USER)?.approved?.at).toBe('2026-10-05T12:00:00Z');
       });
 
@@ -1156,7 +1156,7 @@ describe('what the executor answers', () => {
         expect(posts.filter((p) => !p.includes('not-an-order'))).toEqual([
           `/v1/orders/${NEXT_ID}/continue`,
         ]);
-        expect(router.push).toHaveBeenCalledWith(`/orders/${THIRD_ID}`);
+        expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${THIRD_ID}`);
         expect(recallOrder(THIRD_ID, USER)?.continues).toEqual({
           orderId: NEXT_ID,
           trades: left(),
@@ -1194,7 +1194,7 @@ describe('what the executor answers', () => {
         expect(posts.filter((p) => !p.includes('not-an-order'))).toEqual([
           `/v1/orders/${NEXT_ID}/continue`,
         ]);
-        expect(router.push).toHaveBeenCalledWith(`/orders/${THIRD_ID}`);
+        expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${THIRD_ID}`);
         expect(recallOrder(THIRD_ID, USER)?.continues).toEqual({
           orderId: NEXT_ID,
           trades: left(),
@@ -1270,7 +1270,7 @@ describe('what the executor answers', () => {
           expect(host.querySelector('[data-ui="order-step"]')).toBeNull();
           await click(primaries[0] as HTMLElement);
           await settle();
-          expect(router.push).toHaveBeenCalledWith(`/orders/${NEXT_ID}`);
+          expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${NEXT_ID}`);
           const kept = recallOrder(NEXT_ID, USER);
           expect(kept?.continues).toEqual({
             orderId: ORDER_ID,
@@ -1334,7 +1334,7 @@ describe('what the executor answers', () => {
         expect(primaries.map(label)).toEqual([en.order.outcome.finish]);
         await click(primaries[0] as HTMLElement);
         await settle();
-        expect(router.push).toHaveBeenCalledWith(`/orders/${THIRD_ID}`);
+        expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${THIRD_ID}`);
         expect(recallOrder(THIRD_ID, USER)?.continues).toEqual({
           orderId: NEXT_ID,
           trades: next.legs.flatMap((leg) => leg.trades),
@@ -1430,7 +1430,7 @@ describe('what the executor answers', () => {
             'plans' in o ? en.order.outcome.depositKept : en.order.outcome.stopped('$10'),
           );
           expect(finishButton(host)).toBeUndefined();
-          expect(primary(host).getAttribute('href')).toBe('/monitor');
+          expect(primary(host).getAttribute('href')).toBe('/portfolio/monitor');
           await unmountAll();
         }
       });

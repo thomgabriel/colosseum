@@ -91,10 +91,22 @@ export const RecipeDraft = z
   .refine(assetsOnly, { message: 'a shared portfolio lists assets only', path: ['components'] });
 export type RecipeDraft = z.infer<typeof RecipeDraft>;
 
+/**
+ * Addresses under the web's `/products` that are pages of their own (gate ROUTES-MATCH-NAV), so no
+ * shared portfolio may take one as its slug: its page would be that page.
+ */
+export const TAKEN_SLUGS: readonly string[] = ['publish'];
+
+/** A shared portfolio's slug: lower-case letters, digits and dashes, and none of `TAKEN_SLUGS`. */
+export const FamilySlug = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]*$/)
+  .refine((slug) => !TAKEN_SLUGS.includes(slug), { message: 'that address is a page of Products' });
+
 /** Off-chain text of a family. `metaHash` is the SHA-256 of its canonical JSON. */
 export const FamilyMeta = z.object({
   familyId: Hex32,
-  slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+  slug: FamilySlug,
   name: z.string().min(1),
   copy: z.string(),
   kind: z.enum(['index', 'single']),

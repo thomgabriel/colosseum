@@ -24,7 +24,7 @@ import { WithdrawScreen } from './WithdrawScreen';
 // (VaultMixFlow); the order each makes is drawn by the order's own screen (OrderScreen), which checks it
 // against what was reviewed, runs the guard on every step and never sends a reverted step again.
 //
-// The pane is laid out as the deposit on /goal is (features/mix/DepositSign.tsx): a heading that takes
+// The pane is laid out as the deposit on /invest is (features/mix/DepositSign.tsx): a heading that takes
 // the focus, the amount as a fact once it is pressed, the end over the steps it sums up, and the way
 // back whenever no step is being signed.
 

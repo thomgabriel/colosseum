@@ -181,8 +181,8 @@ export function FamilyBuyScreen({
         <Link
           href={
             person.kind === 'signed-out'
-              ? `/sign-in?next=/indexes/${encodeURIComponent(slug)}/buy`
-              : `/indexes/${encodeURIComponent(slug)}`
+              ? `/sign-in?next=/products/${encodeURIComponent(slug)}/buy`
+              : `/products/${encodeURIComponent(slug)}`
           }
           className={buttonClass({ variant: 'secondary' })}
         >
@@ -203,7 +203,8 @@ export function FamilyBuyScreen({
 
   /** Makes the order for this amount and keeps the terms this page showed with it. */
   async function place(amountUsd: number): Promise<InvestPlaced> {
-    if (!family || family === 'failed' || !chain || !owner || !followed?.targets)
+    if (!owner) return { failure: t.buy.blocked.wallet };
+    if (!family || family === 'failed' || !chain || !followed?.targets)
       return { failure: t.shared.check.reading };
     if (person.kind !== 'ready' || !person.userId) return { failure: t.buy.failure.signedOut };
     // What the buy is held to: the version and weights shown, never the order the API answers.
@@ -287,7 +288,7 @@ export function FamilyBuyScreen({
       blocked={blocked}
       place={place}
       onProgress={(progress) => {
-        // the recipe the run is on is this page's from here on, whatever /goal stores meanwhile
+        // the recipe the run is on is this page's from here on, whatever /invest stores meanwhile
         if (recipe) setPicked(recipe.chain);
         setLocked(true);
         embedded?.onProgress?.(progress);
@@ -377,7 +378,7 @@ export function FamilyBuyScreen({
       {changed && (
         <Link
           data-ui="family-reopen"
-          href={`/indexes/${encodeURIComponent(slug)}`}
+          href={`/products/${encodeURIComponent(slug)}`}
           className={`${buttonClass({ variant: 'secondary' })} self-start`}
         >
           {t.shared.refusal.reopen}

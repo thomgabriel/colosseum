@@ -33,7 +33,7 @@ import { holds } from '../wallet/test/mock-signing';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
 
-// The deposit signed in place on /goal (gate DEPOSIT-IN-PLACE), with real events against a double of
+// The deposit signed in place on /invest (gate DEPOSIT-IN-PLACE), with real events against a double of
 // the API. Only `execute` of the SDK is a double, as in the invest card's own tests: what decides a
 // signature (the order check, the guard, the record of what was approved) is the order screen's and
 // the runner's, unchanged. Each state of the pane is read here: ready, signing, a failed step, a quote
@@ -151,7 +151,7 @@ const continuation = (): OrderDetail => {
   return {
     ...rest,
     id: NEXT_ID,
-    approvalUrl: `/orders/${NEXT_ID}`,
+    approvalUrl: `/portfolio/orders/${NEXT_ID}`,
     legs: rest.legs
       .filter((leg) => leg.kind === 'swap')
       .map((leg) => ({ ...leg, orderId: NEXT_ID, seq: 0 })),
@@ -226,7 +226,7 @@ function api(
         const order: OrderDetail = {
           ...base,
           id,
-          approvalUrl: `/orders/${id}`,
+          approvalUrl: `/portfolio/orders/${id}`,
           legs: base.legs.map((leg) => ({ ...leg, orderId: id })),
           ...(o.openFor !== undefined && made === 0
             ? { expiresAt: Math.floor((Date.now() + o.openFor) / 1000) }
@@ -383,7 +383,7 @@ const tick = (host: HTMLElement) =>
 
 beforeEach(() => {
   installLocks();
-  window.history.replaceState(null, '', '/goal');
+  window.history.replaceState(null, '', '/invest');
   window.localStorage.clear();
   window.sessionStorage.clear();
   router.push.mockClear();
@@ -393,7 +393,7 @@ beforeEach(() => {
 });
 afterEach(unmountAll);
 
-describe('the deposit signed in place on /goal', () => {
+describe('the deposit signed in place on /invest', () => {
   it('shows the steps to sign in the same pane, with everything the plan’s own page shows, and the amount as a fact', async () => {
     const server = api();
     const host = await show();
@@ -504,7 +504,7 @@ describe('the deposit signed in place on /goal', () => {
     // one way on, to the vault's own page; the card draws no link of its own
     const open = find<HTMLAnchorElement>(sign, '[data-action="open-vault"]');
     expect(open.textContent).toBe(en.mix.deposit.signing.openVault);
-    expect(open.getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}`);
+    expect(open.getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}`);
     expect(sign.querySelector('[data-ui="order-next"]')).toBeNull();
     // the conversation is the person's again, and nobody was sent anywhere
     expect(box(host).disabled).toBe(false);
@@ -548,7 +548,9 @@ describe('the deposit signed in place on /goal', () => {
     expect(find(host, '[data-ui="goal-chat"]').textContent).toContain(en.goal.explore.deposit.open);
     // leaving says where the money is, and gives the box back; the deposit is set aside, not lost
     expect(sign.textContent).toContain(en.mix.deposit.signing.leaveNote);
-    expect(find(sign, 'a[href^="/orders/"]').getAttribute('href')).toBe(`/orders/${ORDER_ID}`);
+    expect(find(sign, 'a[href^="/portfolio/orders/"]').getAttribute('href')).toBe(
+      `/portfolio/orders/${ORDER_ID}`,
+    );
     server.put(stoppedOrder());
     await click(find(sign, '[data-action="leave-deposit"]'));
     await settle();
@@ -559,7 +561,7 @@ describe('the deposit signed in place on /goal', () => {
     expect(note.getAttribute('data-landed')).toBe('true');
     expect(note.textContent).toContain(en.goal.explore.deposit.unfinished.landed('$10'));
     expect(note.textContent).toContain(en.goal.explore.deposit.unfinished.again);
-    expect(find(note, 'a').getAttribute('href')).toBe(`/orders/${ORDER_ID}`);
+    expect(find(note, 'a').getAttribute('href')).toBe(`/portfolio/orders/${ORDER_ID}`);
     // "Deposit" again is not silent: the unfinished one is still said, over the deposit step
     await click(find(host, '[data-action="deposit"]'));
     expect(host.querySelector('[data-ui="deposit-step"]')).not.toBeNull();
@@ -635,7 +637,7 @@ describe('the deposit signed in place on /goal', () => {
     expect(run.calls[1]?.order).toEqual(orderOn());
     expect(pane(again).getAttribute('data-state')).toBe('done');
     expect(find(again, '[data-action="open-vault"]').getAttribute('href')).toBe(
-      `/vaults/solana/${MY_VAULT}`,
+      `/portfolio/vaults/solana/${MY_VAULT}`,
     );
     expect(server.placed()).toHaveLength(1);
   });
@@ -790,7 +792,7 @@ describe('a deposit that stopped after its cash landed, finished in the pane', (
     expect(run.calls[1]?.order.id).toBe(NEXT_ID);
     expect(pane(host).getAttribute('data-state')).toBe('done');
     expect(find(host, '[data-action="open-vault"]').getAttribute('href')).toBe(
-      `/vaults/solana/${MY_VAULT}`,
+      `/portfolio/vaults/solana/${MY_VAULT}`,
     );
     expect(box(host).disabled).toBe(false);
     // what is kept follows the order that finished it, and says nothing of being done
@@ -801,7 +803,7 @@ describe('a deposit that stopped after its cash landed, finished in the pane', (
     expect(server.placed()).toHaveLength(1);
   });
 
-  it('finished on the order’s own page instead: back on /goal the pane says it is done, from our server', async () => {
+  it('finished on the order’s own page instead: back on /invest the pane says it is done, from our server', async () => {
     // the first order approved here and stopped; the one that finishes it approved elsewhere, done
     kept(ENTRY);
     rememberPlan(planOn());
@@ -829,7 +831,7 @@ describe('a deposit that stopped after its cash landed, finished in the pane', (
     expect(pane(host).getAttribute('data-state')).toBe('done');
     expect(pane(host).textContent).not.toContain(en.mix.deposit.signing.leaveNote);
     expect(find(host, '[data-action="open-vault"]').getAttribute('href')).toBe(
-      `/vaults/solana/${MY_VAULT}`,
+      `/portfolio/vaults/solana/${MY_VAULT}`,
     );
     expect(box(host).disabled).toBe(false);
     expect(run.calls).toEqual([]);
@@ -899,7 +901,7 @@ describe('what a reload takes up again, and what it does not', () => {
     await settle();
     expect(pane(host).getAttribute('data-state')).toBe('done');
     expect(find(host, '[data-action="open-vault"]').getAttribute('href')).toBe(
-      `/vaults/solana/${MY_VAULT}`,
+      `/portfolio/vaults/solana/${MY_VAULT}`,
     );
     expect(box(host).disabled).toBe(false);
   });

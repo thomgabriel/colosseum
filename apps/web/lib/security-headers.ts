@@ -7,7 +7,7 @@ import type { FrameRule } from './frame-policy';
 //   and no `preload`: both bind names this app does not own alone, and are a person's decision.
 // - X-Content-Type-Options: a response is read as the type it says, never sniffed into a script.
 // - Referrer-Policy: another site learns the origin a person came from, never the path. A plan's
-//   link (`/plan/<id>`) and a vault's address are in the path.
+//   link (`/invest/plan/<id>`) and a vault's address are in the path.
 // - Permissions-Policy: the device features nothing here uses are off for the page and its frames.
 //   Passkeys (`publickey-credentials-*`), the clipboard and USB or HID wallets are left as they are.
 //

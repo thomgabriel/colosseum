@@ -103,7 +103,7 @@ const orderNo = (n: number, amountUsd = 10): OrderDetail => {
   return {
     ...order,
     id,
-    approvalUrl: `/orders/${id}`,
+    approvalUrl: `/portfolio/orders/${id}`,
     ...(order.depositRaw ? { depositRaw: scaled(order.depositRaw) } : {}),
     legs: order.legs.map((leg) => ({
       ...leg,
@@ -371,7 +371,7 @@ describe('investing with one press, with the passkey wallet', () => {
     await settle();
     const open = find<HTMLAnchorElement>(host, '[data-ui="order-next"] [data-action="open-vault"]');
     expect(open.textContent).toBe(en.mix.deposit.signing.openVault);
-    expect(open.getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}`);
+    expect(open.getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}`);
     // one signing run in all: nothing is asked of the wallet twice
     expect(run.calls).toHaveLength(1);
   });

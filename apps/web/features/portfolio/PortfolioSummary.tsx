@@ -132,7 +132,7 @@ export function PortfolioSummary({ state }: { state: PortfolioState }) {
                         </p>
                       )}
                       <Link
-                        href={`/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
+                        href={`/portfolio/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
                         className={buttonClass({ variant: 'link' })}
                       >
                         {t.shared.vaults.open}

@@ -139,7 +139,7 @@ export function ApplyVaultMix({
       setBusy(false);
       return onOrder(order.id);
     }
-    router.push(`/orders/${encodeURIComponent(order.id)}`);
+    router.push(`/portfolio/orders/${encodeURIComponent(order.id)}`);
   }
 
   const said = failure && (
