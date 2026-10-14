@@ -11,7 +11,8 @@ import {
 } from '@colosseum/risk';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ASSESS_MAX_WITHDRAWALS, RISK_CACHE_CONTROL } from '../../api/src/routes/risk';
+import { ASSESS_MAX_WITHDRAWALS } from '../../api/src/routes/risk';
+import { RISK_CACHE_CONTROL } from '../../api/src/routes/risk-cache';
 import { buildRiskApp } from './app';
 
 // HANDOFF-RISK §6 P2.2 and P2.3: the standalone API serves only /risk/* and /docs, and
