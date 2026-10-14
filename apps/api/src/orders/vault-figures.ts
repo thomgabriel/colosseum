@@ -486,8 +486,15 @@ const LOOKUP_KINDS: Array<[RegExp, RegExp]> = [
     ),
   ],
   [/^bars:.+:volume$/u, lone('volume|traded|negociad\\p{L}*')],
-  [/^bars:.+:buyvol$/u, lone('bought|buys?|buying|purchases?|purchased|compras?|comprad\\p{L}*')],
-  [/^bars:.+:sellvol$/u, lone('sold|sells?|selling|sales?|vendas?|vendid\\p{L}*')],
+  // the entry and exit sides (Bearing's market terms), beside the old words
+  [
+    /^bars:.+:buyvol$/u,
+    lone('entry\\s+side|entries|bought|buys?|buying|purchases?|purchased|compras?|comprad\\p{L}*'),
+  ],
+  [
+    /^bars:.+:sellvol$/u,
+    lone('exit\\s+side|exits|sold|sells?|selling|sales?|vendas?|vendid\\p{L}*'),
+  ],
   [
     /^bars:.+:swaps$/u,
     lone('swaps?|trades|count|number\\s+of|trocas?|opera[cç](?:ão|ões|ao|oes)|n[uú]mero\\s+de'),
