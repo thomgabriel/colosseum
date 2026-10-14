@@ -1031,6 +1031,21 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     },
   );
 
+  it('shows what a portfolio leaves of 100% as cash, on the shelf and on its page (SHARED-RULES-V2)', async () => {
+    const seventy = recipeOf({
+      active: { ...recipeOf().active, components: [{ asset: 'solana:spyx', weightBps: 7000 }] },
+    });
+    api({ family: familyOf(FAMILY_ID, { recipes: [seventy] }) });
+    const page = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const pane = find(page, '[data-ui="plan-pane"]');
+    expect(pane.textContent).toContain('70%');
+    expect(pane.textContent).toContain('30%');
+    expect(pane.textContent).toContain(en.plan.cash('USDC'));
+    await unmountAll();
+    const shelf = await show(createElement(ShelfScreen));
+    expect(shelf.textContent).toContain('30%');
+  });
+
   it('keeps the publisher and where the weights come from in view, and the routine check behind Details', async () => {
     api({ family: familyOf(FAMILY_ID) });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
