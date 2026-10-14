@@ -19,7 +19,9 @@ import { deploymentsOf, familyIdOf, familyTextHash, guardTransaction } from '@co
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // The four shared portfolios of gate PRODUCTS-MAINNET-ONLY, published on a local copy of Robinhood
-// Chain mainnet (4663) before Thom publishes them for real: each is held to the creator limits the API
+// Chain mainnet (4663) before Thom publishes them for real. Every address is the deploy record's
+// (`deployments/robinhood-mainnet.json`) and the guard's (`packages/sdk/deployments/mainnet.json`), so
+// after a redeploy the test reads the new registry and factory as they are written there: each is held to the creator limits the API
 // checks (the factory's asset list, read from the copy), built by the EVM adapter as the order builds
 // it, passed by the guard with the mainnet deployment the app signs with
 // (packages/sdk/deployments/mainnet.json), sent from Thom's address impersonated by anvil, and read
@@ -147,7 +149,14 @@ describe.skipIf(!FORK_URL)('the four mainnet portfolios, published on a copy of 
     return robinhood as GuardDeployment;
   };
 
-  it('refuses gold and AMZN at the least weight: their ceiling on the factory is under it', async () => {
+  it('signs on the registry the deploy record names, the same one the guard holds steps to', () => {
+    expect(String((deployment() as { registry?: string }).registry).toLowerCase()).toBe(
+      RECORD.contracts.registry.toLowerCase(),
+    );
+  });
+
+  it('holds gold and AMZN at the least weight to the ceiling the factory states for them', async () => {
+    const assets = await adapter.listAssets();
     for (const asset of ['robinhood:gld', 'robinhood:amzn']) {
       const verdict = checkCreatorLimits(
         null,
@@ -156,15 +165,11 @@ describe.skipIf(!FORK_URL)('the four mainnet portfolios, published on a copy of 
           { asset: 'robinhood:meta', weightBps: 4800 },
           { asset, weightBps: 200 },
         ],
-        {
-          assets: await adapter.listAssets(),
-          now: 0,
-          lastPublishAt: null,
-          hasPending: false,
-          publishDelay: 0,
-        },
+        { assets, now: 0, lastPublishAt: null, hasPending: false, publishDelay: 0 },
       );
-      expect(verdict.ok).toBe(false);
+      // Under the least weight on this factory (0.5% on the deploy of Oct 12), it is refused.
+      const ceiling = assets.find((a) => a.id === asset)?.maxWeightBps ?? 0;
+      expect(verdict.ok, asset).toBe(ceiling >= 200);
       if (!verdict.ok) expect(verdict.code).toBe('WeightAboveCeiling');
     }
   });
