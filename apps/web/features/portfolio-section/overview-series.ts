@@ -1,4 +1,6 @@
 import {
+  type ChainId,
+  chainFamily,
   HISTORY_MAX_POINTS,
   HISTORY_STEP_SECONDS,
   type HistoryStep,
@@ -83,6 +85,10 @@ export type Flow = { chain: string; address: string; at: number; usd: number };
  * had no price when it was ordered cannot be counted in dollars: those are counted in `unvalued`, so
  * the page can say its figures leave them out.
  */
+/** A vault as it is told from every other: an EVM address in any case is one address. */
+const keyOf = (chain: ChainId, address: string) =>
+  `${chain}:${chainFamily(chain) === 'evm' ? address.toLowerCase() : address}`;
+
 export function flowsOf(
   plans: PlansAnswer,
   withdrawals: readonly PersonWithdrawal[],
@@ -98,9 +104,22 @@ export function flowsOf(
           at: Date.parse(deposit.at),
           usd: Number(deposit.usd),
         });
+  // A vault opened again counts from then (gate VAULT-CLOSE-REUSE): what was taken out of it before
+  // is its last life's, and is not taken off this one's.
+  const countsFrom = new Map(
+    plans.chains.flatMap((entry) =>
+      entry.plans.flatMap((plan) =>
+        plan.countsFrom
+          ? [[keyOf(entry.chain, plan.address), Date.parse(plan.countsFrom)] as const]
+          : [],
+      ),
+    ),
+  );
   for (const withdrawal of withdrawals)
     for (const step of withdrawal.steps) {
       if (step.status !== 'confirmed') continue;
+      const from = countsFrom.get(keyOf(withdrawal.chain, withdrawal.vault));
+      if (from !== undefined && Date.parse(step.at) < from) continue;
       let usd = 0;
       for (const out of step.withdrawals) {
         if (out.valued) usd += Number(out.valued.usd);

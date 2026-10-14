@@ -23,6 +23,13 @@ export type ApiInput<R extends Route> = ([Part<R, 'params'>] extends [never]
 /** What one route answers with a 200. */
 export type ApiOutput<R extends Route> = Part<R, 'response'>;
 
+/** The facts the server holds of one listed asset (`GET /v1/assets/{id}/facts`). */
+export type AssetFacts = ApiOutput<'GET /v1/assets/{id}/facts'>;
+/** One part of an asset's facts: `profile`, `price_history`, `pools`, `lending` or `bearing`. */
+export type AssetFactsPart = keyof AssetFacts['parts'];
+/** The window a price history is read over. */
+export type AssetFactsWindow = AssetFacts['window'];
+
 /** Bearing's fact sheet for one asset at one trade size (`GET /risk/facts/assets/{id}`), as read here. */
 export type AssetRiskFacts = {
   /** Every fact Bearing has on the asset: a fact with no data is null with its reason, never zero. */
@@ -60,6 +67,15 @@ export type TenonfiClient = {
   call<R extends Route>(route: R, input?: ApiInput<R>): Promise<ApiOutput<R>>;
   /** Bearing's fact sheet for one asset, by its symbol or mint, at a trade size in dollars. */
   assetRisk(asset: string, sizeUsd?: number): Promise<AssetRiskFacts>;
+  /**
+   * The facts the server holds of one listed asset, by its id (`solana:nvdax`): the parts asked (every
+   * part when none is named), the price history over `window` (7 days when none is named). Each fact
+   * carries its source, method, time and provenance; one that is not measured comes with why.
+   */
+  assetFacts(
+    assetId: string,
+    asked?: { parts?: readonly AssetFactsPart[]; window?: AssetFactsWindow },
+  ): Promise<AssetFacts>;
 };
 
 /** The client over `fetch`. Every answer that is not a 2xx is thrown as an `ApiRefusal`. */
@@ -80,17 +96,27 @@ export function createTenonfiClient(fetchApi: ApiFetch): TenonfiClient {
         : { error: `the API answered ${res.status}` };
     throw new ApiRefusal(res.status, said);
   };
+  const call: TenonfiClient['call'] = (route, input) => {
+    const [method = 'GET', path = ''] = String(route).split(' ');
+    const given = (input ?? {}) as {
+      params?: Record<string, string>;
+      query?: Record<string, unknown>;
+      body?: unknown;
+    };
+    return send(method, pathOf(path, given.params) + queryOf(given.query), given.body);
+  };
   return {
-    call: (route, input) => {
-      const [method = 'GET', path = ''] = String(route).split(' ');
-      const given = (input ?? {}) as {
-        params?: Record<string, string>;
-        query?: Record<string, unknown>;
-        body?: unknown;
-      };
-      return send(method, pathOf(path, given.params) + queryOf(given.query), given.body);
-    },
+    call,
     assetRisk: (asset, sizeUsd) =>
       send('GET', `/risk/facts/assets/${segment(asset)}${queryOf({ sizeUsd })}`),
+    assetFacts: (assetId, asked = {}) => {
+      // an empty list would ask for nothing, which the API refuses: name a part, or leave the list out
+      if (asked.parts?.length === 0) throw new RangeError('name at least one part, or none at all');
+      const parts = asked.parts ? [...new Set(asked.parts)].join(',') : undefined;
+      return call('GET /v1/assets/{id}/facts', {
+        params: { id: assetId },
+        query: { parts, window: asked.window },
+      });
+    },
   };
 }

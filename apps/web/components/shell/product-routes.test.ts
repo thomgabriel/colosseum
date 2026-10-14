@@ -109,6 +109,7 @@ describe('the routes of the app', () => {
       'app/(app)/invest/plan/[id]/page.tsx',
       'app/(app)/layout.tsx',
       'app/(app)/not-found.tsx',
+      'app/(app)/portfolio/(section)/closed/page.tsx',
       'app/(app)/portfolio/(section)/exposure/loading.tsx',
       'app/(app)/portfolio/(section)/exposure/page.tsx',
       'app/(app)/portfolio/(section)/layout.tsx',

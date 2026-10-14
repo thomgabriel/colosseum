@@ -30,6 +30,7 @@ describe('parseFlags', () => {
       autoFollow: { solana: false, robinhood: false, base: false },
       keeperEnabled: false,
       agentSurface: false,
+      shelfLiveOnly: false,
     });
     expect(Flags.parse(parseFlags({}))).toEqual(DEFAULT_FLAGS);
   });
@@ -43,12 +44,14 @@ describe('parseFlags', () => {
       AUTO_FOLLOW_ROBINHOOD: 'off',
       KEEPER_ENABLED: 'true',
       AGENT_SURFACE: '1',
+      SHELF_LIVE_ONLY: 'on',
     });
     expect(flags).toEqual({
       chainMode: { solana: 'live', robinhood: 'readonly', base: 'mock' },
       autoFollow: { solana: true, robinhood: false, base: false },
       keeperEnabled: true,
       agentSurface: true,
+      shelfLiveOnly: true,
     });
   });
 
@@ -82,6 +85,11 @@ describe('parseFlags', () => {
       'unknown variable: CHAIN_MODE_ARBITRUM, KEEPER_ENABLE',
     );
     expect(message(() => parseFlags({ AUTO_FOLLOW_SOL: 'on' }))).toMatch(/AUTO_FOLLOW_SOL/);
+    expect(message(() => parseFlags({ SHELF_LIVE: 'on' }))).toBe('unknown variable: SHELF_LIVE');
+    // a value it does not know stops it, and the message never repeats the value
+    expect(message(() => parseFlags({ SHELF_LIVE_ONLY: 'secret-ish' }))).toBe(
+      'SHELF_LIVE_ONLY: expected on or off',
+    );
     // The chain config's own variables are known, other prefixes are not ours, and an app can add names.
     const env = { CHAIN_ROUTER_ROBINHOOD: ROUTER, CHAIN_NETWORK_BASE: 'local', DATABASE_URL: 'x' };
     expect(parseFlags(env)).toEqual(DEFAULT_FLAGS);

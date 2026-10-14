@@ -2,6 +2,7 @@ import { view } from '@colosseum/basket';
 import {
   ChainError,
   type ChainId,
+  ClosedVaultsResponse,
   DISCLAIMER,
   OrderError,
   PortfolioResponse,
@@ -16,6 +17,7 @@ import { chainsHeld } from '../../orders/person';
 import { type JoinLog, joinMissed } from '../../orders/plan-join';
 import { cacheVault, everyPersonPlan, vaultNames } from '../../orders/store';
 import { loggable } from '../../plugins/loggable';
+import { closedVaultsOf, isClosed, lifetimesOf } from '../../portfolio/lifetimes';
 import { numbered, vaultNumbersOf } from '../../portfolio/numbers';
 import { personScope } from '../../portfolio/scope';
 import { signedIn } from './orders';
@@ -50,12 +52,19 @@ async function chainPortfolio(
   // A vault whose order confirmed without its plan being joined to it is joined now that it is in the
   // cache (orders/plan-join.ts). The join is kept in the database and changes nothing in this answer.
   await joinMissed(deps.db, entry.chain, vaults, principal, log);
+  // A vault its person closed is in no list of theirs (gate VAULT-CLOSE-REUSE): it is still read and
+  // cached, so the list of closed vaults names it, and left out of the answer.
+  const lives = await lifetimesOf(
+    deps.db,
+    entry.chain,
+    vaults.map((v) => v.address),
+  );
   return {
     chain: entry.chain,
     name: entry.config.name,
     mode: entry.mode,
     provenance: entry.provenance,
-    vaults,
+    vaults: vaults.filter((v) => !isClosed(lives.get(v.address))),
     prices,
   };
 }
@@ -162,6 +171,29 @@ export function registerPortfolioRoute(scope: FastifyInstance, deps: OrderDeps) 
         }),
       );
       return { chains: named, unavailable, disclaimer: DISCLAIMER.en };
+    },
+  );
+  scope.withTypeProvider<ZodTypeProvider>().get(
+    '/v1/portfolio/closed',
+    {
+      config: { auth: 'user', limit: 'standard' },
+      schema: {
+        tags: ['portfolio'],
+        summary: "The signed-in person's closed vaults, newest close first",
+        description:
+          'The vaults the person closed (gate VAULT-CLOSE-REUSE), on every chain of theirs this server runs, from the database alone: each with the name they gave it, its number among their vaults where the server holds one, when it was closed and its label. A vault is theirs as the portfolio’s routes read it: owned by a wallet of their verified identity token, on the chain, under the label the chain carries here. Each can be opened again with `POST /v1/vaults/{chain}/{address}/reopen`.',
+        response: { 200: ClosedVaultsResponse, default: OrderError },
+      },
+    },
+    async (req): Promise<ClosedVaultsResponse> => {
+      const principal = signedIn(req);
+      return {
+        vaults: await closedVaultsOf(
+          deps.db,
+          personScope(deps.chains, principal),
+          principal.userId,
+        ),
+      };
     },
   );
 }

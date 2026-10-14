@@ -3,8 +3,9 @@ import { assetsNamedIn, type GoalAgentContext, LOWER_BOUND } from './vault-agent
 import { type FigureReferences, type FigureResolver, NULL_REASONS } from './vault-figures';
 
 // The measured figures the relaxed intake may state by reference (RELAXED-INTAKE as amended
-// 2026-10-09; the rules are FIGURES-BY-REFERENCE's, in vault-figures.ts, unchanged). This file only
-// chooses which of the request's evidence the model is handed, and writes the served message.
+// 2026-10-09 and again 2026-10-14; the rules are FIGURES-BY-REFERENCE's, in vault-figures.ts,
+// unchanged). This file only chooses which of the request's evidence the model is handed, and writes the
+// served message. What the model looks up in a reply is added by the lookup loop (lookup-loop.ts).
 //
 // What is handed over: the figures of the holdings the conversation names, not the whole catalog's.
 // A catalog of a dozen assets has about a dozen figures each, and the block varies with the
@@ -13,12 +14,18 @@ import { type FigureReferences, type FigureResolver, NULL_REASONS } from './vaul
 // symbol, what it tracks or its company in any turn, by its id in a draft the web kept and resent, or
 // by a class word ("the stocks") in the person's latest message, which loads at most `CLASS_LOADS` more
 // than are named already. The others are listed by symbol only,
-// so the model can say their figures come once they are named. Each id goes with what it measures and
-// never with its value: the model has nothing to copy, compare or rank.
+// so the model can say their figures come once they are named. Each id goes with what it measures, its
+// value and unit, when it was measured and its provenance (RELAXED-INTAKE as amended again, 2026-10-14:
+// with ids alone the wrong id was the model's likely mistake). It still writes none of them: a typed
+// value is refused, and every figure is served by reference.
 
-/** The kinds of evidence that are measured figures of a listed asset. Nothing of a vault or a person. */
-const MEASURED =
-  /^(?:price|yield|exit|lpexit|weekend|lp|capvar|volume|vol|drawdown|capacity|liquidity):/u;
+/**
+ * The kinds of evidence that are measured figures of a listed asset. Nothing of a vault or a person. The
+ * asset lookups' families (`profile`, `bars`, `pool`, `lend`: FIGURES-BY-REFERENCE as amended 2026-10-14)
+ * are an asset's too.
+ */
+export const MEASURED =
+  /^(?:price|yield|exit|lpexit|weekend|lp|capvar|volume|vol|drawdown|capacity|liquidity|profile|bars|pool|lend):/u;
 
 /** How many holdings a class word ("the stocks") loads at most, beside those already named. */
 export const CLASS_LOADS = 6;
@@ -82,7 +89,10 @@ export function goalFigures(
     sources.set(source.id, source);
     // a size-free capacity says so in its label only (`buildGoalAgentContext`)
     if (source.label?.includes(LOWER_BOUND)) lowerBound.add(source.id);
-    add(source.assetId, `${source.id} — ${source.label ?? 'measured figure'}`);
+    add(
+      source.assetId,
+      `${source.id} — ${source.label ?? 'measured figure'}: value ${source.value} ${source.unit}, as of ${source.fetchedAt}, ${source.provenance}`,
+    );
     const age = context.references?.staleAgeSec[source.id];
     if (age !== undefined) references.staleAgeSec[source.id] = age;
   }
@@ -97,7 +107,7 @@ export function goalFigures(
   const shown = assets.filter((asset) => lines.has(asset.id));
   const others = assets.filter((asset) => !lines.has(asset.id) && asset.cls !== 'cash');
   const block = [
-    'MEASURED FIGURES for this message (rule 3). Each line is an id and what it measures; the value is not shown to you, the code writes it where you write {{fact:<id>}}.',
+    'MEASURED FIGURES for this message (rule 3). Each line is an id, what it measures, its value with its unit, when it was measured and its provenance. You never type the value: the code writes it where you write {{fact:<id>}}.',
     ...shown.flatMap((asset) => [
       `${asset.symbol} (${asset.id}):`,
       ...(lines.get(asset.id) ?? []).map((line) => `  ${line}`),

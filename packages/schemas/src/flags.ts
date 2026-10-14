@@ -23,6 +23,11 @@ export const Flags = z.object({
   keeperEnabled: z.boolean(),
   /** AGENT_SURFACE */
   agentSurface: z.boolean(),
+  /**
+   * SHELF_LIVE_ONLY (gate PRODUCTS-MAINNET-ONLY): the shelf lists only the recipes whose figures are
+   * live, and a portfolio is published only where they would be.
+   */
+  shelfLiveOnly: z.boolean(),
 });
 export type Flags = z.infer<typeof Flags>;
 
@@ -32,6 +37,7 @@ export const DEFAULT_FLAGS: Flags = {
   autoFollow: { solana: false, robinhood: false, base: false },
   keeperEnabled: false,
   agentSurface: false,
+  shelfLiveOnly: false,
 };
 
 /** The env key of a per-chain setting: envKey('CHAIN_MODE', 'robinhood') is CHAIN_MODE_ROBINHOOD. */
@@ -48,7 +54,7 @@ const PER_CHAIN = [
   'CHAIN_PRICE_SOURCE',
 ];
 /** Names under these prefixes are ours: one that is not known is a typo, and a typo is refused. */
-const OWNED_PREFIXES = ['CHAIN_', 'AUTO_FOLLOW_', 'KEEPER_'];
+const OWNED_PREFIXES = ['CHAIN_', 'AUTO_FOLLOW_', 'KEEPER_', 'SHELF_'];
 
 /** Every variable the flags and the chain configs read. */
 export const KNOWN_ENV_KEYS: readonly string[] = [
@@ -58,6 +64,7 @@ export const KNOWN_ENV_KEYS: readonly string[] = [
   'CHAIN_MAINNET_ROBINHOOD',
   'KEEPER_ENABLED',
   'AGENT_SURFACE',
+  'SHELF_LIVE_ONLY',
 ];
 
 /**
@@ -72,7 +79,7 @@ export const mainnetAllowed = (env: EnvLike): boolean =>
   env[MAINNET_SWITCH]?.trim() === MAINNET_SWITCH_VALUE;
 
 /**
- * Throws on a set variable that starts with CHAIN_, AUTO_FOLLOW_ or KEEPER_ and is not one we read:
+ * Throws on a set variable that starts with CHAIN_, AUTO_FOLLOW_, KEEPER_ or SHELF_ and is not one we read:
  * CHAIN_MODE_ROBINHOD=live would otherwise leave the chain on its default without a word. An app that
  * reads more variables under those prefixes (a keeper key path) lists them in `alsoKnown`.
  */
@@ -130,5 +137,6 @@ export function parseFlags(env: EnvLike, alsoKnown: readonly string[] = []): Fla
     autoFollow,
     keeperEnabled: bool(env, 'KEEPER_ENABLED', DEFAULT_FLAGS.keeperEnabled),
     agentSurface: bool(env, 'AGENT_SURFACE', DEFAULT_FLAGS.agentSurface),
+    shelfLiveOnly: bool(env, 'SHELF_LIVE_ONLY', DEFAULT_FLAGS.shelfLiveOnly),
   };
 }

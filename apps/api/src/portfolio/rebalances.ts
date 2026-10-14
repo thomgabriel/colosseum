@@ -7,13 +7,14 @@ import {
 } from '@colosseum/schemas';
 import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { boughtOf, numberWorkedOut } from '../orders/plan-join';
+import { lifetimesOf } from './lifetimes';
 import {
   KEEPER_LOOKBACK_DAYS,
   keeperTrades,
   type SnapshotPoint,
   snapshotsNear,
 } from './rebalances-snapshots';
-import { addressOn, ownedOn, type ScopedChain } from './scope';
+import { addressOn, openOn, type ScopedChain } from './scope';
 import { knownVaults } from './snapshots';
 
 // The list behind GET /v1/portfolio/rebalances (PORT-2): the steps that reached a chain for a person's
@@ -112,7 +113,7 @@ async function ownerSteps(
   const cached = await db
     .select({ address: vaults.address, owner: vaults.owner, number: vaults.onchainBasketId })
     .from(vaults)
-    .where(ownedOn(vaults, scoped));
+    .where(openOn(vaults, scoped));
   /** The numbers worked out so far, by order: an order's attempts share one. */
   const worked = new Map<string, string | null>();
   /**
@@ -254,10 +255,19 @@ export async function chainRebalances(
     cash: cash.id,
     limit: a.limit,
   });
+  // A vault reopened counts its own steps from then on (gate VAULT-CLOSE-REUSE): the snapshots the
+  // keeper's are worked out from are cut there already.
+  const lives = await lifetimesOf(db, scoped.entry.chain, [
+    ...new Set(steps.flatMap((step) => (step.entry.vault ? [step.entry.vault] : []))),
+  ]);
+  const thisLife = steps.filter((step) => {
+    const from = step.entry.vault ? lives.get(step.entry.vault)?.reopenedAt : undefined;
+    return !from || step.builtAt >= from;
+  });
   // Newest first across both kinds. The sort keeps what it is given in order where two times are
   // equal: an owner's step ahead of a keeper's trade, and each kind as its own read ordered it.
   const listed = [
-    ...steps.map((step) => ({ at: step.builtAt.getTime(), entry: step.entry, step })),
+    ...thisLife.map((step) => ({ at: step.builtAt.getTime(), entry: step.entry, step })),
     ...derived.map((entry) => ({ at: Date.parse(entry.at), entry, step: null })),
   ]
     .sort((x, y) => y.at - x.at)
