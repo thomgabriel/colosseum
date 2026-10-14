@@ -45,7 +45,6 @@ export const TICK_MS = 60_000;
 
 export type Base = {
   assets: Res<AssetsBody>;
-  pools: Res<PoolsBody>;
   lendList: Res<LendListBody>;
   recorded: Set<string>;
 };
@@ -72,8 +71,10 @@ type Ctx = {
   clock: Clock;
   /** The newest reading of the collectors, when the API gave one. */
   newest: string | null;
-  /** The chain's lists: its assets, pools, lending pools and recorded pools. */
+  /** The chain's lists: its assets, lending pools and recorded pools. */
   base: () => Promise<Base>;
+  /** Solana's lending pools alone, for a page that needs no other list. */
+  lendList: () => Promise<Res<LendListBody>>;
   /** Per asset of the chain, by the symbol the page shows. */
   dex: (ids: readonly string[]) => Promise<Record<string, DexAsset>>;
   lending: () => Promise<LendRow[]>;
@@ -177,23 +178,21 @@ export function BearingProvider({
   const api = useMemo(() => {
     if (memo.current.generation !== gen)
       memo.current = { base: new Map(), dex: new Map(), generation: gen };
+    const lendListOf = () => reader.get<LendListBody>(R.lendList());
     const baseOf = (c: BearingChain) => {
       let p = memo.current.base.get(c);
       if (!p) {
         // Solana's addresses are read as they always were; Robinhood Chain's name it. Lending pools
-        // and recorded pools are Solana's only.
+        // and recorded pools are Solana's only. The chain's whole pool list is not read: a page reads
+        // the pools of its assets (`dex`).
         p = Promise.all([
           reader.get<AssetsBody>(R.assets(TAU, c)),
-          reader.get<PoolsBody>(R.pools(c)),
-          c === 'solana'
-            ? reader.get<LendListBody>(R.lendList())
-            : Promise.resolve(notOnChain<LendListBody>()),
+          c === 'solana' ? lendListOf() : Promise.resolve(notOnChain<LendListBody>()),
           c === 'solana'
             ? reader.get<RecordedBody>(R.recorded())
             : Promise.resolve(notOnChain<RecordedBody>()),
-        ]).then(([assets, pools, lendList, rec]) => ({
+        ]).then(([assets, lendList, rec]) => ({
           assets,
-          pools,
           lendList,
           recorded: new Set(rec.ok ? rec.body.pools.map((p) => p.address) : []),
         }));
@@ -235,8 +234,9 @@ export function BearingProvider({
     };
     const lending = () => {
       if (!known) return waitForChain<LendRow[]>();
-      memo.current.lend ??= baseOf('solana').then(async (b) => {
-        const list = b.lendList.ok ? b.lendList.body.pools : [];
+      // The lending pools' list alone: the reads of each pool need not wait for the chain's assets.
+      memo.current.lend ??= lendListOf().then(async (lendList) => {
+        const list = lendList.ok ? lendList.body.pools : [];
         const rows = await inPool(list, 4, async (meta) => {
           const [sheet, h7, h30] = await Promise.all([
             reader.get<LendBody>(R.lend(meta.account)),
@@ -250,7 +250,8 @@ export function BearingProvider({
       });
       return memo.current.lend;
     };
-    return { base, dex, lending };
+    const lendList = () => (known ? lendListOf() : waitForChain<Res<LendListBody>>());
+    return { base, lendList, dex, lending };
   }, [reader, gen, chain, known]);
 
   useEffect(() => {
