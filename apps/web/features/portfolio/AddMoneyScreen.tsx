@@ -3,6 +3,7 @@ import { ChainId, chainFamily, type Target } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useState } from 'react';
 import { CardWait } from '../../components/shell/Wait';
+import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { Card } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
@@ -13,7 +14,7 @@ import { SkeletonSummary } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { useT } from '../../i18n/I18nProvider';
 import type { AmountMode } from '../amount/AmountCard';
-import { DepositCard } from '../amount/DepositCard';
+import { DepositCard, heldOf } from '../amount/DepositCard';
 import { InvestCard, type InvestEmbedded, type InvestPlaced } from '../order/InvestCard';
 import { addMoneyPath, placeOrder } from '../order/order-api';
 import { keepOrder, latestOf, recallOrder, recallOrders } from '../order/order-record';
@@ -56,6 +57,8 @@ export type AddEntry = {
   title?: string;
   /** The amount was pressed (a number) or taken back (null). */
   onPressed?: (amount: number | null) => void;
+  /** The way back out of the pane, in the card's head. */
+  leave?: { label: string; onLeave: () => void };
 };
 
 export function AddMoneyScreen({
@@ -108,9 +111,21 @@ export function AddMoneyScreen({
     // in a host's pane: the sentence alone, under the host's heading and beside its way back
     if (embedded)
       return (
-        <p data-ui="add-money-missing" className="max-w-(--tf-measure-body) text-body">
-          {signedOut ? t.portfolio.signedOut : words.missing}
-        </p>
+        <div className="flex flex-col items-start gap-3">
+          <p data-ui="add-money-missing" className="max-w-(--tf-measure-body) text-body">
+            {signedOut ? t.portfolio.signedOut : words.missing}
+          </p>
+          {/* no card to hold the way back: it stays beside the sentence */}
+          {embedded.entry?.leave && (
+            <Button
+              variant="link"
+              data-action="leave-action"
+              onClick={embedded.entry.leave.onLeave}
+            >
+              {embedded.entry.leave.label}
+            </Button>
+          )}
+        </div>
       );
     return (
       <section data-ui="add-money-missing" className="flex flex-col items-start gap-4">
@@ -321,6 +336,7 @@ export function AddMoneyScreen({
       holdings={held ? (held.keeper ? null : held.targets) : null}
       keeper
       keeperInvests={held?.keeper === true}
+      held={heldOf(vault)}
       // in the vault's own pane the vault is the page: no "Into" to say it again
       into={
         embedded
@@ -362,6 +378,7 @@ export function AddMoneyScreen({
       fact={embedded?.entry?.fact ?? true}
       {...(embedded?.entry?.title ? { title: embedded.entry.title, focusOnOpen: true } : {})}
       {...(embedded?.entry?.onPressed ? { onPressed: embedded.entry.onPressed } : {})}
+      {...(embedded?.entry?.leave ? { leave: embedded.entry.leave } : {})}
       flow={(amount, change) => cardFor(amount, change)}
     />
   );

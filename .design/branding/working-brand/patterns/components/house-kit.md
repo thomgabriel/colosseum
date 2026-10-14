@@ -9,7 +9,7 @@ The one way to build a screen: the pieces of Rodrigo's portfolio overview (`feat
 |---|---|---|
 | `Panel` | A wide panel: the overview's board, its list of vaults | `rounded-xl`, 1px `--border`, `--card`, no shadow, overflow hidden |
 | `PanelBody` | A section of a panel | 20px margin, its pieces 16px apart; with `border-t border-border`, a second section under the first |
-| `PanelHead` | A panel's head: an icon tile and a title, the panel's figures in one line, its actions on the right | icon tile 32px `rounded-lg` on the honey tint; title Inter 600 `text-body-lg`; each figure a muted label then the figure; actions pushed right; a hairline under it; 20px by 16px |
+| `PanelHead` | A panel's head: an icon tile and a title, the panel's figures in one line, its actions on the right; `tabs` in the title's place where tabs say what the panel is (the title then for screen readers alone) | icon tile 32px `rounded-lg` on the honey tint; title Inter 600 `text-body-lg`; each figure a muted label then the figure; actions pushed right; a hairline under it; 20px by 16px |
 | `HeroFigure` | The figure a panel leads with | a muted `text-body-sm` label over it, Inter Tight 600 at 2rem, tabular; the `Plate` on the right of the label |
 | `StatGrid` / `PanelStat` | Small figures, a muted label over each | two columns, 24px by 16px apart; label `text-caption` muted, figure Inter 500 `text-body`, tabular; `wide` takes both columns (an address) |
 | `Plate` | The quiet pill that says the figures are not live | honey edge at 60% on its tint, ink text, `text-caption` |

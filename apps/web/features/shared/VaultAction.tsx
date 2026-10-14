@@ -200,6 +200,7 @@ export function VaultAction({
             fact: !finishes,
             title: words.title,
             onPressed: (at) => setEntered(at !== null),
+            leave: { label: p.backToHoldings, onLeave },
           },
           ...(open.resumed && open.orderId ? { resumeOrder: open.orderId } : {}),
           ...told,
@@ -215,6 +216,7 @@ export function VaultAction({
           embedded={{
             onOrder: (orderId) => onOrder(orderId, false),
             title: words.title,
+            leave: { label: p.backToHoldings, onLeave },
             ...(onMode ? { onMode } : {}),
           }}
         />
@@ -332,7 +334,8 @@ export function VaultAction({
       )}
       {body}
       {/* the way back, whenever no step is being signed; what was sent stays sent */}
-      {phase !== 'signing' && !done && (
+      {/* in the card's head while the card heads the pane */}
+      {phase !== 'signing' && !done && !cardHeads && (
         <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
           {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
           <Button variant="link" data-action="leave-action" onClick={onLeave}>
