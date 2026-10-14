@@ -1216,7 +1216,6 @@ export const pt: Dictionary = {
         'Um ativo deste portfólio não está disponível nesta rede agora, então o portfólio não pode receber um depósito como está.',
     },
     family: {
-      nextStep: 'Revise a estratégia e escolha quanto investir.',
       loading: 'Lendo este portfólio…',
       missing: 'Não encontro um portfólio compartilhado com esse nome.',
       backToShelf: 'Voltar aos portfólios compartilhados',
@@ -1260,7 +1259,7 @@ export const pt: Dictionary = {
         'Este portfólio não foi publicado por este app, então não consigo conferir o identificador dele pelo nome, e seguir ainda não é oferecido aqui.',
     },
     check: {
-      reading: 'Lendo da rede…',
+      reading: 'Carregando…',
       differs: (chain: string) =>
         `A resposta do nosso servidor difere do que a ${chain} tem. Mostro a versão e os pesos da rede, e seguir fica preso a eles.`,
       failed: (chain: string) =>
@@ -1272,11 +1271,34 @@ export const pt: Dictionary = {
     offer: {
       title: 'Seguir automático',
       offered:
-        'Oferecido: com o seguir automático ativado, nosso operador rebalanceia um cofre que segue este portfólio quando uma versão nova entra em vigor, dentro dos limites do cofre.',
+        'Oferecido. Com o seguir automático ativado, nosso operador rebalanceia um cofre que o segue, dentro dos limites dele, quando uma versão nova entra em vigor.',
       noOracle: (assets: string, chain: string) =>
-        `Não oferecido: este portfólio tem ${assets}, que não tem oráculo de preço na ${chain}, então nosso operador não consegue rebalanceá-lo. Se você segui-lo, peço que rebalanceie, com um toque, quando ele mudar.`,
+        `Não oferecido: ${assets} não tem oráculo de preço na ${chain}. Você rebalanceia com um toque quando ele mudar.`,
       switchedOff: (chain: string) =>
-        `Ainda não oferecido na ${chain}: nosso operador não roda lá. Se você segui-lo, peço que rebalanceie, com um toque, quando ele mudar.`,
+        `Ainda não oferecido na ${chain}. Você rebalanceia com um toque quando ele mudar.`,
+    },
+    actions: {
+      title: 'Usar este portfólio',
+      legend: 'Como usar',
+      newVault: {
+        title: 'Abrir um cofre novo',
+        line: 'Um cofre que copia este portfólio, aberto com o seu primeiro depósito.',
+        open: 'O seu cofre deste portfólio já está aberto.',
+        depositThere: (name: string) => `Deposite em ${name} pela página dele.`,
+      },
+      follow: {
+        title: 'Seguir com um cofre seu',
+        line: (chain: string) => `Um dos seus cofres na ${chain} passa a ter os pesos dele.`,
+        none: (chain: string) => `Você não tem cofre na ${chain} para segui-lo.`,
+        noOther: (chain: string) => `Você não tem outro cofre na ${chain} para segui-lo.`,
+      },
+      signedOut: 'Entre primeiro para usar qualquer um.',
+      signIn: 'Entrar',
+      follows: 'segue este portfólio',
+      version: (n: number) => `versão ${n}`,
+      vault: 'Cofre',
+      firstDeposit: 'Primeiro depósito',
+      loading: 'Carregando seus cofres…',
     },
     buy: {
       title: 'Depositar e seguir',
@@ -1290,14 +1312,9 @@ export const pt: Dictionary = {
       },
     },
     vaults: {
-      title: 'Seus cofres',
-      none: 'Você ainda não tem um cofre nesta rede. Deposite neste portfólio para abrir um que o segue.',
-      following: 'Segue este portfólio',
       notFollowing: 'Segue outro portfólio',
       ownPlan: 'Guarda o seu próprio plano',
       followWith: 'Seguir com este cofre',
-      noFollowers: 'Nenhum dos seus cofres nesta rede segue este portfólio ainda.',
-      noHoldings: 'Ainda não há ativos neste cofre.',
       useExisting: 'Usar um cofre existente',
       closeChooser: 'Fechar seleção de cofres',
       choose: 'Escolher este cofre',
@@ -1338,8 +1355,6 @@ export const pt: Dictionary = {
       autoOff: 'Desativar o seguir automático',
       autoIs: (on: boolean): string =>
         on ? 'O seguir automático está ativado.' : 'O seguir automático está desativado.',
-      oneTap:
-        'Este portfólio não é rebalanceado automaticamente. Quando ele mudar, peço aqui que você aceite a versão nova e rebalanceie.',
       address: (address: string) => `Cofre ${address}`,
       open: 'Abrir o cofre',
       failure: 'Não consegui ler seus cofres: nosso servidor não respondeu. Tente de novo.',
@@ -1875,7 +1890,6 @@ export const pt: Dictionary = {
       reading: 'Lendo seus cofres…',
       ownOrNew: 'Seu cofre deste portfólio, ou um novo',
       follows: (name: string) => `${name} · segue este portfólio`,
-      other: (name: string) => `${name} · passar a seguir este portfólio`,
     },
     field: { deposit: 'Você deposita', withdraw: 'Você saca' },
     token: (symbol: string) => `Pago em ${symbol}`,
