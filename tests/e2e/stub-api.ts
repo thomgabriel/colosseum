@@ -23,15 +23,22 @@ import {
   chainProvenance,
   DEFAULT_FLAGS,
   DISCLAIMER,
+  idleCashToInvest,
   isAddressOf,
   MixReview,
   type OrderDetail,
+  OWNER_REBALANCE_BAND_BPS,
+  OWNER_REBALANCE_MIN_TRADE_USD,
+  OWNER_REBALANCE_SLIPPAGE_BPS,
+  outsideOwnerBand,
+  ownerShares,
   PortfolioExposureResponse,
   PortfolioHistoryResponse,
   PortfolioPlansResponse,
   PortfolioRebalancesQuery,
   PortfolioRebalancesResponse,
   parseChainConfigs,
+  RebalanceVaultResponse,
   type Recipe,
   type RecipeVersionView,
   type SharedFamily,
@@ -904,6 +911,56 @@ function goalReply(body: { messageId?: string; messages?: { who: string; text: s
   });
 }
 
+async function placeRebalance(address: string): Promise<RebalanceVaultResponse> {
+  const { adapter } = world;
+  const state = await adapter.getVault(address);
+  if (!state) throw new ApiRefusal(404, { error: 'no vault of yours at that address' });
+  const targets = state.positions
+    .filter((p) => p.targetBps > 0)
+    .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
+  if (!targets.length) throw new ApiRefusal(409, { error: 'this vault has no targets' });
+  const listed = await adapter.listAssets();
+  const prices = await adapter.getPrices([...new Set(state.positions.map((p) => p.asset))]);
+  const seen = view(state, prices, listed);
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  if (!read) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const inside = !outsideOwnerBand(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS);
+  const idle =
+    inside &&
+    idleCashToInvest(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS, read.valueUsd);
+  if (inside && !idle) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const plan = rebalancePlan(
+    state,
+    targets,
+    prices,
+    {
+      bandBps: idle ? 0 : OWNER_REBALANCE_BAND_BPS,
+      minTradeUsd: OWNER_REBALANCE_MIN_TRADE_USD,
+      costBps: OWNER_REBALANCE_SLIPPAGE_BPS,
+      ...(idle ? { purchasesOnly: true } : {}),
+    },
+    listed,
+  );
+  if (!plan.trades.length) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const order = await doubleFor(state.owner).place({
+    type: 'rebalance',
+    summary: 'Sample: rebalance your vault to its targets',
+    needsConsent: [],
+    steps: plan.trades.map((t) => ({
+      kind: 'swap' as const,
+      description: t.buy === adapter.mock.cash ? 'Sell for cash' : 'Swap',
+      trades: [t],
+    })),
+    build: (leg) =>
+      adapter.buildOwnerSwap({
+        vault: address,
+        trades: leg.trades,
+        slippageBps: OWNER_REBALANCE_SLIPPAGE_BPS,
+      }),
+  });
+  return RebalanceVaultResponse.parse({ status: 'ordered', targets, order });
+}
+
 async function placeRetarget(address: string, body: MixBody): Promise<ApplyVaultMixResponse> {
   const { adapter } = world;
   const state = await adapter.getVault(address);
@@ -1122,7 +1179,14 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     // An already-owned private vault fixture, not an order or production endpoint. Publication and
     // follower buys below still build, guard and sign every step through the browser executor.
     // `empty`: everything taken out again once it is made, as a vault ready to close is
-    const body = (await read(req)) as { owner: string; targets: unknown; empty?: boolean };
+    const body = (await read(req)) as {
+      owner: string;
+      targets: unknown;
+      empty?: boolean;
+      /** In raw units of the cash: $100 unless said, and how much of it the swaps leave as cash. */
+      depositRaw?: string;
+      cashLeftRaw?: string;
+    };
     const targets = Target.array().parse(body.targets);
     const owner = body.owner;
     const { adapter } = world;
@@ -1137,12 +1201,13 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       return send(res, 422, { error: 'an owned source needs exact listed targets' });
     lastWallet = owner;
     const basketId = '700';
-    const depositRaw = '100000000';
+    const depositRaw = body.depositRaw ?? '100000000';
     adapter.mock.fund(owner, { gasRaw: GAS_FAUCET, assets: { [adapter.mock.cash]: depositRaw } });
+    const spent = BigInt(depositRaw) - BigInt(body.cashLeftRaw ?? '0');
     const trades = targets.map((t) => ({
       sell: adapter.mock.cash,
       buy: t.asset,
-      amountInRaw: String(t.weightBps * 10_000),
+      amountInRaw: String((spent * BigInt(t.weightBps)) / 10_000n),
     }));
     if (adapter.capabilities.needsApprove)
       await adapter.mock.send(
@@ -1272,6 +1337,15 @@ async function route(req: IncomingMessage, res: ServerResponse) {
         proposal: built,
       }),
     );
+  }
+  // The owner's one-press rebalance, as apps/api orders it (orders/mix.ts, `planVaultRebalance`): to
+  // the targets the vault has, outside the owner's band, or by purchases alone where only idle cash
+  // worth a trade is over its share; `on_target` otherwise.
+  const rebalance = /^\/v1\/vaults\/([^/]+)\/([^/]+)\/rebalance$/.exec(path);
+  if (rebalance && method === 'POST') {
+    if (rebalance[1] !== CHAIN)
+      return send(res, 404, { error: 'no vault of yours at that address' });
+    return send(res, 200, await placeRebalance(decodeURIComponent(rebalance[2] ?? '')));
   }
   const targets = /^\/v1\/vaults\/([^/]+)\/([^/]+)\/targets$/.exec(path);
   if (targets && method === 'POST') {

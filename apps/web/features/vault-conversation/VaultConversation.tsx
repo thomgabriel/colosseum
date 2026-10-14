@@ -59,6 +59,7 @@ export function VaultConversation({
   starters,
   action = null,
   onOrder,
+  onRebalance,
 }: {
   read: VaultResponse;
   userId: string;
@@ -74,6 +75,11 @@ export function VaultConversation({
   action?: { pane: ReactNode; why: string } | null;
   /** The page shows an order's steps itself: handed the order that applies a proposal. */
   onOrder?: (orderId: string) => void;
+  /**
+   * The page's own Rebalance, where it offers one: a reply that hands it over (`action: rebalance`)
+   * shows it as a button under the reply, the same press as the page's.
+   */
+  onRebalance?: () => void;
 }) {
   const t = useT();
   const copy = t.shared.vault.conversation;
@@ -451,6 +457,14 @@ export function VaultConversation({
                 )}
               </li>
             ))}
+            {/* The page's Rebalance, handed over by the reply that answered a request for one. */}
+            {!busy && reply?.action === 'rebalance' && onRebalance && (
+              <li data-ui="vault-reply-action" className="min-w-0">
+                <Button variant="secondary" data-action="chat-rebalance" onClick={onRebalance}>
+                  {t.shared.vault.page.rebalance}
+                </Button>
+              </li>
+            )}
             {/* The reply's place, under the words it answers: the wait, then the reply itself, or
                 why it did not come. */}
             {busy && <PendingReply speaker={copy.agent} lines={copy.pendingLines} />}

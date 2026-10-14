@@ -80,6 +80,8 @@ function bps(value: unknown, what: string): bigint {
  * long as no trade loses more. Split the trades with `batchTrades` to respect a chain's limit per
  * transaction. `lastKeeperAt` is not read: the cooldown is the keeper's to apply.
  *
+ * With `purchasesOnly` no sale is planned: the purchases spend the cash over its share alone.
+ *
  * Throws `RebalanceError`, and nothing else, for input it cannot use: `BadPolicy`, `BadTargets`,
  * `BadInput` (a price or an amount that is not a plain number, two prices for one asset, cash among
  * the positions), `AssetNotPriced` (the cash token is not on the asset list).
@@ -195,7 +197,7 @@ function plan(
   // Sales: down to the target, keeping a hair over it so that rounding never leaves the asset under.
   const sales: { asset: string; value: bigint; raw: bigint; proceedsRaw: bigint }[] = [];
   for (const r of rows) {
-    if (r.value * BPS <= r.targetBps * total) continue;
+    if (policy.purchasesOnly || r.value * BPS <= r.targetBps * total) continue;
     const keep = ceilDiv(r.targetBps * most, BPS) + 1n;
     const raw =
       r.targetBps === 0n
@@ -225,24 +227,68 @@ function plan(
 
   // Purchases. By the time one lands the vault is worth a little less than `total`: a pool rounds
   // what it pays down to whole units, and again after taking its cost, so each trade loses up to two
-  // units of what it pays out, and with a cost every trade loses that too. Each purchase is sized
-  // against the least the vault can then be worth, so it stops at its target or just before.
+  // units of what it pays out, and with a cost every trade loses that too. Each purchase is sized so
+  // that, once every trade has lost its cost, it stops at its target or just before. The purchases'
+  // own cost is counted once, against the vault's worth after them (`after`), and not again against
+  // what they buy: counted twice it held back about the cost of the purchases in cash, which no later
+  // trade spent (Vault #4 on devnet, Oct 14: $39 left of a $2,000 change).
   const under = rows.filter((r) => r.value * BPS < r.targetBps * total);
   const sold = sales.reduce((n, s) => n + s.value, 0n);
-  const lost =
+  const unitsLost =
     BigInt(sales.length) * (2n * unitValue(cashPrice, cashDecimals) + 2n) +
-    under.reduce((n, r) => n + 2n * unitValue(r.price, r.decimals) + 2n, 0n) +
-    ceilDiv(cost * (sold + budget), BPS);
-  const least = total > lost ? total - lost : 0n;
-  let wanted = under
-    .map((r) => ({ asset: r.asset, row: r, value: (r.targetBps * least) / BPS - r.value - 1n }))
-    .filter((w) => w.value > 0n && w.value >= minTrade);
+    under.reduce((n, r) => n + 2n * unitValue(r.price, r.decimals) + 2n, 0n);
+  // The vault after the sales and every unit lost, before the purchases' own cost.
+  const afterSales = total - unitsLost - ceilDiv(cost * sold, BPS);
+  // With purchases P in all, each losing `cost`, the vault is worth `afterSales - cost·P`, and a
+  // purchase p of an asset worth v with target T stops at T of that: v + p(1 - cost) = T(after).
+  // Summed over the assets bought: P = (T_u·afterSales - V_u) / (1 - cost(1 - T_u)). An asset whose
+  // purchase would be nothing, or dust, is left out and the rest worked out again without it.
+  let buying = under;
+  let wanted: { asset: string; row: Row; value: bigint }[] = [];
+  for (;;) {
+    const tu = buying.reduce((n, r) => n + r.targetBps, 0n);
+    const vu = buying.reduce((n, r) => n + r.value, 0n);
+    const den = BPS * BPS - cost * (BPS - tu);
+    const all = tu * afterSales > vu * BPS ? ((tu * afterSales - vu * BPS) * BPS) / den : 0n;
+    const after =
+      afterSales > ceilDiv(cost * all, BPS) ? afterSales - ceilDiv(cost * all, BPS) : 0n;
+    const next = buying.map((r) => ({
+      asset: r.asset,
+      row: r,
+      value:
+        r.targetBps * after > r.value * BPS
+          ? (r.targetBps * after - r.value * BPS) / (BPS - cost) - 1n
+          : 0n,
+    }));
+    const kept = next.filter((w) => w.value > 0n && w.value >= minTrade);
+    if (kept.length === next.length || kept.length === 0) {
+      wanted = kept;
+      break;
+    }
+    const keep = new Set(kept.map((w) => w.asset));
+    buying = buying.filter((r) => keep.has(r.asset));
+  }
 
   const want = wanted.reduce((n, w) => n + w.value, 0n);
-  if (want > budget)
-    wanted = wanted
+  if (want > budget) {
+    const scaled = wanted
       .map((w) => ({ ...w, value: (w.value * budget) / want }))
       .filter((w) => w.value > 0n && w.value >= minTrade);
+    // Spread over every gap the budget may make no trade at all, where it is enough for one: the
+    // gaps are then filled in turn, the largest first, each up to what it wants, keeping only a
+    // purchase of a trade's worth (the review of #307: $6 of cash under two gaps of $5.20 was
+    // offered as a rebalance and planned nothing).
+    if (scaled.length > 0 || budget < minTrade) wanted = scaled;
+    else {
+      let left = budget;
+      wanted = [...wanted].sort(byValueThenAsset).flatMap((w) => {
+        const value = w.value < left ? w.value : left;
+        if (value <= 0n || value < minTrade) return [];
+        left -= value;
+        return [{ ...w, value }];
+      });
+    }
+  }
   wanted.sort(byValueThenAsset);
 
   const trades: Trade[] = sales.map((s) => ({
