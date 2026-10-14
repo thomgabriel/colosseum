@@ -118,7 +118,7 @@ export function VaultActions({
       <div
         className={
           page
-            ? 'flex w-full flex-wrap items-baseline gap-x-4 gap-y-1'
+            ? 'flex w-full flex-wrap items-center gap-x-4 gap-y-1'
             : 'flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-2'
         }
       >

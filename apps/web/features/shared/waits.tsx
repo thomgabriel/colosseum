@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { PAGE_TITLE } from '../../components/ui/heading';
+import { PAGE_BACK, PAGE_TITLE } from '../../components/ui/heading';
 import { Panel } from '../../components/ui/Panel';
 import {
   Skeleton,
@@ -81,7 +81,7 @@ export function FamilyWait() {
         <div data-ui="family-wait" className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             {/* The way back works while the page waits: on a slow read it is what a person wants. */}
-            <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
+            <Link href="/products" className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}>
               {t.shared.family.backToShelf}
             </Link>
             <div aria-hidden="true" className="flex flex-col gap-3">
@@ -343,12 +343,13 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
         label={v.loading}
         skeleton={
           <div data-ui="vault-wait" data-visitor className="flex min-w-0 flex-col gap-6">
-            <div className="flex min-w-0 flex-col gap-2">
-              <p className="text-caption">
-                <Link href="/portfolio" className={buttonClass({ variant: 'link' })}>
-                  {v.back}
-                </Link>
-              </p>
+            <div className="flex min-w-0 flex-col gap-3">
+              <Link
+                href="/portfolio"
+                className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}
+              >
+                {v.back}
+              </Link>
               <div aria-hidden="true" className="flex flex-col gap-2">
                 <SkeletonLine className={PAGE_TITLE} width="w-40" />
                 <SkeletonLine className="font-display text-h3" width="w-36" />
@@ -370,22 +371,24 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
           data-workbench
           className="grid min-w-0 gap-4 md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[minmax(0,auto)_minmax(15rem,1fr)] md:items-stretch"
         >
-          <div className="flex min-w-0 flex-col gap-2 md:col-span-12">
+          <div className="flex min-w-0 flex-col gap-3 md:col-span-12">
             {/* the way back works while the vault is read */}
-            <p className="text-caption">
-              <Link href="/portfolio" className={buttonClass({ variant: 'link' })}>
-                {v.back}
-              </Link>
-            </p>
+            <Link href="/portfolio" className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}>
+              {v.back}
+            </Link>
             <div aria-hidden="true" className="flex flex-col gap-2">
-              <SkeletonLine className={PAGE_TITLE} width="w-40" />
+              {/* the name and its Rename button (PAGE-SHELL: a button, not a link) */}
+              <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-1">
+                <SkeletonLine className={PAGE_TITLE} width="w-40" />
+                <Skeleton className="h-9 w-[5.5rem] rounded-md" />
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
                 <SkeletonLine className="font-display text-h3" width="w-36" />
                 {/* on a phone the third action wraps under the pair, as the page's does */}
                 <div className="flex flex-wrap items-center gap-3 max-sm:w-[16.25rem]">
                   <Skeleton className="h-10 w-24 rounded-md max-sm:w-[7.25rem]" />
                   <Skeleton className="h-10 w-24 rounded-md max-sm:w-[7.25rem]" />
-                  <Skeleton className="h-6 w-12" />
+                  <Skeleton className="h-10 w-24 rounded-md" />
                 </div>
               </div>
             </div>
