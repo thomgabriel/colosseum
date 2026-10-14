@@ -164,7 +164,10 @@ describe('the plan screen', () => {
     const legs = find(host, '[data-ui="plan-legs"]').textContent;
     expect(legs).toContain('SPYx');
     expect(legs).not.toMatch(/solana:|spyx/);
-    expect(legs).toContain('Gold steadies the plan.');
+    // why each holding is there: in the card's one fold
+    expect(find(host, '[data-ui="plan-more"] [data-ui="plan-why"]').textContent).toContain(
+      'Gold steadies the plan.',
+    );
     // the projected range carries its pin, and the exit cost its own
     expect(host.querySelectorAll('[data-ui="pin"]').length).toBeGreaterThanOrEqual(2);
     expect(host.querySelector('[data-ui="exit-plan-line"]')?.textContent).toContain(
@@ -299,9 +302,13 @@ describe('the plan screen', () => {
       },
     });
     const host = await plan();
-    // one picture whatever the count: a row per holding, and no table of holdings
+    // one strip and one table whatever the count: a row per holding, no second table of holdings
     expect(host.querySelectorAll('[data-ui="plan-legs"] [data-row]')).toHaveLength(5);
-    expect(host.querySelector('[data-ui="plan-legs"] table')).toBeNull();
+    expect(
+      [...host.querySelectorAll('[data-ui="plan-legs"] table')].map((t) =>
+        t.getAttribute('data-ui'),
+      ),
+    ).toEqual(['composition-table']);
     expect(host.textContent).toContain(en.plan.risk.title);
     expect(host.textContent).toContain('issuer one');
     expect(host.textContent).toContain(en.plan.risk.notMeasured);

@@ -3,12 +3,10 @@ import type { ChainId, VaultResponse } from '@colosseum/schemas';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
-import { useLang, useT } from '../../i18n/I18nProvider';
-import { parseNumber, dollars as whole } from '../goal/sheet';
+import { useT } from '../../i18n/I18nProvider';
+import type { AmountMode } from '../amount/AmountCard';
 import { VaultMixFlow } from '../mix/VaultMixFlow';
-import { AmountField } from '../order/AmountField';
 import type { OrderEmbed } from '../order/invest-words';
-import { MAX_USD, MIN_USD } from '../order/limits';
 import { OrderScreen } from '../order/OrderScreen';
 import { latestOf, recallOrder, recallOrders } from '../order/order-record';
 import { AddMoneyScreen } from '../portfolio/AddMoneyScreen';
@@ -124,6 +122,7 @@ export function VaultAction({
   onRestart,
   onLeave,
   onFinished,
+  onMode,
 }: {
   read: VaultResponse;
   userId: string;
@@ -138,15 +137,18 @@ export function VaultAction({
   onLeave: () => void;
   /** Done, and the person goes back to the vault: it is read again. */
   onFinished: () => void;
+  /** Deposit | Withdraw on the amount card: the other action takes the pane. Left out: no switch. */
+  onMode?: (mode: AmountMode) => void;
 }) {
   const t = useT();
-  const lang = useLang();
   const p = t.shared.vault.page;
   const words = p.panes[paneOf(open.kind)];
   const titleId = useId();
   const { chain, vault } = read;
-  const [text, setText] = useState('');
-  // The pane took the holdings' place: its heading takes the focus, so it is read from the top.
+  // A deposit's amount was pressed on its card: from then on the pane's own heading is back.
+  const [entered, setEntered] = useState(false);
+  // The pane took the holdings' place: its heading takes the focus, so it is read from the top. Where
+  // the amount card is the pane's first thing, the card is the heading and its amount takes the focus.
   useEffect(() => {
     const title = document.getElementById(titleId);
     title?.setAttribute('tabindex', '-1');
@@ -155,13 +157,8 @@ export function VaultAction({
 
   const record = open.orderId ? recallOrder(open.orderId, userId) : null;
   const pressed = phase !== 'open';
-  const parsed = parseNumber(text, lang);
-  const typed =
-    parsed !== null && !Number.isNaN(parsed) && parsed >= MIN_USD && parsed <= MAX_USD
-      ? parsed
-      : null;
-  // A deposit taken up again is for the amount its order was made for, never one typed here.
-  const amount = open.kind === 'deposit' && open.resumed ? (record?.amountUsd ?? null) : typed;
+  // A deposit taken up again is for the amount its order was made for; any other is typed on the card.
+  const amount = open.kind === 'deposit' && open.resumed ? (record?.amountUsd ?? null) : null;
 
   // What the order's own screen tells this pane, whoever holds it.
   // An order that finishes a deposit that stopped took the card: it deposits nothing, so the amount
@@ -224,7 +221,12 @@ export function VaultAction({
           ? words.signTitle
           : words.title;
   const lead =
-    phase !== 'done' && (!open.orderId || open.resumed || finishes)
+    // the amount card says what a deposit and a withdrawal do: no line over it (gate AMOUNT-CARD),
+    // only one that says the pane was taken up again or finishes another
+    phase !== 'done' &&
+    (finishes ||
+      open.resumed ||
+      (!open.orderId && !(open.kind === 'deposit' || open.kind === 'withdraw')))
       ? // an order that finishes a deposit adds no money: never said as a deposit of the amount
         finishes
         ? p.finish.lead
@@ -235,36 +237,29 @@ export function VaultAction({
   let body: ReactNode;
   if (open.kind === 'deposit')
     body = (
-      <>
-        {pressed || open.resumed || finishes ? (
-          amount !== null &&
-          !finishes && (
-            <p data-ui="vault-action-amount" className="text-body">
-              {p.amount} <span className="font-medium tabular-nums">{whole(amount, lang)}</span>
-            </p>
-          )
-        ) : (
-          <AmountField
-            text={text}
-            onText={setText}
-            hint={t.portfolio.add.amountHint}
-            value={typed}
-          />
-        )}
-        <AddMoneyScreen
-          chain={chain}
-          address={vault.address}
-          embedded={{
-            amount,
-            hostEnds: true,
-            // the page's own holdings are what this deposit goes into: not drawn a second time
-            bare: true,
-            ...(open.resumed && open.orderId ? { resumeOrder: open.orderId } : {}),
-            onAmount: (next) => setText(String(next)),
-            ...told,
-          }}
-        />
-      </>
+      // The amount card (gate AMOUNT-CARD) in the pane: its press hands the amount to the invest
+      // card, which the card's line then sits over.
+      <AddMoneyScreen
+        chain={chain}
+        address={vault.address}
+        embedded={{
+          amount,
+          hostEnds: true,
+          // the page's own holdings are what this deposit goes into: not drawn a second time
+          bare: true,
+          entry: {
+            ...(onMode ? { onMode } : {}),
+            // A deposit taken up again is for the amount its order was made for.
+            pressed: open.resumed ? amount : null,
+            // An order that finishes a deposit deposits nothing: the amount is not said of it.
+            fact: !finishes,
+            title: words.title,
+            onPressed: (at) => setEntered(at !== null),
+          },
+          ...(open.resumed && open.orderId ? { resumeOrder: open.orderId } : {}),
+          ...told,
+        }}
+      />
     );
   else if (!open.orderId)
     body =
@@ -272,7 +267,11 @@ export function VaultAction({
         <WithdrawScreen
           chain={chain}
           address={vault.address}
-          embedded={{ onOrder: (orderId) => onOrder(orderId, false) }}
+          embedded={{
+            onOrder: (orderId) => onOrder(orderId, false),
+            title: words.title,
+            ...(onMode ? { onMode } : {}),
+          }}
         />
       ) : open.kind === 'rebalance' ? (
         <RebalanceStart
@@ -345,15 +344,22 @@ export function VaultAction({
   const done = phase === 'done';
   // Done, the one way on: inside the order's card, or under the deposit's card, which is not this pane's.
   const doneInCard = open.kind !== 'deposit' && open.orderId !== null;
+  // The amount card heads the pane while it is shown (gate AMOUNT-CARD, one rule for both actions).
+  const cardHeads =
+    phase === 'open' &&
+    !finishes &&
+    !open.resumed &&
+    ((open.kind === 'deposit' && !entered) || (open.kind === 'withdraw' && !open.orderId));
   return (
     <section
       data-ui="vault-action-pane"
       data-kind={open.kind}
       data-state={phase}
-      aria-labelledby={titleId}
+      // named by the amount card's title while the card heads the pane, by the pane's own after
+      {...(cardHeads ? { 'aria-label': words.title } : { 'aria-labelledby': titleId })}
       className="flex min-w-0 flex-col gap-4"
     >
-      {!doneInCard && (
+      {!doneInCard && !cardHeads && (
         <header className="flex min-w-0 flex-col gap-2">
           <h2
             id={titleId}

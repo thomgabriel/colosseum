@@ -185,6 +185,8 @@ export type FakeNode = {
   /** Landed transactions in the version-1 layout: refused to a getTransaction that supports less, as mainnet does. */
   versionOne: Set<string>;
   blockHeight: bigint;
+  /** The slot a getMultipleAccounts answer says it was read at (`context.slot`). */
+  readSlot: bigint;
   /** A height per commitment, where they differ: a fork not yet finalized is ahead. */
   heights: Partial<Record<string, bigint>>;
   /** What the node hands back from getProgramAccounts on top of what matches, as a node that lies does. */
@@ -223,6 +225,7 @@ export function fakeNode(accounts: RawAccount[]): FakeNode {
     logs: new Map(),
     versionOne: new Set(),
     blockHeight: 1_000n,
+    readSlot: 1n,
     heights: {},
     strays: [],
     down: new Set(),
@@ -257,7 +260,7 @@ export function fakeNode(accounts: RawAccount[]): FakeNode {
       call('getMultipleAccounts', () => {
         if (addresses.length > 100) throw new Error('Too many inputs provided; max 100');
         return {
-          context,
+          context: { slot: node.readSlot },
           value: addresses.map((a) => {
             const account = node.accounts.get(a);
             return account ? wire(account) : null;

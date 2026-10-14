@@ -65,6 +65,7 @@ import { ProvenancePin } from '../../../../components/ui/ProvenancePin';
 import type { PinSource } from '../../../../components/ui/provenance';
 import { Status, StatusBadge } from '../../../../components/ui/StatusMark';
 import { SubscribeBlock, type SubscribeStatus } from '../../../../components/ui/SubscribeBlock';
+import { Composition, type CompositionItem } from '../../../../features/shared/Composition';
 
 // The showcase of the design system: every primitive in every state, light beside dark, with the name
 // of its spec. Development only (see page.dev.tsx). Everything on it is made up, and every panel says
@@ -237,6 +238,21 @@ const PARTNER: CSSProperties = {
 type Parsed = { readonly parsed: true };
 const PARSED: Parsed = { parsed: true };
 const CREDIT = { name: 'tenonfi', href: '#embed-shell-md', symbol: <Mark size={16} mono /> };
+
+/** Made-up holdings for the composition (composition.md). */
+const SHARES: CompositionItem[] = [
+  { key: 'a', name: 'Treasury token', venue: 'Example issuer', bps: 4500 },
+  { key: 'b', name: 'Dollar lending', bps: 3000 },
+  { key: 'c', name: 'Gold token', bps: 1500 },
+  { key: 'cash', name: 'Cash', cash: true, bps: 1000 },
+];
+const MOVED: CompositionItem[] = [
+  { key: 'a', name: 'Treasury token', beforeBps: 4500, bps: 5000 },
+  { key: 'b', name: 'Dollar lending', beforeBps: 3000, bps: 3000 },
+  { key: 'c', name: 'Gold token', beforeBps: 1500, bps: 0 },
+  { key: 'd', name: 'Index token', bps: 1500 },
+  { key: 'cash', name: 'Cash', cash: true, beforeBps: 1000, bps: 500 },
+];
 
 function WhyThisPlan() {
   const [parted, setParted] = useState(false);
@@ -827,6 +843,22 @@ export function Showcase() {
       </Section>
 
       <Section
+        spec="composition.md"
+        title="Composition"
+        note="What a vault holds: one strip and roomy rows, or two strips before and after. Point at a row or a segment, or Tab to a logo, to light it. Made-up holdings."
+      >
+        <Specimen state="one composition: three holdings and cash" wide>
+          <Composition items={SHARES} />
+        </Specimen>
+        <Specimen state="before and after: a holding added, one gone" wide>
+          <Composition items={MOVED} mode="compare" />
+        </Specimen>
+        <Specimen state="compact, on a card in a list">
+          <Composition items={SHARES} size="compact" />
+        </Specimen>
+      </Section>
+
+      <Section
         spec="house-kit.md"
         title="The house kit"
         note="The pieces of the portfolio overview, for every screen: a panel, its head, a hero figure, small figures, the quiet pill and the table. Made-up figures."
@@ -840,6 +872,11 @@ export function Showcase() {
               <StatGrid>
                 <PanelStat label="Vaults">3</PanelStat>
                 <PanelStat label="Net deposited">$12,000.00</PanelStat>
+                <PanelStat label="Goes to" wide>
+                  <span className="font-mono text-source">
+                    So1anaWa11et1111111111111111111111111111111
+                  </span>
+                </PanelStat>
               </StatGrid>
             </PanelBody>
           </Panel>

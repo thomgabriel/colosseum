@@ -74,8 +74,12 @@ export type Region = {
   name: string;
   waiting: string;
   loaded: string;
-  /** `by-data`: its height is its data's. `by-words`: its width and height are its words'. */
-  sized?: 'by-data' | 'by-words';
+  /**
+   * `by-data`: its height is its data's. `by-words`: its width and height are its words'. `under-data`:
+   * it stands under a block its data sizes, so its top follows that block's foot; its left edge and
+   * width are still its outline's.
+   */
+  sized?: 'by-data' | 'by-words' | 'under-data';
 };
 
 /**
@@ -127,7 +131,9 @@ export async function expectNoShift(
         ? { x: b.x, y: b.y }
         : r.sized === 'by-data'
           ? { x: b.x, y: b.y, width: b.width }
-          : { ...b };
+          : r.sized === 'under-data'
+            ? { x: b.x, width: b.width }
+            : { ...b };
     expect.soft(pick(now), `${at}: ${r.name} stays where its skeleton was`).toEqual(pick(was));
   }
 }

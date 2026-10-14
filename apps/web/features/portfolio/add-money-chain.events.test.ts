@@ -155,13 +155,17 @@ function api(vaults = [served()]) {
   return orders;
 }
 
-/** The card's one button: "Invest $10", held while no order may be made. */
-const SIGN = '[data-ui="invest-card"] > div > [data-variant="primary"]';
 /**
- * Opens the page, types $10, accepts the trust notice, and waits for the reads and for the order,
- * which the card makes by itself once nothing stands in its way.
+ * The amount card's one button (gate AMOUNT-CARD), held while no order may be made: its press hands
+ * the amount to the invest card, which makes the order by itself.
  */
-async function ready(address = MY_VAULT) {
+const SIGN = 'button[data-action="amount-deposit"]';
+/**
+ * Opens the page, types $10, accepts the trust notice, presses the amount card where nothing holds
+ * it (`press`), and waits for the reads and for the order, which the invest card makes by itself
+ * once nothing stands in its way.
+ */
+async function ready(address = MY_VAULT, press = true) {
   const host = await mount(
     withAccount('en', createElement(AddMoneyScreen, { chain: 'solana', address })),
   );
@@ -169,9 +173,16 @@ async function ready(address = MY_VAULT) {
   await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
   await settle(350);
   await click(find(host, '[data-ui="trust-notice"] input[type="checkbox"]'));
+  if (press) await enter(host);
+  return host;
+}
+/** The amount card's press, then the reads and the order. */
+async function enter(host: HTMLElement) {
+  const button = find(host, SIGN);
+  if (button.getAttribute('aria-disabled') !== 'true') await click(button);
+  await settle(350);
   await settle(1050);
   await settle();
-  return host;
 }
 
 beforeEach(() => {
@@ -208,12 +219,15 @@ afterEach(async () => {
 describe('an add, held to the vault’s targets as this app reads them from the chain', () => {
   it('reads the vault it derives from the wallet and the plan’s number, and keeps the chain’s targets', async () => {
     const orders = api();
-    const host = await ready();
+    const host = await ready(MY_VAULT, false);
     expect(NODE.asked).toContainEqual({ method: 'getAccountInfo', address: MY_VAULT });
+    // read from the chain and the same: said over the amount card, never folded away
     const mark = find(host, '[data-ui="source-mark"]');
+    expect(mark.closest('details')).toBeNull();
     expect(mark.getAttribute('data-source')).toBe('chain');
     expect(mark.textContent).toContain(en.shared.check.verified);
     expect(mark.textContent).toContain(en.portfolio.add.source.read('Solana'));
+    await enter(host);
     expect(orders).toHaveLength(1);
     expect(recallOrder(ORDER_ID, USER)?.terms).toEqual({
       kind: 'vault',

@@ -75,6 +75,9 @@ describe('tokens: globals.css says what working-brand.yml says', () => {
     const heat = (key: string) =>
       inlineList(scalars(['tokens', 'scales'])[key] as string).map((v) => v.toUpperCase());
 
+    const share = (key: string) =>
+      upper(inlineMap(scalars(['tokens', 'scales'])[key] as string)) as Record<string, string>;
+
     const expected = (mode: 'light' | 'dark'): Record<string, string | undefined> => {
       const d = mode === 'dark';
       const [sunk, ground, raised] = layers(d ? 'layers-dark' : 'layers-light');
@@ -123,6 +126,12 @@ describe('tokens: globals.css says what working-brand.yml says', () => {
         '--tf-layer-ground': ground,
         '--tf-layer-raised': raised,
         ...Object.fromEntries(ramp.map((v, i) => [`--tf-heat-${i + 1}`, v])),
+        // the share palette, what a vault holds (gate WEIGHTS-RING)
+        ...Object.fromEntries(
+          heat(d ? 'share-dark' : 'share-light').map((v, i) => [`--tf-share-${i + 1}`, v]),
+        ),
+        '--tf-share-rest': share('share-rest')[mode],
+        '--tf-share-cash': share('share-cash')[mode],
       };
     };
 

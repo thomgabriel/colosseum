@@ -1,4 +1,9 @@
-import type { BasketLine, BasketProposal } from '@colosseum/schemas';
+import {
+  type BasketLine,
+  type BasketProposal,
+  BINDING_CASH_RULES,
+  decidingReason,
+} from '@colosseum/schemas';
 import { type Dictionary, type Lang, LOCALE } from '../../i18n';
 import { dollars } from '../goal/sheet';
 import { CASH, SYMBOLS, tail, tokenName } from './amounts';
@@ -120,47 +125,10 @@ export const bySize = (lines: readonly BasketLine[]) =>
   [...lines].sort((a, b) => b.amountUsd - a.amountUsd || a.assetId.localeCompare(b.assetId));
 
 /**
- * The rules that say what stopped a holding where it is, most telling first: the person's credit
- * limit, the cap on one token or one issuer, what selling would cost. One of these on a line is why it
- * holds what it holds; the sleeve's starting share ("starting share of dollar yield is 100%") is not,
- * once a cap has cut it.
+ * The reason that decided a line, in the engine's own sentence: the schemas' `decidingReason`, the one
+ * rule the vault page's reasons are chosen by too, so the plan and the vault never disagree on it.
  */
-const BINDING = [
-  'CREDIT_BUDGET',
-  'CREDIT_BUDGET_UNSAID',
-  'ASSET_CAP',
-  'ISSUER_CAP_PLAN',
-  'ISSUER_CAP',
-  'SINGLE_STOCK_CAP',
-  'EXIT_CEILING',
-  'TIER_CEILING',
-];
-/** On cash: why money that was meant for something else stayed. */
-const BINDING_CASH = [
-  'UNPLACED',
-  'NO_DOLLAR_YIELD',
-  'YIELD_TOO_SMALL',
-  'SET_ASIDE_CASH',
-  'COVERAGE_CASH',
-  'CASH_MAY_NEED',
-];
-/** Where a line starts from, not what decided it: said only when nothing else is. */
-const STARTING = new Set(['SLEEVE', 'SLEEVE_DEFAULT', 'SLEEVE_FILLED', 'CASH_NEAR_DATE', 'GLIDE']);
-
-/**
- * The reason that decided a line: the cap or limit that binds it, in the engine's own sentence. With
- * none of those, its first reason that is not only where it started; with none of those either, its
- * first. Undefined for a line the engine gave no reason.
- */
-export function bindingReason(line: BasketLine) {
-  const order = isCashId(line.assetId) ? [...BINDING_CASH, ...BINDING] : BINDING;
-  for (const rule of order) {
-    const found = line.reasons.find((r) => r.rule === rule || r.rule.startsWith(`${rule}_`));
-    if (found) return found;
-  }
-  const overflow = line.reasons.find((r) => r.rule.startsWith('OVERFLOW_'));
-  return overflow ?? line.reasons.find((r) => !STARTING.has(r.rule)) ?? line.reasons[0];
-}
+export const bindingReason = (line: BasketLine) => decidingReason(line, isCashId(line.assetId));
 
 /** A line's reasons with the one that decided it first, each once. */
 export const reasonsOf = (line: BasketLine): string[] => {
@@ -201,7 +169,7 @@ export function planSummary(
   const holding = lines.find((l) => !isCashId(l.assetId));
   const cash = lines.find((l) => isCashId(l.assetId));
   // Cash explains itself only by what kept money there, not by where it started.
-  const cashWhy = cash?.reasons.find((r) => BINDING_CASH.includes(r.rule))?.text;
+  const cashWhy = cash?.reasons.find((r) => BINDING_CASH_RULES.includes(r.rule))?.text;
   const riskWord = t.plan.riskWord[sheet.risk].toLowerCase();
   // A goal with no date is said with none, never with the months it is built over (gate GLIDE-OPT-IN).
   const head = sheet.horizonOpen

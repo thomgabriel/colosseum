@@ -14,11 +14,11 @@ import { useLang, useT } from '../../i18n/I18nProvider';
 import { useAccount } from '../account/AccountProvider';
 import { ChainBadgeMarked, ChainMark } from '../account/ChainName';
 import { ActivityPanel } from '../order/ActivityPanel';
-import { AssetMark } from '../order/PlanView';
 import { displayName } from '../order/plain';
-import { HoldingsBar } from '../shared/HoldingsBar';
+import { Composition } from '../shared/Composition';
+import { heldItems } from '../shared/held-items';
 import { useWalletPort } from '../wallet/WalletProvider';
-import { dollars, sharesOf } from './figures';
+import { dollars, share } from './figures';
 import { MonitorHeadWait, MonitorVaultsWait } from './MonitorWait';
 import {
   addDecimals,
@@ -123,11 +123,6 @@ export function MonitorScreen() {
   /** A current-holdings card; the existing full read and goal remain available under its fold. */
   const vaultBlock = (entry: PortfolioChain, vault: Vault) => {
     const rows = holdingsOf(vault).filter((row) => !/^0+$/.test(row.raw));
-    const priced = rows.filter((row) => row.valueUsd !== null && row.weightBps > 0);
-    const shares = sharesOf(
-      lang,
-      rows.map((row) => (row.valueUsd === null ? 0 : row.weightBps)),
-    );
     const missing = rows.filter((row) => row.valueUsd === null).length;
     const valueSource = vaultValueSource(entry, vault, words.vault.valueMethod);
     const page = `/vaults/${encodeURIComponent(entry.chain)}/${encodeURIComponent(vault.address)}`;
@@ -169,32 +164,24 @@ export function MonitorScreen() {
                   </dd>
                 </dl>
               </div>
-              {priced.length > 0 && (
-                <HoldingsBar
-                  shares={priced.map((row) => ({ key: row.asset, shareBps: row.weightBps }))}
-                />
-              )}
               {rows.length === 0 ? (
                 <p className="text-body-sm text-muted-foreground">
                   {t.shared.vault.conversation.noHoldings}
                 </p>
               ) : (
-                <ul
-                  data-ui="vault-summary-holdings"
-                  className="grid gap-x-5 gap-y-2 sm:grid-cols-2"
-                >
-                  {rows.map((row, index) => (
-                    <li key={row.asset} className="flex min-w-0 items-center gap-2 text-body-sm">
-                      <AssetMark asset={row.asset} />
-                      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                        {displayName(row.asset, t.plan)}
-                      </span>{' '}
-                      <span className="shrink-0 tabular-nums">
-                        {row.valueUsd === null ? '—' : shares[index]}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div data-ui="vault-summary-holdings">
+                  <Composition
+                    size="compact"
+                    top={3}
+                    still
+                    share={(bps) => share(lang, bps)}
+                    items={heldItems(
+                      rows,
+                      (asset) => displayName(asset, t.plan),
+                      t.portfolio.vault.noPrice,
+                    )}
+                  />
+                </div>
               )}
               {missing > 0 && (
                 <p data-ui="vault-summary-unpriced" className="text-caption text-muted-foreground">

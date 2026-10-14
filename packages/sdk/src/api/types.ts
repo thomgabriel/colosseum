@@ -3844,6 +3844,7 @@ export type GetVaultsByChainByAddressResponse = {
   name: string;
   mode: 'live' | 'readonly' | 'mock' | 'off';
   provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+  blockOrSlot?: string | null;
   vault: {
     chain: 'solana' | 'base' | 'robinhood';
     address: string | string;
@@ -3862,6 +3863,11 @@ export type GetVaultsByChainByAddressResponse = {
         multiplier: string;
         effectiveAt: number;
       };
+      why?: {
+        source: 'portfolio' | 'plan' | 'owner';
+        text?: string;
+        cls?: 'stock' | 'etf' | 'gold' | 'commodity' | 'dollar_yield' | 'crypto' | 'cash';
+      } | null;
     };
     positions: {
       asset: string;
@@ -3877,6 +3883,11 @@ export type GetVaultsByChainByAddressResponse = {
       valueUsd: string | null;
       weightBps: number;
       driftBps: number;
+      why?: {
+        source: 'portfolio' | 'plan' | 'owner';
+        text?: string;
+        cls?: 'stock' | 'etf' | 'gold' | 'commodity' | 'dollar_yield' | 'crypto' | 'cash';
+      } | null;
     }[];
     lossUsedBps: number;
     observedAt: string;

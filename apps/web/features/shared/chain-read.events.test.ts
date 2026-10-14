@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { deploymentsOf, familyTextHash, readSolanaRecipe, rpcAt } from '@colosseum/sdk';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { click, find, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
+import { click, find, hintOf, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
@@ -191,7 +191,7 @@ describe('a shared portfolio read from the chain by this app', () => {
     expect(mark.className).toContain('text-destructive');
     expect(find(host, '[data-ui="creator"]').closest('details')).toBeNull();
     // the chain's version 3 at 50/25/25, not the server's version 2 at 40/30/30
-    expect(host.textContent).toContain(en.shared.family.versionN(3));
+    expect(find(host, '[data-ui="kpi-version"] dd').textContent).toBe('3');
     const legs = find(host, '[data-ui="plan-legs"]').textContent ?? '';
     for (const part of ['SPYx', '50%', 'NVDAx', '25%', 'TSLAx']) expect(legs).toContain(part);
     expect(legs).not.toContain('40%');
@@ -216,7 +216,8 @@ describe('a shared portfolio read from the chain by this app', () => {
     expect(find(host, '[data-ui="text-unverified"]').textContent).toContain(
       en.shared.text.unverified,
     );
-    expect(find(host, '[data-ui="creator"]').textContent).toBe(CREATOR);
+    // the creator read, shortened in view, the whole of it one hover away
+    expect(await hintOf(find(host, '[data-ui="creator"]'))).toBe(CREATOR);
     await unmountAll();
     // the hash of exactly the name and description shown, worked out here: no mark
     const shown = familyOf(FAMILY_ID);
@@ -248,6 +249,9 @@ describe('a shared portfolio read from the chain by this app', () => {
     const host = await mount(withAccount('en', createElement(FamilyBuyScreen, { slug: SLUG })));
     for (let i = 0; i < 4; i += 1) await settle(50);
     await type(find<HTMLInputElement>(host, 'input[inputmode="decimal"]'), '10');
+    // the amount card's press (gate AMOUNT-CARD), its trust notice ticked, hands the amount on
+    await click(find(host, '[data-ui="amount-trust"] input[type="checkbox"]'));
+    await click(find(host, 'button[data-action="amount-deposit"]'));
     // the wallet is read, then the order is made for the card
     await settle(400);
     await settle(1050);
@@ -316,9 +320,9 @@ describe('a shared portfolio this app could read from the chain and could not', 
     await settle(1050);
     await settle(50);
     await click(find(host, 'input[type="checkbox"]'));
-    const press = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes(en.invest.press('$10')),
-    );
+    // the amount card's press, held by the sentence that says why (gate AMOUNT-CARD)
+    const press = find<HTMLButtonElement>(host, 'button[data-action="amount-deposit"]');
+    expect(press.textContent).toBe(en.amount.press.deposit('$10'));
     expect(press?.getAttribute('aria-disabled')).toBe('true');
     expect(host.textContent).toContain(tampered);
     await click(press as HTMLElement);

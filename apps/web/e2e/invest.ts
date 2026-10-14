@@ -14,7 +14,20 @@ export async function readyToInvest(
   page: Page,
   o: { amount?: string; fund?: 'mock' | 'test'; dollars?: string } = {},
 ) {
-  if (o.amount !== undefined)
+  // Where the deposit starts on the amount card (gate AMOUNT-CARD): the amount there, the trust
+  // notice ticked on it (a first deposit in this browser), and its press, which hands the amount to
+  // the invest card. A plan's own buy page still types it over the invest card.
+  const entry = page.locator('[data-ui="amount-panel"]');
+  let trusted = false;
+  if (o.amount !== undefined && (await entry.count()) > 0) {
+    await entry.getByLabel(en.amount.field.deposit, { exact: true }).fill(o.amount);
+    const press = entry.locator('[data-action="amount-deposit"]');
+    await expect(press).toHaveAttribute('aria-disabled', 'true');
+    await entry.getByLabel(en.trust.accept).check();
+    await expect(press).toHaveText(en.amount.press.deposit(o.dollars ?? '$40'));
+    await press.click();
+    trusted = true;
+  } else if (o.amount !== undefined)
     await page.getByLabel(en.buy.amount.label, { exact: true }).fill(o.amount);
   const card = page.locator('[data-ui="invest-card"]');
   const press = card.getByRole('button', { name: en.invest.press(o.dollars ?? '$40') });
@@ -34,9 +47,12 @@ export async function readyToInvest(
   // test funds that were sent are still said; sample cash on the mock leaves nothing to say
   if (o.fund === 'test') await expect(card.locator('[data-ui="test-funds-sent"]')).toBeVisible();
   else await expect(card.locator('[data-ui="funding-step"]')).toHaveCount(0);
-  // a first buy in this browser: the notice is on the card, and holds the press until it is ticked
-  await expect(press).toHaveAttribute('aria-disabled', 'true');
-  await page.getByLabel(en.trust.accept).check();
+  // a first buy in this browser: the notice is on the card, and holds the press until it is ticked;
+  // ticked on the amount card, it was kept as that card was pressed, and is not asked again
+  if (!trusted) {
+    await expect(press).toHaveAttribute('aria-disabled', 'true');
+    await page.getByLabel(en.trust.accept).check();
+  } else await expect(page.getByLabel(en.trust.accept)).toHaveCount(0);
   await expect(press).not.toHaveAttribute('aria-disabled', 'true');
   return press;
 }
@@ -70,4 +86,44 @@ export async function openPlan(page: Page, tail: '' | '/buy' = '') {
   await page.goto(`/sign-in?next=${encodeURIComponent(`/plan/${id}${tail}`)}`);
   await page.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(page).toHaveURL(tail ? /\/plan\/[^/]+\/buy$/ : /\/plan\/[^/]+$/);
+}
+
+/**
+ * The amount card at 1440x900 (Thom, Oct 13: "not sure i needed to scroll"): with the card's top in
+ * the window, its one button is in the window too, the amount over it. `scroll`: the card sits under
+ * other content on its page (a portfolio's plan), so it is brought to the top first; in a vault's pane
+ * nothing is scrolled.
+ */
+export async function pressInView(page: Page, name: string, o: { scroll?: boolean } = {}) {
+  const before = page.viewportSize();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const card = page.locator('[data-ui="amount-panel"]').first();
+  if (o.scroll)
+    await card.evaluate((el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const amount = card.locator('[data-ui="amount-well"] input');
+  const press = card.locator('button[data-action^="amount-"]');
+  for (const [what, el] of [
+    ['amount', amount],
+    ['button', press],
+  ] as const) {
+    const box = await el.boundingBox();
+    expect(box, `${name}: ${what} drawn`).not.toBeNull();
+    if (!box) continue;
+    // and not cut by a pane that scrolls on its own (the vault page's workbench)
+    const clip = await el.evaluate((node) => {
+      let bottom = window.innerHeight;
+      for (let up = node.parentElement; up; up = up.parentElement) {
+        const { overflowY } = getComputedStyle(up);
+        if (overflowY !== 'visible') bottom = Math.min(bottom, up.getBoundingClientRect().bottom);
+      }
+      return bottom;
+    });
+    expect(box.y + box.height, `${name}: ${what} not cut by its pane`).toBeLessThanOrEqual(clip);
+    expect(box.y, `${name}: ${what} below the window's top`).toBeGreaterThanOrEqual(0);
+    expect(
+      box.y + box.height,
+      `${name}: ${what} above the window's foot, with no scroll`,
+    ).toBeLessThanOrEqual(900);
+  }
+  if (before) await page.setViewportSize(before);
 }

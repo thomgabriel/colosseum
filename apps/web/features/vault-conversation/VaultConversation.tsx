@@ -10,11 +10,11 @@ import { dictionary } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { VaultMixFlow } from '../mix/VaultMixFlow';
 import { onOrderDone } from '../order/order-done';
-import { AssetMark } from '../order/PlanView';
 import { displayName } from '../order/plain';
 import { dollars, share } from '../portfolio/figures';
 import { holdingsOf, unpriced, vaultValueSource } from '../portfolio/portfolio';
-import { HoldingsBar } from '../shared/HoldingsBar';
+import { Composition } from '../shared/Composition';
+import { heldItems } from '../shared/held-items';
 import { DraftBuilding, PendingReply, ReplyAnnouncer, useChatScroll } from '../shared/ReplyPending';
 import { useApiFetch } from '../wallet/WalletProvider';
 import {
@@ -351,7 +351,6 @@ export function VaultConversation({
   }
 
   const rows = holdingsOf(read.vault).filter((row) => !/^0+$/.test(row.raw));
-  const shares = rows.filter((row) => row.valueUsd !== null && row.weightBps > 0);
   const targets = holdingsOf(read.vault).filter((row) => row.targetBps > 0);
   const proposal = reply?.proposal;
   const draftMessage = (message: string) => {
@@ -595,27 +594,20 @@ export function VaultConversation({
                     {t.portfolio.vault.unpriced(unpriced(read.vault))}
                   </p>
                 )}
-                {shares.length > 0 && (
-                  <HoldingsBar
-                    shares={shares.map((row) => ({ key: row.asset, shareBps: row.weightBps }))}
-                  />
-                )}
                 {rows.length === 0 ? (
                   <p>{copy.noHoldings}</p>
                 ) : (
-                  <ul className="flex flex-col gap-2">
-                    {rows.map((row) => (
-                      <li key={row.asset} className="flex min-w-0 items-center gap-2 text-body-sm">
-                        <AssetMark asset={row.asset} />
-                        <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                          {displayName(row.asset, t.plan)}
-                        </span>
-                        <span className="shrink-0 tabular-nums">
-                          {row.valueUsd === null ? '—' : share(language, row.weightBps)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <Composition
+                    size="compact"
+                    top={3}
+                    still
+                    share={(bps) => share(language, bps)}
+                    items={heldItems(
+                      rows,
+                      (asset) => displayName(asset, t.plan),
+                      t.portfolio.vault.noPrice,
+                    )}
+                  />
                 )}
                 <details className="border-t border-border pt-4">
                   <summary className="cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">

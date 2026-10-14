@@ -6,11 +6,12 @@ import type { ReactNode } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { Panel } from '../../components/ui/Panel';
 import {
   Skeleton,
   SkeletonLine,
   SkeletonListRow,
-  SkeletonTable,
+  SkeletonMark,
 } from '../../components/ui/Skeleton';
 import { ScreenWait } from '../../components/waits/ScreenWait';
 import { useT } from '../../i18n/I18nProvider';
@@ -91,7 +92,7 @@ export function FamilyWait() {
               <SkeletonLine className="max-w-(--tf-measure-body) text-body-lg" width="w-64" />
             </div>
           </div>
-          <PlanViewWait aside={2} />
+          <PlanViewWait kpis={4} aside={2} />
         </div>
       }
     />
@@ -150,7 +151,26 @@ function HeadWait({
   );
 }
 
-/** Withdraw (WithdrawScreen): its head, then the card of its three steps, the first one open. */
+/**
+ * The amount card in outline (gate AMOUNT-CARD): its frame where the card lands, the title, the
+ * amount's well, what it leads to, and the one button. Its height is its data's.
+ */
+export function AmountCardWait({ wait }: { wait: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-wait={wait}
+      className="flex w-full max-w-[32.5rem] flex-col gap-4 rounded-xl border border-border bg-card p-5"
+    >
+      <SkeletonLine className="text-h4" width="w-24" />
+      <Skeleton className="h-28 w-full rounded-md" />
+      <Skeleton className="h-20 w-full rounded-md" />
+      <Skeleton className="h-10 w-full rounded-md" />
+    </div>
+  );
+}
+
+/** Withdraw (WithdrawScreen): its head, then the amount card. */
 export function WithdrawWait({ chain }: { chain: ChainId | null }) {
   const t = useT();
   const w = t.withdraw;
@@ -164,40 +184,14 @@ export function WithdrawWait({ chain }: { chain: ChainId | null }) {
             title={w.title}
             lead={chain ? w.lead(t.chain.names[chain]) : null}
           />
-          <div
-            aria-hidden="true"
-            data-wait="steps"
-            className="max-w-3xl rounded-lg border border-border bg-card"
-          >
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-6 text-body-sm sm:gap-x-5">
-              {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-[22px] w-16" />
-              ))}
-            </div>
-            <div className="border-t border-border">
-              <div className="flex items-center gap-3 px-6 py-4">
-                <SkeletonLine className="text-h4" width="w-24" />
-              </div>
-              <div className="flex flex-col gap-3 px-6 pb-6">
-                <SkeletonLine className="text-body-sm" width="w-56" />
-                <SkeletonLine className="text-body-sm" width="w-48" />
-                <SkeletonLine className="text-body-sm" width="w-52" />
-                <Skeleton className="h-10 w-24 rounded-md" />
-              </div>
-            </div>
-            {[0, 1].map((i) => (
-              <div key={i} className="flex items-center gap-3 border-t border-border px-6 py-4">
-                <SkeletonLine className="text-h4" width="w-24" />
-              </div>
-            ))}
-          </div>
+          <AmountCardWait wait="card" />
         </div>
       }
     />
   );
 }
 
-/** Add money (AddMoneyScreen): its head, the amount and its card, and where the deposit goes. */
+/** Add money (AddMoneyScreen): its head, the amount card, and where the deposit goes. */
 export function AddMoneyWait({ chain }: { chain: ChainId | null }) {
   const t = useT();
   const words = t.portfolio.add;
@@ -221,18 +215,7 @@ export function AddMoneyWait({ chain }: { chain: ChainId | null }) {
             className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
           >
             <div className="flex min-w-0 flex-col gap-5">
-              <div data-wait="amount" className="flex flex-col items-start gap-1.5">
-                <p className="text-caption font-medium">{t.buy.amount.label}</p>
-                <Skeleton className="h-10 w-44 rounded-md" />
-                <SkeletonLine className="text-caption" width="w-40" />
-              </div>
-              <div
-                data-wait="card"
-                className="flex max-w-3xl flex-col gap-5 rounded-lg border border-border bg-card p-6"
-              >
-                <SkeletonLine className="text-body-sm" width="w-full" lines={3} />
-                <Skeleton className="h-10 w-32 rounded-md" />
-              </div>
+              <AmountCardWait wait="card" />
             </div>
             <div
               data-wait="strategy"
@@ -310,39 +293,36 @@ export function PublishWait() {
   );
 }
 
-/** What a vault holds, in outline: the card with one bar, a label a holding and their table. */
+/**
+ * What a vault holds, in outline, in the house kit's panel as it lands (VaultHoldings.tsx): its head,
+ * the strip, then a row a holding.
+ */
 function VaultHoldingsWait({ className }: { className?: string }) {
   const t = useT();
   const v = t.shared.vault;
   return (
-    <div
-      aria-hidden="true"
-      data-wait="holdings"
-      className={`min-w-0 rounded-lg border border-border bg-card ${className ?? ''}`}
-    >
-      <p className="p-6 text-h4 font-semibold">{v.page.holdings}</p>
-      <div className="flex min-w-0 flex-col gap-5 border-t border-border p-6">
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-3 w-full rounded-full" />
-          {[0, 1].map((i) => (
-            <div key={i} className="flex h-6 items-center gap-2">
-              <Skeleton className="size-2.5 rounded-none" />
-              <Skeleton className="h-3 w-24" />
+    <div aria-hidden="true" data-wait="holdings" className={`min-w-0 ${className ?? ''}`}>
+      <Panel as="div">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border px-5 py-4">
+          <p className="text-body-lg font-semibold whitespace-nowrap">{v.page.holdings}</p>
+          <SkeletonLine className="text-body-sm" width="w-16" />
+        </div>
+        <div className="px-5 pt-4">
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+        <div className="pt-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-3 border-t border-border px-5 py-4">
+              <SkeletonMark />
+              <span className="flex flex-col gap-1">
+                <SkeletonLine className="text-body" width="w-16" />
+                <SkeletonLine className="text-caption" width="w-20" />
+              </span>
+              <SkeletonLine className="ml-auto text-body" width="w-12" />
             </div>
           ))}
         </div>
-        <SkeletonTable
-          framed={false}
-          rows={3}
-          columns={[
-            { track: 'minmax(0,2fr)' },
-            { align: 'end' },
-            { align: 'end' },
-            { align: 'end' },
-            { align: 'end' },
-          ]}
-        />
-      </div>
+      </Panel>
     </div>
   );
 }

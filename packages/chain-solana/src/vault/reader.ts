@@ -61,6 +61,7 @@ import { type ClusterClock, decodeClock, marketAt, readScopeAccount, SYSVAR_CLOC
 import {
   ask,
   getAccounts,
+  getAccountsAt,
   getProgramAccounts,
   MAX_TX_VERSION,
   type Memcmp,
@@ -235,6 +236,8 @@ type Snapshot = {
   mints: Map<string, MintInfo>;
   /** The other accounts asked for in the same call, in order. */
   extra: (RawAccount | null)[];
+  /** The slot each of those was read at (the node's `context.slot`), in the same order. */
+  extraSlots: bigint[];
 };
 
 export function createSolanaVaultReader(options: SolanaVaultReaderOptions): SolanaVaultReader {
@@ -299,10 +302,13 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
     return assetsPda;
   };
 
+  // The slot each vault state of `getVault` was read at: its account's `context.slot`.
+  const readAt = new WeakMap<VaultState, bigint>();
+
   /** Config, the clock, the program's asset list and every listed mint, plus `extra`, in one call. */
   async function snapshot(extra: Address[] = []): Promise<Snapshot> {
     const mintAddresses = assets.map((a) => a.address as Address);
-    const accounts = await getAccounts(
+    const { accounts, slots } = await getAccountsAt(
       rpc,
       [await configAt(), SYSVAR_CLOCK, await assetsAt(), ...mintAddresses, ...extra],
       commitment,
@@ -332,7 +338,14 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
         );
       mints.set(asset.address, mint);
     }
-    return { onchain, clock, registry, mints, extra: accounts.slice(3 + assets.length) };
+    return {
+      onchain,
+      clock,
+      registry,
+      mints,
+      extra: accounts.slice(3 + assets.length),
+      extraSlots: slots.slice(3 + assets.length),
+    };
   }
 
   /**
@@ -844,8 +857,12 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
         const account = snap.extra[0];
         if (!account || account.owner !== program || !isAccount('vault', account.data)) return null;
         const [state] = await vaultStates([{ address, vault: decodeVault(account.data) }], snap);
+        const slot = snap.extraSlots[0];
+        if (state && slot !== undefined) readAt.set(state, slot);
         return state ?? null;
       }),
+
+    heightOfRead: (state) => readAt.get(state),
 
     getKeeperContext: (vault) =>
       guarded(async (): Promise<KeeperContext | null> => {

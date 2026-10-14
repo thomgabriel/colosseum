@@ -64,7 +64,7 @@ for (const width of WIDTHS) {
       await settled(page);
       await inTheme(page, 'dark');
       const drawn = await boxOf(page, '[data-ui="goal-strategy"] [data-ui="card"]');
-      const bar = await boxOf(page, '[data-ui="holding-legs"]');
+      const bar = await boxOf(page, '[data-ui="goal-strategy"] [data-ui="composition"]');
       expect.soft([drawn.x, drawn.width], 'the card').toEqual([card.x, card.width]);
       if (width >= 768) {
         // beside the chat on a desk: the card does not move, and the bar is where its outline was.
@@ -87,7 +87,7 @@ for (const width of WIDTHS) {
       await say(page, 'A broad fund and some gold, to grow, at medium risk');
       await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
       await strategy.getByRole('button', { name: en.mix.preview.deposit, exact: true }).click();
-      await page.getByLabel(en.buy.amount.label, { exact: true }).fill('100');
+      await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
       await expect(page.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checked);
       await page.getByRole('button', { name: en.mix.deposit.reviewOf('$100') }).click();
       const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');

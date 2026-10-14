@@ -9,13 +9,13 @@ import { useLang, useT } from '../../i18n/I18nProvider';
 import { dollars as goalDollars } from '../goal/sheet';
 import { tokenName } from '../order/amounts';
 import { type OrderRecord, recallOrders } from '../order/order-record';
-import { AssetMark } from '../order/PlanView';
 import { goalLine } from '../order/plain';
 import { SECTION } from '../portfolio-section/pages';
-import { HoldingsBar } from '../shared/HoldingsBar';
+import { Composition } from '../shared/Composition';
+import { heldItems } from '../shared/held-items';
 import { shortAddress } from '../shared/use-person';
 import { useWalletPort } from '../wallet/WalletProvider';
-import { dollars, sharesOf } from './figures';
+import { dollars, share } from './figures';
 import { holdingsOf, unpriced, vaultValueSource } from './portfolio';
 import type { PortfolioState } from './use-portfolio';
 import { goalOfVault } from './vault-goal';
@@ -65,11 +65,6 @@ export function PortfolioSummary({ state }: { state: PortfolioState }) {
                   : t.shared.vaults.address(shortAddress(vault.address)));
               const source = vaultValueSource(entry, vault, t.portfolio.vault.valueMethod);
               const holdings = holdingsOf(vault).filter((row) => !/^0+$/.test(row.raw));
-              const measured = holdings.filter((row) => row.valueUsd !== null && row.weightBps > 0);
-              const shares = sharesOf(
-                lang,
-                holdings.map((row) => (row.valueUsd === null ? 0 : row.weightBps)),
-              );
               const titleId = `${heading}-${vault.chain}-${vault.address}`;
               return (
                 <li
@@ -115,29 +110,18 @@ export function PortfolioSummary({ state }: { state: PortfolioState }) {
                         className="flex w-full min-w-0 flex-col gap-1 sm:col-span-2"
                       >
                         <p className="text-caption text-muted-foreground">{t.plan.holds}</p>
-                        {measured.length > 0 && (
-                          <HoldingsBar
-                            shares={measured.map((row) => ({
-                              key: row.asset,
-                              shareBps: row.weightBps,
-                            }))}
-                          />
-                        )}
                         {holdings.length > 0 ? (
-                          <ul className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-mono text-source">
-                            {holdings.map((row, i) => (
-                              <li
-                                key={row.asset}
-                                data-asset={row.asset}
-                                className="inline-flex min-w-0 max-w-full items-center gap-1.5 [overflow-wrap:anywhere]"
-                              >
-                                <AssetMark asset={row.asset} className="size-5" />
-                                <span className="min-w-0">
-                                  {tokenName(row.asset)} {row.valueUsd === null ? '—' : shares[i]}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                          <Composition
+                            size="compact"
+                            top={3}
+                            still
+                            share={(bps) => share(lang, bps)}
+                            items={heldItems(
+                              holdings,
+                              (asset) => tokenName(asset),
+                              t.portfolio.vault.noPrice,
+                            )}
+                          />
                         ) : (
                           <p className="text-body-sm text-muted-foreground">{t.withdraw.empty}</p>
                         )}

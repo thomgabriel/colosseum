@@ -126,6 +126,18 @@ export async function getAccounts(
   addresses: Address[],
   commitment: Commitment,
 ): Promise<(RawAccount | null)[]> {
+  return (await getAccountsAt(rpc, addresses, commitment)).accounts;
+}
+
+/**
+ * `getAccounts`, with the slot each account was read at: the node's own `context.slot` for the call
+ * that carried it (the calls of a hundred each run on their own, so each has its own).
+ */
+export async function getAccountsAt(
+  rpc: VaultRpc,
+  addresses: Address[],
+  commitment: Commitment,
+): Promise<{ accounts: (RawAccount | null)[]; slots: bigint[] }> {
   const batches: Address[][] = [];
   for (let i = 0; i < addresses.length; i += BATCH) batches.push(addresses.slice(i, i + BATCH));
   const answers = await Promise.all(
@@ -135,7 +147,7 @@ export async function getAccounts(
       ),
     ),
   );
-  return answers.flatMap((answer, b) =>
+  const accounts = answers.flatMap((answer, b) =>
     answer.value.map((account, i) => {
       const address = batches[b]?.[i];
       if (!account || !address) return null;
@@ -147,6 +159,8 @@ export async function getAccounts(
       };
     }),
   );
+  const slots = answers.flatMap((answer) => answer.value.map(() => BigInt(answer.context.slot)));
+  return { accounts, slots };
 }
 
 export type Memcmp = { offset: number; bytes: Uint8Array };
