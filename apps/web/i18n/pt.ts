@@ -944,6 +944,7 @@ export const pt: Dictionary = {
         `${share} em ${what} · numa queda forte, cerca de −${loss}`,
       inNoFall: (share: string, what: string) =>
         `${share} em ${what} · nenhuma perda contada numa queda forte`,
+      inOnly: (share: string, what: string) => `${share} em ${what}`,
       yieldAfter: 'ao ano do rendimento em dólar, projetado. Não é promessa.',
       range: (low: string, high: string) => `${low} a ${high} ao ano`,
       rangeAfter: 'projetado. Uma faixa, não uma promessa.',
@@ -1643,6 +1644,13 @@ export const pt: Dictionary = {
       loading: 'Lendo o cofre…',
       missing: 'Não há cofre neste endereço.',
       back: 'Voltar ao seu portfólio',
+      backVisitor: 'Voltar aos Produtos',
+      unreachable: 'Não consegui ler este cofre: nosso servidor não respondeu. Tente de novo.',
+      chainOff: (chain: string) =>
+        `${chain} está indisponível no nosso servidor por enquanto, então não consigo ler este cofre aqui.`,
+      otherFamily: (chain: string) => `Este endereço não é da ${chain}.`,
+      openOn: (chain: string) => `Abrir na ${chain}`,
+      retry: 'Ler de novo',
       explorer: (explorer: string) => `Ver no ${explorer}`,
       owner: 'Dono',
       follows: 'Segue',

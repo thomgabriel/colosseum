@@ -24,6 +24,10 @@ import { ThemeToggle } from './ThemeToggle';
 //
 //   Products    the shelf of shared portfolios (/shelf), and a portfolio's page under it
 //
+// An order's page (/orders/{id}) is under none of them: an order is a plan's deposit, a shared
+// portfolio's publish, buy or follow, or a vault's change, and the page alone does not say which
+// section it came from, so no item is lit there.
+//
 // On a phone the links are in the sheet under the menu button, under the same account block (the
 // wallets, "Sign out"); the bar's control is the same "Account".
 //
@@ -34,7 +38,7 @@ import { ThemeToggle } from './ThemeToggle';
 /** The product's routes in the bar, his order; `signedIn` marks the one a visitor does not get. */
 const ROUTES = [
   { href: '/shelf', key: 'products', also: ['/indexes', '/publish'] },
-  { href: '/goal', key: 'invest', also: ['/plan', '/orders'] },
+  { href: '/goal', key: 'invest', also: ['/plan'] },
   // the portfolio section's board (/portfolio); the older monitor and a vault's page are under it
   {
     href: '/portfolio',
