@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { EnvLike, VaultAgentFailure } from '@colosseum/schemas';
 import {
+  finalMsFor,
   LOOKUP_MAX_ROUNDS,
   LOOKUP_RULES,
   type LookedUp,
@@ -332,8 +333,12 @@ export function createAnthropicVaultAgentModel(options: {
       try {
         // Each call, a lookup round's too, reserves from the same budget as the first; a repair is a
         // second paid call, so it reserves too.
+        // The reply's calls, its lookup rounds with them, keep to the time one call had before the
+        // lookups: a deadline, each call given what is left.
+        const deadline = scope ? Date.now() + timeout : undefined;
         run = await runLookupLoop({
-          call: async (more) => {
+          ...(deadline !== undefined ? { deadline, finalMs: finalMsFor(timeout) } : {}),
+          call: async ({ timeoutMs, ...more }) => {
             const response = await client.messages.create(
               {
                 model: options.model,
@@ -347,7 +352,8 @@ export function createAnthropicVaultAgentModel(options: {
                   format: { type: 'json_schema', schema: VAULT_AGENT_REPLY_SCHEMA },
                 },
               },
-              { timeout },
+              // what is left of the reply's time: the lookups share it, never add to it
+              { timeout: timeoutMs ?? timeout },
             );
             const usage = response.usage;
             // A logger that throws must not turn the answer into `unavailable`.

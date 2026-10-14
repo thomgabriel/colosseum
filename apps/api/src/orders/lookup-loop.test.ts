@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { launchShelf } from '../../../../packages/engine/src/personal/testing';
 import { fixtureLookups, OFFLINE_DB } from '../testing/lookups';
 import {
+  LOOKUP_FINAL_MS,
   LOOKUP_MAX_ROUNDS,
   LOOKUP_TOOLS,
   LOOKUP_WAIT_MS,
@@ -162,6 +163,68 @@ describe('the lookup loop', () => {
     expect(reserve).toHaveBeenCalledTimes(4);
     expect(run.kind === 'answered' && run.looked.counts.rounds).toBe(3);
     expect(run.kind === 'answered' && run.response).toBe(answer);
+  });
+
+  it('answers a tool call it will not run, so a repair never sends a call left without its result', async () => {
+    // asked for past the last round (the model went on after tool_choice none), or cut off mid-call
+    const ignored = asks(use('late', 'asset_profile', { assetId: NVDA }));
+    const { call } = model(ignored);
+    const run = await runLookupLoop({
+      call,
+      messages: base,
+      reserve: () => null,
+      scope: scope(),
+      maxRounds: 0,
+    });
+    expect(run.kind).toBe('answered');
+    if (run.kind !== 'answered') return;
+    expect(run.transcript.at(-2)).toEqual({ role: 'assistant', content: ignored.content });
+    const results = resultsOf(run.transcript.at(-1));
+    expect(run.transcript.at(-1)?.role).toBe('user');
+    expect(results.map((r) => [r.tool_use_id, r.is_error])).toEqual([['late', true]]);
+    // nothing was read for it
+    expect(run.looked.counts).toMatchObject({ rounds: 0, calls: 0 });
+  });
+
+  it("keeps a reply's calls to its deadline: each given what is left, and none looking up when little is", async () => {
+    let clock = 0;
+    const again = asks(use('x', 'asset_profile', { assetId: NVDA }));
+    const sent: Sent[] = [];
+    const call: LookupCall = async (request) => {
+      sent.push(request);
+      clock += 8_000; // each call takes eight seconds
+      return request.tool_choice?.type === 'none' ? answer : again;
+    };
+    const run = await runLookupLoop({
+      call,
+      messages: base,
+      reserve: () => null,
+      scope: scope(),
+      deadline: 30_000,
+      now: () => clock,
+    });
+    expect(run.kind).toBe('answered');
+    // 30 s, then 22 s and 14 s left; at 6 s left the last call may not look up and has the floor
+    expect(sent.map((r) => r.timeoutMs)).toEqual([30_000, 22_000, 14_000, LOOKUP_FINAL_MS]);
+    expect(sent.map((r) => r.tool_choice ?? null)).toEqual([null, null, null, { type: 'none' }]);
+    // a deadline already near: the first call answers and looks nothing up
+    const near = model(answer);
+    await runLookupLoop({
+      call: near.call,
+      messages: base,
+      reserve: () => null,
+      scope: scope(),
+      deadline: 5_000,
+      now: () => 0,
+    });
+    expect(near.sent[0]).toMatchObject({
+      tool_choice: { type: 'none' },
+      timeoutMs: LOOKUP_FINAL_MS,
+    });
+    // no deadline: no time given, as before
+    const free = model(answer);
+    await runLookupLoop({ call: free.call, messages: base, reserve: () => null, scope: scope() });
+    expect(free.sent[0]).not.toHaveProperty('timeoutMs');
   });
 
   it('ends at a denied reservation: no further paid call', async () => {

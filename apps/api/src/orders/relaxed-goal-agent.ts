@@ -12,6 +12,7 @@ import { z } from 'zod';
 import type { ModelQuota } from '../model-quota';
 import { acceptsEffort } from '../vault-agent-model';
 import {
+  finalMsFor,
   LOOKUP_MAX_ROUNDS,
   LOOKUP_RULES,
   type LookupBase,
@@ -458,22 +459,27 @@ export function createRelaxedGoalAgent(options: {
   /** The model call; tests pass a stub so no request leaves the machine. Default: the Anthropic API. */
   create?: (
     params: Anthropic.MessageCreateParamsNonStreaming,
+    call?: { timeout?: number },
   ) => Promise<Pick<Anthropic.Message, 'stop_reason' | 'content'>>;
 }): RelaxedGoalAgent {
   const model = options.model ?? 'claude-sonnet-5-5';
+  /** One call's time, as before the lookups; a reply's calls share it (`ask`). */
+  const callMs = options.timeoutMs ?? 60_000;
   const log =
     options.log ?? ((msg, detail) => console.warn(`relaxed goal agent: ${msg}`, detail ?? ''));
   const client = new Anthropic({
     apiKey: options.apiKey,
-    timeout: options.timeoutMs ?? 60_000,
+    timeout: callMs,
     maxRetries: 0,
   });
   const create =
     options.create ??
-    ((params: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(params));
+    ((params: Anthropic.MessageCreateParamsNonStreaming, call?: { timeout?: number }) =>
+      client.messages.create(params, call));
   return {
     id: model,
     async reply(request, context, lookups) {
+      const startedAt = Date.now();
       const parsed = VaultAgentRequest.safeParse(request);
       if (!parsed.success) return { kind: 'failure', reason: 'invalid' };
       const { language, messages, messageId } = parsed.data;
@@ -540,19 +546,30 @@ export function createRelaxedGoalAgent(options: {
         let text = '';
         let run: LookupRun;
         try {
+          // The time the calls had before the lookups, shared by a reply's calls: the first answer and
+          // its lookup rounds within one call's time, a repair within a second.
+          const deadline = scope
+            ? repair
+              ? Math.min(Date.now() + callMs, startedAt + 2 * callMs)
+              : startedAt + callMs
+            : undefined;
           run = await runLookupLoop({
-            call: (more) =>
-              create({
-                model,
-                max_tokens: 4000,
-                system,
-                ...more,
-                output_config: {
-                  format: { type: 'json_schema', schema: REPLY_SCHEMA },
-                  // only where the model takes it: Haiku 4.5 and Sonnet 4.5 answer 400 to it
-                  ...(acceptsEffort(model) ? { effort: 'medium' } : {}),
-                },
-              } as unknown as Anthropic.MessageCreateParamsNonStreaming),
+            ...(deadline !== undefined ? { deadline, finalMs: finalMsFor(callMs) } : {}),
+            call: ({ timeoutMs, ...more }) =>
+              create(
+                {
+                  model,
+                  max_tokens: 4000,
+                  system,
+                  ...more,
+                  output_config: {
+                    format: { type: 'json_schema', schema: REPLY_SCHEMA },
+                    // only where the model takes it: Haiku 4.5 and Sonnet 4.5 answer 400 to it
+                    ...(acceptsEffort(model) ? { effort: 'medium' } : {}),
+                  },
+                } as unknown as Anthropic.MessageCreateParamsNonStreaming,
+                timeoutMs !== undefined ? { timeout: timeoutMs } : undefined,
+              ),
             messages: repair
               ? transcript
                 ? // the attempt as it was, its own turns unchanged, then what was wrong with it

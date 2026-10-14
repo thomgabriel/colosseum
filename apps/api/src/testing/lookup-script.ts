@@ -74,12 +74,15 @@ export function scriptedModel(script: ModelScript) {
     answered = true;
     return text(script.final);
   };
-  const create = async (params: unknown) => {
+  /** The client options each call was made with: the time it was given. */
+  const options: Array<{ timeout?: number } | undefined> = [];
+  const create = async (params: unknown, call?: { timeout?: number }) => {
+    options.push(call);
     const response = await answer(params);
     responses.push(response);
     return response;
   };
-  return { create, calls, responses };
+  return { create, calls, responses, options };
 }
 
 /** The tool results of a call's last message, read back. */

@@ -127,7 +127,12 @@ async function ask(
     model(reserve),
     ...(lookups ? [lookups] : []),
   );
-  return { result, calls: scripted.calls, responses: scripted.responses };
+  return {
+    result,
+    calls: scripted.calls,
+    responses: scripted.responses,
+    options: scripted.options,
+  };
 }
 const served = (result: VaultAgentResult) => {
   if (result.kind !== 'reply') throw new Error(`no reply: ${JSON.stringify(result)}`);
@@ -162,6 +167,17 @@ describe("a vault's own conversation looks up the data we hold", () => {
     expect(calls[1]?.messages[1]).toEqual({ role: 'assistant', content: responses[0]?.content });
     expect(calls[1]?.messages[1]?.content).toBe(responses[0]?.content);
     expect(toolResults(calls[1])).toHaveLength(1);
+  });
+
+  it("keeps a reply's calls within the one call's time it had, and never sends that time as a parameter", async () => {
+    const { result, calls, options } = await ask({ lookups: [[week]], final: said(MOVED) });
+    served(result);
+    const given = options.map((option) => (option as { timeout?: number } | undefined)?.timeout);
+    expect(given).toHaveLength(2);
+    // the model's configured time (six seconds here), shared: the second call has what is left
+    expect(given[0]).toBeLessThanOrEqual(6000);
+    expect(given[1]).toBeLessThanOrEqual(given[0] as number);
+    for (const call of calls) expect(call).not.toHaveProperty('timeoutMs');
   });
 
   it('serves the volume on the entry side', async () => {

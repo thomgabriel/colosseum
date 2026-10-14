@@ -138,7 +138,22 @@ export type LookupCall = (request: {
   messages: Anthropic.MessageParam[];
   tools?: Anthropic.Tool[];
   tool_choice?: Anthropic.ToolChoice;
+  /** The time this call may take: what is left of the reply's deadline, when it has one. */
+  timeoutMs?: number;
 }) => Promise<LookupResponse>;
+
+/**
+ * Below this much time left before the reply's deadline, the next call may not look up: it answers with
+ * what it has, and it is given at least this long, so a deadline is overrun by one such call at most. A
+ * reply with little time keeps a third of it for its answer (`finalMsFor`).
+ */
+export const LOOKUP_FINAL_MS = 10_000;
+/** The time a reply with `budgetMs` keeps for its last call: a third of it, ten seconds at most. */
+export const finalMsFor = (budgetMs: number) => Math.min(LOOKUP_FINAL_MS, Math.floor(budgetMs / 3));
+/** What a tool call the loop will not run answers, so no turn ever goes on with a call left unanswered. */
+const NOT_RUN = JSON.stringify({
+  error: 'No lookup was run: this reply may look up nothing more. Answer with what you have.',
+});
 
 export type LookupRun =
   | {
@@ -354,8 +369,18 @@ export async function runLookupLoop(input: {
   handed?: (id: string) => boolean;
   maxRounds?: number;
   waitMs?: number;
+  /**
+   * When the reply's calls must be done (epoch ms): each call is given what is left, and with less than
+   * `LOOKUP_FINAL_MS` left the next one may not look up. Absent: each call has its client's own limit.
+   */
+  deadline?: number;
+  /** The least time a last call is given, and below which none looks up; `LOOKUP_FINAL_MS` by default. */
+  finalMs?: number;
+  now?: () => number;
 }): Promise<LookupRun> {
+  const finalMs = input.finalMs ?? LOOKUP_FINAL_MS;
   const maxRounds = input.maxRounds ?? LOOKUP_MAX_ROUNDS;
+  const now = input.now ?? Date.now;
   const waitMs = input.waitMs ?? LOOKUP_WAIT_MS;
   const looked = emptyLooked();
   const taken = (id: string) =>
@@ -365,27 +390,46 @@ export async function runLookupLoop(input: {
   for (let round = 0; ; round += 1) {
     const denied = input.reserve();
     if (denied !== null) return { kind: 'denied', detail: denied, looked };
+    const left = input.deadline === undefined ? undefined : input.deadline - now();
+    // the last call a reply may make: past the rounds, or with too little time left for another
+    const last = round >= maxRounds || (left !== undefined && left < finalMs);
     const response = await input.call({
       // a copy: the next round adds to the list, never to what an earlier call was sent
       messages: [...messages],
       ...(scope
-        ? {
-            tools: LOOKUP_TOOLS,
-            ...(round >= maxRounds ? { tool_choice: { type: 'none' as const } } : {}),
-          }
+        ? { tools: LOOKUP_TOOLS, ...(last ? { tool_choice: { type: 'none' as const } } : {}) }
         : {}),
+      ...(left !== undefined ? { timeoutMs: Math.max(finalMs, left) } : {}),
     });
     const uses = response.content.filter(
       (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
     );
-    if (!scope || response.stop_reason !== 'tool_use' || !uses.length || round >= maxRounds) {
-      const transcript = response.content.length
+    if (!scope || response.stop_reason !== 'tool_use' || !uses.length || last) {
+      const transcript: Anthropic.MessageParam[] = response.content.length
         ? [
             ...messages,
             {
               role: 'assistant' as const,
               content: response.content as Anthropic.ContentBlockParam[],
             },
+            // A tool call the loop does not run (one asked for past the last round, or cut off at the
+            // token limit) is answered all the same: a repair that sends this transcript on is never
+            // refused for a call left without its result.
+            ...(uses.length
+              ? [
+                  {
+                    role: 'user' as const,
+                    content: uses.map(
+                      (use): Anthropic.ToolResultBlockParam => ({
+                        type: 'tool_result',
+                        tool_use_id: use.id,
+                        content: NOT_RUN,
+                        is_error: true,
+                      }),
+                    ),
+                  },
+                ]
+              : []),
           ]
         : messages;
       return { kind: 'answered', response, transcript, looked };

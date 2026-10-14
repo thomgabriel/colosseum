@@ -86,7 +86,7 @@ async function ask(
   const result = await (base
     ? agent.reply({ version: 1, language: 'en', messageId: 'm1', messages }, context(), base)
     : agent.reply({ version: 1, language: 'en', messageId: 'm1', messages }, context()));
-  return { result, calls: model.calls, reserve };
+  return { result, calls: model.calls, reserve, options: model.options };
 }
 const served = (result: VaultAgentResult) => {
   if (result.kind !== 'reply') throw new Error(`no reply: ${JSON.stringify(result)}`);
@@ -135,6 +135,24 @@ describe('the relaxed intake looks up the data we hold', () => {
       expect.objectContaining({ id: `bars:${NVDA}:7d:close`, value: expect.any(Number) }),
     );
     expect(JSON.stringify(looked)).not.toMatch(/"source"|"method"/u);
+  });
+
+  it("gives each call what is left of the reply's time, and never sends that time to the model", async () => {
+    const { result, calls, options } = await ask({ lookups: [[week]], final: sheet(MOVED) });
+    served(result);
+    // one call's time for the answer and its lookups, each call given what is left of it
+    const given = options.map((option) => option?.timeout);
+    expect(given).toHaveLength(2);
+    for (const ms of given) expect(ms).toBeGreaterThan(0);
+    expect(given[0]).toBeLessThanOrEqual(60_000);
+    expect(given[1]).toBeLessThanOrEqual(given[0] as number);
+    // the time is the client's, never a parameter of the request
+    for (const call of calls) expect(call).not.toHaveProperty('timeoutMs');
+    // with the lookups off, no time is given: the client's own limit, as before
+    const off = await ask({ lookups: [], final: sheet('Nothing to look up.') }, 'hello', {
+      base: null,
+    });
+    expect(off.options).toEqual([undefined]);
   });
 
   it('serves the volume on the entry side and the exit side, in the product\'s words (never "bought")', async () => {
