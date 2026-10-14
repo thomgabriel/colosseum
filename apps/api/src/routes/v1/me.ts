@@ -70,7 +70,7 @@ export function registerMeRoutes(scope: FastifyInstance, deps: OrderDeps) {
         tags,
         summary: 'Pick or switch the chain your new plans are made on',
         description:
-          'Sets the current chain. It may be changed at any time; plans already made stay on their own chains, and are bought there. The chain has to be one this server offers (Solana or Robinhood Chain; another answers 422) and one the person holds a wallet for: a chain none of their wallets signs on answers 409 with code `NO_WALLET_FOR_CHAIN`, so someone signed in with an EVM wallet alone cannot switch to Solana. The same chain again answers as before and writes nothing.',
+          'Sets the current chain. It may be changed at any time; plans already made stay on their own chains, and a deposit into one is made on its chain. The chain has to be one this server offers (Solana or Robinhood Chain; another answers 422) and one the person holds a wallet for: a chain none of their wallets signs on answers 409 with code `NO_WALLET_FOR_CHAIN`, so someone signed in with an EVM wallet alone cannot switch to Solana. The same chain again answers as before and writes nothing.',
         body: PickChainRequest,
         response: { 200: PersonResponse, default: OrderError },
       },

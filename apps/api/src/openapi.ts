@@ -17,6 +17,68 @@ import { registerV1Routes } from './routes/v1';
 /** Where the committed document lives, from the repo root. */
 export const OPENAPI_FILE = 'packages/sdk/openapi.json';
 
+/** The name and version of the API, in the committed document and on the server's /docs alike. */
+export const API_TITLE = 'Tenonfi API';
+export const API_VERSION = '1.0.0';
+
+/** What the /v1 routes are and how they are called: the committed document's text, and part of /docs. */
+const V1_TEXT =
+  "The /v1 routes: who is signed in and the chain their plans live on, what the wallet is missing there, orders with their steps, and the portfolio. The API holds no key and signs nothing: it builds each step's transaction, the person's wallet signs it, and the API matches what was sent to what it built.\n\nA signed-in route takes two headers: `Authorization: Bearer <access token>` and `privy-id-token: <identity token>`. Each route says under `security` whether it needs them, and under `x-rate-limit` the class of requests it is counted in. Every answer carries `ratelimit-limit`, `ratelimit-remaining` and `ratelimit-reset`; a 429 carries `retry-after` too. Every refusal has one shape, with a `code` where one fits and `details.retryable`. Every figure carries its source, its time and its method, and `provenance`: anything that is not `live` is a test network or MOCK.";
+
+/**
+ * The text of the whole document the server serves at /docs: the /v1 routes, Bearing's /risk/* and
+ * the structurer's first routes, then the disclaimer in both languages.
+ */
+export const SERVED_DESCRIPTION = `Tenonfi turns a person's goal into a plan, with an exit plan before it invests, held in the person's own vault on one chain. Three groups of routes are served here: the product's, under /v1; Bearing's measured liquidity and risk, under /risk; and the structurer's first routes (\`/goals\`, \`/plans\`, \`/executions\`), from before the vault: the embed still reads a goal with \`POST /goals\`.\n\n${V1_TEXT}\n\n**${DISCLAIMER.en}**\n\n${DISCLAIMER.pt}`;
+
+/**
+ * The groups of /docs, in the order they are shown. A /v1 route names its own group (`tags`); a route
+ * outside /v1 is put in one by its path (`groupOf`).
+ */
+export const SERVED_TAGS = [
+  {
+    name: 'person',
+    description: 'Who is signed in, their wallets and the chain their new plans are made on.',
+  },
+  {
+    name: 'plans',
+    description: 'Plans made from a goal and its limits, and the conversations that make them.',
+  },
+  {
+    name: 'shared portfolios',
+    description: 'The portfolios people publish for others to follow, and their versions.',
+  },
+  { name: 'funding', description: 'What a wallet is missing for a deposit, and the test faucet.' },
+  {
+    name: 'orders',
+    description:
+      'Deposits and other orders: their steps, built here, signed by the person’s wallet.',
+  },
+  {
+    name: 'portfolio',
+    description: 'The person’s vaults: holdings, history, rebalances, names and targets.',
+  },
+  {
+    name: 'platform',
+    description: 'The deployment’s flags and chains, the platform’s counts, and the health check.',
+  },
+  {
+    name: 'structurer',
+    description:
+      'The structurer’s first routes, from before the vault: a goal read from words, a plan in BRL and unsigned transactions for a partner wallet.',
+  },
+] as const;
+
+/**
+ * The group of a route outside /v1, by its path; a /v1 route has its own. Bearing's /risk/* are left
+ * as apps/risk-api documents them, with no group (tests/risk-routes-untouched.test.ts).
+ */
+export function groupOf(url: string): string | null {
+  if (url === '/health') return 'platform';
+  if (/^\/(goals|plans|executions)(\/|$)/.test(url)) return 'structurer';
+  return null;
+}
+
 /**
  * Every chain off: the routes that exist only while a chain runs on the mock (`/v1/mock/*`) are then
  * not registered, so the document is the API as it is on real chains. Nothing else reads the
@@ -83,9 +145,9 @@ export async function emitV1OpenApi(): Promise<OpenApiDocument> {
     openapi: {
       openapi: '3.1.0',
       info: {
-        title: 'Tenonfi API',
-        version: '1.0.0',
-        description: `The /v1 routes: who is signed in and the chain their plans live on, what the wallet is missing there, orders with their steps, and the portfolio. The API holds no key and signs nothing: it builds each step's transaction, the person's wallet signs it, and the API matches what was sent to what it built.\n\nA signed-in route takes two headers: \`Authorization: Bearer <access token>\` and \`privy-id-token: <identity token>\`. Each route says under \`security\` whether it needs them, and under \`x-rate-limit\` the class of requests it is counted in. Every answer carries \`ratelimit-limit\`, \`ratelimit-remaining\` and \`ratelimit-reset\`; a 429 carries \`retry-after\` too. Every refusal has one shape, with a \`code\` where one fits and \`details.retryable\`. Every figure carries its source, its time and its method, and \`provenance\`: anything that is not \`live\` is a test network or MOCK.\n\n**${DISCLAIMER.en}**`,
+        title: API_TITLE,
+        version: API_VERSION,
+        description: `${V1_TEXT}\n\n**${DISCLAIMER.en}**`,
       },
       components: { securitySchemes: V1_SECURITY_SCHEMES },
     },
