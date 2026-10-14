@@ -28,7 +28,7 @@ import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { ChainChoice } from '../account/ChainChoice';
 import { AmountCard } from '../amount/AmountCard';
-import { DepositCard, type DepositCardProps } from '../amount/DepositCard';
+import { DepositCard, type DepositCardProps, heldOf } from '../amount/DepositCard';
 import { dollars } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import { Invest } from '../order/Invest';
@@ -1075,6 +1075,7 @@ function FamilyDeposit({
       buyOf={{ family: family.slug, chain: recipe.chain }}
       holdings={targets}
       keeper
+      held={own ? heldOf(own) : null}
       into={choice}
       blocked={[]}
       running={running}
