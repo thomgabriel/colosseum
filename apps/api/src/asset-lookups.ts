@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { assetObservations, type Db, marketBars } from '@colosseum/db';
 import {
   type AssetFigure,
@@ -18,15 +20,18 @@ import {
 } from '@colosseum/risk';
 import {
   type AssetFacts,
+  type BasketAsset,
+  type ChainId,
   finiteFacts,
   type Provenance,
+  type UniverseAsset,
   VaultAgentSource,
 } from '@colosseum/schemas';
 import { and, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { projectSheet } from './agent-analytics';
 import { loadAssetFacts } from './facts';
 import { lendingMarketsOf } from './lending-facts';
-import type { ExitTwin } from './model-exits';
+import { type ExitTwin, twinSymbols } from './model-exits';
 import type {
   AssetLookups,
   LookupAnswer,
@@ -636,12 +641,78 @@ function listedPools(reading: ObservationRow | null): string[] {
   });
 }
 
+// ---------------------------------------------------------------------------------------- universe twins
+// A test-network token whose model has no twin in Bearing's registry (resolveExitTwins: its pool registry
+// and the seeded rows; never the cash token) reads its model's facts from the chain's asset universe list
+// (gate ASSET-UNIVERSE, `scripts/risk/assets/<chain>.json`), where every mainnet token of the chain we track
+// has its address. Only rows that are listed or candidates: a held-out or excluded row is never a model.
+
+/** The columns of a universe row the fallback reads. */
+export type UniverseRow = Pick<UniverseAsset, 'id' | 'symbol' | 'address'> & {
+  status: 'listed' | 'candidate';
+};
+
+const REPO_ROOT = process.env.REPO_ROOT ?? join(import.meta.dirname, '..', '..', '..');
+const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
+
+/** The listed and candidate rows of a chain's universe list; none when the file is missing or unreadable. */
+export function readUniverse(root: string, chain: string): UniverseRow[] {
+  if (!/^[a-z0-9-]+$/u.test(chain)) return [];
+  try {
+    const file = JSON.parse(
+      readFileSync(join(root, 'scripts', 'risk', 'assets', `${chain}.json`), 'utf8'),
+    ) as { assets?: unknown };
+    if (!Array.isArray(file.assets)) return [];
+    return file.assets.flatMap((entry) => {
+      const r = (entry ?? {}) as Record<string, unknown>;
+      return typeof r.id === 'string' &&
+        typeof r.symbol === 'string' &&
+        typeof r.address === 'string' &&
+        (r.status === 'listed' || r.status === 'candidate')
+        ? [{ id: r.id, symbol: r.symbol, address: r.address, status: r.status }]
+        : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The universe row a test-network token's model is: by the names its twin is looked for under in Bearing's
+ * registry (`twinSymbols`), then its exact `underlying`, a listed row before a candidate; where no row goes by
+ * those names, the row of the token's own id (the Solana test network keeps the mainnet ids: its cash token,
+ * whose `underlying` is the currency USD, is `solana:usdc`).
+ */
+export function universeTwin(
+  asset: Pick<BasketAsset, 'id' | 'symbol' | 'address' | 'underlying'>,
+  rows: readonly UniverseRow[],
+): ExitTwin | undefined {
+  if (!asset.underlying) return undefined;
+  const evm = EVM_ADDRESS.test(asset.address);
+  const same = (a: string, b: string) => (evm ? a.toLowerCase() === b.toLowerCase() : a === b);
+  const twin = (row: UniverseRow): ExitTwin => ({
+    id: asset.id,
+    symbol: asset.symbol,
+    twinSymbol: row.symbol,
+    twinMint: row.address,
+  });
+  for (const name of new Set([...twinSymbols(asset), asset.underlying])) {
+    const named = rows.filter((row) => same(row.symbol, name));
+    const hit = named.find((row) => row.status === 'listed') ?? named[0];
+    if (hit) return twin(hit);
+  }
+  const own = rows.find((row) => row.id === asset.id);
+  return own ? twin(own) : undefined;
+}
+
 // ------------------------------------------------------------------------------------------------- service
 
 export function createAssetLookups(
   deps: {
     reads?: Partial<LookupReads>;
     twins?: typeof resolveExitTwins;
+    /** Where the chains' universe lists are read from (`scripts/risk/assets/<chain>.json` under it). */
+    universeRoot?: string;
     concurrency?: number;
     ttlMs?: number;
     waitMs?: number;
@@ -671,10 +742,35 @@ export function createAssetLookups(
       });
     }) as Promise<T>;
 
-  const twinOf = (q: LookupQuery): Promise<ExitTwin | undefined> =>
+  // each chain's universe list, read once, on the first token that needs it
+  const universeRoot = deps.universeRoot ?? REPO_ROOT;
+  const universes = new Map<ChainId, UniverseRow[]>();
+  const universeOf = (chain: ChainId): UniverseRow[] => {
+    let rows = universes.get(chain);
+    if (!rows) {
+      rows = readUniverse(universeRoot, chain);
+      universes.set(chain, rows);
+    }
+    return rows;
+  };
+
+  /**
+   * The mainnet token a test-network token reads: its twin in Bearing's registry, else its model in the
+   * chain's universe list. The cash token has no registry twin, and reads its model only where it answers
+   * (`cash`: its lending part).
+   */
+  const twinOf = (q: LookupQuery, cash: boolean): Promise<ExitTwin | undefined> =>
     read(`twin|${q.chain}|${q.provenance ?? ''}|${q.asset.id}`, () =>
       twins(q.db, [q.asset], q.provenance),
-    ).then((found) => found.find((twin) => twin.id === q.asset.id));
+    ).then(
+      (found) =>
+        found.find((twin) => twin.id === q.asset.id) ??
+        (q.provenance === 'sandbox' &&
+        q.asset.provenance === 'sandbox' &&
+        (q.asset.cls !== 'cash' || cash)
+          ? universeTwin(q.asset, universeOf(q.chain))
+          : undefined),
+    );
 
   /**
    * One part: the twin, then the rows, each read at most once however many ask, built into figures when
@@ -694,7 +790,7 @@ export function createAssetLookups(
       timer = setTimeout(() => resolve('late'), q.waitMs ?? deps.waitMs ?? WAIT_MS);
     });
     try {
-      const work = twinOf(q).then((twin) => {
+      const work = twinOf(q, cash).then((twin) => {
         // a test-network token reads its model's rows; an EVM address as the collectors store it
         const address = stored(twin?.twinMint ?? q.asset.address);
         const at = new Date(now());
