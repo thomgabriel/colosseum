@@ -28,41 +28,55 @@ const Raw = z.string().regex(/^\d+$/);
 const ZERO = `0x${'0'.repeat(40)}` as Hex;
 
 /** One token the file adds: the deploy file's entry (`contracts/script/config/4663.json`), and how a person reads it. */
-const AddedAsset = z.looseObject({
-  symbol: z.string().regex(/^[A-Za-z0-9.]+$/),
-  name: z.string().min(1),
-  kind: z.enum(['stock', 'etf', 'gold', 'commodity', 'dollar_yield', 'crypto']),
-  token: Address,
-  feed: Address,
-  feedDescription: z.string().min(1),
-  tokenDecimals: z.number().int().min(0).max(18),
-  feedDecimals: z.number().int().min(0).max(18),
-  maxAge: z.number().int().positive(),
-  session: z.union([z.literal(0), z.literal(1)]),
-  source: z.literal(1),
-  maxWeightBps: z.number().int().min(0).max(5_000),
-  pauseProbe: Address,
-  pauseSelector: Selector,
-  scheduleSelector: Selector,
-  // The keeper is off on this mainnet: no switch, no average feed, no range.
-  flags: z.literal(0),
-  averageFeed: Address.refine((a) => a === ZERO, 'no average feed while the keeper is off'),
-  minPrice: z.literal(0),
-  maxPrice: z.literal(0),
-  pool: z.strictObject({
-    fee: z.number().int().min(0).max(1_000_000),
-    tickSpacing: z.number().int().min(1).max(32_767),
-  }),
-  maxTradeUsd: z.number().int().min(1_000),
-  average: z
-    .strictObject({
-      pool: Address,
-      fee: z.number().int(),
-      minLiquidity: Raw,
-      usable: z.boolean(),
-    })
-    .nullable(),
-});
+const AddedAsset = z
+  .looseObject({
+    symbol: z.string().regex(/^[A-Za-z0-9.]+$/),
+    name: z.string().min(1),
+    kind: z.enum(['stock', 'etf', 'gold', 'commodity', 'dollar_yield', 'crypto']),
+    token: Address,
+    feed: Address,
+    feedDescription: z.string().min(1),
+    tokenDecimals: z.number().int().min(0).max(18),
+    feedDecimals: z.number().int().min(0).max(18),
+    maxAge: z.number().int().positive(),
+    session: z.union([z.literal(0), z.literal(1)]),
+    source: z.literal(1),
+    maxWeightBps: z.number().int().min(0).max(5_000),
+    pauseProbe: Address,
+    pauseSelector: Selector,
+    scheduleSelector: Selector,
+    // The keeper is off on this mainnet: no switch, no average feed, no range.
+    flags: z.literal(0),
+    averageFeed: Address.refine((a) => a === ZERO, 'no average feed while the keeper is off'),
+    minPrice: z.literal(0),
+    maxPrice: z.literal(0),
+    /** The hookless Uniswap v4 pool against the cash its trades go through: the route the app builds today. */
+    pool: z
+      .strictObject({
+        fee: z.number().int().min(0).max(1_000_000),
+        tickSpacing: z.number().int().min(1).max(32_767),
+      })
+      .optional(),
+    /**
+     * Instead, the Uniswap v3 pool against the cash its trades will go through, for a token whose v4 pools
+     * do not fill $1,000: listed on chain now, traded once the app builds a v3 route. One of the two.
+     */
+    v3Pool: z
+      .strictObject({ pool: Address, fee: z.number().int().min(1).max(1_000_000) })
+      .optional(),
+    maxTradeUsd: z.number().int().min(1_000),
+    average: z
+      .strictObject({
+        pool: Address,
+        fee: z.number().int(),
+        minLiquidity: Raw,
+        usable: z.boolean(),
+      })
+      .nullable(),
+  })
+  .refine((a) => (a.pool === undefined) !== (a.v3Pool === undefined), {
+    message: 'a token states one route: a v4 `pool` or a `v3Pool`',
+  });
 
 export const AddAssetsFile = z.looseObject({
   chainId: z.number().int().positive(),
@@ -80,6 +94,23 @@ export const AddAssetsFile = z.looseObject({
     .array(z.strictObject({ block: z.number().int().positive(), at: z.string().datetime() }))
     .min(1),
   assets: z.array(AddedAsset).min(1),
+  /** Calls after the listings, in the same batch: the registry's upgrade. Each to its own target. */
+  calls: z
+    .array(
+      z.looseObject({
+        target: Address,
+        data: z.string().regex(/^0x([0-9a-fA-F]{2})*$/),
+      }),
+    )
+    .optional(),
+  /** A contract one of the calls needs, deployed first by Arachnid's CREATE2 deployer (`AddAssets.s.sol`). */
+  create2: z
+    .looseObject({
+      address: Address,
+      salt: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+      artifact: z.string(),
+    })
+    .optional(),
 });
 export type AddAssetsFile = z.infer<typeof AddAssetsFile>;
 
@@ -126,17 +157,21 @@ export type AssetBatch = {
   executeHash: Hex;
 };
 
-/** One `setAsset` on the factory per token, in the file's order, as one timelock operation. */
+/** One `setAsset` on the factory per token, in the file's order, then the file's calls, as one timelock operation. */
 export function assetBatch(file: AddAssetsFile): AssetBatch {
-  const targets = file.assets.map(() => file.factory);
-  const values = file.assets.map(() => 0n);
-  const payloads = file.assets.map((a) =>
-    encodeFunctionData({
-      abi: VAULT_FACTORY_ABI,
-      functionName: 'setAsset',
-      args: [a.token, assetConfigOf(a)],
-    }),
-  );
+  const calls = file.calls ?? [];
+  const targets = [...file.assets.map(() => file.factory), ...calls.map((c) => c.target)];
+  const values = targets.map(() => 0n);
+  const payloads = [
+    ...file.assets.map((a) =>
+      encodeFunctionData({
+        abi: VAULT_FACTORY_ABI,
+        functionName: 'setAsset',
+        args: [a.token, assetConfigOf(a)],
+      }),
+    ),
+    ...calls.map((c) => c.data.toLowerCase() as Hex),
+  ];
   const salt = keccak256(toBytes(file.salt));
   const operationId = keccak256(
     encodeAbiParameters(
@@ -271,7 +306,9 @@ export function recordEntryOf(a: AddAssetsFile['assets'][number], operationId: H
     maxWeightBps: a.maxWeightBps,
     keeperOn: false,
     range: null,
-    pool: a.pool,
+    // A token routed through v3 has no v4 pool: it stays pending until the app builds that route.
+    pool: a.pool ?? null,
+    ...(a.v3Pool ? { v3Pool: a.v3Pool } : {}),
     maxTradeUsd: a.maxTradeUsd,
     average: a.average
       ? { pool: a.average.pool, minLiquidity: a.average.minLiquidity, usable: a.average.usable }

@@ -167,7 +167,16 @@ export const EvmDeploymentRecord = z
      * chain lists each with these settings (`pnpm ops:add-assets --promote`).
      */
     pending: z
-      .array(ListedAsset.extend({ operation: z.string().regex(/^0x[0-9a-f]{64}$/) }))
+      .array(
+        ListedAsset.extend({
+          operation: z.string().regex(/^0x[0-9a-f]{64}$/),
+          /** Null for a token routed through Uniswap v3 (`v3Pool`), which no builder routes yet. */
+          pool: ListedAsset.shape.pool.nullable(),
+          v3Pool: z.strictObject({ pool: Address, fee: z.number().int().min(1) }).optional(),
+        }).refine((p) => (p.pool === null) !== (p.v3Pool === undefined), {
+          message: 'a pending token states one route: a v4 pool, or a v3 pool and no v4 pool',
+        }),
+      )
       .optional(),
     /** Listed once and taken off the list: vaults may still hold them. */
     retired: z.array(
