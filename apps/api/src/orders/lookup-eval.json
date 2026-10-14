@@ -941,23 +941,14 @@
                 "assetId": "solana:usdc"
               }
             }
-          ],
-          [
-            {
-              "name": "asset_lending",
-              "input": {
-                "assetId": "solana:nvdax"
-              }
-            }
           ]
         ],
         "final": {
-          "message": "USDC is the cash line of this chain, so it has no lending figures of its own here. In the NVDAx/USDC market of Jupiter Lend, which takes NVDAx as collateral, a lender can withdraw {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:withdrawable}} now. The supply rate of USDC in the NVDAx/USDC market is {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:supply}} a year.",
+          "message": "The supply rate of USDC in the Jupiter Lend vault that takes NVDAx as collateral is {{fact:lend:solana:usdc:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:supply}} a year. The borrow rate of USDC in that vault is {{fact:lend:solana:usdc:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:borrow}} a year. Lenders can withdraw {{fact:lend:solana:usdc:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:withdrawable}} of USDC from that vault now.",
           "question": null,
           "proposal": null
         }
-      },
-      "note": "the supply-rate sentence is cut until the slice-1 fix takes lending rates out of the yield grammar; the withdrawable figure is served either way"
+      }
     },
     {
       "id": "vault-sol-pools-nvdax",
@@ -1257,10 +1248,18 @@
                 "assetId": "solana:nvdax"
               }
             }
+          ],
+          [
+            {
+              "name": "asset_lending",
+              "input": {
+                "assetId": "solana:usdc"
+              }
+            }
           ]
         ],
         "final": {
-          "say": "In the NVDAx/USDC market of Jupiter Lend, which takes NVDAx as collateral, the borrow rate of USDC is {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:borrow}} a year. In that market the supply rate of USDC is {{fact:lend:solana:nvdax:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:supply}} a year.",
+          "say": "NVDAx has no lending rates of its own here: Jupiter Lend vaults accept it as collateral and lend other tokens, so their rates are those tokens' rates. The supply rate of USDC in the Jupiter Lend vault that takes NVDAx as collateral is {{fact:lend:solana:usdc:Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke:supply}} a year.",
           "shape": "pick",
           "lines": [],
           "buckets": null,
@@ -1278,7 +1277,8 @@
           "not_available": [],
           "open": []
         }
-      }
+      },
+      "note": "NVDAx's markets only take it as collateral: the note is said in words, and USDC's rates are looked up under USDC"
     },
     {
       "id": "vault-rh-price-tsla",

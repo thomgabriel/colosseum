@@ -22,6 +22,15 @@ export const LOOKUP_ROWS = {
   pools: load<{ reading: ObservationRow; poolBars: PoolBarRow[] }>('nvdax-pools.json'),
   lending: load<{ markets: LendingMarketRow[] }>('nvdax-lending.json').markets,
 };
+/** The vault that lends USDC against NVDAx: the cash token's market in the fixtures. */
+const USDC_LENT: LendingMarketRow[] = LOOKUP_ROWS.lending
+  .filter((market) => market.market.endsWith('/USDC'))
+  .map((market) => ({ ...market, lends: true }));
+/** The cash tokens' addresses on the launch shelf (USDC on Solana, USDG on Robinhood Chain). */
+const CASH_MINTS = new Set([
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
+]);
 const HOUR_MS = 3_600_000;
 const firstBar = Date.parse(LOOKUP_ROWS.bars[0]?.hour ?? '');
 const lastBar = Date.parse(LOOKUP_ROWS.bars.at(-1)?.hour ?? '');
@@ -55,7 +64,10 @@ export function fixtureReads(over: Partial<LookupReads> = {}): LookupReads {
     bars: async () => ({ rows: LOOKUP_ROWS.bars, before: null, chainHours: LOOKUP_CHAIN_HOURS }),
     poolReading: async () => LOOKUP_ROWS.pools.reading,
     poolBars: async () => LOOKUP_ROWS.pools.poolBars,
-    lending: async () => LOOKUP_ROWS.lending,
+    // the cash token's markets are the vault that lends it (USDC), as asset-lookups.test.ts reads them;
+    // any other asset is NVDAx, which the two vaults only take as collateral
+    lending: async (_db, _chain, address) =>
+      CASH_MINTS.has(address) ? USDC_LENT : LOOKUP_ROWS.lending,
     sheet: async (): Promise<AssetFacts | null> => null,
     ...over,
   };

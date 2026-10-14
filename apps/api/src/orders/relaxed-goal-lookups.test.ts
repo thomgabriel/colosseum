@@ -267,6 +267,26 @@ describe('the relaxed intake looks up the data we hold', () => {
     expect(result.kind === 'reply' && result.lookups?.errors).toBe(2);
   });
 
+  it("serves the cash token's lending markets on /goal, though no draft names the cash token", async () => {
+    const vault = 'Dnrc3CxMiDbcLPNaDVFZKf8SapkbQE6Az2obcKfWwBke';
+    const { result } = await ask(
+      {
+        lookups: [[{ name: 'asset_lending', input: { assetId: 'solana:usdc' } }]],
+        final: sheet(
+          `The supply rate of USDC in the Jupiter Lend vault that takes NVDAx as collateral is ${ref(`lend:solana:usdc:${vault}:supply`)} a year.`,
+        ),
+      },
+      'can I lend USDC and at what rate?',
+    );
+    expect(served(result).message).toBe(
+      'The supply rate of USDC in the Jupiter Lend vault that takes NVDAx as collateral is 8.8% a year.',
+    );
+    expect(factsOf(result).get(`lend:solana:usdc:${vault}:supply`)).toMatchObject({
+      assetId: 'solana:usdc',
+      provenance: 'live',
+    });
+  });
+
   it('keeps the sandbox plate of a test-network figure', async () => {
     const sandboxed = fixtureLookups(
       {},
