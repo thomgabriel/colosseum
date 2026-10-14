@@ -866,6 +866,13 @@ describe('the banner: live, stale with time, or the API down', () => {
     expect(region.querySelector('[data-ui="skeleton-rows"]')).not.toBeNull();
     // the banner keeps its box, still, and says nothing a screen reader would read twice
     expect(banner(host).getAttribute('aria-hidden')).toBe('true');
+    // laid out in the stale banner's own words, unseen, so it is as tall as they are at any width
+    const unseen = [...banner(host).querySelectorAll('.invisible')].map((e) => e.textContent);
+    expect(unseen).toEqual([
+      expect.stringMatching(/^The collectors’ newest reading is from .+, .+ old\.$/),
+      'Every figure is stale: measured, only old. Its age is beside it.',
+    ]);
+    expect(banner(host).querySelectorAll('[data-ui="skeleton"]')).toHaveLength(2);
     expect(banner(host).getAttribute('role')).toBeNull();
     expect(host.querySelectorAll('[data-ui="figure"]')).toHaveLength(0);
   });
@@ -890,6 +897,39 @@ describe('the banner: live, stale with time, or the API down', () => {
     expect(banner(host).textContent).toContain('did not answer');
     expect(host.textContent).toContain('the API returned no answer');
     expect(host.querySelectorAll('[data-ui="figure"]')).toHaveLength(0);
+  });
+
+  // A cold start of the hosted API can outlast the probe's tries; the page's own read then comes in.
+  it('takes back that the API did not answer as soon as the page’s own read comes in', async () => {
+    const recorded = snapshotReader();
+    let answer: () => void = () => {};
+    const late = new Promise<void>((done) => {
+      answer = done;
+    });
+    const cold = {
+      get: async <T>(path: string) => {
+        await late;
+        return recorded.get<T>(path);
+      },
+      probe: async () => false,
+    };
+    const host = await mount(
+      createElement(BearingProvider, {
+        reader: cold,
+        now: Date.parse('2026-10-03T15:17:00Z'),
+        children: [
+          createElement(Banner, { key: 'b' }),
+          createElement(DexPage, { key: 'p', page: 'stocks' }),
+        ],
+      } as never),
+    );
+    await settle(host, (h) => banner(h).getAttribute('data-mode') === 'none');
+    expect(banner(host).textContent).toContain('did not answer');
+    answer();
+    await settle(host, (h) => banner(h).getAttribute('data-mode') === 'live' && ready(h));
+    expect(banner(host).textContent).not.toContain('did not answer');
+    expect(banner(host).textContent).toContain('Newest reading from the collectors: 15:07 UTC.');
+    expect(host.querySelectorAll('[data-ui="figure"]').length).toBeGreaterThan(0);
   });
 
   it('turns stale while it is open, once its newest reading ages past two hours', async () => {

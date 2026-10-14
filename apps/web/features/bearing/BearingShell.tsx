@@ -187,6 +187,10 @@ export function ChainToggle() {
   );
 }
 
+/** What the loading banner lays out in place of the newest reading's time and its age. */
+const STAND_IN_READING = '2026-01-01T00:00:00Z';
+const STAND_IN_AGE_S = 4 * 3600;
+
 /** Live or stale, said once for the whole page; or that the API did not answer. */
 export function Banner() {
   const { mode, newest, clock } = useBearing();
@@ -196,21 +200,26 @@ export function Banner() {
   const box =
     'mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border border-l-2 border-border border-l-primary px-3 py-2';
   // While the readings come, the banner keeps its box in the shape of what it will say; the page's own
-  // wait says in words what is awaited.
-  if (mode === 'loading')
+  // wait says in words what is awaited. The shape is the stale banner's, its words laid out unseen with
+  // a stand-in time and age under a bar each, so the box is as tall as they are at any width: at
+  // 375 px they take four lines, and two bars of a line each let the page jump when they came.
+  if (mode === 'loading') {
+    const bar = (words: string, className?: string) => (
+      <span className={cn('relative', className)}>
+        <span className="invisible">{words}</span>
+        <Skeleton className="absolute inset-x-0 top-1 h-3 w-3/4" />
+      </span>
+    );
     return (
       <div data-ui="bearing-banner" data-mode={mode} aria-hidden="true" className={box}>
-        {/* Each bar sits on a line of the live banner's own type, so the box is that banner's height. */}
-        <b className="font-semibold">
-          {'\u200b'}
-          <Skeleton className="inline-block h-3.5 w-56 align-middle" />
-        </b>
-        <span className="font-mono text-b-meta">
-          {'\u200b'}
-          <Skeleton className="inline-block h-3 w-40 align-middle" />
-        </span>
+        {bar(
+          w.stale(fm.second(STAND_IN_READING), formatAge(STAND_IN_AGE_S)?.short ?? w.unknownAge),
+          'font-semibold',
+        )}
+        {bar(w.staleAll)}
       </div>
     );
+  }
   const now = new Date(clock.now);
   return (
     <div role="status" data-ui="bearing-banner" data-mode={mode} className={box}>

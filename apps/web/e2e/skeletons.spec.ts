@@ -463,11 +463,17 @@ for (const width of WIDTHS) {
           // the figures are there and the banner says what it will go on saying, as tall as its words
           settled:
             'main:has([data-ui="bearing-banner"]:not([data-mode="loading"])) [data-ui="bearing-kpis"] [data-ui="figure"]',
-          // The banner over the page is as tall as what it says, and the recording's readings are
-          // old, which takes more words than live ones: the page is held to its place under it.
+          // The banner over the page is as tall as what it says: live readings take fewer words than
+          // old ones, so the page is held to its place under it. Waiting, it is laid out as the stale
+          // banner, which the recording's old readings give, so here it holds its own box too.
           under: '[data-ui="bearing-banner"]',
           regions: [
             { name: 'title', waiting: 'main h1', loaded: 'main h1' },
+            {
+              name: 'banner',
+              waiting: '[data-ui="bearing-banner"]',
+              loaded: '[data-ui="bearing-banner"]',
+            },
             {
               name: 'figures',
               waiting: '[data-ui="bearing-kpis"]',

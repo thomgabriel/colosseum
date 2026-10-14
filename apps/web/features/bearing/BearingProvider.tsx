@@ -259,20 +259,28 @@ export function BearingProvider({
       modeRef.current = m;
       setMode(m);
     };
-    reader.probe().then(async (up) => {
-      if (!live) return;
-      if (!up) {
-        say('none');
-        return;
-      }
-      const b = await api.base();
-      if (!live) return;
+    const from = (b: Base) => {
       const at = fixedNow ?? Date.now();
       const last = newestReading(b.assets);
       newestRef.current = last;
       setNow(at);
       setNewest(last);
       say(isStale(last, at) ? 'stale' : 'live');
+    };
+    reader.probe().then(async (up) => {
+      if (!live) return;
+      if (!up) {
+        // only while nothing has answered: a read that came in says more than a probe that gave up
+        if (modeRef.current === 'loading') say('none');
+        return;
+      }
+      const b = await api.base();
+      if (live) from(b);
+    });
+    // A cold API can answer after the probe has given up: the page's own read, once its assets come,
+    // says the API is there, so the banner never says it did not answer beside the figures it gave.
+    api.base().then((b) => {
+      if (live && b.assets.ok) from(b);
     });
     // Every minute: an open page turns stale when its readings age past the limit, and a page whose
     // API did not answer asks again, and reads everything afresh when it does.
