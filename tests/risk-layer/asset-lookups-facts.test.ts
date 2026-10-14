@@ -9,6 +9,7 @@ import {
   factNullReason,
   type LendingMarketRow,
   lendingFigures,
+  lendsIt,
   lentOf,
   MAX_POOLS,
   newestByMetric,
@@ -366,10 +367,14 @@ describe('lending: per market, from the report’s sheets', () => {
     expect(markets.map((m) => m.account)).toEqual([...lending.map((m) => m.account)].sort());
     // each a Jupiter Lend vault that takes NVDAx as collateral and lends a dollar token: the rates are
     // that token's
-    expect(markets.map((m) => [m.market, m.lent, m.collateral])).toEqual([
-      ['Jupiter Lend NVDAx/JupUSD', 'JupUSD', 'NVDAx'],
-      ['Jupiter Lend NVDAx/USDC', 'USDC', 'NVDAx'],
+    expect(markets.map((m) => [m.market, m.lent, m.collateral, m.lends])).toEqual([
+      ['Jupiter Lend NVDAx/JupUSD', 'JupUSD', 'NVDAx', false],
+      ['Jupiter Lend NVDAx/USDC', 'USDC', 'NVDAx', false],
     ]);
+    // read for the token it lends (by its debt mint), the same vault's figures are that token's
+    expect(
+      lendingFigures([{ ...(lending[0] as LendingMarketRow), lends: true }], now)[0]?.lends,
+    ).toBe(true);
     for (const market of markets) {
       const sheet = (lending.find((m) => m.account === market.account) as LendingMarketRow).sheet;
       const f = byKey(market.figures);
@@ -406,6 +411,16 @@ describe('lending: per market, from the report’s sheets', () => {
       value: null,
       reason: 'not_collected',
     });
+  });
+});
+
+describe('lending: whether a market lends the token it was read for', () => {
+  it('says what the row says, or by its role: a vault or a collateral pool takes the token as collateral', () => {
+    expect(lendsIt({ role: 'vault' })).toBe(false);
+    expect(lendsIt({ role: 'collateral' })).toBe(false);
+    expect(lendsIt({ role: 'debt' })).toBe(true);
+    expect(lendsIt({ role: 'curated_vault' })).toBe(true);
+    expect(lendsIt({ role: 'vault', lends: true })).toBe(true);
   });
 });
 

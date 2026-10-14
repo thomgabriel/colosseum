@@ -348,21 +348,77 @@ const LEND_RATE = /^lend:.+:(?:supply|borrow)$/u;
 /** The rate words a lending rate's sentence may hold, which cut any other figure (`RETURN`). */
 const RATE_WORDS = /(?<![\p{L}\p{N}'’])(?:rates?|taxas?)(?![\p{L}\p{N}])/giu;
 /**
- * The token a lending figure is of, from its label ("Borrow rate of USDC a year in …", asset-lookups.ts
- * `lendLabel`): a sentence about the figure may name it.
+ * A sentence names a token as what a market takes as collateral ("the vault that takes NVDAx as collateral"):
+ * the token is where the figure was read, not what it is of, so the rule that a lending figure's sentence
+ * names no other asset leaves it out.
  */
-const lentName = (label: string | undefined) =>
-  label?.match(/^(?:Supply rate|Borrow rate|Share|Dollars) of (?!the\s)(\S+)\s/u)?.[1];
+const AS_COLLATERAL =
+  /(?<![\p{L}\p{N}])(?:takes?|taking|accepts?|accepting|aceita[mr]?)\s+(?:(?:o|a)\s+)?\S+\s+(?:as|como)\s+(?:collateral|colateral|garantia)(?![\p{L}\p{N}])/giu;
 /**
- * The person's own holding or action: a looked-up figure is of an asset or its market, never the person's
- * share, stake, result or what they can do (`ANY-COMPOSITION`).
+ * The person's own holding or action, or the vault's: a looked-up figure is of an asset or its market, never
+ * the person's or the vault's share, stake, result or what they can do (`ANY-COMPOSITION`). Read only in a
+ * sentence with a lookup's figure (`personal`).
  */
-const PERSONAL = lone(
-  "your|yours|yourself|you\\s+(?:can|could|will|would|might|may|should|hold|held|have|had|own|owned|get|got|keep|kept|made|lost|gained|earned|put|invested|bought|sold)|you['’](?:ll|d|ve|re)|my|mine|myself|I|seu|sua|seus|suas|voc[eê]s?|teu|tua|teus|tuas|meu|minha|meus|minhas|eu",
+const PERSON_WORDS =
+  "your|yours|yourself|you\\s+(?:can|could|will|would|might|may|should|hold|held|have|had|own|owned|get|got|keep|kept|made|lost|gained|earned|put|invested|bought|sold|are|were|want|wanted|wish|need|lend|lent|supply|supplied|deposit|deposited|withdraw|withdrew|borrow|borrowed|stake|staked)|you['’](?:ll|d|ve|re)|my|mine|myself|ur|vc|vcs|seu|sua|seus|suas|voc[eê]s?|teu|tua|teus|tuas|meu|minha|meus|minhas|we|we['’](?:ll|d|ve|re)|our|ours|ourselves|n[oó]s|nosso|nossa|nossos|nossas|a\\s+person|someone|somebody|anyone|anybody|whoever|uma\\s+pessoa|algu[eé]m|quem|d[aá]\\s+(?:pra|para)";
+/** The agent speaking of itself ("I see", "eu vejo"): the person's in a figure's sentence, not beside it. */
+const AGENT_WORDS = 'I|eu';
+const PERSONAL = lone(`${PERSON_WORDS}|${AGENT_WORDS}`);
+const PERSONAL_BESIDE = lone(PERSON_WORDS);
+/** "u" and "us" in lower case only, so neither "U.S." nor "US" reads as the person. */
+const PERSONAL_CASED = /(?<![\p{L}\p{N}'’])(?:u|us|Us|Ur)(?![\p{L}\p{N}'’.])/u;
+/** A vault as a holder: it holds, has, owns or can; or its holding, by an asset's name after "vault's". */
+const VAULT_HOLDS = new RegExp(
+  `${
+    lone(
+      "(?:the|this|that|my|your|our)\\s+vaults?\\s+(?:\\p{L}+\\s+)?(?:holds?|held|holding|has|had|owns?|owned|can|could|is\\s+able|gets?|got|keeps?|kept)|(?:o|este|esse|aquele|meu|seu|nosso)\\s+cofre\\s+(?:\\p{L}+\\s+)?(?:tem|teve|pode|podem|possui|det[eé]m|guarda|segura|consegue)|vault['’]s\\s+(?:holdings?|positions?|stakes?|shares?|assets?|tokens?|money|balance|dollars)",
+    ).source
+  }(?!\\s+(?:(?:a|an|the|its|uma)\\s+)?(?:\\p{L}+\\s+)?(?:(?:supply|borrow|borrowing|lending)\\s+rates?|utili\\p{L}*|taxas?))`,
+  'iu',
 );
+const VAULT_OWNS = /(?<![\p{L}\p{N}])vault['’]s\s+(\S+)/giu;
+/** A sentence that tells the person to act: it opens with withdraw, sell, lend, supply, deposit, borrow or hold. */
+const IMPERATIVE =
+  /^\s*(?:[-*•–—]\s+)?(?:(?:just|then|now|so|please|agora|ent[aã]o|basta)\s*,?\s+)?(?:withdraw|sell|lend|supply|deposit|borrow|hold|buy|stake|saque|sacar|venda|vender|empreste|emprestar|deposite|depositar|tome|tomar|compre|segure)(?![\p{L}\p{N}])(?!\s+(?:rates?|apy|apr|caps?|limits?|side)(?![\p{L}\p{N}]))/iu;
+/** Portuguese without a subject: "pode sacar", "podem vender", at the start of a sentence or a clause. */
+const SUBJECTLESS =
+  /(?:^\s*(?:[-*•–—]\s+)?(?:(?:sim|hoje|agora|ent[aã]o|e|mas|j[aá])\s*,?\s+)?|[,;:]\s+)(?:pode|podem)\s+\p{L}{2,}/iu;
+
+/**
+ * Whether a sentence speaks of the person's or the vault's own holding or action: a person word, a vault as a
+ * holder, an order to act or Portuguese without a subject. `agent`: the agent's own "I" counts too (in the
+ * figure's own sentence; beside it, "This is what I found" is the agent speaking).
+ */
+function personal(
+  text: string,
+  named: ((text: string) => { own: string[] }) | undefined,
+  agent: boolean,
+): boolean {
+  if (
+    (agent ? PERSONAL : PERSONAL_BESIDE).test(text) ||
+    PERSONAL_CASED.test(text) ||
+    VAULT_HOLDS.test(text) ||
+    IMPERATIVE.test(text) ||
+    SUBJECTLESS.test(text)
+  )
+    return true;
+  // "the vault's NVDAx": a holding of the vault, by the asset's name
+  for (const match of text.matchAll(VAULT_OWNS))
+    if ((named?.(match[1] ?? '').own.length ?? 0) > 0) return true;
+  return false;
+}
+
+/** Read in a sentence beside a lookup's figure, never alone. */
+const NEIGHBOUR_RETURN = lone(
+  'returns?|returned|returning|yields?|yielded|yielding|earn\\p{L}*|pays?|paid|paying|payouts?|income|profit\\p{L}*|gain\\p{L}*|interest|dividends?|rind\\p{L}*|rend[ae]\\p{L}*|rendiment\\p{L}*|rentabilidade|renda|retorn\\p{L}*|ganh\\p{L}*|lucr\\p{L}*|pag[ao]\\p{L}*|juros|dividendos?',
+);
+/** A sentence that refers back to the figure before it or on to the one after it. */
+const REFERS_OPEN =
+  /^\s*(?:[-*•–—]\s+)?(?:(?:and|but|so|e|mas)\s+)?(?:that|this|it|which|so|those|these|isso|isto|esse|essa|esses|essas)(?![\p{L}\p{N}])/iu;
+const REFERS_IN = lone('that|this|it|isso|isto|isso\\s+tudo');
 /** Beside a change over a window, a result: a change is the asset's past move, never a performance. */
 const PERFORMANCE = lone(
-  'perform\\p{L}*|profit\\p{L}*|earn\\p{L}*|gain\\p{L}*|lost|made|desempenh\\p{L}*|lucr\\p{L}*|ganh\\p{L}*|perd\\p{L}*',
+  'perform\\p{L}*|profit\\p{L}*|earn\\p{L}*|gain\\p{L}*|lost|made|results?|deliver\\p{L}*|winners?|losers?|(?:good|bad|great|strong|weak|rough|solid|terrible)\\s+(?:week|month|day|year)|(?:did|done|doing)\\s+(?:well|badly|poorly|great)|desempenh\\p{L}*|lucr\\p{L}*|ganh\\p{L}*|perd\\p{L}*|resultados?|entreg\\p{L}*|vencedor\\p{L}*|perdedor\\p{L}*',
 );
 
 // A holding's distance from its target, and a line's weight in the shared portfolio the vault follows.
@@ -461,6 +517,8 @@ const LOOKUP_KINDS: Array<[RegExp, RegExp]> = [
     /^lend:.+:withdrawable$/u,
     lone('withdraw\\p{L}*|available|sac\\p{L}*|dispon[ií]ve\\p{L}*|resgat\\p{L}*'),
   ],
+  // a market that only takes the asset as collateral: no figure, a note that it is collateral there
+  [/^lend:.+:collateral$/u, lone('collateral|colateral|garantia')],
 ];
 // The kind of a figure, by its id, and the words that name it in a sentence.
 const BASE_KINDS: Array<[RegExp, RegExp]> = [
@@ -645,7 +703,9 @@ const SAID = {
   called:
     "a lending rate not called a supply rate or a borrow rate, or a pool's share not called a share of the dollars in the asset's pools, in its own sentence",
   personal:
-    "a looked-up figure in a sentence about the person's own holding or action (your, you can, I, seu, você): it is a figure of the asset or its market, never the person's",
+    "a looked-up figure in a sentence about the person's or the vault's own holding or action (your, you can, we, our, I, the vault holds, an order such as \"withdraw\", seu, você, pode sacar): it is a figure of the asset or its market, never the person's",
+  neighbour:
+    "a looked-up figure with a sentence just before or after it that refers back to it (that, this, it, isso) and calls it a yield, a return, a payment, a result or the person's or the vault's own: say what the figure is in its own sentence and nothing more of it",
   performance:
     'a change over a window called a performance, a profit or a result made or lost: call it the change over its window',
 } as const;
@@ -855,9 +915,28 @@ export function figureResolver(input: {
       others.some((id) => MUST_BE_CALLED.some(([kind, named]) => kind.test(id) && !named.test(own)))
     )
       found.push('called');
-    if (hasLookup(ids) && PERSONAL.test(all)) found.push('personal');
-    if (ids.some((id) => /^bars:.+:change$/u.test(id)) && PERFORMANCE.test(whole))
+    if (hasLookup(ids) && personal(all, input.named, true)) found.push('personal');
+    if (
+      ids.some((id) => /^bars:.+:change$/u.test(id)) &&
+      // a result in the sentence before or after a change is said of the change
+      (PERFORMANCE.test(whole) ||
+        PERFORMANCE.test(lead) ||
+        PERFORMANCE.test(plainly(withoutReferences(next))))
+    )
       found.push('performance');
+    // A sentence just before or after a lookup's figure that refers to it and calls it a yield, a return, a
+    // result or the person's or the vault's own says that of the figure ("… a year. That is NVDAx's yield.").
+    if (
+      hasLookup(ids) &&
+      [lead, plainly(withoutReferences(next))].some(
+        (beside) =>
+          (REFERS_OPEN.test(beside) || REFERS_IN.test(beside)) &&
+          (NEIGHBOUR_RETURN.test(beside) ||
+            PERFORMANCE.test(beside) ||
+            personal(beside, input.named, false)),
+      )
+    )
+      found.push('neighbour');
     if (others.length) {
       const every = (...kinds: string[]) =>
         others.every((id) => kinds.some((kind) => id.startsWith(kind)));
@@ -879,25 +958,24 @@ export function figureResolver(input: {
     // names none ("It trades at…") speaks of what the sentence before named.
     const told = namesHere ? here : input.named?.(lead);
     const names = new Set([...(told?.own ?? []), ...(told?.classes ?? [])]);
-    // A lending figure is of the token its market lends as well: a sentence may name that token (only
-    // it) beside the asset, or for it.
-    const lentOf = (id: string): string[] =>
-      id.startsWith('lend:') ? (input.named?.(lentName(figure(id)?.label) ?? '').own ?? []) : [];
+    // A lending figure is the figure of the token its market lends, and is served under that token
+    // (asset-lookups.ts, `lendingAnswer`): its sentence names no other asset, but for one named as what the
+    // market takes as collateral ("the vault that takes NVDAx as collateral").
     const ofIds = new Set(
       ids.flatMap((id) => {
         const of = figure(id)?.assetId;
-        return of === undefined ? [] : [of, ...lentOf(id)];
+        return of === undefined ? [] : [of];
       }),
     );
+    const besides = namesHere ? input.named?.(all.replace(AS_COLLATERAL, ' ')) : told;
     if (
       names.size > 0 &&
       (ids.some((id) => {
         const of = figure(id)?.assetId;
-        return of !== undefined && !names.has(of) && !lentOf(id).some((lent) => names.has(lent));
+        return of !== undefined && !names.has(of);
       }) ||
-        // with a lending figure, no asset named but those the sentence's figures are of
         (ids.some((id) => id.startsWith('lend:')) &&
-          (told?.own ?? []).some((named) => !ofIds.has(named))))
+          (besides?.own ?? []).some((named) => !ofIds.has(named))))
     )
       found.push('asset');
     return found;
