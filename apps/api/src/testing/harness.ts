@@ -25,7 +25,7 @@ import {
   parseChainConfigs,
   parseFlags,
 } from '@colosseum/schemas';
-import { type AnyColumn, inArray, or } from 'drizzle-orm';
+import { type AnyColumn, inArray, or, sql } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { buildApp } from '../app';
 import type { TestFundsSender } from '../faucet/test-funds';
@@ -288,6 +288,8 @@ export async function testDb() {
         .values({
           familyId,
           chainId: chain,
+          // the network the test database runs the chain on
+          network: sql`(select network from chains where id = ${chain})`,
           onchainId: `test:${familyId}`,
           creator: mockAddress(chain, 'creator'),
           kind: 'community',

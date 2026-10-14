@@ -31,6 +31,7 @@ import { type PublishVaultRead, readPublishVault } from './publish-vault';
 import { placeShared, readFamily } from './shared-api';
 import type { SharedTerms } from './terms';
 import { useSharedPerson } from './use-person';
+import { useShelfScope } from './use-shelf';
 import { PublishWait } from './waits';
 
 // Publish an owner-proved vault's strategy through the existing reviewed order/signature contract.
@@ -120,6 +121,7 @@ export function PublishScreen() {
     return read.success ? read.data : null;
   });
   const person = useSharedPerson(named);
+  const scope = useShelfScope();
   const chain = person.kind === 'ready' ? person.chain : null;
   const mock = person.kind === 'ready' ? person.mock : false;
   const assets = chain ? assetsFor(chain, mock) : [];
@@ -275,6 +277,23 @@ export function PublishScreen() {
       <section className="flex flex-col items-start gap-4">
         <h1 className={PAGE_TITLE}>{p.title}</h1>
         <p className="max-w-(--tf-measure-body) text-body">{p.problems.chain}</p>
+      </section>
+    );
+  // Where the server lists live portfolios only (gate PRODUCTS-MAINNET-ONLY), a vault on another
+  // chain is not offered: what it published would never show on Products. Said, with where to go.
+  if (scope === null) return <PublishWait />;
+  if (scope.liveOnly && !scope.live.includes(chain))
+    return (
+      <section data-ui="publish-live-only" className="flex flex-col items-start gap-4">
+        <h1 className={PAGE_TITLE}>{p.title}</h1>
+        <p className="max-w-(--tf-measure-body) text-body">
+          {p.liveOnly(
+            t.chain.names[chain],
+            new Intl.ListFormat(LOCALE[lang], { type: 'disjunction' }).format(
+              scope.live.map((c) => t.chain.names[c]),
+            ),
+          )}
+        </p>
       </section>
     );
 

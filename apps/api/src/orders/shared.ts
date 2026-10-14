@@ -27,7 +27,8 @@ import { HOME_CHAIN } from './person';
 // Shared portfolios as orders (DESIGN-VAULT section 6, gate SHARED-FULL): a creator publishes one, a
 // person follows one. The API plans and builds; the creator's own form says what is published, and the
 // guard in packages/sdk holds the bytes to what that form showed (AGT-4): the family id, the text, the
-// assets and weights. Solana only for now: Robinhood Chain's registry calls wait for EVM-3 and ADE-2.
+// assets and weights. On Solana the program's `publish_recipe`, `update_recipe` and `cancel_pending`;
+// on Robinhood Chain `IndexRegistry`'s `create`, `publish` and `cancel` (AGT-4).
 
 type PublishRequest = Extract<IntentRequest, { type: 'publish' }>;
 type FollowRequest = Extract<IntentRequest, { type: 'follow' }>;
@@ -225,18 +226,18 @@ export async function familyOfPublish(
       fix: 'Choose another name.',
     });
   if (stored) {
-    const theirs = (chain: ChainId) => {
-      const creator = req.creator[chainFamily(chain)];
-      const recipe = stored.recipes.find((r) => r.chain === chain);
-      return recipe ? recipe.creator !== creator : false;
-    };
     const me = await userIdOf(ctx.db, ctx.principal.userId);
-    const another =
-      req.recipes.some((d) => theirs(d.chain)) ||
-      // A family is its creator's on every chain: one with no recipe on this chain yet is not open to
-      // anybody else either.
-      (stored.creatorUserId !== null && stored.creatorUserId !== me) ||
-      (stored.creatorUserId === null && stored.recipes.every((r) => theirs(r.chain)));
+    // The same rule `writePublished` holds the write to, a chain at a time: the recipe here is the
+    // creator's own; with none here, the family's user row is theirs, or, for a family with no user
+    // row, it has no recipe on any chain yet. A family is its creator's on every chain.
+    const theirs = (chain: ChainId) => {
+      const here = stored.recipes.find((r) => r.chain === chain);
+      if (here) return here.creator !== req.creator[chainFamily(chain)];
+      return stored.creatorUserId !== null
+        ? stored.creatorUserId !== me
+        : stored.recipes.length > 0;
+    };
+    const another = req.recipes.some((d) => theirs(d.chain));
     if (another)
       throw new Refusal(409, "this shared portfolio is another creator's", {
         fix: 'Publish yours under another slug.',

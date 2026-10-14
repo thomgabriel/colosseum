@@ -162,6 +162,13 @@
       "when": 1791924783823,
       "tag": "0022_drop_unused_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792003033688,
+      "tag": "0023_recipe_network",
+      "breakpoints": true
     }
   ]
 }
