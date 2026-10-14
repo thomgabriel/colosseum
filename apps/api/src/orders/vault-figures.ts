@@ -360,7 +360,7 @@ const AS_COLLATERAL =
  * sentence with a lookup's figure (`personal`).
  */
 const PERSON_WORDS =
-  "your|yours|yourself|you\\s+(?:can|could|will|would|might|may|should|hold|held|have|had|own|owned|get|got|keep|kept|made|lost|gained|earned|put|invested|bought|sold|are|were|want|wanted|wish|need|lend|lent|supply|supplied|deposit|deposited|withdraw|withdrew|borrow|borrowed|stake|staked)|you['’](?:ll|d|ve|re)|my|mine|myself|ur|vc|vcs|seu|sua|seus|suas|voc[eê]s?|teu|tua|teus|tuas|meu|minha|meus|minhas|we|we['’](?:ll|d|ve|re)|our|ours|ourselves|n[oó]s|nosso|nossa|nossos|nossas|a\\s+person|someone|somebody|anyone|anybody|whoever|uma\\s+pessoa|algu[eé]m|quem|d[aá]\\s+(?:pra|para)";
+  "your|yours|yourself|you\\s+(?:can|could|will|would|might|may|should|hold|held|have|had|own|owned|get|got|keep|kept|made|lost|gained|earned|put|invested|bought|sold|are|were|want|wanted|wish|need|lend|lent|supply|supplied|deposit|deposited|withdraw|withdrew|borrow|borrowed|stake|staked)|you['’](?:ll|d|ve|re)|my|mine|myself|ur|vc|vcs|seu|sua|seus|suas|voc[eê]s?|teu|tua|teus|tuas|meu|minha|meus|minhas|we|we['’](?:ll|d|ve|re)|our|ours|ourselves|n[oó]s|nosso|nossa|nossos|nossas|(?:by|for|to)\\s+you|a\\s+person|someone|somebody|anyone|anybody|whoever|uma\\s+pessoa|algu[eé]m|quem|d[aá]\\s+(?:pra|para)";
 /** The agent speaking of itself ("I see", "eu vejo"): the person's in a figure's sentence, not beside it. */
 const AGENT_WORDS = 'I|eu';
 const PERSONAL = lone(`${PERSON_WORDS}|${AGENT_WORDS}`);
@@ -379,7 +379,7 @@ const VAULT_HOLDS = new RegExp(
 const VAULT_OWNS = /(?<![\p{L}\p{N}])vault['’]s\s+(\S+)/giu;
 /** A sentence that tells the person to act: it opens with withdraw, sell, lend, supply, deposit, borrow or hold. */
 const IMPERATIVE =
-  /^\s*(?:[-*•–—]\s+)?(?:(?:just|then|now|so|please|agora|ent[aã]o|basta)\s*,?\s+)?(?:withdraw|sell|lend|supply|deposit|borrow|hold|buy|stake|saque|sacar|venda|vender|empreste|emprestar|deposite|depositar|tome|tomar|compre|segure)(?![\p{L}\p{N}])(?!\s+(?:rates?|apy|apr|caps?|limits?|side)(?![\p{L}\p{N}]))/iu;
+  /^\s*(?:[-*•–—]\s+)?(?:(?:just|then|now|so|please|agora|ent[aã]o|basta)\s*,?\s+)?(?:withdraw|sell|lend|supply|deposit|borrow|hold|buy|stake|saque|sacar|venda|vender|empreste|emprestar|deposite|depositar|tome|tomar|compre|segure)(?![\p{L}\p{N}])(?!\s+(?:rates?|apy|apr|caps?|limits?|sides?|volumes?|of|is|was|stands|totals?)(?![\p{L}\p{N}]))/iu;
 /** Portuguese without a subject: "pode sacar", "podem vender", at the start of a sentence or a clause. */
 const SUBJECTLESS =
   /(?:^\s*(?:[-*•–—]\s+)?(?:(?:sim|hoje|agora|ent[aã]o|e|mas|j[aá])\s*,?\s+)?|[,;:]\s+)(?:pode|podem)\s+\p{L}{2,}/iu;
