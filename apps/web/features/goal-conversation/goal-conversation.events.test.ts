@@ -529,7 +529,7 @@ describe('the deposit step of a new goal', () => {
   const accept = '/v1/conversations/solana/goal/accept';
   const strategy = (host: HTMLElement) => find(host, '[data-ui="goal-strategy"]');
   const amount = (host: HTMLElement) =>
-    find<HTMLInputElement>(host, '[data-ui="amount-large"] input');
+    find<HTMLInputElement>(host, '[data-ui="amount-well"] input');
   /** Replies in turn; a null is a reply that failed. */
   const replies = (...turns: (Record<string, unknown> | null)[]) => {
     let n = 0;
@@ -675,7 +675,7 @@ describe('the deposit step of a new goal', () => {
     await send(host, 'US$ 1.500,50 em ouro');
     await click(find(host, '[data-action="deposit"]'));
     expect(amount(host).value).toBe('1500,5');
-    expect(host.querySelector('[data-ui="amount-large"] [aria-invalid="true"]')).toBeNull();
+    expect(host.querySelector('[data-ui="amount-well"] [aria-invalid="true"]')).toBeNull();
   });
 
   it('changes the mix in the conversation: the box takes focus, and the proposal and amount stay', async () => {

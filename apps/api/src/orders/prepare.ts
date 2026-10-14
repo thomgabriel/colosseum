@@ -12,6 +12,7 @@ import {
   type IntentRequest,
   isAddressOf,
   type Leg,
+  ORDER_DEFAULT_SLIPPAGE_BPS,
   ORDER_LIMITS,
   type Order,
   type Principal,
@@ -43,7 +44,7 @@ export const ORDER_POLICY = {
    * The slippage a build is given where the buy names none (`maxSlippageBps`), and what a leg's
    * `minOutRaw` is worked out with.
    */
-  slippageBps: 100,
+  slippageBps: ORDER_DEFAULT_SLIPPAGE_BPS,
   /** An order nobody signed expires after this long. */
   unsignedSeconds: 15 * 60,
   /** Once the chain has seen its first transaction, an order stays open this long. */

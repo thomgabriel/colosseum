@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { SharedFamily } from '@colosseum/schemas';
 import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
-import { readyToInvest } from './invest';
+import { pressInView, readyToInvest } from './invest';
 import { inTheme } from './theme';
 
 // Shared portfolios end to end in a browser, on the mock chain (WEB-4): sign in with the throwaway
@@ -180,6 +180,9 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   await check(page, 'family');
 
   // The invest step is on the portfolio's own page, under what it holds (gate PRODUCTS-PLAN-PANE).
+  // the card brought to the top of the window: its button in sight with the amount, at 1440
+  await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('40');
+  await pressInView(page, 'portfolio deposit, first time', { scroll: true });
   const press = await readyToInvest(page, { amount: '40' });
   await check(page, 'family-buy');
   // the review is on the invest card, under where the version and weights were read from

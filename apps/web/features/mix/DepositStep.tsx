@@ -1,12 +1,21 @@
 'use client';
-import type { ChainId, MixLine, MixReview, Provenance } from '@colosseum/schemas';
+import {
+  type ChainId,
+  chainFamily,
+  type MixLine,
+  type MixReview,
+  type Provenance,
+} from '@colosseum/schemas';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { StatusMark } from '../../components/ui/StatusMark';
+import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
+import { AmountWell } from '../amount/AmountWell';
+import { maxText, shownBalance } from '../amount/amount-check';
+import { useWalletBalance } from '../amount/use-balance';
 import { dollars, parseNumber } from '../goal/sheet';
-import { AmountField } from '../order/AmountField';
 import { MAX_USD, MIN_USD } from '../order/limits';
 import { displayName } from '../order/plain';
 import { rememberPlan } from '../order/plan-store';
@@ -109,8 +118,8 @@ export function DepositStep({
   // An amount filled in from the conversation is selected, so what the person types replaces it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the step opens
   useEffect(() => {
-    focus('[data-ui="amount-large"] input');
-    root.current?.querySelector<HTMLInputElement>('[data-ui="amount-large"] input')?.select();
+    focus('[data-ui="amount-well"] input');
+    root.current?.querySelector<HTMLInputElement>('[data-ui="amount-well"] input')?.select();
   }, []);
   // From the review back to the step: the press that led there.
   const reviewing = review !== null;
@@ -120,7 +129,7 @@ export function DepositStep({
   // biome-ignore lint/correctness/useExhaustiveDependencies: `focus` reads a ref
   useEffect(() => {
     if (wasReviewing.current && !reviewing) {
-      focus(toAmount.current ? '[data-ui="amount-large"] input' : '[data-action="deposit-review"]');
+      focus(toAmount.current ? '[data-ui="amount-well"] input' : '[data-action="deposit-review"]');
       toAmount.current = false;
     }
     wasReviewing.current = reviewing;
@@ -148,6 +157,9 @@ export function DepositStep({
 
   const mock = onMock(port, chain);
   const units = unitsFor(chain, mock);
+  // The wallet's dollars on this chain, read once: what Max types and what the field says is there.
+  const owner = port.active(chainFamily(chain))?.address ?? null;
+  const wallet = useWalletBalance(owner ? 'wallet' : null, owner, chain, mock);
   const cash = units?.cash ?? null;
   const start = allocations
     .filter((line) => line.assetId !== cash)
@@ -388,30 +400,53 @@ export function DepositStep({
           )}
 
           <div inert={busy} className="flex min-w-0 flex-col gap-2">
-            <AmountField
-              large
-              disabled={busy}
+            {/* The amount card's field (gate AMOUNT-CARD): the figure large, the chain's dollar
+                beside it, the wallet's balance with Max, and the quick amounts. */}
+            <AmountWell
+              label={t.amount.field.deposit}
+              locked={busy}
               onBlur={() => setSettled(true)}
               text={amountText}
               onText={onAmountText}
               hint={d.limits}
-              value={amount}
-              {...(cash && units?.tokens[cash] ? { unit: units.tokens[cash].symbol } : {})}
-              {...(amountError ? { error: amountError } : {})}
+              token={
+                cash && units?.tokens[cash]
+                  ? {
+                      asset: cash,
+                      symbol: units.tokens[cash].symbol,
+                      name: t.amount.token(units.tokens[cash].symbol),
+                    }
+                  : null
+              }
+              balance={
+                !owner
+                  ? undefined
+                  : wallet.kind === 'read'
+                    ? {
+                        label: t.amount.balance.wallet,
+                        state: 'read',
+                        figure: shownBalance(wallet.cash.amount, wallet.cash.symbol, LOCALE[lang]),
+                        obs: wallet.cash.obs,
+                        ...(wallet.cash.amount >= MIN_USD
+                          ? {
+                              onMax: () =>
+                                onAmountText(maxText(Math.min(wallet.cash.amount, MAX_USD), lang)),
+                            }
+                          : {}),
+                      }
+                    : wallet.kind === 'failed'
+                      ? { label: t.amount.balance.wallet, state: 'failed' }
+                      : { label: t.amount.balance.wallet, state: 'reading' }
+              }
+              chipsLabel={d.quick}
+              chips={QUICK_USD.map((usd) => ({
+                key: String(usd),
+                label: dollars(usd, lang),
+                name: d.quickOne(dollars(usd, lang)),
+                onPick: () => onAmountText(String(usd)),
+              }))}
+              problem={amountError ?? null}
             />
-            <ul aria-label={d.quick} data-ui="deposit-quick" className="flex flex-wrap gap-2">
-              {QUICK_USD.map((usd) => (
-                <li key={usd}>
-                  <Button
-                    variant="chip"
-                    aria-label={d.quickOne(dollars(usd, lang))}
-                    onClick={() => onAmountText(String(usd))}
-                  >
-                    {dollars(usd, lang)}
-                  </Button>
-                </li>
-              ))}
-            </ul>
           </div>
 
           <div className="flex min-w-0 flex-col gap-2">

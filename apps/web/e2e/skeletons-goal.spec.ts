@@ -87,7 +87,7 @@ for (const width of WIDTHS) {
       await say(page, 'A broad fund and some gold, to grow, at medium risk');
       await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
       await strategy.getByRole('button', { name: en.mix.preview.deposit, exact: true }).click();
-      await page.getByLabel(en.buy.amount.label, { exact: true }).fill('100');
+      await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
       await expect(page.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checked);
       await page.getByRole('button', { name: en.mix.deposit.reviewOf('$100') }).click();
       const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');

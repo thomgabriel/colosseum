@@ -104,7 +104,7 @@ test('a new goal’s vault from the conversation: one amount, edited by hand, re
   await check(page, 'deposit-empty');
 
   // the amount, and what it becomes in each asset as the server checked it
-  await page.getByLabel(en.buy.amount.label, { exact: true }).fill('100');
+  await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
   await expect(dollarsOf(step, 'spy')).toHaveText('$50.00');
   await expect(dollarsOf(step, 'gold')).toHaveText('$50.00');
   await expect(step.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checked);
@@ -113,7 +113,7 @@ test('a new goal’s vault from the conversation: one amount, edited by hand, re
   // changing the mix is the conversation's: the box takes focus and the step stays
   await step.getByRole('button', { name: en.mix.deposit.changeMix }).click();
   await expect(page.locator('textarea')).toBeFocused();
-  await expect(page.getByLabel(en.buy.amount.label, { exact: true })).toHaveValue('100');
+  await expect(page.getByLabel(en.amount.field.deposit, { exact: true })).toHaveValue('100');
 
   // by hand, behind its own control: SPY down to 40 leaves 10 in cash, and the mix says it is edited
   const open = step.getByRole('button', { name: en.mix.deposit.editByHand });
@@ -145,7 +145,7 @@ test('a new goal’s vault from the conversation: one amount, edited by hand, re
   await expect(page).toHaveURL(/\/invest$/);
   const pane = page.locator('[data-ui="deposit-sign"]');
   await expect(pane.locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
-  await expect(page.getByLabel(en.buy.amount.label, { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel(en.amount.field.deposit, { exact: true })).toHaveCount(0);
   const press = await readyToInvest(page, { dollars: '$100' });
   await press.click();
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(
@@ -163,7 +163,7 @@ test('the deposit step asks nothing the conversation did not hear: the server wo
   // no question and no tap: nothing is said of a goal or risk before the server has read the mix
   await expect(step.locator('[data-ui="deposit-purpose"]')).toHaveCount(0);
   await expect(step.locator('[data-ui="deposit-goal"], [data-ui="deposit-risk"]')).toHaveCount(0);
-  const amount = page.getByLabel(en.buy.amount.label, { exact: true });
+  const amount = page.getByLabel(en.amount.field.deposit, { exact: true });
   await amount.fill('100');
   await expect(dollarsOf(step, 'spy')).toHaveText('$50.00');
   // half in one fund is past every cap on one holding: grow, at high risk, said as worked out
@@ -204,16 +204,36 @@ test('the deposit step by keyboard', async ({ page }) => {
     en.mix.deposit.purpose('grow', 'high'),
   );
   // focus lands on the amount: the person types straight away
-  const amount = page.getByLabel(en.buy.amount.label, { exact: true });
+  const amount = page.getByLabel(en.amount.field.deposit, { exact: true });
   await expect(amount).toBeFocused();
   await page.keyboard.type('100.50');
   await expect(dollarsOf(step, 'spy')).toHaveText(/50\.25/);
   await check(page, 'deposit-keyboard');
-  // from the amount: the three quick amounts, then the press, which Enter takes to the review (the
-  // plan bar is a picture with its labels, not a stop)
+  // from the amount, each stop in its order: the balance's pin, the three quick amounts, then the
+  // press, which Enter takes to the review (the plan bar is a picture with its labels, not a stop)
   const press = page.getByRole('button', { name: en.mix.deposit.reviewOf('$100.50') });
-  for (let i = 0; i < 4; i += 1) await page.keyboard.press('Tab');
+  const stops: string[] = [];
+  for (let i = 0; i < 8 && !(await press.evaluate((el) => el === document.activeElement)); i += 1) {
+    await page.keyboard.press('Tab');
+    stops.push(
+      await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return (
+          el?.getAttribute('aria-label') ?? el?.getAttribute('data-ui') ?? el?.textContent ?? ''
+        );
+      }),
+    );
+  }
   await expect(press).toBeFocused();
+  // the mock wallet holds no dollars: no Max; the pin and its details, then the quick amounts
+  expect(stops).toEqual([
+    'Source for 0.00 USDC, sample figure',
+    'pin-details',
+    en.mix.deposit.quickOne('$100'),
+    en.mix.deposit.quickOne('$500'),
+    en.mix.deposit.quickOne('$1,000'),
+    'button',
+  ]);
   await page.keyboard.press('Enter');
   // the review's heading takes focus, and it says what the mix was checked for
   await expect(page.getByRole('heading', { name: en.mix.review.title })).toBeFocused();

@@ -367,7 +367,7 @@ const say = async (host: HTMLElement, words: string) => {
 async function toSteps(host: HTMLElement) {
   await say(host, 'Gold and cash, to grow, at high risk');
   await click(find(host, '[data-action="deposit"]'));
-  await type(find<HTMLInputElement>(host, '[data-ui="amount-large"] input'), '10');
+  await type(find<HTMLInputElement>(host, '[data-ui="amount-well"] input'), '10');
   await settle(CHECK_MS + 50);
   await click(find(host, '[data-action="deposit-review"]'));
   await settle();
@@ -439,7 +439,7 @@ describe('the deposit signed in place on /invest', () => {
     // "Change" leads back to the amount on the deposit step, and the unsigned order is dropped
     await click(named(sign, en.mix.deposit.signing.change));
     expect(host.querySelector('[data-ui="deposit-sign"]')).toBeNull();
-    expect(find<HTMLInputElement>(host, '[data-ui="amount-large"] input').value).toBe('10');
+    expect(find<HTMLInputElement>(host, '[data-ui="amount-well"] input').value).toBe('10');
     expect(recallOrder(ORDER_ID, USER)).toBeNull();
   });
 

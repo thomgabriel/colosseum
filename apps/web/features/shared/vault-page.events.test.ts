@@ -75,7 +75,6 @@ vi.mock('next/link', () => import('../wallet/test/mock-next'));
 
 const en = dictionary('en');
 const p = en.shared.vault.page;
-const w = en.withdraw;
 const MY_VAULT = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '42');
 const CASH = 'solana:usdc';
 const SPYX = 'solana:spyx';
@@ -211,19 +210,14 @@ const button = (host: Element, name: string) => {
   if (!found) throw new Error(`no button "${name}"`);
   return found;
 };
-/** From the page through the withdrawal's choice and review to its order, in the pane. */
+/** From the page through the withdrawal's amount card to its order, in the pane. */
 async function toSteps(host: HTMLElement) {
   await click(find(host, '[data-action="vault-withdraw"]'));
   await settle();
   await settle();
-  await click(button(pane(host), w.steps.next));
-  await click(
-    find(pane(host), '[data-ui="withdraw-step"][data-step="check"] input[type="checkbox"]'),
-  );
-  await click(
-    button(find(pane(host), '[data-ui="withdraw-step"][data-step="check"]'), w.steps.next),
-  );
-  await click(button(pane(host), w.confirm.button));
+  // the amount card (gate AMOUNT-CARD): everything, by Max, then its one button
+  await click(button(find(pane(host), '[data-ui="amount-chips"]'), en.amount.out.max));
+  await click(find(pane(host), 'button[data-action="amount-withdraw"]'));
   for (let i = 0; i < 4; i += 1) await settle(30);
 }
 
@@ -623,6 +617,36 @@ describe('who is offered the actions', () => {
   });
 });
 
+describe('Deposit | Withdraw on the amount card (gate AMOUNT-CARD)', () => {
+  it('switches the pane between the two, where the vault holds something to withdraw', async () => {
+    api();
+    const host = await show();
+    await click(find(host, '[data-action="vault-deposit"]'));
+    await settle();
+    const modes = () => find(pane(host), '[data-ui="amount-modes"]');
+    expect(
+      [...modes().querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')),
+    ).toEqual(['true', 'false']);
+    await click(button(modes(), en.amount.modes.withdraw));
+    await settle();
+    await settle();
+    expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('withdraw');
+    expect(find(pane(host), '[data-ui="amount-card"]').dataset.mode).toBe('withdraw');
+    await click(button(modes(), en.amount.modes.deposit));
+    await settle();
+    expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('deposit');
+  });
+
+  it('offers no Withdraw on an empty vault: the deposit alone', async () => {
+    api({ vault: nothing(4_000) });
+    const host = await show();
+    await click(find(host, '[data-action="vault-deposit"]'));
+    await settle();
+    expect(pane(host).querySelector('[data-ui="amount-modes"]')).toBeNull();
+    expect(find(pane(host), '[data-ui="amount-card"]').dataset.mode).toBe('deposit');
+  });
+});
+
 describe('an empty vault', () => {
   it('with targets: says so once, shows what a deposit goes into, and has Deposit as its one action', async () => {
     api({ vault: nothing(4_000) });
@@ -663,9 +687,11 @@ describe('the pane’s states, and the way out of each', () => {
     await settle();
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(pane(host).dataset.state).toBe('open');
-    const title = find(pane(host), ':scope > header h2');
+    // the amount card heads the pane (gate AMOUNT-CARD), and its amount takes the focus
+    expect(pane(host).querySelector(':scope > header')).toBeNull();
+    const title = find(pane(host), '[data-ui="amount-panel"] h2');
     expect(title.textContent).toBe(p.panes.deposit.title);
-    expect(document.activeElement).toBe(title);
+    expect(document.activeElement).toBe(find(pane(host), '[data-ui="amount-well"] input'));
     // the add-money card, with its amount field, in the pane
     expect(pane(host).querySelector('[data-ui="vault-invest"]')).not.toBeNull();
     expect(pane(host).querySelector('input[inputmode="decimal"]')).not.toBeNull();
@@ -794,16 +820,13 @@ describe('an order that answers late', () => {
     });
     return { placing, release };
   };
-  /** In the withdraw pane: chosen, reviewed, and the order asked for (not yet answered). */
+  /** In the withdraw pane: chosen on the amount card, and the order asked for (not yet answered). */
   async function confirmWithdraw(host: HTMLElement) {
     await click(find(host, '[data-action="vault-withdraw"]'));
     await settle();
     await settle();
-    await click(button(pane(host), w.steps.next));
-    const check = find(pane(host), '[data-ui="withdraw-step"][data-step="check"]');
-    await click(find(check, 'input[type="checkbox"]'));
-    await click(button(check, w.steps.next));
-    await click(button(pane(host), w.confirm.button));
+    await click(button(find(pane(host), '[data-ui="amount-chips"]'), en.amount.out.max));
+    await click(find(pane(host), 'button[data-action="amount-withdraw"]'));
     await settle();
   }
 
@@ -835,7 +858,7 @@ describe('an order that answers late', () => {
     gate.release();
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('deposit');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.deposit.title);
+    expect(find(pane(host), '[data-ui="amount-panel"] h2').textContent).toBe(p.panes.deposit.title);
     expect(pane(host).querySelector('input[inputmode="decimal"]')).not.toBeNull();
   });
 
@@ -851,7 +874,9 @@ describe('an order that answers late', () => {
     gate.release();
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('withdraw');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.withdraw.title);
+    expect(find(pane(host), '[data-ui="amount-panel"] h2').textContent).toBe(
+      p.panes.withdraw.title,
+    );
     expect(pane(host).querySelector('[data-ui="order-step"]')).toBeNull();
   });
 });
@@ -1042,8 +1067,12 @@ describe('a reload in the middle of signing', () => {
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(pane(host).textContent).toContain(p.panes.deposit.resumed);
-    // the amount is the order's own, a fact: nothing to type, and nothing typed makes another order
-    expect(find(pane(host), '[data-ui="vault-action-amount"]').textContent).toContain('$10');
+    // the amount is the order's own, a fact on the amount card's line (gate AMOUNT-CARD): nothing to
+    // type, no way back to the field, and nothing typed makes another order
+    expect(find(pane(host), '[data-ui="deposit-fact"]').textContent).toContain(
+      en.amount.pressed('$10'),
+    );
+    expect(pane(host).querySelector('button[data-action="amount-change"]')).toBeNull();
     expect(pane(host).querySelector('input[inputmode="decimal"]')).toBeNull();
     expect(pane(host).querySelectorAll('[data-ui="order-step"]').length).toBeGreaterThan(0);
     expect(server.calls.filter((c) => c.path === '/v1/orders' && c.method === 'POST')).toEqual([]);
@@ -1179,8 +1208,10 @@ describe('a reload in the middle of signing', () => {
     // the line's newest order says how it stands: the first one failed, and the pane still opens
     expect(screen(host).dataset.pane).toBe('deposit');
     expect(server.calls.map((c) => c.path)).toContain(`/v1/orders/${FOLLOW}`);
-    expect(pane(host).querySelector('[data-ui="vault-action-amount"]')).toBeNull();
+    // the amount card's line says no amount of an order that deposits nothing
+    expect(pane(host).querySelector('[data-ui="deposit-fact"]')).toBeNull();
     expect(pane(host).textContent).not.toContain(p.amount);
+    expect(pane(host).textContent).not.toContain(en.amount.pressed('$10'));
     // and the pane is headed for what it is: no "Sign your deposit", no "the whole amount goes in"
     expect(find(pane(host), ':scope > header h2').textContent).toBe(p.finish.title);
     expect(find(pane(host), ':scope > header').textContent).toContain(p.finish.lead);

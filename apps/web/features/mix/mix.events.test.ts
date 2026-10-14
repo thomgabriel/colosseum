@@ -174,7 +174,7 @@ function Deposit({ said, onChangeMix }: { said: Purpose; onChangeMix: () => void
 const goalMix = (lang: 'en' | 'pt' = 'en', said: Purpose = SAID, onChangeMix = () => {}) =>
   mount(withAccount(lang, createElement(Deposit, { said, onChangeMix })));
 const amountBox = (host: HTMLElement) =>
-  find<HTMLInputElement>(host, '[data-ui="amount-large"] input');
+  find<HTMLInputElement>(host, '[data-ui="amount-well"] input');
 /** Types the amount and waits for the server's check of it to land. */
 const deposit = async (host: HTMLElement, text: string) => {
   await type(amountBox(host), text);
@@ -793,7 +793,7 @@ describe('a new goal’s mix, made into a plan', () => {
     }
     expect(calls.map((call) => call.body.amountUsd)).toEqual([10, 1_000_000]);
     // a quick amount types itself, and the press names it
-    await click(find(host, '[data-ui="deposit-quick"] li:nth-child(2) button'));
+    await click(find(host, '[data-ui="amount-chips"] li:nth-child(2) button'));
     expect(amountBox(host).value).toBe('500');
     expect(press().textContent).toContain(en.mix.deposit.reviewOf('$500'));
   });
