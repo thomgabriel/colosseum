@@ -92,7 +92,7 @@ export function FamilyWait() {
               <SkeletonLine className="max-w-(--tf-measure-body) text-body-lg" width="w-64" />
             </div>
           </div>
-          <PlanViewWait kpis={4} />
+          <PlanViewWait kpis={4} aside={2} />
         </div>
       }
     />

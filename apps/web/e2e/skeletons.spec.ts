@@ -202,7 +202,7 @@ for (const width of WIDTHS) {
             loaded: 'main h1',
           },
           // the pane as the kit's two panels: the board where its outline was, and the holdings'
-          // panel under it, as wide and where its outline was too
+          // panel under it, as wide and as far in; its top follows the answer, however long
           {
             name: 'board',
             waiting: '[data-ui="plan-board-wait"]',
@@ -213,7 +213,7 @@ for (const width of WIDTHS) {
             name: 'holdings',
             waiting: '[data-ui="plan-legs-wait"]',
             loaded: '[data-ui="plan-legs"]',
-            sized: 'by-data',
+            sized: 'under-data',
           },
         ],
       });
@@ -369,7 +369,7 @@ for (const width of WIDTHS) {
             loaded: 'main h1',
           },
           // the pane as the kit's two panels: the board where its outline was, and the holdings'
-          // panel under it, as wide and where its outline was too
+          // panel under it, as wide and as far in; its top follows the answer, however long
           {
             name: 'board',
             waiting: '[data-ui="plan-board-wait"]',
@@ -380,7 +380,7 @@ for (const width of WIDTHS) {
             name: 'holdings',
             waiting: '[data-ui="plan-legs-wait"]',
             loaded: '[data-ui="plan-legs"]',
-            sized: 'by-data',
+            sized: 'under-data',
           },
         ],
       });

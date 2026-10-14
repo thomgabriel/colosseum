@@ -34,6 +34,7 @@ export function ChainBadgeWait() {
 export function PlanViewWait({
   title,
   sub = false,
+  aside = 0,
   kpis = 1,
   rows = 3,
 }: {
@@ -41,6 +42,8 @@ export function PlanViewWait({
   title?: string;
   /** A line under the answer: the risk, the chain, what is deposited. */
   sub?: boolean;
+  /** Lines beside the answer: where the version and weights were read from. */
+  aside?: number;
   /** How many small figures the board has under the answer. */
   kpis?: number;
   rows?: number;
@@ -66,6 +69,13 @@ export function PlanViewWait({
               </div>
             ))}
           </div>
+          {aside > 0 && (
+            <SkeletonLine
+              className="max-w-(--tf-measure-body) text-body-sm"
+              width="w-80"
+              lines={aside}
+            />
+          )}
         </PanelBody>
       </Panel>
       <Panel as="div" data-ui="plan-legs-wait">
