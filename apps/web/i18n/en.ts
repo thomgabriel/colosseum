@@ -1758,6 +1758,9 @@ export const en = {
         /** Read out once when a message is sent; nothing on the screen carries it. */
         reading: 'Getting a reply',
         current: 'What it holds now',
+        /** The two right panes, for a screen reader: each scrolls on its own on a desktop. */
+        planPane: 'Your vault’s plan and holdings',
+        actionPane: 'The action under way',
         noHoldings: 'This vault holds no tokens now.',
         targets: 'Current targets',
         targetsNote: 'Targets recorded on chain, separate from the shares held now.',
