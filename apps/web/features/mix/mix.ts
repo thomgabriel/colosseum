@@ -1,4 +1,4 @@
-import type { MixLine, MixReview } from '@colosseum/schemas';
+import { type MixLine, type MixReview, VAULT_MAX_TARGETS } from '@colosseum/schemas';
 
 // The arithmetic of a mix the person edits or takes from a conversation, before the server checks it
 // again (gate ANY-COMPOSITION, #191). A vault holds at most 16 assets besides cash; the cash token is
@@ -6,7 +6,7 @@ import type { MixLine, MixReview } from '@colosseum/schemas';
 // whole basis points; the person may type whole percents or basis points.
 
 export const WHOLE_BPS = 10_000;
-export const MAX_LINES = 16;
+export const MAX_LINES = VAULT_MAX_TARGETS;
 
 export type EditorLine = { assetId: string; weightBps: number };
 export type WeightUnit = 'percent' | 'bps';
