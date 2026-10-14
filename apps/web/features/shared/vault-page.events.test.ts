@@ -1297,6 +1297,8 @@ describe('a vault away from its targets is offered one press that trades it to t
     });
   const atTargets = () =>
     followed({
+      // the vault is worth what it holds: the server's value is the sum of its holdings' values
+      valueUsd: '80089',
       cash: holding(CASH, '0', '0'),
       positions: [
         position(JL, '37788000000', '37788', '40055', 5_000, 5_000),
@@ -1354,15 +1356,17 @@ describe('a vault away from its targets is offered one press that trades it to t
     ).toBe(true);
     // outside the band, but every trade it would take is under the smallest a rebalance makes: the
     // server answers on_target, so the page offers nothing
-    const small = (valueUsd: string) =>
-      followed({
+    const small = (valueUsd: string) => {
+      const part = (bps: number) => String((Number(valueUsd) * bps) / 10_000);
+      return followed({
         valueUsd,
         positions: [
-          position(JL, '1', '1', '1', 4_800, 5_000),
-          position(SYRUP, '1', '1', '1', 3_000, 3_000),
-          position(PAXG, '1', '1', '1', 2_000, 2_000),
+          position(JL, '1', '1', part(4_800), 4_800, 5_000),
+          position(SYRUP, '1', '1', part(3_000), 3_000, 3_000),
+          position(PAXG, '1', '1', part(2_000), 2_000, 2_000),
         ] as VaultView['positions'],
       });
+    };
     expect(offTarget(small('200'))).toBe(false);
     expect(offTarget(small('1000'))).toBe(true);
     // a holding with no price: the shares are not known
@@ -1410,7 +1414,9 @@ describe('a vault away from its targets is offered one press that trades it to t
       followed({
         valueUsd,
         cash: holding(CASH, cash, String(Number(cash) / 1e6)),
-        positions: [position(JL, '1', '1', valueUsd, weightBps, 10_000)] as VaultView['positions'],
+        positions: [
+          position(JL, '1', '1', String(Number(valueUsd) - Number(cash) / 1e6), weightBps, 10_000),
+        ] as VaultView['positions'],
       });
     // Vault #4 on devnet: $38.83 of $9,898 in cash, 39 bps; worth a trade, so off target and offered
     serving(ordered, { vault: one('9898.67', 9_961, '38832993') });

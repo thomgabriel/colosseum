@@ -270,10 +270,25 @@ function plan(
   }
 
   const want = wanted.reduce((n, w) => n + w.value, 0n);
-  if (want > budget)
-    wanted = wanted
+  if (want > budget) {
+    const scaled = wanted
       .map((w) => ({ ...w, value: (w.value * budget) / want }))
       .filter((w) => w.value > 0n && w.value >= minTrade);
+    // Spread over every gap the budget may make no trade at all, where it is enough for one: the
+    // gaps are then filled in turn, the largest first, each up to what it wants, keeping only a
+    // purchase of a trade's worth (the review of #307: $6 of cash under two gaps of $5.20 was
+    // offered as a rebalance and planned nothing).
+    if (scaled.length > 0 || budget < minTrade) wanted = scaled;
+    else {
+      let left = budget;
+      wanted = [...wanted].sort(byValueThenAsset).flatMap((w) => {
+        const value = w.value < left ? w.value : left;
+        if (value <= 0n || value < minTrade) return [];
+        left -= value;
+        return [{ ...w, value }];
+      });
+    }
+  }
   wanted.sort(byValueThenAsset);
 
   const trades: Trade[] = sales.map((s) => ({

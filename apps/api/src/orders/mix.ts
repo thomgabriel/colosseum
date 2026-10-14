@@ -35,6 +35,7 @@ import {
   OWNER_REBALANCE_BAND_BPS,
   OWNER_REBALANCE_MIN_TRADE_USD,
   outsideOwnerBand,
+  ownerShares,
   type Price,
   type RebalanceQuoteResponse,
   type Target,
@@ -703,12 +704,8 @@ function idleToInvest(
   } catch {
     return false;
   }
-  const total = Number(seen.valueUsd);
-  if (!(total > 0) || seen.positions.some((p) => !/^0+$/.test(p.raw) && p.valueUsd === null))
-    return false;
-  const invested = seen.positions.reduce((n, p) => n + p.weightBps, 0);
-  const planned = seen.positions.reduce((n, p) => n + p.targetBps, 0);
-  return idleCashToInvest(seen.positions, planned - invested, slippageBps, total);
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  return read !== null && idleCashToInvest(read.rows, read.cashOverBps, slippageBps, read.valueUsd);
 }
 
 /** The cash the targets keep, in raw units of the cash token: its share of the vault at these prices. */

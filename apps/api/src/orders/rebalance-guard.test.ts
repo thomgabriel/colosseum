@@ -1,9 +1,17 @@
 import type { Target } from '@colosseum/schemas';
-import { OWNER_REBALANCE_BAND_BPS, OWNER_REBALANCE_MIN_TRADE_USD } from '@colosseum/schemas';
+import {
+  idleCashToInvest,
+  OWNER_REBALANCE_BAND_BPS,
+  OWNER_REBALANCE_MIN_TRADE_USD,
+  outsideOwnerBand,
+  ownerRebalanceOffered,
+  ownerShares,
+} from '@colosseum/schemas';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { rebalancePlan } from '../../../../packages/basket/src/plan-rebalance';
-import { price, vault } from '../../../../packages/basket/src/testing';
+import { asset, price, vault } from '../../../../packages/basket/src/testing';
+import { view } from '../../../../packages/basket/src/view';
 import { pastTarget } from './mix';
 
 // The planner and the guard a step is built under (the review of #307): every trade the owner's
@@ -30,7 +38,7 @@ const world = fc.record({
   worst: fc.array(fc.boolean(), { minLength: 8, maxLength: 8 }),
 });
 
-describe('the owner’s rebalance, planned and then held at build', () => {
+describe('the owner’s rebalance, planned and then held at build', { timeout: 120_000 }, () => {
   it('passes every trade it plans, at every slippage the API takes, however each lands', () => {
     let checked = 0;
     fc.assert(
@@ -149,5 +157,111 @@ describe('the owner’s rebalance, planned and then held at build', () => {
         slippageBps: 100,
       }),
     ).toBe(false);
+  });
+});
+
+// What the page offers and what the route plans (the review of #307): wherever the vault's page and
+// the chat offer a rebalance (`ownerRebalanceOffered` on the vault's view, in whole bps), the plan
+// the route makes for it has a trade, read as `planRetarget` reads it.
+const UNITS = [
+  asset(CASH, { decimals: 6, cls: 'cash' }),
+  ...IDS.map((id) => asset(id, { decimals: 6 })),
+];
+
+/** The route's plan for a vault: its band, or purchases alone where only idle cash is to invest. */
+function routePlan(
+  state: ReturnType<typeof vault>,
+  targets: Target[],
+  prices: ReturnType<typeof price>[],
+) {
+  const seen = view(state, prices, UNITS);
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  if (!read) return { offered: false, trades: [] };
+  // the page's, the chat's and the route's reading, the one rule
+  const offered = ownerRebalanceOffered(read.rows, read.cashOverBps, 100, read.valueUsd);
+  const inside = !outsideOwnerBand(read.rows, read.cashOverBps, 100);
+  const purchasesOnly = inside && idleCashToInvest(read.rows, read.cashOverBps, 100, read.valueUsd);
+  const plan = rebalancePlan(
+    state,
+    targets,
+    prices,
+    {
+      bandBps: purchasesOnly ? 0 : OWNER_REBALANCE_BAND_BPS,
+      minTradeUsd: OWNER_REBALANCE_MIN_TRADE_USD,
+      costBps: 100,
+      ...(purchasesOnly ? { purchasesOnly: true } : {}),
+    },
+    UNITS,
+  );
+  return { offered, trades: inside && !purchasesOnly ? [] : plan.trades };
+}
+
+describe('what is offered is what is planned', { timeout: 120_000 }, () => {
+  it('the review’s case: $6 of cash, two assets $5.20 under, two $2.20 over: one purchase', () => {
+    const quarter = 2500;
+    const state = vault('6000000', {
+      'solana:a': [String(494_800_000), quarter],
+      'solana:b': [String(494_800_000), quarter],
+      'solana:c': [String(502_200_000), quarter],
+      'solana:d': [String(502_200_000), quarter],
+    });
+    const targets = IDS.map((id) => ({ asset: id, weightBps: quarter }));
+    const { offered, trades } = routePlan(
+      state,
+      targets,
+      IDS.map((id) => price(id, '1')),
+    );
+    expect(offered).toBe(true);
+    expect(trades).toHaveLength(1);
+    expect(trades[0]?.sell).toBe(CASH);
+    expect(Number(trades[0]?.amountInRaw) / 1e6).toBeGreaterThanOrEqual(
+      OWNER_REBALANCE_MIN_TRADE_USD,
+    );
+  });
+
+  it('plans a trade wherever it offers one', () => {
+    let offers = 0;
+    fc.assert(
+      fc.property(
+        fc.record({
+          cash: fc.oneof(fc.integer({ min: 0, max: 200 }), fc.integer({ min: 0, max: 5_000 })),
+          base: fc.oneof(
+            fc.integer({ min: 200, max: 5_000 }),
+            fc.integer({ min: 5_000, max: 60_000 }),
+          ),
+          off: fc.array(
+            fc.oneof(fc.integer({ min: -30, max: 30 }), fc.integer({ min: -400, max: 400 })),
+            {
+              minLength: 4,
+              maxLength: 4,
+            },
+          ),
+          cashShare: fc.constantFrom(0, 0, 500),
+        }),
+        (w) => {
+          const share = (10_000 - w.cashShare) / 4;
+          const targets = IDS.map((id) => ({ asset: id, weightBps: share }));
+          const state = vault(
+            String(w.cash * 1_000_000),
+            Object.fromEntries(
+              IDS.map((id, i) => [
+                id,
+                [String(Math.max(0, w.base + (w.off[i] ?? 0)) * 1_000_000), share],
+              ]),
+            ),
+          );
+          const { offered, trades } = routePlan(
+            state,
+            targets,
+            IDS.map((id) => price(id, '1')),
+          );
+          if (!offered) return;
+          offers += 1;
+          expect(trades.length, JSON.stringify(w)).toBeGreaterThan(0);
+        },
+      ),
+      { numRuns: 10_000 },
+    );
+    expect(offers).toBeGreaterThan(500);
   });
 });

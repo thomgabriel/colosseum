@@ -19,6 +19,7 @@ import {
   isStalePrice,
   OWNER_REBALANCE_SLIPPAGE_BPS,
   ownerRebalanceOffered,
+  ownerShares,
   type VaultAgentFigure,
   VaultAgentModelReply,
   VaultAgentReply,
@@ -2227,19 +2228,16 @@ export function vaultAgainstTargets(
   } catch {
     return none;
   }
-  const held = seen.positions.filter((position) => !/^0+$/.test(position.raw));
-  const total = Number(seen.valueUsd);
-  if (held.some((position) => position.valueUsd === null) || !(total > 0)) return none;
-  const invested = seen.positions.reduce((n, position) => n + position.weightBps, 0);
-  const planned = seen.positions.reduce((n, position) => n + position.targetBps, 0);
-  const cashOver = planned - invested;
-  return {
-    // One rule with the page and the rebalance route: off target is what a rebalance would trade
-    onTarget: !ownerRebalanceOffered(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS, total),
-    offered:
-      !state.autoFollow &&
-      ownerRebalanceOffered(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS, total),
-  };
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  if (!read) return none;
+  // One rule with the page and the rebalance route: off target is what a rebalance would trade
+  const off = ownerRebalanceOffered(
+    read.rows,
+    read.cashOverBps,
+    OWNER_REBALANCE_SLIPPAGE_BPS,
+    read.valueUsd,
+  );
+  return { onTarget: !off, offered: !state.autoFollow && off };
 }
 
 /**

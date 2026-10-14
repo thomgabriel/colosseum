@@ -1,6 +1,7 @@
 import {
   OWNER_REBALANCE_SLIPPAGE_BPS,
   ownerRebalanceOffered,
+  ownerShares,
   type VaultResponse,
 } from '@colosseum/schemas';
 
@@ -14,18 +15,13 @@ type Held = Pick<VaultResponse['vault'], 'positions' | 'valueUsd'>;
  * press). Null where it cannot be known: no target, a holding with no price, or nothing held.
  */
 export function offItsTargets(vault: Held): boolean | null {
-  const held = vault.positions.filter((p) => !/^0+$/.test(p.raw));
-  if (!vault.positions.some((p) => p.targetBps > 0) || held.some((p) => p.valueUsd === null))
-    return null;
-  const total = Number(vault.valueUsd);
-  if (!(total > 0)) return null;
-  const invested = vault.positions.reduce((n, p) => n + p.weightBps, 0);
-  const planned = vault.positions.reduce((n, p) => n + p.targetBps, 0);
-  // cash over its share is what the positions together are under theirs; the server's own rule
+  if (!vault.positions.some((p) => p.targetBps > 0)) return null;
+  const read = ownerShares(vault.positions, Number(vault.valueUsd));
+  if (!read) return null;
   return ownerRebalanceOffered(
-    vault.positions,
-    planned - invested,
+    read.rows,
+    read.cashOverBps,
     OWNER_REBALANCE_SLIPPAGE_BPS,
-    total,
+    read.valueUsd,
   );
 }

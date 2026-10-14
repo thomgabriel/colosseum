@@ -307,10 +307,11 @@ export const OWNER_REBALANCE_SLIPPAGE_BPS = 100;
 export const OWNER_REBALANCE_MIN_TRADE_USD = 5;
 
 /**
- * Whether a vault's page offers its owner a rebalance: outside the band (`outsideOwnerBand`), and at
- * least one asset far enough from its target, in dollars, for a trade of
- * `OWNER_REBALANCE_MIN_TRADE_USD` after the slippage the purchases keep. The server plans the trades
- * when asked and may still find none; this is the same rule read from the vault's shares and value.
+ * Whether a vault's page offers its owner a rebalance, which is whether the owner's rebalance would
+ * make a trade: idle cash to invest (`idleCashToInvest`); or, outside the band (`outsideOwnerBand`),
+ * a sale of at least `OWNER_REBALANCE_MIN_TRADE_USD`, or a purchase of that size that the cash over
+ * its share pays for. A purchase with no cash and no sale to pay for it is no trade, and is not offered
+ * (the review of #307). Read from the vault's shares and value, as the server plans.
  */
 export function ownerRebalanceOffered(
   rows: readonly { targetBps: number; weightBps: number }[],
@@ -320,7 +321,46 @@ export function ownerRebalanceOffered(
 ): boolean {
   if (idleCashToInvest(rows, cashOverBps, slippageBps, valueUsd)) return true;
   if (!outsideOwnerBand(rows, cashOverBps, slippageBps)) return false;
-  return rows.some((r) => tradeWorth(Math.abs(r.targetBps - r.weightBps), slippageBps, valueUsd));
+  const usd = (bps: number) => (bps / 10_000) * valueUsd;
+  // a sale of a trade's worth, held a little short of it: a sale stops a hair over its target
+  const sells = rows.some(
+    (r) =>
+      r.weightBps > r.targetBps &&
+      usd(r.weightBps - r.targetBps - 1) >= OWNER_REBALANCE_MIN_TRADE_USD,
+  );
+  if (sells) return true;
+  return (
+    usd(cashOverBps) >= OWNER_REBALANCE_MIN_TRADE_USD &&
+    rows.some(
+      (r) =>
+        r.targetBps > r.weightBps && tradeWorth(r.targetBps - r.weightBps, slippageBps, valueUsd),
+    )
+  );
+}
+
+/**
+ * A vault's holdings as the owner's rule reads them: each asset's share from its value, unrounded,
+ * and the cash over its share. One reader for the page, the chat, the route and the stub, so they
+ * agree near the $5 line: shares rounded to whole bps once read $2 of cash on a $50,000 vault as $5
+ * (the review of #307). Null where a holding has no value or the vault is worth nothing.
+ */
+export function ownerShares(
+  positions: readonly { targetBps: number; valueUsd: string | null; raw: string }[],
+  valueUsd: number,
+): {
+  rows: { targetBps: number; weightBps: number }[];
+  cashOverBps: number;
+  valueUsd: number;
+} | null {
+  if (!(valueUsd > 0)) return null;
+  if (positions.some((p) => !/^0+$/.test(p.raw) && p.valueUsd === null)) return null;
+  const rows = positions.map((p) => ({
+    targetBps: p.targetBps,
+    weightBps: (Number(p.valueUsd ?? 0) / valueUsd) * 10_000,
+  }));
+  const planned = rows.reduce((n, r) => n + r.targetBps, 0);
+  const invested = rows.reduce((n, r) => n + r.weightBps, 0);
+  return { rows, cashOverBps: planned - invested, valueUsd };
 }
 
 /** A move of `bps` of a vault worth `valueUsd` is a trade of the smallest a rebalance makes, after slippage. */

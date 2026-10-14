@@ -29,6 +29,7 @@ import {
   OWNER_REBALANCE_MIN_TRADE_USD,
   OWNER_REBALANCE_SLIPPAGE_BPS,
   outsideOwnerBand,
+  ownerShares,
   PortfolioExposureResponse,
   PortfolioHistoryResponse,
   PortfolioPlansResponse,
@@ -914,12 +915,12 @@ async function placeRebalance(address: string): Promise<RebalanceVaultResponse> 
   const listed = await adapter.listAssets();
   const prices = await adapter.getPrices([...new Set(state.positions.map((p) => p.asset))]);
   const seen = view(state, prices, listed);
-  const total = Number(seen.valueUsd);
-  const invested = seen.positions.reduce((n, p) => n + p.weightBps, 0);
-  const cashOver = targets.reduce((n, t) => n + t.weightBps, 0) - invested;
-  const inside = !outsideOwnerBand(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS);
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  if (!read) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const inside = !outsideOwnerBand(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS);
   const idle =
-    inside && idleCashToInvest(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS, total);
+    inside &&
+    idleCashToInvest(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS, read.valueUsd);
   if (inside && !idle) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
   const plan = rebalancePlan(
     state,
