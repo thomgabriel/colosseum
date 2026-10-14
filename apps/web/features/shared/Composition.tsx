@@ -60,7 +60,7 @@ export type CompositionColumn = {
   /** Right-aligned, tabular: a figure. */
   numeric?: boolean;
   /**
-   * Words that need room (why a holding is there): drawn where the table is 64rem wide or more, and
+   * Words that need room (why a holding is there): drawn where the table is 52rem wide or more, and
    * under the row where it folds into rows; between, left out rather than cut at the panel's edge.
    * The caller says them in full elsewhere (the plan's fold).
    */
@@ -128,8 +128,8 @@ const FADE =
 /** The kit's cell (KitTable.tsx), and none in a narrow box, where the row lays its cells out itself. */
 const CELL = `${KIT_CELL} @max-lg:p-0`;
 const FIGURE = 'text-right tabular-nums';
-/** A column of words that needs room: none between a narrow box's rows and a 64rem table. */
-const ROOMY = '@lg:hidden @5xl:table-cell';
+/** A column of words that needs room: none between a narrow box's rows and a 52rem table. */
+const ROOMY = '@lg:hidden @min-[52rem]:table-cell';
 
 export function Composition({
   items,
