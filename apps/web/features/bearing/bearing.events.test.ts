@@ -11,6 +11,7 @@ import { DexPage, HISTORIES_AT_ONCE } from './DexPage';
 import { R } from './data';
 import { mk, none, sumFact } from './fact';
 import { LendingPage } from './LendingPage';
+import { StablePage } from './StablePage';
 import { Fig, MultiSelect, Pie } from './parts';
 import { inPortuguese, onSnapshot } from './test/cases';
 import { snapshotReader } from './test/snapshot';
@@ -1019,5 +1020,28 @@ describe('a missing figure is never drawn as a zero (STYLE rule 2)', () => {
     expect(legend[0]).toContain('75');
     expect(legend[1]).toContain('25');
     expect(legend.join(' ')).not.toMatch(/∞|NaN|Infinity/);
+  });
+});
+
+describe('what a page waits for', () => {
+  it('the stablecoins page reads its pools without waiting for the chain’s assets', async () => {
+    const base = snapshotReader();
+    const reader = {
+      ...base,
+      // the slowest list never answers: the stablecoins page has no use for it
+      get: <T>(path: string) =>
+        path.startsWith('/risk/assets?') ? new Promise<never>(() => {}) : base.get<T>(path),
+    };
+    const host = await mount(onSnapshot(createElement(StablePage), reader));
+    await settle(host, (h) => h.querySelector('[data-ui="bearing-kpis"]') != null && !busy(h));
+    expect(base.read).toContain(R.lendList());
+  });
+
+  it('no page reads the chain’s whole pool list; the stocks page reads the pools of its assets', async () => {
+    const reader = snapshotReader();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'commodities' }), reader));
+    await settle(host, ready);
+    expect(reader.read).not.toContain(R.pools());
+    expect(reader.read.some((p) => p.startsWith('/risk/pools?asset='))).toBe(true);
   });
 });
