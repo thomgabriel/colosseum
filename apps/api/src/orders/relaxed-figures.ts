@@ -16,9 +16,13 @@ import { type FigureReferences, type FigureResolver, NULL_REASONS } from './vaul
 // so the model can say their figures come once they are named. Each id goes with what it measures and
 // never with its value: the model has nothing to copy, compare or rank.
 
-/** The kinds of evidence that are measured figures of a listed asset. Nothing of a vault or a person. */
-const MEASURED =
-  /^(?:price|yield|exit|lpexit|weekend|lp|capvar|volume|vol|drawdown|capacity|liquidity):/u;
+/**
+ * The kinds of evidence that are measured figures of a listed asset. Nothing of a vault or a person. The
+ * asset lookups' families (`profile`, `bars`, `pool`, `lend`: FIGURES-BY-REFERENCE as amended 2026-10-14)
+ * are an asset's too.
+ */
+export const MEASURED =
+  /^(?:price|yield|exit|lpexit|weekend|lp|capvar|volume|vol|drawdown|capacity|liquidity|profile|bars|pool|lend):/u;
 
 /** How many holdings a class word ("the stocks") loads at most, beside those already named. */
 export const CLASS_LOADS = 6;
