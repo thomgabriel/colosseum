@@ -30,7 +30,6 @@ const CONFIG = {
     autoFollow: { solana: true, base: false, robinhood: false },
     keeperEnabled: false,
     agentSurface: true,
-    legacyStructurer: false,
   },
   chains: [
     {

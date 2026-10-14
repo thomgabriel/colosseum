@@ -5,8 +5,9 @@ import { dictionary } from '../../i18n';
 import { json } from '../wallet/test/fake-port';
 import { activityOf } from './activity';
 import { formatBps, formatRaw, shortfallBps } from './amounts';
+import { landedSentence, progressOf } from './invest-words';
 import { placeOrder, readFunding, readOrder } from './order-api';
-import { checkDeposit, depositRawOf } from './order-check';
+import { checkDeposit, depositLanded, depositRawOf } from './order-check';
 import { keepOrder, recallOrder } from './order-record';
 import { outcomeView, refusalKind, stepOf } from './order-view';
 import { recallPlan, rememberPlan } from './plan-store';
@@ -21,7 +22,9 @@ import {
 } from './readiness';
 import {
   doneOrder,
+  LEG_APPROVE,
   LEG_CREATE,
+  LEG_DEPOSIT,
   LEG_SWAP,
   linesOn,
   ORDER_ID,
@@ -174,6 +177,7 @@ describe('which chains can be signed on', () => {
       expect(explorerNameFor('robinhood', en.chain)).toBe('Etherscan');
       expect(explorerNameFor('robinhood', dictionary('pt').chain)).toBe('Etherscan');
       expect(activityOf(doneOrder('robinhood'), en, false).map((l) => l.explorer)).toEqual([
+        'Etherscan',
         'Etherscan',
         'Etherscan',
       ]);
@@ -476,7 +480,7 @@ describe('what reached the chain, line by line', () => {
     ['robinhood', 'Robinhood explorer'],
   ] as const)('says the chain of every line on %s, and names its explorer', (chain, explorer) => {
     const lines = activityOf(doneOrder(chain), en, false);
-    expect(lines.length).toBe(2);
+    expect(lines.length).toBe(doneOrder(chain).legs.length);
     for (const line of lines) {
       expect(line.chain).toBe(chain);
       expect(line.explorer).toBe(explorer);
@@ -519,5 +523,41 @@ describe('what reached the chain, line by line', () => {
       })),
     };
     expect(detail(onMock, true)).toContain('USDC → SPY');
+  });
+});
+
+describe('a first deposit on Robinhood Chain opens the vault empty, then deposits', () => {
+  // Gate CREATE-BEFORE-APPROVE: the create moves no cash. It is not the deposit, and it is said as
+  // the opening of the vault.
+  const order = orderOn('robinhood');
+  const standing = (confirmed: string[]) => ({
+    legs: order.legs.map((l) => ({
+      ...l,
+      status: confirmed.includes(l.id) ? ('confirmed' as const) : ('planned' as const),
+    })),
+  });
+
+  it('counts the deposit as landed only once the step that moves the cash is confirmed', () => {
+    expect(depositLanded(standing([LEG_CREATE]))).toBe(false);
+    expect(depositLanded(standing([LEG_CREATE, LEG_APPROVE]))).toBe(false);
+    expect(depositLanded(standing([LEG_CREATE, LEG_APPROVE, LEG_DEPOSIT]))).toBe(true);
+    // Where the create carries the cash (Solana), it is the deposit.
+    expect(depositLanded(doneOrder('solana'))).toBe(true);
+  });
+
+  it('says the opening of the vault while it runs and when it stops there', () => {
+    for (const lang of ['en', 'pt'] as const) {
+      const t = dictionary(lang);
+      expect(progressOf(order, LEG_CREATE, null, t, lang).line).toBe(
+        t.invest.progress.line(null, t.invest.progress.opening, 1, 3),
+      );
+      expect(progressOf(order, LEG_APPROVE, null, t, lang).line).toBe(
+        t.invest.progress.line(t.invest.progress.opened, t.invest.progress.approving, 2, 3),
+      );
+      const stopped = landedSentence(order, standing([LEG_CREATE]), null, t, lang);
+      const [head] = t.invest.stopped.some(t.invest.things.vault, '\u0000').split('\u0000');
+      expect(stopped.startsWith(head ?? '?')).toBe(true);
+      expect(stopped).toContain(t.invest.things.deposit);
+    }
   });
 });

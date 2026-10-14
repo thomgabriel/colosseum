@@ -115,13 +115,12 @@ type Exemption = { since: string; why: string; covers: readonly (readonly [strin
 // which moved sign.ts and wallet.ts of chain-solana behind "./server".
 const EXEMPT: readonly Exemption[] = [];
 
-// Rule 5 has two standing allowances, and they are not exemptions: each is held to a condition, and
-// they are listed in the order the scan finds them. A file below may import a signing entry because
+// Rule 5 has one standing allowance, and it is not an exemption: it is held to a condition. A file below may import a signing entry because
 // nothing loads it but one dynamic import in `loader`, inside an `if` on the flag: with the flag off
 // the file is never loaded, so no registered route reaches a signer and no key-reading code is in the
 // process. A static import of the file, a second loader, or the import moved out of the `if` fails the
-// test. The structurer's server-signing route stays in apps/api, switched off, not deleted (section 2,
-// the add-only rule); when the vault path replaces it the file goes, and its entry with it.
+// test. The structurer's server-signing route (routes/monitor-rebalance.ts) was the second, and went
+// with the structurer's plan view on Oct 13.
 type BehindAFlag = { loader: string; flag: string; why: string };
 const BEHIND_A_FLAG: Record<string, BehindAFlag> = {
   // The test faucet's signer (POST /v1/testnet/fund, decided Oct 6): `faucetKeys` is set only when a
@@ -131,11 +130,6 @@ const BEHIND_A_FLAG: Record<string, BehindAFlag> = {
     loader: 'apps/api/src/routes/v1/index.ts',
     flag: 'faucetKeys',
     why: 'The test faucet sends test tokens and gas from a test-network key held by the server; it signs nothing on mainnet.',
-  },
-  'apps/api/src/routes/monitor-rebalance.ts': {
-    loader: 'apps/api/src/app.ts',
-    flag: 'flags.legacyStructurer',
-    why: "Rodrigo's rebalance route, moved out of monitor.ts: POST /policies/:id/rebalance loads the agent key and signs on the server.",
   },
 };
 /** Where an app starts. What these load statically is what is in the process whatever the flags say. */
@@ -779,7 +773,7 @@ describe('import boundaries (DESIGN-VAULT.md section 2)', () => {
   });
 
   it('rule 5: only the keeper and scripts import a signing entry, and no chain package exposes one at its root', () => {
-    // Nothing is exempt any more: every signing import outside the keeper is the flagged legacy file's.
+    // Nothing is exempt any more: every signing import outside the keeper is a flagged file's.
     const signing = found.filter((v) => v.kind === 'signing' || v.kind === 'root-reaches-signing');
     expect(signing.filter((v) => !isBehindAFlag(v)).map(show)).toEqual([]);
     expect([...new Set(signing.map((v) => v.file))]).toEqual(Object.keys(BEHIND_A_FLAG));
@@ -794,7 +788,7 @@ describe('import boundaries (DESIGN-VAULT.md section 2)', () => {
     );
   });
 
-  it('rule 5: the legacy file that signs is loaded only behind its flag', () => {
+  it('rule 5: a file that signs is loaded only behind its flag', () => {
     expect(flagProblems(scanned, BEHIND_A_FLAG)).toEqual([]);
     for (const { why } of Object.values(BEHIND_A_FLAG)) expect(why).not.toBe('');
   });
@@ -883,7 +877,7 @@ describe('import boundaries (DESIGN-VAULT.md section 2)', () => {
   );
 
   it('self-check: a flagged file loaded any other way is a problem', () => {
-    const file = 'apps/api/src/routes/monitor-rebalance.ts';
+    const file = 'apps/api/src/faucet/signer.ts';
     const allowed = BEHIND_A_FLAG[file];
     if (!allowed) throw new Error('no allowance to check');
     const signing: Violation = { file, line: 1, kind: 'signing', target: SOLANA, rule: 5 };
@@ -892,7 +886,7 @@ describe('import boundaries (DESIGN-VAULT.md section 2)', () => {
       to: file,
       line: 9,
       dynamic: true,
-      under: ['flags.legacyStructurer'],
+      under: ['faucetKeys'],
       ...over,
     });
     const problems = (loads: Load[], violations = [signing]) =>
@@ -904,7 +898,7 @@ describe('import boundaries (DESIGN-VAULT.md section 2)', () => {
     expect(problems([load({ under: [] })])[0]).toMatch(/outside `if \(/);
     // Another condition is not the flag, and neither is the flag negated.
     expect(problems([load({ under: ['process.env.X'] })])[0]).toMatch(/outside `if \(/);
-    expect(problems([load({ under: ['!flags.legacyStructurer'] })])[0]).toMatch(/outside `if \(/);
+    expect(problems([load({ under: ['!faucetKeys'] })])[0]).toMatch(/outside `if \(/);
     expect(problems([load({}), load({ from: 'apps/api/src/server.ts' })])).toEqual([
       `apps/api/src/server.ts:9: loads ${file}, and only ${allowed.loader} may`,
     ]);

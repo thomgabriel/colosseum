@@ -1821,6 +1821,8 @@ export const pt: Dictionary = {
       deposited: 'Depósito confirmado',
       depositingAndBuying: (names: string) => `Depositando e trocando por ${names}`,
       depositedAndBought: (names: string) => `Depósito confirmado, ${names} no seu cofre`,
+      opening: 'Abrindo seu cofre',
+      opened: 'Cofre aberto',
       approving: 'Autorizando o depósito',
       approved: 'Depósito autorizado',
       buying: (names: string) => `Trocando por ${names}`,
@@ -1832,6 +1834,7 @@ export const pt: Dictionary = {
     things: {
       deposit: 'o depósito',
       approval: 'a autorização do depósito',
+      vault: 'a abertura do seu cofre',
       step: 'um passo',
     },
     stopped: {
@@ -2054,6 +2057,7 @@ export const pt: Dictionary = {
     kind: {
       approve: 'Autorizar o depósito',
       create_vault: 'Abrir seu cofre e depositar',
+      open_vault: 'Abrir seu cofre',
       create_vault_buy: 'Abrir seu cofre, depositar e trocar',
       deposit_buy: 'Depositar e trocar',
       deposit: 'Depositar',

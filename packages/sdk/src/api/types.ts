@@ -1705,7 +1705,6 @@ export type GetConfigResponse = {
     autoFollow: Record<'solana' | 'base' | 'robinhood', boolean>;
     keeperEnabled: boolean;
     agentSurface: boolean;
-    legacyStructurer: boolean;
   };
   chains: {
     id: 'solana' | 'base' | 'robinhood';

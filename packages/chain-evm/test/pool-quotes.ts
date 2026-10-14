@@ -16,7 +16,7 @@
 // chain's own node, which answers ten million blocks of logs at a time). A URL with a key in it is
 // never printed: the output names the hosts only.
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import {
   type Address,
   createPublicClient,
@@ -37,6 +37,11 @@ const USDG = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168' as Address;
 const QUOTER = '0x8dc178efb8111bb0973dd9d722ebeff267c98f94' as Address;
 const STATE_VIEW = '0xf3334192d15450cdd385c8b70e03f9a6bd9e673b' as Address;
 const POOL_MANAGER = '0x8366a39cc670b4001a1121b8f6a443a643e40951' as Address;
+// Uniswap v3's factory on Robinhood Chain (contracts/script/config/pool-feeds/4663.json).
+const V3_FACTORY = '0x1f7d7550B1b028f7571E69A784071F0205FD2EfA' as Address;
+const V3_FEES = [100, 500, 3000, 10000];
+/** The hour the app's stand-in for a feed that is not live averages over (OWNER-PRICE-BOUND). */
+const AVERAGE_WINDOW = 3600;
 const ZERO = '0x0000000000000000000000000000000000000000' as Address;
 
 /** The eleven tokens the test network models, with their Chainlink feeds (scripts/risk/universe/robinhood.json). */
@@ -101,6 +106,10 @@ const TOKENS: { symbol: string; token: Address; feed: Address }[] = [
   token: Address;
   feed: Address;
 }[];
+/** RH_POOLS_TOKENS names a JSON file of other tokens: [{ symbol, token, feed }]. */
+const ASKED: typeof TOKENS = process.env.RH_POOLS_TOKENS
+  ? JSON.parse(readFileSync(process.env.RH_POOLS_TOKENS, 'utf8'))
+  : TOKENS;
 
 const STANDARD = [
   { fee: 100, tickSpacing: 1 },
@@ -126,7 +135,22 @@ const FEED_ABI = parseAbi([
   'function description() view returns (string)',
   'function decimals() view returns (uint8)',
   'function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)',
+  'function aggregator() view returns (address)',
 ]);
+const V3_ABI = parseAbi([
+  'function getPool(address, address, uint24) view returns (address)',
+  'function liquidity() view returns (uint128)',
+  'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+  'function observe(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)',
+]);
+/** Half of a pool's liquidity in range, down to two significant figures: the floor pool-feeds/4663.json sets. */
+const halfTwoFigures = (liquidity: bigint) => {
+  const half = liquidity / 2n;
+  const digits = half.toString().length;
+  if (digits <= 2) return half;
+  const unit = 10n ** BigInt(digits - 2);
+  return (half / unit) * unit;
+};
 const STATE_ABI = parseAbi([
   'function getSlot0(bytes32 id) view returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee)',
   'function getLiquidity(bytes32 id) view returns (uint128)',
@@ -204,7 +228,7 @@ async function main() {
   );
 
   const rows = [];
-  for (const t of TOKENS.filter((x) => !ONLY || ONLY.includes(x.symbol))) {
+  for (const t of ASKED.filter((x) => !ONLY || ONLY.includes(x.symbol.toUpperCase()))) {
     const read = <T>(address: Address, abi: typeof TOKEN_ABI | typeof FEED_ABI, fn: string) =>
       slow(`${t.symbol} ${fn}`, () =>
         client.readContract({
@@ -226,6 +250,7 @@ async function main() {
     );
     const feedUsd = Number(round[1]) / 10 ** feedDecimals;
     const feedAgeSeconds = Number(block.timestamp - round[3]);
+    const aggregator = await read<Address>(t.feed, FEED_ABI, 'aggregator').catch(() => null);
 
     const [c0, c1] = sorted(USDG, t.token);
     // Every pool of the pair the PoolManager ever initialised, hooked or not.
@@ -319,7 +344,10 @@ async function main() {
       if (liquidity > 0n && shape.fee <= MAX_FEE)
         for (const usd of SIZES_USD) {
           const usdgIn = BigInt(usd) * 10n ** BigInt(usdgDecimals);
-          const stockIn = BigInt(Math.round((usd / midUsd) * 1e9)) * 10n ** BigInt(decimals - 9);
+          // Nine digits of the amount, or all of them for a token of fewer decimals (cbBTC has 8).
+          const digits = Math.min(decimals, 9);
+          const stockIn =
+            BigInt(Math.round((usd / midUsd) * 10 ** digits)) * 10n ** BigInt(decimals - digits);
           const bought = await quote(USDG, usdgIn);
           const sold = await quote(t.token, stockIn);
           // Against the pool's own mid, fee included: what the trade gives up, in basis points.
@@ -348,6 +376,50 @@ async function main() {
       });
     }
     pools.sort((a, b) => (BigInt(b.liquidity) > BigInt(a.liquidity) ? 1 : -1));
+
+    // The token's Uniswap v3 pools against USDG at the standard fees: the one whose last hour stands in
+    // for the feed while the feed is not live. Its hour is readable when observe([3600, 0]) answers.
+    const averages = [];
+    for (const fee of V3_FEES) {
+      const pool = await slow(`${t.symbol} v3 getPool`, () =>
+        client.readContract({
+          address: V3_FACTORY,
+          abi: V3_ABI,
+          functionName: 'getPool',
+          args: [t.token, USDG, fee],
+          blockNumber: at,
+        }),
+      );
+      if (pool === ZERO) continue;
+      const v3 = <T>(fn: 'liquidity' | 'slot0') =>
+        slow(`${t.symbol} v3 ${fn}`, () =>
+          client.readContract({ address: pool, abi: V3_ABI, functionName: fn, blockNumber: at }),
+        ) as Promise<T>;
+      const liquidity = await v3<bigint>('liquidity');
+      const slot0 =
+        await v3<readonly [bigint, number, number, number, number, number, boolean]>('slot0');
+      const hourReadable = await slow(`${t.symbol} v3 observe`, () =>
+        client.readContract({
+          address: pool,
+          abi: V3_ABI,
+          functionName: 'observe',
+          args: [[AVERAGE_WINDOW, 0]],
+          blockNumber: at,
+        }),
+      )
+        .then(() => true)
+        .catch(() => false);
+      averages.push({
+        pool: pool.toLowerCase(),
+        fee,
+        liquidity: liquidity.toString(),
+        minLiquidity: halfTwoFigures(liquidity).toString(),
+        observationCardinality: slot0[3],
+        observationCardinalityNext: slot0[4],
+        hourReadable,
+      });
+    }
+    averages.sort((a, b) => (BigInt(b.liquidity) > BigInt(a.liquidity) ? 1 : -1));
     const row = {
       symbol,
       asked: t.symbol,
@@ -359,12 +431,14 @@ async function main() {
       feedDecimals,
       feedUsd,
       feedAgeSeconds,
+      feedAggregator: aggregator,
       poolsFrom:
         fromLogs === null
           ? 'the four standard shapes'
           : 'Initialize events and the four standard shapes',
       hookedPoolsSkipped: hooked,
       pools,
+      averages,
     };
     rows.push(row);
     console.log(
@@ -378,10 +452,14 @@ async function main() {
           .map((q) => `$${q.usd}: buy ${q.buyBps ?? 'x'} sell ${q.sellBps ?? 'x'}`)
           .join(' | ')}`,
       );
+    for (const a of averages)
+      console.log(
+        `   v3 ${String(a.fee).padStart(5)} ${a.pool} L=${a.liquidity} observations ${a.observationCardinality}/${a.observationCardinalityNext} hour ${a.hourReadable ? 'readable' : 'not readable'}`,
+      );
   }
   const result = {
     source: `Uniswap v4 StateView ${STATE_VIEW} and Quoter ${QUOTER} on Robinhood Chain (4663) through ${new URL(URL_).host}; pools listed through ${new URL(LOGS_URL).host}`,
-    method: `pool-quotes-0.1: hookless v4 pools against USDG; quoteExactInputSingle for ${SIZES_USD.map((x) => `$${x.toLocaleString('en-US')}`).join(', ')} each way; cost in bps against the pool mid of the same block, fee included; pools of a fee above 1% listed and not quoted`,
+    method: `pool-quotes-0.2: hookless v4 pools against USDG; quoteExactInputSingle for ${SIZES_USD.map((x) => `$${x.toLocaleString('en-US')}`).join(', ')} each way; cost in bps against the pool mid of the same block, fee included; pools of a fee above 1% listed and not quoted; the v3 pools of the token and USDG at fees 100, 500, 3000 and 10000 with their liquidity, observations kept and whether observe([3600, 0]) answers`,
     fetchedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
     blockNumber: Number(at),
     provenance: 'live',

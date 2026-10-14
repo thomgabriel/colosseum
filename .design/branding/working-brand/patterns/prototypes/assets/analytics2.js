@@ -148,7 +148,7 @@
     var r = T.regimeAt(nowAt()), et = T.etParts(nowAt()).label;
     if (S.mode === 'live') b.innerHTML = '<b>Live from the collectors, as of ' + esc(last ? T.hhmm(last) : 'an unknown time') + '.</b><span class="an-meta">now: ' + esc(RW[r]) + ' (' + esc(et) + ')</span>';
     else if (S.mode === 'snapshot') b.innerHTML = '<b>Snapshot captured ' + esc(iso(S.manifest.captured_at).replace('T', ' ').replace('Z', ' UTC')) + ', the API is not running.</b><span>Every figure is stale: measured, only old. Its age is beside it.</span>';
-    else b.innerHTML = '<b>Neither the API at ' + esc(T.API) + ' nor the snapshot answered.</b><span>Start the API (docs/risk/PROMPT-BUILD-ANALYTICS-PAGE.md) or serve this folder over HTTP.</span>';
+    else b.innerHTML = '<b>Neither the API at ' + esc(T.API) + ' nor a snapshot answered.</b><span>Start the API (docs/risk/PROMPT-BUILD-ANALYTICS-PAGE.md), or capture a snapshot with assets/analytics/capture.mjs and serve this folder over HTTP. The snapshot is not committed.</span>';
   }
 
   /* ---------------- building blocks ---------------- */

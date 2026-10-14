@@ -21,7 +21,7 @@ test.skip(
   'the stub runs Robinhood Chain only with E2E_CHAIN=robinhood',
 );
 
-test('a buy on Robinhood Chain on the mock: an approval, then a create that buys, both confirmed', async ({
+test('a buy on Robinhood Chain on the mock: the vault opened, the approval, then a deposit that swaps, all confirmed', async ({
   page,
 }) => {
   await page.request.post(`${STUB}/__stub/reset`);
@@ -59,21 +59,24 @@ test('a buy on Robinhood Chain on the mock: an approval, then a create that buys
   // the review is on the buy's own card
   await expect(page).toHaveURL(/\/plan\/[^/]+\/buy$/);
   const steps = page.locator('[data-ui="order-step"]');
-  await expect(steps).toHaveCount(2);
-  await expect(steps.nth(0)).toContainText(en.order.kind.approve);
-  await expect(steps.nth(1)).toContainText(en.order.kind.create_vault_buy);
-  await expect(steps.nth(1)).toContainText('receive at least');
-  await expect(steps.nth(1)).not.toContainText('smallest');
+  await expect(steps).toHaveCount(3);
+  // the vault is opened empty first, so the approval names a vault that is there
+  await expect(steps.nth(0)).toContainText(en.order.kind.open_vault);
+  await expect(steps.nth(1)).toContainText(en.order.kind.approve);
+  await expect(steps.nth(2)).toContainText(en.order.kind.deposit_buy);
+  await expect(steps.nth(2)).toContainText('receive at least');
+  await expect(steps.nth(2)).not.toContainText('smallest');
   await named(page);
 
   await press.click();
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(en.order.outcome.done(NAME), {
     timeout: 90_000,
   });
-  for (let i = 0; i < 2; i += 1)
+  for (let i = 0; i < 3; i += 1)
     await expect(steps.nth(i)).toHaveAttribute('data-status', 'confirmed');
   // each step's link names the explorer it opens
   await expect(steps.locator('[data-ui="explorer-name"]')).toHaveText([
+    en.chain.explorers.robinhood,
     en.chain.explorers.robinhood,
     en.chain.explorers.robinhood,
   ]);

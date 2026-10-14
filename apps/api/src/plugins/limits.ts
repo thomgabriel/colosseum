@@ -138,8 +138,6 @@ export const OPEN_WRITES: readonly string[] = [
   'POST /plans',
   'POST /plans/:id/transactions',
   'POST /executions/:id/report',
-  'POST /policies/:id/revoke',
-  'POST /policies/:id/rebalance',
 ];
 
 /**

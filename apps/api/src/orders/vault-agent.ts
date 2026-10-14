@@ -1,4 +1,4 @@
-import { EXIT_WINDOW_DAYS, personWeights } from '@colosseum/basket';
+import { EXIT_WINDOW_DAYS, personWeights, view } from '@colosseum/basket';
 import { eligibleForGoal, PERSONAL_PARAMS } from '@colosseum/engine/personal';
 import type {
   BasketAsset,
@@ -17,6 +17,9 @@ import {
   type VaultAgentSource as AgentSource,
   FIGURE_REFERENCE,
   isStalePrice,
+  OWNER_REBALANCE_SLIPPAGE_BPS,
+  outsideOwnerBand,
+  ownerRebalanceOffered,
   type VaultAgentFigure,
   VaultAgentModelReply,
   VaultAgentReply,
@@ -156,8 +159,10 @@ type AgentContextData = {
   /** The shared portfolio the vault follows, as the server read it for this reply; absent when it follows none. */
   followed?: FollowedPortfolio;
   /** Where this server stands: the network's name, whether auto-follow is offered and the keeper runs. */
-  /** Whether the vault's page has the rebalance action (off until its route lands). */
+  /** Whether the vault's page has the rebalance action; the route passes it. */
   rebalanceOnPage?: boolean;
+  /** Where the vault stands against its targets, by the page's rule (`vaultAgainstTargets`). */
+  againstTargets?: { onTarget: boolean; offered: boolean };
   server?: {
     network: string | null;
     autoFollowOffered: boolean | null;
@@ -228,8 +233,9 @@ export type VaultStandingFacts = {
     keeperRunsOnThisServer: boolean | null;
   };
   /**
-   * The action on the vault's page that brings the holdings to the targets, or null while the page
-   * has none: then it cannot be done from the app yet, and no control is named.
+   * The action on the vault's page that brings the holdings to the targets, where the page shows it
+   * now; null where it does not (on its targets, auto-follow on, a holding with no price, every trade
+   * too small), and then no control is named.
    */
   rebalanceAction: string | null;
   /** What the server read the latest message as, where it read one. */
@@ -814,6 +820,7 @@ function buildAgentContext(
     ...(input.confirmedGoal ? { confirmedGoal: input.confirmedGoal } : {}),
     ...(state && input.followed ? { followed: input.followed } : {}),
     ...(state && input.rebalanceOnPage ? { rebalanceOnPage: true } : {}),
+    ...(state ? { againstTargets: vaultAgainstTargets(state, input.prices, assets) } : {}),
     ...(state
       ? {
           server: {
@@ -2180,33 +2187,60 @@ export function personShares(
 }
 
 /**
- * The action on a vault's page that brings its holdings to its targets, as the page labels it. One
- * constant until the web's dictionary entry lands with the owner's rebalance route; then it is read
- * from there, not kept as a second copy.
+ * The action on a vault's page that brings its holdings to its targets, as the page labels it
+ * (`vault.page.rebalance` in apps/web's dictionary; the API does not import the web's words).
  */
 export const REBALANCE_ACTION = { en: 'Rebalance', pt: 'Rebalancear' } as const;
+
 /**
- * How far from its target a holding may be and still be on it, in basis points. The owner's rebalance
- * route has the same band (`OWNER_REBALANCE_BAND_BPS` on its branch): import that once it lands.
+ * Where the vault stands against its targets, by the rule the vault's page reads (`offTarget` in
+ * apps/web/features/shared/VaultScreen.tsx): `onTarget` inside the owner's band, `offered` when the
+ * page shows the rebalance action (outside the band, a trade large enough, auto-follow off). Both are
+ * false when a holding has no price, as the page then offers nothing.
  */
-const REBALANCE_BAND_BPS = 50;
+export function vaultAgainstTargets(
+  state: VaultState,
+  prices: readonly Price[],
+  assets: readonly BasketAsset[],
+): { onTarget: boolean; offered: boolean } {
+  const none = { onTarget: false, offered: false };
+  if (!state.positions.some((position) => position.targetBps > 0)) return none;
+  let seen: ReturnType<typeof view>;
+  try {
+    seen = view(state, [...prices], [...assets]);
+  } catch {
+    return none;
+  }
+  const held = seen.positions.filter((position) => !/^0+$/.test(position.raw));
+  const total = Number(seen.valueUsd);
+  if (held.some((position) => position.valueUsd === null) || !(total > 0)) return none;
+  const invested = seen.positions.reduce((n, position) => n + position.weightBps, 0);
+  const planned = seen.positions.reduce((n, position) => n + position.targetBps, 0);
+  const cashOver = planned - invested;
+  return {
+    onTarget: !outsideOwnerBand(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS),
+    offered:
+      !state.autoFollow &&
+      ownerRebalanceOffered(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS, total),
+  };
+}
 
 /**
  * THE SEAM (Thom, Oct 13): where the conversation's rebalance is planned. The order is built by the
  * owner's route, `POST /v1/vaults/{chain}/{address}/rebalance` (its `/quote` gives each trade with its
  * cost, sourced), which trades to the targets the vault has on chain with owner-signed steps. The
- * conversation builds no order and drafts no targets. `onPage` says whether the vault's page has the
- * action yet: it is off until that route and the web's control are merged (the route passes it,
- * `rebalanceOnPage`), and while it is off no control is named. When the chat is to place or quote the
- * rebalance itself, this is the one function that calls that planner.
+ * conversation builds no order and drafts no targets: it names the page's action, and only where the
+ * page shows it (`onPage`, passed by the route; `offered`, the page's own rule). When the chat is to
+ * place or quote the rebalance itself, this is the one function that calls that planner.
  */
 export function rebalanceFor(options: {
   language: 'en' | 'pt';
   onPage: boolean;
-}): { kind: 'page_action'; label: string } | { kind: 'unavailable' } {
-  return options.onPage
+  offered: boolean;
+}): { kind: 'page_action'; label: string } | { kind: 'not_offered' } {
+  return options.onPage && options.offered
     ? { kind: 'page_action', label: REBALANCE_ACTION[options.language] }
-    : { kind: 'unavailable' };
+    : { kind: 'not_offered' };
 }
 
 /** An address or an id as the page shows it: its first and last six characters. */
@@ -2527,7 +2561,12 @@ export async function replyToVaultConversation(
           : [],
       )
     : null;
-  const action = rebalanceFor({ language, onPage: context.rebalanceOnPage === true });
+  const standing = context.againstTargets ?? { onTarget: false, offered: false };
+  const action = rebalanceFor({
+    language,
+    onPage: context.rebalanceOnPage === true,
+    offered: standing.offered,
+  });
   const facts: VaultStandingFacts | null = vault
     ? {
         chain: {
@@ -2773,18 +2812,10 @@ export async function replyToVaultConversation(
   // vault already has is held against its goal.
   const latestPerson = everyone.at(-1);
   if (vault && facts && latestPerson?.who === 'person' && asksRebalance(latestPerson.text)) {
-    const gapOf = (id: string) => sourceById.get(`holding:${id}:gap`)?.value;
     const held = vault.positions.filter(
       (position) => position.targetBps > 0 || !/^0+$/.test(position.raw),
     );
-    const gaps = [
-      ...held.map((position) => gapOf(position.asset)),
-      // cash under its target is no reason to trade: only cash over it is
-      Math.max(0, gapOf(vault.cash.asset) ?? Number.NaN),
-    ];
-    const measured = gaps.every((gap) => typeof gap === 'number' && Number.isFinite(gap));
-    const onTarget =
-      measured && gaps.every((gap) => Math.abs(gap as number) * 10_000 <= REBALANCE_BAND_BPS);
+    const { onTarget } = standing;
     const fact = (id: string) => `{{fact:${id}}}`;
     const line = (name: string, id: string) =>
       pt
@@ -2838,20 +2869,16 @@ export async function replyToVaultConversation(
           ? 'O seguir automático está ativado neste cofre, então o nosso operador o rebalanceia.'
           : 'Auto-follow is on for this vault, so our keeper rebalances it.'
         : action.kind === 'page_action'
-          ? onTarget
-            ? pt
-              ? `O cofre está nos alvos, então não há o que rebalancear agora. Quando sair deles, use “${action.label}” na página deste cofre.`
-              : `The holdings are on their targets, so there is nothing to rebalance now. When they drift, use “${action.label}” on this vault's page.`
-            : pt
-              ? `Para levá-lo aos alvos, use “${action.label}” na página deste cofre: ela mostra as trocas e você as assina. Esta conversa não faz nenhuma ordem.`
-              : `To bring them in line, use “${action.label}” on this vault's page: it shows the trades and you sign them. This conversation places no order.`
+          ? pt
+            ? `Para levá-lo aos alvos, use “${action.label}” na página deste cofre: ela mostra as trocas e você as assina. Esta conversa não faz nenhuma ordem.`
+            : `To bring them in line, use “${action.label}” on this vault's page: it shows the trades and you sign them. This conversation places no order.`
           : onTarget
             ? pt
               ? 'O cofre está nos alvos, então não há o que rebalancear agora.'
               : 'The holdings are on their targets, so there is nothing to rebalance now.'
             : pt
-              ? 'O cofre ainda não está nos alvos. Levá-lo até eles ainda não está disponível a partir desta conversa, e ela não faz nenhuma ordem.'
-              : 'The holdings are not at their targets yet. Bringing them there is not available from this conversation yet, and it places no order.',
+              ? 'O cofre ainda não está nos alvos. Esta conversa não faz nenhuma ordem.'
+              : 'The holdings are not at their targets yet. This conversation places no order.',
     ].join('\n');
     const filled = withFigures({
       version: 1,

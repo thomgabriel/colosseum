@@ -13,7 +13,7 @@ import { plexMono } from './fonts-mono';
 //
 // The display and the UI face are preloaded on every route whose layout imports this file: the product
 // shell and the landing, where they set the first thing a person reads. The mono face lives in
-// fonts-mono.ts and is not preloaded. The pages not yet rebuilt import that file only.
+// fonts-mono.ts and is not preloaded.
 //
 // There is no condensed face and no serif (IDENTITY-2): `--font-condensed` is Inter Tight. The Latin
 // files hold no Greek, so the "τ" and "Σ" Bearing writes in its methods are drawn by the system's face.

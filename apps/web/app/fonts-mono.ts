@@ -1,9 +1,7 @@
 import localFont from 'next/font/local';
 
-// The mono face, in a file of its own. A layout preloads the faces of every font file it imports, so
-// the pages that are not rebuilt yet (app/(structurer)) import this one alone: they use the mono face
-// in a few places and no other, and their head stays as it was. It is not preloaded anywhere: it sets
-// source lines and the MOCK plate, never the first thing a person reads.
+// The mono face, in a file of its own. It is not preloaded anywhere: it sets source lines and the MOCK
+// plate, never the first thing a person reads.
 
 /** Cites: figures in tables, the source line, hashes, the word MOCK. */
 export const plexMono = localFont({

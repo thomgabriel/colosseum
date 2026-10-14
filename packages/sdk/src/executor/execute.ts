@@ -11,6 +11,8 @@ import type {
 } from '@colosseum/schemas';
 import { approvedSteps } from '../guard/approved';
 import { familyOf } from '../guard/context';
+import { evmVaultAddress } from '../guard/evm/addresses';
+import { mockVaultAddress } from '../guard/mock/check';
 import { GuardRefusal, isGuardRefusal } from '../guard/refusal';
 import { type Guarded, isGuarded } from '../guard/run';
 import { count, isObject, text } from '../guard/strict';
@@ -513,6 +515,46 @@ export function makeExecute(guard: Guard) {
       return { record };
     };
 
+    /**
+     * On an EVM chain an approval is built only once the caller's own node shows a contract at the
+     * vault's address, the one the approval names: a wallet warns about an approval to an address with
+     * no code, and cash approved there before the vault exists could be taken by whoever decides the
+     * code that lands there. The API is never asked. With no read of its own the caller signs no
+     * approval, except on the mock, whose transactions are no chain's.
+     */
+    const vaultMissing = async (step: ApprovedStep): Promise<GuardRefusal | null> => {
+      if (step.kind !== 'approve' || familyOf(step.chain) !== 'evm') return null;
+      const read = deps.chainRead;
+      if (!read) {
+        if (deployment.family === 'mock') return null;
+        return new GuardRefusal(
+          'unsupported',
+          `this app has no node of its own on ${step.chain} to see that the vault is open: no approval is signed without it`,
+          step.legId,
+        );
+      }
+      const address =
+        deployment.family === 'evm'
+          ? evmVaultAddress(deployment, owner, step.basketId)
+          : mockVaultAddress(step.chain, owner, step.basketId);
+      let there: boolean;
+      try {
+        there = (await read.hasCode({ chain: step.chain, address })) === true;
+      } catch {
+        return new GuardRefusal(
+          'unsupported',
+          `this app's own node could not say whether the vault at ${address} is open: nothing is approved to it`,
+          step.legId,
+        );
+      }
+      if (there) return null;
+      return new GuardRefusal(
+        'order',
+        `no vault is open at ${address}: an approval is signed only for a vault that exists`,
+        step.legId,
+      );
+    };
+
     const runStep = async (step: ApprovedStep): Promise<ExecutionResult | null> => {
       const { legId } = step;
       const key = signedKey(order.id, legId);
@@ -522,6 +564,7 @@ export function makeExecute(guard: Guard) {
       let moved = 0;
       let turns = 0;
       const waited = { landing: 0, in_flight: 0 };
+      let vaultSeen = false;
       const reported = new Set<string>();
       const wait = async (why: 'landing' | 'in_flight'): Promise<ExecutionResult | null> => {
         waited[why] += 1;
@@ -675,6 +718,13 @@ export function makeExecute(guard: Guard) {
           const stop = await wait('in_flight');
           if (stop) return stop;
           continue;
+        }
+
+        // ---- an approval names a vault that is open (gate CREATE-BEFORE-APPROVE)
+        if (!vaultSeen) {
+          const missing = await vaultMissing(step);
+          if (missing) return { status: 'refused', order: seen, legId, refusal: missing };
+          vaultSeen = true;
         }
 
         // ---- build

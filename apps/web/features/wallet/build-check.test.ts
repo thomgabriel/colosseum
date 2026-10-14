@@ -278,10 +278,7 @@ describe('the check that runs after every production build', () => {
     for (const file of ['features/wallet/dev/rpc.ts', 'features/wallet/test/fixtures.ts']) {
       const out = build({
         ...CLEAN,
-        'server/chunks/ssr/2.js.map': map(
-          `${OURS}app/(structurer)/monitor/page.tsx`,
-          `${OURS}${file}`,
-        ),
+        'server/chunks/ssr/2.js.map': map(`${OURS}app/(app)/monitor/page.tsx`, `${OURS}${file}`),
       });
       expect(checkBuild(out)).toEqual([`server/chunks/ssr/2.js.map was built from ${OURS}${file}`]);
     }
