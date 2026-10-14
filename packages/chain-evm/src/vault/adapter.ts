@@ -71,6 +71,12 @@ function inOne(calls: Hex[]): Hex {
   return encodeFunctionData({ abi: BASKET_VAULT_ABI, functionName: 'multicall', args: [calls] });
 }
 
+/** What a step says it does, after the switch off it makes first, if it makes one. */
+function afterSwitch(to: boolean | undefined, text: string): string {
+  if (to !== false) return text;
+  return `Switch auto-follow off, then ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
 /**
  * A step's own calls with the auto-follow switch it makes beside them (gate `EVM-MULTICALL-STEPS`):
  * off before them, so the keeper is stopped before anything moves; on after them, once the vault
@@ -764,7 +770,6 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const a = input(OwnerSwapArgs, args, 'swap');
         const { vault, owner } = await ownedVault(a.vault);
         const { call, minimums, deadline } = await ownerSwapCall(vault, a);
-        const off = a.switchAutoFollow === false ? 'Switch auto-follow off, then ' : '';
         return built({
           kind: 'swap',
           signer: owner,
@@ -772,7 +777,8 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           data: inOne(switched([call], a.switchAutoFollow)),
           nonce: a.nonce,
           vault,
-          summary: off.concat(
+          summary: afterSwitch(
+            a.switchAutoFollow,
             a.trades
               .map(
                 (t, i) =>
@@ -872,7 +878,6 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         builds();
         const a = input(WithdrawInKindArgs, args, 'withdraw');
         const { vault, owner } = await ownedVault(a.vault);
-        const off = a.switchAutoFollow === false ? 'Switch auto-follow off, then ' : '';
         // Everything: one `withdrawAll`, which walks every token that came in and skips none for gas. A
         // vault that holds nothing has nothing to build.
         if (a.assets === undefined) {
@@ -888,7 +893,10 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
               data: inOne(switched([all], a.switchAutoFollow)),
               nonce: a.nonce,
               vault,
-              summary: `${off}Withdraw everything vault ${vault} holds to its owner`,
+              summary: afterSwitch(
+                a.switchAutoFollow,
+                `Withdraw everything vault ${vault} holds to its owner`,
+              ),
               minimums: [],
             }),
           ];
@@ -928,7 +936,10 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
             data: inOne(switched(calls, a.switchAutoFollow)),
             nonce: a.nonce,
             vault,
-            summary: `${off}Withdraw ${named.length} tokens from vault ${vault} to its owner`,
+            summary: afterSwitch(
+              a.switchAutoFollow,
+              `Withdraw ${named.length} tokens from vault ${vault} to its owner`,
+            ),
             minimums: [],
           }),
         ];
