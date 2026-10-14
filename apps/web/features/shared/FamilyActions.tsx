@@ -395,17 +395,18 @@ export function FamilyActions(props: FamilyActionsProps) {
         </Link>
       </>,
     )
-  ) : blocked || !followed || !props.targets ? (
+  ) : blocked ? (
     panel(
       <>
         <Ways chainName={chainName} />
         <p data-ui="family-blocked" className="text-body-sm">
-          {blocked ?? t.shared.check.reading}
+          {blocked}
         </p>
       </>,
     )
-  ) : mine.vaults === null ? (
-    panel(<ScreenWait label={t.shared.vault.loading} skeleton={<ActionsWait />} />)
+  ) : !followed || !props.targets || mine.vaults === null ? (
+    // Still being read: the ways in outline, never where they are read from (SOURCE-LINES)
+    panel(<ScreenWait label={x.loading} skeleton={<ActionsWait />} />)
   ) : (
     <Chosen
       {...props}

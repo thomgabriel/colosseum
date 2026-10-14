@@ -1298,6 +1298,7 @@ export const pt: Dictionary = {
       version: (n: number) => `versão ${n}`,
       vault: 'Cofre',
       firstDeposit: 'Primeiro depósito',
+      loading: 'Carregando seus cofres…',
     },
     buy: {
       title: 'Depositar e seguir',

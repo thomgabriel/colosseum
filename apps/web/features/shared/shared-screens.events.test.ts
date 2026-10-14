@@ -495,6 +495,17 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(find(first, 'a').textContent).toBe(en.shared.actions.newVault.depositThere('Rent'));
   });
 
+  it('waits in the ways’ outline while the vaults are read, and never says where they are read from', async () => {
+    api({ family: familyOf(FAMILY_ID), portfolio: () => new Promise<Response>(() => {}) });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const pane = find(host, '[data-ui="family-actions"]');
+    expect(pane.querySelector('[data-ui="actions-wait"]')).not.toBeNull();
+    // the kit's wait, which names what it waits for once the wait is long enough to say it
+    expect(pane.querySelector('[data-ui="waiting"]')).not.toBeNull();
+    expect(host.textContent).not.toContain(en.shared.check.reading);
+    expect(pane.querySelector('[data-ui="family-blocked"]')).toBeNull();
+  });
+
   it('promises no new vault where the person’s vaults could not be read', async () => {
     api({
       family: familyOf(FAMILY_ID),

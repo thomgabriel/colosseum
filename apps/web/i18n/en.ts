@@ -1507,6 +1507,8 @@ export const en = {
       /** The follow card's choice of vault. */
       vault: 'Vault',
       firstDeposit: 'First deposit',
+      /** While the portfolio and the person's vaults are read. */
+      loading: 'Loading your vaults…',
     },
     buy: {
       title: 'Deposit and follow',
