@@ -171,3 +171,40 @@ test('the conversations panel: a new conversation, an earlier one opened, and a 
     if (width < 1024) await page.keyboard.press('Escape');
   }
 });
+
+// The title's place (PAGE-SHELL, as CONVERSATION-PANEL amends it): under 1024px at the frame's left
+// edge with the panel's button in its row; from 1024px after the conversations rail and its gap, 328px
+// with the rail open and 80px closed. Always at the head's top.
+const width = (page: { viewportSize(): { width: number } | null }) =>
+  page.viewportSize()?.width ?? 0;
+test('the title sits at the frame’s edge, or after the conversations rail', async ({ page }) => {
+  await page.goto('/invest');
+  const title = page.locator('main h1');
+  await expect(title).toHaveText(en.talk.workbench.title);
+  const place = async () => {
+    const box = await title.boundingBox();
+    const left = await page.evaluate(() => {
+      const frame = document.querySelector<HTMLElement>('.group\\/shell');
+      if (!frame) return Number.NaN;
+      return (
+        frame.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(frame).paddingLeft)
+      );
+    });
+    // the title's row lines its words up on one baseline with the row's buttons: under 1024px, where
+    // those buttons share the title's line, its top is up to 2px lower than the head's (as before)
+    const y = Math.round(box?.y ?? 0);
+    return { x: Math.round((box?.x ?? 0) - left) + 0, y: width(page) < 1024 && y <= 106 ? 104 : y };
+  };
+  const toggle = page.locator('[data-ui="conversations-toggle"]');
+  for (const closed of [false, true]) {
+    for (const width of [375, 768, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      if (width >= 1024 && (await toggle.getAttribute('aria-expanded')) === String(closed))
+        await toggle.click();
+      expect(await place(), `${width}px, rail ${closed ? 'closed' : 'open'}`).toEqual({
+        x: width < 1024 ? 0 : closed ? 80 : 328,
+        y: 104,
+      });
+    }
+  }
+});

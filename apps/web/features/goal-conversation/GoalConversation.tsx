@@ -100,7 +100,10 @@ export function GoalConversation({
    * beside the box: the box starts with them.
    */
   carried?: RefObject<{ chain: ChainId; text: string } | null>;
-  /** The conversation's picker, in the head's row beside the title, so the title is where every page's is (PAGE-SHELL). */
+  /**
+   * The conversations panel's button, on a line of its own under the title's row where the panel is a
+   * sheet (under 1024px): the title stays where every page's is (PAGE-SHELL, CONVERSATION-PANEL).
+   */
   picker?: ReactNode;
 }) {
   const t = useT();
@@ -478,7 +481,6 @@ export function GoalConversation({
       <header className="flex flex-wrap items-baseline justify-between gap-3 md:col-span-12">
         <h1 className={PAGE_TITLE}>{t.talk.workbench.title}</h1>
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
-          {picker}
           <Button
             variant="secondary"
             size="dense"
@@ -502,6 +504,7 @@ export function GoalConversation({
             />
           )}
         </div>
+        {picker && <div className="flex min-w-0 basis-full lg:hidden">{picker}</div>}
       </header>
       <div
         ref={box}

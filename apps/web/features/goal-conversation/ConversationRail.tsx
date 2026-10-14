@@ -119,7 +119,7 @@ export function ConversationSheet({
           onClick={() => setSheet(true)}
           className={cn(
             buttonClass({ variant: 'secondary', size: 'dense' }),
-            'h-9 max-w-full min-w-0 gap-2 px-3 text-body-sm font-medium',
+            'h-8 max-w-full min-w-0 gap-2 px-3 text-body-sm font-medium',
           )}
         >
           <Icon name="Menu" size={16} />
