@@ -21,6 +21,7 @@ import { type HoldingRow, holdingsOf, unpriced } from '../portfolio/portfolio';
 import { sampleLine } from '../portfolio-section/parts';
 import { Composition, withVenue } from './Composition';
 import { explorerHeightUrlFor, heightWord } from './explorer-height';
+import { offItsTargets } from './off-target';
 import { type PriceSourceLine, priceSourceLines } from './price-sources';
 
 // What a vault holds, the centre of its page (gate VAULT-PAGE-ACTIONS): one picture and one list
@@ -65,9 +66,11 @@ export function VaultHoldings({
   const missing = unpriced(vault);
   // A vault with no target has no plan to be over or under: no difference is drawn under a share.
   const planned = vault.positions.some((position) => position.targetBps > 0);
-  // every priced share as written on its plan: one picture, no comparison
-  const onTarget =
-    planned && rows.every((r, i) => r.valueUsd === null || nowTenths[i] === plannedTenths[i]);
+  // Off target by the rule that offers the Rebalance (off-target.ts), never by how a share rounds:
+  // a share a little away, by less than one trade, is on target, and says so once.
+  const onTarget = planned && offItsTargets(vault) === false;
+  const apart =
+    onTarget && rows.some((r, i) => r.valueUsd !== null && nowTenths[i] !== plannedTenths[i]);
 
   // not live: said in words on the panel's head, as the portfolio overview says it (the kit's Plate)
   const plate =
@@ -158,6 +161,11 @@ export function VaultHoldings({
         ]}
         actions={plate}
       />
+      {apart && (
+        <p data-ui="vault-gap-small" className="px-5 pt-4 text-caption text-muted-foreground">
+          {v.page.gapTooSmall}
+        </p>
+      )}
       {missing > 0 && (
         // The value leaves out what has no price: said beside the holdings it leaves out.
         <p data-ui="vault-unpriced" className="px-5 pt-4 text-caption text-muted-foreground">

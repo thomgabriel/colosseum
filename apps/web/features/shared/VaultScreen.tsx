@@ -1,12 +1,5 @@
 'use client';
-import {
-  ChainId,
-  chainFamily,
-  isAddressOf,
-  OWNER_REBALANCE_SLIPPAGE_BPS,
-  ownerRebalanceOffered,
-  type VaultResponse,
-} from '@colosseum/schemas';
+import { ChainId, chainFamily, isAddressOf, type VaultResponse } from '@colosseum/schemas';
 import Link from 'next/link';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
@@ -29,6 +22,7 @@ import { conversationNetwork } from '../vault-conversation/storage';
 import { VaultConversation } from '../vault-conversation/VaultConversation';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { MORE_ROW, MoreMenu } from './MoreMenu';
+import { offItsTargets } from './off-target';
 import { readVault } from './shared-api';
 import { shortAddress } from './use-person';
 import {
@@ -288,30 +282,14 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
 }
 
 /**
- * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it has a target, it is
- * outside the owner's band as the server reads it, with a trade of at least the smallest a rebalance
- * makes (`ownerRebalanceOffered`: what a rebalance leaves in cash for its slippage is not drift), and
- * auto-follow is off, so no keeper trades it. With a holding that has no price the shares
- * are not known and nothing is offered. The server decides again when asked.
+ * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it is off its targets by the
+ * server's rule (`offItsTargets`), and auto-follow is off, so no keeper trades it. The server decides
+ * again when asked.
  */
 export function offTarget(
   vault: Pick<VaultResponse['vault'], 'autoFollow' | 'positions' | 'valueUsd'>,
 ): boolean {
-  if (vault.autoFollow) return false;
-  const held = vault.positions.filter((p) => !/^0+$/.test(p.raw));
-  if (!vault.positions.some((p) => p.targetBps > 0) || held.some((p) => p.valueUsd === null))
-    return false;
-  const total = Number(vault.valueUsd);
-  if (!(total > 0)) return false;
-  const invested = vault.positions.reduce((n, p) => n + p.weightBps, 0);
-  const planned = vault.positions.reduce((n, p) => n + p.targetBps, 0);
-  // cash over its share is what the positions together are under theirs; the server's own rule
-  return ownerRebalanceOffered(
-    vault.positions,
-    planned - invested,
-    OWNER_REBALANCE_SLIPPAGE_BPS,
-    total,
-  );
+  return !vault.autoFollow && offItsTargets(vault) === true;
 }
 
 /** The owner's page: the head, the pair of actions, and the workbench they act in. */
@@ -496,6 +474,9 @@ function OwnVault({
         read={read}
         userId={userId}
         action={action}
+        {...(away
+          ? { onRebalance: () => start('rebalance', '[data-action="vault-rebalance"]') }
+          : {})}
         starters={
           empty
             ? [

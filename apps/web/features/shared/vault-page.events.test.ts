@@ -1297,11 +1297,11 @@ describe('a vault away from its targets is offered one press that trades it to t
     });
   const atTargets = () =>
     followed({
-      cash: holding(CASH, '40000000', '40'),
+      cash: holding(CASH, '0', '0'),
       positions: [
         position(JL, '37788000000', '37788', '40055', 5_000, 5_000),
-        position(SYRUP, '20180000000', '20180', '24014', 2_998, 3_000),
-        position(PAXG, '3857000000', '3.857', '16020', 1_999, 2_000),
+        position(SYRUP, '20180000000', '20180', '24014', 3_000, 3_000),
+        position(PAXG, '3857000000', '3.857', '16020', 2_000, 2_000),
       ] as VaultView['positions'],
     });
   const TARGETS = [
@@ -1339,7 +1339,8 @@ describe('a vault away from its targets is offered one press that trades it to t
         }),
       ),
     ).toBe(true);
-    // what a rebalance leaves: cash up to the slippage over, each asset up to its part of it under
+    // cash over its share worth a trade, inside the band: off target, and spent by purchases alone
+    // (Vault #4 on devnet, Oct 14: $39 of cash and "Off target", with no Rebalance)
     expect(
       offTarget(
         followed({
@@ -1350,7 +1351,7 @@ describe('a vault away from its targets is offered one press that trades it to t
           ] as VaultView['positions'],
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
     // outside the band, but every trade it would take is under the smallest a rebalance makes: the
     // server answers on_target, so the page offers nothing
     const small = (valueUsd: string) =>
@@ -1402,6 +1403,27 @@ describe('a vault away from its targets is offered one press that trades it to t
     portStore.set(fakePort({ status: 'signed-out' }));
     serving(ordered);
     expect((await show()).querySelector('[data-action="vault-rebalance"]')).toBeNull();
+  });
+
+  it('says "Off target" only where it offers the press, and a gap too small to trade as such', async () => {
+    const one = (valueUsd: string, weightBps: number, cash: string) =>
+      followed({
+        valueUsd,
+        cash: holding(CASH, cash, String(Number(cash) / 1e6)),
+        positions: [position(JL, '1', '1', valueUsd, weightBps, 10_000)] as VaultView['positions'],
+      });
+    // Vault #4 on devnet: $38.83 of $9,898 in cash, 39 bps; worth a trade, so off target and offered
+    serving(ordered, { vault: one('9898.67', 9_961, '38832993') });
+    const off = await show();
+    expect(find(off, '[data-ui="vault-on-target"]').textContent).toContain(p.offTargetShort);
+    expect(off.querySelector('[data-action="vault-rebalance"]')).not.toBeNull();
+    await unmountAll();
+    // $0.40 of $100: shown as 99.6% against 100%, under one trade, so on target, and said why
+    serving(ordered, { vault: one('100', 9_960, '400000') });
+    const small = await show();
+    expect(find(small, '[data-ui="vault-on-target"]').textContent).toContain(p.allOnTarget);
+    expect(find(small, '[data-ui="vault-gap-small"]').textContent).toBe(p.gapTooSmall);
+    expect(small.querySelector('[data-action="vault-rebalance"]')).toBeNull();
   });
 
   it('one press: the order is asked for, its swaps are shown in the pane with their minimums, signed there, and the vault is read again', async () => {

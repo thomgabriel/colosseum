@@ -17,6 +17,7 @@ import {
   chainFamily,
   DISCLAIMER,
   type IntentRequest,
+  idleCashToInvest,
   type Language,
   type Leg,
   type MixFigure,
@@ -685,6 +686,30 @@ function sharesOf(vault: VaultState, prices: Map<string, Price>) {
   return { values, cash, total };
 }
 
+/** The cash over its share at these prices, for the targets given, in bps, and the vault's worth. */
+function cashOver(
+  vault: VaultState,
+  targets: Target[],
+  prices: Map<string, Price>,
+): { bps: number; total: number } | null {
+  const shares = sharesOf(vault, prices);
+  if (!shares) return null;
+  const cashShare = 10_000 - targets.reduce((n, t) => n + t.weightBps, 0);
+  return { bps: (shares.cash / shares.total) * 10_000 - cashShare, total: shares.total };
+}
+
+/** The cash the targets keep, in raw units of the cash token: its share of the vault at these prices. */
+function cashReserveRaw(
+  vault: VaultState,
+  checked: Pick<CheckedMix, 'prices' | 'cashBps'>,
+  decimals: number,
+): bigint {
+  if (!checked.cashBps) return 0n;
+  const shares = sharesOf(vault, checked.prices);
+  if (!shares) return 0n;
+  return BigInt(Math.ceil(((shares.total * checked.cashBps) / 10_000) * 10 ** decimals));
+}
+
 /** `outsideOwnerBand` at these prices, for the targets given. */
 function outsideBand(
   vault: VaultState,
@@ -744,6 +769,12 @@ export async function planRetarget(
     });
   let trades: Trade[];
   try {
+    // A rebalance inside the owner's band still spends idle cash worth a trade (`idleCashToInvest`),
+    // by purchases alone: their amounts are the cash itself, so none is held back and none is left.
+    const inside =
+      a.keepTargets && !outsideBand(vault, checked.targets, checked.prices, a.slippageBps);
+    const idle = cashOver(vault, checked.targets, checked.prices);
+    const purchasesOnly = inside && idle !== null && idleCashToInvest(idle.bps, idle.total);
     const plan = rebalancePlan(
       vault,
       checked.targets,
@@ -751,9 +782,10 @@ export async function planRetarget(
       // Its own new targets are traded to whatever the distance; a rebalance only once outside the band.
       // a rebalance makes no trade smaller than the smallest line a plan holds
       {
-        bandBps: a.keepTargets ? OWNER_REBALANCE_BAND_BPS : 0,
+        bandBps: a.keepTargets && !purchasesOnly ? OWNER_REBALANCE_BAND_BPS : 0,
         minTradeUsd: a.keepTargets ? OWNER_REBALANCE_MIN_TRADE_USD : 1,
         costBps: a.slippageBps,
+        ...(purchasesOnly ? { purchasesOnly: true } : {}),
       },
       ctx.assets,
     );
@@ -761,10 +793,7 @@ export async function planRetarget(
       throw new Refusal(409, 'the vault cannot be valued now: an asset it holds has no price', {
         details: { retryable: true },
       });
-    trades =
-      a.keepTargets && !outsideBand(vault, checked.targets, checked.prices, a.slippageBps)
-        ? []
-        : plan.trades;
+    trades = inside && !purchasesOnly ? [] : plan.trades;
   } catch (e) {
     if (e instanceof RebalanceError)
       throw new Refusal(409, `the vault cannot be planned: ${e.message}`);
@@ -791,50 +820,82 @@ export async function planRetarget(
   }
   const id = randomUUID();
   const { owner } = a;
-  const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
-    ...(a.keepTargets
-      ? []
-      : [
-          {
-            kind: 'set_targets' as const,
-            description: `Set your vault's targets: ${checked.targets
-              .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
-              .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`,
-            trades: [],
-          },
-        ]),
-    ...batchTrades(trades, entry.adapter.capabilities.maxTradesPerTx).map((group) => ({
-      kind: 'swap' as const,
-      description: group
-        .map((t) =>
-          t.buy === ctx.cash.id ? `Sell ${symbol(t.sell)} for cash` : `Swap into ${symbol(t.buy)}`,
-        )
-        .join(', '),
-      trades: group,
-    })),
-  ];
-  const legs: Leg[] = [];
-  for (const [seq, step] of steps.entries())
-    legs.push({
-      id: randomUUID(),
-      orderId: id,
-      chain: entry.chain,
-      seq,
-      ...step,
-      signer: 'owner',
-      expected: await expectedHeld(entry, step.trades, owner, a.slippageBps, {
-        symbol,
-        cash: ctx.cash.id,
-      }),
-      status: 'planned',
-      attempt: 0,
-      txId: null,
-      explorerUrl: null,
-      validUntil: null,
-      error: null,
-      trigger: 'manual',
-      provenance: entry.provenance,
-    });
+  const legsOf = async (planned: Trade[]): Promise<Leg[]> => {
+    const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
+      ...(a.keepTargets
+        ? []
+        : [
+            {
+              kind: 'set_targets' as const,
+              description: `Set your vault's targets: ${checked.targets
+                .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
+                .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`,
+              trades: [],
+            },
+          ]),
+      ...batchTrades(planned, entry.adapter.capabilities.maxTradesPerTx).map((group) => ({
+        kind: 'swap' as const,
+        description: group
+          .map((t) =>
+            t.buy === ctx.cash.id
+              ? `Sell ${symbol(t.sell)} for cash`
+              : `Swap into ${symbol(t.buy)}`,
+          )
+          .join(', '),
+        trades: group,
+      })),
+    ];
+    const built: Leg[] = [];
+    for (const [seq, step] of steps.entries())
+      built.push({
+        id: randomUUID(),
+        orderId: id,
+        chain: entry.chain,
+        seq,
+        ...step,
+        signer: 'owner',
+        expected: await expectedHeld(entry, step.trades, owner, a.slippageBps, {
+          symbol,
+          cash: ctx.cash.id,
+        }),
+        status: 'planned',
+        attempt: 0,
+        txId: null,
+        explorerUrl: null,
+        validUntil: null,
+        error: null,
+        trigger: 'manual',
+        provenance: entry.provenance,
+      });
+    return built;
+  };
+  // The purchases spend what the sales are sure to bring, and no more: the cash held and the least
+  // each sale states it takes (its quote less the order's slippage), less the cash's own share. The
+  // planner counts on the reference price; where a quote is under it the purchases are scaled down to
+  // what the minimums cover, so a step never spends cash its sales may not bring.
+  let legs = await legsOf(trades);
+  const reserve = cashReserveRaw(vault, checked, ctx.cash.decimals);
+  for (let round = 0; round < 3; round += 1) {
+    const sure =
+      BigInt(vault.cash.raw) +
+      legs
+        .flatMap((l) => l.trades.map((t, i) => (t.buy === ctx.cash.id ? l.expected[i] : null)))
+        .reduce((n, e) => n + (e ? BigInt(e.minOutRaw) : 0n), 0n) -
+      reserve;
+    const spend = trades
+      .filter((t) => t.sell === ctx.cash.id)
+      .reduce((n, t) => n + BigInt(t.amountInRaw), 0n);
+    if (spend === 0n || spend <= sure) break;
+    const room = sure > 0n ? sure : 0n;
+    trades = trades
+      .map((t) =>
+        t.sell === ctx.cash.id
+          ? { ...t, amountInRaw: String((BigInt(t.amountInRaw) * room) / spend) }
+          : t,
+      )
+      .filter((t) => t.amountInRaw !== '0');
+    legs = await legsOf(trades);
+  }
   const order: Order = {
     id,
     type: 'rebalance',

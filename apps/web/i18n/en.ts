@@ -1814,6 +1814,9 @@ export const en = {
         allOnTarget: 'On target',
         /** In the head of the holdings when a share is off its target. */
         offTargetShort: 'Off target',
+        /** A share a little away from its target, by less than one trade: said, and not off target. */
+        gapTooSmall:
+          'A little away from its targets, by less than one trade is worth: nothing to rebalance.',
         /** A holding's status pill when it is off its target: "Drift +2%". */
         drift: (signed: string) => `Drift ${signed}`,
         /** Why cash is kept, where the vault plans a share of cash. */
