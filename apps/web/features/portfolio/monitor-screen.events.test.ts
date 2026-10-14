@@ -441,14 +441,15 @@ describe('the monitor, for a person with a vault on their chain', () => {
     expect(host.querySelectorAll('[data-ui="market-closed"]')).toHaveLength(0);
   });
 
-  it('draws a test network as the hatch and a quiet line with the words, never as live (rule 2)', async () => {
+  it('draws a test network as a quiet tag with the words, never as live (rule 2)', async () => {
     api({ person: onSolana });
     signIn();
     const host = await screen();
     const card = panel(host);
-    expect(card.querySelector('.tf-hatch')).not.toBeNull();
+    expect(card.querySelector('[data-ui="sample-tag"]')).not.toBeNull();
+    expect(card.querySelector(':scope > [data-ui="hatch-band"]')).toBeNull();
     expect(card.textContent).not.toContain('MOCK');
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     // the chain line says it too
     expect(find(host, 'header [data-ui="chain-name"]').textContent).toContain(en.shell.testNetwork);
     // no figure is drawn live
@@ -456,12 +457,13 @@ describe('the monitor, for a person with a vault on their chain', () => {
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
 
-  it('draws a live vault with live pins and no mark, and the same vault on the mock with the line alone', async () => {
+  it('draws a live vault with live pins and no mark, and the same vault on the mock with the tag alone', async () => {
     api({ person: onSolana, portfolio: () => json(portfolioBody(labelled('live'))) });
     signIn(PHANTOM, 'live');
     const live = await screen();
-    expect(live.querySelector('[data-ui="sample-note"]')).toBeNull();
+    expect(live.querySelector('[data-ui="sample-tag"]')).toBeNull();
     expect(live.querySelector('.tf-hatch')).toBeNull();
+    expect(live.querySelector('[data-ui="hatch-band"]')).toBeNull();
     expect(new Set(pins(live).map((pin) => pin.getAttribute('data-state')))).toEqual(
       new Set(['live']),
     );
@@ -470,7 +472,7 @@ describe('the monitor, for a person with a vault on their chain', () => {
     signIn(PHANTOM, 'mock');
     const mocked = await screen();
     const card = panel(mocked);
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.mockAnnounce);
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.mockAnnounce);
     expect(hatchProblems(parse(mocked.innerHTML))).toEqual([]);
   });
 
@@ -1000,8 +1002,8 @@ describe('each vault as his guide’s goal card, plan and activity', () => {
     // a growth goal has no status from the engine: the card makes none up, and says its date plainly
     expect(card.querySelector('[data-ui="status"]')).toBeNull();
     expect(find(card, '[data-ui="goal-no-status"]').textContent).toBe('Goal date: October 2029');
-    // its quiet line says what the figures are, in the words of the view: a test network's
-    expect(find(card, '[data-ui="sample-note"]').textContent).toBe(en.shell.testNetworkLine);
+    // its quiet tag says what the figures are, in the words of the view: a test network's
+    expect(find(card, '[data-ui="sample-tag"]').textContent).toBe(en.shell.testNetworkLine);
     expect(card.textContent).not.toMatch(/No status|engine/);
     expect(find(card, '[data-ui="figure"]').textContent).toContain('$1,040.00');
     // what went in: the order whose deposit is confirmed on chain
@@ -1371,12 +1373,12 @@ describe('the monitor in Portuguese', () => {
       expect(text(host)).toContain(label);
     expect(text(host).replace(/\s/g, ' ')).toContain('US$ 1.040,00');
     expect(text(host)).toContain('−2,5%');
-    // the goal card's quiet line is in Portuguese too (the flow audit, finding 33)
-    expect(find(host, '[data-ui="goal-card"] [data-ui="sample-note"]').textContent).toBe(
+    // the goal card's quiet tag is in Portuguese too (the flow audit, finding 33)
+    expect(find(host, '[data-ui="goal-card"] [data-ui="sample-tag"]').textContent).toBe(
       pt.shell.testNetworkLine,
     );
     expect(text(host)).not.toContain('Sample figures');
-    expect(find(panel(host), '[data-ui="sample-note"]').textContent).toBe(pt.shell.testNetworkLine);
+    expect(find(panel(host), '[data-ui="sample-tag"]').textContent).toBe(pt.shell.testNetworkLine);
     for (const pin of pins(host))
       expect(pin.querySelector('button')?.getAttribute('aria-label')).toMatch(/^Fonte de /);
     expect(text(host)).not.toContain(en.portfolio.vault.title);
