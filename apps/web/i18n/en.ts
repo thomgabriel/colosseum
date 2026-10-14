@@ -1458,7 +1458,11 @@ export const en = {
         'This portfolio wasn’t published through this app, so I can’t check its id against its name, and following it isn’t offered here yet.',
     },
     check: {
-      reading: 'Reading it from the chain…',
+      /**
+       * A reason held under a button while what it acts on is still loading. It names no source
+       * (gate SOURCE-LINES): the kit's wait says the rest.
+       */
+      reading: 'Loading…',
       differs: (chain: string) =>
         `Our server’s answer differs from what ${chain} holds. I show the chain’s version and weights, and a follow is held to them.`,
       failed: (chain: string) =>
