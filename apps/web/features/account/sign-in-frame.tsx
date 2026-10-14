@@ -1,5 +1,6 @@
 'use client';
 import { type ReactNode, useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
 import { useT } from '../../i18n/I18nProvider';
@@ -15,6 +16,10 @@ import { useT } from '../../i18n/I18nProvider';
 // full height of the window. `role="dialog"`, `aria-modal`, named by its title; focus goes into it,
 // to its heading so that Enter starts nothing, and stays there, Escape, the scrim and the close button close it, focus goes back to what opened
 // it, and the rest of the page is inert and does not scroll.
+//
+// It is drawn at the end of <body>, never where its trigger is: a bar that sets its own stacking
+// (the landing's, `relative z-10`) would hold the dialog's z-50 inside it, and anything later on
+// the page at the same level, such as the landing's numbers and their pins, would paint over it.
 
 /**
  * A plain click on a link to `/sign-in` of this app, or null for anything else. A link marked
@@ -120,7 +125,7 @@ export function SignInFrame({
     }
   };
 
-  return (
+  return createPortal(
     <div
       ref={root}
       data-ui="sign-in-dialog"
@@ -153,6 +158,7 @@ export function SignInFrame({
           <Icon name="X" />
         </Button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

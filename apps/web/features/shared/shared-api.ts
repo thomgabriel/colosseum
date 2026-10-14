@@ -38,7 +38,8 @@ const bodyOf = async (res: Response): Promise<Record<string, unknown>> => {
   return typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
 };
 
-type Read<T> = { kind: 'read'; value: T } | { kind: CallFailure };
+/** A refusal keeps the server's code where it sent one (`CHAIN_UNAVAILABLE`: an answer, not silence). */
+type Read<T> = { kind: 'read'; value: T } | { kind: CallFailure; code?: string };
 
 async function getAs<T>(
   apiFetch: ApiFetch,
@@ -52,7 +53,11 @@ async function getAs<T>(
     return { kind: 'unreachable' };
   }
   const body = await bodyOf(res);
-  if (!res.ok) return { kind: failureOf(res.status, body.code) };
+  if (!res.ok)
+    return {
+      kind: failureOf(res.status, body.code),
+      ...(typeof body.code === 'string' ? { code: body.code } : {}),
+    };
   const read = schema.safeParse(body);
   return read.success ? { kind: 'read', value: read.data } : { kind: 'unreadable' };
 }
