@@ -274,6 +274,39 @@ describe('private strategy exploration for a new goal', () => {
     expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(calls).toHaveLength(1);
   });
+  it('keeps the focus on the panel’s button when a pick in its sheet draws the conversation again (PAGE-SHELL)', async () => {
+    let host = await show();
+    await send(host, 'Consider gold');
+    await unmountAll();
+    host = await show();
+    await settle();
+    const opener = () => find(host, '[data-ui="conversations-open"]');
+    const sheet = () => find(host, '[data-ui="conversations-sheet"]');
+    const before = opener();
+    await click(before);
+    await click(find(sheet(), '[data-ui="conversation-new"]'));
+    await settle();
+    // the head was drawn again with the new conversation: the button is a new element, and has it
+    const after = opener();
+    expect(after).not.toBe(before);
+    expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
+    expect(document.activeElement).toBe(after);
+    // back to the earlier one, from the sheet again
+    await click(after);
+    const gold = [...sheet().querySelectorAll('[data-ui="conversation-row"]')].find(
+      (one) => one.querySelector('[data-ui="conversation-title"]')?.textContent === 'Consider gold',
+    );
+    await click(find(gold as Element, '[data-ui="conversation-open"]'));
+    await settle();
+    expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
+    expect(document.activeElement).toBe(opener());
+    // and a person who moved on is not pulled back by the next draw
+    find<HTMLTextAreaElement>(host, 'textarea').focus();
+    await settle();
+    await mode(host, 'new');
+    await settle();
+    expect(document.activeElement).not.toBe(opener());
+  });
   it('preserves exact plain words across unavailable API and reopen without fabricating reply', async () => {
     portStore.setApi(async (url) => baseApi(url));
     const words = '<img src=x onerror=alert(1)> I like electric vehicles';

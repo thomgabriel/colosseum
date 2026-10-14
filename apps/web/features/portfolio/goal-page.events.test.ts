@@ -2,6 +2,7 @@
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import GoalPage from '../../app/(app)/invest/page';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { click, find, mount, pinLine, settle, unmountAll } from '../../components/ui/test/dom';
 import { hatchProblems } from '../../components/ui/test/hatch';
 import { parse } from '../../components/ui/test/html';
@@ -192,7 +193,9 @@ describe('home', () => {
     const calls = api(null);
     const host = await home();
     expect(find(host, 'h1').textContent).toBe(en.talk.workbench.title);
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
+    // the page's title is the display face (PAGE-SHELL); under it, one display-face line
+    expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
     expect(find(host, 'textarea')).toBeTruthy();
     expect(summary(host)).toBeNull();
     // nothing about a vault is asked for someone who is not signed in
@@ -226,7 +229,9 @@ describe('home', () => {
       `/portfolio/vaults/solana/${VAULT}`,
     );
     // still one serif line on the page, and no primary button but the goal's own
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
+    // the page's title is the display face (PAGE-SHELL); under it, one display-face line
+    expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
     expect(card.querySelector('[data-variant="primary"]')).toBeNull();
   });
 
@@ -347,7 +352,9 @@ describe('home', () => {
     expect(calls.filter((path) => path === PORTFOLIO_PATH)).toHaveLength(1);
     expect(calls.some((path) => /\/me\/(plans|withdrawals)|\/orders/.test(path))).toBe(false);
     expect(cards.every((card) => card.querySelectorAll('a').length === 1)).toBe(true);
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
+    // the page's title is the display face (PAGE-SHELL); under it, one display-face line
+    expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
   });
 
   it('marks a live-labelled vault whose held price is sandbox, retains stale source details, and explains omitted holdings', async () => {

@@ -328,13 +328,17 @@ describe('the conversations panel', () => {
     );
     await click(find(gold as Element, '[data-ui="conversation-open"]'));
     await settle();
-    expect(sheet.open).toBe(false);
+    // the title row it sits in is drawn again for the conversation chosen: the sheet is closed there
+    const again = () => find<HTMLDialogElement>(host, '[data-ui="conversations-sheet"]');
+    expect(again().open).toBe(false);
     expect(current(host)).toBe('Consider gold');
     // and "Close" closes it, with the focus back on the button
-    await click(opener);
-    await click(find(sheet, '[data-ui="conversations-close"]'));
-    expect(sheet.open).toBe(false);
-    expect(document.activeElement).toBe(opener);
+    const button = find(host, '[data-ui="conversations-open"]');
+    await click(button);
+    expect(again().open).toBe(true);
+    await click(find(again(), '[data-ui="conversations-close"]'));
+    expect(again().open).toBe(false);
+    expect(document.activeElement).toBe(button);
   });
 
   it('starts a new conversation from the panel, and lists the one before under its first words', async () => {

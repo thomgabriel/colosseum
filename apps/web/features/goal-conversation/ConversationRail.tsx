@@ -57,8 +57,17 @@ export type RailActions = {
 export function ConversationSheet({
   rows,
   now,
+  id,
+  onChosen,
   ...actions
-}: RailActions & { rows: readonly ConversationRow[]; now: number }) {
+}: RailActions & {
+  rows: readonly ConversationRow[];
+  now: number;
+  /** The button's id, so focus can be put back on it once the head it is in is drawn again. */
+  id?: string;
+  /** Told before a conversation is chosen in the sheet, which may draw the head again. */
+  onChosen?: () => void;
+}) {
   const w = useT().goal.explore.picker;
   const [sheet, setSheet] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -82,10 +91,12 @@ export function ConversationSheet({
   // Whatever is chosen in the sheet closes it.
   const inSheet: RailActions = {
     onNew: () => {
+      onChosen?.();
       setSheet(false);
       actions.onNew();
     },
     onOpen: (row) => {
+      onChosen?.();
       setSheet(false);
       actions.onOpen(row);
     },
@@ -100,6 +111,7 @@ export function ConversationSheet({
       <div className="flex min-w-0 lg:hidden">
         <button
           ref={opener}
+          id={id}
           type="button"
           data-ui="conversations-open"
           aria-haspopup="dialog"

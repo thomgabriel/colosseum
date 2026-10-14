@@ -104,7 +104,7 @@ export function SignInDialogBody({
         next={next === null ? pathname : nextPath(next)}
       />
       {/* On the panel's column, so its left edge is the title's and the cards'. */}
-      <div className="mx-auto w-full max-w-[860px]">
+      <div className="w-full max-w-[860px]">
         <Disclaimer lang={lang} label={t.shell.disclaimer} />
       </div>
     </>

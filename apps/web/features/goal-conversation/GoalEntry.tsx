@@ -1,6 +1,6 @@
 'use client';
 import type { ChainId } from '@colosseum/schemas';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { useAccount } from '../account/AccountProvider';
 import { switchFailure } from '../account/chain-failure';
@@ -53,6 +53,11 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
   const w = t.goal.explore.picker;
   const words = useWords();
   const apiFetch = useApiFetch();
+  const pickerId = useId();
+  // On a phone the panel's button is drawn in the conversation's head (PAGE-SHELL), which is keyed and
+  // drawn again on a pick, a change of chain or a sign-in. Focus that was on it, or in its sheet, goes
+  // back to it in the new head, not to the page's body: this holds the key it was on then.
+  const pickerHeld = useRef<string | null>(null);
   const { account, chain: current, choose, view } = useAccount();
   const port = useWalletPort();
   // A deposit is open on the conversation's pane (approved, not every step confirmed; fresh, stopped
@@ -368,12 +373,19 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
     onRename: rename,
     onDelete: (row: DraftRow) => remove(row),
   };
+  const headKey = `${port.userId}:${chain}:${network?.provenance}:${index.current}`;
+  // after every draw of the head
+  useEffect(() => {
+    const held = pickerHeld.current;
+    if (held === null || held === headKey) return;
+    pickerHeld.current = null;
+    const button = document.getElementById(pickerId);
+    if (button && document.activeElement !== button) button.focus();
+  });
   return (
     <div className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1 lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-6">
       <ConversationRail {...panel} />
       <div ref={root} className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1">
-        {/* Under 1024px the panel is a sheet, opened from this button over the conversation. */}
-        <ConversationSheet {...panel} />
         <span role="status" data-ui="goal-chain-said" className="sr-only">
           {said}
         </span>
@@ -402,7 +414,7 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
           </p>
         )}
         <GoalConversation
-          key={`${port.userId}:${chain}:${network?.provenance}:${index.current}`}
+          key={headKey}
           account={view}
           userId={port.userId}
           chain={chain}
@@ -417,6 +429,16 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
             });
           }}
           carried={carried}
+          // Under 1024px the panel is a sheet, opened from this button in the conversation's title row.
+          picker={
+            <ConversationSheet
+              {...panel}
+              id={pickerId}
+              onChosen={() => {
+                pickerHeld.current = headKey;
+              }}
+            />
+          }
           onDeposit={(state) => {
             // The plan a deposit from this conversation is for: the vault it opens stands for it in the
             // panel, once that vault is read.
