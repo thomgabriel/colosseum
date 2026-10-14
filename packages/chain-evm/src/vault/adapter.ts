@@ -775,20 +775,32 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const a = input(AcceptVersionArgs, args, 'accept');
         const { vault, owner } = await ownedVault(a.vault);
         const indexId = input(IndexId, a.recipeOnchainId, 'recipeOnchainId') as Hex;
-        return built({
-          kind: 'accept_version',
-          signer: owner,
-          to: vault,
-          data: encodeFunctionData({
-            abi: BASKET_VAULT_ABI,
-            functionName: 'acceptVersion',
-            args: [indexId, a.expectedVersion],
-          }),
-          nonce: a.nonce,
-          vault,
-          summary: `Accept version ${a.expectedVersion} of shared portfolio ${indexId} in vault ${vault}`,
-          minimums: [],
-        });
+        try {
+          return await built({
+            kind: 'accept_version',
+            signer: owner,
+            to: vault,
+            data: encodeFunctionData({
+              abi: BASKET_VAULT_ABI,
+              functionName: 'acceptVersion',
+              args: [indexId, a.expectedVersion],
+            }),
+            nonce: a.nonce,
+            vault,
+            summary: `Accept version ${a.expectedVersion} of shared portfolio ${indexId} in vault ${vault}`,
+            minimums: [],
+          });
+        } catch (e) {
+          // As on Solana: the version and what the vault still holds of the assets it drops do not fit
+          // sixteen targets (`InvalidTargets(1)`), which a sixteen-asset portfolio can now meet
+          // (SHARED-RULES-V2). The owner sells or withdraws a leftover first.
+          if (e instanceof ChainError && e.code === 'InvalidTargets')
+            throw new ChainError(
+              'InvalidTargets',
+              'the version and the assets the vault still holds of the ones it drops do not fit 16 lines: sell or withdraw a leftover first, then accept',
+            );
+          throw e;
+        }
       }),
 
     buildSetAutoFollow: (args) =>
