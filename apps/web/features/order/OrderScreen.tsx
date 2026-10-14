@@ -284,9 +284,9 @@ export function OrderScreen({
     unseen: boolean,
   ) {
     if (finishing) return;
-    // In a card that takes it (the pane of /goal), the order that finishes this one is shown there.
+    // In a card that takes it (the pane of /invest), the order that finishes this one is shown there.
     const open = (orderId: string) => {
-      if (!embed?.onFinish) return router.push(`/orders/${encodeURIComponent(orderId)}`);
+      if (!embed?.onFinish) return router.push(`/portfolio/orders/${encodeURIComponent(orderId)}`);
       setFinishing(false);
       embed.onFinish(orderId);
     };
@@ -488,7 +488,7 @@ export function OrderScreen({
       <Notice
         title={t.order.title}
         body={t.order.signedOut}
-        href={`/sign-in?next=/orders/${encodeURIComponent(id)}`}
+        href={`/sign-in?next=/portfolio/orders/${encodeURIComponent(id)}`}
         label={t.shell.signIn}
       />
     );
@@ -595,7 +595,7 @@ export function OrderScreen({
               </Button>
             )}
             <Link
-              href="/monitor"
+              href="/portfolio/monitor"
               className={buttonClass({ variant: offer ? 'secondary' : 'primary' })}
             >
               {t.order.outcome.seePortfolio}
@@ -613,7 +613,7 @@ export function OrderScreen({
                   <>
                     {' '}
                     <Link
-                      href={`/orders/${encodeURIComponent(finishFailure.orderId)}`}
+                      href={`/portfolio/orders/${encodeURIComponent(finishFailure.orderId)}`}
                       data-ui="order-finish-other"
                       className={buttonClass({ variant: 'link' })}
                     >
@@ -631,7 +631,7 @@ export function OrderScreen({
       <Notice
         title={t.order.title}
         body={t.order.elsewhere}
-        href="/goal"
+        href="/invest"
         label={t.plan.backToGoal}
       />
     );
@@ -684,25 +684,25 @@ export function OrderScreen({
   const needed = shown.needsConsent;
   const consentMissing = !record.approved && needed.some((kind) => !consents.includes(kind));
   const current = phase ? stepOf(shown, phase.legId) : 1;
-  // In a host's pane (a vault's own page, /goal) the portfolio is the board, as that page's own way
+  // In a host's pane (a vault's own page, /invest) the portfolio is the board, as that page's own way
   // back is; the order's own page still leads to the monitor.
-  const portfolioHref = embed?.hostEnds ? '/portfolio' : '/monitor';
+  const portfolioHref = embed?.hostEnds ? '/portfolio' : '/portfolio/monitor';
   const terms = record.terms;
   const newOrder = !terms
-    ? `/plan/${encodeURIComponent(record.proposalId)}/buy`
+    ? `/invest/plan/${encodeURIComponent(record.proposalId)}/buy`
     : terms.kind === 'family'
-      ? `/indexes/${encodeURIComponent(terms.slug)}/buy?chain=${chain}`
+      ? `/products/${encodeURIComponent(terms.slug)}/buy?chain=${chain}`
       : terms.kind === 'follow'
-        ? `/indexes/${encodeURIComponent(terms.slug)}`
+        ? `/products/${encodeURIComponent(terms.slug)}`
         : terms.kind === 'vault'
           ? addMoneyPath(chain, terms.vault)
           : terms.kind === 'withdraw'
-            ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/withdraw`
+            ? `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/withdraw`
             : terms.kind === 'retarget'
-              ? `/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/targets`
+              ? `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(terms.vault)}/targets`
               : terms.kind === 'rebalance'
                 ? rebalancePath(chain, terms.vault)
-                : '/publish';
+                : '/products/publish';
   const testNetwork = shown.legs[0]?.provenance === 'sandbox';
   // The swaps the order left undone: what an order that finishes it would make, and is held to.
   // The trades are the approved order's own, step by step: of the API's later answer only where each
@@ -1135,20 +1135,15 @@ export function OrderScreen({
             keeper={keeperTrades}
           />
         )}
-        {/* An add held to our server's targets, which this app could not read from the chain: said on
-            its own line over the button, where it cannot be missed. */}
+        {/* An add held to targets this app could not read from the chain: said once, on its own line
+            over the button, where it cannot be missed. */}
         {check.ok && !done && terms?.kind === 'vault' && terms.source === 'api' && (
           <p
             data-ui="not-checked"
             className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body font-medium"
           >
             <StatusMark status="watch" size={12} className="mt-1.5" />
-            <span>
-              {t.shared.check.notChecked}.{' '}
-              {onMock(port, chain)
-                ? t.portfolio.add.source.mock
-                : t.portfolio.add.source.notRead(t.chain.names[chain])}
-            </span>
+            <span>{t.shared.check.notChecked}.</span>
           </p>
         )}
         {check.ok &&
@@ -1304,7 +1299,7 @@ export function OrderScreen({
                   <>
                     {' '}
                     <Link
-                      href={`/orders/${encodeURIComponent(finishFailure.orderId)}`}
+                      href={`/portfolio/orders/${encodeURIComponent(finishFailure.orderId)}`}
                       data-ui="order-finish-other"
                       className={buttonClass({ variant: 'link' })}
                     >
@@ -1330,7 +1325,7 @@ export function OrderScreen({
         )}
         {next.kind === 'other-order' && (
           <Link
-            href={`/orders/${encodeURIComponent(next.orderId)}`}
+            href={`/portfolio/orders/${encodeURIComponent(next.orderId)}`}
             className={buttonClass({ variant: 'primary' })}
           >
             {t.order.outcome.blockedLink}

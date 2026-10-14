@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 // The import rules of docs/vault/DESIGN-VAULT.md section 2, read from the import statements of every source
 // file under packages/ and apps/. scripts/ and the root tests/ may import anything and are not read.
@@ -943,11 +943,6 @@ describe('import boundaries (DESIGN-VAULT.md section 2)', () => {
 // Every rule, in a made-up repo that has the folders this one does not have yet (basket, sdk, keeper, mcp)
 // and another package scope. Each bad line is listed with what it must be caught as; everything else is allowed.
 describe('import boundaries: each rule bites', () => {
-  mkdirSync(inside(CACHE_DIR), { recursive: true });
-  const repo = mkdtempSync(join(inside(CACHE_DIR), 'repo-'));
-  removeLater(repo);
-  afterAll(() => rmSync(repo, { recursive: true, force: true }));
-
   const FILES: Record<string, string> = {
     'packages/schemas/src/index.ts':
       "import { z } from 'zod';\nimport './tx';\nimport { readFileSync } from 'node:fs';\nimport data from '../../../fixtures/x.json';",
@@ -1005,24 +1000,34 @@ describe('import boundaries: each rule bites', () => {
     'packages/db': ['@x/schemas', '@x/engine'],
     'apps/web': ['@x/schemas', '@x/sdk', 'next'],
   };
-  for (const [file, text] of Object.entries(FILES)) {
-    mkdirSync(dirname(join(repo, file)), { recursive: true });
-    writeFileSync(join(repo, file), text);
-    const [base, folder] = file.split('/');
-    if (base !== 'packages' && base !== 'apps') continue;
-    const dependencies = Object.fromEntries(
-      (DEPS[`${base}/${folder}`] ?? []).map((dep) => [dep, '*']),
-    );
-    writeFileSync(
-      join(repo, base ?? '', folder ?? '', 'package.json'),
-      JSON.stringify({ name: `@x/${folder}`, main: './src/index.ts', dependencies }),
-    );
-  }
 
-  writeFileSync(
-    join(repo, 'contracts', 'package.json'),
-    JSON.stringify({ name: '@x/contracts', dependencies: { '@x/db': '*', '@x/engine': '*' } }),
-  );
+  // Built before the test and removed after it, not on a timer: on a slow runner this file can take
+  // longer than any timer before the test runs (CI saw 31 s and 60 s).
+  let repo = '';
+  beforeAll(() => {
+    mkdirSync(inside(CACHE_DIR), { recursive: true });
+    repo = mkdtempSync(join(inside(CACHE_DIR), 'repo-'));
+    for (const [file, text] of Object.entries(FILES)) {
+      mkdirSync(dirname(join(repo, file)), { recursive: true });
+      writeFileSync(join(repo, file), text);
+      const [base, folder] = file.split('/');
+      if (base !== 'packages' && base !== 'apps') continue;
+      const dependencies = Object.fromEntries(
+        (DEPS[`${base}/${folder}`] ?? []).map((dep) => [dep, '*']),
+      );
+      writeFileSync(
+        join(repo, base ?? '', folder ?? '', 'package.json'),
+        JSON.stringify({ name: `@x/${folder}`, main: './src/index.ts', dependencies }),
+      );
+    }
+    writeFileSync(
+      join(repo, 'contracts', 'package.json'),
+      JSON.stringify({ name: '@x/contracts', dependencies: { '@x/db': '*', '@x/engine': '*' } }),
+    );
+  });
+  afterAll(() => {
+    if (repo) rmSync(repo, { recursive: true, force: true });
+  });
 
   it('catches every bad line and nothing else', () => {
     expect(check(repo).map(show)).toEqual(

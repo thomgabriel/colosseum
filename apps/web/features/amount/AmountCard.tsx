@@ -1,6 +1,6 @@
 'use client';
 import { type ChainId, type Provenance, TRUST_STATUS } from '@colosseum/schemas';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/cn';
 import { Hint } from '../../components/ui/Hint';
@@ -113,6 +113,15 @@ export type AmountCardProps = {
   title?: string;
   /** The card is the pane's first thing: the amount takes the focus, so it is typed at once. */
   focusOnOpen?: boolean;
+  /** The way back out of the pane the card heads, in its head on the right. */
+  leave?: { label: string; onLeave: () => void };
+  /**
+   * The preview's column is kept from the start, empty until there is a figure, so the amount's field
+   * does not change width under the first digit.
+   */
+  reserve?: boolean;
+  /** Told as the card is drawn and taken away: a host that holds its way back while it is not. */
+  onShown?: (shown: boolean) => void;
   className?: string;
 };
 
@@ -120,7 +129,6 @@ export function AmountCard({
   mode,
   onMode,
   chain,
-  chainName,
   provenance,
   into,
   field,
@@ -136,6 +144,9 @@ export function AmountCard({
   headingLevel = 2,
   title,
   focusOnOpen = false,
+  leave,
+  reserve = false,
+  onShown,
   className,
 }: AmountCardProps) {
   const t = useT();
@@ -150,6 +161,12 @@ export function AmountCard({
   const ticked = trust?.ticked ?? tickedHere;
   const setTicked = trust?.onTick ?? setTickedHere;
   const [viewTrust, setViewTrust] = useState(false);
+  const shown = useRef(onShown);
+  shown.current = onShown;
+  useEffect(() => {
+    shown.current?.(true);
+    return () => shown.current?.(false);
+  }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, as the card opens
   useEffect(() => {
     if (focusOnOpen) document.getElementById(amountId)?.focus();
@@ -193,12 +210,12 @@ export function AmountCard({
 
   const modes: readonly AmountMode[] = ['deposit', 'withdraw'];
   const choosable = into?.onChange !== undefined && into.options.length > 1;
-  // What the figures are, said in the kit's quiet pill (MOCK-QUIET, BUY-STEPS): a test network's
-  // real reads in its words, the mock's samples in theirs. Beside the amount's label, or in the head
-  // where there is no amount.
+  // What the figures are, in the kit's one quiet pill, as the portfolio board says it (MOCK-QUIET):
+  // "Test network" for a test network's real reads, "Sample figures" for the mock's, in the head's
+  // top-right corner. The long line of BUY-STEPS is the order card's, after the press.
   const plate =
     provenance === 'sandbox' ? (
-      <Plate ui="data-note">{t.buy.steps.note.testNetwork(chainName)}</Plate>
+      <Plate ui="data-note">{t.shell.testNetworkLine}</Plate>
     ) : provenance === 'mock' ? (
       <Plate ui="sample-plate">{t.shell.mockAnnounce}</Plate>
     ) : null;
@@ -226,96 +243,119 @@ export function AmountCard({
     </fieldset>
   );
   return (
-    // A panel of the house kit (HOUSE-KIT): its head names the action, Deposit | Withdraw on its
-    // right; the amount and what it leads to; then what stands between the person and the press.
+    // A panel of the house kit (HOUSE-KIT): its head is Deposit | Withdraw where both apply (else the
+    // action's name), with the quiet tag and the way back on its right (MOCK-QUIET: the tag top right);
+    // the amount and what it leads to; then what stands between the person and the press.
     <Panel
       as="section"
       aria-labelledby={titleId}
       data-ui="amount-panel"
       data-provenance={provenance ?? undefined}
-      className={cn('w-full max-w-[32.5rem]', className)}
+      className={cn('@container/amount w-full', className)}
     >
       <PanelHead
         id={titleId}
         level={headingLevel}
         title={title ?? a.modes[mode]}
+        {...(tabs ? { tabs } : {})}
         actions={
-          tabs || (!field && plate) ? (
+          plate || leave ? (
             <>
-              {!field && plate}
-              {tabs}
+              {plate}
+              {leave && (
+                <Button
+                  variant="link"
+                  data-action="leave-action"
+                  className="text-body-sm"
+                  onClick={leave.onLeave}
+                >
+                  {leave.label}
+                </Button>
+              )}
             </>
           ) : undefined
         }
       />
       <PanelBody>
-        <div data-ui="amount-card" data-mode={mode} className="flex min-w-0 flex-col gap-4">
-          {into && (
-            <div data-ui="amount-into" className="flex min-w-0 flex-col gap-1.5">
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                {choosable ? (
-                  <label htmlFor={intoId} className="shrink-0 text-body-sm text-muted-foreground">
-                    {into.label}
-                  </label>
-                ) : (
-                  <span className="shrink-0 text-body-sm text-muted-foreground">{into.label}</span>
-                )}
-                {choosable ? (
-                  <span className="relative min-w-0">
-                    <select
-                      id={intoId}
-                      value={into.value}
-                      disabled={locked}
-                      aria-describedby={into.hint ? intoHintId : undefined}
-                      onChange={(e) => into.onChange?.(e.currentTarget.value)}
-                      className={cn(
-                        'h-9 max-w-full appearance-none truncate rounded-md border border-input bg-card pr-9 pl-3 text-body-sm font-medium text-foreground',
-                        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                        'hover:bg-secondary disabled:text-muted-foreground',
-                      )}
-                    >
-                      {into.options.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    <Icon
-                      name="ChevronDown"
-                      size={16}
-                      className="pointer-events-none absolute top-2.5 right-3 text-muted-foreground"
-                    />
-                  </span>
-                ) : (
-                  <IntoValue option={into.options.find((o) => o.value === into.value)} />
+        {/* Desktop first: in a card as wide as its pane, the amount on the left and what it leads to on
+            the right, as the portfolio board sets its figure beside its chart; one column when narrow. */}
+        <div
+          data-ui="amount-card"
+          data-mode={mode}
+          className={cn(
+            'grid min-w-0 gap-x-8 gap-y-4',
+            (preview || reserve) && '@2xl/amount:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
+          )}
+        >
+          <div className="flex min-w-0 flex-col gap-4">
+            {into && (
+              <div data-ui="amount-into" className="flex min-w-0 flex-col gap-1.5">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  {choosable ? (
+                    <label htmlFor={intoId} className="shrink-0 text-body-sm text-muted-foreground">
+                      {into.label}
+                    </label>
+                  ) : (
+                    <span className="shrink-0 text-body-sm text-muted-foreground">
+                      {into.label}
+                    </span>
+                  )}
+                  {choosable ? (
+                    <span className="relative min-w-0">
+                      <select
+                        id={intoId}
+                        value={into.value}
+                        disabled={locked}
+                        aria-describedby={into.hint ? intoHintId : undefined}
+                        onChange={(e) => into.onChange?.(e.currentTarget.value)}
+                        className={cn(
+                          'h-9 max-w-full appearance-none truncate rounded-md border border-input bg-card pr-9 pl-3 text-body-sm font-medium text-foreground',
+                          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                          'hover:bg-secondary disabled:text-muted-foreground',
+                        )}
+                      >
+                        {into.options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                      <Icon
+                        name="ChevronDown"
+                        size={16}
+                        className="pointer-events-none absolute top-2.5 right-3 text-muted-foreground"
+                      />
+                    </span>
+                  ) : (
+                    <IntoValue option={into.options.find((o) => o.value === into.value)} />
+                  )}
+                </div>
+                {into.hint && (
+                  <p id={intoHintId} className="text-caption text-muted-foreground">
+                    {into.hint}
+                  </p>
                 )}
               </div>
-              {into.hint && (
-                <p id={intoHintId} className="text-caption text-muted-foreground">
-                  {into.hint}
-                </p>
-              )}
-            </div>
-          )}
+            )}
 
-          {field && (
-            <AmountWell
-              id={amountId}
-              label={field.label}
-              text={field.text}
-              onText={field.onText}
-              token={field.token}
-              balance={field.balance}
-              chips={field.chips}
-              chipsLabel={field.chipsLabel}
-              problem={problem}
-              note={!problem && field.note && settled ? field.note : null}
-              plate={plate}
-              locked={locked}
-            />
-          )}
+            {field && (
+              <AmountWell
+                id={amountId}
+                label={field.label}
+                text={field.text}
+                onText={field.onText}
+                token={field.token}
+                balance={field.balance}
+                chips={field.chips}
+                chipsLabel={field.chipsLabel}
+                problem={problem}
+                note={!problem && field.note && settled ? field.note : null}
+                locked={locked}
+              />
+            )}
 
-          {choice}
+            {choice}
+          </div>
 
           {preview && (
             <div data-ui="amount-preview" className="flex min-w-0 flex-col gap-1.5">

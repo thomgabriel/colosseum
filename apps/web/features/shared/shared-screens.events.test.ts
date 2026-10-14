@@ -204,7 +204,15 @@ async function pressDeposit(host: HTMLElement) {
   if (box && !box.checked) await click(box);
   await click(find(host, 'button[data-action="amount-deposit"]'));
 }
-/** The amount card's "Into" (gate AMOUNT-CARD), where one of the person's vaults is chosen. */
+/** One of the two ways on the page's actions pane (Thom, Oct 14): a new vault, or a vault of theirs. */
+async function chooseWay(host: HTMLElement, way: 'new' | 'follow') {
+  await click(find(host, `[data-ui="family-ways"] [data-option="${way}"] input`));
+}
+/** The way checked on the actions pane. */
+const wayChecked = (host: HTMLElement) =>
+  host.querySelector<HTMLElement>('[data-ui="family-ways"] [data-option]:has(input:checked)')
+    ?.dataset.option ?? null;
+/** The follow card's choice of vault (gate AMOUNT-CARD's "Into"), where it holds more than one. */
 const intoSelect = (host: HTMLElement) =>
   host.querySelector<HTMLSelectElement>('[data-ui="amount-into"] select');
 const intoOptions = (host: HTMLElement) =>
@@ -254,7 +262,7 @@ describe('the shelf', () => {
     ).toEqual([]);
     // the one link is the card's own, to the portfolio's page
     expect([...card.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
-      `/indexes/${SLUG}`,
+      `/products/${SLUG}`,
     ]);
     // words that match no version the creator published are said to be unverified
     expect(card.textContent).toContain(en.shared.text.unverified);
@@ -367,7 +375,7 @@ describe('the shelf', () => {
   describe('for someone signed out', () => {
     beforeEach(() => {
       portStore.set(fakePort());
-      window.history.replaceState(null, '', '/shelf');
+      window.history.replaceState(null, '', '/products');
     });
     afterEach(() => window.history.replaceState(null, '', '/'));
 
@@ -384,7 +392,7 @@ describe('the shelf', () => {
     });
 
     it('does not move to a chain an old link names: the list is whole, and this browser keeps its own', async () => {
-      window.history.replaceState(null, '', '/shelf?chain=robinhood');
+      window.history.replaceState(null, '', '/products?chain=robinhood');
       window.localStorage.setItem('tf-chain', 'solana');
       const calls = api({ families: [familyOf(FAMILY_ID), onRobinhood()] });
       const host = await show(createElement(ShelfScreen));
@@ -402,7 +410,115 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     expect(find(host, '[data-ui="auto-follow-offer"]').getAttribute('data-offered')).toBe('true');
     expect(button(host, en.shared.vaults.autoOn)).toBeDefined();
-    expect(host.textContent).not.toContain(en.shared.vaults.oneTap);
+    // offered says what it is: the keeper's, with auto-follow on, within the vault's limits
+    expect(find(host, '[data-ui="auto-follow-offer"]').textContent).toContain(
+      en.shared.offer.offered,
+    );
+  });
+
+  it('offers two ways to use it: a new vault, or a vault of theirs on its chain (Thom, Oct 14)', async () => {
+    api({ family: familyOf(FAMILY_ID), vaults: [] });
+    const none = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const way = (host: HTMLElement, name: 'new' | 'follow') =>
+      find<HTMLInputElement>(host, `[data-ui="family-ways"] [data-option="${name}"] input`);
+    // no vault on Solana: the new vault, with its first deposit, and no vault to follow it with
+    expect(wayChecked(none)).toBe('new');
+    expect(way(none, 'follow').disabled).toBe(true);
+    expect(find(none, '[data-ui="family-ways"] [data-option="follow"]').textContent).toContain(
+      en.shared.actions.follow.none('Solana'),
+    );
+    expect(find(none, '[data-ui="amount-panel"] h3').textContent).toBe(
+      en.shared.actions.firstDeposit,
+    );
+    expect(none.querySelector('[data-ui="amount-into"]')).toBeNull();
+    expect(none.querySelector('[data-ui="review-follow"]')).toBeNull();
+    // the auto-follow note, short, once
+    expect(find(none, '[data-ui="auto-follow-offer"]').textContent).toContain(
+      en.shared.offer.offered,
+    );
+    await unmountAll();
+    // a vault of theirs that follows something else: both ways open
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [vaultOf({ address: MY_VAULT, recipeOnchainId: null })],
+    });
+    const one = await show(createElement(FamilyScreen, { slug: SLUG }));
+    expect(way(one, 'new').disabled).toBe(false);
+    expect(way(one, 'follow').disabled).toBe(false);
+    expect(one.querySelector('[data-ui="my-vault"]')).toBeNull();
+  });
+
+  it('shows their vault for this portfolio as a state with the way to it, and no deposit into it here', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [
+        { ...vaultOf({ address: MY_VAULT, basketId: basketOfPlan(FAMILY_ID) }), name: 'Rent' },
+      ],
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const row = find(host, '[data-ui="my-vault"]');
+    expect(row.textContent).toContain(`Rent ${en.shared.actions.follows}`);
+    expect(find(row, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}`);
+    // no new vault beside it, and no other vault to follow it with: no card at all
+    expect(find(host, '[data-ui="family-ways"] [data-option="new"]').textContent).toContain(
+      en.shared.actions.newVault.open,
+    );
+    // a vault there, which follows it already: no *other* vault to follow it with
+    expect(find(host, '[data-ui="family-ways"] [data-option="follow"]').textContent).toContain(
+      en.shared.actions.follow.noOther('Solana'),
+    );
+    expect(wayChecked(host)).toBeNull();
+    expect(host.querySelector('[data-ui="amount-panel"]')).toBeNull();
+    expect(host.textContent).not.toContain(en.amount.into.follows('Rent'));
+  });
+
+  it('links their vault for this portfolio where it follows something else now', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [
+        {
+          ...vaultOf({
+            address: MY_VAULT,
+            basketId: basketOfPlan(FAMILY_ID),
+            recipeOnchainId: null,
+          }),
+          name: 'Rent',
+        },
+      ],
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    // not a follower, and not a vault to follow it with (a deposit of the portfolio goes to it)
+    expect(host.querySelector('[data-ui="my-vault"]')).toBeNull();
+    const first = find(host, '[data-ui="family-ways"] [data-option="new"]');
+    expect(first.textContent).toContain(en.shared.actions.newVault.open);
+    expect(find(first, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}`);
+    expect(find(first, 'a').textContent).toBe(en.shared.actions.newVault.depositThere('Rent'));
+  });
+
+  it('waits in the ways’ outline while the vaults are read, and never says where they are read from', async () => {
+    api({ family: familyOf(FAMILY_ID), portfolio: () => new Promise<Response>(() => {}) });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const pane = find(host, '[data-ui="family-actions"]');
+    expect(pane.querySelector('[data-ui="actions-wait"]')).not.toBeNull();
+    // the kit's wait, which names what it waits for once the wait is long enough to say it
+    expect(pane.querySelector('[data-ui="waiting"]')).not.toBeNull();
+    expect(host.textContent).not.toContain(en.shared.check.reading);
+    expect(pane.querySelector('[data-ui="family-blocked"]')).toBeNull();
+  });
+
+  it('promises no new vault where the person’s vaults could not be read', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      portfolio: async () => json({ error: 'down' }, 503),
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    for (const way of ['new', 'follow'] as const) {
+      const tile = find(host, `[data-ui="family-ways"] [data-option="${way}"]`);
+      expect(find<HTMLInputElement>(tile, 'input').disabled).toBe(true);
+      expect(tile.textContent).toContain(en.shared.vaults.failure);
+    }
+    expect(wayChecked(host)).toBeNull();
+    expect(host.querySelector('[data-ui="amount-panel"]')).toBeNull();
   });
 
   it('names a vault bought from a goal by that goal, and says it holds the person’s own plan', async () => {
@@ -427,12 +543,12 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
     expect(host.querySelector('[data-ui="my-vault"]')).toBeNull();
-    // offered in the amount card's "Into", by the goal it was bought from, as a switch
-    expect(intoOptions(host)).toEqual([
-      en.amount.into.newVault,
-      en.amount.into.other('Grow $40,000 over 36 months.'),
-    ]);
-    await chooseInto(host, 'Grow $40,000');
+    // the way to follow it with a vault of theirs, the vault named by the goal it was bought from
+    expect(wayChecked(host)).toBe('new');
+    await chooseWay(host, 'follow');
+    expect(find(host, '[data-ui="amount-into"]').textContent).toContain(
+      'Grow $40,000 over 36 months.',
+    );
     expect(find(host, '[data-ui="review-follow"]').textContent).toContain(
       en.amount.preview.switch('Grow $40,000 over 36 months.', familyOf(FAMILY_ID).name, 2),
     );
@@ -440,7 +556,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
   });
 
   it.each(['en', 'pt'] as const)(
-    'draws each vault’s actual holdings, including cash, without copying product targets (%s)',
+    'shows each vault that follows it as a state, with the way to its page, and offers none as a deposit target (%s)',
     async (lang) => {
       const t = dictionary(lang);
       const cashVault = solanaVaultAddress(
@@ -506,29 +622,21 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       });
       const host = await mount(withAccount(lang, createElement(FamilyScreen, { slug: SLUG })));
       for (let i = 0; i < 4; i += 1) await settle(50);
-      const cards = [...host.querySelectorAll<HTMLElement>('[data-ui="my-vault"]')];
-      expect(cards).toHaveLength(4);
-      const allocations = cards.map((card) => find(card, '[data-ui="vault-holdings"]'));
-      const fills = (at: HTMLElement) =>
-        [...at.querySelectorAll('[data-ui="composition-segment"]')].map(
-          (segment) => (segment as HTMLElement).style.background,
-        );
-      // SPYx and cash, by the shares held, cash in its neutral
-      expect(fills(allocations[0])).toEqual(['var(--tf-share-1)', 'var(--tf-share-cash)']);
-      expect(allocations[0].textContent).toContain('SPYx 65%');
-      expect(allocations[0].textContent).toContain('USDC 35%');
-      expect(allocations[0].textContent).not.toContain('90%');
-      // cash alone is the whole: a strip of one says nothing, so there is none
-      expect(fills(allocations[1])).toEqual([]);
-      expect(allocations[1].textContent).toContain('USDC 100%');
-      expect(allocations[2].querySelector('[data-ui="composition"]')).toBeNull();
-      expect(allocations[2].textContent).toContain(t.shared.vaults.noHoldings);
-      // a holding with no price is a row with a dash, and nothing is drawn for it
-      expect(fills(allocations[3])).toEqual([]);
-      expect(allocations[3].textContent).toContain('PAXG —');
-      expect(allocations[3].textContent).toContain(t.portfolio.vault.unpriced(1));
-      // One page read, for the owned-vault cards (a portfolio on one chain has no other chain to
-      // look on); bars add no per-vault requests.
+      // Thom, Oct 14: a vault that follows the portfolio is a state on the actions pane ("Vault X
+      // follows this portfolio", with the way to it), not a card of its holdings or a deposit target
+      const rows = [...host.querySelectorAll<HTMLElement>('[data-ui="my-vault"]')];
+      expect(rows).toHaveLength(4);
+      for (const [i, address] of [MY_VAULT, cashVault, emptyVault, unknownVault].entries()) {
+        const row = rows[i] as HTMLElement;
+        expect(row.textContent).toContain(t.shared.actions.follows);
+        expect(find(row, 'a').getAttribute('href')).toBe(`/portfolio/vaults/solana/${address}`);
+        expect(row.querySelector('[data-ui="composition"]')).toBeNull();
+      }
+      expect(host.querySelector('[data-ui="vault-holdings"]')).toBeNull();
+      // every vault of theirs follows it already: no new vault beside its own, none to follow with
+      expect(host.querySelector('[data-ui="amount-into"]')).toBeNull();
+      expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
+      // One page read for the pane (a portfolio on one chain has no other chain to look on).
       expect(calls.filter((call) => call.path === '/v1/portfolio')).toHaveLength(1);
       expect(calls.some((call) => call.path === '/v1/orders')).toBe(false);
     },
@@ -565,16 +673,12 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       });
       const host = await mount(withAccount(lang, createElement(FamilyScreen, { slug: SLUG })));
       for (let i = 0; i < 4; i += 1) await settle(50);
-      // the one that follows is in the list; the others are in the card's "Into" only
+      // the one that follows is a state on the pane; the others are the follow card's vaults only
       expect(host.querySelectorAll('[data-ui="my-vault"]')).toHaveLength(1);
-      const panel = find(host, '[data-ui="my-vault"]').closest('section');
-      expect(panel?.getAttribute('data-ui')).not.toBe('card');
-      expect(panel?.textContent).not.toContain('Trip fund');
-      expect(intoOptions(host)).toEqual([
-        t.amount.into.newVault,
-        t.amount.into.other('Trip fund'),
-        t.amount.into.other('Long term'),
-      ]);
+      expect(find(host, '[data-ui="my-vault"]').textContent).toContain('Already following');
+      expect(find(host, '[data-ui="family-following"]').textContent).not.toContain('Trip fund');
+      await chooseWay(host, 'follow');
+      expect(intoOptions(host)).toEqual(['Trip fund', 'Long term']);
       await chooseInto(host, 'Trip fund');
       await chooseInto(host, 'Long term');
       expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
@@ -603,19 +707,19 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
         basketId: '44',
         follow: { recipeOnchainId: RECIPE, version: 2 },
       });
-      expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+      expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
     },
   );
 
-  it('choosing a new vault again drops the switch without placing an order', async () => {
+  it('choosing the new vault again drops the follow without placing an order', async () => {
     const calls = api({
       family: familyOf(FAMILY_ID),
       vaults: [vaultOf({ address: MY_VAULT, recipeOnchainId: null })],
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await chooseInto(host, en.amount.into.other(''));
+    await chooseWay(host, 'follow');
     expect(host.querySelector('[data-ui="review-follow"]')).not.toBeNull();
-    await chooseInto(host, en.amount.into.newVault);
+    await chooseWay(host, 'new');
     expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
     // back to the deposit into a new vault
     expect(host.querySelector('[data-ui="amount-well"]')).not.toBeNull();
@@ -695,7 +799,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       });
       const host = await show(createElement(FamilyScreen, { slug: SLUG }));
       // the vault chosen in the amount card's "Into" (gate AMOUNT-CARD)
-      await chooseInto(host, en.amount.into.other(''));
+      await chooseWay(host, 'follow');
       for (let i = 0; i < 4; i += 1) await settle(30);
       return { calls, review: find(host, '[data-ui="review-follow"]') };
     };
@@ -792,7 +896,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       },
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await chooseInto(host, en.amount.into.other(''));
+    await chooseWay(host, 'follow');
     const review = find(host, 'button[data-action="amount-deposit"]');
     await click(review);
     // while it is made, the choice is held: no other vault can be chosen
@@ -803,7 +907,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(calls.find((c) => c.path === '/v1/orders')?.body?.vault).toBe(MY_VAULT);
     release();
     await settle(50);
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it('drops the choice and the refusal when the account changes, including while its vault read waits', async () => {
@@ -832,7 +936,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       portfolio: () => (paused ? waiting : Promise.resolve(response())),
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await chooseInto(host, en.amount.into.other(''));
+    await chooseWay(host, 'follow');
     await click(button(host, en.amount.review) as HTMLElement);
     expect(find(host, '[role="alert"]').textContent).toContain(en.order.mismatch.shape);
     paused = true;
@@ -845,7 +949,8 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(host.querySelector('[role="alert"]')).toBeNull();
     release(response());
     await settle(50);
-    expect(intoOptions(host)).toHaveLength(2);
+    // read again for the new person: the first way, nothing chosen to follow with
+    expect(wayChecked(host)).toBe('new');
     expect(host.querySelector('[data-ui="review-follow"]')).toBeNull();
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
   });
@@ -888,7 +993,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
           createElement(SwitchChain),
         ),
       );
-      await chooseInto(host, en.amount.into.other(''));
+      await chooseWay(host, 'follow');
       await click(button(host, en.amount.review) as HTMLElement);
       expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(1);
       if (context === 'account') {
@@ -907,7 +1012,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
         await settle(50);
         if (outcome === 'placed') {
           expect(recallOrder(ORDER_ID, USER)?.chain).toBe('solana');
-          expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+          expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
         } else expect(host.querySelector('[role="alert"]')).not.toBeNull();
         return;
       }
@@ -951,7 +1056,8 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     expect(offer.getAttribute('data-offered')).toBe('false');
     expect(offer.textContent).toContain(en.shared.offer.noOracle('GLDx', 'Solana'));
     expect(button(host, en.shared.vaults.autoOn)).toBeUndefined();
-    expect(host.textContent).toContain(en.shared.vaults.oneTap);
+    // the one tap is said once on the page, in the offer's own line
+    expect(host.textContent?.split('in one tap')).toHaveLength(2);
   });
 
   it('prompts when the followed portfolio changed, and the accept is a follow of the version shown', async () => {
@@ -984,7 +1090,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       autoFollow: false,
       source: 'api',
     });
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it.each(['en', 'pt'] as const)(
@@ -1047,7 +1153,7 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
       vaults: [vaultOf({ address: MY_VAULT, basketId: '43', recipeOnchainId: null })],
     });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
-    await chooseInto(host, en.amount.into.other(''));
+    await chooseWay(host, 'follow');
     expect(calls.some((c) => c.path === '/v1/orders')).toBe(false);
     await click(button(host, en.amount.review) as HTMLElement);
     await settle(50);
@@ -1121,6 +1227,12 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     );
     expect(solanaOnly.querySelector('[data-ui="plan-pane"]')).not.toBeNull();
     expect(solanaOnly.querySelector('[data-ui="product-invest"]')).toBeNull();
+    // the panel is there all the same: both ways named, why neither is offered, and auto-follow
+    expect(solanaOnly.querySelector('[data-ui="auto-follow-offer"]')).not.toBeNull();
+    expect(find(solanaOnly, '[data-ui="family-actions"]').textContent).toContain(
+      en.shared.actions.follow.title,
+    );
+    expect(solanaOnly.querySelector('[data-ui="family-ways"] input')).toBeNull();
     expect(solanaOnly.textContent).not.toContain(en.shared.family.buy);
   });
 
@@ -1186,7 +1298,7 @@ describe('buying a portfolio, which follows it', () => {
       const reopen = find(host, 'a[data-ui="family-reopen"]');
       expect([reopen.textContent, reopen.getAttribute('href')]).toEqual([
         words.shared.refusal.reopen,
-        `/indexes/${SLUG}`,
+        `/products/${SLUG}`,
       ]);
       // and this page has read the portfolio again
       expect(calls.filter((c) => c.path.startsWith(`/v1/indexes/${SLUG}`)).length).toBeGreaterThan(
@@ -1537,11 +1649,22 @@ describe('the publish form', () => {
     expect(problemsOf(form('Three', 'two lines\nare fine'))).toEqual([]);
   });
 
+  it('keeps an address that is a page of Products for that page (ROUTES-MATCH-NAV)', () => {
+    const rows = [
+      { asset: 'solana:spyx', bps: 4000 },
+      { asset: 'solana:nvdax', bps: 3000 },
+      { asset: 'solana:tslax', bps: 3000 },
+    ];
+    const form = (slug: string) => ({ name: 'Publish', slug, copy: '', rows });
+    expect(problemsOf(form('publish'))).toEqual(['slug']);
+    expect(problemsOf(form('publish-2'))).toEqual([]);
+  });
+
   it('is offered on Robinhood Chain, whose deployment names its registry (AGT-4)', async () => {
     const calls = api({ family: null, chain: 'robinhood' });
     const shelf = await show(createElement(ShelfScreen));
     expect(calls.some((c) => c.path === '/v1/shelf')).toBe(true);
-    expect(shelf.querySelector('a[href="/publish"]')).not.toBeNull();
+    expect(shelf.querySelector('a[href="/products/publish"]')).not.toBeNull();
   });
 
   it('shows the form on Robinhood Chain, and not the notice that publishing is closed', async () => {
@@ -1557,7 +1680,7 @@ describe('the publish form', () => {
     try {
       const calls = api({ family: null, chain: 'robinhood' });
       const shelf = await show(createElement(ShelfScreen));
-      expect(shelf.querySelector('a[href="/publish"]')).toBeNull();
+      expect(shelf.querySelector('a[href="/products/publish"]')).toBeNull();
       expect(find(shelf, '[data-ui="shelf-publish-soon"]').textContent).toBe(
         en.shared.shelf.publishSoon('Robinhood Chain'),
       );
@@ -1724,7 +1847,7 @@ describe('a vault’s public page', () => {
     expect(find(host, 'h1').textContent).toBe(en.shared.vault.missing);
     const ways = [...host.querySelectorAll('a')];
     expect(ways.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.shared.vault.backVisitor, '/shelf'],
+      [en.shared.vault.backVisitor, '/products'],
     ]);
     expect(host.querySelectorAll('button')).toHaveLength(0);
   });
@@ -1741,7 +1864,9 @@ describe('a vault’s public page', () => {
     expect(find(host, 'h1').textContent).toBe(en.shared.vaults.address(shortAddress(VAULT)));
     expect(host.textContent).toContain(en.shared.vault.unreachable);
     expect(host.textContent).not.toMatch(/shared portfolios/);
-    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
+      '/products',
+    ]);
     await click(find(host, 'button'));
     await settle();
     expect(asked).toBe(2);
@@ -1755,7 +1880,9 @@ describe('a vault’s public page', () => {
     expect(host.textContent).toContain(en.shared.vault.chainOff('Solana'));
     expect(host.textContent).not.toContain(en.shared.vault.unreachable);
     expect(host.querySelectorAll('button')).toHaveLength(0);
-    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(['/shelf']);
+    expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
+      '/products',
+    ]);
   });
 
   it('gives up on a read that never answers, says it couldn’t read the vault, and reads it again', async () => {
@@ -1791,7 +1918,7 @@ describe('a vault’s public page', () => {
     // Robinhood Chain runs here; Base is switched off, and is not offered
     const there = [...host.querySelectorAll('[data-ui="vault-elsewhere"]')];
     expect(there.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.shared.vault.openOn('Robinhood Chain'), `/vaults/robinhood/${evm}`],
+      [en.shared.vault.openOn('Robinhood Chain'), `/portfolio/vaults/robinhood/${evm}`],
     ]);
     // and an address of Solana's own kind that holds no vault gets no such link
     await unmountAll();
@@ -1907,7 +2034,7 @@ describe('auto-follow on a vault’s page, after a withdrawal switched it off', 
     const host = await page({ autoFollow: false });
     const line = find(host, '[data-ui="vault-auto-follow-off"]');
     expect(line.textContent).toContain(en.shared.vault.autoFollowOff);
-    expect(find(line, 'a').getAttribute('href')).toBe('/shelf');
+    expect(find(line, 'a').getAttribute('href')).toBe('/products');
   });
 
   it('says nothing of it while auto-follow is on, for a vault that follows nothing, or to anybody else', async () => {
@@ -2073,7 +2200,7 @@ describe('the flow audit’s findings on these screens (34, 38, 42)', () => {
         expect(find(rh, '[data-ui="shelf-publish-soon"]').textContent).toBe(
           words.shared.shelf.publishSoon('Robinhood Chain'),
         );
-        expect(rh.querySelector('a[href="/publish"]')).toBeNull();
+        expect(rh.querySelector('a[href="/products/publish"]')).toBeNull();
         await unmountAll();
       } finally {
         deployed.withoutRegistry = false;
@@ -2081,7 +2208,9 @@ describe('the flow audit’s findings on these screens (34, 38, 42)', () => {
       api({ family: familyOf(FAMILY_ID) });
       const sol = await mount(withAccount(lang, createElement(ShelfScreen)));
       for (let i = 0; i < 4; i += 1) await settle(50);
-      expect(sol.querySelector('a[href="/publish"]')?.textContent).toBe(words.shared.shelf.publish);
+      expect(sol.querySelector('a[href="/products/publish"]')?.textContent).toBe(
+        words.shared.shelf.publish,
+      );
       expect(sol.querySelector('[data-ui="shelf-publish-soon"]')).toBeNull();
     },
   );

@@ -46,7 +46,7 @@ export function PlanGate({
       </Link>
     </section>
   );
-  const goal = { href: '/goal', label: t.plan.backToGoal };
+  const goal = { href: '/invest', label: t.plan.backToGoal };
   if (state.kind === 'signed-out')
     return say(t.plan.title, t.plan.signedOut, {
       href: `/sign-in?next=${next}`,
@@ -60,7 +60,7 @@ export function PlanGate({
   // The one thing to do about a plan that is not here is to build it again: the page's main button.
   if (state.kind === 'missing')
     return say(t.plan.missing.title, t.plan.missing.body, {
-      href: '/goal',
+      href: '/invest',
       label: t.plan.missing.again,
       primary: true,
     });

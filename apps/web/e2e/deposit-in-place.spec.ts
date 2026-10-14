@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 
-// The deposit, signed in place on /goal (gate DEPOSIT-IN-PLACE), end to end on the mock chain: the
+// The deposit, signed in place on /invest (gate DEPOSIT-IN-PLACE), end to end on the mock chain: the
 // conversation, the proposal, the deposit step, the review, and then the steps to sign in the same
 // pane, every one signed through the guard, to the finished state and the vault's own page. The
 // address never changes until "Open your vault". Then a step the server lies about, refused in the
@@ -56,12 +56,12 @@ async function go(page: Page, name: string) {
 
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 
 const pane = (page: Page) => page.locator('[data-ui="deposit-sign"]');
@@ -122,7 +122,7 @@ async function toSteps(page: Page, shots = false) {
   await expect(pane(page)).toContainText(en.shell.mockAnnounce);
 }
 
-test('the whole deposit on /goal: chat, proposal, amount, review, every step signed, then the vault', async ({
+test('the whole deposit on /invest: chat, proposal, amount, review, every step signed, then the vault', async ({
   page,
 }) => {
   const visited: string[] = [];
@@ -156,11 +156,11 @@ test('the whole deposit on /goal: chat, proposal, amount, review, every step sig
   await expect(page.locator('textarea')).toBeEnabled();
   await check(page, '08-done');
   // the address never changed
-  expect(visited.filter((path) => path !== '/goal')).toEqual([]);
-  await expect(page).toHaveURL(/\/goal$/);
+  expect(visited.filter((path) => path !== '/invest')).toEqual([]);
+  await expect(page).toHaveURL(/\/invest$/);
 
   await open.click();
-  await expect(page).toHaveURL(/\/vaults\/solana\/[^/]+$/);
+  await expect(page).toHaveURL(/\/portfolio\/vaults\/solana\/[^/]+$/);
 });
 
 test('a step the server lies about is refused in the pane, and the pane is taken up again where it was', async ({
@@ -185,7 +185,7 @@ test('a step the server lies about is refused in the pane, and the pane is taken
   // the conversation waits while the deposit is open, and says how to get it back
   await expect(page.locator('textarea')).toBeDisabled();
   await expect(page.locator('[data-ui="goal-chat"]')).toContainText(en.goal.explore.deposit.open);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await check(page, '09-step-refused');
 
   // The screen is left and opened again, as a reload does to it (the throwaway sign-in does not
@@ -193,7 +193,7 @@ test('a step the server lies about is refused in the pane, and the pane is taken
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await expect(pane(page)).toHaveAttribute('data-state', 'approved');
   await expect(pane(page)).toContainText(en.mix.deposit.signing.resumed);
   await expect(pane(page).locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
@@ -245,5 +245,5 @@ test('a quote that ran out before the press: the pane says so and offers a fresh
   await check(page, '12-quote-ran-out');
   await card.getByRole('button', { name: en.invest.again }).click();
   await expect(card.locator('[data-ui="order-step"]').first()).toBeVisible({ timeout: 30_000 });
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 });

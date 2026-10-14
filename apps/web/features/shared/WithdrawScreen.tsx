@@ -86,6 +86,10 @@ export function WithdrawScreen({
     onMode?: (mode: AmountMode) => void;
     /** The card's title, as the pane's heading; the amount takes the focus. */
     title?: string;
+    /** The way back out of the pane, in the card's head. */
+    leave?: { label: string; onLeave: () => void };
+    /** Told as the amount card is drawn and taken away. */
+    onShown?: (shown: boolean) => void;
   };
 }) {
   const t = useT();
@@ -138,7 +142,7 @@ export function WithdrawScreen({
   }, [apiFetch, chain, address, way]);
 
   const back = (
-    <Link href="/monitor" className={buttonClass({ variant: 'secondary' })}>
+    <Link href="/portfolio/monitor" className={buttonClass({ variant: 'secondary' })}>
       {w.back}
     </Link>
   );
@@ -163,7 +167,7 @@ export function WithdrawScreen({
     return page(
       t.plan.signedOut,
       <Link
-        href={`/sign-in?next=${encodeURIComponent(`/vaults/${chainText}/${address}/withdraw`)}`}
+        href={`/sign-in?next=${encodeURIComponent(`/portfolio/vaults/${chainText}/${address}/withdraw`)}`}
         className={buttonClass({ variant: 'secondary' })}
       >
         {t.shell.signIn}
@@ -401,7 +405,7 @@ export function WithdrawScreen({
       setPlacing(false);
       return embedded.onOrder(placed.order.id);
     }
-    router.push(`/orders/${encodeURIComponent(placed.order.id)}`);
+    router.push(`/portfolio/orders/${encodeURIComponent(placed.order.id)}`);
   }
 
   const locale = LOCALE[lang];
@@ -553,9 +557,8 @@ export function WithdrawScreen({
       ))}
     </ul>
   );
-  const preview = !valid ? (
-    <p className="text-body-sm text-muted-foreground">{a.preview.emptyWithdraw}</p>
-  ) : (
+  // Only with a figure: no sentence in its place while there is nothing to say.
+  const preview = !valid ? null : (
     <div data-ui="withdraw-gets" className="flex min-w-0 flex-col gap-1.5 text-body-sm">
       {worth !== null && (
         <p
@@ -703,6 +706,9 @@ export function WithdrawScreen({
       {...(embedded?.onMode ? { onMode: embedded.onMode } : {})}
       headingLevel={embedded && !embedded.title ? 3 : 2}
       {...(embedded?.title ? { title: embedded.title, focusOnOpen: true } : {})}
+      {...(embedded?.leave ? { leave: embedded.leave } : {})}
+      {...(embedded?.onShown ? { onShown: embedded.onShown } : {})}
+      reserve
       chain={chain}
       chainName={chainName}
       provenance={provenance}
@@ -760,9 +766,8 @@ export function WithdrawScreen({
             }
       }
       choice={ways}
-      preview={{ title: a.preview.withdraw, body: preview }}
-      details={details}
-      more={more}
+      preview={preview && { title: a.preview.withdraw, body: preview }}
+      {...(valid ? { details, more } : {})}
       notice={
         <>
           {vault.autoFollow && (
@@ -786,10 +791,9 @@ export function WithdrawScreen({
         </>
       }
       action={{
+        // with nothing chosen yet, the button names the action alone
         label: !valid
-          ? picking
-            ? w.action
-            : t.amount.enter
+          ? w.action
           : picking
             ? a.press.withdrawPicked(items.length)
             : everything || (way === 'dollars' && shareBps === 10_000)

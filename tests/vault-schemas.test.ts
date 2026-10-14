@@ -313,7 +313,7 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
       preparedBy: 'mcp',
       agentLabel: 'an agent',
       status: 'open',
-      approvalUrl: '/orders/order-1',
+      approvalUrl: '/portfolio/orders/order-1',
       expiresAt: 1790000000,
       createdAt: NOW,
       disclaimer: schemas.DISCLAIMER.en,

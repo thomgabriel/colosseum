@@ -6,11 +6,13 @@ import {
   type DepthCurve,
   defaultRegimeParams,
   fitCurve,
+  maxNotionalAt,
   type Regime,
 } from '@colosseum/risk';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ASSESS_MAX_WITHDRAWALS } from '../../api/src/routes/risk';
+import { RISK_CACHE_CONTROL } from '../../api/src/routes/risk-cache';
 import { buildRiskApp } from './app';
 
 // HANDOFF-RISK §6 P2.2 and P2.3: the standalone API serves only /risk/* and /docs, and
@@ -31,6 +33,29 @@ const curves: AssetCurves = {
   assetId: 'FIXTURESPYX',
   byRegime: Object.fromEntries(Object.entries(syn).map(([r, pts]) => [r, curve(pts)])),
 };
+// Two listed (tier A) fixture assets for GET /risk/assets, which reads every asset's curves in one query:
+// the second's curves are the first's at half the size, so a curve read for the wrong asset shows.
+const LISTED = [
+  {
+    mint: 'FIXTUREbatchMintA111111111111111111111111111',
+    pool: 'FIXTUREbatchPoolA11111111111111111111111111',
+    k: 1,
+  },
+  {
+    mint: 'FIXTUREbatchMintB111111111111111111111111111',
+    pool: 'FIXTUREbatchPoolB11111111111111111111111111',
+    k: 0.5,
+  },
+];
+const scaled = (k: number): AssetCurves => ({
+  assetId: 'FIXTUREBATCH',
+  byRegime: Object.fromEntries(
+    Object.entries(syn).map(([r, pts]) => [
+      r,
+      curve(pts.map(([n, c]): [number, number] => [n * k, c])),
+    ]),
+  ),
+});
 const { db, client } = createDb();
 
 beforeAll(async () => {
@@ -78,9 +103,61 @@ beforeAll(async () => {
       })
       .onConflictDoNothing();
 });
+beforeAll(async () => {
+  const now = new Date();
+  for (const [i, a] of LISTED.entries()) {
+    const symbol = `FIXTUREBATCH${i}`;
+    await db
+      .insert(riskPools)
+      .values({
+        address: a.pool,
+        program: 'fixture',
+        venue: 'fixture',
+        assetMint: a.mint,
+        assetSymbol: symbol,
+        quoteMint: 'fixture',
+        exitPath: 'direct_usd',
+        assetIsToken0: 1,
+        decimals0: 8,
+        decimals1: 6,
+        tvlUsd: 1,
+        tier: 'A',
+        status: 'fixture',
+        methodVersion: 'fixture',
+        source: 'fixtures/risk/curves-synthetic.json',
+        method: 'fixture',
+        fetchedAt: now,
+        provenance: 'fixture',
+      })
+      .onConflictDoNothing();
+    for (const [regime, c] of Object.entries(scaled(a.k).byRegime) as Array<[Regime, DepthCurve]>)
+      await db
+        .insert(riskDepthCurves)
+        .values({
+          assetMint: a.mint,
+          assetSymbol: symbol,
+          side: 'sell',
+          regime,
+          points: c.points,
+          insufficientFrom: c.insufficientFrom,
+          quantile: c.quantile,
+          minSamples: c.minSamples,
+          samples: c.samples,
+          computedAt: now,
+          methodVersion: 'risk-0.3',
+          source: 'fixtures/risk/curves-synthetic.json',
+          method: 'fixture',
+          provenance: 'fixture',
+        })
+        .onConflictDoNothing();
+  }
+});
 afterAll(async () => {
   await db.delete(riskDepthCurves).where(eq(riskDepthCurves.assetMint, MINT));
   await db.delete(riskPools).where(eq(riskPools.address, POOL));
+  const mints = LISTED.map((a) => a.mint);
+  await db.delete(riskDepthCurves).where(inArray(riskDepthCurves.assetMint, mints));
+  await db.delete(riskPools).where(inArray(riskPools.assetMint, mints));
   await client.end();
 });
 
@@ -155,6 +232,37 @@ describe('standalone risk API', () => {
     });
     expect(max.statusCode).toBe(200);
     expect(performance.now() - t).toBeLessThan(2_000);
+    await app.close();
+  });
+
+  it('GET /risk/assets reads each listed asset its own curves', async () => {
+    const app = await buildRiskApp();
+    const res = await app.inject({ method: 'GET', url: '/risk/assets?tau=0.01' });
+    expect(res.statusCode).toBe(200);
+    const listed = res.json().assets as Array<{
+      assetMint: string;
+      capacityAtTau: Record<string, { capacityUsd: number | null }>;
+    }>;
+    for (const a of LISTED) {
+      const row = listed.find((x) => x.assetMint === a.mint);
+      const want = scaled(a.k).byRegime.us_market_hours as DepthCurve;
+      expect(row?.capacityAtTau.us_market_hours?.capacityUsd).toBe(
+        maxNotionalAt(want, 0.01).notionalUsd,
+      );
+    }
+    await app.close();
+  });
+
+  it('a GET under /risk/ may be kept a minute; a POST is not', async () => {
+    const app = await buildRiskApp();
+    const get = await app.inject({ method: 'GET', url: '/risk/facts/methodology' });
+    expect(get.headers['cache-control']).toBe(RISK_CACHE_CONTROL);
+    const post = await app.inject({
+      method: 'POST',
+      url: '/risk/positions/assess',
+      payload: { cashUsd: 1, illiquid: [], withdrawals: [], windowDays: 7 },
+    });
+    expect(post.headers['cache-control']).toBeUndefined();
     await app.close();
   });
 });

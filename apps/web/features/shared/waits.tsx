@@ -71,7 +71,7 @@ export function ShelfWait({ cards = 4 }: { cards?: number }) {
   );
 }
 
-/** A shared portfolio's page: the way back, its name, what to do next, its words, then its pane. */
+/** A shared portfolio's page: the way back, its name and words, then its two panes. */
 export function FamilyWait() {
   const t = useT();
   return (
@@ -81,41 +81,42 @@ export function FamilyWait() {
         <div data-ui="family-wait" className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             {/* The way back works while the page waits: on a slow read it is what a person wants. */}
-            <Link href="/shelf" className={`${buttonClass({ variant: 'link' })} self-start`}>
+            <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
               {t.shared.family.backToShelf}
             </Link>
             <div aria-hidden="true" className="flex flex-col gap-3">
               <SkeletonLine className={PAGE_TITLE} width="w-80" />
-              <p className="max-w-(--tf-measure-body) text-body text-muted-foreground">
-                {t.shared.family.nextStep}
-              </p>
               <SkeletonLine className="max-w-(--tf-measure-body) text-body-lg" width="w-64" />
             </div>
           </div>
-          <PlanViewWait kpis={4} aside={2} />
+          <div className={FAMILY_PANES}>
+            <PlanViewWait kpis={4} aside={2} />
+            <div aria-hidden="true" className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+                <SkeletonLine className="text-body-lg" width="w-40" />
+                <ActionsWait />
+              </div>
+            </div>
+          </div>
         </div>
       }
     />
   );
 }
 
-/** A vault of the person's that follows a portfolio, in the grid those cards sit in. */
-export function MyVaultsWait() {
-  const t = useT();
+/**
+ * A shared portfolio's two panes: what it holds on the left, what to do with it on the right, kept in
+ * view as the plan scrolls. One column on a phone, the actions under the plan.
+ */
+export const FAMILY_PANES =
+  'grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,25rem)]';
+
+/** The two ways to use a portfolio, in outline, while the person's vaults are read. */
+export function ActionsWait() {
   return (
-    <div
-      aria-hidden="true"
-      data-ui="my-vaults-wait"
-      className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2"
-    >
-      <div className="flex min-w-0 flex-col items-start gap-3 rounded-lg border border-border bg-card p-6">
-        <Skeleton className="h-4 w-32" />
-        <SkeletonLine className="w-full text-h4" width="w-48" />
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          <p className="text-caption text-muted-foreground">{t.portfolio.vault.holdings}</p>
-          <HoldingsWait />
-        </div>
-      </div>
+    <div aria-hidden="true" data-ui="actions-wait" className="flex flex-col gap-2">
+      <Skeleton className="h-14 w-full rounded-md" />
+      <Skeleton className="h-14 w-full rounded-md" />
     </div>
   );
 }
@@ -160,7 +161,7 @@ export function AmountCardWait({ wait }: { wait: string }) {
     <div
       aria-hidden="true"
       data-wait={wait}
-      className="flex w-full max-w-[32.5rem] flex-col gap-4 rounded-xl border border-border bg-card p-5"
+      className="flex w-full flex-col gap-4 rounded-xl border border-border bg-card p-5"
     >
       <SkeletonLine className="text-h4" width="w-24" />
       <Skeleton className="h-28 w-full rounded-md" />

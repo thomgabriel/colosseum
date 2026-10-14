@@ -108,7 +108,7 @@ export function EmbedVault({
     prices: answer.prices,
   };
   const parts = [...vault.positions].sort((a, b) => b.weightBps - a.weightBps);
-  const page = `/vaults/${chain}/${encodeURIComponent(address)}`;
+  const page = `/portfolio/vaults/${chain}/${encodeURIComponent(address)}`;
   return (
     <div style={style} data-ui="embed-frame">
       <EmbedShell

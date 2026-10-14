@@ -287,7 +287,7 @@ describe('a follow by a vault, on the order screen', () => {
         expect(done.textContent).toContain(en.order.shared.followDone);
         const link = find(host, '[data-action="follow-rebalance"]');
         expect(link.textContent).toBe(en.order.shared.followRebalance);
-        expect(link.getAttribute('href')).toBe(`/vaults/solana/${VAULT}?do=rebalance`);
+        expect(link.getAttribute('href')).toBe(`/portfolio/vaults/solana/${VAULT}?do=rebalance`);
       }
       await unmountAll();
     }

@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { type Column, DataTable } from '../../components/ui/DataTable';
 import { DistChart } from '../../components/ui/DistChart';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Sparkline, sparkable } from '../../components/ui/Sparkline';
 import { ChartHead, type ChartRange, Segmented, TimeChart } from '../../components/ui/TimeChart';
 import type { BearingDictionary } from '../../i18n/bearing';
@@ -75,13 +76,24 @@ export function usePageState(page: string) {
 
 export const picked = (set: readonly string[] | null, id: string) => !set || set.includes(id);
 
-/** The stocks and commodities pages while their data is read: five figures by their labels. */
-export function DexWait() {
+/**
+ * The frame of the chart cards' wait: the pie and the chart with its title, panes, legend and source
+ * line stand 546px high at desktop width, so the table under them does not move when they come.
+ */
+const DEX_CHART_FRAME = 'h-[30.75rem]';
+
+/**
+ * The stocks and commodities pages while their data is read: five figures by their labels. `rows`
+ * false leaves out the table, for the page that draws its table row by row as its assets are read.
+ */
+export function DexWait({ rows = true }: { rows?: boolean } = {}) {
   const t = useWords();
   const k = t.dex.kpi;
   return (
     <PageWait
       label={t.dex.reading}
+      rows={rows}
+      chartFrame={DEX_CHART_FRAME}
       kpis={[
         { label: k.tvl, note: k.tvlNote },
         { label: k.pools, note: k.poolsNote('0') },
@@ -98,7 +110,7 @@ export function DexPage({ page }: { page: 'stocks' | 'commodities' }) {
   const b = useAnswer(() => base(), [base]);
   const ids = b?.assets.ok ? dexIds(b.assets.body, page) : null;
   const key = ids?.join(',');
-  const dd = useAnswer(() => (ids ? dex(ids) : null), [key, dex]);
+  const { dd, done } = useDexAnswers(ids, key, dex);
   const router = useRouter();
   const state = usePageState(page);
 
@@ -120,14 +132,43 @@ export function DexPage({ page }: { page: 'stocks' | 'commodities' }) {
     else state.setSel({ assets: [symbol], pools: null });
   }, [asked, b, page, router, state, chain]);
 
-  if (!b || (b.assets.ok && !dd)) return <DexWait />;
+  if (!b) return <DexWait />;
   if (!b.assets.ok)
     return (
       <p className="mt-6">
         <Reason code={b.assets.reason} />
       </p>
     );
-  return <DexView page={page} b={b} body={b.assets.body} ids={ids ?? []} dd={dd ?? {}} />;
+  return <DexView page={page} b={b} body={b.assets.body} ids={ids ?? []} dd={dd} done={done} />;
+}
+
+/**
+ * Each asset's reads as they land: those in so far, and whether every one is. The table shows an
+ * asset's row as soon as its reads are in; the figures over many assets wait for all of them.
+ */
+function useDexAnswers(
+  ids: readonly string[] | null,
+  key: string | undefined,
+  dex: ReturnType<typeof useBearing>['dex'],
+) {
+  type State = { key?: string; dex?: typeof dex; dd: Record<string, DexAsset>; done: boolean };
+  const [state, setState] = useState<State>({ dd: {}, done: false });
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` names the ids
+  useEffect(() => {
+    if (!ids) return;
+    let live = true;
+    const mine = (s: State) => s.key === key && s.dex === dex;
+    setState({ key, dex, dd: {}, done: false });
+    dex(ids, (id, d) => {
+      if (live) setState((s) => (mine(s) ? { ...s, dd: { ...s.dd, [id]: d } } : s));
+    }).then((all) => {
+      if (live) setState({ key, dex, dd: all, done: true });
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, dex]);
+  return state.key === key && state.dex === dex ? state : { dd: {}, done: false };
 }
 
 function DexView({
@@ -136,13 +177,24 @@ function DexView({
   body,
   ids,
   dd,
+  done,
 }: {
   page: string;
   b: Base;
   body: AssetsBody;
   ids: string[];
+  /** The assets read so far; every one once `done`. */
   dd: Record<string, DexAsset>;
+  done: boolean;
 }) {
+  // The height the wait over the table held: what replaces it keeps at least that, so the table, drawn
+  // row by row under it, does not move up when the last assets land. The wait is drawn as high as the
+  // cards at desktop width (DEX_CHART_FRAME); where they come out shorter, this holds the table still.
+  const top = useRef<HTMLDivElement>(null);
+  const held = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (!done && top.current) held.current = top.current.getBoundingClientRect().height;
+  });
   const fm = useFmt();
   const { clock, chain } = useBearing();
   const all = useWords();
@@ -184,85 +236,94 @@ function DexView({
 
   return (
     <>
-      <div className="mt-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <MultiSelect
-          label={t.assets}
-          options={assetOpts}
-          value={sel.assets}
-          onChange={(v) => setSel({ assets: v, pools: null })}
-        />
-        <MultiSelect
-          label={t.pools}
-          options={poolOpts}
-          value={sel.pools}
-          onChange={(v) => setSel({ pools: v })}
-        />
-        <span className="font-mono text-b-meta text-muted-foreground">
-          {t.summary(selIds.length, pools.length, rw)}
-        </span>
+      <div ref={top} style={done && held.current ? { minHeight: held.current } : undefined}>
+        {done ? (
+          <>
+            <div className="mt-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <MultiSelect
+                label={t.assets}
+                options={assetOpts}
+                value={sel.assets}
+                onChange={(v) => setSel({ assets: v, pools: null })}
+              />
+              <MultiSelect
+                label={t.pools}
+                options={poolOpts}
+                value={sel.pools}
+                onChange={(v) => setSel({ pools: v })}
+              />
+              <span className="font-mono text-b-meta text-muted-foreground">
+                {t.summary(selIds.length, pools.length, rw)}
+              </span>
+            </div>
+            <Kpis>
+              <Kpi label={t.kpi.tvl} note={t.kpi.tvlNote}>
+                <Fig f={k.tvl} fmt={fm.usd1} />
+              </Kpi>
+              <Kpi label={t.kpi.pools} note={t.kpi.poolsNote(fm.num(allPools.length))}>
+                <Count>{fm.num(pools.length)}</Count>
+              </Kpi>
+              <Kpi label={t.kpi.capacity} note={t.kpi.capacityNote(rw)}>
+                <Fig f={k.cap} fmt={fm.usd1} />
+              </Kpi>
+              <Kpi
+                label={t.kpi.volume}
+                note={
+                  k.volTo
+                    ? t.kpi.volumeNote(fm.minute(k.volTo))
+                    : k.vol.source === DEXSCREENER_24H
+                      ? t.kpi.volumeDexNote
+                      : ''
+                }
+              >
+                <Fig f={k.vol} fmt={fm.usd1} />
+              </Kpi>
+              <Kpi label={t.kpi.lp} note={t.kpi.lpNote}>
+                <Fig f={k.lp} fmt={fm.pct} />
+              </Kpi>
+            </Kpis>
+            <ChartGrid
+              pie={
+                <Pie
+                  title={t.pie.title}
+                  slices={pools.map((p) => ({
+                    label: poolLabel(p, many, t.liquidity.quoteNotNamed),
+                    value: p.tvlUsd ?? null,
+                  }))}
+                  total={k.tvl.value}
+                  totalHtml={<Fig f={k.tvl} fmt={fm.usd1} />}
+                  note={t.pie.note}
+                />
+              }
+              chart={
+                metric === 'capacity' ? (
+                  <CapacityChart
+                    selIds={selIds}
+                    dd={dd}
+                    tools={tools}
+                    range={range}
+                    setRange={setRange}
+                  />
+                ) : metric === 'tvl' ? (
+                  <TvlChart
+                    pools={pools}
+                    b={b}
+                    tvl={k.tvl.value}
+                    tools={tools}
+                    range={range}
+                    setRange={setRange}
+                  />
+                ) : (
+                  <LiquidityChart pools={pools} b={b} many={many} tools={tools} />
+                )
+              }
+            />
+          </>
+        ) : (
+          // the figures over many assets wait for every asset; the table below fills in as they land
+          <DexWait rows={false} />
+        )}
       </div>
-      <Kpis>
-        <Kpi label={t.kpi.tvl} note={t.kpi.tvlNote}>
-          <Fig f={k.tvl} fmt={fm.usd1} />
-        </Kpi>
-        <Kpi label={t.kpi.pools} note={t.kpi.poolsNote(fm.num(allPools.length))}>
-          <Count>{fm.num(pools.length)}</Count>
-        </Kpi>
-        <Kpi label={t.kpi.capacity} note={t.kpi.capacityNote(rw)}>
-          <Fig f={k.cap} fmt={fm.usd1} />
-        </Kpi>
-        <Kpi
-          label={t.kpi.volume}
-          note={
-            k.volTo
-              ? t.kpi.volumeNote(fm.minute(k.volTo))
-              : k.vol.source === DEXSCREENER_24H
-                ? t.kpi.volumeDexNote
-                : ''
-          }
-        >
-          <Fig f={k.vol} fmt={fm.usd1} />
-        </Kpi>
-        <Kpi label={t.kpi.lp} note={t.kpi.lpNote}>
-          <Fig f={k.lp} fmt={fm.pct} />
-        </Kpi>
-      </Kpis>
-      <ChartGrid
-        pie={
-          <Pie
-            title={t.pie.title}
-            slices={pools.map((p) => ({
-              label: poolLabel(p, many, t.liquidity.quoteNotNamed),
-              value: p.tvlUsd ?? null,
-            }))}
-            total={k.tvl.value}
-            totalHtml={<Fig f={k.tvl} fmt={fm.usd1} />}
-            note={t.pie.note}
-          />
-        }
-        chart={
-          metric === 'capacity' ? (
-            <CapacityChart
-              selIds={selIds}
-              dd={dd}
-              tools={tools}
-              range={range}
-              setRange={setRange}
-            />
-          ) : metric === 'tvl' ? (
-            <TvlChart
-              pools={pools}
-              b={b}
-              tvl={k.tvl.value}
-              tools={tools}
-              range={range}
-              setRange={setRange}
-            />
-          ) : (
-            <LiquidityChart pools={pools} b={b} many={many} tools={tools} />
-          )
-        }
-      />
       {selIds.length === 1 && byId.get(selIds[0] as string) && (
         // one asset: its hours of the week, as its sheet in the first view and the old /risk/<asset> had them
         <div className="mt-4">
@@ -335,7 +396,8 @@ function assetColumns(
       numeric: true,
       cell: (id) => {
         const d = dd[id];
-        if (!d?.pools.ok) return <Reason code={d?.pools.reason} />;
+        if (!d) return <CellWait />;
+        if (!d.pools.ok) return <Reason code={d.pools.reason} />;
         return (
           <>
             <Count>{fm.num(pools.filter((p) => p.assetSymbol === id).length)}</Count>
@@ -356,13 +418,14 @@ function assetColumns(
       key: 'vol',
       header: t.volume,
       numeric: true,
-      cell: (id) => <Fig f={assetVol(dd[id])} fmt={fm.usd1} />,
+      cell: (id) => (dd[id] ? <Fig f={assetVol(dd[id])} fmt={fm.usd1} /> : <CellWait />),
     },
     {
       key: 'lp',
       header: t.lp,
       numeric: true,
       cell: (id) => {
+        if (!dd[id]) return <CellWait />;
         const s = dd[id]?.sheet;
         return s?.ok ? (
           <Fig f={s.body.liquidityStability.lpTop3Share} fmt={fm.pct} />
@@ -375,6 +438,7 @@ function assetColumns(
       key: 'spark',
       header: t.spark,
       cell: (id) => {
+        if (!dd[id]) return <CellWait />;
         const h = dd[id]?.hist;
         const values = h?.ok ? (h.body.points ?? []).map((p) => p.sellCapacityUsd) : [];
         return sparkable(values) ? (
@@ -385,6 +449,11 @@ function assetColumns(
       },
     },
   ];
+}
+
+/** A cell whose asset is still being read: the kit's still box, in the cell's own line. */
+function CellWait() {
+  return <Skeleton className="inline-block h-4 w-16 align-middle" />;
 }
 
 /** The pie and the chart side by side; one above the other under 1100px. */

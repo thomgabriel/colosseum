@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as missingPage from '../../app/(app)/[...missing]/page';
-import * as goalPage from '../../app/(app)/goal/page';
-import * as monitorPage from '../../app/(app)/monitor/page';
-import * as orderPage from '../../app/(app)/orders/[id]/page';
-import * as buyPage from '../../app/(app)/plan/[id]/buy/page';
-import * as planPage from '../../app/(app)/plan/[id]/page';
+import * as goalPage from '../../app/(app)/invest/page';
+import * as buyPage from '../../app/(app)/invest/plan/[id]/buy/page';
+import * as planPage from '../../app/(app)/invest/plan/[id]/page';
+import * as monitorPage from '../../app/(app)/portfolio/monitor/page';
+import * as orderPage from '../../app/(app)/portfolio/orders/[id]/page';
 import * as signInPage from '../../app/(app)/sign-in/page';
 import { dictionary, type Lang } from '../../i18n';
 import { read } from '../ui/test/css';

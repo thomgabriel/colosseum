@@ -60,7 +60,7 @@ async function go(page: Page, name: string) {
 /** Signed in, with a vault of the person's own (60% SPY, 40% NVDA, $100 in), on its page. */
 async function toVault(page: Page): Promise<string> {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
@@ -88,9 +88,9 @@ async function toVault(page: Page): Promise<string> {
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
-  await expect(page).toHaveURL(new RegExp(`/vaults/solana/${address}$`));
+  await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   await expect(page.locator('[data-ui="vault-screen"]')).toHaveAttribute('data-pane', 'holdings');
   return address;
 }
@@ -139,7 +139,7 @@ async function fixedWorkbench(page: Page, pane: string) {
 
 test('the owner’s vault page: a deposit, then a withdrawal, signed in place', async ({ page }) => {
   const address = await toVault(page);
-  const here = new RegExp(`/vaults/solana/${address}$`);
+  const here = new RegExp(`/portfolio/vaults/solana/${address}$`);
   const screen = page.locator('[data-ui="vault-screen"]');
   const pane = page.locator('[data-ui="vault-action-pane"]');
   const title = pane.locator(':scope > header h2');
@@ -372,7 +372,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
 
   // 3. Anybody else: the same vault with no owner's action and no conversation. A page load gives the
   // throwaway wallet new keys, so this load is not the owner's.
-  await page.goto(`/vaults/solana/${address}`);
+  await page.goto(`/portfolio/vaults/solana/${address}`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     en.shared.vaults.address(shortAddress(address)),
   );
@@ -520,7 +520,7 @@ test('a change proposed in the conversation is applied in place, and the weights
   page,
 }) => {
   const address = await toVault(page);
-  const here = new RegExp(`/vaults/solana/${address}$`);
+  const here = new RegExp(`/portfolio/vaults/solana/${address}$`);
   const screen = page.locator('[data-ui="vault-screen"]');
   const pane = page.locator('[data-ui="vault-action-pane"]');
   const title = pane.locator(':scope > header h2');

@@ -36,7 +36,7 @@ test.beforeEach(async ({ page }) => {
 test('someone new: "Create a passkey" is there from the start with what it opens, and no chain is asked', async ({
   page,
 }) => {
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   const create = dialog.getByRole('button', { name: en.signIn.passkey.create });
@@ -68,7 +68,7 @@ test('someone new: "Create a passkey" is there from the start with what it opens
 test('someone with a passkey: "Use my passkey" signs in, and leads the pair the next time on this browser', async ({
   page,
 }) => {
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   const passkey = dialog.getByRole('button', { name: en.signIn.passkey.continue });
@@ -100,7 +100,7 @@ test('someone with a passkey: "Use my passkey" signs in, and leads the pair the 
 test('a wallet: one list with where each vault lives, and the chain asked for a wallet that does both', async ({
   page,
 }) => {
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   // the list is there from the start, inside the dialog: no button opens it
@@ -127,7 +127,7 @@ test('a wallet: one list with where each vault lives, and the chain asked for a 
   // signed in with the Solana side: the plan lives there, nothing more is asked, and the dialog closes
   // on the page the person was on
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
   await expect(page.locator('header [data-ui="account"]')).toBeVisible();
   // signed in with the Solana side alone: the account menu lists that one wallet, a Solana address,
   // and no EVM one (the phone's sheet holds the same block)

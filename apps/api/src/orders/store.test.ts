@@ -66,7 +66,7 @@ async function oneLeg(): Promise<Leg> {
     fees: [],
     preparedBy: 'app',
     status: 'open',
-    approvalUrl: `/orders/${id}`,
+    approvalUrl: `/portfolio/orders/${id}`,
     expiresAt: Math.floor(Date.now() / 1000) + 900,
     createdAt: new Date().toISOString(),
     disclaimer: DISCLAIMER.en,

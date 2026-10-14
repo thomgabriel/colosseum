@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 
-// Waiting, on /goal: for a reply in the conversation, for a first draft, for the one after it, and on
+// Waiting, on /invest: for a reply in the conversation, for a first draft, for the one after it, and on
 // the deposit step for the server's check and the stored plan. A reply can take many seconds, so each
 // of these is held open here and looked at: what it says, that nothing on the page moves between
 // waiting and settled, that the sent message and the row under it are in view, and axe in both themes
@@ -43,12 +43,12 @@ async function axe(page: Page, name: string) {
 
 async function signIn(page: Page) {
   await page.request.post(`${STUB}/__stub/reset`);
-  await page.goto('/goal');
+  await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page).toHaveURL(/\/goal$/);
+  await expect(page).toHaveURL(/\/invest$/);
 }
 
 /** Holds the next replies back until `release`, then serves the stub's own, changed by `change`. */
@@ -447,7 +447,7 @@ for (const width of [1440, 375] as const)
     next();
     // stored: the steps to sign take the review's place in the same pane, at the amount typed, with
     // no dead screen on the way and no other page (gate DEPOSIT-IN-PLACE)
-    await expect(page).toHaveURL(/\/goal$/);
+    await expect(page).toHaveURL(/\/invest$/);
     const pane = page.locator('[data-ui="deposit-sign"]');
     await expect(pane.locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
     await expect(page.locator('[data-action="mix-confirm"]')).toHaveCount(0);

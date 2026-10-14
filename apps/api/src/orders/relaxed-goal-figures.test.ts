@@ -13,7 +13,7 @@ import {
   statedPurposeIn,
 } from './vault-agent';
 
-// Measured figures by reference on /goal (RELAXED-INTAKE as amended 2026-10-09, with the rules of
+// Measured figures by reference on /invest (RELAXED-INTAKE as amended 2026-10-09, with the rules of
 // FIGURES-BY-REFERENCE unchanged). The model is a stub: its reply is the JSON the API holds it to, and
 // everything checked here is what the server does with it. The context is the one the route builds.
 
@@ -430,7 +430,7 @@ describe('a figure is called what it is, and set against nothing', () => {
   });
 });
 
-describe('what a reference on /goal may name', () => {
+describe('what a reference on /invest may name', () => {
   it.each([
     ['a holding of a vault', `holding:${TSLA}:value`],
     ['a share of a vault', `holding:${TSLA}:share`],

@@ -3,7 +3,7 @@ import { chainFamily } from '@colosseum/schemas';
 import Link from 'next/link';
 import { useId } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
-import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { type Column, DataTable } from '../../components/ui/DataTable';
 import { shorten } from '../../components/ui/format';
@@ -59,7 +59,7 @@ export function VaultPanel({
   // Nothing held, of cash or of any token: a vault a withdrawal emptied, or one never funded.
   const empty = [vault.cash, ...vault.positions].every((h) => /^0+$/.test(h.raw));
 
-  const page = `/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`;
+  const page = `/portfolio/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`;
   // The rows' shares, rounded together so they add up to the whole (figures.ts, `sharesOf`).
   const rows = holdingsOf(vault);
   const nowTenths = shareTenths(rows.map((r) => r.weightBps));
@@ -182,7 +182,7 @@ export function VaultPanel({
             <Hint tip={<span className="font-mono text-source break-all">{vault.address}</span>}>
               <Link
                 data-ui="vault-page-link"
-                href={`/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
+                href={`/portfolio/vaults/${vault.chain}/${encodeURIComponent(vault.address)}`}
                 aria-label={words.page(shorten(vault.address))}
                 className="font-mono text-honey-text underline decoration-1 underline-offset-4 hover:decoration-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
@@ -309,19 +309,13 @@ export function VaultPanel({
         ) : (
           <Link
             data-ui="vault-withdraw"
-            href={`/vaults/${encodeURIComponent(vault.chain)}/${encodeURIComponent(vault.address)}/withdraw`}
+            href={`/portfolio/vaults/${encodeURIComponent(vault.chain)}/${encodeURIComponent(vault.address)}/withdraw`}
             className={buttonClass({ variant: 'secondary', size: 'dense' })}
           >
             {t.withdraw.action}
           </Link>
         )}
       </CardBody>
-      <CardFooter
-        density="dense"
-        className="flex flex-wrap justify-between gap-3 font-mono text-[11px] text-muted-foreground"
-      >
-        <span>{words.observed(utc(lang, vault.observedAt))}</span>
-      </CardFooter>
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 import type { Dictionary } from '../../i18n';
 import { PersonError } from './person';
 
-// Why a choice of chain was not stored, as the sentence /goal's chain choice says for it.
+// Why a choice of chain was not stored, as the sentence /invest's chain choice says for it.
 
 /** Why a switch to `name` was not stored, as a sentence. */
 export function switchFailure(t: Dictionary, e: unknown, name: string): string {

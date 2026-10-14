@@ -231,7 +231,10 @@ describe('the withdraw screen', () => {
       [...host.querySelectorAll('[data-ui="amount-chips"] button')].map((b) => b.textContent),
     ).toEqual(['25%', '50%', '75%', en.amount.out.max]);
     expect(held(host)).toBe(true);
-    expect(label(host)).toBe(en.amount.enter);
+    // with nothing chosen, it names the action alone; no "You get" and no details over nothing
+    expect(label(host)).toBe(w.action);
+    expect(host.querySelector('[data-ui="amount-preview"]')).toBeNull();
+    expect(host.querySelector('[data-ui="amount-details"]')).toBeNull();
     await click(button(host));
     expect(server.placed()).toEqual([]);
     // one primary button on the card
@@ -266,7 +269,7 @@ describe('the withdraw screen', () => {
       items: [term(CASH, null, '600000000'), term(SPYX, null, '250000000')],
       autoFollowOff: false,
     });
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it('a share typed in dollars: that share of each token, rounded down, and the rest stays', async () => {
@@ -638,7 +641,7 @@ describe('a withdrawal on the order screen', () => {
     await settle();
     const done = find(host, '[data-ui="withdraw-done"]');
     expect(done.textContent).toContain(en.order.shared.withdrawDone);
-    expect(find(done, 'a').getAttribute('href')).toBe('/monitor');
+    expect(find(done, 'a').getAttribute('href')).toBe('/portfolio/monitor');
   });
 
   it('everything: the guard is held to the vault, and may take any token it holds to its owner', async () => {
@@ -862,7 +865,8 @@ describe('the withdraw screen, in dollars', () => {
     const group = find(host, '[data-ui="withdraw-way"]');
     expect(group.textContent).toContain(en.amount.out.asTokens);
     expect(group.textContent).toContain(en.amount.out.asCash('USDC'));
-    // what the way chosen means, one at a time, in the details
+    // what the way chosen means, one at a time, in the details, once there is a share
+    await click(chip(host, en.amount.out.max));
     expect(find(host, '[data-ui="withdraw-way-hint"]').textContent).toBe(w.way.tokensHint);
     // the tokens one by one are there until dollars is chosen
     expect(host.querySelector('button[data-action="withdraw-pick"]')).not.toBeNull();
@@ -903,7 +907,7 @@ describe('the withdraw screen, in dollars', () => {
       { type: 'withdraw', vaults: [MY_VAULT], sellToCash: true },
     ]);
     expect(recallOrder(ORDER_ID, USER)?.terms).toEqual(ALL_DOLLARS);
-    expect(router.push).toHaveBeenCalledWith(`/orders/${ORDER_ID}`);
+    expect(router.push).toHaveBeenCalledWith(`/portfolio/orders/${ORDER_ID}`);
   });
 
   it('a share: that share of each holding and of the cash, rounded down, and the rest stays', async () => {
@@ -1130,7 +1134,7 @@ describe('a withdrawal in dollars on the order screen', () => {
     const done = find(host, '[data-ui="withdraw-done"]');
     const link = find(done, '[data-ui="withdraw-tokens-instead"]');
     expect(link.textContent).toBe(en.order.shared.tokensInstead);
-    expect(link.getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}/withdraw`);
+    expect(link.getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}/withdraw`);
   });
 
   const least = '995000000';
@@ -1246,7 +1250,9 @@ describe('a withdrawal in dollars on the order screen', () => {
     const sold = find(host, '[data-ui="withdraw-sold-before"]');
     expect(sold.textContent).toContain(en.order.shared.soldBefore('SPYx', '197 USDC'));
     expect(sold.textContent).toContain(en.order.shared.notAgain);
-    expect(find(sold, 'a').getAttribute('href')).toBe(`/vaults/solana/${MY_VAULT}/withdraw`);
+    expect(find(sold, 'a').getAttribute('href')).toBe(
+      `/portfolio/vaults/solana/${MY_VAULT}/withdraw`,
+    );
     expect(find(sold, 'a').textContent).toBe(en.order.shared.tokensInstead);
   });
 
