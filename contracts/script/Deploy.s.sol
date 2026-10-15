@@ -166,6 +166,8 @@ contract Deploy is Script {
 
     error WrongChain(uint256 configIsFor, uint256 runningOn);
     error NoAdmin();
+    /// The file names a Safe that holds the keys itself and another holder beside it.
+    error TwoHolders();
     /// The file breaks a rule a mainnet deploy is held to. `rule` says which, in words.
     error MainnetRefused(string rule);
     /// An asset's average feed is for another token, another feed, another cash token or other decimals:
@@ -210,7 +212,8 @@ contract Deploy is Script {
     /// After a deploy with a `safe` and the Safe's batch: reads the factory `FACTORY` names and fails unless
     /// it is what the file says. The Safe holds the factory's admin and the beacon with nothing proposed, the
     /// registry is the factory's and holds the second rules, the guardian, the keeper, the cash token and every
-    /// router are the file's, and every asset is listed with the file's settings. It sends nothing.
+    /// router are the file's, the keeper's limits, the bounds, the caps, the creators and the closed days are the
+    /// file's, and every asset is listed with the file's settings. It sends nothing.
     function check() external view {
         Config memory cfg = readConfig(_path());
         VaultFactory factory = VaultFactory(vm.envAddress("FACTORY"));
@@ -233,6 +236,7 @@ contract Deploy is Script {
                 HandoverIncomplete("a router is not allowed as the file says")
             );
         }
+        _checkSettings(cfg, factory);
         require(factory.assets().length == cfg.assets.length, HandoverIncomplete("the factory lists other assets"));
         for (uint256 i; i < cfg.assets.length; ++i) {
             Asset memory a = cfg.assets[i];
@@ -245,6 +249,36 @@ contract Deploy is Script {
         console2.log("checked: the Safe holds both keys; the registry, the roles and every asset are the file's");
         console2.log("factory:", address(factory));
         console2.log("assets listed:", cfg.assets.length);
+    }
+
+    /// The rest of what the deploy wrote, read back: the keeper's limits, the bound to the feed, the price of
+    /// the day, the deposit caps, who may create a vault, and every closed day of the file.
+    function _checkSettings(Config memory cfg, VaultFactory factory) internal view {
+        (uint16 tolerance, uint16 lossCap, uint16 band, uint32 cooldown, uint32 open, uint32 close) = factory.params();
+        require(
+            keccak256(abi.encode(Params(tolerance, lossCap, band, cooldown, open, close)))
+                == keccak256(abi.encode(cfg.params)),
+            HandoverIncomplete("the keeper's limits are not the file's")
+        );
+        require(factory.priceDevBps() == cfg.priceDevBps, HandoverIncomplete("priceDevBps is not the file's"));
+        require(
+            factory.sessionPriceAge() == cfg.sessionPriceAge, HandoverIncomplete("sessionPriceAge is not the file's")
+        );
+        (uint256 perVault, uint256 total) = factory.depositCaps();
+        require(
+            cfg.hasCaps ? perVault == cfg.vaultCap && total == cfg.totalCap : perVault == 0 && total == 0,
+            HandoverIncomplete("the deposit caps are not the file's")
+        );
+        require(
+            factory.creationRestricted() == (cfg.creators.length != 0),
+            HandoverIncomplete("who may create a vault is not the file's")
+        );
+        for (uint256 i; i < cfg.creators.length; ++i) {
+            require(factory.mayCreate(cfg.creators[i]), HandoverIncomplete("a creator of the file may not create"));
+        }
+        for (uint256 i; i < cfg.closedDays.length; ++i) {
+            require(factory.closedDay(cfg.closedDays[i]), HandoverIncomplete("a closed day of the file is not set"));
+        }
     }
 
     /// Lists the file's assets, routers, cash token and closed days on the factory `FACTORY` names, and sets
@@ -268,6 +302,11 @@ contract Deploy is Script {
         require(cfg.chainId == block.chainid, WrongChain(cfg.chainId, block.chainid));
         if (isMainnet(block.chainid)) checkMainnet(cfg, deployer);
         bool timelocked = cfg.timelockOwner != address(0);
+        // One holder of the keys, on any network: a Safe that holds them itself is never named beside an
+        // admin, the deployer or a timelock, so the file cannot mean one thing and deploy another.
+        require(
+            cfg.safe == address(0) || (cfg.admin == address(0) && !cfg.adminIsDeployer && !timelocked), TwoHolders()
+        );
         if (cfg.adminIsDeployer) cfg.admin = deployer;
         // A Safe that holds the keys itself is proposed as any admin is: it accepts with its own batch.
         if (cfg.safe != address(0)) cfg.admin = cfg.safe;

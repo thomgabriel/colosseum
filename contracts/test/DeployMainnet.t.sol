@@ -998,6 +998,32 @@ contract DeployMainnetTest is Test {
         script.deploy(cfg, deployer);
     }
 
+    /// On any network a Safe that holds the keys itself stands alone: beside an admin, the deployer as admin
+    /// or a timelock, the file is refused rather than one of them silently taking precedence.
+    function test_anyNetwork_aSafeBesideAnotherHolder_isRefused() public {
+        vm.chainId(31_337);
+        Deploy.Config memory cfg = script.readConfig("script/config/31337.json");
+        cfg.safe = safe;
+        cfg.admin = address(0);
+        cfg.adminIsDeployer = true;
+        vm.expectRevert(Deploy.TwoHolders.selector);
+        script.deploy(cfg, deployer);
+        cfg.adminIsDeployer = false;
+        cfg.admin = makeAddr("a-key");
+        vm.expectRevert(Deploy.TwoHolders.selector);
+        script.deploy(cfg, deployer);
+        cfg.admin = address(0);
+        cfg.timelockOwner = safe;
+        cfg.timelockDelay = 1 hours;
+        vm.expectRevert(Deploy.TwoHolders.selector);
+        script.deploy(cfg, deployer);
+        // Alone, it is proposed for both keys.
+        cfg.timelockOwner = address(0);
+        cfg.timelockDelay = 0;
+        Deploy.Deployed memory d = script.deploy(cfg, deployer);
+        assertEq(VaultFactory(d.factory).pendingAdmin(), safe);
+    }
+
     // ---- the committed mainnet file
 
     /// As committed it holds no value a person has not confirmed (Thom, 2026-10-12), so the marker rule no

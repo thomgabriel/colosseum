@@ -221,14 +221,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         read(beacon, 'owner'),
         read(beacon, 'pendingOwner'),
       ]);
+      const zero = /^0x0{40}$/i;
+      // Held: the Safe has both, and nobody else is proposed for either.
       const held =
-        admin.toLowerCase() === safe.toLowerCase() && owner.toLowerCase() === safe.toLowerCase();
+        admin.toLowerCase() === safe.toLowerCase() &&
+        owner.toLowerCase() === safe.toLowerCase() &&
+        zero.test(pendingAdmin) &&
+        zero.test(pendingOwner);
       console.log(`factory ${factory}: admin ${admin}, proposed ${pendingAdmin}`);
       console.log(`beacon  ${beacon}: owner ${owner}, proposed ${pendingOwner}`);
       console.log(
         held
           ? `state: the Safe ${safe} holds both`
-          : `state: not yet: the Safe ${safe} has to sign its batch`,
+          : `state: not yet: the Safe ${safe} has to sign its batch, and nothing else may stay proposed`,
       );
     }
   } catch (e) {

@@ -49,9 +49,22 @@ done
 echo "fork: block $(cast block-number --rpc-url "$LOCAL") of chain $(cast chain-id --rpc-url "$LOCAL"); out: $OUT"
 [ -d "$BROADCAST" ] && mv "$BROADCAST" "$KEPT"
 
-# 1. The deploy, as Thom sends it: the committed file, from his deployer's address.
+# 0. While a value of the committed file is Proposed, a send of it is refused before anything is sent.
 cast rpc anvil_impersonateAccount "$DEPLOYER" --rpc-url "$LOCAL" >/dev/null
 cast rpc anvil_setBalance "$DEPLOYER" 0xde0b6b3a7640000 --rpc-url "$LOCAL" >/dev/null
+if grep -q '": "Proposed' script/config/4663.json; then
+  NONCE=$(cast nonce "$DEPLOYER" --rpc-url "$LOCAL")
+  if DEPLOY_CONFIG=script/config/4663.json forge script script/Deploy.s.sol --rpc-url "$LOCAL" --broadcast \
+    --unlocked --sender "$DEPLOYER" >"$OUT/proposed.log" 2>&1; then
+    echo "FAIL: a send of a file with Proposed values went through"; exit 1
+  fi
+  grep -q 'Proposed value' "$OUT/proposed.log" || { tail -5 "$OUT/proposed.log"; echo "FAIL: refused for another reason"; exit 1; }
+  [ "$(cast nonce "$DEPLOYER" --rpc-url "$LOCAL")" = "$NONCE" ] || { echo "FAIL: something was sent"; exit 1; }
+  rm -rf "$BROADCAST"
+  echo "ok: a send of the committed file is refused while it holds Proposed values; nothing was sent"
+fi
+
+# 1. The deploy, as Thom sends it once the values are confirmed: from his deployer's address.
 forge script script/Deploy.s.sol --rpc-url "$LOCAL" --broadcast --unlocked --sender "$DEPLOYER" --slow \
   >"$OUT/deploy.log" 2>&1 || { tail -30 "$OUT/deploy.log"; echo "FAIL: the deploy"; exit 1; }
 cp "$BROADCAST/run-latest.json" "$OUT/run-latest.json"
