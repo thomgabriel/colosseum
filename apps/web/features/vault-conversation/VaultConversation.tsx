@@ -579,25 +579,24 @@ export function VaultConversation({
         </div>
       </div>
       {action && (
-        <div
+        <section
           data-ui="vault-action"
           // Scrolls on its own on a desktop, where the page does not (a workbench): a scrollbar to see
           // and take hold of, and a stop for the keyboard, so every part of the card can be reached.
-          role="region"
           aria-label={copy.actionPane}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: a region that scrolls must be reachable by keyboard
           tabIndex={0}
           className={`${PANE} flex ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
         >
           {action.pane}
-        </div>
+        </section>
       )}
-      <div
+      <section
         data-ui="vault-plan"
         aria-busy={busy}
         hidden={locked}
         // The same pane: it scrolls on its own, with a scrollbar to see and a stop for the keyboard,
         // so what the vault holds is in reach under a draft however tall the draft is.
-        role="region"
         aria-label={copy.planPane}
         tabIndex={locked ? -1 : 0}
         className={`${PANE} ${locked ? 'hidden' : 'flex'} ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
@@ -664,7 +663,7 @@ export function VaultConversation({
           holdings
         )}
         {aside}
-      </div>
+      </section>
     </section>
   );
 }
