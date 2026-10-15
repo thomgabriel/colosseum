@@ -11,6 +11,10 @@ import { createEvmRpc, safeBatchFile } from '@colosseum/chain-evm/vault';
 //                                                 factory.acceptAdmin() and beacon.acceptOwnership()
 //   pnpm ops:redeploy --status --rpc-env NAME     says who holds the factory's admin and the beacon, and
 //                                                 who is proposed for each
+//   pnpm ops:redeploy --proposed                  the deploy file's tokens whose values are still Proposed,
+//                                                 one row each, for a person to confirm before a send
+//   pnpm ops:redeploy --confirm <who> --on <date> after that person confirmed them in chat: each Proposed
+//                                                 note becomes "Confirmed by <who>, <date>", nothing else
 //
 // `--broadcast` names forge's record of the deploy (default contracts/broadcast/Deploy.s.sol/4663/
 // run-latest.json); `--config` the deploy file (default contracts/script/config/4663.json), which
@@ -83,6 +87,60 @@ export function deployedOf(broadcast: Broadcast): { factory: string; beacon: str
   };
 }
 
+type Json = Record<string, unknown>;
+const NOTE = /Note$/;
+const isProposed = (v: unknown) => typeof v === 'string' && v.startsWith('Proposed');
+
+/**
+ * The deploy file's tokens with a value still Proposed (a note that begins with the word): what each
+ * would be listed with. `Deploy.s.sol` refuses a send of such a file; a dry run shows it.
+ */
+export function proposedRows(config: { assets: Json[] }): string[][] {
+  const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, '')}%`;
+  const hidden = (a: Json) =>
+    (a.v3Pool ? 'not shown: v3 route' : '') ||
+    (typeof a.heldBack === 'string' || a.heldBack === true ? 'not shown: held back' : '') ||
+    'shown';
+  return config.assets
+    .filter((a) => Object.entries(a).some(([k, v]) => NOTE.test(k) && isProposed(v)))
+    .map((a) => {
+      const pool = a.v3Pool as Json | null | undefined;
+      const v4 = a.pool as Json | null | undefined;
+      const average = a.average as Json | undefined;
+      return [
+        String(a.symbol),
+        pct(Number(a.maxWeightBps)),
+        `$${Number(a.maxTradeUsd).toLocaleString('en-US')}`,
+        `${a.feed} (${a.feedDescription})`,
+        pool
+          ? `v3 ${pool.pool} fee ${pool.fee}`
+          : v4
+            ? `v4 fee ${v4.fee} spacing ${v4.tickSpacing}`
+            : 'none',
+        average ? `${average.pool}${average.usable ? '' : ' (not usable)'}` : 'none',
+        hidden(a),
+      ];
+    });
+}
+
+/** The same file with every Proposed note confirmed by `who` on `on`: the note's words after the date kept. */
+export function confirmed<T extends Json>(config: T, who: string, on: string): T {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) fail(`${on} is not a date (yyyy-mm-dd)`);
+  if (!who.trim()) fail('name the person who confirmed');
+  const walk = (v: unknown, key = ''): unknown =>
+    Array.isArray(v)
+      ? v.map((x) => walk(x))
+      : v && typeof v === 'object'
+        ? Object.fromEntries(Object.entries(v as Json).map(([k, x]) => [k, walk(x, k)]))
+        : NOTE.test(key) && isProposed(v)
+          ? (v as string).replace(
+              /^Proposed( \d{4}-\d{2}-\d{2})?/,
+              (_, was) => `Confirmed by ${who}, ${on}${was ? `, as proposed${was}` : ''}`,
+            )
+          : v;
+  return walk(config) as T;
+}
+
 /** The Transaction Builder file of the Safe's batch: the two accepts, in one transaction of the Safe. */
 export function acceptanceFile(input: {
   safe: string;
@@ -111,10 +169,33 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     return at === -1 ? fallback : args[at + 1];
   };
   try {
+    const configPath = value('--config', DEFAULTS.config) as string;
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    if (args.includes('--proposed')) {
+      const rows = proposedRows(config);
+      if (!rows.length) console.log('every value of the deploy file is confirmed');
+      else {
+        const head = ['token', 'ceiling', 'largest trade', 'feed', 'pool', 'average pool', 'app'];
+        const table = [head, ...rows];
+        const width = head.map((_, i) => Math.max(...table.map((r) => (r[i] ?? '').length)));
+        for (const r of table) console.log(r.map((c, i) => c.padEnd(width[i] ?? 0)).join('  '));
+        console.log(
+          `\n${rows.length} tokens with Proposed values: a send is refused until a person confirms them (--confirm).`,
+        );
+      }
+      process.exit(0);
+    }
+    const who = value('--confirm');
+    if (who !== undefined) {
+      const on = value('--on') ?? fail('--confirm needs --on <yyyy-mm-dd>');
+      const before = proposedRows(config).length;
+      writeFileSync(configPath, `${JSON.stringify(confirmed(config, who, on), null, 2)}\n`);
+      console.log(`confirmed the values of ${before} tokens in ${configPath}, by ${who} on ${on}`);
+      process.exit(0);
+    }
     const broadcast = JSON.parse(
       readFileSync(value('--broadcast', DEFAULTS.broadcast) as string, 'utf8'),
     );
-    const config = JSON.parse(readFileSync(value('--config', DEFAULTS.config) as string, 'utf8'));
     const safe: string = config.safe?.address ?? fail('the deploy file names no safe');
     const { factory, beacon } = deployedOf(broadcast);
     const dir = value('--safe-file');

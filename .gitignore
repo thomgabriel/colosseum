@@ -55,3 +55,6 @@ testnet-keys/
 test-results/
 playwright-report/
 blob-report/
+
+# A rehearsal's copy of a deploy file (contracts/script/redeploy-fork.sh), removed when it ends.
+contracts/script/config/.rehearsal/

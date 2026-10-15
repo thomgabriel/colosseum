@@ -1012,6 +1012,13 @@ contract DeployMainnetTest is Test {
             script.parseConfig(vm.replace(file, '"guardianNote": "', '"guardianNote": "TODO: '));
         assertTrue(marked.placeholders, "the word put back");
         _refused(marked, "the file still holds a TODO: every value must be confirmed by a person");
+        // The seventeen tokens the redeploy adds are Proposed until Thom confirms each in chat: refused
+        // outside a dry run until their notes say so. The rest of this test reads them as confirmed.
+        assertTrue(cfg.proposed, "values a person has still to confirm");
+        _refused(cfg, "the file still holds a Proposed value: each is confirmed by a person before a send");
+        // A note that says a value was confirmed "as proposed" is no Proposed value: the file of 2026-10-12.
+        assertFalse(script.parseConfig(vm.readFile("script/config/4663-2026-10-12.json")).proposed);
+        cfg.proposed = false;
         // The ceilings as confirmed: none left at zero, none above the contract's own 5000.
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
             assertGt(cfg.assets[i].config.maxWeightBps, 0, "a confirmed ceiling");
@@ -1058,6 +1065,7 @@ contract DeployMainnetTest is Test {
     function test_theCommittedMainnetFile_deploysOnceItsPlaceholdersAreFilled() public {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
+        cfg.proposed = false;
         cfg.safe = safe;
         // The guardian is the file's own.
         // Every listed token and its feed, as stand-ins that answer what the file says of them.

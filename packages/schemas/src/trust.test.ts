@@ -78,6 +78,8 @@ describe.skipIf(!existsSync(recordUrl))('TRUST_STATUS, against the mainnet deplo
       // The Safe holds the keys itself: no delay to state, and the signatures the chain answered.
       expect(record.roles.admin.toLowerCase()).toBe(facts?.safe.toLowerCase());
       expect(facts?.delayHours).toBe(0);
+      // A notice that changed what it says is a new text, read again before the next deposit.
+      expect(TRUST_STATUS.textVersion).not.toBe('2026-10-12');
       if (record.safe.threshold !== undefined)
         expect(record.safe.threshold).toBe(facts?.safeSignatures);
     } else {

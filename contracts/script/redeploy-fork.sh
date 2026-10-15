@@ -29,7 +29,15 @@ KEPT="$OUT/kept-broadcast"
 
 anvil --fork-url "$ROBINHOOD_RPC_URL" --port "$PORT" --silent >/dev/null 2>&1 &
 ANVIL=$!
+# The values Thom has still to confirm are taken as confirmed for the rehearsal, in a copy: the committed
+# file is refused for a send until he has (Deploy.s.sol, checkMainnet).
+REHEARSED=script/config/.rehearsal/4663.json
+mkdir -p "$(dirname "$REHEARSED")"
+cp script/config/4663.json "$REHEARSED"
+(cd .. && pnpm -s ops:redeploy --config "contracts/$REHEARSED" --confirm "the rehearsal" --on "$(date -u +%Y-%m-%d)" >/dev/null)
+export DEPLOY_CONFIG=$REHEARSED
 restore() {
+  rm -rf "$(dirname "$REHEARSED")"
   kill "$ANVIL" 2>/dev/null || true
   if [ -d "$KEPT" ]; then rm -rf "$BROADCAST" && mkdir -p "$(dirname "$BROADCAST")" && mv "$KEPT" "$BROADCAST"; fi
 }
@@ -67,8 +75,9 @@ echo "ok: the Safe sent its batch"
 (cd .. && FORK_RPC_URL="$LOCAL" pnpm -s ops:redeploy --status --rpc-env FORK_RPC_URL --broadcast "$OUT/run-latest.json")
 
 # 3. Everything where the file says.
-FACTORY="$FACTORY" forge script script/Deploy.s.sol --sig "check()" --rpc-url "$LOCAL" 2>&1 |
-  grep -E 'checked|factory:|assets listed|Error|revert' || true
+FACTORY="$FACTORY" forge script script/Deploy.s.sol --sig "check()" --rpc-url "$LOCAL" >"$OUT/check.log" 2>&1 ||
+  { tail -20 "$OUT/check.log"; echo "FAIL: Deploy.check() reverted"; exit 1; }
+grep -E 'checked|factory:|assets listed' "$OUT/check.log"
 
 # 4. The two records, written from the broadcast into the out dir, and the authority check against them.
 THRESHOLD=$(cast call "$SAFE" 'getThreshold()(uint256)' --rpc-url "$LOCAL" | awk '{print $1}')
@@ -76,5 +85,8 @@ OWNERS=$(cast call "$SAFE" 'getOwners()(address[])' --rpc-url "$LOCAL" | tr -d '
 cp ../packages/sdk/deployments/mainnet.json "$OUT/guard.json"
 (cd .. && pnpm -s ops:mainnet-records --broadcast "$OUT/run-latest.json" --record "$OUT/record.json" \
   --guard "$OUT/guard.json" --safe "$THRESHOLD:$OWNERS" | grep -vE '^(> |\$ )' | tail -8)
-(cd .. && pnpm -s ops:authority-check --record "$OUT/record.json" --rpc "$LOCAL") |
-  grep -E 'Safe is the admin|safe |factory.admin|beacon.owner|registry|^FAIL|^WARN|VERDICT' || true
+(cd .. && pnpm -s ops:authority-check --record "$OUT/record.json" --rpc "$LOCAL") >"$OUT/authority.log" 2>&1 ||
+  true
+grep -E 'Safe is the admin|safe |factory.admin|beacon.owner|registry|^FAIL|^WARN|VERDICT' "$OUT/authority.log" || true
+grep -q '^VERDICT: OK' "$OUT/authority.log" || { echo "FAIL: the authority check did not answer OK"; exit 1; }
+echo "ok: the rehearsal passed"

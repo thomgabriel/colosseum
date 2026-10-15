@@ -2,6 +2,7 @@
 pragma solidity 0.8.37;
 
 import {Script} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {console2} from "forge-std/console2.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
@@ -37,7 +38,8 @@ import {VaultFactory} from "../src/VaultFactory.sol";
 ///     the factory's admin and the beacon's owner, and the Safe takes both with one batch of two calls it
 ///     signs (`acceptAdmin()`, `acceptOwnership()`), which `safeAcceptance()` prints. Until it signs, the
 ///     deployer holds both. Every admin call then is the Safe's, at once, with no delay.
-///   - With a `timelock` (a mainnet): the script creates OpenZeppelin's `TimelockController`,
+///   - With a `timelock` (a mainnet: the deploy of 2026-10-12, and the way back for the redeploy once
+///     gate ROBINHOOD-REDEPLOY's done-when is met): the script creates OpenZeppelin's `TimelockController`,
 ///     hands the factory's admin and the beacon to it, and finishes the hand-over itself, so the deployer
 ///     ends the run holding nothing. The timelock starts with no delay and the deployer as a second
 ///     proposer and executor, for one batch only: accept the admin, accept the beacon, set the delay, and
@@ -52,7 +54,7 @@ import {VaultFactory} from "../src/VaultFactory.sol";
 ///
 /// On a mainnet (any chain id that is not a known test network) the file is held to the rules of
 /// `checkMainnet` before anything is created: see there. `settings()` is refused on a mainnet: there the
-/// settings are the timelock's to change, through the Safe.
+/// settings are the Safe's to change, itself or through the timelock where there is one.
 contract Deploy is Script {
     using stdJson for string;
 
@@ -109,6 +111,9 @@ contract Deploy is Script {
         address[] creators;
         /// The file still holds the word TODO somewhere: a value nobody has confirmed.
         bool placeholders;
+        /// A value of the file still begins with "Proposed": an agent measured it and a person has not
+        /// confirmed it yet. Its note becomes "Confirmed by Thom, <date>" once he has, in chat.
+        bool proposed;
         /// What the app holds an owner's trade to, which no contract reads: how far a pool's quote may be
         /// from the asset's Chainlink price (basis points), and each asset's largest single trade in
         /// dollars, in the assets' order. Zero is "not stated". The script writes neither anywhere; on a
@@ -180,6 +185,11 @@ contract Deploy is Script {
         d = deploy(cfg, msg.sender);
         vm.stopBroadcast();
         _print(cfg, d, msg.sender);
+        if (cfg.proposed) {
+            console2.log("");
+            console2.log("NOT CONFIRMED: the file holds Proposed values (pnpm ops:redeploy --proposed lists them).");
+            console2.log("A send is refused until a person confirms each and its note says so.");
+        }
     }
 
     /// The Safe's one batch after a deploy with a `safe`: the two calls that complete the hand-over, each
@@ -445,6 +455,11 @@ contract Deploy is Script {
     function checkMainnet(Config memory cfg, address deployer) public view {
         require(
             !cfg.placeholders, MainnetRefused("the file still holds a TODO: every value must be confirmed by a person")
+        );
+        // A dry run may show what a proposed value would do, so a person can confirm it; nothing else may.
+        require(
+            !cfg.proposed || vm.isContext(VmSafe.ForgeContext.ScriptDryRun),
+            MainnetRefused("the file still holds a Proposed value: each is confirmed by a person before a send")
         );
 
         // Who holds what (H1, H2, M4 of the review): a Safe of two or more, through a timelock or itself.
@@ -828,6 +843,7 @@ contract Deploy is Script {
     /// cut down (a `pull` of 257 would otherwise be read as 1).
     function parseConfig(string memory json) public view returns (Config memory cfg) {
         cfg.placeholders = _contains(bytes(json), "TODO");
+        cfg.proposed = _contains(bytes(json), '": "Proposed');
         if (vm.keyExistsJson(json, ".timelock")) {
             cfg.timelockOwner = json.readAddress(".timelock.owner");
             cfg.timelockDelay = json.readUint(".timelock.delay");

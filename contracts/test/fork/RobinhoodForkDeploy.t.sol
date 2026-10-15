@@ -111,6 +111,8 @@ contract RobinhoodForkDeployTest is Test {
     function _file() internal view returns (Deploy.Config memory cfg) {
         cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
+        // The seventeen tokens' values as if Thom had confirmed them, which a send needs first.
+        cfg.proposed = false;
         cfg.safe = safe;
         cfg.guardian = guardian;
     }
@@ -157,8 +159,10 @@ contract RobinhoodForkDeployTest is Test {
         // takes it, and still refuses the deployer as guardian.
         assertEq(cfg.guardian, owners[0], "the guardian is the Safe's first owner");
         cfg.placeholders = false;
+        cfg.proposed = false;
         Deploy.Config memory self = script.readConfig("script/config/4663.json");
         self.placeholders = false;
+        self.proposed = false;
         self.guardian = deployer;
         vm.expectRevert(abi.encodeWithSelector(Deploy.MainnetRefused.selector, "the guardian is the deployer"));
         script.deploy(self, deployer);
@@ -208,6 +212,17 @@ contract RobinhoodForkDeployTest is Test {
         );
         script.deploy(marked, deployer);
 
+        // The seventeen tokens of the redeploy are Proposed until Thom confirms each: refused until then,
+        // and the same file deploys once they read as confirmed.
+        assertTrue(cfg.proposed, "values a person has still to confirm");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Deploy.MainnetRefused.selector,
+                "the file still holds a Proposed value: each is confirmed by a person before a send"
+            )
+        );
+        script.deploy(cfg, deployer);
+        cfg.proposed = false;
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
         VaultFactory factory = VaultFactory(d.factory);
         assertEq(factory.pendingAdmin(), REAL_SAFE);
