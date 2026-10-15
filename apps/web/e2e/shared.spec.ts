@@ -83,9 +83,14 @@ async function toFamily(page: Page, name: string) {
 async function publish(page: Page, name: string, weights: [string, string][], photograph = false) {
   await toShelf(page);
   await page.getByRole('link', { name: en.shared.shelf.publish }).first().click();
-  await expect(page.getByText(en.shared.publish.noVaults, { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: en.shared.publish.review })).toBeDisabled();
-  await expect(page.locator('[data-ui="publish-row"]')).toHaveCount(0);
+  // no vault of theirs yet: one line, and the way to make one
+  const none = page.locator('[data-ui="publish-no-vault"]');
+  await expect(none).toContainText(en.shared.publish.noVaultOn(''));
+  await expect(none.getByRole('link', { name: en.shared.publish.makeVault })).toHaveAttribute(
+    'href',
+    '/invest',
+  );
+  await expect(page.getByRole('button', { name: en.shared.publish.review })).toHaveCount(0);
   // the person's Solana wallet, as the account menu lists it (the phone's sheet holds the same block)
   const shownWallet = page
     .locator(
@@ -108,7 +113,7 @@ async function publish(page: Page, name: string, weights: [string, string][], ph
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.publish.title);
   await page
     .getByRole('combobox', { name: en.shared.publish.sourceVault, exact: true })
-    .selectOption(address);
+    .selectOption(`solana:${address}`);
   await page.getByLabel(en.shared.publish.name, { exact: true }).fill(name);
   await page.getByLabel(en.shared.publish.copy, { exact: true }).fill('Three test tokens.');
   const allocation = page.getByRole('region', { name: en.shared.publish.assets, exact: true });
