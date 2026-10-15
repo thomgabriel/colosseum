@@ -116,6 +116,7 @@ describe('a send that stopped, and what may resume it', () => {
       i === 7 ? { ...r, status: '0x0' } : r,
     ),
   };
+  // Each spawns the script with tsx: seconds apiece on a loaded machine, so these two get two minutes.
   const cli = (flags: string[], record: unknown) => {
     const dir = mkdtempSync(join(tmpdir(), 'redeploy-'));
     const path = join(dir, 'run-latest.json');
@@ -140,7 +141,7 @@ describe('a send that stopped, and what may resume it', () => {
     // A send refused before it broadcast leaves the older record, or none at all.
     expect(cli(['--sent', '--since', String(at + 1)], broadcast).code).toBe(3);
     expect(cli(['--sent', '--since', String(at)], null).code).toBe(3);
-  });
+  }, 120_000);
 
   it('resumes only this redeploy’s record, and never one with a reverted transaction', () => {
     const ok = cli(['--resumable', '--since', String(at)], broadcast);
@@ -152,5 +153,5 @@ describe('a send that stopped, and what may resume it', () => {
     expect([old.code, old.out]).toEqual([1, expect.stringMatching(/not this redeploy's/)]);
     const bad = cli(['--resumable', '--since', String(at)], reverted);
     expect([bad.code, bad.out]).toEqual([1, expect.stringMatching(/reverted .* never sent again/)]);
-  });
+  }, 120_000);
 });
