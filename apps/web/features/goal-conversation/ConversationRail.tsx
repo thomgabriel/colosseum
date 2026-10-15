@@ -253,6 +253,8 @@ export function ConversationRail({
         folded ? 'lg:w-14' : 'lg:w-76',
       )}
     >
+      {/* the parent of its day groups' headings, as the sheet's own title is */}
+      {!folded && <h2 className="sr-only">{w.label}</h2>}
       <div className={cn('flex flex-col gap-2 px-2 pt-3', folded && 'pb-3')}>
         <button
           type="button"
@@ -503,16 +505,23 @@ function Group({
 }
 
 /**
- * A rail row's one line: the chain's mark in the menu's mark column, and the name. What the sheet
- * writes under the name (the chain and how long ago) is its tooltip, said to a reader after the name,
- * and written under the name on the row the keyboard is on, since a tooltip is the pointer's alone.
+ * A rail row's one line: the chain's mark in the menu's mark column (its name's first two letters in
+ * mono where it has no picture: Base), and the name. A vault's link is named by this line, so a reader
+ * hears its name, "Vault", the chain and how long ago. What the sheet writes under the name (the chain
+ * and how long ago) is its tooltip, said to a reader after the name, and written under the name on the
+ * row the keyboard is on, since a tooltip is the pointer's alone.
  */
 function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: string }) {
   const lang = useLang();
   return (
     <>
       <span aria-hidden="true" className={cn(MENU_MARK, 'flex items-center')}>
-        <ChainLogo chain={row.chain} size={14} decorative />
+        <ChainLogo
+          chain={row.chain}
+          size={14}
+          decorative
+          fallback={<span data-ui="chain-code">{CHAIN_NAMES[row.chain].slice(0, 2)}</span>}
+        />
       </span>
       <span className="min-w-0 flex-1">
         <span data-ui="conversation-title" className="block truncate">
@@ -791,7 +800,6 @@ function VaultItem({ row, now, dense }: { row: VaultRow; now: number; dense: boo
         <Link
           href={vaultHref(row.chain, row.address)}
           data-ui="conversation-open"
-          aria-label={w.openVault(row.title)}
           title={tip(row, now, LOCALE[lang], w.vault)}
           className={DENSE_OPEN}
         >

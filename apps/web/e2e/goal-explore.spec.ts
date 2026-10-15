@@ -292,7 +292,7 @@ test('beside a draft the chat keeps its share, and the rail folds for it', async
     await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', 'false');
     expect(await measure(), `${width}px`).toBeCloseTo(share, 2);
   }
-  // opened again, the rail stays open for this conversation: at 1920 and 1600, after the next reply
+  // opened again, the rail stays open for this conversation: at 2000 and 1600, after the next reply
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await measure();
