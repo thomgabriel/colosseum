@@ -499,7 +499,8 @@ export function GoalConversation({
       data-ui="goal-conversation"
       data-workbench
       // Beside a draft the chat keeps half from 1440px and 45% from 1024px, never under 440px unless
-      // that is more than half (the sidebar open on a narrow desk); on a tablet five twelfths. Each range is bounded on both sides (`max-*` is `width <`, so they meet
+      // that is more than half (the sidebar opened by hand on a narrow desk); on a tablet five
+      // twelfths. Each range is bounded on both sides (`max-*` is `width <`, so they meet
       // with no gap): an arbitrary breakpoint's rule is written before the named ones, so
       // `min-[1440px]` alone would lose to `md:` and `lg:`.
       className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:min-h-0 md:flex-1 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch ${drafting && chatShown ? 'md:max-lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:max-[1440px]:grid-cols-[minmax(min(27.5rem,50%),9fr)_minmax(0,11fr)] min-[1440px]:grid-cols-[minmax(min(27.5rem,50%),1fr)_minmax(0,1fr)]' : ''}`}

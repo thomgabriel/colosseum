@@ -722,3 +722,21 @@ test('a vault away from its targets: the rebalance reviewed, signed and done in 
   await expect(screen).toHaveAttribute('data-pane', 'holdings');
   await expect(screen.locator('[data-action="vault-rebalance"]')).toHaveCount(0);
 });
+
+// The holdings' rows carry a line under each name (the amount, and why it is held). The draft card's
+// floor for a reason (Composition.tsx, 18rem) is not theirs: beside the chat at 1280 the table is no
+// wider than its box, as before the floor (the review of #326). At 1024 the pane is narrower than its
+// four columns and the table scrolls sideways, as it did before; that is Composition's own rule.
+test('the holdings table is no wider than its box beside the chat at 1280', async ({ page }) => {
+  await toVault(page);
+  const table = page.locator('[data-ui="vault-plan"] [data-ui="composition-table"]').first();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(table).toBeVisible();
+  await expect(async () => {
+    const [wide, room] = await table.evaluate((el) => [
+      el.scrollWidth,
+      el.parentElement?.clientWidth ?? 0,
+    ]);
+    expect(wide).toBeLessThanOrEqual(room);
+  }).toPass();
+});

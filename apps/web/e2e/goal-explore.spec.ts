@@ -295,6 +295,21 @@ test('beside a draft the chat keeps its share, and the rail folds for it', async
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await measure();
+  // and at 1024, where 440px would be more than half: the chat and the draft half each, the draft
+  // never squeezed under the rail opened by hand (the review of #326)
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(async () => {
+    const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
+    const draft = await strategy.boundingBox();
+    if (!chat || !draft) throw new Error('the chat and the draft are drawn');
+    expect(draft.width).toBeGreaterThanOrEqual(300);
+    // half of the row is the chat's; the draft has the rest after the 16px gap
+    expect(Math.abs(chat.width - draft.width)).toBeLessThanOrEqual(17);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1024,
+    );
+  }).toPass();
   // a new conversation has no draft, and its first draft folds the rail again
   await page.setViewportSize({ width: 1920, height: 900 });
   await page.locator('div[data-ui="conversations"] [data-ui="conversation-new"]').click();
