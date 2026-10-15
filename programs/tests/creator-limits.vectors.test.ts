@@ -33,10 +33,11 @@ import {
 } from './src/env';
 import { createMint, TOKEN_PROGRAM } from './src/tokens';
 
-// The four author limits, held to the one list of cases the TypeScript check and the EVM
-// registry are held to (fixtures/creator-limits). Each case is driven through the real program:
-// the state its scenario names is built with real publishes at the times it gives, then the
-// version is proposed at `now`. Hostile case A16.
+// The four author limits, held to the one list of cases of the second rules (gate SHARED-RULES-V2,
+// Thom, Oct 14) that the TypeScript check and the EVM registry's second logic are held to
+// (fixtures/creator-limits/vectors-v2.json). Each case is driven through the real program: the state
+// its scenario names is built with real publishes at the times it gives, then the version is proposed
+// at `now`. Hostile case A16.
 
 type Version = { exists?: number; n: number; assets: string[]; weightsBps: number[] };
 type Case = {
@@ -74,7 +75,7 @@ type Vectors = {
 };
 
 const vectors = JSON.parse(
-  readFileSync(join(REPO_ROOT, 'fixtures', 'creator-limits', 'vectors.json'), 'utf8'),
+  readFileSync(join(REPO_ROOT, 'fixtures', 'creator-limits', 'vectors-v2.json'), 'utf8'),
 ) as Vectors;
 const LONG_DELAY = 172_800;
 
@@ -128,7 +129,7 @@ describe('the author limits, from the shared vectors (A16)', () => {
 
   it('has every case the file says it has, and a mint for every name', () => {
     expect(vectors.cases).toHaveLength(vectors.count);
-    expect(vectors.count).toBe(87);
+    expect(vectors.count).toBe(53);
     expect(vectors.error).toBe('CreatorLimit');
     for (const c of vectors.cases)
       for (const v of [c.prev, c.next, c.older, c.waiting])
@@ -260,4 +261,30 @@ describe('the author limits, from the shared vectors (A16)', () => {
       else expect(readRecipe(svm, recipe)).toEqual(before);
     },
   );
+
+  // The vectors take the cash token as a line only in a first version; a later one is held to the
+  // same rule.
+  it('a later version brings in the cash token', async () => {
+    const family = familyId('cash-later');
+    const recipe = await recipeAddress(creator.address, family);
+    await setDelay(DEFAULT_PARAMS.publishDelayS);
+    setClock(svm, 1_791_212_400);
+    const first = [{ mint: mintOf('A'), weightBps: 5_000 }];
+    expectOk(
+      await send(svm, creator, [
+        await publishRecipeInstruction({ creator, familyId: family, components: first }),
+      ]),
+    );
+    setClock(svm, 1_791_212_400 + DEFAULT_PARAMS.publishDelayS);
+    const result = await send(svm, creator, [
+      await updateRecipeInstruction({
+        creator,
+        recipe,
+        components: [...first, { mint: mintOf(vectors.platform.cash), weightBps: 500 }],
+      }),
+    ]);
+    expectError(result, ERR.CreatorLimit);
+    if (!failed(result)) throw new Error('unreachable');
+    expect(limitReason(result.meta().logs())).toBe(14);
+  });
 });

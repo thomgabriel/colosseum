@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { batchTrades, RebalanceError, rebalancePlan } from '@colosseum/basket';
+import { batchTrades, RebalanceError, rebalancePlan, view } from '@colosseum/basket';
 import {
   eligibleForGoal,
   fixedMix,
@@ -17,6 +17,7 @@ import {
   chainFamily,
   DISCLAIMER,
   type IntentRequest,
+  idleCashToInvest,
   type Language,
   type Leg,
   type MixFigure,
@@ -34,6 +35,7 @@ import {
   OWNER_REBALANCE_BAND_BPS,
   OWNER_REBALANCE_MIN_TRADE_USD,
   outsideOwnerBand,
+  ownerShares,
   type Price,
   type RebalanceQuoteResponse,
   type Target,
@@ -685,6 +687,39 @@ function sharesOf(vault: VaultState, prices: Map<string, Price>) {
   return { values, cash, total };
 }
 
+/**
+ * Whether idle cash is to be spent by purchases alone (`idleCashToInvest`), read as the vault's page
+ * and the chat read it: the vault's own view (`view` in packages/basket), its shares in whole bps, so
+ * the page, the chat and this route agree on a vault near the $5 line (the review of #307).
+ */
+function idleToInvest(
+  vault: VaultState,
+  prices: Map<string, Price>,
+  assets: readonly BasketAsset[],
+  slippageBps: number,
+): boolean {
+  let seen: ReturnType<typeof view>;
+  try {
+    seen = view(vault, [...prices.values()], [...assets]);
+  } catch {
+    return false;
+  }
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  return read !== null && idleCashToInvest(read.rows, read.cashOverBps, slippageBps, read.valueUsd);
+}
+
+/** The cash the targets keep, in raw units of the cash token: its share of the vault at these prices. */
+function cashReserveRaw(
+  vault: VaultState,
+  checked: Pick<CheckedMix, 'prices' | 'cashBps'>,
+  decimals: number,
+): bigint {
+  if (!checked.cashBps) return 0n;
+  const shares = sharesOf(vault, checked.prices);
+  if (!shares) return 0n;
+  return BigInt(Math.ceil(((shares.total * checked.cashBps) / 10_000) * 10 ** decimals));
+}
+
 /** `outsideOwnerBand` at these prices, for the targets given. */
 function outsideBand(
   vault: VaultState,
@@ -744,6 +779,11 @@ export async function planRetarget(
     });
   let trades: Trade[];
   try {
+    // A rebalance inside the owner's band still spends idle cash worth a trade (`idleCashToInvest`),
+    // by purchases alone: their amounts are the cash itself, so none is held back and none is left.
+    const inside =
+      a.keepTargets && !outsideBand(vault, checked.targets, checked.prices, a.slippageBps);
+    const purchasesOnly = inside && idleToInvest(vault, checked.prices, ctx.assets, a.slippageBps);
     const plan = rebalancePlan(
       vault,
       checked.targets,
@@ -751,9 +791,10 @@ export async function planRetarget(
       // Its own new targets are traded to whatever the distance; a rebalance only once outside the band.
       // a rebalance makes no trade smaller than the smallest line a plan holds
       {
-        bandBps: a.keepTargets ? OWNER_REBALANCE_BAND_BPS : 0,
+        bandBps: a.keepTargets && !purchasesOnly ? OWNER_REBALANCE_BAND_BPS : 0,
         minTradeUsd: a.keepTargets ? OWNER_REBALANCE_MIN_TRADE_USD : 1,
         costBps: a.slippageBps,
+        ...(purchasesOnly ? { purchasesOnly: true } : {}),
       },
       ctx.assets,
     );
@@ -761,10 +802,7 @@ export async function planRetarget(
       throw new Refusal(409, 'the vault cannot be valued now: an asset it holds has no price', {
         details: { retryable: true },
       });
-    trades =
-      a.keepTargets && !outsideBand(vault, checked.targets, checked.prices, a.slippageBps)
-        ? []
-        : plan.trades;
+    trades = inside && !purchasesOnly ? [] : plan.trades;
   } catch (e) {
     if (e instanceof RebalanceError)
       throw new Refusal(409, `the vault cannot be planned: ${e.message}`);
@@ -799,51 +837,94 @@ export async function planRetarget(
           : `${after ? 'swap' : 'Swap'} into ${symbol(t.buy)}`,
       )
       .join(', ');
-  const groups = batchTrades(trades, entry.adapter.capabilities.maxTradesPerTx);
-  // Where the chain takes them in one transaction, the first trades ride with the targets they trade
-  // toward (gate EVM-MULTICALL-STEPS); elsewhere the targets are a step of their own.
-  const riding = !a.keepTargets && entry.adapter.capabilities.ownerCallsInOne ? groups.shift() : [];
   const setTargets = `Set your vault's targets: ${checked.targets
     .map((t) => `${symbol(t.asset)} ${pct(t.weightBps)}`)
     .join(', ')}${checked.cashBps ? `, and ${pct(checked.cashBps)} in cash` : ''}`;
-  const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
-    ...(a.keepTargets
-      ? []
-      : [
-          {
-            kind: 'set_targets' as const,
-            description: riding?.length ? `${setTargets}; then ${said(riding, true)}` : setTargets,
-            trades: riding ?? [],
-          },
-        ]),
-    ...groups.map((group) => ({
-      kind: 'swap' as const,
-      description: said(group),
-      trades: group,
-    })),
-  ];
-  const legs: Leg[] = [];
-  for (const [seq, step] of steps.entries())
-    legs.push({
-      id: randomUUID(),
-      orderId: id,
-      chain: entry.chain,
-      seq,
-      ...step,
-      signer: 'owner',
-      expected: await expectedHeld(entry, step.trades, owner, a.slippageBps, {
-        symbol,
-        cash: ctx.cash.id,
-      }),
-      status: 'planned',
-      attempt: 0,
-      txId: null,
-      explorerUrl: null,
-      validUntil: null,
-      error: null,
-      trigger: 'manual',
-      provenance: entry.provenance,
-    });
+  const legsOf = async (planned: Trade[]): Promise<Leg[]> => {
+    const groups = batchTrades(planned, entry.adapter.capabilities.maxTradesPerTx);
+    // Where the chain takes them in one transaction, the first trades ride with the targets they
+    // trade toward (gate EVM-MULTICALL-STEPS); elsewhere the targets are a step of their own. Each
+    // leg's figures stay one per trade, in its trades' order, for the cap below.
+    const riding =
+      !a.keepTargets && entry.adapter.capabilities.ownerCallsInOne ? (groups.shift() ?? []) : [];
+    const steps: Array<Pick<Leg, 'kind' | 'description' | 'trades'>> = [
+      ...(a.keepTargets
+        ? []
+        : [
+            {
+              kind: 'set_targets' as const,
+              description: riding.length ? `${setTargets}; then ${said(riding, true)}` : setTargets,
+              trades: riding,
+            },
+          ]),
+      ...groups.map((group) => ({
+        kind: 'swap' as const,
+        description: said(group),
+        trades: group,
+      })),
+    ];
+    const built: Leg[] = [];
+    for (const [seq, step] of steps.entries())
+      built.push({
+        id: randomUUID(),
+        orderId: id,
+        chain: entry.chain,
+        seq,
+        ...step,
+        signer: 'owner',
+        expected: await expectedHeld(entry, step.trades, owner, a.slippageBps, {
+          symbol,
+          cash: ctx.cash.id,
+        }),
+        status: 'planned',
+        attempt: 0,
+        txId: null,
+        explorerUrl: null,
+        validUntil: null,
+        error: null,
+        trigger: 'manual',
+        provenance: entry.provenance,
+      });
+    return built;
+  };
+  // The purchases spend what the sales are sure to bring, and no more: the cash held and the least
+  // each sale states it takes (its quote less the order's slippage), less the cash's own share. The
+  // planner counts on the reference price; where a quote is under it the purchases are scaled down to
+  // what the minimums cover, so a step never spends cash its sales may not bring.
+  let legs = await legsOf(trades);
+  const reserve = cashReserveRaw(vault, checked, ctx.cash.decimals);
+  for (let round = 0; round < 3; round += 1) {
+    const sure =
+      BigInt(vault.cash.raw) +
+      legs
+        .flatMap((l) => l.trades.map((t, i) => (t.buy === ctx.cash.id ? l.expected[i] : null)))
+        .reduce((n, e) => n + (e ? BigInt(e.minOutRaw) : 0n), 0n) -
+      reserve;
+    const spend = trades
+      .filter((t) => t.sell === ctx.cash.id)
+      .reduce((n, t) => n + BigInt(t.amountInRaw), 0n);
+    // The cash's share is kept, not needed to pay: a purchase within a cent of it is the planner's
+    // own reserve read in floats here, and is not scaled (a $5.00 purchase scaled to $4.99 would be
+    // dropped). What the vault holds and the sales are sure to bring is never passed.
+    const cent = 10n ** BigInt(Math.max(0, ctx.cash.decimals - 2));
+    const slack = reserve < cent ? reserve : cent;
+    if (spend === 0n || spend <= sure + slack) break;
+    const room = sure > 0n ? sure : 0n;
+    trades = trades
+      .map((t) =>
+        t.sell === ctx.cash.id
+          ? { ...t, amountInRaw: String((BigInt(t.amountInRaw) * room) / spend) }
+          : t,
+      )
+      // a purchase scaled under the smallest trade the order makes is dropped, never sent as dust
+      .filter(
+        (t) =>
+          t.sell !== ctx.cash.id ||
+          Number(t.amountInRaw) / 10 ** ctx.cash.decimals >=
+            (a.keepTargets ? OWNER_REBALANCE_MIN_TRADE_USD : 1),
+      );
+    legs = await legsOf(trades);
+  }
   const order: Order = {
     id,
     type: 'rebalance',
@@ -954,8 +1035,8 @@ export async function planVaultRebalance(
  * sized when the order was made, and the vault may have moved since (another order landed first, an
  * old order taken up again). Refused where auto-follow is on and the chain runs a keeper, and where a
  * trade would take an asset past its target: a purchase over it by more than the owner's band, or a
- * sale under it by more than the band and the order's slippage, at the reference prices now. A
- * purchase's worth does not move with the price, so its allowance is the band alone.
+ * sale under it by more than the band and the order's slippage, at the reference prices now
+ * (`pastTarget`).
  */
 async function heldAtBuild(
   entry: ChainEntry,
@@ -991,18 +1072,19 @@ async function heldAtBuild(
   const usd = (asset: string, raw: string) =>
     (Number(raw) / 10 ** (decimals.get(asset) ?? 0)) *
     (asset === cashId ? 1 : Number(priced.get(asset)?.usdPerToken ?? Number.NaN));
-  const bps = (value: number) => (value / shares.total) * 10_000;
   for (const t of leg.trades) {
     const buys = t.sell === cashId;
     const asset = buys ? t.buy : t.sell;
-    const now = shares.values.get(asset) ?? 0;
     const moved = usd(t.sell, t.amountInRaw);
     if (!Number.isFinite(moved)) continue;
-    const after = bps(buys ? now + moved : now - moved);
-    const goal = target.get(asset) ?? 0;
-    const past = buys
-      ? after - goal > OWNER_REBALANCE_BAND_BPS
-      : goal > 0 && goal - after > OWNER_REBALANCE_BAND_BPS + slippageBps;
+    const past = pastTarget({
+      buys,
+      nowUsd: shares.values.get(asset) ?? 0,
+      movedUsd: moved,
+      totalUsd: shares.total,
+      goalBps: target.get(asset) ?? 0,
+      slippageBps,
+    });
     if (past)
       throw new Refusal(
         409,
@@ -1013,6 +1095,29 @@ async function heldAtBuild(
         },
       );
   }
+}
+
+/**
+ * Whether a trade of a rebalance takes its asset past its target, judged on the vault as it is now
+ * (`totalUsd`): a sale under it by more than the owner's band and the order's slippage; a purchase over
+ * it by more than the band, counting the purchase at the least it brings (its amount less the
+ * slippage), as the planner sizes it (`rebalancePlan`: what it buys, once it loses its cost, stops at
+ * its target). Counted at its whole amount, a purchase sized at 300 bps read up to 66 bps over and
+ * was refused after its sales had landed (the review of #307).
+ */
+export function pastTarget(a: {
+  buys: boolean;
+  nowUsd: number;
+  movedUsd: number;
+  totalUsd: number;
+  goalBps: number;
+  slippageBps: number;
+}): boolean {
+  const moved = a.buys ? a.movedUsd * (1 - a.slippageBps / 10_000) : a.movedUsd;
+  const after = ((a.buys ? a.nowUsd + moved : a.nowUsd - moved) / a.totalUsd) * 10_000;
+  return a.buys
+    ? after - a.goalBps > OWNER_REBALANCE_BAND_BPS
+    : a.goalBps > 0 && a.goalBps - after > OWNER_REBALANCE_BAND_BPS + a.slippageBps;
 }
 
 /** The targets a vault has on chain, those above zero. */

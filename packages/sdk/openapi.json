@@ -12095,6 +12095,10 @@
                       "required": ["prose", "facts"],
                       "additionalProperties": false
                     },
+                    "action": {
+                      "type": "string",
+                      "enum": ["rebalance"]
+                    },
                     "chain": {
                       "type": "string",
                       "enum": ["solana", "base", "robinhood"]
@@ -15514,6 +15518,10 @@
                           },
                           "required": ["chain", "components"]
                         }
+                      },
+                      "language": {
+                        "type": "string",
+                        "enum": ["pt", "en"]
                       }
                     },
                     "required": ["type", "creator", "family", "name", "copy", "recipes"]
@@ -19694,6 +19702,10 @@
                                           }
                                         ]
                                       },
+                                      "untargeted": {
+                                        "type": "boolean",
+                                        "enum": [true]
+                                      },
                                       "valueUsd": {
                                         "anyOf": [
                                           {
@@ -22144,6 +22156,10 @@
                                                   }
                                                 ]
                                               },
+                                              "untargeted": {
+                                                "type": "boolean",
+                                                "enum": [true]
+                                              },
                                               "valueUsd": {
                                                 "anyOf": [
                                                   {
@@ -23099,6 +23115,335 @@
                     }
                   },
                   "required": ["chains", "unavailable", "disclaimer"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
+                        "ORDER_UNFINISHED",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/shared/limits": {
+      "get": {
+        "summary": "The author limits of one chain, as its registry says them now",
+        "tags": ["shared portfolios"],
+        "description": "What a shared portfolio published on `chain` is held to, read from the chain for this answer (`source: 'chain'`): on Robinhood Chain the registry's `limits()` and `rulesVersion()`, on Solana the program's own numbers. `ceilings` are each listed asset's `maxWeightBps`, set from its measured exit capacity. `rules` 1 are the first rules: 3 to 12 assets, each from 2% to the lower of 50% and the asset's ceiling, adding up to exactly 100%. `rules` 2 are the second (gate SHARED-RULES-V2): 1 to 16 assets, each from 0.5% to 100%, adding up to at most 100% with the rest in cash, and an asset's own ceiling a warning, not a limit. Both: steps of 0.5%, never the cash token as a line, at most 20% of the portfolio moved per version, cash counted, and one version per publish delay. A chain that does not answer is 503 `CHAIN_UNAVAILABLE`: nothing is assumed.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["solana", "base", "robinhood"]
+            },
+            "in": "query",
+            "name": "chain",
+            "required": true
+          }
+        ],
+        "security": [],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "limits": {
+                      "type": "object",
+                      "properties": {
+                        "rules": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "enum": [1]
+                            },
+                            {
+                              "type": "number",
+                              "enum": [2]
+                            }
+                          ]
+                        },
+                        "minAssets": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "maxAssets": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "minWeightBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "maxWeightBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "stepBps": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10000
+                        },
+                        "sumBps": {
+                          "type": "number",
+                          "enum": [10000]
+                        },
+                        "maxTurnoverBps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        }
+                      },
+                      "required": [
+                        "rules",
+                        "minAssets",
+                        "maxAssets",
+                        "minWeightBps",
+                        "maxWeightBps",
+                        "stepBps",
+                        "sumBps",
+                        "maxTurnoverBps"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "ceilings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset": {
+                            "type": "string",
+                            "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                          },
+                          "maxWeightBps": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": ["asset", "maxWeightBps"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "ceilingsFrom": {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "method": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "fetchedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                        }
+                      },
+                      "required": ["source", "method", "fetchedAt", "provenance"],
+                      "additionalProperties": false
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": ["chain"]
+                    },
+                    "observedAt": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "string",
+                      "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                    }
+                  },
+                  "required": [
+                    "chain",
+                    "limits",
+                    "ceilings",
+                    "ceilingsFrom",
+                    "source",
+                    "observedAt",
+                    "provenance"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -24768,6 +25113,10 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "untargeted": {
+                                "type": "boolean",
+                                "enum": [true]
                               },
                               "valueUsd": {
                                 "anyOf": [
@@ -27902,6 +28251,10 @@
                       "required": ["prose", "facts"],
                       "additionalProperties": false
                     },
+                    "action": {
+                      "type": "string",
+                      "enum": ["rebalance"]
+                    },
                     "chain": {
                       "type": "string",
                       "enum": ["solana", "base", "robinhood"]
@@ -28382,7 +28735,7 @@
       "post": {
         "summary": "Rebalance a vault you own to the targets it has",
         "tags": ["portfolio"],
-        "description": "Brings what the vault holds to the targets it has on chain now, and changes nothing else: no target is set, so a vault that follows a shared portfolio goes on following it, at the version it accepted. This is what a person does after following a portfolio with a vault that already holds something (following trades nothing), and whenever a vault has moved off its targets and no keeper trades it. Ownership is read from the chain on every call; a missing vault and another person’s answer the same 404. The body names no target and no asset: the targets are the vault’s own, and they are not checked against a goal, since they are not being changed. `on_target`: the vault is inside the owner’s band (`outsideOwnerBand` in packages/schemas: no asset more than 50 bps over its target or more than that and its part of the slippage under it, and the cash no more than the band and the slippage over its share), so there is nothing to trade, and nothing is built or stored. No trade is smaller than the smallest line a plan holds. `ordered`: an order (`type` rebalance) of `swap` steps only, the sales of what is over its target and then the purchases of what is under, sized at the prices now so that the purchases have their cash even if every trade loses the order’s slippage, each with the minimum it states, as many per step as the chain takes. It is read, built, signed, reported and cancelled through `/v1/orders/{id}` like any order. A step is built only while the vault’s targets are still the ones in `targets` (409 `TARGETS_CHANGED` in `details.issues` otherwise: rebalance again). Refused with 409 and `details.issues`: `NO_TARGETS` (the vault has no target), `AUTO_FOLLOW_ON` (auto-follow is on and this chain runs a keeper, which rebalances the vault), `NO_PRICE:<asset>` (a target or a holding has no price the vault can trade on now; retryable). A rebalance that would sell or buy more than one order may move is refused (422 `MIX_NOT_VALID`, `OVER_ORDER_LIMIT`). A step is built only while auto-follow is not on where the chain runs a keeper (`AUTO_FOLLOW_ON`) and while none of its trades would take an asset past its target given what the vault holds then (`PAST_TARGET:<asset>`). On EVM each trade’s minimum is the higher of the order’s slippage and the quote’s own, which carries the reference price’s floor; a trade whose pool pays under that floor is refused (409 `PRICE_BOUND:<asset>`), one larger than the network takes of the asset in one go is refused for good (422 `TRADE_TOO_LARGE:<asset>`, not retryable), and one over the smaller limit of a closed market waits for it to open (409 `TRADE_WAITS_FOR_OPEN:<asset>`, retryable). Cache-Control: private, no-store.",
+        "description": "Brings what the vault holds to the targets it has on chain now, and changes nothing else: no target is set, so a vault that follows a shared portfolio goes on following it, at the version it accepted. This is what a person does after following a portfolio with a vault that already holds something (following trades nothing), and whenever a vault has moved off its targets and no keeper trades it. Ownership is read from the chain on every call; a missing vault and another person’s answer the same 404. The body names no target and no asset: the targets are the vault’s own, and they are not checked against a goal, since they are not being changed. `on_target`: the vault is inside the owner’s band (`outsideOwnerBand` in packages/schemas: no asset more than 50 bps over its target or more than that and its part of the slippage under it, and the cash no more than the band and the slippage over its share) and holds less cash over its share than one trade of `OWNER_REBALANCE_MIN_TRADE_USD` (`idleCashToInvest`), so there is nothing to trade, and nothing is built or stored. Inside the band, cash over its share worth such a trade is spent by purchases alone, sized on the cash itself, so none is left. No trade is smaller than the smallest line a plan holds. `ordered`: an order (`type` rebalance) of `swap` steps only, the sales of what is over its target and then the purchases of what is under, sized at the prices now so that the purchases have their cash even if every trade loses the order’s slippage, each with the minimum it states, as many per step as the chain takes. It is read, built, signed, reported and cancelled through `/v1/orders/{id}` like any order. A step is built only while the vault’s targets are still the ones in `targets` (409 `TARGETS_CHANGED` in `details.issues` otherwise: rebalance again). Refused with 409 and `details.issues`: `NO_TARGETS` (the vault has no target), `AUTO_FOLLOW_ON` (auto-follow is on and this chain runs a keeper, which rebalances the vault), `NO_PRICE:<asset>` (a target or a holding has no price the vault can trade on now; retryable). A rebalance that would sell or buy more than one order may move is refused (422 `MIX_NOT_VALID`, `OVER_ORDER_LIMIT`). A step is built only while auto-follow is not on where the chain runs a keeper (`AUTO_FOLLOW_ON`) and while none of its trades would take an asset past its target given what the vault holds then (`PAST_TARGET:<asset>`). On EVM each trade’s minimum is the higher of the order’s slippage and the quote’s own, which carries the reference price’s floor; a trade whose pool pays under that floor is refused (409 `PRICE_BOUND:<asset>`), one larger than the network takes of the asset in one go is refused for good (422 `TRADE_TOO_LARGE:<asset>`, not retryable), and one over the smaller limit of a closed market waits for it to open (409 `TRADE_WAITS_FOR_OPEN:<asset>`, retryable). Cache-Control: private, no-store.",
         "requestBody": {
           "required": true,
           "content": {

@@ -21,6 +21,7 @@ import {
   type Target,
   Targets,
   type Trade,
+  VAULT_MAX_TARGETS,
 } from '@colosseum/schemas';
 import { holds } from '../plugins/auth';
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
@@ -50,7 +51,7 @@ export const ORDER_POLICY = {
   /** Once the chain has seen its first transaction, an order stays open this long. */
   signedSeconds: 24 * 60 * 60,
   /** The most lines a vault holds: 16 in the Solana program and in the EVM vault. */
-  maxLines: 16,
+  maxLines: VAULT_MAX_TARGETS,
 } as const;
 
 /** The slippage every trade of an order is built with: the order's own figure where it names one, or the server's. */
@@ -668,11 +669,18 @@ export async function prepareOrder(req: IntentRequest, ctx: PrepareContext): Pro
       chains: ctx.chains,
     };
     if (req.type === 'publish') {
-      const { familyId, steps } = await refusing(() => planPublish(req, sctx));
+      const { familyId, steps, warnings } = await refusing(() => planPublish(req, sctx));
       return {
-        order: sharedOrder(ctx, req.creator, 'publish', 'Publish your shared portfolio', steps, [
+        order: sharedOrder(
+          ctx,
+          req.creator,
           'publish',
-        ]),
+          'Publish your shared portfolio',
+          steps,
+          ['publish'],
+          undefined,
+          warnings,
+        ),
         request: { ...req, familyId },
       };
     }

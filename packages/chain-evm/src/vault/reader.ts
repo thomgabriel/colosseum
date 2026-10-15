@@ -6,6 +6,7 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainReader,
+  CreatorLimits,
   chainProvenance,
   EvmAddress,
   explorerLink,
@@ -362,7 +363,11 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
       }),
     ) as Promise<unknown>;
 
-  const onRegistry = (m: Moment, functionName: 'indexInfo', args: readonly unknown[]) =>
+  const onRegistry = (
+    m: Moment,
+    functionName: 'indexInfo' | 'limits' | 'rulesVersion',
+    args: readonly unknown[] = [],
+  ) =>
     ask(`${functionName} of the registry`, () =>
       rpc.readContract({
         address: registry,
@@ -665,7 +670,14 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
         const raw = otherRaw[i] ?? 0n;
         // Held with no target: the weight it should have is zero.
         return raw > 0n
-          ? [holding(m, asset, raw).then((h) => ({ ...h, targetBps: 0, lastKeeperAt: null }))]
+          ? [
+              holding(m, asset, raw).then((h) => ({
+                ...h,
+                targetBps: 0,
+                lastKeeperAt: null,
+                untargeted: true as const,
+              })),
+            ]
           : [];
       }),
     ]);
@@ -1112,6 +1124,42 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
           active: recipeOf(id, info, info.active),
           pending: info.pending.version > 0 ? recipeOf(id, info, info.pending) : null,
         };
+      }),
+
+    creatorLimits: () =>
+      guarded(async () => {
+        const m = await moment();
+        await assertRegistry(m);
+        const [numbers, rules] = await Promise.all([
+          onRegistry(m, 'limits') as Promise<{
+            minAssets: number;
+            maxAssets: number;
+            minWeightBps: number;
+            maxWeightBps: number;
+            stepBps: number;
+            maxTurnoverBps: number;
+          }>,
+          // The first logic has no `rulesVersion`: the call reverts, and that is how it is told apart.
+          (onRegistry(m, 'rulesVersion') as Promise<number>).catch((e: unknown) => {
+            if (isRevert(e)) return 1;
+            throw e;
+          }),
+        ]);
+        if (rules !== 1 && rules !== 2)
+          return refuse(
+            'NotSupported',
+            `the registry on ${config.networkName} reads its limits under rules ${rules}, which this app does not know`,
+          );
+        return CreatorLimits.parse({
+          rules,
+          minAssets: numbers.minAssets,
+          maxAssets: numbers.maxAssets,
+          minWeightBps: numbers.minWeightBps,
+          maxWeightBps: numbers.maxWeightBps,
+          stepBps: numbers.stepBps,
+          sumBps: 10_000,
+          maxTurnoverBps: numbers.maxTurnoverBps,
+        });
       }),
 
     getWalletHoldings: (owner) =>

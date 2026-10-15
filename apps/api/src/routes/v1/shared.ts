@@ -1,6 +1,9 @@
 import { metaHash } from '@colosseum/basket';
 import {
+  CEILING_METHOD,
   ChainError,
+  CreatorLimitsQuery,
+  CreatorLimitsResponse,
   DISCLAIMER,
   FamilyResponse,
   FamilyRouteParams,
@@ -195,6 +198,13 @@ async function familyNamed(deps: OrderDeps, slug: string): Promise<StoredFamily>
   return family;
 }
 
+/**
+ * How long an answer of `/v1/shared/limits` is kept per chain, in milliseconds: anybody may ask, so a
+ * chain's registry and asset list are read at most once in this time, whoever asks and how often.
+ */
+export const LIMITS_KEPT_MS = 30_000;
+type CreatorLimitsAnswer = import('zod').infer<typeof CreatorLimitsResponse>;
+
 export function registerSharedRoutes(
   scope: FastifyInstance,
   deps: OrderDeps,
@@ -203,6 +213,7 @@ export function registerSharedRoutes(
 ) {
   const f = scope.withTypeProvider<ZodTypeProvider>();
   const tags = ['shared portfolios'];
+  const keptLimits = new Map<string, { at: number; answer: CreatorLimitsAnswer }>();
 
   f.get(
     '/v1/shelf',
@@ -238,6 +249,48 @@ export function registerSharedRoutes(
         families.push(shown);
       }
       return { families, disclaimer: DISCLAIMER.en };
+    },
+  );
+
+  f.get(
+    '/v1/shared/limits',
+    {
+      config: { auth: 'public', limit: 'standard' },
+      schema: {
+        tags,
+        summary: 'The author limits of one chain, as its registry says them now',
+        description:
+          "What a shared portfolio published on `chain` is held to, read from the chain for this answer (`source: 'chain'`): on Robinhood Chain the registry's `limits()` and `rulesVersion()`, on Solana the program's own numbers. `ceilings` are each listed asset's `maxWeightBps`, set from its measured exit capacity. `rules` 1 are the first rules: 3 to 12 assets, each from 2% to the lower of 50% and the asset's ceiling, adding up to exactly 100%. `rules` 2 are the second (gate SHARED-RULES-V2): 1 to 16 assets, each from 0.5% to 100%, adding up to at most 100% with the rest in cash, and an asset's own ceiling a warning, not a limit. Both: steps of 0.5%, never the cash token as a line, at most 20% of the portfolio moved per version, cash counted, and one version per publish delay. A chain that does not answer is 503 `CHAIN_UNAVAILABLE`: nothing is assumed.",
+        querystring: CreatorLimitsQuery,
+        response: { 200: CreatorLimitsResponse, default: OrderError },
+      },
+    },
+    async (req) => {
+      const entry = deps.chains.get(req.query.chain);
+      const now = deps.now().getTime();
+      const hit = keptLimits.get(entry.chain);
+      if (hit && now - hit.at < LIMITS_KEPT_MS) return hit.answer;
+      const [limits, assets] = await refusing(() =>
+        Promise.all([entry.adapter.creatorLimits(), entry.adapter.listAssets()]),
+      );
+      const answer = {
+        chain: entry.chain,
+        limits,
+        ceilings: assets
+          .filter((a) => a.cls !== 'cash')
+          .map((a) => ({ asset: a.id, maxWeightBps: a.maxWeightBps })),
+        ceilingsFrom: {
+          source: `${entry.source}: the asset list on ${entry.config.name}`,
+          method: CEILING_METHOD,
+          fetchedAt: deps.now().toISOString(),
+          provenance: entry.provenance,
+        },
+        source: 'chain' as const,
+        observedAt: deps.now().toISOString(),
+        provenance: entry.provenance,
+      };
+      keptLimits.set(entry.chain, { at: now, answer });
+      return answer;
     },
   );
 

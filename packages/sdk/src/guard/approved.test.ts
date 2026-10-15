@@ -498,3 +498,117 @@ describe('the approved steps of a rebalance', () => {
     },
   );
 });
+
+describe('the approved steps of a follow that sells what the version drops first (SHARED-RULES-V2)', () => {
+  async function following(chain: 'solana' | 'robinhood') {
+    const { w, order } = await bought(chain);
+    const template = order.legs.find((l) => l.kind === 'swap' || l.kind === 'create_vault');
+    if (!template) throw new Error('a step');
+    const cash = w.deployment.cash;
+    const old = `${chain}:tsla`;
+    const step = (
+      seq: number,
+      kind: string,
+      trades: { sell: string; buy: string; amountInRaw: string }[] = [],
+      minOutRaw = '1980',
+    ) => ({
+      ...template,
+      id: `leg-${seq}`,
+      seq,
+      kind,
+      cashRaw: undefined,
+      trades,
+      expected: trades.map((t) => ({
+        inRaw: t.amountInRaw,
+        outRaw: '2000',
+        minOutRaw,
+        costBps: 10,
+      })),
+    });
+    const sale = (seq: number, sell = old, inRaw = '300', minOutRaw = '1980') =>
+      step(seq, 'swap', [{ sell, buy: cash, amountInRaw: inRaw }], minOutRaw);
+    const legs = [sale(0), step(1, 'accept_version')];
+    const follow = { ...order, depositRaw: undefined, legs } as unknown as typeof order;
+    const terms: PlanTerms = {
+      basketId: '42',
+      follow: { recipeOnchainId: 'recipe', version: 2 },
+      leftovers: {
+        keeps: [`${chain}:spy`, `${chain}:nvda`],
+        sales: [{ asset: old, amountRaw: '300' }],
+      },
+    };
+    const refused = (change: (ls: typeof legs) => unknown[], plan = terms) =>
+      refusalOf(() => approvedSteps({ ...follow, legs: change(legs) } as never, plan, w.deployment))
+        ?.code ?? null;
+    return { w, cash, old, step, sale, follow, terms, refused };
+  }
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s signs the reviewed sale, then the accept',
+    async (chain) => {
+      const { w, follow, terms } = await following(chain);
+      expect(approvedSteps(follow, terms, w.deployment).map((s) => s.kind)).toEqual([
+        'swap',
+        'accept_version',
+      ]);
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses a sale not reviewed, a purchase, another amount, no minimum, and a sale after the accept',
+    async (chain) => {
+      const { cash, sale, step, refused, terms } = await following(chain);
+      expect(refused((ls) => ls, { ...terms, leftovers: undefined })).toBe('order');
+      expect(refused(([, a]) => [sale(0, `${chain}:spy`), a])).toBe('order');
+      expect(
+        refused(([, a]) => [
+          { ...sale(0), trades: [{ sell: cash, buy: `${chain}:tsla`, amountInRaw: '300' }] },
+          a,
+        ]),
+      ).toBe('order');
+      expect(refused(([, a]) => [sale(0, `${chain}:tsla`, '301'), a])).toBe('order');
+      expect(refused(([, a]) => [sale(0, `${chain}:tsla`, '300', '0'), a])).toBe('order');
+      expect(refused(() => [step(0, 'accept_version'), sale(1)])).toBe('order');
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses a sale of an asset the version keeps, even one the terms were handed as a sale',
+    async (chain) => {
+      const { refused, sale, terms } = await following(chain);
+      const spy = `${chain}:spy`;
+      // A server that adds "sell all of the vault's SPY" to a follow where SPY stays.
+      expect(refused(([s, a]) => [s, { ...sale(1, spy, '500'), seq: 1 }, { ...a, seq: 2 }])).toBe(
+        'order',
+      );
+      const handed = {
+        ...terms,
+        leftovers: {
+          keeps: terms.leftovers?.keeps ?? [],
+          sales: [...(terms.leftovers?.sales ?? []), { asset: spy, amountRaw: '500' }],
+        },
+      };
+      expect(
+        refused(([s, a]) => [s, { ...sale(1, spy, '500'), seq: 1 }, { ...a, seq: 2 }], handed),
+      ).toBe('order');
+      // And terms that name no kept asset at all are no terms for a sale.
+      expect(
+        refused((ls) => ls, {
+          ...terms,
+          leftovers: { keeps: [], sales: terms.leftovers?.sales ?? [] },
+        }),
+      ).toBe('order');
+    },
+  );
+
+  it.each(['solana', 'robinhood'] as const)(
+    'on %s refuses a minimum of 1 raw, or any further under its quote than an order may slip',
+    async (chain) => {
+      const { refused, sale } = await following(chain);
+      expect(refused(([, a]) => [sale(0, `${chain}:tsla`, '300', '1'), a])).toBe('order');
+      // 3% under a quote of 2,000, with its rounding, is the furthest: 1,940 is taken, 1,938 is not.
+      expect(refused(([, a]) => [sale(0, `${chain}:tsla`, '300', '1940'), a])).toBeNull();
+      expect(refused(([, a]) => [sale(0, `${chain}:tsla`, '300', '1938'), a])).toBe('order');
+    },
+  );
+});

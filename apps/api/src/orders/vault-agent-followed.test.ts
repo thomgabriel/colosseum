@@ -500,28 +500,19 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
     expect(out.reply.question).toBeNull();
     const said = out.reply.message;
     expect(said).not.toMatch(/cannot hold|can't hold|income plan cannot|which .*tokens/iu);
-    // The gap of every holding, each figure the server's, by reference.
-    expect(said).toMatch(/jlUSDC: 49\.89% of the vault, target 50%/u);
-    expect(said).toMatch(/syrupUSDC: 25\.08% of the vault, target 30%/u);
-    expect(said).toMatch(/GLDx: 0% of the vault, target 20%/u);
-    expect(said).toMatch(/Cash: 25\.03% of the vault, target 0%/u);
-    expect(said).toContain(`“${REBALANCE_ACTION.en}”`);
-    expect(said).toContain('Steady Dollar');
-    const ids = out.reply.figures?.facts.map((fact) => fact.id) ?? [];
-    expect(ids).toContain(`holding:${w.gold.id}:target`);
-    expect(ids).toContain(`holding:${w.cash.id}:share`);
-    for (const fact of out.reply.figures?.facts ?? [])
-      expect(fact).toMatchObject({ source: expect.any(String), fetchedAt: expect.any(String) });
+    // Short and direct (Thom, Oct 14): off its targets, and the page's action handed over as a
+    // button. No figure is restated: the page shows each holding with its source.
+    expect(said).toBe(
+      `Your vault is off its targets. Use “${REBALANCE_ACTION.en}” to bring it back: you review the trades and sign each step.`,
+    );
+    expect(out.reply.action).toBe('rebalance');
+    expect(out.reply.figures).toBeUndefined();
+    expect(said).not.toMatch(/\d/u);
   });
 
   it.each([
-    [
-      'en',
-      'rebalance',
-      REBALANCE_ACTION.en,
-      /To bring them in line, use “Rebalance” on this vault's page/u,
-    ],
-    ['pt', 'quero rebalancear', REBALANCE_ACTION.pt, /use “Rebalancear” na página deste cofre/u],
+    ['en', 'rebalance', REBALANCE_ACTION.en, /Use “Rebalance” to bring it back/u],
+    ['pt', 'quero rebalancear', REBALANCE_ACTION.pt, /Use “Rebalancear” para levá-lo de volta/u],
   ] as const)(
     'points at the page’s action where the page offers it (%s)',
     async (language, text, label, said) => {
@@ -533,6 +524,7 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
       if (out.kind !== 'reply') throw new Error('refused');
       expect(out.reply.message).toMatch(said);
       expect(out.reply.message).toContain(`“${label}”`);
+      expect(out.reply.action).toBe('rebalance');
       const asked = await w.reply(['what can you do'], w.talking('Here it is.'));
       expect(asked.prompt?.facts?.rebalanceAction).toBe(REBALANCE_ACTION.en);
     },
@@ -548,19 +540,19 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
         goldTarget: false,
         holds: { jl: '5000', syrup: '2672.268908', cash: '2120' },
       },
-      /on their targets, so there is nothing to rebalance now/u,
+      /on its targets, so there is nothing to rebalance now/u,
       /nos alvos, então não há o que rebalancear agora/u,
     ],
     [
       'auto-follow on, no keeper',
       { autoFollow: true, autoFollowOffered: true, keeperEnabled: false },
-      /not at their targets yet/u,
+      /not at its targets yet/u,
       /ainda não está nos alvos/u,
     ],
     [
       'a holding with no price',
       { noSyrupPrice: true },
-      /not at their targets yet/u,
+      /not at its targets yet/u,
       /ainda não está nos alvos/u,
     ],
   ] as const;
@@ -579,6 +571,7 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
         );
         if (out.kind !== 'reply') throw new Error('refused');
         expect(out.reply.message).toMatch(said);
+        expect(out.reply.action).toBeUndefined();
         expect(out.reply.message).not.toMatch(
           /Rebalance”|Rebalancear”|button|botão|keeper|operador/iu,
         );
@@ -594,8 +587,8 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
     const out = await off.reply(['rebalance'], off.talking('unused'));
     expect(out.calls).toBe(0);
     expect(out.reply.message).not.toContain(REBALANCE_ACTION.en);
-    expect(out.reply.message).toMatch(/not at their targets yet/u);
-    expect(out.reply.message).toMatch(/GLDx: 0% of the vault, target 20%/u);
+    expect(out.reply.message).toMatch(/not at its targets yet/u);
+    expect(out.reply.action).toBeUndefined();
   });
 
   it('speaks of a keeper only where auto-follow is on, offered and the keeper runs', async () => {
@@ -609,15 +602,14 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
     );
   });
 
-  it('says once that the goal would not admit the gold target as a new one, and goes on', async () => {
+  it('asked again, does not say it all again: only what to do, with the same button', async () => {
     const out = await w.reply(['rebalance'], w.talking('unused'));
-    expect(out.reply.message).toMatch(/GLDx is already a target of this vault/u);
     const again = await w.reply(
-      ['rebalance', ['app', out.reply.message], 'rebalance please'],
+      ['rebalance', ['app', out.reply.message], 'i want to rebalance'],
       w.talking('unused'),
     );
-    expect(again.reply.message).not.toMatch(/already a target of this vault/u);
-    expect(again.reply.message).toMatch(/GLDx: 0% of the vault, target 20%/u);
+    expect(again.reply.message).toBe(`Use “${REBALANCE_ACTION.en}” below.`);
+    expect(again.reply.action).toBe('rebalance');
   });
 
   // Each of these has something in it besides the request, or is no request: the model answers.
@@ -713,7 +705,7 @@ describe('"bring my holdings to my targets" is its own kind of request', () => {
     );
     if (out.kind !== 'reply') throw new Error('refused');
     expect(out.reply.message).toContain(`“${REBALANCE_ACTION.pt}”`);
-    expect(out.reply.message).toMatch(/jlUSDC: 49,89% do cofre, alvo 50%/u);
+    expect(out.reply.message).toMatch(/^O cofre está fora dos alvos\./u);
   });
 });
 

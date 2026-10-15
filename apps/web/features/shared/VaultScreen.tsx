@@ -1,18 +1,12 @@
 'use client';
-import {
-  ChainId,
-  chainFamily,
-  isAddressOf,
-  OWNER_REBALANCE_SLIPPAGE_BPS,
-  ownerRebalanceOffered,
-  type VaultResponse,
-} from '@colosseum/schemas';
+import { ChainId, chainFamily, isAddressOf, type VaultResponse } from '@colosseum/schemas';
 import Link from 'next/link';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { cn } from '../../components/ui/cn';
+import { PAGE_BACK, PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -30,6 +24,7 @@ import { conversationNetwork } from '../vault-conversation/storage';
 import { VaultConversation } from '../vault-conversation/VaultConversation';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { MORE_ROW, MoreMenu } from './MoreMenu';
+import { offItsTargets } from './off-target';
 import { readVault } from './shared-api';
 import { shortAddress } from './use-person';
 import {
@@ -87,11 +82,19 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
     port.status === 'loading' ? (
       <span data-ui={ui && `${ui}-wait`} aria-hidden="true" className="inline-block h-5" />
     ) : signedIn ? (
-      <Link href="/portfolio" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link
+        href="/portfolio"
+        data-ui={ui}
+        className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
+      >
         {v.back}
       </Link>
     ) : (
-      <Link href="/products" data-ui={ui} className={buttonClass({ variant: 'link' })}>
+      <Link
+        href="/products"
+        data-ui={ui}
+        className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
+      >
         {v.backVisitor}
       </Link>
     );
@@ -272,7 +275,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   return (
     <div data-ui="vault-screen" className="flex flex-col gap-6">
       <header className="flex flex-col items-start gap-3">
-        <p>{back}</p>
+        {back}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 id={titleId} className={PAGE_TITLE}>
             {t.shared.vaults.address(shortAddress(vault.address))}
@@ -290,30 +293,14 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
 }
 
 /**
- * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it has a target, it is
- * outside the owner's band as the server reads it, with a trade of at least the smallest a rebalance
- * makes (`ownerRebalanceOffered`: what a rebalance leaves in cash for its slippage is not drift), and
- * auto-follow is off, so no keeper trades it. With a holding that has no price the shares
- * are not known and nothing is offered. The server decides again when asked.
+ * Whether the vault is offered a rebalance (HANDOFF-VAULT, MVP item 6): it is off its targets by the
+ * server's rule (`offItsTargets`), and auto-follow is off, so no keeper trades it. The server decides
+ * again when asked.
  */
 export function offTarget(
   vault: Pick<VaultResponse['vault'], 'autoFollow' | 'positions' | 'valueUsd'>,
 ): boolean {
-  if (vault.autoFollow) return false;
-  const held = vault.positions.filter((p) => !/^0+$/.test(p.raw));
-  if (!vault.positions.some((p) => p.targetBps > 0) || held.some((p) => p.valueUsd === null))
-    return false;
-  const total = Number(vault.valueUsd);
-  if (!(total > 0)) return false;
-  const invested = vault.positions.reduce((n, p) => n + p.weightBps, 0);
-  const planned = vault.positions.reduce((n, p) => n + p.targetBps, 0);
-  // cash over its share is what the positions together are under theirs; the server's own rule
-  return ownerRebalanceOffered(
-    vault.positions,
-    planned - invested,
-    OWNER_REBALANCE_SLIPPAGE_BPS,
-    total,
-  );
+  return !vault.autoFollow && offItsTargets(vault) === true;
 }
 
 /** The owner's page: the head, the pair of actions, and the workbench they act in. */
@@ -360,6 +347,8 @@ function OwnVault({
   // Closing the vault (gate VAULT-CLOSE-REUSE): asked once more before it is made. A closed vault's
   // owner is told so, with the way to open it again.
   const [closing, setClosing] = useState(false);
+  // closed from this page just now: the note that says so takes the focus
+  const [justClosed, setJustClosed] = useState(false);
   const closedAt = vault.closedAt ?? null;
   const where = { chain: read.chain, address: vault.address };
   // The pane as it is now, for an answer that comes back late: an order is taken only by the pane that
@@ -503,6 +492,9 @@ function OwnVault({
         read={read}
         userId={userId}
         action={action}
+        {...(away
+          ? { onRebalance: () => start('rebalance', '[data-action="vault-rebalance"]') }
+          : {})}
         starters={
           empty
             ? [
@@ -522,26 +514,21 @@ function OwnVault({
         }}
         heading={
           <>
-            <p className="text-caption">{back}</p>
+            {back}
             <OwnVaultActions
               chain={read.chain}
               address={vault.address}
               headingLevel={1}
               page
               fallback={
-                <h1 id={titleId} className={WORKSPACE_TITLE}>
+                <h1 id={titleId} className={PAGE_TITLE}>
                   {t.shared.vaults.address(shortAddress(vault.address))}
                 </h1>
               }
               // The name (the person's own, or "Vault #N") comes with their portfolio, read once the
               // sign-in is here: until then the title waits, so no other one flashes by before it.
               pending={
-                <h1
-                  id={titleId}
-                  className={WORKSPACE_TITLE}
-                  data-ui="vault-name-wait"
-                  aria-busy="true"
-                >
+                <h1 id={titleId} className={PAGE_TITLE} data-ui="vault-name-wait" aria-busy="true">
                   <span className="sr-only">{v.loading}</span>
                   <span aria-hidden="true" className="inline-block h-6 w-40 rounded-md bg-muted" />
                 </h1>
@@ -636,11 +623,19 @@ function OwnVault({
                 }}
                 onClosed={() => {
                   setClosing(false);
+                  setJustClosed(true);
                   onReadAgain();
                 }}
               />
             )}
-            {closedAt && <ClosedNote vault={where} closedAt={closedAt} onReopened={onReadAgain} />}
+            {closedAt && (
+              <ClosedNote
+                vault={where}
+                closedAt={closedAt}
+                onReopened={onReadAgain}
+                focus={justClosed}
+              />
+            )}
             {away && (
               <p
                 data-ui="vault-off-target"

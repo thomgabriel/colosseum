@@ -2,12 +2,14 @@
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import GoalPage from '../../app/(app)/invest/page';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { click, find, mount, pinLine, settle, unmountAll } from '../../components/ui/test/dom';
 import { hatchProblems } from '../../components/ui/test/hatch';
 import { parse } from '../../components/ui/test/html';
 import { dictionary, type Lang } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
+import { rail, titles } from '../goal-conversation/test/rail';
 import { keepOrder } from '../order/order-record';
 import { basketOfPlan } from '../order/readiness';
 import { PLAN_ID, planOn, recordOf } from '../order/test/fixtures';
@@ -83,10 +85,19 @@ describe('home', () => {
       const host = await home(lang);
       const switcher = find<HTMLDetailsElement>(host, '[data-ui="vault-switcher"]');
       expect(switcher.open).toBe(false);
-      // the conversation picker lists the same vaults, from the same one read.
-      expect(
-        [...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options].map((o) => o.value),
-      ).toEqual(['current', 'new', `vault:solana:${VAULT}`, `vault:solana:${SECOND_VAULT}`]);
+      // the conversations panel lists the same vaults, from the same one read, never by address
+      const listed = [
+        ...rail(host).querySelectorAll<HTMLElement>(
+          '[data-ui="conversation-row"][data-kind="vault"]',
+        ),
+      ];
+      expect(listed.map((row) => row.dataset.address)).toEqual([VAULT, SECOND_VAULT]);
+      for (const row of listed)
+        for (const address of [VAULT, SECOND_VAULT]) {
+          expect(row.textContent).not.toContain(address);
+          expect(row.textContent).not.toContain(shortAddress(address));
+        }
+      expect(titles(host)[0]).toBe(dictionary(lang).goal.explore.picker.current);
       expect(find(switcher, 'summary').textContent).toBe(dictionary(lang).portfolio.summary.title);
       expect(find(switcher, 'summary + ul').className).not.toMatch(/grid-cols/);
       await click(find(switcher, 'summary'));
@@ -186,7 +197,9 @@ describe('home', () => {
     const calls = api(null);
     const host = await home();
     expect(find(host, 'h1').textContent).toBe(en.talk.workbench.title);
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
+    // the page's title is the display face (PAGE-SHELL); under it, one display-face line
+    expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
     expect(find(host, 'textarea')).toBeTruthy();
     expect(summary(host)).toBeNull();
     // nothing about a vault is asked for someone who is not signed in
@@ -220,7 +233,9 @@ describe('home', () => {
       `/portfolio/vaults/solana/${VAULT}`,
     );
     // still one serif line on the page, and no primary button but the goal's own
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
+    // the page's title is the display face (PAGE-SHELL); under it, one display-face line
+    expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
     expect(card.querySelector('[data-variant="primary"]')).toBeNull();
   });
 
@@ -341,7 +356,9 @@ describe('home', () => {
     expect(calls.filter((path) => path === PORTFOLIO_PATH)).toHaveLength(1);
     expect(calls.some((path) => /\/me\/(plans|withdrawals)|\/orders/.test(path))).toBe(false);
     expect(cards.every((card) => card.querySelectorAll('a').length === 1)).toBe(true);
-    expect(host.querySelectorAll('.font-display')).toHaveLength(1);
+    // the page's title is the display face (PAGE-SHELL); under it, one display-face line
+    expect(host.querySelectorAll('.font-display:not(h1)')).toHaveLength(1);
+    expect(find(host, 'h1').className).toBe(PAGE_TITLE);
   });
 
   it('marks a live-labelled vault whose held price is sandbox, retains stale source details, and explains omitted holdings', async () => {

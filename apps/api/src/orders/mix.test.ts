@@ -5,7 +5,9 @@ import {
   type BasketProposal,
   type BuiltTx,
   BuiltTx as BuiltTxSchema,
+  idleCashToInvest,
   Order,
+  ownerRebalanceOffered,
   type Principal,
   BasketProposal as ProposalSchema,
   parseChainConfigs,
@@ -24,6 +26,7 @@ import {
   mixContext,
   mixProposal,
   planRetarget,
+  planVaultRebalance,
   reviewMix,
   vaultValueUsd,
 } from './mix';
@@ -602,6 +605,189 @@ describe('mixProposal: a stored plan the buy takes unchanged', () => {
       for (const leg of order.legs) expect(leg.expected).toHaveLength(leg.trades.length);
     },
   );
+});
+
+/** A vault of SPY alone (its target 100%) with $1,000 in, `cashLeftRaw` of it left as cash. */
+async function spyVault(s: Setup, owner: Address, cashLeftRaw: bigint): Promise<VaultState> {
+  const { entry, mock, cash } = s;
+  mock.fund(owner, { gasRaw: '100000000000', assets: { [cash]: '1000000000' } });
+  await mock.send(
+    await entry.adapter.buildCreateVault({
+      owner,
+      basketId: '9',
+      targets: [{ asset: 'solana:spy', weightBps: 10_000 }],
+      autoFollow: false,
+      depositRaw: '1000000000',
+      slippageBps: 100,
+    }),
+  );
+  const [opened] = await entry.adapter.getVaults(owner);
+  if (!opened) throw new Error('no vault');
+  await mock.send(
+    await entry.adapter.buildOwnerSwap({
+      vault: opened.address,
+      trades: [
+        { sell: cash, buy: 'solana:spy', amountInRaw: String(1_000_000_000n - cashLeftRaw) },
+      ],
+      slippageBps: 100,
+    }),
+  );
+  const vault = await entry.adapter.getVault(opened.address);
+  if (!vault) throw new Error('no vault');
+  return vault;
+}
+
+describe('cash a change or a rebalance leaves (Vault #4 on devnet, Oct 14)', () => {
+  it('a change to one asset spends what its sales are sure to bring, not that less a second cost', async () => {
+    const s = await setup();
+    const owner = mockAddress('solana', 'all-in');
+    const vault = await heldVault(s, owner);
+    const checked = await checkMix(s.ctx, [{ assetId: 'solana:spy', weightBps: 10_000 }], vault);
+    const { order, request } = await planRetarget(s.ctx, vault, checked, {
+      slippageBps: 100,
+      now: NOW,
+      owner,
+    });
+    const legs = order.legs.filter((l) => l.kind === 'swap');
+    const sale = legs.flatMap((l) => l.trades.map((t, i) => ({ t, e: l.expected[i] })));
+    const sure = sale
+      .filter(({ t }) => t.buy === s.cash)
+      .reduce((n, { e }) => n + BigInt(e?.minOutRaw ?? '0'), 0n);
+    const spent = sale
+      .filter(({ t }) => t.sell === s.cash)
+      .reduce((n, { t }) => n + BigInt(t.amountInRaw), 0n);
+    // every cent the sale is sure to bring goes into SPY, and never more than it
+    expect(spent <= sure).toBe(true);
+    expect(sure - spent < 10_000n).toBe(true);
+    for (const leg of order.legs)
+      await s.mock.send(await buildRetarget(request, leg, s.entry, owner, undefined));
+    const after = await s.entry.adapter.getVault(vault.address);
+    // left: only what the sale brought over its minimum, under 1% of what it sold ($400)
+    expect(Number(after?.cash.raw) / 1e6).toBeLessThan(4.05);
+  });
+
+  it('spends idle cash worth a trade inside the band, by purchases alone, and leaves none', async () => {
+    const s = await setup();
+    const owner = mockAddress('solana', 'idle');
+    // $10 of $1,000 in cash: 1%, inside the band and the slippage (1.5%), and worth a $5 trade
+    const vault = await spyVault(s, owner, 10_000_000n);
+    const planned = await planVaultRebalance(s.entry, vault, { slippageBps: 100, now: NOW, owner });
+    if (!planned.planned) throw new Error('nothing planned');
+    const trades = planned.planned.order.legs.flatMap((l) => l.trades);
+    // all of it, but for a few raw units of rounding margin
+    expect(trades.map((t) => [t.sell, t.buy])).toEqual([[s.cash, 'solana:spy']]);
+    expect(10_000_000 - Number(trades[0]?.amountInRaw)).toBeLessThan(10);
+    for (const leg of planned.planned.order.legs)
+      await s.mock.send(
+        await buildRetarget(planned.planned.request, leg, s.entry, owner, undefined, true),
+      );
+    expect(Number((await s.entry.adapter.getVault(vault.address))?.cash.raw)).toBeLessThan(10);
+  });
+
+  it('spends idle cash by purchases alone on an EVM chain too, its steps built and landed', async () => {
+    const s = await setup('robinhood');
+    const { entry, mock, cash } = s;
+    const owner = mockAddress('robinhood', 'idle');
+    mock.fund(owner, { gasRaw: '1000000000000000000', assets: { [cash]: '1000000000' } });
+    await mock.send(
+      await entry.adapter.buildApprove({ owner, basketId: '14', amountRaw: '1000000000' }),
+    );
+    // $1,000 in, $990 of it into TSLA (its target 100%): $10 idle, inside the band, worth a trade
+    await mock.send(
+      await entry.adapter.buildCreateVault({
+        owner,
+        basketId: '14',
+        targets: [{ asset: 'robinhood:tsla', weightBps: 10_000 }],
+        autoFollow: false,
+        depositRaw: '1000000000',
+        trades: [{ sell: cash, buy: 'robinhood:tsla', amountInRaw: '990000000' }],
+        slippageBps: 100,
+      }),
+    );
+    const [vault] = await entry.adapter.getVaults(owner);
+    if (!vault) throw new Error('no vault');
+    const planned = await planVaultRebalance(entry, vault, { slippageBps: 100, now: NOW, owner });
+    if (!planned.planned) throw new Error('nothing planned');
+    const { order, request } = planned.planned;
+    const trades = order.legs.flatMap((l) => l.trades);
+    expect(trades.map((t) => [t.sell, t.buy])).toEqual([[cash, 'robinhood:tsla']]);
+    for (const leg of order.legs) {
+      expect(leg.expected).toHaveLength(leg.trades.length);
+      await mock.send(await buildRetarget(request, leg, entry, owner, undefined, true));
+    }
+    const after = await entry.adapter.getVault(vault.address);
+    expect(Number(after?.cash.raw)).toBeLessThan(10);
+  });
+
+  it('keeps a purchase filled with the whole of $5.01 of idle cash, never scaled under $5 and dropped', async () => {
+    const s = await setup();
+    const { entry, mock, cash } = s;
+    const owner = mockAddress('solana', 'edge');
+    mock.fund(owner, { gasRaw: '100000000000', assets: { [cash]: '1000000000' } });
+    const targets = ['spy', 'nvda', 'tsla', 'gold'].map((x) => ({
+      asset: `solana:${x}`,
+      weightBps: 2375,
+    }));
+    await mock.send(
+      await entry.adapter.buildCreateVault({
+        owner,
+        basketId: '15',
+        targets,
+        autoFollow: false,
+        depositRaw: '1000000000',
+        slippageBps: 100,
+      }),
+    );
+    const [opened] = await entry.adapter.getVaults(owner);
+    if (!opened) throw new Error('no vault');
+    // $237.50 each is on target; two $5.20 under, two over, and $55.01 of cash against its $50
+    for (const [x, raw] of [
+      ['spy', '232300000'],
+      ['nvda', '232300000'],
+      ['tsla', '240195000'],
+      ['gold', '240195000'],
+    ] as const)
+      await mock.send(
+        await entry.adapter.buildOwnerSwap({
+          vault: opened.address,
+          trades: [{ sell: cash, buy: `solana:${x}`, amountInRaw: raw }],
+          slippageBps: 100,
+        }),
+      );
+    const vault = await entry.adapter.getVault(opened.address);
+    if (!vault) throw new Error('no vault');
+    const planned = await planVaultRebalance(entry, vault, { slippageBps: 100, now: NOW, owner });
+    if (!planned.planned) throw new Error('nothing planned');
+    const buys = planned.planned.order.legs.flatMap((l) => l.trades);
+    expect(buys).toHaveLength(1);
+    expect(buys[0]?.sell).toBe(cash);
+    expect(Number(buys[0]?.amountInRaw) / 1e6).toBeGreaterThanOrEqual(5);
+  });
+
+  it('plans nothing for idle cash under one trade, and the page and the chat say on target', async () => {
+    const s = await setup();
+    const owner = mockAddress('solana', 'dust');
+    const vault = await spyVault(s, owner, 4_000_000n);
+    const planned = await planVaultRebalance(s.entry, vault, { slippageBps: 100, now: NOW, owner });
+    expect(planned.planned).toBeNull();
+    // $4 of $1,000: under one $5 trade
+    expect(idleCashToInvest([{ targetBps: 10_000, weightBps: 9960 }], 40, 100, 1000)).toBe(false);
+    // $6.40 idle, but under four targets by $1.60 each: no purchase reaches a trade, nothing offered
+    const four = [0, 1, 2, 3].map(() => ({ targetBps: 2500, weightBps: 2484 }));
+    expect(idleCashToInvest(four, 64, 100, 1000)).toBe(false);
+    expect(ownerRebalanceOffered(four, 64, 100, 1000)).toBe(false);
+    expect(ownerRebalanceOffered([{ targetBps: 10_000, weightBps: 9960 }], 40, 100, 1000)).toBe(
+      false,
+    );
+    // $10 is a trade: off target, and offered
+    expect(ownerRebalanceOffered([{ targetBps: 10_000, weightBps: 9900 }], 100, 100, 1000)).toBe(
+      true,
+    );
+    // Vault #4: $38.83 of $9,898 in cash, 39 bps
+    expect(ownerRebalanceOffered([{ targetBps: 10_000, weightBps: 9961 }], 39, 100, 9898)).toBe(
+      true,
+    );
+  });
 });
 
 describe('planRetarget: a vault the person owns, to its new targets', () => {

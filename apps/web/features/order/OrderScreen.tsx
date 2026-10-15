@@ -956,7 +956,8 @@ export function OrderScreen({
           <h2 className="text-h4 font-semibold">{t.order.review.warnings}</h2>
           <ul className="flex max-w-(--tf-measure-body) list-disc flex-col gap-1 pl-5 text-body-sm">
             {shown.warnings.map((w) => (
-              <li key={w.code}>{w.text}</li>
+              // Keyed by its text as well: nothing holds two warnings to different codes.
+              <li key={`${w.code}:${w.text}`}>{w.text}</li>
             ))}
           </ul>
         </section>

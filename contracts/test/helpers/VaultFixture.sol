@@ -70,7 +70,7 @@ abstract contract VaultFixture is Test {
         return VaultFactory(address(new ERC1967Proxy(address(new VaultFactory()), init)));
     }
 
-    function _newRegistry(VaultFactory factory_) internal returns (IndexRegistry) {
+    function _newRegistry(VaultFactory factory_) internal virtual returns (IndexRegistry) {
         bytes memory init = abi.encodeCall(IndexRegistry.initialize, (address(factory_), PUBLISH_DELAY));
         return IndexRegistry(address(new ERC1967Proxy(address(new IndexRegistry()), init)));
     }

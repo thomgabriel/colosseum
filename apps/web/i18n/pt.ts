@@ -1,3 +1,4 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import type { Dictionary } from './en';
 
 // The same sentences as en.ts, as a Brazilian reads them: "você", answer first, no exclamation marks.
@@ -241,12 +242,31 @@ export const pt: Dictionary = {
   goal: {
     explore: {
       picker: {
-        label: 'Conversa',
+        label: 'Conversas',
         current: 'Nova conversa',
-        fresh: 'Começar uma nova conversa',
-        vaults: 'Seus cofres',
-        saved: 'Conversas salvas',
         untitled: 'Conversa anterior',
+        fresh: 'Nova conversa',
+        show: 'Mostrar conversas',
+        hide: 'Ocultar conversas',
+        close: 'Fechar',
+        groups: { today: 'Hoje', yesterday: 'Ontem', earlier: 'Antes' },
+        search: 'Buscar conversas',
+        noMatch: (words: string) => `Nenhuma conversa tem “${words}” no nome.`,
+        empty: 'Suas conversas e seus cofres aparecem aqui.',
+        vault: 'Cofre',
+        draft: 'Rascunho',
+        openVault: (title: string) => `Abrir o cofre: ${title}`,
+        rename: (title: string) => `Renomear: ${title}`,
+        name: 'Nome',
+        save: 'Salvar',
+        cancel: 'Cancelar',
+        remove: (title: string) => `Apagar: ${title}`,
+        confirm: 'Apagar este rascunho deste navegador? Não dá para recuperar.',
+        depositing:
+          'Este rascunho tem um depósito que não terminou, então ele fica. Abra-o para ver as etapas do depósito.',
+        yes: 'Apagar',
+        keep: 'Manter',
+        removed: (title: string) => `Apagado: ${title}`,
       },
       invitation: 'O que você quer que sua estratégia faça?',
       lead: 'Conte suas ideias, necessidades e limites. Eu posso discutir uma alocação com fontes e riscos.',
@@ -1217,6 +1237,8 @@ export const pt: Dictionary = {
         'Um ativo deste portfólio não está disponível nesta rede agora, então o portfólio não pode receber um depósito como está.',
     },
     family: {
+      overCap: (asset: string, weight: string, cap: string) =>
+        `${asset} com ${weight} pesa mais que ${cap}, o teto dele na lista de ativos, definido pelo que dá para vender dele. Vender tudo isso pode custar mais a você.`,
       loading: 'Lendo este portfólio…',
       missing: 'Não encontro um portfólio compartilhado com esse nome.',
       backToShelf: 'Voltar aos portfólios compartilhados',
@@ -1413,7 +1435,35 @@ export const pt: Dictionary = {
       familyId: 'O identificador dele, calculado a partir do endereço',
       assets: 'Ativos e pesos',
       assetsHint:
-        'Estes são os pesos-alvo do cofre. Compartilhar exige de 3 a 12 ativos listados, de 2% a 50% em passos de 0,5%, sem peso-alvo de caixa. Ajuste a estratégia no cofre antes de compartilhar se ela não couber.',
+        'Estes são os pesos-alvo do cofre. Ajuste a estratégia no cofre antes de compartilhar se ela não couber.',
+      rules: {
+        reading: (chain: string) => `Lendo as regras de publicação na ${chain}…`,
+        unread: (chain: string) =>
+          `Não consegui ler as regras de publicação na ${chain}, então a publicação está pausada. Tente de novo em instantes.`,
+        shape: (
+          chain: string,
+          min: number,
+          max: number,
+          low: string,
+          high: string,
+          step: string,
+          cash: boolean,
+        ) =>
+          cash
+            ? `Na ${chain} um portfólio tem de ${min} a ${max} ativos listados, cada um de ${low} a ${high} em passos de ${step}. O que os pesos deixam abaixo de 100% fica em caixa.`
+            : `Na ${chain} um portfólio tem de ${min} a ${max} ativos listados, cada um de ${low} a ${high} em passos de ${step}, somando 100%, sem caixa.`,
+        count: (min: number, max: number) => `Um portfólio tem de ${min} a ${max} ativos.`,
+        weight: (low: string, high: string, step: string) =>
+          `Cada peso vai de ${low} a ${high}, em passos de ${step}.`,
+        sum: 'Os pesos somam 100%.',
+        sumAtMost: 'Os pesos somam no máximo 100%.',
+        ceiling: (asset: string, weight: string, cap: string) =>
+          `${asset} com ${weight} pesa mais que ${cap}, o teto dele na lista de ativos.`,
+        overCap: (asset: string, weight: string, cap: string) =>
+          `${asset} com ${weight} pesa mais que ${cap}, o teto dele na lista de ativos, definido pelo que dá para vender dele. Quem segue pode pagar mais para vender tudo isso.`,
+        cash: 'Caixa',
+        capOnList: 'Teto na lista de ativos',
+      },
       asset: 'Ativo',
       weight: 'Peso, em %',
       assetOf: (n: number) => `Ativo ${n}`,
@@ -1431,9 +1481,6 @@ export const pt: Dictionary = {
         name: 'Um nome precisa de letras, números e pontuação simples, sem espaço nas pontas e sem link ou endereço web.',
         slug: 'Um endereço precisa de letras minúsculas, números e hífens, e não pode ser “publish”.',
         copy: 'Uma descrição tem no máximo 280 caracteres, sem link ou endereço web e sem caracteres ocultos.',
-        count: 'Um portfólio tem de 3 a 12 ativos.',
-        weight: 'Cada peso vai de 2% a 50%, em passos de 0,5%.',
-        sum: 'Os pesos somam 100%.',
         twice: 'Um ativo aparece uma vez só.',
         chain: 'Publicar ainda não está aberto nesta rede.',
       },
@@ -1603,6 +1650,8 @@ export const pt: Dictionary = {
         onPlan: 'no plano',
         allOnTarget: 'No plano',
         offTargetShort: 'Fora do plano',
+        gapTooSmall:
+          'Um pouco fora dos alvos, por menos do que vale uma troca: nada a rebalancear.',
         drift: (signed: string) => `Desvio ${signed}`,
         keptAsCash: 'Mantido em caixa',
         at: 'a',
@@ -2477,9 +2526,9 @@ export const pt: Dictionary = {
       remove: (name: string) => `Remover ${name}`,
       weight: (name: string) => `Peso de ${name}`,
       cash: (share: string) => `Caixa: ${share}`,
-      lines: (n: number) => `${n} de 16 ativos`,
+      lines: (n: number) => `${n} de ${VAULT_MAX_TARGETS} ativos`,
       issues: {
-        'too-many': 'Um cofre guarda 16 ativos além do caixa. Remova um.',
+        'too-many': `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa. Remova um.`,
         duplicate: 'Cada ativo uma vez. Remova a repetição.',
         'cash-line': 'O caixa é o que os outros deixam. Remova-o como linha.',
         'not-whole': 'Use porcentagens com até duas casas decimais, ou pontos-base inteiros.',
@@ -2519,7 +2568,7 @@ export const pt: Dictionary = {
         case 'SUM_NOT_10000':
           return 'Os pesos não somam o todo.';
         case 'TOO_MANY_LINES':
-          return 'Um cofre guarda 16 ativos além do caixa.';
+          return `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa.`;
         case 'NO_PRICE':
           return `${asset} não tem um preço usável agora.`;
         case 'NOT_FOR_GOAL':

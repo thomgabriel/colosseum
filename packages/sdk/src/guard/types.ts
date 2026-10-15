@@ -274,6 +274,16 @@ export type PlanTerms = {
    * targets, each with a minimum above zero (approved.ts).
    */
   rebalance?: Rebalance;
+  /**
+   * A follow that sells first what the vault holds of the assets the version drops (gate
+   * SHARED-RULES-V2): past the vault's lines the accept needs them gone. `keeps` is the version's
+   * assets and `sales` the vault's dropped lines with what it holds of each, both as the caller read
+   * them itself, never from the order. Its swaps may then only sell these, each once, all of the amount
+   * read, for the deployment's cash token, never an asset the version keeps, each with a minimum at
+   * most `MAX_SLIPPAGE_BPS` under its quote, and all before the accept. A follow with no sales leaves
+   * this out, and then has no swap.
+   */
+  leftovers?: { keeps: AssetId[]; sales: { asset: AssetId; amountRaw: RawAmount }[] };
 };
 
 /** What a rebalance was reviewed as: the vault's targets, and every trade, in the order signed. */

@@ -8,7 +8,8 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IndexRegistry} from "../src/IndexRegistry.sol";
 import {IIndexRegistry} from "../src/interfaces/IIndexRegistry.sol";
-import {IndexInfo, Limits, Weight} from "../src/interfaces/Types.sol";
+import {BasketVault} from "../src/BasketVault.sol";
+import {AssetConfig, IndexInfo, Limits, Weight} from "../src/interfaces/Types.sol";
 import {SwapFixture} from "./helpers/SwapFixture.sol";
 import {MockToken} from "./mocks/Tokens.sol";
 
@@ -388,8 +389,7 @@ contract IndexRegistryTest is SwapFixture {
         (unsorted[0], unsorted[2]) = (unsorted[2], unsorted[0]);
         (,,,, allowedAt) = registry.previewPublish(id, unsorted);
         assertEq(allowedAt, 0);
-        Weight[] memory two = new Weight[](2);
-        (, reason,,, allowedAt) = registry.previewPublish(id, two);
+        (, reason,,, allowedAt) = registry.previewPublish(id, new Weight[](0));
         assertEq(reason, 3);
         assertEq(allowedAt, 0);
     }
@@ -535,13 +535,163 @@ contract IndexRegistryTest is SwapFixture {
 
     function test_limits_areTheFourRules() public view {
         Limits memory l = registry.limits();
-        assertEq(l.minAssets, 3);
-        assertEq(l.maxAssets, 12);
-        assertEq(l.minWeightBps, 200);
-        assertEq(l.maxWeightBps, 5000);
+        assertEq(l.minAssets, 1);
+        assertEq(l.maxAssets, 16);
+        assertEq(l.minWeightBps, 50);
+        assertEq(l.maxWeightBps, 10_000);
         assertEq(l.stepBps, 50);
         assertEq(l.maxTurnoverBps, 2000);
         assertEq(l.publishDelay, PUBLISH_DELAY);
+        assertEq(registry.rulesVersion(), 2);
+    }
+
+    // ---- the second rules (gate SHARED-RULES-V2): the cases are in `IndexRegistryVectors.t.sol`; these are
+    // the edges as a creator meets them, on the real factory.
+
+    /// `n` tokens listed on the factory with a ceiling of 5%, sorted, at `bps` each.
+    function _listed(uint256 n, uint16 bps) internal returns (Weight[] memory list) {
+        list = new Weight[](n);
+        for (uint256 i; i < n; ++i) {
+            address token = address(new MockToken(18));
+            _list(token, 18);
+            list[i] = Weight(token, bps);
+        }
+        return _sort(list);
+    }
+
+    function _one(address token, uint16 bps) internal pure returns (Weight[] memory list) {
+        list = new Weight[](1);
+        list[0] = Weight(token, bps);
+    }
+
+    function _refused(bytes32 family, Weight[] memory c, uint8 reason) internal {
+        (bytes4 err, uint8 why,,,) = registry.previewPublish(keccak256(abi.encode(stranger, family)), c);
+        assertEq(err, IIndexRegistry.CreatorLimit.selector);
+        assertEq(why, reason);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(IIndexRegistry.CreatorLimit.selector, reason));
+        registry.create(family, c, META_1, 0, 0);
+    }
+
+    function test_rules2_oneAssetIsAPortfolio() public {
+        vm.prank(stranger);
+        bytes32 single = registry.create(keccak256("one"), _one(address(stockA), 10_000), META_1, 0, 0);
+        (uint32 version, Weight[] memory components) = registry.active(single);
+        assertEq(version, 1);
+        _same(components, _one(address(stockA), 10_000));
+        _refused(keccak256("none"), new Weight[](0), 3);
+    }
+
+    function test_rules2_sixteenAssetsAndNoMore() public {
+        vm.prank(stranger);
+        registry.create(keccak256("sixteen"), _listed(16, 600), META_1, 0, 0);
+        _refused(keccak256("seventeen"), _listed(17, 550), 4);
+    }
+
+    function test_rules2_halfAPercentSteps() public {
+        Weight[] memory least = _targets(address(stockA), 50, address(stockB), 9950);
+        vm.prank(stranger);
+        registry.create(keccak256("least"), least, META_1, 0, 0);
+        _refused(keccak256("zero"), _targets(address(stockA), 0, address(stockB), 5000), 7);
+        _refused(keccak256("under"), _targets(address(stockA), 25, address(stockB), 5000), 7);
+        _refused(keccak256("off"), _targets(address(stockA), 75, address(stockB), 5000), 8);
+    }
+
+    /// What the weights leave under 100% is cash, as in a person's own vault. The cash token itself is
+    /// never a line, and the weights never add up to more than 100%.
+    function test_rules2_cashIsWhatTheWeightsLeave() public {
+        vm.prank(stranger);
+        bytes32 withCash = registry.create(keccak256("cash"), _one(address(stockA), 7000), META_1, 0, 0);
+        (, Weight[] memory components) = registry.active(withCash);
+        _same(components, _one(address(stockA), 7000));
+        _refused(keccak256("cash-line"), _targets(address(stockA), 7000, address(cash), 3000), 14);
+        _refused(keccak256("over"), _targets(address(stockA), 5000, address(stockB), 5050), 10);
+        _refused(keccak256("way-over"), _one(address(stockA), 10_050), 9);
+    }
+
+    /// An asset's ceiling on the factory does not refuse a version, first or later: it is a warning in the
+    /// app (EXIT-SOURCE as ANY-COMPOSITION has it).
+    function test_rules2_theFactorysCeilingDoesNotRefuse() public {
+        AssetConfig memory capped = _assetConfig(18);
+        capped.maxWeightBps = 150;
+        vm.prank(admin);
+        factory.setAsset(address(stockA), capped);
+        assertEq(factory.asset(address(stockA)).maxWeightBps, 150);
+
+        vm.prank(stranger);
+        bytes32 over = registry.create(keccak256("over"), _one(address(stockA), 10_000), META_1, 0, 0);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(stranger);
+        (uint32 version,) = registry.publish(over, _one(address(stockA), 9000), META_2);
+        assertEq(version, 2);
+    }
+
+    /// The turnover counts cash: 20% into cash is the most a version moves, as 20% into another asset is.
+    function test_rules2_turnoverCountsCash() public {
+        vm.prank(stranger);
+        bytes32 all = registry.create(keccak256("all"), _one(address(stockA), 10_000), META_1, 0, 0);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        (bytes4 err, uint8 reason,,,) = registry.previewPublish(all, _one(address(stockA), 7950));
+        assertEq(err, IIndexRegistry.CreatorLimit.selector);
+        assertEq(reason, 13);
+        vm.expectEmit(address(registry));
+        emit IIndexRegistry.RecipePublished(
+            all, 2, stranger, _one(address(stockA), 8000), uint64(block.timestamp + PUBLISH_DELAY), 2000, META_2
+        );
+        vm.prank(stranger);
+        registry.publish(all, _one(address(stockA), 8000), META_2);
+
+        // Nothing more while it waits.
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(IIndexRegistry.CreatorLimit.selector, uint8(11)));
+        registry.publish(all, _one(address(stockA), 7000), META_2);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        // The cash into a new asset is counted on both sides, as the asset and as the cash: 20% moved.
+        (, reason,,,) = registry.previewPublish(all, _targets(address(stockA), 8000, address(stockB), 2000));
+        assertEq(reason, 0);
+        vm.prank(stranger);
+        registry.publish(all, _targets(address(stockA), 8000, address(stockB), 2000), META_2);
+    }
+
+    /// Sixteen assets fit in a block many times over: a create, a later version, a vault that follows, and an
+    /// adopt, each measured. Robinhood Chain's block holds 32,000,000 gas.
+    function test_rules2_sixteenAssets_gas() public {
+        Weight[] memory sixteen = _listed(16, 600);
+        vm.prank(stranger);
+        uint256 before = gasleft();
+        bytes32 big = registry.create(keccak256("big"), sixteen, META_1, 0, 0);
+        uint256 createGas = before - gasleft();
+
+        vm.prank(owner);
+        before = gasleft();
+        BasketVault follower =
+            BasketVault(payable(factory.createVault(keccak256("follow-16"), new Weight[](0), big, 1, true)));
+        uint256 followGas = before - gasleft();
+        assertEq(follower.targets().length, 16);
+
+        for (uint256 i; i < 16; ++i) {
+            sixteen[i].bps = i < 8 ? 650 : 550;
+        }
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(stranger);
+        before = gasleft();
+        registry.publish(big, sixteen, META_2);
+        uint256 publishGas = before - gasleft();
+
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        before = gasleft();
+        follower.adoptVersion();
+        uint256 adoptGas = before - gasleft();
+        _same(follower.targets(), sixteen);
+
+        emit log_named_uint("create, 16 assets", createGas);
+        emit log_named_uint("a vault created following it", followGas);
+        emit log_named_uint("publish, 16 assets", publishGas);
+        emit log_named_uint("adoptVersion, 16 assets", adoptGas);
+        assertLt(createGas, 1_500_000);
+        assertLt(followGas, 2_500_000);
+        assertLt(publishGas, 1_000_000);
+        assertLt(adoptGas, 1_000_000);
     }
 
     // ---- the meta hash
