@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Composer } from '../../components/ui/Composer';
+import { Icon } from '../../components/ui/Icon';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { dictionary } from '../../i18n';
@@ -48,6 +49,10 @@ import {
  * (`current`), and takes the right pane for a deposit, a withdrawal or an order's steps (`action`):
  * while one is open the box is inert and says why, and no message is sent.
  */
+/** A pane of the workbench that scrolls on its own on a desktop (the page does not). */
+const PANE =
+  'tf-scroll-pane relative min-w-0 flex-col gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2';
+
 export function VaultConversation({
   read,
   userId,
@@ -345,6 +350,71 @@ export function VaultConversation({
   const rows = holdingsOf(read.vault).filter((row) => !/^0+$/.test(row.raw));
   const targets = holdingsOf(read.vault).filter((row) => row.targetBps > 0);
   const proposal = reply?.proposal;
+  // A draft is on its way (and none is shown yet), or one is shown: it has the right pane.
+  const drafting = Boolean(proposal) || (busy && !proposal);
+  const holdings = current ?? (
+    <Card
+      as="section"
+      aria-labelledby={`${id}-held`}
+      mock={read.provenance !== 'live'}
+      mockLabels={{
+        announce: read.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
+      }}
+    >
+      <CardHeader id={`${id}-held`} title={copy.current} />
+      <CardBody className="flex min-w-0 flex-col gap-4">
+        {showValue && (
+          <ProvenancePin
+            value={dollars(language, read.vault.valueUsd)}
+            obs={vaultValueSource(
+              { ...read, vaults: [read.vault] },
+              read.vault,
+              t.portfolio.vault.valueMethod,
+            )}
+            labels={t.pin}
+          />
+        )}
+        {unpriced(read.vault) > 0 && (
+          <p className="text-caption text-muted-foreground">
+            {t.portfolio.vault.unpriced(unpriced(read.vault))}
+          </p>
+        )}
+        {rows.length === 0 ? (
+          <p>{copy.noHoldings}</p>
+        ) : (
+          <Composition
+            size="compact"
+            top={3}
+            still
+            share={(bps) => share(language, bps)}
+            items={heldItems(
+              rows,
+              (asset) => displayName(asset, t.plan),
+              t.portfolio.vault.noPrice,
+            )}
+          />
+        )}
+        <details className="border-t border-border pt-4">
+          <summary className="cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            {copy.targets}
+          </summary>
+          <div className="flex flex-col gap-2 pt-3">
+            <p className="text-caption text-muted-foreground">{copy.targetsNote}</p>
+            <ul className="flex flex-col gap-1 text-body-sm">
+              {targets.map((row) => (
+                <li key={row.asset} className="flex min-w-0 gap-2">
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                    {displayName(row.asset, t.plan)}
+                  </span>
+                  <span className="tabular-nums">{share(language, row.targetBps)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </details>
+      </CardBody>
+    </Card>
+  );
   const draftMessage = (message: string) => {
     setText(message);
     composer.current?.querySelector('textarea')?.focus();
@@ -509,18 +579,27 @@ export function VaultConversation({
         </div>
       </div>
       {action && (
-        <div
+        <section
           data-ui="vault-action"
-          className={`tf-scroll-thin relative flex min-w-0 flex-col gap-4 md:min-h-0 md:overflow-y-auto md:pr-2 ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
+          // Scrolls on its own on a desktop, where the page does not (a workbench): a scrollbar to see
+          // and take hold of, and a stop for the keyboard, so every part of the card can be reached.
+          aria-label={copy.actionPane}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: a region that scrolls must be reachable by keyboard
+          tabIndex={0}
+          className={`${PANE} flex ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
         >
           {action.pane}
-        </div>
+        </section>
       )}
-      <div
+      <section
         data-ui="vault-plan"
         aria-busy={busy}
         hidden={locked}
-        className={`tf-scroll-thin relative min-w-0 flex-col gap-4 md:min-h-0 md:overflow-y-auto md:pr-2 ${locked ? 'hidden' : 'flex'} ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
+        // The same pane: it scrolls on its own, with a scrollbar to see and a stop for the keyboard,
+        // so what the vault holds is in reach under a draft however tall the draft is.
+        aria-label={copy.planPane}
+        tabIndex={locked ? -1 : 0}
+        className={`${PANE} ${locked ? 'hidden' : 'flex'} ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
       >
         {/* The proposal leads when there is one: it is what the person is working on. */}
         {reply?.notes && !proposal && <WeightNotes notes={reply.notes} />}
@@ -566,72 +645,25 @@ export function VaultConversation({
             )}
           </section>
         )}
-        {current ?? (
-          <Card
-            as="section"
-            aria-labelledby={`${id}-held`}
-            mock={read.provenance !== 'live'}
-            mockLabels={{
-              announce:
-                read.provenance === 'sandbox' ? t.shell.testNetworkLine : t.shell.mockAnnounce,
-            }}
-          >
-            <CardHeader id={`${id}-held`} title={copy.current} />
-            <CardBody className="flex min-w-0 flex-col gap-4">
-              {showValue && (
-                <ProvenancePin
-                  value={dollars(language, read.vault.valueUsd)}
-                  obs={vaultValueSource(
-                    { ...read, vaults: [read.vault] },
-                    read.vault,
-                    t.portfolio.vault.valueMethod,
-                  )}
-                  labels={t.pin}
-                />
-              )}
-              {unpriced(read.vault) > 0 && (
-                <p className="text-caption text-muted-foreground">
-                  {t.portfolio.vault.unpriced(unpriced(read.vault))}
-                </p>
-              )}
-              {rows.length === 0 ? (
-                <p>{copy.noHoldings}</p>
-              ) : (
-                <Composition
-                  size="compact"
-                  top={3}
-                  still
-                  share={(bps) => share(language, bps)}
-                  items={heldItems(
-                    rows,
-                    (asset) => displayName(asset, t.plan),
-                    t.portfolio.vault.noPrice,
-                  )}
-                />
-              )}
-              <details className="border-t border-border pt-4">
-                <summary className="cursor-pointer text-body-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                  {copy.targets}
-                </summary>
-                <div className="flex flex-col gap-2 pt-3">
-                  <p className="text-caption text-muted-foreground">{copy.targetsNote}</p>
-                  <ul className="flex flex-col gap-1 text-body-sm">
-                    {targets.map((row) => (
-                      <li key={row.asset} className="flex min-w-0 gap-2">
-                        <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                          {displayName(row.asset, t.plan)}
-                        </span>
-                        <span className="tabular-nums">{share(language, row.targetBps)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </details>
-            </CardBody>
-          </Card>
+        {/* While a draft is on its way or shown, it has the pane: what the vault holds folds into one
+            line under it, a press away (Thom, Oct 14). The pane still scrolls to it. */}
+        {drafting ? (
+          <details data-ui="vault-holdings-fold" className="group rounded-lg border border-border">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-5 py-4 text-body font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+              {copy.current}
+              <Icon
+                name="ChevronDown"
+                size={16}
+                className="text-muted-foreground transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="flex min-w-0 flex-col gap-4 border-t border-border p-4">{holdings}</div>
+          </details>
+        ) : (
+          holdings
         )}
         {aside}
-      </div>
+      </section>
     </section>
   );
 }

@@ -273,6 +273,19 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   const building = workspace.locator('[data-ui="vault-building"]');
   await expect(building.locator('h2')).toHaveText(talk.building);
   await expect(building).toContainText(talk.buildingLine);
+  // On a desktop the page does not scroll: the draft has the right pane, what the vault holds is folded
+  // under it, and the pane scrolls on its own to it (Thom, Oct 14)
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const pane = workspace.locator('[data-ui="vault-plan"]');
+  expect(await pane.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
+  const fold = pane.locator('[data-ui="vault-holdings-fold"]');
+  await fold.locator(':scope > summary').click();
+  const held = fold.locator('[data-ui="composition"]').first();
+  await held.scrollIntoViewIfNeeded();
+  await expect(held).toBeInViewport({ ratio: 1 });
+  await fold.locator(':scope > summary').click();
+  await pane.evaluate((el) => el.scrollTo(0, 0));
+  await page.setViewportSize({ width: 375, height: 812 });
   // the message, the row under it and the box are whole in the window
   for (const part of [
     workspace.locator('[data-ui="vault-transcript"] li').first(),
