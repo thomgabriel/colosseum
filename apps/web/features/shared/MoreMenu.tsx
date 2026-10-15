@@ -111,7 +111,7 @@ export function MoreMenu({
       <button
         ref={button}
         type="button"
-        className={`${buttonClass({ variant: 'link' })} inline-flex items-center gap-1 whitespace-nowrap`}
+        className={`${buttonClass({ variant: 'secondary' })} inline-flex items-center gap-1 whitespace-nowrap`}
         data-ui={ui}
         aria-expanded={open}
         aria-controls={id}

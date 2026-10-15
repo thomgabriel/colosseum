@@ -1,3 +1,4 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import type { Dictionary } from './en';
 
 // The same sentences as en.ts, as a Brazilian reads them: "você", answer first, no exclamation marks.
@@ -241,12 +242,31 @@ export const pt: Dictionary = {
   goal: {
     explore: {
       picker: {
-        label: 'Conversa',
+        label: 'Conversas',
         current: 'Nova conversa',
-        fresh: 'Começar uma nova conversa',
-        vaults: 'Seus cofres',
-        saved: 'Conversas salvas',
         untitled: 'Conversa anterior',
+        fresh: 'Nova conversa',
+        show: 'Mostrar conversas',
+        hide: 'Ocultar conversas',
+        close: 'Fechar',
+        groups: { today: 'Hoje', yesterday: 'Ontem', earlier: 'Antes' },
+        search: 'Buscar conversas',
+        noMatch: (words: string) => `Nenhuma conversa tem “${words}” no nome.`,
+        empty: 'Suas conversas e seus cofres aparecem aqui.',
+        vault: 'Cofre',
+        draft: 'Rascunho',
+        openVault: (title: string) => `Abrir o cofre: ${title}`,
+        rename: (title: string) => `Renomear: ${title}`,
+        name: 'Nome',
+        save: 'Salvar',
+        cancel: 'Cancelar',
+        remove: (title: string) => `Apagar: ${title}`,
+        confirm: 'Apagar este rascunho deste navegador? Não dá para recuperar.',
+        depositing:
+          'Este rascunho tem um depósito que não terminou, então ele fica. Abra-o para ver as etapas do depósito.',
+        yes: 'Apagar',
+        keep: 'Manter',
+        removed: (title: string) => `Apagado: ${title}`,
       },
       invitation: 'O que você quer que sua estratégia faça?',
       lead: 'Conte suas ideias, necessidades e limites. Eu posso discutir uma alocação com fontes e riscos.',
@@ -1603,6 +1623,8 @@ export const pt: Dictionary = {
         onPlan: 'no plano',
         allOnTarget: 'No plano',
         offTargetShort: 'Fora do plano',
+        gapTooSmall:
+          'Um pouco fora dos alvos, por menos do que vale uma troca: nada a rebalancear.',
         drift: (signed: string) => `Desvio ${signed}`,
         keptAsCash: 'Mantido em caixa',
         at: 'a',
@@ -2472,9 +2494,9 @@ export const pt: Dictionary = {
       remove: (name: string) => `Remover ${name}`,
       weight: (name: string) => `Peso de ${name}`,
       cash: (share: string) => `Caixa: ${share}`,
-      lines: (n: number) => `${n} de 16 ativos`,
+      lines: (n: number) => `${n} de ${VAULT_MAX_TARGETS} ativos`,
       issues: {
-        'too-many': 'Um cofre guarda 16 ativos além do caixa. Remova um.',
+        'too-many': `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa. Remova um.`,
         duplicate: 'Cada ativo uma vez. Remova a repetição.',
         'cash-line': 'O caixa é o que os outros deixam. Remova-o como linha.',
         'not-whole': 'Use porcentagens com até duas casas decimais, ou pontos-base inteiros.',
@@ -2514,7 +2536,7 @@ export const pt: Dictionary = {
         case 'SUM_NOT_10000':
           return 'Os pesos não somam o todo.';
         case 'TOO_MANY_LINES':
-          return 'Um cofre guarda 16 ativos além do caixa.';
+          return `Um cofre guarda ${VAULT_MAX_TARGETS} ativos além do caixa.`;
         case 'NO_PRICE':
           return `${asset} não tem um preço usável agora.`;
         case 'NOT_FOR_GOAL':

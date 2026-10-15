@@ -1,3 +1,5 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
+
 // Every sentence a person reads on the product screens, in English. pt.ts holds the same keys in
 // Brazilian Portuguese, and the type below is what keeps the two in step.
 //
@@ -322,17 +324,38 @@ export const en = {
   goal: {
     explore: {
       /**
-       * The conversation picker (GoalEntry): the one on screen, a new one, the saved ones, the vaults.
-       * A conversation is named by its person's first request; `current` and `untitled` are what one
-       * with no words yet is called, on screen and in the saved list.
+       * The conversations panel (ConversationRail): a rail beside the conversation on a wide screen, a
+       * sheet on a phone. A draft is named by the name the person gave it, else its first request; a
+       * vault by its goal, as the portfolio overview names it. `current` and `untitled` are what a
+       * draft with no words yet is called, on screen and in the list.
        */
       picker: {
-        label: 'Conversation',
+        label: 'Conversations',
         current: 'New conversation',
-        fresh: 'Start a new conversation',
-        vaults: 'Your vaults',
-        saved: 'Saved conversations',
         untitled: 'Earlier conversation',
+        fresh: 'New conversation',
+        show: 'Show conversations',
+        hide: 'Hide conversations',
+        close: 'Close',
+        groups: { today: 'Today', yesterday: 'Yesterday', earlier: 'Earlier' },
+        search: 'Search conversations',
+        noMatch: (words: string) => `No conversation has “${words}” in its name.`,
+        empty: 'Your conversations and vaults are listed here.',
+        vault: 'Vault',
+        draft: 'Draft',
+        openVault: (title: string) => `Open the vault: ${title}`,
+        rename: (title: string) => `Rename: ${title}`,
+        name: 'Name',
+        save: 'Save',
+        cancel: 'Cancel',
+        remove: (title: string) => `Delete: ${title}`,
+        confirm: 'Delete this draft from this browser? It can’t be brought back.',
+        /** A draft with a deposit that is not finished: it is not deleted. */
+        depositing:
+          'This draft has a deposit that isn’t finished, so it stays. Open it to see the deposit’s steps.',
+        yes: 'Delete',
+        keep: 'Keep',
+        removed: (title: string) => `Deleted: ${title}`,
       },
       invitation: 'What should your vault do?',
       lead: 'Tell me your ideas, needs and limits. I’ll draft a vault with its sources and tradeoffs.',
@@ -1844,6 +1867,9 @@ export const en = {
         allOnTarget: 'On target',
         /** In the head of the holdings when a share is off its target. */
         offTargetShort: 'Off target',
+        /** A share a little away from its target, by less than one trade: said, and not off target. */
+        gapTooSmall:
+          'A little away from its targets, by less than one trade is worth: nothing to rebalance.',
         /** A holding's status pill when it is off its target: "Drift +2%". */
         drift: (signed: string) => `Drift ${signed}`,
         /** Why cash is kept, where the vault plans a share of cash. */
@@ -2764,9 +2790,9 @@ export const en = {
       remove: (name: string) => `Remove ${name}`,
       weight: (name: string) => `Weight of ${name}`,
       cash: (share: string) => `Cash: ${share}`,
-      lines: (n: number) => `${n} of 16 assets`,
+      lines: (n: number) => `${n} of ${VAULT_MAX_TARGETS} assets`,
       issues: {
-        'too-many': 'A vault holds 16 assets besides cash. Remove one.',
+        'too-many': `A vault holds ${VAULT_MAX_TARGETS} assets besides cash. Remove one.`,
         duplicate: 'Each asset once. Remove the repeat.',
         'cash-line': 'Cash is what the others leave. Remove it as a line.',
         'not-whole': 'Use percents with up to two decimals, or whole basis points.',
@@ -2807,7 +2833,7 @@ export const en = {
         case 'SUM_NOT_10000':
           return 'The weights don’t add up to the whole.';
         case 'TOO_MANY_LINES':
-          return 'A vault holds 16 assets besides cash.';
+          return `A vault holds ${VAULT_MAX_TARGETS} assets besides cash.`;
         case 'NO_PRICE':
           return `${asset} has no usable price just now.`;
         case 'NOT_FOR_GOAL':

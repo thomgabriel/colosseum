@@ -219,13 +219,15 @@ describe('the frame', () => {
       const block = find(host, 'footer [data-ui="disclaimer"]');
       expect(block.tagName).toBe('ASIDE');
       expect(block.getAttribute('aria-label')).toBe(dictionary(lang).shell.disclaimer);
-      const text = find(block, 'p');
+      // its heading on every page (PAGE-SHELL), then the text
+      expect(block.querySelector('p')?.textContent).toBe(dictionary(lang).activity.notAdvice);
+      const text = find(block, 'p[lang]');
       expect(text.textContent).toBe(DISCLAIMER[lang]);
       expect(text.getAttribute('lang')).toBe(lang);
       // body size: 1rem unless a partner's embed sets its own, and never a smaller class
       expect(text.className).toContain('text-[length:var(--tf-e-body,1rem)]');
       expect(text.className).not.toMatch(/text-(xs|sm|caption|body-sm)/);
-      expect(block.querySelectorAll('p')).toHaveLength(1);
+      expect(block.querySelectorAll('p[lang]')).toHaveLength(1);
     }
   });
 
