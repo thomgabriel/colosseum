@@ -604,7 +604,8 @@ function OwnVault({
             </div>
           </>
         }
-        current={
+        // folded while a draft has the pane: the holdings panel shows its own head alone
+        current={(folded) => (
           <>
             {closing && !closedAt && (
               <CloseConfirm
@@ -645,14 +646,18 @@ function OwnVault({
               </p>
             )}
             {/* while the close is asked, its press is the view's one primary */}
-            <VaultHoldings read={read} deposit={empty && !closing ? deposit : undefined} />
+            <VaultHoldings
+              read={read}
+              deposit={empty && !closing ? deposit : undefined}
+              folded={folded}
+            />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">
                 {p.change}
               </p>
             )}
           </>
-        }
+        )}
         aside={<VaultDetails read={read} mine />}
       />
     </div>

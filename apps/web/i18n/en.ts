@@ -1818,6 +1818,7 @@ export const en = {
         /** The two right panes, for a screen reader: each scrolls on its own on a desktop. */
         planPane: 'Your vault’s plan and holdings',
         actionPane: 'The action under way',
+        headPane: 'This vault’s head',
         noHoldings: 'This vault holds no tokens now.',
         targets: 'Current targets',
         targetsNote: 'Targets recorded on chain, separate from the shares held now.',
@@ -1902,6 +1903,9 @@ export const en = {
         onPlan: 'on target',
         /** With a plan and every share on it, said once above the ring. */
         allOnTarget: 'On target',
+        /** The press on a panel folded to its head while a draft has the pane. */
+        show: 'Show',
+        hide: 'Hide',
         /** In the head of the holdings when a share is off its target. */
         offTargetShort: 'Off target',
         /** A share a little away from its target, by less than one trade: said, and not off target. */

@@ -273,17 +273,22 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   const building = workspace.locator('[data-ui="vault-building"]');
   await expect(building.locator('h2')).toHaveText(talk.building);
   await expect(building).toContainText(talk.buildingLine);
-  // On a desktop the page does not scroll: the draft has the right pane, what the vault holds is folded
-  // under it, and the pane scrolls on its own to it (Thom, Oct 14)
+  // On a desktop the page does not scroll: the draft has the right pane, the holdings panel folds to
+  // its own head under it, and the pane scrolls on its own to it (Thom, Oct 14)
   await page.setViewportSize({ width: 1440, height: 900 });
   const pane = workspace.locator('[data-ui="vault-plan"]');
   expect(await pane.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
-  const fold = pane.locator('[data-ui="vault-holdings-fold"]');
-  await fold.locator(':scope > summary').click();
-  const held = fold.locator('[data-ui="composition"]').first();
+  const panel = pane.locator('[data-ui="vault-holdings-panel"]');
+  const toggle = panel.locator('[data-action="fold-toggle"]');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  const held = panel.locator('[data-ui="composition"]').first();
   await held.scrollIntoViewIfNeeded();
   await expect(held).toBeInViewport({ ratio: 1 });
-  await fold.locator(':scope > summary').click();
+  // where it scrolls, the pane is a stop for the keyboard
+  if (await pane.evaluate((el) => el.scrollHeight > el.clientHeight + 1))
+    await expect(pane).toHaveAttribute('tabindex', '0');
+  await toggle.click();
   await pane.evaluate((el) => el.scrollTo(0, 0));
   await page.setViewportSize({ width: 375, height: 812 });
   // the message, the row under it and the box are whole in the window
