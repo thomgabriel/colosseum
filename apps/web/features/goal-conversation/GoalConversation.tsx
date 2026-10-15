@@ -499,7 +499,7 @@ export function GoalConversation({
       data-ui="goal-conversation"
       data-workbench
       // Beside a draft the chat keeps half from 1440px and 45% from 1024px, never under 440px unless
-      // that is more than half (the sidebar opened by hand on a narrow desk); on a tablet five
+      // that is more than half (the rail opened by hand on a narrow desk); on a tablet five
       // twelfths. Each range is bounded on both sides (`max-*` is `width <`, so they meet
       // with no gap): an arbitrary breakpoint's rule is written before the named ones, so
       // `min-[1440px]` alone would lose to `md:` and `lg:`.

@@ -174,10 +174,10 @@ test('the conversations panel: a new conversation, an earlier one opened, and a 
   }
 });
 
-// The title's place (PAGE-SHELL, as CONVERSATION-PANEL amends it): at the frame's left edge, with the
-// panel's button in its row under 1024px; from 1024px the frame starts after the conversations
-// sidebar at the window's edge (Oct 15), so the title is one gutter from it, open or folded. Always at
-// the head's top.
+// The title's place (PAGE-SHELL, as CONVERSATION-PANEL amends it): under 1024px at the frame's left
+// edge with the panel's button in its row; from 1024px after the conversations rail and its gap, 328px
+// with the rail open and 80px closed, the rail a card in the frame (Thom, Oct 15, after the sidebar at
+// the window's edge). Always at the head's top, and the frame centred where the window is wider.
 const width = (page: { viewportSize(): { width: number } | null }) =>
   page.viewportSize()?.width ?? 0;
 test('the title sits at the frame’s edge, or after the conversations rail', async ({ page }) => {
@@ -193,17 +193,13 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   const place = async () => {
     const box = await title.boundingBox();
     if (!box) return null;
-    const [left, side, centre] = await page.evaluate(() => {
+    const [left, centre] = await page.evaluate(() => {
       const frame = document.querySelector<HTMLElement>('.group\\/shell');
-      const rail = document.querySelector<HTMLElement>('div[data-ui="conversations"]');
-      if (!frame || !rail) return [Number.NaN, Number.NaN, Number.NaN];
+      if (!frame) return [Number.NaN, Number.NaN];
       const box = frame.getBoundingClientRect();
-      const style = getComputedStyle(frame);
-      const from = box.left + Number.parseFloat(style.paddingLeft);
-      const to = box.right - Number.parseFloat(style.paddingRight);
-      const edge = rail.getBoundingClientRect().right;
-      // how far the page's middle is from the middle of the room right of the sidebar
-      return [from, edge, (from + to) / 2 - (edge + document.documentElement.clientWidth) / 2];
+      // how far the frame's middle is from the window's
+      const middle = (box.left + box.right) / 2 - document.documentElement.clientWidth / 2;
+      return [box.left + Number.parseFloat(getComputedStyle(frame).paddingLeft), middle];
     });
     // the title's row lines its words up on one baseline with the row's buttons: under 1024px, where
     // those buttons share the title's line, its top is up to 2px lower than the head's (as before)
@@ -211,15 +207,12 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
     return {
       x: Math.round(box.x - left) + 0,
       y: width(page) < 1024 && y <= 106 ? 104 : y,
-      // from the sidebar's edge (it is not drawn under 1024px)
-      after: width(page) < 1024 ? null : Math.round(box.x - (side ?? 0)),
-      // where the frame is narrower than the room, the page is centred in it (within a pixel)
-      centred: width(page) < 1024 || Math.abs(centre ?? Number.NaN) <= 1,
+      centred: Math.abs(centre ?? Number.NaN) <= 1,
     };
   };
   const toggle = page.locator('[data-ui="conversations-toggle"]');
   for (const closed of [false, true]) {
-    for (const width of [375, 768, 1280, 1440, 1920]) {
+    for (const width of [375, 768, 1280, 1440, 1920, 2000]) {
       await page.setViewportSize({ width, height: 900 });
       if (width >= 1024) {
         if ((await toggle.getAttribute('aria-expanded')) === String(closed)) await toggle.click();
@@ -230,20 +223,7 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       // drawn again (its key follows the account and the chain as they settle), and for that moment
       // there is no title to measure. The place it settles in is held exactly.
       const step = `${width}px, rail ${closed ? 'closed' : 'open'}`;
-      const there = {
-        x: 0,
-        y: 104,
-        // the frame's gutter, clamp(12px, 2vw, 28px), and where the window is wider than the frame
-        // and the sidebar, the frame's own margin
-        after:
-          width < 1024
-            ? null
-            : Math.round(
-                Math.max(0, (width - (1600 + (closed ? 56 : 260))) / 2) +
-                  Math.min(28, Math.max(12, width * 0.02)),
-              ),
-        centred: true,
-      };
+      const there = { x: width < 1024 ? 0 : closed ? 80 : 328, y: 104, centred: true };
       // inside the test's own limit, so a miss is reported with this step's name
       await expect.poll(place, { message: step, timeout: 10_000 }).toEqual(there);
       // and still there a frame later: settled, not passing through
@@ -280,6 +260,25 @@ test('beside a draft the chat keeps its share, and the rail folds for it', async
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       page.viewportSize()?.width ?? 0,
     );
+    // nothing cut at the right: the draft and the head's last button end inside the frame (Thom, at
+    // 2000px, with the sidebar #329 had fixed at the window's edge)
+    const right = await page.evaluate(() => {
+      const frame = document.querySelector<HTMLElement>('.group\\/shell');
+      if (!frame) return Number.NaN;
+      return (
+        frame.getBoundingClientRect().right -
+        Number.parseFloat(getComputedStyle(frame).paddingRight)
+      );
+    });
+    expect(draft.x + draft.width).toBeLessThanOrEqual(right + 0.5);
+    for (const head of [
+      page.getByRole('button', { name: en.talk.hideChat }),
+      page.getByRole('button', { name: en.talk.startOver }),
+    ]) {
+      const one = await head.boundingBox();
+      if (!one) throw new Error('"Hide chat" and "Start over" are drawn');
+      expect(one.x + one.width).toBeLessThanOrEqual(right + 0.5);
+    }
     return chat.width / (chat.width + draft.width);
   };
   for (const [width, share] of [
@@ -287,8 +286,9 @@ test('beside a draft the chat keeps its share, and the rail folds for it', async
     [1440, 0.5],
     [1600, 0.5],
     [1920, 0.5],
+    [2000, 0.5],
   ] as const) {
-    await page.setViewportSize({ width, height: 900 });
+    await page.setViewportSize({ width, height: width === 2000 ? 934 : 900 });
     await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', 'false');
     expect(await measure(), `${width}px`).toBeCloseTo(share, 2);
   }

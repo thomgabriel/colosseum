@@ -1,4 +1,4 @@
-// The side menu of Bearing's analytics (Rodrigo's Analytics 2.0), and Invest's conversations sidebar
+// The side menu of Bearing's analytics (Rodrigo's Analytics 2.0), and Invest's conversations rail
 // drawn as it (Thom, Oct 15): one menu, so its parts are written once. A bordered button heads it
 // (Hide menu, with its three lines); a row is a short mark in a column of its own, then its label; the
 // row on screen has the brand's bar on its left edge over a muted fill. Text at 13px.

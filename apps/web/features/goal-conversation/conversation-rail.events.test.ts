@@ -106,7 +106,7 @@ describe('the conversations panel', () => {
     // the one on screen is marked, for the eye and for a reader
     const here = find(row(host, w.current), '[data-ui="conversation-open"]');
     // said once: by `aria-current`; the words hidden after its name are its chain (and how long ago,
-    // once it has words), what the sidebar's tooltip says, never that it is on screen
+    // once it has words), what the rail's tooltip says, never that it is on screen
     expect(here.getAttribute('aria-current')).toBe('true');
     expect(here.querySelector('.sr-only')?.textContent).toMatch(/^, Solana(, .+)?$/);
     expect(here.getAttribute('title')).toBe(`${w.current} · Solana`);
@@ -130,7 +130,7 @@ describe('the conversations panel', () => {
       // named by its goal or its name, never by its address
       expect(one.textContent).not.toContain(one.dataset.address ?? '');
     }
-    // the sidebar's row is one line and draws no figure; the sheet's shows a vault's value, with its
+    // the rail's row is one line and draws no figure; the sheet's shows a vault's value, with its
     // pin, where it has a newest read
     const read = listed.filter((plan) => plan.newest);
     expect(read.length).toBeGreaterThan(0);
@@ -255,7 +255,7 @@ describe('the conversations panel', () => {
     );
     let host = await show();
     await settle();
-    // the one on screen and seven: eight rows, and the sheet has no search; the sidebar always has one
+    // the one on screen and seven: eight rows, and the sheet has no search; the rail always has one
     expect(titles(host)).toHaveLength(8);
     expect(rail(host).querySelector('[data-ui="conversation-search"]')).not.toBeNull();
     await click(find(host, '[data-ui="conversations-open"]'));
@@ -315,10 +315,13 @@ describe('the conversations panel', () => {
   });
 
   // Thom, Oct 15: drawn as the analytics' side menu
-  it('is a sidebar of one-line rows: the chain’s mark and the name, the rest in its tooltip', async () => {
+  it('is a rail of one-line rows: the chain’s mark and the name, the rest in its tooltip', async () => {
     keep([{ id: 'd1', words: 'Consider gold', at: ago(1) }]);
     const host = await show();
     await settle();
+    // a card in the page's frame beside the conversation, not fixed to the window's edge (Thom, Oct 15)
+    expect(rail(host).className).toContain('lg:rounded-xl');
+    expect(rail(host).className).not.toContain('lg:fixed');
     const gold = row(host, 'Consider gold');
     const name = find(gold, '[data-ui="conversation-open"]');
     expect(find(name, '[data-ui="chain-logo"]').getAttribute('aria-hidden')).toBe('true');
@@ -363,7 +366,7 @@ describe('the conversations panel', () => {
     );
   });
 
-  it('folds to a strip of three: the toggle, "New conversation", and the search, which opens it', async () => {
+  it('folds to a box of three: the toggle, "New conversation", and the search, which opens it', async () => {
     const host = await show();
     await settle();
     const toggle = find(rail(host), '[data-ui="conversations-toggle"]');

@@ -41,17 +41,17 @@ import {
 } from './conversation-list';
 import { NAME_LENGTH } from './conversations';
 
-// The conversations panel of /invest (Thom, Oct 14, in place of the picker). From 1024px a sidebar at
-// the window's left edge under the bar, drawn as the analytics' side menu (Thom, Oct 15; side-menu.ts):
-// 260px open or a 56px strip as this browser last left it, its own scroll, a hairline on its right;
-// "Hide conversations", "New conversation" and a search on top, then one line a row, the chain's mark
-// in the menu's mark column and the name, the honey bar on the one on screen; the chain and how long
-// ago in its tooltip, and under the name on the row the keyboard is on. Under 1024px a sheet over the
-// page, opened from a button over the conversation, whose rows also say the chain, how long ago and,
-// for a vault, its value with its pin.
+// The conversations panel of /invest (Thom, Oct 14, in place of the picker). From 1024px a rail beside
+// the conversation, a card in the page's frame level with the title, 304px open or a 56px box folded as
+// this browser last left it (and as INVEST-CHAT-ROOM folds it); inside, the analytics' side menu (Thom,
+// Oct 15; side-menu.ts): "Hide conversations", "New conversation" and a search on top, then one line a
+// row, the chain's mark in the menu's mark column and the name, the honey bar on the one on screen; the
+// chain and how long ago in its tooltip, and under the name on the row the keyboard is on. Under 1024px
+// a sheet over the page, opened from a button over the conversation, whose rows also say the chain, how
+// long ago and, for a vault, its value with its pin.
 // Both: the person's drafts and vaults in three groups by day, newest first, the one on screen marked;
 // a draft renamed or deleted in its row; a vault opening its own page, where its conversation is; the
-// arrow keys between the rows. The sheet's search is there from nine rows, the sidebar's always.
+// arrow keys between the rows. The sheet's search is there from nine rows, the rail's always.
 
 const SIDE_KEY = 'tf-conversations-closed';
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
@@ -230,7 +230,7 @@ export function ConversationRail({
     }
   };
 
-  // From the strip's search: the sidebar opens with the focus in its search.
+  // From the folded box's search: the rail opens with the focus in its search.
   const search = useRef<HTMLDivElement>(null);
   const [seek, setSeek] = useState(false);
   useEffect(() => {
@@ -241,18 +241,19 @@ export function ConversationRail({
   const head = cn(MENU_BUTTON, 'w-full', FOCUS);
   const square = cn(MENU_BUTTON, 'w-full justify-center px-0', FOCUS);
 
-  // From 1024px: at the window's left edge under the app's fixed bar, the page beside it (AppShell).
+  // From 1024px: a card beside the conversation, its top level with the title's, under the app's fixed
+  // bar as the page scrolls.
   return (
     <div
       data-ui="conversations"
       data-closed={folded || undefined}
       className={cn(
-        'max-lg:hidden lg:fixed lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:bottom-0 lg:left-0 lg:z-20 lg:flex lg:flex-col lg:border-r lg:border-border lg:bg-card',
+        'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
         MENU_TEXT,
-        folded ? 'lg:w-14' : 'lg:w-65',
+        folded ? 'lg:w-14' : 'lg:w-76',
       )}
     >
-      <div className="flex flex-col gap-2 px-2 pt-3">
+      <div className={cn('flex flex-col gap-2 px-2 pt-3', folded && 'pb-3')}>
         <button
           type="button"
           data-ui="conversations-toggle"
@@ -301,7 +302,7 @@ export function ConversationRail({
   );
 }
 
-/** "New conversation", the search, and the rows in their groups: one line a row in the sidebar. */
+/** "New conversation", the search, and the rows in their groups: one line a row in the rail. */
 function ConversationList({
   rows,
   now,
@@ -314,7 +315,7 @@ function ConversationList({
 }: RailActions & {
   rows: readonly ConversationRow[];
   now: number;
-  /** The sidebar's: plain rows of one line, and the search always there. */
+  /** The rail's: the menu's rows of one line, and the search always there. */
   dense?: boolean;
   search?: RefObject<HTMLDivElement | null>;
 }) {
@@ -502,7 +503,7 @@ function Group({
 }
 
 /**
- * A sidebar row's one line: the chain's mark in the menu's mark column, and the name. What the sheet
+ * A rail row's one line: the chain's mark in the menu's mark column, and the name. What the sheet
  * writes under the name (the chain and how long ago) is its tooltip, said to a reader after the name,
  * and written under the name on the row the keyboard is on, since a tooltip is the pointer's alone.
  */
@@ -541,7 +542,7 @@ function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: st
     </>
   );
 }
-/** What a sidebar row says beside its name: the vault's kind, the chain and how long ago. */
+/** What a rail row says beside its name: the vault's kind, the chain and how long ago. */
 const said = (row: ConversationRow, now: number, locale: string, kind?: string) =>
   [kind, CHAIN_NAMES[row.chain], row.at !== null ? ago(row.at, now, locale) : null]
     .filter(Boolean)
@@ -565,7 +566,7 @@ function Meta({ row, now, children }: { row: ConversationRow; now: number; child
 
 const ROW =
   'group/row relative flex min-w-0 items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/60';
-/** The sidebar's row: the menu's row (side-menu.ts) and, for a draft, its rename and delete after it. */
+/** The rail's row: the menu's row (side-menu.ts) and, for a draft, its rename and delete after it. */
 const DENSE_ROW = 'group/row relative flex min-w-0 items-center gap-0.5';
 const DENSE_OPEN = cn(MENU_ROW, 'group/open min-w-0 flex-1 text-left', FOCUS);
 
@@ -776,7 +777,7 @@ function VaultItem({ row, now, dense }: { row: VaultRow; now: number; dense: boo
   const t = useT();
   const w = t.goal.explore.picker;
   const lang = useLang();
-  // In the sidebar a vault is one line too, with no value: a figure is only ever drawn with its pin,
+  // In the rail a vault is one line too, with no value: a figure is only ever drawn with its pin,
   // and there is no room for one; the sheet's row, and the vault's own page, carry it.
   if (dense)
     return (
