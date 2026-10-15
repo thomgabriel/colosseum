@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MENU_BUTTON, MENU_FIELD, MENU_ROW } from '../../components/ui/side-menu';
 import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
 import { withAccount } from '../account/test/screen';
@@ -313,7 +314,7 @@ describe('the conversations panel', () => {
     expect(document.activeElement).toBe(a);
   });
 
-  // Thom, Oct 15: "more like the claude sidebar"
+  // Thom, Oct 15: drawn as the analytics' side menu
   it('is a sidebar of one-line rows: the chain’s mark and the name, the rest in its tooltip', async () => {
     keep([{ id: 'd1', words: 'Consider gold', at: ago(1) }]);
     const host = await show();
@@ -324,6 +325,16 @@ describe('the conversations panel', () => {
     expect(name.getAttribute('title')).toBe(
       `Consider gold · Solana · ${en.goal.explore.picker.groups.yesterday.toLowerCase()}`,
     );
+    // the analytics' side menu's row (side-menu.ts): the mark column, the honey bar on the one on screen
+    expect(name.className).toContain(MENU_ROW);
+    expect(find(rail(host), '[aria-current="true"]').className).toContain(MENU_ROW);
+    // the chain and how long ago, written under the name on the row the keyboard is on (a tooltip is the
+    // pointer's alone), hidden from a reader, who hears them after the name
+    const said = find(name, '[data-ui="conversation-said"]');
+    expect(said.getAttribute('aria-hidden')).toBe('true');
+    expect(said.textContent).toBe(`Solana · ${find(name, 'time').textContent}`);
+    expect(said.className).toContain('hidden');
+    expect(said.className).toContain('group-focus-visible/open:block');
     // no badge and no time drawn on the row: a reader hears them after the name
     expect(gold.querySelector('[data-ui="chain-badge"]')).toBeNull();
     expect(find(name, '.sr-only').textContent).toBe(`, Solana, ${find(name, 'time').textContent}`);
@@ -341,6 +352,15 @@ describe('the conversations panel', () => {
     expect(
       find(rail(host), '[data-ui="conversation-search"] input').getAttribute('placeholder'),
     ).toBe(w.search);
+    // the menu's head: "Hide conversations" written on its button, then "New conversation" and the
+    // search drawn as that button
+    const toggle = find(rail(host), '[data-ui="conversations-toggle"]');
+    expect(toggle.textContent).toBe(w.hide);
+    expect(toggle.className).toContain(MENU_BUTTON);
+    expect(find(rail(host), 'button[data-ui="conversation-new"]').className).toContain(MENU_BUTTON);
+    expect(find(rail(host), '[data-ui="conversation-search"] input').className).toContain(
+      MENU_FIELD,
+    );
   });
 
   it('folds to a strip of three: the toggle, "New conversation", and the search, which opens it', async () => {

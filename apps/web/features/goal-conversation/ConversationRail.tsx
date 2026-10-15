@@ -19,6 +19,13 @@ import { Input } from '../../components/ui/Field';
 import { Icon } from '../../components/ui/Icon';
 import { KIT_ABOVE_LINK, KIT_ROW_LINK } from '../../components/ui/KitTable';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
+import {
+  MENU_BUTTON,
+  MENU_FIELD,
+  MENU_MARK,
+  MENU_ROW,
+  MENU_TEXT,
+} from '../../components/ui/side-menu';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { dollars } from '../portfolio/figures';
@@ -35,11 +42,13 @@ import {
 import { NAME_LENGTH } from './conversations';
 
 // The conversations panel of /invest (Thom, Oct 14, in place of the picker). From 1024px a sidebar at
-// the window's left edge under the bar (Thom, Oct 15: "more like the claude sidebar"), 260px open or a
-// 56px strip of icons as this browser last left it: its own scroll, a hairline on its right, "New
-// conversation" and a search on top, then one line a row, the chain's mark and the name, the chain and
-// how long ago in its tooltip. Under 1024px a sheet over the page, opened from a button over the
-// conversation, whose rows also say the chain, how long ago and, for a vault, its value with its pin.
+// the window's left edge under the bar, drawn as the analytics' side menu (Thom, Oct 15; side-menu.ts):
+// 260px open or a 56px strip as this browser last left it, its own scroll, a hairline on its right;
+// "Hide conversations", "New conversation" and a search on top, then one line a row, the chain's mark
+// in the menu's mark column and the name, the honey bar on the one on screen; the chain and how long
+// ago in its tooltip, and under the name on the row the keyboard is on. Under 1024px a sheet over the
+// page, opened from a button over the conversation, whose rows also say the chain, how long ago and,
+// for a vault, its value with its pin.
 // Both: the person's drafts and vaults in three groups by day, newest first, the one on screen marked;
 // a draft renamed or deleted in its row; a vault opening its own page, where its conversation is; the
 // arrow keys between the rows. The sheet's search is there from nine rows, the sidebar's always.
@@ -229,10 +238,8 @@ export function ConversationRail({
     setSeek(false);
     search.current?.querySelector('input')?.focus();
   }, [seek, folded]);
-  const strip = cn(
-    buttonClass({ variant: 'icon', size: 'dense' }),
-    'border-0 hover:bg-sidebar-accent',
-  );
+  const head = cn(MENU_BUTTON, 'w-full', FOCUS);
+  const square = cn(MENU_BUTTON, 'w-full justify-center px-0', FOCUS);
 
   // From 1024px: at the window's left edge under the app's fixed bar, the page beside it (AppShell).
   return (
@@ -240,22 +247,24 @@ export function ConversationRail({
       data-ui="conversations"
       data-closed={folded || undefined}
       className={cn(
-        'max-lg:hidden lg:fixed lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:bottom-0 lg:left-0 lg:z-20 lg:flex lg:flex-col lg:border-r lg:border-sidebar-border lg:bg-sidebar lg:text-sidebar-foreground',
+        'max-lg:hidden lg:fixed lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:bottom-0 lg:left-0 lg:z-20 lg:flex lg:flex-col lg:border-r lg:border-border lg:bg-card',
+        MENU_TEXT,
         folded ? 'lg:w-14' : 'lg:w-65',
       )}
     >
-      <div className={cn('flex flex-col gap-1 p-2', folded && 'items-center')}>
+      <div className="flex flex-col gap-2 px-2 pt-3">
         <button
           type="button"
           data-ui="conversations-toggle"
           aria-expanded={!folded}
           aria-controls={listId}
           onClick={toggle}
-          className={strip}
+          className={folded ? square : head}
           aria-label={folded ? w.show : w.hide}
-          title={folded ? w.show : w.hide}
+          title={folded ? w.show : undefined}
         >
           <Icon name="Menu" size={16} />
+          {!folded && <span>{w.hide}</span>}
         </button>
         {folded && (
           <>
@@ -263,7 +272,7 @@ export function ConversationRail({
               type="button"
               data-ui="conversation-new"
               onClick={actions.onNew}
-              className={strip}
+              className={square}
               aria-label={w.fresh}
               title={w.fresh}
             >
@@ -276,7 +285,7 @@ export function ConversationRail({
                 toggle();
                 setSeek(true);
               }}
-              className={strip}
+              className={square}
               aria-label={w.search}
               title={w.search}
             >
@@ -364,7 +373,7 @@ function ConversationList({
   };
 
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-1 pt-0' : 'gap-3 p-3')}>
+    <div className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-2 pt-2' : 'gap-3 p-3')}>
       <button
         ref={fresh}
         type="button"
@@ -372,10 +381,7 @@ function ConversationList({
         onClick={onNew}
         className={
           dense
-            ? cn(
-                'mx-2 flex h-8 items-center gap-2 rounded-md px-2 text-left text-body-sm font-medium hover:bg-sidebar-accent',
-                FOCUS,
-              )
+            ? cn(MENU_BUTTON, 'mx-2', FOCUS)
             : cn(buttonClass({ variant: 'secondary', size: 'dense' }), 'h-9 w-full gap-2')
         }
       >
@@ -391,22 +397,30 @@ function ConversationList({
             name="Search"
             size={16}
             className={cn(
-              'pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground',
-              dense ? 'left-2' : 'left-3',
+              'pointer-events-none absolute top-1/2 -translate-y-1/2',
+              // where the menu's buttons above it have their icon
+              dense ? 'left-[11px] text-foreground' : 'left-3 text-muted-foreground',
             )}
           />
-          <Input
-            id={searchId}
-            type="search"
-            placeholder={w.search}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className={
-              dense
-                ? 'h-8 border-sidebar-border bg-transparent pl-8 text-body-sm'
-                : 'h-9 pl-9 text-body-sm'
-            }
-          />
+          {dense ? (
+            <input
+              id={searchId}
+              type="search"
+              placeholder={w.search}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className={cn(MENU_FIELD, FOCUS)}
+            />
+          ) : (
+            <Input
+              id={searchId}
+              type="search"
+              placeholder={w.search}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-9 pl-9 text-body-sm"
+            />
+          )}
         </div>
       )}
       <nav
@@ -415,7 +429,7 @@ function ConversationList({
         onKeyDown={move}
         className={cn(
           'min-h-0 flex-1 overflow-y-auto',
-          dense ? 'tf-scroll-thin px-2 pt-2 pb-3' : '-mx-1 px-1',
+          dense ? 'tf-scroll-thin px-2 pt-3 pb-3' : '-mx-1 px-1',
         )}
       >
         {rows.length === 0 && <p className="px-2 text-body-sm text-muted-foreground">{w.empty}</p>}
@@ -472,8 +486,8 @@ function Group({
     <div data-ui="conversation-group" data-group={group} className={dense ? 'mb-4' : 'mb-3'}>
       <h3
         className={cn(
-          'px-2 text-caption text-muted-foreground',
-          dense ? 'pb-1 font-normal' : 'pb-1 font-medium',
+          'text-caption text-muted-foreground',
+          dense ? 'px-3 pb-1 font-normal' : 'px-2 pb-1 font-medium',
         )}
       >
         {title}
@@ -488,16 +502,28 @@ function Group({
 }
 
 /**
- * A sidebar row's one line: the chain's mark and the name. What the sheet writes under the name (the
- * chain and how long ago) is its tooltip, and said to a reader after the name.
+ * A sidebar row's one line: the chain's mark in the menu's mark column, and the name. What the sheet
+ * writes under the name (the chain and how long ago) is its tooltip, said to a reader after the name,
+ * and written under the name on the row the keyboard is on, since a tooltip is the pointer's alone.
  */
 function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: string }) {
   const lang = useLang();
   return (
     <>
-      <ChainLogo chain={row.chain} size={14} decorative className="shrink-0" />
-      <span data-ui="conversation-title" className="min-w-0 flex-1 truncate">
-        {row.title}
+      <span aria-hidden="true" className={cn(MENU_MARK, 'flex items-center')}>
+        <ChainLogo chain={row.chain} size={14} decorative />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span data-ui="conversation-title" className="block truncate">
+          {row.title}
+        </span>
+        <span
+          aria-hidden="true"
+          data-ui="conversation-said"
+          className="hidden truncate text-caption font-normal text-muted-foreground group-focus-visible/open:block"
+        >
+          {said(row, now, LOCALE[lang], kind)}
+        </span>
       </span>
       <span className="sr-only">
         {', '}
@@ -515,10 +541,13 @@ function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: st
     </>
   );
 }
-const tip = (row: ConversationRow, now: number, locale: string, kind?: string) =>
-  [kind, row.title, CHAIN_NAMES[row.chain], row.at !== null ? ago(row.at, now, locale) : null]
+/** What a sidebar row says beside its name: the vault's kind, the chain and how long ago. */
+const said = (row: ConversationRow, now: number, locale: string, kind?: string) =>
+  [kind, CHAIN_NAMES[row.chain], row.at !== null ? ago(row.at, now, locale) : null]
     .filter(Boolean)
     .join(' · ');
+const tip = (row: ConversationRow, now: number, locale: string, kind?: string) =>
+  [kind, row.title, said(row, now, locale)].filter(Boolean).join(' · ');
 
 /** The chain and how long ago, under a row's name. */
 function Meta({ row, now, children }: { row: ConversationRow; now: number; children?: ReactNode }) {
@@ -536,9 +565,9 @@ function Meta({ row, now, children }: { row: ConversationRow; now: number; child
 
 const ROW =
   'group/row relative flex min-w-0 items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/60';
-/** The sidebar's row: one line, 32px, the hover and the one on screen in the sidebar's tint. */
-const DENSE_ROW =
-  'group/row relative flex h-8 min-w-0 items-center gap-1 rounded-md pl-2 text-body-sm hover:bg-sidebar-accent';
+/** The sidebar's row: the menu's row (side-menu.ts) and, for a draft, its rename and delete after it. */
+const DENSE_ROW = 'group/row relative flex min-w-0 items-center gap-0.5';
+const DENSE_OPEN = cn(MENU_ROW, 'group/open min-w-0 flex-1 text-left', FOCUS);
 
 function DraftItem({
   row,
@@ -678,10 +707,7 @@ function DraftItem({
   return (
     <li
       {...attrs}
-      className={cn(
-        dense ? DENSE_ROW : ROW,
-        row.current && (dense ? 'bg-sidebar-accent' : 'bg-accent hover:bg-accent'),
-      )}
+      className={cn(dense ? DENSE_ROW : ROW, row.current && !dense && 'bg-accent hover:bg-accent')}
     >
       <button
         ref={back}
@@ -690,11 +716,7 @@ function DraftItem({
         aria-current={row.current ? 'true' : undefined}
         onClick={() => onOpen(row)}
         title={dense ? tip(row, now, LOCALE[lang]) : undefined}
-        className={cn(
-          'min-w-0 flex-1 rounded-md text-left',
-          dense && 'flex h-full items-center gap-2 text-foreground',
-          FOCUS,
-        )}
+        className={dense ? DENSE_OPEN : cn('min-w-0 flex-1 rounded-md text-left', FOCUS)}
       >
         {dense ? (
           <Line row={row} now={now} />
@@ -724,7 +746,7 @@ function DraftItem({
             }}
             className={cn(
               buttonClass({ variant: 'icon', size: 'dense' }),
-              dense ? 'size-6 border-0 bg-transparent' : 'size-7 border-0',
+              dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
             )}
             aria-label={w.rename(row.title)}
             title={w.rename(row.title)}
@@ -737,7 +759,7 @@ function DraftItem({
             onClick={() => setMode('deleting')}
             className={cn(
               buttonClass({ variant: 'icon', size: 'dense' }),
-              dense ? 'size-6 border-0 bg-transparent' : 'size-7 border-0',
+              dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
             )}
             aria-label={w.remove(row.title)}
             title={w.remove(row.title)}
@@ -763,17 +785,14 @@ function VaultItem({ row, now, dense }: { row: VaultRow; now: number; dense: boo
         data-kind="vault"
         data-chain={row.chain}
         data-address={row.address}
-        className={cn(DENSE_ROW, 'pr-2')}
+        className={DENSE_ROW}
       >
         <Link
           href={vaultHref(row.chain, row.address)}
           data-ui="conversation-open"
           aria-label={w.openVault(row.title)}
           title={tip(row, now, LOCALE[lang], w.vault)}
-          className={cn(
-            'flex h-full min-w-0 flex-1 items-center gap-2 rounded-md text-foreground',
-            FOCUS,
-          )}
+          className={DENSE_OPEN}
         >
           <Line row={row} now={now} kind={w.vault} />
         </Link>

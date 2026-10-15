@@ -193,14 +193,17 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   const place = async () => {
     const box = await title.boundingBox();
     if (!box) return null;
-    const [left, side] = await page.evaluate(() => {
+    const [left, side, centre] = await page.evaluate(() => {
       const frame = document.querySelector<HTMLElement>('.group\\/shell');
       const rail = document.querySelector<HTMLElement>('div[data-ui="conversations"]');
-      if (!frame || !rail) return [Number.NaN, Number.NaN];
-      return [
-        frame.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(frame).paddingLeft),
-        rail.getBoundingClientRect().right,
-      ];
+      if (!frame || !rail) return [Number.NaN, Number.NaN, Number.NaN];
+      const box = frame.getBoundingClientRect();
+      const style = getComputedStyle(frame);
+      const from = box.left + Number.parseFloat(style.paddingLeft);
+      const to = box.right - Number.parseFloat(style.paddingRight);
+      const edge = rail.getBoundingClientRect().right;
+      // how far the page's middle is from the middle of the room right of the sidebar
+      return [from, edge, (from + to) / 2 - (edge + document.documentElement.clientWidth) / 2];
     });
     // the title's row lines its words up on one baseline with the row's buttons: under 1024px, where
     // those buttons share the title's line, its top is up to 2px lower than the head's (as before)
@@ -210,11 +213,13 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       y: width(page) < 1024 && y <= 106 ? 104 : y,
       // from the sidebar's edge (it is not drawn under 1024px)
       after: width(page) < 1024 ? null : Math.round(box.x - (side ?? 0)),
+      // where the frame is narrower than the room, the page is centred in it (within a pixel)
+      centred: width(page) < 1024 || Math.abs(centre ?? Number.NaN) <= 1,
     };
   };
   const toggle = page.locator('[data-ui="conversations-toggle"]');
   for (const closed of [false, true]) {
-    for (const width of [375, 768, 1280, 1440]) {
+    for (const width of [375, 768, 1280, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       if (width >= 1024) {
         if ((await toggle.getAttribute('aria-expanded')) === String(closed)) await toggle.click();
@@ -228,8 +233,16 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       const there = {
         x: 0,
         y: 104,
-        // the frame's gutter, clamp(12px, 2vw, 28px)
-        after: width < 1024 ? null : Math.round(Math.min(28, Math.max(12, width * 0.02))),
+        // the frame's gutter, clamp(12px, 2vw, 28px), and where the window is wider than the frame
+        // and the sidebar, the frame's own margin
+        after:
+          width < 1024
+            ? null
+            : Math.round(
+                Math.max(0, (width - (1600 + (closed ? 56 : 260))) / 2) +
+                  Math.min(28, Math.max(12, width * 0.02)),
+              ),
+        centred: true,
       };
       // inside the test's own limit, so a miss is reported with this step's name
       await expect.poll(place, { message: step, timeout: 10_000 }).toEqual(there);

@@ -10,6 +10,7 @@ import { formatAge } from '../../components/ui/format';
 import { PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { MENU_BUTTON, MENU_MARK, MENU_ROW, MENU_TEXT } from '../../components/ui/side-menu';
 import { Segmented } from '../../components/ui/TimeChart';
 import { useLang } from '../../i18n/I18nProvider';
 import { type Mode, useBearing } from './BearingProvider';
@@ -71,7 +72,8 @@ export function BearingShell({ children }: { children: ReactNode }) {
       data-ui="bearing"
       data-collapsed={collapsed || undefined}
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)] text-[0.8125rem]/5',
+        'grid grid-cols-[minmax(0,1fr)]',
+        MENU_TEXT,
         collapsed
           ? 'min-[900px]:grid-cols-[56px_minmax(0,1fr)]'
           : 'min-[900px]:grid-cols-[220px_minmax(0,1fr)]',
@@ -87,7 +89,8 @@ export function BearingShell({ children }: { children: ReactNode }) {
           aria-controls="bearing-nav"
           onClick={toggle}
           className={cn(
-            'flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md border border-input px-2.5 py-1.5 text-left font-medium hover:border-primary min-[900px]:w-full',
+            MENU_BUTTON,
+            'min-[900px]:w-full',
             collapsed && 'min-[900px]:justify-center min-[900px]:px-0',
             FOCUS,
           )}
@@ -111,7 +114,7 @@ export function BearingShell({ children }: { children: ReactNode }) {
                   onClick={followed}
                   aria-current={p.id === current ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-9 items-center gap-2.5 rounded-r-md border-l-2 border-transparent px-2.5 py-1.5 text-foreground no-underline hover:bg-muted aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:font-semibold',
+                    MENU_ROW,
                     collapsed && 'min-[900px]:justify-center min-[900px]:px-0',
                     FOCUS,
                   )}
@@ -119,7 +122,7 @@ export function BearingShell({ children }: { children: ReactNode }) {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'w-6 shrink-0 pl-1 font-mono text-caption',
+                      MENU_MARK,
                       p.id === current ? 'text-foreground' : 'text-muted-foreground',
                     )}
                   >
