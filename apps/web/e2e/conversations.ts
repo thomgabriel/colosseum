@@ -3,10 +3,15 @@ import type { Locator, Page } from '@playwright/test';
 // The conversations panel of /invest, as the specs reach it: the rail beside the conversation from
 // 1024px, the sheet opened from the button over it under that.
 
-/** The panel's list, opened first where it is a sheet. */
+/** The panel's list, opened first where it is a sheet, or where a draft folded the rail. */
 export async function conversations(page: Page): Promise<Locator> {
   const width = page.viewportSize()?.width ?? 0;
-  if (width >= 1024) return page.locator('div[data-ui="conversations"]');
+  if (width >= 1024) {
+    const rail = page.locator('div[data-ui="conversations"]');
+    const toggle = rail.locator('[data-ui="conversations-toggle"]');
+    if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+    return rail;
+  }
   const sheet = page.locator('[data-ui="conversations-sheet"]');
   if (!(await sheet.evaluate((node) => (node as HTMLDialogElement).open)))
     await page.locator('[data-ui="conversations-open"]').click();

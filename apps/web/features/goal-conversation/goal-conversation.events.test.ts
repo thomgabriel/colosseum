@@ -14,7 +14,7 @@ import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { GoalConversation, goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { current, open, openNew, rail, row, titles, viewport } from './test/rail';
+import { current, open, openNew, rail, row, titles, unfold } from './test/rail';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
@@ -61,7 +61,6 @@ async function mode(host: HTMLElement, value: string) {
   return open(host, { chain, id });
 }
 beforeEach(() => {
-  viewport(1600);
   window.history.replaceState(null, '', '/invest');
   router.push.mockClear();
   localStorage.clear();
@@ -170,9 +169,14 @@ describe('private strategy exploration for a new goal', () => {
     expect(workbench.className).not.toContain('grid-cols-[minmax(27.5rem');
     expect(hideChat()).toBeUndefined();
     await send(host, 'Gold and some cash');
-    // beside the draft: 45% from 1024px, never under 440px
+    // beside the draft: 45% from 1024px and half from 1440px, never under 440px
     expect(chat.className).not.toContain('md:max-w-[46rem]');
-    expect(workbench.className).toContain('lg:grid-cols-[minmax(27.5rem,9fr)_minmax(0,11fr)]');
+    expect(workbench.className).toContain(
+      'lg:max-[1440px]:grid-cols-[minmax(min(27.5rem,50%),9fr)_minmax(0,11fr)]',
+    );
+    expect(workbench.className).toContain(
+      'min-[1440px]:grid-cols-[minmax(min(27.5rem,50%),1fr)_minmax(0,1fr)]',
+    );
     // "Hide chat" gives the draft the whole width
     await click(hideChat() as HTMLElement);
     expect(chat.hidden).toBe(true);
@@ -296,6 +300,7 @@ describe('private strategy exploration for a new goal', () => {
     expect(
       find(host, '[data-ui="goal-strategy"]').querySelector('button[data-variant="primary"]'),
     ).toBeNull();
+    await unfold(host);
     expect(titles(host)).toEqual(['Consider gold']);
     await mode(host, 'new');
     await settle();
@@ -1642,6 +1647,7 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     expect(en.goal.explore.picker.current).toBe('New conversation');
     expect(find(rail(host), 'nav').getAttribute('aria-label')).toBe(en.goal.explore.picker.label);
     await send(host, words);
+    await unfold(host);
     expect(named(host)).toEqual([title]);
     expect(current(host)).toBe(title);
     // a later message does not rename it
@@ -1653,6 +1659,7 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     await unmountAll();
     host = await show();
     await settle();
+    await unfold(host);
     expect(named(host)).toEqual([title]);
     // a new one is neutral again, and the first is saved under its name
     await mode(host, 'new');
@@ -1726,6 +1733,7 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     const words = '<img src=x onerror=alert(1)> gold';
     const host = await show();
     await send(host, words);
+    await unfold(host);
     const [first] = rail(host).querySelectorAll('[data-ui="conversation-title"]');
     expect(first?.textContent).toBe(words);
     expect(first?.children).toHaveLength(0);

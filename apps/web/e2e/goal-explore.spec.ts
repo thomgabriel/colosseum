@@ -227,11 +227,10 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   }
 });
 
-// Thom, Oct 15: beside a draft the chat keeps about 45% of the room and never less than 440px; under
-// 1440px the conversations rail folds to its strip for it, and opens again when it is asked to.
-test('beside a draft the chat keeps its share, and the rail folds for it under 1440px', async ({
-  page,
-}) => {
+// Thom, Oct 15: beside a draft the chat keeps 45% of the room, half from 1440px, and never less than
+// 440px; the conversations rail folds to its strip for it at every width it is drawn at, and once
+// opened again stays open for that conversation.
+test('beside a draft the chat keeps its share, and the rail folds for it', async ({ page }) => {
   await page.request.post(`${STUB}/__stub/reset`);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/invest');
@@ -257,21 +256,65 @@ test('beside a draft the chat keeps its share, and the rail folds for it under 1
     );
     return chat.width / (chat.width + draft.width);
   };
-  for (const [width, folded] of [
-    [1280, true],
-    [1440, false],
-    [1920, false],
+  for (const [width, share] of [
+    [1280, 0.45],
+    [1440, 0.5],
+    [1600, 0.5],
+    [1920, 0.5],
   ] as const) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', String(!folded));
-    expect(await measure(), `${width}px`).toBeCloseTo(0.45, 2);
+    await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', 'false');
+    expect(await measure(), `${width}px`).toBeCloseTo(share, 2);
   }
-  // opened again at 1280, the rail stays open, and the chat keeps its least width
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  // opened again, the rail stays open for this conversation: at 1920 and 1600, after the next reply
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await measure();
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await measure();
+  await box.fill('Make it a little safer');
+  await box.press('Enter');
+  await expect(page.locator('[data-ui="goal-transcript"] li[data-who="person"]')).toHaveCount(2);
+  await expect(page.locator('[data-ui="reply-pending"]')).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  // and at 1280, where the chat keeps its least width beside it
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await measure();
+  // and at 1024, where 440px would be more than half: the chat and the draft half each, the draft
+  // never squeezed under the rail opened by hand (the review of #326)
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(async () => {
+    const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
+    const draft = await strategy.boundingBox();
+    if (!chat || !draft) throw new Error('the chat and the draft are drawn');
+    expect(draft.width).toBeGreaterThanOrEqual(300);
+    // half of the row is the chat's; the draft has the rest after the 16px gap
+    expect(Math.abs(chat.width - draft.width)).toBeLessThanOrEqual(17);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1024,
+    );
+  }).toPass();
+  // a new conversation has no draft, and its first draft folds the rail again
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.locator('div[data-ui="conversations"] [data-ui="conversation-new"]').click();
+  await expect(strategy).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await box.fill('Earn a monthly income');
+  await box.press('Enter');
+  await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  // opened to browse, it stays open as another draft is opened from it (the team lead, Oct 15)
+  await toggle.click();
+  await page
+    .locator('div[data-ui="conversations"] [data-ui="conversation-open"]')
+    .filter({ hasText: 'A broad fund' })
+    .click();
+  await expect(page.locator('[data-ui="goal-transcript"]')).toContainText('A broad fund');
+  await expect(strategy.locator('[data-ui="composition"]')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   // on a tablet the chat keeps five twelfths beside the draft; on a phone the draft is under the chat
   const boxes = async () => {
     const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
@@ -338,4 +381,53 @@ test('a draft drawn again on the way back has the rail folded from its first fra
     .toBeGreaterThanOrEqual(30);
   const seen = await page.evaluate(() => (window as unknown as { seen: number[] }).seen);
   expect(new Set(seen)).toEqual(new Set([56]));
+});
+
+// Thom, Oct 15: a draft of SPY alone, with the model's long reason under it, showed no share: the
+// reason kept the table one line wide and the share column was out of the card, to be scrolled to.
+test('a holding with a long reason keeps its share in the card, the reason wrapped', async ({
+  page,
+}) => {
+  await page.request.post(`${STUB}/__stub/reset`);
+  await page.setViewportSize({ width: 1975, height: 1080 });
+  // the stub's reply, as the model's would come for one asked-for holding
+  await page.route(/\/goal\/reply/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.proposal.allocations = body.proposal.allocations.slice(0, 1).map((line: object) => ({
+      ...line,
+      weightBps: 10_000,
+      why: 'You asked for the S&P 500 alone, so the whole vault follows the index through the SPY fund, which tracks the five hundred largest listed US companies and is the most traded fund on this chain.',
+    }));
+    body.proposal.weightNotes = [];
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/invest');
+  await page.locator('header a[href^="/sign-in"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
+  await expect(dialog).toHaveCount(0);
+  const box = page.locator('[data-ui="goal-chat"] textarea');
+  await box.fill('Only the S&P 500');
+  await box.press('Enter');
+  const card = page.locator('[data-ui="goal-strategy"] [data-ui="card"]').first();
+  const table = page.locator('[data-ui="goal-strategy"] [data-ui="composition-table"]');
+  const share = table.locator('[data-ui="composition-share"]');
+  await expect(share).toHaveText('100%');
+  // with the rail open too, where the card is narrowest on a desk; then a phone
+  await page.locator('[data-ui="conversations-toggle"]').click();
+  for (const width of [1975, 1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(async () => {
+      const [c, s, t] = await Promise.all([
+        card.boundingBox(),
+        share.boundingBox(),
+        table.evaluate((el) => [el.scrollWidth, el.parentElement?.clientWidth ?? 0]),
+      ]);
+      if (!c || !s) throw new Error('the card and the share are drawn');
+      expect(s.x + s.width, `${width}px`).toBeLessThanOrEqual(c.x + c.width);
+      // nothing to scroll to: the table is no wider than its box
+      expect(t[0], `${width}px`).toBeLessThanOrEqual(t[1]);
+    }).toPass();
+  }
 });

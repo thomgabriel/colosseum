@@ -41,8 +41,6 @@ import { NAME_LENGTH } from './conversations';
 // a vault opens its own page, where its conversation is. The arrow keys move between the rows.
 
 const SIDE_KEY = 'tf-conversations-closed';
-// Where the rail open beside a draft would leave the chat under its least width (Thom, Oct 15).
-const TIGHT = '(min-width: 1024px) and (max-width: 1439.98px)';
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 const GROUPS: readonly DayGroup[] = ['today', 'yesterday', 'earlier'];
 
@@ -183,29 +181,22 @@ export function ConversationRail({
 }: RailActions & {
   rows: readonly ConversationRow[];
   now: number;
-  /** A draft is beside the chat: under 1440px the rail folds to its strip until it is opened again. */
+  /** A draft is beside the chat: the rail folds to its strip until it is opened again (Thom, Oct 15). */
   drafting?: boolean;
 }) {
   const w = useT().goal.explore.picker;
   const [closed, setClosed] = useState(false);
-  const [tight, setTight] = useState(false);
   const [reopened, setReopened] = useState(false);
   const listId = useId();
 
-  // read before the first paint, so a draft beside the chat never shows the rail open for a frame
-  useLayoutEffect(() => {
-    const query = window.matchMedia(TIGHT);
-    const read = () => setTight(query.matches);
-    read();
-    query.addEventListener('change', read);
-    return () => query.removeEventListener('change', read);
-  }, []);
-  // Opened again, it stays open while the person moves between drafts; a conversation with no draft
-  // on screen (a new one, or one started over) lets the next draft fold it again.
+  // A draft on screen folds it, whichever way the draft came (sent, opened from the rail, read back
+  // on a return), and whatever this browser kept from another visit; once the person opens it again
+  // on this visit it stays open as they move between drafts. A conversation with no draft on screen
+  // (a new one, or one started over) lets the next draft fold it again.
   useLayoutEffect(() => {
     if (!drafting) setReopened(false);
   }, [drafting]);
-  const folded = closed || (drafting && tight && !reopened);
+  const folded = closed || (drafting && !reopened);
 
   // On a wide screen the rail opens as this browser last left it.
   useEffect(() => {

@@ -32,7 +32,7 @@ import { portStore } from '../wallet/test/mock-provider';
 import { holds } from '../wallet/test/mock-signing';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { current, open, openNew, row, titles, viewport } from './test/rail';
+import { current, open, openNew, row, titles, unfold } from './test/rail';
 
 // The deposit signed in place on /invest (gate DEPOSIT-IN-PLACE), with real events against a double of
 // the API. Only `execute` of the SDK is a double, as in the invest card's own tests: what decides a
@@ -383,7 +383,6 @@ const tick = (host: HTMLElement) =>
   click(find(host, '[data-ui="trust-notice"] input[type="checkbox"]'));
 
 beforeEach(() => {
-  viewport(1600);
   installLocks();
   window.history.replaceState(null, '', '/invest');
   window.localStorage.clear();
@@ -999,6 +998,7 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
 
   it('a saved conversation of the other chain asks first, and moves nothing until the person says so', async () => {
     const { host, server } = await resumed();
+    await unfold(host);
     expect(titles(host)).toContain('Stocks there');
     await choose(host, 'Stocks there');
     const ask = find(host, '[data-ui="leave-deposit"]');
@@ -1029,6 +1029,7 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
   // The review of #313: a deposit not finished is reached again from its conversation, so the panel
   // never deletes one whose deposit's ids are kept, open, left or set aside. It says why instead.
   const refuses = async (host: HTMLElement, name: string) => {
+    await unfold(host);
     await click(find(row(host, name), '[data-ui="conversation-delete"]'));
     expect(find(row(host, name), '[data-ui="conversation-confirm"]').textContent).toBe(
       en.goal.explore.picker.depositing,
@@ -1076,6 +1077,7 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
     await click(find(host, '[data-ui="leave-deposit"] [data-action="leave"]'));
     await settle();
     expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual({ ...ENTRY, left: true });
+    await unfold(host);
     const shown = row(host, current(host) ?? '');
     expect(shown.querySelector('[data-ui="conversation-delete"]')).toBeNull();
     expect(shown.querySelector('[data-ui="conversation-rename"]')).toBeNull();

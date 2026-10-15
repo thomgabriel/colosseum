@@ -282,8 +282,14 @@ test('in a full transcript a landed reply is read from its first line, a failure
     return { top: box.y - list.y, bottom: list.y + list.height - (box.y + box.height) };
   };
   const scrolled = () => transcript.evaluate((el) => el.scrollTop);
-  // enough turns for the transcript to scroll
-  for (const words of ['A broad fund and gold', 'A little safer', 'And some cash', 'Less gold']) {
+  // enough turns for the transcript to scroll (the chat has half the room beside the draft at 1440)
+  for (const words of [
+    'A broad fund and gold',
+    'A little safer',
+    'And some cash',
+    'Less gold',
+    'Keep it simple',
+  ]) {
     const before = await transcript.locator('li[data-who="app"]').count();
     await say(page, `${words}, and this message runs long enough to take two lines in the column`);
     await expect(pending).toHaveCount(0);

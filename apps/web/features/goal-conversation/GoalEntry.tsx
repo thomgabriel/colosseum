@@ -70,7 +70,7 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
     chain: ChainId | null;
   }>({ open: false, signing: false, chain: null });
   const [pending, setPending] = useState<{ go: () => void } | null>(null);
-  // The conversation has its draft beside it: the rail gives it the room under 1440px.
+  // The conversation has its draft beside it: the rail folds to give it the room.
   const [drafting, setDrafting] = useState(false);
   const chain = deposit.open && deposit.chain ? deposit.chain : current;
   const shown = useRef(chain);
