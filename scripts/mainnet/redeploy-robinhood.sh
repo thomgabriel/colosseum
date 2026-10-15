@@ -59,16 +59,19 @@ if [ "$SEND" = 0 ] && [ "$RESUME" = 0 ]; then
 fi
 
 BROADCAST=broadcast/Deploy.s.sol/4663
-# Set by the first --send: from then on this checkout has a redeploy under way or done, and a second
-# --send would deploy a second set of contracts. A send that stopped halfway is finished with --resume.
+# Written once a --send has broadcast at least one transaction, with the time it began (milliseconds):
+# from then on this checkout has a redeploy under way or done, and a second --send would deploy a second
+# set of contracts. A send refused before it broadcast (a Proposed value) writes none. A send that stopped
+# halfway is finished with --resume, which reads forge's record only if it is this redeploy's.
 STARTED=$BROADCAST/redeploy-started
 if [ "$SEND" = 1 ] && [ -f "$STARTED" ]; then
   echo "a redeploy was already sent from this checkout ($(cat "$STARTED")): finish it with --resume, never a second --send"
   exit 1
 fi
-if [ "$RESUME" = 1 ] && [ ! -f "$STARTED" ]; then
-  echo "no redeploy was sent from this checkout: nothing to resume"
-  exit 1
+if [ "$RESUME" = 1 ]; then
+  [ -f "$STARTED" ] || { echo "no redeploy was sent from this checkout: nothing to resume"; exit 1; }
+  # forge's record must be this redeploy's, and none of its transactions may have reverted.
+  (cd "$ROOT" && pnpm -s ops:redeploy --resumable --since "$(cat "$STARTED")") || exit 1
 fi
 
 read -r -p "This sends to Robinhood Chain mainnet with real money. Type deploy to go on: " answer
@@ -86,9 +89,21 @@ if [ "$SEND" = 1 ]; then
   if [ -f "$BROADCAST/run-latest.json" ] && [ ! -f "$BROADCAST/run-before-redeploy.json" ]; then
     cp "$BROADCAST/run-latest.json" "$BROADCAST/run-before-redeploy.json"
   fi
-  date -u +%Y-%m-%dT%H:%M:%SZ >"$STARTED"
+  BEGAN=$(($(date +%s) * 1000))
+  status=0
   forge script script/Deploy.s.sol --rpc-url "$ROBINHOOD_RPC_URL" --sender "$DEPLOYER" "${SIGNER[@]}" \
-    --broadcast --slow
+    --broadcast --slow || status=$?
+  if (cd "$ROOT" && pnpm -s ops:redeploy --sent --since "$BEGAN"); then
+    echo "$BEGAN" >"$STARTED"
+  fi
+  if [ "$status" != 0 ]; then
+    if [ -f "$STARTED" ]; then
+      echo "the send stopped after it began: finish it with --resume (docs/vault/MAINNET-REDEPLOY.md), never a second --send"
+    else
+      echo "nothing was sent"
+    fi
+    exit "$status"
+  fi
 else
   # Sends only what forge's record says is not on chain yet, in the same order, from the same nonces.
   forge script script/Deploy.s.sol --rpc-url "$ROBINHOOD_RPC_URL" --sender "$DEPLOYER" "${SIGNER[@]}" \

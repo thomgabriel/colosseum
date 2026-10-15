@@ -1,7 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { acceptanceFile, confirmed, deployedOf, proposedRows } from '../scripts/ops/redeploy';
+import {
+  acceptanceFile,
+  confirmed,
+  deployedOf,
+  proposedRows,
+  sendState,
+} from '../scripts/ops/redeploy';
 
 // The Safe's one batch after the Robinhood Chain redeploy (gate ROBINHOOD-REDEPLOY), and the values of
 // the deploy file a person confirms before a send. The broadcast is forge's own, from the fork
@@ -85,5 +93,52 @@ describe('the values a person confirms before a send', () => {
     const values = (j: unknown) => JSON.stringify(j, (k, v) => (/Note$/.test(k) ? undefined : v));
     expect(values(done)).toBe(values(config));
     expect(() => confirmed(config, 'Thom', 'tomorrow')).toThrow(/not a date/);
+  });
+});
+
+describe('a send that stopped, and what may resume it', () => {
+  const at = broadcast.timestamp as number;
+  const reverted = {
+    ...broadcast,
+    receipts: broadcast.receipts.map((r: { status: string }, i: number) =>
+      i === 7 ? { ...r, status: '0x0' } : r,
+    ),
+  };
+  const cli = (flags: string[], record: unknown) => {
+    const dir = mkdtempSync(join(tmpdir(), 'redeploy-'));
+    const path = join(dir, 'run-latest.json');
+    if (record !== null) writeFileSync(path, JSON.stringify(record));
+    const run = spawnSync(
+      'pnpm',
+      ['-s', 'exec', 'tsx', 'scripts/ops/redeploy.ts', ...flags, '--broadcast', path],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    return { code: run.status, out: `${run.stdout}${run.stderr}` };
+  };
+
+  it('counts a record as this send’s only when forge wrote it after the send began', () => {
+    expect(sendState(broadcast, at)).toEqual({ fresh: true, sent: 54, reverted: [] });
+    // The deploy of 2026-10-12, or any record older than the send: not this redeploy's.
+    expect(sendState(broadcast, at + 1).fresh).toBe(false);
+    expect(sendState(reverted, at).reverted).toEqual([broadcast.receipts[7].transactionHash]);
+  });
+
+  it('marks a send as begun only when a transaction went out: a refused send leaves none, and no mark', () => {
+    expect(cli(['--sent', '--since', String(at)], broadcast).code).toBe(0);
+    // A send refused before it broadcast leaves the older record, or none at all.
+    expect(cli(['--sent', '--since', String(at + 1)], broadcast).code).toBe(3);
+    expect(cli(['--sent', '--since', String(at)], null).code).toBe(3);
+  });
+
+  it('resumes only this redeploy’s record, and never one with a reverted transaction', () => {
+    const ok = cli(['--resumable', '--since', String(at)], broadcast);
+    expect([ok.code, ok.out]).toEqual([
+      0,
+      expect.stringMatching(/54 transactions .* none reverted/),
+    ]);
+    const old = cli(['--resumable', '--since', String(at + 1)], broadcast);
+    expect([old.code, old.out]).toEqual([1, expect.stringMatching(/not this redeploy's/)]);
+    const bad = cli(['--resumable', '--since', String(at)], reverted);
+    expect([bad.code, bad.out]).toEqual([1, expect.stringMatching(/reverted .* never sent again/)]);
   });
 });

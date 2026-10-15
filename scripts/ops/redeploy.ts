@@ -11,6 +11,10 @@ import { createEvmRpc, safeBatchFile } from '@colosseum/chain-evm/vault';
 //                                                 factory.acceptAdmin() and beacon.acceptOwnership()
 //   pnpm ops:redeploy --status --rpc-env NAME     says who holds the factory's admin and the beacon, and
 //                                                 who is proposed for each
+//   pnpm ops:redeploy --sent --since <ms>         exits 0 when forge's record of the run was written at
+//                                                 or after <ms> and holds a sent transaction: the send began
+//   pnpm ops:redeploy --resumable --since <ms>    exits 0 when that record is this redeploy's and no
+//                                                 transaction of it reverted: --resume may go on
 //   pnpm ops:redeploy --proposed                  the deploy file's tokens whose values are still Proposed,
 //                                                 one row each, for a person to confirm before a send
 //   pnpm ops:redeploy --confirm <who> --on <date> after that person confirmed them in chat: each Proposed
@@ -53,17 +57,40 @@ const address = (s: string): string => {
 
 type Broadcast = {
   chain: number;
+  /** When forge wrote the record, in milliseconds. */
+  timestamp?: number;
+  receipts?: { transactionHash?: string; status?: string }[];
   transactions: {
     transactionType: string;
     contractName: string | null;
     contractAddress: string | null;
     arguments?: string[] | null;
+    hash?: string | null;
   }[];
 };
 
 const fail = (message: string): never => {
   throw new Error(message);
 };
+
+/**
+ * What forge's record of a run says about a send: whether it was written at or after `sinceMs` (else it is
+ * an older run's, such as the deploy of 2026-10-12), how many transactions it sent, and the hash of every
+ * one that reverted. A send refused before it broadcast (a Proposed value, say) leaves no new record.
+ */
+export function sendState(
+  broadcast: Broadcast,
+  sinceMs: number,
+): { fresh: boolean; sent: number; reverted: string[] } {
+  return {
+    fresh: broadcast.chain === CHAIN_ID && (broadcast.timestamp ?? 0) >= sinceMs,
+    sent: broadcast.transactions.filter((t) => typeof t.hash === 'string' && t.hash.length > 2)
+      .length,
+    reverted: (broadcast.receipts ?? [])
+      .filter((r) => r.status === '0x0')
+      .map((r) => r.transactionHash ?? 'unknown'),
+  };
+}
 
 /** The factory proxy and the beacon the deploy created, from forge's record of it. */
 export function deployedOf(broadcast: Broadcast): { factory: string; beacon: string } {
@@ -193,9 +220,28 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(`confirmed the values of ${before} tokens in ${configPath}, by ${who} on ${on}`);
       process.exit(0);
     }
-    const broadcast = JSON.parse(
-      readFileSync(value('--broadcast', DEFAULTS.broadcast) as string, 'utf8'),
-    );
+    const broadcastPath = value('--broadcast', DEFAULTS.broadcast) as string;
+    const since = value('--since');
+    if (args.includes('--sent') || args.includes('--resumable')) {
+      const sinceMs = Number(since ?? fail('--sent and --resumable need --since <ms>'));
+      if (!Number.isFinite(sinceMs)) fail(`${since} is not a time in milliseconds`);
+      let read: Broadcast | null = null;
+      try {
+        read = JSON.parse(readFileSync(broadcastPath, 'utf8'));
+      } catch {
+        read = null;
+      }
+      const state = read ? sendState(read, sinceMs) : { fresh: false, sent: 0, reverted: [] };
+      if (args.includes('--sent')) process.exit(state.fresh && state.sent > 0 ? 0 : 3);
+      if (!state.fresh) fail("forge's record is not this redeploy's: nothing of it to resume");
+      if (state.reverted.length)
+        fail(
+          `a transaction of this redeploy reverted (${state.reverted.join(', ')}): it is never sent again as it was; read why first`,
+        );
+      console.log(`resumable: ${state.sent} transactions of this redeploy sent, none reverted`);
+      process.exit(0);
+    }
+    const broadcast = JSON.parse(readFileSync(broadcastPath, 'utf8'));
     const safe: string = config.safe?.address ?? fail('the deploy file names no safe');
     const { factory, beacon } = deployedOf(broadcast);
     const dir = value('--safe-file');
