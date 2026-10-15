@@ -1005,46 +1005,6 @@ async function placeRetarget(address: string, body: MixBody): Promise<ApplyVault
 }
 
 /**
- * A rebalance of a vault the person owns (`POST /v1/vaults/{chain}/{address}/rebalance`): the trades
- * that bring it to the targets it has, sales first, as an order of swaps only; or word that it is on
- * them already.
- */
-async function placeRebalance(address: string): Promise<RebalanceVaultResponse> {
-  const { adapter } = world;
-  const state = await adapter.getVault(address);
-  if (!state) throw new ApiRefusal(404, { error: 'no vault of yours at that address' });
-  const targets = state.positions
-    .filter((p) => p.targetBps > 0)
-    .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
-  const listed = await adapter.listAssets();
-  const prices = await adapter.getPrices(state.positions.map((p) => p.asset));
-  const plan = rebalancePlan(
-    state,
-    targets,
-    prices,
-    { bandBps: 0, minTradeUsd: 1, costBps: 100 },
-    listed,
-  );
-  if (plan.trades.length === 0) return { status: 'on_target', targets };
-  const trades = [...plan.trades].sort(
-    (a, b) => Number(b.buy === adapter.mock.cash) - Number(a.buy === adapter.mock.cash),
-  );
-  const order = await doubleFor(state.owner).place({
-    type: 'rebalance',
-    summary: 'Sample: trade your vault back to its targets',
-    needsConsent: [],
-    steps: trades.map((t) => ({
-      kind: 'swap' as const,
-      description: t.buy === adapter.mock.cash ? 'Sell for cash' : 'Swap',
-      trades: [t],
-    })),
-    build: (leg) =>
-      adapter.buildOwnerSwap({ vault: address, trades: leg.trades, slippageBps: 100 }),
-  });
-  return RebalanceVaultResponse.parse({ status: 'ordered', targets, order });
-}
-
-/**
  * A route of the portfolio section, answered from the section's sample answers and held to the
  * contract: its status and its body. Null for a path that is none of the four. A limit the contract
  * refuses is answered 400, as the API answers it.
@@ -1403,12 +1363,6 @@ async function route(req: IncomingMessage, res: ServerResponse) {
         bodyOf(ApplyVaultMixRequest, await read(req)),
       ),
     );
-  }
-  const rebalance = /^\/v1\/vaults\/([^/]+)\/([^/]+)\/rebalance$/.exec(path);
-  if (rebalance && method === 'POST') {
-    if (rebalance[1] !== CHAIN)
-      return send(res, 404, { error: 'no vault of yours at that address' });
-    return send(res, 200, await placeRebalance(decodeURIComponent(rebalance[2] ?? '')));
   }
   if (path === '/v1/mock/fund' && method === 'POST') {
     const body = (await read(req)) as { cashUsd: number };
