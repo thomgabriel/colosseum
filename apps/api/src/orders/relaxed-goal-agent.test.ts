@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
 import type { BasketAsset, VaultAgentReply, VaultAgentSource } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import { createModelQuota, type ModelQuota } from '../model-quota';
@@ -1158,6 +1161,66 @@ describe('relaxed intake: caps', () => {
     expect(reply.proposal?.summary).toMatch(
       /before anything is deposited\. The draft holds SOL\.$/,
     );
+  });
+});
+
+describe('the chat on Robinhood Chain mainnet (Thom, Oct 15)', () => {
+  const record = EvmDeploymentRecord.parse(
+    JSON.parse(
+      readFileSync(
+        join(import.meta.dirname, '..', '..', '..', '..', 'deployments', 'robinhood-mainnet.json'),
+        'utf8',
+      ),
+    ),
+  );
+  // the rows the API lists, as `holdToEvmRecord` holds `basket_assets` to the record at start
+  const listed = deploymentAssets(record);
+  const ctx = () =>
+    context({
+      chain: 'robinhood',
+      assets: listed,
+      evidence: listed.map((a) => source(`catalog:${a.id}`, { assetId: a.id })),
+    });
+
+  it('hands the model every token the deploy record shows, SPCX among them', async () => {
+    const { system } = await prompted(
+      { shape: 'pick', lines: [line('robinhood:spy')] },
+      'what do we have available',
+      ctx(),
+    );
+    const table = system.slice(system.indexOf('TABLE ('));
+    for (const a of record.assets) expect(table, a.id).toContain(`${a.id} | ${a.symbol}`);
+    expect(table).toContain(`${record.cash.id} | ${record.cash.symbol}`);
+    expect(record.assets.map((a) => a.symbol)).toEqual(
+      expect.arrayContaining([
+        'SPCX',
+        'MSTR',
+        'CRCL',
+        'USO',
+        'PLTR',
+        'WETH',
+        'cbBTC',
+        'COIN',
+        'TSM',
+        'BABA',
+      ]),
+    );
+  });
+
+  it('cuts “within its cap, so no warning”, and the draft warns at SPY’s cap of 50%', async () => {
+    const reply = await run(
+      {
+        say: "All of it goes into SPY, as you asked. That's within its cap, so no warning at the deposit step.",
+        shape: 'pick',
+        lines: [{ id: 'robinhood:spy', why: 'You asked for it.', share: 1 }],
+      },
+      'all in SPY',
+      ctx(),
+    );
+    expect(weights(reply)).toEqual({ SPY: 10_000 });
+    expect(reply.message).toContain('All of it goes into SPY, as you asked.');
+    expect(reply.message).not.toMatch(/cap|warning/i);
+    expect(notes(reply)).toContain('Above the cap listed today: SPY at 100% (cap 50%)');
   });
 });
 

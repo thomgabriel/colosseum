@@ -10,6 +10,17 @@ import { ChainMode, Flags } from './flags';
 export const ChainStatus = ChainConfig.extend({
   mode: ChainMode,
   provenance: Provenance.nullable(),
+  /**
+   * Tokens the chain's deploy record shows that the server's asset table has no row for, so the server
+   * lists them nowhere: empty when every one is listed. Only for a chain run from a record (live or
+   * readonly); checked after each deploy.
+   */
+  missingAssets: z
+    .array(z.object({ id: z.string(), address: z.string() }))
+    .optional()
+    .describe(
+      "Tokens the chain's deploy record shows that the server's asset table has no row for, so they are listed nowhere. Empty when every one is listed; absent for a chain not run from a record.",
+    ),
 });
 export type ChainStatus = z.infer<typeof ChainStatus>;
 
