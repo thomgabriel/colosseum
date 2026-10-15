@@ -1222,8 +1222,11 @@ describe('a vault of stated shares on Robinhood Chain (Thom, Oct 15)', () => {
       'A vault with exactly these shares: SPY 50%, AAPL 50%?',
       'If I had a vault with these shares: SPY 50%, AAPL 50%.',
       'A vault with these returns: SPY 50%, AAPL 50%.',
+      // what the person holds may be told, not asked for (the review of #325)
+      'My portfolio with SPY 60%, AAPL 40%.',
     ])
       expect(read(text), text).toEqual([]);
+    expect(read('Minha carteira com SPY 60%, AAPL 40%.', 'pt')).toEqual([]);
   });
 
   it('reads the same list with bare numbers that come to 100, as Thom wrote it in the vault chat', async () => {
