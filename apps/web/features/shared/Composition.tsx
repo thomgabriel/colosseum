@@ -170,6 +170,8 @@ export function Composition({
     return item?.mock ? `url(#${hatchId})` : colourVar(colours[i] ?? 'share-rest');
   };
   const compare = mode === 'compare';
+  // the table has the asset and its share and nothing else (a draft's)
+  const shareAlone = !compare && columns.length === 0;
   // the comparison's two strips, or one: the table still says before and after where they agree
   const two = compare && strips !== 'one';
   const compact = size === 'compact';
@@ -434,16 +436,20 @@ export function Composition({
                         <span data-part="name" className="truncate font-medium">
                           {item.name}
                         </span>
-                        {/* A row's reason wraps at a reading width, 18rem at least where the
-                            table has its columns, and never widens the table past it: a long one
-                            pushed the share out of the panel, to be scrolled to (Thom, Oct 15, a
-                            vault of SPY alone). */}
+                        {/* In a table of the share alone, a row's reason wraps at a reading width,
+                            18rem at least where the table has its columns, and never widens the
+                            table past it: a long one pushed the share out of the panel, to be
+                            scrolled to (Thom, Oct 15, a vault of SPY alone). A table with more
+                            columns keeps its line whole, and scrolls sideways where its box is
+                            narrower than them, as before: there 18rem would widen it. */}
                         {sub && (
                           <span
                             data-part="sub"
                             className={cn(
                               'text-caption text-muted-foreground',
-                              item.detail ? '[contain:inline-size] @lg:min-w-72' : undefined,
+                              item.detail && shareAlone
+                                ? '[contain:inline-size] @lg:min-w-72'
+                                : undefined,
                             )}
                           >
                             {sub}
