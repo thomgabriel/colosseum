@@ -39,14 +39,15 @@ describe('the holdings panel while a draft has the pane', () => {
       expect(panel.querySelector('[data-ui="vault-holdings-panel"], [data-ui="card"]')).toBeNull();
       const toggle = find(panel, '[data-action="fold-toggle"]');
       expect(toggle.getAttribute('aria-expanded')).toBe('false');
-      expect(toggle.getAttribute('aria-label')).toBe(`${v.page.show} ${v.page.holdings}`);
+      // its name reads as a sentence: "Show what it holds"
+      expect(toggle.getAttribute('aria-label')).toBe(`${v.page.show} what it holds`);
       const body = find(host, `#${CSS.escape(toggle.getAttribute('aria-controls') ?? '')}`);
       expect(panel.contains(body)).toBe(true);
       expect(body.hidden).toBe(true);
       await click(toggle);
       expect(body.hidden).toBe(false);
       expect(panel.dataset.folded).toBeUndefined();
-      expect(toggle.getAttribute('aria-label')).toBe(`${v.page.hide} ${v.page.holdings}`);
+      expect(toggle.getAttribute('aria-label')).toBe(`${v.page.hide} what it holds`);
     });
 
   it('is open, with no press, when no draft has the pane', async () => {

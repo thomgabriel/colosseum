@@ -282,12 +282,28 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   const toggle = panel.locator('[data-action="fold-toggle"]');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await toggle.click();
+  // a window short enough that the pane, with the holdings open under the draft, scrolls: it is a stop
+  // for the keyboard, and scrolls to what the vault holds
+  await page.setViewportSize({ width: 1440, height: 640 });
+  await expect.poll(() => pane.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
+  await expect(pane).toHaveAttribute('tabindex', '0');
   const held = panel.locator('[data-ui="composition"]').first();
   await held.scrollIntoViewIfNeeded();
-  await expect(held).toBeInViewport({ ratio: 1 });
-  // where it scrolls, the pane is a stop for the keyboard
-  if (await pane.evaluate((el) => el.scrollHeight > el.clientHeight + 1))
-    await expect(pane).toHaveAttribute('tabindex', '0');
+  // the pane scrolled to it: its top is in the pane's window, and the pane is in the page's
+  const seen = await page.evaluate(() => {
+    const pane = document.querySelector('[data-ui="vault-plan"]') as HTMLElement;
+    const at = (
+      pane.querySelector('[data-ui="vault-holdings-panel"] [data-ui="composition"]') as HTMLElement
+    ).getBoundingClientRect();
+    const box = pane.getBoundingClientRect();
+    return {
+      scrolled: pane.scrollTop > 0,
+      inPane: at.top >= box.top && at.top < box.bottom,
+      paneInWindow: box.bottom <= window.innerHeight,
+    };
+  });
+  expect(seen).toEqual({ scrolled: true, inPane: true, paneInWindow: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await toggle.click();
   await pane.evaluate((el) => el.scrollTo(0, 0));
   await page.setViewportSize({ width: 375, height: 812 });

@@ -476,8 +476,12 @@ export function VaultConversation({
       >
         {/* The head runs to the pane's right edge (its `pr-2`), so the actions row ends where the
             holdings panel does, as the overview's header actions end with their panel; "Hide chat"
-            sits over that edge on the title's line, not beside the whole head. */}
-        <div className="flex min-w-0 flex-1 flex-col gap-3 md:basis-full md:pr-2">{heading}</div>
+            sits over that edge on the title's line, not beside the whole head. The lines over the
+            actions row (the way back, the name and Rename) keep the button's width clear, so a long
+            name wraps before it rather than running under it. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-3 md:basis-full md:pr-2 md:[&>:not(:last-child)]:mr-28">
+          {heading}
+        </div>
         <Button
           variant="secondary"
           size="dense"

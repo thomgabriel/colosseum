@@ -26,7 +26,8 @@ export function FoldToggle({
       data-action="fold-toggle"
       aria-expanded={open}
       aria-controls={controls}
-      aria-label={`${open ? label.hide : label.show} ${label.what}`}
+      // "Show what it holds now": the part's name, as it reads inside a sentence
+      aria-label={`${open ? label.hide : label.show} ${label.what.charAt(0).toLocaleLowerCase()}${label.what.slice(1)}`}
       onClick={onToggle}
     >
       {open ? label.hide : label.show}

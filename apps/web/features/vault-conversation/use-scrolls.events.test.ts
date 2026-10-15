@@ -8,17 +8,21 @@ import { useScrolls } from './use-scrolls';
 // against what the box holds, and again as either changes size.
 
 let watching: (() => void)[] = [];
+let disconnected = 0;
 class Sizes {
   constructor(private readonly cb: () => void) {}
   observe() {
     watching.push(this.cb);
   }
-  disconnect() {}
+  disconnect() {
+    disconnected += 1;
+  }
 }
 
 afterEach(async () => {
   await unmountAll();
   watching = [];
+  disconnected = 0;
   vi.unstubAllGlobals();
 });
 
@@ -62,6 +66,25 @@ describe('a box that scrolls', () => {
       for (const cb of watching) cb();
     });
     expect(box.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('lets go of what it watches once the box is gone', async () => {
+    vi.stubGlobal('ResizeObserver', Sizes);
+    const stopped = vi.fn();
+    vi.stubGlobal(
+      'MutationObserver',
+      class {
+        observe() {}
+        disconnect() {
+          stopped();
+        }
+      },
+    );
+    await mount(createElement(Box, { heights: { scroll: 900, client: 100 } }));
+    const before = disconnected;
+    await unmountAll();
+    expect(disconnected).toBeGreaterThan(before);
+    expect(stopped).toHaveBeenCalled();
   });
 
   it('is no stop where nothing can measure it', async () => {
