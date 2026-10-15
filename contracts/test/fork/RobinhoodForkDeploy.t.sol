@@ -212,17 +212,18 @@ contract RobinhoodForkDeployTest is Test {
         );
         script.deploy(marked, deployer);
 
-        // The seventeen tokens of the redeploy are Proposed until Thom confirms each: refused until then,
-        // and the same file deploys once they read as confirmed.
-        assertTrue(cfg.proposed, "values a person has still to confirm");
+        // The seventeen tokens of the redeploy were Proposed until Thom confirmed them (2026-10-15): a value
+        // Proposed again is refused, and the file as committed deploys.
+        assertFalse(cfg.proposed, "Thom confirmed every value");
+        Deploy.Config memory again = script.readConfig("script/config/4663.json");
+        again.proposed = true;
         vm.expectRevert(
             abi.encodeWithSelector(
                 Deploy.MainnetRefused.selector,
                 "the file still holds a Proposed value: each is confirmed by a person before a send"
             )
         );
-        script.deploy(cfg, deployer);
-        cfg.proposed = false;
+        script.deploy(again, deployer);
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
         VaultFactory factory = VaultFactory(d.factory);
         assertEq(factory.pendingAdmin(), REAL_SAFE);

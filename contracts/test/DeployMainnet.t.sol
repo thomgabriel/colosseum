@@ -1038,10 +1038,13 @@ contract DeployMainnetTest is Test {
             script.parseConfig(vm.replace(file, '"guardianNote": "', '"guardianNote": "TODO: '));
         assertTrue(marked.placeholders, "the word put back");
         _refused(marked, "the file still holds a TODO: every value must be confirmed by a person");
-        // The seventeen tokens the redeploy adds are Proposed until Thom confirms each in chat: refused
-        // outside a dry run until their notes say so. The rest of this test reads them as confirmed.
-        assertTrue(cfg.proposed, "values a person has still to confirm");
-        _refused(cfg, "the file still holds a Proposed value: each is confirmed by a person before a send");
+        // The seventeen tokens the redeploy adds were Proposed until Thom confirmed them in chat
+        // (2026-10-15). A value that is Proposed again is refused outside a dry run.
+        assertFalse(cfg.proposed, "Thom confirmed every value");
+        Deploy.Config memory again =
+            script.parseConfig(vm.replace(file, '"guardianNote": "', '"guardianNote": "Proposed '));
+        assertTrue(again.proposed, "a Proposed value put back");
+        _refused(again, "the file still holds a Proposed value: each is confirmed by a person before a send");
         // A note that says a value was confirmed "as proposed" is no Proposed value: the file of 2026-10-12.
         assertFalse(script.parseConfig(vm.readFile("script/config/4663-2026-10-12.json")).proposed);
         cfg.proposed = false;

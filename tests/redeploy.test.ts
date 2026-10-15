@@ -18,7 +18,14 @@ import {
 const ROOT = join(import.meta.dirname, '..');
 const read = (path: string) => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
 const broadcast = read('tests/fixtures/mainnet-records/redeploy-run-latest.json');
-const config = read('contracts/script/config/4663.json');
+const committed = read('contracts/script/config/4663.json');
+/** The file as it stood before Thom confirmed the 17 tokens (2026-10-15): their notes Proposed again. */
+const config = JSON.parse(
+  JSON.stringify(committed).replace(
+    /Confirmed by Thom, 2026-10-15, as proposed (\d{4}-\d{2}-\d{2})/g,
+    'Proposed $1',
+  ),
+);
 const SAFE = '0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc';
 
 describe('the redeploy’s hand-over', () => {
@@ -49,6 +56,11 @@ describe('the redeploy’s hand-over', () => {
 });
 
 describe('the values a person confirms before a send', () => {
+  it('finds nothing Proposed in the file as committed: Thom confirmed all 17 on 2026-10-15', () => {
+    expect(proposedRows(committed)).toEqual([]);
+    expect(confirmed(config, 'Thom', '2026-10-15')).toEqual(committed);
+  });
+
   it('lists the seventeen tokens still Proposed, with what each is listed with', () => {
     const rows = proposedRows(config);
     expect(rows.map((r) => r[0])).toEqual([

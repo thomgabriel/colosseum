@@ -246,12 +246,15 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
           /Note$|^note$/.test(k) &&
           typeof v === 'string' &&
           k !== 'ownerNote' &&
-          k !== 'guardianNote',
+          k !== 'guardianNote' &&
+          // Why a token is listed and not shown: a decision's words, not a value's confirmation.
+          k !== 'hiddenNote',
       ),
     );
     expect(notes.length).toBeGreaterThan(40);
+    // The deploy of 2026-10-12's values, and the redeploy's 17 tokens confirmed on 2026-10-15.
     for (const [key, note] of notes)
-      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-12/);
+      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-1[25]/);
     // A ceiling for every token, none at zero.
     for (const a of file.assets.slice(1)) expect(a.maxWeightBps).toBeGreaterThan(0);
   });
