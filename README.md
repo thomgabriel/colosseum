@@ -131,15 +131,14 @@ Robinhood Chain mainnet (4663):
 
 | What | Address |
 |---|---|
-| Vault factory | [`0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80`](https://robin.etherscan.io/address/0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80) |
-| Shared-portfolio registry | [`0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc`](https://robin.etherscan.io/address/0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc) |
-| Vault beacon | [`0xac27328a77962cd0b6095e7c4074946622d6d77d`](https://robin.etherscan.io/address/0xac27328a77962cd0b6095e7c4074946622d6d77d) |
-| Timelock, 48 hours (admin of the factory, owner of the beacon) | [`0x749f6aeb956b9f490e316599068ba8a6bd248342`](https://robin.etherscan.io/address/0x749f6aeb956b9f490e316599068ba8a6bd248342) |
-| Safe, 2 of 2 (proposes to the timelock) | [`0x4568bc6cc821b34095059fd46102eaa22a675fdc`](https://robin.etherscan.io/address/0x4568bc6cc821b34095059fd46102eaa22a675fdc) |
+| Vault factory | [`0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa`](https://robin.etherscan.io/address/0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa) |
+| Shared-portfolio registry | [`0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8`](https://robin.etherscan.io/address/0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8) |
+| Vault beacon | [`0x935658c738aef037092c69fd66b1ac3295882c0d`](https://robin.etherscan.io/address/0x935658c738aef037092c69fd66b1ac3295882c0d) |
+| Safe, 2 of 2 (admin of the factory, owner of the beacon, at once: no timelock) | [`0x4568bc6cc821b34095059fd46102eaa22a675fdc`](https://robin.etherscan.io/address/0x4568bc6cc821b34095059fd46102eaa22a675fdc) |
 | Guardian (can only pause; also one of the Safe's two owners) | [`0x0a1c3312c808b23d019bf241028f6b5624f4cc98`](https://robin.etherscan.io/address/0x0a1c3312c808b23d019bf241028f6b5624f4cc98) |
 | USDG, the dollar token (not ours) | [`0x5fc5360d0400a0fd4f2af552add042d716f1d168`](https://robin.etherscan.io/address/0x5fc5360d0400a0fd4f2af552add042d716f1d168) |
 
-Every transaction of the deploy is in [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md). A redeploy is prepared and not run (gate `ROBINHOOD-REDEPLOY`, [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md)): new contracts with USDG and 25 tokens and the second shared-portfolio rules, held by the Safe directly with no timelock. This table changes when its record is committed.
+These are the contracts of the redeploy of 2026-10-15 (gate `ROBINHOOD-REDEPLOY`): USDG and 25 tokens, the second shared-portfolio rules, held by the Safe directly with no timelock. Every transaction is in [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md). The contracts of 2026-10-12, behind a timelock, are still deployed and no longer served ([`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md)).
 
 Robinhood Chain test network (46630), still deployed and no longer served by the hosted app:
 

@@ -33,7 +33,9 @@ import { writeBoth } from './mainnet-records';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DEFAULTS = {
   file: join(ROOT, 'contracts', 'script', 'config', '4663-assets-2.json'),
-  record: join(ROOT, 'deployments', 'robinhood-mainnet.json'),
+  // The batch is the factory of 2026-10-12's, whose record is kept under its date since the redeploy
+  // (gate ROBINHOOD-REDEPLOY) took the name.
+  record: join(ROOT, 'deployments', 'robinhood-mainnet-2026-10-12.json'),
   guard: join(ROOT, 'packages', 'sdk', 'deployments', 'mainnet.json'),
 };
 
@@ -103,6 +105,14 @@ export function promote(
   listed: readonly string[],
   except: readonly string[] = [],
 ) {
+  // The guard's file is one deploy's: never another factory's tokens into it.
+  if (
+    String(guard.chains?.robinhood?.factory).toLowerCase() !==
+    String(record.contracts?.factory).toLowerCase()
+  )
+    throw new Error(
+      "the guard's file names another factory than the record: nothing to promote into it",
+    );
   const moves = (p: Json) =>
     listed.includes(p.address) && p.pool !== null && !except.includes(p.symbol.toUpperCase());
   const moving = (record.pending ?? []).filter(moves);

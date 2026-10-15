@@ -198,6 +198,8 @@ export type AssetFiles = {
   } | null;
   /** Ids the product's own files use on this chain (packages/sdk/deployments): a bare one goes only to a listed row. */
   reservedIds: string[];
+  /** Each reserved id with the addresses the product's files give it: that token's row may keep it. */
+  reservedAddresses: Record<string, string[]>;
 };
 
 // ───────────────────────────── names ─────────────────────────────
@@ -1052,7 +1054,10 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
   // committed list; else the symbol's slug. A reserved id (the product's own files) and a bare id that
   // several rows' symbols share go only to a listed row; every other row takes a suffix of its address.
   const isListed = (t: Read) => trackedById.has(t.address) || deployModel(t) !== null;
-  const reserved = new Set(files.reservedIds);
+  // A reserved id is not reserved against the token the product itself names by it (a mainnet token the
+  // risk list does not count as listed, such as BABA once the redeploy of 2026-10-15 listed it).
+  const reservedFor = (id: string, t: Read) =>
+    files.reservedIds.includes(id) && !(files.reservedAddresses[id] ?? []).includes(t.address);
   const trackedById = new Map(files.tracked.assets.map((t) => [lower(t.address), t.id]));
   const shelfById = new Map(files.shelf.rows.map((r) => [lower(r.asset.address), r.asset.id]));
   const ids = new Map<string, string>();
@@ -1072,7 +1077,12 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     if (ids.has(t.address)) continue;
     const kept = previous.get(t.address)?.id;
     // an id the schema refuses (over 96 characters) is not kept: the row takes one from its cut symbol
-    if (kept && kept.length <= ID_MAX && !taken.has(kept) && !(reserved.has(kept) && !isListed(t)))
+    if (
+      kept &&
+      kept.length <= ID_MAX &&
+      !taken.has(kept) &&
+      !(reservedFor(kept, t) && !isListed(t))
+    )
       give(t.address, kept);
   }
   const slugCount = new Map<string, number>();
@@ -1091,7 +1101,7 @@ export function robinhoodList(reads: AssetReads, files: AssetFiles): Built {
     if (ids.has(t.address)) continue;
     const id = `robinhood:${slugOf(t.symbol)}`;
     const bareAllowed =
-      !taken.has(id) && (isListed(t) || (!reserved.has(id) && (slugCount.get(id) ?? 0) === 1));
+      !taken.has(id) && (isListed(t) || (!reservedFor(id, t) && (slugCount.get(id) ?? 0) === 1));
     give(t.address, bareAllowed ? id : suffixed(id, t.address));
   }
 
