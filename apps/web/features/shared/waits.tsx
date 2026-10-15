@@ -414,7 +414,11 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
               <SkeletonLine className="text-caption/8" width="w-48" />
             </div>
           </div>
-          <VaultHoldingsWait className="self-start md:col-span-7 md:mr-2" />
+          {/* the right pane as the page draws it: it scrolls on its own on a desktop, with the same
+              gutter for its scrollbar, so what it holds lands where its outline was */}
+          <div className="tf-scroll-pane flex min-w-0 flex-col md:col-span-7 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2">
+            <VaultHoldingsWait />
+          </div>
         </div>
       }
     />
