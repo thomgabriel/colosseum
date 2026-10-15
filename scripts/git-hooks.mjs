@@ -4,7 +4,7 @@
 // has hooks of its own, set by `core.hooksPath` or kept in .git/hooks, is left as it is, and says so.
 // Outside a git checkout (a tarball, an image build) it does nothing.
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const git = (args) => {
@@ -23,12 +23,16 @@ function main() {
     return;
   }
   // the folder every worktree of the clone shares, as git names it from here (git 2.30 has no
-  // --path-format=absolute)
+  // --path-format=absolute); any hook kept there but git's samples is the clone's own
   const common = git(['rev-parse', '--git-common-dir']);
-  const own = common ? resolve(common, 'hooks', 'pre-commit') : null;
-  if (own && existsSync(own)) {
+  const folder = common ? resolve(common, 'hooks') : null;
+  const own =
+    folder && existsSync(folder)
+      ? readdirSync(folder).filter((name) => !name.endsWith('.sample') && !name.startsWith('.'))
+      : [];
+  if (own.length > 0) {
     console.log(
-      `git hooks: ${own} is a hook of this clone's own, left as it is. The check before Claude's commits (.githooks/pre-commit) is not set up here.`,
+      `git hooks: ${folder} holds hooks of this clone's own (${own.join(', ')}), left as they are. The check before Claude's commits (.githooks/pre-commit) is not set up here.`,
     );
     return;
   }

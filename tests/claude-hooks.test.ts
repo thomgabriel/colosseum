@@ -316,6 +316,27 @@ describe('the check before Claude’s commits', () => {
   });
 });
 
+// The hook runs `verify:quick` a step at a time, split on `&&`, each step on its own in the
+// checkout's root: a step that leans on another (`cd x && …`, a `;` or a pipe) would be split
+// apart and checked in the wrong place. The script's shape is held here; a change to it is a
+// change to .claude/hooks/pre-commit.mjs too.
+describe('the check’s script, as the hook splits it', () => {
+  const scripts = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'))
+    .scripts as Record<string, string>;
+  const steps = (scripts['verify:quick'] ?? '').split('&&').map((step) => step.trim());
+
+  it('is the steps the hook knows: lint, the packages’ typechecks, the root tsc', () => {
+    expect(steps).toEqual(['pnpm lint', 'pnpm typecheck', 'tsc -p tsconfig.json']);
+  });
+
+  it('has each step stand alone: no change of folder, no `;`, `||` or pipe', () => {
+    for (const step of steps) {
+      expect(step, step).not.toMatch(/^cd\b|[;|]|\$\(|`/);
+      expect(step, step).not.toBe('');
+    }
+  });
+});
+
 // `pnpm install`'s `prepare` (scripts/git-hooks.mjs): sets the hooks to .githooks, and leaves a clone's
 // own hooks as they are, saying so.
 describe('setting up the git hook', () => {
@@ -347,11 +368,22 @@ describe('setting up the git hook', () => {
     rmSync(at, { recursive: true, force: true });
   });
 
-  it('leaves a pre-commit hook the clone keeps in .git/hooks, and says so', () => {
+  it('leaves any hook the clone keeps in .git/hooks, a pre-push as much as a pre-commit, and names it', () => {
+    for (const hook of ['pre-commit', 'pre-push']) {
+      const at = fresh();
+      writeFileSync(join(at, '.git', 'hooks', hook), '#!/bin/sh\nexit 0\n');
+      const said = setUp(at).stdout;
+      expect(said).toContain(`(${hook}), left as they are`);
+      expect(hooksPath(at)).toBe('');
+      rmSync(at, { recursive: true, force: true });
+    }
+  });
+
+  it('counts git’s samples as none of the clone’s own', () => {
     const at = fresh();
-    writeFileSync(join(at, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 0\n');
-    expect(setUp(at).stdout).toContain('left as it is');
-    expect(hooksPath(at)).toBe('');
+    writeFileSync(join(at, '.git', 'hooks', 'pre-push.sample'), '#!/bin/sh\n');
+    setUp(at);
+    expect(hooksPath(at)).toBe('.githooks');
     rmSync(at, { recursive: true, force: true });
   });
 });
