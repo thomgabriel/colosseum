@@ -37,9 +37,10 @@ test('new-goal exploration opens a responsive preview-only workbench', async ({ 
   await expect(chains.nth(1)).toBeFocused();
   await page.keyboard.press('ArrowLeft');
   await expect(chains.first()).toBeChecked();
-  await expect(page.locator('[data-ui="goal-empty-preview"]')).toContainText(
-    en.goal.explore.previewOnly,
-  );
+  // before the first message the chat has the room alone, the draft's note said under its own
+  // (Thom, Oct 15): no empty card beside it
+  await expect(page.locator('[data-ui="goal-chat"]')).toContainText(en.goal.explore.previewOnly);
+  await expect(page.locator('[data-ui="goal-strategy"]')).toHaveCount(0);
   await expect(
     page.locator(
       '[data-ui="composition"], [data-ui="invest-card"], [data-ui="order-step"], [data-ui="plan-invest"]',
@@ -54,14 +55,17 @@ test('new-goal exploration opens a responsive preview-only workbench', async ({ 
         width,
       );
       const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
-      const strategy = await page.locator('[data-ui="goal-strategy"]').boundingBox();
+      const area = await page.locator('[data-ui="goal-conversation"]').boundingBox();
       expect(chat).not.toBeNull();
-      expect(strategy).not.toBeNull();
-      if (chat && strategy) {
+      expect(area).not.toBeNull();
+      if (chat && area) {
         if (width === 1280) {
-          expect(strategy.x).toBeGreaterThan(chat.x);
-          expect(strategy.width).toBeGreaterThan(chat.width);
-        } else expect(strategy.y).toBeGreaterThanOrEqual(chat.y + chat.height);
+          // one block in the middle of the room right of the rail, at a reading width
+          expect(chat.width).toBeLessThanOrEqual(736);
+          expect(
+            Math.abs(chat.x - area.x - (area.x + area.width - chat.x - chat.width)),
+          ).toBeLessThan(2);
+        } else expect([chat.x, chat.width]).toEqual([area.x, area.width]);
       }
     }
     await page.setViewportSize({ width: 375, height: 812 });
@@ -221,4 +225,117 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       expect(await place(), `${step}, a frame later`).toEqual(there);
     }
   }
+});
+
+// Thom, Oct 15: beside a draft the chat keeps about 45% of the room and never less than 440px; under
+// 1440px the conversations rail folds to its strip for it, and opens again when it is asked to.
+test('beside a draft the chat keeps its share, and the rail folds for it under 1440px', async ({
+  page,
+}) => {
+  await page.request.post(`${STUB}/__stub/reset`);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/invest');
+  await page.locator('header a[href^="/sign-in"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/invest$/);
+  const box = page.locator('[data-ui="goal-chat"] textarea');
+  await box.fill('A broad fund and some gold, to grow, at medium risk');
+  await box.press('Enter');
+  const strategy = page.locator('[data-ui="goal-strategy"]');
+  await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
+  const toggle = page.locator('[data-ui="conversations-toggle"]');
+  const measure = async () => {
+    const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
+    const draft = await strategy.boundingBox();
+    if (!chat || !draft) throw new Error('the chat and the draft are drawn');
+    expect(chat.width).toBeGreaterThanOrEqual(440);
+    expect(draft.x).toBeGreaterThan(chat.x + chat.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      page.viewportSize()?.width ?? 0,
+    );
+    return chat.width / (chat.width + draft.width);
+  };
+  for (const [width, folded] of [
+    [1280, true],
+    [1440, false],
+    [1920, false],
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', String(!folded));
+    expect(await measure(), `${width}px`).toBeCloseTo(0.45, 2);
+  }
+  // opened again at 1280, the rail stays open, and the chat keeps its least width
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await measure();
+  // on a tablet the chat keeps five twelfths beside the draft; on a phone the draft is under the chat
+  const boxes = async () => {
+    const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
+    const draft = await strategy.boundingBox();
+    if (!chat || !draft) throw new Error('the chat and the draft are drawn');
+    return { chat, draft };
+  };
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(async () => {
+    const { chat, draft } = await boxes();
+    expect(draft.x).toBeGreaterThan(chat.x + chat.width);
+    expect(chat.width / (chat.width + draft.width)).toBeCloseTo(5 / 12, 2);
+  }).toPass();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(async () => {
+    const { chat, draft } = await boxes();
+    expect(draft.y).toBeGreaterThanOrEqual(chat.y + chat.height);
+    expect([draft.x, draft.width]).toEqual([chat.x, chat.width]);
+  }).toPass();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+});
+
+// A draft drawn again on the way back to /invest folds the rail in the same frame as its column, so
+// the title and the chat never jump 248px a frame after the page is drawn.
+test('a draft drawn again on the way back has the rail folded from its first frame', async ({
+  page,
+}) => {
+  await page.request.post(`${STUB}/__stub/reset`);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/invest');
+  await page.locator('header a[href^="/sign-in"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
+  await expect(dialog).toHaveCount(0);
+  const box = page.locator('[data-ui="goal-chat"] textarea');
+  await box.fill('A broad fund and some gold, to grow, at medium risk');
+  await box.press('Enter');
+  await expect(page.locator('[data-ui="goal-strategy"] [data-ui="weight-notes"]')).toBeVisible();
+  // away by the bar, and back: the draft is read again from this browser on the way in
+  await page.locator('header a[href="/portfolio"]').first().click();
+  await expect(page).toHaveURL(/\/portfolio$/);
+  await expect(page.locator('[data-ui="goal-conversation"]')).toHaveCount(0);
+  // every frame from here, the rail's width while a draft's column is drawn
+  await page.evaluate(() => {
+    const seen: number[] = [];
+    (window as unknown as { seen: number[] }).seen = seen;
+    const frame = () => {
+      if (document.querySelector('[data-ui="goal-strategy"]'))
+        seen.push(
+          Math.round(
+            document.querySelector('div[data-ui="conversations"]')?.getBoundingClientRect().width ??
+              -1,
+          ),
+        );
+      if (seen.length < 30) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+  await page.locator('header a[href="/invest"]').first().click();
+  // kept in this browser, the draft comes back as a preview: its bar, without the reply's notes
+  await expect(page.locator('[data-ui="goal-strategy"] [data-ui="composition"]')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { seen: number[] }).seen.length))
+    .toBeGreaterThanOrEqual(30);
+  const seen = await page.evaluate(() => (window as unknown as { seen: number[] }).seen);
+  expect(new Set(seen)).toEqual(new Set([56]));
 });
