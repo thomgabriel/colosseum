@@ -1249,7 +1249,8 @@ describe('a vault of stated shares on Robinhood Chain (Thom, Oct 15)', () => {
       'robinhood:spy 6000',
       'robinhood:aapl 4000',
     ]);
-    expect(read('50 SPY, 50 AAPL')).toEqual(['robinhood:spy 5000', 'robinhood:aapl 5000']);
+    expect(read('SPY: 50, AAPL: 50')).toEqual(['robinhood:spy 5000', 'robinhood:aapl 5000']);
+    expect(read('70 in SPY and 30 in AAPL')).toEqual(['robinhood:spy 7000', 'robinhood:aapl 3000']);
     expect(read('SPY 50, AAPL 37,5, NVDA 12,5', 'pt')).toEqual([
       'robinhood:spy 5000',
       'robinhood:aapl 3750',
@@ -1264,6 +1265,10 @@ describe('a vault of stated shares on Robinhood Chain (Thom, Oct 15)', () => {
       'SPY 50, AAPL 50, in 3 years',
       'SPY 50, AAPL 50?',
       'My wife holds SPY 50, AAPL 50',
+      // a count of tokens, and a number not right beside its name (the review of #325)
+      'I want 50 SPY and 50 AAPL',
+      '50 SPY, 50 AAPL',
+      'SPY at 50, AAPL at 50',
     ])
       expect(read(text), text).toEqual([]);
   });

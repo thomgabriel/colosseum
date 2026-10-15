@@ -2003,18 +2003,34 @@ const BARE_NUMBER = /(?<![$€£]\s?)(?<![\p{L}\p{N}.,/])\d+(?:[.,]\d+)?(?![\p{L
 /**
  * A sentence that is a list of names each with a bare number ("SPY 50, AAPL 15, … GOOGL 2.5"), the
  * numbers coming to exactly 100, written as percents; null for anything else (Thom, Oct 15: refusing
- * such a list as "a bare number beside each name" was hostile). Every comma-separated piece with a
- * number is one name and its one number, as a share with "%" would be read ("SPY 50", "50 SPY",
- * "SPY at 50"); at least two, each name once, and no other number or share word in the sentence. The
+ * such a list as "a bare number beside each name" was hostile). Every piece with a number, between
+ * commas or "and", is one name and its one number, after it ("SPY 50") or before it with "in" ("70 in
+ * TSLA"); at least two, each name once, and no other number or share word in the sentence. The
  * sentence then goes through the same checks as one written with "%".
  */
 function percentsOfList(sentence: string, named: (text: string) => Named[]): string | null {
   if (SHARE_WORDS.test(sentence)) return null;
   const numbers = [...sentence.matchAll(BARE_NUMBER)];
   if (numbers.length < 2) return null;
+  // Each number beside its one name, as a share and never as a count of tokens: after the name with
+  // only a space or a colon between ("SPY 50", "SPY: 50"), or before it only with "in" or "em" ("70
+  // in TSLA"). "50 SPY" and "SPY at 50" are said back (the review of #325).
+  const PIECES = /(?<!\d),|,(?!\d)|\s(?:and|e|&)\s/iu;
+  for (const piece of sentence.split(PIECES)) {
+    const [number, ...more] = [...piece.matchAll(BARE_NUMBER)];
+    if (!number) continue;
+    const [name, ...others] = named(piece);
+    if (more.length || !name || others.length) return null;
+    const [from, to] = [number.index, number.index + number[0].length];
+    const beside =
+      name.end <= from
+        ? /^(?:\s+|\s*:\s*)$/u.test(piece.slice(name.end, from))
+        : to <= name.start && /^\s+(?:in|em)\s+$/iu.test(piece.slice(to, name.start));
+    if (!beside) return null;
+  }
   const written = sentence.replace(BARE_NUMBER, '$&%');
   const found = written
-    .split(/(?<!\d),|,(?!\d)|\s(?:and|e|&)\s/iu)
+    .split(PIECES)
     .filter((piece) => piece.includes('%'))
     .map((piece) => ({ piece, shares: sharesInPiece(piece, named) }));
   if (

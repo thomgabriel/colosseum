@@ -968,6 +968,9 @@ describe("the person's stated shares, as their words hold them", () => {
     // A share with no percent sign that is no list coming to 100, a fraction or a whole: noticed,
     // not read. A list that comes to 100 is read (below).
     ['I want 70 TSLA and 20 NVDA.', 'I want 70 TSLA and 20 NVDA'],
+    // tokens, not shares, though they come to 100 (the review of #325)
+    ['I want 70 TSLA and 30 NVDA.', 'I want 70 TSLA and 30 NVDA'],
+    ['TSLA at 70, NVDA at 30.', 'TSLA at 70'],
     ['TSLA 70, NVDA 20.', 'TSLA 70'],
     ['I want 70-30 TSLA and NVDA.', 'I want 70-30 TSLA and NVDA'],
     ['I want 70:30 TSLA and NVDA.', 'I want 70:30 TSLA and NVDA'],
@@ -1013,7 +1016,7 @@ describe("the person's stated shares, as their words hold them", () => {
   // vault chat was said back as "a bare number beside each name". A list of names whose bare numbers
   // come to 100 is the shares it names.
   it.each<[string, ('en' | 'pt')?]>([
-    ['I want 70 TSLA and 30 NVDA.'],
+    ['I want 70 in TSLA and 30 in NVDA.'],
     ['TSLA 70, NVDA 30.'],
     ['Quero 70 em TSLA e 30 em NVDA.', 'pt'],
   ])('reads a list of bare numbers that come to 100 as its shares: %s', async (text, language) => {
