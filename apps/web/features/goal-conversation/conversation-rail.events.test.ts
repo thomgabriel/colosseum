@@ -381,16 +381,39 @@ describe('the conversations panel', () => {
     );
     await settle();
     expect(expanded(host)).toBe('true');
-    // open because there was no draft, it stays open as a draft is opened from it
+    // open only because there was no draft, it folds as a draft is opened from it (the team lead,
+    // Oct 15: only the person's own opening on this visit keeps it open)
     await click(find(row(host, 'Consider gold'), '[data-ui="conversation-open"]'));
     await settle();
-    expect(expanded(host)).toBe('true');
-    expect(current(host)).toBe('Consider gold');
+    expect(expanded(host)).toBe('false');
     // a new conversation, and its first draft folds it again
     await openNew(host);
     await settle();
+    expect(expanded(host)).toBe('true');
     await say(host, 'Protect my savings');
     expect(expanded(host)).toBe('false');
+  });
+
+  // Thom, Oct 15, at about 1975px: a conversation with a draft from yesterday, the rail left open on
+  // an earlier visit, and the rail stayed open beside the draft
+  it('folds beside a draft read back on a return, whatever an earlier visit kept', async () => {
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(1) }]);
+    const index = JSON.parse(localStorage.getItem(`${base()}:index`) ?? '{}');
+    localStorage.setItem(`${base()}:index`, JSON.stringify({ ...index, current: 'd1' }));
+    localStorage.setItem('tf-conversations-closed', '0');
+    const host = await show();
+    await settle();
+    expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
+    const toggle = find(rail(host), '[data-ui="conversations-toggle"]');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(rail(host).getAttribute('data-closed')).toBe('true');
+    // the earlier visit's choice is left as it was: folding is not the person's closing
+    expect(localStorage.getItem('tf-conversations-closed')).toBe('0');
+    // opened on this visit, it stays open
+    await click(toggle);
+    await settle();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(current(host)).toBe('Consider gold');
   });
 
   it('on a phone, opens as a sheet from a button that names the one on screen, and closes when one is chosen', async () => {

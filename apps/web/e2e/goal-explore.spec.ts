@@ -367,3 +367,52 @@ test('a draft drawn again on the way back has the rail folded from its first fra
   const seen = await page.evaluate(() => (window as unknown as { seen: number[] }).seen);
   expect(new Set(seen)).toEqual(new Set([56]));
 });
+
+// Thom, Oct 15: a draft of SPY alone, with the model's long reason under it, showed no share: the
+// reason kept the table one line wide and the share column was out of the card, to be scrolled to.
+test('a holding with a long reason keeps its share in the card, the reason wrapped', async ({
+  page,
+}) => {
+  await page.request.post(`${STUB}/__stub/reset`);
+  await page.setViewportSize({ width: 1975, height: 1080 });
+  // the stub's reply, as the model's would come for one asked-for holding
+  await page.route(/\/goal\/reply/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.proposal.allocations = body.proposal.allocations.slice(0, 1).map((line: object) => ({
+      ...line,
+      weightBps: 10_000,
+      why: 'You asked for the S&P 500 alone, so the whole vault follows the index through the SPY fund, which tracks the five hundred largest listed US companies and is the most traded fund on this chain.',
+    }));
+    body.proposal.weightNotes = [];
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto('/invest');
+  await page.locator('header a[href^="/sign-in"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
+  await expect(dialog).toHaveCount(0);
+  const box = page.locator('[data-ui="goal-chat"] textarea');
+  await box.fill('Only the S&P 500');
+  await box.press('Enter');
+  const card = page.locator('[data-ui="goal-strategy"] [data-ui="card"]').first();
+  const table = page.locator('[data-ui="goal-strategy"] [data-ui="composition-table"]');
+  const share = table.locator('[data-ui="composition-share"]');
+  await expect(share).toHaveText('100%');
+  // with the rail open too, where the card is narrowest on a desk; then a phone
+  await page.locator('[data-ui="conversations-toggle"]').click();
+  for (const width of [1975, 1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(async () => {
+      const [c, s, t] = await Promise.all([
+        card.boundingBox(),
+        share.boundingBox(),
+        table.evaluate((el) => [el.scrollWidth, el.parentElement?.clientWidth ?? 0]),
+      ]);
+      if (!c || !s) throw new Error('the card and the share are drawn');
+      expect(s.x + s.width, `${width}px`).toBeLessThanOrEqual(c.x + c.width);
+      // nothing to scroll to: the table is no wider than its box
+      expect(t[0], `${width}px`).toBeLessThanOrEqual(t[1]);
+    }).toPass();
+  }
+});

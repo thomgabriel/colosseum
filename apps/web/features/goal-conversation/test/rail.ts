@@ -55,8 +55,12 @@ export const unfold = async (host: HTMLElement) => {
   if (toggle.getAttribute('aria-expanded') === 'false') await click(toggle);
 };
 
-/** Opens a draft by its chain and id, or a row by its name, from the rail opened if it is folded. */
+/**
+ * Opens a draft by its chain and id, or a row by its name, from the rail opened if it is folded; a
+ * draft opened from a rail the person had not opened folds it, and it is opened to read its rows.
+ */
 export const open = async (host: HTMLElement, which: string | { chain: string; id: string }) => {
   await unfold(host);
   await click(find(row(host, which), '[data-ui="conversation-open"]'));
+  await unfold(host);
 };

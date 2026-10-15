@@ -430,12 +430,22 @@ export function Composition({
                   <th scope="row" className={cn(CELL, 'text-left font-normal @max-lg:order-1')}>
                     <span className="flex min-w-0 items-center gap-3">
                       {mark(item, i)}
-                      <span className="flex min-w-0 flex-col">
+                      <span className="flex min-w-0 flex-1 flex-col">
                         <span data-part="name" className="truncate font-medium">
                           {item.name}
                         </span>
+                        {/* A row's reason wraps at a reading width, 18rem at least where the
+                            table has its columns, and never widens the table past it: a long one
+                            pushed the share out of the panel, to be scrolled to (Thom, Oct 15, a
+                            vault of SPY alone). */}
                         {sub && (
-                          <span data-part="sub" className="text-caption text-muted-foreground">
+                          <span
+                            data-part="sub"
+                            className={cn(
+                              'text-caption text-muted-foreground',
+                              item.detail && '[contain:inline-size] @lg:min-w-72',
+                            )}
+                          >
                             {sub}
                           </span>
                         )}
