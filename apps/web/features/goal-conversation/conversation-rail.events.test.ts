@@ -321,7 +321,7 @@ describe('the conversations panel', () => {
   });
 
   // Thom, Oct 15: under 1440px a draft beside the chat would leave it too narrow with the rail open
-  it('folds to its strip while a draft is beside the chat, and stays open for that conversation once opened again', async () => {
+  it('folds to its strip while a draft is beside the chat, and stays open once opened again, as drafts are opened from it', async () => {
     portStore.setApi(async (url, init) => {
       if (url === '/v1/me') return json(person);
       if (url === '/v1/portfolio/plans') return json(served);
@@ -362,13 +362,35 @@ describe('the conversations panel', () => {
     expect(expanded(host)).toBe('true');
     await say(host, 'Earn an income');
     expect(expanded(host)).toBe('false');
-    // another draft opened from the rail folds it too: opened again, it was for the one before
+    // opened to browse, it stays open as another draft is opened from it, and the one after that
+    // (the team lead, Oct 15: never folded under the person's cursor)
     await click(toggle(host));
     await click(find(row(host, 'Consider gold'), '[data-ui="conversation-open"]'));
     await settle();
-    expect(expanded(host)).toBe('false');
-    await click(toggle(host));
+    expect(expanded(host)).toBe('true');
     expect(current(host)).toBe('Consider gold');
+    await click(find(row(host, 'Earn an income'), '[data-ui="conversation-open"]'));
+    await settle();
+    expect(expanded(host)).toBe('true');
+    expect(current(host)).toBe('Earn an income');
+    // "Start over" leaves no draft on screen, so the next draft folds it again
+    await click(
+      [...host.querySelectorAll('button')].find(
+        (button) => button.textContent === en.talk.startOver,
+      ) as HTMLElement,
+    );
+    await settle();
+    expect(expanded(host)).toBe('true');
+    // open because there was no draft, it stays open as a draft is opened from it
+    await click(find(row(host, 'Consider gold'), '[data-ui="conversation-open"]'));
+    await settle();
+    expect(expanded(host)).toBe('true');
+    expect(current(host)).toBe('Consider gold');
+    // a new conversation, and its first draft folds it again
+    await openNew(host);
+    await settle();
+    await say(host, 'Protect my savings');
+    expect(expanded(host)).toBe('false');
   });
 
   it('on a phone, opens as a sheet from a button that names the one on screen, and closes when one is chosen', async () => {

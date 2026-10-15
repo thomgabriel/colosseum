@@ -189,12 +189,20 @@ export function ConversationRail({
   const [reopened, setReopened] = useState(false);
   const listId = useId();
 
-  // Opened again, it stays open while the person moves between drafts; a conversation with no draft
-  // on screen (a new one, or one started over) lets the next draft fold it again.
+  // Opened again, or used to open another conversation, it stays open: a person browsing the rail
+  // never has it fold under the cursor. A conversation with no draft on screen (a new one, or one
+  // started over) lets the next draft fold it again.
   useLayoutEffect(() => {
     if (!drafting) setReopened(false);
   }, [drafting]);
   const folded = closed || (drafting && !reopened);
+  const browse = {
+    ...actions,
+    onOpen: (row: DraftRow) => {
+      setReopened(true);
+      actions.onOpen(row);
+    },
+  };
 
   // On a wide screen the rail opens as this browser last left it.
   useEffect(() => {
@@ -258,7 +266,7 @@ export function ConversationRail({
         )}
       </div>
       <div id={listId} hidden={folded} className="flex min-h-0 flex-1 flex-col">
-        {!folded && <ConversationList rows={rows} now={now} {...actions} />}
+        {!folded && <ConversationList rows={rows} now={now} {...browse} />}
       </div>
     </div>
   );

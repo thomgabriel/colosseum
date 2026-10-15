@@ -291,6 +291,15 @@ test('beside a draft the chat keeps its share, and the rail folds for it', async
   await box.press('Enter');
   await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  // opened to browse, it stays open as another draft is opened from it (the team lead, Oct 15)
+  await toggle.click();
+  await page
+    .locator('div[data-ui="conversations"] [data-ui="conversation-open"]')
+    .filter({ hasText: 'A broad fund' })
+    .click();
+  await expect(page.locator('[data-ui="goal-transcript"]')).toContainText('A broad fund');
+  await expect(strategy.locator('[data-ui="composition"]')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   // on a tablet the chat keeps five twelfths beside the draft; on a phone the draft is under the chat
   const boxes = async () => {
     const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();

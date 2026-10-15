@@ -172,7 +172,7 @@ describe('private strategy exploration for a new goal', () => {
     // beside the draft: 45% from 1024px and half from 1440px, never under 440px
     expect(chat.className).not.toContain('md:max-w-[46rem]');
     expect(workbench.className).toContain(
-      'lg:max-[1439.98px]:grid-cols-[minmax(27.5rem,9fr)_minmax(0,11fr)]',
+      'lg:max-[1440px]:grid-cols-[minmax(27.5rem,9fr)_minmax(0,11fr)]',
     );
     expect(workbench.className).toContain(
       'min-[1440px]:grid-cols-[minmax(27.5rem,1fr)_minmax(0,1fr)]',
