@@ -27,11 +27,13 @@ impl AcceptVersion<'_> {
         );
         // The version in effect is the one the person reviewed: an accept signed against
         // version N that lands after N+1 took effect fails.
-        let active = recipe.active(now);
+        let slot = recipe.active_slot(now);
+        let active = recipe.version(slot);
         require!(
             expected_version == active.version,
             BasketError::VersionMismatch
         );
+        let lines = recipe.lines(slot, &recipe.to_account_info().try_borrow_data()?)?;
 
         let vault = &mut ctx.accounts.vault;
         let recipe_key = recipe.key();
@@ -41,7 +43,7 @@ impl AcceptVersion<'_> {
                 recipe: vault.recipe,
             });
         }
-        vault.take_version(active)?;
+        vault.take_version(&lines)?;
         vault.recipe = recipe_key;
         vault.accepted_version = active.version;
         emit!(Followed {
@@ -78,18 +80,21 @@ impl AdoptVersion<'_> {
             !ctx.accounts.config.keeper_paused,
             BasketError::KeeperPaused
         );
-        let active = ctx.accounts.recipe.active(Clock::get()?.unix_timestamp);
+        let recipe = &ctx.accounts.recipe;
+        let slot = recipe.active_slot(Clock::get()?.unix_timestamp);
+        let active = recipe.version(slot);
         // Nothing newer than what the vault holds is in effect: a version that waits is not.
         require!(
             active.version > vault.accepted_version,
             BasketError::VersionNotEffective
         );
+        let lines = recipe.lines(slot, &recipe.to_account_info().try_borrow_data()?)?;
         // An asset the owner never accepted comes in only with the owner's signature.
         require!(
-            active.components().iter().all(|c| vault.accepts(&c.mint)),
+            lines.iter().all(|c| vault.accepts(&c.mint)),
             BasketError::NewAssetNeedsOwner
         );
-        vault.take_version(active)?;
+        vault.take_version(&lines)?;
         vault.accepted_version = active.version;
         emit!(VersionAdopted {
             vault: vault.key(),

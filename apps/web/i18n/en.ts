@@ -1,3 +1,5 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
+
 // Every sentence a person reads on the product screens, in English. pt.ts holds the same keys in
 // Brazilian Portuguese, and the type below is what keeps the two in step.
 //
@@ -322,17 +324,38 @@ export const en = {
   goal: {
     explore: {
       /**
-       * The conversation picker (GoalEntry): the one on screen, a new one, the saved ones, the vaults.
-       * A conversation is named by its person's first request; `current` and `untitled` are what one
-       * with no words yet is called, on screen and in the saved list.
+       * The conversations panel (ConversationRail): a rail beside the conversation on a wide screen, a
+       * sheet on a phone. A draft is named by the name the person gave it, else its first request; a
+       * vault by its goal, as the portfolio overview names it. `current` and `untitled` are what a
+       * draft with no words yet is called, on screen and in the list.
        */
       picker: {
-        label: 'Conversation',
+        label: 'Conversations',
         current: 'New conversation',
-        fresh: 'Start a new conversation',
-        vaults: 'Your vaults',
-        saved: 'Saved conversations',
         untitled: 'Earlier conversation',
+        fresh: 'New conversation',
+        show: 'Show conversations',
+        hide: 'Hide conversations',
+        close: 'Close',
+        groups: { today: 'Today', yesterday: 'Yesterday', earlier: 'Earlier' },
+        search: 'Search conversations',
+        noMatch: (words: string) => `No conversation has “${words}” in its name.`,
+        empty: 'Your conversations and vaults are listed here.',
+        vault: 'Vault',
+        draft: 'Draft',
+        openVault: (title: string) => `Open the vault: ${title}`,
+        rename: (title: string) => `Rename: ${title}`,
+        name: 'Name',
+        save: 'Save',
+        cancel: 'Cancel',
+        remove: (title: string) => `Delete: ${title}`,
+        confirm: 'Delete this draft from this browser? It can’t be brought back.',
+        /** A draft with a deposit that is not finished: it is not deleted. */
+        depositing:
+          'This draft has a deposit that isn’t finished, so it stays. Open it to see the deposit’s steps.',
+        yes: 'Delete',
+        keep: 'Keep',
+        removed: (title: string) => `Deleted: ${title}`,
       },
       invitation: 'What should your vault do?',
       lead: 'Tell me your ideas, needs and limits. I’ll draft a vault with its sources and tradeoffs.',
@@ -1412,6 +1435,12 @@ export const en = {
         'One asset of this portfolio isn’t available on this chain now, so the portfolio can’t take a deposit as it stands.',
     },
     family: {
+      /**
+       * A weight over its asset's cap on the list, said before a deposit or a follow (SHARED-RULES-V2):
+       * the follower pays to sell that much of it.
+       */
+      overCap: (asset: string, weight: string, cap: string) =>
+        `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Selling that much of it may cost you more.`,
       loading: 'Reading this portfolio…',
       missing: 'I can’t find a shared portfolio with that name.',
       backToShelf: 'Back to the shared portfolios',
@@ -1632,7 +1661,38 @@ export const en = {
       familyId: 'Its id, worked out from the address',
       assets: 'Assets and weights',
       assetsHint:
-        'These are the vault’s target weights. Publishing requires 3 to 12 listed assets, each from 2% to 50% in 0.5% steps, with no cash target. Change your vault’s targets before publishing if they do not fit.',
+        'These are the vault’s target weights. Change your vault’s targets before publishing if they do not fit.',
+      /** What a portfolio may hold, as the chain's registry says it now (gate SHARED-RULES-V2). */
+      rules: {
+        reading: (chain: string) => `Reading the publishing rules from ${chain}…`,
+        unread: (chain: string) =>
+          `I couldn’t read the publishing rules from ${chain}, so publishing is paused. Try again in a moment.`,
+        shape: (
+          chain: string,
+          min: number,
+          max: number,
+          low: string,
+          high: string,
+          step: string,
+          cash: boolean,
+        ) =>
+          cash
+            ? `On ${chain} a portfolio holds ${min} to ${max} listed assets, each from ${low} to ${high} in ${step} steps. What the weights leave under 100% stays in cash.`
+            : `On ${chain} a portfolio holds ${min} to ${max} listed assets, each from ${low} to ${high} in ${step} steps, adding up to 100%, with no cash.`,
+        count: (min: number, max: number) => `A portfolio holds ${min} to ${max} assets.`,
+        weight: (low: string, high: string, step: string) =>
+          `Each weight is from ${low} to ${high}, in steps of ${step}.`,
+        sum: 'The weights add up to 100%.',
+        sumAtMost: 'The weights add up to at most 100%.',
+        ceiling: (asset: string, weight: string, cap: string) =>
+          `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list.`,
+        /** A warning, not a refusal: the cap is set from what the asset can be sold for, measured. */
+        overCap: (asset: string, weight: string, cap: string) =>
+          `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Followers may pay more to sell that much of it.`,
+        cash: 'Cash',
+        /** What the cited figure is, in its pin. */
+        capOnList: 'Cap on the asset list',
+      },
       asset: 'Asset',
       weight: 'Weight, in %',
       /** The labels of a row's two fields. */
@@ -1651,9 +1711,6 @@ export const en = {
         name: 'A name needs plain letters, digits and punctuation, with no space at either end and no link or web address.',
         slug: 'An address needs lower-case letters, digits and dashes, and can’t be “publish”.',
         copy: 'A description is at most 280 characters, with no link or web address and no hidden characters.',
-        count: 'A portfolio holds 3 to 12 assets.',
-        weight: 'Each weight is from 2% to 50%, in steps of 0.5%.',
-        sum: 'The weights add up to 100%.',
         twice: 'An asset appears once.',
         chain: 'Publishing isn’t open on this chain yet.',
       },
@@ -1775,6 +1832,29 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** Closing an empty vault (gate VAULT-CLOSE-REUSE): a confirm, then the closed vault's note. */
+        close: {
+          action: 'Close this vault',
+          title: 'Close this vault?',
+          body: 'It leaves your portfolio, its totals and your lists of vaults. Nothing moves on the chain: the vault stays at its address, empty, and you can open it again from Closed vaults.',
+          confirm: 'Close vault',
+          closing: 'Closing…',
+          keep: 'Keep it open',
+          /** Worth a cent or more, or holding a token with no price. */
+          notEmpty: 'This vault still holds something. Withdraw it first, then close it.',
+          failed: 'I couldn’t close it: our server didn’t answer. Try again.',
+          /** An order on the vault is still under way. */
+          orderOpen:
+            'An order on this vault isn’t finished yet. Finish it, or let it run out, then close the vault.',
+        },
+        closed: {
+          title: 'This vault is closed',
+          body: (date: string) =>
+            `You closed it on ${date}. It isn’t in your portfolio or its totals. Nothing moved on the chain.`,
+          reopen: 'Open it again',
+          reopening: 'Opening…',
+          failed: 'I couldn’t open it again: our server didn’t answer. Try again.',
+        },
         /** The press that trades the vault to the targets it has, and the sentence that offers it. */
         rebalance: 'Rebalance',
         offTarget:
@@ -1824,6 +1904,9 @@ export const en = {
         allOnTarget: 'On target',
         /** In the head of the holdings when a share is off its target. */
         offTargetShort: 'Off target',
+        /** A share a little away from its target, by less than one trade: said, and not off target. */
+        gapTooSmall:
+          'A little away from its targets, by less than one trade is worth: nothing to rebalance.',
         /** A holding's status pill when it is off its target: "Drift +2%". */
         drift: (signed: string) => `Drift ${signed}`,
         /** Why cash is kept, where the vault plans a share of cash. */
@@ -2744,9 +2827,9 @@ export const en = {
       remove: (name: string) => `Remove ${name}`,
       weight: (name: string) => `Weight of ${name}`,
       cash: (share: string) => `Cash: ${share}`,
-      lines: (n: number) => `${n} of 16 assets`,
+      lines: (n: number) => `${n} of ${VAULT_MAX_TARGETS} assets`,
       issues: {
-        'too-many': 'A vault holds 16 assets besides cash. Remove one.',
+        'too-many': `A vault holds ${VAULT_MAX_TARGETS} assets besides cash. Remove one.`,
         duplicate: 'Each asset once. Remove the repeat.',
         'cash-line': 'Cash is what the others leave. Remove it as a line.',
         'not-whole': 'Use percents with up to two decimals, or whole basis points.',
@@ -2787,7 +2870,7 @@ export const en = {
         case 'SUM_NOT_10000':
           return 'The weights don’t add up to the whole.';
         case 'TOO_MANY_LINES':
-          return 'A vault holds 16 assets besides cash.';
+          return `A vault holds ${VAULT_MAX_TARGETS} assets besides cash.`;
         case 'NO_PRICE':
           return `${asset} has no usable price just now.`;
         case 'NOT_FOR_GOAL':

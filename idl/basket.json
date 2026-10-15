@@ -360,6 +360,30 @@
       ]
     },
     {
+      "name": "creator_limits",
+      "docs": [
+        "Anyone, read only. The author limits a shared portfolio is held to, as return data:",
+        "the app simulates this to read them from the program it talks to."
+      ],
+      "discriminator": [
+        5,
+        106,
+        182,
+        233,
+        116,
+        232,
+        60,
+        129
+      ],
+      "accounts": [],
+      "args": [],
+      "returns": {
+        "defined": {
+          "name": "CreatorLimits"
+        }
+      }
+    },
+    {
       "name": "deposit",
       "docs": [
         "Owner. Cash only: the mint must be Config's cash mint. Into the vault's associated",
@@ -2093,6 +2117,10 @@
       "accounts": [
         {
           "name": "creator",
+          "docs": [
+            "Pays for the room past twelve lines on a portfolio published before there was any."
+          ],
+          "writable": true,
           "signer": true,
           "relations": [
             "recipe"
@@ -2137,6 +2165,10 @@
               }
             ]
           }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -3405,6 +3437,57 @@
       }
     },
     {
+      "name": "CreatorLimits",
+      "docs": [
+        "The author limits as one value, which `creator_limits` answers. `rules` is 2, the rules of",
+        "Oct 14; the first rules (3 to 12 assets, 2% to 50% and each asset's ceiling, adding up to",
+        "exactly 100%) were 1, and a program that answers nothing holds those."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rules",
+            "type": "u8"
+          },
+          {
+            "name": "min_assets",
+            "type": "u8"
+          },
+          {
+            "name": "max_assets",
+            "type": "u8"
+          },
+          {
+            "name": "min_weight_bps",
+            "type": "u16"
+          },
+          {
+            "name": "max_weight_bps",
+            "type": "u16"
+          },
+          {
+            "name": "step_bps",
+            "type": "u16"
+          },
+          {
+            "name": "sum_bps",
+            "docs": [
+              "The most the weights add up to."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "max_turnover_bps",
+            "docs": [
+              "Half of `MAX_MOVED_BPS`: the turnover a version may have."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
       "name": "Followed",
       "docs": [
         "The vault now follows a shared portfolio, at this version. Same name as the EVM event."
@@ -3711,9 +3794,15 @@
       "name": "Recipe",
       "docs": [
         "A shared portfolio: one per creator per family, at seeds [\"recipe\", creator, family_id].",
-        "1,022 bytes. Only the version in effect and the one waiting live here; history is in the",
-        "`RecipePublished` events. `last_version` took four bytes of what was reserved: the size",
-        "and every other offset are as they were."
+        "Only the version in effect and the one waiting live here; history is in the",
+        "`RecipePublished` events. `last_version` took four bytes of what was reserved.",
+        "",
+        "The fields below are the account's first 1,022 bytes, as they were laid out when a version",
+        "held at most twelve lines, and every account written then still reads as it is. The lines",
+        "past twelve follow them: four for the current version from byte 1,022, then four for the",
+        "waiting one from byte 1,158, 34 bytes each (mint, weight). A portfolio published since has",
+        "those 272 bytes from the start (`Recipe::SPACE`); an older one gets them the first time a",
+        "version of more than twelve lines is published to it."
       ],
       "type": {
         "kind": "struct",
@@ -3852,7 +3941,9 @@
     {
       "name": "RecipeVersion",
       "docs": [
-        "One version of a shared portfolio: 453 bytes. `version` zero means the slot is empty."
+        "One version of a shared portfolio: 453 bytes. `version` zero means the slot is empty.",
+        "`count` is every line of the version: the first twelve are here, the rest past the end",
+        "of the account's first layout (`Recipe::lines`)."
       ],
       "type": {
         "kind": "struct",
@@ -3880,7 +3971,7 @@
           {
             "name": "count",
             "docs": [
-              "How many of `components` are in use."
+              "How many lines the version has, here and past the end."
             ],
             "type": "u8"
           },

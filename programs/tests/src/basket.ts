@@ -124,10 +124,15 @@ export const ERR = {
 export const CONFIG_SIZE = 396;
 export const VAULT_SIZE = 1063;
 export const ASSETS_SIZE = 6281;
-export const RECIPE_SIZE = 1022;
+/** A shared portfolio's fields, as first laid out: what a portfolio published before Oct 14 has. */
+export const RECIPE_HEAD_SIZE = 1022;
+/** The fields and room for four lines past twelve in each version (`Recipe::SPACE`). */
+export const RECIPE_SIZE = 1294;
 export const MAX_POSITIONS = 16;
 export const MAX_ASSETS = 64;
-export const MAX_COMPONENTS = 12;
+/** The most lines a version holds; the first twelve sit in the fields, the rest after them. */
+export const MAX_COMPONENTS = 16;
+export const INLINE_COMPONENTS = 12;
 /** `AssetEntry.flags`, bit 0: the keeper may trade the asset. */
 export const ASSET_KEEPER = 1;
 /** A price account in Scope's layout: a 40-byte header and 512 entries of 56 bytes. */
@@ -326,7 +331,7 @@ const recipeVersionDecoder = getStructDecoder([
   ['effectiveAt', getI64Decoder()],
   ['metaHash', bytes32],
   ['count', getU8Decoder()],
-  ['components', getArrayDecoder(componentDecoder, { size: MAX_COMPONENTS })],
+  ['components', getArrayDecoder(componentDecoder, { size: INLINE_COMPONENTS })],
 ]);
 
 const recipeDecoder = getStructDecoder([
@@ -376,13 +381,32 @@ export async function readAssets(svm: LiteSVM) {
 export type Component = { mint: Address; weightBps: number };
 
 /** A shared portfolio. Each version carries only the components in use. */
+/**
+ * A shared portfolio from the bytes of its account, each version with every line: the first twelve
+ * from its fields, the rest from the four slots after them (the current version's at 1,022, the
+ * waiting one's at 1,158). An account of the first layout has no such slots.
+ */
+export function decodeRecipe(data: Uint8Array) {
+  const decoded = recipeDecoder.decode(data);
+  const extra = (slot: number, i: number) =>
+    componentDecoder.decode(data, RECIPE_HEAD_SIZE + (slot * 4 + i) * 34);
+  const used = (v: typeof decoded.current, slot: number) => {
+    if (v.count > MAX_COMPONENTS) throw new Error(`a version has ${v.count} lines`);
+    const past = v.count - INLINE_COMPONENTS;
+    if (past > 0 && data.length < RECIPE_SIZE) throw new Error('lines past twelve with no room');
+    return {
+      ...v,
+      components: [
+        ...v.components.slice(0, Math.min(v.count, INLINE_COMPONENTS)),
+        ...Array.from({ length: Math.max(0, past) }, (_, i) => extra(slot, i)),
+      ],
+    };
+  };
+  return { ...decoded, current: used(decoded.current, 0), pending: used(decoded.pending, 1) };
+}
+
 export function readRecipe(svm: LiteSVM, recipe: Address) {
-  const decoded = recipeDecoder.decode(accountData(svm, recipe, 'recipe'));
-  const used = (v: typeof decoded.current) => ({
-    ...v,
-    components: v.components.slice(0, v.count),
-  });
-  return { ...decoded, current: used(decoded.current), pending: used(decoded.pending) };
+  return decodeRecipe(accountData(svm, recipe, 'recipe'));
 }
 
 /** What the vault has recorded for a mint, or null when the mint is not one of its positions. */
@@ -826,7 +850,7 @@ export async function publishRecipeInstruction(input: {
   };
 }
 
-/** Accounts: creator (signer), recipe, config, assets. */
+/** Accounts: creator (signer, pays for room past twelve lines), recipe, config, assets, system program. */
 export async function updateRecipeInstruction(input: {
   creator: TransactionSigner;
   recipe: Address;
@@ -838,10 +862,11 @@ export async function updateRecipeInstruction(input: {
   return {
     programAddress: BASKET_PROGRAM,
     accounts: [
-      signer(input.creator),
+      writableSigner(input.creator),
       writable(input.recipe),
       readonly(input.config ?? (await configAddress())),
       readonly(input.assets ?? (await assetsAddress())),
+      readonly(SYSTEM_PROGRAM),
     ],
     data: concat(
       discriminator('update_recipe'),
@@ -850,6 +875,24 @@ export async function updateRecipeInstruction(input: {
     ),
   };
 }
+
+/** No accounts: the author limits, as the instruction's return data. */
+export function creatorLimitsInstruction(): Instruction {
+  return { programAddress: BASKET_PROGRAM, accounts: [], data: discriminator('creator_limits') };
+}
+
+/** The return data of `creator_limits`. */
+export const decodeCreatorLimits = (data: Uint8Array) =>
+  getStructDecoder([
+    ['rules', getU8Decoder()],
+    ['minAssets', getU8Decoder()],
+    ['maxAssets', getU8Decoder()],
+    ['minWeightBps', getU16Decoder()],
+    ['maxWeightBps', getU16Decoder()],
+    ['stepBps', getU16Decoder()],
+    ['sumBps', getU16Decoder()],
+    ['maxTurnoverBps', getU16Decoder()],
+  ]).decode(data);
 
 /** Accounts: the creator or the guardian (signer), recipe, config. */
 export async function cancelPendingInstruction(input: {

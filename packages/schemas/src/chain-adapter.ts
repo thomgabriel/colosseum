@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CreatorLimits } from './basket';
 import type { BasketAsset } from './basket-asset';
 import type { BuiltTx } from './basket-tx';
 import { Address, AssetId, BasketId, Bps, type ChainId, RawAmount } from './chain';
@@ -207,6 +208,12 @@ export interface ChainReader {
   getVault(vault: Address): Promise<VaultState | null>;
   listAutoFollowVaults(recipeOnchainId?: string): Promise<Address[]>;
   getRecipe(recipeOnchainId: string): Promise<{ active: Recipe; pending: Recipe | null }>;
+  /**
+   * The author limits the chain's registry holds a shared portfolio to, and the rules they are read
+   * under, as the chain says them now: the EVM registry's `limits()` and `rulesVersion()`, the Solana
+   * program's constants (the first rules), the mock's own.
+   */
+  creatorLimits(): Promise<CreatorLimits>;
   getWalletHoldings(owner: Address): Promise<Holding[]>;
   funding(owner: Address, need: FundingNeed): Promise<Funding>;
   quote(trade: Trade, taker: Address): Promise<Quote>;

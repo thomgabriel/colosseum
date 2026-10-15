@@ -133,6 +133,21 @@ const planIdOf = (basketId: string): Hex => `0x${BigInt(basketId).toString(16).p
 const lower = (a: string) => a.toLowerCase() as Address;
 const IndexId = z.string().regex(/^0x[0-9a-f]{64}$/, 'expected 32 bytes as lower-case 0x hex');
 
+/**
+ * What an accept that would revert says. `InvalidTargets(1)`: the version and what the vault still holds
+ * of the assets it drops come to more than the vault's 24 lines. The follow plans the leftovers' sales
+ * first, so this is a vault holding more leftovers than that: the owner sells or withdraws some first.
+ * Any other error is passed on as it was.
+ */
+export function acceptRefusal(e: unknown): unknown {
+  return e instanceof ChainError && e.code === 'InvalidTargets'
+    ? new ChainError(
+        'InvalidTargets',
+        'the version and the assets the vault still holds of the ones it drops do not fit the vault’s 24 lines: sell or withdraw a leftover first, then accept',
+      )
+    : e;
+}
+
 export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVaultAdapter {
   const { config, rpc, pools, limits } = options;
   const reader = createEvmVaultReader(options);
@@ -775,20 +790,24 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const a = input(AcceptVersionArgs, args, 'accept');
         const { vault, owner } = await ownedVault(a.vault);
         const indexId = input(IndexId, a.recipeOnchainId, 'recipeOnchainId') as Hex;
-        return built({
-          kind: 'accept_version',
-          signer: owner,
-          to: vault,
-          data: encodeFunctionData({
-            abi: BASKET_VAULT_ABI,
-            functionName: 'acceptVersion',
-            args: [indexId, a.expectedVersion],
-          }),
-          nonce: a.nonce,
-          vault,
-          summary: `Accept version ${a.expectedVersion} of shared portfolio ${indexId} in vault ${vault}`,
-          minimums: [],
-        });
+        try {
+          return await built({
+            kind: 'accept_version',
+            signer: owner,
+            to: vault,
+            data: encodeFunctionData({
+              abi: BASKET_VAULT_ABI,
+              functionName: 'acceptVersion',
+              args: [indexId, a.expectedVersion],
+            }),
+            nonce: a.nonce,
+            vault,
+            summary: `Accept version ${a.expectedVersion} of shared portfolio ${indexId} in vault ${vault}`,
+            minimums: [],
+          });
+        } catch (e) {
+          throw acceptRefusal(e);
+        }
       }),
 
     buildSetAutoFollow: (args) =>

@@ -259,15 +259,47 @@ pub fn check_keeper_mint(mint: &AccountInfo, now: i64) -> Result<()> {
 }
 
 // ---- the author limits (DESIGN-VAULT.md section 6, fixtures/creator-limits) ----
+//
+// The rules of a person's own vault (gate SHARED-RULES-V2, Thom, Oct 14): 1 to 16 listed
+// assets, each from 0.5% to 100% in 50 bps steps, adding up to at most 100%; what they leave
+// is cash, which is never a line. An asset's own ceiling on the list is not read here: the app
+// shows it as a warning that cites its figure.
 
-pub const MIN_COMPONENTS: usize = 3;
-pub const MIN_WEIGHT_BPS: u16 = 200;
-/// No asset is above 50%, whatever its own ceiling.
-pub const MAX_WEIGHT_BPS: u16 = 5_000;
+pub const MIN_COMPONENTS: usize = 1;
+pub const MIN_WEIGHT_BPS: u16 = 50;
+pub const MAX_WEIGHT_BPS: u16 = 10_000;
 pub const WEIGHT_STEP_BPS: u16 = 50;
-/// A version moves at most 20% of the portfolio. The limit is on the sum of the absolute
-/// weight changes, which is twice that, so nothing is divided.
+/// A version moves at most 20% of the portfolio, cash counted. The limit is on the sum of the
+/// absolute changes, which is twice that, so nothing is divided.
 pub const MAX_MOVED_BPS: u32 = 4_000;
+
+/// The author limits as one value, which `creator_limits` answers. `rules` is 2, the rules of
+/// Oct 14; the first rules (3 to 12 assets, 2% to 50% and each asset's ceiling, adding up to
+/// exactly 100%) were 1, and a program that answers nothing holds those.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CreatorLimits {
+    pub rules: u8,
+    pub min_assets: u8,
+    pub max_assets: u8,
+    pub min_weight_bps: u16,
+    pub max_weight_bps: u16,
+    pub step_bps: u16,
+    /// The most the weights add up to.
+    pub sum_bps: u16,
+    /// Half of `MAX_MOVED_BPS`: the turnover a version may have.
+    pub max_turnover_bps: u16,
+}
+
+pub const CREATOR_LIMITS: CreatorLimits = CreatorLimits {
+    rules: 2,
+    min_assets: MIN_COMPONENTS as u8,
+    max_assets: MAX_COMPONENTS as u8,
+    min_weight_bps: MIN_WEIGHT_BPS,
+    max_weight_bps: MAX_WEIGHT_BPS,
+    step_bps: WEIGHT_STEP_BPS,
+    sum_bps: BPS as u16,
+    max_turnover_bps: (MAX_MOVED_BPS / 2) as u16,
+};
 
 /// Why a version is refused. The numbers are those of fixtures/creator-limits/README.md,
 /// and a refusal names the lowest one the version breaks.
@@ -324,23 +356,14 @@ pub fn check_shape(
     if next.iter().any(|c| c.weight_bps % WEIGHT_STEP_BPS != 0) {
         return Err(LimitReason::WeightOffStep);
     }
-    if next
-        .iter()
-        .any(|c| c.weight_bps > ceiling_bps(registry, &c.mint))
-    {
+    if next.iter().any(|c| c.weight_bps > MAX_WEIGHT_BPS) {
         return Err(LimitReason::WeightAboveCeiling);
     }
-    if next.iter().map(|c| c.weight_bps as u32).sum::<u32>() != BPS {
+    // What the weights leave under the whole is cash.
+    if next.iter().map(|c| c.weight_bps as u32).sum::<u32>() > BPS {
         return Err(LimitReason::WeightSum);
     }
     Ok(())
-}
-
-/// The ceiling of one asset: 50%, or its own `max_weight_bps` when that is lower. An asset
-/// that is not listed has none.
-pub fn ceiling_bps(registry: &AssetRegistry, mint: &Pubkey) -> u16 {
-    let own = registry.find(mint).map_or(0, |entry| entry.max_weight_bps);
-    own.min(MAX_WEIGHT_BPS)
 }
 
 /// Rules 11 to 13, for a version that follows another. `prev` is the version in effect.
@@ -366,8 +389,9 @@ pub fn check_change(
     Ok(moved.div_ceil(2) as u16)
 }
 
-/// The sum of the absolute weight changes over every asset in either version. An added
-/// asset counts from zero and a removed one to zero.
+/// The sum of the absolute weight changes over every asset in either version, and over cash,
+/// which is what each version leaves of the whole. An added asset counts from zero and a
+/// removed one to zero. The sum is even, so half of it is exact.
 pub fn moved_bps(prev: &[Component], next: &[Component]) -> u32 {
     let weight_in = |list: &[Component], mint: &Pubkey| {
         list.iter()
@@ -383,10 +407,11 @@ pub fn moved_bps(prev: &[Component], next: &[Component]) -> u32 {
         .filter(|p| next.iter().all(|n| n.mint != p.mint))
         .map(|p| p.weight_bps as u32)
         .sum();
-    changed + removed
+    let total = |list: &[Component]| list.iter().map(|c| c.weight_bps as u32).sum::<u32>();
+    changed + removed + total(prev).abs_diff(total(next))
 }
 
-/// Rule 14: a shared portfolio holds assets, never the chain's cash token.
+/// Rule 14: cash is what the weights leave, never a line of its own.
 pub fn check_no_cash(
     next: &[Component],
     cash_mint: &Pubkey,

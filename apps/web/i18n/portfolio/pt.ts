@@ -1,4 +1,5 @@
 import type { PortfolioDictionary } from './en';
+import { closed } from './pt/closed';
 import { exposure } from './pt/exposure';
 import { methodology } from './pt/methodology';
 import { overview } from './pt/overview';
@@ -17,4 +18,5 @@ export const portfolioPt: PortfolioDictionary = {
   plan,
   rebalancing,
   exposure,
+  closed,
 };

@@ -39,6 +39,23 @@ describe('flatten', () => {
     expect(Targets.parse(targets)).toEqual(targets);
   });
 
+  it('keeps the cash a shared portfolio leaves as cash (SHARED-RULES-V2)', () => {
+    // "steady" holds NVDA 60% and leaves 40% in cash; 50% of a plan in it is 30% NVDA and 20% cash.
+    const steady = family('steady', [recipe('solana', { 'solana:nvda': 6000 })]);
+    const plan = recipe('solana', { 'index:steady': 5000, 'solana:spy': 5000 });
+    const targets = flatten(plan, shelf(ASSETS, [steady]), WIDE);
+    expect(targets).toEqual([
+      { asset: 'solana:spy', weightBps: 5000 },
+      { asset: 'solana:nvda', weightBps: 3000 },
+    ]);
+    expect(Targets.parse(targets)).toEqual(targets);
+    // One that adds up to more than 100% is no shared portfolio.
+    const over = family('over', [recipe('solana', { 'solana:nvda': 6000, 'solana:amd': 4050 })]);
+    expect(
+      code(() => flatten(recipe('solana', { 'index:over': 10_000 }), shelf(ASSETS, [over]), WIDE)),
+    ).toBe('BadFamilyRecipe');
+  });
+
   it('leaves a plan of assets as it is, largest first', () => {
     const plan = recipe('solana', { 'solana:gold': 2500, 'solana:spy': 7500 });
     expect(flatten(plan, SHELF, WIDE)).toEqual([

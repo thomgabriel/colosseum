@@ -1,8 +1,15 @@
-import { checkCreatorLimits, familyIdOf, metaHash } from '@colosseum/basket';
+import {
+  batchTrades,
+  checkCreatorLimits,
+  familyIdOf,
+  metaHash,
+  overCeilings,
+} from '@colosseum/basket';
 import { indexIdOf } from '@colosseum/chain-evm/vault';
 import { mockRecipeId } from '@colosseum/chain-mock';
 import { recipeAddress } from '@colosseum/chain-solana/vault';
 import type { Db } from '@colosseum/db';
+import { reason } from '@colosseum/engine/personal';
 import {
   type Address,
   type AutoFollowOffer,
@@ -13,10 +20,15 @@ import {
   type IntentRequest,
   isAddressOf,
   type Leg,
+  leftoversOf,
+  ORDER_DEFAULT_SLIPPAGE_BPS,
   type Principal,
   type Recipe,
   TAKEN_SLUGS,
   type Target,
+  type Trade,
+  VAULT_MAX_LINES,
+  type VaultState,
 } from '@colosseum/schemas';
 import { holds } from '../plugins/auth';
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
@@ -204,7 +216,14 @@ export type SharedContext = {
 };
 
 /** A step of a shared-portfolio order before it is a leg. */
-export type SharedStep = { chain: ChainId; kind: Leg['kind']; description: string };
+export type SharedStep = {
+  chain: ChainId;
+  kind: Leg['kind'];
+  description: string;
+  /** A sale step of a follow: the leftovers it sells for cash, each with its minimum. */
+  trades?: Trade[];
+  expected?: Leg['expected'];
+};
 
 /**
  * The family a publish is for: the stored one of that slug, or a new one with the id `familyIdOf(slug)`.
@@ -249,12 +268,16 @@ export async function familyOfPublish(
 /**
  * A creator's publish, planned: one `publish` step per chain, each the first version (in effect at
  * once) or the next one (in effect after the publish delay), held to the four creator limits against
- * what the chain has now. The limit on time is the chain's to say when the step is built.
+ * what the chain has now, under the rules and numbers the chain's registry says (`creatorLimits`). The
+ * limit on time is the chain's to say when the step is built.
+ *
+ * Under the second rules (SHARED-RULES-V2) a weight over its asset's ceiling on the list is published,
+ * with a warning that cites the ceiling, as a person's own vault has it (ANY-COMPOSITION, EXIT-SOURCE).
  */
 export async function planPublish(
   req: PublishRequest,
   ctx: SharedContext,
-): Promise<{ familyId: string; steps: SharedStep[] }> {
+): Promise<{ familyId: string; steps: SharedStep[]; warnings: { code: string; text: string }[] }> {
   if (!holds(ctx.principal, req.creator))
     throw new Refusal(403, 'the creator in the request is not a wallet of the signed-in person');
   checkText(req);
@@ -263,6 +286,7 @@ export async function planPublish(
     throw new Refusal(422, 'a shared portfolio has one recipe per chain');
   const { familyId } = await familyOfPublish(req, ctx);
   const steps: SharedStep[] = [];
+  const warnings: { code: string; text: string }[] = [];
   for (const draft of req.recipes) {
     const family = chainFamily(draft.chain);
     const name = ctx.chains.name(draft.chain);
@@ -272,22 +296,44 @@ export async function planPublish(
     if (!creator)
       throw new Refusal(422, `the creator has no ${family} address, and the recipe is on ${name}`);
     const onchain = await readRecipe(entry, await recipeIdOf(entry, creator, familyId));
-    const verdict = checkCreatorLimits(
-      onchain ? recipeTargets(onchain.active) : null,
-      recipeTargets(draft),
-      {
-        assets: await entry.adapter.listAssets(),
-        now: 0,
-        lastPublishAt: null,
-        hasPending: Boolean(onchain?.pending),
-        publishDelay: 0,
-      },
-    );
+    const [assets, limits] = await Promise.all([
+      entry.adapter.listAssets(),
+      entry.adapter.creatorLimits(),
+    ]);
+    const next = recipeTargets(draft);
+    const verdict = checkCreatorLimits(onchain ? recipeTargets(onchain.active) : null, next, {
+      limits,
+      assets,
+      now: 0,
+      lastPublishAt: null,
+      hasPending: Boolean(onchain?.pending),
+      publishDelay: 0,
+    });
     if (!verdict.ok)
       throw new Refusal(422, verdict.detail, {
         code: 'CREATOR_LIMIT',
         fix: 'Change the weights within the limits a shared portfolio follows.',
       });
+    // Under the first rules a line over its ceiling was refused above; under the second it is said,
+    // one warning per line, in the person's language: the ceiling and where it was read (EXIT-SOURCE).
+    // How a ceiling is set is the pin's to say (`ceilingsFrom.method` of /v1/shared/limits).
+    if (limits.rules === 2)
+      for (const over of overCeilings(next, assets)) {
+        const symbol = assets.find((a) => a.id === over.asset)?.symbol ?? over.asset;
+        const lang = req.language ?? 'en';
+        const said = reason(
+          'MIX_OVER_LISTED',
+          { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps },
+          lang,
+        ).text;
+        warnings.push({
+          code: `OVER_LISTED_CAP:${over.asset}`,
+          text:
+            lang === 'pt'
+              ? `${said} Lido agora de ${entry.source}, a lista de ativos na ${name}.`
+              : `${said} Read now from ${entry.source}, the asset list on ${name}.`,
+        });
+      }
     steps.push({
       chain: draft.chain,
       kind: 'publish',
@@ -296,7 +342,7 @@ export async function planPublish(
         : `Publish your shared portfolio on ${name}: version 1, in effect at once`,
     });
   }
-  return { familyId, steps };
+  return { familyId, steps, warnings };
 }
 
 /**
@@ -326,6 +372,74 @@ export async function followedOn(
       { code: 'VERSION_CHANGED', fix: 'Read the shared portfolio again.' },
     );
   return { family, entry, recipe: stored, onchain };
+}
+
+/**
+ * The sales a follow needs before its accept (`leftoversOf`): none while the version and the vault's
+ * lines it drops fit the vault's lines (`VAULT_MAX_LINES`); past that, every such line sold for cash,
+ * all the vault holds of it, each quoted now with the default slippage and a minimum the chain will
+ * take. A leftover that cannot be sold now refuses the follow in plain words, before anything is signed.
+ */
+export async function leftoverSales(
+  entry: ChainEntry,
+  vault: Pick<VaultState, 'owner' | 'positions' | 'cash'>,
+  version: Target[],
+): Promise<SharedStep[]> {
+  const leftovers = leftoversOf(
+    vault,
+    version.map((t) => t.asset),
+    VAULT_MAX_LINES[chainFamily(entry.chain)],
+  );
+  if (!leftovers.length) return [];
+  const assets = await entry.adapter.listAssets();
+  const symbol = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
+  const why = (asset: string) =>
+    new Refusal(
+      409,
+      `Your vault still holds ${symbol(asset)}, which this version drops, and ${symbol(asset)} can't be sold now. Sell or withdraw it, then follow.`,
+      {
+        fix: 'Sell or withdraw what the vault holds of the assets this version drops, then follow.',
+        details: { retryable: false },
+      },
+    );
+  const sales: { trade: Trade; expected: Leg['expected'][number] }[] = [];
+  for (const held of leftovers) {
+    const trade: Trade = { sell: held.asset, buy: vault.cash.asset, amountInRaw: held.amountRaw };
+    if (!assets.some((a) => a.id === held.asset)) throw why(held.asset);
+    let quote: Awaited<ReturnType<typeof entry.adapter.quote>>;
+    try {
+      quote = await entry.adapter.quote(trade, vault.owner);
+    } catch (e) {
+      if (e instanceof ChainError) throw why(held.asset);
+      throw e;
+    }
+    const out = BigInt(quote.outRaw);
+    const ours = (out * BigInt(10_000 - ORDER_DEFAULT_SLIPPAGE_BPS)) / 10_000n;
+    const theirs = BigInt(quote.minOutRaw);
+    const least = theirs > ours ? theirs : ours;
+    if (out <= 0n || least <= 0n || least > out) throw why(held.asset);
+    sales.push({
+      trade,
+      expected: {
+        inRaw: trade.amountInRaw,
+        outRaw: out.toString(),
+        minOutRaw: least.toString(),
+        costBps: quote.costBps,
+      },
+    });
+  }
+  return batchTrades(
+    sales.map((x) => x.trade),
+    entry.adapter.capabilities.maxTradesPerTx,
+  ).map((group) => ({
+    chain: entry.chain,
+    kind: 'swap' as const,
+    description: `Sell what your vault holds of ${group.map((t) => symbol(t.sell)).join(', ')}, which this version drops, for ${symbol(vault.cash.asset)}`,
+    trades: group,
+    expected: group.map(
+      (t) => (sales.find((x) => x.trade === t) as (typeof sales)[number]).expected,
+    ),
+  }));
 }
 
 /**
@@ -370,6 +484,10 @@ export async function planFollow(
     if (!offer.offered) refuseAutoFollow(entry, offer);
   }
   if (vault.recipeOnchainId !== active.onchainId || vault.acceptedVersion !== active.version) {
+    // The assets the vault still holds and the version drops stay beside it as targets of zero. Past
+    // the vault's lines, the accept would revert: their sales come first, in this order (gate
+    // SHARED-RULES-V2).
+    steps.push(...(await leftoverSales(entry, vault, recipeTargets(active))));
     // The vault takes the version's weights, assets it has no target on included: the guard asks the
     // person's own tap for every accept.
     needsConsent.push('new_asset');

@@ -60,6 +60,51 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
+describe('a reply that hands over the page’s Rebalance', () => {
+  const serve = (action?: 'rebalance') =>
+    portStore.setApi(async (url, init) =>
+      url.endsWith('/reply')
+        ? json({
+            version: 1,
+            chain: read.chain,
+            address: read.vault.address,
+            messageId: JSON.parse(String(init?.body)).messageId,
+            message: 'Your vault is off its targets. Use “Rebalance” to bring it back.',
+            question: null,
+            proposal: null,
+            ...(action ? { action } : {}),
+          })
+        : json({}, 404),
+    );
+
+  it('shows the page’s press under the reply, and pressing it is the page’s own', async () => {
+    serve('rebalance');
+    const onRebalance = vi.fn();
+    const host = await mount(
+      withAccount('en', createElement(VaultConversation, { read, userId, onRebalance })),
+    );
+    await send(host, 'i want to rebalance');
+    const press = find<HTMLButtonElement>(host, '[data-action="chat-rebalance"]');
+    expect(press.textContent).toBe(en.shared.vault.page.rebalance);
+    await click(press);
+    expect(onRebalance).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no press where the page offers none, or the reply hands none over', async () => {
+    serve('rebalance');
+    const host = await show();
+    await send(host, 'i want to rebalance');
+    expect(host.querySelector('[data-action="chat-rebalance"]')).toBeNull();
+    await unmountAll();
+    serve();
+    const offered = await mount(
+      withAccount('en', createElement(VaultConversation, { read, userId, onRebalance: vi.fn() })),
+    );
+    await send(offered, 'i want to rebalance');
+    expect(offered.querySelector('[data-action="chat-rebalance"]')).toBeNull();
+  });
+});
+
 describe('a continuous conversation for one vault', () => {
   it.each(['en', 'pt'] as const)(
     'prefills a starter without requesting a reply or submitting it, %s',

@@ -203,7 +203,7 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
   const commitment: Commitment = options.commitment ?? 'confirmed';
   const now = options.now ?? (() => new Date());
   const trade = options.trade ?? 'live';
-  const reader = createSolanaVaultReader({ ...options, trade });
+  const reader = createSolanaVaultReader({ ...options, trade, simulate: rpc });
   const program = reader.program;
   const provenance = reader.provenance;
   const probe = createSolanaProbe({ rpc, program, commitment });
