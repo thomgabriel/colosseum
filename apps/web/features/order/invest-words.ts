@@ -138,4 +138,23 @@ export type OrderEmbed = {
    * same card, where it is reviewed and signed. Left out, the order's own page is opened.
    */
   onFinish?: (orderId: string) => void;
+  /**
+   * What the vault aims at before the order, as the host read it (a vault's own page): the review
+   * sets it beside the new targets. Left out where the host has no read of the vault.
+   */
+  before?: readonly { asset: string; weightBps: number }[];
+  /**
+   * The host reviewed what the order does before it was made (a vault's change of targets): the
+   * order's screen opens on its first step, with no review of its own to go back to.
+   */
+  reviewed?: boolean;
+  /** Where the end of the steps leads, in place of the portfolio: the vault the money went into. */
+  endsAt?: { href: string; label: string };
+  /** The order's screen moved: its review, its steps, or its end (gate SIGN-ONE-STEP). */
+  onStage?: (stage: 'review' | 'steps' | 'done') => void;
+  /**
+   * The order ended, and whether plainly: every step confirmed and no token left behind. A host says
+   * "done" over it only then.
+   */
+  onEnded?: (plainly: boolean) => void;
 };

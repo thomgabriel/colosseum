@@ -133,14 +133,15 @@ test('a change to all SPY spends what its sale brings: no cash worth a trade is 
   await page.locator('[data-ui="composer-send"]').click();
   const proposal = page.locator('[data-ui="vault-proposal"]');
   await expect(proposal).toBeVisible();
+  // applied, the targets go straight to their review (SIGN-ONE-STEP): no editor in between
   await proposal.getByRole('button', { name: en.mix.preview.apply }).click();
-  await proposal.getByRole('button', { name: en.mix.vault.review }).click();
   await expect(page.locator('[data-ui="mix-review-lines"]')).toContainText('SPY');
   const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
   for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
-  await page.getByRole('button', { name: en.mix.vault.confirm }).click();
+  // reviewed in one screen, then the order's own screen: one press signs every step (SIGN-ONE-STEP)
+  await page.locator('[data-action="mix-confirm"]').click();
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  await pane.getByRole('button', { name: en.mix.order.signTargets }).click();
+  await pane.getByRole('button', { name: en.order.flow.press.change }).click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   // $40 of NVDA sold at 1% slippage: the purchase spends the $39.60 it is sure of, and only what the
   // sale brought over that stays in cash. Counting the 1% twice left $0.79.
@@ -194,7 +195,11 @@ test('idle cash worth a trade: "Off target", Rebalance on the page and in the ch
   // The page's own pane, as its press opens: the purchase of the idle cash, signed there.
   await expect(screen).toHaveAttribute('data-pane', 'rebalance');
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  await pane.getByRole('button', { name: en.order.shared.signRebalance }).click();
+  // its review, then the step's own button (SIGN-ONE-STEP): one purchase, named with its amount
+  await pane.locator('[data-action="order-continue"]').click();
+  const sign = pane.locator('[data-ui="sign-step"] [data-variant="primary"]');
+  await expect(sign).toContainText(/Sign: swap \$[\d.,]+ for SPY/);
+  await sign.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   const { cash } = await cashOf(page, address);
   expect(cash).toBeLessThan(0.01);

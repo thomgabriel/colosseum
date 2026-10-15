@@ -1938,6 +1938,8 @@ export const en = {
         value: 'Value',
         change:
           'To change what this vault holds, say it in the conversation: more of one asset, less of another.',
+        /** After `change`: the editor by hand, the same as "Edit weights by hand" under More. */
+        changeByHand: 'Or edit the weights by hand.',
         details: 'Details',
         priceSources: 'Price sources',
         /** One price account's line: the entries in it that price this vault's assets. */
@@ -1979,7 +1981,13 @@ export const en = {
           lead: 'These steps swap the cash already in your vault. No new money is deposited.',
         },
         ended: 'The steps have ended',
-        endedLead: 'How each step ended is said under the steps below.',
+        /** Over the end of an order that is plainly done: no step skipped, no token left behind. */
+        doneTitle: {
+          deposit: 'Deposit done',
+          withdraw: 'Withdrawal done',
+          rebalance: 'Rebalance done',
+          change: 'Change done',
+        },
         panes: {
           deposit: {
             title: 'Deposit into your vault',
@@ -2214,8 +2222,8 @@ export const en = {
     signs: {
       passkey: (n: number) =>
         n === 1
-          ? 'One press signs the one step with your passkey wallet. No other window opens.'
-          : `One press signs the ${n} steps with your passkey wallet, one after another. No other window opens, and you can stop between steps.`,
+          ? 'One press signs it with your passkey wallet.'
+          : `One press signs all ${n} steps with your passkey wallet.`,
       wallet: (n: number) =>
         n === 1
           ? 'Your wallet asks you to confirm the one step in its own window.'
@@ -2364,7 +2372,7 @@ export const en = {
     elsewhere:
       'This order was made in another browser, so its plan isn’t here to check the steps against. Open it where you made it, or make a new order.',
     review: {
-      title: 'Review every step',
+      title: 'Review your order',
       lead: 'Each step is built fresh when its turn comes, checked against what you see here, and only then signed by your wallet. A step that doesn’t match is not signed.',
       /** An order that finishes another with the cash in its vault. */
       continuesLead:
@@ -2439,16 +2447,11 @@ export const en = {
       addCashNote: 'This vault has no targets, so the whole amount stays in it as cash.',
       publishNote:
         'Your wallet is asked to sign only a transaction that publishes exactly this name, description and these weights, under this id.',
-      signPublish: 'Sign and publish',
-      signFollow: 'Sign and follow',
-      signRebalance: 'Sign and rebalance',
       /** Under a follow that is done: its targets are set, and the trades to them are the next press. */
       followDone:
         'Your vault follows the portfolio now, and has its weights as targets. What it holds hasn’t been traded yet.',
       followRebalance: 'Rebalance this vault',
-      resume: 'Continue',
       withdrawTitle: 'What you withdraw',
-      signWithdraw: 'Sign and withdraw',
       /** One line of a withdraw step: what leaves, for the owner's own wallet. */
       withdraws: (amount: string) => `${amount} to your own wallet`,
       withdrawsAll: (held: string) => `All of it, ${held} when reviewed, to your own wallet`,
@@ -2479,7 +2482,6 @@ export const en = {
           ? `Done on ${chain}, except one step that was skipped: what it would have moved stayed in the vault.`
           : `Done on ${chain}, except ${n} steps that were skipped: what they would have moved stayed in the vault.`,
     },
-    signAndBuy: (amount: string) => `Sign and deposit ${amount}`,
     resume: (amount: string) => `Continue the deposit of ${amount}`,
     signing: (n: number, total: number) => `Signing step ${n} of ${total}…`,
     stepsTitle: 'Steps',
@@ -2510,6 +2512,154 @@ export const en = {
       adopt_version: 'Keeper: adopt a version',
       keeper_leg: 'Keeper: trade',
     },
+    /**
+     * The order one screen at a time (gate SIGN-ONE-STEP): what changes and its worst case, then each
+     * step on its own card with a button that names it, then what the order did.
+     */
+    flow: {
+      continue: 'Continue',
+      details: 'Details',
+      /** The change's review, as its panel's title. */
+      changeTitle: 'Review the change',
+      changeWeights: 'Change the weights',
+      /** One box for every warning of a change. */
+      understand: 'I understand these',
+      /** Before the first signature: back to what changes. */
+      back: 'Back to the review',
+      /** The progress strip's name, read by a screen reader. */
+      progress: 'Where you are in the steps',
+      /** The strip's last place, after every step. */
+      done: 'Done',
+      /** Read after a done step's name. */
+      doneWord: 'done',
+      stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
+      /** The fold with every step as it will be signed, to the last unit. */
+      allSteps: 'Every step, exactly',
+      /** The fold with each confirmed step's transaction. */
+      transactions: 'Transactions',
+      /** The steps already confirmed, over the one being signed. */
+      signed: 'Signed',
+      /** A step that deposits, then trades: "Deposit $1,000 into your vault, then swap $900 of cash for SPYx". */
+      andThen: (head: string, rest: string) => `${head}, then ${rest}`,
+      atLeast: (amount: string) => `at least ${amount}`,
+      allOf: (token: string) => `all of your ${token}`,
+      short: {
+        approve: 'Allow',
+        open: 'Open vault',
+        deposit: 'Deposit',
+        swap: 'Swap',
+        swapN: (n: number) => `Swap ${n}`,
+        sell: (what: string) => `Sell ${what}`,
+        into: (what: string) => `Swap to ${what}`,
+        targets: 'Set targets',
+        version: 'Accept version',
+        autoFollow: 'Auto-follow',
+        withdraw: 'Withdraw',
+        publish: 'Publish',
+      },
+      title: {
+        approve: (amount: string) => `Allow your vault to take ${amount} of cash`,
+        open: 'Open your vault',
+        openDeposit: (amount: string) => `Open your vault and deposit ${amount}`,
+        deposit: (amount: string) => `Deposit ${amount} into your vault`,
+        sell: (what: string) => `sell ${what}`,
+        swap: (amount: string, into: string) => `swap ${amount} of cash for ${into}`,
+        swapInto: (into: string) => `swap cash for ${into}`,
+        targets: 'Set your vault’s new targets on chain',
+        version: 'Accept the new version of the portfolio',
+        withdraw: (what: string) => `Send ${what} to your own wallet`,
+        publish: 'Publish your portfolio',
+      },
+      /** The one large line of a screen: what the order or the step does, at a glance. */
+      hero: {
+        /** "$1,354 → GOOGLx": what goes in, and where it goes. */
+        arrow: (from: string, to: string) => `${from} → ${to}`,
+        yourVault: 'your vault',
+        yourWallet: 'your wallet',
+        cash: 'cash',
+        allow: (amount: string) => `Allow ${amount}`,
+        targets: 'New targets',
+        moreLess: (more: string, less: string) => `More ${more}, less ${less}`,
+        more: (more: string) => `More ${more}`,
+        less: (less: string) => `Less ${less}`,
+        rebalance: 'Back to your targets',
+        deposit: (amount: string) => `${amount} into your vault`,
+        withdraw: (what: string) => `${what} to your wallet`,
+        finish: 'Finish your deposit',
+      },
+      /** The muted label over a screen's figure (HOUSE-KIT). */
+      label: {
+        change: 'New targets',
+        rebalance: 'Rebalance',
+        deposit: 'Into your vault',
+        withdraw: 'To your wallet',
+        withdrawAtLeast: 'To your wallet, at least',
+        order: 'Your order',
+      },
+      /** Over "Done": the action the order was. */
+      doneLabel: {
+        change: 'Change',
+        rebalance: 'Rebalance',
+        deposit: 'Deposit',
+        withdraw: 'Withdrawal',
+      },
+      /** The small figures under it. */
+      stat: {
+        swapped: 'Swapped',
+        expected: 'Expected cost',
+        worst: 'At worst',
+        steps: 'Steps',
+        least: 'At least',
+        under: 'Under today’s price, at worst',
+        /** A change's review, before its order is quoted: worked out from the vault's prices. */
+        swappedEstimate: 'Swapped, estimated',
+        worstEstimate: 'At worst, estimated',
+        estimate: 'Estimated at today’s prices. The next screen shows the quoted figures you sign.',
+      },
+      /** The heads of the table of what changes. */
+      table: { holding: 'Holding', change: 'Change', amount: 'Amount' },
+      /** A button that signs names the action and the amount. */
+      press: {
+        of: (what: string) => `Sign: ${what}`,
+        approve: (amount: string) => `Sign: allow ${amount}`,
+        open: 'Sign: open your vault',
+        deposit: (amount: string) => `Sign: deposit ${amount}`,
+        sell: (what: string) => `sell ${what}`,
+        swap: (amount: string, into: string) => `swap ${amount} for ${into}`,
+        swapInto: (into: string) => `swap for ${into}`,
+        targets: 'Sign: set the new targets',
+        /** The one press that signs a whole order, with the passkey wallet. */
+        change: 'Sign the change',
+        rebalance: 'Sign the rebalance',
+        follow: 'Sign: follow',
+        version: 'Sign: accept the new version',
+        autoFollow: 'Sign: switch auto-follow',
+        withdraw: (what: string) => `Sign: withdraw ${what}`,
+        publish: 'Sign: publish',
+        step: 'Sign this step',
+      },
+      picture: {
+        cash: 'Cash',
+        amount: 'Amount',
+        before: 'Before',
+        next: 'After',
+        unchanged: 'unchanged',
+        /** A move of a target's share, in percentage points. */
+        points: (n: string) => `${n} pp`,
+        holdsNow: 'Holds now',
+        target: 'Target',
+        targets: 'Your vault’s targets',
+        deposit: (amount: string) => `Where your ${amount} goes`,
+        withdraw: 'What leaves your vault',
+        sold: 'What is sold',
+        all: 'All of it',
+      },
+      /** The last screen: what the order did, and the vault as it is now. */
+      ended: {
+        title: 'Done',
+        targets: 'Your vault’s targets now',
+      },
+    },
     status: {
       planned: 'Not started',
       built: 'Built, not signed yet',
@@ -2536,8 +2686,7 @@ export const en = {
       unavailable: 'link unavailable',
     },
     outcome: {
-      done: (chain: string) =>
-        `Every step is confirmed on ${chain}. Each step’s transaction is linked beside it.`,
+      done: (chain: string) => `Every step is confirmed on ${chain}.`,
       seePortfolio: 'See your portfolio',
       buyMore: 'Deposit more',
       /** After a step failed or was refused once the deposit had landed. */
@@ -2914,7 +3063,6 @@ export const en = {
     },
     order: {
       title: 'New targets for your vault',
-      signTargets: 'Sign and apply the targets',
       cash: (share: string) => `The rest stays in cash: ${share}.`,
       fromConversation: 'Proposed in your conversation, and confirmed by you.',
       fromPerson: 'Chosen by you.',

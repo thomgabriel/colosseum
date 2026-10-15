@@ -9,6 +9,7 @@ import { StatusMark } from '../../components/ui/StatusMark';
 import { dictionary } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { VaultMixFlow } from '../mix/VaultMixFlow';
+import { onOrderDone } from '../order/order-done';
 import { displayName } from '../order/plain';
 import { dollars, share } from '../portfolio/figures';
 import { holdingsOf, unpriced, vaultValueSource } from '../portfolio/portfolio';
@@ -125,6 +126,22 @@ export function VaultConversation({
   const [reply, setReply] = useState<VaultAgentReply | null>(null);
   // The preview the person chose to apply: its editor stays only while that preview is the one shown.
   const [applying, setApplying] = useState<VaultAgentReply | null>(null);
+  // A change applied and signed is over: back on the vault, its draft and its review are gone and the
+  // holdings show again (UI audit V2). Only the order this change made counts: a deposit, an order
+  // on another vault or one in another tab leaves the draft as it is.
+  const changing = useRef(false);
+  changing.current = applying !== null;
+  const changeOrder = useRef<string | null>(null);
+  useEffect(
+    () =>
+      onOrderDone((orderId) => {
+        if (!changing.current || orderId === null || orderId !== changeOrder.current) return;
+        changeOrder.current = null;
+        setApplying(null);
+        setReply(null);
+      }),
+    [],
+  );
   // The chat folds away so the plan can take the whole width, as on the invest page.
   const [chatOpen, setChatOpen] = useState(true);
   const generation = useRef(0);
@@ -662,17 +679,20 @@ export function VaultConversation({
         )}
         {proposal && (
           <section data-ui="vault-proposal">
-            <StrategyPreview
-              proposal={proposal}
-              {...(reply?.figures ? { figures: reply.figures, now } : {})}
-              targets={targets}
-              onDiscuss={() => draftMessage(copy.discussPrompt)}
-              {...(applying !== reply && reply
-                ? { use: { label: t.mix.preview.apply, onUse: () => setApplying(reply) } }
-                : {})}
-            />
+            {/* Applied, the draft gives the pane to the change's review (gate SIGN-ONE-STEP). */}
+            {!(reply && applying === reply) && (
+              <StrategyPreview
+                proposal={proposal}
+                {...(reply?.figures ? { figures: reply.figures, now } : {})}
+                targets={targets}
+                onDiscuss={() => draftMessage(copy.discussPrompt)}
+                {...(applying !== reply && reply
+                  ? { use: { label: t.mix.preview.apply, onUse: () => setApplying(reply) } }
+                  : {})}
+              />
+            )}
             {reply && applying === reply && (
-              <div className="mt-4">
+              <div>
                 <VaultMixFlow
                   chain={read.chain}
                   vault={read.vault}
@@ -685,7 +705,16 @@ export function VaultConversation({
                     ),
                   )}
                   onClose={() => setApplying(null)}
-                  onOrder={onOrder}
+                  // the change's own order: its end, and no other, closes the change. With no host to
+                  // take it, the flow opens the order's own page, as before
+                  {...(onOrder
+                    ? {
+                        onOrder: (orderId: string) => {
+                          changeOrder.current = orderId;
+                          onOrder(orderId);
+                        },
+                      }
+                    : {})}
                 />
               </div>
             )}
@@ -693,8 +722,10 @@ export function VaultConversation({
         )}
         {/* While a draft is on its way or shown, it has the pane: what the vault holds folds to its
             own head under it, a press away (Thom, Oct 14). The pane still scrolls to it. */}
-        {holdings}
-        {aside}
+        {/* a change under review has the pane to itself: one screen, one thing to read; the vault's
+            details wait too */}
+        {!(reply && applying === reply) && holdings}
+        {!(reply && applying === reply) && aside}
       </section>
     </section>
   );

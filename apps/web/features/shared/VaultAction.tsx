@@ -2,7 +2,7 @@
 import type { ChainId, VaultResponse } from '@colosseum/schemas';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody } from '../../components/ui/Card';
+import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { useT } from '../../i18n/I18nProvider';
 import type { AmountMode } from '../amount/AmountCard';
 import { VaultMixFlow } from '../mix/VaultMixFlow';
@@ -12,7 +12,6 @@ import { latestOf, recallOrder, recallOrders } from '../order/order-record';
 import { AddMoneyScreen } from '../portfolio/AddMoneyScreen';
 import { sameAddress } from '../portfolio/vault-name';
 import { RebalanceStart } from './RebalanceStart';
-import { SharedReview } from './SharedReview';
 import type { SharedTerms } from './terms';
 import { WithdrawScreen } from './WithdrawScreen';
 
@@ -153,7 +152,9 @@ export function VaultAction({
   // The pane took the holdings' place: its heading takes the focus, so it is read from the top. Where
   // the amount card is the pane's first thing, the card is the heading and its amount takes the focus.
   useEffect(() => {
-    document.getElementById(titleId)?.focus();
+    const title = document.getElementById(titleId);
+    title?.setAttribute('tabindex', '-1');
+    title?.focus();
   }, [titleId]);
 
   const record = open.orderId ? recallOrder(open.orderId, userId) : null;
@@ -165,6 +166,10 @@ export function VaultAction({
   // An order that finishes a deposit that stopped took the card: it deposits nothing, so the amount
   // typed for the first one is not said of it, now or after a reload.
   const [followed, setFollowed] = useState(false);
+  // Which screen of the order is on the pane: its review, its steps, or its end (SIGN-ONE-STEP).
+  const [orderStage, setOrderStage] = useState<'review' | 'steps' | 'done' | null>(null);
+  // The order ended plainly: every step confirmed, nothing left behind. Only then is "done" said over it.
+  const [plainly, setPlainly] = useState(false);
   const finishes =
     followed || (record ? latestOf(record, recallOrders(userId)).continues !== undefined : false);
   const told = {
@@ -179,8 +184,58 @@ export function VaultAction({
     },
     onDone: () => onPhase('done'),
     onStopped: () => onPhase('stopped'),
+    onEnded: setPlainly,
   };
 
+  const backToVault = (
+    <div data-ui="vault-action-done" className="flex flex-col gap-3">
+      <Button variant="primary" className="w-full" data-action="back-to-vault" onClick={onFinished}>
+        {p.backToVault}
+      </Button>
+    </div>
+  );
+  // The way back, whenever no step is being signed; what was sent stays sent. Before the first
+  // signature the steps have "Back to the review" of their own: one way back.
+  const wayBack = phase !== 'signing' &&
+    phase !== 'done' &&
+    !(
+      phase === 'open' &&
+      orderStage === 'steps' &&
+      !open.resumed &&
+      paneOf(open.kind) !== 'change'
+    ) && (
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
+        {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
+        <Button variant="link" data-action="leave-action" onClick={onLeave}>
+          {p.backToHoldings}
+        </Button>
+      </p>
+    );
+  // The pane's title, and the one line under it where one is said.
+  const titleText =
+    phase === 'done'
+      ? plainly
+        ? p.doneTitle[paneOf(open.kind)]
+        : p.ended
+      : finishes
+        ? p.finish.title
+        : open.orderId || pressed
+          ? words.signTitle
+          : words.title;
+  const lead =
+    // the amount card says what a deposit and a withdrawal do: no line over it (gate AMOUNT-CARD),
+    // only one that says the pane was taken up again or finishes another
+    phase !== 'done' &&
+    (finishes ||
+      open.resumed ||
+      (!open.orderId && !(open.kind === 'deposit' || open.kind === 'withdraw')))
+      ? // an order that finishes a deposit adds no money: never said as a deposit of the amount
+        finishes
+        ? p.finish.lead
+        : open.resumed
+          ? words.resumed
+          : words.lead
+      : null;
   let body: ReactNode;
   if (open.kind === 'deposit')
     body = (
@@ -254,32 +309,47 @@ export function VaultAction({
       onStarted: () => {},
       onAgain: onRestart,
       hostEnds: true,
+      onStage: setOrderStage,
+      // a change was reviewed before its order was made (ChangeReview): its steps come next
+      ...(paneOf(open.kind) === 'change' && !open.resumed ? { reviewed: true } : {}),
+      // what the vault aims at, or holds, as this page read it: the review sets the order's targets
+      // beside it (gate SIGN-ONE-STEP)
+      ...(paneOf(open.kind) === 'change'
+        ? { before: targetsOfVault(vault) }
+        : open.kind === 'rebalance'
+          ? {
+              before: vault.positions.map((position) => ({
+                asset: position.asset,
+                weightBps: position.weightBps,
+              })),
+            }
+          : {}),
       ...told,
     };
     body = (
       <>
-        {/* what the order is held to, as its review showed it: the order's screen leaves it to its host */}
-        {record?.terms && <SharedReview terms={record.terms} chain={chain} />}
-        <Card
-          as="section"
-          aria-label={t.order.stepsTitle}
-          mock={read.provenance === 'mock'}
-          mockLabels={{ announce: t.shell.mockAnnounce }}
-        >
-          <CardBody className="flex flex-col gap-5">
-            {read.provenance === 'sandbox' && (
-              <p data-ui="data-note" className="text-caption text-muted-foreground">
-                {t.buy.steps.note.testNetwork(t.chain.names[chain])}
-              </p>
+        {/* the order's screen says what changes, then each step on its own (gate SIGN-ONE-STEP); what
+            the order is held to, as its review showed it, is in its details */}
+        {/* the house kit's panel (HOUSE-KIT): the pane's title its head, the order's screens in it;
+            whether the figures are live is the order's own pill */}
+        <Panel data-ui="pane-panel" aria-labelledby={titleId}>
+          <PanelHead id={titleId} title={<span data-ui="pane-title">{titleText}</span>} />
+          <PanelBody>
+            {lead && (
+              <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">{lead}</p>
             )}
             <OrderScreen key={open.orderId} id={open.orderId} embed={embed} />
-          </CardBody>
-        </Card>
+            {phase === 'done' && backToVault}
+            {wayBack}
+          </PanelBody>
+        </Panel>
       </>
     );
   }
 
   const done = phase === 'done';
+  // Done, the one way on: inside the order's card, or under the deposit's card, which is not this pane's.
+  const doneInCard = open.kind !== 'deposit' && open.orderId !== null;
   // The amount card heads the pane while it is shown (gate AMOUNT-CARD, one rule for both actions).
   const cardHeads =
     // only while the card is drawn: a pane that waits for its read, or says why it has no card,
@@ -298,58 +368,29 @@ export function VaultAction({
       {...(cardHeads ? { 'aria-label': words.title } : { 'aria-labelledby': titleId })}
       className="flex min-w-0 flex-col gap-4"
     >
-      {!cardHeads && (
+      {!doneInCard && !cardHeads && (
         <header className="flex min-w-0 flex-col gap-2">
           <h2
             id={titleId}
             tabIndex={-1}
+            data-ui="pane-title"
             className="font-display text-h4 font-semibold outline-none"
           >
-            {done
-              ? p.ended
-              : finishes
-                ? p.finish.title
-                : open.orderId || pressed
-                  ? words.signTitle
-                  : words.title}
+            {titleText}
           </h2>
-          {/* the amount card says what a deposit and a withdrawal do: no line over it (gate AMOUNT-CARD),
-            only one that says the pane was taken up again or finishes another */}
-          {!done &&
-            (finishes ||
-              open.resumed ||
-              !(open.kind === 'deposit' || open.kind === 'withdraw')) && (
-              <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-                {/* an order that finishes a deposit adds no money: never said as a deposit of the amount */}
-                {finishes ? p.finish.lead : open.resumed ? words.resumed : words.lead}
-              </p>
-            )}
+          {lead && (
+            <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">{lead}</p>
+          )}
         </header>
       )}
-      {/* The end, over the steps: the one way on is not under a long card. How it ended is the order's
-          own sentence, below, which never says plainly done of a step that was skipped or a token that
-          stayed (OrderScreen): nothing here says more than it does. */}
-      {done && (
-        <div data-ui="vault-action-done" className="flex flex-col items-start gap-3">
-          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-            {p.endedLead}
-          </p>
-          <Button variant="primary" data-action="back-to-vault" onClick={onFinished}>
-            {p.backToVault}
-          </Button>
-        </div>
-      )}
       {body}
-      {/* the way back, whenever no step is being signed; what was sent stays sent */}
-      {/* in the card's head while the card heads the pane */}
-      {phase !== 'signing' && !done && !cardHeads && (
-        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-body-sm">
-          {phase === 'stopped' && <span className="text-muted-foreground">{words.stopped}</span>}
-          <Button variant="link" data-action="leave-action" onClick={onLeave}>
-            {p.backToHoldings}
-          </Button>
-        </p>
-      )}
+      {/* The end, under what the order did (gate SIGN-ONE-STEP: a short screen, not a long card). How
+          it ended is the order's own sentence, above, which never says plainly done of a step that
+          was skipped or a token that stayed (OrderScreen): nothing here says more than it does. */}
+      {done && !doneInCard && backToVault}
+      {/* the way back, under the order's own button where its panel is on the pane, and in the amount
+          card's head while the card heads the pane */}
+      {!doneInCard && !cardHeads && wayBack}
     </section>
   );
 }

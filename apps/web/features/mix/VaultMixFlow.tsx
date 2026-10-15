@@ -1,5 +1,5 @@
 'use client';
-import type { ChainId, MixLine, Provenance } from '@colosseum/schemas';
+import type { ChainId, MixLine, Provenance, Target } from '@colosseum/schemas';
 import { useId, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
@@ -27,7 +27,14 @@ export function VaultMixFlow({
   onOrder,
 }: {
   chain: ChainId;
-  vault: { address: string; owner: string; basketId: string; cash: { asset: string } };
+  vault: {
+    address: string;
+    owner: string;
+    basketId: string;
+    cash: { asset: string };
+    /** The vault's holdings with their targets, where the host read them: the review's before. */
+    positions?: readonly { asset: string; targetBps: number; weightBps?: number }[];
+  };
   /** The weights the fields start with; a cash line among them is left out, as cash is the rest. */
   seed: readonly MixLine[];
   /** Who chose the seed: a conversation's preview, or the vault's own targets. */
@@ -47,9 +54,26 @@ export function VaultMixFlow({
   const cash = unitsFor(chain, mock)?.cash ?? vault.cash.asset;
   const start = seed.filter((line) => line.assetId !== cash);
   const [weights, setWeights] = useState<Weights | null>(null);
-  const [reviewing, setReviewing] = useState<EditorLine[] | null>(null);
+  // A change from the conversation goes straight to its review (gate SIGN-ONE-STEP): the weights
+  // are the proposal's, and its review's "Change the weights" leads to the fields.
+  const [reviewing, setReviewing] = useState<EditorLine[] | null>(() =>
+    from === 'model' ? linesOf(weightsOf(start), cash) : null,
+  );
   const shown = weights ?? weightsOf(start);
   const lines = linesOf(shown, cash);
+  const holds: Target[] | null = vault.positions?.every(
+    (position) => position.weightBps !== undefined,
+  )
+    ? vault.positions.map((position) => ({
+        asset: position.asset,
+        weightBps: position.weightBps ?? 0,
+      }))
+    : null;
+  const before: Target[] | null = vault.positions
+    ? vault.positions
+        .filter((position) => position.targetBps > 0)
+        .map((position) => ({ asset: position.asset, weightBps: position.targetBps }))
+    : null;
 
   if (reviewing)
     return (
@@ -60,6 +84,8 @@ export function VaultMixFlow({
         origin={from === 'model' && sameMix(reviewing, start) ? 'model' : 'person'}
         onBack={() => setReviewing(null)}
         onOrder={onOrder}
+        before={before}
+        holds={holds}
       />
     );
   return (

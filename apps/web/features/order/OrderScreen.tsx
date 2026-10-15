@@ -12,11 +12,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
-import { Card, CardBody, CardHeader, Stat, StatRow } from '../../components/ui/Card';
+import { Stat, StatRow } from '../../components/ui/Card';
 import { ChainBadge } from '../../components/ui/ChainBadge';
 import { CopyButton } from '../../components/ui/CopyButton';
 import { ExplorerLink } from '../../components/ui/ExplorerLink';
 import { PAGE_TITLE } from '../../components/ui/heading';
+import { Panel, PanelBody, PanelHead } from '../../components/ui/Panel';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { type Dictionary, LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
@@ -54,6 +55,7 @@ import {
   stepCalls,
   stoppedShort,
 } from './order-check';
+import { announceOrderDone } from './order-done';
 import {
   acceptTrust,
   isBuy,
@@ -63,19 +65,42 @@ import {
   recallOrders,
   trustAccepted,
 } from './order-record';
+import {
+  changeHero,
+  depositPicture,
+  orderCosts,
+  type Picture,
+  shareItems,
+  stepWordsOf,
+  withdrawLeast,
+  withdrawPicture,
+} from './order-summary';
 import { legsInOrder, type NextStep, type OutcomeView, outcomeView, stepOf } from './order-view';
 import { readStoredPlan } from './plan-store';
 import { targetsOfPlan } from './plan-terms';
 import { chainIsLive, chainReady, explorerNameFor, explorerUrlFor, onMock } from './readiness';
 import { planNumberOf, type RunOutcome, useOrderRunner } from './run-order';
+import {
+  AmountList,
+  Fold,
+  OrderHero,
+  OrderStats,
+  Rounded,
+  ShareList,
+  type SignedStep,
+  SignedSteps,
+  StepPanel,
+  StepStrip,
+} from './SignFlow';
 import { TrustNotice } from './TrustNotice';
 import { tradeLine } from './trade-line';
 import { type ChainUnits, unitsFor } from './units';
 import { OrderScreenWait, StepsWait } from './waits';
 import { useStayed } from './withdraw-stayed';
 
-// The order: the review of every step, then signing it, then each step's status as it lands. The
-// review shows the order as the API made it; when the person presses the button that order, exactly as
+// The order, one screen at a time (gate SIGN-ONE-STEP): what changes and its worst case, then each step
+// on its own with a button that names it, then what the order did. The exact figures of every step are
+// one fold away on each screen. The review shows the order as the API made it; when the person presses the button that order, exactly as
 // shown, is kept with the consents they ticked, and every run is handed that and nothing read later.
 // The signing is `execute()` of @colosseum/sdk through run-order.ts: this screen never holds the wallet's
 // signing members, only the answer. Status changes are said in an aria-live region, with the explorer
@@ -149,6 +174,37 @@ export function OrderScreen({
   const [outcome, setOutcome] = useState<RunOutcome | null>(null);
   const [consents, setConsents] = useState<ConsentKind[]>([]);
   const [round, setRound] = useState(0);
+  // The person read the review and went on to the steps: nothing is approved until the first is signed.
+  const [onward, setOnward] = useState(embed?.reviewed === true);
+  // Moving between screens takes the focus along, since what was pressed is gone from the screen:
+  // "Continue" to the step's large line and "Back" to "Continue"; and where the focus was lost as the
+  // screen changed by itself (the one press of the invest card, the last step confirmed), to the new
+  // screen's large line.
+  const [focusTo, setFocusTo] = useState<'step' | 'review' | null>(null);
+  const shell = useRef<HTMLDivElement>(null);
+  const seenStage = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const root = shell.current;
+    const stageNow = root?.dataset.stage;
+    const stageBefore = seenStage.current;
+    seenStage.current = stageNow;
+    if (!root) return;
+    if (stageNow && stageNow !== stageBefore)
+      embed?.onStage?.(stageNow as 'review' | 'steps' | 'done');
+    const hero = () => root.querySelector<HTMLElement>('[data-ui="sign-hero"]');
+    if (focusTo) {
+      (focusTo === 'step'
+        ? hero()
+        : root.querySelector<HTMLElement>('[data-action="order-continue"]')
+      )?.focus();
+      setFocusTo(null);
+      return;
+    }
+    if (!stageNow || !stageBefore || stageNow === stageBefore) return;
+    const at = document.activeElement;
+    const lost = !at || at === document.body || !at.isConnected;
+    if (lost && (stageNow === 'steps' || stageNow === 'done')) hero()?.focus();
+  });
   const stop = useRef({ aborted: false });
   // The person asked to stop between steps: the step under way is finished, the next is not begun.
   const [stopping, setStopping] = useState(false);
@@ -467,6 +523,8 @@ export function OrderScreen({
       setPhase(null);
       setOutcome(answer);
       setRunning(false);
+      // what the person holds changed: whatever shows it reads it again (order-done.ts)
+      if (answer.status === 'done') announceOrderDone(record.orderId);
     },
     [record, load, consents, run, port, embed, t, lang],
   );
@@ -704,7 +762,6 @@ export function OrderScreen({
               : terms.kind === 'rebalance'
                 ? rebalancePath(chain, terms.vault)
                 : '/products/publish';
-  const testNetwork = shown.legs[0]?.provenance === 'sandbox';
   // The swaps the order left undone: what an order that finishes it would make, and is held to.
   // The trades are the approved order's own, step by step: of the API's later answer only where each
   // step stands is read, so an answer that changed a trade cannot widen what the next order may buy.
@@ -738,6 +795,112 @@ export function OrderScreen({
     stranded && terms?.kind === 'vault' && vaultNow.state === 'read' && vaultNow.autoFollow;
   const offerFinish = stranded && canFinish && vaultNow.state !== 'reading' && !keeperBuys;
 
+  // One screen at a time (gate SIGN-ONE-STEP). The review says what changes and its worst case; the
+  // steps are signed one to a screen, each named by what it does; the end says what the order did.
+  // A deposit in the invest card is one press (INVEST-ONE-PRESS): the card is its review, and its press
+  // signs the first step. Any other order is reviewed, then "Continue" leads to its first step.
+  const flow = t.order.flow;
+  const locale = LOCALE[lang];
+  const multipliers =
+    terms?.kind === 'withdraw'
+      ? Object.fromEntries(terms.items.map((i) => [i.asset, i.multiplier]))
+      : undefined;
+  const summary = { units, t, locale, ...(multipliers ? { multipliers } : {}) };
+  const words = stepWordsOf(shown, summary);
+  const onePress = !!embed && buying;
+  const stage: 'review' | 'steps' | 'done' =
+    done && !running ? 'done' : record.approved || onward || running || view ? 'steps' : 'review';
+  // The step on the screen: the one under way, the one the last answer was about, or the first not
+  // confirmed yet.
+  const answered = outcome && 'legId' in outcome ? outcome.legId : null;
+  const onLeg = phase?.legId ?? answered;
+  const at = (() => {
+    const named = onLeg ? legs.findIndex((leg) => leg.id === onLeg) : -1;
+    if (named >= 0) return named;
+    const open = legs.findIndex((leg) => {
+      const status = (now.legs.find((l) => l.id === leg.id) ?? leg).status;
+      return status !== 'confirmed' && status !== 'skipped';
+    });
+    return open < 0 ? Math.max(0, legs.length - 1) : open;
+  })();
+  const mock = onMock(port, chain);
+  // A skipped step moved nothing: it is never listed as signed, and the strip marks it skipped.
+  const skippedAt = legs.flatMap((leg, i) =>
+    (now.legs.find((l) => l.id === leg.id) ?? leg).status === 'skipped' ? [i] : [],
+  );
+  const signed: SignedStep[] = legs.slice(0, at).flatMap((leg, i) => {
+    const standing = now.legs.find((l) => l.id === leg.id) ?? leg;
+    if (standing.status !== 'confirmed') return [];
+    return [
+      {
+        key: leg.id,
+        name: words[i]?.title ?? t.order.kind[leg.kind],
+        txId: standing.txId,
+        href: standing.txId
+          ? explorerUrlFor(leg.chain, standing.txId, mock, mock ? undefined : leg.provenance)
+          : null,
+      },
+    ];
+  });
+  // What changes, at a glance: the order's one large line, then the targets before and after (a
+  // change, a rebalance), where a deposit goes, or what leaves.
+  const before = embed?.before ?? null;
+  const shares =
+    terms?.kind === 'retarget' || terms?.kind === 'rebalance'
+      ? shareItems(terms.targets, before, summary)
+      : null;
+  const picture: Picture | null =
+    terms?.kind === 'withdraw'
+      ? withdrawPicture(shown, summary)
+      : buying
+        ? depositPicture(shown, summary)
+        : null;
+  const leastFigure = terms?.kind === 'withdraw' ? withdrawLeast(shown, summary) : null;
+  const reviewHero =
+    terms?.kind === 'retarget'
+      ? changeHero(terms.targets, before, summary)
+      : terms?.kind === 'rebalance'
+        ? flow.hero.rebalance
+        : terms?.kind === 'withdraw'
+          ? flow.hero.withdraw(
+              terms.dollars && leastFigure
+                ? flow.atLeast(leastFigure.shown).replace(/^./, (c) => c.toLocaleUpperCase(locale))
+                : new Intl.ListFormat(locale, { type: 'conjunction' }).format(
+                    (picture?.rows ?? []).map((row) => row.name),
+                  ),
+            )
+          : terms?.kind === 'publish'
+            ? t.order.shared.publishTitle
+            : terms?.kind === 'follow'
+              ? t.order.shared.followTitle
+              : record.continues
+                ? flow.hero.finish
+                : buying && shown.depositRaw !== undefined
+                  ? flow.hero.deposit(amount)
+                  : t.order.review.title;
+  const shareOf = (bps: number) =>
+    new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(
+      bps / 10_000,
+    );
+  const pointsOf = (bps: number) =>
+    flow.picture.points(
+      new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(bps / 100),
+    );
+  // a rebalance sets what the vault holds now beside its targets; a change, its targets before and after
+  const shareLabels =
+    terms?.kind === 'rebalance'
+      ? {
+          before: flow.picture.holdsNow,
+          after: flow.picture.target,
+          unchanged: flow.picture.unchanged,
+        }
+      : {
+          // the targets before the change, never "now": what the vault holds now is another figure
+          before: flow.picture.before,
+          after: flow.picture.next,
+          unchanged: flow.picture.unchanged,
+        };
+
   // The one primary button of the view: sign, carry on, approve a step again, or nothing.
   const next: NextStep | { kind: 'first' } =
     view?.next ?? (record.approved ? { kind: 'run' } : { kind: 'first' });
@@ -751,34 +914,18 @@ export function OrderScreen({
           ? t.order.outcome.lookAgain
           : next.kind === 'run' && view
             ? t.order.outcome.tryAgain
-            : terms?.kind === 'publish'
-              ? record.approved
-                ? t.order.shared.resume
-                : t.order.shared.signPublish
-              : terms?.kind === 'follow'
-                ? record.approved
-                  ? t.order.shared.resume
-                  : t.order.shared.signFollow
-                : terms?.kind === 'withdraw'
-                  ? record.approved
-                    ? t.order.shared.resume
-                    : t.order.shared.signWithdraw
-                  : terms?.kind === 'retarget'
-                    ? record.approved
-                      ? t.order.shared.resume
-                      : t.mix.order.signTargets
-                    : terms?.kind === 'rebalance'
-                      ? record.approved
-                        ? t.order.shared.resume
-                        : t.order.shared.signRebalance
-                      : record.approved
-                        ? t.order.resume(amount)
-                        : record.continues && embed
-                          ? // it deposits nothing: the press signs what the first order left
-                            t.order.outcome.finishSign
-                          : embed
-                            ? t.invest.press(amount)
-                            : t.order.signAndBuy(amount);
+            : next.kind === 'first' && !onePress
+              ? // the first signature names its step and amount: "Sign: set the new targets"
+                (words[at]?.press ?? flow.press.step)
+              : record.approved
+                ? // taken up again after a reload: a deposit names its amount, anything else goes on
+                  buying
+                  ? t.order.resume(amount)
+                  : (words[at]?.press ?? flow.press.step)
+                : record.continues
+                  ? // the invest card's one press, of an order that deposits nothing
+                    t.order.outcome.finishSign
+                  : t.invest.press(amount);
   // A deposit is never signed for before the trust notice is accepted (DESIGN-VAULT section 13). The
   // invest card makes the order before that, to show its prices, so the order's own page asks too:
   // an order opened here that nobody approved is held until the notice is accepted, as on the card.
@@ -799,6 +946,41 @@ export function OrderScreen({
         : [];
   // The passkey wallet signs with no window of its own; any other wallet confirms each step in its own.
   const quiet = port.active(chainFamily(chain))?.kind === 'embedded';
+  // The passkey wallet signs every step on one press: before it, the screen is the whole order's, its
+  // large line the review's and its button the order's ("Sign the change"); the strip says what will
+  // happen. Another wallet confirms each step in its own window: each step keeps its own screen.
+  const wholeOrder =
+    stage === 'steps' && next.kind === 'first' && quiet && !running && !onePress && legs.length > 1;
+  const withdrawn = new Intl.ListFormat(locale, { type: 'conjunction' }).format(
+    words.flatMap((w) => (w.subject ? [w.subject] : [])),
+  );
+  // Where every token leaves whole, the button says so once: "Sign: withdraw all of your SPY and
+  // NVDA", not "all of your" before each. A button that signs still names its amount (apps/web).
+  const outs = legs.flatMap((leg) => leg.withdrawals ?? []);
+  const withdrawnNames =
+    outs.length > 0 && outs.every((w) => w.amountRaw === null)
+      ? flow.allOf(
+          new Intl.ListFormat(locale, { type: 'conjunction' }).format([
+            ...new Set(outs.map((w) => units?.tokens[w.asset]?.symbol ?? tokenName(w.asset))),
+          ]),
+        )
+      : withdrawn;
+  const wholePress =
+    terms?.kind === 'retarget'
+      ? flow.press.change
+      : terms?.kind === 'rebalance'
+        ? flow.press.rebalance
+        : terms?.kind === 'withdraw'
+          ? flow.press.withdraw(
+              terms.dollars && leastFigure ? flow.atLeast(leastFigure.shown) : withdrawnNames,
+            )
+          : terms?.kind === 'publish'
+            ? flow.press.publish
+            : terms?.kind === 'follow'
+              ? flow.press.follow
+              : buying
+                ? flow.press.deposit(amount)
+                : flow.press.step;
 
   // A withdrawal in dollars: the least its cash step pays, which the check held to the share of the
   // cash reviewed plus every sale's minimum.
@@ -892,277 +1074,202 @@ export function OrderScreen({
     </>
   );
 
-  return (
-    <div data-ui="order-screen" className={embed ? 'flex flex-col gap-5' : 'flex flex-col gap-8'}>
-      {!embed && (
-        <header className="flex flex-col items-start gap-3">
-          <ChainBadge chain={chain} />
-          <h1 id={titleId} className={PAGE_TITLE}>
-            {record.approved ? t.order.title : t.order.review.title}
-          </h1>
-          {!record.approved && (
-            <p
-              data-ui={record.continues ? 'order-continues' : undefined}
-              className="max-w-(--tf-measure-body) text-body-lg"
-            >
-              {record.continues ? t.order.review.continuesLead : t.order.review.lead}
-            </p>
-          )}
-          {record.continues?.unseen && (
-            <p data-ui="order-unseen" className="max-w-(--tf-measure-body) text-body-sm">
-              {t.order.review.unseen}
-            </p>
-          )}
-        </header>
+  // Where the step stands, what the last answer said and what is kept: said in the step's own panel.
+  const saysSomething =
+    (running && (phase !== null || stopping)) || (!running && done) || over || view !== null;
+  const statusBlock = saysSomething && (
+    <div data-ui="order-status" className="flex flex-col gap-2">
+      {running && phase && (
+        // Where the step under way is: the strip and the panel say which step it is.
+        <p data-ui="sign-phase" className="text-body-sm text-muted-foreground">
+          {t.order.phase[phase.phase as keyof Dictionary['order']['phase']]}
+        </p>
       )}
-
-      {embed ? (
-        // Inside the invest card: the same steps, under the card's own heading and label.
-        <section
-          aria-label={t.order.stepsTitle}
-          data-ui="invest-steps"
-          className="flex flex-col gap-4"
-        >
-          {stepsBody}
-          <p data-ui="invest-fee" className="text-body-sm text-muted-foreground">
-            {shown.fees.length === 0
-              ? t.invest.fee.none
-              : t.invest.fee.some(
-                  new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
-                    shown.fees.map((fee) => `${fee.kind} ${formatBps(fee.bps, LOCALE[lang])}`),
-                  ),
-                )}
-          </p>
-        </section>
-      ) : (
-        <Card
-          as="section"
-          aria-label={t.order.stepsTitle}
-          mock={shown.legs[0]?.provenance !== 'live'}
-          mockLabels={{
-            announce: testNetwork ? t.shell.testNetworkLine : t.shell.mockAnnounce,
-          }}
-        >
-          <CardHeader title={t.order.stepsTitle} level={2} />
-          <CardBody className="flex flex-col gap-4">{stepsBody}</CardBody>
-        </Card>
+      {running && stopping && (
+        <p data-ui="invest-stopping" className="text-body-sm">
+          {t.invest.stopping}
+        </p>
       )}
-
-      {/* Inside the invest card the host shows what the buy is held to, over the card. */}
-      {terms && !embed && <SharedReview terms={terms} chain={chain} />}
-
-      {shown.warnings.length > 0 && (
-        <section aria-label={t.order.review.warnings} className="flex flex-col gap-2">
-          <h2 className="text-h4 font-semibold">{t.order.review.warnings}</h2>
-          <ul className="flex max-w-(--tf-measure-body) list-disc flex-col gap-1 pl-5 text-body-sm">
-            {shown.warnings.map((w) => (
-              // Keyed by its text as well: nothing holds two warnings to different codes.
-              <li key={`${w.code}:${w.text}`}>{w.text}</li>
-            ))}
-          </ul>
-        </section>
+      {!running && done && !view && <p className="text-body">{doneSentence}</p>}
+      {over && (
+        <p data-ui="order-deposit-kept" className="max-w-(--tf-measure-body) text-body">
+          {t.order.outcome.stopped(amount)}
+        </p>
       )}
-
-      {!record.approved && needed.length > 0 && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="pb-2 text-h4 font-semibold">{t.order.review.consents}</legend>
-          {needed.map((kind) => (
-            <label key={kind} className="inline-flex items-start gap-2 text-body">
-              <input
-                type="checkbox"
-                className="mt-1.5 size-4 accent-primary"
-                checked={consents.includes(kind)}
-                onChange={(e) => {
-                  const on = e.currentTarget.checked;
-                  setConsents((all) =>
-                    on ? [...all.filter((k) => k !== kind), kind] : all.filter((k) => k !== kind),
-                  );
-                }}
-              />
-              <span className="max-w-(--tf-measure-body)">{t.order.review.consent[kind]}</span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-
-      <div aria-live="polite" data-ui="order-status" className="flex flex-col gap-2">
-        {running && phase && !embed && (
-          <p className="text-body">
-            {t.order.step(current)}:{' '}
-            {t.order.phase[phase.phase as keyof Dictionary['order']['phase']]}
-          </p>
-        )}
-        {running && phase && embed && (
-          // One line for the whole sequence: the step before, confirmed, and the one under way.
-          <p data-ui="invest-progress" className="text-body">
-            {progressOf(shown, phase.legId, units, t, LOCALE[lang]).line}
-            <span className="text-muted-foreground">
-              {' · '}
-              {t.order.phase[phase.phase as keyof Dictionary['order']['phase']]}
+      {view && (
+        <div className="flex max-w-(--tf-measure-body) flex-col gap-1">
+          <p
+            className={
+              view.alarm ? 'flex items-start gap-1.5 text-body text-destructive' : 'text-body'
+            }
+          >
+            {view.alarm && <StatusMark status="off-track" size={12} className="mt-1.5" />}
+            {/* An order with a skipped step, or a token left behind, is never said to be plainly done. */}
+            <span data-ui={done ? 'order-done' : undefined}>
+              {done && !plainlyDone ? doneSentence : view.sentence}
             </span>
           </p>
-        )}
-        {running && stopping && (
-          <p data-ui="invest-stopping" className="text-body-sm">
-            {t.invest.stopping}
-          </p>
-        )}
-        {!running && done && !view && <p className="text-body">{doneSentence}</p>}
-        {over && (
-          <p data-ui="order-deposit-kept" className="max-w-(--tf-measure-body) text-body">
-            {t.order.outcome.stopped(amount)}
-          </p>
-        )}
-        {view && (
-          <div className="flex max-w-(--tf-measure-body) flex-col gap-1">
-            <p
-              className={
-                view.alarm ? 'flex items-start gap-1.5 text-body text-destructive' : 'text-body'
-              }
-            >
-              {view.alarm && <StatusMark status="off-track" size={12} className="mt-1.5" />}
-              {/* An order with a skipped step, or a token left behind, is never said to be plainly done. */}
-              <span data-ui={done ? 'order-done' : undefined}>
-                {done && !plainlyDone ? doneSentence : view.sentence}
-              </span>
+          {embed && !done && record.approved && buying && (
+            // What landed and what did not, in one sentence, from where the API says each step is.
+            <p data-ui="invest-landed" className="text-body">
+              {landedSentence(shown, now, units, t, LOCALE[lang])}
             </p>
-            {embed && !done && record.approved && buying && (
-              // What landed and what did not, in one sentence, from where the API says each step is.
-              <p data-ui="invest-landed" className="text-body">
-                {landedSentence(shown, now, units, t, LOCALE[lang])}
-              </p>
-            )}
-            {!done && deposited && view.next.kind === 'new-order' && (
-              <p data-ui="order-deposit-kept" className="text-body">
-                {stranded ? t.order.outcome.stopped(amount) : t.order.outcome.depositKept}
-              </p>
-            )}
-            {/* The check that failed and the guard's own words are for the team: behind a fold. */}
-            {(view.check || view.detail) && (
-              <details data-ui="order-support">
-                <summary className="cursor-pointer text-body-sm text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-                  {t.order.outcome.forSupport}
-                </summary>
-                {view.check && (
-                  <p className="mt-1 font-mono text-source text-muted-foreground">{view.check}</p>
-                )}
-                {view.detail && (
-                  <p className="font-mono text-source text-muted-foreground break-words">
-                    {view.detail}
-                  </p>
-                )}
-              </details>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col items-start gap-2">
-        {!check.ok && (
-          <p
-            role="alert"
-            className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body text-destructive"
-          >
-            <StatusMark status="off-track" size={12} className="mt-1.5" />
-            <span>
-              {check.why === 'units' && !chainReady(chain, onMock(port, chain))
-                ? t.order.outcome.notRunnable['no-deployment'](t.chain.names[chain])
-                : t.order.mismatch[check.why]}
-            </span>
-          </p>
-        )}
-        {soldBefore && (
-          // In dollars, stopped after some sales landed: their dollars are in the vault now, and the
-          // same share asked again would sell those holdings a second time.
-          <div data-ui="withdraw-sold-before" className="flex flex-col items-start gap-3">
-            <p className="max-w-(--tf-measure-body) text-body">
-              {t.order.shared.soldBefore(soldBefore.names, soldBefore.least)}
+          )}
+          {!done && deposited && view.next.kind === 'new-order' && (
+            <p data-ui="order-deposit-kept" className="text-body">
+              {stranded ? t.order.outcome.stopped(amount) : t.order.outcome.depositKept}
             </p>
-            <p className="max-w-(--tf-measure-body) text-body-sm">{t.order.shared.notAgain}</p>
-            <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
-              {t.order.shared.tokensInstead}
-            </Link>
-          </div>
-        )}
-        {done && terms?.kind === 'withdraw' && (
-          // The portfolio reads the vault again from its chain: what stayed, or that it is empty.
-          <div data-ui="withdraw-done" className="flex flex-col items-start gap-3">
-            {skippedSteps < now.legs.length && (
-              <p className="max-w-(--tf-measure-body) text-body">{t.order.shared.withdrawDone}</p>
-            )}
-            {stayedNames.length > 0 && (
-              <p data-ui="withdraw-stayed" className="max-w-(--tf-measure-body) text-body">
-                {t.order.shared.stayed(
-                  new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(stayedNames),
-                )}
-              </p>
-            )}
-            {/* in dollars with a holding left unsold: the tokens themselves, for that part */}
-            {terms.dollars && shown.warnings.some((x) => x.code.startsWith('NOT_SOLD:')) && (
-              <Link
-                data-ui="withdraw-tokens-instead"
-                href={newOrder}
-                className={buttonClass({ variant: 'secondary' })}
-              >
-                {t.order.shared.tokensInstead}
-              </Link>
-            )}
-            {/* a host that holds this screen (the vault's own page) has its own way back */}
-            {!embed?.hostEnds && (
-              <Link href={portfolioHref} className={buttonClass({ variant: 'secondary' })}>
-                {t.withdraw.back}
-              </Link>
-            )}
-          </div>
-        )}
-        {done && terms?.kind === 'follow' && terms.follow !== null && !terms.autoFollow && (
-          // Following set the vault's targets and traded nothing: the trades to them are the next press.
-          <div data-ui="follow-done" className="flex flex-col items-start gap-3">
-            <p className="max-w-(--tf-measure-body) text-body">{t.order.shared.followDone}</p>
-            <Link
-              href={rebalancePath(chain, terms.vault)}
-              data-action="follow-rebalance"
-              className={buttonClass({ variant: 'primary' })}
-            >
-              {t.order.shared.followRebalance}
-            </Link>
-          </div>
-        )}
-        {trustAsked && check.ok && !done && (
-          <TrustNotice
-            chain={chain}
-            accepted={false}
-            checked={trustTicked}
-            onCheck={setTrustTicked}
-            keeper={keeperTrades}
-          />
-        )}
-        {/* An add held to targets this app could not read from the chain: said once, on its own line
-            over the button, where it cannot be missed. */}
-        {check.ok && !done && terms?.kind === 'vault' && terms.source === 'api' && (
-          <p
-            data-ui="not-checked"
-            className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body font-medium"
-          >
-            <StatusMark status="watch" size={12} className="mt-1.5" />
-            <span>{t.shared.check.notChecked}.</span>
-          </p>
-        )}
-        {check.ok &&
-          !done &&
-          !over &&
-          next.kind !== 'none' &&
-          next.kind !== 'new-order' &&
-          next.kind !== 'other-order' && (
-            <>
-              {embed && next.kind === 'first' && (
-                // Said once before the press: who is asked to sign, and how many times.
-                <p data-ui="invest-signing" className="max-w-(--tf-measure-body) text-body-sm">
-                  {quiet ? t.invest.signs.passkey(legs.length) : t.invest.signs.wallet(legs.length)}
+          )}
+          {/* The check that failed and the guard's own words are for the team: behind a fold. */}
+          {(view.check || view.detail) && (
+            <details data-ui="order-support">
+              <summary className="cursor-pointer text-body-sm text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                {t.order.outcome.forSupport}
+              </summary>
+              {view.check && (
+                <p className="mt-1 font-mono text-source text-muted-foreground">{view.check}</p>
+              )}
+              {view.detail && (
+                <p className="font-mono text-source text-muted-foreground break-words">
+                  {view.detail}
                 </p>
               )}
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+  // The way on from wherever the order stands: one primary button, the stops and the ends.
+  const actions = (
+    <div className="flex flex-col items-start gap-2 empty:hidden">
+      {!check.ok && (
+        <p
+          role="alert"
+          className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body text-destructive"
+        >
+          <StatusMark status="off-track" size={12} className="mt-1.5" />
+          <span>
+            {check.why === 'units' && !chainReady(chain, onMock(port, chain))
+              ? t.order.outcome.notRunnable['no-deployment'](t.chain.names[chain])
+              : t.order.mismatch[check.why]}
+          </span>
+        </p>
+      )}
+      {soldBefore && (
+        // In dollars, stopped after some sales landed: their dollars are in the vault now, and the
+        // same share asked again would sell those holdings a second time.
+        <div data-ui="withdraw-sold-before" className="flex flex-col items-start gap-3">
+          <p className="max-w-(--tf-measure-body) text-body">
+            {t.order.shared.soldBefore(soldBefore.names, soldBefore.least)}
+          </p>
+          <p className="max-w-(--tf-measure-body) text-body-sm">{t.order.shared.notAgain}</p>
+          <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
+            {t.order.shared.tokensInstead}
+          </Link>
+        </div>
+      )}
+      {done && terms?.kind === 'withdraw' && (
+        // The portfolio reads the vault again from its chain: what stayed, or that it is empty.
+        <div data-ui="withdraw-done" className="flex flex-col items-start gap-3">
+          {skippedSteps < now.legs.length && (
+            <p className="max-w-(--tf-measure-body) text-body">{t.order.shared.withdrawDone}</p>
+          )}
+          {stayedNames.length > 0 && (
+            <p data-ui="withdraw-stayed" className="max-w-(--tf-measure-body) text-body">
+              {t.order.shared.stayed(
+                new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(stayedNames),
+              )}
+            </p>
+          )}
+          {/* in dollars with a holding left unsold: the tokens themselves, for that part */}
+          {terms.dollars && shown.warnings.some((x) => x.code.startsWith('NOT_SOLD:')) && (
+            <Link
+              data-ui="withdraw-tokens-instead"
+              href={newOrder}
+              className={buttonClass({ variant: 'secondary' })}
+            >
+              {t.order.shared.tokensInstead}
+            </Link>
+          )}
+          {/* a host that holds this screen (the vault's own page) has its own way back */}
+          {!embed?.hostEnds && (
+            <Link href={portfolioHref} className={buttonClass({ variant: 'secondary' })}>
+              {t.withdraw.back}
+            </Link>
+          )}
+        </div>
+      )}
+      {done && terms?.kind === 'follow' && terms.follow !== null && !terms.autoFollow && (
+        // Following set the vault's targets and traded nothing: the trades to them are the next press.
+        <div data-ui="follow-done" className="flex flex-col items-start gap-3">
+          <p className="max-w-(--tf-measure-body) text-body">{t.order.shared.followDone}</p>
+          <Link
+            href={rebalancePath(chain, terms.vault)}
+            data-action="follow-rebalance"
+            className={buttonClass({ variant: 'primary' })}
+          >
+            {t.order.shared.followRebalance}
+          </Link>
+        </div>
+      )}
+      {stage === 'review' && trustAsked && check.ok && !done && (
+        <TrustNotice
+          chain={chain}
+          accepted={false}
+          checked={trustTicked}
+          onCheck={setTrustTicked}
+          keeper={keeperTrades}
+          fold={Boolean(embed)}
+        />
+      )}
+      {/* An add held to our server's targets, which this app could not read from the chain: said on
+            its own line over the button, where it cannot be missed. */}
+      {check.ok && !done && terms?.kind === 'vault' && terms.source === 'api' && (
+        <p
+          data-ui="not-checked"
+          className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body font-medium"
+        >
+          <StatusMark status="watch" size={12} className="mt-1.5" />
+          <span>{t.shared.check.notChecked}.</span>
+        </p>
+      )}
+      {check.ok &&
+        !done &&
+        !over &&
+        next.kind !== 'none' &&
+        next.kind !== 'new-order' &&
+        next.kind !== 'other-order' && (
+          <>
+            {stage === 'review' && !onePress && (
+              // The review's one button: on to the first step. Nothing is approved by it.
               <Button
                 variant="primary"
+                data-action="order-continue"
+                className={embed ? 'w-full' : 'sm:min-w-64'}
+                disabled={consentMissing || held.length > 0}
+                aria-describedby={consentMissing || held.length > 0 ? reasonId : undefined}
+                onClick={() => {
+                  setOnward(true);
+                  setFocusTo('step');
+                }}
+              >
+                {flow.continue}
+              </Button>
+            )}
+            {next.kind === 'first' && (stage !== 'review' || onePress) && (
+              // Said once before the press: who is asked to sign, and how many times.
+              <p
+                data-ui="invest-signing"
+                className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground"
+              >
+                {quiet ? t.invest.signs.passkey(legs.length) : t.invest.signs.wallet(legs.length)}
+              </p>
+            )}
+            {(stage !== 'review' || onePress) && (
+              <Button
+                variant="primary"
+                className={embed ? 'w-full' : 'sm:min-w-64'}
                 busy={running}
                 busyLabel={t.order.signing(current, legs.length)}
                 disabled={consentMissing || held.length > 0}
@@ -1192,150 +1299,459 @@ export function OrderScreen({
                   );
                 }}
               >
-                {primaryLabel}
+                {wholeOrder ? wholePress : primaryLabel}
               </Button>
-              {embed && running && (
-                // Between steps only: a step that is signed is still sent and reported.
+            )}
+            {embed && running && (
+              // Between steps only: a step that is signed is still sent and reported.
+              <Button
+                variant="secondary"
+                disabled={stopping}
+                onClick={() => {
+                  stop.current.aborted = true;
+                  setStopping(true);
+                }}
+              >
+                {t.invest.stop}
+              </Button>
+            )}
+            {stage === 'steps' &&
+              !record.approved &&
+              !running &&
+              !view &&
+              !onePress &&
+              !embed?.reviewed && (
+                // Before the first signature, the review is one press back.
                 <Button
-                  variant="secondary"
-                  disabled={stopping}
+                  variant="link"
+                  data-action="order-back"
                   onClick={() => {
-                    stop.current.aborted = true;
-                    setStopping(true);
+                    setOnward(false);
+                    setFocusTo('review');
                   }}
                 >
-                  {t.invest.stop}
+                  {flow.back}
                 </Button>
               )}
-            </>
-          )}
-        {held.length > 0 && !consentMissing && (
-          <ul id={reasonId} className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm">
-            {held.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
+          </>
         )}
-        {consentMissing && (
-          <p id={reasonId} className="text-body-sm">
-            {t.order.review.consentNeeded}
-          </p>
-        )}
-        {(next.kind === 'new-order' || over) && (
-          // With the deposit in the vault, that is where to look first, not at a second deposit.
-          <div data-ui="order-stopped" className="flex flex-wrap items-center gap-3">
-            {offerFinish && (
-              <>
-                <Button
-                  variant="primary"
-                  busy={finishing}
-                  busyLabel={t.order.outcome.finishing}
-                  onClick={() =>
-                    finish(
-                      record,
-                      record.approved?.order ?? now,
-                      left,
-                      // still not seen here, if it was not and nobody approved it on this device
-                      !record.approved && record.continues?.unseen === true,
-                    )
-                  }
-                >
-                  {t.order.outcome.finish}
-                </Button>
-                <Link href={portfolioHref} className={buttonClass({ variant: 'secondary' })}>
-                  {t.order.outcome.seePortfolio}
-                </Link>
-              </>
-            )}
-            {deposited && !offerFinish && (
-              <Link href={portfolioHref} className={buttonClass({ variant: 'primary' })}>
+      {held.length > 0 && !consentMissing && (
+        <ul id={reasonId} className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm">
+          {held.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      )}
+      {consentMissing && (
+        <p id={reasonId} className="text-body-sm">
+          {t.order.review.consentNeeded}
+        </p>
+      )}
+      {(next.kind === 'new-order' || over) && (
+        // With the deposit in the vault, that is where to look first, not at a second deposit.
+        <div data-ui="order-stopped" className="flex flex-wrap items-center gap-3">
+          {offerFinish && (
+            <>
+              <Button
+                variant="primary"
+                busy={finishing}
+                busyLabel={t.order.outcome.finishing}
+                onClick={() =>
+                  finish(
+                    record,
+                    record.approved?.order ?? now,
+                    left,
+                    // still not seen here, if it was not and nobody approved it on this device
+                    !record.approved && record.continues?.unseen === true,
+                  )
+                }
+              >
+                {t.order.outcome.finish}
+              </Button>
+              <Link href={portfolioHref} className={buttonClass({ variant: 'secondary' })}>
                 {t.order.outcome.seePortfolio}
               </Link>
-            )}
-            {embed ? (
-              // In the card: a new order is made in place, for the same amount.
-              <Button variant={deposited ? 'secondary' : 'primary'} onClick={embed.onAgain}>
-                {t.order.outcome.newOrder}
-              </Button>
-            ) : (
-              <Link
-                href={newOrder}
-                className={buttonClass({ variant: deposited ? 'secondary' : 'primary' })}
-              >
-                {t.order.outcome.newOrder}
-              </Link>
-            )}
-          </div>
-        )}
-        {keeperBuys && (
-          <p data-ui="order-keeper-buys" className="max-w-(--tf-measure-body) text-body-sm">
-            {t.order.outcome.keeperBuys}
-          </p>
-        )}
-        {offerFinish && (
-          <p data-ui="order-finish-note" className="max-w-(--tf-measure-body) text-body-sm">
-            {t.order.outcome.finishNote}
-          </p>
-        )}
-        {finishFailure && (
-          <p
-            role="alert"
-            className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-          >
-            <StatusMark status="off-track" size={12} className="mt-1.5" />
-            <span>
-              {finishFailure.text}
-              {finishFailure.orderId &&
-                (embed?.onFinish && recallOrder(finishFailure.orderId, userId) ? (
-                  <>
-                    {' '}
-                    <Button
-                      variant="link"
-                      data-ui="order-finish-other"
-                      onClick={() => embed.onFinish?.(finishFailure.orderId as string)}
-                    >
-                      {t.order.outcome.openThatOrder}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    {' '}
-                    <Link
-                      href={`/portfolio/orders/${encodeURIComponent(finishFailure.orderId)}`}
-                      data-ui="order-finish-other"
-                      className={buttonClass({ variant: 'link' })}
-                    >
-                      {t.order.outcome.openThatOrder}
-                    </Link>
-                  </>
-                ))}
-            </span>
-          </p>
-        )}
-        {/* The order is done: the next step is the portfolio it filled, and another buy beside it. */}
-        {done && !running && terms?.kind !== 'publish' && !embed?.hostEnds && (
-          <div data-ui="order-next" className="flex flex-wrap items-center gap-3">
+            </>
+          )}
+          {deposited && !offerFinish && (
             <Link href={portfolioHref} className={buttonClass({ variant: 'primary' })}>
               {t.order.outcome.seePortfolio}
             </Link>
-            {buying && !embed && (
-              <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
-                {t.order.outcome.buyMore}
-              </Link>
-            )}
-          </div>
-        )}
-        {next.kind === 'other-order' && (
+          )}
+          {embed ? (
+            // In the card: a new order is made in place, for the same amount.
+            <Button variant={deposited ? 'secondary' : 'primary'} onClick={embed.onAgain}>
+              {t.order.outcome.newOrder}
+            </Button>
+          ) : (
+            <Link
+              href={newOrder}
+              className={buttonClass({ variant: deposited ? 'secondary' : 'primary' })}
+            >
+              {t.order.outcome.newOrder}
+            </Link>
+          )}
+        </div>
+      )}
+      {keeperBuys && (
+        <p data-ui="order-keeper-buys" className="max-w-(--tf-measure-body) text-body-sm">
+          {t.order.outcome.keeperBuys}
+        </p>
+      )}
+      {offerFinish && (
+        <p data-ui="order-finish-note" className="max-w-(--tf-measure-body) text-body-sm">
+          {t.order.outcome.finishNote}
+        </p>
+      )}
+      {finishFailure && (
+        <p
+          role="alert"
+          className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
+        >
+          <StatusMark status="off-track" size={12} className="mt-1.5" />
+          <span>
+            {finishFailure.text}
+            {finishFailure.orderId &&
+              (embed?.onFinish && recallOrder(finishFailure.orderId, userId) ? (
+                <>
+                  {' '}
+                  <Button
+                    variant="link"
+                    data-ui="order-finish-other"
+                    onClick={() => embed.onFinish?.(finishFailure.orderId as string)}
+                  >
+                    {t.order.outcome.openThatOrder}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {' '}
+                  <Link
+                    href={`/portfolio/orders/${encodeURIComponent(finishFailure.orderId)}`}
+                    data-ui="order-finish-other"
+                    className={buttonClass({ variant: 'link' })}
+                  >
+                    {t.order.outcome.openThatOrder}
+                  </Link>
+                </>
+              ))}
+          </span>
+        </p>
+      )}
+      {/* The order is done: the next step is the portfolio it filled, and another buy beside it. */}
+      {done && !running && terms?.kind !== 'publish' && !embed?.hostEnds && (
+        <div data-ui="order-next" className="flex flex-wrap items-center gap-3">
+          {/* a deposit that opened or filled a vault leads to it first (audit F3) */}
+          {embed?.endsAt && (
+            <Link
+              href={embed.endsAt.href}
+              data-action="open-vault"
+              className={buttonClass({ variant: 'primary' })}
+            >
+              {embed.endsAt.label}
+            </Link>
+          )}
           <Link
-            href={`/portfolio/orders/${encodeURIComponent(next.orderId)}`}
-            className={buttonClass({ variant: 'primary' })}
+            href={portfolioHref}
+            className={buttonClass({ variant: embed?.endsAt ? 'secondary' : 'primary' })}
           >
-            {t.order.outcome.blockedLink}
+            {t.order.outcome.seePortfolio}
           </Link>
-        )}
-      </div>
+          {buying && !embed && (
+            <Link href={newOrder} className={buttonClass({ variant: 'secondary' })}>
+              {t.order.outcome.buyMore}
+            </Link>
+          )}
+        </div>
+      )}
+      {next.kind === 'other-order' && (
+        <Link
+          href={`/portfolio/orders/${encodeURIComponent(next.orderId)}`}
+          className={buttonClass({ variant: 'primary' })}
+        >
+          {t.order.outcome.blockedLink}
+        </Link>
+      )}
     </div>
   );
+  // Every step as it will be signed, to the last unit, with where each stands: one fold away on
+  // each screen.
+  const allSteps = (label: string) => (
+    <Fold ui="order-details" label={label}>
+      {/* Inside the invest card the host shows what the buy is held to, over the card. */}
+      {terms && !onePress && stage === 'review' && <SharedReview terms={terms} chain={chain} />}
+      {stepsBody}
+      {embed && (
+        <p data-ui="invest-fee" className="text-body-sm text-muted-foreground">
+          {shown.fees.length === 0
+            ? t.invest.fee.none
+            : t.invest.fee.some(
+                new Intl.ListFormat(LOCALE[lang], { type: 'conjunction' }).format(
+                  shown.fees.map((fee) => `${fee.kind} ${formatBps(fee.bps, LOCALE[lang])}`),
+                ),
+              )}
+        </p>
+      )}
+    </Fold>
+  );
+  const strip = (
+    <StepStrip
+      names={[...words.map((w) => w.name), flow.done]}
+      at={stage === 'done' ? legs.length : at}
+      label={flow.progress}
+      doneWord={flow.doneWord}
+      skipped={skippedAt}
+      skippedWord={t.order.status.skipped.toLowerCase()}
+    />
+  );
+  const sharesOf = (caption: string, items: ReturnType<typeof shareItems>) => (
+    <ShareList
+      caption={caption}
+      items={items}
+      share={shareOf}
+      labels={{
+        ...shareLabels,
+        holding: flow.table.holding,
+        change: flow.table.change,
+        points: pointsOf,
+      }}
+    />
+  );
+  // What a screen reader is told as the order moves, from one region that stays on the screen in
+  // every stage: the step under way and its phase, the last answer, the end.
+  const phaseWord =
+    running && phase ? t.order.phase[phase.phase as keyof Dictionary['order']['phase']] : null;
+  const announce = phaseWord
+    ? `${flow.stepOf(at + 1, legs.length)}: ${phaseWord}`
+    : view
+      ? done && !plainlyDone
+        ? doneSentence
+        : view.sentence
+      : done && !running
+        ? doneSentence
+        : '';
+
+  // The figures beside the line a screen leads with (HOUSE-KIT): said once, in a pill, where they
+  // are not live. The invest card says it on its own card.
+  const provenance = shown.legs[0]?.provenance;
+  const plate = onePress
+    ? null
+    : provenance === 'sandbox'
+      ? { text: t.shell.testNetworkLine, ui: 'sample-tag' }
+      : provenance === 'mock'
+        ? { text: t.shell.mockAnnounce, ui: 'sample-tag' }
+        : null;
+  // The review's line: a muted label over one figure, then the small figures of what it trades.
+  const heroLabel =
+    terms?.kind === 'retarget'
+      ? flow.label.change
+      : terms?.kind === 'rebalance'
+        ? flow.label.rebalance
+        : terms?.kind === 'withdraw'
+          ? terms.dollars && leastFigure
+            ? flow.label.withdrawAtLeast
+            : flow.label.withdraw
+          : terms?.kind === 'publish' || terms?.kind === 'follow'
+            ? flow.label.order
+            : record.continues
+              ? flow.hero.finish
+              : flow.label.deposit;
+  const heroFigure =
+    terms?.kind === 'withdraw'
+      ? terms.dollars && leastFigure
+        ? leastFigure.shown
+        : // said on its own line: "All of your SPY", never mid-sentence lower case
+          withdrawn.charAt(0).toLocaleUpperCase(locale) + withdrawn.slice(1)
+      : buying && !record.continues && shown.depositRaw !== undefined
+        ? amount
+        : reviewHero;
+  const costs = orderCosts(shown, summary);
+  const reviewStats = [
+    ...(costs
+      ? [
+          {
+            label: flow.stat.swapped,
+            value: <Rounded figure={costs.swapped} />,
+            ui: 'stat-swapped',
+          },
+          ...(costs.expected
+            ? [{ label: flow.stat.expected, value: costs.expected.shown, ui: 'stat-expected' }]
+            : []),
+          ...(costs.worst
+            ? [{ label: flow.stat.worst, value: costs.worst.shown, ui: 'stat-worst' }]
+            : []),
+        ]
+      : []),
+    { label: flow.stat.steps, value: String(legs.length), ui: 'stat-steps' },
+  ];
+  const stepStats = [
+    ...(words[at]?.least
+      ? [{ label: flow.stat.least, value: words[at]?.least, ui: 'stat-least' }]
+      : []),
+    ...(words[at]?.under
+      ? [{ label: flow.stat.under, value: words[at]?.under, ui: 'stat-under' }]
+      : []),
+  ];
+  const tableWords = {
+    holding: flow.table.holding,
+    change: flow.table.change,
+    amount: flow.table.amount,
+  };
+
+  const stageBody =
+    stage === 'review' ? (
+      <>
+        <OrderHero label={heroLabel} figure={heroFigure} plate={plate} />
+        <OrderStats stats={reviewStats} />
+        {shares && sharesOf(flow.picture.targets, shares)}
+        {/* on the deposit card in a pane, where it goes in one line: the button stays in view (I3) */}
+        {picture && picture.rows.length > 0 && (
+          <AmountList picture={picture} labels={tableWords} compact={onePress} />
+        )}
+        {shown.warnings.length > 0 && (
+          <ul
+            aria-label={t.order.review.warnings}
+            data-ui="order-warnings"
+            className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm"
+          >
+            {shown.warnings.map((w) => (
+              // Keyed by its text as well: nothing holds two warnings to different codes.
+              <li key={`${w.code}:${w.text}`} className="flex items-start gap-1.5">
+                <StatusMark status="watch" className="mt-1.5" />
+                <span>{w.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!record.approved && needed.length > 0 && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="pb-1 text-body-sm font-medium">{t.order.review.consents}</legend>
+            {needed.map((kind) => (
+              <label key={kind} className="inline-flex items-start gap-2 text-body-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-4 accent-primary"
+                  checked={consents.includes(kind)}
+                  onChange={(e) => {
+                    const on = e.currentTarget.checked;
+                    setConsents((all) =>
+                      on ? [...all.filter((k) => k !== kind), kind] : all.filter((k) => k !== kind),
+                    );
+                  }}
+                />
+                <span className="max-w-(--tf-measure-body)">{t.order.review.consent[kind]}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {actions}
+        {allSteps(flow.details)}
+      </>
+    ) : stage === 'steps' ? (
+      <>
+        {strip}
+        <SignedSteps
+          steps={signed}
+          label={flow.signed}
+          explorer={explorerNameFor(chain, t.chain)}
+          links={t.order.link}
+        />
+        <StepPanel
+          place={flow.stepOf(at + 1, legs.length)}
+          label={wholeOrder ? heroLabel : (words[at]?.name ?? t.order.title)}
+          hero={wholeOrder ? heroFigure : (words[at]?.hero ?? t.order.title)}
+          stats={wholeOrder ? reviewStats : stepStats}
+          title={words[at]?.title ?? t.order.title}
+          plate={plate}
+          status={statusBlock}
+        >
+          {actions}
+          {allSteps(flow.allSteps)}
+        </StepPanel>
+      </>
+    ) : (
+      <>
+        {strip}
+        {embed?.onEnded && <Ended plainly={plainlyDone} onEnded={embed.onEnded} />}
+        {/* over "Done", the action the order was: "Change", "Withdrawal" */}
+        <OrderHero
+          label={
+            terms?.kind === 'retarget'
+              ? flow.doneLabel.change
+              : terms?.kind === 'rebalance' || terms?.kind === 'withdraw'
+                ? flow.doneLabel[terms.kind]
+                : buying
+                  ? flow.doneLabel.deposit
+                  : flow.label.order
+          }
+          // "Done" only where it is plainly done: a step skipped, a token that stayed, or a vault
+          // still being read again says the steps ended, as the pane's head does
+          figure={plainlyDone ? flow.ended.title : t.shared.vault.page.ended}
+          plate={plate}
+        />
+        {statusBlock}
+        {(terms?.kind === 'retarget' || terms?.kind === 'rebalance') &&
+          sharesOf(flow.ended.targets, shareItems(terms.targets, null, summary))}
+        {actions}
+        {allSteps(flow.transactions)}
+      </>
+    );
+
+  return (
+    <div
+      ref={shell}
+      data-ui="order-screen"
+      data-stage={stage}
+      className={embed ? 'flex flex-col gap-5' : 'flex flex-col gap-8'}
+    >
+      <p aria-live="polite" data-ui="order-announce" className="sr-only">
+        {announce}
+      </p>
+      {!embed && (
+        <header className="flex flex-col items-start gap-3">
+          <ChainBadge chain={chain} />
+          <h1 id={titleId} className={PAGE_TITLE}>
+            {stage === 'review' ? t.order.review.title : t.order.title}
+          </h1>
+          {stage === 'review' && (
+            <p
+              data-ui={record.continues ? 'order-continues' : undefined}
+              className="max-w-(--tf-measure-body) text-body-lg"
+            >
+              {record.continues ? t.order.review.continuesLead : t.order.review.lead}
+            </p>
+          )}
+          {record.continues?.unseen && (
+            <p data-ui="order-unseen" className="max-w-(--tf-measure-body) text-body-sm">
+              {t.order.review.unseen}
+            </p>
+          )}
+        </header>
+      )}
+
+      {embed ? (
+        // Inside a host's card (the invest card, a vault's pane): the same screens, under its heading.
+        <section
+          aria-label={t.order.stepsTitle}
+          data-ui="invest-steps"
+          className="flex flex-col gap-6"
+        >
+          {stageBody}
+        </section>
+      ) : (
+        <Panel data-ui="order-panel" aria-labelledby={`${titleId}-panel`}>
+          <PanelHead id={`${titleId}-panel`} title={t.order.stepsTitle} />
+          <PanelBody>{stageBody}</PanelBody>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+/** Tells the host how the order ended, once and again whenever that reading changes. */
+function Ended({ plainly, onEnded }: { plainly: boolean; onEnded: (plainly: boolean) => void }) {
+  useEffect(() => onEnded(plainly), [plainly, onEnded]);
+  return null;
 }
 
 function Notice({

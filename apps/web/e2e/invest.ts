@@ -4,8 +4,8 @@ import { dictionary } from '../i18n';
 // The invest card as a person takes it (InvestCard, gate INVEST-ONE-PRESS): the amount (left as it
 // is, or `amount`), the funds, which the card shows because the wallet starts short (MOCK cash from
 // the stub, or test funds where the stub says it can send them), and the trust notice ticked (every
-// e2e buy is a first one). It ends with the order on the card, every step to read, and its one
-// button ready to press: nothing has been signed.
+// e2e buy is a first one). It ends with the order on the card, what it does said in one sentence and
+// every step one fold away, and its one button ready to press: nothing has been signed.
 
 const en = dictionary('en');
 const STUB = `http://localhost:${process.env.E2E_API_PORT ?? 3901}`;
@@ -40,8 +40,10 @@ export async function readyToInvest(
       name: o.fund === 'test' ? en.buy.funding.testFunds : en.buy.funding.mockFund,
     })
     .click();
-  // the wallet holds it now: the funds leave the card, and the order is there with its steps
-  await expect(card.locator('[data-ui="order-step"]').first()).toBeVisible({ timeout: 30_000 });
+  // the wallet holds it now: the funds leave the card, and the order is there: what it does in one
+  // sentence, with its steps one fold away (gate SIGN-ONE-STEP)
+  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
+  await expect(card.locator('[data-ui="order-step"]').first()).toBeAttached();
   // test funds that were sent are still said; sample cash on the mock leaves nothing to say
   if (o.fund === 'test') await expect(card.locator('[data-ui="test-funds-sent"]')).toBeVisible();
   else await expect(card.locator('[data-ui="funding-step"]')).toHaveCount(0);

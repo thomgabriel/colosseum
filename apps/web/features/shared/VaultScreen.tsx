@@ -653,7 +653,17 @@ function OwnVault({
             />
             {!empty && (
               <p data-ui="vault-change-hint" className="max-w-(--tf-measure-body) text-body-sm">
-                {p.change}
+                {p.change}{' '}
+                {/* the editor by hand is found where the page says how to change it, not only
+                    under "More" (Thom, Oct 15) */}
+                <button
+                  type="button"
+                  data-action="vault-hint-edit-weights"
+                  className={buttonClass({ variant: 'link' })}
+                  onClick={() => start('weights', '[data-action="vault-hint-edit-weights"]')}
+                >
+                  {p.changeByHand}
+                </button>
               </p>
             )}
           </>

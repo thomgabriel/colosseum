@@ -23,6 +23,7 @@ import { DepositCard, type DepositCardProps } from '../amount/DepositCard';
 import { dollars } from '../goal/sheet';
 import { tokenName } from '../order/amounts';
 import { Invest } from '../order/Invest';
+import { useOrdersEnded } from '../order/order-done';
 import { keepOrder, type OrderRecord, recallOrders } from '../order/order-record';
 import { AssetMark } from '../order/PlanView';
 import { goalLine } from '../order/plain';
@@ -130,7 +131,9 @@ function useFamilyVaults(
     };
   }, [key]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` and `round` say when to read
+  // an order that ends anywhere (a follow, a deposit on another screen) may change this list too
+  const ended = useOrdersEnded();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key`, `round` and `ended` say when to read
   useEffect(() => {
     if (!person) return;
     let mine = true;
@@ -143,7 +146,7 @@ function useFamilyVaults(
     return () => {
       mine = false;
     };
-  }, [apiFetch, key, round]);
+  }, [apiFetch, key, round, ended]);
 
   async function follow(
     vault: VaultView,
@@ -604,6 +607,8 @@ function Chosen({
               }}
               onDone={() => {
                 onRunning(false);
+                // the field is for the next deposit; the card keeps what this one did
+                entry.onText('');
                 // the vault it opened follows the portfolio now: said above, as a state (F3)
                 mine.reread();
               }}
