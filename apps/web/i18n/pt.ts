@@ -1578,6 +1578,8 @@ export const pt: Dictionary = {
         submitMessage: 'Enviar mensagem',
         reading: 'Buscando uma resposta',
         current: 'O que tem agora',
+        planPane: 'O plano e os ativos do seu cofre',
+        actionPane: 'A ação em andamento',
         noHoldings: 'Este cofre não tem tokens agora.',
         targets: 'Metas da estratégia atual',
         targetsNote: 'Metas registradas na rede, separadas das fatias mantidas agora.',

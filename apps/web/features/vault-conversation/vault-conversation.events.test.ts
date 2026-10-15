@@ -340,6 +340,17 @@ describe('a continuous conversation for one vault', () => {
     expect(find(host, '[data-ui="vault-plan"]').firstElementChild).toBe(building);
     // a vault never keeps a stale draft while the next is asked for
     expect(host.querySelector('[data-ui="vault-proposal"]')).toBeNull();
+    // the draft has the pane: what the vault holds folds into one line under it, a press away, and
+    // the pane scrolls on its own, a stop for the keyboard (Thom, Oct 14)
+    const plan = find(host, '[data-ui="vault-plan"]');
+    expect(plan.tagName).toBe('SECTION');
+    expect(plan.getAttribute('aria-label')).toBe(copy.planPane);
+    expect(plan.tabIndex).toBe(0);
+    expect(plan.className).toContain('md:overflow-y-auto');
+    const fold = find<HTMLDetailsElement>(plan, '[data-ui="vault-holdings-fold"]');
+    expect(fold.open).toBe(false);
+    expect(find(fold, ':scope > summary').textContent).toBe(copy.current);
+    expect(fold.compareDocumentPosition(building) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     // the next thought can be typed; it is not sent
     expect(box.readOnly).toBe(false);
     await type(box, 'and less cash');
@@ -349,6 +360,8 @@ describe('a continuous conversation for one vault', () => {
     expect(host.querySelector('[data-ui="reply-pending"]')).toBeNull();
     expect(host.querySelector('[data-ui="vault-building"]')).toBeNull();
     expect(rows()[1]?.textContent).toBe(`${copy.agent}: ${reply.message}`);
+    // a draft shown keeps the pane, the holdings folded under it
+    expect(find(host, '[data-ui="vault-holdings-fold"]')).not.toBeNull();
     expect(announced()).toBe(`${copy.agent}: ${reply.message} ${copy.draftArrived}`);
     expect(host.querySelector('[data-ui="vault-proposal"]')).not.toBeNull();
     expect(box.value).toBe('and less cash');
@@ -748,6 +761,8 @@ describe('current context and truthful holdings', () => {
         withAccount('en', createElement(VaultConversation, { read: fixture, userId })),
       );
       const current = find(host, 'section[aria-labelledby$="-held"]');
+      // with no draft, what it holds is open in the pane, not folded
+      expect(host.querySelector('[data-ui="vault-holdings-fold"]')).toBeNull();
       if (fixture === emptyRead) {
         expect(current.textContent).toContain(en.shared.vault.conversation.noHoldings);
         expect(current.querySelector('[data-ui="composition"]')).toBeNull();

@@ -183,6 +183,10 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   await page.goto('/invest');
   const title = page.locator('main h1');
   await expect(title).toHaveText(en.talk.workbench.title);
+  // The account settled first: until it has, the conversation's head is keyed to no chain, and once
+  // it does (signed out, on Solana) the head is drawn again under its own key. A measurement taken
+  // across that draw finds the title on its way out (CI, 768px). The bar's "Sign in" is drawn then.
+  await expect(page.locator('header a[href^="/sign-in"]').first()).toBeAttached();
   // the faces the title is measured in, loaded
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const place = async () => {
