@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MENU_BUTTON, MENU_FIELD, MENU_ROW } from '../../components/ui/side-menu';
 import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
 import { withAccount } from '../account/test/screen';
@@ -104,9 +105,11 @@ describe('the conversations panel', () => {
     expect(earlier?.startsWith('earlier: ')).toBe(true);
     // the one on screen is marked, for the eye and for a reader
     const here = find(row(host, w.current), '[data-ui="conversation-open"]');
-    // said once: by `aria-current`, with no hidden words of its own besides
+    // said once: by `aria-current`; the words hidden after its name are its chain (and how long ago,
+    // once it has words), what the rail's tooltip says, never that it is on screen
     expect(here.getAttribute('aria-current')).toBe('true');
-    expect(here.querySelector('.sr-only')).toBeNull();
+    expect(here.querySelector('.sr-only')?.textContent).toMatch(/^, Solana(, .+)?$/);
+    expect(here.getAttribute('title')).toBe(`${w.current} · Solana`);
     // every vault the plans read lists is a row, each linking to its own page
     const vaults = [
       ...rail(host).querySelectorAll<HTMLElement>(
@@ -127,16 +130,21 @@ describe('the conversations panel', () => {
       // named by its goal or its name, never by its address
       expect(one.textContent).not.toContain(one.dataset.address ?? '');
     }
-    // a vault with a newest read shows its value with its pin
+    // the rail's row is one line and draws no figure; the sheet's shows a vault's value, with its
+    // pin, where it has a newest read
     const read = listed.filter((plan) => plan.newest);
     expect(read.length).toBeGreaterThan(0);
+    expect(rail(host).querySelector('[data-ui="conversation-value"]')).toBeNull();
+    await click(find(host, '[data-ui="conversations-open"]'));
+    const sheet = find(host, '[data-ui="conversations-sheet"]');
     for (const plan of read) {
-      const one = rail(host).querySelector<HTMLElement>(
+      const one = sheet.querySelector<HTMLElement>(
         `[data-ui="conversation-row"][data-address="${plan.address}"]`,
       );
       const value = one?.querySelector('[data-ui="conversation-value"]');
       expect(value?.querySelector('[data-ui="pin"]')).not.toBeNull();
     }
+    await click(find(sheet, '[data-ui="conversations-close"]'));
     // the grow vault reads as the overview names it
     expect(titles(host)).toContain('Grow $2,000 over 36 months.');
   });
@@ -240,16 +248,22 @@ describe('the conversations panel', () => {
     }
   });
 
-  it('searches the names once there are more than eight, and says when nothing matches', async () => {
+  it('searches the names, in the sheet once there are more than eight, and says when nothing matches', async () => {
     served = { ...answer, chains: [] };
     keep(
       Array.from({ length: 7 }, (_, i) => ({ id: `d${i}`, words: `Idea number ${i}`, at: ago(i) })),
     );
     let host = await show();
     await settle();
-    // the one on screen and seven: eight rows, no search
+    // the one on screen and seven: eight rows, and the sheet has no search; the rail always has one
     expect(titles(host)).toHaveLength(8);
-    expect(rail(host).querySelector('[data-ui="conversation-search"]')).toBeNull();
+    expect(rail(host).querySelector('[data-ui="conversation-search"]')).not.toBeNull();
+    await click(find(host, '[data-ui="conversations-open"]'));
+    expect(
+      find(host, '[data-ui="conversations-sheet"]').querySelector(
+        '[data-ui="conversation-search"]',
+      ),
+    ).toBeNull();
     await unmountAll();
     keep([
       ...Array.from({ length: 7 }, (_, i) => ({
@@ -298,6 +312,74 @@ describe('the conversations panel', () => {
     expect(document.activeElement).toBe(a);
     await press(a as HTMLElement, 'ArrowUp');
     expect(document.activeElement).toBe(a);
+  });
+
+  // Thom, Oct 15: drawn as the analytics' side menu
+  it('is a rail of one-line rows: the chain’s mark and the name, the rest in its tooltip', async () => {
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(1) }]);
+    const host = await show();
+    await settle();
+    // a card in the page's frame beside the conversation, not fixed to the window's edge (Thom, Oct 15)
+    expect(rail(host).className).toContain('lg:rounded-xl');
+    expect(rail(host).className).not.toContain('lg:fixed');
+    const gold = row(host, 'Consider gold');
+    const name = find(gold, '[data-ui="conversation-open"]');
+    expect(find(name, '[data-ui="chain-logo"]').getAttribute('aria-hidden')).toBe('true');
+    expect(name.getAttribute('title')).toBe(
+      `Consider gold · Solana · ${en.goal.explore.picker.groups.yesterday.toLowerCase()}`,
+    );
+    // the analytics' side menu's row (side-menu.ts): the mark column, the honey bar on the one on screen
+    expect(name.className).toContain(MENU_ROW);
+    expect(find(rail(host), '[aria-current="true"]').className).toContain(MENU_ROW);
+    // the chain and how long ago, written under the name on the row the keyboard is on (a tooltip is the
+    // pointer's alone), hidden from a reader, who hears them after the name
+    const said = find(name, '[data-ui="conversation-said"]');
+    expect(said.getAttribute('aria-hidden')).toBe('true');
+    expect(said.textContent).toBe(`Solana · ${find(name, 'time').textContent}`);
+    expect(said.className).toContain('hidden');
+    expect(said.className).toContain('group-focus-visible/open:block');
+    // no badge and no time drawn on the row: a reader hears them after the name
+    expect(gold.querySelector('[data-ui="chain-badge"]')).toBeNull();
+    expect(find(name, '.sr-only').textContent).toBe(`, Solana, ${find(name, 'time').textContent}`);
+    // a vault says it is one, in its tooltip and to a reader, and draws no value
+    const vault = rail(host).querySelector<HTMLElement>(
+      '[data-ui="conversation-row"][data-kind="vault"]',
+    );
+    const link = find(vault as HTMLElement, '[data-ui="conversation-open"]');
+    expect(link.getAttribute('title')?.startsWith(`${w.vault} · `)).toBe(true);
+    expect(
+      (vault as HTMLElement).querySelector('[data-ui="conversation-value"], [data-ui="pin"]'),
+    ).toBeNull();
+    // "New conversation" and the search at the top, the search there with a few rows
+    expect(find(rail(host), 'button[data-ui="conversation-new"]').textContent).toBe(w.fresh);
+    expect(
+      find(rail(host), '[data-ui="conversation-search"] input').getAttribute('placeholder'),
+    ).toBe(w.search);
+    // the menu's head: "Hide conversations" written on its button, then "New conversation" and the
+    // search drawn as that button
+    const toggle = find(rail(host), '[data-ui="conversations-toggle"]');
+    expect(toggle.textContent).toBe(w.hide);
+    expect(toggle.className).toContain(MENU_BUTTON);
+    expect(find(rail(host), 'button[data-ui="conversation-new"]').className).toContain(MENU_BUTTON);
+    expect(find(rail(host), '[data-ui="conversation-search"] input').className).toContain(
+      MENU_FIELD,
+    );
+  });
+
+  it('folds to a box of three: the toggle, "New conversation", and the search, which opens it', async () => {
+    const host = await show();
+    await settle();
+    const toggle = find(rail(host), '[data-ui="conversations-toggle"]');
+    await click(toggle);
+    const strip = [...rail(host).querySelectorAll('button')].map((one) =>
+      one.getAttribute('aria-label'),
+    );
+    expect(strip).toEqual([w.show, w.fresh, w.search]);
+    await click(find(rail(host), '[data-ui="conversations-seek"]'));
+    await settle();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(find(rail(host), '[data-ui="conversation-search"] input'));
+    expect(localStorage.getItem('tf-conversations-closed')).toBe('0');
   });
 
   it('closes to a strip with "New conversation" and remembers it in this browser', async () => {

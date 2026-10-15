@@ -313,9 +313,12 @@ describe('private strategy exploration for a new goal', () => {
     await settle();
     expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     expect(titles(host)).toEqual([en.goal.explore.picker.current, 'Consider gold']);
-    // with its chain's badge: the panel lists what lives on more than one chain (gate CHAIN-AT-THE-PLAN)
+    // with its chain's mark and name: the panel lists what lives on more than one chain (gate
+    // CHAIN-AT-THE-PLAN)
     expect(row(host, 'Consider gold').dataset.chain).toBe('solana');
-    expect(find(row(host, 'Consider gold'), '[data-ui="chain-badge"]').textContent).toBe('Solana');
+    expect(find(row(host, 'Consider gold'), '[data-ui="conversation-chain"]').textContent).toBe(
+      'Solana',
+    );
     await open(host, 'Consider gold');
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
