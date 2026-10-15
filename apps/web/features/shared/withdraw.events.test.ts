@@ -733,6 +733,8 @@ describe('a withdrawal on the order screen', () => {
     );
     expect(host.textContent).toContain(en.order.shared.doneExcept('Solana', 1));
     expect(host.textContent).not.toContain(en.order.outcome.done('Solana'));
+    // the largest text on the screen does not say Done over a step that was skipped
+    expect(find(host, '[data-ui="sign-figure"]').textContent).toBe(en.shared.vault.page.ended);
     expect(host.querySelectorAll('[data-ui="order-step"][data-status="skipped"]')).toHaveLength(1);
   });
 

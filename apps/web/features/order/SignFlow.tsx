@@ -52,13 +52,15 @@ export function OrderStats({
   if (stats.length === 0) return null;
   return (
     // more than two in one row on a wide screen: the review fits its pane without a scroll
-    <StatGrid columns={stats.length > 2 ? 4 : 2}>
-      {stats.map((stat) => (
-        <PanelStat key={stat.label} label={stat.label} ui={stat.ui}>
-          {stat.value}
-        </PanelStat>
-      ))}
-    </StatGrid>
+    <div data-ui="stat-row">
+      <StatGrid columns={stats.length > 2 ? 4 : 2}>
+        {stats.map((stat) => (
+          <PanelStat key={stat.label} label={stat.label} ui={stat.ui}>
+            {stat.value}
+          </PanelStat>
+        ))}
+      </StatGrid>
+    </div>
   );
 }
 
@@ -219,10 +221,33 @@ export function ShareList({
 export function AmountList({
   picture,
   labels,
+  compact = false,
 }: {
   picture: Picture;
   labels: { holding: string; amount: string };
+  /** In a pane that must fit its screen: each holding and its amount in a line, no table. */
+  compact?: boolean;
 }) {
+  if (compact)
+    return (
+      <ul
+        data-ui="sign-picture"
+        aria-label={picture.caption}
+        className="flex flex-wrap gap-x-5 gap-y-1 text-body-sm"
+      >
+        {picture.rows.map((row) => {
+          const figure = row.cells[row.cells.length - 1];
+          return (
+            <li key={row.key} data-ui="sign-share" className="inline-flex items-baseline gap-1.5">
+              <span className="text-muted-foreground">{row.name}</span>
+              <span className="font-medium tabular-nums">
+                {figure ? <Rounded figure={figure} /> : '—'}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    );
   return (
     <div data-ui="sign-picture" className={FLUSH}>
       <KitTable

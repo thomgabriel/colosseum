@@ -615,6 +615,8 @@ export function InvestCard({
               checked={ticked}
               onCheck={setTicked}
               keeper={keeper}
+              // in a pane that must fit its screen, one line that opens (audit I3)
+              fold={amountFrom === 'goal' || Boolean(hostEnds)}
             />
           ) : (
             // Accepted before, for this text: not asked again, and still here to read.

@@ -551,7 +551,12 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     const host = await page(async () => answered());
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(host.querySelector('[data-ui="change-review"]')).not.toBeNull();
-    await act(async () => announceOrderDone());
+    // another order's end (a deposit, another vault, another tab) leaves the change as it is
+    await act(async () => announceOrderDone('another-order'));
+    await settle();
+    expect(host.querySelector('[data-ui="change-review"]')).not.toBeNull();
+    // the change's own order ends: its draft and review are gone
+    await act(async () => announceOrderDone(retargetOrder().id));
     await settle();
     expect(host.querySelector('[data-ui="change-review"]')).toBeNull();
     expect(host.querySelector('[data-ui="vault-proposal"]')).toBeNull();

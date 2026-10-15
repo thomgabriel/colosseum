@@ -265,7 +265,7 @@ function ReviewWait({ rows }: { rows: number }) {
         <SkeletonLine className="text-body-sm" width="w-24" />
         <SkeletonLine className="text-[2rem]/10" width="w-40" />
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+      <div data-ui="skeleton-stats" className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
         {['w-16', 'w-20', 'w-14', 'w-12'].map((width) => (
           <div key={width} className="flex flex-col gap-1">
             <SkeletonLine className="text-caption" width="w-20" />

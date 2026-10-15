@@ -199,7 +199,7 @@ describe('the reads of the portfolio section', () => {
     expect(shown(host)).toContain(SOL_GROW);
     // an order ended, and the server is busy: the plans on the screen stay
     serve(portStore, { plans: () => json({ error: 'slow down' }, 429) });
-    await act(async () => announceOrderDone());
+    await act(async () => announceOrderDone('order-1'));
     await settle();
     expect(state(host)).toMatchObject({ plans: 'read', busy: 'false' });
     expect(shown(host)).toContain(SOL_GROW);
@@ -214,7 +214,7 @@ describe('the reads of the portfolio section', () => {
     signIn();
     await probe();
     const here = serve(portStore);
-    await act(async () => announceOrderDone());
+    await act(async () => announceOrderDone('order-1'));
     await settle();
     for (const route of ROUTES) expect(here.to(route)).toHaveLength(1);
     // another tab's order: heard through the storage key, and nothing else of storage counts
@@ -232,7 +232,7 @@ describe('the reads of the portfolio section', () => {
     await probe();
     await act(async () => {
       window.dispatchEvent(new Event('focus'));
-      announceOrderDone();
+      announceOrderDone('order-1');
     });
     await settle();
     for (const route of ROUTES) expect(server.to(route)).toEqual([]);

@@ -112,13 +112,16 @@ export function VaultConversation({
   // The preview the person chose to apply: its editor stays only while that preview is the one shown.
   const [applying, setApplying] = useState<VaultAgentReply | null>(null);
   // A change applied and signed is over: back on the vault, its draft and its review are gone and the
-  // holdings show again (UI audit V2). Another kind of order (a deposit) leaves a draft as it is.
+  // holdings show again (UI audit V2). Only the order this change made counts: a deposit, an order
+  // on another vault or one in another tab leaves the draft as it is.
   const changing = useRef(false);
   changing.current = applying !== null;
+  const changeOrder = useRef<string | null>(null);
   useEffect(
     () =>
-      onOrderDone(() => {
-        if (!changing.current) return;
+      onOrderDone((orderId) => {
+        if (!changing.current || orderId === null || orderId !== changeOrder.current) return;
+        changeOrder.current = null;
         setApplying(null);
         setReply(null);
       }),
@@ -558,7 +561,16 @@ export function VaultConversation({
                     ),
                   )}
                   onClose={() => setApplying(null)}
-                  onOrder={onOrder}
+                  // the change's own order: its end, and no other, closes the change. With no host to
+                  // take it, the flow opens the order's own page, as before
+                  {...(onOrder
+                    ? {
+                        onOrder: (orderId: string) => {
+                          changeOrder.current = orderId;
+                          onOrder(orderId);
+                        },
+                      }
+                    : {})}
                 />
               </div>
             )}

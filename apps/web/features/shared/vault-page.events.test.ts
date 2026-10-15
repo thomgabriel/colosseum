@@ -942,6 +942,8 @@ describe('an order that is done, but not plainly', () => {
     // nothing over the steps claims more than the order does
     const top = find(pane(host), '[data-ui="vault-action-done"]').textContent ?? '';
     expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.ended);
+    // and neither does the screen's own figure, under the action's name
+    expect(find(pane(host), '[data-ui="sign-figure"]').textContent).toBe(p.ended);
     for (const claim of [
       /is done/i,
       /in your wallet/i,

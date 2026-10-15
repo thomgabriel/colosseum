@@ -229,6 +229,27 @@ export function MixReviewLines({
 }
 
 /** Each warning of a review with its box: the person ticks them one by one. */
+/**
+ * A warning of the server's as the rows around it name its holdings: every line's symbol ("SPYx",
+ * "mGOLD", a test network's "tGLDx") becomes the name its row shows (audit I4), whether or not the
+ * warning says which asset it is about. The longest symbol first, each as a whole word.
+ */
+export function namedAsRows(
+  text: string,
+  review: MixReview,
+  named: (assetId: string) => string,
+): string {
+  const lines = review.lines
+    .filter((line) => line.cls !== 'cash' && line.symbol)
+    .sort((a, b) => (b.symbol?.length ?? 0) - (a.symbol?.length ?? 0));
+  let said = text;
+  for (const line of lines) {
+    const symbol = (line.symbol ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    said = said.replace(new RegExp(`(?<![\\w])${symbol}(?![\\w])`, 'g'), named(line.assetId));
+  }
+  return plainNames(said);
+}
+
 export function MixReviewWarnings({
   review,
   ticked,
@@ -257,8 +278,8 @@ export function MixReviewWarnings({
             onChange={(e) => onTick(warning.id, e.currentTarget.checked)}
           />
           <span className="min-w-0 [overflow-wrap:anywhere]">
-            {/* the server's sentence, with a test network's token named as the rows name it */}
-            {plainNames(warning.text)}
+            {/* the server's sentence, its tokens named as the rows name them */}
+            {namedAsRows(warning.text, review, (asset) => displayName(asset, t.plan))}
             {warning.figures.map((figure) => (
               <span
                 key={`${figure.label}:${figure.fetchedAt}`}
@@ -301,10 +322,7 @@ export function MixReviewAck({
   const { t, r, share, usd } = useReviewWords();
   if (review.warnings.length === 0) return null;
   const all = unticked(review, ticked).length === 0;
-  const said = (text: string, assetId: string | undefined) => {
-    const symbol = assetId ? review.lines.find((l) => l.assetId === assetId)?.symbol : undefined;
-    return plainNames(assetId && symbol ? text.split(symbol).join(named(assetId)) : text);
-  };
+  const said = (text: string) => namedAsRows(text, review, named);
   return (
     <fieldset data-ui="mix-review-warnings" className="flex min-w-0 flex-col gap-2">
       <legend className="sr-only">{r.warnings}</legend>
@@ -313,7 +331,7 @@ export function MixReviewAck({
           <li key={warning.id} data-warning={warning.code} className="flex items-start gap-1.5">
             <StatusMark status="watch" className="mt-1.5" />
             <span className="min-w-0 [overflow-wrap:anywhere]">
-              {said(warning.text, warning.assetId)}
+              {said(warning.text)}
               {warning.figures.map((figure) => (
                 <span
                   key={`${figure.label}:${figure.fetchedAt}`}

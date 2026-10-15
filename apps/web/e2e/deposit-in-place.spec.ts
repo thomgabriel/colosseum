@@ -138,6 +138,23 @@ test('the whole deposit on /invest: chat, proposal, amount, review, every step s
   const words = (await page.locator('main').innerText()).toLowerCase();
   expect(words.match(/[^.\n]*\b(mix|buy|buys|bought|buying)\b[^.\n]*/g) ?? []).toEqual([]);
   await check(page, '07-sign-ready');
+  // the first deposit fits a desk's screen with its button in view, nothing scrolled (audit I3)
+  const was = page.viewportSize();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const sign = await press(page).boundingBox();
+  const foot = await press(page).evaluate((node) => {
+    let bottom = window.innerHeight;
+    for (let up = node.parentElement; up; up = up.parentElement)
+      if (getComputedStyle(up).overflowY !== 'visible')
+        bottom = Math.min(bottom, up.getBoundingClientRect().bottom);
+    return bottom;
+  });
+  expect(sign, 'the sign button is drawn').not.toBeNull();
+  expect(
+    (sign?.y ?? 0) + (sign?.height ?? 0),
+    'the sign button in view at 1440x900',
+  ).toBeLessThanOrEqual(foot);
+  if (was) await page.setViewportSize(was);
 
   await press(page).click();
   // while steps are signed the conversation waits and says why

@@ -523,7 +523,7 @@ export function OrderScreen({
       setOutcome(answer);
       setRunning(false);
       // what the person holds changed: whatever shows it reads it again (order-done.ts)
-      if (answer.status === 'done') announceOrderDone();
+      if (answer.status === 'done') announceOrderDone(record.orderId);
     },
     [record, load, consents, run, port, embed, t, lang],
   );
@@ -1219,6 +1219,7 @@ export function OrderScreen({
           checked={trustTicked}
           onCheck={setTrustTicked}
           keeper={keeperTrades}
+          fold={Boolean(embed)}
         />
       )}
       {/* An add held to our server's targets, which this app could not read from the chain: said on
@@ -1602,7 +1603,10 @@ export function OrderScreen({
         <OrderHero label={heroLabel} figure={heroFigure} plate={plate} />
         <OrderStats stats={reviewStats} />
         {shares && sharesOf(flow.picture.targets, shares)}
-        {picture && picture.rows.length > 0 && <AmountList picture={picture} labels={tableWords} />}
+        {/* on the deposit card in a pane, where it goes in one line: the button stays in view (I3) */}
+        {picture && picture.rows.length > 0 && (
+          <AmountList picture={picture} labels={tableWords} compact={onePress} />
+        )}
         {shown.warnings.length > 0 && (
           <ul
             aria-label={t.order.review.warnings}
@@ -1678,7 +1682,9 @@ export function OrderScreen({
                   ? flow.doneLabel.deposit
                   : flow.label.order
           }
-          figure={flow.ended.title}
+          // "Done" only where it is plainly done: a step skipped, a token that stayed, or a vault
+          // still being read again says the steps ended, as the pane's head does
+          figure={plainlyDone ? flow.ended.title : t.shared.vault.page.ended}
           plate={plate}
         />
         {statusBlock}
