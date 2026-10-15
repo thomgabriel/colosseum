@@ -1226,6 +1226,45 @@ describe('a vault of stated shares on Robinhood Chain (Thom, Oct 15)', () => {
       expect(read(text), text).toEqual([]);
   });
 
+  it('reads the same list with bare numbers that come to 100, as Thom wrote it in the vault chat', async () => {
+    const said = 'SPY 50, AAPL 15, NVDA 15, META 10, TSLA 5, MSFT 2.5, GOOGL 2.5.';
+    const reply = await run({ shape: 'pick', lines }, said, ctx());
+    expect(weights(reply)).toEqual({
+      SPY: 5000,
+      AAPL: 1500,
+      NVDA: 1500,
+      META: 1000,
+      TSLA: 500,
+      MSFT: 250,
+      GOOGL: 250,
+    });
+    const read = (text: string, language: 'en' | 'pt' = 'en') =>
+      personShares([{ who: 'person', text }], language, RH, new Map()).standing.map(
+        (share) => `${share.assetIds.join('+')} ${share.bps}`,
+      );
+    expect(read('I want SPY 60 and AAPL 40')).toEqual([
+      'robinhood:spy 6000',
+      'robinhood:aapl 4000',
+    ]);
+    expect(read('50 SPY, 50 AAPL')).toEqual(['robinhood:spy 5000', 'robinhood:aapl 5000']);
+    expect(read('SPY 50, AAPL 37,5, NVDA 12,5', 'pt')).toEqual([
+      'robinhood:spy 5000',
+      'robinhood:aapl 3750',
+      'robinhood:nvda 1250',
+    ]);
+    // not a list of shares: not 100, a name twice, a dollar amount, one name, a stray number
+    for (const text of [
+      'SPY 50, AAPL 40',
+      'SPY 50, SPY 50',
+      'SPY $50, AAPL 50',
+      'SPY 100',
+      'SPY 50, AAPL 50, in 3 years',
+      'SPY 50, AAPL 50?',
+      'My wife holds SPY 50, AAPL 50',
+    ])
+      expect(read(text), text).toEqual([]);
+  });
+
   it('splits seven holdings equally in 0.5% steps, which a shared portfolio can publish', async () => {
     const reply = await run({ shape: 'pick', lines }, `I want ${SEVEN.join(', ')}`, ctx());
     expect(Object.values(weights(reply))).toEqual([1450, 1450, 1450, 1450, 1400, 1400, 1400]);

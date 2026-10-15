@@ -965,9 +965,10 @@ describe("the person's stated shares, as their words hold them", () => {
     ['Reduz TSLA a metade.', 'Reduz TSLA a metade', 'pt'],
     ['Quero diminuir TSLA de 70% para 50%.', 'Quero diminuir TSLA de 70% para 50%', 'pt'],
     ['Quero o dobro de TSLA.', 'Quero o dobro de TSLA', 'pt'],
-    // A share with no percent sign, a fraction or a whole: noticed, not read.
-    ['I want 70 TSLA and 30 NVDA.', 'I want 70 TSLA and 30 NVDA'],
-    ['TSLA 70, NVDA 30.', 'TSLA 70'],
+    // A share with no percent sign that is no list coming to 100, a fraction or a whole: noticed,
+    // not read. A list that comes to 100 is read (below).
+    ['I want 70 TSLA and 20 NVDA.', 'I want 70 TSLA and 20 NVDA'],
+    ['TSLA 70, NVDA 20.', 'TSLA 70'],
     ['I want 70-30 TSLA and NVDA.', 'I want 70-30 TSLA and NVDA'],
     ['I want 70:30 TSLA and NVDA.', 'I want 70:30 TSLA and NVDA'],
     ['seventy percent TSLA', 'seventy percent TSLA'],
@@ -984,7 +985,7 @@ describe("the person's stated shares, as their words hold them", () => {
       'I want 70% of what I have in stocks to be TSLA',
     ],
     ['I want $500 and 70% of the rest in TSLA.', 'I want $500 and 70% of the rest in TSLA'],
-    ['Quero 70 em TSLA e 30 em NVDA.', 'Quero 70 em TSLA e 30 em NVDA', 'pt'],
+    ['Quero 70 em TSLA e 20 em NVDA.', 'Quero 70 em TSLA e 20 em NVDA', 'pt'],
     ['Quero setenta por cento em TSLA.', 'Quero setenta por cento em TSLA', 'pt'],
     ['Quero um terço em TSLA.', 'Quero um terço em TSLA', 'pt'],
     ['Quero dois terços em TSLA.', 'Quero dois terços em TSLA', 'pt'],
@@ -1008,6 +1009,19 @@ describe("the person's stated shares, as their words hold them", () => {
   // Until Oct 9 "All in TSLA." was a row of the table above: said back as unread, with an equal split.
   // That was the refusal Rodrigo met on the hosted app ("all in tGOOGLx"). The whole vault in one name
   // is an exact share of all of it, and the shares stated before it are withdrawn and said.
+  // Until Oct 15 these were rows of the table above: Thom's "SPY 50, AAPL 15, … GOOGL 2.5." in the
+  // vault chat was said back as "a bare number beside each name". A list of names whose bare numbers
+  // come to 100 is the shares it names.
+  it.each<[string, ('en' | 'pt')?]>([
+    ['I want 70 TSLA and 30 NVDA.'],
+    ['TSLA 70, NVDA 30.'],
+    ['Quero 70 em TSLA e 30 em NVDA.', 'pt'],
+  ])('reads a list of bare numbers that come to 100 as its shares: %s', async (text, language) => {
+    const out = await served([text], ['TSLA', 'NVDA'], [], language);
+    expect(out.weights).toEqual([7000, 3000]);
+    expect(unreadOf(out)).toEqual([]);
+  });
+
   it('reads "All in TSLA." as the whole vault in TSLA, in place of the shares before it', async () => {
     const out = await served(['All in TSLA.'], tng, []);
     expect(out.weights).toEqual([10_000]);

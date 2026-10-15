@@ -1938,6 +1938,8 @@ export const en = {
         value: 'Value',
         change:
           'To change what this vault holds, say it in the conversation: more of one asset, less of another.',
+        /** After `change`: the editor by hand, the same as "Edit weights by hand" under More. */
+        changeByHand: 'Or edit the weights by hand.',
         details: 'Details',
         priceSources: 'Price sources',
         /** One price account's line: the entries in it that price this vault's assets. */
