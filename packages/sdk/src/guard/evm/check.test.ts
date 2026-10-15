@@ -978,3 +978,140 @@ describe("the guard on EVM: the ceilings are the deployment's", () => {
     expect(CHAIN_ID).toBe(EVM.evmChainId);
   });
 });
+
+// ---- several of the vault's calls in one transaction (gate EVM-MULTICALL-STEPS)
+
+const acceptOn: Step<'accept_version'> = { ...acceptStep, switchAutoFollow: true };
+const offAccept: Step<'accept_version'> = { ...acceptStep, switchAutoFollow: false };
+const offSales: Step<'swap'> = { ...swapStep, switchAutoFollow: false };
+const offWithdraw: Step<'withdraw'> = { ...withdrawStep, switchAutoFollow: false };
+const offWithdrawAll: Step<'withdraw'> = { ...withdrawAllStep, switchAutoFollow: false };
+const targetsAndTrades: Step<'set_targets'> = { ...targetsStep, trades: [SPY, GOLD] };
+const BOTH: ConsentKind[] = ['new_asset', 'auto_follow_on'];
+const inOne = (inner: Uint8Array[]) => calls.multicall(inner);
+const accept = () => calls.acceptVersion(INDEX, 4);
+const sales = () => calls.ownerSwap([swapOf(SPY), swapOf(GOLD)]);
+
+describe('the guard on EVM: a step that makes several of the vault calls at once', () => {
+  it('passes each merged step as its builder writes it, the calls in the step’s order', () => {
+    const cases: [ApprovedStep, Uint8Array, ConsentKind[]][] = [
+      [acceptOn, inOne([accept(), calls.setAutoFollow(true)]), BOTH],
+      [offAccept, inOne([calls.setAutoFollow(false), accept()]), ['new_asset']],
+      [offSales, inOne([calls.setAutoFollow(false), sales()]), []],
+      [
+        offWithdraw,
+        inOne([calls.setAutoFollow(false), calls.withdraw(tokenOf('robinhood:spy'), '500')]),
+        [],
+      ],
+      [offWithdrawAll, inOne([calls.setAutoFollow(false), calls.withdrawAll()]), []],
+      [
+        offWithdrawAll,
+        inOne([
+          calls.setAutoFollow(false),
+          calls.withdraw(tokenOf('robinhood:spy'), '1'),
+          calls.withdraw(USDC, '2'),
+        ]),
+        [],
+      ],
+      [targetsAndTrades, inOne([calls.setTargets(weights(TARGETS)), sales()]), []],
+      // two calls of eight trades or one of all: the trades are what the step holds, in order
+      [
+        targetsAndTrades,
+        inOne([
+          calls.setTargets(weights(TARGETS)),
+          calls.ownerSwap([swapOf(SPY)]),
+          calls.ownerSwap([swapOf(GOLD)]),
+        ]),
+        [],
+      ],
+    ];
+    for (const [step, data, consents] of cases)
+      expect(
+        refusalOf(() => guardTransaction(input(step, { to: VAULT, data }, {}, consents)))
+          ?.message ?? null,
+        step.kind,
+      ).toBeNull();
+  });
+
+  it('refuses a switch the step does not have: a lone accept, a sale or a withdrawal stays as it is', () => {
+    for (const [step, data, consents] of [
+      [acceptStep, inOne([accept(), calls.setAutoFollow(true)]), BOTH],
+      [swapStep, inOne([calls.setAutoFollow(false), sales()]), []],
+      [withdrawStep, inOne([calls.setAutoFollow(false), honest.withdraw().data]), []],
+    ] as [ApprovedStep, Uint8Array, ConsentKind[]][])
+      expect(
+        refusalOf(() => guardTransaction(input(step, { to: VAULT, data }, {}, consents)))?.code,
+      ).toBe('calls');
+  });
+
+  eachBites([
+    next(
+      acceptOn,
+      'an extra call: targets set beside the accept and the switch',
+      'calls',
+      () => inOne([accept(), calls.setAutoFollow(true), calls.setTargets(weights(TARGETS))]),
+      BOTH,
+    ),
+    next(
+      acceptOn,
+      'a missing call: the accept without the switch on the step names',
+      'calls',
+      accept,
+      BOTH,
+    ),
+    next(
+      acceptOn,
+      'reordered calls: auto-follow on before the version is taken',
+      'calls',
+      () => inOne([calls.setAutoFollow(true), accept()]),
+      BOTH,
+    ),
+    next(offSales, 'reordered calls: the sales before the switch off', 'calls', () =>
+      inOne([sales(), calls.setAutoFollow(false)]),
+    ),
+    next(offWithdraw, 'a call from another step: a sale riding in a withdrawal', 'calls', () =>
+      inOne([
+        calls.setAutoFollow(false),
+        calls.withdraw(tokenOf('robinhood:spy'), '500'),
+        calls.ownerSwap([swapOf(SPY)]),
+      ]),
+    ),
+    next(
+      targetsAndTrades,
+      'a call from another step: a deposit riding with the targets',
+      'calls',
+      () => inOne([calls.setTargets(weights(TARGETS)), calls.deposit(CASH), sales()]),
+    ),
+    next(targetsAndTrades, 'a missing call: the targets without their trades', 'calls', () =>
+      calls.setTargets(weights(TARGETS)),
+    ),
+    on(offSales, "the merged calls aimed at another person's vault", 'target', () => ({
+      to: strangersVault(),
+      data: inOne([calls.setAutoFollow(false), sales()]),
+    })),
+    next(
+      acceptOn,
+      'the switch thrown the other way: off where the step switches on',
+      'auto_follow',
+      () => inOne([accept(), calls.setAutoFollow(false)]),
+      BOTH,
+    ),
+    next(
+      acceptOn,
+      'auto-follow on beside the version, with only the consent to the version',
+      'consent',
+      () => inOne([accept(), calls.setAutoFollow(true)]),
+      ['new_asset'],
+    ),
+    next(
+      targetsAndTrades,
+      'a trade toward the targets for more than the step sells',
+      'amount',
+      () =>
+        inOne([
+          calls.setTargets(weights(TARGETS)),
+          calls.ownerSwap([swapOf({ ...SPY, inRaw: '600000001' }), swapOf(GOLD)]),
+        ]),
+    ),
+  ]);
+});

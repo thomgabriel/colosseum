@@ -51,6 +51,7 @@ import {
   rebalanceShapeOk,
   retargetShapeOk,
   sharedShapeOk,
+  stepCalls,
   stoppedShort,
 } from './order-check';
 import {
@@ -1430,10 +1431,11 @@ function Step({
               ? t.order.kind.open_vault
               : leg.trades.length > 0 && leg.kind === 'deposit'
                 ? t.order.kind.deposit_buy
-                : swapsInto
-                  ? // a step that spends cash on assets is headed by what it receives; its lines say the rest
-                    new Intl.ListFormat(locale, { type: 'conjunction' }).format(swapsInto)
-                  : t.order.kind[leg.kind]}
+                : (stepCalls(leg, t.order.kind) ??
+                  (swapsInto
+                    ? // a step that spends cash on assets is headed by what it receives; its lines say the rest
+                      new Intl.ListFormat(locale, { type: 'conjunction' }).format(swapsInto)
+                    : t.order.kind[leg.kind]))}
         </span>
         {leg.cashRaw && <span className="tabular-nums">{spend(leg.cashRaw)}</span>}
         <span aria-hidden="true">·</span>

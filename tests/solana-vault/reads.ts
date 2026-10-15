@@ -117,6 +117,7 @@ export function readCases(name: string, setup: () => Promise<ReadSetup>): void {
         maxTradesPerTx: 1,
         tradesInCreate: false,
         needsApprove: false,
+        ownerCallsInOne: false,
       });
       expect(s.reader.provenance).toBe(s.provenance);
       expect(s.reader.program).toBe(s.world.names.program);

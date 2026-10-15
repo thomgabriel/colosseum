@@ -15813,6 +15813,9 @@
                               "additionalProperties": false
                             }
                           },
+                          "switchAutoFollow": {
+                            "type": "boolean"
+                          },
                           "trades": {
                             "type": "array",
                             "items": {
@@ -16479,6 +16482,9 @@
                               "additionalProperties": false
                             }
                           },
+                          "switchAutoFollow": {
+                            "type": "boolean"
+                          },
                           "trades": {
                             "type": "array",
                             "items": {
@@ -17144,6 +17150,9 @@
                               "required": ["asset", "amountRaw", "heldRaw"],
                               "additionalProperties": false
                             }
+                          },
+                          "switchAutoFollow": {
+                            "type": "boolean"
                           },
                           "trades": {
                             "type": "array",
@@ -18318,6 +18327,9 @@
                               "additionalProperties": false
                             }
                           },
+                          "switchAutoFollow": {
+                            "type": "boolean"
+                          },
                           "trades": {
                             "type": "array",
                             "items": {
@@ -19026,6 +19038,9 @@
                               "required": ["asset", "amountRaw", "heldRaw"],
                               "additionalProperties": false
                             }
+                          },
+                          "switchAutoFollow": {
+                            "type": "boolean"
                           },
                           "trades": {
                             "type": "array",
@@ -29017,6 +29032,9 @@
                                       "additionalProperties": false
                                     }
                                   },
+                                  "switchAutoFollow": {
+                                    "type": "boolean"
+                                  },
                                   "trades": {
                                     "type": "array",
                                     "items": {
@@ -31216,6 +31234,9 @@
                                       "required": ["asset", "amountRaw", "heldRaw"],
                                       "additionalProperties": false
                                     }
+                                  },
+                                  "switchAutoFollow": {
+                                    "type": "boolean"
                                   },
                                   "trades": {
                                     "type": "array",

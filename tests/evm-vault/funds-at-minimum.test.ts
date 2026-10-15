@@ -49,8 +49,9 @@ async function retarget(allocations: { assetId: string; weightBps: number }[]) {
   if (!vault) throw new Error('no vault');
   const checked = await checkMix(ctx, allocations, vault);
   const { order } = await planRetarget(ctx, vault, checked, { slippageBps: 100, now: NOW, owner });
-  const swap = order.legs.find((l) => l.kind === 'swap');
-  if (!swap) throw new Error('no swap step');
+  // On EVM the trades ride with the targets they trade toward (gate EVM-MULTICALL-STEPS).
+  const swap = order.legs.find((l) => l.trades.length > 0);
+  if (!swap) throw new Error('no step that trades');
   const held = new Map([[vault.cash.asset, BigInt(vault.cash.raw)]]);
   for (const p of vault.positions) held.set(p.asset, BigInt(p.raw));
   return {

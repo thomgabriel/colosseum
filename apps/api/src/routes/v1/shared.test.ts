@@ -1146,6 +1146,78 @@ describe('a vault follows a shared portfolio, and auto-follow where it is offere
     ]);
   });
 
+  it('on Robinhood Chain, switches auto-follow beside the version in one step: on after it, off before it', async () => {
+    // A portfolio on Robinhood Chain, whose assets all have an oracle there, and a vault of a plan there.
+    const creator = await someone('robinhood');
+    const text = fresh();
+    const components = WITHOUT_GOLD.map((c) => ({
+      ...c,
+      asset: c.asset.replace('solana', 'robinhood'),
+    }));
+    const made = await post(creator, '/v1/orders', {
+      ...publishBody(creator, text, components),
+      creator: { evm: creator.evm },
+      recipes: [{ chain: 'robinhood', components }],
+    });
+    expect(made.statusCode, made.body).toBe(200);
+    await fund(creator);
+    await settleAll(creator, OrderDetail.parse(made.json()));
+    const who = await someone('robinhood');
+    await fund(who);
+    await settleAll(who, await order(who, { amountUsd: 100 }));
+    const portfolio = PortfolioResponse.parse((await get(who, '/v1/portfolio')).json());
+    const vault = portfolio.chains.find((c) => c.chain === 'robinhood')?.vaults[0]?.address;
+    if (!vault) throw new Error('no vault');
+    const { adapter } = registry.get('robinhood');
+
+    // On: one accept that switches auto-follow on after the version, with both consents (gate
+    // EVM-MULTICALL-STEPS).
+    const on = OrderDetail.parse(
+      (
+        await post(who, '/v1/orders', {
+          type: 'follow',
+          vault,
+          family: text.slug,
+          autoFollow: true,
+        })
+      ).json(),
+    );
+    expect(on.legs.map((l) => [l.kind, l.switchAutoFollow])).toEqual([['accept_version', true]]);
+    expect(on.legs[0]?.description).toMatch(/auto-follow goes on/);
+    expect(on.needsConsent).toEqual(['new_asset', 'auto_follow_on']);
+    expect((await settleAll(who, on)).status).toBe('done');
+    expect((await adapter.getVault(vault))?.autoFollow).toBe(true);
+    expect(await adapter.listAutoFollowVaults()).toContain(vault);
+
+    // A vault that has auto-follow on and follows nothing, made to follow with auto-follow off: one
+    // accept that switches it off first.
+    const other = await someone('robinhood');
+    await fund(other);
+    await settleAll(other, await order(other, { amountUsd: 100 }));
+    const theirs = PortfolioResponse.parse((await get(other, '/v1/portfolio')).json()).chains.find(
+      (c) => c.chain === 'robinhood',
+    )?.vaults[0]?.address;
+    if (!theirs) throw new Error('no vault');
+    const { mock } = registry.get('robinhood');
+    await mock?.send(await adapter.buildSetAutoFollow({ vault: theirs, on: true }));
+    const off = OrderDetail.parse(
+      (
+        await post(other, '/v1/orders', {
+          type: 'follow',
+          vault: theirs,
+          family: text.slug,
+          autoFollow: false,
+        })
+      ).json(),
+    );
+    expect(off.legs.map((l) => [l.kind, l.switchAutoFollow])).toEqual([['accept_version', false]]);
+    expect(off.legs[0]?.description).toMatch(/^Switch auto-follow off, then follow version 1/);
+    expect(off.needsConsent).toEqual(['new_asset']);
+    expect((await settleAll(other, off)).status).toBe('done');
+    const after = await adapter.getVault(theirs);
+    expect([after?.autoFollow, after?.acceptedVersion]).toEqual([false, 1]);
+  });
+
   it('checks the offer again when the switch is built: a version that waits with gold stops it', async () => {
     const creator = await someone();
     const text = fresh();

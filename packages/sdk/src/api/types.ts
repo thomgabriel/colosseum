@@ -2854,6 +2854,7 @@ export type PostOrdersResponse = {
         usd: string;
       };
     }[];
+    switchAutoFollow?: boolean;
     trades: {
       sell: string;
       buy: string;
@@ -2959,6 +2960,7 @@ export type GetOrdersByIdResponse = {
         usd: string;
       };
     }[];
+    switchAutoFollow?: boolean;
     trades: {
       sell: string;
       buy: string;
@@ -3064,6 +3066,7 @@ export type PostOrdersByIdContinueResponse = {
         usd: string;
       };
     }[];
+    switchAutoFollow?: boolean;
     trades: {
       sell: string;
       buy: string;
@@ -3244,6 +3247,7 @@ export type PostOrdersByIdLegsByLegIdCancelResponse = {
         usd: string;
       };
     }[];
+    switchAutoFollow?: boolean;
     trades: {
       sell: string;
       buy: string;
@@ -3359,6 +3363,7 @@ export type PostOrdersByIdLegsByLegIdReportResponse = {
         usd: string;
       };
     }[];
+    switchAutoFollow?: boolean;
     trades: {
       sell: string;
       buy: string;
@@ -4767,6 +4772,7 @@ export type PostVaultsByChainByAddressRebalanceResponse =
               usd: string;
             };
           }[];
+          switchAutoFollow?: boolean;
           trades: {
             sell: string;
             buy: string;
@@ -5094,6 +5100,7 @@ export type PostVaultsByChainByAddressTargetsResponse =
               usd: string;
             };
           }[];
+          switchAutoFollow?: boolean;
           trades: {
             sell: string;
             buy: string;

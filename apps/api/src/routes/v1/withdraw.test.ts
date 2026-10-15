@@ -282,8 +282,13 @@ describe.each(CHAINS)('POST /v1/orders, a withdrawal on %s', (chain) => {
     const { adapter, mock } = registry.get(chain);
     await mock?.send(await adapter.buildSetAutoFollow({ vault: vault.address, on: true }));
     const order = OrderDetail.parse((await withdraw(a, vault.address)).json());
-    expect(order.legs[0]?.kind).toBe('set_auto_follow');
-    expect(order.legs.slice(1).every((l) => l.kind === 'withdraw')).toBe(true);
+    // On EVM the switch rides in the withdrawal, before it (gate EVM-MULTICALL-STEPS).
+    if (adapter.capabilities.ownerCallsInOne)
+      expect(order.legs.map((l) => [l.kind, l.switchAutoFollow])).toEqual([['withdraw', false]]);
+    else {
+      expect(order.legs[0]?.kind).toBe('set_auto_follow');
+      expect(order.legs.slice(1).every((l) => l.kind === 'withdraw')).toBe(true);
+    }
     expect(order.warnings).toEqual([]);
     const done = await settleAll(a, order);
     expect(done.status).toBe('done');

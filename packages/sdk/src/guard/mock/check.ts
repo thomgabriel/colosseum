@@ -54,11 +54,11 @@ const FIELDS: Record<string, readonly string[]> = {
     'slippageBps',
   ],
   deposit: ['vault', 'amountRaw', 'trades', 'slippageBps'],
-  swap: ['vault', 'trades', 'slippageBps'],
-  set_targets: ['vault', 'targets'],
-  accept_version: ['vault', 'recipeOnchainId', 'expectedVersion'],
+  swap: ['vault', 'trades', 'slippageBps', 'switchAutoFollow'],
+  set_targets: ['vault', 'targets', 'trades', 'slippageBps'],
+  accept_version: ['vault', 'recipeOnchainId', 'expectedVersion', 'switchAutoFollow'],
   set_auto_follow: ['vault', 'on'],
-  withdraw: ['vault', 'assets', 'amounts'],
+  withdraw: ['vault', 'assets', 'amounts', 'switchAutoFollow'],
   publish: ['creator', 'recipe'],
 };
 
@@ -197,6 +197,13 @@ export function checkMock(ctx: Context, deployment: MockDeployment): void {
       );
     });
   };
+  /** The auto-follow switch the operation makes beside the step: the step's, or none. */
+  const switchIs = (want: boolean | undefined) =>
+    need(
+      'auto_follow',
+      (a.switchAutoFollow ?? undefined) === want,
+      `the bytes switch auto-follow ${String(a.switchAutoFollow ?? 'not at all')}, and the step ${String(want ?? 'not at all')}`,
+    );
   const vaultIs = () =>
     need(
       'vault',
@@ -251,10 +258,12 @@ export function checkMock(ctx: Context, deployment: MockDeployment): void {
     case 'swap':
       vaultIs();
       tradesAre(a.trades, tradesOf(step));
+      switchIs(step.switchAutoFollow);
       break;
     case 'set_targets':
       vaultIs();
       targetsAre(a.targets, step.targets);
+      tradesAre(a.trades, tradesOf(step));
       break;
     case 'accept_version':
       vaultIs();
@@ -264,6 +273,7 @@ export function checkMock(ctx: Context, deployment: MockDeployment): void {
           a.expectedVersion === step.follow.version,
         'the bytes accept another shared portfolio, or another version of it',
       );
+      switchIs(step.switchAutoFollow);
       break;
     case 'set_auto_follow':
       vaultIs();
@@ -313,6 +323,7 @@ export function checkMock(ctx: Context, deployment: MockDeployment): void {
     }
     case 'withdraw': {
       vaultIs();
+      switchIs(step.switchAutoFollow);
       // The mock pays only the vault's owner. A token leaves in full unless the bytes name an amount.
       const assets = Array.isArray(a.assets) ? a.assets : [];
       const amounts = isFields(a.amounts) ? a.amounts : {};
