@@ -29,6 +29,31 @@ export const VAULT_MAX_TARGETS = 16;
  */
 export const VAULT_MAX_LINES = { solana: 16, evm: 24 } as const;
 
+/**
+ * What a follow sells for cash before its accept (gate SHARED-RULES-V2): nothing while the version's
+ * assets and the vault's lines it drops that still hold something fit `lines`; past that, every such
+ * line, all the vault holds of it. Only lines count: the accept keeps a dropped line while it holds
+ * something, and keeps no line for a token held with none (`untargeted`). The API plans the sales with
+ * this, and the app works them out with it from its own reads, so a sale the server adds is refused.
+ */
+export function leftoversOf(
+  vault: {
+    cash: { asset: string };
+    positions: readonly { asset: string; raw: string; untargeted?: true }[];
+  },
+  version: readonly string[],
+  lines: number,
+): { asset: string; amountRaw: string }[] {
+  const kept = new Set(version);
+  const dropped = vault.positions.filter(
+    (p) =>
+      !p.untargeted && BigInt(p.raw) > 0n && !kept.has(p.asset) && p.asset !== vault.cash.asset,
+  );
+  return kept.size + dropped.length <= lines
+    ? []
+    : dropped.map((p) => ({ asset: p.asset, amountRaw: p.raw }));
+}
+
 /** What a vault stores: one asset and its weight. A weight of nothing is not a target. */
 export const Target = z.object({ asset: AssetId, weightBps: Weight });
 export type Target = z.infer<typeof Target>;

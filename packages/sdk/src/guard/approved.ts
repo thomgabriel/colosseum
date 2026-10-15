@@ -99,17 +99,20 @@ function heldToRebalance(
 
 /**
  * A follow of a vault the person has (an order with an accept) swaps only to sell what the vault holds
- * of the assets the version drops, as its review named them: each for the cash token, each once, all
- * of the amount shown, with a minimum above zero, and before the accept.
+ * of the assets the version drops, as the caller read them: each for the cash token, each once, never
+ * an asset the version keeps, all of the amount read, with a minimum at most `MAX_SLIPPAGE_BPS` under
+ * its quote, and before the accept.
  */
 function heldToLeftovers(legs: Leg[], plan: PlanTerms, cash: string): void {
   const accept = legs.find((l) => l.kind === 'accept_version');
   if (!accept) return;
   const swaps = legs.filter((l) => l.kind === 'swap');
   if (!swaps.length) return;
-  const reviewed = new Map((plan.leftovers ?? []).map((s) => [s.asset, s.amountRaw]));
+  const reviewed = new Map((plan.leftovers?.sales ?? []).map((s) => [s.asset, s.amountRaw]));
   if (!reviewed.size)
     throw refuse('a follow trades only to sell what the version drops, and no sale was reviewed');
+  const keeps = new Set(plan.leftovers?.keeps ?? []);
+  if (!keeps.size) throw refuse('a follow that sells names the assets its version keeps');
   const sold = new Set<string>();
   for (const leg of swaps) {
     if (leg.seq > accept.seq)
@@ -122,6 +125,8 @@ function heldToLeftovers(legs: Leg[], plan: PlanTerms, cash: string): void {
           `a follow sells what the version drops for the cash token: this step trades ${t.sell} for ${t.buy}`,
           leg.id,
         );
+      if (keeps.has(t.sell))
+        throw refuse(`the version keeps ${t.sell}, and this step sells it`, leg.id);
       if (sold.has(t.sell)) throw refuse(`${t.sell} is sold twice`, leg.id);
       if (reviewed.get(t.sell) !== t.amountInRaw)
         throw refuse(
@@ -131,6 +136,13 @@ function heldToLeftovers(legs: Leg[], plan: PlanTerms, cash: string): void {
       const least = leg.expected[i]?.minOutRaw;
       if (!least || !isRawAmount(least) || BigInt(least) === 0n)
         throw refuse('a sale states no minimum', leg.id);
+      // The minimum is the person's slippage under the quote the review showed, never a token one.
+      const quoted = leg.expected[i]?.outRaw;
+      if (!quoted || !isRawAmount(quoted) || BigInt(quoted) > quoteCeiling(BigInt(least)))
+        throw refuse(
+          `a sale's minimum, ${least}, is further under its quote, ${quoted ?? 'none'}, than any slippage an order may have`,
+          leg.id,
+        );
       sold.add(t.sell);
     }
   }

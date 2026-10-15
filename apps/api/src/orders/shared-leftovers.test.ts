@@ -34,9 +34,6 @@ const position = (asset: string, raw = '1000000'): VaultPosition => ({
   display: '1',
   targetBps: 0,
   lastKeeperAt: null,
-  valueUsd: '1',
-  weightBps: 0,
-  driftBps: 0,
 });
 /** `n` assets of a version, by made-up ids: a version's assets are never quoted. */
 const version = (chain: ChainId, n: number) =>
@@ -100,8 +97,8 @@ describe('the sales a follow makes before its accept', () => {
     ).catch((e: unknown) => e);
     expect(refusal).toBeInstanceOf(Refusal);
     expect((refusal as Refusal).status).toBe(409);
-    expect((refusal as Refusal).message).toMatch(
-      /17 lines, more than the vault's 16, and solana:gone cannot be sold now.*Sell or withdraw it, then follow/,
+    expect((refusal as Refusal).message).toBe(
+      "Your vault still holds solana:gone, which this version drops, and solana:gone can't be sold now. Sell or withdraw it, then follow.",
     );
     vi.spyOn(solana.adapter, 'quote').mockRejectedValue(
       new ChainError('MarketClosed', 'the market is closed'),
@@ -114,6 +111,19 @@ describe('the sales a follow makes before its accept', () => {
       ),
       version('solana', 12),
     ).catch((e: unknown) => e);
-    expect((closed as Refusal).message).toMatch(/cannot be sold now: the market is closed/);
+    // The adapter's own words stay out of the sentence.
+    expect((closed as Refusal).message).toMatch(
+      /can't be sold now\. Sell or withdraw it, then follow\.$/,
+    );
+    expect((closed as Refusal).message).not.toMatch(/market is closed|lines/);
+  });
+
+  it("counts the vault's lines only: a token held with no line is neither counted nor sold", async () => {
+    const robinhood = entryOn('robinhood');
+    // Sixteen in the version, eight dropped lines still held: 24, room for all.
+    const eight = [...LISTED, 'x1', 'x2', 'x3'].map((s) => `robinhood:${s}`);
+    const vault = vaultOf('robinhood', eight);
+    vault.positions.push({ ...position('robinhood:stray'), untargeted: true });
+    expect(await leftoverSales(robinhood, vault, version('robinhood', 16))).toEqual([]);
   });
 });

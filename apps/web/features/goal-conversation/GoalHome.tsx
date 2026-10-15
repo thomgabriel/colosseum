@@ -3,8 +3,8 @@ import { PortfolioSummary } from '../portfolio/PortfolioSummary';
 import { usePortfolio } from '../portfolio/use-portfolio';
 import { GoalEntry } from './GoalEntry';
 
-// The goal page reads the person's vaults once, for the conversation selector and
-// for the vault summary under it (one request, not one per part).
+// The goal page reads the person's vaults once, for the conversations panel and for the vault summary
+// under it; the panel also reads them as the portfolio overview does, to name them by their goals.
 export function GoalHome() {
   const { state } = usePortfolio();
   return (

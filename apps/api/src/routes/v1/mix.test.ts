@@ -909,10 +909,12 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
     expect(trades.every((t) => t.sell === 'solana:usdc')).toBe(true);
     const spent = Object.fromEntries(trades.map((t) => [t.buy, Number(t.amountInRaw) / 1e6]));
     expect(Object.keys(spent).every((id) => FOLLOWED.some((t) => t.asset === id))).toBe(true);
-    // Gold from nothing to 20% of the vault and the second asset from 25% to 30%, less the slippage
-    // the order counts on.
+    // Gold from nothing to 20% of the vault and the second asset from 25% to 30%: each purchase sized
+    // so that what it buys, once it loses the order's slippage, stops at its target. So the cash spent
+    // may pass 20% by that slippage; the step's guard judges the purchase the same way (`pastTarget`,
+    // tested against the planner in orders/rebalance-guard.test.ts).
     expect(spent['solana:gold']).toBeGreaterThan(before.total * 0.19);
-    expect(spent['solana:gold']).toBeLessThanOrEqual(before.total * 0.2);
+    expect((spent['solana:gold'] ?? 0) * 0.99).toBeLessThanOrEqual(before.total * 0.2);
     expect(spent['solana:spy']).toBeGreaterThan(before.total * 0.04);
     expect(spent['solana:spy']).toBeLessThanOrEqual(before.total * 0.055);
     // Every trade states the least it may give.
@@ -942,6 +944,7 @@ describe('POST /v1/vaults/{chain}/{address}/rebalance', () => {
     expect(Math.abs((after.bps['solana:yield'] ?? 0) - 5000)).toBeLessThan(100);
     expect(Math.abs((after.bps['solana:spy'] ?? 0) - 3000)).toBeLessThan(100);
     expect(Math.abs((after.bps['solana:gold'] ?? 0) - 2000)).toBeLessThan(100);
+    // the cash the targets do not keep is spent, not held back for a second cost (Vault #4, Oct 14)
     expect(after.bps['solana:usdc']).toBeLessThan(150);
     const vault = await s.read();
     expect(vault.recipeOnchainId).toBe(s.recipeId);

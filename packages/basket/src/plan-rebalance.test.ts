@@ -165,6 +165,31 @@ describe('planRebalance', () => {
     expect(BigInt(exact[1]?.amountInRaw ?? 0) > 499_999_990n).toBe(true);
   });
 
+  it('spends what the sales bring on a change to one asset, keeping no second cost back', () => {
+    // Vault #4 on devnet (Oct 14): SPY $8,000, NVDA $1,000, gold $1,000, changed to all SPY with the
+    // owner's 1%. The sales count on $1,980; the purchase spends all of it. Counting its own cost a
+    // second time against the vault, the purchase spent $1,960 and $39 stayed in cash.
+    const v = vault('0', {
+      'solana:spy': ['8000000000', 8000],
+      'solana:nvda': ['2000000000', 1000],
+      'solana:gold': ['5000000000', 1000],
+    });
+    const plan = planRebalance(
+      v,
+      targets({ spy: 10_000 }),
+      PRICES,
+      { ...POLICY, costBps: 100 },
+      ASSETS,
+    );
+    expect(plan.map((t) => [t.sell, t.buy])).toEqual([
+      ['solana:gold', CASH],
+      ['solana:nvda', CASH],
+      [CASH, 'solana:spy'],
+    ]);
+    // both sold whole: $2,000 at 1% brings at least $1,980, and the purchase is that, less units
+    expect(justUnder(plan[2]?.amountInRaw, 1_980_000_000n, 20n)).toBe(true);
+  });
+
   it('leaves out an asset with no price, says so, and plans the rest', () => {
     // SPY and NVDA are targets; NVDA has no price and none is held: its half stays in cash.
     const v = vault('1000000000', { 'solana:spy': ['100000000', 5000] });
