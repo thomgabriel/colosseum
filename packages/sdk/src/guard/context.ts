@@ -25,6 +25,7 @@ export const isRawAmount = (v: unknown): v is string =>
 
 /** The trades a step makes, in order. Empty for a step that trades nothing. */
 export function tradesOf(step: ApprovedStep): ApprovedTrade[] {
+  if (step.kind === 'set_targets') return step.trades ?? [];
   return step.kind === 'create_vault' || step.kind === 'deposit' || step.kind === 'swap'
     ? step.trades
     : [];

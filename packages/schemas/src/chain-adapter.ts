@@ -22,12 +22,18 @@ import {
 export const Capabilities = z.object({
   trade: z.enum(['live', 'readonly', 'mock']),
   autoFollow: z.boolean(),
-  /** 1 on Solana, 8 on EVM. */
+  /** 1 on Solana, 10 on EVM: what a transaction was measured to take under the guard's gas. */
   maxTradesPerTx: z.number().int().min(1),
   /** False on Solana, true on EVM. */
   tradesInCreate: z.boolean(),
   /** False on Solana, true on EVM. */
   needsApprove: z.boolean(),
+  /**
+   * True on EVM: the vault takes several of its owner's calls in one transaction (`multicall`), so one
+   * step may switch auto-follow beside what it does, and set targets and trade at once (gate
+   * `EVM-MULTICALL-STEPS`). False on Solana, where each of those is its own step.
+   */
+  ownerCallsInOne: z.boolean(),
 });
 export type Capabilities = z.infer<typeof Capabilities>;
 
@@ -53,6 +59,14 @@ export type FundingNeed = z.infer<typeof FundingNeed>;
  * them can land. A chain with no nonce refuses it with `NotSupported`.
  */
 const RebuildNonce = z.number().int().nonnegative().optional();
+
+/**
+ * Where `Capabilities.ownerCallsInOne`: the step also switches the vault's auto-follow, in the same
+ * transaction. Off goes before the step's own call, so the keeper is stopped before anything moves; on
+ * goes after it, once the vault follows what the step makes it follow. A chain without it refuses it
+ * with `NotSupported`.
+ */
+const SwitchAutoFollow = z.boolean().optional();
 
 /**
  * An approval of the chain's cash token, for one plan. The caller names the plan and the amount, never
@@ -143,17 +157,36 @@ export const OwnerSwapArgs = z.object({
   trades: z.array(Trade).min(1),
   slippageBps: Bps,
   minimums: StatedMinimums,
+  /** Off only: auto-follow is switched off before the trades, never on. */
+  switchAutoFollow: z.literal(false).optional(),
   nonce: RebuildNonce,
 });
 export type OwnerSwapArgs = z.infer<typeof OwnerSwapArgs>;
 
-export const SetTargetsArgs = z.object({ vault: Address, targets: Targets, nonce: RebuildNonce });
+/**
+ * The vault's own targets. Where `Capabilities.ownerCallsInOne`, the trades toward them can ride in the
+ * same transaction, after the targets are set; a chain without it refuses trades here.
+ */
+export const SetTargetsArgs = z
+  .object({
+    vault: Address,
+    targets: Targets,
+    trades: z.array(Trade).optional(),
+    slippageBps: Bps.optional(),
+    minimums: StatedMinimums,
+    nonce: RebuildNonce,
+  })
+  .refine((a) => !a.trades?.length || a.slippageBps !== undefined, {
+    message: 'trades are built with a slippage',
+    path: ['slippageBps'],
+  });
 export type SetTargetsArgs = z.infer<typeof SetTargetsArgs>;
 
 export const AcceptVersionArgs = z.object({
   vault: Address,
   recipeOnchainId: z.string().min(1),
   expectedVersion: z.number().int().min(1),
+  switchAutoFollow: SwitchAutoFollow,
   nonce: RebuildNonce,
 });
 export type AcceptVersionArgs = z.infer<typeof AcceptVersionArgs>;
@@ -175,6 +208,8 @@ export const WithdrawInKindArgs = z
      * no amount leaves in full. More than the vault holds is refused, and nothing is built.
      */
     amounts: z.record(AssetId, RawAmount).optional(),
+    /** Off only: auto-follow is switched off before anything leaves, never on. */
+    switchAutoFollow: z.literal(false).optional(),
     nonce: RebuildNonce,
   })
   .refine((a) => Object.keys(a.amounts ?? {}).every((id) => a.assets?.includes(id)), {

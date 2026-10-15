@@ -47,6 +47,8 @@ describe('the committed file of more tokens', () => {
 
   it('holds every token to the bar the nine met: a pool that fills $1,000, a largest trade and a feed', () => {
     for (const a of file.assets) {
+      // One route: a v4 pool the app trades in today, or a v3 pool for when it builds that route.
+      expect((a.pool === undefined) !== (a.v3Pool === undefined), a.symbol).toBe(true);
       expect(a.maxTradeUsd, a.symbol).toBeGreaterThanOrEqual(1_000);
       expect(a.source, a.symbol).toBe(1);
       expect(a.feedDecimals, a.symbol).toBe(8);
@@ -60,10 +62,17 @@ describe('the committed file of more tokens', () => {
 });
 
 describe('the batch', () => {
-  it('is one setAsset on the factory per token, with the file’s settings, in the file’s order', () => {
-    expect(batch.targets).toEqual(file.assets.map(() => file.factory));
+  it('is one setAsset on the factory per token, with the file’s settings, in the file’s order, then the file’s calls', () => {
+    const calls = file.calls ?? [];
+    expect(batch.targets).toEqual([
+      ...file.assets.map(() => file.factory),
+      ...calls.map((c) => c.target),
+    ]);
+    expect(batch.payloads.slice(file.assets.length)).toEqual(
+      calls.map((c) => c.data.toLowerCase()),
+    );
     expect(batch.values.every((v) => v === 0n)).toBe(true);
-    batch.payloads.forEach((payload, i) => {
+    batch.payloads.slice(0, file.assets.length).forEach((payload, i) => {
       const call = decodeFunctionData({ abi: VAULT_FACTORY_ABI, data: payload });
       expect(call.functionName).toBe('setAsset');
       const [token, config] = call.args as unknown as [string, Record<string, unknown>];
@@ -150,5 +159,20 @@ describe("the record's pending tokens", () => {
     expect(listedAsFiled(file, { operationDone: true, configs })).toEqual([first.token]);
     configs[second.token] = answer(second, { maxWeightBps: second.maxWeightBps + 50 });
     expect(() => listedAsFiled(file, { operationDone: true, configs })).toThrow(/other settings/);
+  });
+});
+
+describe('a token routed through v3', () => {
+  it('is pending with no v4 pool, so nothing trades or shows it until the app builds that route', () => {
+    const v3 = file.assets.filter((a) => a.v3Pool !== undefined);
+    expect(v3.length).toBeGreaterThan(0);
+    for (const a of v3) {
+      const entry = recordEntryOf(a, batch.operationId);
+      expect(entry.pool, a.symbol).toBeNull();
+      expect(entry.v3Pool, a.symbol).toEqual(a.v3Pool);
+    }
+    const both = structuredClone(JSON.parse(text));
+    both.assets[0].v3Pool = { pool: both.assets[0].token, fee: 500 };
+    expect(AddAssetsFile.safeParse(both).success).toBe(false);
   });
 });

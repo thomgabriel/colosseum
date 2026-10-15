@@ -97,8 +97,14 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
       readFileSync(join(ROOT, 'packages', 'sdk', 'deployments', 'mainnet.json'), 'utf8'),
     ) as GuardFile
   ).chains.robinhood;
+  // The deploy file the committed record was made from: the redeploy's (its Safe holds the keys
+  // itself) once Thom has run it, the file of 2026-10-12 (its timelock) until then.
+  const recordNow = JSON.parse(
+    readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8'),
+  ) as { safe?: unknown };
+  const deployFile = recordNow.safe ? '4663.json' : '4663-2026-10-12.json';
   const contracts = JSON.parse(
-    readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8'),
+    readFileSync(join(ROOT, 'contracts', 'script', 'config', deployFile), 'utf8'),
   ) as ContractsFile;
   const lower = (s: string) => s.toLowerCase();
 
@@ -229,7 +235,7 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     // Every value of the contracts' file was confirmed by a person on 2026-10-12: the marker word the
     // deploy script refuses on is gone, and every note that stood beside a proposed value says who
     // confirmed it and when.
-    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8');
+    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', deployFile), 'utf8');
     expect(text).not.toContain('TODO');
     const file = JSON.parse(text) as Record<string, unknown> & {
       assets: Record<string, unknown>[];
@@ -240,12 +246,15 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
           /Note$|^note$/.test(k) &&
           typeof v === 'string' &&
           k !== 'ownerNote' &&
-          k !== 'guardianNote',
+          k !== 'guardianNote' &&
+          // Why a token is listed and not shown: a decision's words, not a value's confirmation.
+          k !== 'hiddenNote',
       ),
     );
     expect(notes.length).toBeGreaterThan(40);
+    // The deploy of 2026-10-12's values, and the redeploy's 17 tokens confirmed on 2026-10-15.
     for (const [key, note] of notes)
-      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-12/);
+      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-1[25]/);
     // A ceiling for every token, none at zero.
     for (const a of file.assets.slice(1)) expect(a.maxWeightBps).toBeGreaterThan(0);
   });

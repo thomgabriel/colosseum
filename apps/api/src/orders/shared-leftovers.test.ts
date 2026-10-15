@@ -8,7 +8,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import type { ChainEntry } from './chains';
 import { Refusal } from './errors';
-import { leftoverSales } from './shared';
+import { leftoverSales, rideSwitch, type SharedStep } from './shared';
 
 // A follow whose version and what the vault still holds of the assets it drops come to more than the
 // vault's lines sells those leftovers first, before the accept (gate SHARED-RULES-V2): 16 lines on
@@ -125,5 +125,43 @@ describe('the sales a follow makes before its accept', () => {
     const vault = vaultOf('robinhood', eight);
     vault.positions.push({ ...position('robinhood:stray'), untargeted: true });
     expect(await leftoverSales(robinhood, vault, version('robinhood', 16))).toEqual([]);
+  });
+});
+
+describe('a follow with leftovers to sell, where the switch rides beside the version (EVM-MULTICALL-STEPS)', () => {
+  const step = (kind: SharedStep['kind'], description: string = kind): SharedStep => ({
+    chain: 'robinhood',
+    kind,
+    description,
+  });
+  const accept = (description: string) => step('accept_version', description);
+  const said = { on: 'on after', off: 'off before' };
+  const shape = (steps: SharedStep[]) => steps.map((s) => [s.kind, s.switchAutoFollow]);
+
+  it('on goes after the version, in its step, after the sales', () => {
+    const steps = [step('swap'), step('swap'), step('accept_version'), step('set_auto_follow')];
+    rideSwitch(steps, true, accept, said);
+    expect(shape(steps)).toEqual([
+      ['swap', undefined],
+      ['swap', undefined],
+      ['accept_version', true],
+    ]);
+  });
+
+  it('off stays first, on its own, when sales come between it and the version', () => {
+    const steps = [step('set_auto_follow'), step('swap'), step('accept_version')];
+    rideSwitch(steps, false, accept, said);
+    expect(shape(steps)).toEqual([
+      ['set_auto_follow', undefined],
+      ['swap', undefined],
+      ['accept_version', undefined],
+    ]);
+  });
+
+  it('off rides in the version where nothing is sold first', () => {
+    const steps = [step('set_auto_follow'), step('accept_version')];
+    rideSwitch(steps, false, accept, said);
+    expect(shape(steps)).toEqual([['accept_version', false]]);
+    expect(steps[0]?.description).toBe('off before');
   });
 });

@@ -197,6 +197,22 @@ export function approvedSteps(
   }
   if (plan.publish && legs.length !== 1)
     throw refuse('the order publishes one shared portfolio, in one step');
+  // A switch of auto-follow that rides beside a step (gate EVM-MULTICALL-STEPS) is the way the review
+  // said, and only where it can go: off before a swap or a withdrawal that opens the order, so the
+  // keeper is stopped before anything moves; off or on beside the version a follow takes.
+  for (const [i, leg] of legs.entries()) {
+    const to = leg.switchAutoFollow;
+    if (to === undefined) continue;
+    if (leg.kind !== 'accept_version' && leg.kind !== 'swap' && leg.kind !== 'withdraw')
+      throw refuse(`a ${leg.kind} step switches no auto-follow beside it`, leg.id);
+    if (plan.autoFollow !== to)
+      throw refuse(
+        `the step switches auto-follow ${to ? 'on' : 'off'}, and the review said ${plan.autoFollow === undefined ? 'nothing of it' : plan.autoFollow ? 'on' : 'off'}`,
+        leg.id,
+      );
+    if (leg.kind !== 'accept_version' && (to || i !== 0))
+      throw refuse('auto-follow is switched off before anything moves, in the first step', leg.id);
+  }
   if (plan.rebalance) heldToRebalance(order, legs, plan, deployment.cash);
   heldToLeftovers(legs, plan, deployment.cash);
 
@@ -284,6 +300,7 @@ export function approvedSteps(
     for (const [i, leg] of legs.entries()) {
       if (leg === last) continue;
       if (leg.kind === 'set_auto_follow' && i === 0 && plan.autoFollow === false) continue;
+      // The switch off may ride in the first sale instead (gate EVM-MULTICALL-STEPS): checked above.
       if (leg.kind !== 'swap' || !leg.trades.length)
         throw refuse(
           `a withdrawal in dollars sells holdings for cash and withdraws the cash: a ${leg.kind} step is neither`,
@@ -364,14 +381,24 @@ export function approvedSteps(
       case 'deposit':
         return { ...base, kind: 'deposit', amountRaw: funded(leg), trades: tradesOf(leg) };
       case 'swap':
-        return { ...base, kind: 'swap', trades: tradesOf(leg) };
+        return {
+          ...base,
+          kind: 'swap',
+          trades: tradesOf(leg),
+          ...(leg.switchAutoFollow === false ? { switchAutoFollow: false as const } : {}),
+        };
       case 'set_targets':
         if (!plan.targets?.length)
           throw refuse('the step sets targets, and none were given', leg.id);
-        return { ...base, kind: 'set_targets', targets: plan.targets };
+        return { ...base, kind: 'set_targets', targets: plan.targets, trades: tradesOf(leg) };
       case 'accept_version':
         if (!plan.follow) throw refuse('the step accepts a version, and none was given', leg.id);
-        return { ...base, kind: 'accept_version', follow: plan.follow };
+        return {
+          ...base,
+          kind: 'accept_version',
+          follow: plan.follow,
+          ...(leg.switchAutoFollow === undefined ? {} : { switchAutoFollow: leg.switchAutoFollow }),
+        };
       case 'set_auto_follow':
         if (plan.autoFollow === undefined)
           throw refuse('the step switches auto-follow, and nothing says which way', leg.id);
@@ -382,6 +409,7 @@ export function approvedSteps(
           kind: 'withdraw',
           withdrawals: withdrawalsOf(leg),
           ...(plan.held ? { held: plan.held } : {}),
+          ...(leg.switchAutoFollow === false ? { switchAutoFollow: false as const } : {}),
         };
       case 'publish':
         if (!plan.publish)

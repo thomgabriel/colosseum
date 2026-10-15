@@ -39,7 +39,7 @@ There is no call that stops a withdrawal.
 
 ## Known limits: no fast stop for a fault in the vault itself, and a fix takes 48 hours
 
-If the vault's own code is what is wrong, nothing stops it quickly. The guardian can stop the keeper and new deposits; it cannot stop an owner's swap, and it cannot change code. The only fix is an upgrade, and an upgrade waits the timelock's 48 hours like everything else.
+If the vault's own code is what is wrong, nothing stops it quickly. The guardian can stop the keeper and new deposits; it cannot stop an owner's swap, and it cannot change code. The only fix is an upgrade, and an upgrade waits the timelock's 48 hours like everything else. On the redeployed contracts (gate `ROBINHOOD-REDEPLOY`) there is no timelock: the Safe upgrades as soon as both owners sign.
 
 Both are limits the product owner accepted (Thom, 2026-10-10). No deposit cap stands beside them: what a vault holds while a fault is open is whatever its owner put in.
 
@@ -61,7 +61,7 @@ What an owner can always do in that time: `withdraw(token, amount)` for each tok
 
 ## Lifting a stop
 
-Only the Safe, through the timelock: `unpauseKeeper()`, `unpauseDeposits()`, `setHalt(token, 0)`, `setClosedUntil(0)`. Schedule them only after the cause is understood and written down, since each takes 48 hours either way.
+Only the Safe, through the timelock: `unpauseKeeper()`, `unpauseDeposits()`, `setHalt(token, 0)`, `setClosedUntil(0)`. Schedule them only after the cause is understood and written down, since each takes 48 hours either way. On the redeployed contracts (gate `ROBINHOOD-REDEPLOY`) the Safe calls them directly and they take effect at once, so the same rule holds with no wait to lean on.
 
 ## Afterwards
 
