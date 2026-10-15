@@ -261,6 +261,8 @@ export type WithdrawStep = {
   trades?: Trade[];
   /** One figure per sale, from a quote taken as the order is planned: its minimum is the order's. */
   expected?: Leg['expected'];
+  /** Auto-follow switched off before the step's own call, in its transaction (`Leg.switchAutoFollow`). */
+  switchAutoFollow?: false;
 };
 
 export type WithdrawPlan = {
@@ -281,6 +283,29 @@ export const shareOf = (raw: bigint, shareBps: number) =>
 
 const AUTO_FOLLOW_OFF =
   'Switch auto-follow off: automatic following stops for this vault, so the keeper does not trade it while you withdraw or afterwards';
+
+/**
+ * The steps of a withdrawal with its switch of auto-follow off. Where the vault takes several of the
+ * owner's calls in one transaction, the switch rides in the first step that moves anything, before its
+ * own calls (gate EVM-MULTICALL-STEPS); elsewhere it is a step of its own, first. It never rides in a
+ * withdrawal of one token, which a token that cannot move skips (`SkippedStep`): the switch would be
+ * skipped with it.
+ */
+function offFirst(entry: ChainEntry, autoFollow: boolean, steps: WithdrawStep[]): WithdrawStep[] {
+  if (!autoFollow) return steps;
+  const [first, ...rest] = steps;
+  const skippable = first?.kind === 'withdraw' && first.withdrawals?.length === 1;
+  if (first && entry.adapter.capabilities.ownerCallsInOne && !skippable)
+    return [
+      {
+        ...first,
+        switchAutoFollow: false,
+        description: `Switch auto-follow off, so the keeper does not trade this vault while you withdraw or afterwards, then: ${first.description.charAt(0).toLowerCase()}${first.description.slice(1)}`,
+      },
+      ...rest,
+    ];
+  return [{ chain: entry.chain, kind: 'set_auto_follow', description: AUTO_FOLLOW_OFF }, ...steps];
+}
 
 /**
  * A withdrawal in dollars, planned and not built: the share of each holding sold for the cash token,
@@ -400,10 +425,7 @@ async function planDollars(
     },
   };
   const part = shareBps >= 10_000 ? 'all' : `${(shareBps / 100).toLocaleString('en-US')}%`;
-  const steps: WithdrawStep[] = [
-    ...(vault.autoFollow
-      ? [{ chain: entry.chain, kind: 'set_auto_follow' as const, description: AUTO_FOLLOW_OFF }]
-      : []),
+  const steps = offFirst(entry, vault.autoFollow, [
     ...batchTrades(
       sales.map((x) => x.trade),
       entry.adapter.capabilities.maxTradesPerTx,
@@ -424,7 +446,7 @@ async function planDollars(
       description: `Withdraw ${part} of the ${cash.symbol} in your vault to your own wallet, ${vault.owner}: at least ${name(cash.id, least)}`,
       withdrawals: [out],
     },
-  ];
+  ]);
   return { entry, owner: vault.owner, vault: vault.address, steps, warnings };
 }
 
@@ -460,20 +482,15 @@ export async function planWithdraw(req: WithdrawRequest, ctx: Context): Promise<
     description: `Withdraw ${withdrawals.map(what).join(', ')} from your vault to your own wallet, ${vault.owner}`,
     withdrawals,
   });
-  const off: WithdrawStep[] = vault.autoFollow
-    ? [
-        {
-          chain: entry.chain,
-          kind: 'set_auto_follow',
-          description: AUTO_FOLLOW_OFF,
-        },
-      ]
-    : [];
   return {
     entry,
     owner: vault.owner,
     vault: vault.address,
-    steps: [...off, ...(family === 'solana' ? all.map((w) => [w]).map(step) : [step(all)])],
+    steps: offFirst(
+      entry,
+      vault.autoFollow,
+      family === 'solana' ? all.map((w) => [w]).map(step) : [step(all)],
+    ),
     warnings: [],
   };
 }
@@ -505,6 +522,8 @@ export async function buildWithdraw(
     });
   const again = { fix: 'Make the withdrawal again.', details: { retryable: false } };
   const at = nonce === undefined ? {} : { nonce };
+  // The switch off the order planned beside the step, as it planned it (gate EVM-MULTICALL-STEPS).
+  const off = leg.switchAutoFollow === false ? { switchAutoFollow: false as const } : {};
   // A sale of a withdrawal in dollars: the vault's own holding into its cash token, at the minimum
   // the order stated and never another. No other trade is a step of a withdrawal.
   if (leg.kind === 'swap') {
@@ -522,6 +541,7 @@ export async function buildWithdraw(
       trades: leg.trades,
       slippageBps: request.maxSlippageBps ?? ORDER_POLICY.slippageBps,
       minimums: leg.expected.map((e) => e.minOutRaw),
+      ...off,
       ...at,
     });
   }
@@ -589,13 +609,17 @@ export async function buildWithdraw(
       vault: vault.address,
       assets: [w.asset],
       amounts: { [w.asset]: amount.toString() },
+      ...off,
       ...at,
     });
     if (!tx || rest.length)
       throw new Refusal(409, 'this step cannot be built as one transaction now', again);
     return tx;
   }
-  for (const w of leg.withdrawals) {
+  // Everything, on a chain that takes it in one call: the vault's own sweep takes what is there. With
+  // the switch off riding in it, a token gone since the order was made does not hold the switch up.
+  const everything = !request.withdrawals && entry.config.family === 'evm';
+  for (const w of everything && leg.switchAutoFollow === false ? [] : leg.withdrawals) {
     const has = holdings.get(w.asset) ?? 0n;
     if (has === 0n)
       throw new Refusal(409, `the vault holds no ${w.asset} any more: nothing was built`, again);
@@ -608,7 +632,6 @@ export async function buildWithdraw(
   }
   // Everything, on a chain that takes it in one call: the vault's own sweep, which one frozen token
   // cannot hold up. Otherwise the tokens the step names.
-  const everything = !request.withdrawals && entry.config.family === 'evm';
   const amounts = leg.withdrawals.flatMap((w) =>
     w.amountRaw === null ? [] : [[w.asset, w.amountRaw] as const],
   );
@@ -619,12 +642,19 @@ export async function buildWithdraw(
       ...(everything ? {} : { assets: leg.withdrawals.map((w) => w.asset) }),
       // Some of a token where the step names an amount; the adapter refuses more than is there.
       ...(amounts.length ? { amounts: Object.fromEntries(amounts) } : {}),
-      ...(nonce === undefined ? {} : { nonce }),
+      ...off,
+      ...at,
     });
   } catch (e) {
     // A step of one token that cannot move is skipped, and says why. A step of several is refused as a
-    // whole, and any other refusal is the step's own, to be built again.
-    if (e instanceof ChainError && leg.withdrawals.length === 1 && A_SKIP.has(e.code))
+    // whole, and any other refusal is the step's own, to be built again. A step that also switches
+    // auto-follow off is never skipped: the switch would go with it.
+    if (
+      e instanceof ChainError &&
+      leg.withdrawals.length === 1 &&
+      leg.switchAutoFollow === undefined &&
+      A_SKIP.has(e.code)
+    )
       throw new SkippedStep(e.code, e.message);
     throw e;
   }

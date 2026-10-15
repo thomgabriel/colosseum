@@ -41,6 +41,16 @@ import {
 import { dayOf, marketAt } from './market';
 import { type AverageRefusal, readPoolAverageFeed } from './pool-average';
 import { ask, type EvmRpc, isRevert } from './rpc';
+
+/**
+ * The most trades one transaction makes (`Capabilities.maxTradesPerTx`), measured and not extrapolated
+ * (gate `EVM-MULTICALL-STEPS`): on a copy of 46630 on 2026-10-14 a deposit and ten purchases stated
+ * 2,975,009 gas, auto-follow off and ten sales 2,434,918, and new targets with ten trades 2,298,076,
+ * all well under the guard's 5 million. A vault of more assets than this makes its other trades in a
+ * step of their own.
+ */
+export const MAX_TRADES = 10;
+
 import { unlistedAssetId, unlistedToken } from './unlisted';
 
 // The read side of the EVM adapter (DESIGN-VAULT 3.2, ADE-1): one codebase for every EVM chain, with
@@ -288,9 +298,10 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
   const capabilities: Capabilities = {
     trade: options.trade ?? 'readonly',
     autoFollow: options.autoFollow ?? false,
-    maxTradesPerTx: 8,
+    maxTradesPerTx: MAX_TRADES,
     tradesInCreate: true,
     needsApprove: true,
+    ownerCallsInOne: true,
   };
 
   // ---- calls, all at one block

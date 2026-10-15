@@ -1,6 +1,6 @@
 {
   "id": "ac2d58da-84b1-4dff-93eb-99d888c2d653",
-  "prevId": "7844a276-e900-403e-b977-ea687e8a8ab8",
+  "prevId": "21a0cd37-adbb-45ce-9bee-8929b1d95cf4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -5375,6 +5375,12 @@
         "withdrawals": {
           "name": "withdrawals",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "switch_auto_follow": {
+          "name": "switch_auto_follow",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": false
         },

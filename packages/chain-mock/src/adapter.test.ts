@@ -218,6 +218,54 @@ describe('chain-mock', () => {
     expect(await code(two)).toBe('TooManyTrades');
   });
 
+  it('takes several of the owner calls in one transaction on an EVM chain, and none on Solana', async () => {
+    for (const chain of ['solana', 'robinhood'] as const) {
+      const f = await funded(chain);
+      const inOne = f.adapter.capabilities.ownerCallsInOne;
+      expect(inOne).toBe(chain !== 'solana');
+      if (f.adapter.capabilities.needsApprove)
+        await f.mock.send(
+          await f.adapter.buildApprove({ owner: f.owner, basketId: '1', amountRaw: '5000000' }),
+        );
+      await f.mock.send(
+        await f.adapter.buildCreateVault({
+          owner: f.owner,
+          basketId: '1',
+          targets: f.targets,
+          autoFollow: true,
+          depositRaw: '5000000',
+          slippageBps: 50,
+        }),
+      );
+      const vault = (await f.adapter.getVaults(f.owner))[0]?.address ?? '';
+      const trade = { sell: f.mock.cash, buy: `${chain}:spy`, amountInRaw: '1000000' };
+      const sale = f.adapter.buildOwnerSwap({
+        vault,
+        trades: [trade],
+        slippageBps: 50,
+        switchAutoFollow: false,
+      });
+      const toward = f.adapter.buildSetTargets({
+        vault,
+        targets: f.targets,
+        trades: [trade],
+        slippageBps: 50,
+      });
+      if (!inOne) {
+        expect(await code(sale)).toBe('NotSupported');
+        expect(await code(toward)).toBe('NotSupported');
+        continue;
+      }
+      // the switch goes off before the trade, in the one transaction
+      await f.mock.send(await sale);
+      const after = await f.adapter.getVault(vault);
+      expect(after?.autoFollow).toBe(false);
+      expect(
+        BigInt(after?.positions.find((p) => p.asset === `${chain}:spy`)?.raw ?? '0'),
+      ).toBeGreaterThan(0n);
+    }
+  });
+
   it('only sends what it built, once', async () => {
     const f = await mockFixture('solana');
     const tx = await f.adapter.buildDeposit({

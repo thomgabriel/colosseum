@@ -103,9 +103,24 @@ export type ApprovedStep = StepBase &
         trades: ApprovedTrade[];
       }
     | { kind: 'deposit'; amountRaw: RawAmount; trades: ApprovedTrade[] }
-    | { kind: 'swap'; trades: ApprovedTrade[] }
-    | { kind: 'set_targets'; targets: Target[] }
-    | { kind: 'accept_version'; follow: Follow }
+    | {
+        kind: 'swap';
+        trades: ApprovedTrade[];
+        /** EVM: auto-follow is switched off before the trades, in the same transaction. */
+        switchAutoFollow?: false;
+      }
+    | {
+        kind: 'set_targets';
+        targets: Target[];
+        /** EVM: the trades toward the targets, after them in the same transaction. None when absent. */
+        trades?: ApprovedTrade[];
+      }
+    | {
+        kind: 'accept_version';
+        follow: Follow;
+        /** EVM: auto-follow switched off before the version is taken, or on after it, in one transaction. */
+        switchAutoFollow?: boolean;
+      }
     | { kind: 'set_auto_follow'; on: boolean }
     | {
         kind: 'withdraw';
@@ -115,6 +130,8 @@ export type ApprovedStep = StepBase &
          */
         withdrawals: Withdrawal[] | 'all';
         held?: HeldToken[];
+        /** EVM: auto-follow is switched off before anything leaves, in the same transaction. */
+        switchAutoFollow?: false;
       }
     | ({ kind: 'publish' } & Publication)
   );
