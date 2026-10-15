@@ -133,8 +133,8 @@ test('a change to all SPY spends what its sale brings: no cash worth a trade is 
   await page.locator('[data-ui="composer-send"]').click();
   const proposal = page.locator('[data-ui="vault-proposal"]');
   await expect(proposal).toBeVisible();
+  // applied, the targets go straight to their review (SIGN-ONE-STEP): no editor in between
   await proposal.getByRole('button', { name: en.mix.preview.apply }).click();
-  await proposal.getByRole('button', { name: en.mix.vault.review }).click();
   await expect(page.locator('[data-ui="mix-review-lines"]')).toContainText('SPY');
   const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
   for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
@@ -195,9 +195,11 @@ test('idle cash worth a trade: "Off target", Rebalance on the page and in the ch
   // The page's own pane, as its press opens: the purchase of the idle cash, signed there.
   await expect(screen).toHaveAttribute('data-pane', 'rebalance');
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  // its review, then the one press that signs the swaps (SIGN-ONE-STEP)
+  // its review, then the step's own button (SIGN-ONE-STEP): one purchase, named with its amount
   await pane.locator('[data-action="order-continue"]').click();
-  await pane.getByRole('button', { name: en.order.flow.press.rebalance }).click();
+  const sign = pane.locator('[data-ui="sign-step"] [data-variant="primary"]');
+  await expect(sign).toContainText(/Sign: swap \$[\d.,]+ for SPY/);
+  await sign.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   const { cash } = await cashOf(page, address);
   expect(cash).toBeLessThan(0.01);

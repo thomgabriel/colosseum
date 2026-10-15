@@ -83,38 +83,42 @@ export function ChangeReview({
           }
         />
         <PanelBody className="min-w-0">
-          <OrderHero
-            label={f.label.change}
-            figure={changeHero(review.targets, before, words)}
-            plate={plate}
-          />
-          {/* the estimates and why they may differ from the quoted figures, read together */}
-          <div className="flex flex-col gap-1">
-            <OrderStats
-              stats={
-                figures
-                  ? [
-                      // worked out from the vault's prices before any quote: said as estimates, so
-                      // the quoted figures the steps then show never read as the same figure changed
-                      {
-                        label: f.stat.swappedEstimate,
-                        value: <Rounded figure={figures.swapped} />,
-                        ui: 'stat-swapped',
-                      },
-                      {
-                        label: f.stat.worstEstimate,
-                        value: `${figures.worst.shown} · ${figures.pct}`,
-                        ui: 'stat-worst',
-                      },
-                    ]
-                  : []
-              }
+          {/* what changes and what it may cost, read as one block; kept close so the review, its
+              tick and its press fit a desk's screen under the vault's head (1440x900) */}
+          <div className="flex flex-col gap-3">
+            <OrderHero
+              label={f.label.change}
+              figure={changeHero(review.targets, before, words)}
+              plate={plate}
             />
-            {figures && (
-              <p data-ui="change-estimate" className="text-caption text-muted-foreground">
-                {f.stat.estimate}
-              </p>
-            )}
+            {/* the estimates and why they may differ from the quoted figures, read together */}
+            <div className="flex flex-col gap-1">
+              <OrderStats
+                stats={
+                  figures
+                    ? [
+                        // worked out from the vault's prices before any quote: said as estimates, so
+                        // the quoted figures the steps then show never read as the same figure changed
+                        {
+                          label: f.stat.swappedEstimate,
+                          value: <Rounded figure={figures.swapped} />,
+                          ui: 'stat-swapped',
+                        },
+                        {
+                          label: f.stat.worstEstimate,
+                          value: `${figures.worst.shown} · ${figures.pct}`,
+                          ui: 'stat-worst',
+                        },
+                      ]
+                    : []
+                }
+              />
+              {figures && (
+                <p data-ui="change-estimate" className="text-caption text-muted-foreground">
+                  {f.stat.estimate}
+                </p>
+              )}
+            </div>
           </div>
           {changed && (
             <p role="status" className="flex items-start gap-1.5 text-body-sm">
@@ -138,23 +142,25 @@ export function ChangeReview({
                 ),
             }}
           />
-          <MixReviewAck review={review} ticked={ticked} onTick={onTick} named={named} />
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="primary"
-              className="w-full"
-              data-action="mix-confirm"
-              busy={busy}
-              busyLabel={t.mix.vault.confirming}
-              disabled={left > 0}
-              onClick={onConfirm}
-            >
-              {f.continue}
-            </Button>
+          <div className="flex flex-col gap-3">
+            <MixReviewAck review={review} ticked={ticked} onTick={onTick} named={named} />
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="primary"
+                className="w-full"
+                data-action="mix-confirm"
+                busy={busy}
+                busyLabel={t.mix.vault.confirming}
+                disabled={left > 0}
+                onClick={onConfirm}
+              >
+                {f.continue}
+              </Button>
+              <Fold ui="change-details" label={f.details}>
+                <MixReviewLines review={review} named={named} />
+              </Fold>
+            </div>
           </div>
-          <Fold ui="change-details" label={f.details}>
-            <MixReviewLines review={review} named={named} />
-          </Fold>
         </PanelBody>
       </Panel>
     </div>
