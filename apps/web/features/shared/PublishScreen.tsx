@@ -407,7 +407,7 @@ export function PublishScreen() {
   const locale = LOCALE[lang];
   // The cash token is not among the assets a portfolio may hold, so its symbol is the chain's units':
   // "USDG", never "robinhood:usdg" (Thom, Oct 15).
-  const units = unitsFor(chain, mock);
+  const units = chain ? unitsFor(chain, mock) : null;
   const symbolOf = (id: string) =>
     assets.find((a) => a.id === id)?.symbol ?? units?.tokens[id]?.symbol ?? tokenName(id);
   // A rule the form breaks is said after the person has typed in its part, or asked for the review:
