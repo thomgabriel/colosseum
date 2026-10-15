@@ -1435,6 +1435,12 @@ export const en = {
         'One asset of this portfolio isn’t available on this chain now, so the portfolio can’t take a deposit as it stands.',
     },
     family: {
+      /**
+       * A weight over its asset's cap on the list, said before a deposit or a follow (SHARED-RULES-V2):
+       * the follower pays to sell that much of it.
+       */
+      overCap: (asset: string, weight: string, cap: string) =>
+        `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Selling that much of it may cost you more.`,
       loading: 'Reading this portfolio…',
       missing: 'I can’t find a shared portfolio with that name.',
       backToShelf: 'Back to the shared portfolios',
@@ -1655,7 +1661,38 @@ export const en = {
       familyId: 'Its id, worked out from the address',
       assets: 'Assets and weights',
       assetsHint:
-        'These are the vault’s target weights. Publishing requires 3 to 12 listed assets, each from 2% to 50% in 0.5% steps, with no cash target. Change your vault’s targets before publishing if they do not fit.',
+        'These are the vault’s target weights. Change your vault’s targets before publishing if they do not fit.',
+      /** What a portfolio may hold, as the chain's registry says it now (gate SHARED-RULES-V2). */
+      rules: {
+        reading: (chain: string) => `Reading the publishing rules from ${chain}…`,
+        unread: (chain: string) =>
+          `I couldn’t read the publishing rules from ${chain}, so publishing is paused. Try again in a moment.`,
+        shape: (
+          chain: string,
+          min: number,
+          max: number,
+          low: string,
+          high: string,
+          step: string,
+          cash: boolean,
+        ) =>
+          cash
+            ? `On ${chain} a portfolio holds ${min} to ${max} listed assets, each from ${low} to ${high} in ${step} steps. What the weights leave under 100% stays in cash.`
+            : `On ${chain} a portfolio holds ${min} to ${max} listed assets, each from ${low} to ${high} in ${step} steps, adding up to 100%, with no cash.`,
+        count: (min: number, max: number) => `A portfolio holds ${min} to ${max} assets.`,
+        weight: (low: string, high: string, step: string) =>
+          `Each weight is from ${low} to ${high}, in steps of ${step}.`,
+        sum: 'The weights add up to 100%.',
+        sumAtMost: 'The weights add up to at most 100%.',
+        ceiling: (asset: string, weight: string, cap: string) =>
+          `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list.`,
+        /** A warning, not a refusal: the cap is set from what the asset can be sold for, measured. */
+        overCap: (asset: string, weight: string, cap: string) =>
+          `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Followers may pay more to sell that much of it.`,
+        cash: 'Cash',
+        /** What the cited figure is, in its pin. */
+        capOnList: 'Cap on the asset list',
+      },
       asset: 'Asset',
       weight: 'Weight, in %',
       /** The labels of a row's two fields. */
@@ -1674,9 +1711,6 @@ export const en = {
         name: 'A name needs plain letters, digits and punctuation, with no space at either end and no link or web address.',
         slug: 'An address needs lower-case letters, digits and dashes, and can’t be “publish”.',
         copy: 'A description is at most 280 characters, with no link or web address and no hidden characters.',
-        count: 'A portfolio holds 3 to 12 assets.',
-        weight: 'Each weight is from 2% to 50%, in steps of 0.5%.',
-        sum: 'The weights add up to 100%.',
         twice: 'An asset appears once.',
         chain: 'Publishing isn’t open on this chain yet.',
       },

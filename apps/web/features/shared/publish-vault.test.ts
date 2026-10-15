@@ -50,10 +50,15 @@ describe('an exact shared vault strategy', () => {
     { raw: [] },
     { raw: [{ kind: 'index', family: 'other', weightBps: 10000 }] },
     { raw: [{ asset: null, weightBps: 10000 }] },
-    { raw: [{ asset: 'solana:spyx', weightBps: 7000 }] },
+    { raw: [{ asset: 'solana:spyx', weightBps: 10_050 }] },
     { raw: [{ asset: 'base:spyx', weightBps: 10000 }] },
-  ])('refuses missing, empty, nested or incomplete targets %j', ({ raw }) => {
+  ])('refuses missing, empty, nested or over-full targets %j', ({ raw }) => {
     expect(exactPublishTargets('solana', raw)).toBeNull();
+  });
+  it('keeps what the targets leave as the vault’s cash, for the chain’s rules to judge', () => {
+    // A chain under the second rules publishes it as it is; the form says so under the first.
+    const seventy = [{ asset: 'solana:spyx', weightBps: 7000 }];
+    expect(exactPublishTargets('solana', seventy)).toEqual(seventy);
   });
   it('takes the independently proved chain targets when the API describes other weights', async () => {
     const result = await readPublishVault(async () => answer({ positions: [] }), source);
@@ -161,12 +166,16 @@ describe('an exact shared vault strategy', () => {
     expect(await readPublishVault(async () => answer({ positions }, 'sandbox'), mock)).toEqual({
       kind: 'unverified',
     });
-    expect(
-      await readPublishVault(
-        async () => answer({ positions: positions.slice(0, 2) }, 'mock'),
-        mock,
-      ),
-    ).toEqual({ kind: 'unsupported' });
+    // What two targets leave is the vault's cash: kept as it is for the chain's rules, never added to a
+    // token's weight.
+    const two = await readPublishVault(
+      async () => answer({ positions: positions.slice(0, 2) }, 'mock'),
+      mock,
+    );
+    expect(two).toMatchObject({
+      kind: 'read',
+      components: positions.slice(0, 2).map((p) => ({ asset: p.asset, weightBps: p.targetBps })),
+    });
     expect(live.read).not.toHaveBeenCalled();
     expect(deploymentsOf('testnet').solana).toBeDefined();
   });

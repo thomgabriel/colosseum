@@ -98,6 +98,57 @@ function heldToRebalance(
 }
 
 /**
+ * A follow of a vault the person has (an order with an accept) swaps only to sell what the vault holds
+ * of the assets the version drops, as the caller read them: each for the cash token, each once, never
+ * an asset the version keeps, all of the amount read, with a minimum at most `MAX_SLIPPAGE_BPS` under
+ * its quote, and before the accept.
+ */
+function heldToLeftovers(legs: Leg[], plan: PlanTerms, cash: string): void {
+  const accept = legs.find((l) => l.kind === 'accept_version');
+  if (!accept) return;
+  const swaps = legs.filter((l) => l.kind === 'swap');
+  if (!swaps.length) return;
+  const reviewed = new Map((plan.leftovers?.sales ?? []).map((s) => [s.asset, s.amountRaw]));
+  if (!reviewed.size)
+    throw refuse('a follow trades only to sell what the version drops, and no sale was reviewed');
+  const keeps = new Set(plan.leftovers?.keeps ?? []);
+  if (!keeps.size) throw refuse('a follow that sells names the assets its version keeps');
+  const sold = new Set<string>();
+  for (const leg of swaps) {
+    if (leg.seq > accept.seq)
+      throw refuse('a sale of what the version drops comes after the accept it is for', leg.id);
+    if (leg.expected.length !== leg.trades.length)
+      throw refuse('a trade was shown with no minimum, so it has none to be held to', leg.id);
+    for (const [i, t] of leg.trades.entries()) {
+      if (t.buy !== cash || t.sell === cash)
+        throw refuse(
+          `a follow sells what the version drops for the cash token: this step trades ${t.sell} for ${t.buy}`,
+          leg.id,
+        );
+      if (keeps.has(t.sell))
+        throw refuse(`the version keeps ${t.sell}, and this step sells it`, leg.id);
+      if (sold.has(t.sell)) throw refuse(`${t.sell} is sold twice`, leg.id);
+      if (reviewed.get(t.sell) !== t.amountInRaw)
+        throw refuse(
+          `this step sells ${t.amountInRaw} of ${t.sell}, and the review sold ${reviewed.get(t.sell) ?? 'none'}`,
+          leg.id,
+        );
+      const least = leg.expected[i]?.minOutRaw;
+      if (!least || !isRawAmount(least) || BigInt(least) === 0n)
+        throw refuse('a sale states no minimum', leg.id);
+      // The minimum is the person's slippage under the quote the review showed, never a token one.
+      const quoted = leg.expected[i]?.outRaw;
+      if (!quoted || !isRawAmount(quoted) || BigInt(quoted) > quoteCeiling(BigInt(least)))
+        throw refuse(
+          `a sale's minimum, ${least}, is further under its quote, ${quoted ?? 'none'}, than any slippage an order may have`,
+          leg.id,
+        );
+      sold.add(t.sell);
+    }
+  }
+}
+
+/**
  * One approved step per leg, in the order they are signed. Throws a `GuardRefusal` with code `order`
  * when the order cannot mean what it says, and `unsupported` for a step this guard signs none of.
  */
@@ -147,6 +198,7 @@ export function approvedSteps(
   if (plan.publish && legs.length !== 1)
     throw refuse('the order publishes one shared portfolio, in one step');
   if (plan.rebalance) heldToRebalance(order, legs, plan, deployment.cash);
+  heldToLeftovers(legs, plan, deployment.cash);
 
   // The cash an order moves is said once, by the order (`depositRaw`), and one step moves it: the create
   // or the deposit. An approval exists only to serve that step, for that exact amount. An order that

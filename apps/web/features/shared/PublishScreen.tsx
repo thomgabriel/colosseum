@@ -14,6 +14,7 @@ import { buttonClass } from '../../components/ui/button-class';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Field, Input, Select, Textarea } from '../../components/ui/Field';
 import { PAGE_TITLE } from '../../components/ui/heading';
+import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { SkeletonLine, SkeletonListRow } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
@@ -27,8 +28,9 @@ import { readPortfolio, type Vault } from '../portfolio/portfolio';
 import { sameAddress } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor } from './chain-recipe';
+import { type ChainRules, overCeiling } from './over-ceiling';
 import { type PublishVaultRead, readPublishVault } from './publish-vault';
-import { placeShared, readFamily } from './shared-api';
+import { placeShared, readFamily, readLimits } from './shared-api';
 import type { SharedTerms } from './terms';
 import { useSharedPerson } from './use-person';
 import { useShelfScope } from './use-shelf';
@@ -37,8 +39,16 @@ import { PublishWait } from './waits';
 // Publish an owner-proved vault's strategy through the existing reviewed order/signature contract.
 // Assets and weights are immutable here. A fresh chain read must still match the displayed snapshot
 // before an order is made, and any person/chain/network/vault change discards a late reply.
+//
+// What the assets and weights are held to is the chain's to say, read from its registry for this page
+// (`GET /v1/shared/limits`): the first rules until a registry is upgraded, the second after (gate
+// SHARED-RULES-V2), so the form follows whichever is live and never holds a number of its own.
 
-export const LIMITS = { min: 3, max: 12, low: 200, high: 5000, step: 50, chars: 280 } as const;
+/** The text's limits, the server's (apps/api/src/orders/shared.ts). The assets' are the chain's. */
+export const LIMITS = { chars: 280 } as const;
+
+/** The rules a chain holds a publish to, as the server read them from it. */
+export type { ChainRules };
 
 // The server's rules for the creator's text (apps/api/src/orders/shared.ts), the same here so the
 // form says so before anything is sent: a link, a scheme or `www.` or a bare host (`evil.xyz/airdrop`),
@@ -63,15 +73,30 @@ export const slugOf = (name: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 64);
 
-export type Problem = 'chain' | 'name' | 'slug' | 'copy' | 'count' | 'weight' | 'sum' | 'twice';
+export type Problem =
+  | 'chain'
+  | 'name'
+  | 'slug'
+  | 'copy'
+  | 'count'
+  | 'weight'
+  | 'ceiling'
+  | 'sum'
+  | 'twice';
 
-/** What the form breaks of the rules a portfolio follows, in the order the form reads. */
-export function problemsOf(form: {
-  name: string;
-  slug: string;
-  copy: string;
-  rows: { asset: string; bps: number | null }[];
-}): Problem[] {
+/**
+ * What the form breaks of the rules a portfolio follows, in the order the form reads. The text's rules
+ * are the server's; the assets' are the chain's (`rules`), and are not judged before they are read.
+ */
+export function problemsOf(
+  form: {
+    name: string;
+    slug: string;
+    copy: string;
+    rows: { asset: string; bps: number | null }[];
+  },
+  rules: ChainRules | null = null,
+): Problem[] {
   const out: Problem[] = [];
   if (
     !ASCII.test(form.name) ||
@@ -84,18 +109,29 @@ export function problemsOf(form: {
     out.push('slug');
   if (form.copy.length > LIMITS.chars || LINK.test(form.copy) || HIDDEN.test(form.copy))
     out.push('copy');
-  if (form.rows.length < LIMITS.min || form.rows.length > LIMITS.max) out.push('count');
-  if (
-    form.rows.some(
-      (r) =>
-        r.bps === null || r.bps < LIMITS.low || r.bps > LIMITS.high || r.bps % LIMITS.step !== 0,
+  if (rules) {
+    const L = rules.limits;
+    if (form.rows.length < L.minAssets || form.rows.length > L.maxAssets) out.push('count');
+    if (
+      form.rows.some(
+        (r) =>
+          r.bps === null ||
+          r.bps < L.minWeightBps ||
+          r.bps > L.maxWeightBps ||
+          r.bps % L.stepBps !== 0,
+      )
     )
-  )
-    out.push('weight');
-  if (form.rows.reduce((n, r) => n + (r.bps ?? 0), 0) !== 10_000) out.push('sum');
+      out.push('weight');
+    // Under the first rules an asset's ceiling on the list is a limit; under the second, a warning.
+    if (L.rules === 1 && overCeiling(form.rows, rules).length > 0) out.push('ceiling');
+    const sum = form.rows.reduce((n, r) => n + (r.bps ?? 0), 0);
+    if (L.rules === 1 ? sum !== L.sumBps : sum > L.sumBps) out.push('sum');
+  }
   if (new Set(form.rows.map((r) => r.asset)).size !== form.rows.length) out.push('twice');
   return out;
 }
+
+export { overCeiling };
 
 type Existing =
   | { kind: 'reading' }
@@ -134,6 +170,8 @@ export function PublishScreen() {
   const [sourceFailure, setSourceFailure] = useState(false);
   const [requested, setRequested] = useState('');
   const [existing, setExisting] = useState<Existing>({ kind: 'new' });
+  /** The chain's rules, read for this person, chain and network: null while they are read. */
+  const [rules, setRules] = useState<{ key: string; read: ChainRules | 'unread' } | null>(null);
   const [placing, setPlacing] = useState(false);
   const inFlight = useRef(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -220,6 +258,30 @@ export function PublishScreen() {
     };
   }, [apiFetch, chain, owner, source, mock, sourceKey]);
 
+  // The rules a publish on this chain is held to, as its registry says them now.
+  useEffect(() => {
+    if (!chain) return;
+    let current = true;
+    setRules(null);
+    readLimits(apiFetch, chain).then((read) => {
+      if (!current) return;
+      setRules({
+        key: identity,
+        read:
+          read.kind === 'read' && read.value.chain === chain
+            ? {
+                limits: read.value.limits,
+                ceilings: read.value.ceilings,
+                ceilingsFrom: read.value.ceilingsFrom,
+              }
+            : 'unread',
+      });
+    });
+    return () => {
+      current = false;
+    };
+  }, [apiFetch, chain, identity]);
+
   // Whether this address is a portfolio already: the person's own (the next version) or another's.
   // biome-ignore lint/correctness/useExhaustiveDependencies: account and network changes invalidate the family read
   useEffect(() => {
@@ -300,11 +362,16 @@ export function PublishScreen() {
   const sourceRead = snapshot?.key === sourceKey ? snapshot.read : null;
   const components = sourceRead?.kind === 'read' ? sourceRead.components : [];
   const read = components.map((r) => ({ asset: r.asset, bps: r.weightBps }));
-  const problems = problemsOf({ name, slug, copy, rows: read });
+  const chainRules = rules?.key === identity && rules.read !== 'unread' ? rules.read : null;
+  const problems = problemsOf({ name, slug, copy, rows: read }, chainRules);
   const sum = read.reduce((n, r) => n + (r.bps ?? 0), 0);
+  // Under the second rules a weight over its asset's ceiling is published, and said with the ceiling.
+  const overCaps = chainRules?.limits.rules === 2 ? overCeiling(read, chainRules) : [];
   // Always the page's own: an update is offered only where the stored id is this one.
   const familyId = familyIdFor(slug || 'x');
   const chainName = t.chain.names[chain];
+  const locale = LOCALE[lang];
+  const symbolOf = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
   // A rule the form breaks is said after the person has typed in its part, or asked for the review:
   // an empty form says nothing is wrong with it yet.
   const partOf = (k: Problem): keyof typeof touched =>
@@ -317,8 +384,29 @@ export function PublishScreen() {
       touched[partOf(k)] ||
       (k === 'slug' && touched.name),
   );
+  const pct = (bps: number) => formatBps(bps, LOCALE[lang]);
+  const ruleText = (k: Problem): string => {
+    const L = chainRules?.limits;
+    if (k === 'count') return p.rules.count(L?.minAssets ?? 0, L?.maxAssets ?? 0);
+    if (k === 'weight')
+      return p.rules.weight(
+        pct(L?.minWeightBps ?? 0),
+        pct(L?.maxWeightBps ?? 0),
+        pct(L?.stepBps ?? 0),
+      );
+    if (k === 'sum') return L?.rules === 1 ? p.rules.sum : p.rules.sumAtMost;
+    if (k === 'ceiling')
+      return chainRules
+        ? overCeiling(read, chainRules)
+            .map((o) => p.rules.ceiling(symbolOf(o.asset), pct(o.bps), pct(o.ceilingBps)))
+            .join(' ')
+        : '';
+    return p.problems[k as 'name' | 'slug' | 'copy' | 'twice' | 'chain'];
+  };
   const blocked = [
-    ...said.map((k) => p.problems[k]),
+    ...(rules?.key === identity && rules.read === 'unread' ? [p.rules.unread(chainName)] : []),
+    ...(rules?.key !== identity ? [p.rules.reading(chainName)] : []),
+    ...said.map(ruleText),
     ...(sourceFailure ? [p.sourceUnavailable] : []),
     ...(!source ? [vaults ? p.noVaults : p.readingVaults] : []),
     ...(source && !sourceRead ? [p.readingStrategy] : []),
@@ -330,8 +418,6 @@ export function PublishScreen() {
     ...(!person.signable || person.off ? [t.shared.family.chainNotReady(chainName)] : []),
     ...(!owner ? [t.buy.blocked.wallet] : []),
   ];
-  const locale = LOCALE[lang];
-  const symbolOf = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
 
   async function review() {
     setTried(true);
@@ -448,6 +534,8 @@ export function PublishScreen() {
         name,
         copy,
         recipes: [{ chain, components: frozen.map((c) => ({ kind: 'asset', ...c })) }],
+        // The order's warnings (a weight over its listed ceiling) come back in the page's language.
+        language: lang,
       },
       { chain, owner, type: 'publish' },
     );
@@ -654,7 +742,19 @@ export function PublishScreen() {
         >
           <CardHeader title={p.assets} level={2} meta={p.total(formatBps(sum, locale))} />
           <CardBody className="flex flex-col gap-4">
-            <p className="text-body-sm text-muted-foreground">{p.assetsHint}</p>
+            <p className="text-body-sm text-muted-foreground">
+              {p.assetsHint}
+              {chainRules &&
+                ` ${p.rules.shape(
+                  chainName,
+                  chainRules.limits.minAssets,
+                  chainRules.limits.maxAssets,
+                  pct(chainRules.limits.minWeightBps),
+                  pct(chainRules.limits.maxWeightBps),
+                  pct(chainRules.limits.stepBps),
+                  chainRules.limits.rules === 2,
+                )}`}
+            </p>
             <ul className="flex flex-col gap-3">
               {components.map((row) => (
                 <li
@@ -666,7 +766,35 @@ export function PublishScreen() {
                   <span className="tabular-nums">{formatBps(row.weightBps, locale)}</span>
                 </li>
               ))}
+              {/* What the targets leave is the vault's cash, published as it is where the chain's
+                  rules let it: shown as a line of its own, never as a token's target. */}
+              {sourceRead?.kind === 'read' && sum < 10_000 && (
+                <li data-ui="publish-cash" className="flex justify-between gap-3 text-body">
+                  <span>{p.rules.cash}</span>
+                  <span className="tabular-nums">{formatBps(10_000 - sum, locale)}</span>
+                </li>
+              )}
             </ul>
+            {overCaps.length > 0 && (
+              <ul data-ui="publish-over-cap" className="flex flex-col gap-1 text-body-sm">
+                {overCaps.map((o) => (
+                  <li key={o.asset} className="flex items-start gap-1.5">
+                    <StatusMark status="watch" size={12} className="mt-1.5" />
+                    <span>
+                      {p.rules.overCap(symbolOf(o.asset), pct(o.bps), pct(o.ceilingBps))}{' '}
+                      {chainRules && (
+                        <ProvenancePin
+                          value={pct(o.ceilingBps)}
+                          obs={chainRules.ceilingsFrom}
+                          what={p.rules.capOnList}
+                          labels={t.pin}
+                        />
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {/* The strategy's rows while the vaults, then the chosen vault's strategy, are read. The
                 sentence under the form's button says which; no share is drawn before it is read. */}
             {((!vaults && !sourceFailure) || (source && !sourceRead)) && (

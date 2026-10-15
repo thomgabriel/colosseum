@@ -6,6 +6,7 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainReader,
+  CREATOR_LIMITS_V1,
   chainProvenance,
   explorerLink,
   type Funding,
@@ -927,6 +928,10 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
         );
         return found.map((account) => account.address).sort();
       }),
+
+    // The program's limits are constants of the first rules (programs/basket/src/checks.rs), held to
+    // fixtures/creator-limits/vectors.json; it has no account to read them from.
+    creatorLimits: async () => CREATOR_LIMITS_V1,
 
     getRecipe: (recipeOnchainId) =>
       guarded(async () => {

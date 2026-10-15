@@ -1,4 +1,13 @@
-import { Hex32, Target, TradeBase, VAULT_MAX_TARGETS } from '@colosseum/schemas';
+import {
+  type ChainId,
+  chainFamily,
+  Hex32,
+  leftoversOf,
+  Target,
+  TradeBase,
+  VAULT_MAX_LINES,
+  VAULT_MAX_TARGETS,
+} from '@colosseum/schemas';
 
 // What a shared-portfolio order is held to, as the screen that made it showed it (WEB-4). The order
 // screen hands these to the executor (features/order/run-order.ts), which turns them into the guard's
@@ -38,6 +47,13 @@ export type SharedTerms =
       follow: FollowTerms | null;
       autoFollow: boolean;
       source: TermsSource;
+      /**
+       * What the vault holds of the assets the version drops, sold for cash before the accept (gate
+       * SHARED-RULES-V2), as this app worked it out from its own reads, never from the order: the
+       * version's assets (`keeps`, never sold) and each dropped line with the amount sold. Left out:
+       * no sale.
+       */
+      leftovers?: FollowLeftovers;
     }
   /**
    * A withdrawal from a vault the person owns, as its review showed it: each token that leaves, with
@@ -118,6 +134,12 @@ export type SharedTerms =
       trades: { sell: string; buy: string; amountInRaw: string }[];
     };
 
+/** A follow's sales before its accept, and the assets its version keeps. */
+export type FollowLeftovers = {
+  keeps: string[];
+  sales: { asset: string; amountRaw: string }[];
+};
+
 /**
  * One token of a withdrawal: how much leaves (null: all of it), what the vault held at the review, and
  * the token's multiplier then, which its amounts are shown with (`shownRaw`): 1 for a token with none.
@@ -194,6 +216,31 @@ const dollarsOf = (v: unknown): DollarsTerms | null => {
   };
 };
 
+const leftoversRead = (v: unknown): FollowLeftovers | null => {
+  const l = (typeof v === 'object' && v !== null ? v : {}) as Record<string, unknown>;
+  const keeps = Array.isArray(l.keeps) ? (l.keeps as unknown[]) : null;
+  const sales = Array.isArray(l.sales) ? (l.sales as Record<string, unknown>[]) : null;
+  if (
+    !keeps?.length ||
+    !keeps.every((k) => isText(k) && k.includes(':')) ||
+    !sales?.length ||
+    !sales.every(
+      (x) =>
+        isText(x?.asset) &&
+        x.asset.includes(':') &&
+        !keeps.includes(x.asset) &&
+        isText(x?.amountRaw) &&
+        RAW.test(x.amountRaw),
+    ) ||
+    new Set(sales.map((x) => x.asset)).size !== sales.length
+  )
+    return null;
+  return {
+    keeps: keeps as string[],
+    sales: sales.map((x) => ({ asset: x.asset as string, amountRaw: x.amountRaw as string })),
+  };
+};
+
 /** Terms as they were written, or null when any part does not read. */
 export function readTerms(value: unknown): SharedTerms | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -220,6 +267,8 @@ export function readTerms(value: unknown): SharedTerms | null {
       !source
     )
       return null;
+    const leftovers = t.leftovers === undefined ? undefined : leftoversRead(t.leftovers);
+    if (leftovers === null) return null;
     return {
       kind: 'follow',
       slug: t.slug,
@@ -229,6 +278,7 @@ export function readTerms(value: unknown): SharedTerms | null {
       follow,
       autoFollow: t.autoFollow,
       source,
+      ...(leftovers ? { leftovers } : {}),
     };
   }
   if (t.kind === 'withdraw') {
@@ -389,4 +439,20 @@ export function tradesOf(
   });
   shares[largest] = (shares[largest] ?? 0n) + invested - shares.reduce((n, s) => n + s, 0n);
   return targets.map((t, i) => ({ asset: t.asset, amountInRaw: String(shares[i] ?? 0n) }));
+}
+
+/**
+ * The sales a follow makes before its accept, worked out here from what this app read (gate
+ * SHARED-RULES-V2): the vault as the portfolio read gave it, and the version's assets as the follow is
+ * held to them. Undefined when nothing is sold. The order's sales are held to this, so a sale our
+ * server adds, of an asset the version keeps or of another amount, is refused before anything is signed.
+ */
+export function followLeftovers(
+  chain: ChainId,
+  vault: Parameters<typeof leftoversOf>[0],
+  version: readonly Target[],
+): FollowLeftovers | undefined {
+  const keeps = version.map((t) => t.asset);
+  const sales = leftoversOf(vault, keeps, VAULT_MAX_LINES[chainFamily(chain)]);
+  return sales.length ? { keeps, sales } : undefined;
 }

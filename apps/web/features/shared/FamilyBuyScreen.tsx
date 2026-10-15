@@ -24,6 +24,7 @@ import { vaultTitle } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor, useChainRecipe } from './chain-recipe';
 import { followedOf } from './FamilyScreen';
+import { OverCapNote } from './OverCapNote';
 import { sharedRefusal } from './refusal';
 import { SourceMark } from './SourceMark';
 import { placeShared, readFamily, readPortfolio } from './shared-api';
@@ -303,6 +304,7 @@ export function FamilyBuyScreen({
     return (
       // the host says where the version and weights were read, over the amount card
       <div data-ui="family-invest" className="flex flex-col gap-3">
+        <OverCapNote chain={chain} targets={shown?.terms.targets ?? followed?.targets ?? null} />
         {cardFor(embedded.amount, embedded.onAmount)}
       </div>
     );
@@ -340,6 +342,9 @@ export function FamilyBuyScreen({
           }}
         />
       )}
+
+      {/* A weight over its cap on the list, said before the deposit (SHARED-RULES-V2). */}
+      <OverCapNote chain={chain} targets={followed?.targets ?? null} />
 
       {/* The amount card (gate AMOUNT-CARD): its press hands the amount to the invest card. */}
       <DepositCard

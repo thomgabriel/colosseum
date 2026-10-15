@@ -14,6 +14,7 @@ import {
   ApplyVaultMixRequest,
   ApplyVaultMixResponse,
   type BasketSheet,
+  CEILING_METHOD,
   ChainError,
   ChainId,
   CLOSE_DUST_USD,
@@ -1480,6 +1481,26 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     if (!owner) return send(res, 422, { error: 'a buy names its owner' });
     if (body.vault !== undefined) return send(res, 200, await placeVaultAdd(body, owner));
     return send(res, 200, await doubleFor(owner).buy(body.amountUsd));
+  }
+  // The rules a publish is held to, as the mock chain's registry says them (GET /v1/shared/limits).
+  if (path === '/v1/shared/limits') {
+    const listed = await world.adapter.listAssets();
+    return send(res, 200, {
+      chain: CHAIN,
+      limits: await world.adapter.creatorLimits(),
+      ceilings: listed
+        .filter((a) => a.cls !== 'cash')
+        .map((a) => ({ asset: a.id, maxWeightBps: a.maxWeightBps })),
+      ceilingsFrom: {
+        source: 'chain-mock: the asset list',
+        method: CEILING_METHOD,
+        fetchedAt: new Date().toISOString(),
+        provenance: 'mock',
+      },
+      source: 'chain',
+      observedAt: new Date().toISOString(),
+      provenance: 'mock',
+    });
   }
   if (path === '/v1/shelf') {
     const families = [];

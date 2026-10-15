@@ -3,6 +3,7 @@ import { BasketAssetBase } from './basket-asset';
 import type { Shelf } from './basket-sheet';
 import { AssetId, Bps } from './chain';
 import type { LiquidityProvider } from './liquidity';
+import { VAULT_MAX_TARGETS } from './recipe';
 import { type Quote, Trade } from './vault';
 
 // DESIGN-VAULT 3.6, the types of packages/basket. The functions (flatten, view, planRebalance,
@@ -51,7 +52,58 @@ export function creatorLimitReasonOf(id: number): CreatorLimitReason | null {
 export const LimitAsset = BasketAssetBase.pick({ id: true, maxWeightBps: true, cls: true });
 export type LimitAsset = z.infer<typeof LimitAsset>;
 
+/**
+ * The numbers of the author limits a chain's registry holds, and the rules they are read under, as the
+ * chain says them (`limits()` and `rulesVersion()` of the EVM registry). Read from the chain, never kept
+ * here, so the app follows whichever registry is live.
+ *
+ * - `rules: 1`, the first rules (Oct 2), which the Solana program and the mock keep: the weights add up to
+ *   exactly 10,000, and each is held to the lower of `maxWeightBps` and the asset's own ceiling.
+ * - `rules: 2` (gate SHARED-RULES-V2, Thom, Oct 14): the weights add up to at most 10,000 and what they
+ *   leave is cash, as in a person's own vault; an asset's own ceiling is a warning that cites its figure,
+ *   not a limit.
+ */
+export const CreatorLimits = z.object({
+  rules: z.union([z.literal(1), z.literal(2)]),
+  minAssets: z.number().int().nonnegative(),
+  maxAssets: z.number().int().nonnegative(),
+  minWeightBps: Bps,
+  maxWeightBps: Bps,
+  stepBps: Bps.min(1),
+  /** Exactly what the weights add up to under the first rules, the most under the second. */
+  sumBps: z.literal(10_000),
+  maxTurnoverBps: Bps,
+});
+export type CreatorLimits = z.infer<typeof CreatorLimits>;
+
+/** The first rules' numbers, constants of the Solana program and of the registry's first logic. */
+export const CREATOR_LIMITS_V1: CreatorLimits = {
+  rules: 1,
+  minAssets: 3,
+  maxAssets: 12,
+  minWeightBps: 200,
+  maxWeightBps: 5000,
+  stepBps: 50,
+  sumBps: 10_000,
+  maxTurnoverBps: 2000,
+};
+
+/** The second rules' numbers, constants of the registry's second logic (SHARED-RULES-V2). */
+export const CREATOR_LIMITS_V2: CreatorLimits = {
+  rules: 2,
+  minAssets: 1,
+  // As many as a vault holds targets: a shared portfolio follows a person's own vault's rules.
+  maxAssets: VAULT_MAX_TARGETS,
+  minWeightBps: 50,
+  maxWeightBps: 10_000,
+  stepBps: 50,
+  sumBps: 10_000,
+  maxTurnoverBps: 2000,
+};
+
 export const LimitContext = z.object({
+  /** The limits of the recipe's chain, as its registry says them. */
+  limits: CreatorLimits,
   /** The platform list of the recipe's chain. */
   assets: z.array(LimitAsset),
   /** Unix seconds. */

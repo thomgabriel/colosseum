@@ -219,8 +219,12 @@ describe('the guard on Solana: a creator publishes, updates and takes back a sha
       ['a family id that is not 32 bytes of hex', { familyId: 'ab' }],
       ['no version', { version: 0 }],
       [
-        'weights that do not add up to 10,000',
+        'weights that do not add up to 10,000, on a program under the first rules',
         { components: [{ asset: 'solana:spy', weightBps: 9000 }] },
+      ],
+      [
+        'weights that add up to more than 10,000',
+        { components: [{ asset: 'solana:spy', weightBps: 10_050 }] },
       ],
       ['an asset of another chain', { components: [{ asset: 'base:spy', weightBps: 10_000 }] }],
       ['no text', { text: null }],

@@ -669,11 +669,18 @@ export async function prepareOrder(req: IntentRequest, ctx: PrepareContext): Pro
       chains: ctx.chains,
     };
     if (req.type === 'publish') {
-      const { familyId, steps } = await refusing(() => planPublish(req, sctx));
+      const { familyId, steps, warnings } = await refusing(() => planPublish(req, sctx));
       return {
-        order: sharedOrder(ctx, req.creator, 'publish', 'Publish your shared portfolio', steps, [
+        order: sharedOrder(
+          ctx,
+          req.creator,
           'publish',
-        ]),
+          'Publish your shared portfolio',
+          steps,
+          ['publish'],
+          undefined,
+          warnings,
+        ),
         request: { ...req, familyId },
       };
     }
