@@ -3,7 +3,7 @@ import type { MixReview, OrderDetail } from '@colosseum/schemas';
 import type { ExecutionResult, ExecutorDeps } from '@colosseum/sdk';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { click, find, fire, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
+import { click, find, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
@@ -32,6 +32,7 @@ import { portStore } from '../wallet/test/mock-provider';
 import { holds } from '../wallet/test/mock-signing';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
+import { current, open, openNew, row, titles } from './test/rail';
 
 // The deposit signed in place on /invest (gate DEPOSIT-IN-PLACE), with real events against a double of
 // the API. Only `execute` of the SDK is a double, as in the invest card's own tests: what decides a
@@ -642,7 +643,7 @@ describe('the deposit signed in place on /invest', () => {
     expect(server.placed()).toHaveLength(1);
   });
 
-  it('asks before a deposit that is open is left: "Start over" and the picker', async () => {
+  it('asks before a deposit that is open is left: "Start over" and the conversations panel', async () => {
     api();
     const stop = gate();
     run.script = async (order, deps) => {
@@ -655,10 +656,8 @@ describe('the deposit signed in place on /invest', () => {
     await tick(host);
     await click(find(host, PRESS));
     await settle();
-    // the picker: another conversation is asked for twice
-    const picker = find<HTMLSelectElement>(host, '[data-ui="goal-picker"]');
-    picker.value = 'new';
-    await fire(picker, new Event('change', { bubbles: true }));
+    // the panel: another conversation is asked for twice
+    await openNew(host);
     let ask = find(host, '[data-ui="leave-deposit"]');
     expect(ask.getAttribute('role')).toBe('alertdialog');
     expect(document.activeElement).toBe(find(ask, '[data-action="stay"]'));
@@ -955,7 +954,7 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
     );
     localStorage.setItem(POINTER, JSON.stringify(ENTRY));
     keepOrder(recordOf('solana', { approved: approvedAt(orderOn()) }));
-    // a saved conversation on the other chain, to open from the picker
+    // a saved conversation on the other chain, to open from the panel
     const there = goalConversationKey(
       USER,
       'robinhood',
@@ -979,10 +978,9 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
     expect(pane(host).getAttribute('data-state')).toBe('approved');
     return { host, server };
   };
-  const picker = (host: HTMLElement) => find<HTMLSelectElement>(host, '[data-ui="goal-picker"]');
-  const choose = async (host: HTMLElement, value: string) => {
-    picker(host).value = value;
-    await fire(picker(host), new Event('change', { bubbles: true }));
+  /** "New conversation", or a saved one by its name, from the panel. */
+  const choose = async (host: HTMLElement, which: string) => {
+    await (which === 'new' ? openNew(host) : open(host, which));
     await settle();
   };
 
@@ -1000,9 +998,8 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
 
   it('a saved conversation of the other chain asks first, and moves nothing until the person says so', async () => {
     const { host, server } = await resumed();
-    const other = [...picker(host).options].find((o) => o.textContent?.startsWith('Stocks there'));
-    expect(other).toBeTruthy();
-    await choose(host, other?.value ?? '');
+    expect(titles(host)).toContain('Stocks there');
+    await choose(host, 'Stocks there');
     const ask = find(host, '[data-ui="leave-deposit"]');
     expect(ask.textContent).toContain(en.goal.explore.deposit.leave);
     expect(server.puts()).toEqual([]);
@@ -1011,7 +1008,7 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
     expect(host.querySelector('[data-ui="leave-deposit"]')).toBeNull();
     expect(server.puts()).toEqual([]);
     // said yes: the other chain's conversation opens, and the deposit's ids stay with its own
-    await choose(host, other?.value ?? '');
+    await choose(host, 'Stocks there');
     await click(find(host, '[data-ui="leave-deposit"] [data-action="leave"]'));
     await settle();
     await settle();
@@ -1021,11 +1018,66 @@ describe('a deposit taken up again after a reload holds the chain and asks befor
     expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(ENTRY);
   });
 
-  it('a new conversation from the picker asks first too', async () => {
+  it('a new conversation from the panel asks first too', async () => {
     const { host } = await resumed();
     await choose(host, 'new');
     expect(host.querySelector('[data-ui="leave-deposit"]')).not.toBeNull();
     expect(pane(host).getAttribute('data-state')).toBe('approved');
+  });
+
+  // The review of #313: a deposit not finished is reached again from its conversation, so the panel
+  // never deletes one whose deposit's ids are kept, open, left or set aside. It says why instead.
+  const refuses = async (host: HTMLElement, name: string) => {
+    await click(find(row(host, name), '[data-ui="conversation-delete"]'));
+    expect(find(row(host, name), '[data-ui="conversation-confirm"]').textContent).toBe(
+      en.goal.explore.picker.depositing,
+    );
+    expect(row(host, name).querySelector('[data-ui="conversation-delete-yes"]')).toBeNull();
+    expect(document.activeElement).toBe(
+      find(row(host, name), '[data-ui="conversation-delete-keep"]'),
+    );
+    await click(find(row(host, name), '[data-ui="conversation-delete-keep"]'));
+    await settle();
+  };
+
+  it('never deletes the conversation on screen while its deposit is open: says why, and keeps its ids', async () => {
+    const { host } = await resumed();
+    await refuses(host, 'Gold');
+    expect(current(host)).toBe('Gold');
+    expect(host.querySelector('[data-ui="leave-deposit"]')).toBeNull();
+    expect(pane(host).getAttribute('data-state')).toBe('approved');
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(ENTRY);
+  });
+
+  it('never deletes one left in the middle of its deposit, nor once it is opened again with the deposit set aside', async () => {
+    const { host } = await resumed();
+    await choose(host, 'new');
+    await click(find(host, '[data-ui="leave-deposit"] [data-action="leave"]'));
+    await settle();
+    // the deposit's ids stay with its own conversation, as they were
+    const left = JSON.parse(localStorage.getItem(POINTER) ?? 'null');
+    expect(left).toMatchObject(ENTRY);
+    // not the one on screen
+    await refuses(host, 'Gold');
+    expect(titles(host)).toContain('Gold');
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(left);
+    // the one on screen again, its deposit set aside
+    await choose(host, 'Gold');
+    expect(current(host)).toBe('Gold');
+    await refuses(host, 'Gold');
+    expect(current(host)).toBe('Gold');
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual(left);
+  });
+
+  it('after "Start over" and "Leave", the deposit’s ids stay: the empty conversation has nothing to delete', async () => {
+    const { host } = await resumed();
+    await click(named(host, en.talk.startOver));
+    await click(find(host, '[data-ui="leave-deposit"] [data-action="leave"]'));
+    await settle();
+    expect(JSON.parse(localStorage.getItem(POINTER) ?? '{}')).toEqual({ ...ENTRY, left: true });
+    const shown = row(host, current(host) ?? '');
+    expect(shown.querySelector('[data-ui="conversation-delete"]')).toBeNull();
+    expect(shown.querySelector('[data-ui="conversation-rename"]')).toBeNull();
   });
 
   it('a change of where new plans start, made elsewhere, moves the account’s chain and not the pane: the deposit stays on its chain', async () => {

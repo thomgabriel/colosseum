@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { TRUST_STATUS } from '@colosseum/schemas';
+import { DEFAULT_FLAGS, TRUST_STATUS } from '@colosseum/schemas';
 import { deploymentsOf, type GuardDeployment, solanaVaultAddress } from '@colosseum/sdk';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,6 +35,7 @@ import {
   familyBuyOrder,
   familyOf,
   followOrder,
+  limitsOf,
   ORDER_ID,
   publishOrder,
   RECIPE,
@@ -141,6 +142,10 @@ function api(o: {
   chain?: Person['chain'];
   /** Answers POST /v1/vaults/{chain}/{address}/rebalance/quote. */
   quote?: () => Response;
+  /** Answers GET /v1/shared/limits; the chain's own rules unless said. */
+  limits?: () => Response;
+  /** GET /v1/config's `shelfLiveOnly`; left out, the config is not answered. */
+  liveOnly?: boolean;
 }) {
   const calls: Call[] = [];
   portStore.setApi(async (path, init) => {
@@ -153,6 +158,10 @@ function api(o: {
       o.chain = chain;
       return json({ ...person, ...o.person, chain });
     }
+    if (path.startsWith('/v1/shared/limits?chain='))
+      return o.limits?.() ?? json(limitsOf(path.split('=')[1] ?? ''));
+    if (path === '/v1/config' && o.liveOnly !== undefined)
+      return json({ flags: { ...DEFAULT_FLAGS, shelfLiveOnly: o.liveOnly }, chains: [] });
     if (path.startsWith('/v1/shelf'))
       return json({ families: o.families ?? (o.family ? [o.family] : []), disclaimer: 'd' });
     if (path.startsWith(`/v1/indexes/${SLUG}/versions`))
@@ -274,6 +283,34 @@ describe('the shelf', () => {
       en.shell.testNetworkLine,
     );
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
+  });
+
+  it('names the mainnets it runs when it lists live portfolios only and none is shared yet (gate PRODUCTS-MAINNET-ONLY)', async () => {
+    // live chains, but the server lists every portfolio: the plain sentence
+    portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
+    api({ families: [], liveOnly: false });
+    const every = await show(createElement(ShelfScreen));
+    expect(every.textContent).toContain(en.shared.shelf.empty);
+    await unmountAll();
+    // the server's flag on: the sentence names the chains it runs live
+    api({ families: [], liveOnly: true });
+    const live = await show(createElement(ShelfScreen));
+    expect(live.textContent).toContain(en.shared.shelf.emptyOn('Solana or Robinhood Chain'));
+    await unmountAll();
+    // the flag on, and no chain live here: the plain sentence
+    portStore.set(signedInPort(EMBEDDED, { userId: USER }));
+    api({ families: [], liveOnly: true });
+    const none = await show(createElement(ShelfScreen));
+    expect(none.textContent).toContain(en.shared.shelf.empty);
+  });
+
+  it('draws a live portfolio with no sample tag', async () => {
+    portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
+    api({ family: familyOf(FAMILY_ID, { recipes: [recipeOf({ provenance: 'live' })] }) });
+    const host = await show(createElement(ShelfScreen));
+    const card = find(host, '[data-ui="shelf-card"]');
+    expect(card.querySelector('[data-ui="sample-tag"]')).toBeNull();
+    expect(card.textContent).not.toContain(en.shell.testNetworkLine);
   });
 
   /** A portfolio on Robinhood Chain, on the mock, and the one on Solana's test network. */
@@ -401,6 +438,46 @@ describe('the shelf', () => {
       ]);
       expect(cardsOf(host)).toHaveLength(2);
     });
+  });
+});
+
+describe('a portfolio’s page, under the second rules (SHARED-RULES-V2)', () => {
+  it('says a weight over its cap on the list, with the cap’s pin, before a deposit or a follow', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [vaultOf({ address: MY_VAULT })],
+      limits: () =>
+        json(
+          limitsOf('solana', {
+            rules: 2,
+            ceilings: [
+              { asset: 'solana:spyx', maxWeightBps: 2500 },
+              { asset: 'solana:nvdax', maxWeightBps: 5000 },
+            ],
+          }),
+        ),
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const note = find(host, '[data-ui="over-cap-note"]');
+    expect(note.querySelectorAll('li')).toHaveLength(1);
+    expect(note.textContent).toContain(en.shared.family.overCap('SPYx', '40%', '25%'));
+    expect(note.querySelector('[data-ui="provenance-pin"], button')).not.toBeNull();
+  });
+
+  it('says nothing under the first rules, where no such weight is published', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [],
+      limits: () =>
+        json(
+          limitsOf('solana', {
+            rules: 1,
+            ceilings: [{ asset: 'solana:spyx', maxWeightBps: 2500 }],
+          }),
+        ),
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    expect(host.querySelector('[data-ui="over-cap-note"]')).toBeNull();
   });
 });
 
@@ -1026,6 +1103,21 @@ describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
     },
   );
 
+  it('shows what a portfolio leaves of 100% as cash, on the shelf and on its page (SHARED-RULES-V2)', async () => {
+    const seventy = recipeOf({
+      active: { ...recipeOf().active, components: [{ asset: 'solana:spyx', weightBps: 7000 }] },
+    });
+    api({ family: familyOf(FAMILY_ID, { recipes: [seventy] }) });
+    const page = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const pane = find(page, '[data-ui="plan-pane"]');
+    expect(pane.textContent).toContain('70%');
+    expect(pane.textContent).toContain('30%');
+    expect(pane.textContent).toContain(en.plan.cash('USDC'));
+    await unmountAll();
+    const shelf = await show(createElement(ShelfScreen));
+    expect(shelf.textContent).toContain('30%');
+  });
+
   it('keeps the publisher and where the weights come from in view, and the routine check behind Details', async () => {
     api({ family: familyOf(FAMILY_ID) });
     const host = await show(createElement(FamilyScreen, { slug: SLUG }));
@@ -1565,6 +1657,16 @@ describe('the trust notice on a buy the keeper may trade', () => {
 });
 
 describe('the publish form', () => {
+  it('offers no vault on a chain the shelf does not list when the server lists live portfolios only', async () => {
+    // Solana here is a test network, and the server lists live portfolios only
+    api({ liveOnly: true });
+    const host = await show(createElement(PublishScreen));
+    const said = find(host, '[data-ui="publish-live-only"]');
+    expect(said.textContent).toContain(en.shared.publish.liveOnly('Solana', ''));
+    expect(host.querySelector('select, textarea, input')).toBeNull();
+    expect(host.querySelector('button')).toBeNull();
+  });
+
   it('works out the family id from the address, holds the limits, and keeps its own text', async () => {
     const calls = api({
       family: null,

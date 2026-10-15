@@ -1,6 +1,6 @@
 # The author limits, as test vectors
 
-`vectors.json` is the one list of cases for the four limits on a shared portfolio (`docs/vault/DESIGN-VAULT.md`, section 6). The TypeScript check (`checkCreatorLimits` in `packages/basket`), the Solana program and the EVM registry are each tested against this file, so the three cannot drift apart. Change a rule here first, then in the three places.
+`vectors.json` is the one list of cases for the four limits on a shared portfolio under the first rules (`docs/vault/DESIGN-VAULT.md`, section 6). The TypeScript check (`checkCreatorLimits` in `packages/basket`), the Solana program and the EVM registry's first logic (`contracts/test/legacy/`) are each tested against this file, so they cannot drift apart. `vectors-v2.json` is the same for the second rules (gate `SHARED-RULES-V2`, below), against which the TypeScript check and the registry's logic are tested. Change a rule here first, then in every place that holds it.
 
 Integers and strings only: no floats, no booleans, no nulls. A yes or no is `1` or `0`.
 
@@ -18,7 +18,7 @@ Cases keep their place: a new case goes at the end, so `cases[38]` stays the cas
 | 6 | `DuplicateAsset` | an asset appears more than once |
 | 7 | `WeightBelowMin` | a weight is under 200 bps |
 | 8 | `WeightOffStep` | a weight is not a multiple of 50 bps |
-| 9 | `WeightAboveCeiling` | a weight is over `min(5000, the asset's ceiling)` |
+| 9 | `WeightAboveCeiling` | a weight is over `min(5000, the asset's ceiling)` (the first rules; the second below) |
 | 10 | `WeightSum` | the weights do not add up to exactly 10,000 |
 | 11 | `VersionPending` | a version is published and not yet in effect |
 | 12 | `VersionTooSoon` | `now < lastPublishAt + publishDelay` |
@@ -34,6 +34,22 @@ Cases keep their place: a new case goes at the end, so `cases[38]` stays the cas
 - Rules 1 and 2 are checked where the call takes those two values, which is the first publish. Every case that sets them has no previous version.
 - The order of the entries carries no meaning. A chain that wants its list sorted sorts it after mapping the names.
 - The numbers are in `limits`. The delay is per case, in `ctx.publishDelay`.
+
+## The second rules (`vectors-v2.json`)
+
+Gate `SHARED-RULES-V2` (Thom, 2026-10-14), held by the EVM registry's second logic (`rulesVersion()` answers 2). The rules keep their numbers and their order; what changes:
+
+| # | Reason | Refused when |
+|---|---|---|
+| 3 | `TooFewAssets` | the list is empty |
+| 4 | `TooManyAssets` | the list has more than 16 entries |
+| 7 | `WeightBelowMin` | a weight is under 50 bps |
+| 9 | `WeightAboveCeiling` | a weight is over 10,000. The asset's own ceiling is not read: the app warns on it |
+| 10 | `WeightSum` | the weights add up to more than 10,000. What they leave under it is cash |
+| 13 | `TurnoverTooHigh` | the absolute changes against the previous version, cash counted as a line (what each version leaves of 10,000), add up to more than 4,000 |
+| 14 | `CashNotAllowed` | the chain's cash token is a line of its own: cash is only what the weights leave |
+
+The file is written by `vectors-v2.mjs` (`node fixtures/creator-limits/vectors-v2.mjs`; `--check` fails when the committed file differs), which states each case's inputs and the reason expected and works out every rule broken from the table: a third statement of the rules, sharing no code with the check or the registry. Its `limits` are the second rules' numbers and `rules` is 2; the platform holds seventeen plain assets, three with a ceiling and the cash token. Every other part of this README holds for it.
 
 ## The file
 
@@ -79,7 +95,7 @@ Each case:
 
 TypeScript: `packages/basket/src/creator-limits.vectors.test.ts`, and through the mock registry in `packages/chain-mock/src/limits.test.ts`.
 
-Solana: `programs/tests/creator-limits.vectors.test.ts` builds each case's state with real publishes in LiteSVM, every scenario included, and reads the reason's number from the transaction log (`creator limit: reason=<number> <name>`). The cash token is on its asset list, so the cash cases are refused as `CashNotAllowed`.
+Solana: the program holds the second rules since Oct 14 (gate SHARED-RULES-V2), so `programs/tests/creator-limits.vectors.test.ts` runs `vectors-v2.json`. It builds each case's state with real publishes in LiteSVM, every scenario included, and reads the reason's number from the transaction log (`creator limit: reason=<number> <name>`). The cash token is on its asset list, so the cash cases are refused as `CashNotAllowed`.
 
 ## The meta hash
 

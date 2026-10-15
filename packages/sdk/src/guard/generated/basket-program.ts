@@ -186,6 +186,11 @@ export const BASKET_PROGRAM: ProgramTable = {
         },
       ],
     },
+    creator_limits: {
+      discriminator: [5, 106, 182, 233, 116, 232, 60, 129],
+      accounts: [],
+      args: [],
+    },
     deposit: {
       discriminator: [242, 35, 198, 137, 82, 225, 242, 182],
       accounts: [
@@ -973,7 +978,7 @@ export const BASKET_PROGRAM: ProgramTable = {
         {
           name: 'creator',
           signer: true,
-          writable: false,
+          writable: true,
           optional: false,
         },
         {
@@ -990,6 +995,12 @@ export const BASKET_PROGRAM: ProgramTable = {
         },
         {
           name: 'assets',
+          signer: false,
+          writable: false,
+          optional: false,
+        },
+        {
+          name: 'system_program',
           signer: false,
           writable: false,
           optional: false,

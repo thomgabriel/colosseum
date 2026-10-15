@@ -17,6 +17,7 @@ export const APP_ROUTES: readonly string[] = [
   '/invest/plan/[id]',
   '/invest/plan/[id]/buy',
   '/portfolio',
+  '/portfolio/closed',
   '/portfolio/exposure',
   '/portfolio/methodology',
   '/portfolio/monitor',

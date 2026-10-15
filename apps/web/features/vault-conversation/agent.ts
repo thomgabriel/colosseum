@@ -186,6 +186,8 @@ export type VaultAgentReply = {
   proposal?: VaultStrategyPreview;
   /** Notes on a reply with no proposal: a share the server did not apply, could not meet, or dropped. */
   notes?: WeightNote[];
+  /** The page's action the reply hands over as a button: its Rebalance, where the page offers it. */
+  action?: 'rebalance';
 };
 export type VaultAgent = (request: VaultAgentRequest) => Promise<unknown>;
 export class VaultAgentError extends Error {
@@ -437,6 +439,7 @@ export function strategyReplyOf(value: unknown, chain: ChainId): VaultAgentReply
     ...(row.question ? { question: row.question as string } : {}),
     ...(figures ? { figures } : {}),
     ...(proposal ? { proposal } : notes.length ? { notes } : {}),
+    ...(row.action === 'rebalance' ? { action: 'rebalance' as const } : {}),
   };
 }
 

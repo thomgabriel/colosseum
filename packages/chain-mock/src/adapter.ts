@@ -14,7 +14,9 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainId,
+  CREATOR_LIMITS_V2,
   CreateVaultArgs,
+  type CreatorLimits,
   chainFamily,
   DecimalString,
   DepositArgs,
@@ -154,6 +156,11 @@ export type MockOptions = {
    * least between two versions. Default 300, the team test cycle.
    */
   publishDelaySeconds?: number;
+  /**
+   * The rules and numbers its registry holds a shared portfolio to. Default the second rules, as the
+   * Solana program and the EVM registry's second logic hold them (SHARED-RULES-V2).
+   */
+  creatorLimits?: CreatorLimits;
   /** Replaces the built-in asset list. Exactly one asset must have `cls: 'cash'`. */
   assets?: BasketAsset[];
   /** USD per whole token by asset id. Required for every asset when `assets` is given. */
@@ -243,6 +250,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
   const factory = mockAddress(chain, 'factory');
   const keeper = mockAddress(chain, 'keeper');
   const publishDelay = options.publishDelaySeconds ?? 300;
+  const limits = options.creatorLimits ?? CREATOR_LIMITS_V2;
   const seed = options.seed ?? '';
   /** One fee for every transaction, and the extra a new vault costs, in native units. */
   const fee = family === 'solana' ? 5_000n : 20_000_000_000_000n;
@@ -559,13 +567,14 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
         });
         const id = mockRecipeId(chain, creator, recipe.familyId);
         const existing = s.recipes.get(id);
-        // The four author limits (DESIGN-VAULT section 6), as a real registry checks them: the same
-        // function the Solana program and the EVM registry are held to by the shared vectors. The
-        // cash token as a component is one of them, refused like the rest.
+        // The four author limits (DESIGN-VAULT section 6), as a real registry checks them, under the
+        // rules this mock is given: the same function the Solana program and the EVM registry are held
+        // to by the shared vectors. The cash token as a component is one of them, refused like the rest.
         const verdict = checkCreatorLimits(
           existing ? targetsOf(existing.active) : null,
           next,
           {
+            limits,
             assets,
             now: s.seconds,
             lastPublishAt: existing?.lastPublishAt ?? null,
@@ -991,6 +1000,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
           )
           .map((v) => v.address),
       ),
+    creatorLimits: () => guarded(() => limits),
     getRecipe: (recipeOnchainId) =>
       guarded(() => {
         const { active, pending } = recipeOf(live(), recipeOnchainId);

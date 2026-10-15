@@ -1,8 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CHAIN_ERROR_RETRYABLE, ChainError, parseChainConfigs } from '@colosseum/schemas';
-import { encodeErrorResult, parseAbi } from 'viem';
+import {
+  CHAIN_ERROR_RETRYABLE,
+  ChainError,
+  CREATOR_LIMITS_V1,
+  CREATOR_LIMITS_V2,
+  parseChainConfigs,
+} from '@colosseum/schemas';
+import { ContractFunctionRevertedError, encodeErrorResult, parseAbi } from 'viem';
 import { describe, expect, it } from 'vitest';
+import { acceptRefusal } from '../src/vault/adapter';
 import { displayAmount, fromScaled, multiplierString, toScaled } from '../src/vault/amounts';
 import {
   assertNode,
@@ -252,6 +259,24 @@ describe('a revert', () => {
   });
 });
 
+describe("an accept past the vault's 24 lines", () => {
+  const abi = parseAbi(['error InvalidTargets(uint8 reason)', 'error NotOwner(address caller)']);
+  it('says to sell or withdraw a leftover first; any other refusal is passed on as it was', () => {
+    const past = acceptRefusal(
+      revertToChainError(encodeErrorResult({ abi, errorName: 'InvalidTargets', args: [1] })),
+    );
+    expect(past).toBeInstanceOf(ChainError);
+    expect((past as ChainError).code).toBe('InvalidTargets');
+    expect((past as ChainError).message).toMatch(
+      /do not fit the vault’s 24 lines: sell or withdraw a leftover first, then accept$/,
+    );
+    const other = revertToChainError(
+      encodeErrorResult({ abi, errorName: 'NotOwner', args: [A(5) as `0x${string}`] }),
+    );
+    expect(acceptRefusal(other)).toBe(other);
+  });
+});
+
 describe('the reader, made', () => {
   const record = EvmDeploymentRecord.parse(RECORD);
   const config = (env: Record<string, string>, contracts = deploymentAddresses(record)) =>
@@ -295,5 +320,54 @@ describe('the reader, made', () => {
       { config: config({}), rpc, assets: [cash, cash] },
     ];
     for (const options of bad) expect(() => createEvmVaultReader(options)).toThrow();
+  });
+});
+
+describe('the author limits, as the registry says them (SHARED-RULES-V2)', () => {
+  const record = EvmDeploymentRecord.parse(RECORD);
+  const contracts = deploymentAddresses(record);
+  const config = parseChainConfigs(
+    {},
+    { robinhood: { factory: contracts.factory, registry: contracts.registry } },
+  ).robinhood;
+  const FIRST = {
+    minAssets: 3,
+    maxAssets: 12,
+    minWeightBps: 200,
+    maxWeightBps: 5000,
+    stepBps: 50,
+    maxTurnoverBps: 2000,
+    publishDelay: 172_800,
+  };
+  const SECOND = { ...FIRST, minAssets: 1, maxAssets: 16, minWeightBps: 50, maxWeightBps: 10_000 };
+  /** A node that answers the reads `creatorLimits` makes: the chain, a block, the factory's registry and the registry's two views. */
+  const node = (limits: typeof FIRST, rules: number | 'missing' | 'down') =>
+    ({
+      getChainId: async () => config.evmChainId,
+      getBlock: async () => ({ number: 1n, timestamp: 1_791_212_400n }),
+      readContract: async ({ functionName }: { functionName: string }) => {
+        if (functionName === 'registry') return contracts.registry;
+        if (functionName === 'limits') return limits;
+        if (rules === 'missing')
+          throw new ContractFunctionRevertedError({
+            abi: INDEX_REGISTRY_ABI,
+            functionName,
+            data: '0x',
+          });
+        if (rules === 'down') throw new Error('fetch failed');
+        return rules;
+      },
+    }) as unknown as EvmRpc;
+  const read = (rpc: EvmRpc) =>
+    createEvmVaultReader({ config, rpc, assets: deploymentAssets(record) }).creatorLimits();
+
+  it('reads the first rules from a registry with no rulesVersion, the second from one that answers 2', async () => {
+    expect(await read(node(FIRST, 'missing'))).toEqual(CREATOR_LIMITS_V1);
+    expect(await read(node(SECOND, 2))).toEqual(CREATOR_LIMITS_V2);
+  });
+
+  it('says a node that does not answer, and a rules number it does not know, and assumes nothing', async () => {
+    await expect(read(node(SECOND, 'down'))).rejects.toMatchObject({ code: 'Unavailable' });
+    await expect(read(node(SECOND, 3))).rejects.toMatchObject({ code: 'NotSupported' });
   });
 });

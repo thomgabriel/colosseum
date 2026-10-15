@@ -449,42 +449,57 @@ for (const width of WIDTHS) {
       });
     });
 
-    for (const id of ['stocks', 'lending', 'stablecoins', 'simulation'] as const)
-      test(`Bearing’s ${id} waits in the page’s own boxes`, async ({ page }) => {
-        await page.clock.setFixedTime(Date.parse('2026-10-03T18:58:40.766Z'));
-        await waitsInPlace(page, {
-          name: `analytics-${id}`,
-          width,
-          held: /\/risk\//,
-          arrive: (p) => p.goto(`/analytics/${id}`).then(() => {}),
-          settled: 'main [data-ui="bearing-kpis"] [data-ui="figure"]',
-          // The banner over the page is as tall as what it says, and the recording's readings are
-          // old, which takes more words than live ones: the page is held to its place under it.
-          under: '[data-ui="bearing-banner"]',
-          regions: [
-            { name: 'title', waiting: 'main h1', loaded: 'main h1' },
-            {
-              name: 'figures',
-              waiting: '[data-ui="bearing-kpis"]',
-              loaded: '[data-ui="bearing-kpis"]',
-            },
-            // the simulation opens with its form; the others with two chart cards under the figures
-            id === 'simulation'
-              ? {
-                  name: 'form',
-                  waiting: '[data-ui="bearing-skeleton"] [data-ui="bearing-card"]',
-                  loaded: 'main [data-ui="bearing-card"]:has(form)',
-                  sized: 'by-data',
-                }
-              : {
-                  name: 'first chart',
-                  waiting: '[data-ui="bearing-skeleton"] [data-ui="bearing-card"]',
-                  loaded: '[data-ui="bearing-kpis"] ~ * [data-ui="bearing-card"]',
-                  sized: 'by-data',
-                },
-          ],
+    // The recording's newest reading is from 15:07 UTC: a clock four hours on finds it stale, ten
+    // minutes on finds it live, and the banner holds its box either way.
+    for (const [when, clock, named] of [
+      ['stale', '2026-10-03T18:58:40.766Z', ''],
+      ['live', '2026-10-03T15:17:00.000Z', ', its readings live'],
+    ] as const)
+      for (const id of ['stocks', 'lending', 'stablecoins', 'simulation'] as const)
+        test(`Bearing’s ${id} waits in the page’s own boxes${named}`, async ({ page }) => {
+          await page.clock.setFixedTime(Date.parse(clock));
+          await waitsInPlace(page, {
+            name: `analytics-${id}-${when}`,
+            width,
+            // The page's reads are held; the probe that asks whether the API is there is not. Held, it
+            // gives up after its tries and the banner says the API did not answer, on a slow runner
+            // only; answered late, it leaves the banner loading for a moment after the page has drawn.
+            held: /\/risk\/(?!facts\/methodology)/,
+            arrive: (p) => p.goto(`/analytics/${id}`).then(() => {}),
+            // the figures are there and the banner says what the clock makes of the readings
+            settled: `main:has([data-ui="bearing-banner"][data-mode="${when}"]) [data-ui="bearing-kpis"] [data-ui="figure"]`,
+            // The banner lays out every state it has in one box, as tall as the tallest, so it holds its
+            // own place and size from waiting to live or stale; the page is measured from its foot.
+            under: '[data-ui="bearing-banner"]',
+            regions: [
+              { name: 'title', waiting: 'main h1', loaded: 'main h1' },
+              {
+                name: 'banner',
+                waiting: '[data-ui="bearing-banner"]',
+                loaded: '[data-ui="bearing-banner"]',
+              },
+              {
+                name: 'figures',
+                waiting: '[data-ui="bearing-kpis"]',
+                loaded: '[data-ui="bearing-kpis"]',
+              },
+              // the simulation opens with its form; the others with two chart cards under the figures
+              id === 'simulation'
+                ? {
+                    name: 'form',
+                    waiting: '[data-ui="bearing-skeleton"] [data-ui="bearing-card"]',
+                    loaded: 'main [data-ui="bearing-card"]:has(form)',
+                    sized: 'by-data',
+                  }
+                : {
+                    name: 'first chart',
+                    waiting: '[data-ui="bearing-skeleton"] [data-ui="bearing-card"]',
+                    loaded: '[data-ui="bearing-kpis"] ~ * [data-ui="bearing-card"]',
+                    sized: 'by-data',
+                  },
+            ],
+          });
         });
-      });
   });
 }
 

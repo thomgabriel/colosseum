@@ -760,7 +760,7 @@ describe('the adapter contract fails a wrong adapter', () => {
   it('runs the reads on an adapter that has only its read side', async () => {
     const f = await mockFixture('solana');
     const a = f.adapter;
-    // Ten read calls and nothing else: no builder, no relay, and no registry or quote behind them.
+    // The read calls and nothing else: no builder, no relay, and no registry or quote behind them.
     const refuse = async (): Promise<never> => {
       throw new ChainError('NotSupported', 'not on chain yet');
     };
@@ -774,6 +774,7 @@ describe('the adapter contract fails a wrong adapter', () => {
       getVault: a.getVault,
       listAutoFollowVaults: a.listAutoFollowVaults,
       getRecipe: refuse,
+      creatorLimits: refuse,
       getWalletHoldings: a.getWalletHoldings,
       funding: a.funding,
       quote: refuse,

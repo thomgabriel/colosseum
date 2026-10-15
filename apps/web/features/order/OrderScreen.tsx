@@ -1614,7 +1614,8 @@ export function OrderScreen({
             className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm"
           >
             {shown.warnings.map((w) => (
-              <li key={w.code} className="flex items-start gap-1.5">
+              // Keyed by its text as well: nothing holds two warnings to different codes.
+              <li key={`${w.code}:${w.text}`} className="flex items-start gap-1.5">
                 <StatusMark status="watch" className="mt-1.5" />
                 <span>{w.text}</span>
               </li>

@@ -4216,6 +4216,19 @@ export const INDEX_REGISTRY_ABI = [
   },
   {
     type: 'function',
+    name: 'rulesVersion',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint8',
+        internalType: 'uint8',
+      },
+    ],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
     name: 'setPublishDelay',
     inputs: [
       {

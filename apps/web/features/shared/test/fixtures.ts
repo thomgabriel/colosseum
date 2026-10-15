@@ -1,4 +1,7 @@
 import {
+  CREATOR_LIMITS_V1,
+  CREATOR_LIMITS_V2,
+  type CreatorLimitsResponse,
   OrderDetail as Order,
   type OrderDetail,
   type SharedFamily,
@@ -105,6 +108,28 @@ const order = (over: Record<string, unknown>): OrderDetail =>
   });
 
 /** A publish, as POST /v1/orders answers it: one step, the consent `publish`, nothing deposited. */
+/**
+ * GET /v1/shared/limits as a chain's registry answers it: the second rules on every chain since Oct 14
+ * (SHARED-RULES-V2), unless said; each asset's ceiling on the list, where given.
+ */
+export const limitsOf = (
+  chain: string,
+  over: { rules?: 1 | 2; ceilings?: CreatorLimitsResponse['ceilings'] } = {},
+): CreatorLimitsResponse => ({
+  chain: chain as CreatorLimitsResponse['chain'],
+  limits: (over.rules ?? 2) === 1 ? CREATOR_LIMITS_V1 : CREATOR_LIMITS_V2,
+  ceilings: over.ceilings ?? [],
+  ceilingsFrom: {
+    source: 'a test chain: the asset list',
+    method: 'written for this test',
+    fetchedAt: '2026-10-14T12:00:00.000Z',
+    provenance: 'sandbox',
+  },
+  source: 'chain',
+  observedAt: '2026-10-14T12:00:00.000Z',
+  provenance: 'sandbox',
+});
+
 export const publishOrder = (more: object[] = []) =>
   order({
     type: 'publish',

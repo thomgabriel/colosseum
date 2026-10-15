@@ -92,6 +92,13 @@ interface IIndexRegistry {
     /// The numbers of the four limits, with the publish delay in force now.
     function limits() external view returns (Limits memory);
 
+    /// Which rules the numbers of `limits()` are read under. 2 (gate SHARED-RULES-V2): the weights add up to
+    /// at most 10,000 and what they leave is cash; a weight is held to `maxWeightBps` of `limits()` alone, and
+    /// an asset's own ceiling on the factory is not read. A registry without this function is under the first
+    /// rules: the weights add up to exactly 10,000, and each is held to the lower of `maxWeightBps` and the
+    /// asset's ceiling.
+    function rulesVersion() external pure returns (uint8);
+
     /// Seconds between a later version being published and taking effect, and the least between two
     /// versions. At least 60, and at least 172,800 once the factory is launched.
     function publishDelay() external view returns (uint32);

@@ -6,6 +6,7 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainReader,
+  type CreatorLimits,
   chainProvenance,
   explorerLink,
   type Funding,
@@ -20,9 +21,12 @@ import {
 import {
   type Address,
   type Commitment,
+  type GetLatestBlockhashApi,
   getAddressEncoder,
   isSignature,
+  type Rpc,
   type Signature,
+  type SimulateTransactionApi,
 } from '@solana/kit';
 import { z } from 'zod';
 import {
@@ -57,6 +61,7 @@ import {
   referenceOf,
   valueInCash,
 } from './keeper';
+import { readCreatorLimits } from './limits';
 import { type ClusterClock, decodeClock, marketAt, readScopeAccount, SYSVAR_CLOCK } from './prices';
 import {
   ask,
@@ -124,6 +129,11 @@ export type SolanaVaultReaderOptions = {
   commitment?: Commitment;
   /** The clock that stamps `fetchedAt` and `observedAt`. Ages come from the cluster's clock, not this one. */
   now?: () => Date;
+  /**
+   * A node that simulates, for `creatorLimits`: the program answers its author limits only to a
+   * simulation. The adapter hands its own; a reader without one cannot say them.
+   */
+  simulate?: Rpc<SimulateTransactionApi & GetLatestBlockhashApi>;
 };
 
 /** One position of a vault, as the keeper's leg would find it now. */
@@ -240,8 +250,12 @@ type Snapshot = {
   extraSlots: bigint[];
 };
 
+/** How long one answer of the program's author limits is used before it is asked again. */
+const LIMITS_FOR_MS = 5 * 60_000;
+
 export function createSolanaVaultReader(options: SolanaVaultReaderOptions): SolanaVaultReader {
   const { config, rpc } = options;
+  let limits: { at: number; read: Promise<CreatorLimits> } | null = null;
   const commitment = options.commitment ?? 'confirmed';
   const now = options.now ?? (() => new Date());
 
@@ -926,6 +940,29 @@ export function createSolanaVaultReader(options: SolanaVaultReaderOptions): Sola
           commitment,
         );
         return found.map((account) => account.address).sort();
+      }),
+
+    // The program says its limits (`creator_limits`, programs/basket/src/checks.rs, held to
+    // fixtures/creator-limits/vectors-v2.json) to a simulation paid by Config's admin. They change only
+    // with an upgrade, so one answer serves for a few minutes.
+    creatorLimits: () =>
+      guarded(async () => {
+        const simulate = options.simulate;
+        if (!simulate)
+          throw new ChainError(
+            'NotSupported',
+            'this reader has no node to simulate on: the author limits come from the adapter',
+          );
+        const at = Date.now();
+        if (!limits || at - limits.at > LIMITS_FOR_MS) {
+          const { admin } = (await snapshot()).onchain;
+          const read = readCreatorLimits({ rpc: simulate, program, payer: admin, commitment });
+          limits = { at, read };
+          read.catch(() => {
+            if (limits?.read === read) limits = null;
+          });
+        }
+        return limits.read;
       }),
 
     getRecipe: (recipeOnchainId) =>

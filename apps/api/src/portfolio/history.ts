@@ -10,7 +10,7 @@ import {
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { Refusal } from '../orders/errors';
 import { numbered, type VaultNumbers } from './numbers';
-import { addressOn, ownedOn, type ScopedChain } from './scope';
+import { addressOn, openOn, ownedOn, type ScopedChain } from './scope';
 
 // A person's vaults over time (GET /v1/portfolio/history, PORT-2): the window one read covers, and the
 // query that answers it. The snapshot worker keeps a row a vault about every ten minutes
@@ -128,7 +128,7 @@ export function lastOfEachStep(
     .from(t)
     .where(
       and(
-        ownedOn(t, scoped),
+        openOn(t, scoped, t.observedAt),
         gte(t.observedAt, a.from),
         lte(t.observedAt, a.to),
         ...(a.address === undefined ? [] : [eq(t.address, a.address)]),
