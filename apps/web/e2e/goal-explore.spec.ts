@@ -208,9 +208,13 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       // Measured once the page is still: just after a load or a resize the conversation's head can be
       // drawn again (its key follows the account and the chain as they settle), and for that moment
       // there is no title to measure. The place it settles in is held exactly.
-      await expect
-        .poll(place, { message: `${width}px, rail ${closed ? 'closed' : 'open'}` })
-        .toEqual({ x: width < 1024 ? 0 : closed ? 80 : 328, y: 104 });
+      const step = `${width}px, rail ${closed ? 'closed' : 'open'}`;
+      const there = { x: width < 1024 ? 0 : closed ? 80 : 328, y: 104 };
+      // inside the test's own limit, so a miss is reported with this step's name
+      await expect.poll(place, { message: step, timeout: 10_000 }).toEqual(there);
+      // and still there a frame later: settled, not passing through
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+      expect(await place(), `${step}, a frame later`).toEqual(there);
     }
   }
 });
