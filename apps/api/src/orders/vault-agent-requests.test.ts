@@ -1022,6 +1022,26 @@ describe("the person's stated shares, as their words hold them", () => {
     expect(unreadOf(out)).toEqual([]);
   });
 
+  it('reads Thom’s list as he wrote it in the vault chat, with no percent sign (Oct 15)', async () => {
+    const seven = ['SPY', 'AAPL', 'NVDA', 'META', 'TSLA', 'MSFT', 'GOOGL'];
+    const out = await served(
+      ['SPY 50, AAPL 15, NVDA 15, META 10, TSLA 5, MSFT 2.5, GOOGL 2.5'],
+      seven,
+      [],
+    );
+    expect(out.weights).toEqual([5000, 1500, 1500, 1000, 500, 250, 250]);
+    expect(unreadOf(out)).toEqual([]);
+    expect(out.notes).not.toContainEqual(expect.objectContaining({ code: 'equal_split' }));
+    // the same list a step short of 100 is said back, and the split stays equal
+    const short = await served(
+      ['SPY 50, AAPL 15, NVDA 15, META 10, TSLA 5, MSFT 2.5, GOOGL 2'],
+      seven,
+      [],
+    );
+    expect(short.notes[0]).toEqual({ code: 'equal_split', assetIds: seven.map(symbol) });
+    expect(unreadOf(short).length).toBeGreaterThan(0);
+  });
+
   it('reads "All in TSLA." as the whole vault in TSLA, in place of the shares before it', async () => {
     const out = await served(['All in TSLA.'], tng, []);
     expect(out.weights).toEqual([10_000]);
