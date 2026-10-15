@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkCreatorLimits } from '@colosseum/basket';
+import { checkCreatorLimits, overCeilings } from '@colosseum/basket';
 import {
   createEvmRpc,
   createEvmVaultAdapter,
@@ -155,25 +155,35 @@ describe.skipIf(!FORK_URL)('the four mainnet portfolios, published on a copy of 
     );
   });
 
-  it('holds gold and AMZN at the least weight to the ceiling the factory states for them, under the first rules', async () => {
+  it('holds gold and AMZN at 2% to the ceiling the factory states for them: refused under the first rules, a warning under the second', async () => {
     const assets = await adapter.listAssets();
-    // Under the second rules (SHARED-RULES-V2) the ceiling is a warning, and this is moot.
     const limits = await adapter.creatorLimits();
-    if (limits.rules !== 1) return;
     for (const asset of ['robinhood:gld', 'robinhood:amzn']) {
-      const verdict = checkCreatorLimits(
-        null,
-        [
-          { asset: 'robinhood:spy', weightBps: 5000 },
-          { asset: 'robinhood:meta', weightBps: 4800 },
-          { asset, weightBps: 200 },
-        ],
-        { limits, assets, now: 0, lastPublishAt: null, hasPending: false, publishDelay: 0 },
-      );
-      // Under the least weight on this factory (0.5% on the deploy of Oct 12), it is refused.
+      const lines = [
+        { asset: 'robinhood:spy', weightBps: 5000 },
+        { asset: 'robinhood:meta', weightBps: 4800 },
+        { asset, weightBps: 200 },
+      ];
+      const verdict = checkCreatorLimits(null, lines, {
+        limits,
+        assets,
+        now: 0,
+        lastPublishAt: null,
+        hasPending: false,
+        publishDelay: 0,
+      });
+      // Under the least weight on this factory (0.5% on the deploy of Oct 12).
       const ceiling = assets.find((a) => a.id === asset)?.maxWeightBps ?? 0;
-      expect(verdict.ok, asset).toBe(ceiling >= 200);
-      if (!verdict.ok) expect(verdict.code).toBe('WeightAboveCeiling');
+      expect(ceiling, asset).toBeLessThan(200);
+      if (limits.rules === 1) {
+        expect(verdict.ok, asset).toBe(false);
+        if (!verdict.ok) expect(verdict.code).toBe('WeightAboveCeiling');
+      } else {
+        // SHARED-RULES-V2: published, and the line over its ceiling is named for the warning.
+        expect(limits.rules).toBe(2);
+        expect(verdict.ok, verdict.ok ? '' : verdict.detail).toBe(true);
+        expect(overCeilings(lines, assets).map((o) => o.asset)).toEqual([asset]);
+      }
     }
   });
 
