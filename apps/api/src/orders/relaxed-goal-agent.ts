@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { BasketAsset } from '@colosseum/schemas';
 import {
   type VaultAgentSource as AgentSource,
+  CREATOR_LIMITS_V2,
   type VaultAgentRepairNote,
   VaultAgentReply,
   VaultAgentRequest,
@@ -308,10 +309,22 @@ function turnsOf(messages: VaultAgentRequest['messages']) {
   return turns;
 }
 
-/** `whole` basis points over `n` equally, to the unit; the remainder goes to the first. */
-const equalSplit = (whole: number, n: number) => {
-  const base = Math.floor(whole / n);
-  return Array.from({ length: n }, (_, i) => base + (i < whole - base * n ? 1 : 0));
+/**
+ * The step a shared portfolio's weights move in, the same under both registry rules (`stepBps`): an
+ * equal split keeps to it, so a vault split equally can be published as it is (Thom, Oct 15: seven
+ * holdings at 14.28% and 14.29% could not).
+ */
+const STEP_BPS = CREATOR_LIMITS_V2.stepBps;
+/**
+ * `whole` basis points over `n` as equally as steps of `STEP_BPS` allow, the extra steps to the first:
+ * seven lines are 1450, 1450, 1450, 1450, 1400, 1400, 1400. Where `whole` is not in steps, or holds
+ * fewer steps than lines, to the unit, the remainder to the first.
+ */
+export const equalSplit = (whole: number, n: number) => {
+  const step = whole % STEP_BPS === 0 && whole / STEP_BPS >= n ? STEP_BPS : 1;
+  const units = whole / step;
+  const base = Math.floor(units / n);
+  return Array.from({ length: n }, (_, i) => (base + (i < units - base * n ? 1 : 0)) * step);
 };
 const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
 const pctOf = (fraction: number) => pct(Math.round(fraction * 10_000));

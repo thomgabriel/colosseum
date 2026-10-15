@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createModelQuota, type ModelQuota } from '../model-quota';
 import { goalFit } from './mix';
 import { createRelaxedGoalAgent, splitShares } from './relaxed-goal-agent';
-import type { GoalAgentContext } from './vault-agent';
+import { type GoalAgentContext, personShares } from './vault-agent';
 
 // The code-held rules of the relaxed intake (gate RELAXED-INTAKE), run through the real agent's
 // post-processing with the model stubbed: nothing leaves the machine. The model's reply is the JSON the
@@ -318,7 +318,8 @@ describe('relaxed intake: the split', () => {
       { shape: 'pick', lines: [line('solana:usdy'), line('solana:syrup'), line('solana:paxg')] },
       'USDY, syrupUSDC and PAXG',
     );
-    expect(weights(reply)).toEqual({ USDY: 3334, syrupUSDC: 3333, PAXG: 3333 });
+    // in the 0.5% steps a shared portfolio's weights move in, the extra step to the first
+    expect(weights(reply)).toEqual({ USDY: 3350, syrupUSDC: 3350, PAXG: 3300 });
     expect(notes(reply)).toContain('Equal split until you say otherwise.');
   });
 
@@ -1160,10 +1161,82 @@ describe('relaxed intake: caps', () => {
   });
 });
 
+describe('a vault of stated shares on Robinhood Chain (Thom, Oct 15)', () => {
+  const rh = (symbol: string, cls: BasketAsset['cls'] = 'stock'): BasketAsset =>
+    ({
+      ...asset(symbol.toLowerCase(), symbol, cls, cls === 'cash' ? 10_000 : 5000),
+      id: `robinhood:${symbol.toLowerCase()}`,
+      chain: 'robinhood',
+      underlying: symbol,
+      provenance: 'live',
+    }) as BasketAsset;
+  const SEVEN = ['SPY', 'AAPL', 'NVDA', 'META', 'TSLA', 'MSFT', 'GOOGL'];
+  const RH = [
+    ...SEVEN.map((symbol) => rh(symbol, symbol === 'SPY' ? 'etf' : 'stock')),
+    rh('USDG', 'cash'),
+  ];
+  const ctx = () =>
+    context({
+      chain: 'robinhood',
+      assets: RH,
+      evidence: RH.map((a) => source(`catalog:${a.id}`, { assetId: a.id })),
+    });
+  const lines = SEVEN.map((symbol) => line(`robinhood:${symbol.toLowerCase()}`));
+
+  it('applies the shares of “exactly these shares:”, 2.5% included, whatever the model reports', async () => {
+    const reply = await run(
+      { shape: 'pick', lines },
+      'A vault with exactly these shares: SPY 50%, AAPL 15%, NVDA 15%, META 10%, TSLA 5%, MSFT 2.5%, GOOGL 2.5%.',
+      ctx(),
+    );
+    expect(weights(reply)).toEqual({
+      SPY: 5000,
+      AAPL: 1500,
+      NVDA: 1500,
+      META: 1000,
+      TSLA: 500,
+      MSFT: 250,
+      GOOGL: 250,
+    });
+    expect(notes(reply)).toContain('The shares you gave are applied exactly.');
+    expect(notes(reply)).not.toContain('Equal split');
+  });
+
+  it('reads a list of shares after what they are of and a heading, and nothing else new', () => {
+    const read = (text: string, language: 'en' | 'pt' = 'en') =>
+      personShares([{ who: 'person', text }], language, RH, new Map()).standing.map(
+        (share) => `${share.assetIds.join('+')} ${share.kind} ${share.bps}`,
+      );
+    const two = ['robinhood:spy exact 5000', 'robinhood:aapl exact 5000'];
+    for (const text of [
+      'A vault with exactly these shares: SPY 50%, AAPL 50%.',
+      'I want a vault with these weights: SPY 50%, AAPL 50%',
+      'A portfolio with SPY 50%, AAPL 50%.',
+      'The following shares: SPY 50%, AAPL 50%.',
+    ])
+      expect(read(text), text).toEqual(two);
+    expect(read('Um cofre com exatamente estas partes: SPY 50%, AAPL 50%.', 'pt')).toEqual(two);
+    // still unread: someone else's, a question, a condition, a return
+    for (const text of [
+      'My wife wants a vault with these shares: SPY 50%, AAPL 50%.',
+      'A vault with exactly these shares: SPY 50%, AAPL 50%?',
+      'If I had a vault with these shares: SPY 50%, AAPL 50%.',
+      'A vault with these returns: SPY 50%, AAPL 50%.',
+    ])
+      expect(read(text), text).toEqual([]);
+  });
+
+  it('splits seven holdings equally in 0.5% steps, which a shared portfolio can publish', async () => {
+    const reply = await run({ shape: 'pick', lines }, `I want ${SEVEN.join(', ')}`, ctx());
+    expect(Object.values(weights(reply))).toEqual([1450, 1450, 1450, 1450, 1400, 1400, 1400]);
+    expect(notes(reply)).toContain('Equal split until you say otherwise.');
+  });
+});
+
 describe('splitShares', () => {
   it('cases', () => {
     expect(splitShares([null, null, null], 10_000, true)).toMatchObject({
-      bps: [3334, 3333, 3333],
+      bps: [3350, 3350, 3300],
       kind: 'equal',
       gap: 0,
     });
@@ -1191,6 +1264,19 @@ describe('splitShares', () => {
       bps: [5000, 5000],
       kind: 'unusable',
     });
+  });
+
+  it('keeps an equal split in 0.5% steps where the whole allows it, and to the unit where not', () => {
+    expect(splitShares(Array(7).fill(null), 10_000, true).bps).toEqual([
+      1450, 1450, 1450, 1450, 1400, 1400, 1400,
+    ]);
+    // the rest after a stated share, in steps too
+    expect(splitShares([0.5, null, null, null], 10_000, true).bps).toEqual([
+      5000, 1700, 1650, 1650,
+    ]);
+    // a whole that is not in steps, or holds fewer steps than lines
+    expect(splitShares([null, null, null], 3333, true).bps).toEqual([1111, 1111, 1111]);
+    expect(splitShares([null, null, null], 100, true).bps).toEqual([34, 33, 33]);
   });
 
   it('always adds up to the whole with the gap', () => {

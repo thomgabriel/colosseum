@@ -19,10 +19,10 @@ import { SkeletonLine, SkeletonListRow } from '../../components/ui/Skeleton';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
-import { formatBps } from '../order/amounts';
+import { formatBps, tokenName } from '../order/amounts';
 import { keepOrder } from '../order/order-record';
 import { deploymentsFor, networkFor, onMock, publishableOn } from '../order/readiness';
-import { assetsFor } from '../order/units';
+import { assetsFor, unitsFor } from '../order/units';
 import { tokens } from '../portfolio/figures';
 import { readPortfolio, type Vault } from '../portfolio/portfolio';
 import { sameAddress } from '../portfolio/vault-name';
@@ -405,7 +405,11 @@ export function PublishScreen() {
   const familyId = familyIdFor(slug || 'x');
   const chainName = chain ? t.chain.names[chain] : '';
   const locale = LOCALE[lang];
-  const symbolOf = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
+  // The cash token is not among the assets a portfolio may hold, so its symbol is the chain's units':
+  // "USDG", never "robinhood:usdg" (Thom, Oct 15).
+  const units = unitsFor(chain, mock);
+  const symbolOf = (id: string) =>
+    assets.find((a) => a.id === id)?.symbol ?? units?.tokens[id]?.symbol ?? tokenName(id);
   // A rule the form breaks is said after the person has typed in its part, or asked for the review:
   // an empty form says nothing is wrong with it yet.
   const partOf = (k: Problem): keyof typeof touched =>

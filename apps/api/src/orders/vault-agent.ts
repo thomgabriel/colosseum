@@ -1573,8 +1573,15 @@ const ASK_SUBJECT =
 const ASK_VERB =
   '(?:put|make\\s+(?:it|that)|(?:change|set)\\s+(?:it|that)\\s+to|set|give(?:\\s+me)?|allocate|use|add|coloc(?:ar|a|que)|p[oô]r|ponha|põe|bot(?:ar|a|e)|deix(?:ar|a|e)|aloc(?:ar|a|que)|us(?:ar|a|e))';
 const END_OF_WORD = '(?![\\p{L}\\p{N}])';
+// What the shares are of, named before them ("a vault with SPY 50%, …"), and a heading that hands
+// over the list ("exactly these shares: SPY 50%, …"). Thom, Oct 15: "A vault with exactly these
+// shares: SPY 50%, AAPL 15%, …" read as no share at all, and his vault was split equally.
+const ASK_OBJECT =
+  '(?:(?:a|an|one|my|the|this)\\s+(?:new\\s+)?(?:vault|portfolio|plan)\\s+(?:with|of|holding)|(?:um|uma|meu|minha|o|a|este|esta|esse|essa)\\s+(?:nov[oa]\\s+)?(?:cofre|carteira|plano)\\s+(?:com|de))';
+const ASK_LIST =
+  '(?:(?:exactly|precisely|exatamente)\\s+)?(?:these|the\\s+following|estas|estes|essas|esses|(?:os|as)\\s+seguintes)\\s+(?:shares|weights|allocations?|percentages|targets|partes|pesos|percentuais|porcentagens|aloca[cç][oõ]es|alvos)\\s*:';
 const ASK_BEFORE = new RegExp(
-  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*$`,
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*(?:${ASK_OBJECT}${END_OF_WORD})?\\s*(?:${ASK_LIST})?\\s*$`,
   'iu',
 );
 // A piece that asks for something and holds no share ("I want EV stocks") opens the same way.
