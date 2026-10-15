@@ -157,9 +157,10 @@ for (const width of [1440, 375] as const)
     await expect(send.locator('[data-ui="lattice-loader"]')).toBeVisible();
     expect(await assembling(pending)).toBeGreaterThan(0);
     await inView(pending);
-    // the box takes the next thought and says that sending waits, in a place as tall as it was
+    // the box takes the next thought and says that sending waits, in a place as tall as it was (the
+    // first message opens the draft's column beside the chat, so the chat, and the line, narrow)
     await expect(composer.locator('[data-ui="composer-hint"]')).toContainText(talk.busyHint);
-    expect(await hintSize()).toEqual(settledHint);
+    expect((await hintSize())[1]).toBe(settledHint[1]);
     await page.locator('textarea').fill('and keep some cash');
     await expect(send).toHaveAttribute('aria-disabled', 'true');
     await page.locator('textarea').fill('');

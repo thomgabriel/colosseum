@@ -11,7 +11,7 @@ import { json, PHANTOM, signedInPort } from '../wallet/test/fake-port';
 import { portStore } from '../wallet/test/mock-provider';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { current, open, openNew, rail, row, titles } from './test/rail';
+import { current, open, openNew, rail, row, titles, viewport } from './test/rail';
 
 // The conversations panel of /invest (Thom, Oct 14, in place of the picker): the drafts kept in this
 // browser and the person's vaults, newest first by day; a vault named by its goal with its value
@@ -74,6 +74,7 @@ const groups = (host: HTMLElement) =>
 let served = answer as unknown;
 let portfolio: unknown = null;
 beforeEach(() => {
+  viewport(1600);
   window.history.replaceState(null, '', '/invest');
   localStorage.clear();
   sessionStorage.clear();
@@ -318,6 +319,58 @@ describe('the conversations panel', () => {
     const again = await show();
     await settle();
     expect(rail(again).getAttribute('data-closed')).toBe('true');
+  });
+
+  // Thom, Oct 15: under 1440px a draft beside the chat would leave it too narrow with the rail open
+  it('folds to its strip under 1440px while a draft is beside the chat, until it is opened again', async () => {
+    portStore.setApi(async (url, init) => {
+      if (url === '/v1/me') return json(person);
+      if (url === '/v1/portfolio/plans') return json(served);
+      if (init?.method === 'POST')
+        return json({
+          version: 1,
+          chain: 'solana',
+          messageId: JSON.parse(String(init.body)).messageId,
+          message: 'Noted.',
+          question: null,
+          proposal: null,
+        });
+      return json({}, 404);
+    });
+    const say = async (host: HTMLElement, words: string) => {
+      await type(find<HTMLTextAreaElement>(host, 'textarea'), words);
+      await click(find(host, '[data-ui="composer-send"]'));
+      await settle();
+    };
+    const expanded = (host: HTMLElement) =>
+      find(rail(host), '[data-ui="conversations-toggle"]').getAttribute('aria-expanded');
+    viewport(1280);
+    const host = await show();
+    await settle();
+    // no draft yet: the rail is as the person left it
+    expect(expanded(host)).toBe('true');
+    await say(host, 'Consider gold');
+    expect(expanded(host)).toBe('false');
+    expect(rail(host).getAttribute('data-closed')).toBe('true');
+    // opened again, it stays open for this draft, and nothing is remembered as closed
+    await click(find(rail(host), '[data-ui="conversations-toggle"]'));
+    expect(expanded(host)).toBe('true');
+    await say(host, 'And some cash');
+    expect(expanded(host)).toBe('true');
+    expect(localStorage.getItem('tf-conversations-closed')).toBe('0');
+    // a new conversation has no draft beside it, and the next draft folds the rail again
+    await openNew(host);
+    await settle();
+    expect(expanded(host)).toBe('true');
+    await say(host, 'Earn an income');
+    expect(expanded(host)).toBe('false');
+    // at a desk's width the rail stays open beside a draft
+    await unmountAll();
+    viewport(1600);
+    const wide = await show();
+    await settle();
+    await say(wide, 'Consider gold');
+    expect(expanded(wide)).toBe('true');
   });
 
   it('on a phone, opens as a sheet from a button that names the one on screen, and closes when one is chosen', async () => {

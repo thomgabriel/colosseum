@@ -14,6 +14,17 @@ const click = (el: Element) =>
     (el as HTMLElement).click();
   });
 
+/**
+ * The window's width, as a media query reads it: the rail folds beside a draft under 1440px, so the
+ * tests that list its rows draw it at a desk's width unless they ask for another.
+ */
+export const viewport = (width: number) =>
+  (
+    window as unknown as {
+      happyDOM: { setViewport(size: { width: number; height: number }): void };
+    }
+  ).happyDOM.setViewport({ width, height: 900 });
+
 export const rail = (host: HTMLElement) => find(host, 'div[data-ui="conversations"]');
 
 const rows = (host: HTMLElement) => [

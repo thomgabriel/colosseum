@@ -32,7 +32,7 @@ import { portStore } from '../wallet/test/mock-provider';
 import { holds } from '../wallet/test/mock-signing';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { current, open, openNew, row, titles } from './test/rail';
+import { current, open, openNew, row, titles, viewport } from './test/rail';
 
 // The deposit signed in place on /invest (gate DEPOSIT-IN-PLACE), with real events against a double of
 // the API. Only `execute` of the SDK is a double, as in the invest card's own tests: what decides a
@@ -383,6 +383,7 @@ const tick = (host: HTMLElement) =>
   click(find(host, '[data-ui="trust-notice"] input[type="checkbox"]'));
 
 beforeEach(() => {
+  viewport(1600);
   installLocks();
   window.history.replaceState(null, '', '/invest');
   window.localStorage.clear();
