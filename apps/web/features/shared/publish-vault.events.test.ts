@@ -7,7 +7,7 @@ import { dictionary } from '../../i18n';
 import { useAccount } from '../account/AccountProvider';
 import { withAccount } from '../account/test/screen';
 import { recallOrder } from '../order/order-record';
-import { EMBEDDED, fakePort, json, signedInPort } from '../wallet/test/fake-port';
+import { EMBEDDED, EVM, fakePort, json, signedInPort } from '../wallet/test/fake-port';
 import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { PublishScreen } from './PublishScreen';
@@ -37,6 +37,8 @@ const read = vi.mocked(readPublishVault);
 const en = dictionary('en');
 const first = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '42');
 const second = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '43');
+/** The person's vault on Robinhood Chain, offered beside the Solana ones. */
+const onRobinhood = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0';
 const snapshots = (address = first, components = WEIGHTS) => ({
   kind: 'read' as const,
   source: 'chain' as const,
@@ -117,6 +119,19 @@ function api(
               ]
             ).map((v) => ({ ...v, provenance: 'sandbox' })),
           },
+          {
+            chain: 'robinhood',
+            name: 'Robinhood Chain',
+            mode: 'live',
+            provenance: 'sandbox',
+            prices: [],
+            vaults: [
+              {
+                ...vaultOf({ chain: 'robinhood', address: onRobinhood, owner: EVM, basketId: '7' }),
+                provenance: 'sandbox',
+              },
+            ],
+          },
         ],
         disclaimer: 'd',
       });
@@ -167,9 +182,10 @@ async function show() {
   await settle(20);
   return host;
 }
+/** Chooses a vault by its address: a Solana vault, or the person's on Robinhood Chain. */
 async function select(host: HTMLElement, address: string) {
   const el = find<HTMLSelectElement>(host, 'select');
-  el.value = address;
+  el.value = `${address === onRobinhood ? 'robinhood' : 'solana'}:${address}`;
   await fire(el, new Event('change', { bubbles: true }));
   await settle(10);
 }
@@ -235,8 +251,22 @@ describe('sharing a selected vault strategy', () => {
       `/products/publish?vault=${encodeURIComponent(second)}&chain=solana`,
     );
     const host = await show();
-    expect(find<HTMLSelectElement>(host, 'select').value).toBe(second);
+    expect(find<HTMLSelectElement>(host, 'select').value).toBe(`solana:${second}`);
     expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(3);
+  });
+  it('keeps the chosen vault, and its chain, when new plans move to another chain', async () => {
+    const calls = api();
+    const host = await show();
+    expect(find(host, '[data-ui="publish-source"]').textContent).toBe(`Solana · ${first}`);
+    await click(button(host, 'Switch chain'));
+    await settle(30);
+    // the account's chain is where new plans start, not the publish's: the vault chosen stays
+    expect(find(host, '[data-ui="publish-source"]').textContent).toBe(`Solana · ${first}`);
+    await click(button(host));
+    await settle(10);
+    expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({
+      recipes: [{ chain: 'solana' }],
+    });
   });
   it('does not offer Publish as a portfolio on another person’s public vault', async () => {
     api({ publicOwner: '11111111111111111111111111111111', targeted: true });
@@ -369,7 +399,7 @@ describe('sharing a selected vault strategy', () => {
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: 'another-person' }));
         });
-      else if (context === 'chain') await click(button(host, 'Switch chain'));
+      else if (context === 'chain') await select(host, onRobinhood);
       else if (context === 'network')
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
@@ -410,7 +440,7 @@ describe('sharing a selected vault strategy', () => {
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: 'another-person' }));
         });
-      else if (context === 'chain') await click(button(host, 'Switch chain'));
+      else if (context === 'chain') await select(host, onRobinhood);
       else
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));

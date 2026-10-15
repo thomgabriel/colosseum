@@ -126,6 +126,8 @@ const BOTH = () =>
 
 /** The vault of the fake port's wallet for plan 42, as the guard derives it on Solana. */
 const MY_VAULT = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '42');
+/** A vault of the fake port's EVM wallet on Robinhood Chain. */
+const EVM_VAULT = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0';
 
 function api(o: {
   family?: ReturnType<typeof familyOf> | null;
@@ -134,6 +136,8 @@ function api(o: {
   /** The person's wallets and the chains they sign on; a passkey's two unless said. */
   person?: Partial<Person>;
   vaults?: (ReturnType<typeof vaultOf> & { name?: string | null })[];
+  /** The person's vaults on Robinhood Chain, read with the Solana ones. */
+  rhVaults?: (ReturnType<typeof vaultOf> & { name?: string | null })[];
   order?: () => unknown;
   portfolio?: () => Promise<Response>;
   /** Answers GET /v1/funding: the wallet has what the buy needs. */
@@ -180,6 +184,18 @@ function api(o: {
             vaults: (o.vaults ?? []).map((v) => ({ ...v, provenance: 'sandbox' })),
             prices: [],
           },
+          ...(o.rhVaults
+            ? [
+                {
+                  chain: 'robinhood',
+                  name: 'Robinhood Chain',
+                  mode: 'live',
+                  provenance: 'live',
+                  vaults: o.rhVaults.map((v) => ({ ...v, provenance: 'live' })),
+                  prices: [],
+                },
+              ]
+            : []),
         ],
         disclaimer: 'd',
       });
@@ -1657,14 +1673,139 @@ describe('the trust notice on a buy the keeper may trade', () => {
 });
 
 describe('the publish form', () => {
-  it('offers no vault on a chain the shelf does not list when the server lists live portfolios only', async () => {
-    // Solana here is a test network, and the server lists live portfolios only
-    api({ liveOnly: true });
-    const host = await show(createElement(PublishScreen));
-    const said = find(host, '[data-ui="publish-live-only"]');
-    expect(said.textContent).toContain(en.shared.publish.liveOnly('Solana', ''));
-    expect(host.querySelector('select, textarea, input')).toBeNull();
-    expect(host.querySelector('button')).toBeNull();
+  describe('on every chain whose portfolios Products lists (Thom, Oct 15)', () => {
+    /** The person's vault on Robinhood Chain, owned by their EVM wallet. */
+    const RH_VAULT = '0x5fbdb2315678afecb367f032d93f642f64180aa3';
+    const rhVault = () =>
+      vaultOf({ chain: 'robinhood', address: RH_VAULT, owner: EVM, basketId: '7' });
+    /** Robinhood Chain runs live here and Solana on its test network, as the hosted app runs them. */
+    const liveRobinhood = () =>
+      portStore.set(
+        signedInPort(EMBEDDED, {
+          userId: USER,
+          network: (chain) => ({
+            id: chain,
+            name: chain === 'robinhood' ? 'Robinhood Chain' : 'Solana',
+            networkName: chain === 'robinhood' ? 'Mainnet' : 'Devnet',
+            provenance: chain === 'robinhood' ? 'live' : 'sandbox',
+            on: chain !== 'base',
+          }),
+        }),
+      );
+    const optionsOf = (host: HTMLElement) =>
+      [...find<HTMLSelectElement>(host, 'select').options].map((o) => o.textContent);
+    afterEach(() => window.history.replaceState(null, '', '/'));
+
+    it('offers the person’s Robinhood Chain vault while their account is on Solana, and publishes from it', async () => {
+      liveRobinhood();
+      // the account's chain is Solana, where the person has a vault too
+      const calls = api({
+        liveOnly: true,
+        family: null,
+        vaults: [vaultOf({ address: MY_VAULT })],
+        rhVaults: [rhVault()],
+        order: () => publishOrder(),
+      });
+      const host = await show(createElement(PublishScreen));
+      expect(host.querySelector('[data-ui="publish-no-vault"]')).toBeNull();
+      // the Solana vault is not offered, and nothing says why: no link named it
+      expect(optionsOf(host)).toEqual([
+        en.shared.publish.chooseVault,
+        `Robinhood Chain · ${RH_VAULT}`,
+      ]);
+      expect(host.querySelector('[data-ui="publish-unlisted"]')).toBeNull();
+      expect(find(host, '[data-ui="publish-source"]').textContent).toBe(
+        `Robinhood Chain · ${RH_VAULT}`,
+      );
+      expect(host.textContent).toContain(en.shared.publish.sourceHint('Robinhood Chain'));
+      const label = [...host.querySelectorAll('label')].find(
+        (l) => l.textContent === en.shared.publish.name,
+      );
+      await type(
+        find<HTMLInputElement>(host, `#${CSS.escape(label?.htmlFor ?? '')}`),
+        'Three of the largest',
+      );
+      await settle(400);
+      await settle(50);
+      await click(button(host, en.shared.publish.review) as HTMLElement);
+      await settle(50);
+      // the order is the chosen vault's chain's, owned by the wallet there
+      expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({
+        type: 'publish',
+        creator: { evm: EVM },
+        recipes: [{ chain: 'robinhood' }],
+      });
+      expect(calls.some((c) => c.path === '/v1/shared/limits?chain=robinhood')).toBe(true);
+    });
+
+    it('says why a Solana vault named in the link is not offered, and chooses no other', async () => {
+      liveRobinhood();
+      window.history.replaceState(null, '', `/products/publish?vault=${MY_VAULT}&chain=solana`);
+      api({
+        liveOnly: true,
+        family: null,
+        vaults: [vaultOf({ address: MY_VAULT })],
+        rhVaults: [rhVault()],
+      });
+      const host = await show(createElement(PublishScreen));
+      expect(find(host, '[data-ui="publish-unlisted"]').textContent).toBe(
+        'Solana runs on a test network here, and Products lists real-money portfolios only.',
+      );
+      expect(optionsOf(host)).toEqual([
+        en.shared.publish.chooseVault,
+        `Robinhood Chain · ${RH_VAULT}`,
+      ]);
+      expect(find<HTMLSelectElement>(host, 'select').value).toBe('');
+      expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(0);
+      expect(host.textContent).toContain(en.shared.publish.noVaults);
+      // the person picks the Robinhood Chain vault: its targets are read on its own chain
+      const select = find<HTMLSelectElement>(host, 'select');
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+      await act(async () => {
+        setter?.call(select, `robinhood:${RH_VAULT}`);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      for (let i = 0; i < 3; i += 1) await settle(50);
+      expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(3);
+      expect(find(host, '[data-ui="publish-source"]').textContent).toBe(
+        `Robinhood Chain · ${RH_VAULT}`,
+      );
+    });
+
+    it('says in one line that there is no vault to publish from, with a way to make one', async () => {
+      liveRobinhood();
+      window.history.replaceState(null, '', `/products/publish?vault=${MY_VAULT}&chain=solana`);
+      api({ liveOnly: true, family: null, vaults: [vaultOf({ address: MY_VAULT })] });
+      const host = await show(createElement(PublishScreen));
+      const page = find(host, '[data-ui="publish-no-vault"]');
+      expect(find(page, '[data-ui="publish-unlisted"]').textContent).toBe(
+        en.shared.publish.notListed('Solana', true),
+      );
+      expect(page.textContent).toContain(
+        `${en.shared.publish.noVaultOn('Robinhood Chain')} ${en.shared.publish.makeVault}`,
+      );
+      expect(find(page, 'a[href="/invest"]').textContent).toBe(en.shared.publish.makeVault);
+      expect(host.querySelector('select, textarea, input')).toBeNull();
+      expect(host.querySelector('button')).toBeNull();
+    });
+
+    it('offers the person’s vaults on every chain where every chain is listed', async () => {
+      api({
+        liveOnly: false,
+        family: null,
+        vaults: [vaultOf({ address: MY_VAULT })],
+        rhVaults: [rhVault()],
+      });
+      const host = await show(createElement(PublishScreen));
+      expect(optionsOf(host)).toEqual([
+        en.shared.publish.chooseVault,
+        `Solana · ${MY_VAULT}`,
+        `Robinhood Chain · ${RH_VAULT}`,
+      ]);
+      expect(host.textContent).toContain(en.shared.publish.sourceHint(''));
+      expect(host.querySelector('[data-ui="publish-unlisted"]')).toBeNull();
+      expect(find(host, '[data-ui="publish-source"]').textContent).toBe(`Solana · ${MY_VAULT}`);
+    });
   });
 
   it('works out the family id from the address, holds the limits, and keeps its own text', async () => {
@@ -1770,7 +1911,11 @@ describe('the publish form', () => {
   });
 
   it('shows the form on Robinhood Chain, and not the notice that publishing is closed', async () => {
-    api({ family: null, chain: 'robinhood' });
+    api({
+      family: null,
+      chain: 'robinhood',
+      rhVaults: [vaultOf({ chain: 'robinhood', address: EVM_VAULT, owner: EVM, basketId: '7' })],
+    });
     const host = await show(createElement(PublishScreen));
     expect(host.textContent).not.toContain(en.shared.publish.problems.chain);
     expect(host.querySelector('input')).not.toBeNull();
@@ -1779,8 +1924,15 @@ describe('the publish form', () => {
 
   it('is closed on screen where the deployment names no registry: the notice, no form, no order', async () => {
     deployed.withoutRegistry = true;
+    // a person whose one wallet signs on Robinhood Chain alone
+    portStore.set(signedInPort(METAMASK, { userId: USER }));
     try {
-      const calls = api({ family: null, chain: 'robinhood' });
+      const calls = api({
+        family: null,
+        chain: 'robinhood',
+        person: { wallets: METAMASK, chainOptions: ['robinhood'] },
+        rhVaults: [vaultOf({ chain: 'robinhood', address: EVM_VAULT, owner: EVM, basketId: '7' })],
+      });
       const shelf = await show(createElement(ShelfScreen));
       expect(shelf.querySelector('a[href="/products/publish"]')).toBeNull();
       expect(find(shelf, '[data-ui="shelf-publish-soon"]').textContent).toBe(
@@ -2336,9 +2488,12 @@ describe('the flow audit’s findings on these screens (34, 38, 42)', () => {
     'sharing requires a source vault and never offers manual weight controls (%s)',
     async (lang) => {
       const words = (lang === 'en' ? en : pt).shared.publish;
-      api({ family: null, order: () => publishOrder() });
+      // the link names a vault that is not the person's: none is chosen in its place
+      window.history.replaceState(null, '', '/products/publish?vault=elsewhere');
+      api({ family: null, vaults: [vaultOf({ address: MY_VAULT })], order: () => publishOrder() });
       const host = await mount(withAccount(lang, createElement(PublishScreen)));
       for (let i = 0; i < 4; i += 1) await settle(50);
+      window.history.replaceState(null, '', '/');
       expect(host.textContent).toContain(words.noVaults);
       expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(0);
       const labels = [...host.querySelectorAll('label')].map((l) => l.textContent);

@@ -19,7 +19,7 @@ const broadcast = read('tests/fixtures/mainnet-records/run-latest.json');
 const config = read('contracts/script/config/4663-2026-10-12.json');
 // The guard's file as it stood before the deploy: marked a placeholder, with no contract named.
 const guard = (() => {
-  const g = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
+  const g = JSON.parse(read('tests/fixtures/mainnet-records/guard-2026-10-12.json'));
   const zero = `0x${'0'.repeat(40)}`;
   Object.assign(g.chains.robinhood, { factory: zero, beacon: zero, registry: zero });
   return JSON.stringify({ placeholder: true, todo: 'not deployed', ...g });

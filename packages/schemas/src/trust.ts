@@ -9,7 +9,7 @@ import type { ChainId } from './chain';
  * that a person must read again comes with a new version.
  */
 export const TRUST_STATUS = {
-  textVersion: '2026-10-12',
+  textVersion: '2026-10-15',
   /** No outside audit of the vault programs or contracts has been made. */
   audited: false,
   /** Who holds the keys that upgrade the vault code. The team: it could change the code, so it could move funds. */
@@ -51,7 +51,7 @@ export const TRUST_STATUS = {
     robinhood: {
       safe: '0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc',
       safeSignatures: 2,
-      delayHours: 48,
+      delayHours: 0,
       guardian: '0x0a1c3312c808b23D019bF241028f6B5624f4cc98',
       keeper: false,
       depositCap: false,

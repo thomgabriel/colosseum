@@ -27,23 +27,34 @@ export const PATHS = {
 
 /**
  * The ids the product's own deploy records give on this chain (packages/sdk/deployments/*.json: each
- * chain's cash id and its assets' keys): a bare id the product uses goes only to a listed row.
+ * chain's cash id and its assets' keys): a bare id the product uses goes only to a listed row, or to
+ * the row of the very token the product names by it (`reservedAddresses`).
  */
 export function reservedIds(root = '.'): string[] {
+  return Object.keys(reservedAddresses(root)).sort();
+}
+
+/** Each reserved id with the addresses the product's files give it (lower case), on this chain. */
+export function reservedAddresses(root = '.'): Record<string, string[]> {
   const dir = join(root, PATHS.deployments);
-  const out = new Set<string>();
+  const out: Record<string, string[]> = {};
+  const add = (id: string, address?: unknown) => {
+    if (!id.startsWith('robinhood:')) return;
+    out[id] ??= [];
+    if (typeof address === 'string') out[id].push(address.toLowerCase());
+  };
   for (const f of readdirSync(dir)
     .filter((x) => x.endsWith('.json'))
     .sort()) {
     const d = json(join(dir, f)) as {
-      chains?: Record<string, { cash?: unknown; assets?: Record<string, unknown> }>;
+      chains?: Record<string, { cash?: unknown; assets?: Record<string, { address?: unknown }> }>;
     };
     const c = d.chains?.robinhood;
     if (!c) continue;
-    if (typeof c.cash === 'string') out.add(c.cash);
-    for (const id of Object.keys(c.assets ?? {})) out.add(id);
+    if (typeof c.cash === 'string') add(c.cash, c.assets?.[c.cash]?.address);
+    for (const [id, a] of Object.entries(c.assets ?? {})) add(id, a?.address);
   }
-  return [...out].filter((id) => id.startsWith('robinhood:')).sort();
+  return out;
 }
 
 /** Where a run's frozen reads go, by the time of the block they were read at. */
@@ -89,5 +100,6 @@ export function loadFiles(
     calendarPath: PATHS.calendar,
     previous,
     reservedIds: reservedIds(root),
+    reservedAddresses: reservedAddresses(root),
   };
 }
