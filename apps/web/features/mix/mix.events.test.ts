@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { click, find, fire, mount, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { withAccount } from '../account/test/screen';
+import { announceOrderDone } from '../order/order-done';
 import { recallOrder } from '../order/order-record';
 import { deploymentsFor } from '../order/readiness';
 import { retargetOrder } from '../shared/test/fixtures';
@@ -281,11 +282,36 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
     await settle();
-    // The preview's weights are where the fields start; nothing is asked of the server yet.
-    expect(calls.filter((c) => c.url.endsWith('/targets'))).toEqual([]);
-    expect(find<HTMLInputElement>(host, '[data-ui="targets-lines"] input').value).toBe('40');
-    await click(find(host, '[data-action="targets-review"]'));
-    await settle();
+    // Applied, the preview's weights go straight to their review (gate SIGN-ONE-STEP): the draft
+    // gives its place to it, which says the change in a few words.
+    expect(
+      host.querySelector('[data-ui="vault-proposal"] [data-ui="change-review"]'),
+    ).not.toBeNull();
+    expect(find(host, '[data-ui="change-review"] [data-ui="sign-figure"]').textContent).toBe(
+      'More GLDx',
+    );
+    // the targets before and after, never "now" (that is what the vault holds), and each move in points
+    const change = find(host, '[data-ui="change-review"]');
+    expect(
+      [...change.querySelectorAll('[data-ui="sign-picture"] thead th')].map((th) => th.textContent),
+    ).toEqual([
+      en.order.flow.table.holding,
+      en.order.flow.picture.next,
+      en.order.flow.picture.before,
+      en.order.flow.table.change,
+    ]);
+    // the shared composition's comparison (WEIGHTS-RING), its moves in points
+    expect(find(change, '[data-ui="composition"]').dataset.mode).toBe('compare');
+    const moves = change.querySelectorAll('[data-ui="composition-delta"] [aria-hidden="true"]');
+    expect(moves.length).toBeGreaterThan(0);
+    for (const delta of moves) expect(delta.textContent).toMatch(/^[+\u2212]<?\d+ pp$/);
+    // worked out before any quote: its dollars are said as estimates, and why the steps' may differ
+    expect(find(change, '[data-ui="stat-swapped"] dt').textContent).toBe(
+      en.order.flow.stat.swappedEstimate,
+    );
+    expect(find(change, '[data-ui="change-estimate"]').textContent).toBe(
+      en.order.flow.stat.estimate,
+    );
     const asked = calls.find((c) => c.url.endsWith('/targets'));
     expect(asked?.url).toBe(`/v1/vaults/solana/${read.vault.address}/targets`);
     expect(asked?.body).toMatchObject({
@@ -364,10 +390,14 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
     await settle();
+    // the review's way to the fields, which start at the preview's weights
+    await click(buttonNamed(host, en.order.flow.changeWeights));
+    await settle();
+    expect(find<HTMLInputElement>(host, '[data-ui="targets-lines"] input').value).toBe('40');
     await type(find<HTMLInputElement>(host, '[data-ui="targets-lines"] input'), '55');
     await click(find(host, '[data-action="targets-review"]'));
     await settle();
-    expect(calls.find((c) => c.url.endsWith('/targets'))?.body).toMatchObject({
+    expect(calls.filter((c) => c.url.endsWith('/targets')).at(-1)?.body).toMatchObject({
       origin: 'person',
       confirm: false,
       allocations: [
@@ -379,7 +409,7 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     expect(find(host, '[data-ui="mix-review-total"]').textContent).toContain('$100.00');
   });
 
-  /** The conversation with a preview shown, its editor opened and the review asked for. */
+  /** The conversation with a preview shown and applied: its review asked for. */
   const reviewing = async (targetsAnswer: (body: Call['body'], n: number) => Response) => {
     let n = 0;
     portStore.setApi(async (url, init) => {
@@ -396,8 +426,6 @@ describe('a vault conversation’s preview, applied to the vault', () => {
     await click(find(host, '[data-ui="composer-send"]'));
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
-    await settle();
-    await click(find(host, '[data-action="targets-review"]'));
     await settle();
     return host;
   };
@@ -489,6 +517,8 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
           chainOptions: [],
         });
       if (url === `/v1/vaults/solana/${read.vault.address}`) return json(read);
+      // the order the confirm made, as the order's own screen reads it in the pane
+      if (url.startsWith('/v1/orders/') && init?.method !== 'POST') return json(retargetOrder());
       if (init?.method !== 'POST') return json({}, 404);
       const body = JSON.parse(String(init.body));
       if (url.endsWith('/conversation/reply'))
@@ -509,8 +539,6 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
     await settle();
     await click(buttonNamed(host, en.mix.preview.apply));
     await settle();
-    await click(find(host, '[data-action="targets-review"]'));
-    await settle();
     await click(box(host));
     await click(find(host, '[data-action="mix-confirm"]'));
     await settle();
@@ -519,11 +547,39 @@ describe('a proposal confirmed on the vault’s own page (gate VAULT-PAGE-ACTION
   const answered = () =>
     json({ status: 'ordered', review: reviewOf({ unconfirmed: [] }), order: retargetOrder() });
 
+  it('forgets the draft and its review once the change is signed: back on the vault, the holdings (audit V2)', async () => {
+    const host = await page(async () => answered());
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(host.querySelector('[data-ui="change-review"]')).not.toBeNull();
+    // another order's end (a deposit, another vault, another tab) leaves the change as it is
+    await act(async () => announceOrderDone('another-order'));
+    await settle();
+    expect(host.querySelector('[data-ui="change-review"]')).not.toBeNull();
+    // the change's own order ends: its draft and review are gone
+    await act(async () => announceOrderDone(retargetOrder().id));
+    await settle();
+    expect(host.querySelector('[data-ui="change-review"]')).toBeNull();
+    expect(host.querySelector('[data-ui="vault-proposal"]')).toBeNull();
+  });
+
   it('takes the pane with the order’s steps, and opens no other page', async () => {
     const host = await page(async () => answered());
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(find(host, '[data-ui="vault-screen"]').dataset.pane).toBe('apply');
     expect(router.push).not.toHaveBeenCalled();
+    // reviewed before its order was made (ChangeReview): the pane opens on the first step, whose
+    // button names it; the way back is the pane's own, and there is no second review
+    const pane = find(host, '[data-ui="vault-action-pane"]');
+    expect(find(pane, '[data-ui="order-screen"]').dataset.stage).toBe('steps');
+    // one press of the passkey wallet signs every step: the screen is the whole change's
+    expect(find(pane, '[data-ui="sign-step"] [data-ui="sign-figure"]').textContent).toBe(
+      'More GLDx',
+    );
+    expect(find(pane, '[data-ui="sign-step"] [data-variant="primary"]').textContent).toContain(
+      en.order.flow.press.change,
+    );
+    expect(pane.querySelector('[data-action="order-back"]')).toBeNull();
+    expect(pane.querySelector('[data-action="leave-action"]')).not.toBeNull();
   });
 
   it('does not replace a deposit opened before its order answers', async () => {

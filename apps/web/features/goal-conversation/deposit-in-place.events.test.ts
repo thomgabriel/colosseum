@@ -468,9 +468,11 @@ describe('the deposit signed in place on /invest', () => {
     expect(run.calls[0]?.order).toEqual(orderOn());
     expect(holds.open).toBe(1);
     expect(pane(host).getAttribute('data-state')).toBe('signing');
-    expect(find(host, '[data-ui="invest-progress"]').textContent).toContain(
-      en.invest.progress.line(null, en.invest.progress.depositing, 1, 2),
-    );
+    // one step on the screen at a time (gate SIGN-ONE-STEP): the strip says where, the panel what
+    const current = () => find(host, '[data-ui="sign-progress"] [aria-current="step"]').textContent;
+    const step = () => find(host, '[data-ui="sign-step"] [data-ui="sign-figure"]').textContent;
+    expect(current()).toContain(en.order.flow.short.deposit);
+    expect(step()).toBe('$10 → your vault');
     // the amount is no longer changed, the box is inert and says why, and the deposit is kept
     expect(pane(host).textContent).not.toContain(en.mix.deposit.signing.change);
     expect(box(host).disabled).toBe(true);
@@ -484,14 +486,11 @@ describe('the deposit signed in place on /invest', () => {
     });
     first.open();
     await settle();
-    expect(find(host, '[data-ui="invest-progress"]').textContent).toContain(
-      en.invest.progress.line(
-        en.invest.progress.deposited,
-        en.invest.progress.buying('SPYx'),
-        2,
-        2,
-      ),
+    expect(find(host, '[data-ui="sign-past"]').textContent).toContain(
+      en.order.flow.title.openDeposit('$10'),
     );
+    expect(current()).toContain(en.order.flow.short.swap);
+    expect(step()).toBe('$6 → SPYx');
     second.open();
     await settle();
     await settle();

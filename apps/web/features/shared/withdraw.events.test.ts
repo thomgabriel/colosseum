@@ -163,6 +163,11 @@ const details = (host: HTMLElement) => find(host, '[data-ui="amount-details"]');
 /** The tokens chosen one by one, behind their own control. */
 const choose = async (host: HTMLElement) =>
   click(find(host, 'button[data-action="withdraw-pick"]'));
+/** Past the review of what changes to the first step (gate SIGN-ONE-STEP): approves nothing. */
+async function onward(host: HTMLElement) {
+  await click(find(host, '[data-action="order-continue"]'));
+  await settle();
+}
 const pick = (host: HTMLElement, asset: string) =>
   find(host, `[data-ui="withdraw-picks"] li[data-asset="${asset}"]`);
 /** Each token that leaves, as its line says. */
@@ -626,7 +631,13 @@ describe('a withdrawal on the order screen', () => {
       [...host.querySelectorAll('[data-ui="order-withdrawal"]')].map((l) => l.textContent),
     ).toEqual([en.order.shared.withdraws('250 USDC'), en.order.shared.withdrawsAll('2.5 SPYx')]);
     expect(host.textContent).not.toContain(en.order.review.deposit);
-    expect(sign(host)?.textContent).toContain(en.order.shared.signWithdraw);
+    // the review leads on to the first step, whose button names what it takes out
+    expect(sign(host)?.textContent).toContain(en.order.flow.continue);
+    await onward(host);
+    // one press signs both steps: the button names everything that leaves, each with its amount
+    expect(sign(host)?.textContent).toContain(
+      en.order.flow.press.withdraw('$250 and all of your SPYx'),
+    );
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls).toHaveLength(1);
@@ -648,9 +659,29 @@ describe('a withdrawal on the order screen', () => {
     api({ order: () => withdrawOrder([[item(CASH, null, '600000000')]]) });
     seed(ALL);
     const host = await screen();
+    await onward(host);
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({ basketId: '42' });
+  });
+
+  it('everything in two steps: one press, its button says all of each token once', async () => {
+    const BOTH: SharedTerms = {
+      ...PART,
+      everything: true,
+      items: [term(CASH, null, '600000000'), term(SPYX, null, '250000000')],
+    };
+    api({
+      order: () =>
+        withdrawOrder([[item(CASH, null, '600000000')], [item(SPYX, null, '250000000')]]),
+    });
+    seed(BOTH);
+    const host = await screen();
+    await onward(host);
+    // the amount is still named, "all of your", once for the list and not before each token
+    expect(sign(host)?.textContent).toContain(
+      en.order.flow.press.withdraw(en.order.flow.allOf('USDC and SPYx')),
+    );
   });
 
   it('a vault with auto-follow on: the switch off comes first, and the guard is told off and nothing else', async () => {
@@ -662,6 +693,7 @@ describe('a withdrawal on the order screen', () => {
       en.order.shared.autoFollowStops,
     );
     expect(host.querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
+    await onward(host);
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({ basketId: '42', autoFollow: false });
@@ -701,6 +733,8 @@ describe('a withdrawal on the order screen', () => {
     );
     expect(host.textContent).toContain(en.order.shared.doneExcept('Solana', 1));
     expect(host.textContent).not.toContain(en.order.outcome.done('Solana'));
+    // the largest text on the screen does not say Done over a step that was skipped
+    expect(find(host, '[data-ui="sign-figure"]').textContent).toBe(en.shared.vault.page.ended);
     expect(host.querySelectorAll('[data-ui="order-step"][data-status="skipped"]')).toHaveLength(1);
   });
 
@@ -1087,7 +1121,13 @@ describe('a withdrawal in dollars on the order screen', () => {
       [...host.querySelectorAll('[data-ui="order-withdrawal"]')].map((l) => l.textContent),
     ).toEqual([en.order.shared.withdrawsAtLeast('995 USDC')]);
     expect(find(host, '[data-ui="withdraw-least"]').textContent).toBe('995 USDC');
-    expect(sign(host)?.textContent).toContain(en.order.shared.signWithdraw);
+    expect(sign(host)?.textContent).toContain(en.order.flow.continue);
+    expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+    // one press sells and pays out: the button names the least that leaves
+    await onward(host);
+    expect(sign(host)?.textContent).toContain(
+      en.order.flow.press.withdraw(en.order.flow.atLeast('$995')),
+    );
     expect(host.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
     await click(sign(host) as HTMLElement);
     await settle();
@@ -1103,6 +1143,7 @@ describe('a withdrawal in dollars on the order screen', () => {
     seed({ ...ALL_DOLLARS, autoFollowOff: true });
     const host = await screen();
     expect(host.querySelectorAll('[data-ui="order-step"]')).toHaveLength(3);
+    await onward(host);
     await click(sign(host) as HTMLElement);
     await settle();
     expect(run.calls[0]?.deps.plan).toEqual({
@@ -1128,6 +1169,7 @@ describe('a withdrawal in dollars on the order screen', () => {
     expect(host.textContent).toContain(text);
     expect(host.querySelectorAll('[data-ui="order-step"]')).toHaveLength(1);
     expect(find(host, '[data-ui="withdraw-least"]').textContent).toBe('600 USDC');
+    await onward(host);
     await click(sign(host) as HTMLElement);
     await settle();
     await settle();

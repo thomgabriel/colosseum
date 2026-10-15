@@ -1707,7 +1707,12 @@ export const pt: Dictionary = {
           lead: 'Estes passos trocam o dinheiro que já está no seu cofre. Nenhum dinheiro novo é depositado.',
         },
         ended: 'Os passos terminaram',
-        endedLead: 'Como cada passo terminou está dito abaixo dos passos.',
+        doneTitle: {
+          deposit: 'Depósito concluído',
+          withdraw: 'Saque concluído',
+          rebalance: 'Rebalanceamento concluído',
+          change: 'Mudança concluída',
+        },
         panes: {
           deposit: {
             title: 'Depositar no seu cofre',
@@ -1934,8 +1939,8 @@ export const pt: Dictionary = {
     signs: {
       passkey: (n: number) =>
         n === 1
-          ? 'Um toque assina o único passo com sua carteira de chave de acesso. Nenhuma outra janela abre.'
-          : `Um toque assina os ${n} passos com sua carteira de chave de acesso, um depois do outro. Nenhuma outra janela abre, e você pode parar entre os passos.`,
+          ? 'Um toque assina com sua carteira de chave de acesso.'
+          : `Um toque assina os ${n} passos com sua carteira de chave de acesso.`,
       wallet: (n: number) =>
         n === 1
           ? 'Sua carteira pede que você confirme o único passo na janela dela.'
@@ -2077,7 +2082,7 @@ export const pt: Dictionary = {
     elsewhere:
       'Esta ordem foi criada em outro navegador, então o plano dela não está aqui para conferir os passos. Abra onde você a criou ou crie uma nova ordem.',
     review: {
-      title: 'Revise cada passo',
+      title: 'Revise sua ordem',
       lead: 'Cada passo é montado na hora, conferido com o que você vê aqui, e só então assinado pela sua carteira. Um passo que não confere não é assinado.',
       continuesLead:
         'Esta ordem termina um depósito que parou: troca o caixa que já está no seu cofre pelo que faltou e não adiciona dinheiro novo. Cada passo é montado na hora, conferido com o que você vê aqui e só então assinado pela sua carteira.',
@@ -2145,14 +2150,10 @@ export const pt: Dictionary = {
       addCashNote: 'Este cofre não tem metas, então o valor inteiro fica nele como caixa.',
       publishNote:
         'Sua carteira só é chamada para assinar uma transação que publique exatamente este nome, esta descrição e estes pesos, com este identificador.',
-      signPublish: 'Assinar e publicar',
-      signFollow: 'Assinar e seguir',
-      signRebalance: 'Assinar e rebalancear',
       followDone:
         'Seu cofre segue o portfólio agora, e tem os pesos dele como metas. O que ele guarda ainda não foi negociado.',
       followRebalance: 'Rebalancear este cofre',
       withdrawTitle: 'O que você saca',
-      signWithdraw: 'Assinar e sacar',
       withdraws: (amount: string) => `${amount} para a sua própria carteira`,
       withdrawsAll: (held: string) => `Tudo, ${held} na revisão, para a sua própria carteira`,
       withdrawsAtLeast: (amount: string) => `Pelo menos ${amount}, para a sua própria carteira`,
@@ -2176,9 +2177,7 @@ export const pt: Dictionary = {
         n === 1
           ? `Feito em ${chain}, exceto um passo que foi pulado: o que ele moveria ficou no cofre.`
           : `Feito em ${chain}, exceto ${n} passos que foram pulados: o que eles moveriam ficou no cofre.`,
-      resume: 'Continuar',
     },
-    signAndBuy: (amount: string) => `Assinar e depositar ${amount}`,
     resume: (amount: string) => `Continuar o depósito de ${amount}`,
     signing: (n: number, total: number) => `Assinando o passo ${n} de ${total}…`,
     stepsTitle: 'Passos',
@@ -2203,6 +2202,130 @@ export const pt: Dictionary = {
       publish: 'Publicar',
       adopt_version: 'Operador: adotar uma versão',
       keeper_leg: 'Operador: negociar',
+    },
+    flow: {
+      continue: 'Continuar',
+      details: 'Detalhes',
+      back: 'Voltar à revisão',
+      changeTitle: 'Revise a mudança',
+      changeWeights: 'Mudar os pesos',
+      understand: 'Entendo estes avisos',
+      progress: 'Onde você está nos passos',
+      done: 'Pronto',
+      doneWord: 'feito',
+      stepOf: (n: number, of: number) => `Passo ${n} de ${of}`,
+      allSteps: 'Cada passo, exatamente',
+      transactions: 'Transações',
+      signed: 'Assinados',
+      andThen: (head: string, rest: string) => `${head}, depois ${rest}`,
+      atLeast: (amount: string) => `pelo menos ${amount}`,
+      allOf: (token: string) => `todo o seu ${token}`,
+      short: {
+        approve: 'Autorizar',
+        open: 'Abrir cofre',
+        deposit: 'Depositar',
+        swap: 'Trocar',
+        swapN: (n: number) => `Troca ${n}`,
+        sell: (what: string) => `Vender ${what}`,
+        into: (what: string) => `Trocar por ${what}`,
+        targets: 'Definir metas',
+        version: 'Aceitar versão',
+        autoFollow: 'Seguir automático',
+        withdraw: 'Sacar',
+        publish: 'Publicar',
+      },
+      title: {
+        approve: (amount: string) => `Autorizar seu cofre a pegar ${amount} em caixa`,
+        open: 'Abrir seu cofre',
+        openDeposit: (amount: string) => `Abrir seu cofre e depositar ${amount}`,
+        deposit: (amount: string) => `Depositar ${amount} no seu cofre`,
+        sell: (what: string) => `vender ${what}`,
+        swap: (amount: string, into: string) => `trocar ${amount} em caixa por ${into}`,
+        swapInto: (into: string) => `trocar caixa por ${into}`,
+        targets: 'Definir as novas metas do seu cofre na rede',
+        version: 'Aceitar a nova versão do portfólio',
+        withdraw: (what: string) => `Enviar ${what} para a sua própria carteira`,
+        publish: 'Publicar seu portfólio',
+      },
+      hero: {
+        arrow: (from: string, to: string) => `${from} → ${to}`,
+        yourVault: 'seu cofre',
+        yourWallet: 'sua carteira',
+        cash: 'caixa',
+        allow: (amount: string) => `Autorizar ${amount}`,
+        targets: 'Novas metas',
+        moreLess: (more: string, less: string) => `Mais ${more}, menos ${less}`,
+        more: (more: string) => `Mais ${more}`,
+        less: (less: string) => `Menos ${less}`,
+        rebalance: 'De volta às suas metas',
+        deposit: (amount: string) => `${amount} no seu cofre`,
+        withdraw: (what: string) => `${what} para a sua carteira`,
+        finish: 'Termine seu depósito',
+      },
+      label: {
+        change: 'Novas metas',
+        rebalance: 'Rebalancear',
+        deposit: 'No seu cofre',
+        withdraw: 'Para a sua carteira',
+        withdrawAtLeast: 'Para a sua carteira, pelo menos',
+        order: 'Sua ordem',
+      },
+      doneLabel: {
+        change: 'Mudança',
+        rebalance: 'Rebalanceamento',
+        deposit: 'Depósito',
+        withdraw: 'Saque',
+      },
+      stat: {
+        swapped: 'Trocado',
+        expected: 'Custo esperado',
+        worst: 'No pior caso',
+        steps: 'Passos',
+        least: 'Pelo menos',
+        under: 'Abaixo do preço de hoje, no pior caso',
+        swappedEstimate: 'Trocado, estimado',
+        worstEstimate: 'No pior caso, estimado',
+        estimate:
+          'Estimado aos preços de hoje. A próxima tela mostra os valores cotados que você assina.',
+      },
+      table: { holding: 'Ativo', change: 'Mudança', amount: 'Valor' },
+      press: {
+        of: (what: string) => `Assinar: ${what}`,
+        approve: (amount: string) => `Assinar: autorizar ${amount}`,
+        open: 'Assinar: abrir seu cofre',
+        deposit: (amount: string) => `Assinar: depositar ${amount}`,
+        sell: (what: string) => `vender ${what}`,
+        swap: (amount: string, into: string) => `trocar ${amount} por ${into}`,
+        swapInto: (into: string) => `trocar por ${into}`,
+        targets: 'Assinar: definir as novas metas',
+        change: 'Assinar a mudança',
+        rebalance: 'Assinar o rebalanceamento',
+        follow: 'Assinar: seguir',
+        version: 'Assinar: aceitar a nova versão',
+        autoFollow: 'Assinar: mudar o seguir automático',
+        withdraw: (what: string) => `Assinar: sacar ${what}`,
+        publish: 'Assinar: publicar',
+        step: 'Assinar este passo',
+      },
+      picture: {
+        cash: 'Caixa',
+        amount: 'Valor',
+        before: 'Antes',
+        next: 'Depois',
+        unchanged: 'igual',
+        points: (n: string) => `${n} p.p.`,
+        holdsNow: 'Tem agora',
+        target: 'Meta',
+        targets: 'As metas do seu cofre',
+        deposit: (amount: string) => `Para onde vão seus ${amount}`,
+        withdraw: 'O que sai do seu cofre',
+        sold: 'O que é vendido',
+        all: 'Tudo',
+      },
+      ended: {
+        title: 'Pronto',
+        targets: 'As metas do seu cofre agora',
+      },
     },
     status: {
       planned: 'Não começou',
@@ -2230,8 +2353,7 @@ export const pt: Dictionary = {
       unavailable: 'link indisponível',
     },
     outcome: {
-      done: (chain: string) =>
-        `Todos os passos estão confirmados em ${chain}. A transação de cada passo está no link ao lado dele.`,
+      done: (chain: string) => `Todos os passos estão confirmados em ${chain}.`,
       seePortfolio: 'Ver seu portfólio',
       buyMore: 'Depositar mais',
       depositKept:
@@ -2599,7 +2721,6 @@ export const pt: Dictionary = {
     },
     order: {
       title: 'Novos pesos-alvo do seu cofre',
-      signTargets: 'Assinar e aplicar os pesos-alvo',
       cash: (share: string) => `O restante fica em caixa: ${share}.`,
       fromConversation: 'Proposto na sua conversa e confirmado por você.',
       fromPerson: 'Escolhido por você.',

@@ -26,6 +26,7 @@ import { ChainChoice } from '../account/ChainChoice';
 import { dollars } from '../goal/sheet';
 import { formatBps, tokenName } from '../order/amounts';
 import type { CallFailure } from '../order/order-api';
+import { useOrdersEnded } from '../order/order-done';
 import { PlanView } from '../order/PlanView';
 import { networkFor } from '../order/readiness';
 import { unitsFor } from '../order/units';
@@ -589,6 +590,9 @@ function VaultsElsewhere({
   const f = t.shared.family;
   const apiFetch = useApiFetch();
   const [following, setFollowing] = useState<ChainId[]>([]);
+  // an order that ends may open a vault that follows this portfolio: read them again
+  const ended = useOrdersEnded();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `ended` reads the vaults again
   useEffect(() => {
     let mine = true;
     const recipeOn = new Map(family.recipes.map((r) => [r.chain, r.onchainId]));
@@ -607,7 +611,7 @@ function VaultsElsewhere({
     return () => {
       mine = false;
     };
-  }, [apiFetch, family]);
+  }, [apiFetch, family, ended]);
   const elsewhere = following.filter((other) => other !== chain && among.includes(other));
   if (elsewhere.length === 0) return null;
   return (

@@ -1,5 +1,5 @@
 'use client';
-import type { ChainId, MixLine, MixOrigin, MixReview } from '@colosseum/schemas';
+import type { ChainId, MixLine, MixOrigin, MixReview, Target } from '@colosseum/schemas';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { CardWait } from '../../components/shell/Wait';
@@ -8,12 +8,14 @@ import { Card } from '../../components/ui/Card';
 import { SkeletonSummary } from '../../components/ui/Skeleton';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { keepOrder } from '../order/order-record';
+import { CHANGE_SLIPPAGE_BPS } from '../order/order-summary';
 import { onMock } from '../order/readiness';
 import { isVaultOf } from '../shared/chain-recipe';
 import type { SharedTerms } from '../shared/terms';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
+import { ChangeReview } from './ChangeReview';
 import { useFailureText } from './failure';
-import { MixReviewCard, useTicks } from './MixReviewCard';
+import { useTicks } from './MixReviewCard';
 import { acceptedOf } from './mix';
 import { applyVaultMix } from './mix-api';
 
@@ -29,12 +31,18 @@ export function ApplyVaultMix({
   origin,
   onBack,
   onOrder,
+  before = null,
+  holds = null,
 }: {
   chain: ChainId;
   vault: { address: string; owner: string; basketId: string };
   lines: readonly MixLine[];
   origin: MixOrigin;
   onBack: () => void;
+  /** The vault's targets as its page read them, for the review's before and after. */
+  before?: readonly Target[] | null;
+  /** What the vault holds now, as shares, for what the change trades. */
+  holds?: readonly Target[] | null;
   /** A host that shows the order's steps itself (the vault's own page): handed the order, no page is opened. */
   onOrder?: (orderId: string) => void;
 }) {
@@ -59,6 +67,8 @@ export function ApplyVaultMix({
     language: lang,
     allocations: lines.map(({ assetId, weightBps }) => ({ assetId, weightBps })),
     confirm,
+    // the worst case the review states is the slippage the order is built with
+    maxSlippageBps: CHANGE_SLIPPAGE_BPS,
     acceptedWarnings: read && confirm ? acceptedOf(read, ticked) : [],
     ...(read && confirm ? { reviewHash: read.reviewHash } : {}),
   });
@@ -155,17 +165,18 @@ export function ApplyVaultMix({
     );
   return (
     <div data-ui="apply-vault-mix" className="flex flex-col gap-3">
-      <MixReviewCard
+      <ChangeReview
+        chain={chain}
         review={review}
+        before={before}
+        holds={holds}
         ticked={ticked}
         onTick={tick}
-        confirmLabel={busy ? v.confirming : v.confirm}
         onConfirm={confirm}
         onBack={onBack}
         busy={busy}
         changed={changed}
       />
-      <p className="max-w-(--tf-measure-body) text-caption text-muted-foreground">{v.after}</p>
       {said}
     </div>
   );

@@ -1190,8 +1190,12 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       /** In raw units of the cash: $100 unless said, and how much of it the swaps leave as cash. */
       depositRaw?: string;
       cashLeftRaw?: string;
+      /** What the vault is bought into, where a test wants it away from its targets (a rebalance). */
+      holds?: unknown;
     };
     const targets = Target.array().parse(body.targets);
+    // what the vault is bought into, where a test wants it away from its targets (a rebalance)
+    const holds = body.holds === undefined ? targets : Target.array().parse(body.holds);
     const owner = body.owner;
     const { adapter } = world;
     const listed = new Set((await adapter.listAssets()).map((a) => a.id));
@@ -1208,7 +1212,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     const depositRaw = body.depositRaw ?? '100000000';
     adapter.mock.fund(owner, { gasRaw: GAS_FAUCET, assets: { [adapter.mock.cash]: depositRaw } });
     const spent = BigInt(depositRaw) - BigInt(body.cashLeftRaw ?? '0');
-    const trades = targets.map((t) => ({
+    const trades = holds.map((t) => ({
       sell: adapter.mock.cash,
       buy: t.asset,
       amountInRaw: String((spent * BigInt(t.weightBps)) / 10_000n),

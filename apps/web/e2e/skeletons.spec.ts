@@ -442,7 +442,7 @@ for (const width of WIDTHS) {
           {
             name: 'steps',
             waiting: '[data-wait="order-steps"]',
-            loaded: '[data-ui="order-screen"] section[data-ui="card"]',
+            loaded: '[data-ui="order-screen"] section[data-ui="order-panel"]',
             sized: 'by-data',
           },
         ],
