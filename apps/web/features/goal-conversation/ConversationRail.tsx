@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
   useEffect,
   useId,
   useLayoutEffect,
@@ -11,7 +12,8 @@ import {
   useState,
 } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
-import { ChainBadge } from '../../components/ui/ChainBadge';
+import { CHAIN_NAMES, ChainBadge } from '../../components/ui/ChainBadge';
+import { ChainLogo } from '../../components/ui/ChainLogo';
 import { cn } from '../../components/ui/cn';
 import { Input } from '../../components/ui/Field';
 import { Icon } from '../../components/ui/Icon';
@@ -32,13 +34,15 @@ import {
 } from './conversation-list';
 import { NAME_LENGTH } from './conversations';
 
-// The conversations panel of /invest (Thom, Oct 14, in place of the picker): a rail beside the
-// conversation from 1024px, open at 304px or closed to a 56px strip as this browser last left it, and
-// a sheet over the page under that, opened from a button over the conversation. "New conversation" on
-// top, then the person's drafts and vaults in three groups by day, newest first: each with its name,
-// its chain, how long ago it was written and, for a vault, its value with its pin. The one on screen
-// is marked. Over eight rows a search narrows them by name. A draft is renamed or deleted in its row;
-// a vault opens its own page, where its conversation is. The arrow keys move between the rows.
+// The conversations panel of /invest (Thom, Oct 14, in place of the picker). From 1024px a sidebar at
+// the window's left edge under the bar (Thom, Oct 15: "more like the claude sidebar"), 260px open or a
+// 56px strip of icons as this browser last left it: its own scroll, a hairline on its right, "New
+// conversation" and a search on top, then one line a row, the chain's mark and the name, the chain and
+// how long ago in its tooltip. Under 1024px a sheet over the page, opened from a button over the
+// conversation, whose rows also say the chain, how long ago and, for a vault, its value with its pin.
+// Both: the person's drafts and vaults in three groups by day, newest first, the one on screen marked;
+// a draft renamed or deleted in its row; a vault opening its own page, where its conversation is; the
+// arrow keys between the rows. The sheet's search is there from nine rows, the sidebar's always.
 
 const SIDE_KEY = 'tf-conversations-closed';
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
@@ -217,64 +221,94 @@ export function ConversationRail({
     }
   };
 
-  // From 1024px: the rail beside the conversation, under the app's fixed bar.
+  // From the strip's search: the sidebar opens with the focus in its search.
+  const search = useRef<HTMLDivElement>(null);
+  const [seek, setSeek] = useState(false);
+  useEffect(() => {
+    if (!seek || folded) return;
+    setSeek(false);
+    search.current?.querySelector('input')?.focus();
+  }, [seek, folded]);
+  const strip = cn(
+    buttonClass({ variant: 'icon', size: 'dense' }),
+    'border-0 hover:bg-sidebar-accent',
+  );
+
+  // From 1024px: at the window's left edge under the app's fixed bar, the page beside it (AppShell).
   return (
     <div
       data-ui="conversations"
       data-closed={folded || undefined}
       className={cn(
-        'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
-        folded ? 'lg:w-14' : 'lg:w-76',
+        'max-lg:hidden lg:fixed lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:bottom-0 lg:left-0 lg:z-20 lg:flex lg:flex-col lg:border-r lg:border-sidebar-border lg:bg-sidebar lg:text-sidebar-foreground',
+        folded ? 'lg:w-14' : 'lg:w-65',
       )}
     >
-      <div
-        className={cn(
-          'flex items-center gap-2 border-b border-border',
-          folded ? 'flex-col px-2 py-3' : 'justify-between px-4 py-3',
-        )}
-      >
-        {!folded && <h2 className="text-body-lg font-semibold">{w.label}</h2>}
+      <div className={cn('flex flex-col gap-1 p-2', folded && 'items-center')}>
         <button
           type="button"
           data-ui="conversations-toggle"
           aria-expanded={!folded}
           aria-controls={listId}
           onClick={toggle}
-          className={buttonClass({ variant: 'icon', size: 'dense' })}
+          className={strip}
           aria-label={folded ? w.show : w.hide}
           title={folded ? w.show : w.hide}
         >
           <Icon name="Menu" size={16} />
         </button>
         {folded && (
-          <button
-            type="button"
-            data-ui="conversation-new"
-            onClick={actions.onNew}
-            className={buttonClass({ variant: 'icon', size: 'dense' })}
-            aria-label={w.fresh}
-            title={w.fresh}
-          >
-            <Icon name="Plus" size={16} />
-          </button>
+          <>
+            <button
+              type="button"
+              data-ui="conversation-new"
+              onClick={actions.onNew}
+              className={strip}
+              aria-label={w.fresh}
+              title={w.fresh}
+            >
+              <Icon name="Plus" size={16} />
+            </button>
+            <button
+              type="button"
+              data-ui="conversations-seek"
+              onClick={() => {
+                toggle();
+                setSeek(true);
+              }}
+              className={strip}
+              aria-label={w.search}
+              title={w.search}
+            >
+              <Icon name="Search" size={16} />
+            </button>
+          </>
         )}
       </div>
       <div id={listId} hidden={folded} className="flex min-h-0 flex-1 flex-col">
-        {!folded && <ConversationList rows={rows} now={now} {...actions} />}
+        {!folded && <ConversationList rows={rows} now={now} dense search={search} {...actions} />}
       </div>
     </div>
   );
 }
 
-/** "New conversation", the search where there are many, and the rows in their groups. */
+/** "New conversation", the search, and the rows in their groups: one line a row in the sidebar. */
 function ConversationList({
   rows,
   now,
+  dense = false,
+  search,
   onNew,
   onOpen,
   onRename,
   onDelete,
-}: RailActions & { rows: readonly ConversationRow[]; now: number }) {
+}: RailActions & {
+  rows: readonly ConversationRow[];
+  now: number;
+  /** The sidebar's: plain rows of one line, and the search always there. */
+  dense?: boolean;
+  search?: RefObject<HTMLDivElement | null>;
+}) {
   const w = useT().goal.explore.picker;
   const [query, setQuery] = useState('');
   const searchId = useId();
@@ -299,7 +333,7 @@ function ConversationList({
     );
     (target ?? fresh.current)?.focus();
   }, [rows]);
-  const searching = rows.length >= SEARCH_FROM;
+  const searching = dense || rows.length >= SEARCH_FROM;
   const shown = useMemo(
     () => (searching ? matching(rows, query) : [...rows]),
     [rows, query, searching],
@@ -330,26 +364,36 @@ function ConversationList({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+    <div className={cn('flex min-h-0 flex-1 flex-col', dense ? 'gap-1 pt-0' : 'gap-3 p-3')}>
       <button
         ref={fresh}
         type="button"
         data-ui="conversation-new"
         onClick={onNew}
-        className={cn(buttonClass({ variant: 'secondary', size: 'dense' }), 'h-9 w-full gap-2')}
+        className={
+          dense
+            ? cn(
+                'mx-2 flex h-8 items-center gap-2 rounded-md px-2 text-left text-body-sm font-medium hover:bg-sidebar-accent',
+                FOCUS,
+              )
+            : cn(buttonClass({ variant: 'secondary', size: 'dense' }), 'h-9 w-full gap-2')
+        }
       >
         <Icon name="Plus" size={16} />
         {w.fresh}
       </button>
       {searching && (
-        <div data-ui="conversation-search" className="relative">
+        <div ref={search} data-ui="conversation-search" className={cn('relative', dense && 'mx-2')}>
           <label htmlFor={searchId} className="sr-only">
             {w.search}
           </label>
           <Icon
             name="Search"
             size={16}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+            className={cn(
+              'pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground',
+              dense ? 'left-2' : 'left-3',
+            )}
           />
           <Input
             id={searchId}
@@ -357,7 +401,11 @@ function ConversationList({
             placeholder={w.search}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="h-9 pl-9 text-body-sm"
+            className={
+              dense
+                ? 'h-8 border-sidebar-border bg-transparent pl-8 text-body-sm'
+                : 'h-9 pl-9 text-body-sm'
+            }
           />
         </div>
       )}
@@ -365,7 +413,10 @@ function ConversationList({
         ref={nav}
         aria-label={w.label}
         onKeyDown={move}
-        className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1"
+        className={cn(
+          'min-h-0 flex-1 overflow-y-auto',
+          dense ? 'tf-scroll-thin px-2 pt-2 pb-3' : '-mx-1 px-1',
+        )}
       >
         {rows.length === 0 && <p className="px-2 text-body-sm text-muted-foreground">{w.empty}</p>}
         {rows.length > 0 && shown.length === 0 && (
@@ -375,15 +426,16 @@ function ConversationList({
         )}
         {GROUPS.map((group) =>
           groups[group].length === 0 ? null : (
-            <Group key={group} title={w.groups[group]} group={group}>
+            <Group key={group} title={w.groups[group]} group={group} dense={dense}>
               {groups[group].map((row) =>
                 row.kind === 'vault' ? (
-                  <VaultItem key={row.key} row={row} now={now} />
+                  <VaultItem key={row.key} row={row} now={now} dense={dense} />
                 ) : (
                   <DraftItem
                     key={row.key}
                     row={row}
                     now={now}
+                    dense={dense}
                     onOpen={onOpen}
                     onRename={onRename}
                     onDelete={(it) => {
@@ -407,20 +459,66 @@ function ConversationList({
 function Group({
   title,
   group,
+  dense,
   children,
 }: {
   title: string;
   group: DayGroup;
+  dense: boolean;
   children: ReactNode;
 }) {
   // a heading and a list, and no landmark of its own: the panel's navigation is the one
   return (
-    <div data-ui="conversation-group" data-group={group} className="mb-3">
-      <h3 className="px-2 pb-1 text-caption font-medium text-muted-foreground">{title}</h3>
-      <ul className="grid list-none grid-cols-[minmax(0,1fr)] gap-0.5 p-0">{children}</ul>
+    <div data-ui="conversation-group" data-group={group} className={dense ? 'mb-4' : 'mb-3'}>
+      <h3
+        className={cn(
+          'px-2 text-caption text-muted-foreground',
+          dense ? 'pb-1 font-normal' : 'pb-1 font-medium',
+        )}
+      >
+        {title}
+      </h3>
+      <ul
+        className={cn('grid list-none grid-cols-[minmax(0,1fr)] p-0', dense ? 'gap-px' : 'gap-0.5')}
+      >
+        {children}
+      </ul>
     </div>
   );
 }
+
+/**
+ * A sidebar row's one line: the chain's mark and the name. What the sheet writes under the name (the
+ * chain and how long ago) is its tooltip, and said to a reader after the name.
+ */
+function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: string }) {
+  const lang = useLang();
+  return (
+    <>
+      <ChainLogo chain={row.chain} size={14} decorative className="shrink-0" />
+      <span data-ui="conversation-title" className="min-w-0 flex-1 truncate">
+        {row.title}
+      </span>
+      <span className="sr-only">
+        {', '}
+        {kind && `${kind}, `}
+        <span data-ui="conversation-chain" data-chain={row.chain}>
+          {CHAIN_NAMES[row.chain]}
+        </span>
+        {row.at !== null && (
+          <>
+            {', '}
+            <time dateTime={new Date(row.at).toISOString()}>{ago(row.at, now, LOCALE[lang])}</time>
+          </>
+        )}
+      </span>
+    </>
+  );
+}
+const tip = (row: ConversationRow, now: number, locale: string, kind?: string) =>
+  [kind, row.title, CHAIN_NAMES[row.chain], row.at !== null ? ago(row.at, now, locale) : null]
+    .filter(Boolean)
+    .join(' · ');
 
 /** The chain and how long ago, under a row's name. */
 function Meta({ row, now, children }: { row: ConversationRow; now: number; children?: ReactNode }) {
@@ -438,21 +536,27 @@ function Meta({ row, now, children }: { row: ConversationRow; now: number; child
 
 const ROW =
   'group/row relative flex min-w-0 items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/60';
+/** The sidebar's row: one line, 32px, the hover and the one on screen in the sidebar's tint. */
+const DENSE_ROW =
+  'group/row relative flex h-8 min-w-0 items-center gap-1 rounded-md pl-2 text-body-sm hover:bg-sidebar-accent';
 
 function DraftItem({
   row,
   now,
+  dense,
   onOpen,
   onRename,
   onDelete,
 }: {
   row: DraftRow;
   now: number;
+  dense: boolean;
   onOpen: (row: DraftRow) => void;
   onRename: (row: DraftRow, name: string) => void;
   onDelete: (row: DraftRow) => void;
 }) {
   const w = useT().goal.explore.picker;
+  const lang = useLang();
   const [mode, setMode] = useState<'shown' | 'naming' | 'deleting'>('shown');
   const [name, setName] = useState(row.title);
   const nameId = useId();
@@ -572,22 +676,39 @@ function DraftItem({
     );
 
   return (
-    <li {...attrs} className={cn(ROW, row.current && 'bg-accent hover:bg-accent')}>
+    <li
+      {...attrs}
+      className={cn(
+        dense ? DENSE_ROW : ROW,
+        row.current && (dense ? 'bg-sidebar-accent' : 'bg-accent hover:bg-accent'),
+      )}
+    >
       <button
         ref={back}
         type="button"
         data-ui="conversation-open"
         aria-current={row.current ? 'true' : undefined}
         onClick={() => onOpen(row)}
-        className={cn('min-w-0 flex-1 rounded-md text-left', FOCUS)}
+        title={dense ? tip(row, now, LOCALE[lang]) : undefined}
+        className={cn(
+          'min-w-0 flex-1 rounded-md text-left',
+          dense && 'flex h-full items-center gap-2 text-foreground',
+          FOCUS,
+        )}
       >
-        <span
-          data-ui="conversation-title"
-          className="block truncate text-body-sm font-medium text-foreground"
-        >
-          {row.title}
-        </span>
-        <Meta row={row} now={now} />
+        {dense ? (
+          <Line row={row} now={now} />
+        ) : (
+          <>
+            <span
+              data-ui="conversation-title"
+              className="block truncate text-body-sm font-medium text-foreground"
+            >
+              {row.title}
+            </span>
+            <Meta row={row} now={now} />
+          </>
+        )}
       </button>
       {/* On the row the pointer or the focus is on, and always on a touch screen: the name has the row's
           width otherwise. Shown with the focus, they are the next stops of Tab. A new conversation
@@ -601,7 +722,10 @@ function DraftItem({
               setName(row.title);
               setMode('naming');
             }}
-            className={cn(buttonClass({ variant: 'icon', size: 'dense' }), 'size-7 border-0')}
+            className={cn(
+              buttonClass({ variant: 'icon', size: 'dense' }),
+              dense ? 'size-6 border-0 bg-transparent' : 'size-7 border-0',
+            )}
             aria-label={w.rename(row.title)}
             title={w.rename(row.title)}
           >
@@ -611,7 +735,10 @@ function DraftItem({
             type="button"
             data-ui="conversation-delete"
             onClick={() => setMode('deleting')}
-            className={cn(buttonClass({ variant: 'icon', size: 'dense' }), 'size-7 border-0')}
+            className={cn(
+              buttonClass({ variant: 'icon', size: 'dense' }),
+              dense ? 'size-6 border-0 bg-transparent' : 'size-7 border-0',
+            )}
             aria-label={w.remove(row.title)}
             title={w.remove(row.title)}
           >
@@ -623,10 +750,35 @@ function DraftItem({
   );
 }
 
-function VaultItem({ row, now }: { row: VaultRow; now: number }) {
+function VaultItem({ row, now, dense }: { row: VaultRow; now: number; dense: boolean }) {
   const t = useT();
   const w = t.goal.explore.picker;
   const lang = useLang();
+  // In the sidebar a vault is one line too, with no value: a figure is only ever drawn with its pin,
+  // and there is no room for one; the sheet's row, and the vault's own page, carry it.
+  if (dense)
+    return (
+      <li
+        data-ui="conversation-row"
+        data-kind="vault"
+        data-chain={row.chain}
+        data-address={row.address}
+        className={cn(DENSE_ROW, 'pr-2')}
+      >
+        <Link
+          href={vaultHref(row.chain, row.address)}
+          data-ui="conversation-open"
+          aria-label={w.openVault(row.title)}
+          title={tip(row, now, LOCALE[lang], w.vault)}
+          className={cn(
+            'flex h-full min-w-0 flex-1 items-center gap-2 rounded-md text-foreground',
+            FOCUS,
+          )}
+        >
+          <Line row={row} now={now} kind={w.vault} />
+        </Link>
+      </li>
+    );
   return (
     <li
       data-ui="conversation-row"

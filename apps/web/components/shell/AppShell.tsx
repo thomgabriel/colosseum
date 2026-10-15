@@ -18,6 +18,14 @@ import { RouterLinks } from './RouterLinks';
 /** The side gutter of every product page: the portfolio overview's. */
 export const SHELL_GUTTER = 'px-[clamp(12px,2vw,28px)]';
 
+/**
+ * Invest's conversations sidebar sits at the window's left edge from 1024px, 260px open or a 56px strip
+ * (CONVERSATION-PANEL, Oct 15): the frame is that much wider and starts after it, so the page keeps its
+ * width and is centred in the room the sidebar leaves.
+ */
+const SIDEBAR_ROOM =
+  'lg:has-[[data-ui=conversations]:not([data-closed])]:max-w-[calc(var(--container-shell)+16.25rem)] lg:has-[[data-ui=conversations]:not([data-closed])]:pl-[calc(16.25rem+clamp(12px,2vw,28px))] lg:has-[[data-ui=conversations][data-closed]]:max-w-[calc(var(--container-shell)+3.5rem)] lg:has-[[data-ui=conversations][data-closed]]:pl-[calc(3.5rem+clamp(12px,2vw,28px))]';
+
 export type AppShellProps = { lang: Lang; children: ReactNode };
 
 export function AppShell({ lang, children }: AppShellProps) {
@@ -25,7 +33,7 @@ export function AppShell({ lang, children }: AppShellProps) {
   return (
     <div
       data-ui="app-shell"
-      className={`group/shell mx-auto flex min-h-dvh w-full max-w-shell flex-col ${SHELL_GUTTER} md:has-[[data-workbench]]:h-dvh md:has-[[data-workbench]]:min-h-0 md:has-[[data-workbench]]:overflow-hidden`}
+      className={`group/shell mx-auto flex min-h-dvh w-full max-w-shell flex-col ${SHELL_GUTTER} ${SIDEBAR_ROOM} md:has-[[data-workbench]]:h-dvh md:has-[[data-workbench]]:min-h-0 md:has-[[data-workbench]]:overflow-hidden`}
     >
       <AppNav />
       <RouterLinks />

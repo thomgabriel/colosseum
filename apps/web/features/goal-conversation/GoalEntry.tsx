@@ -392,7 +392,8 @@ export function GoalEntry({ portfolio }: { portfolio: PortfolioState }) {
     if (button && document.activeElement !== button) button.focus();
   });
   return (
-    <div className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1 lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:gap-6">
+    // From 1024px the rail is fixed at the window's edge, out of this flow; the frame makes room for it.
+    <div className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1">
       <ConversationRail {...panel} drafting={drafting} />
       <div ref={root} className="flex min-w-0 flex-col gap-4 md:min-h-0 md:flex-1">
         <span role="status" data-ui="goal-chain-said" className="sr-only">

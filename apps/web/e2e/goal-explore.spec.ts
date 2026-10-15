@@ -174,9 +174,10 @@ test('the conversations panel: a new conversation, an earlier one opened, and a 
   }
 });
 
-// The title's place (PAGE-SHELL, as CONVERSATION-PANEL amends it): under 1024px at the frame's left
-// edge with the panel's button in its row; from 1024px after the conversations rail and its gap, 328px
-// with the rail open and 80px closed. Always at the head's top.
+// The title's place (PAGE-SHELL, as CONVERSATION-PANEL amends it): at the frame's left edge, with the
+// panel's button in its row under 1024px; from 1024px the frame starts after the conversations
+// sidebar at the window's edge (Oct 15), so the title is one gutter from it, open or folded. Always at
+// the head's top.
 const width = (page: { viewportSize(): { width: number } | null }) =>
   page.viewportSize()?.width ?? 0;
 test('the title sits at the frame’s edge, or after the conversations rail', async ({ page }) => {
@@ -192,17 +193,24 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   const place = async () => {
     const box = await title.boundingBox();
     if (!box) return null;
-    const left = await page.evaluate(() => {
+    const [left, side] = await page.evaluate(() => {
       const frame = document.querySelector<HTMLElement>('.group\\/shell');
-      if (!frame) return Number.NaN;
-      return (
-        frame.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(frame).paddingLeft)
-      );
+      const rail = document.querySelector<HTMLElement>('div[data-ui="conversations"]');
+      if (!frame || !rail) return [Number.NaN, Number.NaN];
+      return [
+        frame.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(frame).paddingLeft),
+        rail.getBoundingClientRect().right,
+      ];
     });
     // the title's row lines its words up on one baseline with the row's buttons: under 1024px, where
     // those buttons share the title's line, its top is up to 2px lower than the head's (as before)
     const y = Math.round(box.y);
-    return { x: Math.round(box.x - left) + 0, y: width(page) < 1024 && y <= 106 ? 104 : y };
+    return {
+      x: Math.round(box.x - left) + 0,
+      y: width(page) < 1024 && y <= 106 ? 104 : y,
+      // from the sidebar's edge (it is not drawn under 1024px)
+      after: width(page) < 1024 ? null : Math.round(box.x - (side ?? 0)),
+    };
   };
   const toggle = page.locator('[data-ui="conversations-toggle"]');
   for (const closed of [false, true]) {
@@ -217,7 +225,12 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       // drawn again (its key follows the account and the chain as they settle), and for that moment
       // there is no title to measure. The place it settles in is held exactly.
       const step = `${width}px, rail ${closed ? 'closed' : 'open'}`;
-      const there = { x: width < 1024 ? 0 : closed ? 80 : 328, y: 104 };
+      const there = {
+        x: 0,
+        y: 104,
+        // the frame's gutter, clamp(12px, 2vw, 28px)
+        after: width < 1024 ? null : Math.round(Math.min(28, Math.max(12, width * 0.02))),
+      };
       // inside the test's own limit, so a miss is reported with this step's name
       await expect.poll(place, { message: step, timeout: 10_000 }).toEqual(there);
       // and still there a frame later: settled, not passing through

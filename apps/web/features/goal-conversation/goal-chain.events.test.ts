@@ -105,7 +105,7 @@ const send = async (host: HTMLElement, words: string) => {
   await click(find(host, '[data-ui="composer-send"]'));
   await settle();
 };
-/** The drafts the panel lists besides the one on screen, each as its name and its chain's badge. */
+/** The drafts the panel lists besides the one on screen, each as its name and its chain's name. */
 const saved = (host: HTMLElement) =>
   [
     ...rail(host).querySelectorAll<HTMLElement>(
@@ -113,7 +113,7 @@ const saved = (host: HTMLElement) =>
     ),
   ].map(
     (one) =>
-      `${one.querySelector('[data-ui="conversation-title"]')?.textContent} · ${one.querySelector('[data-ui="chain-badge"]')?.textContent}`,
+      `${one.querySelector('[data-ui="conversation-title"]')?.textContent} · ${one.querySelector('[data-ui="conversation-chain"]')?.textContent}`,
   );
 const bar = (host: HTMLElement) => find(host, '[data-ui="start-chain"]').getAttribute('data-chain');
 
@@ -507,7 +507,7 @@ describe('the chain of a new plan, chosen on /invest', () => {
     expect(puts).toEqual([]);
   });
 
-  it('names the chain of each vault in the panel, by its badge, and never by its address', async () => {
+  it('names the chain of each vault in the panel, by its mark and its name, and never by its address', async () => {
     const answer = plans();
     api(passkey('solana'), undefined, undefined, answer);
     const host = await show();
@@ -523,7 +523,8 @@ describe('the chain of a new plan, chosen on /invest', () => {
       new Set(listed.map((plan) => plan.chain)),
     );
     for (const one of vaults) {
-      expect(find(one, '[data-ui="chain-badge"]').dataset.chain).toBe(one.dataset.chain);
+      expect(find(one, '[data-ui="chain-logo"]')).not.toBeNull();
+      expect(find(one, '[data-ui="conversation-chain"]').dataset.chain).toBe(one.dataset.chain);
       expect(one.textContent).not.toContain(one.dataset.address ?? '');
       expect(one.textContent).not.toMatch(/\w{4}…\w{4}/);
     }
