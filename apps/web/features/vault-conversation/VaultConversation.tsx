@@ -64,6 +64,7 @@ export function VaultConversation({
   starters,
   action = null,
   onOrder,
+  onRebalance,
 }: {
   read: VaultResponse;
   userId: string;
@@ -79,6 +80,11 @@ export function VaultConversation({
   action?: { pane: ReactNode; why: string } | null;
   /** The page shows an order's steps itself: handed the order that applies a proposal. */
   onOrder?: (orderId: string) => void;
+  /**
+   * The page's own Rebalance, where it offers one: a reply that hands it over (`action: rebalance`)
+   * shows it as a button under the reply, the same press as the page's.
+   */
+  onRebalance?: () => void;
 }) {
   const t = useT();
   const copy = t.shared.vault.conversation;
@@ -428,9 +434,14 @@ export function VaultConversation({
           is absolute) then belongs to the pane it is in, where without it the line's box is the page's,
           left where the pane's text runs on below the window, and the page scrolls (Oct 13). */}
       <header className="tf-scroll-thin relative flex flex-wrap items-start justify-between gap-3 md:col-span-12 md:min-h-0 md:overflow-y-auto">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">{heading}</div>
+        {/* The head runs to the pane's right edge (its `pr-2`), so the actions row ends where the
+            holdings panel does, as the overview's header actions end with their panel; "Hide chat"
+            sits over that edge on the title's line, not beside the whole head. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-3 md:basis-full md:pr-2">{heading}</div>
         <Button
-          variant="link"
+          variant="secondary"
+          size="dense"
+          className="md:absolute md:top-0 md:right-2"
           aria-expanded={chatOpen}
           aria-controls={`${id}-chat`}
           data-ui="vault-chat-toggle"
@@ -516,6 +527,14 @@ export function VaultConversation({
                 )}
               </li>
             ))}
+            {/* The page's Rebalance, handed over by the reply that answered a request for one. */}
+            {!busy && reply?.action === 'rebalance' && onRebalance && (
+              <li data-ui="vault-reply-action" className="min-w-0">
+                <Button variant="secondary" data-action="chat-rebalance" onClick={onRebalance}>
+                  {t.shared.vault.page.rebalance}
+                </Button>
+              </li>
+            )}
             {/* The reply's place, under the words it answers: the wait, then the reply itself, or
                 why it did not come. */}
             {busy && <PendingReply speaker={copy.agent} lines={copy.pendingLines} />}

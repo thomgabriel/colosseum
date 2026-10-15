@@ -64,7 +64,7 @@ interface IBasketVault {
     error BalanceUnreadable(address token);
     /// An allowance from the vault was still there after the swap. On Solana: `AccountTampered`.
     error AllowanceLeft(address token, address spender, uint256 amount);
-    /// 1 more than 16 targets, 2 not in ascending order of token (which also catches a token listed twice),
+    /// 1 more than 16 targets above zero, or more than 24 with the assets a version drops still held, 2 not in ascending order of token (which also catches a token listed twice),
     /// 3 a token that is not a listed asset, 4 the cash token, 5 weights above 10,000 bps,
     /// 6 targets given together with a shared portfolio.
     error InvalidTargets(uint8 reason);

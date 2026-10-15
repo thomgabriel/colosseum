@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CreatorLimits } from './basket';
 import { AssetClass } from './basket-asset';
 import { Address, AssetId, ChainId, Hex32, Sourced } from './chain';
 import { Provenance } from './enums';
@@ -144,6 +145,38 @@ export type SharedFamily = z.infer<typeof SharedFamily>;
 /** GET /v1/shelf: every shared portfolio, or those with a recipe on `chain`, from the server's store. */
 export const ShelfResponse = z.object({ families: z.array(SharedFamily), disclaimer: z.string() });
 export type ShelfResponse = z.infer<typeof ShelfResponse>;
+
+/**
+ * How an asset's ceiling on a chain's list (`maxWeightBps`) is set, as a warning that cites it says
+ * (gate EXIT-SOURCE, DESIGN-VAULT section 6).
+ */
+export const CEILING_METHOD =
+  "the asset's maxWeightBps on the chain's asset list, set from Bearing's measured exit capacity: 10,000 × 0.25 × the largest sale that cost 1% or less / the portfolio capacity ($50,000 on EVM, $250,000 on Solana), down to a 50 bps step";
+
+/** The query of the author limits: the chain whose registry is read. */
+export const CreatorLimitsQuery = z.object({ chain: ChainId });
+export type CreatorLimitsQuery = z.infer<typeof CreatorLimitsQuery>;
+
+/**
+ * GET /v1/shared/limits?chain=: the author limits as the chain's registry says them now
+ * (`ChainReader.creatorLimits`), so the publish form holds a portfolio to the rules that are live: the
+ * first rules until a chain's registry is upgraded, the second after (SHARED-RULES-V2).
+ */
+export const CreatorLimitsResponse = z.object({
+  chain: ChainId,
+  limits: CreatorLimits,
+  /**
+   * Each listed asset's ceiling on the chain's list (`maxWeightBps`), set from its measured exit capacity
+   * (gate EXIT-SOURCE): a limit under the first rules, a warning that cites it under the second.
+   */
+  ceilings: z.array(z.object({ asset: AssetId, maxWeightBps: z.number().int().nonnegative() })),
+  /** Where the ceilings were read and how they are set: the figure a warning cites carries it. */
+  ceilingsFrom: Sourced,
+  source: z.literal('chain'),
+  observedAt: z.string(),
+  provenance: Provenance,
+});
+export type CreatorLimitsResponse = z.infer<typeof CreatorLimitsResponse>;
 
 /** GET /v1/indexes/{slug}: one shared portfolio, its recipes read from their chains. */
 export const FamilyResponse = z.object({ family: SharedFamily, disclaimer: z.string() });

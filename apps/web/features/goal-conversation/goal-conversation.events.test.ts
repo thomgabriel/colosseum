@@ -1,16 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement, StrictMode, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  click,
-  find,
-  fire,
-  mount,
-  press,
-  settle,
-  type,
-  unmountAll,
-} from '../../components/ui/test/dom';
+import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { withAccount } from '../account/test/screen';
 import { GOAL_HANDOFF, GOAL_HANDOFF_OWNER } from '../goal/draft';
@@ -23,6 +14,7 @@ import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { GoalConversation, goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
+import { current, open, openNew, rail, row, titles } from './test/rail';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
@@ -62,10 +54,11 @@ const said = (button: Element) => {
   for (const hidden of copy.querySelectorAll('[aria-hidden="true"]')) hidden.remove();
   return copy.textContent;
 };
+/** "New conversation", or a draft opened from the panel by its chain and id. */
 async function mode(host: HTMLElement, value: string) {
-  const selector = find<HTMLSelectElement>(host, '[data-ui="goal-picker"]');
-  selector.value = value;
-  await fire(selector, new Event('change', { bubbles: true }));
+  if (value === 'new') return openNew(host);
+  const [, chain = '', id = ''] = value.split(':');
+  return open(host, { chain, id });
 }
 beforeEach(() => {
   window.history.replaceState(null, '', '/invest');
@@ -166,9 +159,9 @@ describe('private strategy exploration for a new goal', () => {
     'defaults to truthful explore workbench with no fake vault or funding (%s)',
     async (lang) => {
       const host = await show(lang);
-      // No Guided or Explore switch (#195): the conversation picker is its own control, under its own id.
+      // No Guided or Explore switch (#195): the conversations panel is its own control.
       expect(host.querySelector('[data-ui="goal-mode"]')).toBeNull();
-      expect(find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').value).toBe('current');
+      expect(current(host)).toBe(dictionary(lang).goal.explore.picker.current);
       expect(find(host, '[data-ui="goal-empty-preview"]').textContent).toContain(
         dictionary(lang).goal.explore.empty,
       );
@@ -260,9 +253,7 @@ describe('private strategy exploration for a new goal', () => {
     expect(
       find(host, '[data-ui="goal-strategy"]').querySelector('button[data-variant="primary"]'),
     ).toBeNull();
-    expect(
-      [...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options].map((o) => o.value),
-    ).toEqual(['current', 'new']);
+    expect(titles(host)).toEqual(['Consider gold']);
     await mode(host, 'new');
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
@@ -273,16 +264,48 @@ describe('private strategy exploration for a new goal', () => {
     host = await show();
     await settle();
     expect(host.querySelector('[data-ui="composition"]')).toBeNull();
-    const saved = [...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options].find((o) =>
-      o.value.startsWith('conversation:'),
-    );
-    // with its chain as text: the picker lists what lives on one chain (gate CHAIN-AT-THE-PLAN)
-    expect(saved?.textContent).toBe('Consider gold · Solana');
-    await mode(host, saved?.value ?? '');
+    expect(titles(host)).toEqual([en.goal.explore.picker.current, 'Consider gold']);
+    // with its chain's badge: the panel lists what lives on more than one chain (gate CHAIN-AT-THE-PLAN)
+    expect(row(host, 'Consider gold').dataset.chain).toBe('solana');
+    expect(find(row(host, 'Consider gold'), '[data-ui="chain-badge"]').textContent).toBe('Solana');
+    await open(host, 'Consider gold');
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
     expect(host.querySelector('[data-ui="composition"]')).not.toBeNull();
     expect(calls).toHaveLength(1);
+  });
+  it('keeps the focus on the panel’s button when a pick in its sheet draws the conversation again (PAGE-SHELL)', async () => {
+    let host = await show();
+    await send(host, 'Consider gold');
+    await unmountAll();
+    host = await show();
+    await settle();
+    const opener = () => find(host, '[data-ui="conversations-open"]');
+    const sheet = () => find(host, '[data-ui="conversations-sheet"]');
+    const before = opener();
+    await click(before);
+    await click(find(sheet(), '[data-ui="conversation-new"]'));
+    await settle();
+    // the head was drawn again with the new conversation: the button is a new element, and has it
+    const after = opener();
+    expect(after).not.toBe(before);
+    expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
+    expect(document.activeElement).toBe(after);
+    // back to the earlier one, from the sheet again
+    await click(after);
+    const gold = [...sheet().querySelectorAll('[data-ui="conversation-row"]')].find(
+      (one) => one.querySelector('[data-ui="conversation-title"]')?.textContent === 'Consider gold',
+    );
+    await click(find(gold as Element, '[data-ui="conversation-open"]'));
+    await settle();
+    expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
+    expect(document.activeElement).toBe(opener());
+    // and a person who moved on is not pulled back by the next draw
+    find<HTMLTextAreaElement>(host, 'textarea').focus();
+    await settle();
+    await mode(host, 'new');
+    await settle();
+    expect(document.activeElement).not.toBe(opener());
   });
   it('preserves exact plain words across unavailable API and reopen without fabricating reply', async () => {
     portStore.setApi(async (url) => baseApi(url));
@@ -1367,7 +1390,8 @@ describe('existing entry handoffs', () => {
     sessionStorage.setItem(GOAL_HANDOFF, words);
     portStore.setApi(async (url) => baseApi(url));
     const host = await show();
-    expect(find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').value).toBe('current');
+    // signed out: nothing of anyone's is listed yet
+    expect(titles(host)).toEqual([]);
     expect(find<HTMLTextAreaElement>(host, 'textarea').value).toBe(words);
     expect(find<HTMLTextAreaElement>(host, 'textarea').disabled).toBe(true);
     expect(calls).toHaveLength(0);
@@ -1404,7 +1428,7 @@ describe('existing entry handoffs', () => {
     const words = 'Consider gold with a small budget';
     window.history.replaceState(null, '', `/invest#goal=${encodeURIComponent(words)}`);
     const host = await show();
-    expect(find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').value).toBe('current');
+    expect(current(host)).toBe(en.goal.explore.picker.current);
     expect(find<HTMLTextAreaElement>(host, 'textarea').value).toBe(words);
     expect(sessionStorage.getItem(GOAL_HANDOFF)).toBe(words);
     expect(calls).toHaveLength(0);
@@ -1533,26 +1557,18 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     expect(chart.querySelector('[data-ui="mock-plate"]')).toBeNull();
   });
 
-  it('lists this conversation, a new one and the saved ones in the picker, and opens a new one empty', async () => {
+  it('lists this conversation and the saved ones in the panel, and opens a new one empty', async () => {
     const host = await show();
     await send(host, 'Consider gold');
     await mode(host, 'new');
     await settle();
-    const options = [...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options];
-    expect(options.map((o) => o.textContent)).toEqual([
-      en.goal.explore.picker.current,
-      en.goal.explore.picker.fresh,
-      'Consider gold · Solana',
-    ]);
+    expect(titles(host)).toEqual([en.goal.explore.picker.current, 'Consider gold']);
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
   });
 
   // Thom, Oct 9: a conversation is named by its person's first request, shortened (title.ts), read
   // from its own turns in this browser.
-  const options = (host: HTMLElement) => [
-    ...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options,
-  ];
-  const named = (host: HTMLElement) => options(host).map((o) => o.textContent);
+  const named = titles;
   const keep = (id: string, words: string[]) =>
     localStorage.setItem(
       `${goalConversationKey(userId, 'solana', 'sandbox')}:c:${id}`,
@@ -1577,16 +1593,13 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     const title = 'I want to explore technology stocks with low…';
     let host = await show();
     await settle();
-    // before any message: the neutral name, and the control is still named by its label
-    expect(named(host)).toEqual([en.goal.explore.picker.current, en.goal.explore.picker.fresh]);
+    // before any message: the neutral name, in the panel named by its label
+    expect(named(host)).toEqual([en.goal.explore.picker.current]);
     expect(en.goal.explore.picker.current).toBe('New conversation');
-    const picker = find<HTMLSelectElement>(host, '[data-ui="goal-picker"]');
-    expect(host.querySelector(`label[for="${picker.id}"]`)?.textContent).toBe(
-      en.goal.explore.picker.label,
-    );
+    expect(find(rail(host), 'nav').getAttribute('aria-label')).toBe(en.goal.explore.picker.label);
     await send(host, words);
-    expect(named(host)).toEqual([title, en.goal.explore.picker.fresh]);
-    expect(find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').value).toBe('current');
+    expect(named(host)).toEqual([title]);
+    expect(current(host)).toBe(title);
     // a later message does not rename it
     await send(host, 'Less gold please');
     expect(named(host)[0]).toBe(title);
@@ -1596,15 +1609,11 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     await unmountAll();
     host = await show();
     await settle();
-    expect(named(host)).toEqual([title, en.goal.explore.picker.fresh]);
-    // a new one is neutral again, and the first is saved under its name, with its chain as text
+    expect(named(host)).toEqual([title]);
+    // a new one is neutral again, and the first is saved under its name
     await mode(host, 'new');
     await settle();
-    expect(named(host)).toEqual([
-      en.goal.explore.picker.current,
-      en.goal.explore.picker.fresh,
-      `${title} · Solana`,
-    ]);
+    expect(named(host)).toEqual([en.goal.explore.picker.current, title]);
   });
 
   it('names a conversation saved before by its first request, and one without messages neutrally', async () => {
@@ -1626,17 +1635,18 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     ]);
     const host = await show();
     await settle();
+    // newest first; one with no time says nothing of when, and comes last
     expect(named(host)).toEqual([
       en.goal.explore.picker.current,
-      en.goal.explore.picker.fresh,
-      'Build an income strategy from bonds and dividend… · Solana',
-      'Protect my savings · Solana',
-      `${en.goal.explore.picker.untitled} · Solana`,
+      en.goal.explore.picker.untitled,
+      'Build an income strategy from bonds and dividend…',
+      'Protect my savings',
     ]);
-    // opened, it is the one on screen under the same name, without its chain
+    expect(row(host, 'Protect my savings').querySelector('time')).toBeNull();
+    // opened, it is the one on screen under the same name
     await mode(host, 'conversation:solana:old1');
     await settle();
-    expect(named(host)[0]).toBe('Build an income strategy from bonds and dividend…');
+    expect(current(host)).toBe('Build an income strategy from bonds and dividend…');
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('for my retirement');
   });
 
@@ -1651,21 +1661,30 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     ]);
     const host = await show();
     await settle();
-    const [, , first, second, third] = named(host);
-    expect(first).toMatch(/^Consider gold · Solana · Oct \d+, \d+:\d\d/);
-    expect(second).toMatch(/^Consider gold · Solana · Oct \d+, \d+:\d\d/);
-    expect(first).not.toBe(second);
-    // one that reads like no other stays as short as before
-    expect(third).toBe('Consider silver · Solana');
+    expect(named(host)).toEqual([
+      en.goal.explore.picker.current,
+      'Consider gold',
+      'Consider silver',
+      'Consider gold',
+    ]);
+    // each row says when it was written, in a time a machine reads too
+    const times = [
+      ...rail(host).querySelectorAll<HTMLTimeElement>('[data-ui="conversation-row"] time'),
+    ].map((time) => time.dateTime);
+    expect(times).toEqual([
+      '2026-10-08T12:00:00.000Z',
+      '2026-10-07T09:30:00.000Z',
+      '2026-10-06T09:30:00.000Z',
+    ]);
   });
 
   it('shows the name as the text it is, and is neutral again once the conversation is started over', async () => {
     const words = '<img src=x onerror=alert(1)> gold';
     const host = await show();
     await send(host, words);
-    const [current] = options(host);
-    expect(current?.textContent).toBe(words);
-    expect(current?.children).toHaveLength(0);
+    const [first] = rail(host).querySelectorAll('[data-ui="conversation-title"]');
+    expect(first?.textContent).toBe(words);
+    expect(first?.children).toHaveLength(0);
     expect(host.querySelector('img[src="x"]')).toBeNull();
     const again = [...host.querySelectorAll('button')].find(
       (button) => button.textContent === en.talk.startOver,
@@ -1674,15 +1693,12 @@ describe('the relaxed intake’s plan on /invest (RELAXED-INTAKE)', () => {
     await click(again);
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
-    expect(named(host)).toEqual([en.goal.explore.picker.current, en.goal.explore.picker.fresh]);
+    expect(named(host)).toEqual([en.goal.explore.picker.current]);
     // left for a new one, it is not kept as a saved conversation with nothing in it, now or later
     await mode(host, 'new');
     await settle();
-    expect(named(host)).toEqual([en.goal.explore.picker.current, en.goal.explore.picker.fresh]);
+    expect(named(host)).toEqual([en.goal.explore.picker.current]);
     await unmountAll();
-    expect(named(await show())).toEqual([
-      en.goal.explore.picker.current,
-      en.goal.explore.picker.fresh,
-    ]);
+    expect(named(await show())).toEqual([en.goal.explore.picker.current]);
   });
 });

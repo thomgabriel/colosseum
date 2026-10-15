@@ -96,6 +96,8 @@ Since TNET-4 merged (`staging` at `b706382`) the contract world runs on the new 
 - Anything that is not a Recipe account of this program is `RecipeNotFound`. A line on a mint the caller's list does not have is `MintNotAccepted`, and a vault that follows that portfolio refuses with it.
 - A version number names one set of weights for good: a cancelled version keeps its number, so the version that waits can be the active one plus two.
 - `onchainId` is the Recipe account's address: seeds `["recipe", creator, family id]` (`recipeAddress`). `familyId` and `metaHash` are 64 lower-case hex characters.
+- A Recipe account is 1,022 bytes (published before Oct 14, never more than twelve lines) or 1,294 (room for sixteen): `decodeRecipe` reads both, and the lines past twelve from after the fields (`programs/README.md`).
+- `creatorLimits()` is what the program says (gate SHARED-RULES-V2): the reader simulates `creator_limits`, paid by Config's admin, and reads its return data (`readCreatorLimits`); one answer serves for five minutes. A program older than the instruction answers 101, read as the first rules; any other failure is `Unavailable`, never a guess. It needs a node that simulates, which the adapter hands its reader (`simulate`); a reader without one refuses with `NotSupported`.
 - `listAutoFollowVaults(recipe)` filters on the vault's `recipe` at byte 40.
 
 **For the keeper**

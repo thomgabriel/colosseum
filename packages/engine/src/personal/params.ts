@@ -1,3 +1,4 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
 import type { PersonalParameters } from './types';
 
 // The parameter table of the personalization engine: every number it uses, and nothing else. (The one
@@ -246,11 +247,14 @@ export const PERSONAL_PARAMS_STATUS: Record<Exclude<keyof PersonalParameters, 'v
 export const linesPerSet = (sheet: { mix?: unknown; sleeves?: unknown }): boolean =>
   sheet.mix !== undefined || sheet.sleeves !== undefined;
 
-/** The most lines such a plan can hold in all: what its vault targets are held to. */
+/**
+ * The most lines such a plan can hold in all: what its vault targets are held to. Two sets have the
+ * table's limit each, and together never more than a vault holds.
+ */
 export const linesInAll = (
   sheet: { mix?: unknown; sleeves?: unknown },
   table: { maxLinesPerChain: number },
-): number => table.maxLinesPerChain * (linesPerSet(sheet) ? 2 : 1);
+): number => Math.min(VAULT_MAX_TARGETS, table.maxLinesPerChain * (linesPerSet(sheet) ? 2 : 1));
 
 export const STOCK_KEYWORDS = { least: 3, most: 8, carriers: 2 } as const;
 

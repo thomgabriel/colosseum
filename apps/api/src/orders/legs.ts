@@ -422,6 +422,15 @@ async function buildShared(
         ...shared,
       });
     }
+    case 'swap':
+      // The sale of an asset the version drops and the vault still holds, before the accept: past the
+      // vault's lines, the accept needs it gone (gate SHARED-RULES-V2).
+      return adapter.buildOwnerSwap({
+        vault: request.vault,
+        trades: leg.trades,
+        slippageBps: slippageOf(request),
+        ...shared,
+      });
     case 'set_auto_follow': {
       if (request.autoFollow) await offered();
       return adapter.buildSetAutoFollow({

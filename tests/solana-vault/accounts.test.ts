@@ -13,12 +13,14 @@ import {
   decodeConfig,
   decodeRecipe,
   decodeVault,
+  INLINE_COMPONENTS,
   isAccount,
   keeperOn,
   MAX_ASSETS,
   MAX_COMPONENTS,
   MAX_POSITIONS,
   RECIPE_DISCRIMINATOR,
+  RECIPE_HEAD_SIZE,
   RECIPE_SIZE,
   recipeAddress,
   VAULT_ACCEPTED_VERSION_OFFSET,
@@ -177,8 +179,15 @@ describe('the account layouts against idl/basket.json', () => {
     expect(offsetsOf('Config').$end).toBe(CONFIG_SIZE);
     expect(offsetsOf('Vault').$end).toBe(VAULT_SIZE);
     expect(offsetsOf('AssetRegistry').$end).toBe(ASSETS_SIZE);
-    expect(offsetsOf('Recipe').$end).toBe(RECIPE_SIZE);
-    expect([CONFIG_SIZE, VAULT_SIZE, ASSETS_SIZE, RECIPE_SIZE]).toEqual([396, 1063, 6281, 1022]);
+    // A shared portfolio's fields end where its first layout ended; four more lines a version follow.
+    expect(offsetsOf('Recipe').$end).toBe(RECIPE_HEAD_SIZE);
+    expect(RECIPE_SIZE).toBe(
+      RECIPE_HEAD_SIZE +
+        2 * (MAX_COMPONENTS - INLINE_COMPONENTS) * sizeOf({ defined: { name: 'Component' } }),
+    );
+    expect([CONFIG_SIZE, VAULT_SIZE, ASSETS_SIZE, RECIPE_HEAD_SIZE, RECIPE_SIZE]).toEqual([
+      396, 1063, 6281, 1022, 1294,
+    ]);
     // The asset list: the count at byte 136, entry i at 137 + 96·i.
     expect([offsetsOf('AssetRegistry').count, offsetsOf('AssetRegistry').assets]).toEqual([
       136, 137,
@@ -228,22 +237,45 @@ describe('the account layouts against idl/basket.json', () => {
   });
 
   it('decodes every field of a shared portfolio the IDL names, and only the lines in use', () => {
-    const { data, want } = planted('Recipe', RECIPE_DISCRIMINATOR, RECIPE_SIZE);
     const recipe = offsetsOf('Recipe');
     const countAt = (version: 'current' | 'pending') => (recipe[version] ?? 0) + 4 + 8 + 32;
-    data[countAt('current')] = 5;
-    data[countAt('pending')] = MAX_COMPONENTS;
     type Version = { count: number; components: unknown[] };
-    const used = (version: unknown, count: number) => ({
+    const used = (version: unknown, count: number, past: unknown[] = []) => ({
       ...(version as Version),
       count,
-      components: (version as Version).components.slice(0, count),
+      components: [...(version as Version).components.slice(0, count - past.length), ...past],
     });
+
+    // The first layout: twelve lines at most, in the fields.
+    const first = planted('Recipe', RECIPE_DISCRIMINATOR, RECIPE_HEAD_SIZE);
+    first.data[countAt('current')] = 5;
+    first.data[countAt('pending')] = INLINE_COMPONENTS;
+    expect(decodeRecipe(first.data)).toEqual({
+      ...first.want,
+      current: used(first.want.current, 5),
+      pending: used(first.want.pending, INLINE_COMPONENTS),
+    });
+
+    // With room after the fields: the current version's lines past twelve from byte 1,022, the
+    // waiting one's from 1,158.
+    const { data, want } = planted('Recipe', RECIPE_DISCRIMINATOR, RECIPE_SIZE);
+    const component = { defined: { name: 'Component' } } as const;
+    const seed = { n: 7 };
+    const past = (slot: number, n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        plant(component, data, RECIPE_HEAD_SIZE + (slot * 4 + i) * sizeOf(component), seed),
+      );
+    const currentPast = past(0, 2);
+    const pendingPast = past(1, 4);
+    data[countAt('current')] = INLINE_COMPONENTS + 2;
+    data[countAt('pending')] = MAX_COMPONENTS;
     expect(decodeRecipe(data)).toEqual({
       ...want,
-      current: used(want.current, 5),
-      pending: used(want.pending, MAX_COMPONENTS),
+      current: used(want.current, INLINE_COMPONENTS + 2, currentPast),
+      pending: used(want.pending, MAX_COMPONENTS, pendingPast),
     });
+    // More than twelve with no room past the fields is not an account the program writes.
+    expect(() => decodeRecipe(data.slice(0, RECIPE_HEAD_SIZE))).toThrow(/no room past twelve/);
   });
 
   it("names the program's errors in the IDL's order", () => {
@@ -277,7 +309,9 @@ describe('the account layouts against idl/basket.json', () => {
     expect(() => decodeAssetRegistry(recipe)).toThrow(/not an asset list/);
     expect(() => decodeRecipe(vault)).toThrow(/not a Recipe/);
     expect(() => decodeRecipe(recipe.subarray(0, RECIPE_SIZE - 1))).toThrow(/not a Recipe/);
+    expect(() => decodeRecipe(recipe.subarray(0, RECIPE_HEAD_SIZE + 1))).toThrow(/not a Recipe/);
     expect(isAccount('recipe', recipe)).toBe(true);
+    expect(isAccount('recipe', recipe.subarray(0, RECIPE_HEAD_SIZE))).toBe(true);
     expect(isAccount('assets', recipe)).toBe(false);
     const tooMany = new Uint8Array(assets);
     tooMany[offsetsOf('AssetRegistry').count ?? 0] = MAX_ASSETS + 1;

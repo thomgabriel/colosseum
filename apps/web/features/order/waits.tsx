@@ -111,7 +111,7 @@ export function PlanViewWait({
 /** A page's head: the chain's tag, the title in the title's own face, and the lines under it. */
 function HeadWait({
   title,
-  titleLines = 2,
+  titleLines = 1,
   children,
 }: {
   /** The page's own title, where it is known before the data. */

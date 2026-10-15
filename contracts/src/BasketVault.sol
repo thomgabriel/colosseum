@@ -116,8 +116,12 @@ contract BasketVault is Initializable, ReentrancyGuardTransient, MulticallUpgrad
 
     uint8 internal constant PULL_PERMIT2 = 2;
     uint256 internal constant BPS = 10_000;
-    /// The most targets a vault holds, as on Solana. A shared portfolio has at most 12.
+    /// The most targets above zero a vault holds, as on Solana: `VAULT_MAX_TARGETS` in packages/schemas, and
+    /// the most assets a shared portfolio holds (gate SHARED-RULES-V2).
     uint256 internal constant MAX_TARGETS = 16;
+    /// The most targets in all, those at zero included: room for eight assets a version drops while the vault
+    /// still holds them, so a vault that follows a sixteen-asset portfolio can take a version that swaps one.
+    uint256 internal constant MAX_LINES = 24;
     /// Marks a token whose balance could not be read. No token has this balance.
     uint256 private constant UNREADABLE = type(uint256).max;
 
@@ -521,8 +525,8 @@ contract BasketVault is Initializable, ReentrancyGuardTransient, MulticallUpgrad
 
     /// Takes a version's weights as the targets. An asset the version drops and the vault still holds stays
     /// as a target of zero, so the keeper can sell it; one it holds nothing of goes. A balance that cannot be
-    /// read counts as held. Both lists are sorted by token, and so is the result. More than 16 is
-    /// `InvalidTargets(1)`: the owner sells a leftover first.
+    /// read counts as held. Both lists are sorted by token, and so is the result. More than 16 above zero, or
+    /// more than 24 in all, is `InvalidTargets(1)`: the owner sells a leftover first.
     function _take(VaultStorage storage $, Weight[] memory next) private {
         Weight[] memory old = $.targets;
         delete $.targets;
@@ -538,7 +542,7 @@ contract BasketVault is Initializable, ReentrancyGuardTransient, MulticallUpgrad
         while (j < next.length) {
             $.targets.push(next[j++]);
         }
-        require($.targets.length <= MAX_TARGETS, InvalidTargets(1));
+        require($.targets.length <= MAX_LINES && next.length <= MAX_TARGETS, InvalidTargets(1));
     }
 
     /// Whether the owner accepted `token`: it is a target above zero.

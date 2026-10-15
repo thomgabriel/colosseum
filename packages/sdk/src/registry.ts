@@ -12,17 +12,23 @@ import { sha256 } from './hash';
 // the vault program; its layout is programs/basket's `Recipe` (DESIGN-VAULT 3.7, idl/basket.json):
 //
 //   discriminator 8 · creator 32 · family_id 32 · current RecipeVersion 453 · pending RecipeVersion 453
-//   · last_publish_ts 8 · … (1,022 bytes)
+//   · last_publish_ts 8 · … (1,022 bytes) · then, on an account with room for them, 4 more lines of the
+//   current version and 4 of the pending one (1,294 bytes)
 //   RecipeVersion: version u32 · effective_at i64 · meta_hash 32 · count u8 · 12 × (mint 32, weight u16)
+//   `count` is every line of the version, up to 16: past twelve, the rest are in the slots after 1,022.
 //
 // Which version is in effect is the program's rule, by the cluster's clock: a version that waited and
 // whose time has come is in effect with no transaction. registry.test.ts holds this to the layout, and
 // tests/solana-vault/shared-routes.test.ts to an account the program wrote.
 
-export const RECIPE_ACCOUNT_SIZE = 1022;
+/** The fields, as first laid out: a portfolio that never needed more than twelve lines is this size. */
+export const RECIPE_HEAD_SIZE = 1022;
+/** The fields and four more lines for each version (SHARED-RULES-V2). */
+export const RECIPE_ACCOUNT_SIZE = 1294;
 const VERSION_SIZE = 453;
 const COMPONENT_SIZE = 34;
-const MAX_COMPONENTS = 12;
+const INLINE_COMPONENTS = 12;
+const MAX_COMPONENTS = 16;
 const CURRENT_AT = 72;
 const PENDING_AT = CURRENT_AT + VERSION_SIZE;
 const CLOCK_SYSVAR = 'SysvarC1ock11111111111111111111111111111111';
@@ -69,12 +75,19 @@ function i64(b: Uint8Array, at: number): number {
   return Number(n);
 }
 
-function versionAt(data: Uint8Array, at: number, mints: Map<string, AssetId>): ChainRecipeVersion {
+function versionAt(data: Uint8Array, slot: 0 | 1, mints: Map<string, AssetId>): ChainRecipeVersion {
+  const at = slot === 0 ? CURRENT_AT : PENDING_AT;
   const count = data[at + 44] ?? 0;
   if (count > MAX_COMPONENTS) throw new Error(`a version of a shared portfolio has ${count} lines`);
+  if (count > INLINE_COMPONENTS && data.length < RECIPE_ACCOUNT_SIZE)
+    throw new Error(`a version of a shared portfolio has ${count} lines and no room past twelve`);
   const components: ChainRecipeLine[] = [];
   for (let i = 0; i < count; i += 1) {
-    const line = at + 45 + i * COMPONENT_SIZE;
+    const line =
+      i < INLINE_COMPONENTS
+        ? at + 45 + i * COMPONENT_SIZE
+        : RECIPE_HEAD_SIZE +
+          (slot * (MAX_COMPONENTS - INLINE_COMPONENTS) + i - INLINE_COMPONENTS) * COMPONENT_SIZE;
     const mint = base58Encode(data.slice(line, line + 32));
     components.push({ asset: mints.get(mint) ?? null, mint, weightBps: u16(data, line + 32) });
   }
@@ -119,7 +132,7 @@ export async function readSolanaRecipe(
   if (
     recipe.owner !== program ||
     !data ||
-    data.length !== RECIPE_ACCOUNT_SIZE ||
+    (data.length !== RECIPE_ACCOUNT_SIZE && data.length !== RECIPE_HEAD_SIZE) ||
     !sameBytes(data.slice(0, 8), DISCRIMINATOR)
   )
     throw new Error(`the account at ${address} is not a shared portfolio of the vault program`);
@@ -129,8 +142,8 @@ export async function readSolanaRecipe(
     throw new Error(`the account at ${address} names another creator or family`);
 
   const mints = new Map(Object.entries(deployment.assets).map(([id, a]) => [a.mint, id]));
-  const current = versionAt(data, CURRENT_AT, mints);
-  const waiting = versionAt(data, PENDING_AT, mints);
+  const current = versionAt(data, 0, mints);
+  const waiting = versionAt(data, 1, mints);
   // unix_timestamp is the Clock sysvar's fifth field, after slot, epoch_start_timestamp, epoch and
   // leader_schedule_epoch.
   const now = i64(clockBytes, 32);

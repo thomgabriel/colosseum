@@ -530,6 +530,8 @@ describe.skipIf(!FORK_URL)('on a fork of Robinhood Chain', () => {
         [id('spy'), 5000, '0'],
         [id('nvda'), 0, (NVDA_GIFT / 2n).toString()],
       ]);
+      // A line of the vault's targets, and a token held with none: an accept keeps no line for it.
+      expect(manual?.positions.map((p) => p.untargeted)).toEqual([undefined, true]);
     });
 
     it('names the assets a version would add, and reads the version that waits', async () => {

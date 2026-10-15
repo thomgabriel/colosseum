@@ -1,22 +1,12 @@
 // @vitest-environment happy-dom
-import { PortfolioResponse } from '@colosseum/schemas';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  click,
-  find,
-  fire,
-  mount,
-  press,
-  settle,
-  type,
-  unmountAll,
-} from '../../components/ui/test/dom';
+import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
 import { StartChain } from '../account/test/start-chain';
-import { chainOf, robinhoodChain } from '../portfolio/test/portfolio';
+import { plans } from '../portfolio-section/test/fixtures';
 import { preview } from '../vault-conversation/test/fixtures';
 import {
   EMBEDDED,
@@ -30,6 +20,7 @@ import {
 import { portStore } from '../wallet/test/mock-provider';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
+import { open, openNew, rail, titles } from './test/rail';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
@@ -56,7 +47,7 @@ const passkey = (chain: Person['chain']): Person => ({
 /** The API's side: the person, the chain switches sent to it, and a proposal for every message. */
 /** `noReply`: while true, every message gets a 503 in place of a reply. */
 const agent: { noReply: boolean; hold: Promise<void> | null } = { noReply: false, hold: null };
-function api(start: Person, refuse?: () => Response | null, portfolio?: unknown) {
+function api(start: Person, refuse?: () => Response | null, portfolio?: unknown, vaults?: unknown) {
   let person = start;
   portStore.setApi(async (path, init) => {
     const method = init?.method ?? 'GET';
@@ -70,6 +61,7 @@ function api(start: Person, refuse?: () => Response | null, portfolio?: unknown)
       return json(person);
     }
     if (path === '/v1/portfolio' && portfolio) return json(portfolio);
+    if (path === '/v1/portfolio/plans' && vaults) return json(vaults);
     const reply = /^\/v1\/conversations\/(\w+)\/goal\/reply$/.exec(path);
     if (reply?.[1] && method === 'POST') {
       replies.push(reply[1]);
@@ -113,7 +105,16 @@ const send = async (host: HTMLElement, words: string) => {
   await click(find(host, '[data-ui="composer-send"]'));
   await settle();
 };
-const picker = (host: HTMLElement) => find<HTMLSelectElement>(host, '[data-ui="goal-picker"]');
+/** The drafts the panel lists besides the one on screen, each as its name and its chain's badge. */
+const saved = (host: HTMLElement) =>
+  [
+    ...rail(host).querySelectorAll<HTMLElement>(
+      '[data-ui="conversation-row"][data-kind="draft"]:not([data-current])',
+    ),
+  ].map(
+    (one) =>
+      `${one.querySelector('[data-ui="conversation-title"]')?.textContent} · ${one.querySelector('[data-ui="chain-badge"]')?.textContent}`,
+  );
 const bar = (host: HTMLElement) => find(host, '[data-ui="start-chain"]').getAttribute('data-chain');
 
 beforeEach(() => {
@@ -242,8 +243,7 @@ describe('the chain of a new plan, chosen on /invest', () => {
     expect(document.activeElement).toBe(find(host, 'label[data-chain="robinhood"] input'));
     // both earlier conversations are kept, each under its first request with its chain as text: the
     // one from before the index too, which has no title on it
-    const saved = [...picker(host).options].filter((o) => o.value.startsWith('conversation:'));
-    expect(saved.map((o) => o.textContent).sort()).toEqual([
+    expect(saved(host).sort()).toEqual([
       'An older Robinhood idea · Robinhood Chain',
       'Consider gold · Solana',
     ]);
@@ -253,9 +253,7 @@ describe('the chain of a new plan, chosen on /invest', () => {
     expect(localStorage.getItem(there)).toContain('An older Robinhood idea');
     expect(localStorage.getItem(there)).not.toContain('Something else');
     // the first conversation opens again on its own chain
-    const first = [...picker(host).options].find((o) => o.textContent === 'Consider gold · Solana');
-    picker(host).value = first?.value ?? '';
-    await fire(picker(host), new Event('change', { bubbles: true }));
+    await open(host, 'Consider gold');
     await settle();
     expect(puts).toEqual(['robinhood', 'solana']);
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toContain('Consider gold');
@@ -285,8 +283,7 @@ describe('the chain of a new plan, chosen on /invest', () => {
     await settle();
     expect(replies).toEqual(['solana']);
     // a new conversation starts with an empty box, not with words carried once
-    picker(host).value = 'new';
-    await fire(picker(host), new Event('change', { bubbles: true }));
+    await openNew(host);
     await settle();
     expect(find<HTMLTextAreaElement>(host, 'textarea').value).toBe('');
   });
@@ -370,21 +367,20 @@ describe('the chain of a new plan, chosen on /invest', () => {
     await click(find(host, '[data-act="chain-change"]'));
     await click(find(host, '[data-act="chain-start"]'));
     await settle();
-    const open = async () => {
-      const saved = [...picker(host).options].find((o) => o.textContent?.startsWith('Consider'));
-      picker(host).value = saved?.value ?? '';
-      await fire(picker(host), new Event('change', { bubbles: true }));
+    const reopen = async () => {
+      const gold = titles(host).find((title) => title.startsWith('Consider'));
+      await open(host, gold ?? '');
       await settle();
     };
     // a switch that was not stored is said, and the page stays where it was
     refuse = true;
-    await open();
+    await reopen();
     expect(find(host, '[data-ui="goal-chain-problem"]').textContent).toBe(
       en.chain.failure.unreachable,
     );
     expect(checked(host)).toBe('robinhood');
     refuse = false;
-    await open();
+    await reopen();
     expect(host.querySelector('[data-ui="goal-chain-problem"]')).toBeNull();
     const moved = find(host, '[data-ui="goal-chain-moved"]');
     expect(moved.textContent).toBe(c.opened('Solana'));
@@ -511,21 +507,25 @@ describe('the chain of a new plan, chosen on /invest', () => {
     expect(puts).toEqual([]);
   });
 
-  it('names the chain of each vault in the picker', async () => {
-    api(
-      passkey('solana'),
-      undefined,
-      PortfolioResponse.parse({
-        chains: [chainOf(), robinhoodChain()],
-        disclaimer: 'from the constant',
-      }),
-    );
+  it('names the chain of each vault in the panel, by its badge, and never by its address', async () => {
+    const answer = plans();
+    api(passkey('solana'), undefined, undefined, answer);
     const host = await show();
     await settle();
-    const vaults = [...picker(host).options].filter((o) => o.value.startsWith('vault:'));
-    expect(vaults.map((o) => o.textContent?.split(' · ').at(-1))).toEqual([
-      'Solana',
-      'Robinhood Chain',
-    ]);
+    const vaults = [
+      ...rail(host).querySelectorAll<HTMLElement>(
+        '[data-ui="conversation-row"][data-kind="vault"]',
+      ),
+    ];
+    const listed = answer.chains.flatMap((entry) => entry.plans);
+    expect(vaults).toHaveLength(listed.length);
+    expect(new Set(vaults.map((one) => one.dataset.chain))).toEqual(
+      new Set(listed.map((plan) => plan.chain)),
+    );
+    for (const one of vaults) {
+      expect(find(one, '[data-ui="chain-badge"]').dataset.chain).toBe(one.dataset.chain);
+      expect(one.textContent).not.toContain(one.dataset.address ?? '');
+      expect(one.textContent).not.toMatch(/\w{4}…\w{4}/);
+    }
   });
 });

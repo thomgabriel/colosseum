@@ -56,17 +56,18 @@ impl CreateVault<'_> {
                 // The vault takes the weights of the version in effect, and only if that is
                 // the version the person reviewed: a create signed against version N that
                 // lands after N+1 took effect fails.
-                let active = recipe.active(Clock::get()?.unix_timestamp);
+                let slot = recipe.active_slot(Clock::get()?.unix_timestamp);
+                let active = recipe.version(slot);
                 require!(
                     expected_version == active.version,
                     BasketError::VersionMismatch
                 );
                 require!(targets.is_empty(), BasketError::InvalidTargets);
+                let lines = recipe.lines(slot, &recipe.to_account_info().try_borrow_data()?)?;
                 vault.recipe = recipe.key();
                 vault.accepted_version = active.version;
                 vault.set_positions(
-                    active
-                        .components()
+                    lines
                         .iter()
                         .map(|component| (component.mint, component.weight_bps)),
                 );

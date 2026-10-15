@@ -1,7 +1,14 @@
 import type { LimitContext, Target } from '@colosseum/schemas';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { checkCreatorLimits, movedBps, type RecipeHeader, turnoverBps } from './creator-limits';
+import {
+  CREATOR_LIMITS_V1,
+  CREATOR_LIMITS_V2,
+  checkCreatorLimits,
+  movedBps,
+  type RecipeHeader,
+  turnoverBps,
+} from './creator-limits';
 import { referenceBreaks, referenceMovedBps } from './creator-limits.reference';
 
 // Generated versions, held to the slow reference and to each bound written out in plain terms.
@@ -144,6 +151,7 @@ const scenario = fc
     // A later version is most often an edit of the one in effect.
     const next = s.prev && s.edit ? shift(s.prev, s.edit) : s.fresh;
     const ctx: LimitContext = {
+      limits: CREATOR_LIMITS_V1,
       assets: LISTED,
       publishDelay: s.publishDelay,
       // A first version sometimes comes with a context that names a last publish or a pending
@@ -231,7 +239,13 @@ describe('checkCreatorLimits, on generated versions', { timeout: 60_000 }, () =>
       { asset: 'solana:b', weightBps: 3000 },
       { asset: 'solana:c', weightBps: 2000 },
     ];
-    const ctx = { assets: LISTED, now: 1000, lastPublishAt: 990, hasPending: false };
+    const ctx = {
+      limits: CREATOR_LIMITS_V1,
+      assets: LISTED,
+      now: 1000,
+      lastPublishAt: 990,
+      hasPending: false,
+    };
     // A caller that got past the type with no delay: plain JavaScript, or a cast.
     const noDelay = ctx as unknown as LimitContext;
     expect(() => checkCreatorLimits(version, version, noDelay)).toThrow(RangeError);
@@ -260,6 +274,7 @@ describe('checkCreatorLimits, on generated versions', { timeout: 60_000 }, () =>
       { asset: 'solana:c', weightBps: 2000 },
     ];
     const ctx = {
+      limits: CREATOR_LIMITS_V1,
       assets: LISTED,
       now: 1000,
       lastPublishAt: null,
@@ -287,6 +302,7 @@ describe('checkCreatorLimits, on generated versions', { timeout: 60_000 }, () =>
       { asset: 'solana:c', weightBps: 2000 },
     ];
     const ctx = {
+      limits: CREATOR_LIMITS_V1,
       assets: LISTED,
       now: 1000,
       lastPublishAt: null,
@@ -319,7 +335,8 @@ describe('checkCreatorLimits, on generated versions', { timeout: 60_000 }, () =>
     ];
     expect(movedBps(prev, next)).toBe(4000);
     expect(turnoverBps(prev, next)).toBe(2000);
-    // An odd sum, which two versions that each add up to 10,000 never give: over is over.
+    // Lists no version adds up to: 4,001 of change between the assets, and cash, what each leaves of
+    // 10,000, from 0 to -1. Counted with cash the sum is even, and over is over.
     const odd = [
       { asset: 'solana:a', weightBps: 5001 },
       { asset: 'solana:b', weightBps: 4999 },
@@ -328,7 +345,7 @@ describe('checkCreatorLimits, on generated versions', { timeout: 60_000 }, () =>
       { asset: 'solana:a', weightBps: 3001 },
       { asset: 'solana:b', weightBps: 7000 },
     ];
-    expect(movedBps(odd, far)).toBe(4001);
+    expect(movedBps(odd, far)).toBe(4002);
     expect(turnoverBps(odd, far)).toBe(2001);
   });
 
@@ -340,5 +357,139 @@ describe('checkCreatorLimits, on generated versions', { timeout: 60_000 }, () =>
         expect(turnoverBps(a, a)).toBe(0);
       }),
     );
+  });
+});
+
+// ---- the second rules (gate SHARED-RULES-V2): 1 to 16 assets, each from 0.5% to 100% in 0.5% steps,
+// adding up to at most 100% with the rest in cash; an asset's own ceiling is not a limit; turnover
+// counts cash.
+
+const SECOND_ASSETS = [...PLAIN, 'solana:wide', 'solana:quarter', 'solana:tiny', 'solana:shut'];
+
+/** 1 to 16 listed assets, ceilings or none, each a whole number of steps, adding up to at most 100%. */
+const secondVersion: fc.Arbitrary<Target[]> = fc
+  .integer({ min: 1, max: 16 })
+  .chain((count) =>
+    fc.tuple(
+      fc.shuffledSubarray(SECOND_ASSETS, { minLength: count, maxLength: count }),
+      fc.array(fc.integer({ min: 1, max: Math.floor(200 / count) }), {
+        minLength: count,
+        maxLength: count,
+      }),
+    ),
+  )
+  .map(([assets, steps]) => assets.map((asset, i) => ({ asset, weightBps: (steps[i] ?? 0) * 50 })));
+
+const wideVersion: fc.Arbitrary<Target[]> = fc.array(
+  fc.record({
+    asset: fc.constantFrom(...ANY),
+    weightBps: fc.oneof(
+      fc.integer({ min: 0, max: 210 }).map((s) => s * 50),
+      fc.integer({ min: -100, max: 10_100 }),
+    ),
+  }),
+  { maxLength: 18, size: 'max' },
+);
+
+const secondScenario = fc
+  .record({
+    prev: fc.option(secondVersion, { nil: null, freq: 4 }),
+    // A good version with one line given to the cash token, which is never a line.
+    fresh: fc.oneof(
+      secondVersion,
+      wideVersion,
+      secondVersion.map((v) => [
+        ...v.slice(1),
+        { asset: 'solana:usdc', weightBps: v[0]?.weightBps ?? 50 },
+      ]),
+    ),
+    edit: fc.option(moves, { nil: null }),
+    publishDelay: fc.constantFrom(60, 300, 172_800),
+    last: fc.integer({ min: 1_700_000_000, max: 1_900_000_000 }),
+    wait: fc.oneof(fc.integer({ min: -3, max: 3 }), fc.integer({ min: -200_000, max: 400_000 })),
+    pending: fc.nat(9),
+  })
+  .map((s) => {
+    const next = s.prev && s.edit ? shift(s.prev, s.edit) : s.fresh;
+    const ctx: LimitContext = {
+      limits: CREATOR_LIMITS_V2,
+      assets: LISTED,
+      publishDelay: s.publishDelay,
+      lastPublishAt: s.prev ? s.last : null,
+      now: s.last + s.publishDelay + s.wait,
+      hasPending: s.prev !== null && s.pending < 2,
+    };
+    return { prev: s.prev, next, ctx };
+  });
+
+describe('checkCreatorLimits under the second rules, on generated versions', {
+  timeout: 60_000,
+}, () => {
+  it('accepts exactly what the slow reference accepts, and names the same first rule', () => {
+    fc.assert(
+      fc.property(secondScenario, ({ prev, next, ctx }) => {
+        const result = checkCreatorLimits(prev, next, ctx);
+        const broken = referenceBreaks(prev, next, ctx, { flags: 0, maxFeeBps: 0 });
+        expect(result.ok).toBe(broken.length === 0);
+        if (!result.ok) expect(result.code).toBe(broken[0]);
+      }),
+      { numRuns: 4000 },
+    );
+  });
+
+  it('never accepts a version that breaks a stated bound', () => {
+    fc.assert(
+      fc.property(secondScenario, ({ prev, next, ctx }) => {
+        const result = checkCreatorLimits(prev, next, ctx);
+        if (!result.ok) return;
+        expect(next.length).toBeGreaterThanOrEqual(1);
+        expect(next.length).toBeLessThanOrEqual(16);
+        expect(new Set(next.map((t) => t.asset)).size).toBe(next.length);
+        for (const t of next) {
+          expect(LISTED.some((a) => a.id === t.asset && a.cls !== 'cash')).toBe(true);
+          expect(t.weightBps).toBeGreaterThanOrEqual(50);
+          expect(t.weightBps % 50).toBe(0);
+        }
+        expect(next.reduce((n, t) => n + t.weightBps, 0)).toBeLessThanOrEqual(10_000);
+        if (prev === null) {
+          expect(result.turnoverBps).toBe(0);
+          return;
+        }
+        expect(ctx.hasPending).toBe(false);
+        expect(ctx.now).toBeGreaterThanOrEqual((ctx.lastPublishAt ?? 0) + ctx.publishDelay);
+        // Cash counted: what each version leaves of 10,000 moves like any line.
+        expect(referenceMovedBps(prev, next, 2)).toBeLessThanOrEqual(4000);
+        expect(result.turnoverBps * 2).toBe(referenceMovedBps(prev, next, 2));
+      }),
+      { numRuns: 4000 },
+    );
+  });
+
+  it('accepts any first version in its shape, whatever the assets’ own ceilings', () => {
+    fc.assert(
+      fc.property(secondVersion, (version) => {
+        const ctx: LimitContext = {
+          limits: CREATOR_LIMITS_V2,
+          assets: LISTED,
+          now: 1000,
+          lastPublishAt: null,
+          hasPending: false,
+          publishDelay: 300,
+        };
+        expect(checkCreatorLimits(null, version, ctx)).toEqual({ ok: true, turnoverBps: 0 });
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it('is not a property that holds because nothing is ever accepted, or ever refused', () => {
+    const outcomes = fc
+      .sample(secondScenario, { numRuns: 3000, seed: 20261014 })
+      .map(({ prev, next, ctx }) => checkCreatorLimits(prev, next, ctx));
+    expect(outcomes.filter((r) => r.ok).length).toBeGreaterThan(300);
+    expect(outcomes.filter((r) => r.ok && r.turnoverBps > 0).length).toBeGreaterThan(50);
+    const reasons = new Set(outcomes.flatMap((r) => (r.ok ? [] : [r.code])));
+    for (const code of ['TooManyAssets', 'WeightSum', 'TurnoverTooHigh', 'CashNotAllowed'] as const)
+      expect(reasons).toContain(code);
   });
 });

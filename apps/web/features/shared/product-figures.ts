@@ -54,6 +54,21 @@ const worst = (a: Provenance, b: Provenance): Provenance =>
   a === 'live' ? b : b === 'live' || a === b ? a : 'mock';
 
 /**
+ * A shared portfolio's lines, with what they leave of 100% as one more line of cash where they leave any:
+ * a portfolio under the second rules keeps the rest in cash (gate SHARED-RULES-V2), and a picture of it
+ * shows that share rather than leaving it out. `cashId` is the chain's dollar (`unitsFor(...).cash`);
+ * where it is not known, `<chain>:usdc` names it, which every screen reads as cash.
+ */
+export function withCashLine<T extends { asset: string; weightBps: number }>(
+  lines: readonly T[],
+  chain: string,
+  cashId: string | null,
+): (T | { asset: string; weightBps: number })[] {
+  const left = 10_000 - lines.reduce((n, l) => n + l.weightBps, 0);
+  return left > 0 ? [...lines, { asset: cashId ?? `${chain}:usdc`, weightBps: left }] : [...lines];
+}
+
+/**
  * The rows of a version: each component with the server's figures for that token, matched by its id.
  * `components` are the ones shown (the chain's where this app read them), so a token the server
  * measured nothing for, or one this app does not list (`mint`), still has its row.

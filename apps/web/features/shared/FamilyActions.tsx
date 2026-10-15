@@ -36,7 +36,7 @@ import { FollowQuote } from './FollowQuote';
 import { sharedRefusal } from './refusal';
 import { Offer } from './ShelfScreen';
 import { placeShared, readPortfolio } from './shared-api';
-import type { SharedTerms } from './terms';
+import { followLeftovers, type SharedTerms } from './terms';
 import { type SharedPerson, shortAddress } from './use-person';
 import { ActionsWait } from './waits';
 
@@ -165,6 +165,13 @@ function useFamilyVaults(
       setFailure(t.order.mismatch.shape);
       return;
     }
+    // What the accept needs sold first, worked out from this app's reads: the vault as read and the
+    // version's assets as the follow is held to them (SHARED-RULES-V2). With no version read, nothing:
+    // an order that sells is then refused at its review.
+    const leftovers =
+      accept && followed.targets
+        ? followLeftovers(person.chain, vault, followed.targets)
+        : undefined;
     const terms: SharedTerms = {
       kind: 'follow',
       slug: family.slug,
@@ -174,6 +181,7 @@ function useFamilyVaults(
       follow: accept ? followed.follow : null,
       autoFollow,
       source: followed.source,
+      ...(leftovers ? { leftovers } : {}),
     };
     const started = generation.current;
     const placed = await placeShared(
@@ -215,6 +223,8 @@ function useFamilyVaults(
       chain: person.chain,
       amountUsd: 0,
       lines: [],
+      // The sales the accept needs, as this app worked them out (SHARED-RULES-V2): the order's review
+      // holds its sales to them, and the guard signs those and nothing else.
       terms,
       approved: null,
     });
