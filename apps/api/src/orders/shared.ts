@@ -220,6 +220,8 @@ export type SharedStep = {
   chain: ChainId;
   kind: Leg['kind'];
   description: string;
+  /** The auto-follow switch the step makes beside its own call (`Leg.switchAutoFollow`). */
+  switchAutoFollow?: boolean;
   /** A sale step of a follow: the leftovers it sells for cash, each with its minimum. */
   trades?: Trade[];
   expected?: Leg['expected'];
@@ -443,6 +445,27 @@ export async function leftoverSales(
 }
 
 /**
+ * Where the vault takes several of the owner's calls in one transaction, a follow's switch rides beside
+ * the version it is next to (gate EVM-MULTICALL-STEPS): on after it, off before it, as one
+ * `accept_version` step. An off with sales of leftovers between it and the version stays first, on its
+ * own, so the keeper is stopped before anything is sold. Changes `steps` in place.
+ */
+export function rideSwitch(
+  steps: SharedStep[],
+  on: boolean,
+  accept: (description: string) => SharedStep,
+  said: { on: string; off: string },
+): void {
+  const at = steps.findIndex((s) => s.kind === 'accept_version');
+  const beside = steps[at + (on ? 1 : -1)];
+  if (at < 0 || beside?.kind !== 'set_auto_follow') return;
+  steps.splice(Math.min(at, steps.indexOf(beside)), 2, {
+    ...accept(on ? said.on : said.off),
+    switchAutoFollow: on,
+  });
+}
+
+/**
  * An existing vault of the person's, made to follow a shared portfolio, or its auto-follow switched:
  * `accept_version` where it does not follow the version in effect, then `set_auto_follow` where the
  * switch changes. Auto-follow on is refused on a portfolio that does not offer it (GOLD-ONE-TAP).
@@ -513,6 +536,16 @@ export async function planFollow(
     throw new Refusal(409, 'the vault already follows this shared portfolio as asked', {
       details: { retryable: false },
     });
+  if (entry.adapter.capabilities.ownerCallsInOne)
+    rideSwitch(
+      steps,
+      req.autoFollow,
+      (description) => ({ chain, kind: 'accept_version', description }),
+      {
+        on: `Follow version ${active.version} of this shared portfolio: your vault's targets become its weights, and auto-follow goes on, so the keeper on ${name} rebalances the vault when this portfolio changes. Nothing is traded in this step`,
+        off: `Switch auto-follow off, then follow version ${active.version} of this shared portfolio: your vault's targets become its weights, and you are asked to rebalance when it changes. Nothing is traded in this step`,
+      },
+    );
   return { entry, owner: vault.owner, version: active.version, steps, needsConsent };
 }
 

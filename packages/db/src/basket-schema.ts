@@ -543,6 +543,8 @@ export const legs = pgTable(
     cashRaw: raw('cash_raw'),
     /** What a `withdraw` step takes out (`Leg.withdrawals`). Null on any other step. */
     withdrawals: jsonb('withdrawals').$type<Leg['withdrawals']>(),
+    /** The auto-follow switch the step makes beside its own call (`Leg.switchAutoFollow`). Null: none. */
+    switchAutoFollow: boolean('switch_auto_follow'),
     trades: jsonb('trades').$type<Trade[]>().notNull(),
     expected: jsonb('expected').$type<Leg['expected']>(),
     status: text('status').$type<LegStatus>().notNull(),

@@ -171,6 +171,13 @@
       "breakpoints": true
     },
     {
+      "idx": 24,
+      "version": "7",
+      "when": 1792013101063,
+      "tag": "0024_leg_switch_auto_follow",
+      "breakpoints": true
+    },
+    {
       "idx": 25,
       "version": "7",
       "when": 1792013101064,

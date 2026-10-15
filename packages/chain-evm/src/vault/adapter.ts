@@ -38,7 +38,12 @@ import { type Composed, compose } from './compose';
 import { firstShort } from './funds';
 import { BASKET_VAULT_ABI, INDEX_REGISTRY_ABI, VAULT_FACTORY_ABI } from './generated/abi';
 import { readPoolAveragePlan } from './pool-average';
-import { createEvmVaultReader, type EvmVaultReader, type EvmVaultReaderOptions } from './reader';
+import {
+  createEvmVaultReader,
+  type EvmVaultReader,
+  type EvmVaultReaderOptions,
+  MAX_TRADES,
+} from './reader';
 import { poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
 import { ask } from './rpc';
 import { createEvmProbe } from './send';
@@ -58,8 +63,34 @@ import { unlistedAssetId, unlistedToken } from './unlisted';
  * 1,800 s ahead of its own, and the rest is room for a chain clock a little ahead of the wallet's.
  */
 export const DEADLINE_S = 900;
-/** The most trades one transaction makes (`Capabilities.maxTradesPerTx`). */
-export const MAX_TRADES = 8;
+export { MAX_TRADES };
+
+/** Several of the vault's own calls as one transaction's call data: one call as it is, more in a `multicall`. */
+function inOne(calls: Hex[]): Hex {
+  if (calls.length === 1) return calls[0] as Hex;
+  return encodeFunctionData({ abi: BASKET_VAULT_ABI, functionName: 'multicall', args: [calls] });
+}
+
+/** What a step says it does, after the switch off it makes first, if it makes one. */
+function afterSwitch(to: boolean | undefined, text: string): string {
+  if (to !== false) return text;
+  return `Switch auto-follow off, then ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+/**
+ * A step's own calls with the auto-follow switch it makes beside them (gate `EVM-MULTICALL-STEPS`):
+ * off before them, so the keeper is stopped before anything moves; on after them, once the vault
+ * follows what they make it follow.
+ */
+function switched(calls: Hex[], to: boolean | undefined): Hex[] {
+  if (to === undefined) return calls;
+  const call = encodeFunctionData({
+    abi: BASKET_VAULT_ABI,
+    functionName: 'setAutoFollow',
+    args: [to],
+  });
+  return to ? [...calls, call] : [call, ...calls];
+}
 
 /** A creator's shared portfolio's id in `IndexRegistry`: keccak256(abi.encode(creator, familyId)). */
 export function indexIdOf(creator: string, familyId: string): Hex {
@@ -444,6 +475,49 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
       );
   }
 
+  /**
+   * The owner's trades as one `ownerSwap` call: each sale held to what the vault has, quoted now and
+   * held to the least the order stated. The swaps run in order, so a trade may spend what the trades
+   * before it bring in (the cash of a sale pays for the purchase after it), counted at the quote now.
+   */
+  async function ownerSwapCall(
+    vault: Address,
+    a: { trades: Trade[]; slippageBps: number; minimums?: readonly string[] | undefined },
+  ): Promise<{ call: Hex; minimums: TradeMinimum[]; deadline: bigint }> {
+    // A sale that is over what the vault holds is refused before any quote is asked.
+    const sold = [...new Set(a.trades.map((t) => t.sell))];
+    const held = new Map(
+      await Promise.all(sold.map(async (id) => [id, await balanceOf(tokenOf(id), vault)] as const)),
+    );
+    const short = (received: readonly bigint[]) => {
+      const at = firstShort(a.trades, held, received);
+      const t = at && a.trades[at.index];
+      if (at && t)
+        refuse(
+          'SpentTooMuch',
+          `vault ${vault} holds ${at.held} raw ${at.asset}${
+            at.index > 0 ? ' once the trades before it have run' : ''
+          }, and the trade sells ${t.amountInRaw}`,
+        );
+    };
+    const first = a.trades[0];
+    if (first && (held.get(first.sell) ?? 0n) < BigInt(first.amountInRaw)) short([]);
+    const deadline = (await blockTime()) + BigInt(DEADLINE_S);
+    const { swaps, minimums, quoted } = await swapsOf(
+      a.trades,
+      a.slippageBps,
+      deadline,
+      a.minimums,
+    );
+    short(quoted);
+    const call = encodeFunctionData({
+      abi: BASKET_VAULT_ABI,
+      functionName: 'ownerSwap',
+      args: [swaps as never, deadline],
+    });
+    return { call, minimums, deadline };
+  }
+
   // ---- one transaction
 
   async function built(a: {
@@ -710,54 +784,24 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         builds();
         const a = input(OwnerSwapArgs, args, 'swap');
         const { vault, owner } = await ownedVault(a.vault);
-        // A sale that is over what the vault holds is refused before any quote is asked.
-        const sold = [...new Set(a.trades.map((t) => t.sell))];
-        const held = new Map(
-          await Promise.all(
-            sold.map(async (id) => [id, await balanceOf(tokenOf(id), vault)] as const),
-          ),
-        );
-        const short = (received: readonly bigint[]) => {
-          const at = firstShort(a.trades, held, received);
-          const t = at && a.trades[at.index];
-          if (at && t)
-            refuse(
-              'SpentTooMuch',
-              `vault ${vault} holds ${at.held} raw ${at.asset}${
-                at.index > 0 ? ' once the trades before it have run' : ''
-              }, and the trade sells ${t.amountInRaw}`,
-            );
-        };
-        const first = a.trades[0];
-        if (first && (held.get(first.sell) ?? 0n) < BigInt(first.amountInRaw)) short([]);
-        const deadline = (await blockTime()) + BigInt(DEADLINE_S);
-        const { swaps, minimums, quoted } = await swapsOf(
-          a.trades,
-          a.slippageBps,
-          deadline,
-          a.minimums,
-        );
-        // The swaps run in order: a trade may spend what the trades before it in this step bring in
-        // (the cash of a sale pays for the purchase after it), counted at the quote now.
-        short(quoted);
+        const { call, minimums, deadline } = await ownerSwapCall(vault, a);
         return built({
           kind: 'swap',
           signer: owner,
           to: vault,
-          data: encodeFunctionData({
-            abi: BASKET_VAULT_ABI,
-            functionName: 'ownerSwap',
-            args: [swaps as never, deadline],
-          }),
+          data: inOne(switched([call], a.switchAutoFollow)),
           nonce: a.nonce,
           vault,
-          summary: a.trades
-            .map(
-              (t, i) =>
-                `Sell ${t.amountInRaw} raw ${t.sell} for at least ${minimums[i]?.minOutRaw} raw ${t.buy}`,
-            )
-            .join('; ')
-            .concat(` in vault ${vault}`),
+          summary: afterSwitch(
+            a.switchAutoFollow,
+            a.trades
+              .map(
+                (t, i) =>
+                  `Sell ${t.amountInRaw} raw ${t.sell} for at least ${minimums[i]?.minOutRaw} raw ${t.buy}`,
+              )
+              .join('; ')
+              .concat(` in vault ${vault}`),
+          ),
           minimums,
           deadline,
         });
@@ -768,19 +812,31 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         builds();
         const a = input(SetTargetsArgs, args, 'targets');
         const { vault, owner } = await ownedVault(a.vault);
+        const set = encodeFunctionData({
+          abi: BASKET_VAULT_ABI,
+          functionName: 'setTargets',
+          args: [weightsOf(a.targets)],
+        });
+        const targets = a.targets.map((t) => `${t.asset} ${t.weightBps} bps`).join(', ');
+        // The trades toward the new targets, after them in the same transaction.
+        const trades = a.trades ?? [];
+        const swap = trades.length
+          ? await ownerSwapCall(vault, {
+              trades,
+              slippageBps: a.slippageBps ?? 0,
+              minimums: a.minimums,
+            })
+          : null;
         return built({
           kind: 'set_targets',
           signer: owner,
           to: vault,
-          data: encodeFunctionData({
-            abi: BASKET_VAULT_ABI,
-            functionName: 'setTargets',
-            args: [weightsOf(a.targets)],
-          }),
+          data: inOne(swap ? [set, swap.call] : [set]),
           nonce: a.nonce,
           vault,
-          summary: `Set the targets of vault ${vault}: ${a.targets.map((t) => `${t.asset} ${t.weightBps} bps`).join(', ')}`,
-          minimums: [],
+          summary: `Set the targets of vault ${vault}: ${targets}${swap ? `, and make ${trades.length} trades toward them` : ''}`,
+          minimums: swap?.minimums ?? [],
+          ...(swap ? { deadline: swap.deadline } : {}),
         });
       }),
 
@@ -790,19 +846,24 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const a = input(AcceptVersionArgs, args, 'accept');
         const { vault, owner } = await ownedVault(a.vault);
         const indexId = input(IndexId, a.recipeOnchainId, 'recipeOnchainId') as Hex;
+        const accept = encodeFunctionData({
+          abi: BASKET_VAULT_ABI,
+          functionName: 'acceptVersion',
+          args: [indexId, a.expectedVersion],
+        });
+        const switchSaid =
+          a.switchAutoFollow === undefined
+            ? ''
+            : `, auto-follow switched ${a.switchAutoFollow ? 'on after' : 'off before'}`;
         try {
           return await built({
             kind: 'accept_version',
             signer: owner,
             to: vault,
-            data: encodeFunctionData({
-              abi: BASKET_VAULT_ABI,
-              functionName: 'acceptVersion',
-              args: [indexId, a.expectedVersion],
-            }),
+            data: inOne(switched([accept], a.switchAutoFollow)),
             nonce: a.nonce,
             vault,
-            summary: `Accept version ${a.expectedVersion} of shared portfolio ${indexId} in vault ${vault}`,
+            summary: `Accept version ${a.expectedVersion} of shared portfolio ${indexId} in vault ${vault}${switchSaid}`,
             minimums: [],
           });
         } catch (e) {
@@ -841,16 +902,22 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         if (a.assets === undefined) {
           const tokens = await view<readonly string[]>(vault, BASKET_VAULT_ABI, 'tokens');
           const held = await Promise.all(tokens.map((t) => balanceOf(lower(t), vault)));
-          if (!held.some((h) => h > 0n)) return [];
+          // An empty vault has nothing to build, unless the step also switches auto-follow off: the
+          // sweep then takes nothing and the switch still lands.
+          if (!held.some((h) => h > 0n) && a.switchAutoFollow === undefined) return [];
+          const all = encodeFunctionData({ abi: BASKET_VAULT_ABI, functionName: 'withdrawAll' });
           return [
             await built({
               kind: 'withdraw',
               signer: owner,
               to: vault,
-              data: encodeFunctionData({ abi: BASKET_VAULT_ABI, functionName: 'withdrawAll' }),
+              data: inOne(switched([all], a.switchAutoFollow)),
               nonce: a.nonce,
               vault,
-              summary: `Withdraw everything vault ${vault} holds to its owner`,
+              summary: afterSwitch(
+                a.switchAutoFollow,
+                `Withdraw everything vault ${vault} holds to its owner`,
+              ),
               minimums: [],
             }),
           ];
@@ -887,17 +954,13 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
             kind: 'withdraw',
             signer: owner,
             to: vault,
-            data:
-              calls.length === 1
-                ? (calls[0] as Hex)
-                : encodeFunctionData({
-                    abi: BASKET_VAULT_ABI,
-                    functionName: 'multicall',
-                    args: [calls],
-                  }),
+            data: inOne(switched(calls, a.switchAutoFollow)),
             nonce: a.nonce,
             vault,
-            summary: `Withdraw ${named.length} tokens from vault ${vault} to its owner`,
+            summary: afterSwitch(
+              a.switchAutoFollow,
+              `Withdraw ${named.length} tokens from vault ${vault} to its owner`,
+            ),
             minimums: [],
           }),
         ];

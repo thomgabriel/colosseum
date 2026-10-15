@@ -2471,9 +2471,17 @@ export const en = {
       deposit: 'Deposit',
       swap: 'Swap',
       set_targets: 'Set your vault’s targets',
+      /** The same step where it also trades toward them (Robinhood Chain): one transaction. */
+      set_targets_swap: 'Set your vault’s targets and swap',
       accept_version: 'Accept a new version',
+      /** An accept that also switches auto-follow, in one transaction (Robinhood Chain). */
+      accept_version_on: 'Accept a new version and switch auto-follow on',
+      accept_version_off: 'Switch auto-follow off and accept a new version',
       set_auto_follow: 'Switch auto-follow',
       withdraw: 'Withdraw',
+      /** A sale or a withdrawal that first switches auto-follow off, in one transaction (Robinhood Chain). */
+      swap_off: 'Switch auto-follow off and swap',
+      withdraw_off: 'Switch auto-follow off and withdraw',
       publish: 'Publish',
       adopt_version: 'Keeper: adopt a version',
       keeper_leg: 'Keeper: trade',
