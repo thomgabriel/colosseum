@@ -392,6 +392,9 @@ export async function solanaFromEnv(
  * another network's deploy, or a hand-edited one (a `priceRef` moved to another entry), stops the API
  * rather than build on it. The table has no token program: the adapter reads it from each mint.
  *
+ * Every token the record makes has its row: one without stops the start too, as it would be missing
+ * from every list the API answers.
+ *
  * Answers the rows the adapter may list. A row of a token the deploy retired does not stop the start,
  * and is left out: a retired token is sold and withdrawn, never bought, and the adapter shows it under
  * its mint (`solana:mint-<hex>`) as it does once the fill script has removed the row.
@@ -448,6 +451,13 @@ function holdTo(
       .filter((f) => a[f] !== want[f])
       .map((f) => `${a.id} has ${f} ${a[f]}, and ${record.network} says ${want[f]}`);
   });
+  // Every token the record shows has its row: a token left without one is missing from everything the
+  // API lists, the conversations' catalog included (Thom, Oct 15: the chat on Robinhood Chain listed
+  // ten tokens of the nineteen shown). The table is filled before the API that reads it starts.
+  const rows = new Set(assets.map((a) => a.address));
+  for (const want of record.made)
+    if (!retired.has(want.address) && !rows.has(want.address))
+      wrong.push(`${want.id} (${want.address}) is a token of ${record.network} with no row`);
   const cash = assets.filter((a) => a.cls === 'cash');
   if (cash.length !== 1 || cash[0]?.address !== record.cash.address)
     wrong.push(

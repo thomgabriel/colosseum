@@ -179,6 +179,32 @@ describe('Robinhood Chain on mainnet', () => {
     );
   });
 
+  it('refuses to start with a token the record shows and no row for it, as the chat would not list it', () => {
+    const dir = join(import.meta.dirname, '..', '..', '..', 'deployments');
+    const record = EvmDeploymentRecord.parse(
+      JSON.parse(readFileSync(join(dir, 'robinhood-mainnet.json'), 'utf8')),
+    );
+    const rows = deploymentAssets(record);
+    // the committed record's shown tokens and its cash: the rows the hosted table holds since Oct 15
+    expect(rows.map((r) => r.symbol).sort()).toEqual(
+      [
+        'USDG',
+        ...['AAPL', 'AMZN', 'BABA', 'COIN', 'CRCL', 'GLD', 'GOOGL', 'META', 'MSFT', 'MSTR'],
+        ...['NVDA', 'PLTR', 'SPCX', 'SPY', 'TSLA', 'TSM', 'USO', 'WETH', 'cbBTC'],
+      ].sort(),
+    );
+    expect(holdToEvmRecord(rows, record)).toHaveLength(20);
+    // the table as it stood before the redeploy's rows were filled in: ten of the nineteen
+    const before = rows.filter((r) =>
+      ['USDG', 'NVDA', 'SPY', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'GLD'].includes(
+        r.symbol,
+      ),
+    );
+    expect(() => holdToEvmRecord(before, record)).toThrow(
+      /robinhood:\w+ \(0x[0-9a-f]+\) is a token of robinhood-mainnet with no row/,
+    );
+  });
+
   it('looks for the mainnet record under its own name, and finds the one committed', () => {
     const dir = join(import.meta.dirname, '..', '..', '..', 'deployments');
     expect(evmRecordFile('robinhood', 'mainnet', dir)).toBe(join(dir, 'robinhood-mainnet.json'));
