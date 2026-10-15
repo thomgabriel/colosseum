@@ -468,10 +468,11 @@ export function VaultConversation({
           left where the pane's text runs on below the window, and the page scrolls (Oct 13). */}
       <header
         ref={headRef}
-        // In a short window the head scrolls inside itself: the pane's scrollbar, and a stop for the
-        // keyboard while (and only while) it scrolls.
+        // In a short window the head scrolls inside itself: the pane's scrollbar (with no gutter kept
+        // for it, so the head's actions end where they always do), and a stop for the keyboard while
+        // (and only while) it scrolls.
         {...(headScrolls ? { tabIndex: 0, role: 'region', 'aria-label': copy.headPane } : {})}
-        className="tf-scroll-pane relative flex flex-wrap items-start justify-between gap-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:col-span-12 md:min-h-0 md:overflow-y-auto"
+        className="tf-scroll-pane relative flex flex-wrap items-start justify-between gap-3 [scrollbar-gutter:auto] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:col-span-12 md:min-h-0 md:overflow-y-auto"
       >
         {/* The head runs to the pane's right edge (its `pr-2`), so the actions row ends where the
             holdings panel does, as the overview's header actions end with their panel; "Hide chat"
