@@ -213,6 +213,10 @@ describe('the Bash guard', () => {
 // file holding the word BROKEN. Nothing here runs this repo's real check.
 describe('the check before Claude’s commits', () => {
   const root = join(import.meta.dirname, '..');
+  const bare = (process.env.PATH ?? '')
+    .split(':')
+    .filter((dir) => !dir.includes('node_modules'))
+    .join(':');
   let clone: string;
   const write = (file: string, text: string) => {
     mkdirSync(dirname(join(clone, file)), { recursive: true });
@@ -223,7 +227,8 @@ describe('the check before Claude’s commits', () => {
       cwd: clone,
       encoding: 'utf8',
       input,
-      env: { ...process.env, CLAUDECODE: undefined, ...env },
+      // no tools folder on the path but what the hook adds: the clone's own is found by the hook alone
+      env: { ...process.env, PATH: bare, CLAUDECODE: undefined, ...env },
     });
   /** A commit of what is staged, through git's own hook, as Claude makes one or as a person does. */
   const commit = (by: 'claude' | 'person') =>
@@ -250,9 +255,15 @@ describe('the check before Claude’s commits', () => {
       'check.mjs',
       "import { readFileSync } from 'node:fs';\nif (readFileSync('a.ts', 'utf8').includes('BROKEN')) { console.log('a.ts(1,1): error: BROKEN in a.ts'); process.exit(1); }\n",
     );
+    // a tool of the clone's own, found as `pnpm run` finds it (a `tsc` on the system once stood in)
+    write('node_modules/.bin/own-tool', '#!/bin/sh\nexit 0\n');
+    chmodSync(join(clone, 'node_modules/.bin/own-tool'), 0o755);
+    write('.gitignore', 'node_modules\n');
     write(
       'package.json',
-      JSON.stringify({ scripts: { 'verify:quick': 'node talks.mjs && node check.mjs' } }),
+      JSON.stringify({
+        scripts: { 'verify:quick': 'own-tool && node talks.mjs && node check.mjs' },
+      }),
     );
     write('a.ts', 'export const a = 1;\n');
     run(['git', 'init', '-q', '-b', 'main'], {});
