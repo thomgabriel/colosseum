@@ -2,7 +2,7 @@
 
 You tell Tenonfi, in a chat, what your money needs to do. It turns that goal into a plan made to measure and holds it in a vault you own, on one chain. Before you deposit, you see the exit plan: what getting out would cost at your size, and a withdrawal of the tokens themselves that needs nobody's permission.
 
-It is for someone with a specific goal for their money and no wish to assemble a portfolio by hand, and for the apps and agents that serve that person.
+It is for people who know what their money is for but don't want to build a portfolio by hand. It is also for the apps and agents that serve them.
 
 We are Rodrigo Trindade and Thom Gabriel, and we built it for the Colosseum Crypto World's Fair (Sep 14 to Oct 12, 2026).
 
@@ -12,13 +12,19 @@ You sign in with a passkey or your own wallet (through Privy), pick a chain and 
 
 The draft vault sits beside the chat, and you deposit from the same pane, signing each step. Your portfolio reads each vault from its chain and shows its drift from its targets, with a status of "On track", "Watch" or "Off track". To change a vault, ask in its own chat; nothing changes until you review and sign.
 
-You can also follow a shared portfolio that someone publishes and updates. The registry on chain checks the author's limits, and with auto-follow on, our keeper rebalances your vault one checked trade at a time. The keeper is off on Robinhood Chain mainnet.
+You can also follow a shared portfolio that someone publishes and updates. The registry on chain checks the author's limits. The vault program and contracts also support auto-follow, where our keeper rebalances a following vault one checked trade at a time. It has only run in a scripted check on Solana devnet, and the keeper is off on every hosted chain.
 
 Bearing, our liquidity and risk layer, measures what a sale costs at each size from pools on Solana mainnet and Robinhood Chain mainnet, read-only. The exit plan's numbers come from it (`packages/risk`, `scripts/risk-evm`, [`docs/risk/STATE-RISK.md`](docs/risk/STATE-RISK.md)).
 
 Agents get an HTTP API with an OpenAPI document, an SDK, an MCP server with eight tools and a skill file ([`apps/mcp/README.md`](apps/mcp/README.md), [`skills/tenonfi/SKILL.md`](skills/tenonfi/SKILL.md)). An agent proposes; the person opens a link, reviews and signs.
 
-A deterministic plan engine turns one goal into three candidate plans, each line with its reason. It is reached through `POST /v1/baskets/propose` (the MCP tool `build_plan`), `POST /v1/baskets/personalize` and `pnpm plan:try`. Nothing in the app calls `personalize`, and the chat on `/invest` does not use the engine to pick holdings.
+A deterministic plan engine turns one goal into three candidate plans, each line with its reason. You can reach it three ways:
+
+- `POST /v1/baskets/propose`, also the MCP tool `build_plan`
+- `POST /v1/baskets/personalize`, which nothing in the app calls
+- `pnpm plan:try`, the local playground
+
+The chat on `/invest` does not use the engine to pick holdings.
 
 The screens below are from Oct 12, a local run against the hosted API on Solana devnet: test-network reads, plus mainnet yields and exit costs applied to the stand-in tokens and labelled so.
 
@@ -31,7 +37,7 @@ The screens below are from Oct 12, a local run against the hosted API on Solana 
 
 ## Where it runs today
 
-Robinhood Chain is on mainnet (chain id 4663). A person deployed the vault contracts on Oct 12 in 40 transactions, and the hosted app has served the chain since Oct 13. Nine tokens are listed (NVDA, SPY, META, AAPL, TSLA, GOOGL, MSFT, AMZN, GLD), each trading against USDG through its own Uniswap v4 pool. Real money can be deposited, and none has been: no deposit, vault or trade exists there yet. On a copy of mainnet at block 86,735,800, every listed token was deposited beside, traded into and out of through its recorded pool, and withdrawn ([`docs/vault/SECURITY.md`](docs/vault/SECURITY.md), "Not audited, not done"). The same contracts remain on the test network (chain id 46630), which the hosted app no longer serves. See [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md), [`deployments/robinhood-mainnet.json`](deployments/robinhood-mainnet.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json).
+Robinhood Chain is on mainnet (chain id 4663). A person deployed the vault contracts on Oct 12 in 40 transactions, and the hosted app has served the chain since Oct 13. Nine tokens are listed (NVDA, SPY, META, AAPL, TSLA, GOOGL, MSFT, AMZN, GLD), each trading against USDG through its own Uniswap v4 pool. Real money can be deposited, and none has been: no deposit, vault or trade exists there yet. We also tested every listed token on a copy of mainnet at block 86,735,800: a deposit, a trade into the token and back out through its recorded pool, then a withdrawal ([`docs/vault/SECURITY.md`](docs/vault/SECURITY.md), "Not audited, not done"). The same contracts remain on the test network (chain id 46630), which the hosted app no longer serves. See [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md), [`deployments/robinhood-mainnet.json`](deployments/robinhood-mainnet.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json).
 
 Solana is on devnet, with 13 test tokens standing in for mainnet tokens, a test dollar and a test exchange we deployed ([`deployments/solana-devnet.json`](deployments/solana-devnet.json)). A deposit from the hosted app landed there and the trades after it were refused (order 771a1fad). Tests in LiteSVM and on a local validator in CI cover the fix and a plan's full run: trades, adding money and withdrawing in kind. A person's full run by hand is still to do. On devnet a shared portfolio was published and given a new version, and in a scripted check the keeper rebalanced a vault that follows one; tests on both chains cover the rest of shared portfolios.
 
@@ -39,7 +45,7 @@ Base is off: same Solidity contracts, nothing deployed.
 
 One earlier run touched mainnet. On Sep 30 the first version of the engine ran on Solana from a demo wallet at small size: swaps, a lending deposit, and a rebalance signed by an agent key held on the server. We removed that server-signing route on Oct 13. Signatures are in [`docs/structurer/STATE.md`](docs/structurer/STATE.md), rows D2-AM to D6-PM.
 
-Every task's evidence is in the ledger, [`docs/vault/STATE-VAULT.md`](docs/vault/STATE-VAULT.md), and every decision in [`docs/GATES.md`](docs/GATES.md). Most ledger rows still say `in-review` after their pull request merged; the deployment records and the code are the firmer source.
+Every task's evidence is in the ledger, [`docs/vault/STATE-VAULT.md`](docs/vault/STATE-VAULT.md), and every decision in [`docs/GATES.md`](docs/GATES.md). Where the ledger and the code disagree, the deployment records and the code are the source of truth.
 
 ## Which figures are real
 
@@ -47,7 +53,7 @@ Robinhood Chain figures are mainnet reads (`"provenance": "live"`) and carry no 
 
 ## Safety
 
-The API builds transactions and never signs for anyone. The guard in the browser (`packages/sdk`) reads each transaction's bytes and refuses anything that is not the step you approved. On chain, only the owner deposits or withdraws, and a keeper trade must stay inside the plan's assets, near a reference price and under a weekly loss limit. On Robinhood Chain mainnet the app also holds an owner's own trade to a reference price (Chainlink's while its feed is live, else the pool's one-hour average, within 2% and an outer rail) and a largest size per token before building it; the contract does not check this (gate `OWNER-PRICE-BOUND`).
+The API builds transactions and never signs for anyone. The guard in the browser (`packages/sdk`) reads each transaction's bytes and refuses anything that is not the step you approved. On chain, only the owner deposits or withdraws, and a keeper trade must stay inside the plan's assets, near a reference price and under a weekly loss limit. On Robinhood Chain mainnet, before it builds an owner's own trade, the app checks that the price is within 2% of a reference (Chainlink's feed while it is live, otherwise the pool's one-hour average, inside an outer rail) and that the size is under a cap per token; the contract does not check this (gate `OWNER-PRICE-BOUND`).
 
 On Robinhood Chain the admin is a timelock with a 48-hour delay, owned by a 2-of-2 Safe the two of us hold. A guardian can only pause; its address is also one of the Safe's owners. The keeper is off, there is no deposit cap, and the contracts are unaudited. [`docs/vault/SECURITY.md`](docs/vault/SECURITY.md) has who can do what, and how fast.
 
