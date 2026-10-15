@@ -310,7 +310,7 @@
         "minLiquidity": "290000000000000000",
         "usable": true
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:crcl",
@@ -338,7 +338,7 @@
         "minLiquidity": "910000000000000000",
         "usable": true
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:uso",
@@ -366,7 +366,7 @@
         "minLiquidity": "1700000000000000000",
         "usable": true
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:pltr",
@@ -394,7 +394,7 @@
         "minLiquidity": "110000000000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:weth",
@@ -422,7 +422,7 @@
         "minLiquidity": "1700000000000000000",
         "usable": true
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:cbbtc",
@@ -450,7 +450,7 @@
         "minLiquidity": "28000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:dell",
@@ -478,7 +478,7 @@
         "minLiquidity": "100000000000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:spcx",
@@ -506,7 +506,7 @@
         "minLiquidity": "470000000000000000",
         "usable": true
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:coin",
@@ -534,7 +534,7 @@
         "minLiquidity": "340000000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:tsm",
@@ -562,7 +562,7 @@
         "minLiquidity": "29000000000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:baba",
@@ -590,7 +590,7 @@
         "minLiquidity": "41000000000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     },
     {
       "id": "robinhood:sgov",
@@ -618,7 +618,152 @@
         "minLiquidity": "17000000000000000000",
         "usable": false
       },
-      "operation": "0xfa347da06a04e6abf7e7594df8c8a1ddaa60a6d4144fc19d0130842dcc1075fd"
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
+    },
+    {
+      "id": "robinhood:qqq",
+      "symbol": "QQQ",
+      "name": "Invesco QQQ",
+      "address": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+      "decimals": 18,
+      "modelOf": "QQQ",
+      "kind": "etf",
+      "feed": "0x80901d846d5d7b030f26b480776ee3b29374c2ae",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 2500,
+      "keeperOn": false,
+      "range": null,
+      "pool": null,
+      "v3Pool": {
+        "pool": "0xd60a5d14db690b7afad71f76b108071d7175597d",
+        "fee": 500
+      },
+      "maxTradeUsd": 50000,
+      "average": {
+        "pool": "0xd60a5d14db690b7afad71f76b108071d7175597d",
+        "minLiquidity": "110000000000000000",
+        "usable": true
+      },
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
+    },
+    {
+      "id": "robinhood:mu",
+      "symbol": "MU",
+      "name": "Micron Technology",
+      "address": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+      "decimals": 18,
+      "modelOf": "MU",
+      "kind": "stock",
+      "feed": "0x425eefdcf05ed6526c3ce61af99429a228a6d596",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 500,
+      "keeperOn": false,
+      "range": null,
+      "pool": null,
+      "v3Pool": {
+        "pool": "0xd057b1bc54917855bbee58ead58647f47cab35e5",
+        "fee": 3000
+      },
+      "maxTradeUsd": 25000,
+      "average": {
+        "pool": "0xd057b1bc54917855bbee58ead58647f47cab35e5",
+        "minLiquidity": "86000000000000000",
+        "usable": true
+      },
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
+    },
+    {
+      "id": "robinhood:amd",
+      "symbol": "AMD",
+      "name": "Advanced Micro Devices",
+      "address": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+      "decimals": 18,
+      "modelOf": "AMD",
+      "kind": "stock",
+      "feed": "0x943a29e7ae51a4798823ca9eed2ed533b2a22c72",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": null,
+      "v3Pool": {
+        "pool": "0x48d284a2a4d3dc1b3da08231fe44317e7e7aa51f",
+        "fee": 3000
+      },
+      "maxTradeUsd": 5000,
+      "average": {
+        "pool": "0x48d284a2a4d3dc1b3da08231fe44317e7e7aa51f",
+        "minLiquidity": "29000000000000000",
+        "usable": true
+      },
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
+    },
+    {
+      "id": "robinhood:intc",
+      "symbol": "INTC",
+      "name": "Intel",
+      "address": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+      "decimals": 18,
+      "modelOf": "INTC",
+      "kind": "stock",
+      "feed": "0x3f390c5c24628ac7c489515402235fead71d1913",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": null,
+      "v3Pool": {
+        "pool": "0x2e5a92f5013a64661a49312111be2e8abd33f56a",
+        "fee": 3000
+      },
+      "maxTradeUsd": 5000,
+      "average": {
+        "pool": "0x2e5a92f5013a64661a49312111be2e8abd33f56a",
+        "minLiquidity": "35000000000000000",
+        "usable": true
+      },
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
+    },
+    {
+      "id": "robinhood:slv",
+      "symbol": "SLV",
+      "name": "iShares Silver Trust",
+      "address": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+      "decimals": 18,
+      "modelOf": "SLV",
+      "kind": "commodity",
+      "feed": "0x209b73908e92ae021826ed79609845451ecba2ce",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 50,
+      "keeperOn": false,
+      "range": null,
+      "pool": null,
+      "v3Pool": {
+        "pool": "0x8cb787e6c315d464775289bad00fdd67d53ecb3d",
+        "fee": 3000
+      },
+      "maxTradeUsd": 2500,
+      "average": {
+        "pool": "0x8cb787e6c315d464775289bad00fdd67d53ecb3d",
+        "minLiquidity": "40000000000000000",
+        "usable": false
+      },
+      "operation": "0xb7aa0aea69807631114bfc852f921078f18b9c85a5e2d854a4cdb62095890869"
     }
   ],
   "retired": [],

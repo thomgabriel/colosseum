@@ -49,6 +49,18 @@ describe('the tokens the Safe lists after the deploy', () => {
     expect(promote(record, guard, []).moved).toEqual([]);
   });
 
+  it('leave a held-back token and a v3-routed one pending when the chain lists them', () => {
+    const all = record.pending.map((p: { address: string }) => p.address);
+    const held = file.assets.filter((a) => a.heldBack !== undefined).map((a) => a.symbol);
+    const next = promote(record, guard, all, held);
+    const left = (next.record.pending as { symbol: string; pool: unknown }[]).map((p) => p.symbol);
+    for (const symbol of held) expect(left, symbol).toContain(symbol);
+    for (const a of file.assets.filter((x) => x.v3Pool !== undefined))
+      expect(left, a.symbol).toContain(a.symbol);
+    expect(next.moved.length + left.length).toBe(record.pending.length);
+    EvmDeploymentRecord.parse(next.record);
+  });
+
   it('come as two Transaction Builder files from the Safe to the timelock, schedule then execute', () => {
     const { batch, schedule, execute } = safeFiles(file, 'more tokens');
     expect(schedule.transactions[0]?.data).toBe(batch.schedule);

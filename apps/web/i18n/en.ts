@@ -1186,8 +1186,11 @@ export const en = {
     mainnet: {
       real: 'This is real money on a live network. Nothing here promises a return, and this is not licensed advice.',
       loss: 'You can lose money, including all of it.',
+      /** `hours` 0: no timelock, the Safe holds the keys itself (gate ROBINHOOD-REDEPLOY). */
       governance: (hours: number, signatures: number) =>
-        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
+        hours === 0
+          ? `The vault contracts belong to the team’s Safe, which needs ${signatures} signatures, held by the two founders. It can change settings and upgrade the vault code at once: there is no waiting period. A change could alter what a vault does, so the team could move funds.`
+          : `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
       withdraw:
         'A withdrawal sends you the tokens themselves, and the vault contracts never block it. The issuer can pause the stock tokens and freeze the dollar token, which would stop those tokens moving, in your vault or out of it.',
       safe: (address: string) => `The Safe: ${address}.`,
@@ -1201,7 +1204,9 @@ export const en = {
         'The issuer of the stock tokens can replace their code, and can pause them. The issuer of the dollar token can freeze it.',
       short: {
         governance: (hours: number, signatures: number) =>
-          `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
+          hours === 0
+            ? `The team’s ${signatures}-signature Safe, held by the founders, can change settings and the vault code at once.`
+            : `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
         noKeeper: 'No keeper runs here: only you trade your vault.',
         noCap: 'Nothing limits how much you can deposit.',
         issuers: 'The issuers can change or pause the stock tokens and freeze the dollar token.',

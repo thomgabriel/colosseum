@@ -2,6 +2,7 @@
 pragma solidity 0.8.37;
 
 import {Script} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {console2} from "forge-std/console2.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
@@ -33,7 +34,12 @@ import {VaultFactory} from "../src/VaultFactory.sol";
 /// The deployer is the admin and the beacon's owner while the script runs, so that it can write the
 /// settings. How it ends depends on the file:
 ///
-///   - With a `timelock` (required on a mainnet): the script creates OpenZeppelin's `TimelockController`,
+///   - With a `safe` (a mainnet with no timelock, gate ROBINHOOD-REDEPLOY): the script proposes that Safe for
+///     the factory's admin and the beacon's owner, and the Safe takes both with one batch of two calls it
+///     signs (`acceptAdmin()`, `acceptOwnership()`), which `safeAcceptance()` prints. Until it signs, the
+///     deployer holds both. Every admin call then is the Safe's, at once, with no delay.
+///   - With a `timelock` (a mainnet: the deploy of 2026-10-12, and the way back for the redeploy once
+///     gate ROBINHOOD-REDEPLOY's done-when is met): the script creates OpenZeppelin's `TimelockController`,
 ///     hands the factory's admin and the beacon to it, and finishes the hand-over itself, so the deployer
 ///     ends the run holding nothing. The timelock starts with no delay and the deployer as a second
 ///     proposer and executor, for one batch only: accept the admin, accept the beacon, set the delay, and
@@ -48,7 +54,7 @@ import {VaultFactory} from "../src/VaultFactory.sol";
 ///
 /// On a mainnet (any chain id that is not a known test network) the file is held to the rules of
 /// `checkMainnet` before anything is created: see there. `settings()` is refused on a mainnet: there the
-/// settings are the timelock's to change, through the Safe.
+/// settings are the Safe's to change, itself or through the timelock where there is one.
 contract Deploy is Script {
     using stdJson for string;
 
@@ -79,6 +85,9 @@ contract Deploy is Script {
         uint32[] closedDays;
         /// Who proposes to, cancels in and executes from the timelock: a Safe. Zero for no timelock.
         address timelockOwner;
+        /// The Safe that is the admin and the beacon's owner itself, with no timelock between: zero unless the
+        /// file names one. A mainnet file names a `timelock` or a `safe`, never both.
+        address safe;
         /// Seconds every admin call waits. On a mainnet at least `MIN_MAINNET_DELAY`.
         uint256 timelockDelay;
         /// Whether this deploy means the keeper to run. False: no keeper address and no asset's switch.
@@ -102,6 +111,9 @@ contract Deploy is Script {
         address[] creators;
         /// The file still holds the word TODO somewhere: a value nobody has confirmed.
         bool placeholders;
+        /// A value of the file still begins with "Proposed": an agent measured it and a person has not
+        /// confirmed it yet. Its note becomes "Confirmed by Thom, <date>" once he has, in chat.
+        bool proposed;
         /// What the app holds an owner's trade to, which no contract reads: how far a pool's quote may be
         /// from the asset's Chainlink price (basis points), and each asset's largest single trade in
         /// dollars, in the assets' order. Zero is "not stated". The script writes neither anywhere; on a
@@ -154,6 +166,8 @@ contract Deploy is Script {
 
     error WrongChain(uint256 configIsFor, uint256 runningOn);
     error NoAdmin();
+    /// The file names a Safe that holds the keys itself and another holder beside it.
+    error TwoHolders();
     /// The file breaks a rule a mainnet deploy is held to. `rule` says which, in words.
     error MainnetRefused(string rule);
     /// An asset's average feed is for another token, another feed, another cash token or other decimals:
@@ -173,6 +187,98 @@ contract Deploy is Script {
         d = deploy(cfg, msg.sender);
         vm.stopBroadcast();
         _print(cfg, d, msg.sender);
+        if (cfg.proposed) {
+            console2.log("");
+            console2.log("NOT CONFIRMED: the file holds Proposed values (pnpm ops:redeploy --proposed lists them).");
+            console2.log("A send is refused until a person confirms each and its note says so.");
+        }
+    }
+
+    /// The Safe's one batch after a deploy with a `safe`: the two calls that complete the hand-over, each
+    /// with its target and call data, for the Safe app's Transaction Builder (`pnpm ops:redeploy`). It reads
+    /// the factory `FACTORY` names and its beacon from the chain and sends nothing.
+    function safeAcceptance() external view returns (address[2] memory targets, bytes[2] memory data) {
+        VaultFactory factory = VaultFactory(vm.envAddress("FACTORY"));
+        targets = [address(factory), factory.beacon()];
+        data = [abi.encodeWithSignature("acceptAdmin()"), abi.encodeWithSignature("acceptOwnership()")];
+        console2.log("pending admin of the factory:", factory.pendingAdmin());
+        console2.log("pending owner of the beacon: ", VaultBeacon(targets[1]).pendingOwner());
+        console2.log("1.", targets[0], "acceptAdmin()");
+        console2.logBytes(data[0]);
+        console2.log("2.", targets[1], "acceptOwnership()");
+        console2.logBytes(data[1]);
+    }
+
+    /// After a deploy with a `safe` and the Safe's batch: reads the factory `FACTORY` names and fails unless
+    /// it is what the file says. The Safe holds the factory's admin and the beacon with nothing proposed, the
+    /// registry is the factory's and holds the second rules, the guardian, the keeper, the cash token and every
+    /// router are the file's, the keeper's limits, the bounds, the caps, the creators and the closed days are the
+    /// file's, and every asset is listed with the file's settings. It sends nothing.
+    function check() external view {
+        Config memory cfg = readConfig(_path());
+        VaultFactory factory = VaultFactory(vm.envAddress("FACTORY"));
+        VaultBeacon beacon = VaultBeacon(factory.beacon());
+        IndexRegistry registry = IndexRegistry(factory.registry());
+        require(cfg.safe != address(0), MainnetRefused("check() is for a deploy whose Safe holds the keys"));
+        require(factory.admin() == cfg.safe, HandoverIncomplete("the factory's admin is not the Safe"));
+        require(factory.pendingAdmin() == address(0), HandoverIncomplete("an admin hand-over is still proposed"));
+        require(beacon.owner() == cfg.safe, HandoverIncomplete("the beacon's owner is not the Safe"));
+        require(beacon.pendingOwner() == address(0), HandoverIncomplete("a beacon hand-over is still proposed"));
+        require(registry.factory() == address(factory), HandoverIncomplete("the registry is another factory's"));
+        require(registry.rulesVersion() == 2, HandoverIncomplete("the registry does not hold the second rules"));
+        require(registry.publishDelay() == cfg.publishDelay, HandoverIncomplete("the publish delay is not the file's"));
+        require(factory.guardian() == cfg.guardian, HandoverIncomplete("the guardian is not the file's"));
+        require(factory.keeper() == cfg.keeper, HandoverIncomplete("the keeper is not the file's"));
+        require(factory.cashToken() == cfg.cashToken, HandoverIncomplete("the cash token is not the file's"));
+        for (uint256 i; i < cfg.routers.length; ++i) {
+            require(
+                factory.routerPull(cfg.routers[i].router) == cfg.routers[i].pull,
+                HandoverIncomplete("a router is not allowed as the file says")
+            );
+        }
+        _checkSettings(cfg, factory);
+        require(factory.assets().length == cfg.assets.length, HandoverIncomplete("the factory lists other assets"));
+        for (uint256 i; i < cfg.assets.length; ++i) {
+            Asset memory a = cfg.assets[i];
+            require(factory.isAsset(a.token), HandoverIncomplete("an asset of the file is not listed"));
+            require(
+                keccak256(abi.encode(factory.asset(a.token))) == keccak256(abi.encode(a.config)),
+                HandoverIncomplete("an asset is listed with other settings than the file's")
+            );
+        }
+        console2.log("checked: the Safe holds both keys; the registry, the roles and every asset are the file's");
+        console2.log("factory:", address(factory));
+        console2.log("assets listed:", cfg.assets.length);
+    }
+
+    /// The rest of what the deploy wrote, read back: the keeper's limits, the bound to the feed, the price of
+    /// the day, the deposit caps, who may create a vault, and every closed day of the file.
+    function _checkSettings(Config memory cfg, VaultFactory factory) internal view {
+        (uint16 tolerance, uint16 lossCap, uint16 band, uint32 cooldown, uint32 open, uint32 close) = factory.params();
+        require(
+            keccak256(abi.encode(Params(tolerance, lossCap, band, cooldown, open, close)))
+                == keccak256(abi.encode(cfg.params)),
+            HandoverIncomplete("the keeper's limits are not the file's")
+        );
+        require(factory.priceDevBps() == cfg.priceDevBps, HandoverIncomplete("priceDevBps is not the file's"));
+        require(
+            factory.sessionPriceAge() == cfg.sessionPriceAge, HandoverIncomplete("sessionPriceAge is not the file's")
+        );
+        (uint256 perVault, uint256 total) = factory.depositCaps();
+        require(
+            cfg.hasCaps ? perVault == cfg.vaultCap && total == cfg.totalCap : perVault == 0 && total == 0,
+            HandoverIncomplete("the deposit caps are not the file's")
+        );
+        require(
+            factory.creationRestricted() == (cfg.creators.length != 0),
+            HandoverIncomplete("who may create a vault is not the file's")
+        );
+        for (uint256 i; i < cfg.creators.length; ++i) {
+            require(factory.mayCreate(cfg.creators[i]), HandoverIncomplete("a creator of the file may not create"));
+        }
+        for (uint256 i; i < cfg.closedDays.length; ++i) {
+            require(factory.closedDay(cfg.closedDays[i]), HandoverIncomplete("a closed day of the file is not set"));
+        }
     }
 
     /// Lists the file's assets, routers, cash token and closed days on the factory `FACTORY` names, and sets
@@ -196,7 +302,14 @@ contract Deploy is Script {
         require(cfg.chainId == block.chainid, WrongChain(cfg.chainId, block.chainid));
         if (isMainnet(block.chainid)) checkMainnet(cfg, deployer);
         bool timelocked = cfg.timelockOwner != address(0);
+        // One holder of the keys, on any network: a Safe that holds them itself is never named beside an
+        // admin, the deployer or a timelock, so the file cannot mean one thing and deploy another.
+        require(
+            cfg.safe == address(0) || (cfg.admin == address(0) && !cfg.adminIsDeployer && !timelocked), TwoHolders()
+        );
         if (cfg.adminIsDeployer) cfg.admin = deployer;
+        // A Safe that holds the keys itself is proposed as any admin is: it accepts with its own batch.
+        if (cfg.safe != address(0)) cfg.admin = cfg.safe;
         require(cfg.admin != address(0) || timelocked, NoAdmin());
 
         // Every proxy is created with its init call inside its constructor, and the beacon with its owner.
@@ -382,26 +495,37 @@ contract Deploy is Script {
         require(
             !cfg.placeholders, MainnetRefused("the file still holds a TODO: every value must be confirmed by a person")
         );
+        // A dry run may show what a proposed value would do, so a person can confirm it; nothing else may.
+        require(
+            !cfg.proposed || vm.isContext(VmSafe.ForgeContext.ScriptDryRun),
+            MainnetRefused("the file still holds a Proposed value: each is confirmed by a person before a send")
+        );
 
-        // Who holds what (H1, H2, M4 of the review).
+        // Who holds what (H1, H2, M4 of the review): a Safe of two or more, through a timelock or itself.
         require(!cfg.adminIsDeployer, MainnetRefused("adminIsDeployer: the deployer must end with nothing"));
         require(
             cfg.admin == address(0),
-            MainnetRefused("admin is set: on a mainnet the admin is the timelock the script creates")
+            MainnetRefused("admin is set: on a mainnet the admin is a timelock the script creates, or a Safe")
         );
-        require(cfg.timelockOwner != address(0), MainnetRefused("no timelock owner"));
         require(
-            cfg.timelockOwner.code.length != 0,
-            MainnetRefused("the timelock owner has no code: it must be a contract (a Safe), not a key")
+            (cfg.timelockOwner == address(0)) != (cfg.safe == address(0)),
+            MainnetRefused("name a timelock or a safe, one of the two")
         );
-        require(cfg.timelockOwner != deployer, MainnetRefused("the timelock owner is the deployer"));
+        address holder = cfg.safe != address(0) ? cfg.safe : cfg.timelockOwner;
+        require(
+            holder.code.length != 0,
+            MainnetRefused("the Safe that holds the keys has no code: it must be a contract (a Safe), not a key")
+        );
+        require(holder != deployer, MainnetRefused("the Safe that holds the keys is the deployer"));
         require(
             cfg.safeMinThreshold >= MIN_SAFE_THRESHOLD,
             MainnetRefused("safeMinThreshold is under 2: one signature is a key")
         );
-        checkSafe(cfg.timelockOwner, cfg.safeMinThreshold);
-        require(cfg.timelockDelay >= MIN_MAINNET_DELAY, MainnetRefused("the timelock delay is under 48 hours"));
-        require(cfg.timelockDelay <= MAX_MAINNET_DELAY, MainnetRefused("the timelock delay is over 30 days"));
+        checkSafe(holder, cfg.safeMinThreshold);
+        if (cfg.timelockOwner != address(0)) {
+            require(cfg.timelockDelay >= MIN_MAINNET_DELAY, MainnetRefused("the timelock delay is under 48 hours"));
+            require(cfg.timelockDelay <= MAX_MAINNET_DELAY, MainnetRefused("the timelock delay is over 30 days"));
+        }
         require(cfg.guardian != address(0), MainnetRefused("no guardian"));
         require(cfg.guardian != deployer, MainnetRefused("the guardian is the deployer"));
         require(cfg.publishDelay >= MIN_MAINNET_DELAY, MainnetRefused("the publish delay is under 172,800 s"));
@@ -758,10 +882,12 @@ contract Deploy is Script {
     /// cut down (a `pull` of 257 would otherwise be read as 1).
     function parseConfig(string memory json) public view returns (Config memory cfg) {
         cfg.placeholders = _contains(bytes(json), "TODO");
+        cfg.proposed = _contains(bytes(json), '": "Proposed');
         if (vm.keyExistsJson(json, ".timelock")) {
             cfg.timelockOwner = json.readAddress(".timelock.owner");
             cfg.timelockDelay = json.readUint(".timelock.delay");
         }
+        if (vm.keyExistsJson(json, ".safe")) cfg.safe = json.readAddress(".safe.address");
         cfg.keeperEnabled = vm.keyExistsJson(json, ".keeperEnabled") && json.readBool(".keeperEnabled");
         cfg.safeMinThreshold =
             vm.keyExistsJson(json, ".safeMinThreshold") ? json.readUint(".safeMinThreshold") : MIN_SAFE_THRESHOLD;
@@ -996,6 +1122,13 @@ contract Deploy is Script {
             );
         } else if (cfg.admin == deployer) {
             console2.log("admin and beacon owner: the deployer");
+        } else if (cfg.safe != address(0)) {
+            console2.log("admin and beacon owner now: the deployer, until the Safe accepts both");
+            console2.log("proposed for both, the Safe:", cfg.safe);
+            _printSafe(cfg.safe);
+            console2.log(
+                "still to do, by the Safe in one batch: factory.acceptAdmin() and beacon.acceptOwnership() (safeAcceptance())"
+            );
         } else {
             console2.log("admin and beacon owner now: the deployer");
             console2.log("proposed for both:", cfg.admin);

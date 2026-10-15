@@ -1005,7 +1005,9 @@ export const pt: Dictionary = {
       real: 'Isto é dinheiro de verdade em uma rede ao vivo. Nada aqui promete retorno, e isto não é aconselhamento licenciado.',
       loss: 'Você pode perder dinheiro, inclusive tudo.',
       governance: (hours: number, signatures: number) =>
-        `Os contratos dos cofres pertencem a um timelock. Um Safe que exige ${signatures} assinaturas, dos dois fundadores, propõe cada mudança a ele, e uma mudança passa a valer ${hours} horas depois de aparecer na rede. Uma mudança pode alterar o que um cofre faz, então depois dessa espera a equipe poderia mover fundos.`,
+        hours === 0
+          ? `Os contratos dos cofres pertencem ao Safe da equipe, que exige ${signatures} assinaturas, dos dois fundadores. Ele pode mudar parâmetros e atualizar o código dos cofres na hora: não há prazo de espera. Uma mudança pode alterar o que um cofre faz, então a equipe poderia mover fundos.`
+          : `Os contratos dos cofres pertencem a um timelock. Um Safe que exige ${signatures} assinaturas, dos dois fundadores, propõe cada mudança a ele, e uma mudança passa a valer ${hours} horas depois de aparecer na rede. Uma mudança pode alterar o que um cofre faz, então depois dessa espera a equipe poderia mover fundos.`,
       withdraw:
         'Um saque envia a você os próprios tokens, e os contratos dos cofres nunca o bloqueiam. O emissor pode pausar os tokens de ações e congelar o token de dólar, o que impediria esses tokens de se moverem, dentro ou fora do seu cofre.',
       safe: (address: string) => `O Safe: ${address}.`,
@@ -1019,7 +1021,9 @@ export const pt: Dictionary = {
         'O emissor dos tokens de ações pode substituir o código deles e pausá-los. O emissor do token de dólar pode congelá-lo.',
       short: {
         governance: (hours: number, signatures: number) =>
-          `Um Safe de ${signatures} assinaturas, dos fundadores, pode mudar o código dos cofres ${hours} horas depois de avisar na rede.`,
+          hours === 0
+            ? `O Safe de ${signatures} assinaturas da equipe, dos fundadores, pode mudar parâmetros e o código dos cofres na hora.`
+            : `Um Safe de ${signatures} assinaturas, dos fundadores, pode mudar o código dos cofres ${hours} horas depois de avisar na rede.`,
         noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
         noCap: 'Nada limita quanto você pode depositar.',
         issuers:

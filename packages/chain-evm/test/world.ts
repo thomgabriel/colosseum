@@ -215,9 +215,13 @@ export async function buildWorld(forkUrl: string, port: number): Promise<Fork> {
       const data = encodeFunctionData({ abi: abi as Abi, functionName, args } as never);
       // Simulated first, so a call that would revert says why instead of failing on its gas.
       await client.call({ account: from, to, data }).catch((e: unknown) => {
-        throw new Error(
-          `${functionName} would revert: ${revertToChainError(revertDataOf(e)).message}`,
-        );
+        // With no revert data the call may not have reverted at all: anvil could not read the fork's
+        // node (an archive read refused). The node's own words say which.
+        const data = revertDataOf(e);
+        const why = data
+          ? revertToChainError(data).message
+          : `no revert data (${e instanceof Error ? e.message.split('\n')[0] : String(e)})`;
+        throw new Error(`${functionName} would revert: ${why}`);
       });
       const receipt = await send(from, to, data);
       if (receipt.status !== 'success') throw new Error(`${functionName} reverted`);

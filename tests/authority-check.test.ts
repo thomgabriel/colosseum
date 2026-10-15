@@ -1022,7 +1022,28 @@ describe('what fails on a mainnet, one change each', () => {
     [
       'the record has no timelock',
       { record: (j) => void delete (j as Partial<RecordJson>).timelock },
-      /^record\.timelock: missing: a mainnet has a timelock/,
+      /^record\.timelock: a mainnet names a timelock or a Safe that holds the keys itself, one of the two/,
+    ],
+    [
+      'the record names a timelock and a Safe that holds the keys itself, both',
+      {
+        record: (j) => {
+          (j as Record<string, unknown>).safe = { address: (j as RecordJson).timelock?.address };
+        },
+      },
+      /^record\.timelock: a mainnet names a timelock or a Safe that holds the keys itself, one of the two/,
+    ],
+    [
+      'the record names a Safe that holds the keys, and another admin',
+      {
+        record: (j) => {
+          delete (j as Partial<RecordJson>).timelock;
+          (j as Record<string, unknown>).safe = {
+            address: '0x000000000000000000000000000000000000dEaD',
+          };
+        },
+      },
+      /^record\.roles\.admin: .*the admin of a mainnet with no timelock is its Safe/,
     ],
     [
       'the record does not say what it expects',
@@ -1391,8 +1412,8 @@ describe('a test network is not held to the mainnet rules', () => {
     const r = await checkAuthority(record, readerOf(model));
     expect(r.failures).toEqual(
       expect.arrayContaining([
-        'record.timelock: missing: a mainnet has a timelock',
-        `factory.admin(): the admin has no code: on a mainnet it is the timelock, not a key: live ${DEPLOYER} (no code)`,
+        'record.timelock: a mainnet names a timelock or a Safe that holds the keys itself, one of the two',
+        `factory.admin(): the admin has no code: on a mainnet it is the timelock or a Safe, not a key: live ${DEPLOYER} (no code)`,
         `factory.guardian(): no guardian: live ${ZERO_ADDRESS}`,
         'registry.publishDelay(): the publish delay is under 172,800 s: live 60',
       ]),

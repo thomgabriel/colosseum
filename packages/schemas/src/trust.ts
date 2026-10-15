@@ -37,9 +37,11 @@ export const TRUST_STATUS = {
   } as Partial<Record<ChainId, { toleranceBps: number; weeklyLossCapBps: number }>>,
   /**
    * The same facts for a chain on MAINNET, where the money is real and the keys are held differently:
-   * the contracts' admin is a timelock, a Safe proposes to it, and a guardian can only pause. Only a
-   * chain with a mainnet deploy file is listed, and trust.test.ts holds each value to that file
-   * (`contracts/script/config/4663.json`). `keeper` and `depositCap` say whether there is one.
+   * a Safe holds the contracts' admin, through a timelock (`delayHours` its delay) or itself
+   * (`delayHours` 0, gate ROBINHOOD-REDEPLOY), and a guardian can only pause. These are the facts of the
+   * deploy that is live: trust.test.ts holds each value to the committed record and the deploy file it
+   * was made from, so the commit that writes the redeploy's record also sets `delayHours` to 0 and a new
+   * `textVersion`. `keeper` and `depositCap` say whether there is one.
    * `tradesChecked`: each trade a person signs is held to a reference price and a largest size by the
    * app before it is built. `issuerCanUpgradeStocks` and `cashCanBeFrozen` are what the tokens'
    * contracts answered on 2026-10-12: every stock token is a proxy its issuer can replace the code of,

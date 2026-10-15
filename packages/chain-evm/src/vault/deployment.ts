@@ -167,7 +167,16 @@ export const EvmDeploymentRecord = z
      * chain lists each with these settings (`pnpm ops:add-assets --promote`).
      */
     pending: z
-      .array(ListedAsset.extend({ operation: z.string().regex(/^0x[0-9a-f]{64}$/) }))
+      .array(
+        ListedAsset.extend({
+          operation: z.string().regex(/^0x[0-9a-f]{64}$/),
+          /** Null for a token routed through Uniswap v3 (`v3Pool`), which no builder routes yet. */
+          pool: ListedAsset.shape.pool.nullable(),
+          v3Pool: z.strictObject({ pool: Address, fee: z.number().int().min(1) }).optional(),
+        }).refine((p) => (p.pool === null) !== (p.v3Pool === undefined), {
+          message: 'a pending token states one route: a v4 pool, or a v3 pool and no v4 pool',
+        }),
+      )
       .optional(),
     /** Listed once and taken off the list: vaults may still hold them. */
     retired: z.array(
@@ -190,6 +199,33 @@ export const EvmDeploymentRecord = z
         minDelay: z.number().int().optional(),
         proposers: z.array(Address).optional(),
       })
+      .optional(),
+    /**
+     * The Safe that is the admin of a mainnet's factory and the owner of its beacon itself, with no
+     * timelock between (gate ROBINHOOD-REDEPLOY). A mainnet's record names this or a `timelock`.
+     */
+    safe: z
+      .looseObject({
+        address: Address,
+        threshold: z.number().int().optional(),
+        owners: z.array(Address).optional(),
+      })
+      .optional(),
+    /**
+     * Tokens the chain lists and the app keeps out of sight: held back (`held_back`), or traded through
+     * a Uniswap v3 pool no builder routes yet (`v3_route`). Nothing that reads the record trades, shows
+     * or holds them to anything; they are here so that what the chain lists is all reviewed.
+     */
+    hidden: z
+      .array(
+        ListedAsset.extend({
+          why: z.enum(['held_back', 'v3_route']),
+          pool: ListedAsset.shape.pool.nullable(),
+          v3Pool: z.strictObject({ pool: Address, fee: z.number().int().min(1) }).optional(),
+        }).refine((p) => (p.pool === null) !== (p.v3Pool === undefined), {
+          message: 'a hidden token states one route: a v4 pool, or a v3 pool and no v4 pool',
+        }),
+      )
       .optional(),
     expected: z
       .looseObject({
@@ -221,7 +257,7 @@ export const EvmDeploymentRecord = z
     (r) => {
       const listed = new Set([r.cash.address, ...r.assets.map((a) => a.address)]);
       const ids = new Set([r.cash.id, ...r.assets.map((a) => a.id)]);
-      const pending = r.pending ?? [];
+      const pending = [...(r.pending ?? []), ...(r.hidden ?? [])];
       return (
         pending.every((p) => !listed.has(p.address) && !ids.has(p.id) && !p.keeperOn) &&
         new Set(pending.map((p) => p.address)).size === pending.length &&
@@ -231,7 +267,7 @@ export const EvmDeploymentRecord = z
     },
     {
       message:
-        "a pending token is not listed yet, once, on the record's chain, with its keeper off and, on a mainnet, its largest trade",
+        "a pending or hidden token is apart from the shown ones, once, on the record's chain, with its keeper off and, on a mainnet, its largest trade",
       path: ['pending'],
     },
   )
@@ -281,6 +317,7 @@ function incompleteMainnet(r: {
   timelock?:
     | { address: string; minDelay?: number | undefined; proposers?: string[] | undefined }
     | undefined;
+  safe?: { address: string } | undefined;
   expected?:
     | {
         launched?: boolean | undefined;
@@ -307,15 +344,21 @@ function incompleteMainnet(r: {
   if (r.roles.guardian === ZERO_ADDRESS) return 'a mainnet record states its guardian';
   if (r.roles.priceWriter !== null || r.roles.tokenIssuer !== null)
     return 'a mainnet record has no price writer and no token issuer of ours: its feeds and tokens are real';
-  if (!r.timelock || !r.expected)
-    return 'a mainnet record carries its timelock and what the deploy is expected to hold';
-  if (r.timelock.address === ZERO_ADDRESS || r.roles.admin !== r.timelock.address)
-    return 'the admin of a mainnet record is its timelock';
-  if (r.timelock.minDelay === undefined || r.timelock.minDelay < MIN_MAINNET_DELAY)
-    return `a mainnet record's timelock waits at least ${MIN_MAINNET_DELAY} s`;
-  const proposers = r.timelock.proposers ?? [];
-  if (proposers.length === 0 || proposers.includes(ZERO_ADDRESS))
-    return 'a mainnet record names who proposes to its timelock';
+  if (!r.timelock === !r.safe || !r.expected)
+    return 'a mainnet record carries its timelock or its Safe, one of the two, and what the deploy is expected to hold';
+  if (r.safe) {
+    // The Safe holds the keys itself (gate ROBINHOOD-REDEPLOY).
+    if (r.safe.address === ZERO_ADDRESS || r.roles.admin !== r.safe.address)
+      return 'the admin of a mainnet record with no timelock is its Safe';
+  } else if (r.timelock) {
+    if (r.timelock.address === ZERO_ADDRESS || r.roles.admin !== r.timelock.address)
+      return 'the admin of a mainnet record is its timelock';
+    if (r.timelock.minDelay === undefined || r.timelock.minDelay < MIN_MAINNET_DELAY)
+      return `a mainnet record's timelock waits at least ${MIN_MAINNET_DELAY} s`;
+    const proposers = r.timelock.proposers ?? [];
+    if (proposers.length === 0 || proposers.includes(ZERO_ADDRESS))
+      return 'a mainnet record names who proposes to its timelock';
+  }
   if (
     r.expected.launched === undefined ||
     r.expected.publishDelay === undefined ||
