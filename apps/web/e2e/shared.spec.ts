@@ -83,9 +83,14 @@ async function toFamily(page: Page, name: string) {
 async function publish(page: Page, name: string, weights: [string, string][], photograph = false) {
   await toShelf(page);
   await page.getByRole('link', { name: en.shared.shelf.publish }).first().click();
-  await expect(page.getByText(en.shared.publish.noVaults, { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: en.shared.publish.review })).toBeDisabled();
-  await expect(page.locator('[data-ui="publish-row"]')).toHaveCount(0);
+  // no vault of theirs yet: one line, and the way to make one
+  const none = page.locator('[data-ui="publish-no-vault"]');
+  await expect(none).toContainText(en.shared.publish.noVaultOn(''));
+  await expect(none.getByRole('link', { name: en.shared.publish.makeVault })).toHaveAttribute(
+    'href',
+    '/invest',
+  );
+  await expect(page.getByRole('button', { name: en.shared.publish.review })).toHaveCount(0);
   // the person's Solana wallet, as the account menu lists it (the phone's sheet holds the same block)
   const shownWallet = page
     .locator(
@@ -108,7 +113,7 @@ async function publish(page: Page, name: string, weights: [string, string][], ph
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.shared.publish.title);
   await page
     .getByRole('combobox', { name: en.shared.publish.sourceVault, exact: true })
-    .selectOption(address);
+    .selectOption(`solana:${address}`);
   await page.getByLabel(en.shared.publish.name, { exact: true }).fill(name);
   await page.getByLabel(en.shared.publish.copy, { exact: true }).fill('Three test tokens.');
   const allocation = page.getByRole('region', { name: en.shared.publish.assets, exact: true });
@@ -276,6 +281,40 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   const building = workspace.locator('[data-ui="vault-building"]');
   await expect(building.locator('h2')).toHaveText(talk.building);
   await expect(building).toContainText(talk.buildingLine);
+  // On a desktop the page does not scroll: the draft has the right pane, the holdings panel folds to
+  // its own head under it, and the pane scrolls on its own to it (Thom, Oct 14)
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const pane = workspace.locator('[data-ui="vault-plan"]');
+  expect(await pane.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
+  const panel = pane.locator('[data-ui="vault-holdings-panel"]');
+  const toggle = panel.locator('[data-action="fold-toggle"]');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  // a window short enough that the pane, with the holdings open under the draft, scrolls: it is a stop
+  // for the keyboard, and scrolls to what the vault holds
+  await page.setViewportSize({ width: 1440, height: 640 });
+  await expect.poll(() => pane.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
+  await expect(pane).toHaveAttribute('tabindex', '0');
+  const held = panel.locator('[data-ui="composition"]').first();
+  await held.scrollIntoViewIfNeeded();
+  // the pane scrolled to it: its top is in the pane's window, and the pane is in the page's
+  const seen = await page.evaluate(() => {
+    const pane = document.querySelector('[data-ui="vault-plan"]') as HTMLElement;
+    const at = (
+      pane.querySelector('[data-ui="vault-holdings-panel"] [data-ui="composition"]') as HTMLElement
+    ).getBoundingClientRect();
+    const box = pane.getBoundingClientRect();
+    return {
+      scrolled: pane.scrollTop > 0,
+      inPane: at.top >= box.top && at.top < box.bottom,
+      paneInWindow: box.bottom <= window.innerHeight,
+    };
+  });
+  expect(seen).toEqual({ scrolled: true, inPane: true, paneInWindow: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toggle.click();
+  await pane.evaluate((el) => el.scrollTo(0, 0));
+  await page.setViewportSize({ width: 375, height: 812 });
   // the message, the row under it and the box are whole in the window
   for (const part of [
     workspace.locator('[data-ui="vault-transcript"] li').first(),

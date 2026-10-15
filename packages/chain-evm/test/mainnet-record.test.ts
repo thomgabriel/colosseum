@@ -259,6 +259,11 @@ describe("a mainnet record's pending tokens", () => {
     expect(refusedWith((p) => (p.keeperOn = true))).toBe(true);
     expect(refusedWith((p) => (p.maxTradeUsd = null))).toBe(true);
     expect(refusedWith((p) => (p.operation = '0x12'))).toBe(true);
+    // A token routed through v3 has no v4 pool, and says which v3 pool; one or the other, never neither.
+    const v3 = { pool: A(0x3e3), fee: 3000 };
+    expect(refusedWith((p) => Object.assign(p, { pool: null, v3Pool: v3 }))).toBe(false);
+    expect(refusedWith((p) => (p.pool = null))).toBe(true);
+    expect(refusedWith((p) => (p.v3Pool = v3))).toBe(true);
     const twice = withPending();
     twice.pending.push(structuredClone(twice.pending[0]));
     expect(EvmDeploymentRecord.safeParse(twice).success).toBe(false);

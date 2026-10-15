@@ -229,6 +229,20 @@ describe('the guard on Solana: an honest transaction passes', () => {
     expect(refusalOf(() => guardTransaction(input(withdrawAllStep, bytes)))).toBeNull();
   });
 
+  it('refuses a switch of auto-follow or a trade riding beside another step: each is its own step on Solana', async () => {
+    const bytes = wire(await honest.swap());
+    for (const step of [
+      { ...swapStep, switchAutoFollow: false as const },
+      { ...acceptStep, switchAutoFollow: true },
+      { ...targetsStep, trades: [TRADE] },
+    ] as ApprovedStep[])
+      expect(
+        refusalOf(() => guardTransaction(input(step, bytes, {}, ['new_asset', 'auto_follow_on'])))
+          ?.code,
+        step.kind,
+      ).toBe('unsupported');
+  });
+
   it('a withdrawal of everything takes a token outside the list only when the caller says the vault holds it', async () => {
     const extra = await strayWithdrawal('a token sent in from outside', '9');
     const bytes = wire([extra.open, extra.withdraw]);

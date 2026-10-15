@@ -12,7 +12,10 @@ import type { InterfaceTable } from './table';
 // An EVM transaction against the step. It is one call, with no value, to one of four contracts and no
 // other: the cash token for an approval, the factory for a create, the registry for a publish, the
 // person's own vault for everything else. The vault's address is derived here. The function is the step's, its arguments are
-// the step's, and a `multicall` is opened and every call inside it is held to the same rule. A call
+// the step's, and a `multicall` is opened and every call inside it is held to the same rule: the calls
+// in it are exactly the step's, in order, with nothing extra and nothing missing. A step may make
+// several of the vault's calls at once (gate EVM-MULTICALL-STEPS): switch auto-follow off before its
+// own calls or on after them, set targets and trade toward them, deposit and make every purchase. A call
 // that trades carries a deadline, and it is held to this guard's own clock. The call data each trade
 // hands its exchange is read too, and held to the one route the deployment states for that exchange.
 
@@ -448,6 +451,9 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
     withdraw: ['withdraw', 'withdrawAll'],
   };
   needs[step.kind].forEach(selectorOf);
+  if ('switchAutoFollow' in step && step.switchAutoFollow !== undefined)
+    selectorOf('setAutoFollow');
+  if (step.kind === 'set_targets' && step.trades?.length) selectorOf('ownerSwap');
   need('target', call.to === vault, `the call is to ${call.to}, and the plan's vault is ${vault}`);
   const atoms: Atom[] = [];
   const open = (data: Uint8Array, depth: number): void => {
@@ -484,13 +490,22 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
 
   const trades = tradesOf(step);
   const withdrawals: Withdrawal[] | 'all' = step.kind === 'withdraw' ? step.withdrawals : [];
-  const wanted: Atom['fn'][] =
+  // The auto-follow switch a step makes beside its own calls (gate EVM-MULTICALL-STEPS): off before
+  // them, on after them, in the same transaction and nowhere else.
+  const switchTo =
+    step.kind === 'swap' || step.kind === 'accept_version' || step.kind === 'withdraw'
+      ? step.switchAutoFollow
+      : undefined;
+  const before: Atom['fn'][] = switchTo === false ? ['setAutoFollow'] : [];
+  const after: Atom['fn'][] = switchTo === true ? ['setAutoFollow'] : [];
+  const swapsOfStep = trades.map(() => 'swap' as const);
+  const own: Atom['fn'][] =
     step.kind === 'deposit'
-      ? ['deposit', ...trades.map(() => 'swap' as const)]
+      ? ['deposit', ...swapsOfStep]
       : step.kind === 'swap'
-        ? trades.map(() => 'swap' as const)
+        ? swapsOfStep
         : step.kind === 'set_targets'
-          ? ['setTargets']
+          ? ['setTargets', ...swapsOfStep]
           : step.kind === 'accept_version'
             ? ['acceptVersion']
             : step.kind === 'set_auto_follow'
@@ -498,9 +513,16 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
               : withdrawals === 'all'
                 ? ['withdrawAll']
                 : withdrawals.map(() => 'withdraw' as const);
+  const wanted: Atom['fn'][] = [...before, ...own, ...after];
   const made = atoms.map((a) => a.fn);
+  // Everything the vault holds may also leave by one `withdraw` a token, after the switch if any.
+  const middle = made.slice(before.length, made.length - after.length);
   const everything =
-    withdrawals === 'all' && made.length > 0 && made.every((fn) => fn === 'withdraw');
+    withdrawals === 'all' &&
+    middle.length > 0 &&
+    middle.every((fn) => fn === 'withdraw') &&
+    made.slice(0, before.length).every((fn, i) => fn === before[i]) &&
+    made.slice(made.length - after.length).every((fn, i) => fn === after[i]);
   need(
     'calls',
     everything ||
@@ -514,10 +536,11 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
   ]);
   const taken = new Set<string>();
   let next = 0;
+  let swapAt = 0;
+  let withdrawAt = 0;
   for (const atom of atoms) {
     // A call out of place was refused above. With that check taken out it is passed over.
     if (!everything && wanted[next] !== atom.fn) continue;
-    const at = next;
     next += 1;
     switch (atom.fn) {
       case 'deposit':
@@ -529,7 +552,8 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
           );
         break;
       case 'swap': {
-        const trade = trades[step.kind === 'deposit' ? at - 1 : at];
+        const trade = trades[swapAt];
+        swapAt += 1;
         if (trade) checkSwap(atom.swap, trade, atom.deadline);
         break;
       }
@@ -546,7 +570,8 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
           taken.add(atom.token);
           break;
         }
-        const w = withdrawals[at];
+        const w = withdrawals[withdrawAt];
+        withdrawAt += 1;
         if (!w) break;
         need('asset', atom.token === token(w.asset), `the bytes withdraw ${atom.token}`);
         need(
@@ -589,8 +614,11 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
           );
         break;
       case 'setAutoFollow':
-        if (step.kind === 'set_auto_follow')
-          need('auto_follow', atom.on === step.on, 'the bytes set auto-follow another way');
+        need(
+          'auto_follow',
+          atom.on === (step.kind === 'set_auto_follow' ? step.on : switchTo),
+          'the bytes set auto-follow another way',
+        );
         break;
     }
   }

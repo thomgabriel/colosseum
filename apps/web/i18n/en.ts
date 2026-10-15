@@ -1186,8 +1186,11 @@ export const en = {
     mainnet: {
       real: 'This is real money on a live network. Nothing here promises a return, and this is not licensed advice.',
       loss: 'You can lose money, including all of it.',
+      /** `hours` 0: no timelock, the Safe holds the keys itself (gate ROBINHOOD-REDEPLOY). */
       governance: (hours: number, signatures: number) =>
-        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
+        hours === 0
+          ? `The vault contracts belong to the team’s Safe, which needs ${signatures} signatures, held by the two founders. It can change settings and upgrade the vault code at once: there is no waiting period. A change could alter what a vault does, so the team could move funds.`
+          : `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
       withdraw:
         'A withdrawal sends you the tokens themselves, and the vault contracts never block it. The issuer can pause the stock tokens and freeze the dollar token, which would stop those tokens moving, in your vault or out of it.',
       safe: (address: string) => `The Safe: ${address}.`,
@@ -1201,7 +1204,9 @@ export const en = {
         'The issuer of the stock tokens can replace their code, and can pause them. The issuer of the dollar token can freeze it.',
       short: {
         governance: (hours: number, signatures: number) =>
-          `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
+          hours === 0
+            ? `The team’s ${signatures}-signature Safe, held by the founders, can change settings and the vault code at once.`
+            : `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
         noKeeper: 'No keeper runs here: only you trade your vault.',
         noCap: 'Nothing limits how much you can deposit.',
         issuers: 'The issuers can change or pause the stock tokens and freeze the dollar token.',
@@ -1619,19 +1624,31 @@ export const en = {
     },
     publish: {
       title: 'Publish your vault as a portfolio',
-      lead: (chain: string) =>
-        `Publish the targets recorded in your own vault on ${chain} as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.`,
+      lead: 'Publish the targets recorded in one of your vaults as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.',
       signIn: 'Sign in to publish a portfolio.',
-      /** Where the server lists live portfolios only: a vault on another chain would never be shown. */
-      liveOnly: (chain: string, live: string) =>
-        live
-          ? `Products lists portfolios on ${live} only, so one published from a vault on ${chain} wouldn’t be shown. Publish from your vault on ${live}: open its page and choose Publish as a portfolio.`
-          : `Products lists live portfolios only, and ${chain} isn’t live here, so a portfolio published on it wouldn’t be shown.`,
+      /**
+       * Where the server lists live portfolios only, said of the vault the link named when its chain is
+       * not one of them: a test network, or a chain not live here.
+       */
+      notListed: (chain: string, test: boolean) =>
+        test
+          ? `${chain} runs on a test network here, and Products lists real-money portfolios only.`
+          : `${chain} isn’t live here, and Products lists real-money portfolios only.`,
+      /** No vault of the person's on a chain whose portfolios Products lists: one line, and a way to make one. */
+      noVaultOn: (chains: string) =>
+        chains
+          ? `You have no vault on ${chains} to publish from.`
+          : 'You have no vault to publish from.',
+      makeVault: 'Make a vault',
       shareStrategy: 'Publish as a portfolio',
       sourceVault: 'Your source vault',
-      sourceHint: 'Choose a vault you own on the active chain.',
+      /** Where the server lists live portfolios only, the chains whose vaults are offered. */
+      sourceHint: (chains: string) =>
+        chains
+          ? `Products lists portfolios on ${chains}, so your vaults there are offered.`
+          : 'Choose a vault you own.',
       chooseVault: 'Choose your vault',
-      noVaults: 'Choose an owned vault on this chain before publishing a portfolio.',
+      noVaults: 'Choose one of your vaults before publishing a portfolio.',
       readingVaults: 'Reading your vaults…',
       readingStrategy: 'Reading the vault’s targets…',
       sourceUnavailable: 'Your vaults could not be read. Open the vault and try publishing again.',
@@ -1815,6 +1832,10 @@ export const en = {
         /** Read out once when a message is sent; nothing on the screen carries it. */
         reading: 'Getting a reply',
         current: 'What it holds now',
+        /** The two right panes, for a screen reader: each scrolls on its own on a desktop. */
+        planPane: 'Your vault’s plan and holdings',
+        actionPane: 'The action under way',
+        headPane: 'This vault’s head',
         noHoldings: 'This vault holds no tokens now.',
         targets: 'Current targets',
         targetsNote: 'Targets recorded on chain, separate from the shares held now.',
@@ -1899,6 +1920,9 @@ export const en = {
         onPlan: 'on target',
         /** With a plan and every share on it, said once above the ring. */
         allOnTarget: 'On target',
+        /** The press on a panel folded to its head while a draft has the pane. */
+        show: 'Show',
+        hide: 'Hide',
         /** In the head of the holdings when a share is off its target. */
         offTargetShort: 'Off target',
         /** A share a little away from its target, by less than one trade: said, and not off target. */
@@ -2471,9 +2495,17 @@ export const en = {
       deposit: 'Deposit',
       swap: 'Swap',
       set_targets: 'Set your vault’s targets',
+      /** The same step where it also trades toward them (Robinhood Chain): one transaction. */
+      set_targets_swap: 'Set your vault’s targets and swap',
       accept_version: 'Accept a new version',
+      /** An accept that also switches auto-follow, in one transaction (Robinhood Chain). */
+      accept_version_on: 'Accept a new version and switch auto-follow on',
+      accept_version_off: 'Switch auto-follow off and accept a new version',
       set_auto_follow: 'Switch auto-follow',
       withdraw: 'Withdraw',
+      /** A sale or a withdrawal that first switches auto-follow off, in one transaction (Robinhood Chain). */
+      swap_off: 'Switch auto-follow off and swap',
+      withdraw_off: 'Switch auto-follow off and withdraw',
       publish: 'Publish',
       adopt_version: 'Keeper: adopt a version',
       keeper_leg: 'Keeper: trade',

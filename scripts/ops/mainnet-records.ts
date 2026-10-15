@@ -52,6 +52,8 @@ const SELECTOR = {
   setCashToken: '0xb85e776d', // setCashToken(address)
   setAsset: '0xc03633a6', // setAsset(address,(…AssetConfig))
   updateDelay: '64d62353', // updateDelay(uint256), inside the timelock's batch
+  proposeAdmin: '0x147bf6c4', // proposeAdmin(address), to the Safe that holds the keys itself
+  transferOwnership: '0xf2fde38b', // transferOwnership(address), the beacon's, to that Safe
 } as const;
 
 /** The nth 32-byte word of a call's arguments, as an address or as a number. */
@@ -113,7 +115,9 @@ export function buildRecords(input: {
   const broadcast = JSON.parse(input.broadcast) as Broadcast;
   const config = JSON.parse(input.config) as Json & {
     chainId: number;
-    timelock: { owner: string; delay: number };
+    /** A deploy with a timelock, or one whose Safe holds the keys itself (gate ROBINHOOD-REDEPLOY). */
+    timelock?: { owner: string; delay: number };
+    safe?: { address: string };
     guardian: string;
     keeper: string;
     keeperEnabled?: boolean;
@@ -134,6 +138,12 @@ export function buildRecords(input: {
       minPrice: number | string;
       maxPrice: number | string;
       pool?: { fee: number; tickSpacing: number };
+      v3Pool?: { pool: string; fee: number };
+      /** Listed on chain and kept out of the app: `held_back`, or `v3_route` until a v3 route is built. */
+      hidden?: 'held_back' | 'v3_route';
+      symbol?: string;
+      name?: string;
+      kind?: string;
       maxTradeUsd?: number | null;
       average?: { pool: string; minLiquidity: string; usable: boolean } | null;
     })[];
@@ -230,21 +240,49 @@ export function buildRecords(input: {
       .filter((r) => r.pull !== 0),
     tokens: calls(SELECTOR.setAsset).map((input) => wordAddress(input, 0)),
   };
-  const timelock = one('TimelockController');
-  const timelockCreate = broadcast.transactions.find(
-    (t) => t.transactionType === 'CREATE' && t.contractName === 'TimelockController',
-  );
-  const proposers = addressesIn(timelockCreate?.arguments?.[1] ?? '').filter((a) => a !== deployer);
-  const executors = addressesIn(timelockCreate?.arguments?.[2] ?? '').filter((a) => a !== deployer);
-  const batch = broadcast.transactions.find(
-    (t) => t.transactionType === 'CALL' && (t.function ?? '').startsWith('executeBatch('),
-  );
-  const delayWord = (batch?.arguments?.[2] ?? '').match(
-    new RegExp(`0x${SELECTOR.updateDelay}([0-9a-fA-F]{64})`),
-  );
-  if (!delayWord)
-    fail("the deploy did not set the timelock's delay: no updateDelay in its hand-over batch");
-  const delay = Number(BigInt(`0x${delayWord?.[1]}`));
+  // Who holds the keys: a timelock the deploy made, or the Safe it proposed for both.
+  if (!config.timelock === !config.safe)
+    fail('the deploy file names a timelock or a safe, one of the two');
+  let timelock = '';
+  let proposers: string[] = [];
+  let executors: string[] = [];
+  let delay = 0;
+  if (config.timelock) {
+    timelock = one('TimelockController');
+    const timelockCreate = broadcast.transactions.find(
+      (t) => t.transactionType === 'CREATE' && t.contractName === 'TimelockController',
+    );
+    proposers = addressesIn(timelockCreate?.arguments?.[1] ?? '').filter((a) => a !== deployer);
+    executors = addressesIn(timelockCreate?.arguments?.[2] ?? '').filter((a) => a !== deployer);
+    const batch = broadcast.transactions.find(
+      (t) => t.transactionType === 'CALL' && (t.function ?? '').startsWith('executeBatch('),
+    );
+    const delayWord = (batch?.arguments?.[2] ?? '').match(
+      new RegExp(`0x${SELECTOR.updateDelay}([0-9a-fA-F]{64})`),
+    );
+    if (!delayWord)
+      fail("the deploy did not set the timelock's delay: no updateDelay in its hand-over batch");
+    delay = Number(BigInt(`0x${delayWord?.[1]}`));
+  } else if (broadcast.transactions.some((t) => t.contractName === 'TimelockController'))
+    fail('the deploy file names a safe and the deploy made a timelock');
+  // The Safe the deploy proposed for the factory's admin and the beacon: the last proposal of each.
+  const proposed = {
+    admin: (() => {
+      const input = calls(SELECTOR.proposeAdmin).at(-1);
+      return input ? wordAddress(input, 0) : null;
+    })(),
+    beacon: (() => {
+      const input = broadcast.transactions
+        .filter(
+          (t) =>
+            t.transactionType === 'CALL' && lower(t.transaction?.to ?? '') === contracts.beacon,
+        )
+        .map((t) => t.transaction?.input ?? '')
+        .filter((x) => x.startsWith(SELECTOR.transferOwnership))
+        .at(-1);
+      return input ? wordAddress(input, 0) : null;
+    })(),
+  };
   const same = (what: string, deployed: unknown, filed: unknown) => {
     if (JSON.stringify(deployed) !== JSON.stringify(filed))
       fail(
@@ -264,15 +302,21 @@ export function buildRecords(input: {
     did.tokens,
     config.assets.map((a) => lower(a.token)),
   );
-  same("the timelock's proposers", proposers, [lower(config.timelock.owner)]);
-  same("the timelock's executors", executors, [lower(config.timelock.owner)]);
-  same("the timelock's delay", delay, config.timelock.delay);
+  if (config.timelock) {
+    same("the timelock's proposers", proposers, [lower(config.timelock.owner)]);
+    same("the timelock's executors", executors, [lower(config.timelock.owner)]);
+    same("the timelock's delay", delay, config.timelock.delay);
+  }
+  if (config.safe) {
+    same("the factory's proposed admin", proposed.admin, lower(config.safe.address));
+    same("the beacon's proposed owner", proposed.beacon, lower(config.safe.address));
+  }
 
   const deployBlock = Number(
     broadcast.receipts.map((r) => BigInt(r.blockNumber)).reduce((a, b) => (a < b ? a : b)),
   );
 
-  const safe = proposers[0] as string;
+  const safe = config.safe ? lower(config.safe.address) : (proposers[0] as string);
   const byAddress = new Map(
     Object.entries(guard.chains.robinhood.assets).map(([id, a]) => [
       lower(a.address),
@@ -286,12 +330,63 @@ export function buildRecords(input: {
   const cashConfig = config.assets.find((a) => lower(a.token) === lower(config.cashToken));
   if (!cashConfig) fail('the deploy file does not list its cash token among its assets');
 
-  const assets = config.assets
-    .filter((a) => lower(a.token) !== lower(config.cashToken))
+  // A token the app keeps out of sight is written apart (`hidden`), with no row in the guard's file.
+  const hidden = config.assets
+    .filter((a) => a.hidden !== undefined)
     .map((a) => {
+      const symbol = a.symbol ?? fail(`the hidden token at ${a.token} states no symbol`);
+      if (byAddress.has(lower(a.token)))
+        fail(
+          `${symbol} is hidden, and the guard's file lists it: the guard would sign a trade in it`,
+        );
+      if (!a.pool === !a.v3Pool) fail(`${symbol}: a hidden token states one route`);
+      return {
+        id: `robinhood:${symbol.toLowerCase()}`,
+        symbol,
+        name: a.name ?? symbol,
+        address: lower(a.token),
+        decimals: a.tokenDecimals,
+        modelOf: symbol,
+        kind: a.kind ?? 'stock',
+        feed: lower(a.feed),
+        feedDecimals: a.feedDecimals,
+        averageFeed: lower(a.averageFeed),
+        maxAge: a.maxAge,
+        session: a.session,
+        maxWeightBps: a.maxWeightBps,
+        keeperOn: (a.flags & 1) === 1,
+        range: null,
+        pool: a.pool ? { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing } : null,
+        ...(a.v3Pool ? { v3Pool: { pool: lower(a.v3Pool.pool), fee: a.v3Pool.fee } } : {}),
+        maxTradeUsd: a.maxTradeUsd ?? null,
+        average: a.average
+          ? {
+              pool: lower(a.average.pool),
+              minLiquidity: String(a.average.minLiquidity),
+              usable: a.average.usable,
+            }
+          : null,
+        why: a.hidden,
+      };
+    });
+  const assets = config.assets
+    .filter((a) => lower(a.token) !== lower(config.cashToken) && a.hidden === undefined)
+    .map((a) => {
+      // A token the guard's file does not list yet is added to it from the deploy file, by the symbol the
+      // file states (the redeploy's new tokens); one it lists is held to the file.
       const row =
-        byAddress.get(lower(a.token)) ?? fail(`the guard's file lists no token at ${a.token}`);
-      const symbol = row.id.replace(/^robinhood:/, '').toUpperCase();
+        byAddress.get(lower(a.token)) ??
+        (a.symbol && a.pool
+          ? {
+              id: `robinhood:${a.symbol.toLowerCase()}`,
+              address: a.token,
+              decimals: a.tokenDecimals,
+              pool: { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing },
+            }
+          : fail(
+              `the guard's file lists no token at ${a.token}, and the deploy file names no symbol for it`,
+            ));
+      const symbol = a.symbol ?? row.id.replace(/^robinhood:/, '').toUpperCase();
       if (row.decimals !== a.tokenDecimals)
         fail(
           `${symbol}: the guard's file says ${row.decimals} decimals and the deploy file ${a.tokenDecimals}`,
@@ -299,7 +394,8 @@ export function buildRecords(input: {
       if (!a.pool) fail(`${symbol}: the deploy file states no pool`);
       if (!row.pool || row.pool.fee !== a.pool?.fee || row.pool.tickSpacing !== a.pool?.tickSpacing)
         fail(`${symbol}: the guard's file and the deploy file name different pools`);
-      const known = KINDS[symbol];
+      const known =
+        KINDS[symbol] ?? (a.name && a.kind ? { name: a.name, kind: a.kind } : undefined);
       if (!known)
         notes.push(
           `${symbol}: no name or kind is known to this tool; written as a stock named ${symbol}`,
@@ -335,6 +431,16 @@ export function buildRecords(input: {
   const listed = new Set([lower(config.cashToken), ...assets.map((a) => a.address)]);
   const extra = [...byAddress.keys()].filter((address) => !listed.has(address));
   if (extra.length) fail(`the guard's file lists a token the deploy did not: ${extra.join(', ')}`);
+  // The guard's rows: every shown token, in the deploy file's order, the cash first.
+  const guardAssets: Json = {
+    [guard.chains.robinhood.cash]: guard.chains.robinhood.assets[guard.chains.robinhood.cash],
+  };
+  for (const a of assets)
+    guardAssets[a.id] = {
+      address: byAddress.get(a.address)?.address ?? a.address,
+      decimals: a.decimals,
+      pool: a.pool,
+    };
 
   const record: Json = {
     network: 'robinhood-mainnet',
@@ -344,7 +450,7 @@ export function buildRecords(input: {
     deployBlock,
     contracts,
     roles: {
-      admin: timelock,
+      admin: config.safe ? safe : timelock,
       guardian: did.guardian,
       keeper: did.keeper,
       priceWriter: null,
@@ -365,17 +471,29 @@ export function buildRecords(input: {
       decimals: cashConfig?.tokenDecimals,
     },
     assets,
+    ...(hidden.length ? { hidden } : {}),
     retired: [],
-    timelock: {
-      address: timelock,
-      minDelay: delay,
-      proposers: [safe],
-      cancellers: [safe],
-      executors: [safe],
-      ...(input.safe
-        ? { safe: { threshold: input.safe.threshold, owners: input.safe.owners.map(lower) } }
-        : {}),
-    },
+    ...(config.safe
+      ? {
+          safe: {
+            address: safe,
+            ...(input.safe
+              ? { threshold: input.safe.threshold, owners: input.safe.owners.map(lower) }
+              : {}),
+          },
+        }
+      : {
+          timelock: {
+            address: timelock,
+            minDelay: delay,
+            proposers: [safe],
+            cancellers: [safe],
+            executors: [safe],
+            ...(input.safe
+              ? { safe: { threshold: input.safe.threshold, owners: input.safe.owners.map(lower) } }
+              : {}),
+          },
+        }),
     expected: {
       launched: false,
       publishDelay: config.publishDelay,
@@ -393,6 +511,7 @@ export function buildRecords(input: {
         factory: contracts.factory,
         beacon: contracts.beacon,
         registry: contracts.registry,
+        assets: guardAssets,
       },
     },
   };

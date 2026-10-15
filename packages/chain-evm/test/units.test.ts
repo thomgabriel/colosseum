@@ -299,9 +299,10 @@ describe('the reader, made', () => {
       capabilities: {
         trade: 'readonly',
         autoFollow: false,
-        maxTradesPerTx: 8,
+        maxTradesPerTx: 10,
         tradesInCreate: true,
         needsApprove: true,
+        ownerCallsInOne: true,
       },
     });
   });

@@ -160,6 +160,8 @@ let tamperNext = false;
 let closed = new Map<string, string>();
 /** The funding answers as a test network's, and the test faucet sends (POST /__stub/test-network). */
 let testNetwork = false;
+/** `GET /v1/config` says the server lists live portfolios only (POST /__stub/live-only). */
+let liveOnly = false;
 /** The plan an agent proposed from a link (`POST /v1/baskets/propose`), read back by its id. */
 let linked: ReturnType<typeof proposal> | null = null;
 /** The plan a person built (`POST /v1/baskets/personalize`), read back by its id as their own. */
@@ -198,7 +200,7 @@ const OBSERVED = {
 function config(): ConfigResponse {
   const configs = parseChainConfigs({});
   return ConfigResponse.parse({
-    flags: DEFAULT_FLAGS,
+    flags: { ...DEFAULT_FLAGS, shelfLiveOnly: liveOnly },
     chains: (['solana', 'robinhood', 'base'] as const).map((id) => ({
       ...configs[id],
       mode: DEFAULT_FLAGS.chainMode[id],
@@ -1169,6 +1171,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     world = freshWorld();
     tamperNext = false;
     testNetwork = false;
+    liveOnly = false;
     reports = [];
     linked = null;
     built = null;
@@ -1251,6 +1254,10 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   }
   if (path === '/__stub/test-network' && method === 'POST') {
     testNetwork = true;
+    return send(res, 200, { ok: true });
+  }
+  if (path === '/__stub/live-only' && method === 'POST') {
+    liveOnly = true;
     return send(res, 200, { ok: true });
   }
   if (path === '/__stub/tamper' && method === 'POST') {

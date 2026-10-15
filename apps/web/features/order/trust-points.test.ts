@@ -33,7 +33,7 @@ describe('the trust notice’s points', () => {
       m.real,
       m.loss,
       en.trust.unaudited,
-      m.governance(48, 2),
+      m.governance(facts.delayHours, 2),
       m.safe(facts.safe),
       m.guardian,
       m.withdraw,
@@ -51,7 +51,7 @@ describe('the trust notice’s points', () => {
       m.real,
       m.loss,
       en.trust.short.unaudited,
-      m.short.governance(48, 2),
+      m.short.governance(facts.delayHours, 2),
       m.guardian,
       m.trades,
       m.short.noKeeper,
@@ -103,5 +103,16 @@ describe('the trust notice’s points', () => {
   it('has no live notice for a chain with no mainnet facts: nothing is said that is not known', () => {
     expect(trustPoints(en, 'solana', { live: true, keeperTrades: true, limits })).toBeNull();
     expect(trustPoints(en, 'base', { live: true, keeperTrades: true, limits })).toBeNull();
+  });
+
+  it('with no timelock, says the Safe changes things at once and names no delay (ROBINHOOD-REDEPLOY)', () => {
+    for (const t of [en, pt]) {
+      const long = t.trust.mainnet.governance(0, 2);
+      const short = t.trust.mainnet.short.governance(0, 2);
+      expect(long).toContain('Safe');
+      expect(`${long} ${short}`).not.toMatch(/timelock|0 hours|0 horas/);
+    }
+    expect(en.trust.mainnet.governance(0, 2)).toContain('no waiting period');
+    expect(en.trust.mainnet.short.governance(0, 2)).toContain('at once');
   });
 });

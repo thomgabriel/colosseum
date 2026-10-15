@@ -688,8 +688,12 @@ describe('the review of e5b6b656', () => {
     const reserved = new Set(files.reservedIds);
     expect(reserved.has('robinhood:usdc')).toBe(true);
     expect(reserved.has('robinhood:usdg')).toBe(true);
+    // A row at a reserved id is listed, or is the very token the product names by that id (BABA, TSM,
+    // cbBTC and WETH since the redeploy of 2026-10-15 listed them on mainnet).
+    const own = (r: { id: string; address: string }) =>
+      (files.reservedAddresses[r.id] ?? []).includes(r.address.toLowerCase());
     for (const r of rows.filter((x) => reserved.has(x.id)))
-      expect([r.id, r.status]).toEqual([r.id, 'listed']);
+      expect([r.id, r.status === 'listed' || own(r)]).toEqual([r.id, true]);
     // robinhood:usdc is the product's cash id: no row of this list holds it
     expect(rows.filter((r) => r.id === 'robinhood:usdc')).toEqual([]);
     // the two tokens that answer USDC are copies, each at an id suffixed with its address
@@ -715,7 +719,13 @@ describe('the review of e5b6b656', () => {
         continue;
       }
       // the one change allowed: an id the schema refuses, or a product id on a row that is not listed
-      if (p.id.length > 96 || (reserved.has(p.id) && r.status !== 'listed')) continue;
+      if (
+        p.id.length > 96 ||
+        (reserved.has(p.id) &&
+          r.status !== 'listed' &&
+          !(files.reservedAddresses[p.id] ?? []).includes(r.address.toLowerCase()))
+      )
+        continue;
       expect([p.address, r.id]).toEqual([p.address, p.id]);
     }
     // the rows and verdicts e5b6b656 dropped because that day's search did not name them

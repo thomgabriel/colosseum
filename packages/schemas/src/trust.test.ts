@@ -16,10 +16,21 @@ const robinhoodConfig = JSON.parse(
   readFileSync(new URL('../../../contracts/script/config/46630.json', import.meta.url), 'utf8'),
 ) as { params: { toleranceBps: number; lossCapBps: number } };
 
+// The deploy file of the deploy that is live: the redeploy's once its record is committed (its Safe
+// holds the keys, no timelock), the file of 2026-10-12 until then.
+const recordUrl = new URL('../../../deployments/robinhood-mainnet.json', import.meta.url);
+const live = existsSync(recordUrl) && 'safe' in JSON.parse(readFileSync(recordUrl, 'utf8'));
 const robinhoodMainnet = JSON.parse(
-  readFileSync(new URL('../../../contracts/script/config/4663.json', import.meta.url), 'utf8'),
+  readFileSync(
+    new URL(
+      `../../../contracts/script/config/${live ? '4663.json' : '4663-2026-10-12.json'}`,
+      import.meta.url,
+    ),
+    'utf8',
+  ),
 ) as {
-  timelock: { owner: string; delay: number };
+  timelock?: { owner: string; delay: number };
+  safe?: { address: string };
   safeMinThreshold: number;
   guardian: string;
   keeperEnabled: boolean;
@@ -30,9 +41,10 @@ const robinhoodMainnet = JSON.parse(
 describe('TRUST_STATUS, on mainnet', () => {
   it('states who can change the Robinhood Chain contracts as the mainnet deploy file sets it', () => {
     const facts = TRUST_STATUS.mainnet.robinhood;
-    expect(facts?.safe.toLowerCase()).toBe(robinhoodMainnet.timelock.owner.toLowerCase());
+    const safe = robinhoodMainnet.safe?.address ?? robinhoodMainnet.timelock?.owner ?? '';
+    expect(facts?.safe.toLowerCase()).toBe(safe.toLowerCase());
     expect(facts?.safeSignatures).toBe(robinhoodMainnet.safeMinThreshold);
-    expect(facts?.delayHours).toBe(robinhoodMainnet.timelock.delay / 3600);
+    expect(facts?.delayHours).toBe((robinhoodMainnet.timelock?.delay ?? 0) / 3600);
     expect(facts?.guardian.toLowerCase()).toBe(robinhoodMainnet.guardian.toLowerCase());
   });
 
@@ -51,22 +63,32 @@ describe('TRUST_STATUS, on mainnet', () => {
 
 // The deploy's own record, once a person has deployed and written it. Until the file exists there is
 // nothing to hold the notice to but the deploy file above; from then on this runs and must pass.
-const recordUrl = new URL('../../../deployments/robinhood-mainnet.json', import.meta.url);
 
 describe.skipIf(!existsSync(recordUrl))('TRUST_STATUS, against the mainnet deploy record', () => {
   it('names the Safe, the guardian and the delay the record names', () => {
     const record = JSON.parse(readFileSync(recordUrl, 'utf8')) as {
       roles: { admin: string; guardian: string; keeper: string };
-      timelock: { address: string; minDelay: number; proposers: string[] };
+      timelock?: { address: string; minDelay: number; proposers: string[] };
+      safe?: { address: string; threshold?: number };
       expected: { keeperEnabled: boolean; depositCaps?: unknown };
     };
     const facts = TRUST_STATUS.mainnet.robinhood;
-    expect(record.timelock.proposers.map((a) => a.toLowerCase())).toEqual([
-      facts?.safe.toLowerCase(),
-    ]);
     expect(record.roles.guardian.toLowerCase()).toBe(facts?.guardian.toLowerCase());
-    expect(record.timelock.minDelay / 3600).toBe(facts?.delayHours);
-    expect(record.roles.admin.toLowerCase()).toBe(record.timelock.address.toLowerCase());
+    if (record.safe) {
+      // The Safe holds the keys itself: no delay to state, and the signatures the chain answered.
+      expect(record.roles.admin.toLowerCase()).toBe(facts?.safe.toLowerCase());
+      expect(facts?.delayHours).toBe(0);
+      // A notice that changed what it says is a new text, read again before the next deposit.
+      expect(TRUST_STATUS.textVersion).not.toBe('2026-10-12');
+      if (record.safe.threshold !== undefined)
+        expect(record.safe.threshold).toBe(facts?.safeSignatures);
+    } else {
+      expect(record.timelock?.proposers.map((a) => a.toLowerCase())).toEqual([
+        facts?.safe.toLowerCase(),
+      ]);
+      expect((record.timelock?.minDelay ?? 0) / 3600).toBe(facts?.delayHours);
+      expect(record.roles.admin.toLowerCase()).toBe(record.timelock?.address.toLowerCase());
+    }
     expect(record.expected.keeperEnabled).toBe(facts?.keeper);
     // No keeper is no keeper's key either: the role is the zero address.
     expect(/^0x0{40}$/.test(record.roles.keeper)).toBe(!facts?.keeper);

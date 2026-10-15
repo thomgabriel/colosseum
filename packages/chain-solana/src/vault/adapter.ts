@@ -403,6 +403,11 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
     if (nonce !== undefined)
       refuse('NotSupported', 'Solana has no nonce: a transaction expires with its blockhash');
   };
+  /** Each owner call is its own step here (`Capabilities.ownerCallsInOne` is false). */
+  const noSwitch = (to: boolean | undefined) => {
+    if (to !== undefined)
+      refuse('NotSupported', 'on Solana auto-follow is switched by a step of its own');
+  };
   const builds = () => {
     if (trade !== 'live')
       refuse('NotSupported', `${config.name} is read-only here: nothing is built`);
@@ -641,6 +646,7 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
     buildOwnerSwap: (args) =>
       guarded(async () => {
         const a = input(OwnerSwapArgs, args, 'swap');
+        noSwitch(a.switchAutoFollow);
         noNonce(a.nonce);
         builds();
         if (a.trades.length > reader.capabilities.maxTradesPerTx)
@@ -706,6 +712,11 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
     buildSetTargets: (args) =>
       guarded(async () => {
         const a = input(SetTargetsArgs, args, 'targets');
+        if (a.trades?.length)
+          refuse(
+            'NotSupported',
+            'on Solana a target change carries no trade: each is its own step',
+          );
         noNonce(a.nonce);
         builds();
         const vault = solanaAddress(a.vault, 'vault');
@@ -733,6 +744,7 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
     buildAcceptVersion: (args) =>
       guarded(async () => {
         const a = input(AcceptVersionArgs, args, 'accept');
+        noSwitch(a.switchAutoFollow);
         noNonce(a.nonce);
         builds();
         const vault = solanaAddress(a.vault, 'vault');
@@ -1053,6 +1065,7 @@ export function createSolanaVaultAdapter(options: SolanaVaultAdapterOptions): So
    */
   async function withdrawEach(args: unknown): Promise<WithdrawEach> {
     const a = input(WithdrawInKindArgs, args, 'withdraw');
+    noSwitch(a.switchAutoFollow);
     noNonce(a.nonce);
     builds();
     const vault = solanaAddress(a.vault, 'vault');

@@ -175,6 +175,13 @@ function stepProblem(step: ApprovedStep): string | null {
       return 'a trade is not between two assets of its chain';
     if (!isRawAmount(t.inRaw) || !isRawAmount(t.minOutRaw)) return 'a trade has no amounts';
   }
+  // Off before a swap or a withdrawal; off or on beside the version a follow takes; nothing else.
+  if ('switchAutoFollow' in step && step.switchAutoFollow !== undefined) {
+    const on = step.switchAutoFollow as unknown;
+    if (typeof on !== 'boolean') return 'the auto-follow switch is neither on nor off';
+    if (on && step.kind !== 'accept_version')
+      return 'only a follow switches auto-follow on beside its step';
+  }
   switch (step.kind) {
     case 'approve':
       return isRawAmount(step.amountRaw) ? null : 'the approval has no amount';
@@ -194,6 +201,8 @@ function stepProblem(step: ApprovedStep): string | null {
     case 'swap':
       return step.trades.length ? null : 'a swap makes at least one trade';
     case 'set_targets':
+      if (step.trades !== undefined && !Array.isArray(step.trades))
+        return 'the trades toward the targets are not a list';
       return targets(step.targets) ? null : 'a target is not an asset of its chain with a weight';
     case 'accept_version':
       return text(step.follow?.recipeOnchainId) && Number.isInteger(step.follow.version)
@@ -260,13 +269,14 @@ function stepProblem(step: ApprovedStep): string | null {
   }
 }
 
-/** The consent a step needs before it is signed, or null. */
-function consentFor(step: ApprovedStep): ConsentKind | null {
-  if (step.kind === 'accept_version') return 'new_asset';
-  if (step.kind === 'create_vault' && step.autoFollow) return 'auto_follow_on';
-  if (step.kind === 'set_auto_follow' && step.on) return 'auto_follow_on';
-  if (step.kind === 'publish') return 'publish';
-  return null;
+/** The consents a step needs before it is signed: none, one, or both of a follow that switches on. */
+function consentsFor(step: ApprovedStep): ConsentKind[] {
+  if (step.kind === 'accept_version')
+    return step.switchAutoFollow === true ? ['new_asset', 'auto_follow_on'] : ['new_asset'];
+  if (step.kind === 'create_vault' && step.autoFollow) return ['auto_follow_on'];
+  if (step.kind === 'set_auto_follow' && step.on) return ['auto_follow_on'];
+  if (step.kind === 'publish') return ['publish'];
+  return [];
 }
 
 export function runGuard(input: GuardInput): Guarded {
@@ -350,11 +360,11 @@ export function runGuard(input: GuardInput): Guarded {
       }),
     "the minimums the transaction states are not the step's",
   );
-  const consent = consentFor(step);
+  const missing = consentsFor(step).filter((c) => !consents.includes(c));
   need(
     'consent',
-    consent === null || consents.includes(consent),
-    `this step needs the person's consent (${consent}), and none was handed over`,
+    missing.length === 0,
+    `this step needs the person's consent (${missing.join(', ')}), and none was handed over`,
   );
 
   // ---- what its bytes say

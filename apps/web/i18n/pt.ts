@@ -1005,7 +1005,9 @@ export const pt: Dictionary = {
       real: 'Isto é dinheiro de verdade em uma rede ao vivo. Nada aqui promete retorno, e isto não é aconselhamento licenciado.',
       loss: 'Você pode perder dinheiro, inclusive tudo.',
       governance: (hours: number, signatures: number) =>
-        `Os contratos dos cofres pertencem a um timelock. Um Safe que exige ${signatures} assinaturas, dos dois fundadores, propõe cada mudança a ele, e uma mudança passa a valer ${hours} horas depois de aparecer na rede. Uma mudança pode alterar o que um cofre faz, então depois dessa espera a equipe poderia mover fundos.`,
+        hours === 0
+          ? `Os contratos dos cofres pertencem ao Safe da equipe, que exige ${signatures} assinaturas, dos dois fundadores. Ele pode mudar parâmetros e atualizar o código dos cofres na hora: não há prazo de espera. Uma mudança pode alterar o que um cofre faz, então a equipe poderia mover fundos.`
+          : `Os contratos dos cofres pertencem a um timelock. Um Safe que exige ${signatures} assinaturas, dos dois fundadores, propõe cada mudança a ele, e uma mudança passa a valer ${hours} horas depois de aparecer na rede. Uma mudança pode alterar o que um cofre faz, então depois dessa espera a equipe poderia mover fundos.`,
       withdraw:
         'Um saque envia a você os próprios tokens, e os contratos dos cofres nunca o bloqueiam. O emissor pode pausar os tokens de ações e congelar o token de dólar, o que impediria esses tokens de se moverem, dentro ou fora do seu cofre.',
       safe: (address: string) => `O Safe: ${address}.`,
@@ -1019,7 +1021,9 @@ export const pt: Dictionary = {
         'O emissor dos tokens de ações pode substituir o código deles e pausá-los. O emissor do token de dólar pode congelá-lo.',
       short: {
         governance: (hours: number, signatures: number) =>
-          `Um Safe de ${signatures} assinaturas, dos fundadores, pode mudar o código dos cofres ${hours} horas depois de avisar na rede.`,
+          hours === 0
+            ? `O Safe de ${signatures} assinaturas da equipe, dos fundadores, pode mudar parâmetros e o código dos cofres na hora.`
+            : `Um Safe de ${signatures} assinaturas, dos fundadores, pode mudar o código dos cofres ${hours} horas depois de avisar na rede.`,
         noKeeper: 'Nenhum operador roda aqui: só você negocia o seu cofre.',
         noCap: 'Nada limita quanto você pode depositar.',
         issuers:
@@ -1393,18 +1397,25 @@ export const pt: Dictionary = {
     },
     publish: {
       title: 'Compartilhe a estratégia do seu cofre.',
-      lead: (chain: string) =>
-        `Compartilhe a estratégia registrada no seu cofre na ${chain}. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.`,
+      lead: 'Compartilhe a estratégia registrada em um dos seus cofres. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.',
       signIn: 'Entre para publicar um portfólio.',
-      liveOnly: (chain: string, live: string) =>
-        live
-          ? `Produtos lista só portfólios na ${live}, então um publicado de um cofre na ${chain} não apareceria. Publique do seu cofre na ${live}: abra a página dele e escolha Compartilhar estratégia.`
-          : `Produtos lista só portfólios ao vivo, e a ${chain} não está ao vivo aqui, então um portfólio publicado nela não apareceria.`,
+      notListed: (chain: string, test: boolean) =>
+        test
+          ? `A ${chain} roda em uma rede de teste aqui, e Produtos lista só portfólios com dinheiro real.`
+          : `A ${chain} não está ao vivo aqui, e Produtos lista só portfólios com dinheiro real.`,
+      noVaultOn: (chains: string) =>
+        chains
+          ? `Você não tem um cofre na ${chains} para publicar.`
+          : 'Você não tem um cofre para publicar.',
+      makeVault: 'Criar um cofre',
       shareStrategy: 'Compartilhar estratégia',
       sourceVault: 'Seu cofre de origem',
-      sourceHint: 'Escolha um cofre seu na rede ativa.',
+      sourceHint: (chains: string) =>
+        chains
+          ? `Produtos lista portfólios na ${chains}, então seus cofres lá são oferecidos.`
+          : 'Escolha um cofre seu.',
       chooseVault: 'Escolha seu cofre',
-      noVaults: 'Escolha um cofre seu nesta rede antes de compartilhar uma estratégia.',
+      noVaults: 'Escolha um dos seus cofres antes de compartilhar uma estratégia.',
       readingVaults: 'Lendo seus cofres…',
       readingStrategy: 'Lendo a estratégia do cofre…',
       sourceUnavailable:
@@ -1574,6 +1585,9 @@ export const pt: Dictionary = {
         submitMessage: 'Enviar mensagem',
         reading: 'Buscando uma resposta',
         current: 'O que tem agora',
+        planPane: 'O plano e os ativos do seu cofre',
+        actionPane: 'A ação em andamento',
+        headPane: 'O topo deste cofre',
         noHoldings: 'Este cofre não tem tokens agora.',
         targets: 'Metas da estratégia atual',
         targetsNote: 'Metas registradas na rede, separadas das fatias mantidas agora.',
@@ -1649,6 +1663,8 @@ export const pt: Dictionary = {
         against: (difference: string) => `${difference} em relação ao plano`,
         onPlan: 'no plano',
         allOnTarget: 'No plano',
+        show: 'Mostrar',
+        hide: 'Ocultar',
         offTargetShort: 'Fora do plano',
         gapTooSmall:
           'Um pouco fora dos alvos, por menos do que vale uma troca: nada a rebalancear.',
@@ -2175,9 +2191,14 @@ export const pt: Dictionary = {
       deposit: 'Depositar',
       swap: 'Trocar',
       set_targets: 'Definir as metas do seu cofre',
+      set_targets_swap: 'Definir as metas do seu cofre e trocar',
       accept_version: 'Aceitar uma nova versão',
+      accept_version_on: 'Aceitar uma nova versão e ligar o seguir automático',
+      accept_version_off: 'Desligar o seguir automático e aceitar uma nova versão',
       set_auto_follow: 'Mudar o seguir automático',
       withdraw: 'Sacar',
+      swap_off: 'Desligar o seguir automático e trocar',
+      withdraw_off: 'Desligar o seguir automático e sacar',
       publish: 'Publicar',
       adopt_version: 'Operador: adotar uma versão',
       keeper_leg: 'Operador: negociar',
