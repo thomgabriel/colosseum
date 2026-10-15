@@ -411,6 +411,13 @@ contract RobinhoodForkDeployTest is Test {
         assertTrue(IRealToken(USDG).transfer(person, listed * ROUND_TRIP_DEPOSIT));
 
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            // DELL and SGOV are listed and held back from the app (`heldBack`) because their pools do not
+            // meet the bar: nothing of ours trades them, so they are held to being listed, not to a fill.
+            // On 2026-10-15 SGOV's pool paid about a quarter of the feed for $500.
+            if (vm.keyExistsJson(json, string.concat(".assets[", vm.toString(i), "].heldBack"))) {
+                assertTrue(VaultFactory(d.factory).isAsset(cfg.assets[i].token), "a held-back token is listed");
+                continue;
+            }
             uint24 v3Fee = _v3Fee(json, i);
             UniV4Calldata.PoolKey memory key;
             if (v3Fee == 0) key = _poolOf(json, i, cfg.assets[i].token);
