@@ -9695,6 +9695,23 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "missingAssets": {
+                            "description": "Tokens the chain's deploy record shows that the server's asset table has no row for, so they are listed nowhere. Empty when every one is listed; absent for a chain not run from a record.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "address": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["id", "address"],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [

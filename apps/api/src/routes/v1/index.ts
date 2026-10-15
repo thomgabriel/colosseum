@@ -176,6 +176,21 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     ? undefined
     : (deps.robinhood ??
       (await robinhoodFromEnv(env, flags.chainMode.robinhood, db, deps.robinhoodRecord ?? null)));
+  // A token the record shows with no row is left out of every list, and said: loudly at start, and in
+  // GET /v1/config, so a deploy is checked for it (Thom, Oct 15).
+  const fromRecord = { solana: solana?.missing, robinhood: robinhood?.missing };
+  for (const chain of ['solana', 'robinhood'] as const) {
+    const rows = fromRecord[chain];
+    if (rows?.length)
+      app.log.error(
+        { code: 'basket_assets_missing', chain, missing: rows },
+        `basket_assets has no row for ${rows.length} token(s) the deploy record shows on ${chain}, so they are not listed: write them with ${FILL_SCRIPT[chain]}, then deploy`,
+      );
+  }
+  config.chains = config.chains.map((entry) => {
+    const rows = entry.id === 'base' ? undefined : fromRecord[entry.id];
+    return rows ? { ...entry, missingAssets: rows } : entry;
+  });
   const chains =
     deps.chains ??
     createChainRegistry(flags, parseChainConfigs(env, deps.contracts), {
@@ -382,7 +397,7 @@ export async function solanaFromEnv(
   // The node is asked what network it is: a test label on a mainnet node does not start.
   const rpc = connect(url);
   await assertNode(rpc, record);
-  return { rpc, assets: listed };
+  return { rpc, assets: listed, missing: record ? missingFromRecord(assets, record) : [] };
 }
 
 /**
@@ -392,6 +407,12 @@ export async function solanaFromEnv(
  * another network's deploy, or a hand-edited one (a `priceRef` moved to another entry), stops the API
  * rather than build on it. The table has no token program: the adapter reads it from each mint.
  *
+ * Every problem is named, with the script that writes the rows from the record.
+ *
+ * A token the record shows with no row does not stop the start: withdrawals and reads go on, and the
+ * token is missing from every list the API answers until its row is written (`missingFromRecord`, logged
+ * as an error at start and served in `GET /v1/config`).
+ *
  * Answers the rows the adapter may list. A row of a token the deploy retired does not stop the start,
  * and is left out: a retired token is sold and withdrawn, never bought, and the adapter shows it under
  * its mint (`solana:mint-<hex>`) as it does once the fill script has removed the row.
@@ -399,6 +420,7 @@ export async function solanaFromEnv(
 export function holdToRecord(assets: BasketAsset[], record: SolanaDeploymentRecord): BasketAsset[] {
   return holdTo(assets, {
     network: record.network,
+    fill: FILL_SCRIPT.solana,
     made: deploymentAssets(record),
     cash: { id: record.cash.id, address: record.cash.mint },
     retired: record.retired.map((r) => r.mint),
@@ -409,16 +431,51 @@ export function holdToRecord(assets: BasketAsset[], record: SolanaDeploymentReco
 export function holdToEvmRecord(assets: BasketAsset[], record: EvmDeploymentRecord): BasketAsset[] {
   return holdTo(assets, {
     network: record.network,
+    fill: FILL_SCRIPT.robinhood,
     made: evmDeploymentAssets(record),
     cash: { id: record.cash.id, address: record.cash.address },
     retired: record.retired.map((r) => r.address),
   });
 }
 
+/** The script that writes a chain's `basket_assets` rows from its deploy record, run before a deploy. */
+export const FILL_SCRIPT = {
+  solana: 'scripts/solana/basket-assets.ts',
+  robinhood: 'scripts/robinhood/basket-assets.ts',
+} as const;
+
+/** A token the record shows that has no row: missing from every list the API answers. */
+export type MissingRow = { id: string; address: string };
+
+/** The tokens of a Solana record, its cash included and its retired ones not, that have no row. */
+export const missingFromRecord = (assets: BasketAsset[], record: SolanaDeploymentRecord) =>
+  missingRows(
+    assets,
+    deploymentAssets(record),
+    record.retired.map((r) => r.mint),
+  );
+
+/** The same for an EVM chain's rows and its record. */
+export const missingFromEvmRecord = (assets: BasketAsset[], record: EvmDeploymentRecord) =>
+  missingRows(
+    assets,
+    evmDeploymentAssets(record),
+    record.retired.map((r) => r.address),
+  );
+
+function missingRows(assets: BasketAsset[], made: BasketAsset[], retired: string[]): MissingRow[] {
+  const gone = new Set(retired);
+  const rows = new Set(assets.map((a) => a.address));
+  return made
+    .filter((a) => !gone.has(a.address) && !rows.has(a.address))
+    .map((a) => ({ id: a.id, address: a.address }));
+}
+
 function holdTo(
   assets: BasketAsset[],
   record: {
     network: string;
+    fill: string;
     made: BasketAsset[];
     cash: { id: string; address: string };
     retired: string[];
@@ -455,7 +512,7 @@ function holdTo(
     );
   if (wrong.length)
     throw new Error(
-      `basket_assets does not match the record of ${record.network}: ${wrong.slice(0, 3).join('; ')}`,
+      `basket_assets does not match the record of ${record.network} (${wrong.length} ${wrong.length === 1 ? 'problem' : 'problems'}): ${wrong.join('; ')}. Write the rows from the record with ${record.fill}, then deploy`,
     );
   return assets.filter((a) => !retired.has(a.address));
 }
@@ -497,6 +554,7 @@ export async function robinhoodFromEnv(
   return {
     rpc,
     assets: holdToEvmRecord(assets, record),
+    missing: missingFromEvmRecord(assets, record),
     pools: evmPools(record),
     limits: evmLimits(record),
     ...(mainnet ? { mainnet: true } : {}),
