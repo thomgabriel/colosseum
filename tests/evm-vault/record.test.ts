@@ -254,6 +254,49 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     );
   });
 
+  it('list each token the redeploy added with the values measured in its record of 2026-10-14', () => {
+    if (!recordNow.safe) return;
+    // The tokens the redeploy added (gate WIDER-LIST-B) are taken from their measured records, value
+    // for value: the deploy file adds no figure of its own to them.
+    const first = new Set(
+      (
+        JSON.parse(
+          readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-2026-10-12.json'), 'utf8'),
+        ) as ContractsFile
+      ).assets.map((x) => lower(x.token)),
+    );
+    const measured = new Map(
+      (
+        JSON.parse(
+          readFileSync(
+            join(ROOT, 'contracts', 'script', 'config', '4663-tokens-2026-10-14.json'),
+            'utf8',
+          ),
+        ) as { tokens: Record<string, unknown>[] }
+      ).tokens.map((x) => [lower(String(x.token)), x]),
+    );
+    const added = (contracts.assets as unknown as Record<string, unknown>[]).filter(
+      (a) => !first.has(lower(String(a.token))),
+    );
+    expect(added).toHaveLength(16);
+    const fields = [
+      'feed',
+      'feedDescription',
+      'tokenDecimals',
+      'maxWeightBps',
+      'maxTradeUsd',
+      'average',
+      'pool',
+      'maxAge',
+      'session',
+    ];
+    for (const a of added) {
+      const r = measured.get(lower(String(a.token)));
+      expect(r, String(a.symbol)).toBeDefined();
+      for (const f of fields) expect(a[f], `${String(a.symbol)} ${f}`).toEqual(r?.[f]);
+    }
+  });
+
   it('the builder writes each mainnet token the pool the guard would hold it to', () => {
     const [, ...stocks] = contracts.assets;
     const pools = v4Pools(

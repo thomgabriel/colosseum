@@ -27,6 +27,13 @@ describe('the tokens the Safe lists after the deploy', () => {
   it('never go into the guard’s file of another factory: the redeploy’s', () => {
     const now = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
     expect(() => promote(record, now, [record.pending[0].address])).toThrow(/another factory/);
+    // Nor into one that names none, and never from a record that names none.
+    const none = structuredClone(guard);
+    delete none.chains.robinhood.factory;
+    expect(() => promote(record, none, [record.pending[0].address])).toThrow(/names no factory/);
+    const bare = structuredClone(record);
+    delete bare.contracts.factory;
+    expect(() => promote(bare, none, [record.pending[0].address])).toThrow(/names no factory/);
   });
 
   it('are not in the guard’s file before the chain lists them', () => {

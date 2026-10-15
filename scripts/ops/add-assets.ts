@@ -105,11 +105,12 @@ export function promote(
   listed: readonly string[],
   except: readonly string[] = [],
 ) {
-  // The guard's file is one deploy's: never another factory's tokens into it.
-  if (
-    String(guard.chains?.robinhood?.factory).toLowerCase() !==
-    String(record.contracts?.factory).toLowerCase()
-  )
+  // The guard's file is one deploy's: never another factory's tokens into it. Both name a factory.
+  const ofGuard = String(guard.chains?.robinhood?.factory ?? '').toLowerCase();
+  const ofRecord = String(record.contracts?.factory ?? '').toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(ofGuard) || !/^0x[0-9a-f]{40}$/.test(ofRecord))
+    throw new Error("the guard's file or the record names no factory: nothing to promote into it");
+  if (ofGuard !== ofRecord)
     throw new Error(
       "the guard's file names another factory than the record: nothing to promote into it",
     );
