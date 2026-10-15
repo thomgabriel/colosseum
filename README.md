@@ -139,7 +139,7 @@ Robinhood Chain mainnet (4663):
 | Guardian (can only pause; also one of the Safe's two owners) | [`0x0a1c3312c808b23d019bf241028f6b5624f4cc98`](https://robin.etherscan.io/address/0x0a1c3312c808b23d019bf241028f6b5624f4cc98) |
 | USDG, the dollar token (not ours) | [`0x5fc5360d0400a0fd4f2af552add042d716f1d168`](https://robin.etherscan.io/address/0x5fc5360d0400a0fd4f2af552add042d716f1d168) |
 
-Every transaction of the deploy is in [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md). A redeploy is prepared and not run (gate `ROBINHOOD-REDEPLOY`, [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md)): new contracts with 27 tokens and the second shared-portfolio rules, held by the Safe directly with no timelock. This table changes when its record is committed.
+Every transaction of the deploy is in [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md). A redeploy is prepared and not run (gate `ROBINHOOD-REDEPLOY`, [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md)): new contracts with USDG and 25 tokens and the second shared-portfolio rules, held by the Safe directly with no timelock. This table changes when its record is committed.
 
 Robinhood Chain test network (46630), still deployed and no longer served by the hosted app:
 

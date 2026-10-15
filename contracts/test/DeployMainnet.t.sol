@@ -1038,7 +1038,7 @@ contract DeployMainnetTest is Test {
             script.parseConfig(vm.replace(file, '"guardianNote": "', '"guardianNote": "TODO: '));
         assertTrue(marked.placeholders, "the word put back");
         _refused(marked, "the file still holds a TODO: every value must be confirmed by a person");
-        // The seventeen tokens the redeploy adds were Proposed until Thom confirmed them in chat
+        // The tokens the redeploy adds were Proposed until Thom confirmed them in chat
         // (2026-10-15). A value that is Proposed again is refused outside a dry run.
         assertFalse(cfg.proposed, "Thom confirmed every value");
         Deploy.Config memory again =
@@ -1062,7 +1062,7 @@ contract DeployMainnetTest is Test {
         assertEq(cfg.safe, 0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc, "the Safe on Robinhood Chain");
         assertEq(cfg.timelockOwner, address(0), "no timelock");
         assertEq(cfg.guardian, 0x0a1c3312c808b23D019bF241028f6B5624f4cc98, "the guardian");
-        assertEq(cfg.assets.length, 27, "the cash and 26 tokens");
+        assertEq(cfg.assets.length, 26, "the cash and 25 tokens: SGOV dropped on 2026-10-15");
         assertEq(cfg.publishDelay, 172_800);
         assertEq(cfg.cashToken, USDG);
         assertFalse(cfg.hasCaps, "no deposit cap");

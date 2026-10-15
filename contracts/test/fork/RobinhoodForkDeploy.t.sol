@@ -111,7 +111,7 @@ contract RobinhoodForkDeployTest is Test {
     function _file() internal view returns (Deploy.Config memory cfg) {
         cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
-        // The seventeen tokens' values as if Thom had confirmed them, which a send needs first.
+        // The new tokens' values as if Thom had confirmed them, which a send needs first.
         cfg.proposed = false;
         cfg.safe = safe;
         cfg.guardian = guardian;
@@ -212,7 +212,7 @@ contract RobinhoodForkDeployTest is Test {
         );
         script.deploy(marked, deployer);
 
-        // The seventeen tokens of the redeploy were Proposed until Thom confirmed them (2026-10-15): a value
+        // The new tokens of the redeploy were Proposed until Thom confirmed them (2026-10-15): a value
         // Proposed again is refused, and the file as committed deploys.
         assertFalse(cfg.proposed, "Thom confirmed every value");
         Deploy.Config memory again = script.readConfig("script/config/4663.json");
@@ -411,9 +411,9 @@ contract RobinhoodForkDeployTest is Test {
         assertTrue(IRealToken(USDG).transfer(person, listed * ROUND_TRIP_DEPOSIT));
 
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
-            // DELL and SGOV are listed and held back from the app (`heldBack`) because their pools do not
-            // meet the bar: nothing of ours trades them, so they are held to being listed, not to a fill.
-            // On 2026-10-15 SGOV's pool paid about a quarter of the feed for $500.
+            // DELL is listed and held back from the app (`heldBack`) because its pool does not meet the
+            // bar: nothing of ours trades it, so it is held to being listed, not to a fill. (SGOV was
+            // dropped from the file on 2026-10-15: its pool paid about a quarter of the feed for $500.)
             if (vm.keyExistsJson(json, string.concat(".assets[", vm.toString(i), "].heldBack"))) {
                 assertTrue(VaultFactory(d.factory).isAsset(cfg.assets[i].token), "a held-back token is listed");
                 continue;

@@ -19,7 +19,7 @@ const ROOT = join(import.meta.dirname, '..');
 const read = (path: string) => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
 const broadcast = read('tests/fixtures/mainnet-records/redeploy-run-latest.json');
 const committed = read('contracts/script/config/4663.json');
-/** The file as it stood before Thom confirmed the 17 tokens (2026-10-15): their notes Proposed again. */
+/** The file as it stood before Thom confirmed the new tokens (2026-10-15): their notes Proposed again. */
 const config = JSON.parse(
   JSON.stringify(committed).replace(
     /Confirmed by Thom, 2026-10-15, as proposed (\d{4}-\d{2}-\d{2})/g,
@@ -56,12 +56,12 @@ describe('the redeploy’s hand-over', () => {
 });
 
 describe('the values a person confirms before a send', () => {
-  it('finds nothing Proposed in the file as committed: Thom confirmed all 17 on 2026-10-15', () => {
+  it('finds nothing Proposed in the file as committed: Thom confirmed all 16 on 2026-10-15', () => {
     expect(proposedRows(committed)).toEqual([]);
     expect(confirmed(config, 'Thom', '2026-10-15')).toEqual(committed);
   });
 
-  it('lists the seventeen tokens still Proposed, with what each is listed with', () => {
+  it('lists the sixteen tokens still Proposed, with what each is listed with', () => {
     const rows = proposedRows(config);
     expect(rows.map((r) => r[0])).toEqual([
       'MSTR',
@@ -75,7 +75,6 @@ describe('the values a person confirms before a send', () => {
       'COIN',
       'TSM',
       'BABA',
-      'SGOV',
       'QQQ',
       'MU',
       'AMD',
@@ -130,7 +129,7 @@ describe('a send that stopped, and what may resume it', () => {
   };
 
   it('counts a record as this send’s only when forge wrote it after the send began', () => {
-    expect(sendState(broadcast, at)).toEqual({ fresh: true, sent: 54, reverted: [] });
+    expect(sendState(broadcast, at)).toEqual({ fresh: true, sent: 53, reverted: [] });
     // The deploy of 2026-10-12, or any record older than the send: not this redeploy's.
     expect(sendState(broadcast, at + 1).fresh).toBe(false);
     expect(sendState(reverted, at).reverted).toEqual([broadcast.receipts[7].transactionHash]);
@@ -147,7 +146,7 @@ describe('a send that stopped, and what may resume it', () => {
     const ok = cli(['--resumable', '--since', String(at)], broadcast);
     expect([ok.code, ok.out]).toEqual([
       0,
-      expect.stringMatching(/54 transactions .* none reverted/),
+      expect.stringMatching(/53 transactions .* none reverted/),
     ]);
     const old = cli(['--resumable', '--since', String(at + 1)], broadcast);
     expect([old.code, old.out]).toEqual([1, expect.stringMatching(/not this redeploy's/)]);

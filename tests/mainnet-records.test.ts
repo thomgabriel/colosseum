@@ -359,14 +359,13 @@ describe('the records of the redeploy, whose Safe holds the keys itself (ROBINHO
     expect(parseRecord(JSON.stringify(built.record)).safe?.address).toBe(record.roles.admin);
   });
 
-  it('show 19 tokens and keep the seven the app does not show apart, with their route', () => {
+  it('show 19 tokens and keep the six the app does not show apart, with their route', () => {
     const record = EvmDeploymentRecord.parse(
       buildRecords({ broadcast: redeploy, config: file, guard }).record,
     );
     expect(record.assets).toHaveLength(19);
     expect((record.hidden ?? []).map((h) => [h.symbol, h.why])).toEqual([
       ['DELL', 'held_back'],
-      ['SGOV', 'held_back'],
       ['QQQ', 'v3_route'],
       ['MU', 'v3_route'],
       ['AMD', 'v3_route'],
