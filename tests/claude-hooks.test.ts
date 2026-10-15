@@ -1,7 +1,15 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -296,6 +304,21 @@ describe('the check before Claude’s commits', () => {
 
   it('lets a commit of Claude’s that passes it through', () => {
     stage('a.ts', 'export const a = 2;\n');
+    expect(commit('claude').status).toBe(0);
+  });
+
+  it('stops a commit of Claude’s in a checkout with no node_modules, and says to install there', () => {
+    stage('a.ts', 'export const a = 3;\n');
+    renameSync(join(clone, 'node_modules'), join(clone, 'node_modules.away'));
+    try {
+      const r = commit('claude');
+      expect(r.status).not.toBe(0);
+      expect(r.stderr).toContain('this checkout has no node_modules');
+      // the checkout named as git names it (/private/var for /var on macOS)
+      expect(r.stderr).toMatch(new RegExp(`Run \`pnpm install\` in \\S*${basename(clone)}`));
+    } finally {
+      renameSync(join(clone, 'node_modules.away'), join(clone, 'node_modules'));
+    }
     expect(commit('claude').status).toBe(0);
   });
 

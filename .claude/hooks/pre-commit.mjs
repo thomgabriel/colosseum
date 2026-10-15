@@ -29,6 +29,10 @@ function check(root) {
   } catch {
     // no package.json to read: nothing to check here
   }
+  // Without its own tools the check would run a system `tsc`, another version, or none: it is not run.
+  const tools = join(root, 'node_modules', '.bin');
+  if (!existsSync(tools))
+    return `Commit blocked: this checkout has no node_modules, so \`pnpm verify:quick\` can't run with its own tools. Run \`pnpm install\` in ${root}, then commit again.`;
   const deadline = Date.now() + 280_000;
   for (const part of script
     .split('&&')
@@ -41,10 +45,7 @@ function check(root) {
       encoding: 'utf8',
       timeout: Math.max(1_000, deadline - Date.now()),
       // the repo's own tools first, as `pnpm run` has them (a `tsc` on the system is another version)
-      env: {
-        ...process.env,
-        PATH: `${join(root, 'node_modules', '.bin')}${delimiter}${process.env.PATH ?? ''}`,
-      },
+      env: { ...process.env, PATH: `${tools}${delimiter}${process.env.PATH ?? ''}` },
     });
     if (r.status === 0) continue;
     const said = `${r.stdout ?? ''}\n${r.stderr ?? ''}`.trim().split('\n').slice(-SHOWN).join('\n');
