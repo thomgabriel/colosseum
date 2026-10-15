@@ -324,17 +324,38 @@ export const en = {
   goal: {
     explore: {
       /**
-       * The conversation picker (GoalEntry): the one on screen, a new one, the saved ones, the vaults.
-       * A conversation is named by its person's first request; `current` and `untitled` are what one
-       * with no words yet is called, on screen and in the saved list.
+       * The conversations panel (ConversationRail): a rail beside the conversation on a wide screen, a
+       * sheet on a phone. A draft is named by the name the person gave it, else its first request; a
+       * vault by its goal, as the portfolio overview names it. `current` and `untitled` are what a
+       * draft with no words yet is called, on screen and in the list.
        */
       picker: {
-        label: 'Conversation',
+        label: 'Conversations',
         current: 'New conversation',
-        fresh: 'Start a new conversation',
-        vaults: 'Your vaults',
-        saved: 'Saved conversations',
         untitled: 'Earlier conversation',
+        fresh: 'New conversation',
+        show: 'Show conversations',
+        hide: 'Hide conversations',
+        close: 'Close',
+        groups: { today: 'Today', yesterday: 'Yesterday', earlier: 'Earlier' },
+        search: 'Search conversations',
+        noMatch: (words: string) => `No conversation has “${words}” in its name.`,
+        empty: 'Your conversations and vaults are listed here.',
+        vault: 'Vault',
+        draft: 'Draft',
+        openVault: (title: string) => `Open the vault: ${title}`,
+        rename: (title: string) => `Rename: ${title}`,
+        name: 'Name',
+        save: 'Save',
+        cancel: 'Cancel',
+        remove: (title: string) => `Delete: ${title}`,
+        confirm: 'Delete this draft from this browser? It can’t be brought back.',
+        /** A draft with a deposit that is not finished: it is not deleted. */
+        depositing:
+          'This draft has a deposit that isn’t finished, so it stays. Open it to see the deposit’s steps.',
+        yes: 'Delete',
+        keep: 'Keep',
+        removed: (title: string) => `Deleted: ${title}`,
       },
       invitation: 'What should your vault do?',
       lead: 'Tell me your ideas, needs and limits. I’ll draft a vault with its sources and tradeoffs.',
