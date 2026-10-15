@@ -89,7 +89,7 @@ export function GoalConversation({
    * Called as a deposit is open on the pane (approved, its steps not all confirmed) whichever way the
    * pane came to show it, with whether a step is being signed now, and as it no longer is.
    */
-  onDeposit?: (state: { open: boolean; signing: boolean }) => void;
+  onDeposit?: (state: { open: boolean; signing: boolean; planId?: string }) => void;
   /**
    * The chain of this plan, drawn beside the box (GoalChain, gate CHAIN-AT-THE-PLAN): a choice while
    * the conversation has no words, its badge with "Change" once it has.
@@ -100,7 +100,10 @@ export function GoalConversation({
    * beside the box: the box starts with them.
    */
   carried?: RefObject<{ chain: ChainId; text: string } | null>;
-  /** The conversation's picker, in the head's row beside the title, so the title is where every page's is (PAGE-SHELL). */
+  /**
+   * The conversations panel's button, on a line of its own under the title's row where the panel is a
+   * sheet (under 1024px): the title stays where every page's is (PAGE-SHELL, CONVERSATION-PANEL).
+   */
   picker?: ReactNode;
 }) {
   const t = useT();
@@ -172,9 +175,15 @@ export function GoalConversation({
   lockedNow.current = locked;
   const tellDeposit = useRef(onDeposit);
   tellDeposit.current = onDeposit;
+  // The plan is said with it, so the panel can list the vault it opens in its place.
+  const openPlan = open?.planId;
   useEffect(() => {
-    tellDeposit.current?.({ open: locked, signing: locked && signing });
-  }, [locked, signing]);
+    tellDeposit.current?.({
+      open: locked,
+      signing: locked && signing,
+      ...(openPlan ? { planId: openPlan } : {}),
+    });
+  }, [locked, signing, openPlan]);
   useEffect(() => () => tellDeposit.current?.({ open: false, signing: false }), []);
   const [error, setError] = useState<string>();
   // The reply did not come: said in the transcript, where the reply would have been.
@@ -472,7 +481,6 @@ export function GoalConversation({
       <header className="flex flex-wrap items-baseline justify-between gap-3 md:col-span-12">
         <h1 className={PAGE_TITLE}>{t.talk.workbench.title}</h1>
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
-          {picker}
           <Button
             variant="secondary"
             size="dense"
@@ -496,6 +504,7 @@ export function GoalConversation({
             />
           )}
         </div>
+        {picker && <div className="flex min-w-0 basis-full lg:hidden">{picker}</div>}
       </header>
       <div
         ref={box}

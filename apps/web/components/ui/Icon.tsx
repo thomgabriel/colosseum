@@ -3,7 +3,7 @@
 // The registry holds only what the primitives use. Each drawing sits on the 24 grid inside the 2px
 // keyline. Adding an icon takes a look at the banned list in iconography.md, section 6.
 //
-// The spec names lucide-react as the source of the drawings. It is not installed: these seven are
+// The spec names lucide-react as the source of the drawings. It is not installed: these are
 // plain geometry, drawn here to the same construction, and swapping the registry for the pinned
 // package later changes this file only.
 
@@ -14,6 +14,10 @@ const REGISTRY = {
   ChevronDown: ['M6 9L12 15L18 9'],
   Copy: ['M9 9H20V20H9Z', 'M15 9V4H4V15H9'],
   Menu: ['M4 6H20', 'M4 12H20', 'M4 18H20'],
+  // iconography.md, section 6, allowed: the conversations panel's rename, new conversation and search
+  Pencil: ['M4 20V16L15 5L19 9L8 20Z', 'M12 8L16 12'],
+  Plus: ['M12 5V19', 'M5 12H19'],
+  Search: ['M10.5 4A6.5 6.5 0 1 1 10.5 17A6.5 6.5 0 1 1 10.5 4Z', 'M15.5 15.5L20 20'],
   // iconography.md, section 6, allowed: the account control of the bar
   Wallet: ['M3 7H21V19H3Z', 'M3 7V5H17V7', 'M15 13H17'],
   X: ['M6 6L18 18', 'M18 6L6 18'],

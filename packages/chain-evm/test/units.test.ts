@@ -9,6 +9,7 @@ import {
 } from '@colosseum/schemas';
 import { ContractFunctionRevertedError, encodeErrorResult, parseAbi } from 'viem';
 import { describe, expect, it } from 'vitest';
+import { acceptRefusal } from '../src/vault/adapter';
 import { displayAmount, fromScaled, multiplierString, toScaled } from '../src/vault/amounts';
 import {
   assertNode,
@@ -255,6 +256,24 @@ describe('a revert', () => {
     );
     expect(revertToChainError(undefined).code).toBe('Unknown');
     expect(revertToChainError('0x').code).toBe('Unknown');
+  });
+});
+
+describe("an accept past the vault's 24 lines", () => {
+  const abi = parseAbi(['error InvalidTargets(uint8 reason)', 'error NotOwner(address caller)']);
+  it('says to sell or withdraw a leftover first; any other refusal is passed on as it was', () => {
+    const past = acceptRefusal(
+      revertToChainError(encodeErrorResult({ abi, errorName: 'InvalidTargets', args: [1] })),
+    );
+    expect(past).toBeInstanceOf(ChainError);
+    expect((past as ChainError).code).toBe('InvalidTargets');
+    expect((past as ChainError).message).toMatch(
+      /do not fit the vault’s 24 lines: sell or withdraw a leftover first, then accept$/,
+    );
+    const other = revertToChainError(
+      encodeErrorResult({ abi, errorName: 'NotOwner', args: [A(5) as `0x${string}`] }),
+    );
+    expect(acceptRefusal(other)).toBe(other);
   });
 });
 

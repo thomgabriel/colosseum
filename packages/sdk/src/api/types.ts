@@ -2789,6 +2789,7 @@ export type PostOrdersBody =
             }
         )[];
       }[];
+      language?: 'pt' | 'en';
     }
   | {
       type: 'withdraw';
@@ -3449,6 +3450,7 @@ export type GetPortfolioResponse = {
         };
         targetBps: number;
         lastKeeperAt: number | null;
+        untargeted?: true;
         valueUsd: string | null;
         weightBps: number;
         driftBps: number;
@@ -3786,6 +3788,7 @@ export type GetPortfolioPlansResponse = {
           };
           targetBps: number;
           lastKeeperAt: number | null;
+          untargeted?: true;
           valueUsd: string | null;
           weightBps: number;
           driftBps: number;
@@ -4167,6 +4170,7 @@ export type GetVaultsByChainByAddressResponse = {
       };
       targetBps: number;
       lastKeeperAt: number | null;
+      untargeted?: true;
       valueUsd: string | null;
       weightBps: number;
       driftBps: number;

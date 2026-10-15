@@ -9,6 +9,7 @@ import { parse } from '../../components/ui/test/html';
 import { dictionary, type Lang } from '../../i18n';
 import type { Person } from '../account/person';
 import { withAccount } from '../account/test/screen';
+import { rail, titles } from '../goal-conversation/test/rail';
 import { keepOrder } from '../order/order-record';
 import { basketOfPlan } from '../order/readiness';
 import { PLAN_ID, planOn, recordOf } from '../order/test/fixtures';
@@ -84,10 +85,19 @@ describe('home', () => {
       const host = await home(lang);
       const switcher = find<HTMLDetailsElement>(host, '[data-ui="vault-switcher"]');
       expect(switcher.open).toBe(false);
-      // the conversation picker lists the same vaults, from the same one read.
-      expect(
-        [...find<HTMLSelectElement>(host, '[data-ui="goal-picker"]').options].map((o) => o.value),
-      ).toEqual(['current', 'new', `vault:solana:${VAULT}`, `vault:solana:${SECOND_VAULT}`]);
+      // the conversations panel lists the same vaults, from the same one read, never by address
+      const listed = [
+        ...rail(host).querySelectorAll<HTMLElement>(
+          '[data-ui="conversation-row"][data-kind="vault"]',
+        ),
+      ];
+      expect(listed.map((row) => row.dataset.address)).toEqual([VAULT, SECOND_VAULT]);
+      for (const row of listed)
+        for (const address of [VAULT, SECOND_VAULT]) {
+          expect(row.textContent).not.toContain(address);
+          expect(row.textContent).not.toContain(shortAddress(address));
+        }
+      expect(titles(host)[0]).toBe(dictionary(lang).goal.explore.picker.current);
       expect(find(switcher, 'summary').textContent).toBe(dictionary(lang).portfolio.summary.title);
       expect(find(switcher, 'summary + ul').className).not.toMatch(/grid-cols/);
       await click(find(switcher, 'summary'));

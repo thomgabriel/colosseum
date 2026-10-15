@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
+import { openVault } from './conversations';
 import { inTheme } from './theme';
 
 // What a change of targets leaves in cash, and the one rule for "Off target" (Vault #4 on devnet,
@@ -62,7 +63,7 @@ async function toVault(
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   await expect(page.locator('[data-ui="vault-screen"]')).toHaveAttribute('data-pane', 'holdings');
   return address;

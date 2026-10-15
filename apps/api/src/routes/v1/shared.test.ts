@@ -587,6 +587,13 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
   const spy = (weightBps: number) => ({ kind: 'asset', asset: 'robinhood:spy', weightBps });
 
   it('answers each chain’s limits, read from the chain, to anybody', async () => {
+    // A chain that does not answer is said, never assumed, and nothing is kept of it.
+    const failing = vi
+      .spyOn(registry.get('robinhood').adapter, 'creatorLimits')
+      .mockRejectedValueOnce(new ChainError('Unavailable', 'the node did not answer'));
+    const down = await get(null, '/v1/shared/limits?chain=robinhood');
+    expect([down.statusCode, down.json().code]).toEqual([503, 'CHAIN_UNAVAILABLE']);
+    failing.mockRestore();
     const solana = CreatorLimitsResponse.parse(
       (await get(null, '/v1/shared/limits?chain=solana')).json(),
     );
@@ -600,13 +607,14 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
     expect(robinhood.ceilings.some((c) => c.asset === 'robinhood:usdc')).toBe(false);
     expect(robinhood.ceilingsFrom).toMatchObject({ method: CEILING_METHOD, provenance: 'mock' });
     expect((await get(null, '/v1/shared/limits')).statusCode).toBe(400);
-    // A chain that does not answer is said, never assumed.
-    const limits = vi
-      .spyOn(registry.get('robinhood').adapter, 'creatorLimits')
-      .mockRejectedValueOnce(new ChainError('Unavailable', 'the node did not answer'));
-    const down = await get(null, '/v1/shared/limits?chain=robinhood');
-    expect([down.statusCode, down.json().code]).toEqual([503, 'CHAIN_UNAVAILABLE']);
-    limits.mockRestore();
+    // Asked again within LIMITS_KEPT_MS, the answer kept: the chain is not read again.
+    const reads = vi.spyOn(registry.get('robinhood').adapter, 'creatorLimits');
+    const again = CreatorLimitsResponse.parse(
+      (await get(null, '/v1/shared/limits?chain=robinhood')).json(),
+    );
+    expect(again).toEqual(robinhood);
+    expect(reads).not.toHaveBeenCalled();
+    reads.mockRestore();
   });
 
   it('publishes one asset, leaves the rest in cash, and warns on a weight over its listed ceiling', async () => {
@@ -618,13 +626,38 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
     const placed = OrderDetail.parse(one.json());
     expect(placed.warnings).toEqual([
       {
-        code: 'OVER_LISTED_CAP',
+        code: 'OVER_LISTED_CAP:robinhood:spy',
         text: expect.stringMatching(
-          /SPY.*100%.*50%.*cap on the asset list.*Read from .*measured exit capacity/,
+          /^SPY.*100%.*50%.*cap on the asset list\. Read now from .*, the asset list on .*\.$/,
         ),
       },
     ]);
+    // The ceiling's formula is the pin's to say, never the sentence's.
+    expect(placed.warnings[0]?.text).not.toMatch(/×|capacity/);
     expect((await settleAll(creator, placed)).status).toBe('done');
+
+    // Two lines over their caps, asked in Portuguese: one warning each, each with its own code.
+    const listed = await registry.get('robinhood').adapter.listAssets();
+    const lower = vi
+      .spyOn(registry.get('robinhood').adapter, 'listAssets')
+      .mockResolvedValue(
+        listed.map((a) => (a.id === 'robinhood:nvda' ? { ...a, maxWeightBps: 2500 } : a)),
+      );
+    const two = OrderDetail.parse(
+      (
+        await post(creator, '/v1/orders', {
+          ...onRobinhood(creator, fresh(), [spy(6000), { ...spy(3000), asset: 'robinhood:nvda' }]),
+          language: 'pt',
+        })
+      ).json(),
+    );
+    lower.mockRestore();
+    expect(two.warnings.map((w) => w.code)).toEqual([
+      'OVER_LISTED_CAP:robinhood:spy',
+      'OVER_LISTED_CAP:robinhood:nvda',
+    ]);
+    for (const w of two.warnings)
+      expect(w.text).toMatch(/o teto dele na lista de ativos\. Lido agora de /);
 
     // 70% in one asset and 30% left in cash: published as it is, and the page holds 70%.
     const text = fresh();

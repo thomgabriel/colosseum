@@ -1,7 +1,6 @@
 'use client';
 import {
   ChainId,
-  type CreatorLimitsResponse,
   chainFamily,
   type SharedFamily,
   TAKEN_SLUGS,
@@ -29,6 +28,7 @@ import { readPortfolio, type Vault } from '../portfolio/portfolio';
 import { sameAddress } from '../portfolio/vault-name';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { familyIdFor } from './chain-recipe';
+import { type ChainRules, overCeiling } from './over-ceiling';
 import { type PublishVaultRead, readPublishVault } from './publish-vault';
 import { placeShared, readFamily, readLimits } from './shared-api';
 import type { SharedTerms } from './terms';
@@ -48,7 +48,7 @@ import { PublishWait } from './waits';
 export const LIMITS = { chars: 280 } as const;
 
 /** The rules a chain holds a publish to, as the server read them from it. */
-export type ChainRules = Pick<CreatorLimitsResponse, 'limits' | 'ceilings' | 'ceilingsFrom'>;
+export type { ChainRules };
 
 // The server's rules for the creator's text (apps/api/src/orders/shared.ts), the same here so the
 // form says so before anything is sent: a link, a scheme or `www.` or a bare host (`evil.xyz/airdrop`),
@@ -131,19 +131,7 @@ export function problemsOf(
   return out;
 }
 
-/** The rows over their asset's ceiling on the chain's list, with the ceiling: the figure a warning cites. */
-export function overCeiling(
-  rows: { asset: string; bps: number | null }[],
-  rules: ChainRules,
-): { asset: string; bps: number; ceilingBps: number }[] {
-  const ceilings = new Map(rules.ceilings.map((c) => [c.asset, c.maxWeightBps]));
-  return rows.flatMap((r) => {
-    const ceiling = ceilings.get(r.asset);
-    return r.bps !== null && ceiling !== undefined && r.bps > ceiling
-      ? [{ asset: r.asset, bps: r.bps, ceilingBps: ceiling }]
-      : [];
-  });
-}
+export { overCeiling };
 
 type Existing =
   | { kind: 'reading' }
@@ -546,6 +534,8 @@ export function PublishScreen() {
         name,
         copy,
         recipes: [{ chain, components: frozen.map((c) => ({ kind: 'asset', ...c })) }],
+        // The order's warnings (a weight over its listed ceiling) come back in the page's language.
+        language: lang,
       },
       { chain, owner, type: 'publish' },
     );

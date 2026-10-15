@@ -13,7 +13,7 @@ import {
   Sourced,
 } from './chain';
 import { ChainErrorCode } from './chain-error';
-import { Provenance } from './enums';
+import { Language, Provenance } from './enums';
 import { RecipeDraft, Target, VAULT_MAX_TARGETS } from './recipe';
 import { Trade } from './vault';
 import { WalletAccount } from './wallet';
@@ -508,6 +508,8 @@ export const IntentRequest = z.discriminatedUnion('type', [
     copy: z.string(),
     /** One per chain. Only the chain and the weights: the server and the registry assign the rest. */
     recipes: z.array(RecipeDraft).min(1),
+    /** The language the order's warnings are written in. Left out: English. */
+    language: Language.optional(),
   }),
   z.object({
     type: z.literal('withdraw'),

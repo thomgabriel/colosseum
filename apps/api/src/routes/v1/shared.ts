@@ -198,6 +198,13 @@ async function familyNamed(deps: OrderDeps, slug: string): Promise<StoredFamily>
   return family;
 }
 
+/**
+ * How long an answer of `/v1/shared/limits` is kept per chain, in milliseconds: anybody may ask, so a
+ * chain's registry and asset list are read at most once in this time, whoever asks and how often.
+ */
+export const LIMITS_KEPT_MS = 30_000;
+type CreatorLimitsAnswer = import('zod').infer<typeof CreatorLimitsResponse>;
+
 export function registerSharedRoutes(
   scope: FastifyInstance,
   deps: OrderDeps,
@@ -206,6 +213,7 @@ export function registerSharedRoutes(
 ) {
   const f = scope.withTypeProvider<ZodTypeProvider>();
   const tags = ['shared portfolios'];
+  const keptLimits = new Map<string, { at: number; answer: CreatorLimitsAnswer }>();
 
   f.get(
     '/v1/shelf',
@@ -259,10 +267,13 @@ export function registerSharedRoutes(
     },
     async (req) => {
       const entry = deps.chains.get(req.query.chain);
+      const now = deps.now().getTime();
+      const hit = keptLimits.get(entry.chain);
+      if (hit && now - hit.at < LIMITS_KEPT_MS) return hit.answer;
       const [limits, assets] = await refusing(() =>
         Promise.all([entry.adapter.creatorLimits(), entry.adapter.listAssets()]),
       );
-      return {
+      const answer = {
         chain: entry.chain,
         limits,
         ceilings: assets
@@ -278,6 +289,8 @@ export function registerSharedRoutes(
         observedAt: deps.now().toISOString(),
         provenance: entry.provenance,
       };
+      keptLimits.set(entry.chain, { at: now, answer });
+      return answer;
     },
   );
 

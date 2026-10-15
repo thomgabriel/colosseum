@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { portfolioDictionary } from '../i18n/portfolio';
+import { conversations, openVault } from './conversations';
 import { inTheme } from './theme';
 
 // Closing a vault and opening it again (gate VAULT-CLOSE-REUSE), on the stub's mock chain: an empty
@@ -77,14 +78,17 @@ async function toVault(page: Page, empty: boolean): Promise<string> {
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
   await expect(page).toHaveURL(/\/invest$/);
-  await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   await expect(page.locator('[data-ui="vault-screen"]')).toHaveAttribute('data-pane', 'holdings');
   return address;
 }
 
-const offered = (page: Page, address: string) =>
-  page.locator(`[data-ui="goal-picker"] option[value="vault:solana:${address}"]`);
+/** The vault's row in Invest's conversations panel, opened where it is a sheet. */
+const offered = async (page: Page, address: string) =>
+  (await conversations(page)).locator(
+    `[data-ui="conversation-row"][data-kind="vault"][data-chain="solana"][data-address="${address}"]`,
+  );
 
 test('an empty vault is closed after a confirm, leaves the lists, and comes back when reopened', async ({
   page,
@@ -109,11 +113,17 @@ test('an empty vault is closed after a confirm, leaves the lists, and comes back
     en.shared.vault.page.closed.title,
   );
 
-  // gone from the lists of the person's vaults: the one Invest picks from
+  // gone from the lists of the person's vaults: Invest's conversations panel
   await go(page, en.shell.invest);
   await expect(page).toHaveURL(/\/invest$/);
-  await expect(page.locator('[data-ui="goal-picker"]')).toBeVisible();
-  await expect(offered(page, address)).toHaveCount(0);
+  await expect(page.locator('[data-ui="conversations-open"]')).toBeVisible();
+  // the other vaults are listed: the panel has read them, and this one is not among them
+  const panel = await conversations(page);
+  await expect(
+    panel.locator('[data-ui="conversation-row"][data-kind="vault"]').first(),
+  ).toBeVisible();
+  await expect(await offered(page, address)).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
   // named at the foot of the portfolio, on a page of its own
   await go(page, en.shell.portfolio);
@@ -130,7 +140,7 @@ test('an empty vault is closed after a confirm, leaves the lists, and comes back
   await row.getByRole('button', { name: w.closed.reopen }).click();
   await expect(row).toContainText(w.closed.reopened);
   await go(page, en.shell.invest);
-  await expect(offered(page, address)).toHaveCount(1);
+  await expect(await offered(page, address)).toHaveCount(1);
 });
 
 test('a vault that holds something is told to withdraw first, and is not closed', async ({

@@ -240,6 +240,54 @@ contract FollowTest is KeeperFixture {
         assertEq(vault.targets().length, 17);
     }
 
+    /// An adopt never adds a line, so it cannot pass 24: it takes no new asset (`NewAssetNeedsOwner`; the
+    /// owner's accept is held to 24), and a version that drops an asset the vault holds turns that line to
+    /// zero in place. A vault at 24 (sixteen followed, eight of its own still held at zero) stays at 24.
+    function test_adoptVersion_atTwentyFourLines_addsNone() public {
+        Weight[] memory own = _tokens(8, 100, unit);
+        vm.prank(owner);
+        vault.setTargets(own);
+        Weight[] memory sixteen = _tokens(16, 600, unit);
+        vm.prank(creator);
+        bytes32 big = registry.create(keccak256("big"), sixteen, META, 0, 0);
+        vm.prank(owner);
+        vault.acceptVersion(big, 1);
+        assertEq(vault.targets().length, 24, "sixteen, and the eight of its own at zero");
+        vm.prank(owner);
+        vault.setAutoFollow(true);
+
+        // A new asset in place of the first: the adopt refuses it, and the targets stay as they were.
+        Weight[] memory swapped = new Weight[](16);
+        address fresh = _tokens(1, 600, 0)[0].token;
+        swapped[0] = Weight(fresh, 600);
+        for (uint256 i = 1; i < 16; ++i) {
+            swapped[i] = sixteen[i];
+        }
+        swapped = _sort(swapped);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(creator);
+        registry.publish(big, swapped, META);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.expectRevert(abi.encodeWithSelector(IBasketVault.NewAssetNeedsOwner.selector, fresh));
+        vault.adoptVersion();
+        assertEq(vault.targets().length, 24, "nothing changed");
+
+        // The first asset dropped for cash, still held: adopted, its line at zero, 24 lines still.
+        Weight[] memory fifteen = new Weight[](15);
+        for (uint256 i = 1; i < 16; ++i) {
+            fifteen[i - 1] = sixteen[i];
+        }
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(creator);
+        registry.publish(big, fifteen, META);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vault.adoptVersion();
+        assertEq(vault.targets().length, 24);
+        (bool found, uint16 bps) = _targetOf(sixteen[0].token);
+        assertTrue(found);
+        assertEq(bps, 0);
+    }
+
     // ---- auto-follow
 
     function test_setAutoFollow_isTheOwnersSwitch() public {
