@@ -1,7 +1,15 @@
 'use client';
 import type { ChainId, Network, Provenance } from '@colosseum/schemas';
 import Link from 'next/link';
-import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '../../components/ui/Button';
 import { CardSampleRoom } from '../../components/ui/Card';
 import { Composer } from '../../components/ui/Composer';
@@ -481,7 +489,8 @@ export function GoalConversation({
   const chatShown = chatOpen || !drafting;
   const tellDrafting = useRef(onDrafting);
   tellDrafting.current = onDrafting;
-  useEffect(() => {
+  // in the same paint as the column, so the rail folds with it, never a frame after
+  useLayoutEffect(() => {
     tellDrafting.current?.(drafting);
   }, [drafting]);
   useEffect(() => () => tellDrafting.current?.(false), []);

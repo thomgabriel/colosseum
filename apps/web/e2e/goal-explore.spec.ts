@@ -272,4 +272,70 @@ test('beside a draft the chat keeps its share, and the rail folds for it under 1
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await measure();
+  // on a tablet the chat keeps five twelfths beside the draft; on a phone the draft is under the chat
+  const boxes = async () => {
+    const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
+    const draft = await strategy.boundingBox();
+    if (!chat || !draft) throw new Error('the chat and the draft are drawn');
+    return { chat, draft };
+  };
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(async () => {
+    const { chat, draft } = await boxes();
+    expect(draft.x).toBeGreaterThan(chat.x + chat.width);
+    expect(chat.width / (chat.width + draft.width)).toBeCloseTo(5 / 12, 2);
+  }).toPass();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(async () => {
+    const { chat, draft } = await boxes();
+    expect(draft.y).toBeGreaterThanOrEqual(chat.y + chat.height);
+    expect([draft.x, draft.width]).toEqual([chat.x, chat.width]);
+  }).toPass();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+});
+
+// A draft drawn again on the way back to /invest folds the rail in the same frame as its column, so
+// the title and the chat never jump 248px a frame after the page is drawn.
+test('a draft drawn again on the way back has the rail folded from its first frame', async ({
+  page,
+}) => {
+  await page.request.post(`${STUB}/__stub/reset`);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/invest');
+  await page.locator('header a[href^="/sign-in"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
+  await expect(dialog).toHaveCount(0);
+  const box = page.locator('[data-ui="goal-chat"] textarea');
+  await box.fill('A broad fund and some gold, to grow, at medium risk');
+  await box.press('Enter');
+  await expect(page.locator('[data-ui="goal-strategy"] [data-ui="weight-notes"]')).toBeVisible();
+  // away by the bar, and back: the draft is read again from this browser on the way in
+  await page.locator('header a[href="/portfolio"]').first().click();
+  await expect(page).toHaveURL(/\/portfolio$/);
+  await expect(page.locator('[data-ui="goal-conversation"]')).toHaveCount(0);
+  // every frame from here, the rail's width while a draft's column is drawn
+  await page.evaluate(() => {
+    const seen: number[] = [];
+    (window as unknown as { seen: number[] }).seen = seen;
+    const frame = () => {
+      if (document.querySelector('[data-ui="goal-strategy"]'))
+        seen.push(
+          Math.round(
+            document.querySelector('div[data-ui="conversations"]')?.getBoundingClientRect().width ??
+              -1,
+          ),
+        );
+      if (seen.length < 30) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+  await page.locator('header a[href="/invest"]').first().click();
+  // kept in this browser, the draft comes back as a preview: its bar, without the reply's notes
+  await expect(page.locator('[data-ui="goal-strategy"] [data-ui="composition"]')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { seen: number[] }).seen.length))
+    .toBeGreaterThanOrEqual(30);
+  const seen = await page.evaluate(() => (window as unknown as { seen: number[] }).seen);
+  expect(new Set(seen)).toEqual(new Set([56]));
 });

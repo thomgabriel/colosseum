@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -191,15 +192,17 @@ export function ConversationRail({
   const [reopened, setReopened] = useState(false);
   const listId = useId();
 
-  useEffect(() => {
+  // read before the first paint, so a draft beside the chat never shows the rail open for a frame
+  useLayoutEffect(() => {
     const query = window.matchMedia(TIGHT);
     const read = () => setTight(query.matches);
     read();
     query.addEventListener('change', read);
     return () => query.removeEventListener('change', read);
   }, []);
-  // the next draft folds it again
-  useEffect(() => {
+  // Opened again, it stays open while the person moves between drafts; a conversation with no draft
+  // on screen (a new one, or one started over) lets the next draft fold it again.
+  useLayoutEffect(() => {
     if (!drafting) setReopened(false);
   }, [drafting]);
   const folded = closed || (drafting && tight && !reopened);
