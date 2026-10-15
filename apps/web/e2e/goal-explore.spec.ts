@@ -179,8 +179,11 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   await page.goto('/invest');
   const title = page.locator('main h1');
   await expect(title).toHaveText(en.talk.workbench.title);
+  // the faces the title is measured in, loaded
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const place = async () => {
     const box = await title.boundingBox();
+    if (!box) return null;
     const left = await page.evaluate(() => {
       const frame = document.querySelector<HTMLElement>('.group\\/shell');
       if (!frame) return Number.NaN;
@@ -190,19 +193,24 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
     });
     // the title's row lines its words up on one baseline with the row's buttons: under 1024px, where
     // those buttons share the title's line, its top is up to 2px lower than the head's (as before)
-    const y = Math.round(box?.y ?? 0);
-    return { x: Math.round((box?.x ?? 0) - left) + 0, y: width(page) < 1024 && y <= 106 ? 104 : y };
+    const y = Math.round(box.y);
+    return { x: Math.round(box.x - left) + 0, y: width(page) < 1024 && y <= 106 ? 104 : y };
   };
   const toggle = page.locator('[data-ui="conversations-toggle"]');
   for (const closed of [false, true]) {
     for (const width of [375, 768, 1280, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      if (width >= 1024 && (await toggle.getAttribute('aria-expanded')) === String(closed))
-        await toggle.click();
-      expect(await place(), `${width}px, rail ${closed ? 'closed' : 'open'}`).toEqual({
-        x: width < 1024 ? 0 : closed ? 80 : 328,
-        y: 104,
-      });
+      if (width >= 1024) {
+        if ((await toggle.getAttribute('aria-expanded')) === String(closed)) await toggle.click();
+        // the rail is drawn as it was asked to be before anything is measured
+        await expect(toggle).toHaveAttribute('aria-expanded', String(!closed));
+      }
+      // Measured once the page is still: just after a load or a resize the conversation's head can be
+      // drawn again (its key follows the account and the chain as they settle), and for that moment
+      // there is no title to measure. The place it settles in is held exactly.
+      await expect
+        .poll(place, { message: `${width}px, rail ${closed ? 'closed' : 'open'}` })
+        .toEqual({ x: width < 1024 ? 0 : closed ? 80 : 328, y: 104 });
     }
   }
 });
