@@ -1587,6 +1587,7 @@ export const pt: Dictionary = {
         current: 'O que tem agora',
         planPane: 'O plano e os ativos do seu cofre',
         actionPane: 'A ação em andamento',
+        headPane: 'O topo deste cofre',
         noHoldings: 'Este cofre não tem tokens agora.',
         targets: 'Metas da estratégia atual',
         targetsNote: 'Metas registradas na rede, separadas das fatias mantidas agora.',
@@ -1662,6 +1663,8 @@ export const pt: Dictionary = {
         against: (difference: string) => `${difference} em relação ao plano`,
         onPlan: 'no plano',
         allOnTarget: 'No plano',
+        show: 'Mostrar',
+        hide: 'Ocultar',
         offTargetShort: 'Fora do plano',
         gapTooSmall:
           'Um pouco fora dos alvos, por menos do que vale uma troca: nada a rebalancear.',
