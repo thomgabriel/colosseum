@@ -17,7 +17,7 @@
     "test:contracts": "cd contracts && forge test",
     "test:program": "pnpm --dir programs/tests install --frozen-lockfile && pnpm --dir programs/tests test",
     "typecheck": "pnpm -r typecheck",
-    "prepare": "git config core.hooksPath .githooks || true",
+    "prepare": "node scripts/git-hooks.mjs",
     "verify:quick": "pnpm lint && pnpm typecheck && tsc -p tsconfig.json",
     "verify": "pnpm verify:quick && pnpm test && pnpm build",
     "db:up": "docker compose up -d --wait postgres && pnpm db:migrate",

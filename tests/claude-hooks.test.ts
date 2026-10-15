@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -205,5 +205,142 @@ describe('the Bash guard', () => {
     expect(run('git push origin main').status).toBe(2);
     expect(run('git push origin main').stderr).toContain('would land on main');
     expect(run('git status').status).toBe(0);
+  });
+});
+
+// The check before Claude's commits (.githooks/pre-commit, .claude/hooks/pre-commit.mjs), run in a
+// clone of its own whose `verify:quick` is two small steps: one that only talks, one that fails on a
+// file holding the word BROKEN. Nothing here runs this repo's real check.
+describe('the check before Claude’s commits', () => {
+  const root = join(import.meta.dirname, '..');
+  let clone: string;
+  const write = (file: string, text: string) => {
+    mkdirSync(dirname(join(clone, file)), { recursive: true });
+    writeFileSync(join(clone, file), text);
+  };
+  const run = (args: string[], env: Record<string, string | undefined>, input?: string) =>
+    spawnSync(args[0] as string, args.slice(1), {
+      cwd: clone,
+      encoding: 'utf8',
+      input,
+      env: { ...process.env, CLAUDECODE: undefined, ...env },
+    });
+  /** A commit of what is staged, through git's own hook, as Claude makes one or as a person does. */
+  const commit = (by: 'claude' | 'person') =>
+    run(
+      ['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'x'],
+      by === 'claude' ? { CLAUDECODE: '1' } : {},
+    );
+  const stage = (file: string, text: string) => {
+    write(file, text);
+    run(['git', 'add', file], {});
+  };
+
+  beforeAll(() => {
+    clone = mkdtempSync(join(tmpdir(), 'pre-commit-'));
+    for (const file of [
+      '.githooks/pre-commit',
+      '.claude/hooks/pre-commit.mjs',
+      '.claude/hooks/lib.mjs',
+    ])
+      write(file, readFileSync(join(root, file), 'utf8'));
+    chmodSync(join(clone, '.githooks/pre-commit'), 0o755);
+    write('talks.mjs', "for (let i = 0; i < 200; i++) console.error('a warning of no account');\n");
+    write(
+      'check.mjs',
+      "import { readFileSync } from 'node:fs';\nif (readFileSync('a.ts', 'utf8').includes('BROKEN')) { console.log('a.ts(1,1): error: BROKEN in a.ts'); process.exit(1); }\n",
+    );
+    write(
+      'package.json',
+      JSON.stringify({ scripts: { 'verify:quick': 'node talks.mjs && node check.mjs' } }),
+    );
+    write('a.ts', 'export const a = 1;\n');
+    run(['git', 'init', '-q', '-b', 'main'], {});
+    run(['git', 'config', 'core.hooksPath', '.githooks'], {});
+    run(['git', 'add', '.'], {});
+    expect(commit('person').status).toBe(0);
+  });
+  afterAll(() => rmSync(clone, { recursive: true, force: true }));
+
+  it('stops a commit of Claude’s that fails it, and says the failing step’s own words', () => {
+    stage('a.ts', 'export const a = BROKEN;\n');
+    const r = commit('claude');
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('`node check.mjs` (of `pnpm verify:quick`) failed');
+    expect(r.stderr).toContain('error: BROKEN in a.ts');
+    // the other step's talk is not in it
+    expect(r.stderr).not.toContain('a warning of no account');
+  });
+
+  it('leaves a person’s commit to CI', () => {
+    stage('a.ts', 'export const a = BROKEN;\n');
+    expect(commit('person').status).toBe(0);
+  });
+
+  it('skips a commit of documents only, whatever else the checkout holds', () => {
+    write('a.ts', 'export const a = BROKEN;\n');
+    stage('notes.md', 'notes\n');
+    expect(commit('claude').status).toBe(0);
+  });
+
+  it('lets a commit of Claude’s that passes it through', () => {
+    stage('a.ts', 'export const a = 2;\n');
+    expect(commit('claude').status).toBe(0);
+  });
+
+  it('as the session hook, stands aside only where git’s own hook is set up and in the checkout', () => {
+    write('a.ts', 'export const a = BROKEN;\n');
+    const session = () =>
+      run(
+        ['node', '.claude/hooks/pre-commit.mjs'],
+        {},
+        JSON.stringify({ tool_input: { command: 'git commit -m x' }, cwd: clone }),
+      );
+    expect(session().status).toBe(0);
+    // a branch cut before the git hook: set up in the clone, not in this checkout
+    rmSync(join(clone, '.githooks/pre-commit'));
+    const r = session();
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('error: BROKEN in a.ts');
+  });
+});
+
+// `pnpm install`'s `prepare` (scripts/git-hooks.mjs): sets the hooks to .githooks, and leaves a clone's
+// own hooks as they are, saying so.
+describe('setting up the git hook', () => {
+  const script = join(import.meta.dirname, '..', 'scripts', 'git-hooks.mjs');
+  const fresh = () => {
+    const at = mkdtempSync(join(tmpdir(), 'hooks-setup-'));
+    spawnSync('git', ['init', '-q'], { cwd: at });
+    return at;
+  };
+  const setUp = (at: string) => spawnSync('node', [script], { cwd: at, encoding: 'utf8' });
+  const hooksPath = (at: string) =>
+    spawnSync('git', ['config', '--get', 'core.hooksPath'], {
+      cwd: at,
+      encoding: 'utf8',
+    }).stdout.trim();
+
+  it('sets them in a clone with none of its own', () => {
+    const at = fresh();
+    setUp(at);
+    expect(hooksPath(at)).toBe('.githooks');
+    rmSync(at, { recursive: true, force: true });
+  });
+
+  it('leaves a hooks path the clone has, and says so', () => {
+    const at = fresh();
+    spawnSync('git', ['config', 'core.hooksPath', 'my-hooks'], { cwd: at });
+    expect(setUp(at).stdout).toContain('already my-hooks, left as it is');
+    expect(hooksPath(at)).toBe('my-hooks');
+    rmSync(at, { recursive: true, force: true });
+  });
+
+  it('leaves a pre-commit hook the clone keeps in .git/hooks, and says so', () => {
+    const at = fresh();
+    writeFileSync(join(at, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 0\n');
+    expect(setUp(at).stdout).toContain('left as it is');
+    expect(hooksPath(at)).toBe('');
+    rmSync(at, { recursive: true, force: true });
   });
 });
