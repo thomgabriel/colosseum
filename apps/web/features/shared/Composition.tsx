@@ -443,7 +443,7 @@ export function Composition({
                             data-part="sub"
                             className={cn(
                               'text-caption text-muted-foreground',
-                              item.detail && '[contain:inline-size] @lg:min-w-72',
+                              item.detail ? '[contain:inline-size] @lg:min-w-72' : undefined,
                             )}
                           >
                             {sub}
