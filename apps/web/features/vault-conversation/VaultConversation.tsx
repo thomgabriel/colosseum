@@ -623,28 +623,26 @@ export function VaultConversation({
         </div>
       </div>
       {action && (
-        <div
+        <section
           data-ui="vault-action"
           // Scrolls on its own on a desktop, where the page does not (a workbench): a scrollbar to see
           // and take hold of, and a stop for the keyboard while it scrolls, so every part of the card
           // can be reached. On a phone the page scrolls and the pane is no stop.
           ref={actionRef}
-          role="region"
           aria-label={copy.actionPane}
           tabIndex={actionScrolls ? 0 : undefined}
           className={`${PANE} flex ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
         >
           {action.pane}
-        </div>
+        </section>
       )}
-      <div
+      <section
         data-ui="vault-plan"
         aria-busy={busy}
         hidden={locked}
         // The same pane: it scrolls on its own, with a scrollbar to see and a stop for the keyboard,
         // so what the vault holds is in reach under a draft however tall the draft is.
         ref={planRef}
-        role="region"
         aria-label={copy.planPane}
         tabIndex={planScrolls && !locked ? 0 : undefined}
         className={`${PANE} ${locked ? 'hidden' : 'flex'} ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'}`}
@@ -697,7 +695,7 @@ export function VaultConversation({
             own head under it, a press away (Thom, Oct 14). The pane still scrolls to it. */}
         {holdings}
         {aside}
-      </div>
+      </section>
     </section>
   );
 }

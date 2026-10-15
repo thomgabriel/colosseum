@@ -343,7 +343,7 @@ describe('a continuous conversation for one vault', () => {
     // the draft has the pane: what the vault holds folds into one line under it, a press away, and
     // the pane scrolls on its own, a stop for the keyboard (Thom, Oct 14)
     const plan = find(host, '[data-ui="vault-plan"]');
-    expect(plan.getAttribute('role')).toBe('region');
+    expect(plan.tagName).toBe('SECTION');
     expect(plan.getAttribute('aria-label')).toBe(copy.planPane);
     expect(plan.className).toContain('md:overflow-y-auto');
     // no stop for the keyboard where it does not scroll (here nothing is laid out, as on a phone)
