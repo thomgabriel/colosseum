@@ -278,17 +278,38 @@ test('publish a portfolio, find it on the shelf, buy it and follow it, every ste
   const building = workspace.locator('[data-ui="vault-building"]');
   await expect(building.locator('h2')).toHaveText(talk.building);
   await expect(building).toContainText(talk.buildingLine);
-  // On a desktop the page does not scroll: the draft has the right pane, what the vault holds is folded
-  // under it, and the pane scrolls on its own to it (Thom, Oct 14)
+  // On a desktop the page does not scroll: the draft has the right pane, the holdings panel folds to
+  // its own head under it, and the pane scrolls on its own to it (Thom, Oct 14)
   await page.setViewportSize({ width: 1440, height: 900 });
   const pane = workspace.locator('[data-ui="vault-plan"]');
   expect(await pane.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
-  const fold = pane.locator('[data-ui="vault-holdings-fold"]');
-  await fold.locator(':scope > summary').click();
-  const held = fold.locator('[data-ui="composition"]').first();
+  const panel = pane.locator('[data-ui="vault-holdings-panel"]');
+  const toggle = panel.locator('[data-action="fold-toggle"]');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  // a window short enough that the pane, with the holdings open under the draft, scrolls: it is a stop
+  // for the keyboard, and scrolls to what the vault holds
+  await page.setViewportSize({ width: 1440, height: 640 });
+  await expect.poll(() => pane.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
+  await expect(pane).toHaveAttribute('tabindex', '0');
+  const held = panel.locator('[data-ui="composition"]').first();
   await held.scrollIntoViewIfNeeded();
-  await expect(held).toBeInViewport({ ratio: 1 });
-  await fold.locator(':scope > summary').click();
+  // the pane scrolled to it: its top is in the pane's window, and the pane is in the page's
+  const seen = await page.evaluate(() => {
+    const pane = document.querySelector('[data-ui="vault-plan"]') as HTMLElement;
+    const at = (
+      pane.querySelector('[data-ui="vault-holdings-panel"] [data-ui="composition"]') as HTMLElement
+    ).getBoundingClientRect();
+    const box = pane.getBoundingClientRect();
+    return {
+      scrolled: pane.scrollTop > 0,
+      inPane: at.top >= box.top && at.top < box.bottom,
+      paneInWindow: box.bottom <= window.innerHeight,
+    };
+  });
+  expect(seen).toEqual({ scrolled: true, inPane: true, paneInWindow: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toggle.click();
   await pane.evaluate((el) => el.scrollTo(0, 0));
   await page.setViewportSize({ width: 375, height: 812 });
   // the message, the row under it and the box are whole in the window

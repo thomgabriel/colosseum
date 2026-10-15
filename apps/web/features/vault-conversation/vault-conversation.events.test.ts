@@ -345,12 +345,22 @@ describe('a continuous conversation for one vault', () => {
     const plan = find(host, '[data-ui="vault-plan"]');
     expect(plan.tagName).toBe('SECTION');
     expect(plan.getAttribute('aria-label')).toBe(copy.planPane);
-    expect(plan.tabIndex).toBe(0);
     expect(plan.className).toContain('md:overflow-y-auto');
-    const fold = find<HTMLDetailsElement>(plan, '[data-ui="vault-holdings-fold"]');
-    expect(fold.open).toBe(false);
-    expect(find(fold, ':scope > summary').textContent).toBe(copy.current);
-    expect(fold.compareDocumentPosition(building) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    // no stop for the keyboard where it does not scroll (here nothing is laid out, as on a phone)
+    expect(plan.hasAttribute('tabindex')).toBe(false);
+    // the holdings card folds to its own head: its title, and a press that opens it
+    const held = find(plan, 'section[aria-labelledby$="-held"]');
+    expect(held.compareDocumentPosition(building) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    const toggle = find(held, '[data-action="fold-toggle"]');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const body = find(host, `#${toggle.getAttribute('aria-controls')}`);
+    expect(body.hidden).toBe(true);
+    expect(held.contains(body)).toBe(true);
+    await click(toggle);
+    expect(body.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    await click(toggle);
+    expect(body.hidden).toBe(true);
     // the next thought can be typed; it is not sent
     expect(box.readOnly).toBe(false);
     await type(box, 'and less cash');
@@ -361,7 +371,7 @@ describe('a continuous conversation for one vault', () => {
     expect(host.querySelector('[data-ui="vault-building"]')).toBeNull();
     expect(rows()[1]?.textContent).toBe(`${copy.agent}: ${reply.message}`);
     // a draft shown keeps the pane, the holdings folded under it
-    expect(find(host, '[data-ui="vault-holdings-fold"]')).not.toBeNull();
+    expect(find(host, '[data-action="fold-toggle"]').getAttribute('aria-expanded')).toBe('false');
     expect(announced()).toBe(`${copy.agent}: ${reply.message} ${copy.draftArrived}`);
     expect(host.querySelector('[data-ui="vault-proposal"]')).not.toBeNull();
     expect(box.value).toBe('and less cash');
@@ -762,7 +772,7 @@ describe('current context and truthful holdings', () => {
       );
       const current = find(host, 'section[aria-labelledby$="-held"]');
       // with no draft, what it holds is open in the pane, not folded
-      expect(host.querySelector('[data-ui="vault-holdings-fold"]')).toBeNull();
+      expect(host.querySelector('[data-action="fold-toggle"]')).toBeNull();
       if (fixture === emptyRead) {
         expect(current.textContent).toContain(en.shared.vault.conversation.noHoldings);
         expect(current.querySelector('[data-ui="composition"]')).toBeNull();
