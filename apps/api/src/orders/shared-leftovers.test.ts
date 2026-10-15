@@ -34,9 +34,6 @@ const position = (asset: string, raw = '1000000'): VaultPosition => ({
   display: '1',
   targetBps: 0,
   lastKeeperAt: null,
-  valueUsd: '1',
-  weightBps: 0,
-  driftBps: 0,
 });
 /** `n` assets of a version, by made-up ids: a version's assets are never quoted. */
 const version = (chain: ChainId, n: number) =>

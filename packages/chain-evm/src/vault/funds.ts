@@ -10,11 +10,10 @@ type Selling = { sell: string; buy: string; amountInRaw: string };
  * bring in. A sale's cash is counted at its quote: the simulation of the built transaction, and the
  * chain itself, still refuse a step whose sale lands under what the purchase after it spends.
  *
- * Not at the sale's stated minimum, which is all the bytes guarantee: an order's purchases are sized
- * from the reference prices less its slippage, and a sale's minimum is the pool's quote less that
- * slippage, so a purchase that takes all its sale brings in is above the minimum by the pool's fee
- * and every such order would be refused (tests/evm-vault/funds-at-minimum.test.ts). Holding a step to
- * its minimums needs the order sized from them first.
+ * Not at the sale's stated minimum, which is all the bytes guarantee: a purchase that takes all its
+ * sale brings in may sit above the minimum and still land at about the quote, and held to the minimum
+ * such a step would be refused. Orders made since #307 cap their purchases at what the sales' minimums
+ * cover, so they pass either way (tests/evm-vault/funds-at-minimum.test.ts).
  */
 export function firstShort(
   trades: readonly Selling[],

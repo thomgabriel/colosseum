@@ -1633,6 +1633,8 @@ export const pt: Dictionary = {
         onPlan: 'no plano',
         allOnTarget: 'No plano',
         offTargetShort: 'Fora do plano',
+        gapTooSmall:
+          'Um pouco fora dos alvos, por menos do que vale uma troca: nada a rebalancear.',
         drift: (signed: string) => `Desvio ${signed}`,
         keptAsCash: 'Mantido em caixa',
         at: 'a',

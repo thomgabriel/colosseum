@@ -264,6 +264,11 @@ export const VaultAgentReplyShape = z.strictObject({
   weightNotes: z.array(VaultAgentWeightNote).max(64),
   /** Present when the reply states a figure by reference; absent otherwise. */
   figures: VaultAgentFigures.optional(),
+  /**
+   * The page's action the reply hands over, as a button under it: `rebalance` where the person asked
+   * for one and the page offers it (`ownerRebalanceOffered`). Absent otherwise.
+   */
+  action: z.literal('rebalance').optional(),
 });
 /**
  * A warning belongs to the proposal: none without one, and each on one of its assets and sources. A
