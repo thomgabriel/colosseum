@@ -441,6 +441,46 @@ describe('the shelf', () => {
   });
 });
 
+describe('a portfolio’s page, under the second rules (SHARED-RULES-V2)', () => {
+  it('says a weight over its cap on the list, with the cap’s pin, before a deposit or a follow', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [vaultOf({ address: MY_VAULT })],
+      limits: () =>
+        json(
+          limitsOf('solana', {
+            rules: 2,
+            ceilings: [
+              { asset: 'solana:spyx', maxWeightBps: 2500 },
+              { asset: 'solana:nvdax', maxWeightBps: 5000 },
+            ],
+          }),
+        ),
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    const note = find(host, '[data-ui="over-cap-note"]');
+    expect(note.querySelectorAll('li')).toHaveLength(1);
+    expect(note.textContent).toContain(en.shared.family.overCap('SPYx', '40%', '25%'));
+    expect(note.querySelector('[data-ui="provenance-pin"], button')).not.toBeNull();
+  });
+
+  it('says nothing under the first rules, where no such weight is published', async () => {
+    api({
+      family: familyOf(FAMILY_ID),
+      vaults: [],
+      limits: () =>
+        json(
+          limitsOf('solana', {
+            rules: 1,
+            ceilings: [{ asset: 'solana:spyx', maxWeightBps: 2500 }],
+          }),
+        ),
+    });
+    const host = await show(createElement(FamilyScreen, { slug: SLUG }));
+    expect(host.querySelector('[data-ui="over-cap-note"]')).toBeNull();
+  });
+});
+
 describe('a portfolio’s page (gate GOLD-ONE-TAP)', () => {
   it('offers the auto-follow switch on a vault that follows it where the portfolio offers it', async () => {
     api({ family: familyOf(FAMILY_ID), vaults: [vaultOf({ address: MY_VAULT })] });

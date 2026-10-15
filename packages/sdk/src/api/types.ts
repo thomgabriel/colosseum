@@ -2789,6 +2789,7 @@ export type PostOrdersBody =
             }
         )[];
       }[];
+      language?: 'pt' | 'en';
     }
   | {
       type: 'withdraw';

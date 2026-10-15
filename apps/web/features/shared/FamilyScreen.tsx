@@ -32,6 +32,7 @@ import { unitsFor } from '../order/units';
 import { useApiFetch, useWalletPort } from '../wallet/WalletProvider';
 import { type ChainCheck, useChainRecipe } from './chain-recipe';
 import { FamilyActions } from './FamilyActions';
+import { OverCapNote } from './OverCapNote';
 import { isPlatformCreator } from './platform';
 import { holdingsOf, kindsSaid, withCashLine } from './product-figures';
 import { SourceMark } from './SourceMark';
@@ -534,6 +535,8 @@ function RecipeSection({
         data-sticky={aside.fits}
         className="flex min-w-0 flex-col gap-4 lg:data-[sticky=true]:sticky lg:data-[sticky=true]:top-24"
       >
+        {/* A weight over its cap on the list, said before a deposit or a follow (SHARED-RULES-V2). */}
+        <OverCapNote chain={recipe.chain} targets={followed?.targets ?? null} />
         <FamilyActions
           family={family}
           recipe={recipe}

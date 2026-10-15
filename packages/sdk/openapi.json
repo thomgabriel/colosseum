@@ -15518,6 +15518,10 @@
                           },
                           "required": ["chain", "components"]
                         }
+                      },
+                      "language": {
+                        "type": "string",
+                        "enum": ["pt", "en"]
                       }
                     },
                     "required": ["type", "creator", "family", "name", "copy", "recipes"]

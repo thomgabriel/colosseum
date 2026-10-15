@@ -156,7 +156,7 @@ Frozen in two steps. **v0 on Oct 2**, with the first types and the mock: streams
 | Point | What the code does |
 |---|---|
 | Refined schemas | zod refuses `.omit()`, `.pick()` and `.partial()` on an object with refinements, so each refined schema has its plain object beside it: `RecipeBase`, `BuiltTxBase`, `BasketTxBase`, `LegBase`, `OrderBase`, `OwnerBase`, `WalletAccountBase`, `BasketAssetBase`, `TradeBase`, `BasketProposalBase` |
-| A recipe's components | Each asset or family once; each weight at least 1 bp; the sum exactly 10,000; assets on the recipe's own chain; a shared portfolio lists assets only |
+| A recipe's components | Each asset or family once; each weight at least 1 bp; the sum at most 10,000 (`Components`); assets on the recipe's own chain; a shared portfolio lists assets only. A person's own recipe adds up to exactly 10,000 (`Recipe`); a shared portfolio under the second rules may add up to less, the rest held as cash (gate `SHARED-RULES-V2`) |
 | A person's own targets | `Targets`: each asset once; each weight at least 1 bp; the sum at most 10,000. What is left of 10,000 is the plan's cash share, and cash is never a target. The program and the planner work the same way (3.7, `InvalidTargets`). The program also takes a zero weight; the schema does not, so no builder sends one |
 | A trade | Two different assets on one chain |
 | An order | Every leg carries the order's id and is on a chain the owner has an address for |
@@ -264,6 +264,7 @@ interface ChainReader {
     newAccounts?: number }): Promise<Funding>;   // token accounts the steps open; left out, one per step
   quote(trade: Trade, taker: Address): Promise<Quote>;
   track(txId: string, validUntil?: string): Promise<TxStatus>;
+  creatorLimits(): Promise<CreatorLimits>;  // the author limits the chain's registry holds now (SHARED-RULES-V2)
 }
 interface OwnerBuilder {          // each call returns ONE transaction; the planner splits by the capabilities
   // BuiltTx is BasketTx without legId and attemptId (3.3): a builder takes no leg.
@@ -599,7 +600,12 @@ type CreatorLimitReason = 'FeeNotZero' | 'FlagsNotZero' | 'TooFewAssets' | 'TooM
   | 'DuplicateAsset' | 'WeightBelowMin' | 'WeightOffStep' | 'WeightAboveCeiling' | 'WeightSum'
   | 'VersionPending' | 'VersionTooSoon' | 'TurnoverTooHigh' | 'CashNotAllowed';
   // numbered 1 to 14 in this order, as fixtures/creator-limits/vectors.json; creatorLimitReasonId(reason)
-type LimitContext = { assets: Pick<BasketAsset, 'id' | 'maxWeightBps' | 'cls'>[];   // a BasketAsset[] fits
+type CreatorLimits = { rules: 1 | 2; minAssets: number; maxAssets: number; minWeightBps: number;
+  maxWeightBps: number; stepBps: number;
+  sumBps: 10_000;                // exactly that under the first rules, at most that under the second
+  maxTurnoverBps: number };      // CREATOR_LIMITS_V1 and CREATOR_LIMITS_V2, read from the chain
+type LimitContext = { limits: CreatorLimits;
+  assets: Pick<BasketAsset, 'id' | 'maxWeightBps' | 'cls'>[];   // a BasketAsset[] fits
   now: number; lastPublishAt: number | null; hasPending: boolean;
   publishDelay: number };        // seconds: between two versions, and before a later version takes effect
 type LimitResult = { ok: true; turnoverBps: number }

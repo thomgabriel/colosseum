@@ -14,7 +14,6 @@ import {
   type Address,
   type AutoFollowOffer,
   type BasketAsset,
-  CEILING_METHOD,
   ChainError,
   type ChainId,
   chainFamily,
@@ -315,14 +314,24 @@ export async function planPublish(
         code: 'CREATOR_LIMIT',
         fix: 'Change the weights within the limits a shared portfolio follows.',
       });
-    // Under the first rules a line over its ceiling was refused above; under the second it is said.
+    // Under the first rules a line over its ceiling was refused above; under the second it is said,
+    // one warning per line, in the person's language: the ceiling and where it was read (EXIT-SOURCE).
+    // How a ceiling is set is the pin's to say (`ceilingsFrom.method` of /v1/shared/limits).
     if (limits.rules === 2)
       for (const over of overCeilings(next, assets)) {
         const symbol = assets.find((a) => a.id === over.asset)?.symbol ?? over.asset;
-        // The ceiling as a figure with where it was read and how it is set (EXIT-SOURCE).
+        const lang = req.language ?? 'en';
+        const said = reason(
+          'MIX_OVER_LISTED',
+          { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps },
+          lang,
+        ).text;
         warnings.push({
-          code: 'OVER_LISTED_CAP',
-          text: `${reason('MIX_OVER_LISTED', { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps }, 'en').text} Read from ${entry.source}, the asset list on ${name}, now; it is ${CEILING_METHOD}.`,
+          code: `OVER_LISTED_CAP:${over.asset}`,
+          text:
+            lang === 'pt'
+              ? `${said} Lido agora de ${entry.source}, a lista de ativos na ${name}.`
+              : `${said} Read now from ${entry.source}, the asset list on ${name}.`,
         });
       }
     steps.push({

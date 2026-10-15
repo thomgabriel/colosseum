@@ -1218,6 +1218,8 @@ export const pt: Dictionary = {
         'Um ativo deste portfólio não está disponível nesta rede agora, então o portfólio não pode receber um depósito como está.',
     },
     family: {
+      overCap: (asset: string, weight: string, cap: string) =>
+        `${asset} com ${weight} pesa mais que ${cap}, o teto dele na lista de ativos, definido pelo que dá para vender dele. Vender tudo isso pode custar mais a você.`,
       loading: 'Lendo este portfólio…',
       missing: 'Não encontro um portfólio compartilhado com esse nome.',
       backToShelf: 'Voltar aos portfólios compartilhados',

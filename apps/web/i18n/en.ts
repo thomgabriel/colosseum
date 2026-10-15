@@ -1414,6 +1414,12 @@ export const en = {
         'One asset of this portfolio isn’t available on this chain now, so the portfolio can’t take a deposit as it stands.',
     },
     family: {
+      /**
+       * A weight over its asset's cap on the list, said before a deposit or a follow (SHARED-RULES-V2):
+       * the follower pays to sell that much of it.
+       */
+      overCap: (asset: string, weight: string, cap: string) =>
+        `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Selling that much of it may cost you more.`,
       loading: 'Reading this portfolio…',
       missing: 'I can’t find a shared portfolio with that name.',
       backToShelf: 'Back to the shared portfolios',
