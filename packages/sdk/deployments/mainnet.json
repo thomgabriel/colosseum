@@ -5,8 +5,8 @@
     "robinhood": {
       "family": "evm",
       "evmChainId": 4663,
-      "factory": "0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80",
-      "beacon": "0xac27328a77962cd0b6095e7c4074946622d6d77d",
+      "factory": "0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa",
+      "beacon": "0x935658c738aef037092c69fd66b1ac3295882c0d",
       "routers": ["0x204FAca1764B154221e35c0d20aBb3c525710498"],
       "routes": {
         "0x204FAca1764B154221e35c0d20aBb3c525710498": {
@@ -14,7 +14,7 @@
           "hooks": "0x0000000000000000000000000000000000000000"
         }
       },
-      "registry": "0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc",
+      "registry": "0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8",
       "cash": "robinhood:usdg",
       "assets": {
         "robinhood:usdg": {
@@ -91,6 +91,86 @@
           "pool": {
             "fee": 2100,
             "tickSpacing": 21
+          }
+        },
+        "robinhood:mstr": {
+          "address": "0xec262a75e413fafd0df80480274532c79d42da09",
+          "decimals": 18,
+          "pool": {
+            "fee": 2400,
+            "tickSpacing": 24
+          }
+        },
+        "robinhood:crcl": {
+          "address": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+          "decimals": 18,
+          "pool": {
+            "fee": 3000,
+            "tickSpacing": 30
+          }
+        },
+        "robinhood:uso": {
+          "address": "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344",
+          "decimals": 18,
+          "pool": {
+            "fee": 1200,
+            "tickSpacing": 15
+          }
+        },
+        "robinhood:pltr": {
+          "address": "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a",
+          "decimals": 18,
+          "pool": {
+            "fee": 1500,
+            "tickSpacing": 15
+          }
+        },
+        "robinhood:weth": {
+          "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "decimals": 18,
+          "pool": {
+            "fee": 200,
+            "tickSpacing": 4
+          }
+        },
+        "robinhood:cbbtc": {
+          "address": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+          "decimals": 8,
+          "pool": {
+            "fee": 1500,
+            "tickSpacing": 15
+          }
+        },
+        "robinhood:spcx": {
+          "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+          "decimals": 18,
+          "pool": {
+            "fee": 3000,
+            "tickSpacing": 60
+          }
+        },
+        "robinhood:coin": {
+          "address": "0x6330d8c3178a418788df01a47479c0ce7ccf450b",
+          "decimals": 18,
+          "pool": {
+            "fee": 2500,
+            "tickSpacing": 25
+          }
+        },
+        "robinhood:tsm": {
+          "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
+          "decimals": 18,
+          "pool": {
+            "fee": 7500,
+            "tickSpacing": 75
+          }
+        },
+        "robinhood:baba": {
+          "address": "0xad25ac6c84d497db898fa1e8387bf6af3532a1c4",
+          "decimals": 18,
+          "pool": {
+            "fee": 1000,
+            "tickSpacing": 10
           }
         }
       }
