@@ -1,0 +1,53 @@
+# Robinhood Chain mainnet: the redeploy (gate ROBINHOOD-REDEPLOY)
+
+New contracts on Robinhood Chain mainnet (4663), held by the team's 2-of-2 Safe `0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc` directly, with no timelock. The registry runs the second rules (`SHARED-RULES-V2`) from its first block, and the 27 tokens of `WIDER-LIST-B` are listed at deploy. Every step that sends a transaction is a person's. The contracts of 2026-10-12 ([`MAINNET-DEPLOY.md`](MAINNET-DEPLOY.md)) are not touched.
+
+## What is deployed
+
+`contracts/script/config/4663.json` as committed:
+
+- the vault logic, the beacon, the factory and the registry (both UUPS proxies), as on 2026-10-12;
+- the cash token USDG and 26 tokens: the nine of 2026-10-12 with their confirmed values, the twelve of `WIDER-LIST`, and QQQ, MU, AMD, INTC and SLV with a Uniswap v3 pool (`v3Pool`);
+- the guardian `0x0a1c…4cc98`, no keeper, no deposit cap, the Universal Router, the publish delay of 48 hours;
+- the Safe proposed for the factory's admin and the beacon's owner. No `TimelockController`.
+
+The app shows 19 of the 26 tokens. DELL and SGOV are listed and held back until their pools meet the bar again; the v3 five wait for the app to build a v3 route. The record keeps all seven under `hidden`, with the reason, and the guard's file does not list them.
+
+## The steps
+
+Every command runs from the repository root, with `ROBINHOOD_RPC_URL` set to a Robinhood Chain mainnet node. The scripts never print it.
+
+1. **Dry run.** `scripts/mainnet/redeploy-robinhood.sh`. It simulates all 54 transactions from the deployer `0x0495…8A938`, prints the Safe's owners and threshold as the chain answers them (compare them with the people who hold them) and sends nothing. On 2026-10-14: about 23.4M gas, 0.001 ETH at 0.043 gwei.
+2. **Deploy.** `scripts/mainnet/redeploy-robinhood.sh --send` (add `--account <keystore>` to sign from a cast keystore; without it forge asks for the key once). Type `deploy` to go on. The script keeps the first deploy's broadcast as `run-before-redeploy.json`, then writes `ROBINHOOD-REDEPLOY.safe-accept.json`.
+3. **The Safe takes both keys, the same hour.** Load `ROBINHOOD-REDEPLOY.safe-accept.json` in the Safe's Transaction Builder: two calls, `acceptAdmin()` on the factory and `acceptOwnership()` on the beacon. Both owners sign. Until then the deployer still holds the admin.
+4. **Read it back.** `pnpm ops:redeploy --status --rpc-env ROBINHOOD_RPC_URL` says the Safe holds both. `FACTORY=<factory> forge script script/Deploy.s.sol --sig "check()" --rpc-url $ROBINHOOD_RPC_URL` (from `contracts/`) checks the registry, the roles and every asset against the file.
+5. **Write the records.** `pnpm ops:mainnet-records --safe 2:0x0a1c3312c808b23D019bF241028f6B5624f4cc98,0xAC3cBBCd6e51dBFAf4e79d5E8Cf54a1622D71e0e` writes `deployments/robinhood-mainnet.json` and `packages/sdk/deployments/mainnet.json` from the broadcast and regenerates the guard's tables. In the same commit set `TRUST_STATUS.mainnet.robinhood.delayHours` to 0 and a new `textVersion` in `packages/schemas/src/trust.ts`: `trust.test.ts` fails until both are done, so the notice says the Safe changes things at once.
+6. **Authority check.** `pnpm ops:authority-check --record deployments/robinhood-mainnet.json --rpc-env ROBINHOOD_RPC_URL` must end `VERDICT: OK`.
+7. **Verify the sources on Etherscan** (below), then merge the records commit into `staging` and deploy the API (Render `tenonfi-api`, a person's click). The API and the snapshot worker read the addresses from the record; no environment variable names them.
+
+## Verifying the sources
+
+From `contracts/`, with an Etherscan API key in `ETHERSCAN_API_KEY` (never in a file) and the addresses from the record:
+
+```
+forge verify-contract <vaultLogic>    src/BasketVault.sol:BasketVault     --chain 4663 --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=4663 --watch
+forge verify-contract <beacon>        src/VaultBeacon.sol:VaultBeacon     --chain 4663 --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=4663 --guess-constructor-args --watch
+forge verify-contract <factoryLogic>  src/VaultFactory.sol:VaultFactory   --chain 4663 --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=4663 --watch
+forge verify-contract <registryLogic> src/IndexRegistry.sol:IndexRegistry --chain 4663 --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=4663 --watch
+forge verify-contract <factory>  node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy --chain 4663 --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=4663 --guess-constructor-args --watch
+forge verify-contract <registry> node_modules/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy --chain 4663 --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=4663 --guess-constructor-args --watch
+```
+
+Then mark each proxy as a proxy on https://robin.etherscan.io ("Is this a proxy?"), so its page reads through to the logic.
+
+## The contracts of 2026-10-12
+
+They stay deployed, held by their timelock. Their factory lists two vaults, both owned by `0xAC3c…1e0e`, about $15 between them on 2026-10-14 (5 USDG and four stocks in one, SPY in the other); the registry has no portfolio. Before the records change, their owner withdraws through the app (Withdraw on each vault). After it, the app no longer lists them, and `withdrawAll()` on each vault's page on Etherscan does the same: it reads no feed and calls neither the factory nor the timelock, so nothing on the old contracts can stop it.
+
+## When the timelock comes back
+
+Gate `ROBINHOOD-REDEPLOY` names the condition: the four portfolios of `PRODUCTS-MAINNET-ONLY` are published, a week of trading with the keeper off has run without an incident, and Thom says so. Then the Safe hands the factory's admin and the beacon to a new `TimelockController` of 48 hours, `delayHours` goes back to 48 with a new `textVersion`, and the record names the timelock again.
+
+## Rehearsal
+
+`ROBINHOOD_RPC_URL=<node> contracts/script/redeploy-fork.sh [out dir]` runs steps 2 to 6 on an anvil copy of mainnet, as the impersonated deployer and Safe. On 2026-10-14 at block 88,777,239: 54 transactions with receipts; the Safe's two calls; the Safe holds both; `Deploy.check()` passes on 27 assets; both records written; `authority-check` `VERDICT: OK`. `RH_FORK_URL=<node> forge test --match-path test/fork/RobinhoodForkDeploy.t.sol` deploys the same file on a fork and buys and sells back every one of the 26 tokens through the real router.

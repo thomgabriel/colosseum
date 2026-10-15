@@ -1,5 +1,7 @@
 # Robinhood Chain mainnet: the second list of tokens
 
+**Superseded in how, not in what (2026-10-14, gate `ROBINHOOD-REDEPLOY`):** these tokens, with the values below, are listed by the redeploy at deploy (`contracts/script/config/4663.json`, [`MAINNET-REDEPLOY.md`](MAINNET-REDEPLOY.md)), not by a timelock batch on the factory of 2026-10-12.
+
 Measured 2026-10-13, read-only, for gate `WIDER-LIST` (Thom: launch "with as much tokens we can"). Nothing was sent, signed or proposed: the Safe's two owners list these tokens through the timelock, and the app shows a token only once the chain lists it (below).
 
 **Twelve tokens meet the bar the nine of the deploy met:** MSTR, CRCL, USO, PLTR, WETH, cbBTC, DELL, SPCX, COIN, TSM, BABA, SGOV. Seventeen do not. The batch that lists them is `contracts/script/config/4663-assets-2.json`.
