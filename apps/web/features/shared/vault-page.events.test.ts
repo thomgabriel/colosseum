@@ -776,6 +776,20 @@ describe('the pane’s states, and the way out of each', () => {
     expect(document.activeElement).toBe(find(host, '[data-ui="vault-more"]'));
   });
 
+  it('weights by hand: also from the line that says how to change the vault (Thom, Oct 15)', async () => {
+    api();
+    const host = await show();
+    const hint = find(host, '[data-ui="vault-change-hint"]');
+    const edit = find(hint, '[data-action="vault-hint-edit-weights"]');
+    expect(edit.textContent).toBe(p.changeByHand);
+    await click(edit);
+    await settle();
+    expect(screen(host).dataset.pane).toBe('weights');
+    await click(find(pane(host), '[data-action="leave-action"]'));
+    expect(screen(host).dataset.pane).toBe('holdings');
+    expect(document.activeElement).toBe(find(host, '[data-action="vault-hint-edit-weights"]'));
+  });
+
   it('withdraw: chosen, reviewed and signed in the pane, with no other page, then the vault is read again', async () => {
     const server = api();
     const again = await show();

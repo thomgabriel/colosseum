@@ -1674,6 +1674,7 @@ export const pt: Dictionary = {
         value: 'Valor',
         change:
           'Para mudar o que este cofre guarda, diga na conversa: mais de um ativo, menos de outro.',
+        changeByHand: 'Ou edite os pesos à mão.',
         details: 'Detalhes',
         priceSources: 'Fontes dos preços',
         priceEntries: (count: number, list: string) =>

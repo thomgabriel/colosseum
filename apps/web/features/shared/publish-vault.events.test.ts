@@ -297,6 +297,14 @@ describe('sharing a selected vault strategy', () => {
     });
     expect(router.push).toHaveBeenCalledOnce();
   });
+  it('names the cash it holds by its symbol, never by its id (Thom, Oct 15)', async () => {
+    api();
+    const host = await show();
+    const assets = find(host, `section[aria-label="${en.shared.publish.assets}"]`);
+    const held = [...assets.querySelectorAll('li')].map((li) => li.firstElementChild?.textContent);
+    expect(held).toContain('USDC');
+    expect(assets.textContent).not.toContain('solana:usdc');
+  });
   it('marks only the card with figures as not live, once, and names where the targets were read (the UI audit, G9)', async () => {
     api();
     const host = await show();

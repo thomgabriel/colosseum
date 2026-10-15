@@ -1039,7 +1039,7 @@ const REPAIR_HINTS: Record<string, string> = {
   allocation_constraint:
     'The picks cannot meet a share the person stated, which the server read in their own words (allocationConstraints). Pick the assets it covers, with room for the rest, so the server can meet it, or ask the person about it in question. The share is theirs and still stands until they say "forget" or "drop" it, or ask for an equal split.',
   stated_ungrounded:
-    'A share in stated is not one the server read in the person\'s words, so it is not applied. The server reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "at least 40% stocks", "70/30 TSLA and NVDA"), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; allocationConstraints lists what it read. Remove the share, do not describe it as applied, and ask the person in question to say it as a percentage beside the asset name.',
+    'A share in stated is not one the server read in the person\'s words, so it is not applied. The server reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "at least 40% stocks", "70/30 TSLA and NVDA", "TSLA 70, NVDA 30" where the numbers come to 100), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; allocationConstraints lists what it read. Remove the share, do not describe it as applied, and ask the person in question to say it as a percentage beside the asset name.',
   confirmation_ambiguous:
     "The person's latest message is a bare confirmation, and the app's turn before it did not ask exactly one yes-or-no question, so the server cannot tell what it confirms (facts.latest is ambiguous_confirmation). Return proposal null. Say in message, in one sentence, that it could answer more than one thing; restate no rule and no earlier refusal. Ask in question which they mean, naming the choices in a few words. Do not draft an earlier request.",
   reply_shape:
@@ -1573,8 +1573,16 @@ const ASK_SUBJECT =
 const ASK_VERB =
   '(?:put|make\\s+(?:it|that)|(?:change|set)\\s+(?:it|that)\\s+to|set|give(?:\\s+me)?|allocate|use|add|coloc(?:ar|a|que)|p[oô]r|ponha|põe|bot(?:ar|a|e)|deix(?:ar|a|e)|aloc(?:ar|a|que)|us(?:ar|a|e))';
 const END_OF_WORD = '(?![\\p{L}\\p{N}])';
+// What the shares are of, named before them ("a vault with SPY 50%, …"), and a heading that hands
+// over the list ("exactly these shares: SPY 50%, …"). Thom, Oct 15: "A vault with exactly these
+// shares: SPY 50%, AAPL 15%, …" read as no share at all, and his vault was split equally. Never "my
+// portfolio with …" or "minha carteira com …": that may describe what the person holds elsewhere.
+const ASK_OBJECT =
+  '(?:(?:a|an|one|the|this)\\s+(?:new\\s+)?(?:vault|portfolio|plan)\\s+(?:with|of|holding)|(?:um|uma|o|a|este|esta|esse|essa)\\s+(?:nov[oa]\\s+)?(?:cofre|carteira|plano)\\s+(?:com|de))';
+const ASK_LIST =
+  '(?:(?:exactly|precisely|exatamente)\\s+)?(?:these|the\\s+following|estas|estes|essas|esses|(?:os|as)\\s+seguintes)\\s+(?:shares|weights|allocations?|percentages|targets|partes|pesos|percentuais|porcentagens|aloca[cç][oõ]es|alvos)\\s*:';
 const ASK_BEFORE = new RegExp(
-  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*$`,
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*(?:${ASK_OBJECT}${END_OF_WORD})?\\s*(?:${ASK_LIST})?\\s*$`,
   'iu',
 );
 // A piece that asks for something and holds no share ("I want EV stocks") opens the same way.
@@ -1988,6 +1996,58 @@ const replaces = (next: PersonShare, earlier: PersonShare) =>
     earlier.kind === 'exact' ||
     (next.kind === 'min' ? next.bps > earlier.bps : next.bps < earlier.bps));
 
+// A number with no sign or unit: a candidate share in a list of them. Never beside a currency sign,
+// a decimal mark, a slash or a letter ("$50", "1/2", "Q3").
+const BARE_NUMBER = /(?<![$€£]\s?)(?<![\p{L}\p{N}.,/])\d+(?:[.,]\d+)?(?![\p{L}\p{N}%/]|[.,]\d)/gu;
+
+/**
+ * A sentence that is a list of names each with a bare number ("SPY 50, AAPL 15, … GOOGL 2.5"), the
+ * numbers coming to exactly 100, written as percents; null for anything else (Thom, Oct 15: refusing
+ * such a list as "a bare number beside each name" was hostile). Every piece with a number, between
+ * commas or "and", is one name and its one number, after it ("SPY 50") or before it with "in" ("70 in
+ * TSLA"); at least two, each name once, and no other number or share word in the sentence. The
+ * sentence then goes through the same checks as one written with "%".
+ */
+function percentsOfList(sentence: string, named: (text: string) => Named[]): string | null {
+  if (SHARE_WORDS.test(sentence)) return null;
+  const numbers = [...sentence.matchAll(BARE_NUMBER)];
+  if (numbers.length < 2) return null;
+  // Each number beside its one name, as a share and never as a count of tokens: after the name with
+  // only a space or a colon between ("SPY 50", "SPY: 50"), or before it only with "in" or "em" ("70
+  // in TSLA"). "50 SPY" and "SPY at 50" are said back (the review of #325).
+  const PIECES = /(?<!\d),|,(?!\d)|\s(?:and|e|&)\s/iu;
+  for (const piece of sentence.split(PIECES)) {
+    const [number, ...more] = [...piece.matchAll(BARE_NUMBER)];
+    if (!number) continue;
+    const [name, ...others] = named(piece);
+    if (more.length || !name || others.length) return null;
+    const [from, to] = [number.index, number.index + number[0].length];
+    const beside =
+      name.end <= from
+        ? /^(?:\s+|\s*:\s*)$/u.test(piece.slice(name.end, from))
+        : to <= name.start && /^\s+(?:in|em)\s+$/iu.test(piece.slice(to, name.start));
+    if (!beside) return null;
+  }
+  const written = sentence.replace(BARE_NUMBER, '$&%');
+  const found = written
+    .split(PIECES)
+    .filter((piece) => piece.includes('%'))
+    .map((piece) => ({ piece, shares: sharesInPiece(piece, named) }));
+  if (
+    found.length !== numbers.length ||
+    found.some(({ piece, shares }) => shares.length !== 1 || piece.split('%').length !== 2)
+  )
+    return null;
+  const shares = found.flatMap(({ shares }) => shares);
+  const ids = shares.map((share) => share.assetIds.join('+'));
+  const whole = shares.reduce((n, share) => n + share.bps, 0);
+  return shares.every((share) => share.kind === 'exact' && share.assetIds.length === 1) &&
+    new Set(ids).size === ids.length &&
+    whole === 10_000
+    ? written
+    : null;
+}
+
 /**
  * The shares the person stated, read by the server from their own messages and from nothing else (gate
  * ANY-COMPOSITION). The default is not to apply: unread and said back is always acceptable, applied or
@@ -2105,9 +2165,11 @@ export function personShares(
       read.push(share);
       continue;
     }
-    for (const [, sentence = '', end = ''] of text.matchAll(
+    for (const [, said = '', end = ''] of text.matchAll(
       /((?:[^.;!?\n]|(?<=\d)\.(?=\d))+)([.;!?\n]*)/gu,
     )) {
+      // "SPY 50, AAPL 30, NVDA 20": a list whose bare numbers come to 100 is read as percents.
+      const sentence = percentsOfList(said, named) ?? said;
       // "Forget Tesla after all" is "forget Tesla": the words after it are no quantity to say back.
       const forgets = WITHDRAWS.test(sentence.trim())
         ? sentence.trim().replace(FORGET_TAIL, '')
