@@ -983,6 +983,27 @@
 }
 
 /* A scroll bar a third of the usual width, for the locked invest screen's panes. */
+/*
+ * A pane that scrolls on its own inside a fixed-height page (a workbench's right pane): a scrollbar a
+ * person can see and take hold of on a desktop, the muted ink on its track, never the hairline's colour.
+ */
+@utility tf-scroll-pane {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent) transparent;
+  scrollbar-gutter: stable;
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
 @utility tf-scroll-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
