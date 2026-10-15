@@ -1,12 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
-import { parseChainConfigs, parseFlags } from '@colosseum/schemas';
+import { ConfigResponse, parseChainConfigs, parseFlags } from '@colosseum/schemas';
+import Fastify from 'fastify';
+import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { describe, expect, it } from 'vitest';
 import { evmDeployment, evmRecordFile } from './deployments';
 import { FAUCET_KEY_ENV, faucetKeysFrom, onTestNetwork } from './faucet/test-funds';
 import { createChainRegistry, MAINNET_SWITCH, mainnetAllowed } from './orders/chains';
-import { holdToEvmRecord, robinhoodFromEnv } from './routes/v1/index';
+import {
+  FILL_SCRIPT,
+  holdToEvmRecord,
+  missingFromEvmRecord,
+  registerV1Routes,
+  robinhoodFromEnv,
+} from './routes/v1/index';
 
 // Robinhood Chain on mainnet is off unless three things are all there: the network is asked for
 // (`CHAIN_NETWORK_ROBINHOOD=mainnet`), the second switch says so in words (`CHAIN_MAINNET_ROBINHOOD`),
@@ -179,7 +187,7 @@ describe('Robinhood Chain on mainnet', () => {
     );
   });
 
-  it('refuses to start with a token the record shows and no row for it, as the chat would not list it', () => {
+  it('starts without a token the record shows and has no row for, and names every one', () => {
     const dir = join(import.meta.dirname, '..', '..', '..', 'deployments');
     const record = EvmDeploymentRecord.parse(
       JSON.parse(readFileSync(join(dir, 'robinhood-mainnet.json'), 'utf8')),
@@ -194,15 +202,64 @@ describe('Robinhood Chain on mainnet', () => {
       ].sort(),
     );
     expect(holdToEvmRecord(rows, record)).toHaveLength(20);
-    // the table as it stood before the redeploy's rows were filled in: ten of the nineteen
-    const before = rows.filter((r) =>
-      ['USDG', 'NVDA', 'SPY', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'GLD'].includes(
-        r.symbol,
-      ),
+    expect(missingFromEvmRecord(rows, record)).toEqual([]);
+    // the table as it stood before the redeploy's rows were written: ten of the twenty. The API
+    // starts on them (withdrawals and reads go on), and the other ten are named, each with its address.
+    const ten = ['USDG', 'NVDA', 'SPY', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'GLD'];
+    const before = rows.filter((r) => ten.includes(r.symbol));
+    expect(holdToEvmRecord(before, record)).toHaveLength(10);
+    expect(missingFromEvmRecord(before, record)).toEqual(
+      rows.filter((r) => !ten.includes(r.symbol)).map((r) => ({ id: r.id, address: r.address })),
     );
-    expect(() => holdToEvmRecord(before, record)).toThrow(
-      /robinhood:\w+ \(0x[0-9a-f]+\) is a token of robinhood-mainnet with no row/,
+  });
+
+  it('names every row that does not match the record, and the script that writes them', () => {
+    const dir = join(import.meta.dirname, '..', '..', '..', 'deployments');
+    const record = EvmDeploymentRecord.parse(
+      JSON.parse(readFileSync(join(dir, 'robinhood-mainnet.json'), 'utf8')),
     );
+    // five rows another network's, and no cash: six problems, every one said
+    const wrong = deploymentAssets(record)
+      .filter((r) => r.cls !== 'cash')
+      .slice(0, 5)
+      .map((r) => ({ ...r, provenance: 'sandbox' as const }));
+    let message = '';
+    try {
+      holdToEvmRecord(wrong, record);
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('(6 problems)');
+    for (const r of wrong) expect(message).toContain(`${r.id} has provenance sandbox`);
+    expect(message).toContain("the cash row is not robinhood-mainnet's cash");
+    expect(message).toContain(`with ${FILL_SCRIPT.robinhood}, then deploy`);
+  });
+
+  it('says the missing tokens at start, as an error, and in GET /v1/config', async () => {
+    const lines: Array<Record<string, unknown>> = [];
+    const app = Fastify({
+      logger: { level: 'error', stream: { write: (line: string) => lines.push(JSON.parse(line)) } },
+    });
+    app.setValidatorCompiler(validatorCompiler);
+    app.setSerializerCompiler(serializerCompiler);
+    const missing = [
+      { id: 'robinhood:spcx', address: '0x00000000000000000000000000000000000005c1' },
+    ];
+    await registerV1Routes(
+      app,
+      { CHAIN_MODE_ROBINHOOD: 'readonly' },
+      { contracts, robinhood: { ...inputs(false), missing } },
+    );
+    const body = ConfigResponse.parse(
+      (await app.inject({ method: 'GET', url: '/v1/config' })).json(),
+    );
+    await app.close();
+    expect(body.chains.find((c) => c.id === 'robinhood')?.missingAssets).toEqual(missing);
+    // a chain on the mock is run from no record, and says nothing of one
+    expect(body.chains.find((c) => c.id === 'solana')?.missingAssets).toBeUndefined();
+    const said = lines.find((line) => line.code === 'basket_assets_missing');
+    expect(said).toMatchObject({ level: 50, chain: 'robinhood', missing });
+    expect(String(said?.msg)).toContain(FILL_SCRIPT.robinhood);
   });
 
   it('looks for the mainnet record under its own name, and finds the one committed', () => {

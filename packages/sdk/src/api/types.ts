@@ -1963,6 +1963,11 @@ export type GetConfigResponse = {
     };
     mode: 'live' | 'readonly' | 'mock' | 'off';
     provenance: ('live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset') | null;
+    /** Tokens the chain's deploy record shows that the server's asset table has no row for, so they are listed nowhere. Empty when every one is listed; absent for a chain not run from a record. */
+    missingAssets?: {
+      id: string;
+      address: string;
+    }[];
   }[];
 };
 
