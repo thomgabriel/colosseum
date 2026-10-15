@@ -97,8 +97,14 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
       readFileSync(join(ROOT, 'packages', 'sdk', 'deployments', 'mainnet.json'), 'utf8'),
     ) as GuardFile
   ).chains.robinhood;
+  // The deploy file the committed record was made from: the redeploy's (its Safe holds the keys
+  // itself) once Thom has run it, the file of 2026-10-12 (its timelock) until then.
+  const recordNow = JSON.parse(
+    readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8'),
+  ) as { safe?: unknown };
+  const deployFile = recordNow.safe ? '4663.json' : '4663-2026-10-12.json';
   const contracts = JSON.parse(
-    readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8'),
+    readFileSync(join(ROOT, 'contracts', 'script', 'config', deployFile), 'utf8'),
   ) as ContractsFile;
   const lower = (s: string) => s.toLowerCase();
 
@@ -229,7 +235,7 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     // Every value of the contracts' file was confirmed by a person on 2026-10-12: the marker word the
     // deploy script refuses on is gone, and every note that stood beside a proposed value says who
     // confirmed it and when.
-    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8');
+    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', deployFile), 'utf8');
     expect(text).not.toContain('TODO');
     const file = JSON.parse(text) as Record<string, unknown> & {
       assets: Record<string, unknown>[];

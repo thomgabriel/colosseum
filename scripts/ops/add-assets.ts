@@ -78,7 +78,18 @@ export function heldToFile(record: Json, file: AddAssetsFile): void {
     .filter((a) => !listed.has(a.token))
     .map((a) => recordEntryOf(a, operationId));
   const have = EvmDeploymentRecord.parse(record).pending ?? [];
-  if (JSON.stringify(have) !== JSON.stringify(want))
+  // Compared field by field, whatever order the schema puts the fields in.
+  const canon = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(canon)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.entries(v as Json)
+              .sort(([x], [y]) => (x < y ? -1 : 1))
+              .map(([k, x]) => [k, canon(x)]),
+          )
+        : v;
+  if (JSON.stringify(canon(have)) !== JSON.stringify(canon(want)))
     fail("the record's pending tokens are not the file's: write them from the file again");
 }
 

@@ -65,6 +65,17 @@ contract Stock18 {
     }
 }
 
+/// A token of 8 decimals with a pause switch, as cbBTC answers.
+contract Coin8 {
+    function decimals() external pure returns (uint8) {
+        return 8;
+    }
+
+    function paused() external pure returns (bool) {
+        return false;
+    }
+}
+
 contract Aggregator {}
 
 /// A feed as Chainlink's proxies answer: decimals, a description, the aggregator behind it, a round.
@@ -392,24 +403,55 @@ contract DeployMainnetTest is Test {
     function test_mainnet_refusesAnAdminThatIsNotTheTimelock() public {
         Deploy.Config memory cfg = _good();
         cfg.admin = makeAddr("a-key");
-        _refused(cfg, "admin is set: on a mainnet the admin is the timelock the script creates");
+        _refused(cfg, "admin is set: on a mainnet the admin is a timelock the script creates, or a Safe");
         cfg.timelockOwner = address(0);
-        _refused(cfg, "admin is set: on a mainnet the admin is the timelock the script creates");
+        _refused(cfg, "admin is set: on a mainnet the admin is a timelock the script creates, or a Safe");
     }
 
     function test_mainnet_refusesNoTimelock() public {
         Deploy.Config memory cfg = _good();
         cfg.timelockOwner = address(0);
-        _refused(cfg, "no timelock owner");
+        _refused(cfg, "name a timelock or a safe, one of the two");
+        // Both at once is not one of the two either (gate ROBINHOOD-REDEPLOY).
+        cfg = _good();
+        cfg.safe = cfg.timelockOwner;
+        _refused(cfg, "name a timelock or a safe, one of the two");
+    }
+
+    /// The Safe may hold the keys itself, with no timelock (gate ROBINHOOD-REDEPLOY): held to the same rules
+    /// as a timelock's owner, then proposed for both keys, which it takes with its own two calls.
+    function test_mainnet_aSafeThatHoldsTheKeysItself() public {
+        Deploy.Config memory cfg = _good();
+        address owner_ = cfg.timelockOwner;
+        cfg.timelockOwner = address(0);
+        cfg.timelockDelay = 0;
+        cfg.safe = makeAddr("a-key");
+        _refused(cfg, "the Safe that holds the keys has no code: it must be a contract (a Safe), not a key");
+        cfg.safe = owner_;
+        cfg.safeMinThreshold = 3;
+        _refused(cfg, "the Safe needs fewer signatures than safeMinThreshold");
+        cfg.safeMinThreshold = 2;
+        Deploy.Deployed memory d = script.deploy(cfg, deployer);
+        assertEq(d.timelock, address(0));
+        VaultFactory factory = VaultFactory(d.factory);
+        assertEq(factory.admin(), deployer, "the deployer holds the admin until the Safe accepts");
+        assertEq(factory.pendingAdmin(), owner_);
+        assertEq(VaultBeacon(d.beacon).pendingOwner(), owner_);
+        vm.startPrank(owner_);
+        factory.acceptAdmin();
+        VaultBeacon(d.beacon).acceptOwnership();
+        vm.stopPrank();
+        assertEq(factory.admin(), owner_);
+        assertEq(VaultBeacon(d.beacon).owner(), owner_);
     }
 
     /// The owner of the timelock must be a contract: a Safe, not one person's key.
     function test_mainnet_refusesATimelockOwnerWithNoCode() public {
         Deploy.Config memory cfg = _good();
         cfg.timelockOwner = makeAddr("a-key");
-        _refused(cfg, "the timelock owner has no code: it must be a contract (a Safe), not a key");
+        _refused(cfg, "the Safe that holds the keys has no code: it must be a contract (a Safe), not a key");
         cfg.timelockOwner = deployer;
-        _refused(cfg, "the timelock owner is the deployer");
+        _refused(cfg, "the Safe that holds the keys is the deployer");
     }
 
     /// "Has code" is not "is a Safe": the owner must answer as one, need two signatures or more, and not
@@ -980,11 +1022,11 @@ contract DeployMainnetTest is Test {
         assertFalse(cfg.adminIsDeployer);
         assertFalse(cfg.keeperEnabled);
         assertEq(cfg.keeper, address(0));
-        // Two values a person has confirmed since (Thom, 2026-10-12): the Safe and the guardian.
-        assertEq(cfg.timelockOwner, 0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc, "the Safe on Robinhood Chain");
+        // The Safe holds the keys itself, with no timelock (ROBINHOOD-REDEPLOY), and the guardian.
+        assertEq(cfg.safe, 0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc, "the Safe on Robinhood Chain");
+        assertEq(cfg.timelockOwner, address(0), "no timelock");
         assertEq(cfg.guardian, 0x0a1c3312c808b23D019bF241028f6B5624f4cc98, "the guardian");
-        assertGt(cfg.assets.length, 2, "more than NVDA is listed");
-        assertEq(cfg.timelockDelay, 48 hours);
+        assertEq(cfg.assets.length, 27, "the cash and 26 tokens");
         assertEq(cfg.publishDelay, 172_800);
         assertEq(cfg.cashToken, USDG);
         assertFalse(cfg.hasCaps, "no deposit cap");
@@ -997,10 +1039,10 @@ contract DeployMainnetTest is Test {
         }
         // With no marker the file is still held to the Safe: on a chain that has no contract at the address
         // it names, the owner is refused as a key would be. And neither address may be missing.
-        _refused(cfg, "the timelock owner has no code: it must be a contract (a Safe), not a key");
-        cfg.timelockOwner = address(0);
-        _refused(cfg, "no timelock owner");
-        cfg.timelockOwner = safe;
+        _refused(cfg, "the Safe that holds the keys has no code: it must be a contract (a Safe), not a key");
+        cfg.safe = address(0);
+        _refused(cfg, "name a timelock or a safe, one of the two");
+        cfg.safe = safe;
         address named = cfg.guardian;
         cfg.guardian = address(0);
         _refused(cfg, "no guardian");
@@ -1016,20 +1058,23 @@ contract DeployMainnetTest is Test {
     function test_theCommittedMainnetFile_deploysOnceItsPlaceholdersAreFilled() public {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
-        cfg.timelockOwner = safe;
+        cfg.safe = safe;
         // The guardian is the file's own.
         // Every listed token and its feed, as stand-ins that answer what the file says of them.
         assertGt(cfg.assets.length, 2, "more than NVDA is listed");
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
             ChainlinkLikeFeed like = new ChainlinkLikeFeed(8, cfg.feedDescriptions[i], address(new Aggregator()));
-            vm.etch(cfg.assets[i].token, address(stock).code);
+            vm.etch(
+                cfg.assets[i].token,
+                cfg.assets[i].config.tokenDecimals == 8 ? address(new Coin8()).code : address(stock).code
+            );
             vm.etch(cfg.assets[i].config.feed, address(like).code);
             for (uint256 slot; slot < 3; ++slot) {
                 vm.store(cfg.assets[i].config.feed, bytes32(slot), vm.load(address(like), bytes32(slot)));
             }
         }
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
-        assertEq(VaultFactory(d.factory).admin(), d.timelock);
+        assertEq(VaultFactory(d.factory).pendingAdmin(), safe, "the Safe is proposed, and takes it with its batch");
         assertEq(VaultFactory(d.factory).assets().length, cfg.assets.length);
         assertEq(VaultFactory(d.factory).guardian(), 0x0a1c3312c808b23D019bF241028f6B5624f4cc98);
     }
