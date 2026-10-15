@@ -659,7 +659,14 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
         const raw = otherRaw[i] ?? 0n;
         // Held with no target: the weight it should have is zero.
         return raw > 0n
-          ? [holding(m, asset, raw).then((h) => ({ ...h, targetBps: 0, lastKeeperAt: null }))]
+          ? [
+              holding(m, asset, raw).then((h) => ({
+                ...h,
+                targetBps: 0,
+                lastKeeperAt: null,
+                untargeted: true as const,
+              })),
+            ]
           : [];
       }),
     ]);

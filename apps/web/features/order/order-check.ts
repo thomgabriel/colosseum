@@ -240,8 +240,11 @@ export function sharedShapeOk(
 ): boolean {
   if (order.depositRaw !== undefined || order.legs.length === 0) return false;
   // A follow may sell first what the vault holds of the assets the version drops (SHARED-RULES-V2):
-  // those sales, as its review named them, each for the cash, before the accept. Nothing else trades.
-  const sales = terms.kind === 'follow' ? (terms.leftovers ?? []) : [];
+  // those sales, as this app worked them out, each for the cash, before the accept, never an asset the
+  // version keeps, each with a minimum within an order's slippage of its quote. Nothing else trades.
+  const sales = terms.kind === 'follow' ? (terms.leftovers?.sales ?? []) : [];
+  const keeps = new Set(terms.kind === 'follow' ? (terms.leftovers?.keeps ?? []) : []);
+  const keep = BigInt(10_000 - ORDER_LIMITS.maxSlippageBps);
   const ordered = order.legs.slice().sort((a, b) => a.seq - b.seq);
   const acceptAt = ordered.findIndex((l) => l.kind === 'accept_version');
   const sold = ordered.filter((l) => l.kind === 'swap');
@@ -253,9 +256,21 @@ export function sharedShapeOk(
       sold.some((l) => ordered.indexOf(l) > acceptAt || l.cashRaw !== undefined) ||
       trades.length !== sales.length ||
       new Set(trades.map((t) => t.sell)).size !== trades.length ||
-      trades.some((t) => named.get(t.sell) !== t.amountInRaw || t.buy === t.sell)
+      trades.some(
+        (t) => named.get(t.sell) !== t.amountInRaw || t.buy === t.sell || keeps.has(t.sell),
+      )
     )
       return false;
+    for (const l of sold) {
+      if (l.expected.length !== l.trades.length) return false;
+      for (const e of l.expected) {
+        if (!RAW.test(e.minOutRaw) || !RAW.test(e.outRaw) || BigInt(e.minOutRaw) === 0n)
+          return false;
+        // The guard's `quoteCeiling`: a minimum is at most `maxSlippageBps` under its quote.
+        if (BigInt(e.outRaw) > ((BigInt(e.minOutRaw) + 1n) * 10_000n + keep - 1n) / keep)
+          return false;
+      }
+    }
   } else if (sales.length) return false;
   const rest = order.legs.filter((l) => l.kind !== 'swap');
   if (rest.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;

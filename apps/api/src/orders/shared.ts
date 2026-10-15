@@ -21,6 +21,7 @@ import {
   type IntentRequest,
   isAddressOf,
   type Leg,
+  leftoversOf,
   ORDER_DEFAULT_SLIPPAGE_BPS,
   type Principal,
   type Recipe,
@@ -365,28 +366,28 @@ export async function followedOn(
 }
 
 /**
- * The sales a follow needs before its accept: none while the version and the assets the vault holds
- * that it drops fit the vault's lines (`VAULT_MAX_LINES`); past that, every such leftover sold for cash,
- * all the vault holds of it, each quoted now with the default slippage and a minimum the chain will take.
- * A leftover that cannot be sold now refuses the follow in plain words, before anything is signed.
+ * The sales a follow needs before its accept (`leftoversOf`): none while the version and the vault's
+ * lines it drops fit the vault's lines (`VAULT_MAX_LINES`); past that, every such line sold for cash,
+ * all the vault holds of it, each quoted now with the default slippage and a minimum the chain will
+ * take. A leftover that cannot be sold now refuses the follow in plain words, before anything is signed.
  */
 export async function leftoverSales(
   entry: ChainEntry,
   vault: Pick<VaultState, 'owner' | 'positions' | 'cash'>,
   version: Target[],
 ): Promise<SharedStep[]> {
-  const inVersion = new Set(version.map((t) => t.asset));
-  const leftovers = vault.positions.filter(
-    (p) => BigInt(p.raw) > 0n && !inVersion.has(p.asset) && p.asset !== vault.cash.asset,
+  const leftovers = leftoversOf(
+    vault,
+    version.map((t) => t.asset),
+    VAULT_MAX_LINES[chainFamily(entry.chain)],
   );
-  const lines = VAULT_MAX_LINES[chainFamily(entry.chain)];
-  if (version.length + leftovers.length <= lines) return [];
+  if (!leftovers.length) return [];
   const assets = await entry.adapter.listAssets();
   const symbol = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
-  const why = (asset: string, reason: string) =>
+  const why = (asset: string) =>
     new Refusal(
       409,
-      `this version and the ${leftovers.length} assets your vault still holds of the ones it drops come to ${version.length + leftovers.length} lines, more than the vault's ${lines}, and ${symbol(asset)} cannot be sold now: ${reason}. Sell or withdraw it, then follow`,
+      `Your vault still holds ${symbol(asset)}, which this version drops, and ${symbol(asset)} can't be sold now. Sell or withdraw it, then follow.`,
       {
         fix: 'Sell or withdraw what the vault holds of the assets this version drops, then follow.',
         details: { retryable: false },
@@ -394,22 +395,20 @@ export async function leftoverSales(
     );
   const sales: { trade: Trade; expected: Leg['expected'][number] }[] = [];
   for (const held of leftovers) {
-    const trade: Trade = { sell: held.asset, buy: vault.cash.asset, amountInRaw: held.raw };
-    if (!assets.some((a) => a.id === held.asset))
-      throw why(held.asset, `this app does not list it on ${entry.config.name}`);
+    const trade: Trade = { sell: held.asset, buy: vault.cash.asset, amountInRaw: held.amountRaw };
+    if (!assets.some((a) => a.id === held.asset)) throw why(held.asset);
     let quote: Awaited<ReturnType<typeof entry.adapter.quote>>;
     try {
       quote = await entry.adapter.quote(trade, vault.owner);
     } catch (e) {
-      if (e instanceof ChainError) throw why(held.asset, e.message);
+      if (e instanceof ChainError) throw why(held.asset);
       throw e;
     }
     const out = BigInt(quote.outRaw);
     const ours = (out * BigInt(10_000 - ORDER_DEFAULT_SLIPPAGE_BPS)) / 10_000n;
     const theirs = BigInt(quote.minOutRaw);
     const least = theirs > ours ? theirs : ours;
-    if (out <= 0n || least <= 0n || least > out)
-      throw why(held.asset, 'its pool pays too little for a sale held to a minimum');
+    if (out <= 0n || least <= 0n || least > out) throw why(held.asset);
     sales.push({
       trade,
       expected: {

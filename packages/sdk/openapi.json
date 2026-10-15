@@ -19683,6 +19683,10 @@
                                           }
                                         ]
                                       },
+                                      "untargeted": {
+                                        "type": "boolean",
+                                        "enum": [true]
+                                      },
                                       "valueUsd": {
                                         "anyOf": [
                                           {
@@ -22132,6 +22136,10 @@
                                                     "type": "null"
                                                   }
                                                 ]
+                                              },
+                                              "untargeted": {
+                                                "type": "boolean",
+                                                "enum": [true]
                                               },
                                               "valueUsd": {
                                                 "anyOf": [
@@ -25086,6 +25094,10 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "untargeted": {
+                                "type": "boolean",
+                                "enum": [true]
                               },
                               "valueUsd": {
                                 "anyOf": [
