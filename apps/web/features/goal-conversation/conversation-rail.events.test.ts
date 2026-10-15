@@ -11,7 +11,7 @@ import { json, PHANTOM, signedInPort } from '../wallet/test/fake-port';
 import { portStore } from '../wallet/test/mock-provider';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { current, open, openNew, rail, row, titles, viewport } from './test/rail';
+import { current, open, openNew, rail, row, titles, unfold } from './test/rail';
 
 // The conversations panel of /invest (Thom, Oct 14, in place of the picker): the drafts kept in this
 // browser and the person's vaults, newest first by day; a vault named by its goal with its value
@@ -74,7 +74,6 @@ const groups = (host: HTMLElement) =>
 let served = answer as unknown;
 let portfolio: unknown = null;
 beforeEach(() => {
-  viewport(1600);
   window.history.replaceState(null, '', '/invest');
   localStorage.clear();
   sessionStorage.clear();
@@ -322,7 +321,7 @@ describe('the conversations panel', () => {
   });
 
   // Thom, Oct 15: under 1440px a draft beside the chat would leave it too narrow with the rail open
-  it('folds to its strip under 1440px while a draft is beside the chat, until it is opened again', async () => {
+  it('folds to its strip while a draft is beside the chat, and stays open for that conversation once opened again', async () => {
     portStore.setApi(async (url, init) => {
       if (url === '/v1/me') return json(person);
       if (url === '/v1/portfolio/plans') return json(served);
@@ -342,9 +341,8 @@ describe('the conversations panel', () => {
       await click(find(host, '[data-ui="composer-send"]'));
       await settle();
     };
-    const expanded = (host: HTMLElement) =>
-      find(rail(host), '[data-ui="conversations-toggle"]').getAttribute('aria-expanded');
-    viewport(1280);
+    const toggle = (host: HTMLElement) => find(rail(host), '[data-ui="conversations-toggle"]');
+    const expanded = (host: HTMLElement) => toggle(host).getAttribute('aria-expanded');
     const host = await show();
     await settle();
     // no draft yet: the rail is as the person left it
@@ -352,8 +350,8 @@ describe('the conversations panel', () => {
     await say(host, 'Consider gold');
     expect(expanded(host)).toBe('false');
     expect(rail(host).getAttribute('data-closed')).toBe('true');
-    // opened again, it stays open for this draft, and nothing is remembered as closed
-    await click(find(rail(host), '[data-ui="conversations-toggle"]'));
+    // opened again, it stays open for this conversation, and nothing is remembered as closed
+    await click(toggle(host));
     expect(expanded(host)).toBe('true');
     await say(host, 'And some cash');
     expect(expanded(host)).toBe('true');
@@ -364,13 +362,13 @@ describe('the conversations panel', () => {
     expect(expanded(host)).toBe('true');
     await say(host, 'Earn an income');
     expect(expanded(host)).toBe('false');
-    // at a desk's width the rail stays open beside a draft
-    await unmountAll();
-    viewport(1600);
-    const wide = await show();
+    // another draft opened from the rail folds it too: opened again, it was for the one before
+    await click(toggle(host));
+    await click(find(row(host, 'Consider gold'), '[data-ui="conversation-open"]'));
     await settle();
-    await say(wide, 'Consider gold');
-    expect(expanded(wide)).toBe('true');
+    expect(expanded(host)).toBe('false');
+    await click(toggle(host));
+    expect(current(host)).toBe('Consider gold');
   });
 
   it('on a phone, opens as a sheet from a button that names the one on screen, and closes when one is chosen', async () => {
@@ -393,6 +391,7 @@ describe('the conversations panel', () => {
     // the title row it sits in is drawn again for the conversation chosen: the sheet is closed there
     const again = () => find<HTMLDialogElement>(host, '[data-ui="conversations-sheet"]');
     expect(again().open).toBe(false);
+    await unfold(host);
     expect(current(host)).toBe('Consider gold');
     // and "Close" closes it, with the focus back on the button
     const button = find(host, '[data-ui="conversations-open"]');
@@ -424,6 +423,7 @@ describe('the conversations panel', () => {
     await type(find<HTMLTextAreaElement>(host, 'textarea'), 'Consider gold');
     await click(find(host, '[data-ui="composer-send"]'));
     await settle();
+    await unfold(host);
     expect(current(host)).toBe('Consider gold');
     await openNew(host);
     await settle();

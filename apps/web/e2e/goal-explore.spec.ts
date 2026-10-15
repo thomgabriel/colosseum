@@ -227,11 +227,10 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
   }
 });
 
-// Thom, Oct 15: beside a draft the chat keeps about 45% of the room and never less than 440px; under
-// 1440px the conversations rail folds to its strip for it, and opens again when it is asked to.
-test('beside a draft the chat keeps its share, and the rail folds for it under 1440px', async ({
-  page,
-}) => {
+// Thom, Oct 15: beside a draft the chat keeps 45% of the room, half from 1440px, and never less than
+// 440px; the conversations rail folds to its strip for it at every width it is drawn at, and once
+// opened again stays open for that conversation.
+test('beside a draft the chat keeps its share, and the rail folds for it', async ({ page }) => {
   await page.request.post(`${STUB}/__stub/reset`);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/invest');
@@ -257,21 +256,41 @@ test('beside a draft the chat keeps its share, and the rail folds for it under 1
     );
     return chat.width / (chat.width + draft.width);
   };
-  for (const [width, folded] of [
-    [1280, true],
-    [1440, false],
-    [1920, false],
+  for (const [width, share] of [
+    [1280, 0.45],
+    [1440, 0.5],
+    [1600, 0.5],
+    [1920, 0.5],
   ] as const) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', String(!folded));
-    expect(await measure(), `${width}px`).toBeCloseTo(0.45, 2);
+    await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', 'false');
+    expect(await measure(), `${width}px`).toBeCloseTo(share, 2);
   }
-  // opened again at 1280, the rail stays open, and the chat keeps its least width
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  // opened again, the rail stays open for this conversation: at 1920 and 1600, after the next reply
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await measure();
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await measure();
+  await box.fill('Make it a little safer');
+  await box.press('Enter');
+  await expect(page.locator('[data-ui="goal-transcript"] li[data-who="person"]')).toHaveCount(2);
+  await expect(page.locator('[data-ui="reply-pending"]')).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  // and at 1280, where the chat keeps its least width beside it
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await measure();
+  // a new conversation has no draft, and its first draft folds the rail again
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.locator('div[data-ui="conversations"] [data-ui="conversation-new"]').click();
+  await expect(strategy).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await box.fill('Earn a monthly income');
+  await box.press('Enter');
+  await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   // on a tablet the chat keeps five twelfths beside the draft; on a phone the draft is under the chat
   const boxes = async () => {
     const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();

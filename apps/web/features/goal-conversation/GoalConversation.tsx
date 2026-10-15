@@ -498,8 +498,10 @@ export function GoalConversation({
     <section
       data-ui="goal-conversation"
       data-workbench
-      // Beside a draft the chat keeps 45% from 1024px, never under 440px; on a tablet five twelfths.
-      className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:min-h-0 md:flex-1 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch ${drafting && chatShown ? 'md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-cols-[minmax(27.5rem,9fr)_minmax(0,11fr)]' : ''}`}
+      // Beside a draft the chat keeps half from 1440px and 45% from 1024px, never under 440px; on a
+      // tablet five twelfths. Each range is bounded on both sides: an arbitrary breakpoint's rule is
+      // written before the named ones, so `min-[1440px]` alone would lose to `md:` and `lg:`.
+      className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:min-h-0 md:flex-1 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch ${drafting && chatShown ? 'md:max-lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:max-[1439.98px]:grid-cols-[minmax(27.5rem,9fr)_minmax(0,11fr)] min-[1440px]:grid-cols-[minmax(27.5rem,1fr)_minmax(0,1fr)]' : ''}`}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-3 md:col-span-full">
         <h1 className={PAGE_TITLE}>{t.talk.workbench.title}</h1>

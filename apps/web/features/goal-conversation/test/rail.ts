@@ -14,17 +14,6 @@ const click = (el: Element) =>
     (el as HTMLElement).click();
   });
 
-/**
- * The window's width, as a media query reads it: the rail folds beside a draft under 1440px, so the
- * tests that list its rows draw it at a desk's width unless they ask for another.
- */
-export const viewport = (width: number) =>
-  (
-    window as unknown as {
-      happyDOM: { setViewport(size: { width: number; height: number }): void };
-    }
-  ).happyDOM.setViewport({ width, height: 900 });
-
 export const rail = (host: HTMLElement) => find(host, 'div[data-ui="conversations"]');
 
 const rows = (host: HTMLElement) => [
@@ -57,6 +46,21 @@ export const row = (host: HTMLElement, which: string | { chain: string; id: stri
 export const openNew = (host: HTMLElement) =>
   click(find(rail(host), '[data-ui="conversation-new"]'));
 
-/** Opens a draft by its chain and id, or a row by its name. */
-export const open = (host: HTMLElement, which: string | { chain: string; id: string }) =>
-  click(find(row(host, which), '[data-ui="conversation-open"]'));
+/**
+ * The rail opened, as a person opens it to see the rows, where a draft beside the chat folded it to
+ * its strip.
+ */
+export const unfold = async (host: HTMLElement) => {
+  const toggle = find(rail(host), '[data-ui="conversations-toggle"]');
+  if (toggle.getAttribute('aria-expanded') === 'false') await click(toggle);
+};
+
+/**
+ * Opens a draft by its chain and id, or a row by its name, from the rail opened if it is folded; a
+ * draft opened folds it again, and it is opened once more to read its rows.
+ */
+export const open = async (host: HTMLElement, which: string | { chain: string; id: string }) => {
+  await unfold(host);
+  await click(find(row(host, which), '[data-ui="conversation-open"]'));
+  await unfold(host);
+};
