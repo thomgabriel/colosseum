@@ -14,7 +14,7 @@ import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { GoalConversation, goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { current, open, openNew, rail, row, titles } from './test/rail';
+import { current, open, openNew, rail, row, titles, viewport } from './test/rail';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
@@ -61,6 +61,7 @@ async function mode(host: HTMLElement, value: string) {
   return open(host, { chain, id });
 }
 beforeEach(() => {
+  viewport(1600);
   window.history.replaceState(null, '', '/invest');
   router.push.mockClear();
   localStorage.clear();
@@ -155,6 +156,40 @@ describe('private strategy exploration for a new goal', () => {
     expect(find<HTMLTextAreaElement>(host, 'textarea').disabled).toBe(true);
     expect(calls).toHaveLength(0);
   });
+  // Thom, Oct 15: the chat was the narrowest column, beside an empty card
+  it('gives the chat the room until the first message, then a fair share beside the draft', async () => {
+    const host = await show();
+    const workbench = find(host, '[data-ui="goal-conversation"]');
+    const chat = find(host, '[data-ui="goal-chat"]');
+    const hideChat = () =>
+      [...host.querySelectorAll('button')].find((button) =>
+        [en.talk.hideChat, en.talk.showChat].includes(button.textContent ?? ''),
+      );
+    // one block in the middle, at a reading width, with nothing beside it to fold it for
+    expect(chat.className).toContain('md:max-w-[46rem]');
+    expect(workbench.className).not.toContain('grid-cols-[minmax(27.5rem');
+    expect(hideChat()).toBeUndefined();
+    await send(host, 'Gold and some cash');
+    // beside the draft: 45% from 1024px, never under 440px
+    expect(chat.className).not.toContain('md:max-w-[46rem]');
+    expect(workbench.className).toContain('lg:grid-cols-[minmax(27.5rem,9fr)_minmax(0,11fr)]');
+    // "Hide chat" gives the draft the whole width
+    await click(hideChat() as HTMLElement);
+    expect(chat.hidden).toBe(true);
+    expect(find(host, '[data-ui="goal-strategy"]').className).toContain('md:col-span-full');
+    expect(hideChat()?.textContent).toBe(en.talk.showChat);
+    await click(hideChat() as HTMLElement);
+    expect(chat.hidden).toBe(false);
+    // "Start over": the room is the chat's again
+    await click(
+      [...host.querySelectorAll('button')].find(
+        (button) => button.textContent === en.talk.startOver,
+      ) as HTMLElement,
+    );
+    expect(host.querySelector('[data-ui="goal-strategy"]')).toBeNull();
+    expect(chat.className).toContain('md:max-w-[46rem]');
+    expect(hideChat()).toBeUndefined();
+  });
   it.each(['en', 'pt'] as const)(
     'defaults to truthful explore workbench with no fake vault or funding (%s)',
     async (lang) => {
@@ -162,8 +197,16 @@ describe('private strategy exploration for a new goal', () => {
       // No Guided or Explore switch (#195): the conversations panel is its own control.
       expect(host.querySelector('[data-ui="goal-mode"]')).toBeNull();
       expect(current(host)).toBe(dictionary(lang).goal.explore.picker.current);
-      expect(find(host, '[data-ui="goal-empty-preview"]').textContent).toContain(
-        dictionary(lang).goal.explore.empty,
+      // before the first message the chat has the room alone (Thom, Oct 15): no draft's column, so
+      // no "Hide chat", and the draft's note is said under the chat's own
+      expect(host.querySelector('[data-ui="goal-strategy"]')).toBeNull();
+      expect(
+        [...host.querySelectorAll('button')].some(
+          (button) => button.textContent === dictionary(lang).talk.hideChat,
+        ),
+      ).toBe(false);
+      expect(find(host, '[data-ui="goal-chat"]').textContent).toContain(
+        dictionary(lang).goal.explore.previewOnly,
       );
       expect(host.querySelector('[data-ui="invest-screen"]')).toBeNull();
       expect(host.querySelector('[data-ui="composition"]')).toBeNull();
@@ -257,7 +300,7 @@ describe('private strategy exploration for a new goal', () => {
     await mode(host, 'new');
     await settle();
     expect(find(host, '[data-ui="goal-transcript"]').textContent).toBe('');
-    expect(host.querySelector('[data-ui="goal-empty-preview"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="goal-strategy"]')).toBeNull();
     expect(host.querySelector('[data-ui="composition"]')).toBeNull();
     // The earlier conversation is kept, listed by its first words, and comes back with its preview.
     await unmountAll();
@@ -804,7 +847,7 @@ describe('the deposit step of a new goal', () => {
       ) as HTMLElement,
     );
     expect(host.querySelector('[data-ui="deposit-step"]')).toBeNull();
-    expect(host.querySelector('[data-ui="goal-empty-preview"]')).not.toBeNull();
+    expect(host.querySelector('[data-ui="goal-strategy"]')).toBeNull();
   });
 });
 
@@ -956,8 +999,8 @@ describe('the draft drawn on the plan bar', () => {
       true,
     );
     const host = await show();
-    const strategy = find(host, '[data-ui="goal-strategy"]');
     await send(host, 'A fund, gold and cash');
+    const strategy = find(host, '[data-ui="goal-strategy"]');
     await release();
     await send(host, 'Make it safer');
     // the line promises no new draft: the reply may be a question
@@ -986,14 +1029,12 @@ describe('the draft drawn on the plan bar', () => {
       true,
     );
     const host = await show();
+    expect(host.querySelector('[data-ui="goal-strategy"]')).toBeNull();
+    await send(host, 'A fund, gold and cash');
+    // the first wait: the draft's column opens with a card that says at heading size that a draft
+    // is being worked on, with still boxes where its rows will be, and draws no mix, share or figure
     const strategy = find(host, '[data-ui="goal-strategy"]');
     const card = find(strategy, '[data-ui="goal-empty-preview"]');
-    expect(card.getAttribute('data-state')).toBe('empty');
-    expect(card.textContent).toContain(en.goal.explore.empty);
-    await send(host, 'A fund, gold and cash');
-    // the first wait: the same card says at heading size that a draft is being worked on, with still
-    // boxes where its rows will be, and draws no mix, share or figure yet
-    expect(card).toBe(find(strategy, '[data-ui="goal-empty-preview"]'));
     expect(card.getAttribute('data-state')).toBe('building');
     const building = find(card, '[data-ui="draft-building"]');
     expect(find(building, 'h2').textContent).toBe(en.goal.explore.building);
@@ -1162,12 +1203,15 @@ describe('waiting for a reply, in the conversation and on the card', () => {
     expect(find(host, '[data-ui="goal-transcript"]').hasAttribute('aria-live')).toBe(false);
     // (the chain's own line beside the box is the chain's, and says nothing of a reply)
     expect(
-      ['[data-ui="goal-transcript"]', '[data-ui="composer"]', '[data-ui="goal-strategy"]'].flatMap(
-        (part) => [...find(host, part).querySelectorAll('[role="status"], [aria-live]')],
-      ),
+      ['[data-ui="goal-transcript"]', '[data-ui="composer"]'].flatMap((part) => [
+        ...find(host, part).querySelectorAll('[role="status"], [aria-live]'),
+      ]),
     ).toEqual([]);
     expect(host.querySelectorAll('[data-ui="reply-announcer"]')).toHaveLength(1);
     await say(host, 'Gold and some cash');
+    expect(
+      find(host, '[data-ui="goal-strategy"]').querySelectorAll('[role="status"], [aria-live]'),
+    ).toHaveLength(0);
     // at once: the message, and under it the reply's place with the mark of a wait and a plain line
     expect(
       rows(host).map((row) => row.getAttribute('data-ui') ?? row.getAttribute('data-who')),

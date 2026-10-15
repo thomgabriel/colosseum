@@ -20,7 +20,7 @@ import {
 import { portStore } from '../wallet/test/mock-provider';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
-import { open, openNew, rail, titles } from './test/rail';
+import { open, openNew, rail, titles, viewport } from './test/rail';
 
 vi.mock('../wallet/WalletProvider', () => import('../wallet/test/mock-provider'));
 vi.mock('next/navigation', () => import('../wallet/test/mock-next'));
@@ -118,6 +118,7 @@ const saved = (host: HTMLElement) =>
 const bar = (host: HTMLElement) => find(host, '[data-ui="start-chain"]').getAttribute('data-chain');
 
 beforeEach(() => {
+  viewport(1600);
   window.history.replaceState(null, '', '/invest');
   localStorage.clear();
   sessionStorage.clear();

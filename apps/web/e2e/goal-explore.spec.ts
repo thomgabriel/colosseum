@@ -37,9 +37,10 @@ test('new-goal exploration opens a responsive preview-only workbench', async ({ 
   await expect(chains.nth(1)).toBeFocused();
   await page.keyboard.press('ArrowLeft');
   await expect(chains.first()).toBeChecked();
-  await expect(page.locator('[data-ui="goal-empty-preview"]')).toContainText(
-    en.goal.explore.previewOnly,
-  );
+  // before the first message the chat has the room alone, the draft's note said under its own
+  // (Thom, Oct 15): no empty card beside it
+  await expect(page.locator('[data-ui="goal-chat"]')).toContainText(en.goal.explore.previewOnly);
+  await expect(page.locator('[data-ui="goal-strategy"]')).toHaveCount(0);
   await expect(
     page.locator(
       '[data-ui="composition"], [data-ui="invest-card"], [data-ui="order-step"], [data-ui="plan-invest"]',
@@ -54,14 +55,17 @@ test('new-goal exploration opens a responsive preview-only workbench', async ({ 
         width,
       );
       const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
-      const strategy = await page.locator('[data-ui="goal-strategy"]').boundingBox();
+      const area = await page.locator('[data-ui="goal-conversation"]').boundingBox();
       expect(chat).not.toBeNull();
-      expect(strategy).not.toBeNull();
-      if (chat && strategy) {
+      expect(area).not.toBeNull();
+      if (chat && area) {
         if (width === 1280) {
-          expect(strategy.x).toBeGreaterThan(chat.x);
-          expect(strategy.width).toBeGreaterThan(chat.width);
-        } else expect(strategy.y).toBeGreaterThanOrEqual(chat.y + chat.height);
+          // one block in the middle of the room right of the rail, at a reading width
+          expect(chat.width).toBeLessThanOrEqual(736);
+          expect(
+            Math.abs(chat.x - area.x - (area.x + area.width - chat.x - chat.width)),
+          ).toBeLessThan(2);
+        } else expect([chat.x, chat.width]).toEqual([area.x, area.width]);
       }
     }
     await page.setViewportSize({ width: 375, height: 812 });
@@ -217,4 +221,51 @@ test('the title sits at the frame’s edge, or after the conversations rail', as
       expect(await place(), `${step}, a frame later`).toEqual(there);
     }
   }
+});
+
+// Thom, Oct 15: beside a draft the chat keeps about 45% of the room and never less than 440px; under
+// 1440px the conversations rail folds to its strip for it, and opens again when it is asked to.
+test('beside a draft the chat keeps its share, and the rail folds for it under 1440px', async ({
+  page,
+}) => {
+  await page.request.post(`${STUB}/__stub/reset`);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/invest');
+  await page.locator('header a[href^="/sign-in"]').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: en.signIn.passkey.continue }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/invest$/);
+  const box = page.locator('[data-ui="goal-chat"] textarea');
+  await box.fill('A broad fund and some gold, to grow, at medium risk');
+  await box.press('Enter');
+  const strategy = page.locator('[data-ui="goal-strategy"]');
+  await expect(strategy.locator('[data-ui="weight-notes"]')).toBeVisible();
+  const toggle = page.locator('[data-ui="conversations-toggle"]');
+  const measure = async () => {
+    const chat = await page.locator('[data-ui="goal-chat"]').boundingBox();
+    const draft = await strategy.boundingBox();
+    if (!chat || !draft) throw new Error('the chat and the draft are drawn');
+    expect(chat.width).toBeGreaterThanOrEqual(440);
+    expect(draft.x).toBeGreaterThan(chat.x + chat.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      page.viewportSize()?.width ?? 0,
+    );
+    return chat.width / (chat.width + draft.width);
+  };
+  for (const [width, folded] of [
+    [1280, true],
+    [1440, false],
+    [1920, false],
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(toggle, `${width}px`).toHaveAttribute('aria-expanded', String(!folded));
+    expect(await measure(), `${width}px`).toBeCloseTo(0.45, 2);
+  }
+  // opened again at 1280, the rail stays open, and the chat keeps its least width
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await measure();
 });

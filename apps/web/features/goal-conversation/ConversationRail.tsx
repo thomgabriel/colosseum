@@ -40,6 +40,8 @@ import { NAME_LENGTH } from './conversations';
 // a vault opens its own page, where its conversation is. The arrow keys move between the rows.
 
 const SIDE_KEY = 'tf-conversations-closed';
+// Where the rail open beside a draft would leave the chat under its least width (Thom, Oct 15).
+const TIGHT = '(min-width: 1024px) and (max-width: 1439.98px)';
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 const GROUPS: readonly DayGroup[] = ['today', 'yesterday', 'earlier'];
 
@@ -175,11 +177,32 @@ export function ConversationSheet({
 export function ConversationRail({
   rows,
   now,
+  drafting = false,
   ...actions
-}: RailActions & { rows: readonly ConversationRow[]; now: number }) {
+}: RailActions & {
+  rows: readonly ConversationRow[];
+  now: number;
+  /** A draft is beside the chat: under 1440px the rail folds to its strip until it is opened again. */
+  drafting?: boolean;
+}) {
   const w = useT().goal.explore.picker;
   const [closed, setClosed] = useState(false);
+  const [tight, setTight] = useState(false);
+  const [reopened, setReopened] = useState(false);
   const listId = useId();
+
+  useEffect(() => {
+    const query = window.matchMedia(TIGHT);
+    const read = () => setTight(query.matches);
+    read();
+    query.addEventListener('change', read);
+    return () => query.removeEventListener('change', read);
+  }, []);
+  // the next draft folds it again
+  useEffect(() => {
+    if (!drafting) setReopened(false);
+  }, [drafting]);
+  const folded = closed || (drafting && tight && !reopened);
 
   // On a wide screen the rail opens as this browser last left it.
   useEffect(() => {
@@ -190,7 +213,8 @@ export function ConversationRail({
     }
   }, []);
   const toggle = () => {
-    const next = !closed;
+    const next = !folded;
+    if (!next) setReopened(true);
     setClosed(next);
     try {
       localStorage.setItem(SIDE_KEY, next ? '1' : '0');
@@ -203,32 +227,32 @@ export function ConversationRail({
   return (
     <div
       data-ui="conversations"
-      data-closed={closed || undefined}
+      data-closed={folded || undefined}
       className={cn(
         'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
-        closed ? 'lg:w-14' : 'lg:w-76',
+        folded ? 'lg:w-14' : 'lg:w-76',
       )}
     >
       <div
         className={cn(
           'flex items-center gap-2 border-b border-border',
-          closed ? 'flex-col px-2 py-3' : 'justify-between px-4 py-3',
+          folded ? 'flex-col px-2 py-3' : 'justify-between px-4 py-3',
         )}
       >
-        {!closed && <h2 className="text-body-lg font-semibold">{w.label}</h2>}
+        {!folded && <h2 className="text-body-lg font-semibold">{w.label}</h2>}
         <button
           type="button"
           data-ui="conversations-toggle"
-          aria-expanded={!closed}
+          aria-expanded={!folded}
           aria-controls={listId}
           onClick={toggle}
           className={buttonClass({ variant: 'icon', size: 'dense' })}
-          aria-label={closed ? w.show : w.hide}
-          title={closed ? w.show : w.hide}
+          aria-label={folded ? w.show : w.hide}
+          title={folded ? w.show : w.hide}
         >
           <Icon name="Menu" size={16} />
         </button>
-        {closed && (
+        {folded && (
           <button
             type="button"
             data-ui="conversation-new"
@@ -241,8 +265,8 @@ export function ConversationRail({
           </button>
         )}
       </div>
-      <div id={listId} hidden={closed} className="flex min-h-0 flex-1 flex-col">
-        {!closed && <ConversationList rows={rows} now={now} {...actions} />}
+      <div id={listId} hidden={folded} className="flex min-h-0 flex-1 flex-col">
+        {!folded && <ConversationList rows={rows} now={now} {...actions} />}
       </div>
     </div>
   );
