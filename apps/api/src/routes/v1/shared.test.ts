@@ -6,7 +6,6 @@ import {
   type BasketAsset,
   CEILING_METHOD,
   ChainError,
-  CREATOR_LIMITS_V1,
   CREATOR_LIMITS_V2,
   CreatorLimitsResponse,
   FamilyResponse,
@@ -485,14 +484,14 @@ describe('a creator publishes a shared portfolio', () => {
             {
               chain: 'solana',
               components: [
-                { kind: 'asset', asset: 'solana:spy', weightBps: 5000 },
-                { kind: 'asset', asset: 'solana:nvda', weightBps: 5000 },
+                { kind: 'asset', asset: 'solana:spy', weightBps: 5025 },
+                { kind: 'asset', asset: 'solana:nvda', weightBps: 4975 },
               ],
             },
           ],
         },
         422,
-        /at least 3 assets/,
+        /steps of 50 bps/,
       ],
       [
         {
@@ -508,8 +507,8 @@ describe('a creator publishes a shared portfolio', () => {
           ],
         },
         422,
-        // The cash token's ceiling is nothing: rule 9 breaks before the cash rule, and the lowest names it.
-        /solana:usdc is at 30%; its ceiling is 0%/,
+        // Cash is what the weights leave under 100%, never a line of its own (SHARED-RULES-V2).
+        /solana:usdc is the cash token/,
       ],
     ];
     for (const [change, status, error] of cases) {
@@ -598,7 +597,8 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
       (await get(null, '/v1/shared/limits?chain=solana')).json(),
     );
     expect(solana).toMatchObject({ chain: 'solana', source: 'chain', provenance: 'mock' });
-    expect(solana.limits).toEqual(CREATOR_LIMITS_V1);
+    // Solana holds the second rules too since its program's upgrade of Oct 14.
+    expect(solana.limits).toEqual(CREATOR_LIMITS_V2);
     const robinhood = CreatorLimitsResponse.parse(
       (await get(null, '/v1/shared/limits?chain=robinhood')).json(),
     );
@@ -693,15 +693,16 @@ describe('the second rules, where a chain’s registry holds them (SHARED-RULES-
     expect(over.statusCode).toBe(400);
   });
 
-  it('holds Solana to the first rules its program keeps', async () => {
+  it('holds Solana to the same rules: one asset and the rest in cash', async () => {
     const creator = await someone();
+    await fund(creator);
     const res = await post(
       creator,
       '/v1/orders',
-      publishBody(creator, fresh(), [{ kind: 'asset', asset: 'solana:spy', weightBps: 10_000 }]),
+      publishBody(creator, fresh(), [{ kind: 'asset', asset: 'solana:spy', weightBps: 9_000 }]),
     );
-    expect([res.statusCode, res.json().code]).toEqual([422, 'CREATOR_LIMIT']);
-    expect(res.json().error).toMatch(/at least 3 assets/);
+    expect(res.statusCode, res.body).toBe(200);
+    expect((await settleAll(creator, OrderDetail.parse(res.json()))).status).toBe('done');
   });
 });
 

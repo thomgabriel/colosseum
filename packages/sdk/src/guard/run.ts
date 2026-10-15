@@ -249,15 +249,11 @@ function stepProblem(step: ApprovedStep): string | null {
         return 'the text hash handed over is not the hash of the text shown';
       if (!targets(step.components) || !step.components.length)
         return 'an asset is not of its chain';
-      // What the weights leave is cash on Robinhood Chain, whose registry holds the second rules
-      // (SHARED-RULES-V2). The Solana program holds the first until its own change lands: the whole,
-      // so a person never pays a fee for a publish the program refuses.
-      {
-        const sum = step.components.reduce((n, c) => n + c.weightBps, 0);
-        if (familyOf(step.chain) === 'solana')
-          return sum === 10_000 ? null : 'the weights do not add up to 10,000';
-        return sum <= 10_000 ? null : 'the weights add up to more than 10,000';
-      }
+      // What the weights leave is cash on every chain, whose registry or program holds the second
+      // rules (SHARED-RULES-V2); the chain holds the rest of its rules itself.
+      return step.components.reduce((n, c) => n + c.weightBps, 0) <= 10_000
+        ? null
+        : 'the weights add up to more than 10,000';
     }
     default:
       return NO_SUCH_STEP;

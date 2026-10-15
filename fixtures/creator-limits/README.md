@@ -95,7 +95,7 @@ Each case:
 
 TypeScript: `packages/basket/src/creator-limits.vectors.test.ts`, and through the mock registry in `packages/chain-mock/src/limits.test.ts`.
 
-Solana: `programs/tests/creator-limits.vectors.test.ts` builds each case's state with real publishes in LiteSVM, every scenario included, and reads the reason's number from the transaction log (`creator limit: reason=<number> <name>`). The cash token is on its asset list, so the cash cases are refused as `CashNotAllowed`.
+Solana: the program holds the second rules since Oct 14 (gate SHARED-RULES-V2), so `programs/tests/creator-limits.vectors.test.ts` runs `vectors-v2.json`. It builds each case's state with real publishes in LiteSVM, every scenario included, and reads the reason's number from the transaction log (`creator limit: reason=<number> <name>`). The cash token is on its asset list, so the cash cases are refused as `CashNotAllowed`.
 
 ## The meta hash
 

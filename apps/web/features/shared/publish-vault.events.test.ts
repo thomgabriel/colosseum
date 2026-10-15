@@ -423,10 +423,10 @@ describe('sharing a selected vault strategy', () => {
     },
   );
   it('offers no substituted strategy for an unpublishable personal concentration', async () => {
-    const calls = api();
+    // A registry under the first rules: three assets at the fewest, 50% at the most.
+    const calls = api({ limits: () => json(limitsOf('solana', { rules: 1 })) });
     read.mockResolvedValue(snapshots(first, [{ asset: 'solana:spyx', weightBps: 10000 }]));
     const host = await show();
-    // Solana's program keeps the first rules: three assets at the fewest, 50% at the most.
     expect(host.textContent).toContain(en.shared.publish.rules.count(3, 12));
     expect(host.textContent).toContain(en.shared.publish.rules.weight('2%', '50%', '0.5%'));
     await click(button(host));
@@ -439,7 +439,7 @@ describe('the rules a publish is held to are the chain’s, read from it (SHARED
   const sixty = [{ asset: 'solana:spyx', weightBps: 6000 }];
 
   it('under the first rules, refuses one asset and a vault that keeps cash, as the chain would', async () => {
-    const calls = api();
+    const calls = api({ limits: () => json(limitsOf('solana', { rules: 1 })) });
     read.mockResolvedValue(snapshots(first, sixty));
     const host = await show();
     expect(host.textContent).toContain(en.shared.publish.rules.count(3, 12));
