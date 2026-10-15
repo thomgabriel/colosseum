@@ -2,24 +2,32 @@ import {
   type Address,
   generateKeyPairSigner,
   getAddressDecoder,
+  getAddressEncoder,
   type KeyPairSigner,
+  lamports,
 } from '@solana/kit';
 import type { LiteSVM } from 'litesvm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  acceptVersionInstruction,
+  adoptVersionInstruction,
   assetsAddress,
   type Component,
   cancelPendingInstruction,
   configAddress,
   createVaultInstruction,
+  creatorLimitsInstruction,
   DEFAULT_PARAMS,
+  decodeCreatorLimits,
   decodeRecipePublished,
   ERR,
   familyId,
   forgeConfig,
   initPlatform,
   limitReason,
+  listAssets,
   publishRecipeInstruction,
+  RECIPE_HEAD_SIZE,
   RECIPE_SIZE,
   readRecipe,
   readVault,
@@ -407,7 +415,7 @@ describe('the shared-portfolio registry', () => {
       const account = svm.getAccount(recipe);
       if (!account.exists) throw new Error('no recipe');
       const data = new Uint8Array(account.data);
-      const lastVersionAt = RECIPE_SIZE - 32;
+      const lastVersionAt = RECIPE_HEAD_SIZE - 32;
       expect(new DataView(data.buffer).getUint32(lastVersionAt, true)).toBe(2);
       data.set([0, 0, 0, 0], lastVersionAt);
       svm.setAccount({ ...account, data });
@@ -424,7 +432,7 @@ describe('the shared-portfolio registry', () => {
       const account = svm.getAccount(recipe);
       if (!account.exists) throw new Error('no recipe');
       const data = new Uint8Array(account.data);
-      data.set([0, 0, 0, 0], RECIPE_SIZE - 32);
+      data.set([0, 0, 0, 0], RECIPE_HEAD_SIZE - 32);
       svm.setAccount({ ...account, data });
       expect(readRecipe(svm, recipe).lastVersion).toBe(0);
 
@@ -449,6 +457,204 @@ describe('the shared-portfolio registry', () => {
       setClock(svm, state.pending.effectiveAt);
       for (const who of [creator, guardian]) expectError(await cancel(who), ERR.NoPendingVersion);
       expect(readRecipe(svm, recipe).pending.version).toBe(2);
+    });
+  });
+
+  // Gate SHARED-RULES-V2 (Thom, Oct 14): a shared portfolio holds what a person's own vault holds, up
+  // to sixteen lines. The twelve a version first had room for stay where they were, and every
+  // portfolio published before keeps working as it is.
+  describe('sixteen lines, and a portfolio of the first layout', () => {
+    let more: Address[];
+    let sixteen: Component[];
+
+    beforeEach(async () => {
+      more = [];
+      for (let i = 0; i < 12; i += 1)
+        more.push((await createMint(svm, admin, { program: TOKEN_PROGRAM, decimals: 8 })).address);
+      await listAssets(svm, admin, more);
+      // 16 lines, 6% each and 4% on the last: 94%, the rest cash.
+      sixteen = [a, b, c, d, ...more].map((mint, i) => ({
+        mint,
+        weightBps: i === 15 ? 400 : 600,
+      }));
+    });
+
+    /** What a portfolio published before Oct 14 is: its fields alone, 1,022 bytes, and its rent. */
+    const toFirstLayout = () => {
+      const account = svm.getAccount(recipe);
+      if (!account.exists) throw new Error('no recipe');
+      svm.setAccount({
+        ...account,
+        data: new Uint8Array(account.data).slice(0, RECIPE_HEAD_SIZE),
+        lamports: lamports(svm.minimumBalanceForRentExemption(BigInt(RECIPE_HEAD_SIZE))),
+      });
+    };
+    const size = () => {
+      const account = svm.getAccount(recipe);
+      return account.exists ? account.data.length : 0;
+    };
+    const follower = async (basketId: bigint, version: number) => {
+      const owner = await fundedSigner(svm);
+      expectOk(
+        await send(svm, owner, [
+          await createVaultInstruction({
+            owner,
+            basketId,
+            recipe,
+            expectedVersion: version,
+            autoFollow: true,
+          }),
+        ]),
+      );
+      return { owner, vault: await vaultAddress(owner.address, basketId) };
+    };
+    const targets = (vault: Address) =>
+      readVault(svm, vault)
+        .positions.slice(0, readVault(svm, vault).count)
+        .map((p) => ({ mint: p.mint, weightBps: p.targetBps }));
+
+    it('publishes sixteen lines at once, and a vault that follows takes all sixteen', async () => {
+      expectOk(
+        await send(svm, creator, [
+          await publishRecipeInstruction({ creator, familyId: FAMILY, components: sixteen }),
+        ]),
+      );
+      expect(size()).toBe(RECIPE_SIZE);
+      const state = readRecipe(svm, recipe);
+      expect([state.current.count, state.current.components]).toEqual([16, sixteen]);
+      const { vault } = await follower(1n, 1);
+      expect(targets(vault)).toEqual(sixteen);
+    });
+
+    it('a first-layout portfolio still serves its followers, and takes up to twelve lines as it is', async () => {
+      expectOk(await publish());
+      toFirstLayout();
+      expect(readRecipe(svm, recipe).current.components).toEqual(first);
+
+      // A vault follows it, another accepts it.
+      const { owner, vault } = await follower(1n, 1);
+      expect(targets(vault)).toEqual(first);
+      const other = await fundedSigner(svm);
+      const otherVault = await vaultAddress(other.address, 2n);
+      expectOk(
+        await send(svm, other, [await createVaultInstruction({ owner: other, basketId: 2n })]),
+      );
+      expectOk(
+        await send(svm, other, [
+          await acceptVersionInstruction({
+            owner: other,
+            vault: otherVault,
+            recipe,
+            expectedVersion: 1,
+          }),
+        ]),
+      );
+      expect(targets(otherVault)).toEqual(first);
+
+      // A later version of twelve lines or fewer needs no room past the fields.
+      setClock(svm, START + DELAY);
+      const lamportsBefore = svm.getBalance(creator.address) ?? 0n;
+      const reweighted = first.map((line, i) => ({
+        ...line,
+        weightBps: i === 0 ? 4_500 : line.weightBps,
+      }));
+      expectOk(await update(reweighted));
+      expect(size()).toBe(RECIPE_HEAD_SIZE);
+      expect(lamportsBefore - (svm.getBalance(creator.address) ?? 0n)).toBeLessThan(10_000n);
+
+      // It takes effect, and the auto-follow vault adopts it with no signature of its owner.
+      setClock(svm, START + DELAY + DELAY);
+      expectOk(await send(svm, owner, [await adoptVersionInstruction({ vault, recipe })]));
+      expect(targets(vault)).toEqual(reweighted);
+
+      // And a cancel on it.
+      setClock(svm, START + 3n * DELAY);
+      expectOk(await update(first));
+      expectOk(await cancel(creator));
+      expect(readRecipe(svm, recipe).pending).toEqual(empty);
+      expect(size()).toBe(RECIPE_HEAD_SIZE);
+    });
+
+    it('a first-layout portfolio gets room for sixteen lines from its creator the first time it needs it', async () => {
+      // Twelve lines first, as the first layout held at most.
+      const twelve = sixteen.slice(0, 12).map((line) => ({ ...line, weightBps: 800 }));
+      expectOk(
+        await send(svm, creator, [
+          await publishRecipeInstruction({ creator, familyId: FAMILY, components: twelve }),
+        ]),
+      );
+      toFirstLayout();
+      const { vault } = await follower(1n, 1);
+
+      // A refused version gets no room: four more lines on top of 96% add up to more than 100%.
+      setClock(svm, START + DELAY);
+      const over = await update([...twelve, ...sixteen.slice(12)]);
+      expectError(over, ERR.CreatorLimit);
+      expect(failed(over) && limitReason(over.meta().logs())).toBe(10);
+      expect(size()).toBe(RECIPE_HEAD_SIZE);
+
+      // 3% off each of the first four lines, into four new ones; cash stays at 4%.
+      const next = [
+        ...twelve.map((line, i) => ({ ...line, weightBps: i < 4 ? 500 : 800 })),
+        ...more.slice(8).map((mint) => ({ mint, weightBps: 300 })),
+      ];
+      const room =
+        svm.minimumBalanceForRentExemption(BigInt(RECIPE_SIZE)) -
+        svm.minimumBalanceForRentExemption(BigInt(RECIPE_HEAD_SIZE));
+      const before = svm.getBalance(creator.address) ?? 0n;
+      const meta = expectOk(await update(next));
+      expect(size()).toBe(RECIPE_SIZE);
+      expect(svm.getAccount(recipe).exists && svm.getAccount(recipe)).toMatchObject({
+        lamports: svm.minimumBalanceForRentExemption(BigInt(RECIPE_SIZE)),
+      });
+      const paid = before - (svm.getBalance(creator.address) ?? 0n);
+      expect(paid >= room && paid < room + 10_000n).toBe(true);
+      const [event] = events(meta, 'RecipePublished').map(decodeRecipePublished);
+      expect([event?.components, event?.turnoverBps]).toEqual([next, 1_200]);
+      const state = readRecipe(svm, recipe);
+      expect(state.current.components).toEqual(twelve);
+      expect([state.pending.count, state.pending.components]).toEqual([16, next]);
+
+      // In effect at its time: the owner accepts it, four new assets and all.
+      setClock(svm, START + DELAY + DELAY);
+      expect(targets((await follower(2n, 2)).vault)).toEqual(next);
+      // The first follower has new assets in it, so the keeper's adopt leaves it to the owner.
+      expectError(
+        await send(svm, creator, [await adoptVersionInstruction({ vault, recipe })]),
+        ERR.NewAssetNeedsOwner,
+      );
+
+      // The next publish moves the sixteen into place, lines past twelve included, and a cancel
+      // clears what the waiting version held past twelve.
+      setClock(svm, START + 3n * DELAY);
+      const trimmed = [...next.slice(0, 13), ...next.slice(14)];
+      expectOk(await update(trimmed));
+      const after = readRecipe(svm, recipe);
+      expect(after.current.components).toEqual(next);
+      expect(after.pending.components).toEqual(trimmed);
+      expectOk(await cancel(creator));
+      const raw = svm.getAccount(recipe);
+      const tail = raw.exists ? new Uint8Array(raw.data).slice(RECIPE_HEAD_SIZE + 4 * 34) : null;
+      expect(tail?.every((byte) => byte === 0)).toBe(true);
+      expect(readRecipe(svm, recipe).current.components).toEqual(next);
+    });
+
+    it('answers the limits it holds, for the app to read', async () => {
+      const meta = expectOk(await send(svm, creator, [creatorLimitsInstruction()]));
+      const returned = meta.returnData();
+      expect(new Uint8Array(returned.programId())).toEqual(
+        new Uint8Array(getAddressEncoder().encode(BASKET_PROGRAM)),
+      );
+      expect(decodeCreatorLimits(new Uint8Array(returned.data()))).toEqual({
+        rules: 2,
+        minAssets: 1,
+        maxAssets: 16,
+        minWeightBps: 50,
+        maxWeightBps: 10_000,
+        stepBps: 50,
+        sumBps: 10_000,
+        maxTurnoverBps: 2_000,
+      });
     });
   });
 });

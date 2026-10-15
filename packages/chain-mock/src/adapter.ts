@@ -14,7 +14,6 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainId,
-  CREATOR_LIMITS_V1,
   CREATOR_LIMITS_V2,
   CreateVaultArgs,
   type CreatorLimits,
@@ -158,9 +157,8 @@ export type MockOptions = {
    */
   publishDelaySeconds?: number;
   /**
-   * The rules and numbers its registry holds a shared portfolio to. Default as the chain's own code
-   * holds them: the first rules on Solana, as the program keeps them; the second on an EVM chain, as
-   * the registry's second logic does (SHARED-RULES-V2).
+   * The rules and numbers its registry holds a shared portfolio to. Default the second rules, as the
+   * Solana program and the EVM registry's second logic hold them (SHARED-RULES-V2).
    */
   creatorLimits?: CreatorLimits;
   /** Replaces the built-in asset list. Exactly one asset must have `cls: 'cash'`. */
@@ -252,8 +250,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
   const factory = mockAddress(chain, 'factory');
   const keeper = mockAddress(chain, 'keeper');
   const publishDelay = options.publishDelaySeconds ?? 300;
-  const limits =
-    options.creatorLimits ?? (family === 'evm' ? CREATOR_LIMITS_V2 : CREATOR_LIMITS_V1);
+  const limits = options.creatorLimits ?? CREATOR_LIMITS_V2;
   const seed = options.seed ?? '';
   /** One fee for every transaction, and the extra a new vault costs, in native units. */
   const fee = family === 'solana' ? 5_000n : 20_000_000_000_000n;

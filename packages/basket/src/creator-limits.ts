@@ -10,9 +10,9 @@ import {
 // The four limits on what an author may publish as a shared portfolio (DESIGN-VAULT section 6), under
 // the rules and with the numbers the chain's registry says (`ctx.limits`, read from the chain):
 //
-// - The first rules (Oct 2; the Solana program and the mock): 3 to 12 listed assets, never the cash
+// - The first rules (Oct 2; the registry's first logic, and the Solana program before Oct 14): 3 to 12 listed assets, never the cash
 //   token, each from 2% up to the lower of 50% and its ceiling in 50 bps steps, adding up to 100%.
-// - The second (gate SHARED-RULES-V2, Thom, Oct 14; the EVM registry's second logic): 1 to 16 listed
+// - The second (gate SHARED-RULES-V2, Thom, Oct 14; the EVM registry's second logic, the Solana program, the mock): 1 to 16 listed
 //   assets, each from 0.5% to 100% in 50 bps steps, adding up to at most 100%, what is left being cash;
 //   the cash token is still never a line, and an asset's own ceiling is a warning (`overCeilings`).
 //
@@ -21,9 +21,9 @@ import {
 // There is one delay: it is both the notice a follower gets and the least time between two versions.
 // The first version takes effect at once and is exempt from the delay and from turnover.
 //
-// The chains enforce the same rules: the Solana program and the registry's first logic are tested
-// against fixtures/creator-limits/vectors.json, the registry's second logic against vectors-v2.json, and
-// this check against both. The README beside them defines each rule.
+// The chains enforce the same rules: the registry's first logic is tested against
+// fixtures/creator-limits/vectors.json, its second logic and the Solana program against vectors-v2.json,
+// and this check against both. The README beside them defines each rule.
 
 export { CREATOR_LIMITS_V1, CREATOR_LIMITS_V2 } from '@colosseum/schemas';
 

@@ -126,7 +126,14 @@ const updateIx = (o: Over = {}) =>
   vaultIx(
     BASKET_PROGRAM,
     'update_recipe',
-    { creator: OWNER, recipe: RECIPE, config: CONFIG, assets: ASSETS, ...o.accounts },
+    {
+      creator: OWNER,
+      recipe: RECIPE,
+      config: CONFIG,
+      assets: ASSETS,
+      system_program: SYSTEM,
+      ...o.accounts,
+    },
     join(targetsArg(o.components ?? COMPONENTS), Buffer.from(o.meta ?? META, 'hex')),
     o.extra,
     o.flagsOf,
@@ -151,6 +158,13 @@ const input = (
 describe('the guard on Solana: a creator publishes, updates and takes back a shared portfolio', () => {
   it("the recipe is the program's account for the creator and the family, as @solana/kit derives it", () => {
     expect(recipeAddress(BASKET_PROGRAM.address, OWNER, FAMILY)).toBe(RECIPE);
+  });
+
+  it('passes a version that leaves part in cash, as the program holds the second rules', () => {
+    const components = [{ asset: 'solana:spy', weightBps: 9000 }];
+    const step: ApprovedStep = { ...publishStep, components } as ApprovedStep;
+    const given = input(step, wire([...BUDGET, publishIx({ components })]));
+    expect(refusalOf(() => guardTransaction(given))?.message ?? null).toBeNull();
   });
 
   it('passes each, on both message versions, with the consent the review screen collects', () => {
@@ -218,10 +232,6 @@ describe('the guard on Solana: a creator publishes, updates and takes back a sha
       ['no such action', { action: 'delete' as never }],
       ['a family id that is not 32 bytes of hex', { familyId: 'ab' }],
       ['no version', { version: 0 }],
-      [
-        'weights that do not add up to 10,000, on a program under the first rules',
-        { components: [{ asset: 'solana:spy', weightBps: 9000 }] },
-      ],
       [
         'weights that add up to more than 10,000',
         { components: [{ asset: 'solana:spy', weightBps: 10_050 }] },
@@ -492,6 +502,10 @@ describe('the guard on Solana: each registry negative is refused by the check th
     ),
     on(publishStep, 'another system program', 'accounts', () =>
       publishIx({ accounts: { system_program: someone('system') } }),
+    ),
+    // An update pays for the room past twelve lines through the system program, and no other.
+    on(updateStep, 'an update through another system program', 'accounts', () =>
+      updateIx({ accounts: { system_program: someone('system') } }),
     ),
     on(cancelStep, 'an account more on a cancel', 'accounts', () =>
       cancelIx({ extra: [{ address: someone('spare') }] }),
