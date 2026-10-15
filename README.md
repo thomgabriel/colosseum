@@ -37,7 +37,7 @@ The screens below are from Oct 12, a local run against the hosted API on Solana 
 
 ## Where it runs today
 
-Robinhood Chain is on mainnet (chain id 4663). A person deployed the vault contracts on Oct 12 in 40 transactions, and the hosted app has served the chain since Oct 13. Nine tokens are listed (NVDA, SPY, META, AAPL, TSLA, GOOGL, MSFT, AMZN, GLD), each trading against USDG through its own Uniswap v4 pool. Real money can be deposited, and none has been: no deposit, vault or trade exists there yet. We also tested every listed token on a copy of mainnet at block 86,735,800: a deposit, a trade into the token and back out through its recorded pool, then a withdrawal ([`docs/vault/SECURITY.md`](docs/vault/SECURITY.md), "Not audited, not done"). The same contracts remain on the test network (chain id 46630), which the hosted app no longer serves. See [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md), [`deployments/robinhood-mainnet.json`](deployments/robinhood-mainnet.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json).
+Robinhood Chain is on mainnet (chain id 4663). Thom deployed the vault contracts we serve on Oct 15, in 53 transactions, and the 2-of-2 Safe took the keys the same day. The app shows 19 tokens: NVDA, SPY, META, AAPL, TSLA, GOOGL, MSFT, AMZN, GLD, MSTR, CRCL, USO, PLTR, WETH, cbBTC, SPCX, COIN, TSM and BABA, each trading against USDG through its own Uniswap v4 pool. Six more are listed on chain and not shown yet: DELL, held back for its thin pool, and QQQ, MU, AMD, INTC and SLV, which trade through Uniswap v3 pools the app can't route yet. A shared portfolio can hold 1 to 16 assets, in steps of 0.5%, with the rest in cash, as your own vault can. Real money can be deposited. Before the deploy we rehearsed it whole on a copy of mainnet, and bought and sold back every token the app trades there ([`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md)). The first contracts, deployed on Oct 12, are still on chain and no longer served; their two vaults were emptied. The same contracts also run on the test network (chain id 46630), which the hosted app no longer serves. See [`deployments/robinhood-mainnet.json`](deployments/robinhood-mainnet.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json).
 
 Solana is on devnet, with 13 test tokens standing in for mainnet tokens, a test dollar and a test exchange we deployed ([`deployments/solana-devnet.json`](deployments/solana-devnet.json)). A deposit from the hosted app landed there and the trades after it were refused (order 771a1fad). Tests in LiteSVM and on a local validator in CI cover the fix and a plan's full run: trades, adding money and withdrawing in kind. A person's full run by hand is still to do. On devnet a shared portfolio was published and given a new version, and in a scripted check the keeper rebalanced a vault that follows one; tests on both chains cover the rest of shared portfolios.
 
@@ -55,7 +55,7 @@ Robinhood Chain figures are mainnet reads (`"provenance": "live"`) and carry no 
 
 The API builds transactions and never signs for anyone. The guard in the browser (`packages/sdk`) reads each transaction's bytes and refuses anything that is not the step you approved. On chain, only the owner deposits or withdraws, and a keeper trade must stay inside the plan's assets, near a reference price and under a weekly loss limit. On Robinhood Chain mainnet, before it builds an owner's own trade, the app checks that the price is within 2% of a reference (Chainlink's feed while it is live, otherwise the pool's one-hour average, inside an outer rail) and that the size is under a cap per token; the contract does not check this (gate `OWNER-PRICE-BOUND`).
 
-On Robinhood Chain the admin is a timelock with a 48-hour delay, owned by a 2-of-2 Safe the two of us hold. A guardian can only pause; its address is also one of the Safe's owners. The keeper is off, there is no deposit cap, and the contracts are unaudited. [`docs/vault/SECURITY.md`](docs/vault/SECURITY.md) has who can do what, and how fast.
+On Robinhood Chain the admin is a 2-of-2 Safe the two of us hold, directly, with no timelock for now: a change takes effect as soon as we both sign it. A 48-hour timelock comes back once the four first portfolios are published and have traded a week with the keeper off without an incident, and Thom says so (gate `ROBINHOOD-REDEPLOY`). A guardian can only pause; its address is also one of the Safe's owners. The keeper is off, there is no deposit cap, and the contracts are unaudited. [`docs/vault/SECURITY.md`](docs/vault/SECURITY.md) has who can do what, and how fast.
 
 ## Try it
 
@@ -127,15 +127,14 @@ Robinhood Chain mainnet (4663):
 
 | What | Address |
 |---|---|
-| Vault factory | [`0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80`](https://robin.etherscan.io/address/0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80) |
-| Shared-portfolio registry | [`0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc`](https://robin.etherscan.io/address/0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc) |
-| Vault beacon | [`0xac27328a77962cd0b6095e7c4074946622d6d77d`](https://robin.etherscan.io/address/0xac27328a77962cd0b6095e7c4074946622d6d77d) |
-| Timelock, 48 hours (admin of the factory, owner of the beacon) | [`0x749f6aeb956b9f490e316599068ba8a6bd248342`](https://robin.etherscan.io/address/0x749f6aeb956b9f490e316599068ba8a6bd248342) |
-| Safe, 2 of 2 (proposes to the timelock) | [`0x4568bc6cc821b34095059fd46102eaa22a675fdc`](https://robin.etherscan.io/address/0x4568bc6cc821b34095059fd46102eaa22a675fdc) |
+| Vault factory | [`0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa`](https://robin.etherscan.io/address/0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa) |
+| Shared-portfolio registry | [`0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8`](https://robin.etherscan.io/address/0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8) |
+| Vault beacon | [`0x935658c738aef037092c69fd66b1ac3295882c0d`](https://robin.etherscan.io/address/0x935658c738aef037092c69fd66b1ac3295882c0d) |
+| Safe, 2 of 2 (admin of the factory, owner of the beacon, at once: no timelock) | [`0x4568bc6cc821b34095059fd46102eaa22a675fdc`](https://robin.etherscan.io/address/0x4568bc6cc821b34095059fd46102eaa22a675fdc) |
 | Guardian (can only pause; also one of the Safe's two owners) | [`0x0a1c3312c808b23d019bf241028f6b5624f4cc98`](https://robin.etherscan.io/address/0x0a1c3312c808b23d019bf241028f6b5624f4cc98) |
 | USDG, the dollar token (not ours) | [`0x5fc5360d0400a0fd4f2af552add042d716f1d168`](https://robin.etherscan.io/address/0x5fc5360d0400a0fd4f2af552add042d716f1d168) |
 
-Every transaction of the deploy is in [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md). A redeploy is prepared and not run (gate `ROBINHOOD-REDEPLOY`, [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md)): new contracts with USDG and 25 tokens and the second shared-portfolio rules, held by the Safe directly with no timelock. This table changes when its record is committed.
+These are the contracts of the redeploy of 2026-10-15 (gate `ROBINHOOD-REDEPLOY`): USDG and 25 tokens, the second shared-portfolio rules, held by the Safe directly with no timelock. Every transaction is in [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md). The contracts of 2026-10-12, behind a timelock, are still deployed and no longer served ([`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md)).
 
 Robinhood Chain test network (46630), still deployed and no longer served by the hosted app:
 

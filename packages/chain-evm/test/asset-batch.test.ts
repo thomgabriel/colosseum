@@ -26,7 +26,7 @@ const text = readFileSync(
 );
 const file = AddAssetsFile.parse(JSON.parse(text));
 const record = EvmDeploymentRecord.parse(
-  JSON.parse(readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8')),
+  JSON.parse(readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet-2026-10-12.json'), 'utf8')),
 );
 const batch = assetBatch(file);
 

@@ -93,7 +93,9 @@ if [ "$SEND" = 1 ]; then
   status=0
   forge script script/Deploy.s.sol --rpc-url "$ROBINHOOD_RPC_URL" --sender "$DEPLOYER" "${SIGNER[@]}" \
     --broadcast --slow || status=$?
-  if (cd "$ROOT" && pnpm -s ops:redeploy --sent --since "$BEGAN"); then
+  # A send that forge finished is a send, whatever its record says; one that stopped is one once its
+  # record holds a transaction that went out.
+  if [ "$status" = 0 ] || (cd "$ROOT" && pnpm -s ops:redeploy --sent --since "$BEGAN"); then
     echo "$BEGAN" >"$STARTED"
   fi
   if [ "$status" != 0 ]; then
