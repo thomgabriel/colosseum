@@ -1397,18 +1397,25 @@ export const pt: Dictionary = {
     },
     publish: {
       title: 'Compartilhe a estratégia do seu cofre.',
-      lead: (chain: string) =>
-        `Compartilhe a estratégia registrada no seu cofre na ${chain}. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.`,
+      lead: 'Compartilhe a estratégia registrada em um dos seus cofres. Revise os ativos e pesos-alvo exatos, dê um nome e uma descrição públicos e assine a publicação.',
       signIn: 'Entre para publicar um portfólio.',
-      liveOnly: (chain: string, live: string) =>
-        live
-          ? `Produtos lista só portfólios na ${live}, então um publicado de um cofre na ${chain} não apareceria. Publique do seu cofre na ${live}: abra a página dele e escolha Compartilhar estratégia.`
-          : `Produtos lista só portfólios ao vivo, e a ${chain} não está ao vivo aqui, então um portfólio publicado nela não apareceria.`,
+      notListed: (chain: string, test: boolean) =>
+        test
+          ? `A ${chain} roda em uma rede de teste aqui, e Produtos lista só portfólios com dinheiro real.`
+          : `A ${chain} não está ao vivo aqui, e Produtos lista só portfólios com dinheiro real.`,
+      noVaultOn: (chains: string) =>
+        chains
+          ? `Você não tem um cofre na ${chains} para publicar.`
+          : 'Você não tem um cofre para publicar.',
+      makeVault: 'Criar um cofre',
       shareStrategy: 'Compartilhar estratégia',
       sourceVault: 'Seu cofre de origem',
-      sourceHint: 'Escolha um cofre seu na rede ativa.',
+      sourceHint: (chains: string) =>
+        chains
+          ? `Produtos lista portfólios na ${chains}, então seus cofres lá são oferecidos.`
+          : 'Escolha um cofre seu.',
       chooseVault: 'Escolha seu cofre',
-      noVaults: 'Escolha um cofre seu nesta rede antes de compartilhar uma estratégia.',
+      noVaults: 'Escolha um dos seus cofres antes de compartilhar uma estratégia.',
       readingVaults: 'Lendo seus cofres…',
       readingStrategy: 'Lendo a estratégia do cofre…',
       sourceUnavailable:

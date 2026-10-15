@@ -1624,19 +1624,31 @@ export const en = {
     },
     publish: {
       title: 'Publish your vault as a portfolio',
-      lead: (chain: string) =>
-        `Publish the targets recorded in your own vault on ${chain} as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.`,
+      lead: 'Publish the targets recorded in one of your vaults as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.',
       signIn: 'Sign in to publish a portfolio.',
-      /** Where the server lists live portfolios only: a vault on another chain would never be shown. */
-      liveOnly: (chain: string, live: string) =>
-        live
-          ? `Products lists portfolios on ${live} only, so one published from a vault on ${chain} wouldn’t be shown. Publish from your vault on ${live}: open its page and choose Publish as a portfolio.`
-          : `Products lists live portfolios only, and ${chain} isn’t live here, so a portfolio published on it wouldn’t be shown.`,
+      /**
+       * Where the server lists live portfolios only, said of the vault the link named when its chain is
+       * not one of them: a test network, or a chain not live here.
+       */
+      notListed: (chain: string, test: boolean) =>
+        test
+          ? `${chain} runs on a test network here, and Products lists real-money portfolios only.`
+          : `${chain} isn’t live here, and Products lists real-money portfolios only.`,
+      /** No vault of the person's on a chain whose portfolios Products lists: one line, and a way to make one. */
+      noVaultOn: (chains: string) =>
+        chains
+          ? `You have no vault on ${chains} to publish from.`
+          : 'You have no vault to publish from.',
+      makeVault: 'Make a vault',
       shareStrategy: 'Publish as a portfolio',
       sourceVault: 'Your source vault',
-      sourceHint: 'Choose a vault you own on the active chain.',
+      /** Where the server lists live portfolios only, the chains whose vaults are offered. */
+      sourceHint: (chains: string) =>
+        chains
+          ? `Products lists portfolios on ${chains}, so your vaults there are offered.`
+          : 'Choose a vault you own.',
       chooseVault: 'Choose your vault',
-      noVaults: 'Choose an owned vault on this chain before publishing a portfolio.',
+      noVaults: 'Choose one of your vaults before publishing a portfolio.',
       readingVaults: 'Reading your vaults…',
       readingStrategy: 'Reading the vault’s targets…',
       sourceUnavailable: 'Your vaults could not be read. Open the vault and try publishing again.',
