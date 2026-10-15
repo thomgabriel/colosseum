@@ -160,6 +160,11 @@ export const RebalancePolicy = z.object({
    * the plan is exact at the given prices.
    */
   costBps: Bps.optional(),
+  /**
+   * Plans no sale: the purchases spend the cash over its share, and nothing is sold to pay for them.
+   * What an owner's rebalance does with idle cash inside the band (`idleCashToInvest`).
+   */
+  purchasesOnly: z.boolean().optional(),
 });
 export type RebalancePolicy = z.infer<typeof RebalancePolicy>;
 
