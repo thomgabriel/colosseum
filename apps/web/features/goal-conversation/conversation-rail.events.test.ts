@@ -1,15 +1,20 @@
 // @vitest-environment happy-dom
+
+import type { ChainId } from '@colosseum/schemas';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MENU_BUTTON, MENU_FIELD, MENU_ROW } from '../../components/ui/side-menu';
+import { CHAIN_NAMES } from '../../components/ui/chain-names';
+import { MENU_BUTTON, MENU_FIELD, MENU_MARK, MENU_ROW } from '../../components/ui/side-menu';
 import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
-import { withAccount } from '../account/test/screen';
+import { inLanguage, withAccount } from '../account/test/screen';
 import { chainOf, portfolioBody, VAULT, vault } from '../portfolio/test/portfolio';
 import { plans } from '../portfolio-section/test/fixtures';
 import { shortAddress } from '../shared/use-person';
 import { json, PHANTOM, signedInPort } from '../wallet/test/fake-port';
 import { portStore } from '../wallet/test/mock-provider';
+import { ConversationRail } from './ConversationRail';
+import type { DraftRow, VaultRow } from './conversation-list';
 import { goalConversationKey } from './GoalConversation';
 import { GoalHome } from './GoalHome';
 import { current, open, openNew, rail, row, titles, unfold } from './test/rail';
@@ -64,6 +69,17 @@ function keep(items: { id: string; words: string; at: string; name?: string; pla
 }
 const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 const show = (lang: Lang = 'en') => mount(withAccount(lang, createElement(GoalHome)));
+/** An element's text as a reader hears it: what is hidden from one left out. */
+const spoken = (el: Element): string =>
+  [...el.childNodes]
+    .map((node) =>
+      node.nodeType === Node.TEXT_NODE
+        ? (node.textContent ?? '')
+        : node instanceof Element && node.getAttribute('aria-hidden') !== 'true'
+          ? spoken(node)
+          : '',
+    )
+    .join('');
 const groups = (host: HTMLElement) =>
   [...rail(host).querySelectorAll<HTMLElement>('[data-ui="conversation-group"]')].map(
     (group) =>
@@ -119,17 +135,26 @@ describe('the conversations panel', () => {
     expect(vaults.map((one) => one.dataset.address).sort()).toEqual(
       listed.map((plan) => plan.address).sort(),
     );
+    let aged = 0;
     for (const one of vaults) {
       const link = find(one, '[data-ui="conversation-open"]');
       expect(link.getAttribute('href')).toBe(
         `/portfolio/vaults/${one.dataset.chain}/${encodeURIComponent(one.dataset.address ?? '')}`,
       );
-      expect(link.getAttribute('aria-label')).toBe(
-        w.openVault(find(one, '[data-ui="conversation-title"]').textContent ?? ''),
+      // named by its line, not by a label over it: a reader hears its name, "Vault", the chain and
+      // how long ago (the review of #329)
+      expect(link.hasAttribute('aria-label')).toBe(false);
+      const chain = CHAIN_NAMES[one.dataset.chain as ChainId];
+      const age = link.querySelector('time')?.textContent;
+      if (age) aged += 1;
+      expect(spoken(link)).toBe(
+        `${find(one, '[data-ui="conversation-title"]').textContent}, ${w.vault}, ${chain}${age ? `, ${age}` : ''}`,
       );
       // named by its goal or its name, never by its address
       expect(one.textContent).not.toContain(one.dataset.address ?? '');
     }
+    // a vault with a time says how long ago too
+    expect(aged).toBeGreaterThan(0);
     // the rail's row is one line and draws no figure; the sheet's shows a vault's value, with its
     // pin, where it has a newest read
     const read = listed.filter((plan) => plan.newest);
@@ -363,6 +388,88 @@ describe('the conversations panel', () => {
     expect(find(rail(host), 'button[data-ui="conversation-new"]').className).toContain(MENU_BUTTON);
     expect(find(rail(host), '[data-ui="conversation-search"] input').className).toContain(
       MENU_FIELD,
+    );
+  });
+
+  it('heads the open rail with its name for a reader, over its days', async () => {
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(1) }]);
+    const host = await show();
+    await settle();
+    // the parent of the day groups' h3s (the review of #329): hidden from the eye, first in the rail
+    const heading = find(rail(host), 'h2');
+    expect(heading.textContent).toBe(w.label);
+    expect(heading.className).toContain('sr-only');
+    expect(rail(host).firstElementChild).toBe(heading);
+    expect(rail(host).querySelectorAll('h3').length).toBeGreaterThan(0);
+    // folded, the rail has no days and no heading over them
+    await click(find(rail(host), '[data-ui="conversations-toggle"]'));
+    expect(rail(host).querySelector('h2, h3')).toBeNull();
+  });
+
+  it('writes a short code in the mark column for a chain with no mark of its own (Base)', async () => {
+    const at = Date.now() - 3_600_000;
+    const draft: DraftRow = {
+      kind: 'draft',
+      key: 'base:d1',
+      chain: 'base',
+      base: 'tf:base',
+      id: 'd1',
+      title: 'Consider gold',
+      at,
+      current: false,
+      planId: null,
+      kept: true,
+      depositing: false,
+    };
+    const onBase: VaultRow = {
+      kind: 'vault',
+      key: 'base:0xabc',
+      chain: 'base',
+      address: '0xabc',
+      title: 'Grow on Base',
+      at,
+      current: false,
+      value: null,
+      planId: null,
+    };
+    const onSolana: VaultRow = {
+      ...onBase,
+      key: 'solana:So1',
+      chain: 'solana',
+      address: 'So1',
+      title: 'Grow on Solana',
+    };
+    const nothing = () => {};
+    const host = await mount(
+      inLanguage(
+        'en',
+        createElement(ConversationRail, {
+          rows: [draft, onBase, onSolana],
+          now: Date.now(),
+          onNew: nothing,
+          onOpen: nothing,
+          onRename: nothing,
+          onDelete: nothing,
+        }),
+      ),
+    );
+    await settle();
+    const mark = (title: string) => {
+      const column = find(row(host, title), '[data-ui="conversation-open"]').firstElementChild;
+      expect(column?.className).toContain(MENU_MARK);
+      expect(column?.getAttribute('aria-hidden')).toBe('true');
+      return column as HTMLElement;
+    };
+    for (const title of ['Consider gold', 'Grow on Base']) {
+      expect(find(mark(title), '[data-ui="chain-code"]').textContent).toBe('Ba');
+      expect(mark(title).querySelector('img')).toBeNull();
+    }
+    // a chain with its mark draws it, and no code
+    expect(mark('Grow on Solana').querySelector('[data-ui="chain-code"]')).toBeNull();
+    expect(find(mark('Grow on Solana'), 'img[data-ui="chain-logo"]').dataset.chain).toBe('solana');
+    // the code is the eye's: a reader hears the chain's name after the row's
+    expect(spoken(find(row(host, 'Grow on Base'), '[data-ui="conversation-open"]'))).toMatch(
+      new RegExp(`^Grow on Base, ${w.vault}, Base, `),
     );
   });
 
