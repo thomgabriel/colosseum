@@ -94,31 +94,65 @@ async function onChain(
   };
 }
 
+/** How long a chain's figures are served as read, and how long, older, they are served while read again. */
+export const SHELF_FRESH_MS = 10 * 60_000;
+export const SHELF_STALE_MS = 60 * 60_000;
+
+type Inputs = Awaited<ReturnType<PlanInputs>>;
 /**
- * The plan inputs of a chain (the stored yields, Bearing's sell depth), read once for an answer
- * however many recipes it has on that chain. A read that fails is no figures, never a failed answer.
+ * The plan inputs of a chain (the stored yields, Bearing's sell depth), as the shelf and a portfolio's
+ * page read them. A read that fails is no figures, never a failed answer.
  */
-type Figures = (entry: ChainEntry) => Promise<Awaited<ReturnType<PlanInputs>> | null>;
-function figuresReader(deps: OrderDeps, planInputs: PlanInputs): Figures {
-  const byChain = new Map<string, ReturnType<Figures>>();
-  return (entry) => {
-    const kept = byChain.get(entry.chain);
-    if (kept) return kept;
-    const read = (async () => {
+type Figures = (entry: ChainEntry) => Promise<Inputs | null>;
+
+/**
+ * The plan inputs of each chain, kept for every answer of the shelf and of a portfolio's page. Reading
+ * them is a few queries, two more per listed token, and Bearing's curves built from what they read: the
+ * first shelf after a start took a minute on the host (Oct 15). Fresh for `SHELF_FRESH_MS` they are
+ * served as they are; older, up to `SHELF_STALE_MS`, they are served while one read brings them up to
+ * date; past that an answer waits for the read. Answers that come together share one read. Each figure
+ * keeps its own reading's source and time (figures.ts), so a kept one never passes for newer than it is.
+ */
+function keptFigures(deps: OrderDeps, planInputs: PlanInputs): Figures {
+  const kept = new Map<string, { at: number; inputs?: Inputs; read?: Promise<Inputs | null> }>();
+  const now = () => deps.now().getTime();
+  const read = (entry: ChainEntry) => {
+    const e = kept.get(entry.chain) ?? { at: 0 };
+    kept.set(entry.chain, e);
+    if (e.read) return e.read;
+    // Its age counts from when the read began: nothing it holds is newer than that.
+    const began = now();
+    const reading = (async () => {
       try {
         const assets = await entry.adapter.listAssets();
-        return await planInputs({
+        const inputs = await planInputs({
           db: deps.db,
           chain: entry.chain,
           assets,
           provenance: entry.provenance,
         });
+        e.inputs = inputs;
+        e.at = began;
+        return inputs;
       } catch {
         return null;
       }
     })();
-    byChain.set(entry.chain, read);
-    return read;
+    e.read = reading;
+    void reading.finally(() => {
+      if (e.read === reading) e.read = undefined;
+    });
+    return reading;
+  };
+  return async (entry) => {
+    const e = kept.get(entry.chain);
+    const age = e?.inputs ? now() - e.at : Number.POSITIVE_INFINITY;
+    if (e?.inputs && age <= SHELF_FRESH_MS) return e.inputs;
+    if (e?.inputs && age <= SHELF_STALE_MS) {
+      void read(entry);
+      return e.inputs;
+    }
+    return read(entry);
   };
 }
 
@@ -205,15 +239,42 @@ async function familyNamed(deps: OrderDeps, slug: string): Promise<StoredFamily>
 export const LIMITS_KEPT_MS = 30_000;
 type CreatorLimitsAnswer = import('zod').infer<typeof CreatorLimitsResponse>;
 
+/**
+ * Registers the shared-portfolio reads. Answers `warm`, which works the whole shelf out once, as
+ * `GET /v1/shelf` with no chain would, so the figures it needs are kept before anybody asks; it answers
+ * how many portfolios that shelf holds.
+ */
 export function registerSharedRoutes(
   scope: FastifyInstance,
   deps: OrderDeps,
   planInputs: PlanInputs = async () => ({}),
   shelf: { liveOnly: boolean } = { liveOnly: false },
-) {
+): { warm: () => Promise<number> } {
   const f = scope.withTypeProvider<ZodTypeProvider>();
   const tags = ['shared portfolios'];
   const keptLimits = new Map<string, { at: number; answer: CreatorLimitsAnswer }>();
+  const figures = keptFigures(deps, planInputs);
+
+  const shelfOf = async (chain: SharedChainQuery['chain']) => {
+    const families: SharedFamily[] = [];
+    for (const stored of await allFamilies(deps.db)) {
+      const family = await familyOf(deps, stored, chain, false, figures);
+      // Live only: a recipe whose figures are not live is left off the shelf, and a portfolio with
+      // none left goes with it. Its page still answers by its address, for whoever follows it.
+      const shown = shelf.liveOnly
+        ? {
+            ...family,
+            recipes: family.recipes.filter((r) => r.provenance === 'live'),
+            chains: family.chains.filter((c) =>
+              family.recipes.some((r) => r.chain === c && r.provenance === 'live'),
+            ),
+          }
+        : family;
+      if ((chain || shelf.liveOnly) && !shown.recipes.length) continue;
+      families.push(shown);
+    }
+    return families;
+  };
 
   f.get(
     '/v1/shelf',
@@ -223,33 +284,12 @@ export function registerSharedRoutes(
         tags,
         summary: 'Every shared portfolio, or those with a recipe on one chain',
         description:
-          "From the server's store, not the chains: each recipe's versions are the last the server read (`source: 'cache'`). With no `chain`, every portfolio, each with the chains it has a recipe on (`chains`): the app lists them together, each labelled with its chains (gate CHAIN-AT-THE-PLAN). `chain` limits the answer to the portfolios with a recipe on that chain. A recipe on a chain this server has switched off is left out, and so is one published on a network its chain no longer runs. Where the server lists live portfolios only (`SHELF_LIVE_ONLY`), a recipe whose figures are not live is left out too, with a portfolio that has none left; its page still answers by its slug. `autoFollow` says whether the auto-follow switch is offered: not on a portfolio that holds an asset with no price oracle on that chain, whose followers get the one-tap prompt instead. `name` and `copy` are the creator's words: `textMatches` says which version's hash they match, if any. `figures` is what the server has measured about the version in effect, the readings a plan is made from: each holding's stored yield and the most of it that can be sold within the exit window (each null where the server has none, never zero). Nothing is added up across the holdings.",
+          "From the server's store, not the chains: each recipe's versions are the last the server read (`source: 'cache'`). With no `chain`, every portfolio, each with the chains it has a recipe on (`chains`): the app lists them together, each labelled with its chains (gate CHAIN-AT-THE-PLAN). `chain` limits the answer to the portfolios with a recipe on that chain. A recipe on a chain this server has switched off is left out, and so is one published on a network its chain no longer runs. Where the server lists live portfolios only (`SHELF_LIVE_ONLY`), a recipe whose figures are not live is left out too, with a portfolio that has none left; its page still answers by its slug. `autoFollow` says whether the auto-follow switch is offered: not on a portfolio that holds an asset with no price oracle on that chain, whose followers get the one-tap prompt instead. `name` and `copy` are the creator's words: `textMatches` says which version's hash they match, if any. `figures` is what the server has measured about the version in effect, the readings a plan is made from: each holding's stored yield and the most of it that can be sold within the exit window (each null where the server has none, never zero). Nothing is added up across the holdings. A chain's readings are kept ten minutes and, older, served up to an hour while they are read again; each figure keeps its own `fetchedAt`.",
         querystring: SharedChainQuery,
         response: { 200: ShelfResponse, default: OrderError },
       },
     },
-    async (req) => {
-      const { chain } = req.query;
-      const families: SharedFamily[] = [];
-      const figures = figuresReader(deps, planInputs);
-      for (const stored of await allFamilies(deps.db)) {
-        const family = await familyOf(deps, stored, chain, false, figures);
-        // Live only: a recipe whose figures are not live is left off the shelf, and a portfolio with
-        // none left goes with it. Its page still answers by its address, for whoever follows it.
-        const shown = shelf.liveOnly
-          ? {
-              ...family,
-              recipes: family.recipes.filter((r) => r.provenance === 'live'),
-              chains: family.chains.filter((c) =>
-                family.recipes.some((r) => r.chain === c && r.provenance === 'live'),
-              ),
-            }
-          : family;
-        if ((chain || shelf.liveOnly) && !shown.recipes.length) continue;
-        families.push(shown);
-      }
-      return { families, disclaimer: DISCLAIMER.en };
-    },
+    async (req) => ({ families: await shelfOf(req.query.chain), disclaimer: DISCLAIMER.en }),
   );
 
   f.get(
@@ -314,7 +354,7 @@ export function registerSharedRoutes(
         await familyNamed(deps, req.params.slug),
         req.query.chain,
         true,
-        figuresReader(deps, planInputs),
+        figures,
       ),
       disclaimer: DISCLAIMER.en,
     }),
@@ -359,4 +399,6 @@ export function registerSharedRoutes(
       return { familyId: family.familyId, slug: family.slug, chains };
     },
   );
+
+  return { warm: async () => (await shelfOf(undefined)).length };
 }

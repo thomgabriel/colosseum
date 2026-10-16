@@ -152,6 +152,8 @@ export type WarmOptions = {
   firstMs?: number;
   /** It stops after this long, whatever is left. */
   maxMs?: number;
+  /** It starts only once this has settled too: another warm-up that goes first. */
+  after?: Promise<unknown>;
   /** How long it waits before looking again while requests from outside are under way. */
   pauseMs?: number;
 };
@@ -167,6 +169,7 @@ export async function warmRiskReads(app: FastifyInstance, opts: WarmOptions = {}
   const { log = () => {}, firstMs = 30_000, maxMs = 180_000, pauseMs = 250 } = opts;
   const seen = traffic.get(app);
   const pause = (ms: number) => new Promise((d) => setTimeout(d, ms).unref?.());
+  await opts.after?.catch(() => {});
   if (seen) await Promise.race([seen.served, pause(firstMs)]);
   const started = Date.now();
   const late = () => Date.now() - started > maxMs;

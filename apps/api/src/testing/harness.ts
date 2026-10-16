@@ -428,6 +428,8 @@ export async function testApp(a: {
   wrap?: (registry: ChainRegistry) => ChainRegistry;
   /** The figures a plan is made with. Default: the server's reader of the stored ones. */
   planInputs?: PlanInputs;
+  /** Work the shelf out at start, as the server does. Default: off. */
+  warmShelf?: boolean;
   /** The guided intake's model. Default: none (no key in a test's environment). */
   intakeModel?: IntakeModel | null;
   /** The test faucet's senders (POST /v1/testnet/fund). Default: none. */
@@ -451,6 +453,7 @@ export async function testApp(a: {
       limits: a.limits ?? ROOMY,
       ...(a.linkedPlans ? { linkedPlans: a.linkedPlans } : {}),
       ...(a.planInputs ? { planInputs: a.planInputs } : {}),
+      ...(a.warmShelf ? { warmShelf: true } : {}),
       ...(a.intakeModel !== undefined ? { intakeModel: a.intakeModel } : {}),
       ...(a.testFunds ? { testFunds: a.testFunds } : {}),
     },
