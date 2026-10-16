@@ -169,6 +169,26 @@ describe('the warm-up', () => {
     expect(most).toBe(1);
   });
 
+  it('starts after the warm-up it is told to follow, and not much later than its time limit if that never ends', async () => {
+    const { a, read } = await app();
+    let release: () => void = () => {};
+    const first = new Promise<void>((d) => {
+      release = d;
+    });
+    const warm = warmRiskReads(a, { firstMs: 0, pauseMs: 5, after: first });
+    await new Promise((d) => setTimeout(d, 30));
+    expect(read).toEqual([]);
+    release();
+    await warm;
+    expect(read.length).toBeGreaterThan(1);
+
+    const { a: b, read: readB } = await app();
+    const t = Date.now();
+    await warmRiskReads(b, { firstMs: 0, maxMs: 50, pauseMs: 5, after: new Promise(() => {}) });
+    expect(Date.now() - t).toBeLessThan(1_000);
+    expect(readB.length).toBeGreaterThan(0);
+  });
+
   it('stops at its time limit', async () => {
     const { a, read } = await app();
     // a request from outside that never ends: the warm-up waits behind it, and gives up in time
