@@ -222,6 +222,17 @@ describe('Hint, placed', () => {
     expect([left.side, left.left]).toEqual(['left', 1100 - 8 - 240]);
     // held inside the window at its foot
     expect(besideFor({ ...row, top: 850, bottom: 886 }, size, wide).top).toBe(900 - 16 - 120);
+    // a sheet with no room beside it: left of the trigger's own box, over its own row
+    const sheet = { top: 114, bottom: 142, left: 0, right: 352 };
+    const narrow = { width: 500, height: 768 };
+    expect(besideFor(sheet, { width: 200, height: 36 }, narrow, { left: 280, right: 308 })).toEqual(
+      {
+        side: 'left',
+        top: 114,
+        left: 72,
+        maxHeight: 736,
+      },
+    );
     // room on neither side: under it, as any tooltip
     expect(besideFor({ ...row, left: 40, right: 340 }, size, view).side).toBe('below');
   });

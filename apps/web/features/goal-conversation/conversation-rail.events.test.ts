@@ -395,6 +395,62 @@ describe('the conversations panel', () => {
     expect(current(host)).toBe(named);
   });
 
+  // The review of #331's delta: in a narrow window the sheet leaves no room beside it, and its rename's
+  // tooltip went under its row, over the next.
+  it('in a narrow window, opens a rename’s tooltip left of it, over its own row, not the next', async () => {
+    served = { ...answer, chains: [] };
+    keep([
+      { id: 'd1', words: 'First', at: ago(0) },
+      { id: 'd2', words: 'Second', at: ago(0) },
+    ]);
+    const host = await show();
+    await settle();
+    await click(find(host, '[data-ui="conversations-open"]'));
+    const sheet = find(host, '[data-ui="conversations-sheet"]');
+    const rows = [...sheet.querySelectorAll<HTMLElement>('[data-ui="conversation-row"]')];
+    const at = rows.findIndex((one) => one.querySelector('[data-ui="conversation-rename"]'));
+    const [one, two] = [rows[at] as HTMLElement, rows[at + 1] as HTMLElement];
+    const pencil = find(one, '[data-ui="conversation-rename"]');
+    // a 500px window, the sheet 352px at its left edge, its rows 56px, the pencil 28px inside the first
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+    const ROW = 56;
+    const rowBox = (row: HTMLElement) => {
+      const top = 100 + ROW * (row === two ? 1 : 0);
+      return { left: 0, right: 352, top, bottom: top + ROW };
+    };
+    const PENCIL = { left: 280, right: 308, top: 114, bottom: 142 };
+    const box = (b: { left: number; right: number; top: number; bottom: number }) =>
+      ({ ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top }) as DOMRect;
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this === sheet) return box({ left: 0, right: 352, top: 0, bottom: 768 });
+      if (this.getAttribute('role') === 'tooltip')
+        return box({ left: 0, right: 200, top: 0, bottom: 36 });
+      // the pencil, and the trigger box Hint holds it in
+      if (this === pencil || this === pencil.parentElement) return box(PENCIL);
+      if (this === one || this === two) return box(rowBox(this as HTMLElement));
+      return box({ left: 0, right: 0, top: 0, bottom: 0 });
+    });
+    try {
+      const hint = pencil.closest('[data-ui="hint"]') as HTMLElement;
+      await fire(hint, new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+      await settle(HINT_OPEN_MS + 30);
+      const panel = find(hint, '[role="tooltip"]');
+      const left = Number.parseFloat(panel.style.left);
+      const top = Number.parseFloat(panel.style.top);
+      // left of the pencil, 8px away, level with it
+      expect([panel.dataset.side, left, top]).toEqual(['left', PENCIL.left - 8 - 200, PENCIL.top]);
+      // nothing of it over the second row: its middle is still the second row's to press
+      const under = rowBox(two);
+      expect(top + 36 <= under.top || left >= under.right || left + 200 <= under.left).toBe(true);
+    } finally {
+      vi.restoreAllMocks();
+      Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+    }
+  });
+
   it('opens no tooltip on a row the focus is put back on after a press, only on one the keyboard reaches', async () => {
     served = { ...answer, chains: [] };
     keep([{ id: 'd1', words: 'Consider gold', at: ago(0) }]);

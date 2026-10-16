@@ -55,24 +55,35 @@ export function placeFor(
 /**
  * Where a panel goes beside a list of rows, so it never covers the row under its own (a rail's): right
  * of `at`'s right edge (the list's, where the trigger sits in one), else left of its left edge; level
- * with the trigger's top and held inside the viewport. Where it fits on neither side, as `placeFor`.
+ * with the trigger's top and held inside the viewport. Where the list leaves no room on either side (a
+ * sheet in a narrow window), beside the trigger's own box (`own`), left of it, else right: over its own
+ * row, not the next. Only where none of these fits, as `placeFor`.
  */
 export function besideFor(
   at: { top: number; bottom: number; left: number; right: number },
   size: { width: number; height: number },
   view: { width: number; height: number },
+  own: { left: number; right: number } = at,
 ): Place {
-  const right = view.width - EDGE - (at.right + GAP);
-  const left = at.left - GAP - EDGE;
-  if (size.width > right && size.width > left) return placeFor(at, size, view);
   const maxHeight = Math.max(0, view.height - 2 * EDGE);
   const top = Math.max(
     EDGE,
     Math.min(at.top, view.height - EDGE - Math.min(size.height, maxHeight)),
   );
-  return size.width <= right
-    ? { side: 'right', top, left: at.right + GAP, maxHeight }
-    : { side: 'left', top, left: at.left - GAP - size.width, maxHeight };
+  const fitsRight = (edge: number) => edge + GAP + size.width <= view.width - EDGE;
+  const fitsLeft = (edge: number) => edge - GAP - size.width >= EDGE;
+  const right = (edge: number): Place => ({ side: 'right', top, left: edge + GAP, maxHeight });
+  const left = (edge: number): Place => ({
+    side: 'left',
+    top,
+    left: edge - GAP - size.width,
+    maxHeight,
+  });
+  if (fitsRight(at.right)) return right(at.right);
+  if (fitsLeft(at.left)) return left(at.left);
+  if (fitsLeft(own.left)) return left(own.left);
+  if (fitsRight(own.right)) return right(own.right);
+  return placeFor(at, size, view);
 }
 
 /** The element a panel placed beside its trigger goes beside: the nearest one marked so, or the trigger. */
@@ -164,6 +175,7 @@ export function useHoverCard(defaultOpen = false, enabled = true, beside = false
           },
           size,
           view,
+          at,
         ),
       );
     };
