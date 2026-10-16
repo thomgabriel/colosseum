@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import {
   type KeyboardEvent,
+  type ReactElement,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -16,6 +17,7 @@ import { CHAIN_NAMES, ChainBadge } from '../../components/ui/ChainBadge';
 import { ChainLogo } from '../../components/ui/ChainLogo';
 import { cn } from '../../components/ui/cn';
 import { Input } from '../../components/ui/Field';
+import { Hint } from '../../components/ui/Hint';
 import { Icon } from '../../components/ui/Icon';
 import { KIT_ABOVE_LINK, KIT_ROW_LINK } from '../../components/ui/KitTable';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
@@ -46,7 +48,7 @@ import { NAME_LENGTH } from './conversations';
 // this browser last left it (and as INVEST-CHAT-ROOM folds it); inside, the analytics' side menu (Thom,
 // Oct 15; side-menu.ts): "Hide conversations", "New conversation" and a search on top, then one line a
 // row, the chain's mark in the menu's mark column and the name, the honey bar on the one on screen; the
-// chain and how long ago in its tooltip, and under the name on the row the keyboard is on. Under 1024px
+// whole name, the chain and how long ago in its tooltip, for the pointer and the keyboard. Under 1024px
 // a sheet over the page, opened from a button over the conversation, whose rows also say the chain, how
 // long ago and, for a vault, its value with its pin.
 // Both: the person's drafts and vaults in three groups by day, newest first, the one on screen marked;
@@ -154,6 +156,8 @@ export function ConversationSheet({
         ref={dialog}
         aria-label={w.label}
         data-ui="conversations-sheet"
+        // a row's tooltip goes beside the sheet where there is room, never over the next row
+        data-hint-edge
         onCancel={(event) => {
           event.preventDefault();
           setSheet(false);
@@ -247,8 +251,12 @@ export function ConversationRail({
     <div
       data-ui="conversations"
       data-closed={folded || undefined}
+      // a row's tooltip goes beside the rail, never over the next row (the review of #331)
+      data-hint-edge
       className={cn(
-        'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
+        // over the page beside it, so a row's tooltip, beside the rail, is not drawn under the chat; under
+        // the app's bar (z-30)
+        'max-lg:hidden lg:sticky lg:z-20 lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
         MENU_TEXT,
         folded ? 'lg:w-14' : 'lg:w-76',
       )}
@@ -506,10 +514,9 @@ function Group({
 
 /**
  * A rail row's one line: the chain's mark in the menu's mark column (its name's first two letters in
- * mono where it has no picture: Base), and the name. A vault's link is named by this line, so a reader
- * hears its name, "Vault", the chain and how long ago. What the sheet writes under the name (the chain
- * and how long ago) is its tooltip, said to a reader after the name, and written under the name on the
- * row the keyboard is on, since a tooltip is the pointer's alone.
+ * mono where it has no picture: Base), and the name. A row is named by this line, so a reader hears
+ * its name, "Vault", the chain and how long ago. What the sheet writes under the name (the chain and
+ * how long ago) is in the row's tooltip (`RowTip`), with the whole name, and said to a reader after it.
  */
 function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: string }) {
   const lang = useLang();
@@ -523,17 +530,8 @@ function Line({ row, now, kind }: { row: ConversationRow; now: number; kind?: st
           fallback={<span data-ui="chain-code">{CHAIN_NAMES[row.chain].slice(0, 2)}</span>}
         />
       </span>
-      <span className="min-w-0 flex-1">
-        <span data-ui="conversation-title" className="block truncate">
-          {row.title}
-        </span>
-        <span
-          aria-hidden="true"
-          data-ui="conversation-said"
-          className="hidden truncate text-caption font-normal text-muted-foreground group-focus-visible/open:block"
-        >
-          {said(row, now, LOCALE[lang], kind)}
-        </span>
+      <span data-ui="conversation-title" className="min-w-0 flex-1 truncate">
+        {row.title}
       </span>
       <span className="sr-only">
         {', '}
@@ -559,6 +557,38 @@ const said = (row: ConversationRow, now: number, locale: string, kind?: string) 
 const tip = (row: ConversationRow, now: number, locale: string, kind?: string) =>
   [kind, row.title, said(row, now, locale)].filter(Boolean).join(' · ');
 
+/**
+ * A rail row's tooltip: "Vault", the whole name, the chain and how long ago, when a mouse rests on the
+ * row and when the keyboard brings focus to it (the one tooltip, TOOLTIP-WORDS). The row's own line
+ * says all of it to a reader already, so the tooltip is hidden from one and describes nothing: no
+ * `title`, which NVDA and JAWS read after the name a second time (the review of #330). It opens beside
+ * the rail, level with the row: under it, it would cover the next row and take its press (#331).
+ */
+function RowTip({
+  row,
+  now,
+  kind,
+  children,
+}: {
+  row: ConversationRow;
+  now: number;
+  kind?: string;
+  children: ReactElement;
+}) {
+  const lang = useLang();
+  return (
+    <Hint
+      tip={tip(row, now, LOCALE[lang], kind)}
+      echo
+      beside
+      className="min-w-0 flex-1"
+      triggerClassName="w-full min-w-0"
+    >
+      {children}
+    </Hint>
+  );
+}
+
 /** The chain and how long ago, under a row's name. */
 function Meta({ row, now, children }: { row: ConversationRow; now: number; children?: ReactNode }) {
   const lang = useLang();
@@ -577,7 +607,7 @@ const ROW =
   'group/row relative flex min-w-0 items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/60';
 /** The rail's row: the menu's row (side-menu.ts) and, for a draft, its rename and delete after it. */
 const DENSE_ROW = 'group/row relative flex min-w-0 items-center gap-0.5';
-const DENSE_OPEN = cn(MENU_ROW, 'group/open min-w-0 flex-1 text-left', FOCUS);
+const DENSE_OPEN = cn(MENU_ROW, 'min-w-0 flex-1 text-left', FOCUS);
 
 function DraftItem({
   row,
@@ -595,7 +625,6 @@ function DraftItem({
   onDelete: (row: DraftRow) => void;
 }) {
   const w = useT().goal.explore.picker;
-  const lang = useLang();
   const [mode, setMode] = useState<'shown' | 'naming' | 'deleting'>('shown');
   const [name, setName] = useState(row.title);
   const nameId = useId();
@@ -719,63 +748,74 @@ function DraftItem({
       {...attrs}
       className={cn(dense ? DENSE_ROW : ROW, row.current && !dense && 'bg-accent hover:bg-accent')}
     >
-      <button
-        ref={back}
-        type="button"
-        data-ui="conversation-open"
-        aria-current={row.current ? 'true' : undefined}
-        onClick={() => onOpen(row)}
-        title={dense ? tip(row, now, LOCALE[lang]) : undefined}
-        className={dense ? DENSE_OPEN : cn('min-w-0 flex-1 rounded-md text-left', FOCUS)}
-      >
-        {dense ? (
-          <Line row={row} now={now} />
-        ) : (
-          <>
-            <span
-              data-ui="conversation-title"
-              className="block truncate text-body-sm font-medium text-foreground"
-            >
-              {row.title}
-            </span>
-            <Meta row={row} now={now} />
-          </>
-        )}
-      </button>
+      {dense ? (
+        <RowTip row={row} now={now}>
+          <button
+            ref={back}
+            type="button"
+            data-ui="conversation-open"
+            aria-current={row.current ? 'true' : undefined}
+            onClick={() => onOpen(row)}
+            className={DENSE_OPEN}
+          >
+            <Line row={row} now={now} />
+          </button>
+        </RowTip>
+      ) : (
+        <button
+          ref={back}
+          type="button"
+          data-ui="conversation-open"
+          aria-current={row.current ? 'true' : undefined}
+          onClick={() => onOpen(row)}
+          className={cn('min-w-0 flex-1 rounded-md text-left', FOCUS)}
+        >
+          <span
+            data-ui="conversation-title"
+            className="block truncate text-body-sm font-medium text-foreground"
+          >
+            {row.title}
+          </span>
+          <Meta row={row} now={now} />
+        </button>
+      )}
       {/* On the row the pointer or the focus is on, and always on a touch screen: the name has the row's
           width otherwise. Shown with the focus, they are the next stops of Tab. A new conversation
           with no words is in no list yet: it has nothing to rename or delete. */}
       {row.kept && (
         <span className="flex shrink-0 gap-0.5 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-focus-within/row:flex [@media(hover:hover)]:group-hover/row:flex">
-          <button
-            type="button"
-            data-ui="conversation-rename"
-            onClick={() => {
-              setName(row.title);
-              setMode('naming');
-            }}
-            className={cn(
-              buttonClass({ variant: 'icon', size: 'dense' }),
-              dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
-            )}
-            aria-label={w.rename(row.title)}
-            title={w.rename(row.title)}
-          >
-            <Icon name="Pencil" size={16} />
-          </button>
-          <button
-            type="button"
-            data-ui="conversation-delete"
-            onClick={() => setMode('deleting')}
-            className={cn(
-              buttonClass({ variant: 'icon', size: 'dense' }),
-              dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
-            )}
-            aria-label={w.remove(row.title)}
-            title={w.remove(row.title)}
-          >
-            <Icon name="X" size={16} />
-          </button>
+          {/* Their words are their names, so their tooltips are the eye's alone (TOOLTIP-WORDS). */}
+          <Hint tip={w.rename(row.title)} echo beside>
+            <button
+              type="button"
+              data-ui="conversation-rename"
+              onClick={() => {
+                setName(row.title);
+                setMode('naming');
+              }}
+              className={cn(
+                buttonClass({ variant: 'icon', size: 'dense' }),
+                dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
+              )}
+              aria-label={w.rename(row.title)}
+            >
+              <Icon name="Pencil" size={16} />
+            </button>
+          </Hint>
+          <Hint tip={w.remove(row.title)} echo beside>
+            <button
+              type="button"
+              data-ui="conversation-delete"
+              onClick={() => setMode('deleting')}
+              className={cn(
+                buttonClass({ variant: 'icon', size: 'dense' }),
+                dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
+              )}
+              aria-label={w.remove(row.title)}
+            >
+              <Icon name="X" size={16} />
+            </button>
+          </Hint>
         </span>
       )}
     </li>
@@ -797,14 +837,15 @@ function VaultItem({ row, now, dense }: { row: VaultRow; now: number; dense: boo
         data-address={row.address}
         className={DENSE_ROW}
       >
-        <Link
-          href={vaultHref(row.chain, row.address)}
-          data-ui="conversation-open"
-          title={tip(row, now, LOCALE[lang], w.vault)}
-          className={DENSE_OPEN}
-        >
-          <Line row={row} now={now} kind={w.vault} />
-        </Link>
+        <RowTip row={row} now={now} kind={w.vault}>
+          <Link
+            href={vaultHref(row.chain, row.address)}
+            data-ui="conversation-open"
+            className={DENSE_OPEN}
+          >
+            <Line row={row} now={now} kind={w.vault} />
+          </Link>
+        </RowTip>
       </li>
     );
   return (

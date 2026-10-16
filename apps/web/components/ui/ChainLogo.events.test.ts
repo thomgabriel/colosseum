@@ -53,4 +53,21 @@ describe('ChainLogo', () => {
     await fire(find(beside, 'img'), new Event('error'));
     expect(beside.innerHTML).toBe('');
   });
+
+  it('beside the name, draws its fallback only once the file has failed to load', async () => {
+    const host = await mount(
+      createElement(ChainLogo, {
+        chain: 'solana',
+        decorative: true,
+        fallback: createElement('span', { 'data-ui': 'chain-code' }, 'So'),
+      }),
+    );
+    const mark = find(host, 'img');
+    await fire(mark, new Event('load'));
+    expect(host.querySelector('[data-ui="chain-code"]')).toBeNull();
+    expect(host.querySelectorAll('img')).toHaveLength(1);
+    await fire(mark, new Event('error'));
+    expect(host.querySelector('img')).toBeNull();
+    expect(find(host, '[data-ui="chain-code"]').textContent).toBe('So');
+  });
 });
