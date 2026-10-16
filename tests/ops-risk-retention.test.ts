@@ -3,8 +3,15 @@ import { createDb } from '@colosseum/db';
 import { getTableName, isTable } from 'drizzle-orm';
 import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { dayScript, fileName, rangeSql, rangeStart } from '../scripts/ops/archive-risk';
 import { asDate, pgEnvOf, sameDatabase } from '../scripts/ops/lib-pg';
-import { cleanDump, describePlan, type TablePlan } from '../scripts/ops/move-db';
+import {
+  cleanDump,
+  describePlan,
+  type MoveRecord,
+  recountDiffs,
+  type TablePlan,
+} from '../scripts/ops/move-db';
 import { pruneTable } from '../scripts/ops/prune-risk';
 import {
   agedSql,
@@ -101,7 +108,59 @@ describe('retention: every growing table has a decision', () => {
   });
 });
 
+describe('the archive: what each run writes', () => {
+  const r = RETENTION.find((x) => x.table === 'risk_lending_snapshots') as Retention;
+  const cut1 = new Date('2026-10-12T12:00:00Z');
+  const cut2 = new Date('2026-10-13T05:30:00Z');
+
+  it('archives everything older than the window the first time, and only what aged since after that', () => {
+    expect(rangeStart(null)).toBeNull();
+    expect(rangeSql(r, null, cut1)).toBe(agedSql(r, cut1));
+    const m = {
+      table: 'public.risk_lending_snapshots',
+      cut: cut1.toISOString(),
+      columns: [],
+      files: {},
+    };
+    expect(rangeStart(m)?.toISOString()).toBe(cut1.toISOString());
+    expect(rangeSql(r, cut1, cut2)).toBe(
+      `${agedSql(r, cut2)} and "observed_at" >= '2026-10-12T12:00:00.000Z'::timestamptz`,
+    );
+  });
+
+  it('never names a later run’s file as an earlier one’s, so no file is rewritten', () => {
+    expect(fileName('2026-10-12', null, cut1)).toBe('2026-10-12.csv.gz');
+    expect(fileName('2026-10-12', cut1, cut2)).toBe('2026-10-12.to-20261013T053000000Z.csv.gz');
+    expect(() => fileName('2026-10-12; drop', null, cut1)).toThrow();
+  });
+
+  it('lifts the server’s statement timeout before each file’s copy (Supabase sets 120 s)', () => {
+    expect(dayScript('select 1').split('\n')[0]).toBe('set statement_timeout = 0;');
+  });
+});
+
 describe('the move: what it changes in a dump and what it says', () => {
+  it('names the tables kept whole that changed on the source after the move, and only those', () => {
+    const rec: MoveRecord = {
+      at: T.toISOString(),
+      movedAt: T.toISOString(),
+      tables: [
+        { schema: 'public', table: 'orders', whole: true, rows: 53 },
+        { schema: 'public', table: 'plan_turns', whole: true, rows: 51 },
+        { schema: 'public', table: 'risk_pool_snapshots', whole: false, rows: 152_886 },
+      ],
+    };
+    const now = new Map([
+      ['public.orders', 53],
+      ['public.plan_turns', 52],
+      ['public.risk_pool_snapshots', 160_000],
+    ]);
+    expect(recountDiffs(rec, now)).toEqual([{ name: 'public.plan_turns', moved: 51, now: 52 }]);
+    expect(recountDiffs(rec, new Map([['public.plan_turns', 51]]))).toEqual([
+      { name: 'public.orders', moved: 53, now: -1 },
+    ]);
+  });
+
   it('drops row-level security, extensions and the comment on public, and makes no schema twice', () => {
     const dump = [
       'CREATE SCHEMA drizzle;',
@@ -236,6 +295,31 @@ describe('the prune on a database', () => {
   it('finds nothing to delete when run again', async () => {
     const res = await pruneTable(sql, r, { at: T, batch: 50, dryRun: false });
     expect(res.deleted).toBe(0);
+  });
+
+  it('deletes nothing past the archive’s cut, and nothing at all of a table the archive lacks', async () => {
+    await sql.unsafe(
+      `insert into ${schema}.readings (fetched_at, kind)
+       select '2026-10-12T11:55:00Z'::timestamptz - g * interval '1 hour', 'live' from generate_series(1, 10) g`,
+    );
+    const none = await pruneTable(sql, r, { at: T, batch: 50, dryRun: false, archivedTo: null });
+    expect(none).toMatchObject({ cut: null, deleted: 0 });
+    const capped = await pruneTable(sql, r, {
+      at: T,
+      batch: 50,
+      dryRun: false,
+      archivedTo: new Date('2026-10-12T06:00:00Z'),
+    });
+    expect(capped.cut?.toISOString()).toBe('2026-10-12T06:00:00.000Z');
+    expect(capped.deleted).toBe(5);
+    const rest = await pruneTable(sql, r, {
+      at: T,
+      batch: 50,
+      dryRun: false,
+      archivedTo: new Date('2026-10-20T00:00:00Z'),
+    });
+    expect(rest.cut?.toISOString()).toBe('2026-10-12T11:55:00.000Z');
+    expect(rest.deleted).toBe(5);
   });
 
   it('keeps the last window of a table whose collector stopped days ago', async () => {

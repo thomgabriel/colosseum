@@ -85,8 +85,8 @@ export const RETENTION: readonly Retention[] = [
     schema: 'public',
     table: 'risk_pool_flow',
     column: 'fetched_at',
-    keepHours: 2 * DAY,
-    why: 'one import a day, each row already summing its 24h, 7d and 28d window; readers take the newest data_to',
+    keepHours: 7 * DAY,
+    why: 'one import a day, each row summing its 24h, 7d and 28d window; readers take the newest data_to, and a week of imports covers days the rewalk returned fewer pools',
   },
 ];
 

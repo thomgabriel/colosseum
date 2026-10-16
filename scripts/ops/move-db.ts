@@ -1,4 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createDb } from '@colosseum/db';
 import {
@@ -22,7 +24,8 @@ import { cutoffOf, keptSql, newestSql, parseAt, retentionOf } from './risk-reten
 // of the tables that grow by the hour (risk-retention.ts). Run by a person:
 //
 //   SOURCE_DATABASE_URL=… pnpm ops:move-db --dry-run [--at <ISO time>] [--budget-mb 1024]
-//   SOURCE_DATABASE_URL=… TARGET_DATABASE_URL=… pnpm ops:move-db [--at <ISO time>]
+//   SOURCE_DATABASE_URL=… TARGET_DATABASE_URL=… pnpm ops:move-db --record <file> [--at <ISO time>]
+//   SOURCE_DATABASE_URL=… pnpm ops:move-db --recount --record <file>
 //   SOURCE_DATABASE_URL=… TARGET_DATABASE_URL=… pnpm ops:move-db --grants-only
 //
 // What it copies: the schemas `public` and `drizzle` (so drizzle finds every migration applied) and any other
@@ -34,7 +37,9 @@ import { cutoffOf, keptSql, newestSql, parseAt, retentionOf } from './risk-reten
 //
 // The rows come from one read-only snapshot of the source, so the counts it checks are exact; stop the writers
 // first (docs: scripts/ops/README.md). The target must hold none of these schemas' tables: it adds, never
-// replaces. --dry-run prints the plan and the sizes and touches nothing; it needs no target. The addresses are
+// replaces. --record <file> keeps the counts it checked; after the switch, --recount counts the tables kept
+// whole on the source again and names any that changed (a write the move missed). --dry-run prints the plan and
+// the sizes and touches nothing; it needs no target. The addresses are
 // read from the environment and never printed; pg_dump and psql get them through PG* variables, not their
 // command line. Needs pg_dump and psql 17 or newer (`brew install libpq`).
 
@@ -380,13 +385,89 @@ async function serverMajor(sql: Sql): Promise<{ major: number; version: string }
   return { major: majorOf(version), version };
 }
 
+export type MoveRecord = {
+  at: string;
+  movedAt: string;
+  tables: { schema: string; table: string; whole: boolean; rows: number }[];
+};
+
+/** The tables kept whole whose rows on the source now differ from the move's counts. */
+export function recountDiffs(
+  rec: MoveRecord,
+  now: Map<string, number>,
+): { name: string; moved: number; now: number }[] {
+  const out: { name: string; moved: number; now: number }[] = [];
+  for (const t of rec.tables) {
+    if (!t.whole) continue;
+    const name = `${t.schema}.${t.table}`;
+    const n = now.get(name);
+    if (n === undefined || n !== t.rows) out.push({ name, moved: t.rows, now: n ?? -1 });
+  }
+  return out;
+}
+
+/**
+ * After the switch: counts the tables kept whole on the source again and compares them with the move's record,
+ * so a write that reached the source after the snapshot (an API not yet stopped) shows by its table.
+ */
+async function recountSource(recordPath: string) {
+  const source = process.env.SOURCE_DATABASE_URL;
+  if (!source) throw new Error('SOURCE_DATABASE_URL is not set');
+  if (!existsSync(recordPath)) throw new Error(`no record at ${recordPath}`);
+  const rec = JSON.parse(readFileSync(recordPath, 'utf8')) as MoveRecord;
+  const { client: pool } = createDb(source);
+  const one = await pool.reserve();
+  const now = new Map<string, number>();
+  try {
+    await one.unsafe('set statement_timeout = 0');
+    for (const t of rec.tables.filter((x) => x.whole)) {
+      const [c] = await one.unsafe<{ n: string }[]>(
+        `select count(*)::text as n from ${qualified(t.schema, t.table)}`,
+      );
+      now.set(`${t.schema}.${t.table}`, Number(c?.n ?? -1));
+    }
+  } finally {
+    one.release();
+    await pool.end();
+  }
+  const diffs = recountDiffs(rec, now);
+  const whole = rec.tables.filter((x) => x.whole).length;
+  console.log(`recount of the ${whole} tables kept whole, against the move of ${rec.movedAt}`);
+  for (const d of diffs)
+    console.log(`  DIFF ${d.name}: moved ${d.moved}, on the source now ${d.now}`);
+  if (diffs.length) {
+    console.log(
+      `${diffs.length} table(s) changed on the source after the move: those rows are not on the target`,
+    );
+    process.exitCode = 1;
+  } else console.log('no table changed on the source since the move');
+}
+
 async function main() {
   const argv = process.argv.slice(2);
-  const known = new Set(['--dry-run', '--at', '--budget-mb', '--grants-only']);
+  const known = new Set([
+    '--dry-run',
+    '--at',
+    '--budget-mb',
+    '--grants-only',
+    '--record',
+    '--recount',
+  ]);
   for (const a of argv)
     if (a.startsWith('--') && !known.has(a)) throw new Error(`unknown flag ${a}`);
   const dryRun = argv.includes('--dry-run');
   const grantsOnly = argv.includes('--grants-only');
+  const recount = argv.includes('--recount');
+  const recordArg = argValue(argv, '--record');
+  const record = recordArg ? resolve(recordArg) : null;
+  if ((recount || !(dryRun || grantsOnly)) && !record)
+    throw new Error(
+      '--record <file> names the file the move writes its counts to (and --recount reads)',
+    );
+  if (recount) {
+    await recountSource(record as string);
+    return;
+  }
   const at = parseAt(argValue(argv, '--at'));
   const budget = Number(argValue(argv, '--budget-mb') ?? 1024) * 1024 * 1024;
   const source = process.env.SOURCE_DATABASE_URL;
@@ -425,7 +506,10 @@ async function main() {
     }
 
     if (dryRun) {
-      const plan = await planTables(src, schemas, at);
+      // one connection, so the timeout set on it holds for the counts (Supabase sets 120 s)
+      const one = await src.reserve();
+      await one.unsafe('set statement_timeout = 0');
+      const plan = await planTables(one, schemas, at).finally(() => one.release());
       console.log(`\nplan at ${at.toISOString()} (dry run: nothing is written)\n`);
       for (const l of describePlan(plan, budget)) console.log(l);
       if (dst) {
@@ -529,6 +613,24 @@ async function main() {
       { b: string }[]
     >`select pg_database_size(current_database())::text as b`;
     console.log(`\ntarget database size: ${bytes(Number(size?.b ?? 0))} of ${bytes(budget)}`);
+    writeFileSync(
+      record as string,
+      `${JSON.stringify(
+        {
+          at: at.toISOString(),
+          movedAt: new Date().toISOString(),
+          tables: plan.map((p) => ({
+            schema: p.schema,
+            table: p.table,
+            whole: p.where === null,
+            rows: p.rowsKept,
+          })),
+        } satisfies MoveRecord,
+        null,
+        2,
+      )}\n`,
+    );
+    console.log(`counts written to ${record} (for --recount after the switch)`);
     if (bad) {
       console.log(`${bad} difference(s): the move is not complete`);
       process.exitCode = 1;

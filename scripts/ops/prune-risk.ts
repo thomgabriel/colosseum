@@ -1,5 +1,7 @@
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createDb } from '@colosseum/db';
+import { readManifest } from './archive-manifest';
 import { argValue, asDate, qualified, said } from './lib-pg';
 import { agedSql, cutoffOf, newestSql, parseAt, RETENTION, type Retention } from './risk-retention';
 
@@ -7,9 +9,11 @@ import { agedSql, cutoffOf, newestSql, parseAt, RETENTION, type Retention } from
 // (risk-retention.ts) that are older than its window, a batch at a time, then vacuums the table so the space
 // is used again. It deletes nothing else and can run any number of times: a second run finds nothing to cut.
 //
-//   DATABASE_URL=… pnpm ops:prune-risk [--dry-run] [--batch 10000] [--at <ISO time>]
+//   DATABASE_URL=… pnpm ops:prune-risk [--dry-run] [--batch 10000] [--at <ISO time>] [--archived <dir>]
 //
-// --dry-run counts what it would delete and deletes nothing. The address is read from DATABASE_URL and never
+// --archived <dir> deletes no row the archive in <dir> (archive-risk.ts) does not hold: each table's cut is held to
+// its manifest's, and a table with no manifest there is left whole. The daily job runs the archive and then the
+// prune with it. --dry-run counts what it would delete and deletes nothing. The address is read from DATABASE_URL and never
 // printed. Run daily by the launchd job scripts/ops/install-prune.sh writes (com.colosseum.risk-prune).
 
 type Sql = ReturnType<typeof createDb>['client'];
@@ -25,12 +29,16 @@ export type PruneResult = {
 export async function pruneTable(
   sql: Sql,
   r: Retention,
-  opts: { at: Date; batch: number; dryRun: boolean },
+  opts: { at: Date; batch: number; dryRun: boolean; archivedTo?: Date | null },
 ): Promise<PruneResult> {
   const name = `${r.schema}.${r.table}`;
   const newestOf = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
   const [row] = await sql.unsafe<{ t: Date | null }[]>(newestOf);
-  const cut = cutoffOf(r.keepHours, opts.at, asDate(row?.t));
+  const own = cutoffOf(r.keepHours, opts.at, asDate(row?.t));
+  // never past what the archive holds; with an archive that lacks the table, nothing
+  let cut = own;
+  if (own && opts.archivedTo !== undefined)
+    cut = opts.archivedTo && opts.archivedTo < own ? opts.archivedTo : opts.archivedTo && own;
   if (!cut) return { table: name, cut, deleted: 0, batches: 0 };
   const t = qualified(r.schema, r.table);
   const aged = agedSql(r, cut);
@@ -74,7 +82,7 @@ async function vacuum(sql: Sql, r: Retention): Promise<string | null> {
 
 async function main() {
   const argv = process.argv.slice(2);
-  const known = new Set(['--dry-run', '--batch', '--at']);
+  const known = new Set(['--dry-run', '--batch', '--at', '--archived']);
   for (const a of argv)
     if (a.startsWith('--') && !known.has(a)) throw new Error(`unknown flag ${a}`);
   const dryRun = argv.includes('--dry-run');
@@ -84,15 +92,25 @@ async function main() {
   const at = parseAt(argValue(argv, '--at'));
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
-  const { client: sql } = createDb(url);
+  const archivedArg = argValue(argv, '--archived');
+  const archived = archivedArg ? resolve(archivedArg) : null;
+  const { client: pool } = createDb(url);
   const t0 = Date.now();
   let failed = false;
+  // one connection for every statement, so the timeout set on it holds for all of them
+  const sql = await pool.reserve();
   try {
     await sql.unsafe('set statement_timeout = 600000');
     for (const r of RETENTION) {
       const s = Date.now();
       try {
-        const res = await pruneTable(sql, r, { at, batch, dryRun });
+        let archivedTo: Date | null | undefined;
+        if (archived) {
+          const cut = readManifest(join(archived, r.table, 'manifest.json'))?.cut;
+          archivedTo = cut ? new Date(cut) : null;
+          if (!archivedTo) console.log(`${r.schema}.${r.table}: not in the archive, left whole`);
+        }
+        const res = await pruneTable(sql, r, { at, batch, dryRun, archivedTo });
         const when = res.cut ? res.cut.toISOString() : 'none (no rows)';
         const what = dryRun
           ? `${res.deleted} rows older than the cut (dry run: nothing deleted)`
@@ -110,7 +128,8 @@ async function main() {
       }
     }
   } finally {
-    await sql.end();
+    sql.release();
+    await pool.end();
   }
   console.log(
     JSON.stringify({

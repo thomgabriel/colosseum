@@ -4,16 +4,16 @@ Scripts a person runs against the hosted systems. Each one says at its top what 
 
 | Command | What it does |
 |---|---|
-| `pnpm ops:prune-risk [--dry-run]` | Deletes the rows of the risk tables older than their window (`risk-retention.ts`), in batches, then vacuums. `DATABASE_URL`. Run daily by `com.colosseum.risk-prune`. |
-| `pnpm ops:archive-risk --out <dir> [--dry-run] [--at <time>]` | Writes those older rows to `<dir>/<table>/<day>.csv.gz`, deleting nothing. `SOURCE_DATABASE_URL`. |
-| `pnpm ops:move-db [--dry-run] [--at <time>] [--grants-only]` | Copies the app's schemas to another server, the risk tables cut to their window, and checks every table's rows. `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`. |
-| `pnpm ops:install-prune [--importers] [--dry-run-now]` | Bundles the prune into `~/.colosseum/hosted-risk` and loads its launchd job (daily, 05:30). `--importers` rebuilds the loop's lending and Robinhood Chain importers, which skip rows older than the window. |
+| `pnpm ops:archive-risk --out <dir> [--dry-run] [--at <time>]` | Writes the rows of the risk tables older than their window (`risk-retention.ts`) to `<dir>/<table>/<day>….csv.gz`, deleting nothing; each later run adds only what aged since. `SOURCE_DATABASE_URL` (else `DATABASE_URL`). |
+| `pnpm ops:prune-risk [--dry-run] [--archived <dir>]` | Deletes those rows in batches, then vacuums; with `--archived`, never past what the archive in `<dir>` holds. `DATABASE_URL`. |
+| `pnpm ops:install-prune [--archive-dir <dir>] [--importers] [--dry-run-now]` | Loads the launchd job `com.colosseum.risk-prune`: daily at 05:30, the archive into `~/tenonfi-archive`, then the prune. `--importers` rebuilds the loop's lending and Robinhood Chain importers, which skip rows older than the window. |
+| `pnpm ops:move-db [--dry-run] --record <file> [--at <time>]`, `--recount --record <file>`, `--grants-only` | Copies the app's schemas to another server, the risk tables cut to their window, and checks every table's rows; `--recount` checks afterwards that nothing more was written on the source. `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`. |
 
-The windows and the reasons for them are in `docs/risk/STATE-RISK.md`, "Retention of the hosted tables". None of these scripts prints a database address.
+The windows and the reasons for them are in `docs/risk/STATE-RISK.md`, "Retention of the hosted tables". None of these scripts prints a database address, and each lifts the server's statement timeout for its own statements (Supabase sets 120 s).
 
 ## Moving the database from Supabase to Neon
 
-About an hour, most of it the copy. The Neon project is `small-wildflower-45388591` (aws-us-west-2, Postgres 18, 1 GB a branch).
+About an hour, most of it the archive and the copy; the site's API is down from step 3 to step 8. The Neon project is `small-wildflower-45388591` (aws-us-west-2, Postgres 18, 1 GB a branch).
 
 **Before.** Install the client tools (pg_dump and psql 18) and fetch the code:
 
@@ -21,90 +21,107 @@ About an hour, most of it the copy. The Neon project is `small-wildflower-453885
 brew install libpq
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 cd <a checkout of staging with this change> && pnpm install
+API=https://tenonfi-api.onrender.com
 ```
 
 Copy the Neon owner role's connection string from the Neon console, with the direct host (without `-pooler`).
 
-**1. Stop what writes.** The hosted collectors and the snapshot worker; the API stays up and only reads during the move.
-
-```sh
-~/.colosseum/hosted-risk/stop.sh
-pkill -f 'colosseum/snapshot/run'      # the snapshot worker's loop first, so it does not start it again
-pkill -f '@colosseum/snapshot start'   # then the worker
-```
-
-**2. The two addresses**, typed and never echoed: Supabase's `postgres` login through the session pooler (port 5432), and Neon's owner:
+**1. The two addresses**, typed and never echoed: Supabase's `postgres` login through the session pooler (port 5432), and Neon's owner.
 
 ```sh
 read -rs "SOURCE_DATABASE_URL?Supabase address: " && export SOURCE_DATABASE_URL; echo
 read -rs "TARGET_DATABASE_URL?Neon owner address: " && export TARGET_DATABASE_URL; echo
-export AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # one time for the archive and the move, so nothing falls between them
 ```
 
-Then the two logins the API and the snapshot worker use, so the move gives them the grants they have on Supabase. Made with SQL they hold only those grants (a role made in the Neon console also joins `neon_superuser`); `\password` asks for each password without showing it (a long random one: Neon refuses a weak password):
+**2. The two logins** the API and the snapshot worker use, so the move gives them the grants they have on Supabase. Made with SQL they hold only those grants (a role made in the Neon console also joins `neon_superuser`). `\password` asks for each password without showing it; use a long random one, Neon refuses a weak password.
 
 ```sh
 psql "$TARGET_DATABASE_URL"
   create role tenonfi_api login;
   \password tenonfi_api
-  create role snapshot_worker login;
+  create role snapshot_worker login connection limit 3;
   \password snapshot_worker
   \q
 ```
 
 Their addresses are the owner's with the user and password replaced.
 
-**3. Archive what the move leaves behind**: every row older than its window, from Oct 6 on (about 420 MB as it sits in the database; the dry run says how much as files). The archive and the move together read the database about once, some 0.9 GB of Supabase egress.
+**3. Stop everything that writes.** The API writes too (chat turns, orders, publishes, rate limits, its read cache), so it is suspended until it runs on Neon; anything it wrote to Supabase after the move's snapshot would be lost.
+
+- Render, service `tenonfi-api`: Settings, **Suspend Service**.
+- On the Mac:
 
 ```sh
+~/.colosseum/hosted-risk/stop.sh
+pkill -f 'colosseum/snapshot/run'      # the snapshot worker's loop first, so it does not start it again
+pkill -f '@colosseum/snapshot start'   # then the worker
+curl -s -o /dev/null -w '%{http_code}\n' $API/v1/config   # anything but 200: the API is suspended
+```
+
+**4. Archive what the move leaves behind**: every row older than its window, from Oct 6 on (about 420 MB as it sits in the database; the dry run says how much as files). The archive and the move together read the database about once, some 0.9 GB of Supabase egress.
+
+```sh
+export AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # one time for the archive and the move, so nothing falls between them
 pnpm ops:archive-risk --out ~/tenonfi-archive --at $AT --dry-run
 pnpm ops:archive-risk --out ~/tenonfi-archive --at $AT
 ```
 
-It can be run again after a stop; finished days are not written twice. A file goes back with
+A run that stopped is run again with the same `$AT`; finished files are not written twice. A file goes back with
 `gunzip -c <file> | psql "$TARGET_DATABASE_URL" -c "\copy public.<table> from stdin with (format csv, header)"`.
 
-**4. Move.** The dry run prints every table, what is copied of it and the size it leaves (about 520 MB, near 650 MB just before each daily prune):
+**5. Move.** The dry run prints every table, what is copied of it and the size it leaves (about 545 MB, near 670 MB just before each daily prune):
 
 ```sh
 pnpm ops:move-db --dry-run --at $AT
-pnpm ops:move-db --at $AT
+pnpm ops:move-db --at $AT --record ~/tenonfi-archive/move-counts.json
 ```
 
-The last line must read `every table and sequence matches the source snapshot`. If it stops part way, reset the Neon branch (or drop its `drizzle`, `archive_rh_testnet` and `public` schemas) and run it again: it refuses a target that already holds tables. If a role was missing, create it and run `pnpm ops:move-db --grants-only`.
+The last line must read `every table and sequence matches the source snapshot`. If it stops part way, reset the Neon branch (or drop its `drizzle`, `archive_rh_testnet` and `public` schemas) and run it again: it refuses a target that already holds tables. If a login was missing, create it and run `pnpm ops:move-db --grants-only`.
 
-**5. Point everything at Neon.**
+**6. Point everything at Neon.**
 
-- Render, service `tenonfi-api`: set `DATABASE_URL` to the `tenonfi_api` address. Leave `DB_PGBOUNCER` unset (or `session`): the direct host is no transaction pooler. Saving deploys `staging`'s head.
-- `~/.colosseum/hosted-risk/env`: the `DATABASE_URL` line, to the `tenonfi_api` address (the prune deletes rows, which `tenonfi_api` may; only the owner may vacuum, so with `tenonfi_api` the prune logs that it left the vacuum to autovacuum).
+- Render, `tenonfi-api`, Environment: `DATABASE_URL` to the `tenonfi_api` address (**Save only**: the service stays suspended). Leave `DB_PGBOUNCER` unset (or `session`): the direct host is no transaction pooler.
+- `~/.colosseum/hosted-risk/env`: the `DATABASE_URL` line, to the `tenonfi_api` address (the prune deletes rows, which `tenonfi_api` may; only the owner may vacuum, so the prune logs that it left that to autovacuum).
 - `~/.colosseum/snapshot/db-url` (read by `run.sh` and `run-mainnet.sh` beside it): the `snapshot_worker` address.
 
 Edit each file in an editor; nothing here prints them.
 
-**6. The prune and the importers**, before the loop starts again: the loop's lending and Robinhood Chain importers, as built on Oct 6, would put every older day back.
+**7. The daily archive and prune, and the importers**, before the loop starts again: the loop's lending and Robinhood Chain importers, as built on Oct 6, would put every older day back.
 
 ```sh
 zsh scripts/ops/install-prune.sh --importers --dry-run-now
 ```
 
-It keeps the old bundles as `*.before-<stamp>.mjs`, loads `com.colosseum.risk-prune` (daily 05:30, log `~/.colosseum/hosted-risk/risk-prune.log`) and ends with a dry run against the new database, which should find next to nothing to delete.
+It keeps the old importers as `*.before-<stamp>.mjs` and loads `com.colosseum.risk-prune`: every day at 05:30 it archives the rows that aged out into `~/tenonfi-archive` (beside the move's files) and only then prunes, never past what the archive holds. Log: `~/.colosseum/hosted-risk/risk-prune.log`. The dry runs at the end should find next to nothing. The daily archive reads about 125 MB a day out of Neon (about 3.7 GB a month); compare it with the plan's monthly transfer on Neon's billing page.
 
-**7. Start again**: `~/.colosseum/hosted-risk/start.sh`, and the snapshot worker as before (`zsh -i ~/.colosseum/snapshot/run-mainnet.sh --loop`).
-
-**8. Check.**
+**8. Start again.** Render, `tenonfi-api`: **Resume Service**, then Manual Deploy, **Deploy latest commit**, so the running instance has the new address; wait for Live. Then on the Mac: `~/.colosseum/hosted-risk/start.sh`, and the snapshot worker as before (`zsh -i ~/.colosseum/snapshot/run-mainnet.sh --loop`).
 
 ```sh
-API=https://tenonfi-api.onrender.com
-curl -s $API/v1/config | jq '[.chains[] | {id, missingAssets}]'     # missingAssets null on every chain
-curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' $API/v1/shelf   # 200
-curl -s "$API/v1/shelf?chain=robinhood" | jq '.families | length'      # the shared portfolios, as many as before
-tail -5 ~/Library/Logs/tenonfi/hosted-risk.log                          # the loop's runs end without an error
-psql "$TARGET_DATABASE_URL" -c "select max(fetched_at) from risk_pool_snapshots"   # within the last 15 minutes once pools has run
+curl -s -o /dev/null -w '%{http_code}\n' $API/v1/config    # 200
+psql "$TARGET_DATABASE_URL" -c "select count(*) from pg_stat_activity where usename = 'tenonfi_api'"   # above 0: the API is on Neon
+```
+
+**9. Nothing was missed.** The tables kept whole, counted again on Supabase against the move's counts:
+
+```sh
+pnpm ops:move-db --recount --record ~/tenonfi-archive/move-counts.json
+```
+
+It must end with `no table changed on the source since the move`. A table it names has rows on Supabase that Neon lacks (a write after the snapshot): stop there and bring those rows across before anyone acts on them.
+
+**10. Check.**
+
+```sh
+curl -s $API/v1/config | jq '[.chains[] | {id, missingAssets}]'          # missingAssets null on every chain
+curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' $API/v1/shelf     # 200
+curl -s "$API/v1/shelf?chain=robinhood" | jq '.families | length'        # the shared portfolios, as many as before
+tail -5 ~/Library/Logs/tenonfi/hosted-risk.log                            # the loop's runs end without an error
+psql "$TARGET_DATABASE_URL" -c "select max(fetched_at) from risk_pool_snapshots"      # within 15 minutes once pools has run
 psql "$TARGET_DATABASE_URL" -c "select max(observed_at) from risk_lending_snapshots"  # after the next hourly import (minute 12 on)
-psql "$TARGET_DATABASE_URL" -c "select max(fetched_at) from vault_snapshots"   # the snapshot worker, within ten minutes
+psql "$TARGET_DATABASE_URL" -c "select max(fetched_at) from vault_snapshots"          # the snapshot worker, within ten minutes
 psql "$TARGET_DATABASE_URL" -c "select pg_size_pretty(pg_database_size(current_database()))"
 ```
 
-The next morning, `tail ~/.colosseum/hosted-risk/risk-prune.log` shows the first prune: each table's cut and the rows deleted, then `"ok":true`.
+The next morning, `tail ~/.colosseum/hosted-risk/risk-prune.log` shows the first run: the archive's new files, then each table's cut and the rows deleted, then `"ok":true`.
 
-Leave the Supabase project as it is until the checks pass for a day; it is the way back (step 5 with the old addresses).
+**The way back.** Leave the Supabase project as it is until the checks pass for a day. Going back is step 6 with the old addresses, then step 8; whatever was written on Neon since the switch (chat turns, orders, publishes, the collectors' readings) stays on Neon and is not on Supabase.
