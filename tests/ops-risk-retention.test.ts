@@ -97,9 +97,14 @@ describe('retention: every growing table has a decision', () => {
     expect(UNFILED.map((r) => r.table)).toEqual(['risk_pool_flow']);
     const flow = RETENTION.find((r) => r.table === 'risk_pool_flow') as Retention;
     const pools = RETENTION.find((r) => r.table === 'risk_pool_snapshots') as Retention;
+    // a table in the collectors' files is cut at its window, with an archive named or not
     expect(archivedLimit(pools, null)).toBeUndefined();
+    expect(archivedLimit(pools, { manifestCut: undefined })).toBeUndefined();
+    // pool flow without --archived, or with an archive that has no cut for it, is left whole
     expect(archivedLimit(flow, null)).toBeNull();
-    expect(archivedLimit(flow, '2026-10-12T00:00:00.000Z')?.toISOString()).toBe(
+    expect(archivedLimit(flow, { manifestCut: undefined })).toBeNull();
+    expect(archivedLimit(flow, { manifestCut: 'not a time' })).toBeNull();
+    expect(archivedLimit(flow, { manifestCut: '2026-10-12T00:00:00.000Z' })?.toISOString()).toBe(
       '2026-10-12T00:00:00.000Z',
     );
   });

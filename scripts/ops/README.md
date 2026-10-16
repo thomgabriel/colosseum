@@ -5,7 +5,7 @@ Scripts a person runs against the hosted systems. Each one says at its top what 
 | Command | What it does |
 |---|---|
 | `pnpm ops:archive-risk --out <dir> [--dry-run] [--at <time>] [--all]` | Writes the rows older than their window (`risk-retention.ts`) of the tables the database alone holds (today `risk_pool_flow`; `--all`: every windowed table) to `<dir>/<table>/<day>….csv.gz`, deleting nothing; each later run adds only what aged since. `SOURCE_DATABASE_URL` (else `DATABASE_URL`). |
-| `pnpm ops:prune-risk [--dry-run] [--archived <dir>]` | Deletes the rows older than their window in batches, then vacuums; with `--archived`, a table the database alone holds is cut no further than the archive in `<dir>`. `DATABASE_URL`. |
+| `pnpm ops:prune-risk [--dry-run] [--archived <dir>]` | Deletes the rows older than their window in batches, then vacuums. A table the database alone holds (pool flow) is cut no further than the archive `--archived <dir>` names, and left whole without one. `DATABASE_URL`. |
 | `pnpm ops:install-prune [--archive-dir <dir>] [--importers] [--dry-run-now]` | Loads the launchd job `com.colosseum.risk-prune`: daily at 05:30, the archive of pool flow into `~/tenonfi-archive`, then the prune. `--importers` rebuilds the loop's lending and Robinhood Chain importers, which skip rows older than the window. |
 | `pnpm ops:move-db [--dry-run] --record <file> [--at <time>]`, `--recount --record <file>`, `--grants-only` | Copies the app's schemas to another server, the risk tables cut to their window, and checks every table's rows; `--recount` checks afterwards that nothing more was written on the source. `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`. |
 

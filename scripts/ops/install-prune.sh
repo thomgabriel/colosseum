@@ -105,7 +105,8 @@ else
   echo "not loaded: $PLIST"
 fi
 if [ "$DRY_NOW" = 1 ]; then
-  (set -a; . "$HOME_DIR/env"; set +a
+  # the env file's database only: a SOURCE_DATABASE_URL left in this shell (the move's) would win in the archive
+  (unset SOURCE_DATABASE_URL; set -a; . "$HOME_DIR/env"; set +a
    "$NODE_BIN/node" "$HOME_DIR/risk-archive.mjs" --out "$ARCHIVE_DIR" --dry-run
    "$NODE_BIN/node" "$HOME_DIR/risk-prune.mjs" --dry-run --archived "$ARCHIVE_DIR")
 fi
