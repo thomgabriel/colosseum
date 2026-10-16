@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { click, find, fire, mount, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { inLanguage } from '../account/test/screen';
-import { Composition, type CompositionItem, type CompositionProps } from './Composition';
+import { Composition, type CompositionItem, type CompositionProps, foldOf } from './Composition';
 import { coloursOf } from './composition-colours';
 
 // What a vault holds as a strip and a table, or as two strips and a table (gate WEIGHTS-RING): the
@@ -34,6 +34,12 @@ const segments = (host: ParentNode, bar = '[data-ui="composition-strip"]') =>
 const row = (host: ParentNode, key: string) => find(host, `[data-row="solana:${key}"]`);
 const button = (host: ParentNode, key: string) =>
   find<HTMLButtonElement>(row(host, key), 'button[data-ui="composition-row"]');
+/** A cell's figure, without the column's name a folded row writes over it. */
+const figure = (cell: Element) => {
+  const copy = cell.cloneNode(true) as Element;
+  for (const label of copy.querySelectorAll('[data-part="fold-label"]')) label.remove();
+  return copy.textContent;
+};
 const over = () => new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body });
 const out = () => new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body });
 
@@ -285,7 +291,7 @@ describe('a comparison, as two strips', () => {
     expect(find(delta('tsla'), '[aria-hidden]').textContent).toBe('−30%');
     // where nothing moved, no difference is drawn: the word says so
     expect(row(host, 'nvda').querySelector('[data-ui="composition-delta"]')).toBeNull();
-    expect(find(row(host, 'nvda'), '[data-column="change"]').textContent).toBe(c.unchanged);
+    expect(figure(find(row(host, 'nvda'), '[data-column="change"]'))).toBe(c.unchanged);
     expect(find(row(host, 'gold'), '[data-column="before"]').textContent).toContain(c.added);
     // a screen reader hears which share is which
     expect(
@@ -316,7 +322,7 @@ describe('a comparison, as two strips', () => {
     );
     expect(row(host, 'spy').textContent).toContain('+0.01% against its target');
     // nothing to say where a share is on its plan: a dash
-    expect(find(row(host, 'nvda'), '[data-column="change"]').textContent).toBe('—');
+    expect(figure(find(row(host, 'nvda'), '[data-column="change"]'))).toBe('—');
   });
 
   it('links a row and its segments in both strips', async () => {
@@ -333,6 +339,154 @@ describe('a comparison, as two strips', () => {
     ];
     await fire(segment as Element, over());
     expect(row(host, 'nvda').getAttribute('data-lit')).toBe('true');
+  });
+});
+
+// Container queries are not laid out here: these read the classes that fold a table, and the e2e
+// (vault-page.spec.ts) measures the fold beside the chat at 1024 and 1280.
+describe('in a narrow box, the table folds into rows', () => {
+  const classes = (host: ParentNode, selector: string) =>
+    [...host.querySelectorAll(selector)].map((el) => el.className).join(' ');
+  const LONG =
+    'You asked for the S&P 500 alone, so the whole vault follows the index through the SPY fund.';
+
+  it('a table with more than the share folds under 40rem: the asset on top, the figures in a row under it', async () => {
+    for (const props of [
+      { items: THREE, columns: [{ key: 'value', header: 'Value', numeric: true }] },
+      { items: THREE.map((i) => ({ ...i, beforeBps: 2000 })), mode: 'compare' as const },
+    ]) {
+      const host = await view(props);
+      const table = find(host, '[data-ui="composition-table"]');
+      expect(table.className).toContain('@min-[40rem]:min-w-max');
+      expect(find(host, 'thead').className).toContain('@max-[40rem]:sr-only');
+      const spy = row(host, 'spy');
+      expect(spy.className).toContain('@max-[40rem]:flex');
+      expect(spy.className).toContain('@max-[40rem]:flex-wrap');
+      expect(find(spy, 'th[scope="row"]').className).toContain('@max-[40rem]:basis-full');
+      // the figures sit left under their names there, and the weight's bar is left out
+      for (const cell of spy.querySelectorAll('td'))
+        expect(cell.className).toContain('@max-[40rem]:text-left');
+      expect(find(spy, '[data-part="weight-bar"]').className).toContain('@min-[40rem]:block');
+      // nothing folds at the kit's 32rem any more
+      expect(host.innerHTML).not.toMatch(/@max-lg:|@lg:/);
+    }
+  });
+
+  it('names each figure of a folded row by its column’s head, in the head’s order', async () => {
+    const host = await view({
+      items: [
+        item('spy', 6000, { beforeBps: 5000, cells: { price: '$500', value: '$60' } }),
+        item('nvda', 4000, { beforeBps: 5000, cells: { price: '$180', value: '$40' } }),
+      ],
+      mode: 'compare',
+      labels: { weight: 'Share now', before: 'Target', change: 'Status' },
+      columns: [
+        { key: 'price', header: 'Price', place: 'before', numeric: true },
+        { key: 'value', header: 'Value', place: 'before', numeric: true },
+      ],
+      fold: 'wider',
+    });
+    const heads = [...host.querySelectorAll('thead th')].map((th) => th.textContent);
+    expect(heads).toEqual(['Asset', 'Price', 'Value', 'Share now', 'Target', 'Status']);
+    for (const key of ['spy', 'nvda']) {
+      const cells = [...row(host, key).querySelectorAll('td')];
+      expect(cells.map((td) => find(td, '[data-part="fold-label"]').textContent)).toEqual(
+        heads.slice(1),
+      );
+      // each name is shown only where the row folds, and only to the eye: a screen reader has the
+      // column's head, which would otherwise be said twice
+      for (const td of cells) {
+        const label = find(td, '[data-part="fold-label"]');
+        expect(label.className).toBe(
+          'hidden text-caption text-muted-foreground @max-[56rem]:block',
+        );
+        expect(label.getAttribute('aria-hidden')).toBe('true');
+      }
+    }
+    // the figure follows its name, whole
+    expect(figure(find(row(host, 'spy'), '[data-column="price"]'))).toBe('$500');
+    expect(figure(find(row(host, 'spy'), '[data-column="weight"]'))).toContain('60%');
+    // the share's sr-only name gives way to the name drawn over it in a folded row
+    const said = find(row(host, 'spy'), '[data-ui="composition-share"]').previousElementSibling;
+    expect(said?.className).toBe('sr-only @max-[56rem]:hidden');
+  });
+
+  it('folds at 32rem for the share alone, at 40rem by default, and at 56rem where the caller asks', async () => {
+    const figure = (key: string) => ({ key, header: key, numeric: true });
+    const why = { key: 'why', header: 'Why', roomy: true };
+    expect(foldOf(false, [])).toBe('share');
+    // the share alone keeps its own fold, whatever is asked (#326)
+    expect(foldOf(false, [], 'wider')).toBe('share');
+    // a draft's comparison, the holdings on their targets, a plan of four figures: 40rem, not by count
+    expect(foldOf(true, [])).toBe('wide');
+    expect(foldOf(false, [figure('price'), figure('value')])).toBe('wide');
+    expect(foldOf(false, [why])).toBe('wide');
+    expect(
+      foldOf(false, [figure('kind'), figure('amount'), figure('yield'), figure('exit'), why]),
+    ).toBe('wide');
+    // the holdings off their targets ask for 56rem: about 52rem whole
+    expect(foldOf(true, [figure('price'), figure('value')], 'wider')).toBe('wider');
+    const items = THREE.map((i) => ({ ...i, beforeBps: 2000 }));
+    const columns = [figure('price'), figure('value')];
+    const wider = await view({ items, mode: 'compare', columns, fold: 'wider' });
+    expect(find(wider, '[data-ui="composition-table"]').className).toContain(
+      '@min-[56rem]:min-w-max',
+    );
+    expect(row(wider, 'spy').className).toContain('@max-[56rem]:flex');
+    expect(wider.innerHTML).not.toContain('40rem');
+    const wide = await view({ items, mode: 'compare', columns });
+    expect(row(wide, 'spy').className).toContain('@max-[40rem]:flex');
+    expect(wide.innerHTML).not.toContain('56rem');
+  });
+
+  it('keeps a figure’s pin in its cell, after its name', async () => {
+    const host = await view({
+      items: [
+        item('spy', 6000, {
+          cells: { yield: createElement('button', { 'data-ui': 'pin', type: 'button' }, '4.39%') },
+        }),
+        item('nvda', 4000),
+      ],
+      columns: [{ key: 'yield', header: 'Yield', numeric: true }],
+    });
+    const cell = find(row(host, 'spy'), '[data-column="yield"]');
+    const [label, pin] = [...cell.children];
+    expect(label?.getAttribute('data-part')).toBe('fold-label');
+    expect(pin?.getAttribute('data-ui')).toBe('pin');
+    expect(pin?.textContent).toBe('4.39%');
+  });
+
+  it('a reason under a name wraps at 32ch where the table has its columns, and a roomy column is a line of its own when folded', async () => {
+    const host = await view({
+      items: [
+        item('spy', 6000, { detail: LONG, cells: { why: LONG } }),
+        item('nvda', 4000, { detail: LONG, cells: { why: LONG } }),
+      ],
+      columns: [{ key: 'why', header: 'Why', roomy: true }],
+    });
+    expect(find(row(host, 'spy'), '[data-part="sub"]').className).toContain(
+      '@min-[40rem]:max-w-[32ch]',
+    );
+    const why = find(row(host, 'spy'), '[data-column="why"]').className;
+    expect(why).toContain('@max-[40rem]:basis-full');
+    // left out between a folded row and a table 52rem wide
+    expect(why).toContain('@min-[40rem]:hidden');
+    expect(why).toContain('@min-[52rem]:table-cell');
+  });
+
+  it('a table of the share alone keeps its fold at 32rem and its reason’s 18rem floor (#326)', async () => {
+    const host = await view({
+      items: [item('spy', 6000, { detail: LONG }), item('nvda', 4000, { detail: LONG })],
+    });
+    expect(find(host, '[data-ui="composition-table"]').className).toContain('@lg:min-w-max');
+    expect(find(host, 'thead').className).toContain('@max-lg:sr-only');
+    expect(row(host, 'spy').className).toContain('@max-lg:grid');
+    expect(find(row(host, 'spy'), '[data-part="sub"]').className).toContain(
+      '[contain:inline-size] @lg:min-w-72',
+    );
+    // the asset on the left and its share on the right: no names over figures
+    expect(host.querySelector('[data-part="fold-label"]')).toBeNull();
+    expect(classes(host, '*')).not.toContain('40rem');
   });
 });
 

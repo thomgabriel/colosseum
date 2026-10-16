@@ -218,6 +218,8 @@ export function VaultHoldings({
           // Planned over Now, with the planned share and a status a row, only where they differ; on
           // target the head says so once, and the table is the holdings as they are
           mode={planned && !onTarget ? 'compare' : 'single'}
+          // off its targets five figures a row, about 52rem whole: folded under 56rem
+          fold={planned && !onTarget ? 'wider' : 'wide'}
           changeAs="status"
           share={(bps) => share(lang, bps)}
           labels={{

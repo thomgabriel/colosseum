@@ -435,6 +435,50 @@ test('a portfolio that holds gold offers no auto-follow, and says why', async ({
   await check(page, 'family-gold');
 });
 
+// The product page's table (PlanView) folds into rows only under 40rem, like every composition but the
+// vault's holdings off their targets (Composition.tsx): at 1280 its box is about 800px and it is a
+// table; at 1024, under 40rem, it folds. Either way it is no wider than its box.
+test('the product page keeps its holdings a table wherever it fits', async ({ page }) => {
+  await signIn(page);
+  await publish(page, 'Three of the largest', [
+    ['solana:spy', '40'],
+    ['solana:nvda', '30'],
+    ['solana:tsla', '30'],
+  ]);
+  await toFamily(page, 'Three of the largest');
+  const table = page.locator('main [data-ui="composition-table"]').first();
+  for (const width of [1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(table).toBeVisible();
+    await expect(async () => {
+      const [wide, room] = await table.evaluate((el) => [
+        el.scrollWidth,
+        el.parentElement?.clientWidth ?? 0,
+      ]);
+      expect(wide, `${width}px: the table is no wider than its box`).toBeLessThanOrEqual(room);
+    }).toPass();
+    const room = await table.evaluate(
+      (el) => (el.parentElement as HTMLElement).getBoundingClientRect().width,
+    );
+    const label = table.locator('tbody [data-row]').first().locator('[data-part="fold-label"]');
+    if (width === 1280)
+      expect(room, 'at 1280 the box is 40rem or more').toBeGreaterThanOrEqual(640);
+    // a table where its box is 40rem or more: the head drawn, no name over a figure
+    if (room >= 640) {
+      await expect(table.locator('thead th').first()).toBeVisible();
+      await expect(label.first()).toBeHidden();
+    } else await expect(label.first()).toBeVisible();
+    if (SHOTS)
+      for (const theme of ['light', 'dark'] as const) {
+        await inTheme(page, theme);
+        await page.mouse.move(0, 0);
+        await table.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: shot(`product-holdings-${width}-${theme}`) });
+      }
+    await inTheme(page, 'light');
+  }
+});
+
 test('the guide, photographed beside the screens', async ({ page }) => {
   test.skip(!SHOTS, 'only when SCREENSHOTS_DIR names a folder');
   for (const width of WIDTHS)
