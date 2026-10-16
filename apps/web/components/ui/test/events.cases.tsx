@@ -166,7 +166,7 @@ export const navOnPage = (
 
 // The one tooltip (Hint.tsx), on plain text and on a control of the page's own.
 
-export const hintOnPage = (props: Partial<HintProps> = {}) => (
+export const hintOnPage = (props: Partial<Omit<HintProps, 'children' | 'echo'>> = {}) => (
   <div>
     <p>
       <Hint tip="The whole address of the vault" {...props}>
@@ -196,7 +196,29 @@ export const hintOnLink = (
 export const hintEcho = (
   <Hint tip="Grow on Base · Base · 1 hour ago" echo>
     <a href="#vault" id="link">
-      Grow on Base
+      Grow on Base<span className="sr-only">, Base, 1 hour ago</span>
     </a>
   </Hint>
+);
+
+/** An echo that says more than its link: the whole address, hidden from a reader. */
+export const hintFalseEcho = (
+  <Hint tip="k7Fa9a2bQ1fYn" echo>
+    <a href="#vault" id="link">
+      k7Fa…fYn
+    </a>
+  </Hint>
+);
+
+/** A row's tooltip, beside the list it is in. */
+export const hintBeside = (
+  <ul data-hint-edge>
+    <li>
+      <Hint tip="Rename Gold" echo beside>
+        <button type="button" id="row" aria-label="Rename Gold">
+          ✎
+        </button>
+      </Hint>
+    </li>
+  </ul>
 );

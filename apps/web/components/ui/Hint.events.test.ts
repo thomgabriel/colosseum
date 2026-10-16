@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
+
+import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HINT_CLOSE_MS, HINT_OPEN_MS, placeFor } from './hover-card';
+import { Hint } from './Hint';
+import { besideFor, HINT_CLOSE_MS, HINT_OPEN_MS, placeFor } from './hover-card';
 import { click, find, fire, mount, press, settle, unmountAll } from './test/dom';
-import { hintEcho, hintOnLink, hintOnPage } from './test/events.cases';
+import { hintBeside, hintEcho, hintFalseEcho, hintOnLink, hintOnPage } from './test/events.cases';
 
 // The one tooltip (gate TOOLTIP-WORDS): a mouse that rests, the keyboard's focus and a tap all open
 // it; Escape closes it; the pointer can move into it; it goes above when there is no room below.
@@ -170,11 +173,58 @@ describe('Hint, opened', () => {
     await press(document, 'Escape');
     expect(panels(host)).toHaveLength(0);
   });
+
+  it('as an echo, says in development what its trigger does not', async () => {
+    const said = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await focusOn(find(await mount(hintEcho), '#link'));
+    expect(said).not.toHaveBeenCalled();
+    await focusOn(find(await mount(hintFalseEcho), '#link'));
+    expect(said).toHaveBeenCalledWith(expect.stringContaining('k7Fa9a2bQ1fYn'));
+  });
+
+  it('is an echo only on a link or a button: plain text keeps its description', async () => {
+    const said = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // the types refuse it; this is what happens if it gets through
+    const host = await mount(
+      createElement(Hint, { tip: 'The whole address', echo: true } as never, 'k7Fa…fYn'),
+    );
+    await focusOn(trigger(host));
+    expect(trigger(host).getAttribute('aria-describedby')).toBe(panel(host).id);
+    expect(panel(host).hasAttribute('aria-hidden')).toBe(false);
+    expect(said).toHaveBeenCalledWith(expect.stringContaining('`echo` is for a link or a button'));
+  });
+
+  it('beside, goes beside the list its trigger is in', async () => {
+    const host = await mount(hintBeside);
+    await focusOn(find(host, '#row'));
+    // happy-dom lays nothing out: every box is at 0, so beside the list's right edge is 8px
+    expect(panel(host).dataset.side).toBe('right');
+    expect(panel(host).style.left).toBe('8px');
+    expect(panel(host).getAttribute('aria-hidden')).toBe('true');
+  });
 });
 
 describe('Hint, placed', () => {
   const view = { width: 375, height: 812 };
   const size = { width: 240, height: 120 };
+
+  it('beside a list, goes right of its edge, level with the row, and never over the next row', () => {
+    const wide = { width: 1440, height: 900 };
+    const row = { top: 300, bottom: 336, left: 24, right: 328 };
+    expect(besideFor(row, size, wide)).toEqual({
+      side: 'right',
+      top: 300,
+      left: 336,
+      maxHeight: 868,
+    });
+    // no room on the right: on the left
+    const left = besideFor({ ...row, left: 1100, right: 1420 }, size, wide);
+    expect([left.side, left.left]).toEqual(['left', 1100 - 8 - 240]);
+    // held inside the window at its foot
+    expect(besideFor({ ...row, top: 850, bottom: 886 }, size, wide).top).toBe(900 - 16 - 120);
+    // room on neither side: under it, as any tooltip
+    expect(besideFor({ ...row, left: 40, right: 340 }, size, view).side).toBe('below');
+  });
 
   it('goes under its trigger, 8px away, and never over it', () => {
     const at = { top: 100, bottom: 120, left: 40 };

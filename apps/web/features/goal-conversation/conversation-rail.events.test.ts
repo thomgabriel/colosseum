@@ -346,6 +346,76 @@ describe('the conversations panel', () => {
     expect(titles(host)).toHaveLength(9);
   });
 
+  // The review of #331: under its row, a tooltip covered the next row and took its press.
+  it('opens a row’s tooltip beside the rail, so the next row is still the one a press lands on', async () => {
+    served = { ...answer, chains: [] };
+    keep([
+      { id: 'd1', words: 'First', at: ago(0) },
+      { id: 'd2', words: 'Second', at: ago(0) },
+    ]);
+    const host = await show();
+    await settle();
+    const [first, second] = [
+      ...rail(host).querySelectorAll<HTMLElement>('[data-ui="conversation-open"]'),
+    ];
+    // the rail at 24–328px; its rows 36px tall, one under the other, inside its 8px padding
+    const RAIL = { left: 24, right: 328, top: 100, bottom: 700 };
+    const rowBox = (el: Element) => {
+      const at = 300 + 36 * (el === second ? 1 : 0);
+      return { left: 32, right: 320, top: at, bottom: at + 36 };
+    };
+    const box = (b: { left: number; right: number; top: number; bottom: number }) =>
+      ({ ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top }) as DOMRect;
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this.hasAttribute('data-hint-edge')) return box(RAIL);
+      if (this.getAttribute('role') === 'tooltip')
+        return box({ left: 0, right: 240, top: 0, bottom: 60 });
+      const open = this.querySelector('[data-ui="conversation-open"]') ?? this;
+      if (open === first || open === second) return box(rowBox(open));
+      return box({ left: 0, right: 0, top: 0, bottom: 0 });
+    });
+    const hint = (first as HTMLElement).closest('[data-ui="hint"]') as HTMLElement;
+    await fire(hint, new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+    await settle(HINT_OPEN_MS + 30);
+    const panel = find(hint, '[role="tooltip"]');
+    expect(panel.dataset.side).toBe('right');
+    // level with its row, 8px right of the rail's edge
+    const left = Number.parseFloat(panel.style.left);
+    const top = Number.parseFloat(panel.style.top);
+    expect([left, top]).toEqual([RAIL.right + 8, 300]);
+    // nothing of it over the second row: a press there is the second row's
+    const under = rowBox(second as HTMLElement);
+    expect(left >= under.right || left + 240 <= under.left).toBe(true);
+    vi.restoreAllMocks();
+    const named = find(second as HTMLElement, '[data-ui="conversation-title"]').textContent;
+    await click(second as HTMLElement);
+    await unfold(host);
+    expect(current(host)).toBe(named);
+  });
+
+  it('opens no tooltip on a row the focus is put back on after a press, only on one the keyboard reaches', async () => {
+    served = { ...answer, chains: [] };
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(0) }]);
+    const host = await show();
+    await settle();
+    const name = find(row(host, 'Consider gold'), '[data-ui="conversation-open"]');
+    const matches = Element.prototype.matches;
+    let visible = false;
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector) {
+      return selector === ':focus-visible' ? visible : matches.call(this, selector);
+    });
+    // a script's focus after a press on the row's rename or delete: not shown, so no tooltip
+    await act(async () => name.focus());
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    await act(async () => name.blur());
+    // the keyboard's: shown, and the tooltip opens
+    visible = true;
+    await act(async () => name.focus());
+    expect(find(host, '[role="tooltip"]').textContent?.startsWith('Consider gold · ')).toBe(true);
+  });
+
   it('moves between rows with the arrow keys, Home and End', async () => {
     served = { ...answer, chains: [] };
     keep([

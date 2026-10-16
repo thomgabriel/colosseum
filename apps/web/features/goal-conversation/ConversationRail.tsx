@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import {
   type KeyboardEvent,
+  type ReactElement,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -155,6 +156,8 @@ export function ConversationSheet({
         ref={dialog}
         aria-label={w.label}
         data-ui="conversations-sheet"
+        // a row's tooltip goes beside the sheet where there is room, never over the next row
+        data-hint-edge
         onCancel={(event) => {
           event.preventDefault();
           setSheet(false);
@@ -248,8 +251,12 @@ export function ConversationRail({
     <div
       data-ui="conversations"
       data-closed={folded || undefined}
+      // a row's tooltip goes beside the rail, never over the next row (the review of #331)
+      data-hint-edge
       className={cn(
-        'max-lg:hidden lg:sticky lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
+        // over the page beside it, so a row's tooltip, beside the rail, is not drawn under the chat; under
+        // the app's bar (z-30)
+        'max-lg:hidden lg:sticky lg:z-20 lg:top-[calc(env(safe-area-inset-top,0px)+88px)] lg:flex lg:max-h-[calc(100dvh-104px)] lg:flex-col lg:self-start lg:overflow-hidden lg:rounded-xl lg:border lg:border-border lg:bg-card',
         MENU_TEXT,
         folded ? 'lg:w-14' : 'lg:w-76',
       )}
@@ -554,7 +561,8 @@ const tip = (row: ConversationRow, now: number, locale: string, kind?: string) =
  * A rail row's tooltip: "Vault", the whole name, the chain and how long ago, when a mouse rests on the
  * row and when the keyboard brings focus to it (the one tooltip, TOOLTIP-WORDS). The row's own line
  * says all of it to a reader already, so the tooltip is hidden from one and describes nothing: no
- * `title`, which NVDA and JAWS read after the name a second time (the review of #330).
+ * `title`, which NVDA and JAWS read after the name a second time (the review of #330). It opens beside
+ * the rail, level with the row: under it, it would cover the next row and take its press (#331).
  */
 function RowTip({
   row,
@@ -565,13 +573,14 @@ function RowTip({
   row: ConversationRow;
   now: number;
   kind?: string;
-  children: ReactNode;
+  children: ReactElement;
 }) {
   const lang = useLang();
   return (
     <Hint
       tip={tip(row, now, LOCALE[lang], kind)}
       echo
+      beside
       className="min-w-0 flex-1"
       triggerClassName="w-full min-w-0"
     >
@@ -775,35 +784,38 @@ function DraftItem({
           with no words is in no list yet: it has nothing to rename or delete. */}
       {row.kept && (
         <span className="flex shrink-0 gap-0.5 [@media(hover:hover)]:hidden [@media(hover:hover)]:group-focus-within/row:flex [@media(hover:hover)]:group-hover/row:flex">
-          <button
-            type="button"
-            data-ui="conversation-rename"
-            onClick={() => {
-              setName(row.title);
-              setMode('naming');
-            }}
-            className={cn(
-              buttonClass({ variant: 'icon', size: 'dense' }),
-              dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
-            )}
-            aria-label={w.rename(row.title)}
-            title={w.rename(row.title)}
-          >
-            <Icon name="Pencil" size={16} />
-          </button>
-          <button
-            type="button"
-            data-ui="conversation-delete"
-            onClick={() => setMode('deleting')}
-            className={cn(
-              buttonClass({ variant: 'icon', size: 'dense' }),
-              dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
-            )}
-            aria-label={w.remove(row.title)}
-            title={w.remove(row.title)}
-          >
-            <Icon name="X" size={16} />
-          </button>
+          {/* Their words are their names, so their tooltips are the eye's alone (TOOLTIP-WORDS). */}
+          <Hint tip={w.rename(row.title)} echo beside>
+            <button
+              type="button"
+              data-ui="conversation-rename"
+              onClick={() => {
+                setName(row.title);
+                setMode('naming');
+              }}
+              className={cn(
+                buttonClass({ variant: 'icon', size: 'dense' }),
+                dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
+              )}
+              aria-label={w.rename(row.title)}
+            >
+              <Icon name="Pencil" size={16} />
+            </button>
+          </Hint>
+          <Hint tip={w.remove(row.title)} echo beside>
+            <button
+              type="button"
+              data-ui="conversation-delete"
+              onClick={() => setMode('deleting')}
+              className={cn(
+                buttonClass({ variant: 'icon', size: 'dense' }),
+                dense ? 'size-7 border-0 bg-transparent' : 'size-7 border-0',
+              )}
+              aria-label={w.remove(row.title)}
+            >
+              <Icon name="X" size={16} />
+            </button>
+          </Hint>
         </span>
       )}
     </li>

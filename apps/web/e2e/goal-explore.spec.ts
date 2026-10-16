@@ -172,6 +172,23 @@ test('the conversations panel: a new conversation, an earlier one opened, and a 
     // the sheet closes with Escape, and the next width finds the rail
     if (width < 1024) await page.keyboard.press('Escape');
   }
+  // In the rail, a row's tooltip opens beside it, so with the first row's open the second is still
+  // what a press lands on (the review of #331: under its row, it covered the next and took its press).
+  const opens = (await conversations(page)).locator('[data-ui="conversation-open"]');
+  const [one, two] = [opens.nth(0), opens.nth(1)];
+  const named = await two.locator('[data-ui="conversation-title"]').textContent();
+  await one.hover();
+  await expect(page.locator('[role="tooltip"]')).toBeVisible();
+  const box = await two.boundingBox();
+  if (!box) throw new Error('the second row has no box');
+  const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+  expect(
+    await two.evaluate((el, [px, py]) => el.contains(document.elementFromPoint(px, py)), [x, y]),
+  ).toBe(true);
+  await page.mouse.click(x, y);
+  await expect(
+    row(await conversations(page), named ?? '').locator('[data-ui="conversation-open"]'),
+  ).toHaveAttribute('aria-current', 'true');
 });
 
 // The title's place (PAGE-SHELL, as CONVERSATION-PANEL amends it): under 1024px at the frame's left
