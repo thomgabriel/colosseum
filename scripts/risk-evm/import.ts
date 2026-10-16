@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDb, riskAssetSnapshots } from '@colosseum/db';
+import { importFloor } from '../ops/risk-retention';
 import { parseRow, toDbRow } from './curve';
 import { type OracleRow, parseOracleRow } from './oracle';
 import { insertOracleRows } from './oracle-import';
@@ -11,6 +12,9 @@ import { insertOracleRows } from './oracle-import';
 // are counted and skipped.
 // It also loads the oracle rows of a list run (data/risk-evm/oracle, PLAN-UNIVERSE RU.7) into
 // risk_price_observations, the same way: a row that is there is left as it is.
+// A curve row older than the hosted retention of risk_asset_snapshots (scripts/ops/risk-retention.ts, seven
+// days) is counted and skipped: the daily prune deletes those rows, and this import reads every file again each
+// hour. RISK_EVM_IMPORT_ALL=1 imports every row, for a database that keeps everything.
 //   pnpm risk-evm:import
 const root = process.env.RISK_EVM_DIR ?? 'data/risk-evm';
 const dir = join(root, 'assets');
@@ -34,7 +38,15 @@ const files = existsSync(dir)
       .sort()
   : [];
 const { db, client } = createDb();
-const counts = { files: files.length, read: 0, inserted: 0, alreadyThere: 0, skippedBadLine: 0 };
+const floor = process.env.RISK_EVM_IMPORT_ALL === '1' ? null : importFloor('risk_asset_snapshots');
+const counts = {
+  files: files.length,
+  read: 0,
+  inserted: 0,
+  alreadyThere: 0,
+  skippedBadLine: 0,
+  beforeRetention: 0,
+};
 try {
   for (const name of files) {
     const rows = [];
@@ -46,8 +58,13 @@ try {
         // a line cut short by a crash mid-append
       }
       const row = parseRow(parsed);
-      if (row) rows.push(toDbRow(row));
-      else counts.skippedBadLine++;
+      if (!row) {
+        counts.skippedBadLine++;
+        continue;
+      }
+      const dbRow = toDbRow(row);
+      if (floor && dbRow.fetchedAt < floor) counts.beforeRetention++;
+      else rows.push(dbRow);
     }
     counts.read += rows.length;
     for (let i = 0; i < rows.length; i += 500) {

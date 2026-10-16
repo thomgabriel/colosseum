@@ -35,6 +35,7 @@ import {
   lendingPoolIndex,
 } from '@colosseum/risk';
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { importFloor } from '../ops/risk-retention';
 
 // Step 10b item 8 — `pnpm risk:lending-import`. Imports the lending files into risk_lending_snapshots,
 // risk_lending_positions and risk_lending_events. Idempotent: every table has a natural key and inserts skip
@@ -46,6 +47,10 @@ import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 //   --history  also the complete history in data/risk/lending-history (run by hand; launchd jobs cannot read
 //              ~/Documents): reconstructed hourly rows (item 7), their LTV tables, and every decoded event and
 //              configuration change of the decode pass (items 4–5), scrubbed of wallets and positions.
+//
+// A day file that starts before the hosted retention of risk_lending_snapshots (scripts/ops/risk-retention.ts,
+// four days) is skipped: the daily prune deletes those rows, and the count check below would insert them again.
+// RISK_LENDING_IMPORT_ALL=1 imports every day on disk, for a database that keeps everything.
 const HOME = process.env.RISK_HOME ?? join(homedir(), '.colosseum', 'risk');
 const HISTORY = process.argv.includes('--history');
 const HIST_DIR = resolve(process.env.RISK_LENDING_HISTORY ?? 'data/risk/lending-history');
@@ -199,10 +204,16 @@ async function importLiveSnapshots() {
   const files = readdirSync(dir)
     .filter((n) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(n))
     .sort();
+  const floor =
+    process.env.RISK_LENDING_IMPORT_ALL === '1' ? null : importFloor('risk_lending_snapshots');
   for (const n of files) {
     const day = n.slice(0, 10);
     const from = new Date(`${day}T00:00:00Z`);
     const to = new Date(from.getTime() + 86_400_000);
+    if (floor && from < floor) {
+      bump('snapshotDaysBeforeRetention');
+      continue;
+    }
     const rows = jsonl(readFileSync(join(dir, n), 'utf8')).filter((r) =>
       LIVE_KINDS.includes(r.kind as string),
     );

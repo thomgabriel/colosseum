@@ -141,7 +141,11 @@
     "ops:authority-check": "tsx scripts/ops/authority-check.ts",
     "ops:add-assets": "tsx scripts/ops/add-assets.ts",
     "ops:redeploy": "tsx scripts/ops/redeploy.ts",
-    "ops:mainnet-records": "tsx scripts/ops/mainnet-records.ts"
+    "ops:mainnet-records": "tsx scripts/ops/mainnet-records.ts",
+    "ops:prune-risk": "tsx scripts/ops/prune-risk.ts",
+    "ops:archive-risk": "tsx scripts/ops/archive-risk.ts",
+    "ops:move-db": "tsx scripts/ops/move-db.ts",
+    "ops:install-prune": "zsh scripts/ops/install-prune.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
