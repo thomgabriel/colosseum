@@ -116,6 +116,12 @@ export type CompositionProps = {
    * itself one link, where a control inside it would be a second one.
    */
   still?: boolean;
+  /**
+   * Where a table with more than the share folds into rows: under 40rem (`wide`, the default), or
+   * under 56rem (`wider`) for a table too wide for 40rem, as a vault's holdings off their targets.
+   * A table of the share alone keeps its own fold.
+   */
+  fold?: 'wide' | 'wider';
   className?: string;
 };
 
@@ -133,8 +139,8 @@ const FIGURE = 'text-right tabular-nums';
  * Where the table folds into rows, and how. A table of the share alone folds under the kit's @lg
  * (32rem): the asset on the left, its share on the right (#326). A table with more columns folds where
  * they no longer fit (a vault's holdings were 607px wide in a 546px box beside the chat at 1024, to be
- * scrolled to): under 40rem with up to three figures a row, under 56rem with four or more (a vault off
- * its targets needs about 52rem for its five). Folded, the asset and its line run across the row and
+ * scrolled to): under 40rem, or under 56rem where the caller asks for it (`fold="wider"`: a vault off
+ * its targets needs about 52rem for its five figures). Folded, the asset and its line run across the row and
  * the figures sit in a row under it, each under its column's name, wrapping where they run out of
  * room. Spelled out whole, so Tailwind finds every class.
  */
@@ -191,14 +197,14 @@ const FOLD = {
 } as const;
 export type Fold = keyof typeof FOLD;
 
-/**
- * Which fold a table takes: the share alone, or by how many figures a row has beside the asset (the
- * share, the caller's columns that are figures or short words, and a comparison's two).
- */
-export function foldOf(compare: boolean, columns: readonly CompositionColumn[]): Fold {
-  const figures = 1 + (compare ? 2 : 0) + columns.filter((column) => !column.roomy).length;
-  if (figures === 1 && columns.length === 0) return 'share';
-  return figures <= 3 ? 'wide' : 'wider';
+/** Which fold a table takes: the share alone always its own; any other the caller's, else 40rem. */
+export function foldOf(
+  compare: boolean,
+  columns: readonly CompositionColumn[],
+  asked?: 'wide' | 'wider',
+): Fold {
+  if (!compare && columns.length === 0) return 'share';
+  return asked ?? 'wide';
 }
 
 export function Composition({
@@ -210,6 +216,7 @@ export function Composition({
   labels,
   size = 'default',
   still = false,
+  fold: foldAsked,
   changeAs = 'delta',
   top,
   strips = 'two',
@@ -242,7 +249,7 @@ export function Composition({
   const compare = mode === 'compare';
   // the table has the asset and its share and nothing else (a draft's)
   const shareAlone = !compare && columns.length === 0;
-  const fold = FOLD[foldOf(compare, columns)];
+  const fold = FOLD[foldOf(compare, columns, foldAsked)];
   const CELL = `${KIT_CELL} ${fold.cell}`;
   // the comparison's two strips, or one: the table still says before and after where they agree
   const two = compare && strips !== 'one';
@@ -431,7 +438,8 @@ export function Composition({
   /** A column's name over its figure in a folded row; the table's head says it otherwise. */
   const label = (text: string) =>
     fold.label ? (
-      <span data-part="fold-label" className={fold.label}>
+      // seen only; a screen reader has the column's head
+      <span aria-hidden="true" data-part="fold-label" className={fold.label}>
         {text}
       </span>
     ) : null;

@@ -384,6 +384,7 @@ describe('in a narrow box, the table folds into rows', () => {
         { key: 'price', header: 'Price', place: 'before', numeric: true },
         { key: 'value', header: 'Value', place: 'before', numeric: true },
       ],
+      fold: 'wider',
     });
     const heads = [...host.querySelectorAll('thead th')].map((th) => th.textContent);
     expect(heads).toEqual(['Asset', 'Price', 'Value', 'Share now', 'Target', 'Status']);
@@ -392,11 +393,15 @@ describe('in a narrow box, the table folds into rows', () => {
       expect(cells.map((td) => find(td, '[data-part="fold-label"]').textContent)).toEqual(
         heads.slice(1),
       );
-      // each name is shown only where the row folds; the table's head says it otherwise
-      for (const td of cells)
-        expect(find(td, '[data-part="fold-label"]').className).toBe(
+      // each name is shown only where the row folds, and only to the eye: a screen reader has the
+      // column's head, which would otherwise be said twice
+      for (const td of cells) {
+        const label = find(td, '[data-part="fold-label"]');
+        expect(label.className).toBe(
           'hidden text-caption text-muted-foreground @max-[56rem]:block',
         );
+        expect(label.getAttribute('aria-hidden')).toBe('true');
+      }
     }
     // the figure follows its name, whole
     expect(figure(find(row(host, 'spy'), '[data-column="price"]'))).toBe('$500');
@@ -406,30 +411,32 @@ describe('in a narrow box, the table folds into rows', () => {
     expect(said?.className).toBe('sr-only @max-[56rem]:hidden');
   });
 
-  it('folds by how many figures a row has: 32rem for the share alone, 40rem to three, 56rem from four', async () => {
+  it('folds at 32rem for the share alone, at 40rem by default, and at 56rem where the caller asks', async () => {
     const figure = (key: string) => ({ key, header: key, numeric: true });
     const why = { key: 'why', header: 'Why', roomy: true };
     expect(foldOf(false, [])).toBe('share');
-    // a draft's comparison, the vault's holdings on their targets, a column of words beside the share
+    // the share alone keeps its own fold, whatever is asked (#326)
+    expect(foldOf(false, [], 'wider')).toBe('share');
+    // a draft's comparison, the holdings on their targets, a plan of four figures: 40rem, not by count
     expect(foldOf(true, [])).toBe('wide');
     expect(foldOf(false, [figure('price'), figure('value')])).toBe('wide');
     expect(foldOf(false, [why])).toBe('wide');
-    // off their targets: price, value, the share, the target and the status, about 52rem whole
-    expect(foldOf(true, [figure('price'), figure('value')])).toBe('wider');
-    // a plan's: kind, the share, amount, yield and exit; its why needs no more room to fold
     expect(
       foldOf(false, [figure('kind'), figure('amount'), figure('yield'), figure('exit'), why]),
-    ).toBe('wider');
-    const host = await view({
-      items: THREE.map((i) => ({ ...i, beforeBps: 2000 })),
-      mode: 'compare',
-      columns: [figure('price'), figure('value')],
-    });
-    expect(find(host, '[data-ui="composition-table"]').className).toContain(
+    ).toBe('wide');
+    // the holdings off their targets ask for 56rem: about 52rem whole
+    expect(foldOf(true, [figure('price'), figure('value')], 'wider')).toBe('wider');
+    const items = THREE.map((i) => ({ ...i, beforeBps: 2000 }));
+    const columns = [figure('price'), figure('value')];
+    const wider = await view({ items, mode: 'compare', columns, fold: 'wider' });
+    expect(find(wider, '[data-ui="composition-table"]').className).toContain(
       '@min-[56rem]:min-w-max',
     );
-    expect(row(host, 'spy').className).toContain('@max-[56rem]:flex');
-    expect(host.innerHTML).not.toContain('40rem');
+    expect(row(wider, 'spy').className).toContain('@max-[56rem]:flex');
+    expect(wider.innerHTML).not.toContain('40rem');
+    const wide = await view({ items, mode: 'compare', columns });
+    expect(row(wide, 'spy').className).toContain('@max-[40rem]:flex');
+    expect(wide.innerHTML).not.toContain('56rem');
   });
 
   it('keeps a figure’s pin in its cell, after its name', async () => {

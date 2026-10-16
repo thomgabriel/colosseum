@@ -28,7 +28,7 @@ The strip, then the three largest holdings, one line each (logo, name, share), a
 
 ## In a narrow box
 
-A table of the share alone folds into rows under 32rem: the asset on the left, the share on the right, its reason wrapping at a reading width (18rem at least where the table has its columns). A table with more columns folds where they no longer fit: under 40rem with up to three figures a row (a vault's holdings on their targets, a draft's comparison), under 56rem with four or more (a vault off its targets, a plan). Folded, the asset and its line run across the row and the figures sit in a row under it, each under its column's name, with its pin; they wrap where the row runs out of room. Where such a table has its columns, the line under a name wraps at 32ch, so a long reason never widens it.
+A table of the share alone folds into rows under 32rem: the asset on the left, the share on the right, its reason wrapping at a reading width (18rem at least where the table has its columns). A table with more columns folds where they no longer fit: under 40rem, and under 56rem where the caller asks for it (`fold="wider"`), which only a vault's holdings off their targets do: their five figures need about 52rem. Folded, the asset and its line run across the row and the figures sit in a row under it, each under its column's name, with its pin; they wrap where the row runs out of room. Where such a table has its columns, the line under a name wraps at 32ch, so a long reason never widens it.
 
 ## Pointing and focus
 

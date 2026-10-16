@@ -88,8 +88,9 @@ describe('the picture of what changes', () => {
         tr.querySelector('[data-part="name"]')?.textContent,
         tr.querySelector('[data-ui="composition-share"]')?.textContent,
         own(tr.querySelector('[data-column="before"]')),
-        tr.querySelector('[data-column="change"] [aria-hidden="true"]')?.textContent ??
-          own(tr.querySelector('[data-column="change"]')),
+        tr.querySelector(
+          '[data-column="change"] [aria-hidden="true"]:not([data-part="fold-label"])',
+        )?.textContent ?? own(tr.querySelector('[data-column="change"]')),
       ].filter((cell) => cell !== undefined),
     );
   const heads = (host: HTMLElement) =>
