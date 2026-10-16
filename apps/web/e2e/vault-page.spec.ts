@@ -723,20 +723,83 @@ test('a vault away from its targets: the rebalance reviewed, signed and done in 
   await expect(screen.locator('[data-action="vault-rebalance"]')).toHaveCount(0);
 });
 
-// The holdings' rows carry a line under each name (the amount, and why it is held). The draft card's
-// floor for a reason (Composition.tsx, 18rem) is not theirs: beside the chat at 1280 the table is no
-// wider than its box, as before the floor (the review of #326). At 1024 the pane is narrower than its
-// four columns and the table scrolls sideways, as it did before; that is Composition's own rule.
-test('the holdings table is no wider than its box beside the chat at 1280', async ({ page }) => {
-  await toVault(page);
-  const table = page.locator('[data-ui="vault-plan"] [data-ui="composition-table"]').first();
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(table).toBeVisible();
-  await expect(async () => {
-    const [wide, room] = await table.evaluate((el) => [
-      el.scrollWidth,
-      el.parentElement?.clientWidth ?? 0,
-    ]);
-    expect(wide).toBeLessThanOrEqual(room);
-  }).toPass();
-});
+// The holdings' table has the asset, the price, the value and the share, and off its targets the
+// target and a status: more than fits beside the chat at 1024, where it was 607px wide in a 546px box
+// and scrolled sideways. It folds into rows (Composition.tsx) under 40rem, or 56rem off its targets:
+// the asset on top, the figures in a row under it, each under its column's name. At 1024, 1280 and
+// 1440, on its targets and off them, the table is no wider than its box and every figure is in it.
+for (const holds of [
+  undefined,
+  [
+    { asset: 'solana:spy', weightBps: 4000 },
+    { asset: 'solana:nvda', weightBps: 6000 },
+  ],
+]) {
+  test(`the holdings table fits its box beside the chat at 1024, 1280 and 1440, ${holds ? 'off' : 'on'} its targets`, async ({
+    page,
+  }) => {
+    await toVault(page, holds);
+    const plan = page.locator('[data-ui="vault-plan"]');
+    const table = plan.locator('[data-ui="composition-table"]').first();
+    for (const width of [1024, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.locator('[data-ui="vault-chat"]')).toBeVisible();
+      await expect(table).toBeVisible();
+      await expect(async () => {
+        const [wide, room] = await table.evaluate((el) => [
+          el.scrollWidth,
+          el.parentElement?.clientWidth ?? 0,
+        ]);
+        expect(wide, `${width}px: the table is no wider than its box`).toBeLessThanOrEqual(room);
+      }).toPass();
+      const box = await table.evaluate((el) => {
+        const r = (el.parentElement as HTMLElement).getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      const rows = table.locator('tbody [data-row]');
+      await expect(rows).toHaveCount(2);
+      for (const row of await rows.all()) {
+        const figures = [
+          // each figure on its pin
+          row.locator('[data-column="price"] [data-ui="figure"]'),
+          row.locator('[data-column="price"] [data-ui="pin"]'),
+          row.locator('[data-column="value"] [data-ui="figure"]'),
+          row.locator('[data-column="value"] [data-ui="pin"]'),
+          row.locator('[data-ui="composition-share"]'),
+          ...(holds
+            ? [row.locator('[data-column="before"]'), row.locator('[data-column="change"]')]
+            : []),
+        ];
+        for (const figure of figures) {
+          await expect(figure).toBeVisible();
+          const b = await figure.boundingBox();
+          if (!b) throw new Error('the figure is drawn');
+          expect(b.x, `${width}px: a figure starts in the box`).toBeGreaterThanOrEqual(
+            box.left - 1,
+          );
+          expect(b.x + b.width, `${width}px: a figure ends in the box`).toBeLessThanOrEqual(
+            box.right + 1,
+          );
+        }
+      }
+      // folded where the box is under 40rem (56rem off its targets): each figure under its name
+      const folded = await table.evaluate(
+        (el, fold) => (el.parentElement as HTMLElement).getBoundingClientRect().width < fold,
+        holds ? 896 : 640,
+      );
+      if (width === 1024) expect(folded, 'beside the chat at 1024 the table folds').toBe(true);
+      const label = rows.first().locator('[data-column="weight"] [data-part="fold-label"]');
+      if (folded) await expect(label).toHaveText(en.shared.vault.columns.weight);
+      else await expect(label).toBeHidden();
+      if (SHOTS)
+        for (const theme of ['light', 'dark'] as const) {
+          await inTheme(page, theme);
+          await page.mouse.move(0, 0);
+          await page.screenshot({
+            path: `${SHOTS}/holdings-${holds ? 'off' : 'on'}-target-${width}-${theme}.png`,
+          });
+        }
+      await inTheme(page, 'light');
+    }
+  });
+}

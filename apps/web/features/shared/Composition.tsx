@@ -18,8 +18,10 @@ import { coloursOf, colourVar } from './composition-colours';
 // cost). A comparison (now and after, planned and now) is two strips, one over the other, and two more
 // columns: the share before and the signed difference. Pointing at a row or focusing its logo lights its
 // segment and dims the rest; pointing at a segment lights its row. In a narrow box the table folds into
-// rows: the asset on the left, the weight on the right, the other figures under them, each with its
-// name. On a card in a list (`compact`) there is no table: the strip and a short list.
+// rows: a table of the share alone under 32rem, the asset on the left and the share on the right; a
+// table with more columns under 40rem (56rem with four figures or more), the asset and its line on top
+// and the figures in a row under it, each under its column's name (FOLD). On a card in a list (`compact`) there is no table: the strip and a
+// short list.
 
 export type CompositionItem = {
   key: string;
@@ -61,7 +63,8 @@ export type CompositionColumn = {
   numeric?: boolean;
   /**
    * Words that need room (why a holding is there): drawn where the table is 52rem wide or more, and
-   * under the row where it folds into rows; between, left out rather than cut at the panel's edge.
+   * under the row's figures where it folds into rows; between, left out rather than cut at the
+   * panel's edge.
    * The caller says them in full elsewhere (the plan's fold).
    */
   roomy?: boolean;
@@ -124,12 +127,79 @@ export function withVenue(display: string): { name: string; venue?: string } {
 
 const FADE =
   'transition-opacity duration-(--tf-dur-fade) motion-reduce:transition-none data-dim:opacity-30';
-/** A head or cell of the table, wide; in a narrow box the table folds into rows. */
-/** The kit's cell (KitTable.tsx), and none in a narrow box, where the row lays its cells out itself. */
-const CELL = `${KIT_CELL} @max-lg:p-0`;
 const FIGURE = 'text-right tabular-nums';
-/** A column of words that needs room: none between a narrow box's rows and a 52rem table. */
-const ROOMY = '@lg:hidden @min-[52rem]:table-cell';
+
+/**
+ * Where the table folds into rows, and how. A table of the share alone folds under the kit's @lg
+ * (32rem): the asset on the left, its share on the right (#326). A table with more columns folds where
+ * they no longer fit (a vault's holdings were 607px wide in a 546px box beside the chat at 1024, to be
+ * scrolled to): under 40rem with up to three figures a row, under 56rem with four or more (a vault off
+ * its targets needs about 52rem for its five). Folded, the asset and its line run across the row and
+ * the figures sit in a row under it, each under its column's name, wrapping where they run out of
+ * room. Spelled out whole, so Tailwind finds every class.
+ */
+const FOLD = {
+  share: {
+    table: '@lg:min-w-max',
+    head: '@max-lg:sr-only',
+    cell: '@max-lg:p-0',
+    row: '@max-lg:grid @max-lg:grid-cols-[minmax(0,1fr)_auto] @max-lg:gap-x-3 @max-lg:gap-y-1 @max-lg:px-5 @max-lg:py-3',
+    asset: '',
+    sub: '',
+    weight: '@max-lg:self-center',
+    bar: '@lg:block',
+    figure: '',
+    label: '',
+    said: 'sr-only',
+    roomy: '',
+    roomyHead: '',
+  },
+  wide: {
+    table: '@min-[40rem]:min-w-max',
+    head: '@max-[40rem]:sr-only',
+    cell: '@max-[40rem]:p-0',
+    row: '@max-[40rem]:flex @max-[40rem]:flex-wrap @max-[40rem]:items-start @max-[40rem]:gap-x-6 @max-[40rem]:gap-y-2 @max-[40rem]:px-5 @max-[40rem]:py-3',
+    asset: '@max-[40rem]:basis-full',
+    // a reason wraps at a reading width where the table has its columns: never widens it
+    sub: '@min-[40rem]:max-w-[32ch]',
+    weight: '@max-[40rem]:text-left',
+    bar: '@min-[40rem]:block',
+    figure: '@max-[40rem]:text-left',
+    label: 'hidden text-caption text-muted-foreground @max-[40rem]:block',
+    // the share's name for a screen reader, where the row does not draw it
+    said: 'sr-only @max-[40rem]:hidden',
+    // words that need room: a line of their own when folded, left out from there to a 52rem table
+    roomy: '@max-[40rem]:basis-full @min-[40rem]:hidden @min-[52rem]:table-cell',
+    roomyHead: '@min-[40rem]:hidden @min-[52rem]:table-cell',
+  },
+  wider: {
+    table: '@min-[56rem]:min-w-max',
+    head: '@max-[56rem]:sr-only',
+    cell: '@max-[56rem]:p-0',
+    row: '@max-[56rem]:flex @max-[56rem]:flex-wrap @max-[56rem]:items-start @max-[56rem]:gap-x-6 @max-[56rem]:gap-y-2 @max-[56rem]:px-5 @max-[56rem]:py-3',
+    asset: '@max-[56rem]:basis-full',
+    sub: '@min-[56rem]:max-w-[32ch]',
+    weight: '@max-[56rem]:text-left',
+    bar: '@min-[56rem]:block',
+    figure: '@max-[56rem]:text-left',
+    label: 'hidden text-caption text-muted-foreground @max-[56rem]:block',
+    said: 'sr-only @max-[56rem]:hidden',
+    // a 56rem table has room for them
+    roomy: '@max-[56rem]:basis-full',
+    roomyHead: '',
+  },
+} as const;
+export type Fold = keyof typeof FOLD;
+
+/**
+ * Which fold a table takes: the share alone, or by how many figures a row has beside the asset (the
+ * share, the caller's columns that are figures or short words, and a comparison's two).
+ */
+export function foldOf(compare: boolean, columns: readonly CompositionColumn[]): Fold {
+  const figures = 1 + (compare ? 2 : 0) + columns.filter((column) => !column.roomy).length;
+  if (figures === 1 && columns.length === 0) return 'share';
+  return figures <= 3 ? 'wide' : 'wider';
+}
 
 export function Composition({
   items,
@@ -172,6 +242,8 @@ export function Composition({
   const compare = mode === 'compare';
   // the table has the asset and its share and nothing else (a draft's)
   const shareAlone = !compare && columns.length === 0;
+  const fold = FOLD[foldOf(compare, columns)];
+  const CELL = `${KIT_CELL} ${fold.cell}`;
   // the comparison's two strips, or one: the table still says before and after where they agree
   const two = compare && strips !== 'one';
   const compact = size === 'compact';
@@ -356,19 +428,21 @@ export function Composition({
 
   const beforeColumns = columns.filter((column) => column.place === 'before');
   const afterColumns = columns.filter((column) => column.place !== 'before');
-  /** A caller's cell: in a narrow box, a muted line under the row with its column's name. */
+  /** A column's name over its figure in a folded row; the table's head says it otherwise. */
+  const label = (text: string) =>
+    fold.label ? (
+      <span data-part="fold-label" className={fold.label}>
+        {text}
+      </span>
+    ) : null;
+  /** A caller's cell: in a folded row, its figure under its column's name. */
   const cell = (column: CompositionColumn, item: CompositionItem) => (
     <td
       key={column.key}
       data-column={column.key}
-      className={cn(
-        CELL,
-        column.numeric && FIGURE,
-        column.roomy && ROOMY,
-        '@max-lg:order-3 @max-lg:col-span-2 @max-lg:pl-11 @max-lg:text-left @max-lg:text-caption @max-lg:text-muted-foreground',
-      )}
+      className={cn(CELL, column.numeric && FIGURE, fold.figure, column.roomy && fold.roomy)}
     >
-      <span className="@lg:hidden">{column.header} </span>
+      {label(column.header)}
       {item.cells?.[column.key] ?? '—'}
     </td>
   );
@@ -376,11 +450,18 @@ export function Composition({
     <th
       key={text}
       scope="col"
-      className={cn('px-5 py-3 font-medium @max-lg:p-0', numeric && 'text-right', roomy && ROOMY)}
+      className={cn(
+        'px-5 py-3 font-medium',
+        fold.cell,
+        numeric && 'text-right',
+        roomy && fold.roomyHead,
+      )}
     >
       {text}
     </th>
   );
+  const weightHead = labels?.weight ?? c.weight;
+  const changeHead = labels?.change ?? c.changeHead;
 
   return (
     <div
@@ -397,16 +478,16 @@ export function Composition({
       <div className="overflow-x-auto overflow-y-hidden">
         <table
           data-ui="composition-table"
-          className="w-full border-collapse text-body-sm @lg:min-w-max"
+          className={cn('w-full border-collapse text-body-sm', fold.table)}
         >
           <caption className="sr-only">{labels?.caption ?? c.caption}</caption>
-          <thead className="text-left text-caption text-muted-foreground @max-lg:sr-only">
+          <thead className={cn('text-left text-caption text-muted-foreground', fold.head)}>
             <tr>
               {head(labels?.asset ?? c.asset)}
               {beforeColumns.map((column) => head(column.header, column.numeric, column.roomy))}
-              {head(labels?.weight ?? c.weight, true)}
+              {head(weightHead, true)}
               {compare && head(before, true)}
-              {compare && head(labels?.change ?? c.changeHead, true)}
+              {compare && head(changeHead, true)}
               {afterColumns.map((column) => head(column.header, column.numeric, column.roomy))}
             </tr>
           </thead>
@@ -426,10 +507,11 @@ export function Composition({
                   onMouseLeave={() => point(null)}
                   className={cn(
                     KIT_ROW,
-                    'transition-colors duration-(--tf-dur-fade) motion-reduce:transition-none data-lit:bg-accent @max-lg:grid @max-lg:grid-cols-[minmax(0,1fr)_auto] @max-lg:gap-x-3 @max-lg:gap-y-1 @max-lg:px-5 @max-lg:py-3',
+                    'transition-colors duration-(--tf-dur-fade) motion-reduce:transition-none data-lit:bg-accent',
+                    fold.row,
                   )}
                 >
-                  <th scope="row" className={cn(CELL, 'text-left font-normal @max-lg:order-1')}>
+                  <th scope="row" className={cn(CELL, 'text-left font-normal', fold.asset)}>
                     <span className="flex min-w-0 items-center gap-3">
                       {mark(item, i)}
                       <span className="flex min-w-0 flex-1 flex-col">
@@ -439,9 +521,9 @@ export function Composition({
                         {/* In a table of the share alone, a row's reason wraps at a reading width,
                             18rem at least where the table has its columns, and never widens the
                             table past it: a long one pushed the share out of the panel, to be
-                            scrolled to (Thom, Oct 15, a vault of SPY alone). A table with more
-                            columns keeps its line whole, and scrolls sideways where its box is
-                            narrower than them, as before: there 18rem would widen it. */}
+                            scrolled to (Thom, Oct 15, a vault of SPY alone). In a table with more
+                            columns it wraps at 32ch where the table has them, so a draft's long
+                            reason cannot widen it either, and across the row where it folds. */}
                         {sub && (
                           <span
                             data-part="sub"
@@ -449,7 +531,7 @@ export function Composition({
                               'text-caption text-muted-foreground',
                               item.detail && shareAlone
                                 ? '[contain:inline-size] @lg:min-w-72'
-                                : undefined,
+                                : fold.sub || undefined,
                             )}
                           >
                             {sub}
@@ -459,13 +541,17 @@ export function Composition({
                     </span>
                   </th>
                   {beforeColumns.map((column) => cell(column, item))}
-                  <td className={cn(CELL, FIGURE, '@max-lg:order-2 @max-lg:self-center')}>
+                  <td data-column="weight" className={cn(CELL, FIGURE, fold.weight)}>
+                    {label(weightHead)}
                     {/* the share, and a short bar of its colour: what ties the row to its segment */}
                     <span className="inline-flex items-center justify-end gap-3">
                       <span
                         aria-hidden="true"
                         data-part="weight-bar"
-                        className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-muted @lg:block"
+                        className={cn(
+                          'hidden h-1.5 w-12 overflow-hidden rounded-full bg-muted',
+                          fold.bar,
+                        )}
                       >
                         <span
                           className="block h-full rounded-full"
@@ -475,7 +561,8 @@ export function Composition({
                           }}
                         />
                       </span>
-                      {compare && <span className="sr-only">{after}</span>}
+                      {/* folded, the share says its column's name above it */}
+                      {compare && <span className={fold.said}>{after}</span>}
                       <span data-ui="composition-share" className="font-medium">
                         {written(item)}
                       </span>
@@ -484,25 +571,15 @@ export function Composition({
                   {compare && (
                     <td
                       data-column="before"
-                      className={cn(
-                        CELL,
-                        FIGURE,
-                        'text-muted-foreground @max-lg:order-3 @max-lg:col-span-2 @max-lg:pl-11 @max-lg:text-left @max-lg:text-caption',
-                      )}
+                      className={cn(CELL, FIGURE, 'text-muted-foreground', fold.figure)}
                     >
-                      <span className="@lg:hidden">{before} </span>
+                      {label(before)}
                       {was > 0 ? share(was) : c.added}
                     </td>
                   )}
                   {compare && (
-                    <td
-                      data-column="change"
-                      className={cn(
-                        CELL,
-                        FIGURE,
-                        '@max-lg:order-3 @max-lg:col-span-2 @max-lg:pl-11 @max-lg:text-left @max-lg:text-caption',
-                      )}
-                    >
+                    <td data-column="change" className={cn(CELL, FIGURE, fold.figure)}>
+                      {label(changeHead)}
                       {item.unknown ? (
                         '—'
                       ) : changeAs === 'status' ? (

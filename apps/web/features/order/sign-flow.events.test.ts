@@ -73,11 +73,11 @@ describe('the picture of what changes', () => {
   };
   const share = (bps: number) => `${bps / 100}%`;
 
-  /** A cell's own words, without the label a narrow box writes before its figure. */
+  /** A cell's own words, without the column's name a folded row writes over its figure. */
   const own = (el: Element | null) =>
     el
       ? [...el.childNodes]
-          .filter((n) => n.nodeType === 3 || !(n as Element).matches?.('.\\@lg\\:hidden'))
+          .filter((n) => n.nodeType === 3 || !(n as Element).matches?.('[data-part="fold-label"]'))
           .map((n) => n.textContent)
           .join('')
       : undefined;
@@ -89,7 +89,7 @@ describe('the picture of what changes', () => {
         tr.querySelector('[data-ui="composition-share"]')?.textContent,
         own(tr.querySelector('[data-column="before"]')),
         tr.querySelector('[data-column="change"] [aria-hidden="true"]')?.textContent ??
-          tr.querySelector('[data-column="change"]')?.textContent,
+          own(tr.querySelector('[data-column="change"]')),
       ].filter((cell) => cell !== undefined),
     );
   const heads = (host: HTMLElement) =>

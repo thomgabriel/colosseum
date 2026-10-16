@@ -296,11 +296,14 @@ export function PublishWait() {
 
 /**
  * What a vault holds, in outline, in the house kit's panel as it lands (VaultHoldings.tsx): its head,
- * the strip, then a row a holding.
+ * the strip, then a row a holding. As the table does (Composition.tsx), a row is one line where the
+ * box is 40rem wide or more, and under it folds: the asset on top, the figures in a row under it, each
+ * under its column's name.
  */
 function VaultHoldingsWait({ className }: { className?: string }) {
   const t = useT();
   const v = t.shared.vault;
+  const figures = [v.columns.price, v.page.value, v.columns.weight];
   return (
     <div aria-hidden="true" data-wait="holdings" className={`min-w-0 ${className ?? ''}`}>
       <Panel as="div">
@@ -311,15 +314,33 @@ function VaultHoldingsWait({ className }: { className?: string }) {
         <div className="px-5 pt-4">
           <Skeleton className="h-2 w-full rounded-full" />
         </div>
-        <div className="pt-4">
+        <div className="@container pt-4">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex items-center gap-3 border-t border-border px-5 py-4">
-              <SkeletonMark />
-              <span className="flex flex-col gap-1">
-                <SkeletonLine className="text-body" width="w-16" />
-                <SkeletonLine className="text-caption" width="w-20" />
+            <div
+              key={i}
+              data-wait="holding"
+              className="flex flex-wrap items-center gap-x-6 border-t border-border px-5 py-4 @max-[40rem]:items-start @max-[40rem]:gap-y-2 @max-[40rem]:py-3"
+            >
+              <span className="flex min-w-0 items-center gap-3 @max-[40rem]:basis-full">
+                <SkeletonMark />
+                <span className="flex flex-col gap-1">
+                  <SkeletonLine className="text-body" width="w-16" />
+                  <SkeletonLine className="text-caption" width="w-20" />
+                </span>
               </span>
-              <SkeletonLine className="ml-auto text-body" width="w-12" />
+              <span className="ml-auto flex gap-6 @max-[40rem]:ml-0">
+                {figures.map((label) => (
+                  <span
+                    key={label}
+                    className="flex flex-col items-end gap-1 @max-[40rem]:items-start"
+                  >
+                    <span className="hidden text-caption text-muted-foreground @max-[40rem]:block">
+                      {label}
+                    </span>
+                    <SkeletonLine className="text-body-sm" width="w-12" />
+                  </span>
+                ))}
+              </span>
             </div>
           ))}
         </div>
