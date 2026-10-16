@@ -5,6 +5,7 @@ import {
   riskAssetSnapshots,
   riskLendingPositions,
   riskLendingSnapshots,
+  riskPools,
 } from '@colosseum/db';
 import { defaultRegimeParams, type Regime, regimeAt } from '@colosseum/risk';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
@@ -20,6 +21,8 @@ import {
   loadLendingHistory,
   seriesProvenance,
 } from '../../apps/api/src/history';
+import { registryTvl } from '../../apps/api/src/plan-inputs';
+import { listedPoolTvl } from '../../apps/api/src/routes/risk';
 
 // The series and fact-sheet reads of risk_asset_snapshots, risk_lending_snapshots and
 // risk_lending_positions now read only what they answer with: each side cut to [notionalUsd, outUsd],
@@ -201,6 +204,7 @@ beforeAll(async () => {
     'risk_lending_snapshots',
     'risk_lending_facts',
     'risk_lending_positions',
+    'risk_pools',
   ])
     await like(t);
 
@@ -300,6 +304,43 @@ beforeAll(async () => {
     }),
   );
   await db.insert(riskLendingPositions).values(pos);
+
+  // pools: two on one mint, one of them with no TVL; another mint under the same symbol; tiers in and out
+  const pool = (
+    address: string,
+    mint: string,
+    symbol: string,
+    tier: string,
+    tvlUsd: number | null,
+  ) => ({
+    address,
+    program: 'fixture',
+    venue: 'fixture',
+    assetMint: mint,
+    assetSymbol: symbol,
+    quoteMint: 'FIXTUREquote',
+    exitPath: 'direct_usd',
+    assetIsToken0: 1,
+    decimals0: 8,
+    decimals1: 6,
+    tvlUsd,
+    tier,
+    status: 'fixture',
+    methodVersion: 'fixture',
+    ...label,
+    fetchedAt: NOW,
+    provenance: 'fixture' as const,
+  });
+  await db
+    .insert(riskPools)
+    .values([
+      pool('P1', MINT, SYMBOL, 'A', 1234.5678901234),
+      pool('P2', MINT, SYMBOL, 'B', null),
+      pool('P3', 'FIXTUREegressOther', SYMBOL, 'C', 77.125),
+      pool('P4', 'FIXTUREegressThird', 'THRx', 'A', 0.1),
+      pool('P5', 'FIXTUREegressThird', 'THRx', 'B', 0.2),
+      pool('P6', 'FIXTUREegressNoTvl', 'NONEx', 'A', null),
+    ]);
 });
 
 afterAll(async () => {
@@ -368,6 +409,58 @@ describe('the reads cut to what they answer with give the answers they gave', ()
     expect((await loadLendingHistory(db, ACCOUNT, { days: 30, now: NOW }))?.provenance).toBe(
       'fixture',
     );
+  });
+
+  it('pool TVL: the same sums for the asset list and the exit twins, a pool with none counting 0', async () => {
+    // as /risk/assets and /risk/chains summed it (chainAssets, routes/risk.ts)
+    const pools = await db
+      .select()
+      .from(riskPools)
+      .where(inArray(riskPools.tier, ['A', 'B']));
+    const tvl = new Map<string, { symbol: string; tvl: number; pools: number }>();
+    for (const p of pools) {
+      const v = tvl.get(p.assetMint) ?? { symbol: p.assetSymbol, tvl: 0, pools: 0 };
+      v.tvl += p.tvlUsd ?? 0;
+      v.pools++;
+      tvl.set(p.assetMint, v);
+    }
+    const was = [...tvl.entries()]
+      .sort((a, b) => b[1].tvl - a[1].tvl)
+      .map(([mint, v]) => ({ mint, symbol: v.symbol, tvl: v.tvl, pools: v.pools }));
+    const is = (await listedPoolTvl(db))
+      .sort((a, b) => b.tvl - a.tvl)
+      .map((v) => ({ mint: v.mint, symbol: v.symbol, tvl: v.tvl, pools: v.pools }));
+    expect(is).toEqual(was);
+    expect(is.find((v) => v.mint === MINT)).toEqual({
+      mint: MINT,
+      symbol: SYMBOL,
+      tvl: 1234.5678901234,
+      pools: 2,
+    });
+    expect(is.find((v) => v.mint === 'FIXTUREegressNoTvl')?.tvl).toBe(0);
+
+    // as the exit twins summed it per chain, symbol and mint (exitTwins, model-exits.ts)
+    const lower = [SYMBOL.toLowerCase(), 'thrx', 'nonex'];
+    const rows = await db
+      .select({
+        assetSymbol: riskPools.assetSymbol,
+        assetMint: riskPools.assetMint,
+        tvlUsd: riskPools.tvlUsd,
+      })
+      .from(riskPools)
+      .where(inArray(sql`lower(${riskPools.assetSymbol})`, lower));
+    const sums = (xs: Array<{ assetSymbol: string; assetMint: string; tvlUsd: number | null }>) => {
+      const m = new Map<string, number>();
+      for (const r of xs) {
+        const k = `${r.assetSymbol}|${r.assetMint}`;
+        m.set(k, (m.get(k) ?? 0) + (r.tvlUsd ?? 0));
+      }
+      return Object.fromEntries([...m].sort());
+    };
+    const grouped = await registryTvl(db, lower);
+    expect(grouped).toHaveLength(4);
+    expect(sums(grouped)).toEqual(sums(rows));
+    expect(sums(grouped)[`${SYMBOL}|${MINT}`]).toBe(1234.5678901234);
   });
 
   it('fact sheet: the same capacity series and the same lending collateral', async () => {

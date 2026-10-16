@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   assets as assetsTable,
+  type Db,
   riskAssetSnapshots,
   riskDepthCurves,
   riskEvents,
@@ -86,6 +87,23 @@ const Chain = ChainName.default('solana');
 type Chain = z.infer<typeof ChainName>;
 const EVM_POOLS_NOT_IN_REGISTRY =
   'not collected on Robinhood Chain: its pools are not in the pool registry (PLAN-UNIVERSE RU.14, DU6)';
+
+/**
+ * Each asset with pools of tier A or B: its symbol, its pools' TVL summed (a pool with none counts 0) and
+ * how many pools, summed in the database: one row per asset, not every listed pool's.
+ */
+export function listedPoolTvl(db: Db) {
+  return db
+    .select({
+      mint: riskPools.assetMint,
+      symbol: sql<string>`min(${riskPools.assetSymbol})`,
+      tvl: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
+      pools: sql<number>`count(*)::int`,
+    })
+    .from(riskPools)
+    .where(inArray(riskPools.tier, ['A', 'B']))
+    .groupBy(riskPools.assetMint);
+}
 
 export async function registerRiskRoutes(
   app: FastifyInstance,
@@ -211,17 +229,7 @@ export async function registerRiskRoutes(
   async function chainAssets(chain: Chain) {
     if (chain === 'robinhood')
       return (await evmAssets()).map((a) => ({ ...a, tvl: null, pools: null }));
-    // summed in the database: one row per asset, not every listed pool's
-    const rows = await db
-      .select({
-        mint: riskPools.assetMint,
-        symbol: sql<string>`min(${riskPools.assetSymbol})`,
-        tvl: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
-        pools: sql<number>`count(*)::int`,
-      })
-      .from(riskPools)
-      .where(inArray(riskPools.tier, ['A', 'B']))
-      .groupBy(riskPools.assetMint);
+    const rows = await listedPoolTvl(db);
     return rows
       .sort((a, b) => b.tvl - a.tvl)
       .map((v) => ({ id: v.mint, symbol: v.symbol, mint: v.mint, tvl: v.tvl, pools: v.pools }));

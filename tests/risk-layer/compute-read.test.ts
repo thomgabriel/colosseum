@@ -134,6 +134,15 @@ describe('risk:compute reads reduced snapshots and writes the same rows', () => 
     );
   });
 
+  it.each([0.9, 0.37, 0, 1])('is the same at any quantile: q = %s', async (quantile) => {
+    const read = await readCurveSamples(db, { quantile, regimeParams });
+    const fromDb = curveRowsFromSamples({ ...base, quantile, ...read });
+    const fromAll = curveRows({ ...base, quantile, snapshots: [...solana, ...evm, ...odd] });
+    expect(fromDb.rows.length).toBeGreaterThan(frozen.expected.length);
+    expect(sorted(fromDb.rows)).toBe(sorted(fromAll.rows));
+    expect(fromDb.rows.every((r) => r.quantile === quantile)).toBe(true);
+  });
+
   it('reads nothing and writes nothing from an empty table', async () => {
     // a schema of its own with an empty table of the same name
     const empty = open(`${SCHEMA}_none,public`);

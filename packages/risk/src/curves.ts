@@ -39,10 +39,23 @@ export type DepthCurve = {
 export function quantileOf(xs: number[], q: number): number {
   const s = [...xs].sort((a, b) => a - b);
   if (s.length === 0) return Number.NaN;
-  const pos = (s.length - 1) * q;
-  const lo = Math.floor(pos);
-  const hi = Math.ceil(pos);
-  return (s[lo] as number) + ((s[hi] as number) - (s[lo] as number)) * (pos - lo);
+  const { lo, hi } = quantileRanks(s.length, q);
+  return quantileBetween(s[lo] as number, s[hi] as number, s.length, q);
+}
+
+/** The 0-based ranks, in ascending order of `n` values, of the two values the `q` quantile lies between. */
+export function quantileRanks(n: number, q: number): { lo: number; hi: number } {
+  const pos = (n - 1) * q;
+  return { lo: Math.floor(pos), hi: Math.ceil(pos) };
+}
+
+/**
+ * The `q` quantile of `n` values from the two at `quantileRanks(n, q)`: `quantileOf`'s interpolation, for
+ * values sorted elsewhere (the database, `risk:compute`).
+ */
+export function quantileBetween(atLo: number, atHi: number, n: number, q: number): number {
+  const pos = (n - 1) * q;
+  return atLo + (atHi - atLo) * (pos - Math.floor(pos));
 }
 
 /** Pool-adjacent-violators: the closest non-decreasing sequence (equal weights). */
@@ -89,8 +102,8 @@ export function fitCurve(
 }
 
 /**
- * The second half of `fitCurve`, for quantiles taken elsewhere (the database's `percentile_cont`, which
- * interpolates as `quantileOf` does): `grid` holds, per notional in ascending order, the `quantile` of
+ * The second half of `fitCurve`, for quantiles taken elsewhere (`risk:compute` reads the two costs around
+ * each from the database and interpolates with `quantileBetween`): `grid` holds, per notional in ascending order, the `quantile` of
  * the finite costs and how many there were; `span` the times and the count of every sample, finite or not.
  */
 export function curveOfQuantiles(

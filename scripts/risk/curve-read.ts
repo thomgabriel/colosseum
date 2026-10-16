@@ -1,5 +1,5 @@
 import type { Db } from '@colosseum/db';
-import { type Regime, type RegimeParams, regimeSpans } from '@colosseum/risk';
+import { quantileBetween, type Regime, type RegimeParams, regimeSpans } from '@colosseum/risk';
 import { sql } from 'drizzle-orm';
 import type { CurveSamples, MintMeta } from './curve-rows';
 
@@ -11,9 +11,11 @@ import type { CurveSamples, MintMeta } from './curve-rows';
 //   - cost = 1 − outUsd ÷ notionalUsd; a cost that is not finite (no notional, or a notional of zero) is
 //     a sample of its bucket, in its count and its times, and no grid point's;
 //   - each snapshot's regime is `regimeAt`'s, handed to the database as spans (`regimeSpans`);
-//   - the quantile is `percentile_cont`, which interpolates between the two nearest costs as `quantileOf`,
-//     and leaves the database at full precision: the hosted one rounds a float to 15 digits on the way out
-//     (`extra_float_digits` = 0), so the read sets it back to the shortest exact form for its transaction.
+//   - per grid notional the database sorts the costs and hands back the two the quantile lies between, at
+//     the ranks `quantileRanks` names (the same product (k − 1) × q, floored and ceiled), and the
+//     interpolation is `quantileOf`'s own (`quantileBetween`), so the answer is the same at any quantile.
+//     The costs leave the database at full precision: the hosted one rounds a float to 15 digits on the way
+//     out (`extra_float_digits` = 0), so the read sets it back to the shortest exact form for its transaction.
 // tests/risk-layer/compute-read.test.ts holds the rows it gives to the rows `curveRows` gives.
 
 type GroupRow = {
@@ -23,7 +25,8 @@ type GroupRow = {
   samples: number;
   data_from: Date;
   data_to: Date;
-  grid: Array<[number, number, number]>;
+  /** Per notional: the notional, the costs at the lower and upper rank, and the count. */
+  grid: Array<[number, number, number, number]>;
 };
 
 export async function readCurveSamples(
@@ -94,14 +97,14 @@ async function readIn(
       from pts
     ),
     grid as (
-      select asset_mint, side, regime, n,
-        percentile_cont(${opts.quantile}::float8) within group (order by cost) as q,
-        count(*)::int as k
+      select asset_mint, side, regime, n, count(*)::int as k,
+        (array_agg(cost order by cost))[floor(${opts.quantile}::float8 * (count(*) - 1))::int + 1] as lo,
+        (array_agg(cost order by cost))[ceil(${opts.quantile}::float8 * (count(*) - 1))::int + 1] as hi
       from costs where cost is not null
       group by asset_mint, side, regime, n
     ),
     grids as (
-      select asset_mint, side, regime, jsonb_agg(jsonb_build_array(n, q, k) order by n) as grid
+      select asset_mint, side, regime, jsonb_agg(jsonb_build_array(n, lo, hi, k) order by n) as grid
       from grid group by asset_mint, side, regime
     ),
     buckets as (
@@ -118,7 +121,11 @@ async function readIn(
     assetMint: r.asset_mint,
     side: r.side,
     regime: r.regime,
-    grid: r.grid.map(([notionalUsd, cost, samples]) => ({ notionalUsd, cost, samples })),
+    grid: r.grid.map(([notionalUsd, lo, hi, samples]) => ({
+      notionalUsd,
+      cost: quantileBetween(lo, hi, samples, opts.quantile),
+      samples,
+    })),
     from: new Date(r.data_from).toISOString(),
     to: new Date(r.data_to).toISOString(),
     samples: r.samples,

@@ -73,6 +73,22 @@ const SCOPE = readJson<{ assets: Array<{ symbol: string; mint: string }> }>(
 export const BEARING_SOURCE = `Bearing: sell-side depth measured on chain (risk_depth_curves, ${RISK_METHOD_VERSION})`;
 
 /**
+ * The pool registry's assets whose symbol is one of `lower` (lower case), one row per symbol and mint with
+ * its pools' TVL summed as exitTwins sums it (a pool with none counts 0), not every pool.
+ */
+export function registryTvl(db: Db, lower: string[]) {
+  return db
+    .select({
+      assetSymbol: riskPools.assetSymbol,
+      assetMint: riskPools.assetMint,
+      tvlUsd: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
+    })
+    .from(riskPools)
+    .where(inArray(sql`lower(${riskPools.assetSymbol})`, lower))
+    .groupBy(riskPools.assetSymbol, riskPools.assetMint);
+}
+
+/**
  * The mainnet token each test-network token reads Bearing's figures from (model-exits.ts), on a chain
  * that runs as a test network; none elsewhere, where every token reads its own. Shared by the plan
  * inputs and the conversation's analytics (agent-analytics.ts).
@@ -99,18 +115,7 @@ export async function resolveExitTwins(
         tvlUsd: null,
         pinned: true,
       })),
-    // one row per symbol and mint with its pools' TVL summed, as exitTwins sums it, not every pool
-    ...(
-      await db
-        .select({
-          assetSymbol: riskPools.assetSymbol,
-          assetMint: riskPools.assetMint,
-          tvlUsd: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
-        })
-        .from(riskPools)
-        .where(inArray(sql`lower(${riskPools.assetSymbol})`, lower))
-        .groupBy(riskPools.assetSymbol, riskPools.assetMint)
-    ).map((r) => ({ ...r, chain: 'solana' })),
+    ...(await registryTvl(db, lower)).map((r) => ({ ...r, chain: 'solana' })),
     ...(
       await db
         .select({
