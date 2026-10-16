@@ -66,7 +66,10 @@ export const hourOfWeek = (at: Date) => {
 };
 
 export function regimeAt(at: Date, p: RegimeParams): Regime {
-  const e = etParts(at);
+  return regimeOfParts(etParts(at), p);
+}
+
+function regimeOfParts(e: EtParts, p: RegimeParams): Regime {
   if (p.holidays.has(e.date)) return 'us_holiday';
   const t = e.dow * 24 + e.hour + e.minute / 60;
   const ws = p.weekendStart.dow * 24 + p.weekendStart.hour;
@@ -76,6 +79,33 @@ export function regimeAt(at: Date, p: RegimeParams): Regime {
   const close = p.earlyClose.has(e.date) ? 13 : p.rthCloseHour;
   if (e.dow <= 4 && h >= p.rthOpenHour && h < close) return 'us_market_hours';
   return 'us_offhours_weekday';
+}
+
+export type RegimeSpan = { from: Date; to: Date; regime: Regime };
+
+/**
+ * The regimes from `from` through `to`, as consecutive spans [from, to) that together cover every instant
+ * of it. `regimeAt` reads the time in New York to the minute, and New York is a whole number of hours from
+ * UTC, so through one UTC hour only the minute moves: the calendar is read once an hour, each minute is
+ * judged as `regimeAt` judges it, and the spans join the minutes where the regime holds. A store can then
+ * name the regime of each of its rows (`risk:compute`) without the calendar.
+ */
+export function regimeSpans(from: Date, to: Date, p: RegimeParams): RegimeSpan[] {
+  const MINUTE = 60_000;
+  const HOUR = 60 * MINUTE;
+  const out: RegimeSpan[] = [];
+  const end = to.getTime();
+  for (let h = Math.floor(from.getTime() / HOUR) * HOUR; h <= end; h += HOUR) {
+    const e = etParts(new Date(h));
+    for (let m = 0; m < 60; m++) {
+      const r = regimeOfParts({ ...e, minute: m }, p);
+      const last = out.at(-1);
+      if (last?.regime === r) last.to = new Date(h + (m + 1) * MINUTE);
+      else
+        out.push({ from: new Date(h + m * MINUTE), to: new Date(h + (m + 1) * MINUTE), regime: r });
+    }
+  }
+  return out;
 }
 
 /**
