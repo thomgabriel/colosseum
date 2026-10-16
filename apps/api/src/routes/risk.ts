@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   assets as assetsTable,
+  type Db,
   riskAssetSnapshots,
   riskDepthCurves,
   riskEvents,
@@ -86,6 +87,23 @@ const Chain = ChainName.default('solana');
 type Chain = z.infer<typeof ChainName>;
 const EVM_POOLS_NOT_IN_REGISTRY =
   'not collected on Robinhood Chain: its pools are not in the pool registry (PLAN-UNIVERSE RU.14, DU6)';
+
+/**
+ * Each asset with pools of tier A or B: its symbol, its pools' TVL summed (a pool with none counts 0) and
+ * how many pools, summed in the database: one row per asset, not every listed pool's.
+ */
+export function listedPoolTvl(db: Db) {
+  return db
+    .select({
+      mint: riskPools.assetMint,
+      symbol: sql<string>`min(${riskPools.assetSymbol})`,
+      tvl: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
+      pools: sql<number>`count(*)::int`,
+    })
+    .from(riskPools)
+    .where(inArray(riskPools.tier, ['A', 'B']))
+    .groupBy(riskPools.assetMint);
+}
 
 export async function registerRiskRoutes(
   app: FastifyInstance,
@@ -211,20 +229,10 @@ export async function registerRiskRoutes(
   async function chainAssets(chain: Chain) {
     if (chain === 'robinhood')
       return (await evmAssets()).map((a) => ({ ...a, tvl: null, pools: null }));
-    const pools = await db
-      .select()
-      .from(riskPools)
-      .where(inArray(riskPools.tier, ['A', 'B']));
-    const tvl = new Map<string, { symbol: string; tvl: number; pools: number }>();
-    for (const p of pools) {
-      const v = tvl.get(p.assetMint) ?? { symbol: p.assetSymbol, tvl: 0, pools: 0 };
-      v.tvl += p.tvlUsd ?? 0;
-      v.pools++;
-      tvl.set(p.assetMint, v);
-    }
-    return [...tvl.entries()]
-      .sort((a, b) => b[1].tvl - a[1].tvl)
-      .map(([mint, v]) => ({ id: mint, symbol: v.symbol, mint, tvl: v.tvl, pools: v.pools }));
+    const rows = await listedPoolTvl(db);
+    return rows
+      .sort((a, b) => b.tvl - a.tvl)
+      .map((v) => ({ id: v.mint, symbol: v.symbol, mint: v.mint, tvl: v.tvl, pools: v.pools }));
   }
 
   f.get(
@@ -808,7 +816,10 @@ export async function registerRiskRoutes(
         liquidationMaxLimit?: number;
       };
       const [snap] = await db
-        .select()
+        .select({
+          fetchedAt: riskAssetSnapshots.fetchedAt,
+          refMidUsd: riskAssetSnapshots.refMidUsd,
+        })
         .from(riskAssetSnapshots)
         .where(eq(riskAssetSnapshots.assetMint, m.assetMint))
         .orderBy(desc(riskAssetSnapshots.fetchedAt))
@@ -904,7 +915,10 @@ export async function registerRiskRoutes(
         const a = await resolveAsset(h.asset);
         if (!a) return reply.code(404).send({ error: `unknown asset ${h.asset}` });
         const [snap] = await db
-          .select()
+          .select({
+            fetchedAt: riskAssetSnapshots.fetchedAt,
+            refMidUsd: riskAssetSnapshots.refMidUsd,
+          })
           .from(riskAssetSnapshots)
           .where(eq(riskAssetSnapshots.assetMint, a.mint))
           .orderBy(desc(riskAssetSnapshots.fetchedAt))

@@ -1,6 +1,7 @@
 import {
   type CostSample,
   carrySplit,
+  curveOfQuantiles,
   type DepthCurve,
   fitCurve,
   REGIMES,
@@ -52,6 +53,55 @@ export const previousKey = (mint: string, side: string, regime: string, version:
 
 type Pt = { notionalUsd: number; outUsd: number };
 
+/**
+ * One curve's samples once reduced: per grid notional in ascending order, the quantile of the finite costs
+ * and how many there were, and the times and count of every sample of the bucket (`fitCurve`'s inputs).
+ */
+export type CurveSamples = {
+  assetMint: string;
+  side: 'sell' | 'buy';
+  regime: Regime;
+  grid: Array<{ notionalUsd: number; cost: number; samples: number }>;
+  from: string | null;
+  to: string | null;
+  samples: number;
+};
+
+/** A mint's symbol and method version as its newest snapshot has them. */
+export type MintMeta = { asset: string; version: string };
+
+type RowsBase = Omit<CurveRowsInput, 'snapshots'>;
+
+/** A stored row for one fitted curve. */
+function rowOf(
+  input: RowsBase,
+  mint: string,
+  meta: MintMeta | undefined,
+  side: 'sell' | 'buy',
+  r: Regime,
+  c: DepthCurve,
+) {
+  const version = curveVersionOf(meta?.version ?? '');
+  return {
+    assetMint: mint,
+    assetSymbol: input.poolSymbols.get(mint) ?? meta?.asset ?? mint.slice(0, 6),
+    side,
+    regime: r,
+    points: carrySplit(input.previous.get(previousKey(mint, side, r, version)), c.points),
+    insufficientFrom: c.insufficientFrom,
+    quantile: c.quantile,
+    minSamples: c.minSamples,
+    samples: c.samples,
+    dataFrom: c.from ? new Date(c.from) : null,
+    dataTo: c.to ? new Date(c.to) : null,
+    computedAt: input.now,
+    methodVersion: version,
+    source: version === CURVE_METHOD_VERSION ? SOURCE_ROUTED : SOURCE_BEST_POOL,
+    method: 'fitCurve_isotonic_pl_ln_notional',
+    provenance: 'live' as const,
+  };
+}
+
 export function curveRows(input: CurveRowsInput) {
   const best = new Map<
     string,
@@ -73,7 +123,6 @@ export function curveRows(input: CurveRowsInput) {
   }
   const rows = [];
   for (const [mint, times] of best) {
-    const version = curveVersionOf(meta.get(mint)?.version ?? '');
     for (const side of ['sell', 'buy'] as const) {
       const byRegime = new Map<Regime, Array<CostSample & { at: string }>>();
       for (const [t, e] of times) {
@@ -86,28 +135,32 @@ export function curveRows(input: CurveRowsInput) {
         const samples = byRegime.get(r);
         if (!samples?.length) continue;
         const c = fitCurve(samples, { quantile: input.quantile, minSamples: input.minSamples });
-        rows.push({
-          assetMint: mint,
-          assetSymbol: input.poolSymbols.get(mint) ?? meta.get(mint)?.asset ?? mint.slice(0, 6),
-          side,
-          regime: r,
-          points: carrySplit(input.previous.get(previousKey(mint, side, r, version)), c.points),
-          insufficientFrom: c.insufficientFrom,
-          quantile: c.quantile,
-          minSamples: c.minSamples,
-          samples: c.samples,
-          dataFrom: c.from ? new Date(c.from) : null,
-          dataTo: c.to ? new Date(c.to) : null,
-          computedAt: input.now,
-          methodVersion: version,
-          source: version === CURVE_METHOD_VERSION ? SOURCE_ROUTED : SOURCE_BEST_POOL,
-          method: 'fitCurve_isotonic_pl_ln_notional',
-          provenance: 'live' as const,
-        });
+        rows.push(rowOf(input, mint, meta.get(mint), side, r, c));
       }
     }
   }
   return { rows, assets: best.size };
+}
+
+/**
+ * The same rows from samples the database has already reduced (`readCurveSamples` in curve-read.ts):
+ * `meta` holds every mint that has a snapshot, `groups` each bucket with at least one sample.
+ */
+export function curveRowsFromSamples(
+  input: RowsBase & { groups: CurveSamples[]; meta: Map<string, MintMeta> },
+) {
+  const opts = { quantile: input.quantile, minSamples: input.minSamples };
+  const rows = input.groups.map((g) =>
+    rowOf(
+      input,
+      g.assetMint,
+      input.meta.get(g.assetMint),
+      g.side,
+      g.regime,
+      curveOfQuantiles(g.grid, g, opts),
+    ),
+  );
+  return { rows, assets: input.meta.size };
 }
 
 export type CurveRow = ReturnType<typeof curveRows>['rows'][number];
