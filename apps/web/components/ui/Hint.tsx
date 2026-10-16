@@ -6,6 +6,7 @@ import {
   type ReactElement,
   type ReactNode,
   type Ref,
+  type RefObject,
   useEffect,
   useId,
   useRef,
@@ -27,6 +28,8 @@ export type HoverPanelProps = {
   place: Place | null;
   /** With a name it is a dialog (it holds controls); without, a tooltip that describes its trigger. */
   name?: string | null;
+  /** Drawn for the eye only: what it says is the trigger's own name (Hint's `echo`). */
+  'aria-hidden'?: true;
   'data-ui'?: string;
   className?: string;
   children: ReactNode;
@@ -40,6 +43,7 @@ export function HoverPanel({
   name = null,
   className,
   children,
+  'aria-hidden': hidden,
   ...rest
 }: HoverPanelProps) {
   const style: CSSProperties | undefined = place
@@ -66,6 +70,7 @@ export function HoverPanel({
       else if (ref) (ref as { current: HTMLSpanElement | null }).current = node;
     },
     id,
+    'aria-hidden': hidden,
     'data-ui': rest['data-ui'] ?? 'hint-panel',
     'data-side': place?.side,
     style,
@@ -73,7 +78,9 @@ export function HoverPanel({
       'z-20 w-max max-w-[min(21rem,calc(100vw-2rem))] rounded-md border border-border bg-popover shadow-popover text-left font-sans text-body-sm font-normal tracking-normal normal-case whitespace-normal text-popover-foreground motion-safe:animate-crossfade',
       // The 8px between the trigger and the panel belong to the panel, on whichever side it is. They
       // hang outside it, so the panel itself does not clip: what scrolls is the box inside.
-      "before:absolute before:inset-x-0 before:-top-2 before:h-2 before:content-[''] after:absolute after:inset-x-0 after:-bottom-2 after:h-2 after:content-['']",
+      place?.side === 'right' || place?.side === 'left'
+        ? "before:absolute before:inset-y-0 before:-left-2 before:w-2 before:content-[''] after:absolute after:inset-y-0 after:-right-2 after:w-2 after:content-['']"
+        : "before:absolute before:inset-x-0 before:-top-2 before:h-2 before:content-[''] after:absolute after:inset-x-0 after:-bottom-2 after:h-2 after:content-['']",
       !place && 'absolute top-full left-0 mt-2',
     ),
   };
@@ -97,26 +104,62 @@ export function HoverPanel({
   );
 }
 
-export type HintProps = {
+type HintBase = {
   /**
    * What the tooltip says: a sentence, in plain words. Nothing essential: that stays on the page.
    * Null or empty: there is nothing more to say for now (an icon button that shows its word while it
    * is chosen), and the element stays as it is, so focus is not lost when that changes.
    */
   tip: ReactNode;
-  /**
-   * What it is about. A link or a button is the trigger itself and is handed the tooltip's id; plain
-   * text is wrapped in a button, so the keyboard and a finger reach the tooltip too.
-   */
-  children: ReactNode;
   /** The trigger's accessible name, when its text is not one (a shortened address). */
   label?: string;
   /** Open at first render. */
   defaultOpen?: boolean;
   className?: string;
-  /** On the button that plain text is wrapped in: `truncate`, where the text is cut to fit. */
+  /**
+   * On the button that plain text is wrapped in: `truncate`, where the text is cut to fit. With a
+   * link or a button, on the element that holds it: `flex`, where it fills a row.
+   */
   triggerClassName?: string;
+  /** Beside the trigger's list (marked `data-hint-edge`), not under it: a row's, so the next row stays reachable. */
+  beside?: boolean;
 };
+
+export type HintProps = HintBase &
+  (
+    | {
+        /**
+         * What it is about. A link or a button is the trigger itself and is handed the tooltip's id;
+         * plain text is wrapped in a button, so the keyboard and a finger reach the tooltip too.
+         */
+        children: ReactNode;
+        echo?: false;
+      }
+    | {
+        /** A link or a button, whose own name says everything the tooltip does. */
+        children: ReactElement;
+        /**
+         * What it says is what the trigger's own name already says to a reader (a name cut to fit,
+         * with what a reader hears after it): it is drawn for the eye and hidden from a reader, and
+         * describes nothing, so a screen reader does not read it twice. Only on a link or a button;
+         * in development, each " · " part of a written tip is checked against the trigger's text and
+         * its `aria-label`.
+         */
+        echo: true;
+      }
+  );
+
+const DEV = process.env.NODE_ENV !== 'production';
+
+/** In development: an echo that says what its trigger does not is a description lost to a reader. */
+function unsaid(tip: ReactNode, trigger: Element | null): string[] {
+  if (typeof tip !== 'string' || !trigger) return [];
+  const labels = [trigger, ...trigger.querySelectorAll('[aria-label]')]
+    .map((el) => el.getAttribute('aria-label') ?? '')
+    .join(' ');
+  const said = `${trigger.textContent ?? ''} ${labels}`;
+  return tip.split(' · ').filter((part) => part !== '' && !said.includes(part));
+}
 
 type Described = { 'aria-describedby'?: string };
 
@@ -132,12 +175,25 @@ export function Hint({
   defaultOpen = false,
   className,
   triggerClassName,
+  beside = false,
+  echo: asked = false,
 }: HintProps) {
   const says = tip != null && tip !== '' && tip !== false;
-  const card = useHoverCard(defaultOpen, says);
+  const card = useHoverCard(defaultOpen, says, beside);
   const id = useId();
   const own = interactive(children);
+  // An echo hides the tooltip from a reader: only where a link's or a button's own name says it all.
+  const echo = asked && own;
+  if (DEV && asked && !own) console.error('Hint: `echo` is for a link or a button, not plain text');
   const shown = card.open;
+  const describedBy = shown && !echo ? id : undefined;
+  const trigger = card.trigger.ref as RefObject<HTMLElement | null>;
+  useEffect(() => {
+    if (!DEV || !echo || !shown) return;
+    const missing = unsaid(tip, trigger.current);
+    if (missing.length > 0)
+      console.error(`Hint: an echo says what its trigger does not: ${missing.join(', ')}`);
+  }, [echo, shown, tip, trigger]);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: it only listens for its own trigger's focus and pointer; the trigger is the control
     <span
@@ -151,8 +207,11 @@ export function Hint({
       className={cn('relative inline-flex max-w-full', shown ? 'z-30' : 'z-10', className)}
     >
       {own ? (
-        <span ref={card.trigger.ref as Ref<HTMLSpanElement>} className="inline-flex max-w-full">
-          {cloneElement(children, { 'aria-describedby': shown ? id : undefined })}
+        <span
+          ref={card.trigger.ref as Ref<HTMLSpanElement>}
+          className={cn('inline-flex max-w-full', triggerClassName)}
+        >
+          {echo ? children : cloneElement(children, { 'aria-describedby': describedBy })}
         </span>
       ) : (
         <button
@@ -160,8 +219,8 @@ export function Hint({
           type="button"
           data-ui="hint-trigger"
           aria-label={label}
-          aria-describedby={shown ? id : undefined}
-          aria-expanded={shown}
+          aria-describedby={describedBy}
+          aria-expanded={echo ? undefined : shown}
           onClick={card.trigger.onClick}
           onFocus={card.trigger.onFocus}
           className={cn(
@@ -173,7 +232,12 @@ export function Hint({
         </button>
       )}
       {shown && (
-        <HoverPanel ref={card.panel} id={id} place={card.place}>
+        <HoverPanel
+          ref={card.panel}
+          id={id}
+          place={card.place}
+          aria-hidden={echo ? true : undefined}
+        >
           {tip}
         </HoverPanel>
       )}

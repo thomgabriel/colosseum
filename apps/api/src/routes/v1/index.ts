@@ -75,7 +75,7 @@ import { registerPortfolioExposureRoute } from './portfolio-exposure';
 import { registerPortfolioHistoryRoute } from './portfolio-history';
 import { registerPortfolioPlansRoute } from './portfolio-plans';
 import { registerPortfolioRebalancesRoute } from './portfolio-rebalances';
-import { registerSharedRoutes } from './shared';
+import { registerSharedRoutes, SHELF_READ_MS, type ShelfWarmed } from './shared';
 import { registerStatsRoute } from './stats';
 import { registerTestnetRoute } from './testnet';
 import { registerThreadRoutes } from './thread';
@@ -119,6 +119,13 @@ export type V1Deps = {
   /** Read each live chain's analytics from the start and keep them current. Default: off. */
   warmAgentAnalytics?: boolean;
   /**
+   * Work the shelf out once at start, in the background, so its figures are kept before the first
+   * visitor asks; the analytics' warm-up waits for it. Default: off.
+   */
+  warmShelf?: boolean;
+  /** How long a read of a chain's shelf figures is waited for. Default: `SHELF_READ_MS`, a minute. */
+  shelfReadMs?: number;
+  /**
    * The facts the server holds of one listed asset (`GET /v1/assets/{id}/facts`, gate
    * FIGURES-BY-REFERENCE as amended 2026-10-14), and what the conversations' models may look up.
    * Default: none, and the route answers 503 and the models have no tools. The server hands in its
@@ -151,6 +158,16 @@ export type V1Deps = {
    */
   inScope?: (scope: FastifyInstance) => void;
 };
+
+/** The shelf's warm-up of each app, once it has started: what `shelfWarmed` answers. */
+const shelfWarmups = new WeakMap<FastifyInstance, Promise<void>>();
+/**
+ * Settles once the app's shelf warm-up has ended, failed or not, and at the latest twice a figures read's
+ * time limit after it began; at once where it does not warm the shelf. The other warm-ups wait for it,
+ * so the shelf is read first on a host with little CPU.
+ */
+export const shelfWarmed = (app: FastifyInstance): Promise<void> =>
+  shelfWarmups.get(app) ?? Promise.resolve();
 
 /** Every /v1 route. The app hands in its environment once; nothing under here reads process.env. */
 export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps: V1Deps = {}) {
@@ -212,23 +229,59 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     // The kind of failure only: what was being written is a person's own words, and is not logged.
     onRecordError: (what) => app.log.error(what, 'a plan’s thread could not be written'),
   };
+  // The shelf, worked out once in the background as the server starts: the page most visitors open
+  // first. The server answers meanwhile; a shelf asked for before it ends shares its reads.
+  let shelf: { warm: () => Promise<ShelfWarmed> } | undefined;
+  const shelfReadMs = deps.shelfReadMs ?? SHELF_READ_MS;
+  let shelfDone = () => {};
+  const shelfWarm = new Promise<void>((done) => {
+    shelfDone = done;
+  });
+  if (deps.warmShelf) {
+    shelfWarmups.set(app, shelfWarm);
+    app.addHook('onReady', async () => {
+      const started = Date.now();
+      // A warm-up held up past this (the store not answering) no longer holds the others back.
+      setTimeout(shelfDone, 2 * shelfReadMs).unref?.();
+      const warm = shelf?.warm ?? (async () => ({ families: 0, chains: 0, withoutFigures: [] }));
+      void warm()
+        .then(
+          ({ families, chains, withoutFigures }) => {
+            const ms = Date.now() - started;
+            app.log.info(
+              { code: 'shelf_warmed', families, chains, withoutFigures, ms },
+              `shelf warmed: ${families} portfolio(s) in ${(ms / 1000).toFixed(1)} s, ${withoutFigures.length} of ${chains} chain(s) without figures`,
+            );
+          },
+          (err) =>
+            app.log.warn(
+              { code: 'shelf_warm_failed', err: loggable(err), ms: Date.now() - started },
+              'the shelf was not warmed',
+            ),
+        )
+        .finally(shelfDone);
+    });
+  } else shelfDone();
   // The conversations' analytics, read from the start and kept current, so a turn finds them kept.
   const analytics = deps.agentAnalytics;
   if (deps.warmAgentAnalytics && analytics?.warm) {
     const warm = analytics.warm;
     const on = db;
     app.addHook('onReady', async () => {
-      for (const entry of chains.active()) {
-        if (entry.mock) continue;
-        entry.adapter.listAssets().then(
-          (assets) => warm({ db: on, chain: entry.chain, assets, provenance: entry.provenance }),
-          () =>
-            app.log.warn(
-              { code: 'analytics_warm_no_catalog', chain: entry.chain },
-              'the conversation analytics were not warmed',
-            ),
-        );
-      }
+      // After the shelf: on a host with a sixth of a CPU (Render's free plan), both at once slow it down.
+      void shelfWarm.then(() => {
+        for (const entry of chains.active()) {
+          if (entry.mock) continue;
+          entry.adapter.listAssets().then(
+            (assets) => warm({ db: on, chain: entry.chain, assets, provenance: entry.provenance }),
+            () =>
+              app.log.warn(
+                { code: 'analytics_warm_no_catalog', chain: entry.chain },
+                'the conversation analytics were not warmed',
+              ),
+          );
+        }
+      });
     });
     app.addHook('onClose', async () => analytics.stop?.());
   }
@@ -340,7 +393,16 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     registerPortfolioPlansRoute(scope, orderDeps);
     registerPortfolioRebalancesRoute(scope, orderDeps);
     registerPortfolioExposureRoute(scope, orderDeps, planInputs);
-    registerSharedRoutes(scope, orderDeps, deps.planInputs, { liveOnly: flags.shelfLiveOnly });
+    shelf = registerSharedRoutes(scope, orderDeps, deps.planInputs, {
+      liveOnly: flags.shelfLiveOnly,
+      readMs: shelfReadMs,
+      // The chain and what failed, by its name and code: a database's error repeats its statement.
+      onFiguresError: (chain, err) =>
+        app.log.warn(
+          { code: 'shelf_figures_failed', chain, err: loggable(err) },
+          'a chain’s shelf figures could not be read',
+        ),
+    });
     registerVaultRoute(scope, orderDeps);
     registerVaultConversationRoutes(scope, orderDeps);
     registerVaultConversationReplyRoute(

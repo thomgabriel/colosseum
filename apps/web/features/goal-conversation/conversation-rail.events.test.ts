@@ -4,8 +4,18 @@ import type { ChainId } from '@colosseum/schemas';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHAIN_NAMES } from '../../components/ui/chain-names';
+import { HINT_OPEN_MS } from '../../components/ui/hover-card';
 import { MENU_BUTTON, MENU_FIELD, MENU_MARK, MENU_ROW } from '../../components/ui/side-menu';
-import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
+import {
+  click,
+  find,
+  fire,
+  mount,
+  press,
+  settle,
+  type,
+  unmountAll,
+} from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
 import { inLanguage, withAccount } from '../account/test/screen';
 import { chainOf, portfolioBody, VAULT, vault } from '../portfolio/test/portfolio';
@@ -80,6 +90,27 @@ const spoken = (el: Element): string =>
           : '',
     )
     .join('');
+/**
+ * A rail row's tooltip, opened by the keyboard's focus on its link or button and closed by Escape. It
+ * is the eye's alone: hidden from a reader, and no description of the row, with the tooltip open or
+ * not, so NVDA and JAWS do not read the row a second time after its name (the review of #330).
+ */
+async function tipOf(open: HTMLElement): Promise<string> {
+  const undescribed = () => {
+    expect(open.hasAttribute('title')).toBe(false);
+    expect(open.hasAttribute('aria-describedby')).toBe(false);
+    expect(open.hasAttribute('aria-description')).toBe(false);
+  };
+  undescribed();
+  await fire(open, new FocusEvent('focusin', { bubbles: true }));
+  const panel = find(open.closest('[data-ui="hint"]') as HTMLElement, '[role="tooltip"]');
+  expect(panel.getAttribute('aria-hidden')).toBe('true');
+  undescribed();
+  const said = panel.textContent ?? '';
+  await press(document, 'Escape');
+  expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  return said;
+}
 const groups = (host: HTMLElement) =>
   [...rail(host).querySelectorAll<HTMLElement>('[data-ui="conversation-group"]')].map(
     (group) =>
@@ -125,7 +156,7 @@ describe('the conversations panel', () => {
     // once it has words), what the rail's tooltip says, never that it is on screen
     expect(here.getAttribute('aria-current')).toBe('true');
     expect(here.querySelector('.sr-only')?.textContent).toMatch(/^, Solana(, .+)?$/);
-    expect(here.getAttribute('title')).toBe(`${w.current} · Solana`);
+    expect(await tipOf(here)).toBe(`${w.current} · Solana`);
     // every vault the plans read lists is a row, each linking to its own page
     const vaults = [
       ...rail(host).querySelectorAll<HTMLElement>(
@@ -147,9 +178,10 @@ describe('the conversations panel', () => {
       const chain = CHAIN_NAMES[one.dataset.chain as ChainId];
       const age = link.querySelector('time')?.textContent;
       if (age) aged += 1;
-      expect(spoken(link)).toBe(
-        `${find(one, '[data-ui="conversation-title"]').textContent}, ${w.vault}, ${chain}${age ? `, ${age}` : ''}`,
-      );
+      const name = find(one, '[data-ui="conversation-title"]').textContent;
+      expect(spoken(link)).toBe(`${name}, ${w.vault}, ${chain}${age ? `, ${age}` : ''}`);
+      // its tooltip says the same, for the eye only
+      expect(await tipOf(link)).toBe([w.vault, name, chain, age].filter(Boolean).join(' · '));
       // named by its goal or its name, never by its address
       expect(one.textContent).not.toContain(one.dataset.address ?? '');
     }
@@ -314,6 +346,132 @@ describe('the conversations panel', () => {
     expect(titles(host)).toHaveLength(9);
   });
 
+  // The review of #331: under its row, a tooltip covered the next row and took its press.
+  it('opens a row’s tooltip beside the rail, so the next row is still the one a press lands on', async () => {
+    served = { ...answer, chains: [] };
+    keep([
+      { id: 'd1', words: 'First', at: ago(0) },
+      { id: 'd2', words: 'Second', at: ago(0) },
+    ]);
+    const host = await show();
+    await settle();
+    const [first, second] = [
+      ...rail(host).querySelectorAll<HTMLElement>('[data-ui="conversation-open"]'),
+    ];
+    // the rail at 24–328px; its rows 36px tall, one under the other, inside its 8px padding
+    const RAIL = { left: 24, right: 328, top: 100, bottom: 700 };
+    const rowBox = (el: Element) => {
+      const at = 300 + 36 * (el === second ? 1 : 0);
+      return { left: 32, right: 320, top: at, bottom: at + 36 };
+    };
+    const box = (b: { left: number; right: number; top: number; bottom: number }) =>
+      ({ ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top }) as DOMRect;
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this.hasAttribute('data-hint-edge')) return box(RAIL);
+      if (this.getAttribute('role') === 'tooltip')
+        return box({ left: 0, right: 240, top: 0, bottom: 60 });
+      const open = this.querySelector('[data-ui="conversation-open"]') ?? this;
+      if (open === first || open === second) return box(rowBox(open));
+      return box({ left: 0, right: 0, top: 0, bottom: 0 });
+    });
+    const hint = (first as HTMLElement).closest('[data-ui="hint"]') as HTMLElement;
+    await fire(hint, new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+    await settle(HINT_OPEN_MS + 30);
+    const panel = find(hint, '[role="tooltip"]');
+    expect(panel.dataset.side).toBe('right');
+    // level with its row, 8px right of the rail's edge
+    const left = Number.parseFloat(panel.style.left);
+    const top = Number.parseFloat(panel.style.top);
+    expect([left, top]).toEqual([RAIL.right + 8, 300]);
+    // nothing of it over the second row: a press there is the second row's
+    const under = rowBox(second as HTMLElement);
+    expect(left >= under.right || left + 240 <= under.left).toBe(true);
+    vi.restoreAllMocks();
+    const named = find(second as HTMLElement, '[data-ui="conversation-title"]').textContent;
+    await click(second as HTMLElement);
+    await unfold(host);
+    expect(current(host)).toBe(named);
+  });
+
+  // The review of #331's delta: in a narrow window the sheet leaves no room beside it, and its rename's
+  // tooltip went under its row, over the next.
+  it('in a narrow window, opens a rename’s tooltip left of it, over its own row, not the next', async () => {
+    served = { ...answer, chains: [] };
+    keep([
+      { id: 'd1', words: 'First', at: ago(0) },
+      { id: 'd2', words: 'Second', at: ago(0) },
+    ]);
+    const host = await show();
+    await settle();
+    await click(find(host, '[data-ui="conversations-open"]'));
+    const sheet = find(host, '[data-ui="conversations-sheet"]');
+    const rows = [...sheet.querySelectorAll<HTMLElement>('[data-ui="conversation-row"]')];
+    const at = rows.findIndex((one) => one.querySelector('[data-ui="conversation-rename"]'));
+    const [one, two] = [rows[at] as HTMLElement, rows[at + 1] as HTMLElement];
+    const pencil = find(one, '[data-ui="conversation-rename"]');
+    // a 500px window, the sheet 352px at its left edge, its rows 56px, the pencil 28px inside the first
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+    const ROW = 56;
+    const rowBox = (row: HTMLElement) => {
+      const top = 100 + ROW * (row === two ? 1 : 0);
+      return { left: 0, right: 352, top, bottom: top + ROW };
+    };
+    const PENCIL = { left: 280, right: 308, top: 114, bottom: 142 };
+    const box = (b: { left: number; right: number; top: number; bottom: number }) =>
+      ({ ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top }) as DOMRect;
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this === sheet) return box({ left: 0, right: 352, top: 0, bottom: 768 });
+      if (this.getAttribute('role') === 'tooltip')
+        return box({ left: 0, right: 200, top: 0, bottom: 36 });
+      // the pencil, and the trigger box Hint holds it in
+      if (this === pencil || this === pencil.parentElement) return box(PENCIL);
+      if (this === one || this === two) return box(rowBox(this as HTMLElement));
+      return box({ left: 0, right: 0, top: 0, bottom: 0 });
+    });
+    try {
+      const hint = pencil.closest('[data-ui="hint"]') as HTMLElement;
+      await fire(hint, new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+      await settle(HINT_OPEN_MS + 30);
+      const panel = find(hint, '[role="tooltip"]');
+      const left = Number.parseFloat(panel.style.left);
+      const top = Number.parseFloat(panel.style.top);
+      // left of the pencil, 8px away, level with it
+      expect([panel.dataset.side, left, top]).toEqual(['left', PENCIL.left - 8 - 200, PENCIL.top]);
+      // nothing of it over the second row: its middle is still the second row's to press
+      const under = rowBox(two);
+      expect(top + 36 <= under.top || left >= under.right || left + 200 <= under.left).toBe(true);
+    } finally {
+      vi.restoreAllMocks();
+      Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+    }
+  });
+
+  it('opens no tooltip on a row the focus is put back on after a press, only on one the keyboard reaches', async () => {
+    served = { ...answer, chains: [] };
+    keep([{ id: 'd1', words: 'Consider gold', at: ago(0) }]);
+    const host = await show();
+    await settle();
+    const name = find(row(host, 'Consider gold'), '[data-ui="conversation-open"]');
+    const matches = Element.prototype.matches;
+    let visible = false;
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector) {
+      return selector === ':focus-visible' ? visible : matches.call(this, selector);
+    });
+    // a script's focus after a press on the row's rename or delete: not shown, so no tooltip
+    await act(async () => name.focus());
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    await act(async () => name.blur());
+    // the keyboard's: shown, and the tooltip opens
+    visible = true;
+    await act(async () => name.focus());
+    expect(find(host, '[role="tooltip"]').textContent?.startsWith('Consider gold · ')).toBe(true);
+  });
+
   it('moves between rows with the arrow keys, Home and End', async () => {
     served = { ...answer, chains: [] };
     keep([
@@ -350,19 +508,23 @@ describe('the conversations panel', () => {
     const gold = row(host, 'Consider gold');
     const name = find(gold, '[data-ui="conversation-open"]');
     expect(find(name, '[data-ui="chain-logo"]').getAttribute('aria-hidden')).toBe('true');
-    expect(name.getAttribute('title')).toBe(
-      `Consider gold · Solana · ${en.goal.explore.picker.groups.yesterday.toLowerCase()}`,
-    );
+    // the whole name, the chain and how long ago in its tooltip, for the keyboard's focus
+    const goldTip = `Consider gold · Solana · ${en.goal.explore.picker.groups.yesterday.toLowerCase()}`;
+    expect(await tipOf(name)).toBe(goldTip);
     // the analytics' side menu's row (side-menu.ts): the mark column, the honey bar on the one on screen
     expect(name.className).toContain(MENU_ROW);
     expect(find(rail(host), '[aria-current="true"]').className).toContain(MENU_ROW);
-    // the chain and how long ago, written under the name on the row the keyboard is on (a tooltip is the
-    // pointer's alone), hidden from a reader, who hears them after the name
-    const said = find(name, '[data-ui="conversation-said"]');
-    expect(said.getAttribute('aria-hidden')).toBe('true');
-    expect(said.textContent).toBe(`Solana · ${find(name, 'time').textContent}`);
-    expect(said.className).toContain('hidden');
-    expect(said.className).toContain('group-focus-visible/open:block');
+    // and for a mouse that rests on the row, with nothing added to what a reader hears
+    const hint = name.closest('[data-ui="hint"]') as HTMLElement;
+    await fire(hint, new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+    await settle(HINT_OPEN_MS + 30);
+    const panel = find(hint, '[role="tooltip"]');
+    expect(panel.textContent).toBe(goldTip);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    expect(name.hasAttribute('aria-describedby')).toBe(false);
+    expect(name.hasAttribute('title')).toBe(false);
+    await fire(hint, new PointerEvent('pointerout', { bubbles: true, pointerType: 'mouse' }));
+    await press(document, 'Escape');
     // no badge and no time drawn on the row: a reader hears them after the name
     expect(gold.querySelector('[data-ui="chain-badge"]')).toBeNull();
     expect(find(name, '.sr-only').textContent).toBe(`, Solana, ${find(name, 'time').textContent}`);
@@ -371,7 +533,7 @@ describe('the conversations panel', () => {
       '[data-ui="conversation-row"][data-kind="vault"]',
     );
     const link = find(vault as HTMLElement, '[data-ui="conversation-open"]');
-    expect(link.getAttribute('title')?.startsWith(`${w.vault} · `)).toBe(true);
+    expect((await tipOf(link)).startsWith(`${w.vault} · `)).toBe(true);
     expect(
       (vault as HTMLElement).querySelector('[data-ui="conversation-value"], [data-ui="pin"]'),
     ).toBeNull();

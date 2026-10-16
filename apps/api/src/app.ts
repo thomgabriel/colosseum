@@ -148,6 +148,9 @@ export async function buildApp(
     warmAgentAnalytics:
       deps.v1?.warmAgentAnalytics ??
       (deps.v1?.agentAnalytics === undefined && process.env.NODE_ENV !== 'test'),
+    // And its shelf, worked out once in the background as it starts.
+    warmShelf:
+      deps.v1?.warmShelf ?? (deps.v1?.planInputs === undefined && process.env.NODE_ENV !== 'test'),
     inScope,
   });
 
