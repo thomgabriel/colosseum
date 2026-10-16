@@ -1512,7 +1512,10 @@ describe('the shelf is worked out as the server starts', () => {
       await shelfWarmed(started);
       expect(ended).toBe(true);
       const warmed = lines.map((l) => JSON.parse(l)).find((l) => l.code === 'shelf_warmed');
-      expect(warmed?.msg).toMatch(/^shelf warmed: \d+ portfolio\(s\) in \d+\.\d s$/);
+      expect(warmed?.msg).toMatch(
+        /^shelf warmed: \d+ portfolio\(s\) in \d+\.\d s, 0 of \d+ chain\(s\) without figures$/,
+      );
+      expect(warmed?.withoutFigures).toEqual([]);
       expect(warmed?.ms).toBeGreaterThanOrEqual(0);
 
       const first = ShelfResponse.parse((await early).json());
@@ -1582,6 +1585,103 @@ describe('the shelf is worked out as the server starts', () => {
       expect(inputs.of('solana')).toBe(3);
     } finally {
       await kept.close();
+    }
+  });
+
+  /** A reading of the first asset the portfolios here hold, as `held` reads it. */
+  const reading = {
+    yields: [
+      {
+        assetId: WITHOUT_GOLD[0]?.asset ?? '',
+        quotedYield: 0.04,
+        haircutYield: 0.03,
+        haircutRule: 'a test rule',
+        source: 'a test reading',
+        method: 'written for this test',
+        fetchedAt: '2026-10-05T00:00:00.000Z',
+        provenance: 'mock' as const,
+      },
+    ],
+  };
+  const logged = (lines: string[], code: string) =>
+    lines.map((l) => JSON.parse(l)).filter((l) => l.code === code);
+
+  it('serves the kept figures while a read again fails, and logs the failure with its chain', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    let solanaReads = 0;
+    const planInputs: PlanInputs = async ({ chain }) => {
+      if (chain === 'solana' && ++solanaReads > 1) throw new Error('the database did not answer');
+      return reading;
+    };
+    let at = Date.parse('2026-10-16T12:00:00Z');
+    const lines: string[] = [];
+    const { app: failing } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      now: () => new Date(at),
+      planInputs,
+      warmShelf: true,
+      logTo: { write: (line) => lines.push(line) },
+    });
+    const card = async () => {
+      const res = await failing.inject({ method: 'GET', url: '/v1/shelf?chain=solana' });
+      expect(res.statusCode, res.body).toBe(200);
+      return ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+    };
+    try {
+      await failing.ready();
+      await shelfWarmed(failing);
+      const kept = (await card())?.recipes[0]?.figures;
+      expect(kept?.holdings[0]?.yield?.source).toBe('a test reading');
+      at += SHELF_FRESH_MS + 1;
+      // The read again fails: the kept figures are served, and the failure is logged once with its chain.
+      expect((await card())?.recipes[0]?.figures).toEqual(kept);
+      await vi.waitFor(() => expect(logged(lines, 'shelf_figures_failed')).toHaveLength(1));
+      expect(logged(lines, 'shelf_figures_failed')[0]).toMatchObject({ chain: 'solana' });
+      expect(solanaReads).toBe(2);
+      // and still, on the next answer within the hour: what was kept is not dropped by a failed read
+      expect((await card())?.recipes[0]?.figures).toEqual(kept);
+    } finally {
+      await failing.close();
+    }
+  });
+
+  it('gives up a read that never answers: the warm-up ends, says which chain has no figures, and the next shelf reads again', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    let solanaReads = 0;
+    const planInputs: PlanInputs = async ({ chain }) => {
+      if (chain === 'solana' && ++solanaReads === 1) return new Promise(() => {});
+      return reading;
+    };
+    const lines: string[] = [];
+    const { app: hung } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      planInputs,
+      warmShelf: true,
+      shelfReadMs: 100,
+      logTo: { write: (line) => lines.push(line) },
+    });
+    try {
+      await hung.ready();
+      await vi.waitFor(() => expect(logged(lines, 'shelf_warmed')).toHaveLength(1));
+      const [warmed] = logged(lines, 'shelf_warmed');
+      expect(warmed?.withoutFigures).toEqual(['solana']);
+      expect(warmed?.msg).toMatch(/, 1 of \d+ chain\(s\) without figures$/);
+      expect(logged(lines, 'shelf_figures_failed')).toMatchObject([{ chain: 'solana' }]);
+      expect(solanaReads).toBe(1);
+      // The hung read is not waited on again: once a read's time has passed, the next shelf reads anew.
+      await new Promise((d) => setTimeout(d, 150));
+      const res = await hung.inject({ method: 'GET', url: '/v1/shelf?chain=solana' });
+      const card = ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+      expect(solanaReads).toBe(2);
+      expect(card?.recipes[0]?.figures?.holdings[0]?.yield?.source).toBe('a test reading');
+    } finally {
+      await hung.close();
     }
   });
 });

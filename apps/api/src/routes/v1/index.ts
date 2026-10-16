@@ -75,7 +75,7 @@ import { registerPortfolioExposureRoute } from './portfolio-exposure';
 import { registerPortfolioHistoryRoute } from './portfolio-history';
 import { registerPortfolioPlansRoute } from './portfolio-plans';
 import { registerPortfolioRebalancesRoute } from './portfolio-rebalances';
-import { registerSharedRoutes } from './shared';
+import { registerSharedRoutes, SHELF_READ_MS, type ShelfWarmed } from './shared';
 import { registerStatsRoute } from './stats';
 import { registerTestnetRoute } from './testnet';
 import { registerThreadRoutes } from './thread';
@@ -123,6 +123,8 @@ export type V1Deps = {
    * visitor asks; the analytics' warm-up waits for it. Default: off.
    */
   warmShelf?: boolean;
+  /** How long a read of a chain's shelf figures is waited for. Default: `SHELF_READ_MS`, a minute. */
+  shelfReadMs?: number;
   /**
    * The facts the server holds of one listed asset (`GET /v1/assets/{id}/facts`, gate
    * FIGURES-BY-REFERENCE as amended 2026-10-14), and what the conversations' models may look up.
@@ -160,8 +162,9 @@ export type V1Deps = {
 /** The shelf's warm-up of each app, once it has started: what `shelfWarmed` answers. */
 const shelfWarmups = new WeakMap<FastifyInstance, Promise<void>>();
 /**
- * Settles once the app's shelf warm-up has ended, failed or not; at once where it does not warm the
- * shelf. The other warm-ups wait for it, so the shelf is read first on a host with little CPU.
+ * Settles once the app's shelf warm-up has ended, failed or not, and at the latest twice a figures read's
+ * time limit after it began; at once where it does not warm the shelf. The other warm-ups wait for it,
+ * so the shelf is read first on a host with little CPU.
  */
 export const shelfWarmed = (app: FastifyInstance): Promise<void> =>
   shelfWarmups.get(app) ?? Promise.resolve();
@@ -228,7 +231,8 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
   };
   // The shelf, worked out once in the background as the server starts: the page most visitors open
   // first. The server answers meanwhile; a shelf asked for before it ends shares its reads.
-  let shelf: { warm: () => Promise<number> } | undefined;
+  let shelf: { warm: () => Promise<ShelfWarmed> } | undefined;
+  const shelfReadMs = deps.shelfReadMs ?? SHELF_READ_MS;
   let shelfDone = () => {};
   const shelfWarm = new Promise<void>((done) => {
     shelfDone = done;
@@ -237,14 +241,16 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     shelfWarmups.set(app, shelfWarm);
     app.addHook('onReady', async () => {
       const started = Date.now();
-      const warm = shelf?.warm ?? (async () => 0);
+      // A warm-up held up past this (the store not answering) no longer holds the others back.
+      setTimeout(shelfDone, 2 * shelfReadMs).unref?.();
+      const warm = shelf?.warm ?? (async () => ({ families: 0, chains: 0, withoutFigures: [] }));
       void warm()
         .then(
-          (n) => {
+          ({ families, chains, withoutFigures }) => {
             const ms = Date.now() - started;
             app.log.info(
-              { code: 'shelf_warmed', families: n, ms },
-              `shelf warmed: ${n} portfolio(s) in ${(ms / 1000).toFixed(1)} s`,
+              { code: 'shelf_warmed', families, chains, withoutFigures, ms },
+              `shelf warmed: ${families} portfolio(s) in ${(ms / 1000).toFixed(1)} s, ${withoutFigures.length} of ${chains} chain(s) without figures`,
             );
           },
           (err) =>
@@ -389,6 +395,13 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     registerPortfolioExposureRoute(scope, orderDeps, planInputs);
     shelf = registerSharedRoutes(scope, orderDeps, deps.planInputs, {
       liveOnly: flags.shelfLiveOnly,
+      readMs: shelfReadMs,
+      // The chain and what failed, by its name and code: a database's error repeats its statement.
+      onFiguresError: (chain, err) =>
+        app.log.warn(
+          { code: 'shelf_figures_failed', chain, err: loggable(err) },
+          'a chain’s shelf figures could not be read',
+        ),
     });
     registerVaultRoute(scope, orderDeps);
     registerVaultConversationRoutes(scope, orderDeps);

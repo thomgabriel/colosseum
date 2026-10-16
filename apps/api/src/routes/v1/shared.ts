@@ -97,6 +97,25 @@ async function onChain(
 /** How long a chain's figures are served as read, and how long, older, they are served while read again. */
 export const SHELF_FRESH_MS = 10 * 60_000;
 export const SHELF_STALE_MS = 60 * 60_000;
+/**
+ * How long a read of a chain's figures is waited for. Past it the read is given up: the answers that
+ * waited get no figures and what was kept stays. No statement timeout is set on the pool, so a query on a
+ * connection gone quiet would otherwise hold every answer behind it. A failed read is not tried again
+ * before this long has passed, so a shelf of many recipes does not read again for each one.
+ */
+export const SHELF_READ_MS = 60_000;
+
+/** `work`, or a rejection once `ms` have passed without its answer (as read-cache.ts, which /v1 does not reach). */
+function within<T>(ms: number, work: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('no answer')), ms);
+    timer.unref?.();
+    work.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
+/** What the shelf is told when a chain's figures cannot be read. */
+export type FiguresError = (chain: string, err: unknown) => void;
 
 type Inputs = Awaited<ReturnType<PlanInputs>>;
 /**
@@ -113,28 +132,42 @@ type Figures = (entry: ChainEntry) => Promise<Inputs | null>;
  * date; past that an answer waits for the read. Answers that come together share one read. Each figure
  * keeps its own reading's source and time (figures.ts), so a kept one never passes for newer than it is.
  */
-function keptFigures(deps: OrderDeps, planInputs: PlanInputs): Figures {
-  const kept = new Map<string, { at: number; inputs?: Inputs; read?: Promise<Inputs | null> }>();
+function keptFigures(
+  deps: OrderDeps,
+  planInputs: PlanInputs,
+  opts: { readMs: number; onError: FiguresError },
+): Figures {
+  const kept = new Map<
+    string,
+    { at: number; inputs?: Inputs; read?: Promise<Inputs | null>; failedAt?: number }
+  >();
   const now = () => deps.now().getTime();
   const read = (entry: ChainEntry) => {
     const e = kept.get(entry.chain) ?? { at: 0 };
     kept.set(entry.chain, e);
     if (e.read) return e.read;
+    if (e.failedAt !== undefined && now() - e.failedAt < opts.readMs) return Promise.resolve(null);
     // Its age counts from when the read began: nothing it holds is newer than that.
     const began = now();
     const reading = (async () => {
       try {
-        const assets = await entry.adapter.listAssets();
-        const inputs = await planInputs({
-          db: deps.db,
-          chain: entry.chain,
-          assets,
-          provenance: entry.provenance,
-        });
+        const inputs = await within(
+          opts.readMs,
+          (async () =>
+            planInputs({
+              db: deps.db,
+              chain: entry.chain,
+              assets: await entry.adapter.listAssets(),
+              provenance: entry.provenance,
+            }))(),
+        );
         e.inputs = inputs;
         e.at = began;
+        e.failedAt = undefined;
         return inputs;
-      } catch {
+      } catch (err) {
+        e.failedAt = now();
+        opts.onError(entry.chain, err);
         return null;
       }
     })();
@@ -239,21 +272,28 @@ async function familyNamed(deps: OrderDeps, slug: string): Promise<StoredFamily>
 export const LIMITS_KEPT_MS = 30_000;
 type CreatorLimitsAnswer = import('zod').infer<typeof CreatorLimitsResponse>;
 
+/** What the shelf's warm-up found: its portfolios, their chains, and the chains it got no figures for. */
+export type ShelfWarmed = { families: number; chains: number; withoutFigures: string[] };
+
 /**
  * Registers the shared-portfolio reads. Answers `warm`, which works the whole shelf out once, as
- * `GET /v1/shelf` with no chain would, so the figures it needs are kept before anybody asks; it answers
- * how many portfolios that shelf holds.
+ * `GET /v1/shelf` with no chain would, so the figures it needs are kept before anybody asks.
  */
 export function registerSharedRoutes(
   scope: FastifyInstance,
   deps: OrderDeps,
   planInputs: PlanInputs = async () => ({}),
-  shelf: { liveOnly: boolean } = { liveOnly: false },
-): { warm: () => Promise<number> } {
+  shelf: { liveOnly: boolean; readMs?: number; onFiguresError?: FiguresError } = {
+    liveOnly: false,
+  },
+): { warm: () => Promise<ShelfWarmed> } {
   const f = scope.withTypeProvider<ZodTypeProvider>();
   const tags = ['shared portfolios'];
   const keptLimits = new Map<string, { at: number; answer: CreatorLimitsAnswer }>();
-  const figures = keptFigures(deps, planInputs);
+  const figures = keptFigures(deps, planInputs, {
+    readMs: shelf.readMs ?? SHELF_READ_MS,
+    onError: shelf.onFiguresError ?? (() => {}),
+  });
 
   const shelfOf = async (chain: SharedChainQuery['chain']) => {
     const families: SharedFamily[] = [];
@@ -400,5 +440,17 @@ export function registerSharedRoutes(
     },
   );
 
-  return { warm: async () => (await shelfOf(undefined)).length };
+  return {
+    warm: async () => {
+      const families = await shelfOf(undefined);
+      const recipes = families.flatMap((f) => f.recipes);
+      const chains = [...new Set(recipes.map((r) => r.chain))];
+      return {
+        families: families.length,
+        chains: chains.length,
+        // A chain's figures come back for all its recipes or for none.
+        withoutFigures: chains.filter((c) => recipes.some((r) => r.chain === c && !r.figures)),
+      };
+    },
+  };
 }
