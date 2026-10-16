@@ -191,3 +191,12 @@ export const hintOnLink = (
     </button>
   </div>
 );
+
+/** A row's whole name and what a reader hears after it, which the link's own text already says. */
+export const hintEcho = (
+  <Hint tip="Grow on Base · Base · 1 hour ago" echo>
+    <a href="#vault" id="link">
+      Grow on Base
+    </a>
+  </Hint>
+);

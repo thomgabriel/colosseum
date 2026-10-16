@@ -4,8 +4,18 @@ import type { ChainId } from '@colosseum/schemas';
 import { act, createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHAIN_NAMES } from '../../components/ui/chain-names';
+import { HINT_OPEN_MS } from '../../components/ui/hover-card';
 import { MENU_BUTTON, MENU_FIELD, MENU_MARK, MENU_ROW } from '../../components/ui/side-menu';
-import { click, find, mount, press, settle, type, unmountAll } from '../../components/ui/test/dom';
+import {
+  click,
+  find,
+  fire,
+  mount,
+  press,
+  settle,
+  type,
+  unmountAll,
+} from '../../components/ui/test/dom';
 import { dictionary, type Lang } from '../../i18n';
 import { inLanguage, withAccount } from '../account/test/screen';
 import { chainOf, portfolioBody, VAULT, vault } from '../portfolio/test/portfolio';
@@ -80,6 +90,27 @@ const spoken = (el: Element): string =>
           : '',
     )
     .join('');
+/**
+ * A rail row's tooltip, opened by the keyboard's focus on its link or button and closed by Escape. It
+ * is the eye's alone: hidden from a reader, and no description of the row, with the tooltip open or
+ * not, so NVDA and JAWS do not read the row a second time after its name (the review of #330).
+ */
+async function tipOf(open: HTMLElement): Promise<string> {
+  const undescribed = () => {
+    expect(open.hasAttribute('title')).toBe(false);
+    expect(open.hasAttribute('aria-describedby')).toBe(false);
+    expect(open.hasAttribute('aria-description')).toBe(false);
+  };
+  undescribed();
+  await fire(open, new FocusEvent('focusin', { bubbles: true }));
+  const panel = find(open.closest('[data-ui="hint"]') as HTMLElement, '[role="tooltip"]');
+  expect(panel.getAttribute('aria-hidden')).toBe('true');
+  undescribed();
+  const said = panel.textContent ?? '';
+  await press(document, 'Escape');
+  expect(document.querySelector('[role="tooltip"]')).toBeNull();
+  return said;
+}
 const groups = (host: HTMLElement) =>
   [...rail(host).querySelectorAll<HTMLElement>('[data-ui="conversation-group"]')].map(
     (group) =>
@@ -125,7 +156,7 @@ describe('the conversations panel', () => {
     // once it has words), what the rail's tooltip says, never that it is on screen
     expect(here.getAttribute('aria-current')).toBe('true');
     expect(here.querySelector('.sr-only')?.textContent).toMatch(/^, Solana(, .+)?$/);
-    expect(here.getAttribute('title')).toBe(`${w.current} · Solana`);
+    expect(await tipOf(here)).toBe(`${w.current} · Solana`);
     // every vault the plans read lists is a row, each linking to its own page
     const vaults = [
       ...rail(host).querySelectorAll<HTMLElement>(
@@ -147,9 +178,10 @@ describe('the conversations panel', () => {
       const chain = CHAIN_NAMES[one.dataset.chain as ChainId];
       const age = link.querySelector('time')?.textContent;
       if (age) aged += 1;
-      expect(spoken(link)).toBe(
-        `${find(one, '[data-ui="conversation-title"]').textContent}, ${w.vault}, ${chain}${age ? `, ${age}` : ''}`,
-      );
+      const name = find(one, '[data-ui="conversation-title"]').textContent;
+      expect(spoken(link)).toBe(`${name}, ${w.vault}, ${chain}${age ? `, ${age}` : ''}`);
+      // its tooltip says the same, for the eye only
+      expect(await tipOf(link)).toBe([w.vault, name, chain, age].filter(Boolean).join(' · '));
       // named by its goal or its name, never by its address
       expect(one.textContent).not.toContain(one.dataset.address ?? '');
     }
@@ -350,19 +382,23 @@ describe('the conversations panel', () => {
     const gold = row(host, 'Consider gold');
     const name = find(gold, '[data-ui="conversation-open"]');
     expect(find(name, '[data-ui="chain-logo"]').getAttribute('aria-hidden')).toBe('true');
-    expect(name.getAttribute('title')).toBe(
-      `Consider gold · Solana · ${en.goal.explore.picker.groups.yesterday.toLowerCase()}`,
-    );
+    // the whole name, the chain and how long ago in its tooltip, for the keyboard's focus
+    const goldTip = `Consider gold · Solana · ${en.goal.explore.picker.groups.yesterday.toLowerCase()}`;
+    expect(await tipOf(name)).toBe(goldTip);
     // the analytics' side menu's row (side-menu.ts): the mark column, the honey bar on the one on screen
     expect(name.className).toContain(MENU_ROW);
     expect(find(rail(host), '[aria-current="true"]').className).toContain(MENU_ROW);
-    // the chain and how long ago, written under the name on the row the keyboard is on (a tooltip is the
-    // pointer's alone), hidden from a reader, who hears them after the name
-    const said = find(name, '[data-ui="conversation-said"]');
-    expect(said.getAttribute('aria-hidden')).toBe('true');
-    expect(said.textContent).toBe(`Solana · ${find(name, 'time').textContent}`);
-    expect(said.className).toContain('hidden');
-    expect(said.className).toContain('group-focus-visible/open:block');
+    // and for a mouse that rests on the row, with nothing added to what a reader hears
+    const hint = name.closest('[data-ui="hint"]') as HTMLElement;
+    await fire(hint, new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+    await settle(HINT_OPEN_MS + 30);
+    const panel = find(hint, '[role="tooltip"]');
+    expect(panel.textContent).toBe(goldTip);
+    expect(panel.getAttribute('aria-hidden')).toBe('true');
+    expect(name.hasAttribute('aria-describedby')).toBe(false);
+    expect(name.hasAttribute('title')).toBe(false);
+    await fire(hint, new PointerEvent('pointerout', { bubbles: true, pointerType: 'mouse' }));
+    await press(document, 'Escape');
     // no badge and no time drawn on the row: a reader hears them after the name
     expect(gold.querySelector('[data-ui="chain-badge"]')).toBeNull();
     expect(find(name, '.sr-only').textContent).toBe(`, Solana, ${find(name, 'time').textContent}`);
@@ -371,7 +407,7 @@ describe('the conversations panel', () => {
       '[data-ui="conversation-row"][data-kind="vault"]',
     );
     const link = find(vault as HTMLElement, '[data-ui="conversation-open"]');
-    expect(link.getAttribute('title')?.startsWith(`${w.vault} · `)).toBe(true);
+    expect((await tipOf(link)).startsWith(`${w.vault} · `)).toBe(true);
     expect(
       (vault as HTMLElement).querySelector('[data-ui="conversation-value"], [data-ui="pin"]'),
     ).toBeNull();

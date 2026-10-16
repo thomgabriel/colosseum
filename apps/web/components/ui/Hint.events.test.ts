@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HINT_CLOSE_MS, HINT_OPEN_MS, placeFor } from './hover-card';
 import { click, find, fire, mount, press, settle, unmountAll } from './test/dom';
-import { hintOnLink, hintOnPage } from './test/events.cases';
+import { hintEcho, hintOnLink, hintOnPage } from './test/events.cases';
 
 // The one tooltip (gate TOOLTIP-WORDS): a mouse that rests, the keyboard's focus and a tap all open
 // it; Escape closes it; the pointer can move into it; it goes above when there is no room below.
@@ -157,6 +157,18 @@ describe('Hint, opened', () => {
     await press(document, 'Escape');
     expect(panels(host)).toHaveLength(0);
     expect(link.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('as an echo of its trigger’s own name, is drawn for the eye and describes nothing', async () => {
+    const host = await mount(hintEcho);
+    const link = find(host, '#link');
+    await focusOn(link);
+    expect(panel(host).textContent).toBe('Grow on Base · Base · 1 hour ago');
+    expect(panel(host).getAttribute('aria-hidden')).toBe('true');
+    expect(link.hasAttribute('aria-describedby')).toBe(false);
+    expect(link.hasAttribute('title')).toBe(false);
+    await press(document, 'Escape');
+    expect(panels(host)).toHaveLength(0);
   });
 });
 

@@ -27,6 +27,8 @@ export type HoverPanelProps = {
   place: Place | null;
   /** With a name it is a dialog (it holds controls); without, a tooltip that describes its trigger. */
   name?: string | null;
+  /** Drawn for the eye only: what it says is the trigger's own name (Hint's `echo`). */
+  'aria-hidden'?: true;
   'data-ui'?: string;
   className?: string;
   children: ReactNode;
@@ -40,6 +42,7 @@ export function HoverPanel({
   name = null,
   className,
   children,
+  'aria-hidden': hidden,
   ...rest
 }: HoverPanelProps) {
   const style: CSSProperties | undefined = place
@@ -66,6 +69,7 @@ export function HoverPanel({
       else if (ref) (ref as { current: HTMLSpanElement | null }).current = node;
     },
     id,
+    'aria-hidden': hidden,
     'data-ui': rest['data-ui'] ?? 'hint-panel',
     'data-side': place?.side,
     style,
@@ -114,8 +118,17 @@ export type HintProps = {
   /** Open at first render. */
   defaultOpen?: boolean;
   className?: string;
-  /** On the button that plain text is wrapped in: `truncate`, where the text is cut to fit. */
+  /**
+   * On the button that plain text is wrapped in: `truncate`, where the text is cut to fit. With a
+   * link or a button, on the element that holds it: `flex`, where it fills a row.
+   */
   triggerClassName?: string;
+  /**
+   * What it says is what the trigger's own name already says to a reader (a name cut to fit, with
+   * what a reader hears after it): it is drawn for the eye and hidden from a reader, and describes
+   * nothing, so a screen reader does not read it twice.
+   */
+  echo?: boolean;
 };
 
 type Described = { 'aria-describedby'?: string };
@@ -132,12 +145,14 @@ export function Hint({
   defaultOpen = false,
   className,
   triggerClassName,
+  echo = false,
 }: HintProps) {
   const says = tip != null && tip !== '' && tip !== false;
   const card = useHoverCard(defaultOpen, says);
   const id = useId();
   const own = interactive(children);
   const shown = card.open;
+  const describedBy = shown && !echo ? id : undefined;
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: it only listens for its own trigger's focus and pointer; the trigger is the control
     <span
@@ -151,8 +166,11 @@ export function Hint({
       className={cn('relative inline-flex max-w-full', shown ? 'z-30' : 'z-10', className)}
     >
       {own ? (
-        <span ref={card.trigger.ref as Ref<HTMLSpanElement>} className="inline-flex max-w-full">
-          {cloneElement(children, { 'aria-describedby': shown ? id : undefined })}
+        <span
+          ref={card.trigger.ref as Ref<HTMLSpanElement>}
+          className={cn('inline-flex max-w-full', triggerClassName)}
+        >
+          {echo ? children : cloneElement(children, { 'aria-describedby': describedBy })}
         </span>
       ) : (
         <button
@@ -160,8 +178,8 @@ export function Hint({
           type="button"
           data-ui="hint-trigger"
           aria-label={label}
-          aria-describedby={shown ? id : undefined}
-          aria-expanded={shown}
+          aria-describedby={describedBy}
+          aria-expanded={echo ? undefined : shown}
           onClick={card.trigger.onClick}
           onFocus={card.trigger.onFocus}
           className={cn(
@@ -173,7 +191,12 @@ export function Hint({
         </button>
       )}
       {shown && (
-        <HoverPanel ref={card.panel} id={id} place={card.place}>
+        <HoverPanel
+          ref={card.panel}
+          id={id}
+          place={card.place}
+          aria-hidden={echo ? true : undefined}
+        >
           {tip}
         </HoverPanel>
       )}
