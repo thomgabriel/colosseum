@@ -11,8 +11,9 @@ import { agedSql, cutoffOf, newestSql, parseAt, RETENTION, type Retention } from
 //
 //   DATABASE_URL=… pnpm ops:prune-risk [--dry-run] [--batch 10000] [--at <ISO time>] [--archived <dir>]
 //
-// --archived <dir> deletes no row the archive in <dir> (archive-risk.ts) does not hold: each table's cut is held to
-// its manifest's, and a table with no manifest there is left whole. The daily job runs the archive and then the
+// --archived <dir> deletes no row that is in neither the archive in <dir> (archive-risk.ts) nor the collectors'
+// files: a table whose only copy is the database (`files: null`) is cut no further than its manifest's cut, and
+// left whole with no manifest; a table kept in the collectors' files is cut at its window. The daily job runs the archive and then the
 // prune with it. --dry-run counts what it would delete and deletes nothing. The address is read from DATABASE_URL and never
 // printed. Run daily by the launchd job scripts/ops/install-prune.sh writes (com.colosseum.risk-prune).
 
@@ -24,6 +25,20 @@ export type PruneResult = {
   deleted: number;
   batches: number;
 };
+
+/**
+ * How far the archive lets a table be pruned: no limit (undefined) for a table whose rows live in the collectors'
+ * files; for one whose only copy is the database, the archive manifest's cut, or null (prune nothing) without one.
+ */
+export function archivedLimit(
+  r: Retention,
+  manifestCut: string | null | undefined,
+): Date | null | undefined {
+  if (r.files !== null) return undefined;
+  if (!manifestCut) return null;
+  const d = new Date(manifestCut);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /** Deletes one table's old rows in batches of `batch`; counts them only when `dryRun`. */
 export async function pruneTable(
@@ -106,9 +121,12 @@ async function main() {
       try {
         let archivedTo: Date | null | undefined;
         if (archived) {
-          const cut = readManifest(join(archived, r.table, 'manifest.json'))?.cut;
-          archivedTo = cut ? new Date(cut) : null;
-          if (!archivedTo) console.log(`${r.schema}.${r.table}: not in the archive, left whole`);
+          archivedTo = archivedLimit(
+            r,
+            readManifest(join(archived, r.table, 'manifest.json'))?.cut,
+          );
+          if (archivedTo === null)
+            console.log(`${r.schema}.${r.table}: not in the archive, left whole`);
         }
         const res = await pruneTable(sql, r, { at, batch, dryRun, archivedTo });
         const when = res.cut ? res.cut.toISOString() : 'none (no rows)';

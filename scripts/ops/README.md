@@ -4,12 +4,29 @@ Scripts a person runs against the hosted systems. Each one says at its top what 
 
 | Command | What it does |
 |---|---|
-| `pnpm ops:archive-risk --out <dir> [--dry-run] [--at <time>]` | Writes the rows of the risk tables older than their window (`risk-retention.ts`) to `<dir>/<table>/<day>….csv.gz`, deleting nothing; each later run adds only what aged since. `SOURCE_DATABASE_URL` (else `DATABASE_URL`). |
-| `pnpm ops:prune-risk [--dry-run] [--archived <dir>]` | Deletes those rows in batches, then vacuums; with `--archived`, never past what the archive in `<dir>` holds. `DATABASE_URL`. |
-| `pnpm ops:install-prune [--archive-dir <dir>] [--importers] [--dry-run-now]` | Loads the launchd job `com.colosseum.risk-prune`: daily at 05:30, the archive into `~/tenonfi-archive`, then the prune. `--importers` rebuilds the loop's lending and Robinhood Chain importers, which skip rows older than the window. |
+| `pnpm ops:archive-risk --out <dir> [--dry-run] [--at <time>] [--all]` | Writes the rows older than their window (`risk-retention.ts`) of the tables the database alone holds (today `risk_pool_flow`; `--all`: every windowed table) to `<dir>/<table>/<day>….csv.gz`, deleting nothing; each later run adds only what aged since. `SOURCE_DATABASE_URL` (else `DATABASE_URL`). |
+| `pnpm ops:prune-risk [--dry-run] [--archived <dir>]` | Deletes the rows older than their window in batches, then vacuums; with `--archived`, a table the database alone holds is cut no further than the archive in `<dir>`. `DATABASE_URL`. |
+| `pnpm ops:install-prune [--archive-dir <dir>] [--importers] [--dry-run-now]` | Loads the launchd job `com.colosseum.risk-prune`: daily at 05:30, the archive of pool flow into `~/tenonfi-archive`, then the prune. `--importers` rebuilds the loop's lending and Robinhood Chain importers, which skip rows older than the window. |
 | `pnpm ops:move-db [--dry-run] --record <file> [--at <time>]`, `--recount --record <file>`, `--grants-only` | Copies the app's schemas to another server, the risk tables cut to their window, and checks every table's rows; `--recount` checks afterwards that nothing more was written on the source. `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`. |
 
-The windows and the reasons for them are in `docs/risk/STATE-RISK.md`, "Retention of the hosted tables". None of these scripts prints a database address, and each lifts the server's statement timeout for its own statements (Supabase sets 120 s).
+The windows and the reasons for them are in `docs/risk/STATE-RISK.md`, "Retention of the hosted tables".
+
+## Where the rows the database no longer keeps live
+
+The collectors write every reading to files under `~/.colosseum/hosted-risk` before the hourly import puts it in the database, append only, and nothing deletes them (no collector or job removes a day file; checked in `scripts/risk/collector/`, `scripts/risk-evm/` and `loop.sh`). Those files are the archive of the tables they feed, so the daily job reads nothing of them out of Neon:
+
+| Table | Files under `~/.colosseum/hosted-risk` |
+|---|---|
+| `risk_pool_snapshots` | `pools/<day>.jsonl` |
+| `risk_asset_snapshots` | `assets/<day>.jsonl` (Solana), `evm/assets/<day>.jsonl` (Robinhood Chain) |
+| `risk_lending_snapshots` | `lending/<day>.jsonl` |
+| `risk_quotes` | `quotes/<day>.jsonl` |
+| `risk_events` | `events.jsonl` |
+| `risk_lp_concentration` | `lp/<day>.jsonl` |
+| `risk_lending_facts`, `risk_lending_coverage` | `data/lending-history/report/lending-report-<time>.json` |
+| `risk_pool_flow` | none: the loop's daily rewalk keeps only its last walk (`evm/history/robinhood`), so the daily job archives these rows to `~/tenonfi-archive/risk_pool_flow/` before the prune |
+
+All of them go back to Oct 6, as the database does. They grow by about 190 MB a day (2 GB from Oct 6 to Oct 16) on the Mac's disk; keep them, and back them up with the archive folder. `RISK_IMPORT_ALL=1 pnpm risk:import` (and `RISK_LENDING_IMPORT_ALL=1`, `RISK_EVM_IMPORT_ALL=1` for the other two importers) puts a file's rows back into a database that keeps everything. None of these scripts prints a database address, and each lifts the server's statement timeout for its own statements (Supabase sets 120 s).
 
 ## Moving the database from Supabase to Neon
 
@@ -58,7 +75,7 @@ pkill -f '@colosseum/snapshot start'   # then the worker
 curl -s -o /dev/null -w '%{http_code}\n' $API/v1/config   # anything but 200: the API is suspended
 ```
 
-**4. Archive what the move leaves behind**: every row older than its window, from Oct 6 on (about 420 MB as it sits in the database; the dry run says how much as files). The archive and the move together read the database about once, some 0.9 GB of Supabase egress.
+**4. Archive what the move leaves behind** and nothing else holds: the pool flow rows older than seven days (a few MB; the dry run says how much). Every other table's older rows are in the collectors' files (above). The move reads about 0.55 GB out of Supabase.
 
 ```sh
 export AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # one time for the archive and the move, so nothing falls between them
@@ -92,7 +109,7 @@ Edit each file in an editor; nothing here prints them.
 zsh scripts/ops/install-prune.sh --importers --dry-run-now
 ```
 
-It keeps the old importers as `*.before-<stamp>.mjs` and loads `com.colosseum.risk-prune`: every day at 05:30 it archives the rows that aged out into `~/tenonfi-archive` (beside the move's files) and only then prunes, never past what the archive holds. Log: `~/.colosseum/hosted-risk/risk-prune.log`. The dry runs at the end should find next to nothing. The daily archive reads about 125 MB a day out of Neon (about 3.7 GB a month); compare it with the plan's monthly transfer on Neon's billing page.
+It keeps the old importers as `*.before-<stamp>.mjs` and loads `com.colosseum.risk-prune`: every day at 05:30 it archives the pool flow rows that aged out into `~/tenonfi-archive` (beside the move's files) and only then prunes, never a pool flow row past what the archive holds; the other tables are cut at their window, their rows being in the collectors' files. Log: `~/.colosseum/hosted-risk/risk-prune.log`. The dry runs at the end should find next to nothing. The daily job reads about 5 MB a day out of Neon (one day of pool flow, about 0.15 GB a month).
 
 **8. Start again.** Render, `tenonfi-api`: **Resume Service**, then Manual Deploy, **Deploy latest commit**, so the running instance has the new address; wait for Live. Then on the Mac: `~/.colosseum/hosted-risk/start.sh`, and the snapshot worker as before (`zsh -i ~/.colosseum/snapshot/run-mainnet.sh --loop`).
 
@@ -122,6 +139,6 @@ psql "$TARGET_DATABASE_URL" -c "select max(fetched_at) from vault_snapshots"    
 psql "$TARGET_DATABASE_URL" -c "select pg_size_pretty(pg_database_size(current_database()))"
 ```
 
-The next morning, `tail ~/.colosseum/hosted-risk/risk-prune.log` shows the first run: the archive's new files, then each table's cut and the rows deleted, then `"ok":true`.
+The next morning, `tail ~/.colosseum/hosted-risk/risk-prune.log` shows the first run: the pool flow file it added, then each table's cut and the rows deleted, then `"ok":true`.
 
 **The way back.** Leave the Supabase project as it is until the checks pass for a day. Going back is step 6 with the old addresses, then step 8; whatever was written on Neon since the switch (chat turns, orders, publishes, the collectors' readings) stays on Neon and is not on Supabase.

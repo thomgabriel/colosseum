@@ -2,8 +2,10 @@
 # Installs the daily archive and prune of the hosted database as the launchd agent com.colosseum.risk-prune,
 # beside the hosted collectors in ~/.colosseum/hosted-risk, whose env file names the database (DATABASE_URL).
 # Once a day at 05:30 local (after the loop's 04:00 daily work; a Mac that slept through it runs it on waking) it
-# archives the rows that have aged out of their window (scripts/ops/archive-risk.ts) into the archive folder, and
-# only when that succeeded prunes them (scripts/ops/prune-risk.ts --archived), never past what the archive holds.
+# archives the rows of the tables the database alone holds (today risk_pool_flow) that have aged out of their
+# window (scripts/ops/archive-risk.ts) into the archive folder, and only when that succeeded prunes
+# (scripts/ops/prune-risk.ts --archived): those tables never past what the archive holds, the others at their
+# window, their rows being in the collectors' own files (scripts/ops/README.md lists them).
 #
 #   install-prune.sh [--archive-dir <dir>]   bundle both, write the plist, load it (archive folder default
 #                                    ~/tenonfi-archive, the one the move's archive went to)

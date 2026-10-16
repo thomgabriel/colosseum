@@ -31,7 +31,11 @@ import { agedSql, cutoffOf, newestSql, parseAt, RETENTION, type Retention } from
 // Exports the rows the hosted database no longer keeps (older than each table's window in risk-retention.ts) to
 // gzipped CSV files, one per table and UTC day, before the move or a prune drops them. It deletes nothing.
 //
-//   SOURCE_DATABASE_URL=… pnpm ops:archive-risk --out <dir> [--dry-run] [--at <ISO time>]
+//   SOURCE_DATABASE_URL=… pnpm ops:archive-risk --out <dir> [--dry-run] [--at <ISO time>] [--all]
+//
+// By default only the tables whose rows live nowhere else (`files: null` in risk-retention.ts; today
+// risk_pool_flow): the others are kept in the collectors' own files on the Mac, which no job deletes, so reading
+// them out of the database again would only spend its transfer. --all archives every windowed table.
 //
 // <dir>/<table>/manifest.json keeps the cut up to which the table is archived, the columns and every file with
 // its rows. A run archives what lies between that cut and its own: the first run everything older than the window
@@ -158,10 +162,11 @@ export async function gzLines(file: string): Promise<number> {
 
 async function main() {
   const argv = process.argv.slice(2);
-  const known = new Set(['--dry-run', '--out', '--at']);
+  const known = new Set(['--dry-run', '--out', '--at', '--all']);
   for (const a of argv)
     if (a.startsWith('--') && !known.has(a)) throw new Error(`unknown flag ${a}`);
   const dryRun = argv.includes('--dry-run');
+  const all = argv.includes('--all');
   const outArg = argValue(argv, '--out');
   if (!outArg) throw new Error('--out <dir> names the folder the files go to');
   const out = resolve(outArg);
@@ -184,6 +189,12 @@ async function main() {
   try {
     await sql.unsafe('set statement_timeout = 0');
     for (const r of RETENTION) {
+      if (r.files !== null && !all) {
+        console.log(
+          `${r.table}: its rows are kept in the collectors' files (${r.files}), not read here`,
+        );
+        continue;
+      }
       const newestQ = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
       const [nw] = await sql.unsafe<{ t: Date | null }[]>(newestQ);
       const to = cutoffOf(r.keepHours, at, asDate(nw?.t));

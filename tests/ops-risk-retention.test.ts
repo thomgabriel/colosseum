@@ -12,7 +12,7 @@ import {
   recountDiffs,
   type TablePlan,
 } from '../scripts/ops/move-db';
-import { pruneTable } from '../scripts/ops/prune-risk';
+import { archivedLimit, pruneTable } from '../scripts/ops/prune-risk';
 import {
   agedSql,
   cutoffOf,
@@ -21,6 +21,7 @@ import {
   parseAt,
   RETENTION,
   type Retention,
+  UNFILED,
 } from '../scripts/ops/risk-retention';
 
 const H = 3_600_000;
@@ -90,6 +91,17 @@ describe('retention: every growing table has a decision', () => {
       const whole = n in KEPT_WHOLE;
       expect({ n, decided: cut !== whole }).toEqual({ n, decided: true });
     }
+  });
+
+  it('names where the rows of each windowed table live on the Mac; only pool flow has the database alone', () => {
+    expect(UNFILED.map((r) => r.table)).toEqual(['risk_pool_flow']);
+    const flow = RETENTION.find((r) => r.table === 'risk_pool_flow') as Retention;
+    const pools = RETENTION.find((r) => r.table === 'risk_pool_snapshots') as Retention;
+    expect(archivedLimit(pools, null)).toBeUndefined();
+    expect(archivedLimit(flow, null)).toBeNull();
+    expect(archivedLimit(flow, '2026-10-12T00:00:00.000Z')?.toISOString()).toBe(
+      '2026-10-12T00:00:00.000Z',
+    );
   });
 
   it('ages each windowed table by a timestamp column it has, by four days for raw readings', () => {
@@ -246,6 +258,7 @@ describe('the prune on a database', () => {
     keepHours: 96,
     exempt: "kind like '%\\_hourly'",
     why: 'test',
+    files: null,
   };
   const newest = new Date('2026-10-16T11:55:00Z');
 

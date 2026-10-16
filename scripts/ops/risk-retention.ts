@@ -19,6 +19,13 @@ export type Retention = {
   /** Rows that never age out, as SQL on the table (reconstructed history that no job writes again). */
   exempt?: string;
   why: string;
+  /**
+   * Where the rows also live on the Mac that runs the collectors, under ~/.colosseum/hosted-risk: the collector's
+   * own files, which the import read them from and which no job deletes. Those files are the table's archive, so
+   * the daily job reads nothing of it out of the database. Null when the database holds the only copy: the daily
+   * job archives it before the prune.
+   */
+  files: string | null;
 };
 
 const DAY = 24;
@@ -30,6 +37,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'fetched_at',
     keepHours: 4 * DAY,
     why: 'raw pool depth readings (about 38,000 rows and 77 MB a day); the import reads only its newest day and the heatmap shows what is kept',
+    files: 'pools/<day>.jsonl',
   },
   {
     schema: 'public',
@@ -37,6 +45,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'fetched_at',
     keepHours: 7 * DAY,
     why: "routed asset curves; the fact sheets' exit capacity reads 7 days (capacityWindowDays), the history charts show what is kept",
+    files: 'assets/<day>.jsonl (Solana), evm/assets/<day>.jsonl (Robinhood Chain)',
   },
   {
     schema: 'public',
@@ -45,6 +54,7 @@ export const RETENTION: readonly Retention[] = [
     keepHours: 4 * DAY,
     exempt: "kind like '%\\_hourly'",
     why: "the lending collector's five-minute reads; the reconstructed hourly history is never cut",
+    files: 'lending/<day>.jsonl',
   },
   {
     schema: 'public',
@@ -52,6 +62,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'fetched_at',
     keepHours: 4 * DAY,
     why: 'Jupiter cross-check quotes; nothing reads them but the import, which reads its newest day',
+    files: 'quotes/<day>.jsonl',
   },
   {
     schema: 'public',
@@ -59,6 +70,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'fetched_at',
     keepHours: 7 * DAY,
     why: 'LP-withdrawal and stale-map events; the fact sheets and /risk/events read 7 days',
+    files: 'events.jsonl',
   },
   {
     schema: 'public',
@@ -66,6 +78,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'fetched_at',
     keepHours: 4 * DAY,
     why: 'hourly LP concentration; every reader takes the newest row per pool',
+    files: 'lp/<day>.jsonl',
   },
   {
     schema: 'public',
@@ -73,6 +86,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'report_at',
     keepHours: 4 * DAY,
     why: 'a full set of lending sheets every hour; readers take the newest report',
+    files: 'data/lending-history/report/lending-report-<time>.json',
   },
   {
     schema: 'public',
@@ -80,6 +94,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'report_at',
     keepHours: 4 * DAY,
     why: 'liquidation coverage every hour; /risk/lending/coverage reads the newest report',
+    files: 'data/lending-history/report/lending-report-<time>.json',
   },
   {
     schema: 'public',
@@ -87,6 +102,7 @@ export const RETENTION: readonly Retention[] = [
     column: 'fetched_at',
     keepHours: 7 * DAY,
     why: 'one import a day, each row summing its 24h, 7d and 28d window; readers take the newest data_to, and a week of imports covers days the rewalk returned fewer pools',
+    files: null,
   },
 ];
 
@@ -111,6 +127,9 @@ export const KEPT_WHOLE: Readonly<Record<string, string>> = {
   asset_observations: 'the metrics jobs read 40 days of exchange rates',
   market_bars: 'the facts read 30 days of hourly bars, built by hand',
 };
+
+/** The tables whose only copy is the database: what the daily job archives. */
+export const UNFILED = RETENTION.filter((r) => r.files === null);
 
 /** A table's retention, or undefined when the table is kept whole. */
 export function retentionOf(schema: string, table: string): Retention | undefined {
