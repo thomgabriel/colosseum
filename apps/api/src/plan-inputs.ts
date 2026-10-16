@@ -99,15 +99,17 @@ export async function resolveExitTwins(
         tvlUsd: null,
         pinned: true,
       })),
+    // one row per symbol and mint with its pools' TVL summed, as exitTwins sums it, not every pool
     ...(
       await db
         .select({
           assetSymbol: riskPools.assetSymbol,
           assetMint: riskPools.assetMint,
-          tvlUsd: riskPools.tvlUsd,
+          tvlUsd: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
         })
         .from(riskPools)
         .where(inArray(sql`lower(${riskPools.assetSymbol})`, lower))
+        .groupBy(riskPools.assetSymbol, riskPools.assetMint)
     ).map((r) => ({ ...r, chain: 'solana' })),
     ...(
       await db

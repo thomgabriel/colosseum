@@ -38,7 +38,7 @@ import {
 import type { AssetFacts, PlanFacts } from '@colosseum/schemas';
 import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from 'drizzle-orm';
 import { curveVersionOf, RISK_METHOD_VERSION } from './curve-version';
-import { capacityAtTau } from './history';
+import { capacityAtTau, curvePairs, fromPairs } from './history';
 import { loadOracleInput } from './oracle-facts';
 
 /**
@@ -418,6 +418,7 @@ export async function loadAssetFacts(
   };
 
   const weekAgo = new Date(now.getTime() - params.capacityWindowDays * 86_400_000);
+  const regimeParams = defaultRegimeParams(fixture('us-market-holidays.json'));
   // The reads below do not depend on each other: they are asked together.
   const read = allOf({
     lp: loadLp(),
@@ -432,32 +433,8 @@ export async function loadAssetFacts(
         ),
       )
       .then((rows) => rows[0]),
-    snaps: db
-      .select({
-        fetchedAt: riskAssetSnapshots.fetchedAt,
-        sell: riskAssetSnapshots.sell,
-        source: riskAssetSnapshots.source,
-        methodVersion: riskAssetSnapshots.methodVersion,
-        provenance: riskAssetSnapshots.provenance,
-      })
-      .from(riskAssetSnapshots)
-      .where(
-        and(
-          eq(riskAssetSnapshots.assetMint, mint as string),
-          gte(riskAssetSnapshots.fetchedAt, weekAgo),
-        ),
-      ),
-    // stock collateral in lending markets
-    posRows: db
-      .select()
-      .from(riskLendingPositions)
-      .where(
-        and(
-          eq(riskLendingPositions.collateralAsset, symbol),
-          gte(riskLendingPositions.observedAt, new Date(now.getTime() - 2 * 86_400_000)),
-        ),
-      )
-      .orderBy(desc(riskLendingPositions.observedAt)),
+    capacity: loadCapacitySeries(db, mint as string, weekAgo, tau, regimeParams),
+    lendingCollateral: loadLendingCollateral(db, symbol, now),
     // pool mid against each lending oracle: Step 11's hourly reference prices
     refRows: db
       .select({
@@ -486,40 +463,7 @@ export async function loadAssetFacts(
         : Promise.resolve(undefined),
     oracle: loadOracleInput(db, mint, now),
   });
-  const { lp, withdrawals, snaps, posRows, refRows, ...tail } = await read;
-
-  // exit capacity at tau in every snapshot of the window, by regime
-  const regimeParams = defaultRegimeParams(fixture('us-market-holidays.json'));
-  const series: Partial<Record<Regime, number[]>> = {};
-  for (const s of snaps) {
-    const cap = capacityAtTau(s.sell, tau).capacityUsd;
-    if (cap === null) continue;
-    const r = regimeAt(s.fetchedAt, regimeParams);
-    const xs = series[r] ?? [];
-    xs.push(cap);
-    series[r] = xs;
-  }
-  const lastSnap = snaps.reduce<(typeof snaps)[number] | null>(
-    (a, s) => (!a || s.fetchedAt > a.fetchedAt ? s : a),
-    null,
-  );
-
-  // stock collateral in lending markets: each market's latest hour with a USD value
-  const latestByMarket = new Map<string, (typeof posRows)[number]>();
-  for (const r of posRows)
-    if (r.collateralUsd !== null && !latestByMarket.has(r.market)) latestByMarket.set(r.market, r);
-  const latest = [...latestByMarket.values()];
-  const lendingCollateral = latest.length
-    ? {
-        usd: latest.reduce((a, r) => a + (r.collateralUsd as number), 0),
-        // the oldest of the hours summed: the figure is no fresher than that
-        fetchedAt: new Date(Math.min(...latest.map((r) => r.observedAt.getTime()))).toISOString(),
-        source: `risk_lending_positions (${latest.length} markets, each market's latest hour)`,
-        method: (latest[0] as (typeof latest)[number]).method,
-        methodVersion: (latest[0] as (typeof latest)[number]).methodVersion,
-        provenance: (latest[0] as (typeof latest)[number]).provenance,
-      }
-    : null;
+  const { lp, withdrawals, capacity, lendingCollateral, refRows, ...tail } = await read;
 
   // pool mid against each lending oracle, by regime: Step 11's hourly reference prices, in the hours whose answer is
   // the pool mid, each live oracle's gap to it (`others`). The median over the window; (mid − oracle) ÷ oracle.
@@ -591,15 +535,15 @@ export async function loadAssetFacts(
       source: `risk_events (lp_withdrawal, last ${params.capacityWindowDays} days)`,
       method: 'count',
     },
-    capacitySeries: lastSnap
+    capacitySeries: capacity.last
       ? {
-          byRegime: series,
-          to: lastSnap.fetchedAt.toISOString(),
+          byRegime: capacity.byRegime,
+          to: capacity.last.fetchedAt.toISOString(),
           minSamples: params.capacityMinSamples,
           source: `risk_asset_snapshots (last ${params.capacityWindowDays} days)`,
           method: 'stdev_over_mean_of_max_notional_at_tau_per_snapshot',
-          methodVersion: lastSnap.methodVersion,
-          provenance: lastSnap.provenance,
+          methodVersion: capacity.last.methodVersion,
+          provenance: capacity.last.provenance,
         }
       : null,
     lendingCollateral,
@@ -609,6 +553,90 @@ export async function loadAssetFacts(
       xstocks && base.chain === 'solana' ? { ...xstocks, fetchedAt: issuers.fetchedAt } : null,
     oracle: tail.oracle,
   });
+}
+
+/**
+ * Exit capacity at `tau` in every snapshot of `mint` since `from`, by regime, and the newest snapshot's
+ * labels: the fact sheet's capacity series. Each side is read cut to the two numbers the capacity reads
+ * (`curvePairs`, history.ts), not with the collector's route detail.
+ */
+export async function loadCapacitySeries(
+  db: Db,
+  mint: string,
+  from: Date,
+  tau: number,
+  regimeParams: ReturnType<typeof defaultRegimeParams>,
+) {
+  const snaps = await db
+    .select({
+      fetchedAt: riskAssetSnapshots.fetchedAt,
+      sell: curvePairs(riskAssetSnapshots.sell),
+      methodVersion: riskAssetSnapshots.methodVersion,
+      provenance: riskAssetSnapshots.provenance,
+    })
+    .from(riskAssetSnapshots)
+    .where(and(eq(riskAssetSnapshots.assetMint, mint), gte(riskAssetSnapshots.fetchedAt, from)));
+  const byRegime: Partial<Record<Regime, number[]>> = {};
+  for (const s of snaps) {
+    const cap = capacityAtTau(fromPairs(s.sell), tau).capacityUsd;
+    if (cap === null) continue;
+    const r = regimeAt(s.fetchedAt, regimeParams);
+    const xs = byRegime[r] ?? [];
+    xs.push(cap);
+    byRegime[r] = xs;
+  }
+  const last = snaps.reduce<Omit<(typeof snaps)[number], 'sell'> | null>(
+    (a, s) => (!a || s.fetchedAt > a.fetchedAt ? s : a),
+    null,
+  );
+  return {
+    byRegime,
+    last: last && {
+      fetchedAt: last.fetchedAt,
+      methodVersion: last.methodVersion,
+      provenance: last.provenance,
+    },
+  };
+}
+
+/**
+ * The stock's collateral in lending markets: the sum over markets of each market's latest hour with a
+ * USD value in the last two days, labelled by the newest of those hours. Each market's hour is picked in
+ * the database, and only the figure and its labels are read.
+ */
+export async function loadLendingCollateral(db: Db, symbol: string, now: Date) {
+  const latest = (
+    await db
+      .selectDistinctOn([riskLendingPositions.market], {
+        market: riskLendingPositions.market,
+        observedAt: riskLendingPositions.observedAt,
+        collateralUsd: riskLendingPositions.collateralUsd,
+        method: riskLendingPositions.method,
+        methodVersion: riskLendingPositions.methodVersion,
+        provenance: riskLendingPositions.provenance,
+      })
+      .from(riskLendingPositions)
+      .where(
+        and(
+          eq(riskLendingPositions.collateralAsset, symbol),
+          gte(riskLendingPositions.observedAt, new Date(now.getTime() - 2 * 86_400_000)),
+          isNotNull(riskLendingPositions.collateralUsd),
+        ),
+      )
+      .orderBy(riskLendingPositions.market, desc(riskLendingPositions.observedAt))
+  ).sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime());
+  const newest = latest[0];
+  return newest
+    ? {
+        usd: latest.reduce((a, r) => a + (r.collateralUsd as number), 0),
+        // the oldest of the hours summed: the figure is no fresher than that
+        fetchedAt: new Date(Math.min(...latest.map((r) => r.observedAt.getTime()))).toISOString(),
+        source: `risk_lending_positions (${latest.length} markets, each market's latest hour)`,
+        method: newest.method,
+        methodVersion: newest.methodVersion,
+        provenance: newest.provenance,
+      }
+    : null;
 }
 
 /** Every promise of `reads` at once, answered under the same names. */

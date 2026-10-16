@@ -43,6 +43,7 @@ const emptyDb = (): Db => {
   const query = Object.assign(Promise.resolve([] as never[]), {
     from: (): Promise<never[]> => query,
     where: (): Promise<never[]> => query,
+    groupBy: (): Promise<never[]> => query,
     innerJoin: (): Promise<never[]> => query,
     orderBy: (): Promise<never[]> => query,
     limit: async () => [],

@@ -211,20 +211,20 @@ export async function registerRiskRoutes(
   async function chainAssets(chain: Chain) {
     if (chain === 'robinhood')
       return (await evmAssets()).map((a) => ({ ...a, tvl: null, pools: null }));
-    const pools = await db
-      .select()
+    // summed in the database: one row per asset, not every listed pool's
+    const rows = await db
+      .select({
+        mint: riskPools.assetMint,
+        symbol: sql<string>`min(${riskPools.assetSymbol})`,
+        tvl: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
+        pools: sql<number>`count(*)::int`,
+      })
       .from(riskPools)
-      .where(inArray(riskPools.tier, ['A', 'B']));
-    const tvl = new Map<string, { symbol: string; tvl: number; pools: number }>();
-    for (const p of pools) {
-      const v = tvl.get(p.assetMint) ?? { symbol: p.assetSymbol, tvl: 0, pools: 0 };
-      v.tvl += p.tvlUsd ?? 0;
-      v.pools++;
-      tvl.set(p.assetMint, v);
-    }
-    return [...tvl.entries()]
-      .sort((a, b) => b[1].tvl - a[1].tvl)
-      .map(([mint, v]) => ({ id: mint, symbol: v.symbol, mint, tvl: v.tvl, pools: v.pools }));
+      .where(inArray(riskPools.tier, ['A', 'B']))
+      .groupBy(riskPools.assetMint);
+    return rows
+      .sort((a, b) => b.tvl - a.tvl)
+      .map((v) => ({ id: v.mint, symbol: v.symbol, mint: v.mint, tvl: v.tvl, pools: v.pools }));
   }
 
   f.get(
@@ -808,7 +808,10 @@ export async function registerRiskRoutes(
         liquidationMaxLimit?: number;
       };
       const [snap] = await db
-        .select()
+        .select({
+          fetchedAt: riskAssetSnapshots.fetchedAt,
+          refMidUsd: riskAssetSnapshots.refMidUsd,
+        })
         .from(riskAssetSnapshots)
         .where(eq(riskAssetSnapshots.assetMint, m.assetMint))
         .orderBy(desc(riskAssetSnapshots.fetchedAt))
@@ -904,7 +907,10 @@ export async function registerRiskRoutes(
         const a = await resolveAsset(h.asset);
         if (!a) return reply.code(404).send({ error: `unknown asset ${h.asset}` });
         const [snap] = await db
-          .select()
+          .select({
+            fetchedAt: riskAssetSnapshots.fetchedAt,
+            refMidUsd: riskAssetSnapshots.refMidUsd,
+          })
           .from(riskAssetSnapshots)
           .where(eq(riskAssetSnapshots.assetMint, a.mint))
           .orderBy(desc(riskAssetSnapshots.fetchedAt))

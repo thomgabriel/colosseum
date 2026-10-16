@@ -71,27 +71,48 @@ export function fitCurve(
     arr.push(s.cost);
     byN.set(s.notionalUsd, arr);
   }
-  const grid = [...byN.keys()].sort((a, b) => a - b);
-  const raw = grid.map((n) => quantileOf(byN.get(n) as number[], opts.quantile));
-  const mono = isotonic(raw);
-  const points = grid.map((n, i) => ({
-    notionalUsd: n,
-    cost: mono[i] as number,
-    samples: (byN.get(n) as number[]).length,
-  }));
-  const bad = points.findIndex((p) => p.samples < opts.minSamples);
+  const grid = [...byN.keys()]
+    .sort((a, b) => a - b)
+    .map((n) => {
+      const xs = byN.get(n) as number[];
+      return { notionalUsd: n, cost: quantileOf(xs, opts.quantile), samples: xs.length };
+    });
   const times = samples
     .map((s) => s.at)
     .filter((t): t is string => !!t)
     .sort();
+  return curveOfQuantiles(
+    grid,
+    { from: times[0] ?? null, to: times.at(-1) ?? null, samples: samples.length },
+    opts,
+  );
+}
+
+/**
+ * The second half of `fitCurve`, for quantiles taken elsewhere (the database's `percentile_cont`, which
+ * interpolates as `quantileOf` does): `grid` holds, per notional in ascending order, the `quantile` of
+ * the finite costs and how many there were; `span` the times and the count of every sample, finite or not.
+ */
+export function curveOfQuantiles(
+  grid: Array<{ notionalUsd: number; cost: number; samples: number }>,
+  span: { from: string | null; to: string | null; samples: number },
+  opts: { quantile: number; minSamples: number },
+): DepthCurve {
+  const mono = isotonic(grid.map((g) => g.cost));
+  const points = grid.map((g, i) => ({
+    notionalUsd: g.notionalUsd,
+    cost: mono[i] as number,
+    samples: g.samples,
+  }));
+  const bad = points.findIndex((p) => p.samples < opts.minSamples);
   return {
     points,
     insufficientFrom: bad < 0 ? null : bad,
     quantile: opts.quantile,
     minSamples: opts.minSamples,
-    from: times[0] ?? null,
-    to: times.at(-1) ?? null,
-    samples: samples.length,
+    from: span.from,
+    to: span.to,
+    samples: span.samples,
   };
 }
 
