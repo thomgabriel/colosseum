@@ -554,7 +554,7 @@ describe('createAgentAnalytics', () => {
     expect(result.assets.filter((row) => row.unread === 'failed')).toHaveLength(listed.length - 2);
   });
 
-  it('reads nothing that no turn asks for: no read ahead and none on a timer', async () => {
+  it('reads nothing that no turn or start-up asks for: no timer', async () => {
     vi.useFakeTimers();
     try {
       const sheet = vi.fn(async () => measured());
@@ -570,6 +570,34 @@ describe('createAgentAnalytics', () => {
       // Kept reads are not refreshed on their own, however long the server stays up.
       await vi.advanceTimersByTimeAsync(24 * 3_600_000);
       expect(sheet).toHaveBeenCalledTimes(listed.length);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads a chain's reference-size sheets once at start, so the first new goal reads only what failed", async () => {
+    vi.useFakeTimers();
+    try {
+      const sheet = vi.fn(async (_db: Db, id: string) => {
+        if (id === stock.address) throw new Error('too many connections');
+        return measured();
+      });
+      const read = createAgentAnalytics({ sheet, twins: noTwins });
+      const query = { db, chain: 'solana' as const, assets, provenance: 'live' as const };
+      expect(await read.warm?.(query)).toEqual({ read: listed.length - 1, failed: 1 });
+      expect(sheet).toHaveBeenCalledTimes(listed.length);
+      expect(sheet).toHaveBeenCalledWith(db, stock.address, 10_000);
+      sheet.mockImplementation(async () => measured());
+      const first = await read({ ...query, sizeUsd: null });
+      if ('unavailable' in first) throw new Error(first.unavailable);
+      // the kept sheets answer the turn; only the one that failed is read again
+      expect(sheet).toHaveBeenCalledTimes(listed.length + 1);
+      expect(sheet).toHaveBeenLastCalledWith(db, stock.address, 10_000);
+      expect(first.incomplete).toBeUndefined();
+      expect(first.assets.every((row) => row.figures?.length)).toBe(true);
+      // once: no timer reads them again
+      await vi.advanceTimersByTimeAsync(24 * 3_600_000);
+      expect(sheet).toHaveBeenCalledTimes(listed.length + 1);
     } finally {
       vi.useRealTimers();
     }

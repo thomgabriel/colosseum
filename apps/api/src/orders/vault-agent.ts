@@ -108,10 +108,13 @@ type AgentAnalyticsQuery = {
   sizeUsd: number | null;
 };
 /**
- * Reads the analytics; injected, like `PlanInputs`, so nothing under /v1 reads a file or a fixture. A read
- * happens only when a turn asks for it: nothing is read ahead of the conversations.
+ * Reads the analytics; injected, like `PlanInputs`, so nothing under /v1 reads a file or a fixture. `warm`
+ * reads a chain's reference-size sheets once, at the server's start, so the first turn finds them kept; it
+ * answers how many were read and how many failed. Nothing reads them again on a timer.
  */
-export type AgentAnalytics = (q: AgentAnalyticsQuery) => Promise<AgentAnalyticsResult>;
+export type AgentAnalytics = ((q: AgentAnalyticsQuery) => Promise<AgentAnalyticsResult>) & {
+  warm?: (q: Omit<AgentAnalyticsQuery, 'sizeUsd'>) => Promise<{ read: number; failed: number }>;
+};
 /** The code a route logs for analytics that were not all read, or null. */
 export function analyticsGap(read: AgentAnalyticsResult | null): string | null {
   if (!read) return null;

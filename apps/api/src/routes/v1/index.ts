@@ -116,9 +116,11 @@ export type V1Deps = {
    * model reads only the plan inputs. The server hands in the reader of the fact sheets.
    */
   agentAnalytics?: AgentAnalytics;
+  /** Read each live chain's analytics once at start, after the shelf. Default: off. */
+  warmAgentAnalytics?: boolean;
   /**
    * Work the shelf out once at start, in the background, so its figures are kept before the first
-   * visitor asks; the risk reads' warm-up waits for it. Default: off.
+   * visitor asks; the other warm-ups wait for it. Default: off.
    */
   warmShelf?: boolean;
   /** How long a read of a chain's shelf figures is waited for. Default: `SHELF_READ_MS`, a minute. */
@@ -260,6 +262,38 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
         .finally(shelfDone);
     });
   } else shelfDone();
+  // The conversations' analytics, read once from the start so the first turn finds them kept. Never again
+  // on a timer: an idle server reads nothing (PERF-DB-LOAD).
+  const analytics = deps.agentAnalytics;
+  if (deps.warmAgentAnalytics && analytics?.warm) {
+    const warm = analytics.warm;
+    const on = db;
+    app.addHook('onReady', async () => {
+      // After the shelf: on a host with a sixth of a CPU (Render's free plan), both at once slow it down.
+      void shelfWarm.then(() => {
+        for (const entry of chains.active()) {
+          if (entry.mock) continue;
+          const failedWarm = (err: unknown) =>
+            app.log.warn(
+              { code: 'analytics_warm_failed', chain: entry.chain, err: loggable(err) },
+              'the conversation analytics were not warmed',
+            );
+          const warmed = ({ read, failed }: { read: number; failed: number }) => {
+            const line = { code: 'analytics_warmed', chain: entry.chain, read, failed };
+            const msg = `conversation analytics warmed on ${entry.chain}: ${read} sheet(s), ${failed} failed`;
+            if (failed) app.log.warn(line, msg);
+            else app.log.info(line, msg);
+          };
+          entry.adapter
+            .listAssets()
+            .then((assets) =>
+              warm({ db: on, chain: entry.chain, assets, provenance: entry.provenance }),
+            )
+            .then(warmed, failedWarm);
+        }
+      });
+    });
+  }
   const modelSettings = intakeSettings(env);
   const quota = createModelQuota({ ...modelSettings, now: deps.now });
   const intakeModel =
