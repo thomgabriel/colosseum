@@ -8,6 +8,7 @@ Scripts a person runs against the hosted systems. Each one says at its top what 
 | `pnpm ops:prune-risk [--dry-run] [--archived <dir>]` | Deletes the rows older than their window in batches, then vacuums. A table the database alone holds (pool flow) is cut no further than the archive `--archived <dir>` names, and left whole without one. `DATABASE_URL`. |
 | `pnpm ops:install-prune [--archive-dir <dir>] [--importers] [--dry-run-now]` | Loads the launchd job `com.colosseum.risk-prune`: daily at 05:30, the archive of pool flow into `~/tenonfi-archive`, then the prune. `--importers` rebuilds the loop's lending and Robinhood Chain importers, which skip rows older than the window. |
 | `pnpm ops:move-db [--dry-run] --record <file> [--at <time>]`, `--recount --record <file>`, `--grants-only` | Copies the app's schemas to another server, the risk tables cut to their window, and checks every table's rows; `--recount` checks afterwards that nothing more was written on the source. `SOURCE_DATABASE_URL`, `TARGET_DATABASE_URL`. |
+| `pnpm ops:table-sizes [--min-mb 1] [--json]` | Prints each table's size (heap, TOAST, indexes), live and dead rows, average row and average jsonb column, and for pool snapshots how many sides are stored as before (null), as pairs and as objects. Read-only; reads every row of each table it lists, on the server. `DATABASE_URL`. |
 
 The windows and the reasons for them are in `docs/risk/STATE-RISK.md`, "Retention of the hosted tables".
 
@@ -27,6 +28,33 @@ The collectors write every reading to files under `~/.colosseum/hosted-risk` bef
 | `risk_pool_flow` | none: the loop's daily rewalk keeps only its last walk (`evm/history/robinhood`), so the daily job archives these rows to `~/tenonfi-archive/risk_pool_flow/` before the prune |
 
 All of them go back to Oct 6, as the database does. They grow by about 190 MB a day (2 GB from Oct 6 to Oct 16) on the Mac's disk; keep them, and back them up with the archive folder. `RISK_IMPORT_ALL=1 pnpm risk:import` (and `RISK_LENDING_IMPORT_ALL=1`, `RISK_EVM_IMPORT_ALL=1` for the other two importers) puts a file's rows back into a database that keeps everything. None of these scripts prints a database address, and each lifts the server's statement timeout for its own statements (Supabase sets 120 s).
+
+## Giving the freed space back to Neon (DB-STORAGE, Oct 18)
+
+Since Oct 18 the import stores curves as pairs and an unchanged pool side as null, and lending detail cut to four keys (`docs/risk/STATE-RISK.md`, "What a row stores"). The daily prune deletes the older, larger rows and vacuums, so their space is used again by new rows and the tables stop growing; the files keep their size, and Neon counts the files, until the table's owner runs `VACUUM FULL`. Do it once, after the old rows have aged out: four days after the new import first runs for pool and lending snapshots, seven for asset snapshots. Each statement rewrites one table and locks it while it runs (seconds to a minute; the heatmap and history reads wait), so run it away from the hourly jobs (minutes 10 to 25), with the Neon owner role's direct (not `-pooler`) address, and compare with `pnpm ops:table-sizes` before and after:
+
+```sh
+read -rs "DATABASE_URL?Neon owner address: " && export DATABASE_URL; echo
+pnpm ops:table-sizes --min-mb 5
+psql "$DATABASE_URL" <<'SQL'
+set statement_timeout = 0;
+vacuum (full, analyze) public.risk_pool_snapshots;
+vacuum (full, analyze) public.risk_lending_snapshots;
+vacuum (full, analyze) public.risk_asset_snapshots;
+vacuum (full, analyze) public.risk_lending_facts;
+vacuum (full, analyze) public.risk_lending_coverage;
+SQL
+pnpm ops:table-sizes --min-mb 5
+```
+
+Each rewrite needs free room for the table's new copy (largest about 150 MB), well inside the limit. The reconstructed lending history (`kind like '%\_hourly'`) is never cut and keeps its whole rows in `detail`, which nothing reads; a person may cut it to the same four keys before the `VACUUM FULL` (it changes stored rows, so it is a person's call):
+
+```sql
+update public.risk_lending_snapshots
+set detail = (select coalesce(jsonb_object_agg(k, v), '{}'::jsonb) from jsonb_each(detail) e(k, v)
+              where k in ('symbol', 'debtSymbol', 'supplyApr', 'borrowApr'))
+where kind like '%\_hourly';
+```
 
 ## Moving the database from Supabase to Neon
 
