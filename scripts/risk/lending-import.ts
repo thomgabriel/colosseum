@@ -36,7 +36,7 @@ import {
 } from '@colosseum/risk';
 import { eq, inArray, max } from 'drizzle-orm';
 import { importFloor } from '../ops/risk-retention';
-import { rowsSince } from './lib-import';
+import { lendingDetail, rowsSince } from './lib-import';
 
 // Step 10b item 8 — `pnpm risk:lending-import`. Imports the lending files into risk_lending_snapshots,
 // risk_lending_positions and risk_lending_events. Idempotent: every table has a natural key and inserts skip
@@ -53,6 +53,8 @@ import { rowsSince } from './lib-import';
 // four days) is skipped: the daily prune deletes those rows, and they would be inserted again. Of the rest, only
 // the rows from the newest imported five-minute row on are sent (Oct 18, DB-LOAD).
 // RISK_LENDING_IMPORT_ALL=1 imports every day on disk, for a database that keeps everything.
+// A snapshot's `detail` keeps only the keys a reader takes from it (`lendingDetail`, lib-import.ts; DB-STORAGE);
+// the whole row stays in the file it came from.
 const HOME = process.env.RISK_HOME ?? join(homedir(), '.colosseum', 'risk');
 const HISTORY = process.argv.includes('--history');
 const HIST_DIR = resolve(process.env.RISK_LENDING_HISTORY ?? 'data/risk/lending-history');
@@ -121,7 +123,7 @@ function liveSnapshot(r: Row): SnapshotInsert | null {
     symbol: (r.symbol as string) ?? null,
     role: (r.role as string) ?? null,
     slot: num(r.slot),
-    detail: r,
+    detail: lendingDetail(r),
     methodVersion: (r.methodVersion as string) ?? METHOD_VERSION,
     source: r.source as string,
     method: r.method as string,
@@ -427,7 +429,7 @@ async function importHistorySnapshotsAndPositions() {
       suppliedUsd: num(r.suppliedUsd),
       borrowedUsd: num(r.borrowedUsd),
       usdNullReason: (r.usdNullReason as string) ?? null,
-      detail: r,
+      detail: lendingDetail(r),
       methodVersion: r.method as string,
       source: r.source as string,
       method: r.method as string,
@@ -458,7 +460,7 @@ async function importHistorySnapshotsAndPositions() {
       suppliedUsd: num(r.collateralUsd),
       borrowedUsd: num(r.debtUsd),
       usdNullReason: (r.usdNullReason as string) ?? null,
-      detail: r,
+      detail: lendingDetail(r),
       methodVersion: r.method as string,
       source: r.source as string,
       method: r.method as string,

@@ -80,15 +80,18 @@ async function readIn(
     pts as (
       select distinct on (s.asset_mint, s.fetched_at, v.side, n)
         s.asset_mint, s.fetched_at, s.regime, v.side,
-        case when jsonb_typeof(p.pt->'notionalUsd') = 'number'
-          then (p.pt->>'notionalUsd')::float8 end as n,
-        (p.pt->>'outUsd')::float8 as out_usd
+        case when jsonb_typeof(q.n) = 'number' then (q.n #>> '{}')::float8 end as n,
+        (q.o #>> '{}')::float8 as out_usd
       from snaps s
       cross join lateral (values ('sell', s.sell), ('buy', s.buy)) v(side, arr)
       cross join lateral jsonb_array_elements(
         case when jsonb_typeof(v.arr) = 'array' then v.arr else '[]'::jsonb end
       ) with ordinality p(pt, ord)
-      where jsonb_typeof(p.pt->'outUsd') = 'number'
+      -- a point is an object or a [notionalUsd, outUsd] pair (packSide, DB-STORAGE)
+      cross join lateral (select
+        case when jsonb_typeof(p.pt) = 'array' then p.pt->0 else p.pt->'notionalUsd' end as n,
+        case when jsonb_typeof(p.pt) = 'array' then p.pt->1 else p.pt->'outUsd' end as o) q
+      where jsonb_typeof(q.o) = 'number'
       order by s.asset_mint, s.fetched_at, v.side, n, p.ord desc
     ),
     costs as (

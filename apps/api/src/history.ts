@@ -30,26 +30,35 @@ export const seriesProvenance = (xs: Provenance[]): Provenance =>
 
 type CurvePt = { notionalUsd: number; outUsd: number };
 
+// A stored side is either form (`packSide`, packages/risk/src/curve-store.ts): an array of objects as the
+// collector wrote them, or of `[notionalUsd, outUsd]` pairs. These read a point's two numbers in both.
+const nOf = (pt: string) =>
+  `case when jsonb_typeof(${pt}) = 'array' then ${pt}->0 else ${pt}->'notionalUsd' end`;
+const outOf = (pt: string) =>
+  `case when jsonb_typeof(${pt}) = 'array' then ${pt}->1 else ${pt}->'outUsd' end`;
+const pointsOf = (side: AnyColumn) =>
+  sql`jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord)`;
+
 /**
  * A stored side cut, in the database, to what `capacityAtTau` reads: `[notionalUsd, outUsd]` of each point
  * whose outUsd is a number, in the stored order. The numbers are the stored JSON's, not floats the
- * database printed. A snapshot's side holds the collector's route detail beside the two numbers (pool,
- * mid, cost, fill), about three quarters of what a row ships; the series read only the two.
+ * database printed. A snapshot's side held the collector's route detail beside the two numbers (pool,
+ * mid, cost, fill), about three quarters of what a row shipped; the series read only the two.
  */
 export const curvePairs = (side: AnyColumn): SQL<Array<[number, number]>> =>
   sql<
     Array<[number, number]>
-  >`(select coalesce(jsonb_agg(jsonb_build_array(p.pt->'notionalUsd', p.pt->'outUsd') order by p.ord), '[]'::jsonb) from jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord) where jsonb_typeof(p.pt->'outUsd') = 'number')`;
+  >`(select coalesce(jsonb_agg(jsonb_build_array(${sql.raw(nOf('p.pt'))}, ${sql.raw(outOf('p.pt'))}) order by p.ord), '[]'::jsonb) from ${pointsOf(side)} where jsonb_typeof(${sql.raw(outOf('p.pt'))}) = 'number')`;
 
 /**
  * A stored side cut, in the database, to each point's `notionalUsd` and `outUsd`, in the stored order: every
- * point kept, each key there or absent as stored, the numbers the stored JSON's. For a read that does its own
- * arithmetic on the two and nothing else, without the collector's route detail.
+ * point kept, each key there or absent as stored (a pair has both), the numbers the stored JSON's. For a read
+ * that does its own arithmetic on the two and nothing else, without the collector's route detail.
  */
 export const curveNotionalOut = (side: AnyColumn): SQL<Array<Record<string, unknown>>> =>
   sql<
     Array<Record<string, unknown>>
-  >`(select coalesce(jsonb_agg(case when jsonb_typeof(p.pt) = 'object' then p.pt - array(select k from jsonb_object_keys(p.pt) k where k not in ('notionalUsd', 'outUsd')) else p.pt end order by p.ord), '[]'::jsonb) from jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord))`;
+  >`(select coalesce(jsonb_agg(case when jsonb_typeof(p.pt) = 'object' then p.pt - array(select k from jsonb_object_keys(p.pt) k where k not in ('notionalUsd', 'outUsd')) when jsonb_typeof(p.pt) = 'array' then jsonb_build_object('notionalUsd', p.pt->0, 'outUsd', p.pt->1) else p.pt end order by p.ord), '[]'::jsonb) from ${pointsOf(side)})`;
 
 /**
  * The first point of a stored side whose `notionalUsd` is the number `notionalUsd` (compared as a double, as
@@ -62,7 +71,7 @@ export const curvePointAt = (
 ): SQL<{ outUsd?: unknown } | null> =>
   sql<{
     outUsd?: unknown;
-  } | null>`(select p.pt - array(select k from jsonb_object_keys(p.pt) k where k <> 'outUsd') from jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord) where jsonb_typeof(p.pt) = 'object' and case when jsonb_typeof(p.pt->'notionalUsd') = 'number' then (p.pt->>'notionalUsd')::float8 = ${notionalUsd}::float8 else false end order by p.ord limit 1)`;
+  } | null>`(select case when jsonb_typeof(p.pt) = 'array' then jsonb_build_object('outUsd', p.pt->1) else p.pt - array(select k from jsonb_object_keys(p.pt) k where k <> 'outUsd') end from ${pointsOf(side)} where jsonb_typeof(p.pt) in ('object', 'array') and case when jsonb_typeof(${sql.raw(nOf('p.pt'))}) = 'number' then (${sql.raw(nOf('p.pt'))} #>> '{}')::float8 = ${notionalUsd}::float8 else false end order by p.ord limit 1)`;
 
 /** `curvePairs` back as the points `capacityAtTau` reads. */
 export const fromPairs = (xs: Array<[number, number]>): CurvePt[] =>

@@ -109,8 +109,10 @@ export function listedPoolTvl(db: Db) {
 /**
  * The heatmap's cells: per hour of the week (ET), the median over snapshots of the asset's best single-pool
  * cost at `notional`, from the pools that exit to dollars. Each snapshot's one point at `notional` is picked
- * in the database (`curvePointAt`); a snapshot without one is not counted. Null when the asset has no such
- * pool.
+ * in the database (`curvePointAt`); a snapshot without one is not counted. A side stored as JSON null (a
+ * ten-minute run found it as the pool's last stored curve, scripts/risk/import.ts) reads as the pool's
+ * previous curve on that side, and is not counted when that curve is no longer kept. Null when the asset has
+ * no such pool.
  */
 export async function heatmapCells(
   db: Db,
@@ -125,13 +127,13 @@ export async function heatmapCells(
       and(eq(riskPools.assetMint, mint), inArray(riskPools.exitPath, ['direct_usd', 'via_sol'])),
     );
   if (!pools.length) return null;
+  const col = side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy;
   const snaps = await db
     .select({
+      pool: riskPoolSnapshots.pool,
       fetchedAt: riskPoolSnapshots.fetchedAt,
-      point: curvePointAt(
-        side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy,
-        notional,
-      ),
+      asBefore: sql<boolean>`jsonb_typeof(${col}) = 'null'`,
+      point: curvePointAt(col, notional),
     })
     .from(riskPoolSnapshots)
     .where(
@@ -139,10 +141,15 @@ export async function heatmapCells(
         riskPoolSnapshots.pool,
         pools.map((p) => p.address),
       ),
-    );
+    )
+    .orderBy(riskPoolSnapshots.pool, riskPoolSnapshots.fetchedAt);
+  // each pool's point on its last stored curve, which a side stored as null repeats
+  const lastPoint = new Map<string, unknown>();
   const bestAt = new Map<string, number>();
   for (const s of snaps) {
-    const pt = s.point as { outUsd: number } | null;
+    if (!s.asBefore) lastPoint.set(s.pool, s.point);
+    else if (!lastPoint.has(s.pool)) continue;
+    const pt = lastPoint.get(s.pool) as { outUsd: number } | null;
     if (!pt) continue;
     const k = s.fetchedAt.toISOString();
     bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
