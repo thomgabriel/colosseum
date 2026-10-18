@@ -49,6 +49,23 @@ The node for `ROBINHOOD_RPC_URL`: a paid one (Alchemy's) answers the worker's ba
 
 Checked on Oct 13 against the deployed factory `0xaE4ae2F2a5c2ee50C5A7574Cf355Cd5B068E7A80` through `robinhood.drpc.org`, reads only: the node check, the height, the rules (not paused, loss cap 100 bps, band 50 bps), ten assets labelled `live`, an owner with no vault (an empty list, not a failure), an address with no vault (`skipped`), and two Chainlink prices labelled `live`; 62 calls in 26 requests, the largest batch three, every answer 200.
 
+## Inside the API
+
+Gate `SNAPSHOT-IN-API` (Thom, Oct 18): the hosted API runs this loop in its own process, so no other machine has to. It is off unless `SNAPSHOT_IN_API=1`, and nothing changes for tests or a local API without it.
+
+```sh
+SNAPSHOT_IN_API=1            # on; unset or 0 is off
+SNAPSHOT_INTERVAL_S=1800     # optional, default shown; seconds between passes, 60 or more
+```
+
+- It is this worker's own start (`start` of `src/main.ts`), called from `apps/api/src/snapshot-in-api.ts`: the same chain flags, mainnet refusals, node checks, passes, back-off and run rows. The database is the API's one pool (`sharedDb` of `packages/db`), which the loop never ends, and the chain rows are held as the worker holds them.
+- The nodes are the API's own: the worker and the API both read `SOLANA_RPC_URL` and `ROBINHOOD_RPC_URL`, so the hosted API needs no new secret. `SNAPSHOT_CHAINS` and `SNAPSHOT_PING_URL` work as they do for the worker.
+- Half an hour by default: `/v1/stats` needs a snapshot younger than an hour, and each pass wakes the hosted database (Neon's free compute sleeps after five minutes without a query). The chains wake on one grid of the interval, so their passes reach the database together and wake it once.
+- The first pass comes 30 s after the API listens. A chain's next pass waits for its last to end, so passes never overlap; a pass longer than the interval waits for the next tick.
+- What the worker would refuse at start (a mainnet it does not read, no chain, a missing node address, a node of another network) is logged as `snapshot loop not started` with its reason, and the API keeps serving with the loop off. A database that does not answer at start is logged and tried again an interval later. Each line the worker prints is an API log line, `{ snapshot: <the line> }`: `warn` for a line with `alert: true` (a failed or skipped pass), `info` for the rest.
+- Keep-awake: Render's free plan sleeps a service after 15 minutes without a request from outside, which would stop the loop. Once the loop runs and `RENDER_EXTERNAL_URL` is set (Render sets it), the API asks its own `/health` through that address every ten minutes. `/health` answers from memory and asks the database nothing, so the database still sleeps between passes.
+- One worker a database: with the loop on in the API, stop the worker anywhere else. A start closes every run left open on its chains, another worker's included.
+
 ## The local run
 
 ```sh
@@ -158,4 +175,5 @@ A read of many vaults by address in one call is not built on either reader. The 
 - `tests/snapshot/start.test.ts` starts the worker as a process: a mainnet it may not read stops it with the sentence, a code that is not 0 and no line of a pass, for a chain it reads, one it does not, and Robinhood Chain without its switch.
 - `tests/snapshot/reads-only.test.ts`: the source of this folder names nothing that builds, signs, relays or sends, and takes from a real chain only what reads.
 - `tests/boundaries.test.ts`: the worker's row, and nothing `src/main.ts` loads at start reaching a signing entry.
+- `apps/api/src/snapshot-in-api.test.ts`: the loop inside the API off without its flag, the interval and its floor, the worker run on the API's pool after the first-pass delay, no two passes of a chain at once when a pass outlasts the interval, the chains on one grid, a failing chain logged and backing off alone, a mainnet refusal logged and not retried, a database that does not answer retried, and the keep-awake only with the flag, `RENDER_EXTERNAL_URL` and a running loop.
 - `src/pipeline.test.ts`, `src/pass.test.ts`, `src/discover.test.ts` and `tests/snapshot/loop.test.ts`: the passes on the mock with the database, the lines and the rows, the discovery by owner, and the loop held to the keeper's. `src/pipeline.test.ts` needs the database (`pnpm db:up`).
