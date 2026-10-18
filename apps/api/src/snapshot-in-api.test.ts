@@ -256,22 +256,28 @@ describe('the loop', () => {
     expect(lines.some((l) => l.level === 'error')).toBe(false);
   });
 
-  it('refuses to start where the worker would, logs why, and does not try again', async () => {
+  it('refuses to start where the worker would, logs why, and asks again each interval', async () => {
+    const sigterm = process.listenerCount('SIGTERM');
+    const sigint = process.listenerCount('SIGINT');
     const { handle, lines } = start({
       ...ON,
       CHAIN_MODE_SOLANA: 'readonly',
       CHAIN_NETWORK_SOLANA: 'mainnet',
     });
     expect(handle).not.toBeNull();
-    await vi.advanceTimersByTimeAsync(FIRST_PASS_DELAY_MS + 60 * 60_000);
-    expect(lines).toEqual([
-      {
-        level: 'error',
-        obj: { reason: mainnetRefusal('CHAIN_NETWORK_SOLANA') },
-        msg: 'snapshot loop not started',
-      },
-    ]);
+    const refusal = {
+      level: 'error',
+      obj: { reason: mainnetRefusal('CHAIN_NETWORK_SOLANA'), retryInS: 60 },
+      msg: 'snapshot loop not started',
+    };
+    await vi.advanceTimersByTimeAsync(FIRST_PASS_DELAY_MS);
+    expect(lines).toEqual([refusal]);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(lines).toEqual([refusal, refusal]);
     expect(db.seeded).toBe(0);
+    // The worker's own signal handlers would end the API; none is installed, however often it starts.
+    expect(process.listenerCount('SIGTERM')).toBe(sigterm);
+    expect(process.listenerCount('SIGINT')).toBe(sigint);
   });
 
   it('tries again an interval later when the database does not answer at start', async () => {

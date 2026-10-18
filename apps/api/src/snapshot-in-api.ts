@@ -2,6 +2,7 @@ import { type Db, sharedDb } from '@colosseum/db';
 import { type EnvLike, readEnv } from '@colosseum/schemas';
 import { MIN_INTERVAL_S } from '../../snapshot/src/args';
 import { sourcesFromEnv } from '../../snapshot/src/chains';
+import { hiderFromEnv } from '../../snapshot/src/hide';
 import { lastWords, type StartDeps, start } from '../../snapshot/src/main';
 import { runSnapshots } from '../../snapshot/src/run';
 
@@ -85,6 +86,7 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
   if (!settings) return null;
 
   const intervalMs = settings.intervalS * 1000;
+  const hide = hiderFromEnv(env);
   const now = deps.now ?? Date.now;
   // The grid's origin: the first pass. Set again when the loop is started again.
   let epoch = now();
@@ -154,7 +156,8 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
         open: () => ({ db: (deps.db ?? (() => sharedDb().db))(), client: { end: async () => {} } }),
         // The API process is stopped as the API is; the worker's signal handler would end it early.
         onStop: () => {},
-        warn: (line) => log.warn({ reason: line }, 'snapshot'),
+        // The worker's own warn hides node URLs; this one replaces it, so it hides them too.
+        warn: (line) => log.warn({ reason: hide(line) }, 'snapshot'),
         ...(deps.fetch ? { fetch: deps.fetch } : {}),
         run: (o) => {
           startKeepAwake();
@@ -166,8 +169,10 @@ export function startSnapshotInApi(env: EnvLike, deps: SnapshotInApiDeps): Snaps
       if (stopped && e instanceof Stopped) return;
       const reason = lastWords(env, e);
       if (!configured) {
-        log.error({ reason }, 'snapshot loop not started');
-        stop();
+        // A refusal at start is tried again each interval: a node behind a load balancer can lag once
+        // (an empty eth_getCode), and the standalone worker would have been restarted by launchd.
+        log.error({ reason, retryInS: settings.intervalS }, 'snapshot loop not started');
+        if (!stopped) later(intervalMs, () => void attempt());
         return;
       }
       log.error(
