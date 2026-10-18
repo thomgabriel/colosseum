@@ -41,6 +41,29 @@ export const curvePairs = (side: AnyColumn): SQL<Array<[number, number]>> =>
     Array<[number, number]>
   >`(select coalesce(jsonb_agg(jsonb_build_array(p.pt->'notionalUsd', p.pt->'outUsd') order by p.ord), '[]'::jsonb) from jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord) where jsonb_typeof(p.pt->'outUsd') = 'number')`;
 
+/**
+ * A stored side cut, in the database, to each point's `notionalUsd` and `outUsd`, in the stored order: every
+ * point kept, each key there or absent as stored, the numbers the stored JSON's. For a read that does its own
+ * arithmetic on the two and nothing else, without the collector's route detail.
+ */
+export const curveNotionalOut = (side: AnyColumn): SQL<Array<Record<string, unknown>>> =>
+  sql<
+    Array<Record<string, unknown>>
+  >`(select coalesce(jsonb_agg(case when jsonb_typeof(p.pt) = 'object' then p.pt - array(select k from jsonb_object_keys(p.pt) k where k not in ('notionalUsd', 'outUsd')) else p.pt end order by p.ord), '[]'::jsonb) from jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord))`;
+
+/**
+ * The first point of a stored side whose `notionalUsd` is the number `notionalUsd` (compared as a double, as
+ * JavaScript compares the parsed point), cut to its `outUsd` as stored; null when no point is at that size.
+ * The heatmap reads one point of each snapshot, not the side.
+ */
+export const curvePointAt = (
+  side: AnyColumn,
+  notionalUsd: number,
+): SQL<{ outUsd?: unknown } | null> =>
+  sql<{
+    outUsd?: unknown;
+  } | null>`(select p.pt - array(select k from jsonb_object_keys(p.pt) k where k <> 'outUsd') from jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord) where jsonb_typeof(p.pt) = 'object' and case when jsonb_typeof(p.pt->'notionalUsd') = 'number' then (p.pt->>'notionalUsd')::float8 = ${notionalUsd}::float8 else false end order by p.ord limit 1)`;
+
 /** `curvePairs` back as the points `capacityAtTau` reads. */
 export const fromPairs = (xs: Array<[number, number]>): CurvePt[] =>
   xs.map(([notionalUsd, outUsd]) => ({ notionalUsd, outUsd }));
