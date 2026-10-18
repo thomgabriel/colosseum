@@ -59,7 +59,8 @@ const LAYOUT: Record<string, Row> = {
   // The built SDK carries no workspace code. Its tests may use the parsers, and run the guard and the
   // executor against the mock chain.
   [SDK]: { may: [SCHEMAS], typesOnly: [SCHEMAS], inTests: [SCHEMAS, MOCK] },
-  'apps/api': { may: [SCHEMAS, BASKET, ENGINE, RISK, DB, SOLANA, EVM, MOCK, SDK] },
+  // It runs the snapshot worker's loop in its own process under SNAPSHOT_IN_API, by a relative path.
+  'apps/api': { may: [SCHEMAS, BASKET, ENGINE, RISK, DB, SOLANA, EVM, MOCK, SDK, 'apps/snapshot'] },
   // "As today": it mounts the /risk routes file of apps/api by a relative path.
   'apps/risk-api': { may: [SCHEMAS, DB, RISK, 'apps/api'] },
   'apps/keeper': { may: [SCHEMAS, BASKET, DB, SOLANA, EVM, MOCK] },
