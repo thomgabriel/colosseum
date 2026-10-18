@@ -159,11 +159,13 @@ export type WarmOptions = {
 };
 
 /**
- * Reads what the Bearing pages read first, so the first visitor after a start (the host sleeps when
- * idle) mostly finds it kept: each chain's asset list and each asset's three answers, and Solana's
- * lending pools with their histories. It stays behind the people it is for: it starts after the request
- * that woke the server is answered, reads one asset at a time, waits while any request from outside is
- * under way, and stops after `maxMs`.
+ * Reads what costs the Bearing pages most on a cold start, so the first visitor after a start (the host
+ * sleeps when idle) mostly finds it kept: each chain's asset list and each asset's fact sheet at the
+ * stocks page's size, ten queries apiece. The rest (capacity histories, pools, lending pools) is read when
+ * a page asks for it: each start reads the hosted database's free allowance, and a start nobody visits
+ * the Bearing pages after should cost little (Oct 18, DB-LOAD). It stays behind the people it is for: it
+ * starts after the request that woke the server is answered, reads one asset at a time, waits while any
+ * request from outside is under way, and stops after `maxMs`.
  */
 export async function warmRiskReads(app: FastifyInstance, opts: WarmOptions = {}) {
   const { log = () => {}, firstMs = 30_000, maxMs = 180_000, pauseMs = 250 } = opts;
@@ -200,23 +202,10 @@ export async function warmRiskReads(app: FastifyInstance, opts: WarmOptions = {}
     )) as { assets?: Array<{ symbol: string; assetMint: string }> } | null;
     const ids = (list?.assets ?? []).map((a) => (chain === 'solana' ? a.symbol : a.assetMint));
     await each(ids, async (id) => {
-      const p = dexPaths(id, { chain, sizeUsd: 100_000, days: 30, tau: 0.01 });
-      await Promise.all([get(p.sheet), get(p.hist), get(p.pools)]);
+      await get(dexPaths(id, { chain, sizeUsd: 100_000, days: 30, tau: 0.01 }).sheet);
       n++;
     });
   }
-  const lending = (await get('/risk/facts/lending')) as {
-    pools?: Array<{ account: string }>;
-  } | null;
-  await each(lending?.pools ?? [], async ({ account }) => {
-    const a = enc(account);
-    await Promise.all([
-      get(`/risk/facts/lending/${a}`),
-      get(`/risk/facts/lending/${a}/history?days=7`),
-      get(`/risk/facts/lending/${a}/history?days=30`),
-    ]);
-  });
-  await each(['/risk/pools/recorded', '/risk/chains?tau=0.01'], get);
   log(
     `risk reads warmed: ${n} assets in ${Math.round((Date.now() - started) / 1000)} s${late() ? ' (stopped at its time limit)' : ''}`,
   );

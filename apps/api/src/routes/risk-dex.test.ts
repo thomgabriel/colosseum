@@ -109,29 +109,23 @@ describe('GET /risk/dex', () => {
 });
 
 describe('the warm-up', () => {
-  it('reads each chain’s list, each asset’s three answers and the lending pools, and keeps them', async () => {
+  it('reads each chain’s list and each asset’s fact sheet, keeps them, and reads nothing else', async () => {
     const { a, read } = await app();
     await warmRiskReads(a, { firstMs: 0 });
-    expect(read).toEqual(
-      expect.arrayContaining([
+    expect([...read].sort()).toEqual(
+      [
         '/risk/assets?tau=0.01',
         '/risk/assets?tau=0.01&chain=robinhood',
-        '/risk/facts/assets/AAAx?sizeUsd=100000',
-        '/risk/assets/AAAx/history?days=30&tau=0.01',
-        '/risk/pools?asset=AAAx',
-        '/risk/facts/assets/MINT-AAAx?sizeUsd=100000',
-        '/risk/pools?asset=MINT-AAAx&chain=robinhood',
-        '/risk/facts/lending/L1',
-        '/risk/facts/lending/L1/history?days=7',
-        '/risk/facts/lending/L1/history?days=30',
-        '/risk/pools/recorded',
-        '/risk/chains?tau=0.01',
-      ]),
+        ...['AAAx', 'BBBx', 'CCCx'].flatMap((s) => [
+          `/risk/facts/assets/${s}?sizeUsd=100000`,
+          `/risk/facts/assets/MINT-${s}?sizeUsd=100000`,
+        ]),
+      ].sort(),
     );
-    // the warm answers are kept: the batch and a page's own read ask nothing new of the routes
+    // the warm answers are kept: a page's own read of a sheet asks nothing new of the routes
     const before = read.length;
-    expect((await a.inject({ url: '/risk/dex?ids=AAAx' })).statusCode).toBe(200);
     await a.inject({ url: '/risk/facts/assets/AAAx?sizeUsd=100000' });
+    await a.inject({ url: '/risk/facts/assets/MINT-AAAx?sizeUsd=100000' });
     expect(read.length).toBe(before);
   });
 
