@@ -4,6 +4,7 @@ import { parseChainConfigs } from '@colosseum/schemas';
 import { buildApp } from './app';
 import { warmRiskReads } from './routes/risk-dex';
 import { shelfWarmed } from './routes/v1';
+import { startSnapshotInApi } from './snapshot-in-api';
 
 // The vault tables point at `chains`. Write its rows before serving, and stop if this database was
 // seeded for another network than the one the environment names.
@@ -20,3 +21,5 @@ app.log.info(`docs at http://localhost:${port}/docs`);
 warmRiskReads(app, { log: (msg) => app.log.info(msg), after: shelfWarmed(app) }).catch((err) =>
   app.log.warn({ err }, 'risk reads not warmed'),
 );
+// The snapshot worker's passes in this process, behind SNAPSHOT_IN_API=1; never ends the API.
+startSnapshotInApi(process.env, { log: app.log });
