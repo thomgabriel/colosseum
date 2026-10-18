@@ -25,10 +25,10 @@ type Sheet = (db: Db, id: string, sizeUsd: number) => Promise<AssetFacts | null>
 type Read = Extract<AgentAnalyticsResult, { assets: unknown }>;
 type Query = Parameters<AgentAnalytics>[0];
 
-/** Ten minutes: the collectors write hourly at most. A kept read older than this is served once more while
- *  it is read again. */
-const TTL_MS = 10 * 60_000;
-/** Sheets read at once across every conversation and the warm-up: each holds one of the pool's 15
+/** An hour: the collectors write hourly at most. A kept read older than this is served once more while it
+ *  is read again, so nothing reads a sheet that no turn asks for. */
+const TTL_MS = 60 * 60_000;
+/** Sheets read at once across every conversation: each holds one of the pool’s 15
  *  connections. */
 const CONCURRENCY = 3;
 /** A turn waits this long for reads it does not have kept; they carry on and fill the cache for the next. */
@@ -224,20 +224,6 @@ export function createAgentAnalytics(
     }
   }) as AgentAnalytics;
 
-  // Keeps a chain's reference-size sheets read, so a new goal's turn finds them kept.
-  const timers: Array<ReturnType<typeof setInterval>> = [];
-  read.warm = (query) => {
-    const once = () => {
-      start(query, refSizeUsd).catch(() => {});
-    };
-    once();
-    const timer = setInterval(once, Math.max(1_000, ttl / 2));
-    timer.unref?.();
-    timers.push(timer);
-  };
-  read.stop = () => {
-    for (const timer of timers.splice(0)) clearInterval(timer);
-  };
   return read;
 }
 

@@ -144,10 +144,6 @@ export async function buildApp(
     planInputs: deps.v1?.planInputs ?? bearingPlanInputs,
     agentAnalytics: deps.v1?.agentAnalytics ?? bearingAgentAnalytics,
     assetLookups: deps.v1?.assetLookups ?? serverAssetLookups,
-    // The server's own reader is warmed from the start; a test's, or a test of the server's, is not.
-    warmAgentAnalytics:
-      deps.v1?.warmAgentAnalytics ??
-      (deps.v1?.agentAnalytics === undefined && process.env.NODE_ENV !== 'test'),
     // And its shelf, worked out once in the background as it starts.
     warmShelf:
       deps.v1?.warmShelf ?? (deps.v1?.planInputs === undefined && process.env.NODE_ENV !== 'test'),
