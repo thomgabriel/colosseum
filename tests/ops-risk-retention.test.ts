@@ -122,6 +122,9 @@ describe('retention: every growing table has a decision', () => {
     expect(hours.risk_pool_snapshots).toBe(96);
     expect(hours.risk_lending_snapshots).toBe(96);
     expect(hours.risk_asset_snapshots).toBe(168);
+    // DB-STORAGE: every reader of the lending report's tables takes the newest report
+    expect(hours.risk_lending_facts).toBe(48);
+    expect(hours.risk_lending_coverage).toBe(48);
   });
 });
 

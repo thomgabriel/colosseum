@@ -145,6 +145,7 @@
     "ops:prune-risk": "tsx scripts/ops/prune-risk.ts",
     "ops:archive-risk": "tsx scripts/ops/archive-risk.ts",
     "ops:move-db": "tsx scripts/ops/move-db.ts",
+    "ops:table-sizes": "tsx scripts/ops/table-sizes.ts",
     "ops:install-prune": "zsh scripts/ops/install-prune.sh"
   },
   "devDependencies": {
