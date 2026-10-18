@@ -32,8 +32,9 @@ export function limiter(n: number) {
 }
 
 /**
- * A read kept by key: a fresh one is served as it is, an older one is served while it is read again, and
- * a missing one is read once however many turns ask. A failed read keeps what was there.
+ * A read kept by key: a fresh one is served as it is, one older than `ttl` is served while it is read
+ * again, and a missing one, or one older than twice `ttl` (a server idle that long), is read through, once
+ * however many turns ask. A failed read keeps what was there.
  */
 export function keeper<T>(ttl: number, now: () => number, maxKept = MAX_KEPT) {
   const kept = new Map<string, { at: number; value?: { v: T }; read?: Promise<T> }>();
@@ -42,7 +43,8 @@ export function keeper<T>(ttl: number, now: () => number, maxKept = MAX_KEPT) {
       for (const [k, e] of kept) if (!e.read && now() - e.at > 2 * ttl) kept.delete(k);
     const entry = kept.get(key) ?? { at: 0 };
     kept.set(key, entry);
-    if (!entry.read && (!entry.value || now() - entry.at > ttl)) {
+    const usable = entry.value && now() - entry.at <= 2 * ttl ? entry.value : undefined;
+    if (!entry.read && (!usable || now() - entry.at > ttl)) {
       const read = load();
       entry.read = read;
       read.then(
@@ -57,7 +59,7 @@ export function keeper<T>(ttl: number, now: () => number, maxKept = MAX_KEPT) {
         },
       );
     }
-    return entry.value ? Promise.resolve(entry.value.v) : (entry.read as Promise<T>);
+    return usable ? Promise.resolve(usable.v) : (entry.read as Promise<T>);
   };
 }
 

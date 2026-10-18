@@ -47,6 +47,7 @@ import { z } from 'zod';
 import { curveVersionOf, EVM_METHOD_VERSION } from '../curve-version';
 import { loadAssetFacts, loadPlanFacts } from '../facts';
 import { FACTS_METHODOLOGY } from '../facts-methodology';
+import { curveNotionalOut, curvePointAt } from '../history';
 import { latestLendingReportAt } from '../lending-facts';
 import { type RiskCacheOptions, registerRiskReadCache } from './risk-cache';
 import { registerRiskDexRoute } from './risk-dex';
@@ -103,6 +104,115 @@ export function listedPoolTvl(db: Db) {
     .from(riskPools)
     .where(inArray(riskPools.tier, ['A', 'B']))
     .groupBy(riskPools.assetMint);
+}
+
+/**
+ * The heatmap's cells: per hour of the week (ET), the median over snapshots of the asset's best single-pool
+ * cost at `notional`, from the pools that exit to dollars. Each snapshot's one point at `notional` is picked
+ * in the database (`curvePointAt`); a snapshot without one is not counted. Null when the asset has no such
+ * pool.
+ */
+export async function heatmapCells(
+  db: Db,
+  mint: string,
+  notional: number,
+  side: 'sell' | 'buy',
+): Promise<Array<{ hourOfWeekEt: number; medianCost: number; samples: number }> | null> {
+  const pools = await db
+    .select({ address: riskPools.address })
+    .from(riskPools)
+    .where(
+      and(eq(riskPools.assetMint, mint), inArray(riskPools.exitPath, ['direct_usd', 'via_sol'])),
+    );
+  if (!pools.length) return null;
+  const snaps = await db
+    .select({
+      fetchedAt: riskPoolSnapshots.fetchedAt,
+      point: curvePointAt(
+        side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy,
+        notional,
+      ),
+    })
+    .from(riskPoolSnapshots)
+    .where(
+      inArray(
+        riskPoolSnapshots.pool,
+        pools.map((p) => p.address),
+      ),
+    );
+  const bestAt = new Map<string, number>();
+  for (const s of snaps) {
+    const pt = s.point as { outUsd: number } | null;
+    if (!pt) continue;
+    const k = s.fetchedAt.toISOString();
+    bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
+  }
+  const byHow = new Map<number, number[]>();
+  for (const [t, out] of bestAt) {
+    const h = hourOfWeek(new Date(t));
+    const arr = byHow.get(h) ?? [];
+    arr.push(1 - out / notional);
+    byHow.set(h, arr);
+  }
+  return [...byHow.entries()]
+    .sort((x, y) => x[0] - y[0])
+    .map(([how, xs]) => {
+      const s = [...xs].sort((p, q) => p - q);
+      return {
+        hourOfWeekEt: how,
+        medianCost: s[Math.floor((s.length - 1) / 2)] as number,
+        samples: s.length,
+      };
+    });
+}
+
+/** The days of routed asset snapshots the thinnest hour reads: the retention of risk_asset_snapshots. */
+export const THINNEST_HOUR_DAYS = 7;
+
+/**
+ * The thinnest hour of the week (ET) to sell `valueUsd` of an asset: the hour with the highest median routed
+ * sell cost at the smallest measured notional at or above the value, over the asset's snapshots of the
+ * `THINNEST_HOUR_DAYS` up to its newest (`newest`), which is what the hosted database keeps (DB-RETENTION).
+ * Each side is read cut to its two numbers (`curveNotionalOut`). Null when no snapshot reaches the value.
+ */
+export async function thinnestHour(db: Db, mint: string, valueUsd: number, newest: Date) {
+  const rows = await db
+    .select({
+      fetchedAt: riskAssetSnapshots.fetchedAt,
+      sell: curveNotionalOut(riskAssetSnapshots.sell),
+    })
+    .from(riskAssetSnapshots)
+    .where(
+      and(
+        eq(riskAssetSnapshots.assetMint, mint),
+        gte(
+          riskAssetSnapshots.fetchedAt,
+          new Date(newest.getTime() - THINNEST_HOUR_DAYS * 86_400_000),
+        ),
+      ),
+    );
+  const byHow = new Map<number, number[]>();
+  for (const r of rows) {
+    const pts = (r.sell as Array<{ notionalUsd: number; outUsd: number }>)
+      .map((p) => ({ n: p.notionalUsd, c: 1 - p.outUsd / p.notionalUsd }))
+      .sort((x, y) => x.n - y.n);
+    const hi = pts.findIndex((p) => p.n >= valueUsd);
+    const cost = hi < 0 ? null : (pts[hi] as { c: number }).c;
+    if (cost === null) continue;
+    const how = hourOfWeek(r.fetchedAt);
+    byHow.set(how, [...(byHow.get(how) ?? []), cost]);
+  }
+  const med = (xs: number[]) =>
+    [...xs].sort((x, y) => x - y)[Math.floor((xs.length - 1) / 2)] as number;
+  return (
+    [...byHow.entries()]
+      .map(([how, xs]) => ({
+        hourOfWeekEt: how,
+        medianSellCost: med(xs),
+        samples: xs.length,
+      }))
+      .sort((x, y) => y.medianSellCost - x.medianSellCost)[0] ?? null
+  );
 }
 
 export async function registerRiskRoutes(
@@ -554,54 +664,8 @@ export async function registerRiskRoutes(
     async (req, reply) => {
       const a = await resolveAsset(req.params.id);
       if (!a) return reply.code(404).send({ error: `unknown asset ${req.params.id}` });
-      const pools = await db
-        .select({ address: riskPools.address })
-        .from(riskPools)
-        .where(
-          and(
-            eq(riskPools.assetMint, a.mint),
-            inArray(riskPools.exitPath, ['direct_usd', 'via_sol']),
-          ),
-        );
-      if (!pools.length) return { asset: a.symbol, cells: [], disclaimer: DISCLAIMER.en };
-      const snaps = await db
-        .select({
-          fetchedAt: riskPoolSnapshots.fetchedAt,
-          curve: req.query.side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy,
-        })
-        .from(riskPoolSnapshots)
-        .where(
-          inArray(
-            riskPoolSnapshots.pool,
-            pools.map((p) => p.address),
-          ),
-        );
-      const bestAt = new Map<string, number>();
-      for (const s of snaps) {
-        const pt = (s.curve as Array<{ notionalUsd: number; outUsd: number }>).find(
-          (x) => x.notionalUsd === req.query.notional,
-        );
-        if (!pt) continue;
-        const k = s.fetchedAt.toISOString();
-        bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
-      }
-      const byHow = new Map<number, number[]>();
-      for (const [t, out] of bestAt) {
-        const h = hourOfWeek(new Date(t));
-        const arr = byHow.get(h) ?? [];
-        arr.push(1 - out / req.query.notional);
-        byHow.set(h, arr);
-      }
-      const cells = [...byHow.entries()]
-        .sort((x, y) => x[0] - y[0])
-        .map(([how, xs]) => {
-          const s = [...xs].sort((p, q) => p - q);
-          return {
-            hourOfWeekEt: how,
-            medianCost: s[Math.floor((s.length - 1) / 2)],
-            samples: s.length,
-          };
-        });
+      const cells = await heatmapCells(db, a.mint, req.query.notional, req.query.side);
+      if (!cells) return { asset: a.symbol, cells: [], disclaimer: DISCLAIMER.en };
       return {
         asset: a.symbol,
         notionalUsd: req.query.notional,
@@ -925,32 +989,7 @@ export async function registerRiskRoutes(
           .limit(1);
         if (!snap) return reply.code(404).send({ error: `no price snapshot for ${a.symbol}` });
         const valueUsd = h.units * snap.refMidUsd;
-        // thinnest hour: highest median routed sell cost at the holding's size, by hour of week (ET)
-        const rows = await db
-          .select({ fetchedAt: riskAssetSnapshots.fetchedAt, sell: riskAssetSnapshots.sell })
-          .from(riskAssetSnapshots)
-          .where(eq(riskAssetSnapshots.assetMint, a.mint));
-        const byHow = new Map<number, number[]>();
-        for (const r of rows) {
-          const pts = (r.sell as Array<{ notionalUsd: number; outUsd: number }>)
-            .map((p) => ({ n: p.notionalUsd, c: 1 - p.outUsd / p.notionalUsd }))
-            .sort((x, y) => x.n - y.n);
-          const hi = pts.findIndex((p) => p.n >= valueUsd);
-          const cost = hi < 0 ? null : (pts[hi] as { c: number }).c;
-          if (cost === null) continue;
-          const how = hourOfWeek(r.fetchedAt);
-          byHow.set(how, [...(byHow.get(how) ?? []), cost]);
-        }
-        const med = (xs: number[]) =>
-          [...xs].sort((x, y) => x - y)[Math.floor((xs.length - 1) / 2)] as number;
-        const thinnest =
-          [...byHow.entries()]
-            .map(([how, xs]) => ({
-              hourOfWeekEt: how,
-              medianSellCost: med(xs),
-              samples: xs.length,
-            }))
-            .sort((x, y) => y.medianSellCost - x.medianSellCost)[0] ?? null;
+        const thinnest = await thinnestHour(db, a.mint, valueUsd, snap.fetchedAt);
         const venues = markets
           .filter((m) => m.assetMint === a.mint)
           .map((m) => {

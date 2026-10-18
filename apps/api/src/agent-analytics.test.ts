@@ -291,7 +291,7 @@ describe('createAgentAnalytics', () => {
     expect(sheet).toHaveBeenCalledWith(db, '0xabcdef0123456789abcdef0123456789abcdef01', 10_000);
   });
 
-  it('keeps a read for ten minutes, then serves it once more while it is read again', async () => {
+  it('keeps a read for an hour, then serves it once more while it is read again', async () => {
     let clock = 0;
     const sheet = vi.fn(async () => measured());
     const read = createAgentAnalytics({ sheet, twins: noTwins, now: () => clock });
@@ -303,10 +303,10 @@ describe('createAgentAnalytics', () => {
       sizeUsd: null,
     };
     await read(query);
-    clock = 9 * 60_000;
+    clock = 59 * 60_000;
     await read(query);
     expect(sheet).toHaveBeenCalledTimes(listed.length);
-    clock = 11 * 60_000;
+    clock = 61 * 60_000;
     const stale = await read(query);
     if ('unavailable' in stale) throw new Error(stale.unavailable);
     // The kept figures answer at once; the new read fills the cache behind them.
@@ -467,7 +467,7 @@ describe('createAgentAnalytics', () => {
       sizeUsd: null,
     };
     const fresh = await read(query);
-    clock = 11 * 60_000;
+    clock = 61 * 60_000;
     fail = true;
     expect(await read(query)).toEqual(fresh);
     await vi.waitFor(() => expect(sheet).toHaveBeenCalledTimes(2));
@@ -554,23 +554,50 @@ describe('createAgentAnalytics', () => {
     expect(result.assets.filter((row) => row.unread === 'failed')).toHaveLength(listed.length - 2);
   });
 
-  it("warms a chain's reference-size reads from the start, so the first new goal finds them kept", async () => {
+  it('reads nothing that no turn or start-up asks for: no timer', async () => {
     vi.useFakeTimers();
     try {
       const sheet = vi.fn(async () => measured());
-      const read = createAgentAnalytics({ sheet, twins: noTwins, ttlMs: 60_000 });
-      read.warm?.({ db, chain: 'solana', assets, provenance: 'live' });
-      await vi.waitFor(() => expect(sheet).toHaveBeenCalledTimes(listed.length));
-      const first = await read({ db, chain: 'solana', assets, provenance: 'live', sizeUsd: null });
-      if ('unavailable' in first) throw new Error(first.unavailable);
-      expect(first.incomplete).toBeUndefined();
+      const twins = vi.fn(async () => []);
+      const read = createAgentAnalytics({ sheet, twins });
+      // An idle server: a day passes and nothing is read.
+      await vi.advanceTimersByTimeAsync(24 * 3_600_000);
+      expect(sheet).not.toHaveBeenCalled();
+      expect(twins).not.toHaveBeenCalled();
+      const query = { db, chain: 'solana' as const, assets, provenance: 'live' as const };
+      await read({ ...query, sizeUsd: null });
       expect(sheet).toHaveBeenCalledTimes(listed.length);
-      // Kept current on a timer, and stopped with the server.
-      await vi.advanceTimersByTimeAsync(91_000);
-      await vi.waitFor(() => expect(sheet).toHaveBeenCalledTimes(2 * listed.length));
-      read.stop?.();
-      await vi.advanceTimersByTimeAsync(300_000);
-      expect(sheet).toHaveBeenCalledTimes(2 * listed.length);
+      // Kept reads are not refreshed on their own, however long the server stays up.
+      await vi.advanceTimersByTimeAsync(24 * 3_600_000);
+      expect(sheet).toHaveBeenCalledTimes(listed.length);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads a chain's reference-size sheets once at start, so the first new goal reads only what failed", async () => {
+    vi.useFakeTimers();
+    try {
+      const sheet = vi.fn(async (_db: Db, id: string) => {
+        if (id === stock.address) throw new Error('too many connections');
+        return measured();
+      });
+      const read = createAgentAnalytics({ sheet, twins: noTwins });
+      const query = { db, chain: 'solana' as const, assets, provenance: 'live' as const };
+      expect(await read.warm?.(query)).toEqual({ read: listed.length - 1, failed: 1 });
+      expect(sheet).toHaveBeenCalledTimes(listed.length);
+      expect(sheet).toHaveBeenCalledWith(db, stock.address, 10_000);
+      sheet.mockImplementation(async () => measured());
+      const first = await read({ ...query, sizeUsd: null });
+      if ('unavailable' in first) throw new Error(first.unavailable);
+      // the kept sheets answer the turn; only the one that failed is read again
+      expect(sheet).toHaveBeenCalledTimes(listed.length + 1);
+      expect(sheet).toHaveBeenLastCalledWith(db, stock.address, 10_000);
+      expect(first.incomplete).toBeUndefined();
+      expect(first.assets.every((row) => row.figures?.length)).toBe(true);
+      // once: no timer reads them again
+      await vi.advanceTimersByTimeAsync(24 * 3_600_000);
+      expect(sheet).toHaveBeenCalledTimes(listed.length + 1);
     } finally {
       vi.useRealTimers();
     }

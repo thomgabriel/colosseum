@@ -35,3 +35,20 @@ export async function* jsonlChunks<T = Record<string, unknown>>(
   }
   if (buf.length) yield buf;
 }
+
+/**
+ * The rows a run still has to send: those at or after the table's newest imported time (all of them when
+ * there is none). A collector stamps every row of a run with the run's start and its runs never overlap, so
+ * a row older than the newest imported one was sent by an earlier run; rows at the newest time are sent
+ * again, since the run that wrote them may have been under way when the last import read its file (inserts
+ * skip what is there). Before this, every hourly run sent the whole newest day file again.
+ */
+export function rowsSince<T>(rows: T[], newest: Date | null, at: (row: T) => unknown): T[] {
+  if (!newest) return rows;
+  const from = newest.getTime();
+  return rows.filter((row) => {
+    const t = new Date(at(row) as string).getTime();
+    // a row whose time does not read is left to the insert, as before
+    return !(t < from);
+  });
+}

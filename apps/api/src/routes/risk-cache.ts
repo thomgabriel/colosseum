@@ -27,9 +27,10 @@ export type RiskCacheOptions = {
   now?: () => number;
 };
 
-/** Ten minutes fresh, as the conversations' reads (agent-analytics.ts); an hour at most while read again. */
-export const RISK_FRESH_MS = 10 * 60_000;
-export const RISK_STALE_MS = 60 * 60_000;
+/** An hour fresh, as the conversations' reads (agent-analytics.ts): the imports write hourly at most, and each
+ *  read again is the hosted database's free allowance. Two hours at most while read again. */
+export const RISK_FRESH_MS = 60 * 60_000;
+export const RISK_STALE_MS = 2 * 60 * 60_000;
 const MAX_CHARS = 64 * 1024 * 1024;
 const MAX_ENTRIES = 5_000;
 /** An address longer than this is not kept: no page reads one, and each would be an entry of its own. */

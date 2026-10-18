@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as basketSchema from './basket-schema';
-import { poolOptions } from './pool';
+import { idleOptions, poolOptions } from './pool';
 import * as schema from './schema';
 
 export * from './basket-schema';
@@ -15,8 +15,9 @@ export { basketSchema, schema };
 export function createDb(
   url = process.env.DATABASE_URL ?? 'postgres://colosseum:colosseum@localhost:5433/colosseum',
 ) {
-  // The pool's size and whether statements are prepared, from the environment (pool.ts).
-  const client = postgres(url, poolOptions(process.env));
+  // The pool's size and whether statements are prepared, from the environment; idle connections closed
+  // after a minute (pool.ts).
+  const client = postgres(url, { ...poolOptions(process.env), ...idleOptions(url, process.env) });
   // Both schemas, so db.query knows the vault tables as well as the structurer's.
   return { db: drizzle(client, { schema: { ...schema, ...basketSchema } }), client };
 }

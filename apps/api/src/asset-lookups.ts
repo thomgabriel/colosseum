@@ -76,8 +76,8 @@ export type {
 // Outside the /v1 route table: Bearing's sheets read the risk layer's fixtures from files, which no file the
 // /v1 routes reach may do (apps/api/src/orders/orders.test.ts). The route is handed this reader.
 
-/** Ten minutes, as the analytics: the collectors write hourly at most. */
-const TTL_MS = 10 * 60_000;
+/** An hour, as the analytics: the collectors write hourly at most. */
+const TTL_MS = 60 * 60_000;
 /** Reads at once across every lookup: each holds one of the pool's connections. */
 const CONCURRENCY = 3;
 const WAIT_MS = 2_500;
