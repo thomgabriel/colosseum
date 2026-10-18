@@ -197,7 +197,7 @@ async function main() {
       }
       const newestQ = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
       const [nw] = await sql.unsafe<{ t: Date | null }[]>(newestQ);
-      const to = cutoffOf(r.keepHours, at, asDate(nw?.t));
+      const to = cutoffOf(r.keepHours, at, asDate(nw?.t), r.hourAligned);
       if (!to) {
         console.log(`${r.table}: empty, nothing to archive`);
         continue;

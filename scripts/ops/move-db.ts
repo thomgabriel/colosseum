@@ -183,7 +183,7 @@ export async function planTables(sql: Sql, schemas: string[], at: Date): Promise
     const newestQ = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
     const [nw] = await sql.unsafe<{ t: Date | null }[]>(newestQ);
     const newest = asDate(nw?.t);
-    const cut = cutoffOf(r.keepHours, at, newest);
+    const cut = cutoffOf(r.keepHours, at, newest, r.hourAligned);
     const where = cut ? keptSql(r, cut) : null;
     const dayAgo = newest ? new Date(newest.getTime() - 86_400_000) : null;
     const [c] = await sql.unsafe<{ all: string; kept: string; day: string }[]>(

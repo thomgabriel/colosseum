@@ -50,7 +50,7 @@ export async function pruneTable(
   const name = `${r.schema}.${r.table}`;
   const newestOf = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
   const [row] = await sql.unsafe<{ t: Date | null }[]>(newestOf);
-  const own = cutoffOf(r.keepHours, opts.at, asDate(row?.t));
+  const own = cutoffOf(r.keepHours, opts.at, asDate(row?.t), r.hourAligned);
   // never past what the archive holds; with an archive that lacks the table, nothing
   let cut = own;
   if (own && opts.archivedTo !== undefined)

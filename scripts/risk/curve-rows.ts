@@ -8,6 +8,7 @@ import {
   type Regime,
   type RegimeParams,
   regimeAt,
+  sidePoints,
 } from '@colosseum/risk';
 
 // The rows `pnpm risk:compute` writes to risk_depth_curves, from the rows of risk_asset_snapshots. No I/O
@@ -116,7 +117,7 @@ export function curveRows(input: CurveRowsInput) {
     const a = best.get(r.assetMint) ?? new Map();
     const e = { sell: new Map<number, number>(), buy: new Map<number, number>() };
     for (const side of ['sell', 'buy'] as const)
-      for (const pt of (r[side] as Pt[]) ?? [])
+      for (const pt of sidePoints(r[side]) as Pt[])
         if (Number.isFinite(pt.outUsd)) e[side].set(pt.notionalUsd, pt.outUsd);
     a.set(r.fetchedAt.toISOString(), e);
     best.set(r.assetMint, a);

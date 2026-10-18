@@ -11,6 +11,7 @@ export * from './assets/shelf';
 export * from './assets/spl-mint';
 export * from './assets/universe';
 export * from './breach';
+export * from './curve-store';
 export * from './curves';
 export * from './events/invoke';
 export * from './events/logs';

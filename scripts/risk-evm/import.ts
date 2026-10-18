@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDb, riskAssetSnapshots } from '@colosseum/db';
+import { packSide } from '@colosseum/risk';
 import { importFloor } from '../ops/risk-retention';
 import { parseRow, toDbRow } from './curve';
 import { type OracleRow, parseOracleRow } from './oracle';
@@ -15,6 +16,7 @@ import { insertOracleRows } from './oracle-import';
 // A curve row older than the hosted retention of risk_asset_snapshots (scripts/ops/risk-retention.ts, seven
 // days) is counted and skipped: the daily prune deletes those rows, and this import reads every file again each
 // hour. RISK_EVM_IMPORT_ALL=1 imports every row, for a database that keeps everything.
+// Each side is stored as [notionalUsd, outUsd] pairs (`packSide`, DB-STORAGE): the two numbers every reader uses.
 //   pnpm risk-evm:import
 const root = process.env.RISK_EVM_DIR ?? 'data/risk-evm';
 const dir = join(root, 'assets');
@@ -62,7 +64,8 @@ try {
         counts.skippedBadLine++;
         continue;
       }
-      const dbRow = toDbRow(row);
+      const whole = toDbRow(row);
+      const dbRow = { ...whole, sell: packSide(whole.sell), buy: packSide(whole.buy) };
       if (floor && dbRow.fetchedAt < floor) counts.beforeRetention++;
       else rows.push(dbRow);
     }

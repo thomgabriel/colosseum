@@ -186,6 +186,7 @@ describe('the hourly import sends only what is new', () => {
       lp: 1,
       skippedUnknownPool: 0,
       alreadySent: 0,
+      sidesAsBefore: 0,
     });
   }, 60_000);
 
@@ -214,6 +215,8 @@ describe('the hourly import sends only what is new', () => {
       skippedUnknownPool: 0,
       // the two pool rows and the curve of 10:02, before the newest imported time
       alreadySent: 3,
+      // the fixture rows name no tier, so every side is stored
+      sidesAsBefore: 0,
     });
     expect(await count('risk_pool_snapshots')).toBe(7);
     expect(await count('risk_asset_snapshots')).toBe(4);
@@ -227,6 +230,7 @@ describe('the hourly import sends only what is new', () => {
       lp: 0,
       skippedUnknownPool: 0,
       alreadySent: 0,
+      sidesAsBefore: 0,
     });
     expect(await count('risk_pool_snapshots')).toBe(7);
     expect(await count('risk_quotes')).toBe(0);

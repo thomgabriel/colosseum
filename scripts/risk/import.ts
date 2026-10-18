@@ -10,8 +10,9 @@ import {
   riskPoolSnapshots,
   riskPools,
 } from '@colosseum/db';
-import { max, notLike } from 'drizzle-orm';
-import { dayFilesFrom, jsonlChunks, rowsSince } from './lib-import';
+import { packSide } from '@colosseum/risk';
+import { and, gte, lte, max, notLike, sql } from 'drizzle-orm';
+import { dayFilesFrom, jsonlChunks, poolSidesToStore, rowsSince } from './lib-import';
 
 // Imports the collectors' files (~/.colosseum/risk) into the risk tables. Idempotent: every table has a
 // natural primary key and inserts skip existing rows. Snapshots for pools not in risk_pools are skipped.
@@ -21,12 +22,22 @@ import { dayFilesFrom, jsonlChunks, rowsSince } from './lib-import';
 // to 39,000 rows and 60 MB into the hosted database). RISK_IMPORT_ALL=1 re-reads and sends all.
 // The Jupiter cross-check quotes (quotes/<day>.jsonl) are no longer imported: nothing reads risk_quotes, and
 // the collector's files are their record (DB-RETENTION).
+// DB-STORAGE (Oct 18): curves are stored as [notionalUsd, outUsd] pairs (`packSide`), and a pool side a ten-minute
+// run found unchanged as JSON null (`poolSidesToStore`, lib-import.ts); the files keep every key as written.
 const HOME = process.env.RISK_HOME ?? join(homedir(), '.colosseum', 'risk');
 const { db, client } = createDb();
 const known = new Set((await db.select({ a: riskPools.address }).from(riskPools)).map((r) => r.a));
 const ALL = process.env.RISK_IMPORT_ALL === '1';
 type Row = Record<string, unknown>;
-const counts = { assets: 0, snapshots: 0, events: 0, lp: 0, skippedUnknownPool: 0, alreadySent: 0 };
+const counts = {
+  assets: 0,
+  snapshots: 0,
+  events: 0,
+  lp: 0,
+  skippedUnknownPool: 0,
+  alreadySent: 0,
+  sidesAsBefore: 0,
+};
 /**
  * Every chunk of the rows of `sub` still to send: its day files from the table's newest imported day on, and in
  * them the rows from its newest imported time on.
@@ -44,6 +55,31 @@ async function* rowsOf(
     }
 }
 
+// Each pool's last stored curve per side, from the rows up to the newest imported time (an hourly run stores
+// every pool's curves, so six hours reach every pool still read); with RISK_IMPORT_ALL=1, from the files alone.
+const lastSide = new Map<string, string>();
+const newestPool = ALL
+  ? null
+  : ((await db.select({ t: max(riskPoolSnapshots.fetchedAt) }).from(riskPoolSnapshots))[0]?.t ??
+    null);
+if (newestPool)
+  for (const s of ['sell', 'buy'] as const) {
+    const col = riskPoolSnapshots[s];
+    const rows = await db
+      .selectDistinctOn([riskPoolSnapshots.pool], { pool: riskPoolSnapshots.pool, side: col })
+      .from(riskPoolSnapshots)
+      .where(
+        and(
+          gte(riskPoolSnapshots.fetchedAt, new Date(newestPool.getTime() - 6 * 3_600_000)),
+          lte(riskPoolSnapshots.fetchedAt, newestPool),
+          sql`jsonb_typeof(${col}) <> 'null'`,
+        ),
+      )
+      .orderBy(riskPoolSnapshots.pool, sql`${riskPoolSnapshots.fetchedAt} desc`);
+    for (const r of rows) lastSide.set(`${r.pool} ${s}`, JSON.stringify(packSide(r.side)));
+  }
+const asStored = (side: unknown) => (side === null ? sql`'null'::jsonb` : side);
+
 for await (const all of rowsOf('pools', () =>
   db.select({ t: max(riskPoolSnapshots.fetchedAt) }).from(riskPoolSnapshots),
 )) {
@@ -56,21 +92,28 @@ for await (const all of rowsOf('pools', () =>
   const res = await db
     .insert(riskPoolSnapshots)
     .values(
-      c.map((r) => ({
-        pool: r.pool as string,
-        fetchedAt: new Date(r.fetchedAt as string),
-        slot: Number(r.slot),
-        midPrice: Number(r.midQuotePerAsset),
-        activeLiquidity: (r.activeLiquidity as string | null) ?? null,
-        sell: r.sell,
-        buy: r.buy,
-        inBandLiquidity:
-          (r.depth2pct as { sellQuoteOut: number } | undefined)?.sellQuoteOut ?? null,
-        methodVersion: r.methodVersion as string,
-        source: r.source as string,
-        method: r.method as string,
-        provenance: 'live' as const,
-      })),
+      c.map((r) => {
+        const side = poolSidesToStore(
+          r as { pool: unknown; fetchedAt: unknown; sell: unknown; buy: unknown },
+          lastSide,
+        );
+        counts.sidesAsBefore += Number(side.sell === null) + Number(side.buy === null);
+        return {
+          pool: r.pool as string,
+          fetchedAt: new Date(r.fetchedAt as string),
+          slot: Number(r.slot),
+          midPrice: Number(r.midQuotePerAsset),
+          activeLiquidity: (r.activeLiquidity as string | null) ?? null,
+          sell: asStored(side.sell),
+          buy: asStored(side.buy),
+          inBandLiquidity:
+            (r.depth2pct as { sellQuoteOut: number } | undefined)?.sellQuoteOut ?? null,
+          methodVersion: r.methodVersion as string,
+          source: r.source as string,
+          method: r.method as string,
+          provenance: 'live' as const,
+        };
+      }),
     )
     .onConflictDoNothing()
     .returning({ p: riskPoolSnapshots.pool });
@@ -152,8 +195,8 @@ for await (const c of rowsOf('assets', () =>
         refPool: r.refPool as string,
         refMidUsd: Number(r.refMidUsd),
         pools: Number(r.pools),
-        sell: r.sell,
-        buy: r.buy,
+        sell: packSide(r.sell),
+        buy: packSide(r.buy),
         methodVersion: r.methodVersion as string,
         source: r.source as string,
         method: r.method as string,
