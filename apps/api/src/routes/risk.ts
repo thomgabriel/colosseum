@@ -111,8 +111,9 @@ export function listedPoolTvl(db: Db) {
  * cost at `notional`, from the pools that exit to dollars. Each snapshot's one point at `notional` is picked
  * in the database (`curvePointAt`); a snapshot without one is not counted. A side stored as JSON null (a
  * ten-minute run found it as the pool's last stored curve, scripts/risk/import.ts) reads as the pool's
- * previous curve on that side, and is not counted when that curve is no longer kept. Null when the asset has
- * no such pool.
+ * previous curve on that side. A run with a null side whose curve is no longer kept is not counted (the prune
+ * cuts pool snapshots on the hour, so the oldest row it keeps of a pool is from a full run). Null when the asset
+ * has no such pool.
  */
 export async function heatmapCells(
   db: Db,
@@ -146,14 +147,20 @@ export async function heatmapCells(
   // each pool's point on its last stored curve, which a side stored as null repeats
   const lastPoint = new Map<string, unknown>();
   const bestAt = new Map<string, number>();
+  // runs with a null side whose curve is no longer kept: the run's best pool is not known, so it is not counted
+  const unknown = new Set<string>();
   for (const s of snaps) {
+    const k = s.fetchedAt.toISOString();
     if (!s.asBefore) lastPoint.set(s.pool, s.point);
-    else if (!lastPoint.has(s.pool)) continue;
+    else if (!lastPoint.has(s.pool)) {
+      unknown.add(k);
+      continue;
+    }
     const pt = lastPoint.get(s.pool) as { outUsd: number } | null;
     if (!pt) continue;
-    const k = s.fetchedAt.toISOString();
     bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
   }
+  for (const k of unknown) bestAt.delete(k);
   const byHow = new Map<number, number[]>();
   for (const [t, out] of bestAt) {
     const h = hourOfWeek(new Date(t));

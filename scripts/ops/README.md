@@ -31,6 +31,18 @@ All of them go back to Oct 6, as the database does. They grow by about 190 MB a 
 
 ## Giving the freed space back to Neon (DB-STORAGE, Oct 18)
 
+**Putting the change in place, in this order.** (1) Deploy the API: an older API reads the new pairs as no points. Rolling the API back after the new import has run empties the heatmap and the capacity series until the new API is deployed again. (2) Rebuild the refresh bundle on the Mac by hand; `install.sh` would load launchd jobs that compete with the loop's, so build only the bundle, with its flags, into the folder the loop runs it from (`~/.colosseum/hosted-risk`), keeping the old one beside it:
+
+```sh
+H=~/.colosseum/hosted-risk
+cp "$H/risk-refresh.mjs" "$H/risk-refresh.before-$(date +%Y%m%d%H%M).mjs"
+node_modules/.bin/esbuild scripts/risk/collector/refresh.ts --bundle --platform=node --format=esm --target=node22 \
+  --tsconfig=tsconfig.json --outfile="$H/risk-refresh.mjs" --log-level=warning \
+  --banner:js="import { createRequire as __cr } from 'module'; const require = __cr(import.meta.url);"
+```
+
+(3) Rebuild the lending and Robinhood Chain importers and the prune: `pnpm ops:install-prune --importers` (the prune now cuts pool snapshots on the UTC hour, so the oldest row it keeps of a pool is from a full run and no side stored as null loses the curve it repeats).
+
 Since Oct 18 the import stores curves as pairs and an unchanged pool side as null, and lending detail cut to four keys (`docs/risk/STATE-RISK.md`, "What a row stores"). The daily prune deletes the older, larger rows and vacuums, so their space is used again by new rows and the tables stop growing; the files keep their size, and Neon counts the files, until the table's owner runs `VACUUM FULL`. Do it once, after the old rows have aged out: four days after the new import first runs for pool and lending snapshots, seven for asset snapshots. Each statement rewrites one table and locks it while it runs (seconds to a minute; the heatmap and history reads wait), so run it away from the hourly jobs (minutes 10 to 25), with the Neon owner role's direct (not `-pooler`) address, and compare with `pnpm ops:table-sizes` before and after:
 
 ```sh

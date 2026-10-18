@@ -18,6 +18,12 @@ export type Retention = {
   keepHours: number;
   /** Rows that never age out, as SQL on the table (reconstructed history that no job writes again). */
   exempt?: string;
+  /**
+   * The cut is rounded down to the UTC hour, so the oldest row a table keeps of a pool is from a full run: a
+   * pool snapshot's side stored as null reads the pool's previous curve, which a cut inside the hour could
+   * delete while keeping the nulls after it (DB-STORAGE).
+   */
+  hourAligned?: boolean;
   why: string;
   /**
    * Where the rows also live on the Mac that runs the collectors, under ~/.colosseum/hosted-risk: the collector's
@@ -36,6 +42,7 @@ export const RETENTION: readonly Retention[] = [
     table: 'risk_pool_snapshots',
     column: 'fetched_at',
     keepHours: 4 * DAY,
+    hourAligned: true,
     why: 'raw pool depth readings (about 38,000 rows and 77 MB a day); the import reads only its newest day and the heatmap shows what is kept',
     files: 'pools/<day>.jsonl',
   },
@@ -137,16 +144,22 @@ export function retentionOf(schema: string, table: string): Retention | undefine
 }
 
 /**
- * The time before which a row is old: `keepHours` before the earlier of `at` and the table's newest row.
- * Null when the table has no row, so nothing is cut.
+ * The time before which a row is old: `keepHours` before the earlier of `at` and the table's newest row, rounded
+ * down to the UTC hour when `hourAligned`. Null when the table has no row, so nothing is cut.
  */
-export function cutoffOf(keepHours: number, at: Date, newest: Date | null): Date | null {
+export function cutoffOf(
+  keepHours: number,
+  at: Date,
+  newest: Date | null,
+  hourAligned = false,
+): Date | null {
   if (!Number.isFinite(keepHours) || keepHours <= 0)
     throw new Error('keepHours must be above zero');
   if (Number.isNaN(at.getTime())) throw new Error('not a time');
   if (newest === null) return null;
   const base = Math.min(at.getTime(), newest.getTime());
-  return new Date(base - keepHours * 3_600_000);
+  const cut = base - keepHours * 3_600_000;
+  return new Date(hourAligned ? Math.floor(cut / 3_600_000) * 3_600_000 : cut);
 }
 
 /** SQL that is true of a row older than the cut and not exempt. */

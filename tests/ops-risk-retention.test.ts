@@ -46,6 +46,16 @@ describe('retention: the cut', () => {
     );
   });
 
+  it('cuts pool snapshots on the UTC hour, so the oldest row kept of a pool is from a full run', () => {
+    const inside = new Date('2026-10-16T12:47:13.250Z');
+    expect(cutoffOf(96, inside, inside, true)?.toISOString()).toBe('2026-10-12T12:00:00.000Z');
+    expect(cutoffOf(96, T, T, true)?.toISOString()).toBe('2026-10-12T12:00:00.000Z');
+    expect(cutoffOf(96, inside, inside)?.toISOString()).toBe('2026-10-12T12:47:13.250Z');
+    expect(RETENTION.filter((r) => r.hourAligned).map((r) => r.table)).toEqual([
+      'risk_pool_snapshots',
+    ]);
+  });
+
   it('cuts nothing from an empty table and refuses a window of zero', () => {
     expect(cutoffOf(96, T, null)).toBeNull();
     expect(() => cutoffOf(0, T, T)).toThrow();

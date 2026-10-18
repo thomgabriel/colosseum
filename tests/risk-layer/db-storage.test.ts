@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadCapacitySeries } from '../../apps/api/src/facts';
 import { curveNotionalOut, curvePairs, loadAssetHistory } from '../../apps/api/src/history';
 import { heatmapCells, thinnestHour } from '../../apps/api/src/routes/risk';
+import { agedSql, cutoffOf, type Retention, retentionOf } from '../../scripts/ops/risk-retention';
 import { readCurveSamples } from '../../scripts/risk/curve-read';
 import { curveRows, type SnapshotForCurve } from '../../scripts/risk/curve-rows';
 import {
@@ -102,6 +103,7 @@ async function beforeHeatmap(db: Db, mint: string, notional: number, side: 'sell
 const MINT = 'FIXTUREdbStorageMint1111111111111111111111111';
 const OTHER = 'FIXTUREdbStorageOther111111111111111111111111';
 const LONE = 'FIXTUREdbStorageLone11111111111111111111111111';
+const DUO = 'FIXTUREdbStorageDuo111111111111111111111111111';
 const T0 = new Date('2026-10-14T00:00:00.000Z').getTime();
 
 /** A pool side as the collector writes it, at depth step `v`, with the variations the reads must keep. */
@@ -280,6 +282,8 @@ beforeAll(async () => {
         pool('PB2', MINT, 'other'),
         pool('PX1', OTHER, 'direct_usd'),
         pool('PL1', LONE, 'direct_usd'),
+        pool('PD1', DUO, 'direct_usd'),
+        pool('PD2', DUO, 'direct_usd'),
       ]);
   }
   const runs = collectorRuns();
@@ -437,6 +441,71 @@ describe('the heatmap answers what it answered on every curve stored', () => {
   it('does not count a run whose pool curve is no longer kept', async () => {
     expect(await heatmapCells(now.db, LONE, 50_000, 'sell')).toEqual([]);
     expect(await heatmapCells(now.db, 'FIXTUREnoPools', 50_000, 'sell')).toBeNull();
+  });
+
+  it('does not count a run of two pools when the better one says "as before" of a curve no longer kept', async () => {
+    // PD1's 10:01 curve (the better) is gone; at 10:41 PD1 is as before and PD2 has its own, worse curve. Counting
+    // PD2 alone would put its cost in the 10:41 cell; the run's best pool is not known, so the run is not counted.
+    const at = (m: number) => new Date(T0 + 10 * 3_600_000 + m * MIN + 711).toISOString();
+    const pt = (out: number) => [{ notionalUsd: 50_000, outUsd: out }];
+    const r = (pool: string, m: number) => ({
+      ...(collectorRuns()[0] as PoolRow),
+      pool,
+      fetchedAt: at(m),
+    });
+    await now.db
+      .insert(riskPoolSnapshots)
+      .values([
+        poolRow(r('PD1', 41), null, null),
+        poolRow(r('PD2', 41), packSide(pt(49_000)), packSide(pt(48_000))),
+        poolRow(r('PD1', 51), packSide(pt(49_900)), packSide(pt(49_800))),
+        poolRow(r('PD2', 51), null, null),
+      ]);
+    const cells = await heatmapCells(now.db, DUO, 50_000, 'sell');
+    expect(cells).toEqual([
+      { hourOfWeekEt: hourOfWeek(new Date(at(51))), medianCost: 1 - 49_900 / 50_000, samples: 1 },
+    ]);
+  });
+
+  it('answers as before after a prune, which cuts pool snapshots on the hour', async () => {
+    // the daily prune's cut, from a time inside an hour: 10:35 on day two
+    const rule = retentionOf('public', 'risk_pool_snapshots') as Retention;
+    const when = new Date(T0 + 34 * 3_600_000 + 35 * MIN + rule.keepHours * 3_600_000);
+    const cut = cutoffOf(rule.keepHours, when, when, rule.hourAligned) as Date;
+    expect(cut.toISOString()).toBe(new Date(T0 + 34 * 3_600_000).toISOString());
+    for (const [c, schema] of [
+      [was, WAS],
+      [now, NOW_],
+    ] as const) {
+      await c.db.execute(sql.raw(`create schema "${schema}_cut"`));
+      for (const t of ['risk_pools', 'risk_pool_snapshots'])
+        await c.db.execute(
+          sql.raw(`create table "${schema}_cut".${t} as select * from "${schema}".${t}`),
+        );
+      await c.db.execute(
+        sql.raw(`delete from "${schema}_cut".risk_pool_snapshots where ${agedSql(rule, cut)}`),
+      );
+    }
+    const wasCut = open(`${WAS}_cut`);
+    const nowCut = open(`${NOW_}_cut`);
+    try {
+      let compared = 0;
+      for (const s of ['sell', 'buy'] as const)
+        for (const n of [100, 50_000, 1_000_000])
+          for (const mint of [MINT, OTHER]) {
+            const before = await beforeHeatmap(wasCut.db, mint, n, s);
+            expect(await heatmapCells(nowCut.db, mint, n, s), `${mint} ${s} ${n}`).toEqual(before);
+            compared += before?.length ?? 0;
+          }
+      expect(compared).toBeGreaterThan(400);
+    } finally {
+      await wasCut.client.end();
+      await nowCut.client.end();
+      for (const c of [was, now])
+        await c.db.execute(
+          sql.raw(`drop schema if exists "${c === was ? WAS : NOW_}_cut" cascade`),
+        );
+    }
   });
 });
 
