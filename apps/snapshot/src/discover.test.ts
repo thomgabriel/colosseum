@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DISCOVERY_EVERY_MS, newChainState, ownersDue, startDiscovery } from './discover';
+import {
+  DISCOVERY_EVERY_MS,
+  DISCOVERY_SLACK_MS,
+  newChainState,
+  ownersDue,
+  startDiscovery,
+} from './discover';
 
 // When an owner is asked for their vaults: every owner at the first pass and once an hour, and in
 // between only an owner the worker has not asked before.
@@ -19,8 +25,10 @@ describe('owner discovery', () => {
     state.owners.add('a').add('b');
     expect(ownersDue(state, ['a', 'b'], at(600_000))).toEqual({ all: false, due: [] });
     expect(ownersDue(state, ['a', 'b', 'c'], at(600_000))).toEqual({ all: false, due: ['c'] });
-    // One millisecond short of the hour is still inside it.
-    expect(ownersDue(state, ['a', 'b'], at(DISCOVERY_EVERY_MS - 1)).all).toBe(false);
+    // A minute and a millisecond short of the hour is still inside it.
+    expect(ownersDue(state, ['a', 'b'], at(DISCOVERY_EVERY_MS - DISCOVERY_SLACK_MS - 1)).all).toBe(
+      false,
+    );
   });
 
   it('asks every owner again once the hour has passed, counted from the last time all were asked', () => {
@@ -33,6 +41,15 @@ describe('owner discovery', () => {
     });
     startDiscovery(state, at(DISCOVERY_EVERY_MS));
     expect(ownersDue(state, ['a'], at(DISCOVERY_EVERY_MS + 600_000)).all).toBe(false);
+  });
+
+  it('counts a pass a minute or less short of the hour as the hour, so hourly passes ask every time', () => {
+    const state = newChainState();
+    startDiscovery(state, at(0));
+    state.owners.add('a');
+    // Passes on the minute of each hour, the second a millisecond early by its timer.
+    expect(ownersDue(state, ['a'], at(DISCOVERY_EVERY_MS - 1)).all).toBe(true);
+    expect(ownersDue(state, ['a'], at(DISCOVERY_EVERY_MS - DISCOVERY_SLACK_MS)).all).toBe(true);
   });
 
   it('lets an address that had no vault be asked again when every owner is', () => {

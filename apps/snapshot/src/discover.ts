@@ -12,6 +12,12 @@ import type { RunEnd } from './store';
 
 /** How long between two passes that ask every owner. */
 export const DISCOVERY_EVERY_MS = 3_600_000;
+/**
+ * How far short of the hour a pass may start and still ask every owner. Passes held to one minute of
+ * each hour (the API's SNAPSHOT_AT_MINUTE) start a few milliseconds either side of it; without this,
+ * one a millisecond early would leave every owner to the pass after, two hours on.
+ */
+export const DISCOVERY_SLACK_MS = 60_000;
 
 export type ChainState = {
   /**
@@ -44,7 +50,7 @@ export const newChainState = (): ChainState => ({
 
 /**
  * The owners to ask at a pass that starts at `now`: all of them when none was asked yet or the hour has
- * passed (`all`), otherwise only those new to this worker.
+ * passed, give or take `DISCOVERY_SLACK_MS` (`all`), otherwise only those new to this worker.
  */
 export function ownersDue(
   state: Pick<ChainState, 'owners' | 'discoveredAt'>,
@@ -52,7 +58,8 @@ export function ownersDue(
   now: Date,
 ): { all: boolean; due: string[] } {
   const all =
-    state.discoveredAt === null || now.getTime() - state.discoveredAt >= DISCOVERY_EVERY_MS;
+    state.discoveredAt === null ||
+    now.getTime() - state.discoveredAt >= DISCOVERY_EVERY_MS - DISCOVERY_SLACK_MS;
   return { all, due: all ? [...owners] : owners.filter((o) => !state.owners.has(o)) };
 }
 
