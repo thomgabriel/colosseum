@@ -23,7 +23,7 @@ export const plan = {
   },
   /** In place of every figure of a vault that was never read. */
   unread:
-    'Once this vault has been read, its value over time, its parts, what leaving would cost and where its risk sits appear here. We read each vault about every ten minutes.',
+    'Once this vault has been read, its value over time, its parts, what leaving would cost and where its risk sits appear here. We read each vault about once an hour.',
 
   /** The vault's value over time. */
   history: {
@@ -50,9 +50,9 @@ export const plan = {
     },
     /** No point in the window: a sentence, never an empty frame. */
     none: (when: string) =>
-      `No snapshot of this vault falls in this window: its newest is from ${when}. We take a snapshot about every ten minutes.`,
+      `No snapshot of this vault falls in this window: its newest is from ${when}. We take a snapshot about once an hour.`,
     /** One point: a sentence too. */
-    one: 'One snapshot falls in this window so far. A line needs two, and we take a snapshot about every ten minutes.',
+    one: 'One snapshot falls in this window so far. A line needs two, and we take a snapshot about once an hour.',
     /** Before the one point's figure. */
     oneAt: (when: string) => `On ${when}:`,
     deposits: {

@@ -113,7 +113,7 @@ export function PlanHead({ chain, plan }: { chain: PlansChain; plan: Plan }) {
             className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground"
           >
             <span>{words.read(ago, utc(lang, newest.observedAt))}</span>
-            {/* Older than an hour, as the answer says: stale, with its age (mock-plate.md). A live
+            {/* Older than two hours, as the answer says: stale, with its age (mock-plate.md). A live
                 figure's own pin says it too; one that is not live keeps its hatched pin. */}
             {newest.stale && (
               <StalePlate

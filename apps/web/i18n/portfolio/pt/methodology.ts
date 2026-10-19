@@ -21,7 +21,7 @@ const lines: Record<TrackLine, string> = {
   cash_over:
     'O caixa está acima da fatia dele por mais do que a margem. Caixa abaixo da fatia não é uma linha própria.',
   loss_quarter: 'As perdas do nosso operador usaram um quarto ou mais do orçamento de perdas.',
-  stale: 'O retrato mais recente tem mais de uma hora.',
+  stale: 'O retrato mais recente tem mais de duas horas.',
   inside:
     'Nenhuma das linhas acima vale. A parte do orçamento de perdas já usada é dita ao lado da situação.',
   inside_no_budget:
@@ -36,10 +36,10 @@ export const methodology: Methodology = {
     heading: 'O que é um retrato',
     body: [
       'Um retrato é uma leitura de um cofre, guardada inteira: o que ele tinha, quanto valia cada parte, a fatia dela e a fatia planejada, e todo preço em que os valores se apoiaram. Cada preço guarda sua fonte, sua hora e seu método.',
-      'Lemos cada cofre que conhecemos mais ou menos a cada dez minutos, da própria rede dele, e guardamos cada leitura. Um cofre criado fora deste app é encontrado em até uma hora.',
+      'Lemos cada cofre que conhecemos mais ou menos uma vez por hora, da própria rede dele, e guardamos cada leitura. Um cofre criado fora deste app é encontrado em mais ou menos uma hora.',
       'O leitor não tem chave nenhuma. Ele lê e guarda: não assina, não negocia e não move nada.',
       'Ele lê a Robinhood Chain na rede principal, a Solana na rede de teste e a nossa rede de exemplo. Todo número leva a marca de onde foi lido: só um número da rede principal é mostrado como real, e o de uma rede de teste ou de exemplo é marcado como tal.',
-      'Um retrato com mais de uma hora é chamado de desatualizado, com a idade dele ao lado.',
+      'Um retrato com mais de duas horas é chamado de desatualizado, com a idade dele ao lado.',
     ],
   },
   status: {
@@ -49,9 +49,9 @@ export const methodology: Methodology = {
     notForecast: 'A regra não estima nada. Ela lê o que o retrato guardou, e não é uma previsão.',
     means: {
       on_track:
-        'Nenhuma das linhas abaixo vale: toda parte e o caixa estão dentro da margem, as perdas do nosso operador estão abaixo de um quarto do orçamento de perdas, e o retrato mais recente não tem mais de uma hora.',
+        'Nenhuma das linhas abaixo vale: toda parte e o caixa estão dentro da margem, as perdas do nosso operador estão abaixo de um quarto do orçamento de perdas, e o retrato mais recente não tem mais de duas horas.',
       watch:
-        'Uma parte está fora da margem, ou o caixa está acima da fatia dele por mais do que a margem, ou uma parte que está no cofre e no plano não tem preço, ou as perdas do nosso operador usaram um quarto ou mais do orçamento de perdas, ou o retrato mais recente tem mais de uma hora.',
+        'Uma parte está fora da margem, ou o caixa está acima da fatia dele por mais do que a margem, ou uma parte que está no cofre e no plano não tem preço, ou as perdas do nosso operador usaram um quarto ou mais do orçamento de perdas, ou o retrato mais recente tem mais de duas horas.',
       off_track:
         'As perdas do nosso operador usaram metade ou mais do orçamento de perdas, ou a rede não é lida há um dia ou mais.',
       none: 'Ainda não há com o que comparar o cofre: ele não foi lido, não guarda nada, ou a rede dele não define margem.',
