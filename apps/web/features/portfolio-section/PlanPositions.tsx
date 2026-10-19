@@ -219,7 +219,7 @@ export function PlanPositions({
       ) : (
         <Card mock={label !== 'live'} mockLabels={{ announce: sampleLine(t.shell, label) }}>
           <CardBody className="flex flex-col gap-4">
-            {/* Older than an hour, as the answer says: the whole table is as old as its snapshot. */}
+            {/* Older than two hours, as the answer says: the whole table is as old as its snapshot. */}
             {newest.stale && (
               <p data-ui="parts-stale">
                 <StalePlate

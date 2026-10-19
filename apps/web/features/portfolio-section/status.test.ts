@@ -87,7 +87,7 @@ describe('a status, as a page says it', () => {
       ],
       cash_over: ['Cash is 3.5% over its share of the plan, more than the 2% it may drift.'],
       loss_quarter: ['Our keeper’s losses have used 31% of their budget, a quarter or more.'],
-      stale: ['The vault was last read 185 minutes ago, more than an hour.'],
+      stale: ['The vault was last read 185 minutes ago, more than two hours.'],
       inside: [
         'Every part is within 2% of its planned share, and our keeper’s losses have used 12% of their budget.',
       ],
@@ -133,7 +133,7 @@ describe('a status, as a page says it', () => {
       loss_quarter: [
         'As perdas do nosso operador usaram 31% do orçamento delas, um quarto ou mais.',
       ],
-      stale: ['O cofre foi lido pela última vez há 185 minutos, mais de uma hora.'],
+      stale: ['O cofre foi lido pela última vez há 185 minutos, mais de duas horas.'],
       inside: [
         'Toda parte está a até 2% da fatia planejada, e as perdas do nosso operador usaram 12% do orçamento delas.',
       ],

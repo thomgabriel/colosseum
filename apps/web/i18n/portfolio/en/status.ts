@@ -49,7 +49,7 @@ export const status = {
     loss_quarter: (used: string) =>
       `Our keeper’s losses have used ${used} of their budget, a quarter or more.`,
     stale: (minutes: number) =>
-      `The vault was last read ${minutes} minutes ago, more than an hour.`,
+      `The vault was last read ${minutes} minutes ago, more than two hours.`,
     inside: (band: string, used: string) =>
       `Every part is within ${band} of its planned share, and our keeper’s losses have used ${used} of their budget.`,
     inside_no_budget: (band: string) =>
