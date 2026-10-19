@@ -73,7 +73,7 @@ The status of a plan at a snapshot, first version:
 | Status | When |
 |---|---|
 | On track | The deposit is confirmed on chain, every position is inside the vault's band, and loss used is under a quarter of the vault's loss budget |
-| Watch | Any position is outside the band, or loss used is between a quarter and a half of the budget, or the newest snapshot is older than an hour |
+| Watch | Any position is outside the band, or loss used is between a quarter and a half of the budget, or the newest snapshot is older than two hours (an hour until Oct 19, gate `SNAPSHOT-IN-API`) |
 | Off track | Loss used is past half the budget (the line the keeper alerts on), or the vault's chain has not answered for a day |
 
 Printed beside the status: which line gave it, in words ("Every position inside the band; loss used 3% of the budget"). The band and the loss budget are the chain's settings, read with the vault (`KeeperView.rules` on the keeper's adapter; add the read to the adapter's read side if the plain `VaultState` lacks it, as a new optional field, never by changing an existing one). The seam: `statusOf(snapshot, goal, verdict?)`, where `verdict` is ENG-3's and absent today; when present it wins, and the rule says so.
