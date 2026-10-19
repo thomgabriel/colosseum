@@ -1114,7 +1114,7 @@ describe('a vault on the sample chain', () => {
     // one point in the window: a sentence and that one figure, never an empty frame
     const one = block(host, 'history-one');
     expect(text(find(one, ':scope > p:first-child'))).toBe(en.plan.history.one);
-    expect(en.plan.history.one).toMatch(/about every ten minutes/);
+    expect(en.plan.history.one).toMatch(/about once an hour/);
     expect(text(one)).toContain('On Oct 6, 2026, 10:00 UTC:');
     expect(pins(one)).toHaveLength(1);
     expect(
@@ -1197,7 +1197,7 @@ describe('how far back a plan’s page looks', () => {
     signIn();
     const host = await open('solana', SOL_INCOME);
     expect(part(host, 'history-none')).toBe(
-      'No snapshot of this vault falls in this window: its newest is from Oct 7, 2026, 11:56 UTC. We take a snapshot about every ten minutes.',
+      'No snapshot of this vault falls in this window: its newest is from Oct 7, 2026, 11:56 UTC. We take a snapshot about once an hour.',
     );
     const figure = block(host, 'plan-history');
     expect(figure.querySelector('svg, [data-ui="card"], [data-ui="figure"]')).toBeNull();
