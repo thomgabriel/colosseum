@@ -699,7 +699,7 @@ describe('the newest snapshot and the status', () => {
     expect(entryAt(read, budgeted).status).toMatchObject({ status: 'on_track', line: 'inside' });
   });
 
-  it('says a snapshot older than an hour is stale, with its age, and the status says Watch', async () => {
+  it('says a snapshot older than two hours is stale, with its age, and the status says Watch', async () => {
     const a = await someone();
     const seed = async (before: number) => {
       const address = vaultAddress('solana');
@@ -711,25 +711,31 @@ describe('the newest snapshot and the status', () => {
       });
       return address;
     };
-    const old = await seed(2 * HOUR);
-    const hour = await seed(HOUR);
-    const justPast = await seed(HOUR + SECOND / 2);
+    const old = await seed(3 * HOUR);
+    // An hourly pass that came late, or failed once: not stale.
+    const late = await seed(HOUR + 30 * MINUTE);
+    const twoHours = await seed(2 * HOUR);
+    const justPast = await seed(2 * HOUR + SECOND / 2);
     // A worker whose clock runs ahead of this server's: the age is never below zero.
     const ahead = await seed(-5 * MINUTE);
     await passed('solana', 5 * MINUTE);
 
     const read = await plansFor(a);
     expect(entryAt(read, old)).toMatchObject({
-      newest: { observedAt: ago(2 * HOUR).toISOString(), ageSeconds: 7200, stale: true },
+      newest: { observedAt: ago(3 * HOUR).toISOString(), ageSeconds: 10_800, stale: true },
       status: { status: 'watch', rule: TRACK_RULE, line: 'stale' },
     });
-    // Exactly an hour is not stale, and half a second past it is: `stale` and the rule's line agree.
-    expect(entryAt(read, hour)).toMatchObject({
-      newest: { ageSeconds: 3600, stale: false },
+    expect(entryAt(read, late)).toMatchObject({
+      newest: { ageSeconds: 5400, stale: false },
+      status: { status: 'on_track' },
+    });
+    // Exactly two hours is not stale, and half a second past it is: `stale` and the rule's line agree.
+    expect(entryAt(read, twoHours)).toMatchObject({
+      newest: { ageSeconds: 7200, stale: false },
       status: { status: 'on_track' },
     });
     expect(entryAt(read, justPast)).toMatchObject({
-      newest: { ageSeconds: 3600, stale: true },
+      newest: { ageSeconds: 7200, stale: true },
       status: { status: 'watch', line: 'stale' },
     });
     expect(entryAt(read, ahead)).toMatchObject({
