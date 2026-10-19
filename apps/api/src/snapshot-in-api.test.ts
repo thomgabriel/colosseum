@@ -7,7 +7,9 @@ import type { ChainSource } from '../../snapshot/src/source';
 import {
   DEFAULT_INTERVAL_S,
   FIRST_PASS_DELAY_MS,
+  HOURLY_INTERVAL_S,
   KEEP_AWAKE_MS,
+  msToMinute,
   type SnapshotInApiDeps,
   snapshotInApiSettings,
   startSnapshotInApi,
@@ -122,11 +124,49 @@ describe('the settings', () => {
     expect(snapshotInApiSettings({ SNAPSHOT_IN_API: '0' })).toBeNull();
     expect(snapshotInApiSettings({ SNAPSHOT_IN_API: '1' })).toEqual({
       intervalS: DEFAULT_INTERVAL_S,
+      atMinute: null,
     });
     expect(DEFAULT_INTERVAL_S).toBe(1800);
     expect(snapshotInApiSettings({ SNAPSHOT_IN_API: '1', SNAPSHOT_INTERVAL_S: '600' })).toEqual({
       intervalS: 600,
+      atMinute: null,
     });
+  });
+
+  it('take a minute of the hour with the hourly interval, set or left out, and 0 and 59 both', () => {
+    expect(HOURLY_INTERVAL_S).toBe(3600);
+    expect(
+      snapshotInApiSettings({
+        SNAPSHOT_IN_API: '1',
+        SNAPSHOT_INTERVAL_S: '3600',
+        SNAPSHOT_AT_MINUTE: '15',
+      }),
+    ).toEqual({ intervalS: 3600, atMinute: 15 });
+    expect(snapshotInApiSettings({ SNAPSHOT_IN_API: '1', SNAPSHOT_AT_MINUTE: '0' })).toEqual({
+      intervalS: 3600,
+      atMinute: 0,
+    });
+    expect(snapshotInApiSettings({ SNAPSHOT_IN_API: '1', SNAPSHOT_AT_MINUTE: '59' })).toEqual({
+      intervalS: 3600,
+      atMinute: 59,
+    });
+    // Without the flag the minute is not read at all.
+    expect(snapshotInApiSettings({ SNAPSHOT_AT_MINUTE: 'soon' })).toBeNull();
+  });
+
+  it('refuse a minute outside 0 to 59, and a minute beside any interval but the hour', () => {
+    for (const bad of ['60', '-1', '7.5', '015', 'quarter'])
+      expect(() =>
+        snapshotInApiSettings({ SNAPSHOT_IN_API: '1', SNAPSHOT_AT_MINUTE: bad }),
+      ).toThrow('SNAPSHOT_AT_MINUTE: expected a whole minute, 0 to 59');
+    for (const interval of ['1800', '600', '7200'])
+      expect(() =>
+        snapshotInApiSettings({
+          SNAPSHOT_IN_API: '1',
+          SNAPSHOT_INTERVAL_S: interval,
+          SNAPSHOT_AT_MINUTE: '15',
+        }),
+      ).toThrow('SNAPSHOT_AT_MINUTE: needs SNAPSHOT_INTERVAL_S=3600, one pass an hour');
   });
 
   it('refuse an interval under a minute or not in whole seconds, and a flag that is not 1 or 0', () => {
@@ -295,6 +335,125 @@ describe('the loop', () => {
     expect(up.seen.started).toBe(1);
     expect(passesDone(lines, 'solana')).toBe(1);
     handle?.stop();
+  });
+});
+
+describe('the minute of the hour', () => {
+  const H = (h: number, m = 0, s = 0, ms = 0) => Date.UTC(2026, 9, 19, h, m, s, ms);
+  const HOURLY = { SNAPSHOT_IN_API: '1', SNAPSHOT_INTERVAL_S: '3600', SNAPSHOT_AT_MINUTE: '15' };
+  const iso = (ms: number) => new Date(ms).toISOString().slice(11, 23);
+
+  /** Records when each chain's pass starts, by the fake clock. */
+  function timed(c: ReturnType<typeof chain>, into: number[]) {
+    const rules = c.source.rules;
+    c.source.rules = () => {
+      into.push(Date.now());
+      return rules();
+    };
+    return c;
+  }
+
+  it('waits to the next start of the minute, never zero and at most an hour', () => {
+    expect(msToMinute(H(10, 0, 30), 15)).toBe(14 * 60_000 + 30_000);
+    expect(msToMinute(H(10, 14, 59, 999), 15)).toBe(1);
+    // Exactly on the minute is the next hour's, never now.
+    expect(msToMinute(H(10, 15), 15)).toBe(3_600_000);
+    expect(msToMinute(H(10, 15, 0, 1), 15)).toBe(3_600_000 - 1);
+    expect(msToMinute(H(10, 40), 15)).toBe(35 * 60_000);
+    expect(msToMinute(H(23, 59), 0)).toBe(60_000);
+  });
+
+  it('runs the first pass 30 s after the start, then every chain at the minute of each hour', async () => {
+    vi.setSystemTime(H(10, 0));
+    const solana: number[] = [];
+    const robinhood: number[] = [];
+    const quick = timed(chain('solana', { readMs: 1_000 }), solana);
+    const slow = timed(chain('robinhood', { readMs: 40_000 }), robinhood);
+    const { handle, lines } = start(HOURLY, { sources: async () => [quick.source, slow.source] });
+    await vi.advanceTimersByTimeAsync(3 * 3_600_000);
+    handle?.stop();
+    const want = ['10:00:30.000', '10:15:00.000', '11:15:00.000', '12:15:00.000'];
+    expect(solana.map(iso)).toEqual(want);
+    expect(robinhood.map(iso)).toEqual(want);
+    expect(lines).toContainEqual({
+      level: 'info',
+      obj: { intervalS: 3600, atMinute: 15 },
+      msg: 'snapshot loop started',
+    });
+  });
+
+  it('never overlaps: a pass that runs past the minute waits for the next hour', async () => {
+    vi.setSystemTime(H(10, 0));
+    const starts: number[] = [];
+    // Twenty minutes a pass: the one at 10:15 ends at 10:35.
+    const slow = timed(chain('solana', { readMs: 20 * 60_000 }), starts);
+    const { handle } = start(HOURLY, { sources: async () => [slow.source] });
+    await vi.advanceTimersByTimeAsync(3 * 3_600_000);
+    handle?.stop();
+    expect(starts.map(iso)).toEqual(['10:00:30.000', '11:15:00.000', '12:15:00.000']);
+    expect(slow.seen.most).toBe(1);
+  });
+
+  it('keeps the back-off after a failed pass, then goes back to the minute', async () => {
+    vi.setSystemTime(H(10, 0));
+    const starts: number[] = [];
+    let failing = 2;
+    const flaky = timed(chain('solana'), starts);
+    const rules = flaky.source.rules;
+    flaky.source.rules = async () => {
+      const read = await rules();
+      if (failing-- > 0) throw new ChainError('Unavailable', 'the node did not answer');
+      return read;
+    };
+    const { handle, lines } = start(HOURLY, { sources: async () => [flaky.source] });
+    await vi.advanceTimersByTimeAsync(2 * 3_600_000);
+    handle?.stop();
+    // Failed at 10:00:30, again 15 s on, through 30 s after that, then the minute.
+    expect(starts.map(iso)).toEqual([
+      '10:00:30.000',
+      '10:00:45.000',
+      '10:01:15.000',
+      '10:15:00.000',
+      '11:15:00.000',
+    ]);
+    const retries = lines.flatMap((l) => {
+      const s = l.obj.snapshot as { outcome?: string; retryInS?: number } | undefined;
+      return s?.outcome === 'round-failed' ? [s.retryInS] : [];
+    });
+    expect(retries).toEqual([15, 30]);
+  });
+
+  it('asks again at the next minute when the start was refused', async () => {
+    vi.setSystemTime(H(10, 0));
+    db.seedFails = 1;
+    const starts: number[] = [];
+    const up = timed(chain('solana'), starts);
+    const { handle, lines } = start(HOURLY, { sources: async () => [up.source] });
+    await vi.advanceTimersByTimeAsync(FIRST_PASS_DELAY_MS);
+    expect(lines).toContainEqual({
+      level: 'error',
+      obj: { reason: 'the database did not take a query (ECONNREFUSED)', retryInS: 870 },
+      msg: 'snapshot loop stopped; tried again later',
+    });
+    await vi.advanceTimersByTimeAsync(2 * 3_600_000);
+    handle?.stop();
+    // The start tried again at the minute reads at once, then holds the minute.
+    expect(starts.map(iso)).toEqual(['10:15:00.000', '11:15:00.000']);
+  });
+
+  it('logs a minute beside another interval and starts nothing', async () => {
+    const sources = vi.fn(async () => [chain('solana').source]);
+    const { handle, lines } = start({ ...HOURLY, SNAPSHOT_INTERVAL_S: '1800' }, { sources });
+    expect(handle).toBeNull();
+    await vi.advanceTimersByTimeAsync(2 * 3_600_000);
+    expect(sources).not.toHaveBeenCalled();
+    expect(lines).toEqual([
+      {
+        level: 'error',
+        obj: { reason: 'SNAPSHOT_AT_MINUTE: needs SNAPSHOT_INTERVAL_S=3600, one pass an hour' },
+        msg: 'snapshot loop not started',
+      },
+    ]);
   });
 });
 
