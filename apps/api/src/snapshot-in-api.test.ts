@@ -385,7 +385,7 @@ describe('the minute of the hour', () => {
   it('never overlaps: a pass that runs past the minute waits for the next hour', async () => {
     vi.setSystemTime(H(10, 0));
     const starts: number[] = [];
-    // Twenty minutes a pass: the one at 10:15 ends at 10:35.
+    // Twenty minutes a pass: the first, at 10:00:30, ends at 10:20:30, past 10:15, so 10:15 is skipped.
     const slow = timed(chain('solana', { readMs: 20 * 60_000 }), starts);
     const { handle } = start(HOURLY, { sources: async () => [slow.source] });
     await vi.advanceTimersByTimeAsync(3 * 3_600_000);
