@@ -3,7 +3,14 @@ import { pathToFileURL } from 'node:url';
 import { createDb } from '@colosseum/db';
 import { readManifest } from './archive-manifest';
 import { argValue, asDate, qualified, said } from './lib-pg';
-import { agedSql, cutoffOf, newestSql, parseAt, RETENTION, type Retention } from './risk-retention';
+import {
+  agedSql,
+  cutoffOf,
+  newestAgingSql,
+  parseAt,
+  RETENTION,
+  type Retention,
+} from './risk-retention';
 
 // The daily prune of the hosted database (Thom, Oct 16): deletes the rows of each table in RETENTION
 // (risk-retention.ts) that are older than its window, a batch at a time, then vacuums the table so the space
@@ -48,7 +55,7 @@ export async function pruneTable(
   opts: { at: Date; batch: number; dryRun: boolean; archivedTo?: Date | null },
 ): Promise<PruneResult> {
   const name = `${r.schema}.${r.table}`;
-  const newestOf = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
+  const newestOf = newestAgingSql(r);
   const [row] = await sql.unsafe<{ t: Date | null }[]>(newestOf);
   const own = cutoffOf(r.keepHours, opts.at, asDate(row?.t), r.hourAligned);
   // never past what the archive holds; with an archive that lacks the table, nothing

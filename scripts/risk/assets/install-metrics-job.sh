@@ -4,7 +4,11 @@
 #   scripts/risk/assets/install-job-solana.sh      com.colosseum.assets-solana     minute 44
 #   scripts/risk-evm/install-assets-job.sh         com.colosseum.assets-robinhood  minute 38
 # Usage (through those): install | COLOSSEUM_HOME=<folder> install --no-load (a rehearsal: bundle and plist under
-# <folder>, nothing loaded).
+# <folder>, nothing loaded) | install --hosted (the same job beside the hosted collectors in ~/.colosseum/hosted-risk,
+# whose env file names the hosted database, as com.colosseum.hosted-assets-<chain>: it writes the hosted
+# asset_observations the asset lookups read in production, at minutes 21 (Solana) and 17 (Robinhood Chain), inside
+# the hourly import's window; on Robinhood Chain set RISK_EVM_DIR to the folder of the hosted loop's newest discovery
+# file).
 #
 # It sits beside the collectors and touches none of them, the way the price and raw-arrays jobs were added (gate
 # PRICE-JOB): it builds one bundle, writes one plist, and loads that one agent. It reads
@@ -41,17 +45,20 @@ case "$CHAIN" in
   robinhood) MINUTE=38 ;;
   *) echo "the chain's installer calls this: install-job-solana.sh or install-assets-job.sh"; exit 1 ;;
 esac
-usage() { echo "usage: <installer> | COLOSSEUM_HOME=<folder> <installer> --no-load"; exit 1; }
+usage() { echo "usage: <installer> [--hosted] | COLOSSEUM_HOME=<folder> <installer> [--hosted] --no-load"; exit 1; }
 LOAD=1
+HOSTED=0
 for a in "$@"; do
   case "$a" in
     --no-load) LOAD=0 ;;
+    --hosted) HOSTED=1 ;;
     *) usage ;;
   esac
 done
 
 REPO="$(cd "$(dirname "$0")/../../.." && pwd)"
 DEFAULT_HOME="$HOME/.colosseum/risk"
+if [ "$HOSTED" = 1 ]; then DEFAULT_HOME="$HOME/.colosseum/hosted-risk"; fi
 if [ -n "${COLOSSEUM_HOME+x}" ] && [ -z "$COLOSSEUM_HOME" ]; then
   echo "COLOSSEUM_HOME is set and empty: name the rehearsal folder, or unset it for the install"
   exit 1
@@ -60,6 +67,12 @@ HOME_DIR="${COLOSSEUM_HOME:-$DEFAULT_HOME}"
 HOME_DIR="${HOME_DIR:a}"
 NODE_BIN="$(dirname "$(which node)")"
 LABEL="com.colosseum.assets-$CHAIN"
+if [ "$HOSTED" = 1 ]; then
+  LABEL="com.colosseum.hosted-assets-$CHAIN"
+  # inside the hourly import's window (about :10 to :25 UTC), when the hosted database is awake anyway: Neon's free
+  # compute is the limit that binds (gate SNAPSHOT-IN-API, amended 2026-10-19); Robinhood Chain after minute 14
+  case "$CHAIN" in solana) MINUTE=21 ;; robinhood) MINUTE=17 ;; esac
+fi
 NAME="assets-$CHAIN"
 
 id_of() { stat -f '%d:%i' "$1" 2>/dev/null || stat -c '%d:%i' "$1" 2>/dev/null || true; }
@@ -108,6 +121,9 @@ need() {
   if [ "$REHEARSAL" = 1 ]; then echo "rehearsal: $1"; else echo "$1"; exit 1; fi
 }
 [ -f "$HOME_DIR/env" ] || need "$HOME_DIR/env missing: the collectors are not installed on this machine"
+if [ "$HOSTED" = 1 ] && [ -f "$HOME_DIR/env" ] && ! grep -q '^DATABASE_URL=' "$HOME_DIR/env"; then
+  need "$HOME_DIR/env names no DATABASE_URL (the hosted database)"
+fi
 if [ "$CHAIN" = solana ] && [ -f "$HOME_DIR/env" ] && ! grep -q '^SOLANA_RPC_URL=' "$HOME_DIR/env"; then
   need "SOLANA_RPC_URL missing in $HOME_DIR/env (run scripts/risk/collector/install.sh with no argument once)"
 fi

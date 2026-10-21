@@ -146,7 +146,9 @@
     "ops:archive-risk": "tsx scripts/ops/archive-risk.ts",
     "ops:move-db": "tsx scripts/ops/move-db.ts",
     "ops:table-sizes": "tsx scripts/ops/table-sizes.ts",
-    "ops:install-prune": "zsh scripts/ops/install-prune.sh"
+    "ops:install-prune": "zsh scripts/ops/install-prune.sh",
+    "ops:copy-token-bars": "tsx scripts/ops/copy-token-bars.ts",
+    "ops:install-hosted-bars": "zsh scripts/ops/install-hosted-bars.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

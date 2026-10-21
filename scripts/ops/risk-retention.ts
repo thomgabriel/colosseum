@@ -16,7 +16,10 @@ export type Retention = {
   /** The time a row is aged by. */
   column: string;
   keepHours: number;
-  /** Rows that never age out, as SQL on the table (reconstructed history that no job writes again). */
+  /**
+   * Rows that never age out, as SQL on the table (reconstructed history that no job writes again). `{table}` stands
+   * for the table's qualified name, for a subquery on the table itself; the row is the table's unaliased name.
+   */
   exempt?: string;
   /**
    * The cut is rounded down to the UTC hour, so the oldest row a table keeps of a pool is from a full run: a
@@ -111,6 +114,33 @@ export const RETENTION: readonly Retention[] = [
     why: 'one import a day, each row summing its 24h, 7d and 28d window; readers take the newest data_to, and a week of imports covers days the rewalk returned fewer pools',
     files: null,
   },
+  {
+    schema: 'public',
+    table: 'asset_observations',
+    column: 'observed_at',
+    keepHours: 7 * DAY,
+    // the plan's rows are written once, stamped with the list's time, and never again (metric-rows.ts
+    // `structural`); the metrics jobs read 40 days of exchange rates (SERIES_DAYS in metrics-solana.ts and
+    // scripts/risk-evm/assets-metrics.ts)
+    exempt: [
+      "method = 'asset-metrics-plan'",
+      "(metric = 'exchange_rate' and observed_at >= now() - interval '41 days')",
+      // each token's newest reading of each metric: some keep their source's own time (a pool registry's build,
+      // a discovery file's), so age says nothing about whether a newer one exists
+      'not exists (select 1 from {table} n where n.chain = asset_observations.chain and n.address = asset_observations.address and n.metric = asset_observations.metric and n.observed_at > asset_observations.observed_at)',
+    ].join(' or '),
+    why: "the asset metrics jobs' readings (about 6,800 rows and 3 MB a day); the asset profile reads each metric's newest reading (exempt, whatever its age), the jobs 40 days of exchange rates (exempt), and the plan's rows are written once (exempt)",
+    files:
+      "asset-metrics/<chain>/metrics/<stamp>.jsonl.gz (the jobs' answers; pnpm risk:assets-import <chain> --from rebuilds the rows)",
+  },
+  {
+    schema: 'public',
+    table: 'market_bars',
+    column: 'hour',
+    keepHours: 31 * DAY,
+    why: 'hourly bars per pool and token; the asset lookups read at most 30 days (asset_price_history)',
+    files: null,
+  },
 ];
 
 /**
@@ -131,8 +161,6 @@ export const KEPT_WHOLE: Readonly<Record<string, string>> = {
   risk_network_fees: 'one row per swap the product sent',
   risk_depth_recovery: 'one row per asset, regime and history report',
   risk_sheets: 'plans point at it',
-  asset_observations: 'the metrics jobs read 40 days of exchange rates',
-  market_bars: 'the facts read 30 days of hourly bars, built by hand',
 };
 
 /** The tables whose only copy is the database: what the daily job archives. */
@@ -162,10 +190,16 @@ export function cutoffOf(
   return new Date(hourAligned ? Math.floor(cut / 3_600_000) * 3_600_000 : cut);
 }
 
+/** The exempt rows' SQL with `{table}` filled in, or undefined. */
+export function exemptSql(r: Retention): string | undefined {
+  return r.exempt?.replaceAll('{table}', qualified(r.schema, r.table));
+}
+
 /** SQL that is true of a row older than the cut and not exempt. */
 export function agedSql(r: Retention, cut: Date): string {
   const old = `${ident(r.column)} < ${tsLiteral(cut)}`;
-  return r.exempt ? `(${old} and not (${r.exempt}))` : `(${old})`;
+  const exempt = exemptSql(r);
+  return exempt ? `(${old} and not (${exempt}))` : `(${old})`;
 }
 
 /** SQL that is true of a row the database keeps. */
@@ -176,6 +210,12 @@ export function keptSql(r: Retention, cut: Date): string {
 /** The table's newest time, as SQL. */
 export function newestSql(r: Retention): string {
   return `select max(${ident(r.column)}) as t from ${qualified(r.schema, r.table)}`;
+}
+
+/** The newest time of the rows that can age (the exempt ones aside), as SQL: what the cut is taken from. */
+export function newestAgingSql(r: Retention): string {
+  const exempt = exemptSql(r);
+  return exempt ? `${newestSql(r)} where not (${exempt})` : newestSql(r);
 }
 
 /**

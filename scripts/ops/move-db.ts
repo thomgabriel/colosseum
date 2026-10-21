@@ -18,7 +18,7 @@ import {
   toolMajor,
   tsLiteral,
 } from './lib-pg';
-import { cutoffOf, keptSql, newestSql, parseAt, retentionOf } from './risk-retention';
+import { cutoffOf, keptSql, newestAgingSql, parseAt, retentionOf } from './risk-retention';
 
 // Moves the app's database to another server (Supabase to Neon, Oct 16), keeping only the retention window
 // of the tables that grow by the hour (risk-retention.ts). Run by a person:
@@ -180,7 +180,7 @@ export async function planTables(sql: Sql, schemas: string[], at: Date): Promise
       });
       continue;
     }
-    const newestQ = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
+    const newestQ = newestAgingSql(r);
     const [nw] = await sql.unsafe<{ t: Date | null }[]>(newestQ);
     const newest = asDate(nw?.t);
     const cut = cutoffOf(r.keepHours, at, newest, r.hourAligned);

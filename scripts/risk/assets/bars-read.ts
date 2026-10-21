@@ -66,8 +66,13 @@ export type PoolBars = {
 };
 export type ReadSummary = Record<string, unknown>;
 
+// RISK_HOLIDAYS names the calendar's copy beside a bundled job (scripts/risk/collector/install.sh), as compute.ts reads it
 const P = () =>
-  defaultRegimeParams(JSON.parse(readFileSync('fixtures/risk/us-market-holidays.json', 'utf8')));
+  defaultRegimeParams(
+    JSON.parse(
+      readFileSync(process.env.RISK_HOLIDAYS ?? 'fixtures/risk/us-market-holidays.json', 'utf8'),
+    ),
+  );
 
 /** Every line of a file, without holding an array of them. */
 export function* lines(file: string): Generator<string> {
