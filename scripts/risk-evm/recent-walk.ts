@@ -17,11 +17,17 @@
 // that ended `keepHours` before the head are deleted.
 import {
   appendFileSync,
+  closeSync,
   existsSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
+  renameSync,
   rmSync,
+  statSync,
+  truncateSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -76,6 +82,8 @@ export type RecentWalkSummary = {
   backoffs: number;
   headers: number;
   daysDeleted: number;
+  /** Day files whose cut-short last line was dropped at the start of the run. */
+  repaired: number;
   span: { from: string; to: string };
   httpRequests: number;
   rpcCalls: number;
@@ -130,6 +138,79 @@ export function writableHours(
   return { from: firstWhole + contextHours * HOUR_S, to: Math.floor(span.headT / HOUR_S) * HOUR_S };
 }
 
+/**
+ * The hours a run writes, in ms, `from` inclusive and `to` exclusive: the complete hours of the span after its
+ * first `contextHours` whole hours (`writableHours`), and none at or before `writtenThrough`, the newest hour an
+ * earlier run wrote (written.json), so each hour is written once. Empty when `from >= to`.
+ */
+export function hoursToWrite(
+  span: { fromT: number; headT: number },
+  writtenThrough: number | null,
+  contextHours: number,
+): { from: number; to: number } {
+  const w = writableHours(span, contextHours);
+  return {
+    from: Math.max(w.from * 1000, writtenThrough === null ? 0 : writtenThrough + HOUR_S * 1000),
+    to: w.to * 1000,
+  };
+}
+
+/** The newest hour a run wrote, read from the folder's written.json; null when none was. */
+export function readWrittenThrough(root: string): number | null {
+  const file = join(root, 'written.json');
+  if (!existsSync(file)) return null;
+  const t = Date.parse(
+    (JSON.parse(readFileSync(file, 'utf8')) as { through?: string }).through ?? '',
+  );
+  return Number.isFinite(t) ? t : null;
+}
+
+/** Records the newest hour written, whole or not at all (a temporary file renamed over the old one). */
+export function writeWrittenThrough(root: string, through: number): void {
+  writeAtomic(
+    join(root, 'written.json'),
+    JSON.stringify({ through: new Date(through).toISOString() }),
+  );
+}
+
+/**
+ * Whether a scheduled run is past the minute by which it must have written (gate HOURLY-BARS): the hosted
+ * database is awake from about :10 to :25 UTC for the hourly import, and a write after that would wake it again.
+ * The minute is counted in the hour the run started, so a run started late (a Mac waking) writes nothing and the
+ * next hour's run writes its hours.
+ */
+export function pastWriteDeadline(startedMs: number, nowMs: number, minute: number): boolean {
+  return nowMs >= Math.floor(startedMs / (HOUR_S * 1000)) * HOUR_S * 1000 + minute * 60_000;
+}
+
+/** Writes a file whole: a temporary file beside it, renamed over it, so a crash never leaves half of it. */
+export function writeAtomic(path: string, text: string): void {
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, text);
+  renameSync(tmp, path);
+}
+
+/**
+ * A day file whose last line was cut short (a merge stopped mid-write) loses that line: the cursor was not moved,
+ * so the next run walks those blocks again, and a row written twice is read once. Returns the bytes dropped.
+ */
+export function dropPartialLastLine(file: string): number {
+  const size = statSync(file).size;
+  if (size === 0) return 0;
+  const fd = openSync(file, 'r');
+  try {
+    const last = Buffer.alloc(1);
+    readSync(fd, last, 0, 1, size - 1);
+    if (last[0] === 0x0a) return 0;
+  } finally {
+    closeSync(fd);
+  }
+  const text = readFileSync(file);
+  const keep = text.lastIndexOf(0x0a) + 1;
+  truncateSync(file, keep);
+  return size - keep;
+}
+
 /** One run of the walk: the blocks after the folder's head, or a fresh span. See the file's head. */
 export async function runRecentWalk(
   deps: HistoryDeps,
@@ -149,6 +230,11 @@ export async function runRecentWalk(
   const pendingDir = join(root, 'pending');
   mkdirSync(swapsDir, { recursive: true });
   rmSync(pendingDir, { recursive: true, force: true });
+  // a merge a crash cut short: no day file keeps a half line (the cursor did not move past those blocks)
+  let repaired = 0;
+  for (const pool of readdirSync(swapsDir))
+    for (const f of readdirSync(join(swapsDir, pool)))
+      if (f.endsWith('.jsonl') && dropPartialLastLine(join(swapsDir, pool, f)) > 0) repaired++;
 
   const headBlock = Number(BigInt(await deps.rpc.call<string>('eth_blockNumber', [])));
   const [head] = (await readHeaders(deps.rpc, [headBlock], deps.sleep)) as [Header];
@@ -184,6 +270,7 @@ export async function runRecentWalk(
       backoffs: 0,
       headers: 1,
       daysDeleted: 0,
+      repaired,
       span: {
         from: new Date(c.fromT * 1000).toISOString(),
         to: new Date(c.headT * 1000).toISOString(),
@@ -242,8 +329,11 @@ export async function runRecentWalk(
   if (existsSync(pendingDir))
     for (const pool of readdirSync(pendingDir)) {
       mkdirSync(join(swapsDir, pool), { recursive: true });
-      for (const f of readdirSync(join(pendingDir, pool)))
-        appendFileSync(join(swapsDir, pool, f), readFileSync(join(pendingDir, pool, f)));
+      for (const f of readdirSync(join(pendingDir, pool))) {
+        const day = join(swapsDir, pool, f);
+        if (existsSync(day)) dropPartialLastLine(day);
+        appendFileSync(day, readFileSync(join(pendingDir, pool, f)));
+      }
     }
   rmSync(pendingDir, { recursive: true, force: true });
 
@@ -262,7 +352,7 @@ export async function runRecentWalk(
   // the headers from the newest one at or before the span's start on
   const firstKept = [...headers].reverse().find((h) => h.t <= fromT) ?? (headers[0] as Header);
   headers = headers.filter((h) => h.block >= firstKept.block);
-  writeFileSync(headersFile, `${headers.map((h) => JSON.stringify(h)).join('\n')}\n`);
+  writeAtomic(headersFile, `${headers.map((h) => JSON.stringify(h)).join('\n')}\n`);
   const fromBlock = mode === 'fresh' ? from : (held as Cursor).from;
   const cursor: Cursor = {
     chain: chain.id,
@@ -281,7 +371,7 @@ export async function runRecentWalk(
     updatedAt: deps.now().toISOString(),
     maxTimeErrorS: null,
   };
-  writeFileSync(cursorFile, JSON.stringify(cursor, null, 2));
+  writeAtomic(cursorFile, JSON.stringify(cursor, null, 2));
   const stats = deps.rpc.stats();
   const summary: RecentWalkSummary = {
     event: 'recent_walk',
@@ -293,6 +383,7 @@ export async function runRecentWalk(
     ...result,
     headers: headers.length,
     daysDeleted: pruned.deleted.length,
+    repaired,
     span: { from: new Date(fromT * 1000).toISOString(), to: new Date(head.t * 1000).toISOString() },
     ...stats,
     durationS: Math.round((deps.now().getTime() - startedAt.getTime()) / 1000),

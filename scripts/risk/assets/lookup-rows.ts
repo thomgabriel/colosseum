@@ -37,6 +37,26 @@ export function lookupRows(
   return out;
 }
 
+/** The rows whose hour is in [from, to) (ms): the hours a run writes (recent-walk.ts hoursToWrite). Pure. */
+export function rowsInHours(
+  rows: readonly BarRow[],
+  hours: { from: number; to: number },
+): BarRow[] {
+  return rows.filter((r) => {
+    const t = (r.hour as Date).getTime();
+    return t >= hours.from && t < hours.to;
+  });
+}
+
+/** The newest hour of the token rows (`pool = 'asset'`) of a write, in ms; null when it holds none. Pure. */
+export function newestTokenHour(rows: readonly BarRow[]): number | null {
+  let newest: number | null = null;
+  for (const r of rows)
+    if (r.pool === 'asset')
+      newest = Math.max(newest ?? Number.NEGATIVE_INFINITY, (r.hour as Date).getTime());
+  return newest;
+}
+
 /** Each token's top pools of a chain, from its newest `pool_tvl_usd` reading (as the lookups choose them). */
 export async function readTopPools(db: Db, chain: string): Promise<Map<string, Set<string>>> {
   const rows = await db

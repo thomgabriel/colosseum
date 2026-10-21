@@ -30,8 +30,12 @@
 // folder (scripts/risk-evm/recent-walk.ts: about the last 30 hours, never the loop's history/), then builds the bars
 // from <dir> and writes the complete hours after the first RECENT_CONTEXT_HOURS of its span that no earlier run wrote
 // (<dir>/written.json). A dry run walks too (the folder is the job's own) and records nothing as written.
+// --write-by-minute <m> (the scheduled hourly run, m = 25): when the run is past minute m of the UTC hour it started
+// in once the bars are built, it reads and writes nothing in the database and exits: the hosted database is awake
+// about :10 to :25 for the hourly import (SNAPSHOT-IN-API), and the next hour's run writes these hours (written.json
+// is not moved). A first walk of 30 hours, or a run on a Mac waking late, so writes nothing until the next hour.
 import 'dotenv/config';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDb, marketBars } from '@colosseum/db';
 import { BARS_METHOD_VERSION } from '@colosseum/risk';
@@ -41,7 +45,14 @@ import { CHAINS, type ChainConfig } from '../../risk-evm/config';
 import type { CutRow } from '../../risk-evm/cut';
 import { historyPools } from '../../risk-evm/history';
 import { acquireLock } from '../../risk-evm/loop';
-import { RECENT_CONTEXT_HOURS, runRecentWalk, writableHours } from '../../risk-evm/recent-walk';
+import {
+  hoursToWrite,
+  pastWriteDeadline,
+  RECENT_CONTEXT_HOURS,
+  readWrittenThrough,
+  runRecentWalk,
+  writeWrittenThrough,
+} from '../../risk-evm/recent-walk';
 import { createRpc } from '../../risk-evm/rpc';
 import {
   readPoolTokens,
@@ -62,8 +73,10 @@ import {
   dropOldPoolBars,
   isLocalDatabase,
   lookupRows,
+  newestTokenHour,
   POOL_BAR_HOURS,
   readTopPools,
+  rowsInHours,
 } from './lookup-rows';
 
 const args = process.argv.slice(2);
@@ -79,6 +92,7 @@ const sinceHours = Number(opt('--since-hours') ?? 72);
 const dropOld = args.includes('--drop-old-pool-bars');
 const localRehearsal = args.includes('--local-rehearsal');
 const walkDir = opt('--walk');
+const writeByMinute = args.includes('--write-by-minute') ? Number(opt('--write-by-minute')) : null;
 if (
   (chain !== 'solana' && chain !== 'robinhood') ||
   (opt('--source') ?? 'held') !== (backfill ? 'backfill' : 'held') ||
@@ -86,11 +100,16 @@ if (
   ((args.includes('--since-hours') || dropOld || localRehearsal) && !lookupsOnly) ||
   (args.includes('--walk') &&
     (!walkDir || walkDir.startsWith('--') || !lookupsOnly || chain !== 'robinhood')) ||
+  (writeByMinute !== null &&
+    (!lookupsOnly ||
+      !Number.isInteger(writeByMinute) ||
+      writeByMinute < 1 ||
+      writeByMinute > 59)) ||
   !Number.isFinite(sinceHours) ||
   sinceHours < 1
 ) {
   console.error(
-    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal] [--walk <dir> (robinhood)]]',
+    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal] [--walk <dir> (robinhood)] [--write-by-minute <m>]]',
   );
   process.exit(1);
 }
@@ -226,11 +245,20 @@ let toWrite: BarRow[] = rows;
 let lookups: { topPools: number; tokenRows: number; poolRows: number; dropped: number } | null =
   null;
 // --walk: the hours an earlier run wrote (written.json), so each hour is written once
-const writtenFile = walkDir ? join(walkDir, 'written.json') : null;
-const writtenThrough =
-  writtenFile && existsSync(writtenFile)
-    ? Date.parse((JSON.parse(readFileSync(writtenFile, 'utf8')) as { through: string }).through)
-    : null;
+const writtenThrough = walkDir ? readWrittenThrough(walkDir) : null;
+// --write-by-minute: past the hosted database's waking window, nothing is read from it or written to it
+if (writeByMinute !== null && pastWriteDeadline(t0, Date.now(), writeByMinute)) {
+  console.log(
+    JSON.stringify({
+      chain,
+      skipped: `past minute ${writeByMinute} of the hour the run started in: nothing written; the next run writes these hours`,
+      ...(walk ? { walk } : {}),
+      seconds: Math.round((Date.now() - t0) / 1000),
+    }),
+  );
+  releaseWalk?.();
+  process.exit(0);
+}
 let hours: { from: number; to: number } | null = null;
 if (lookupsOnly) {
   const { db, client } = createDb();
@@ -239,18 +267,9 @@ if (lookupsOnly) {
     // complete hours only; from the job's own walk, not the first hours of its span, nor an hour written before
     const span = read.span;
     if (span) {
-      const w = walkDir ? writableHours(span, RECENT_CONTEXT_HOURS) : writableHours(span, 0);
-      hours = {
-        from: Math.max(w.from * 1000, writtenThrough === null ? 0 : writtenThrough + 3_600_000),
-        to: w.to * 1000,
-      };
+      hours = hoursToWrite(span, writtenThrough, walkDir ? RECENT_CONTEXT_HOURS : 0);
     }
-    const inHours = hours
-      ? rows.filter((r) => {
-          const t = (r.hour as Date).getTime();
-          return t >= (hours as { from: number }).from && t < (hours as { to: number }).to;
-        })
-      : rows;
+    const inHours = hours ? rowsInHours(rows, hours) : rows;
     toWrite = lookupRows(inHours, top, {
       since: new Date(startedAt - sinceHours * 3_600_000),
       poolSince: new Date(startedAt - POOL_BAR_HOURS * 3_600_000),
@@ -384,12 +403,9 @@ if (!dry && backfill) {
     );
   await client.end();
   // the newest hour written, so the next run starts after it (a token row of it went in)
-  if (writtenFile && hours) {
-    const newest = toWrite
-      .filter((r) => r.pool === 'asset')
-      .reduce((m, r) => Math.max(m, (r.hour as Date).getTime()), Number.NEGATIVE_INFINITY);
-    if (Number.isFinite(newest))
-      writeFileSync(writtenFile, JSON.stringify({ through: new Date(newest).toISOString() }));
+  if (walkDir && hours) {
+    const newest = newestTokenHour(toWrite);
+    if (newest !== null) writeWrittenThrough(walkDir, newest);
   }
 }
 releaseWalk?.();

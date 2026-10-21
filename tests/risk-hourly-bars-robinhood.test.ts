@@ -2,6 +2,7 @@
 // (scripts/risk-evm/recent-walk.ts), the complete-hour cut, and the bars it builds from the walk read as current by
 // the lookups' coverage rule. A chain in memory answers the requests; no test calls the network.
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -15,6 +16,7 @@ import { barCoverage } from '@colosseum/risk';
 import { describe, expect, it } from 'vitest';
 import { readRobinhood } from '../scripts/risk/assets/bars-read';
 import { barRows } from '../scripts/risk/assets/bars-rows';
+import { newestTokenHour, rowsInHours } from '../scripts/risk/assets/lookup-rows';
 import { TOPIC } from '../scripts/risk-evm/abi';
 import { CHAINS, type ChainConfig } from '../scripts/risk-evm/config';
 import type { CutRow } from '../scripts/risk-evm/cut';
@@ -22,11 +24,16 @@ import { type HistoryPool, historyPools, type SwapRow } from '../scripts/risk-ev
 import type { Cursor } from '../scripts/risk-evm/history-run';
 import {
   daysToDelete,
+  dropPartialLastLine,
   headerBlocks,
+  hoursToWrite,
+  pastWriteDeadline,
   RECENT_CONTEXT_HOURS,
   RECENT_KEEP_HOURS,
+  readWrittenThrough,
   runRecentWalk,
   writableHours,
+  writeWrittenThrough,
 } from '../scripts/risk-evm/recent-walk';
 import type { Rpc, RpcReply, RpcRequest } from '../scripts/risk-evm/rpc';
 
@@ -294,12 +301,11 @@ describe('the hours the hourly job writes', () => {
     expect(read.span.headT).toBe(headT);
     const { rows } = barRows(read, 'robinhood', false);
     const w = writableHours(read.span);
-    const written = rows.filter(
-      (r) =>
-        r.pool === 'asset' &&
-        (r.hour as Date).getTime() / 1000 >= w.from &&
-        (r.hour as Date).getTime() / 1000 < w.to,
+    // what the job writes: bars.ts's own functions, on a folder no run has written from
+    const written = rowsInHours(rows, hoursToWrite(read.span, null, RECENT_CONTEXT_HOURS)).filter(
+      (r) => r.pool === 'asset',
     );
+    expect(newestTokenHour(written)).toBe(Date.parse('2026-10-22T09:00:00Z'));
     // the newest bar is hour HH-1, priced from the swaps at $100, and its source names the job's own folder
     const newest = written.at(-1) as (typeof written)[number];
     expect((newest.hour as Date).toISOString()).toBe('2026-10-22T09:00:00.000Z');
@@ -336,5 +342,86 @@ describe('the hours the hourly job writes', () => {
         hours.filter((h) => h < '2026-10-22T08:00:00.000Z'),
       ),
     ).toMatchObject({ covered: false });
+  });
+});
+
+describe('what each hourly run writes, and when (HOURLY-BARS)', () => {
+  const span = {
+    fromT: Date.parse('2026-10-21T04:47:00Z') / 1000,
+    headT: Date.parse('2026-10-22T10:18:00Z') / 1000,
+  };
+  const iso = (ms: number) => new Date(ms).toISOString();
+
+  it('hoursToWrite: the complete hours after the context, none at or before the newest written', () => {
+    const first = hoursToWrite(span, null, RECENT_CONTEXT_HOURS);
+    expect([iso(first.from), iso(first.to)]).toEqual([
+      '2026-10-21T11:00:00.000Z',
+      '2026-10-22T10:00:00.000Z',
+    ]);
+    // the run an hour before wrote up to 08:00: this one writes 09:00 alone
+    const next = hoursToWrite(span, Date.parse('2026-10-22T08:00:00Z'), RECENT_CONTEXT_HOURS);
+    expect([iso(next.from), iso(next.to)]).toEqual([
+      '2026-10-22T09:00:00.000Z',
+      '2026-10-22T10:00:00.000Z',
+    ]);
+    // nothing new: an empty span
+    const none = hoursToWrite(span, Date.parse('2026-10-22T09:00:00Z'), RECENT_CONTEXT_HOURS);
+    expect(none.from).toBe(none.to);
+    // a written mark older than the context (a fresh folder after a long sleep) does not reach back past it
+    expect(hoursToWrite(span, Date.parse('2026-10-01T00:00:00Z'), RECENT_CONTEXT_HOURS).from).toBe(
+      first.from,
+    );
+    // the fill from the loop's rewalk: no context
+    expect(iso(hoursToWrite(span, null, 0).from)).toBe('2026-10-21T05:00:00.000Z');
+  });
+
+  it('the written mark: read back as written, whole (no temporary file left)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'recent-written-'));
+    expect(readWrittenThrough(root)).toBeNull();
+    writeWrittenThrough(root, Date.parse('2026-10-22T09:00:00Z'));
+    expect(readWrittenThrough(root)).toBe(Date.parse('2026-10-22T09:00:00Z'));
+    expect(readdirSync(root)).toEqual(['written.json']);
+    const rows = [
+      { pool: 'asset', hour: new Date('2026-10-22T08:00:00Z') },
+      { pool: '0xpool', hour: new Date('2026-10-22T09:00:00Z') },
+    ] as never[];
+    // a pool row of a later hour is not the mark: the token rows are what the lookups read
+    expect(newestTokenHour(rows)).toBe(Date.parse('2026-10-22T08:00:00Z'));
+    expect(newestTokenHour([])).toBeNull();
+  });
+
+  it('a scheduled run writes nothing past minute 25 of the hour it started in', () => {
+    const at = (hm: string) => Date.parse(`2026-10-22T${hm}:00Z`);
+    expect(pastWriteDeadline(at('10:18'), at('10:24'), 25)).toBe(false);
+    expect(pastWriteDeadline(at('10:18'), at('10:25'), 25)).toBe(true);
+    // a run started late (a Mac waking at 10:40) writes nothing; nor one that ran into the next hour
+    expect(pastWriteDeadline(at('10:40'), at('10:41'), 25)).toBe(true);
+    expect(pastWriteDeadline(at('10:18'), at('11:02'), 25)).toBe(true);
+  });
+
+  it('a day file cut short by a crash loses its half line, and the next walk reads every swap once', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'recent-walk-'));
+    const first = T0 + 3 * 24 * H;
+    const state = { head: blockAt(first) };
+    await walk(root, state, first);
+    const before = swapsIn(root).length;
+    const day = join(
+      root,
+      'swaps',
+      POOL,
+      readdirSync(join(root, 'swaps', POOL))
+        .sort()
+        .at(-1) as string,
+    );
+    appendFileSync(day, '{"pool":"0x00000000000000000000000000000000000000b1","kind":"cl","blo');
+    state.head += 360;
+    const { summary } = await walk(root, state, first + H);
+    expect(summary.repaired).toBe(1);
+    const swaps = swapsIn(root);
+    expect(swaps.length).toBe(before + 360 / SWAP_EVERY);
+    expect(new Set(swaps.map((s) => s.block)).size).toBe(swaps.length);
+    expect(readdirSync(root).filter((f) => f.includes('.tmp'))).toEqual([]);
+    // the repair itself: a file ending in a newline is left alone
+    expect(dropPartialLastLine(day)).toBe(0);
   });
 });
