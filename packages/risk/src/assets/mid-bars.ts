@@ -23,7 +23,7 @@ import { USDC_MINT } from './history';
 export const MIDS_METHOD_VERSION = 'mids-0.1';
 export const MIDS_LAYER = 'collector_mids';
 export const MIDS_METHOD =
-  "hourly marks of the token's mid price in dollars from the pool collector's snapshots (risk_pool_snapshots.mid_price, the simulated pool's marginal price in USDC per token, USDC at par): one pool an hour, the token's USDC pool with the deepest median 2% sell depth (in_band_liquidity) over the hour's snapshots, never blended across pools; open and close its first and last snapshot of the hour, high and low its extremes; no swap read: volume, the volume by side and the swaps are not collected";
+  "hourly marks of the token's mid price in dollars from the pool collector's snapshots (risk_pool_snapshots.mid_price, or the same reading in the collector's day files, midQuotePerAsset: the simulated pool's marginal price in USDC per token, USDC at par): one pool an hour, the token's USDC pool with the deepest median 2% sell depth (in_band_liquidity, the day files' depth2pct.sellQuoteOut) over the hour's snapshots, never blended across pools; open and close its first and last snapshot of the hour, high and low its extremes; no swap read: volume, the volume by side and the swaps are not collected";
 
 /** Whether a bar was built from the collector's mids (no swap, no volume). */
 export const isMidsVersion = (methodVersion: string): boolean => methodVersion.startsWith('mids-');
@@ -94,6 +94,8 @@ export function midBars(
   snapshots: readonly MidSnapshot[],
   pools: readonly MidPool[],
   hours: { from: Date; to: Date },
+  /** Where the snapshots were read: the database (the hourly job) or the collector's day files (a one-off fill). */
+  read: 'snapshots' | 'day_files' = 'snapshots',
 ): MidBar[] {
   const usdc = new Map(pools.filter((p) => p.quoteMint === USDC_MINT).map((p) => [p.address, p]));
   const from = hours.from.getTime();
@@ -173,7 +175,7 @@ export function midBars(
           poolsWithSnapshots: ranked.length,
         },
         methodVersion: MIDS_METHOD_VERSION,
-        source: `risk_pool_snapshots.mid_price of the USDC pool ${chosen.pool} (${venue}): ${snaps.length} snapshot${snaps.length > 1 ? 's' : ''} of the pool collector in the hour (Solana RPC getMultipleAccounts, decoded by @colosseum/risk; ${versions})`,
+        source: `${read === 'snapshots' ? 'risk_pool_snapshots.mid_price' : "the pool collector's day files (pools/<day>.jsonl, midQuotePerAsset)"} of the USDC pool ${chosen.pool} (${venue}): ${snaps.length} snapshot${snaps.length > 1 ? 's' : ''} of the pool collector in the hour (Solana RPC getMultipleAccounts, decoded by @colosseum/risk; ${versions})`,
         method: MIDS_METHOD,
         fetchedAt: last.fetchedAt,
         provenance: snaps.reduce<Provenance>((p, s) => worst(p, s.provenance), 'live'),

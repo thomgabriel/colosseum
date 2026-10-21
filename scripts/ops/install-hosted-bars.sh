@@ -29,6 +29,10 @@
 #                   bars of the last 30 days (720 hours) from the loop's rewalk (it goes back about 28 days), so the
 #                   days between the backfill's last (Oct 13) and the hourly job's first are written too. Solana: the
 #                   mids of the last 96 hours (the four days the database keeps of pool snapshots). Once, at the install
+#   --fill-from-files [dir]   solana only, after --fill-now: once, the mids of the hours between the copied backfill's
+#                   last bar (Oct 15) and the first snapshot the database keeps, read from the collector's own day
+#                   files (default $HOME_DIR/pools; scripts/risk/assets/mid-bars.ts --fill-from-files), the same rule.
+#                   With --dry-run-now it is a dry run (counts only)
 #   --no-load       write everything, load nothing (needs HOSTED_HOME, a rehearsal folder)
 #
 # HOSTED_HOME names another folder (a rehearsal): the plist goes to $HOSTED_HOME/LaunchAgents and nothing is loaded.
@@ -41,9 +45,13 @@ FILL_NOW=0
 LOAD=1
 EVM_DIR=""
 CHAIN=robinhood
-usage() { echo "usage: install-hosted-bars.sh [robinhood|solana] [--evm-dir <dir>] [--dry-run-now] [--fill-now] [--no-load]"; exit 1; }
+FILES_NOW=0
+FILES_DIR=""
+usage() { echo "usage: install-hosted-bars.sh [robinhood|solana] [--evm-dir <dir>] [--dry-run-now] [--fill-now] [--fill-from-files [dir]] [--no-load]"; exit 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
+    --fill-from-files) FILES_NOW=1
+      if [ $# -gt 1 ] && [ "${2#-}" = "$2" ] && [ "$2" != robinhood ] && [ "$2" != solana ]; then shift; FILES_DIR="$1"; fi ;;
     robinhood|solana) CHAIN="$1" ;;
     --dry-run-now) DRY_NOW=1 ;;
     --fill-now) FILL_NOW=1 ;;
@@ -54,6 +62,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ "$CHAIN" = solana ] && [ -n "$EVM_DIR" ] && { echo "--evm-dir is for robinhood: the Solana job reads no file"; exit 1; }
+[ "$CHAIN" = robinhood ] && [ "$FILES_NOW" = 1 ] && { echo "--fill-from-files is for solana"; exit 1; }
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 DEFAULT_HOME="$HOME/.colosseum/hosted-risk"
 if [ -n "${HOSTED_HOME+x}" ] && [ -z "$HOSTED_HOME" ]; then
@@ -126,7 +135,7 @@ if [ "$CHAIN" = robinhood ]; then
   BUNDLE=risk-hosted-bars
   WALK="$HOME_DIR/bars-walk/$CHAIN"
   mkdir -p "$WALK"
-  ARGS="$CHAIN --lookups-only --walk $WALK --drop-old-pool-bars"
+  ARGS="$CHAIN --lookups-only --walk $WALK --drop-old-pool-bars --write-by-minute 25"
   MINUTE=18
 else
   SETTINGS=""
@@ -180,4 +189,10 @@ if [ "$CHAIN" = robinhood ]; then
 else
   if [ "$DRY_NOW" = 1 ]; then run_once --since-hours 6 --dry-run; fi
   if [ "$FILL_NOW" = 1 ]; then run_once --since-hours 96; fi
+  # after the snapshots' 96 hours, so the hour the database's first snapshot cuts short comes from the files
+  if [ "$FILES_NOW" = 1 ]; then
+    DRY=()
+    [ "$DRY_NOW" = 1 ] && DRY=(--dry-run)
+    run_once --fill-from-files "${FILES_DIR:-$HOME_DIR/pools}" "${DRY[@]}"
+  fi
 fi
