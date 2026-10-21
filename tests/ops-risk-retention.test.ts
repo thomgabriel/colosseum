@@ -150,16 +150,19 @@ describe('the prune of the asset readings on a database', () => {
   beforeAll(async () => {
     await sql.unsafe(`create schema ${schema}`);
     await sql.unsafe(
-      `create table ${schema}.asset_observations (id serial primary key, observed_at timestamptz not null, metric text not null, method text not null)`,
+      `create table ${schema}.asset_observations (id serial primary key, chain text not null, address text not null, observed_at timestamptz not null, metric text not null, method text not null)`,
     );
     // relative to now: the exempt rule reads the clock, as the daily job does
     await sql.unsafe(
-      `insert into ${schema}.asset_observations (observed_at, metric, method) values
-         (now() - interval '1 day', 'supply_total', 'read'),
-         (now() - interval '10 days', 'supply_total', 'read'),
-         (now() - interval '60 days', 'yield_quoted', 'asset-metrics-plan'),
-         (now() - interval '30 days', 'exchange_rate', 'read'),
-         (now() - interval '50 days', 'exchange_rate', 'read')`,
+      `insert into ${schema}.asset_observations (chain, address, observed_at, metric, method) values
+         ('solana', 'a', now() - interval '12 hours', 'supply_total', 'read'),
+         ('solana', 'a', now() - interval '1 day', 'supply_total', 'read'),
+         ('solana', 'a', now() - interval '10 days', 'supply_total', 'read'),
+         ('solana', 'a', now() - interval '60 days', 'yield_quoted', 'asset-metrics-plan'),
+         ('solana', 'a', now() - interval '30 days', 'exchange_rate', 'read'),
+         ('solana', 'a', now() - interval '50 days', 'exchange_rate', 'read'),
+         ('solana', 'a', now() - interval '20 days', 'pool_tvl_usd', 'read'),
+         ('robinhood', 'b', now() - interval '20 days', 'supply_total', 'read')`,
     );
   });
   afterAll(async () => {
@@ -167,16 +170,20 @@ describe('the prune of the asset readings on a database', () => {
     await sql.end();
   });
 
-  it('keeps a week of readings, the plan’s rows written once, and 41 days of exchange rates', async () => {
+  it('keeps a week of readings, each token’s newest of each metric, the plan’s rows and 41 days of exchange rates', async () => {
     const res = await pruneTable(sql, r, { at: new Date(), batch: 50, dryRun: false });
     expect(res.deleted).toBe(2);
-    const left = await sql.unsafe<{ metric: string; method: string }[]>(
-      `select metric, method from ${schema}.asset_observations order by observed_at desc`,
+    const left = await sql.unsafe<{ chain: string; metric: string; method: string }[]>(
+      `select chain, metric, method from ${schema}.asset_observations order by observed_at desc, chain`,
     );
     expect(left).toEqual([
-      { metric: 'supply_total', method: 'read' },
-      { metric: 'exchange_rate', method: 'read' },
-      { metric: 'yield_quoted', method: 'asset-metrics-plan' },
+      { chain: 'solana', metric: 'supply_total', method: 'read' },
+      { chain: 'solana', metric: 'supply_total', method: 'read' },
+      // a token's only reading of a metric, however old (its source's own time), and another chain's
+      { chain: 'robinhood', metric: 'supply_total', method: 'read' },
+      { chain: 'solana', metric: 'pool_tvl_usd', method: 'read' },
+      { chain: 'solana', metric: 'exchange_rate', method: 'read' },
+      { chain: 'solana', metric: 'yield_quoted', method: 'asset-metrics-plan' },
     ]);
   });
 });

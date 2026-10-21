@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { createDb, marketBars } from '@colosseum/db';
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, gte, sql } from 'drizzle-orm';
 import { upsertBackfillBars } from '../risk/assets/bars-rows';
 import { argValue, bytes, said, sameDatabase } from './lib-pg';
 
@@ -102,8 +102,10 @@ async function main(argv: string[]) {
     }
     const results: Array<{ chain: string; inserted: number; replaced: number }> = [];
     for (const p of plans) {
+      // every column but `detail`, which the lookups never read: it is not carried, nor held in memory
+      const { detail: _detail, ...cols } = getTableColumns(marketBars);
       const rows = await from.db
-        .select()
+        .select(cols)
         .from(marketBars)
         .where(and(tokenRows, eq(marketBars.chain, p.chain)))
         .orderBy(marketBars.hour, marketBars.address);

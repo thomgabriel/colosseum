@@ -26,7 +26,14 @@ import {
   spawnPsql,
   tsLiteral,
 } from './lib-pg';
-import { agedSql, cutoffOf, newestSql, parseAt, RETENTION, type Retention } from './risk-retention';
+import {
+  agedSql,
+  cutoffOf,
+  newestAgingSql,
+  parseAt,
+  RETENTION,
+  type Retention,
+} from './risk-retention';
 
 // Exports the rows the hosted database no longer keeps (older than each table's window in risk-retention.ts) to
 // gzipped CSV files, one per table and UTC day, before the move or a prune drops them. It deletes nothing.
@@ -195,7 +202,7 @@ async function main() {
         );
         continue;
       }
-      const newestQ = r.exempt ? `${newestSql(r)} where not (${r.exempt})` : newestSql(r);
+      const newestQ = newestAgingSql(r);
       const [nw] = await sql.unsafe<{ t: Date | null }[]>(newestQ);
       const to = cutoffOf(r.keepHours, at, asDate(nw?.t), r.hourAligned);
       if (!to) {

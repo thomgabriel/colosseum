@@ -59,6 +59,35 @@ export async function readTopPools(db: Db, chain: string): Promise<Map<string, S
   return top;
 }
 
+/** Whether a connection address names a database on this machine (or none: createDb's default is local). */
+export function isLocalDatabase(url: string | undefined): boolean {
+  if (!url) return true;
+  try {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+    return host === '' || host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return true;
+  }
+}
+
+/** The held pool bars older than `before` that dropOldPoolBars would delete. */
+const oldHeldPoolBars = (chain: string, before: Date) =>
+  and(
+    eq(marketBars.chain, chain),
+    ne(marketBars.pool, 'asset'),
+    lt(marketBars.hour, before),
+    sql`not (${marketBars.source} like '<ASSETS_DATA_DIR>/%' or ${marketBars.source} like '%in the asset backfill''s day files%')`,
+  );
+
+/** How many rows dropOldPoolBars would delete: what a dry run says. */
+export async function countOldPoolBars(db: Db, chain: string, before: Date): Promise<number> {
+  const [r] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(marketBars)
+    .where(oldHeldPoolBars(chain, before));
+  return Number(r?.n ?? 0);
+}
+
 /**
  * Deletes a chain's pool bars older than `before` that the held history wrote: the hosted job keeps a pool's bars
  * for POOL_BAR_HOURS. A row of the backfill import is never deleted here, so a database that keeps every bar (the
@@ -67,14 +96,7 @@ export async function readTopPools(db: Db, chain: string): Promise<Map<string, S
 export async function dropOldPoolBars(db: Db, chain: string, before: Date): Promise<number> {
   const gone = await db
     .delete(marketBars)
-    .where(
-      and(
-        eq(marketBars.chain, chain),
-        ne(marketBars.pool, 'asset'),
-        lt(marketBars.hour, before),
-        sql`not (${marketBars.source} like '<ASSETS_DATA_DIR>/%' or ${marketBars.source} like '%in the asset backfill''s day files%')`,
-      ),
-    )
+    .where(oldHeldPoolBars(chain, before))
     .returning({ hour: marketBars.hour });
   return gone.length;
 }

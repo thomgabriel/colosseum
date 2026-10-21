@@ -12,6 +12,9 @@
 #                                    the loop's Robinhood Chain files (history/robinhood, the cut, the universe
 #                                    file) defaults to ~/.colosseum/hosted-risk/evm
 #   install-hosted-bars.sh --dry-run-now   after installing, one dry run (counts only) against the env file's database
+#   install-hosted-bars.sh --fill-now      after installing, one run of the token bars of the last 30 days (720 hours):
+#                                    the loop's rewalk goes back about 28 days, so it fills the days between the
+#                                    backfill's last (Oct 13) and the daily runs' 72 hours. Once, at the first install
 #   install-hosted-bars.sh --no-load       write everything, load nothing (needs HOSTED_HOME, a rehearsal folder)
 #
 # Solana has no job: no collector keeps its swap history (the held files stopped on 2026-10-06), so its bars on the
@@ -23,12 +26,14 @@
 # only; this script checks that it names DATABASE_URL and prints nothing from it.
 set -euo pipefail
 DRY_NOW=0
+FILL_NOW=0
 LOAD=1
 EVM_DIR=""
-usage() { echo "usage: install-hosted-bars.sh [--evm-dir <dir>] [--dry-run-now] [--no-load]"; exit 1; }
+usage() { echo "usage: install-hosted-bars.sh [--evm-dir <dir>] [--dry-run-now] [--fill-now] [--no-load]"; exit 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run-now) DRY_NOW=1 ;;
+    --fill-now) FILL_NOW=1 ;;
     --no-load) LOAD=0 ;;
     --evm-dir) shift; [ $# -gt 0 ] || usage; EVM_DIR="$1" ;;
     *) usage ;;
@@ -37,9 +42,14 @@ while [ $# -gt 0 ]; do
 done
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 DEFAULT_HOME="$HOME/.colosseum/hosted-risk"
+if [ -n "${HOSTED_HOME+x}" ] && [ -z "$HOSTED_HOME" ]; then
+  echo "HOSTED_HOME is set and empty: name the rehearsal folder, or unset it for the install"; exit 1
+fi
 HOME_DIR="${HOSTED_HOME:-$DEFAULT_HOME}"
 HOME_DIR="${HOME_DIR%/}"
-NODE_BIN="$(dirname "$(which node)")"
+HOME_DIR="${HOME_DIR:a}"
+NODE="$(command -v node)" || { echo "node not found on PATH"; exit 1; }
+NODE_BIN="$(dirname "$NODE")"
 CHAIN=robinhood
 if [ "$HOME_DIR" = "$DEFAULT_HOME" ]; then
   REHEARSAL=0
@@ -122,7 +132,13 @@ if [ "$LOAD" = 1 ]; then
 else
   echo "not loaded: $PLIST"
 fi
-if [ "$DRY_NOW" = 1 ]; then
+# a rehearsal's database is a scratch one on this machine, which the job refuses without --local-rehearsal
+REH=()
+[ "$REHEARSAL" = 1 ] && REH=(--local-rehearsal)
+run_once() {
+  [ -f "$HOME_DIR/env" ] || { echo "no env file at $HOME_DIR/env: nothing run"; return 0; }
   (set -a; . "$HOME_DIR/env"; set +a
-   cd "$HOME_DIR" && "$NODE_BIN/node" "$OUT" "$CHAIN" --lookups-only --since-hours 72 --dry-run)
-fi
+   cd "$HOME_DIR" && "$NODE_BIN/node" "$OUT" "$CHAIN" --lookups-only "$@" "${REH[@]}")
+}
+if [ "$DRY_NOW" = 1 ]; then run_once --since-hours 72 --drop-old-pool-bars --dry-run; fi
+if [ "$FILL_NOW" = 1 ]; then run_once --since-hours 720; fi

@@ -21,7 +21,8 @@
 // lookups read (lookup-rows.ts): the token rows of the last n hours (default 72), with an empty `detail`, and the
 // rows of each token's top five pools (from the newest `pool_tvl_usd` readings in the same database) of the last
 // POOL_BAR_HOURS. --drop-old-pool-bars then deletes the chain's held pool bars older than that, never a row of
-// the backfill: the hosted database keeps a pool's bars for two days, its tokens' for 31 (DB-RETENTION).
+// the backfill: the hosted database keeps a pool's bars for two days, its tokens' for 31 (DB-RETENTION). Both are
+// refused on a database on this machine, which keeps every bar, unless --local-rehearsal names it a scratch one.
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -43,7 +44,14 @@ import {
   reconcileBackfillBars,
   upsertBackfillBars,
 } from './bars-rows';
-import { dropOldPoolBars, lookupRows, POOL_BAR_HOURS, readTopPools } from './lookup-rows';
+import {
+  countOldPoolBars,
+  dropOldPoolBars,
+  isLocalDatabase,
+  lookupRows,
+  POOL_BAR_HOURS,
+  readTopPools,
+} from './lookup-rows';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -56,16 +64,26 @@ const backfill = opt('--source') === 'backfill';
 const lookupsOnly = args.includes('--lookups-only');
 const sinceHours = Number(opt('--since-hours') ?? 72);
 const dropOld = args.includes('--drop-old-pool-bars');
+const localRehearsal = args.includes('--local-rehearsal');
 if (
   (chain !== 'solana' && chain !== 'robinhood') ||
   (opt('--source') ?? 'held') !== (backfill ? 'backfill' : 'held') ||
   (lookupsOnly && backfill) ||
-  ((args.includes('--since-hours') || dropOld) && !lookupsOnly) ||
+  ((args.includes('--since-hours') || dropOld || localRehearsal) && !lookupsOnly) ||
   !Number.isFinite(sinceHours) ||
   sinceHours < 1
 ) {
   console.error(
-    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars]]',
+    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal]]',
+  );
+  process.exit(1);
+}
+// --lookups-only empties `detail` and --drop-old-pool-bars deletes held pool bars: for the hosted database alone. A
+// database on this machine keeps every bar (the backfill's and the held history's), so it is refused there unless the
+// run says it is a rehearsal on a scratch database.
+if (lookupsOnly && !localRehearsal && isLocalDatabase(process.env.DATABASE_URL)) {
+  console.error(
+    'refusing --lookups-only on a database on this machine (DATABASE_URL unset, localhost or 127.0.0.1): it is for the hosted database; --local-rehearsal for a scratch one',
   );
   process.exit(1);
 }
@@ -159,6 +177,13 @@ if (lookupsOnly) {
     });
     const tokenRows = toWrite.filter((r) => r.pool === 'asset').length;
     lookups = { topPools: top.size, tokenRows, poolRows: toWrite.length - tokenRows, dropped: 0 };
+    // a dry run says what --drop-old-pool-bars would delete
+    if (dry && dropOld)
+      lookups.dropped = await countOldPoolBars(
+        db,
+        chain,
+        new Date(startedAt - POOL_BAR_HOURS * 3_600_000),
+      );
   } finally {
     await client.end();
   }
