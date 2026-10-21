@@ -29,7 +29,7 @@ import {
   type UniverseAsset,
   VaultAgentSource,
 } from '@colosseum/schemas';
-import { and, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, like, lt, ne, notLike, sql } from 'drizzle-orm';
 import { projectSheet } from './agent-analytics';
 import { loadAssetFacts } from './facts';
 import { lendingMarketsOf } from './lending-facts';
@@ -314,7 +314,14 @@ export function priceHistoryAnswer(
   );
   return answerOf(
     assetId,
-    priceHistoryFigures(read.rows, read.before, window, now, read.chainHours).map((figure) => ({
+    priceHistoryFigures(
+      read.rows,
+      read.before,
+      window,
+      now,
+      read.chainHours,
+      read.midChainHours ?? [],
+    ).map((figure) => ({
       id: `bars:${assetId}:${window}:${figure.key}`,
       label: (
         (mids ? MID_BAR_LABELS[figure.key] : undefined) ??
@@ -334,8 +341,13 @@ export function poolsAnswer(
   },
   now: Date,
 ): Built {
+  // the pools' volume is swaps: the day is covered by the token's swap-built bars alone, never its mid bars
   const day = barCoverage(
-    read.day.rows.filter((row) => Date.parse(row.hour) >= windowStart('24h', now).getTime()),
+    read.day.rows.filter(
+      (row) =>
+        Date.parse(row.hour) >= windowStart('24h', now).getTime() &&
+        !isMidsVersion(row.methodVersion),
+    ),
     read.day.before,
     '24h',
     now,
@@ -472,9 +484,20 @@ const iso = (at: Date | string) => (typeof at === 'string' ? at : at.toISOString
 
 /**
  * The `asset` bars of a token from a window's first hour on, the hour of its latest bar before that, and the
- * hours from that first hour on in which any asset of the chain has a bar (the hours the collector ran).
+ * hours from that first hour on in which any asset of the chain has a bar built from swaps (the hours the swap
+ * collector ran). A bar of the collector's mid prices (`mids-*`, gate HOURLY-BARS) is not a chain hour: it says
+ * the mids of that token's pool were read, not that any other token's swaps were collected, so a token's own
+ * stale swap bars are never made current by other tokens' mid bars. A token's own mid bars still count as its
+ * own collected hours (`barCoverage`); the chain's mid hours (`midChainHours`) count only for a token with mid
+ * bars of its own in the window, whose own newest bar must then be current (`priceHistoryFigures`).
  */
-export type BarsRead = { rows: BarRow[]; before: string | null; chainHours: string[] };
+export type BarsRead = {
+  rows: BarRow[];
+  before: string | null;
+  chainHours: string[];
+  /** The hours in which any asset of the chain has a mid bar: read only for a token with mid bars of its own. */
+  midChainHours?: string[];
+};
 
 /** What the lookups read; injected, so a test hands in its own rows. */
 export type LookupReads = {
@@ -577,7 +600,24 @@ export const dbLookupReads: LookupReads = {
       eq(marketBars.address, address),
       eq(marketBars.pool, 'asset'),
     ];
-    const [rows, before, chainHours] = await Promise.all([
+    const hoursOf = (mids: boolean) =>
+      db
+        .selectDistinct({ hour: marketBars.hour })
+        .from(marketBars)
+        .where(
+          and(
+            eq(marketBars.chain, chain),
+            eq(marketBars.pool, 'asset'),
+            mids
+              ? like(marketBars.methodVersion, 'mids-%')
+              : notLike(marketBars.methodVersion, 'mids-%'),
+            gte(marketBars.hour, from),
+            lt(marketBars.hour, new Date(from.getTime() + WINDOW_SPAN_MS)),
+          ),
+        )
+        .orderBy(marketBars.hour)
+        .limit(1_000);
+    const [rows, before, chainHours, midChainHours] = await Promise.all([
       db
         .select(barCols)
         .from(marketBars)
@@ -590,25 +630,16 @@ export const dbLookupReads: LookupReads = {
         .where(and(...where, lt(marketBars.hour, from)))
         .orderBy(desc(marketBars.hour))
         .limit(1),
-      // the hours the chain's collector ran: any asset's bar (market_bars_hour_idx); a window's hours at most
-      db
-        .selectDistinct({ hour: marketBars.hour })
-        .from(marketBars)
-        .where(
-          and(
-            eq(marketBars.chain, chain),
-            eq(marketBars.pool, 'asset'),
-            gte(marketBars.hour, from),
-            lt(marketBars.hour, new Date(from.getTime() + WINDOW_SPAN_MS)),
-          ),
-        )
-        .orderBy(marketBars.hour)
-        .limit(1_000),
+      // the hours the chain's swap collector ran: any asset's swap-built bar (market_bars_hour_idx), and apart
+      // the hours of any asset's mid bar (see BarsRead); a window's hours at most
+      hoursOf(false),
+      hoursOf(true),
     ]);
     return {
       rows: rows.map(barOf),
       before: before[0] ? iso(before[0].hour) : null,
       chainHours: chainHours.map((row) => iso(row.hour)),
+      midChainHours: midChainHours.map((row) => iso(row.hour)),
     };
   },
   async poolReading(db, chain, address) {

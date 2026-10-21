@@ -221,11 +221,17 @@ export function compareVersions(a: string, b: string): number {
 
 /**
  * Which of two bars of one hour is kept: a bar built from swaps over one built from the collector's mid prices
- * (`isMidsVersion`), whatever their versions; between two of one kind, the later method version.
+ * (`isMidsVersion`), whatever their versions, unless the swap bar has no dollar price and the mid bar has one;
+ * between two of one kind, the later method version.
  */
-export function preferredBar<T extends Pick<BarRow, 'methodVersion'>>(a: T, b: T): T {
+export function preferredBar<T extends Pick<BarRow, 'methodVersion' | 'closeUsd'>>(a: T, b: T): T {
   const [ma, mb] = [isMidsVersion(a.methodVersion), isMidsVersion(b.methodVersion)];
-  if (ma !== mb) return ma ? b : a;
+  if (ma !== mb) {
+    const [swap, mid] = ma ? [b, a] : [a, b];
+    // a swap bar with no dollar price (every swap unpriced) gives way to a priced mid bar of the hour
+    const priced = (x: T) => x.closeUsd !== null && Number.isFinite(x.closeUsd);
+    return !priced(swap) && priced(mid) ? mid : swap;
+  }
   return compareVersions(b.methodVersion, a.methodVersion) > 0 ? b : a;
 }
 
@@ -246,7 +252,9 @@ export function windowStart(window: LookupWindow, now: Date): Date {
 }
 
 /**
- * Whether the bars cover the window. `chainHours` are the hours in which any asset of the chain has a bar: an
+ * Whether the bars cover the window. `chainHours` are the hours in which any asset of the chain has a bar built
+ * from swaps (never a bar of the collector's mid prices, gate HOURLY-BARS: another token's mids do not make this
+ * one's stale bars current; the asset's own bars, mids included, are its own collected hours): an
  * hour of the window in which none has is an hour the collector did not run (an outage), never a quiet hour,
  * and a window with one is not covered. A quiet hour is one the chain has bars for and this asset has none: a
  * gap. The asset's own history must reach back to the window's start (a bar at or before it, or `before`, the
@@ -329,6 +337,35 @@ function barPin(rows: readonly BarRow[]) {
   };
 }
 
+/**
+ * The coverage of a window holding the asset's own mid bars: the hours the chain's mid collector ran count as
+ * collected (an hour it ran and this asset has no bar is a quiet hour, not an outage), and the asset's own newest
+ * bar must have ended at most `BARS_FRESH_MS` before `now`, so other tokens' fresh mids never make this one's
+ * old marks current. Otherwise not covered, the hours after its newest bar missing.
+ */
+export function midCoverage(
+  bars: readonly { hour: string }[],
+  before: string | null,
+  window: LookupWindow,
+  now: Date,
+  chainHours: readonly string[],
+  midChainHours: readonly string[],
+): ReturnType<typeof barCoverage> {
+  const coverage = barCoverage(bars, before, window, now, [...chainHours, ...midChainHours]);
+  if (!coverage.covered) return coverage;
+  const own = Math.max(...bars.map((bar) => floorHour(Date.parse(bar.hour))));
+  const stale = now.getTime() - (own + HOUR_MS);
+  if (stale <= BARS_FRESH_MS) return coverage;
+  const end = windowStart(window, now).getTime() + WINDOW_HOURS[window] * HOUR_MS;
+  const missingHours = Math.round(
+    (Math.min(end, floorHour(now.getTime()) + HOUR_MS) - (own + HOUR_MS)) / HOUR_MS,
+  );
+  return {
+    covered: false,
+    missingHours: Math.max(1, Math.min(WINDOW_HOURS[window], missingHours)),
+  };
+}
+
 /** The figures a bar of the collector's mid prices does not have: it read no swap. */
 export const SWAP_ONLY_KEYS: readonly BarKey[] = ['volume', 'buyvol', 'sellvol', 'swaps', 'gaps'];
 
@@ -350,10 +387,14 @@ export function priceHistoryFigures(
   window: LookupWindow,
   now: Date,
   chainHours: readonly string[],
+  midChainHours: readonly string[] = [],
 ): AssetFigure[] {
   const start = windowStart(window, now).getTime();
   const bars = oneAnHour(rows.filter((row) => Date.parse(row.hour) >= start));
-  const coverage = barCoverage(bars, before, window, now, chainHours);
+  const hasMids = bars.some((bar) => isMidsVersion(bar.methodVersion));
+  const coverage = hasMids
+    ? midCoverage(bars, before, window, now, chainHours, midChainHours)
+    : barCoverage(bars, before, window, now, chainHours);
   if (!coverage.covered)
     return BAR_KEYS.map((key) => missing(key, 'not_collected', coverage.missingHours));
   const priced = bars.filter((bar) => bar.closeUsd !== null && Number.isFinite(bar.closeUsd));
