@@ -48,6 +48,9 @@ overrides:
   'ws@>=8.0.0 <8.21.0': ^8.21.0
   # GHSA-68fv-2mgg-jv7q (high): source-map-js 1.2.1 under next's postcss. 1.2.2 is the fix, a patch.
   'source-map-js@<1.2.2': ^1.2.2
+  # GHSA-q3jh-wrc6-jgq8 and GHSA-8r9p-f939-6h3c (high): follow-redirects 1.16.0 under Privy's wallet tree
+  # (x402 > wagmi > @base-org/account > @coinbase/cdp-sdk > axios). 1.16.1 is the fix, a patch.
+  'follow-redirects@>=1.16.0 <1.16.1': ^1.16.1
 auditConfig:
   ignoreGhsas:
     - GHSA-rfgv-xxqx-mfg5 # undici, under @scalar/fastify-api-reference
