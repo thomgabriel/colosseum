@@ -1,5 +1,6 @@
 import type { Fact, FactNullReason, LendingPoolFacts, Provenance } from '@colosseum/schemas';
 import { ASSET_METRICS, type AssetMetric, METRIC_CADENCE } from './metrics';
+import { isMidsVersion } from './mid-bars';
 
 // The facts of one asset, as the conversations look them up (gate FIGURES-BY-REFERENCE as amended
 // 2026-10-14, ledger API-AGENT-LOOKUPS-1): the rows the API reads, turned into figures. Pure: no I/O and no
@@ -218,13 +219,29 @@ export function compareVersions(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** One row an hour: where a bar was built by two method versions, the later version's. */
-function oneAnHour<T extends BarRow>(rows: readonly T[]): T[] {
+/**
+ * Which of two bars of one hour is kept: a bar built from swaps over one built from the collector's mid prices
+ * (`isMidsVersion`), whatever their versions, unless the swap bar has no dollar price and the mid bar has one;
+ * between two of one kind, the later method version.
+ */
+export function preferredBar<T extends Pick<BarRow, 'methodVersion' | 'closeUsd'>>(a: T, b: T): T {
+  const [ma, mb] = [isMidsVersion(a.methodVersion), isMidsVersion(b.methodVersion)];
+  if (ma !== mb) {
+    const [swap, mid] = ma ? [b, a] : [a, b];
+    // a swap bar with no dollar price (every swap unpriced) gives way to a priced mid bar of the hour
+    const priced = (x: T) => x.closeUsd !== null && Number.isFinite(x.closeUsd);
+    return !priced(swap) && priced(mid) ? mid : swap;
+  }
+  return compareVersions(b.methodVersion, a.methodVersion) > 0 ? b : a;
+}
+
+/** One row an hour: where a bar was built by two methods, the one `preferredBar` keeps. */
+export function oneAnHour<T extends BarRow>(rows: readonly T[]): T[] {
   const byHour = new Map<number, T>();
   for (const row of rows) {
     const at = Date.parse(row.hour);
     const kept = byHour.get(at);
-    if (!kept || compareVersions(row.methodVersion, kept.methodVersion) > 0) byHour.set(at, row);
+    byHour.set(at, kept ? preferredBar(kept, row) : row);
   }
   return [...byHour.entries()].sort(([a], [b]) => a - b).map(([, row]) => row);
 }
@@ -235,7 +252,9 @@ export function windowStart(window: LookupWindow, now: Date): Date {
 }
 
 /**
- * Whether the bars cover the window. `chainHours` are the hours in which any asset of the chain has a bar: an
+ * Whether the bars cover the window. `chainHours` are the hours in which any asset of the chain has a bar built
+ * from swaps (never a bar of the collector's mid prices, gate HOURLY-BARS: another token's mids do not make this
+ * one's stale bars current; the asset's own bars, mids included, are its own collected hours): an
  * hour of the window in which none has is an hour the collector did not run (an outage), never a quiet hour,
  * and a window with one is not covered. A quiet hour is one the chain has bars for and this asset has none: a
  * gap. The asset's own history must reach back to the window's start (a bar at or before it, or `before`, the
@@ -287,15 +306,26 @@ function quoteMethods(rows: readonly BarRow[]): string {
   return [...said].sort().join(', ');
 }
 
-/** The pin of a figure made of `rows`: the newest row's source, the oldest read behind it. */
+/**
+ * The pin of a figure made of `rows`: the newest row's source, the oldest read behind it. Where some rows are the
+ * collector's mid prices (`isMidsVersion`), the source and the method say so.
+ */
 function barPin(rows: readonly BarRow[]) {
   const last = rows.at(-1) as BarRow;
   const versions = [...new Set(rows.map((row) => row.methodVersion))]
     .sort(compareVersions)
     .join(', ');
+  const mids = rows.filter((row) => isMidsVersion(row.methodVersion)).length;
+  const layer =
+    mids === 0
+      ? 'DEX swaps'
+      : mids === rows.length
+        ? "the pool collector's mid prices"
+        : "DEX swaps, and the pool collector's mid prices where no swap was collected";
+  const methods = [...new Set(rows.map((row) => row.method))].join(' / ');
   return {
-    source: `market_bars (DEX swaps; ${last.source})`,
-    method: `${last.method}; quote in dollars by ${quoteMethods(rows)} (${versions})`,
+    source: `market_bars (${layer}; ${last.source})`,
+    method: `${methods}; quote in dollars by ${quoteMethods(rows)} (${versions})`,
     fetchedAt: rows.reduce(
       (oldest, row) => (Date.parse(row.fetchedAt) < Date.parse(oldest) ? row.fetchedAt : oldest),
       last.fetchedAt,
@@ -308,13 +338,48 @@ function barPin(rows: readonly BarRow[]) {
 }
 
 /**
+ * The coverage of a window holding the asset's own mid bars: the hours the chain's mid collector ran count as
+ * collected (an hour it ran and this asset has no bar is a quiet hour, not an outage), and the asset's own newest
+ * bar must have ended at most `BARS_FRESH_MS` before `now`, so other tokens' fresh mids never make this one's
+ * old marks current. Otherwise not covered, the hours after its newest bar missing.
+ */
+export function midCoverage(
+  bars: readonly { hour: string }[],
+  before: string | null,
+  window: LookupWindow,
+  now: Date,
+  chainHours: readonly string[],
+  midChainHours: readonly string[],
+): ReturnType<typeof barCoverage> {
+  const coverage = barCoverage(bars, before, window, now, [...chainHours, ...midChainHours]);
+  if (!coverage.covered) return coverage;
+  const own = Math.max(...bars.map((bar) => floorHour(Date.parse(bar.hour))));
+  const stale = now.getTime() - (own + HOUR_MS);
+  if (stale <= BARS_FRESH_MS) return coverage;
+  const end = windowStart(window, now).getTime() + WINDOW_HOURS[window] * HOUR_MS;
+  const missingHours = Math.round(
+    (Math.min(end, floorHour(now.getTime()) + HOUR_MS) - (own + HOUR_MS)) / HOUR_MS,
+  );
+  return {
+    covered: false,
+    missingHours: Math.max(1, Math.min(WINDOW_HOURS[window], missingHours)),
+  };
+}
+
+/** The figures a bar of the collector's mid prices does not have: it read no swap. */
+export const SWAP_ONLY_KEYS: readonly BarKey[] = ['volume', 'buyvol', 'sellvol', 'swaps', 'gaps'];
+
+/**
  * The asset's price history over one window, from its `pool = 'asset'` bars in dollars: the latest close,
  * the window's high and low, the change from its first priced close to its last (a past figure, as a
  * fraction), the volume and the volume of purchases and of sales in dollars, the swaps, and the hours with
  * no priced swap among the hours the chain was collected (up to its latest collected hour). A window the bars
  * do not cover (`barCoverage`: an outage of the chain's collector, a history that starts inside the window,
  * bars that stop short of now) answers every figure `not_collected` with the hours missing: never a part of
- * the window shown as the whole of it.
+ * the window shown as the whole of it. One bar an hour (`oneAnHour`: a swap-built bar before a mid-price one).
+ * A window with any bar of the collector's mid prices (Solana's hourly bars, gate HOURLY-BARS) answers its
+ * close, high, low and change from them, and the volumes, the swaps and the gaps `not_collected`
+ * (`SWAP_ONLY_KEYS`): those hours read no swap, so a sum over the window would leave them out.
  */
 export function priceHistoryFigures(
   rows: readonly BarRow[],
@@ -322,10 +387,14 @@ export function priceHistoryFigures(
   window: LookupWindow,
   now: Date,
   chainHours: readonly string[],
+  midChainHours: readonly string[] = [],
 ): AssetFigure[] {
   const start = windowStart(window, now).getTime();
   const bars = oneAnHour(rows.filter((row) => Date.parse(row.hour) >= start));
-  const coverage = barCoverage(bars, before, window, now, chainHours);
+  const hasMids = bars.some((bar) => isMidsVersion(bar.methodVersion));
+  const coverage = hasMids
+    ? midCoverage(bars, before, window, now, chainHours, midChainHours)
+    : barCoverage(bars, before, window, now, chainHours);
   if (!coverage.covered)
     return BAR_KEYS.map((key) => missing(key, 'not_collected', coverage.missingHours));
   const priced = bars.filter((bar) => bar.closeUsd !== null && Number.isFinite(bar.closeUsd));
@@ -365,6 +434,10 @@ export function priceHistoryFigures(
           ? figure('change', priced, ((last.closeUsd as number) - from) / from, 'fraction')
           : missing('change', 'not_a_number'),
     );
+  }
+  if (bars.some((bar) => isMidsVersion(bar.methodVersion))) {
+    for (const key of SWAP_ONLY_KEYS) out.push(missing(key, 'not_collected'));
+    return out;
   }
   const sum = (pick: (bar: BarRow) => number | null) =>
     valued.reduce((total, bar) => total + (pick(bar) ?? 0), 0);

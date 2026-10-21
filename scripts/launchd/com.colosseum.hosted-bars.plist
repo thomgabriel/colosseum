@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- A hosted bars job (scripts/ops/install-hosted-bars.sh fills the slots; gate HOURLY-BARS): every hour at its
+     minute, inside the hourly import's window (Robinhood Chain at 18, Solana at 19). Robinhood Chain walks its own
+     last hours of swaps and writes the complete hours; Solana builds its bars from the pool collector's mid prices. -->
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.colosseum.hosted-bars-__CHAIN__</string>
@@ -8,11 +11,10 @@
   <array>
     <string>/bin/zsh</string>
     <string>-c</string>
-    <string>set -a; source __HOME_DIR__/env; set +a; __NODE_BIN__/node __HOME_DIR__/risk-hosted-bars.mjs __CHAIN__ --lookups-only --since-hours 72 --drop-old-pool-bars >> __HOME_DIR__/risk-hosted-bars.log 2>&amp;1</string>
+    <string>set -a; source __HOME_DIR__/env; set +a; __NODE_BIN__/node __HOME_DIR__/__BUNDLE__.mjs __ARGS__ >> __LOG__ 2>&amp;1</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
-    <key>Hour</key><integer>__HOUR__</integer>
     <key>Minute</key><integer>__MINUTE__</integer>
   </dict>
   <key>StandardErrorPath</key><string>__HOME_DIR__/launchd.err</string>

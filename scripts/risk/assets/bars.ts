@@ -23,6 +23,18 @@
 // POOL_BAR_HOURS. --drop-old-pool-bars then deletes the chain's held pool bars older than that, never a row of
 // the backfill: the hosted database keeps a pool's bars for two days, its tokens' for 31 (DB-RETENTION). Both are
 // refused on a database on this machine, which keeps every bar, unless --local-rehearsal names it a scratch one.
+// Every --lookups-only run writes complete hours only: an hour is written once the walk's head is past its end.
+//
+// --walk <dir> (robinhood, with --lookups-only; the hourly hosted bars job, gate HOURLY-BARS): first walks the Swap
+// events of the cut's pools since the folder's last head on the chain's public endpoint into <dir>, the job's own
+// folder (scripts/risk-evm/recent-walk.ts: about the last 30 hours, never the loop's history/), then builds the bars
+// from <dir> and writes the complete hours after the first RECENT_CONTEXT_HOURS of its span that no earlier run wrote
+// (<dir>/written.json). A dry run walks too (the folder is the job's own) and records nothing as written.
+// --write-window <from>-<to> (the scheduled hourly run, 10-25; write-window.ts): when, once the bars are built, the
+// clock is outside those minutes of the UTC hour the run started in, it reads and writes nothing in the database and
+// exits: the hosted database is awake about :10 to :25 for the hourly import (SNAPSHOT-IN-API), and the next hour's
+// run writes these hours (written.json is not moved). A first walk of 30 hours, or a run on a Mac waking late, so
+// writes nothing until the next hour.
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -30,6 +42,18 @@ import { createDb, marketBars } from '@colosseum/db';
 import { BARS_METHOD_VERSION } from '@colosseum/risk';
 import type { AssetList } from '@colosseum/schemas';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { CHAINS, type ChainConfig } from '../../risk-evm/config';
+import type { CutRow } from '../../risk-evm/cut';
+import { historyPools } from '../../risk-evm/history';
+import { acquireLock } from '../../risk-evm/loop';
+import {
+  hoursToWrite,
+  RECENT_CONTEXT_HOURS,
+  readWrittenThrough,
+  runRecentWalk,
+  writeWrittenThrough,
+} from '../../risk-evm/recent-walk';
+import { createRpc } from '../../risk-evm/rpc';
 import {
   readPoolTokens,
   readRobinhoodBackfill,
@@ -49,9 +73,12 @@ import {
   dropOldPoolBars,
   isLocalDatabase,
   lookupRows,
+  newestTokenHour,
   POOL_BAR_HOURS,
   readTopPools,
+  rowsInHours,
 } from './lookup-rows';
+import { outsideWriteWindow, parseWriteWindow } from './write-window';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -65,16 +92,23 @@ const lookupsOnly = args.includes('--lookups-only');
 const sinceHours = Number(opt('--since-hours') ?? 72);
 const dropOld = args.includes('--drop-old-pool-bars');
 const localRehearsal = args.includes('--local-rehearsal');
+const walkDir = opt('--walk');
+const writeWindow = args.includes('--write-window')
+  ? parseWriteWindow(opt('--write-window'))
+  : null;
 if (
   (chain !== 'solana' && chain !== 'robinhood') ||
   (opt('--source') ?? 'held') !== (backfill ? 'backfill' : 'held') ||
   (lookupsOnly && backfill) ||
   ((args.includes('--since-hours') || dropOld || localRehearsal) && !lookupsOnly) ||
+  (args.includes('--walk') &&
+    (!walkDir || walkDir.startsWith('--') || !lookupsOnly || chain !== 'robinhood')) ||
+  (args.includes('--write-window') && (writeWindow === null || !lookupsOnly)) ||
   !Number.isFinite(sinceHours) ||
   sinceHours < 1
 ) {
   console.error(
-    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal]]',
+    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal] [--walk <dir> (robinhood)] [--write-window <from>-<to>]]',
   );
   process.exit(1);
 }
@@ -88,10 +122,51 @@ if (lookupsOnly && !localRehearsal && isLocalDatabase(process.env.DATABASE_URL))
   process.exit(1);
 }
 const t0 = Date.now();
+// --walk: the job's own walk of the last hours, before the bars are read from it (one run at a time)
+let walk: Record<string, unknown> | null = null;
+let releaseWalk: (() => void) | null = null;
+if (walkDir) {
+  const evmDir = process.env.RISK_EVM_DIR ?? 'data/risk-evm';
+  const listDir = process.env.RISK_UNIVERSE_DIR ?? 'scripts/risk/universe';
+  const rh = CHAINS.find((c) => c.id === 'robinhood') as ChainConfig;
+  const list = JSON.parse(readFileSync(join(listDir, `${rh.id}.json`), 'utf8')) as AssetList;
+  const cut = JSON.parse(readFileSync(join(evmDir, list.inputs.cut ?? ''), 'utf8')) as {
+    chain: string;
+    pools: CutRow[];
+  };
+  releaseWalk = acquireLock(join(walkDir, 'run.lock'), 2 * 3_600_000);
+  if (!releaseWalk) {
+    console.error(`another run holds ${join(walkDir, 'run.lock')}`);
+    process.exit(1);
+  }
+  // the chain's public endpoint, never an address from the environment (a paid one): the walk is a few
+  // thousand blocks an hour
+  const rpc = createRpc(rh.rpcDefault, { timeoutMs: 120_000 });
+  try {
+    walk = await runRecentWalk(
+      {
+        rpc,
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        log: (e) => {
+          if (e.event !== 'window')
+            console.log(JSON.stringify({ at: new Date().toISOString(), ...e }));
+        },
+        now: () => new Date(),
+      },
+      rh,
+      historyPools(cut, rh),
+      walkDir,
+    );
+  } catch (e) {
+    releaseWalk();
+    throw e;
+  }
+}
 const read: {
   pools: Array<PoolBars & { sourceOf?: (hour: string) => string }>;
   daysOnDisk?: { first: string; last: string } | null;
   summary: Record<string, unknown>;
+  span?: { fromT: number; headT: number };
 } = backfill
   ? readBackfill()
   : chain === 'solana'
@@ -99,6 +174,7 @@ const read: {
     : await readRobinhood(
         process.env.RISK_EVM_DIR ?? 'data/risk-evm',
         process.env.RISK_UNIVERSE_DIR ?? 'scripts/risk/universe',
+        walkDir ? { historyRoot: walkDir } : {},
       );
 
 function readBackfill() {
@@ -167,11 +243,33 @@ const startedAt = Date.now();
 let toWrite: BarRow[] = rows;
 let lookups: { topPools: number; tokenRows: number; poolRows: number; dropped: number } | null =
   null;
+// --walk: the hours an earlier run wrote (written.json), so each hour is written once
+const writtenThrough = walkDir ? readWrittenThrough(walkDir) : null;
+// --write-window: outside the hosted database's waking minutes, nothing is read from it or written to it
+if (writeWindow !== null && outsideWriteWindow(t0, Date.now(), writeWindow)) {
+  console.log(
+    JSON.stringify({
+      chain,
+      skipped: `outside minutes ${writeWindow.from} to ${writeWindow.to} UTC of the hour the run started in: nothing written; the next run writes these hours`,
+      ...(walk ? { walk } : {}),
+      seconds: Math.round((Date.now() - t0) / 1000),
+    }),
+  );
+  releaseWalk?.();
+  process.exit(0);
+}
+let hours: { from: number; to: number } | null = null;
 if (lookupsOnly) {
   const { db, client } = createDb();
   try {
     const top = await readTopPools(db, chain);
-    toWrite = lookupRows(rows, top, {
+    // complete hours only; from the job's own walk, not the first hours of its span, nor an hour written before
+    const span = read.span;
+    if (span) {
+      hours = hoursToWrite(span, writtenThrough, walkDir ? RECENT_CONTEXT_HOURS : 0);
+    }
+    const inHours = hours ? rowsInHours(rows, hours) : rows;
+    toWrite = lookupRows(inHours, top, {
       since: new Date(startedAt - sinceHours * 3_600_000),
       poolSince: new Date(startedAt - POOL_BAR_HOURS * 3_600_000),
     });
@@ -303,7 +401,13 @@ if (!dry && backfill) {
       new Date(startedAt - POOL_BAR_HOURS * 3_600_000),
     );
   await client.end();
+  // the newest hour written, so the next run starts after it (a token row of it went in)
+  if (walkDir && hours) {
+    const newest = newestTokenHour(toWrite);
+    if (newest !== null) writeWrittenThrough(walkDir, newest);
+  }
 }
+releaseWalk?.();
 
 const { perPool, ...summary } = read.summary as { perPool: unknown[] } & Record<string, unknown>;
 console.table(
@@ -321,7 +425,24 @@ console.log(
     tokens: byToken.size,
     assetBars: rows.length - poolRows,
     rows: rows.length,
-    ...(lookups ? { lookupsOnly: { sinceHours, poolBarHours: POOL_BAR_HOURS, ...lookups } } : {}),
+    ...(lookups
+      ? {
+          lookupsOnly: {
+            sinceHours,
+            poolBarHours: POOL_BAR_HOURS,
+            ...(hours
+              ? {
+                  hours: {
+                    from: new Date(hours.from).toISOString(),
+                    toExclusive: new Date(hours.to).toISOString(),
+                  },
+                }
+              : {}),
+            ...lookups,
+          },
+        }
+      : {}),
+    ...(walk ? { walk } : {}),
     written,
     ...(backfill
       ? { replaced, withdrawn, daysOnDisk: read.daysOnDisk, alreadyStored: existing }

@@ -307,9 +307,15 @@ export function evmBarSwap(
 export async function readRobinhood(
   evmDir: string,
   listDir: string,
-): Promise<{ pools: PoolBars[]; summary: ReadSummary }> {
+  /**
+   * `historyRoot`: a walk folder other than the loop's `<evmDir>/history/robinhood`, with the same layout (the
+   * hosted bars job's own, scripts/risk-evm/recent-walk.ts); the cut and the universe file are still read from
+   * `evmDir`.
+   */
+  opts: { historyRoot?: string } = {},
+): Promise<{ pools: PoolBars[]; summary: ReadSummary; span: { fromT: number; headT: number } }> {
   const chain = CHAINS.find((c) => c.id === 'robinhood') as ChainConfig;
-  const root = join(evmDir, 'history', chain.id);
+  const root = opts.historyRoot ?? join(evmDir, 'history', chain.id);
   const cursor = JSON.parse(readFileSync(join(root, 'cursor.json'), 'utf8')) as Cursor;
   const list = JSON.parse(readFileSync(join(listDir, `${chain.id}.json`), 'utf8')) as AssetList;
   const cutFile = list.inputs.cut ?? '';
@@ -426,7 +432,7 @@ export async function readRobinhood(
       symbol: p.symbol,
       quoteAddress: p.other,
       bars: pb,
-      source: `${evmDir.replace(homedir(), '~')}/history/${chain.id}/swaps/${p.address}/<day>.jsonl (${cursor.method}: Swap events by eth_getLogs of the Uniswap v3 pools and the v4 pool manager on ${chain.name}, ${dayFiles(p.address).length} day files) priced by hourlyRows of scripts/risk-evm/history.ts over the whole walk (the pricing of risk_pool_flow's flow-0.1 rows)`,
+      source: `${root.replace(homedir(), '~')}/swaps/${p.address}/<day>.jsonl (${cursor.method}: Swap events by eth_getLogs of the Uniswap v3 pools and the v4 pool manager on ${chain.name}, ${dayFiles(p.address).length} day files) priced by hourlyRows of scripts/risk-evm/history.ts over the whole walk (the pricing of risk_pool_flow's flow-0.1 rows)`,
       fetchedAtOf: () => fetchedAt,
       provenanceOf: () => 'live',
     });
@@ -444,6 +450,7 @@ export async function readRobinhood(
   }
   return {
     pools: out,
+    span,
     summary: {
       root,
       cut: cutFile,
