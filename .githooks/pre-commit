@@ -1,0 +1,6 @@
+#!/bin/sh
+# The check before Claude's commits (CLAUDE.md, "Verification"), as a git hook: it runs wherever the
+# Claude session started, which the session hook in .claude/settings.json does not. A person's
+# commits are not held here; CI checks every one.
+[ -n "$CLAUDECODE" ] || exit 0
+exec node "$(git rev-parse --show-toplevel)/.claude/hooks/pre-commit.mjs" --git

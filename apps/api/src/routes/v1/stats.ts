@@ -6,13 +6,14 @@ import {
   type PlatformNetwork,
   PlatformStatsResponse,
   type Provenance,
+  SNAPSHOT_STALE_AFTER_SECONDS,
 } from '@colosseum/schemas';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { ChainEntry } from '../../orders/chains';
 import type { OrderDeps } from '../../orders/legs';
-import { STALE_AFTER_SECONDS } from '../../portfolio/plans';
+import { thisLife } from '../../portfolio/scope';
 import { chainAnsweredAt, SNAPSHOT_LOOKBACK_DAYS } from '../../portfolio/snapshots';
 
 // GET /v1/stats: the platform's numbers under the landing's hero, from the vault product's tables.
@@ -21,9 +22,11 @@ import { chainAnsweredAt, SNAPSHOT_LOOKBACK_DAYS } from '../../portfolio/snapsho
 // figures carry now, as the portfolio's reads do (`ownedOn`): a vault read on a test network before
 // its chain went to mainnet is not counted as a mainnet one. A vault is counted as the portfolio lists
 // one: named by the cache, or read by the worker in the last week (`SNAPSHOT_LOOKBACK_DAYS`). The value
-// is the snapshot worker's, and only when a pass of it in the last hour stands behind every chain of
-// the block and every vault counted has a snapshot in that hour; otherwise it is null, never 0 and
-// never a sum with a vault missing from it. Anybody may ask, so an answer is kept for a minute.
+// is the snapshot worker's, and only when a pass of it in the last two hours (the age past which a
+// snapshot is stale) stands behind every chain of the block and every vault counted has a snapshot in
+// that time; otherwise it is null, never 0 and never a sum with a vault missing from it. A vault its
+// person closed is not counted (gate VAULT-CLOSE-REUSE). Anybody may ask, so an answer is kept for a
+// minute.
 
 export const STATS_SOURCE = 'tenonfi API /v1/stats';
 /** How long an answer is kept, in milliseconds. */
@@ -50,7 +53,9 @@ async function readVaults(
   const cached = db
     .select({ chainId: vaults.chainId, address: vaults.address, owner: vaults.owner })
     .from(vaults)
-    .where(and(inArray(vaults.chainId, chains), eq(vaults.provenance, provenance)));
+    .where(
+      and(inArray(vaults.chainId, chains), eq(vaults.provenance, provenance), thisLife(vaults)),
+    );
   const snapped = db
     .select({
       chainId: vaultSnapshots.chainId,
@@ -63,6 +68,7 @@ async function readVaults(
         inArray(vaultSnapshots.chainId, chains),
         eq(vaultSnapshots.provenance, provenance),
         gt(vaultSnapshots.observedAt, a.seen),
+        thisLife(vaultSnapshots),
       ),
     );
   const known = cached.union(snapped).as('known');
@@ -110,7 +116,7 @@ export async function networkStats(
   now: Date,
 ): Promise<PlatformNetwork> {
   const chains = entries.map((e) => e.chain);
-  const fresh = new Date(now.getTime() - STALE_AFTER_SECONDS * 1000);
+  const fresh = new Date(now.getTime() - SNAPSHOT_STALE_AFTER_SECONDS * 1000);
   const seen = new Date(now.getTime() - SNAPSHOT_LOOKBACK_DAYS * 86_400_000);
   const read = await readVaults(db, chains, provenance, { seen, fresh });
   const at = now.toISOString();
@@ -139,7 +145,7 @@ export async function networkStats(
     valueUsd: known
       ? figure(
           read.totalUsd,
-          'sum of each vault’s newest snapshot value in the last hour, USD',
+          'sum of each vault’s newest snapshot value in the last two hours, USD',
           oldest.toISOString(),
         )
       : null,
@@ -153,10 +159,10 @@ export function registerStatsRoute(scope: FastifyInstance, deps: OrderDeps) {
     {
       config: { auth: 'public', limit: 'standard' },
       schema: {
-        tags: ['portfolio'],
+        tags: ['platform'],
         summary: 'The platform in numbers: vaults, the wallets that own them, what they hold',
         description:
-          'One block per label the active chains carry (`live` for a mainnet, `sandbox` for a test network, `mock`), so figures of different networks are never added together. Every figure carries `source`, `fetchedAt` and `method`. A vault is counted when the server’s cache names it or the snapshot worker read it in the last 7 days. `valueUsd` is the sum of each vault’s newest snapshot, and null when the snapshot worker has not finished a pass in the last hour on every chain of the block or a vault counted has no snapshot in that hour: an unknown value is null, never 0 and never a partial sum. An answer is kept for 60 seconds.',
+          'One block per label the active chains carry (`live` for a mainnet, `sandbox` for a test network, `mock`), so figures of different networks are never added together. Every figure carries `source`, `fetchedAt` and `method`. A vault is counted when the server’s cache names it or the snapshot worker read it in the last 7 days. `valueUsd` is the sum of each vault’s newest snapshot, and null when the snapshot worker has not finished a pass in the last two hours on every chain of the block or a vault counted has no snapshot in those two hours: an unknown value is null, never 0 and never a partial sum. An answer is kept for 60 seconds.',
         response: { 200: PlatformStatsResponse, default: OrderError },
       },
     },

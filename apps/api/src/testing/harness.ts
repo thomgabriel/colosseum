@@ -25,7 +25,7 @@ import {
   parseChainConfigs,
   parseFlags,
 } from '@colosseum/schemas';
-import { type AnyColumn, inArray, or } from 'drizzle-orm';
+import { type AnyColumn, inArray, or, sql } from 'drizzle-orm';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { buildApp } from '../app';
 import type { TestFundsSender } from '../faucet/test-funds';
@@ -288,6 +288,8 @@ export async function testDb() {
         .values({
           familyId,
           chainId: chain,
+          // the network the test database runs the chain on
+          network: sql`(select network from chains where id = ${chain})`,
           onchainId: `test:${familyId}`,
           creator: mockAddress(chain, 'creator'),
           kind: 'community',
@@ -426,6 +428,10 @@ export async function testApp(a: {
   wrap?: (registry: ChainRegistry) => ChainRegistry;
   /** The figures a plan is made with. Default: the server's reader of the stored ones. */
   planInputs?: PlanInputs;
+  /** Work the shelf out at start, as the server does. Default: off. */
+  warmShelf?: boolean;
+  /** How long a read of a chain's shelf figures is waited for. Default: the server's. */
+  shelfReadMs?: number;
   /** The guided intake's model. Default: none (no key in a test's environment). */
   intakeModel?: IntakeModel | null;
   /** The test faucet's senders (POST /v1/testnet/fund). Default: none. */
@@ -449,6 +455,8 @@ export async function testApp(a: {
       limits: a.limits ?? ROOMY,
       ...(a.linkedPlans ? { linkedPlans: a.linkedPlans } : {}),
       ...(a.planInputs ? { planInputs: a.planInputs } : {}),
+      ...(a.warmShelf ? { warmShelf: true } : {}),
+      ...(a.shelfReadMs ? { shelfReadMs: a.shelfReadMs } : {}),
       ...(a.intakeModel !== undefined ? { intakeModel: a.intakeModel } : {}),
       ...(a.testFunds ? { testFunds: a.testFunds } : {}),
     },

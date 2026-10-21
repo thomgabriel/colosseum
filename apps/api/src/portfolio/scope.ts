@@ -1,3 +1,4 @@
+import { type Db, vaultLifetimes } from '@colosseum/db';
 import {
   type Address,
   type ChainId,
@@ -5,7 +6,7 @@ import {
   normalizeAddress,
   type Principal,
 } from '@colosseum/schemas';
-import { type AnyColumn, and, eq, inArray, type SQL } from 'drizzle-orm';
+import { type AnyColumn, and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import type { ChainEntry, ChainRegistry } from '../orders/chains';
 import { chainsHeld } from '../orders/person';
 
@@ -79,6 +80,59 @@ export function ownedOn(
   );
   if (!mine) throw new Error('no scope');
   return mine;
+}
+
+/**
+ * `ownedOn`, and only of the person's vaults that are open, in their present life (gate
+ * `VAULT-CLOSE-REUSE`): a vault its person closed is in no list, sum or history, and a row read before
+ * the vault was last reopened (`at`, a snapshot's time) belongs to the life before. Every query of the
+ * portfolio section's lists, sums and histories reads by this; a vault's number (`numbers.ts`) still
+ * reads by `ownedOn`, as a closed vault keeps its number.
+ */
+export function openOn(
+  table: { chainId: AnyColumn; owner: AnyColumn; provenance: AnyColumn; address: AnyColumn },
+  scoped: ScopedChain,
+  at?: AnyColumn,
+): SQL {
+  const both = and(ownedOn(table, scoped), thisLife(table, at));
+  if (!both) throw new Error('no scope');
+  return both;
+}
+
+/**
+ * Whether the database has `vault_lifetimes` (migration 0025, gate VAULT-CLOSE-REUSE). A server that
+ * starts before the migration is applied reads every vault as open, in its first life, and answers a
+ * close or a reopen 503, rather than fail every read of the portfolio on a table that is not there.
+ * Read once the server is ready (`noteLifetimes`); assumed there until then.
+ */
+let lifetimesHeld = true;
+export const lifetimesReady = () => lifetimesHeld;
+
+/** Asks the database whether `vault_lifetimes` is there. A database that does not answer changes nothing. */
+export async function noteLifetimes(db: Db): Promise<boolean> {
+  try {
+    const [row] = await db.execute<{ t: string | null }>(
+      sql`select to_regclass('public.vault_lifetimes')::text as t`,
+    );
+    lifetimesHeld = row?.t != null;
+  } catch {
+    // no answer: the reads that need it fail on their own, and say so
+  }
+  return lifetimesHeld;
+}
+
+/**
+ * A row of a vault that is open, in its present life: not closed, and, where `at` names the row's
+ * time, read since the vault was last reopened. Whoever the vault is whose (the platform's counts).
+ */
+export function thisLife(table: { chainId: AnyColumn; address: AnyColumn }, at?: AnyColumn): SQL {
+  // Until migration 0025 is applied the table is not there, and no vault is closed: nothing to cut.
+  if (!lifetimesHeld) return sql`true`;
+  const l = vaultLifetimes;
+  const ended = at
+    ? sql`(${l.closedAt} is not null or ${l.reopenedAt} > ${at})`
+    : sql`${l.closedAt} is not null`;
+  return sql`not exists (select 1 from ${l} where ${l.chainId} = ${table.chainId} and ${l.address} = ${table.address} and ${ended})`;
 }
 
 /**

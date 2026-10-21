@@ -7,7 +7,7 @@ import { dictionary } from '../../i18n';
 import { useAccount } from '../account/AccountProvider';
 import { withAccount } from '../account/test/screen';
 import { recallOrder } from '../order/order-record';
-import { EMBEDDED, fakePort, json, signedInPort } from '../wallet/test/fake-port';
+import { EMBEDDED, EVM, fakePort, json, signedInPort } from '../wallet/test/fake-port';
 import { router } from '../wallet/test/mock-next';
 import { portStore } from '../wallet/test/mock-provider';
 import { PublishScreen } from './PublishScreen';
@@ -15,6 +15,7 @@ import { readPublishVault } from './publish-vault';
 import {
   FAMILY_ID,
   familyOf,
+  limitsOf,
   ORDER_ID,
   publishOrder,
   recipeOf,
@@ -36,6 +37,8 @@ const read = vi.mocked(readPublishVault);
 const en = dictionary('en');
 const first = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '42');
 const second = solanaVaultAddress('529j92ASeopFHuLLueGdyaUy4BsZ7UWqrgoVWn2iK1QW', SOLANA, '43');
+/** The person's vault on Robinhood Chain, offered beside the Solana ones. */
+const onRobinhood = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0';
 const snapshots = (address = first, components = WEIGHTS) => ({
   kind: 'read' as const,
   source: 'chain' as const,
@@ -80,6 +83,8 @@ function api(
     chain?: string;
     /** The chains a wallet of theirs signs on; both unless said. */
     chainOptions?: string[];
+    /** Answers GET /v1/shared/limits; the chain's own rules unless said. */
+    limits?: () => Response;
   } = {},
 ) {
   let chain = options.chain ?? 'solana';
@@ -114,9 +119,24 @@ function api(
               ]
             ).map((v) => ({ ...v, provenance: 'sandbox' })),
           },
+          {
+            chain: 'robinhood',
+            name: 'Robinhood Chain',
+            mode: 'live',
+            provenance: 'sandbox',
+            prices: [],
+            vaults: [
+              {
+                ...vaultOf({ chain: 'robinhood', address: onRobinhood, owner: EVM, basketId: '7' }),
+                provenance: 'sandbox',
+              },
+            ],
+          },
         ],
         disclaimer: 'd',
       });
+    if (path.startsWith('/v1/shared/limits?chain='))
+      return options.limits?.() ?? json(limitsOf(path.split('=')[1] ?? ''));
     if (path.startsWith('/v1/indexes/'))
       return options.family?.() ?? json({ error: 'missing' }, 404);
     if (path.startsWith('/v1/vaults/'))
@@ -162,9 +182,10 @@ async function show() {
   await settle(20);
   return host;
 }
+/** Chooses a vault by its address: a Solana vault, or the person's on Robinhood Chain. */
 async function select(host: HTMLElement, address: string) {
   const el = find<HTMLSelectElement>(host, 'select');
-  el.value = address;
+  el.value = `${address === onRobinhood ? 'robinhood' : 'solana'}:${address}`;
   await fire(el, new Event('change', { bubbles: true }));
   await settle(10);
 }
@@ -230,8 +251,22 @@ describe('sharing a selected vault strategy', () => {
       `/products/publish?vault=${encodeURIComponent(second)}&chain=solana`,
     );
     const host = await show();
-    expect(find<HTMLSelectElement>(host, 'select').value).toBe(second);
+    expect(find<HTMLSelectElement>(host, 'select').value).toBe(`solana:${second}`);
     expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(3);
+  });
+  it('keeps the chosen vault, and its chain, when new plans move to another chain', async () => {
+    const calls = api();
+    const host = await show();
+    expect(find(host, '[data-ui="publish-source"]').textContent).toBe(`Solana · ${first}`);
+    await click(button(host, 'Switch chain'));
+    await settle(30);
+    // the account's chain is where new plans start, not the publish's: the vault chosen stays
+    expect(find(host, '[data-ui="publish-source"]').textContent).toBe(`Solana · ${first}`);
+    await click(button(host));
+    await settle(10);
+    expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({
+      recipes: [{ chain: 'solana' }],
+    });
   });
   it('does not offer Publish as a portfolio on another person’s public vault', async () => {
     api({ publicOwner: '11111111111111111111111111111111', targeted: true });
@@ -261,6 +296,14 @@ describe('sharing a selected vault strategy', () => {
       version: 1,
     });
     expect(router.push).toHaveBeenCalledOnce();
+  });
+  it('names the cash it holds by its symbol, never by its id (Thom, Oct 15)', async () => {
+    api();
+    const host = await show();
+    const assets = find(host, `section[aria-label="${en.shared.publish.assets}"]`);
+    const held = [...assets.querySelectorAll('li')].map((li) => li.firstElementChild?.textContent);
+    expect(held).toContain('USDC');
+    expect(assets.textContent).not.toContain('solana:usdc');
   });
   it('marks only the card with figures as not live, once, and names where the targets were read (the UI audit, G9)', async () => {
     api();
@@ -364,7 +407,7 @@ describe('sharing a selected vault strategy', () => {
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: 'another-person' }));
         });
-      else if (context === 'chain') await click(button(host, 'Switch chain'));
+      else if (context === 'chain') await select(host, onRobinhood);
       else if (context === 'network')
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
@@ -405,7 +448,7 @@ describe('sharing a selected vault strategy', () => {
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: 'another-person' }));
         });
-      else if (context === 'chain') await click(button(host, 'Switch chain'));
+      else if (context === 'chain') await select(host, onRobinhood);
       else
         await act(async () => {
           portStore.set(signedInPort(EMBEDDED, { userId: USER }, 'live'));
@@ -418,13 +461,73 @@ describe('sharing a selected vault strategy', () => {
     },
   );
   it('offers no substituted strategy for an unpublishable personal concentration', async () => {
-    const calls = api();
+    // A registry under the first rules: three assets at the fewest, 50% at the most.
+    const calls = api({ limits: () => json(limitsOf('solana', { rules: 1 })) });
     read.mockResolvedValue(snapshots(first, [{ asset: 'solana:spyx', weightBps: 10000 }]));
     const host = await show();
-    expect(host.textContent).toContain(en.shared.publish.problems.count);
-    expect(host.textContent).toContain(en.shared.publish.problems.weight);
+    expect(host.textContent).toContain(en.shared.publish.rules.count(3, 12));
+    expect(host.textContent).toContain(en.shared.publish.rules.weight('2%', '50%', '0.5%'));
     await click(button(host));
     expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(0);
     expect(host.querySelectorAll('[data-ui="publish-row"]')).toHaveLength(1);
+  });
+});
+
+describe('the rules a publish is held to are the chain’s, read from it (SHARED-RULES-V2)', () => {
+  const sixty = [{ asset: 'solana:spyx', weightBps: 6000 }];
+
+  it('under the first rules, refuses one asset and a vault that keeps cash, as the chain would', async () => {
+    const calls = api({ limits: () => json(limitsOf('solana', { rules: 1 })) });
+    read.mockResolvedValue(snapshots(first, sixty));
+    const host = await show();
+    expect(host.textContent).toContain(en.shared.publish.rules.count(3, 12));
+    expect(host.textContent).toContain(en.shared.publish.rules.weight('2%', '50%', '0.5%'));
+    expect(host.textContent).toContain(en.shared.publish.rules.sum);
+    // What the target leaves is shown as the vault's cash, not added to the token.
+    expect(find(host, '[data-ui="publish-cash"]').textContent).toContain('40%');
+    await click(button(host));
+    expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(0);
+  });
+
+  it('under the second, publishes one asset with the rest in cash, and warns on its cap with the figure', async () => {
+    const calls = api({
+      limits: () =>
+        json(
+          limitsOf('solana', {
+            rules: 2,
+            ceilings: [{ asset: 'solana:spyx', maxWeightBps: 2500 }],
+          }),
+        ),
+    });
+    read.mockResolvedValue(snapshots(first, sixty));
+    const host = await show();
+    const p = en.shared.publish;
+    expect(host.textContent).not.toContain(p.rules.count(1, 16));
+    expect(host.textContent).not.toContain(p.rules.sumAtMost);
+    expect(host.textContent).toContain(
+      p.rules.shape('Solana', 1, 16, '0.5%', '100%', '0.5%', true),
+    );
+    expect(find(host, '[data-ui="publish-cash"]').textContent).toContain('40%');
+    // A warning that cites the cap, not a refusal (ANY-COMPOSITION, EXIT-SOURCE).
+    const warning = find(host, '[data-ui="publish-over-cap"]');
+    expect(warning.textContent).toContain(p.rules.overCap('SPYx', '60%', '25%'));
+    // The cap is a figure with its pin: where it was read and how it is set.
+    expect(warning.querySelector('[data-ui="figure"]')).not.toBeNull();
+    await click(button(host));
+    await settle(10);
+    expect(calls.find((c) => c.path === '/v1/orders')?.body).toMatchObject({
+      recipes: [{ chain: 'solana', components: [{ kind: 'asset', ...sixty[0] }] }],
+    });
+  });
+
+  it('pauses publishing while the rules are read, and when the chain does not say them', async () => {
+    const calls = api({
+      limits: () => json({ error: 'the chain did not answer', code: 'CHAIN_UNAVAILABLE' }, 503),
+    });
+    const host = await show();
+    expect(host.textContent).toContain(en.shared.publish.rules.unread('Solana'));
+    expect(host.querySelector('[data-ui="publish-over-cap"]')).toBeNull();
+    await click(button(host));
+    expect(calls.filter((c) => c.path === '/v1/orders')).toHaveLength(0);
   });
 });

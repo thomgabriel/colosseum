@@ -1,34 +1,32 @@
 # Tenonfi
 
-Say in a chat what your money needs to do. Tenonfi turns that goal into a plan made to measure and holds it in a vault you own, on one chain, with the exit plan measured before you deposit: what it would cost to get out at your size, and a withdrawal of the tokens themselves that needs nobody's permission. It is for a person with a specific goal for their money and no wish to assemble a portfolio by hand, and for the apps and agents that serve that person.
+You tell Tenonfi, in a chat, what your money needs to do. It turns that goal into a plan made to measure and holds it in a vault you own, on one chain. Before you deposit, you see the exit plan: what getting out would cost at your size, and a withdrawal of the tokens themselves that needs nobody's permission.
 
-Built for the Colosseum Crypto World's Fair (Sep 14 to Oct 12, 2026) by Rodrigo Trindade and Thom Gabriel.
+It is for people who know what their money is for but don't want to build a portfolio by hand. It is also for the apps and agents that serve them.
 
-## What works today
+We are Rodrigo Trindade and Thom Gabriel, and we built it for the Colosseum Crypto World's Fair (Sep 14 to Oct 12, 2026).
 
-Solana runs on devnet, a test network. Robinhood Chain runs on mainnet: the vault contracts were deployed there on Oct 12 and the hosted app has served that chain live since Oct 13. Real money can be deposited there, and none has been: no deposit, vault or trade exists on mainnet yet.
+## How it works
 
-| What | State | Where it is recorded |
-|---|---|---|
-| Solana | The vault program is deployed on devnet, with 13 test tokens standing in for mainnet tokens, a test dollar and a test exchange we deployed. From the hosted app a deposit landed there and the trades after it were refused (order 771a1fad); the fix, and the full run of a plan's trades, add money and withdraw in kind, are held by tests (LiteSVM and a local validator in CI). A person's full run by hand is ledger row `OPS-7`, still todo; the screens below show a deposit signed step by step there on Oct 12. In a scripted check on devnet the keeper rebalanced a vault that follows a shared portfolio | [`deployments/solana-devnet.json`](deployments/solana-devnet.json), ledger rows `SOL-1` to `SOL-3`, `ADS-2`, `API-BUY-MIN`, `KEEP-1`, `API-ADD-MONEY`, `WEB-WITHDRAW`, `OPS-7` |
-| Robinhood Chain | Mainnet (chain id 4663). The vault contracts were deployed on Oct 12 by a person, in 40 transactions, and since Oct 13 the hosted API serves the chain live. Nine tokens are listed (NVDA, SPY, META, AAPL, TSLA, GOOGL, MSFT, AMZN, GLD), each trading against USDG through its own Uniswap v4 pool. The contracts' admin is a timelock with a 48-hour delay, owned by a 2-of-2 Safe the two founders hold; a guardian can only pause, and its address is also one of the Safe's two owners; the keeper is off and there is no deposit cap. The contracts are unaudited. No deposit has been made: no vault and no trade exists there yet. On a copy of mainnet at block 86,735,800 every listed token was deposited beside, traded into and out of through its recorded pool, and withdrawn ([`docs/vault/SECURITY.md`](docs/vault/SECURITY.md), "Not audited, not done"). The same contracts stay deployed on the test network (chain id 46630), which the hosted app no longer serves | [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md), [`deployments/robinhood-mainnet.json`](deployments/robinhood-mainnet.json), [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json), [`docs/vault/SECURITY.md`](docs/vault/SECURITY.md), gates `MAINNET-DEPLOYED`, `MAINNET-KEYS`, `MAINNET-GUARDIAN`, `POOL-PER-ASSET`, `NO-DEPOSIT-CAP`, `APP-MAINNET-BESIDE-TESTNET`, ledger rows `EVM-1` to `EVM-3`, `MAINNET-DEPLOY`, `APP-MAINNET`, `OPS-7` |
-| Shared portfolios | Publish, follow and new versions, with the author limits checked by the registry on chain. A publish and a new version ran on Solana devnet; the rest is held by tests on both chains | ledger rows `API-3`, `WEB-4`, `AGT-4`, `KEEP-1` |
-| Base | Off. The contracts are the same Solidity; nothing is deployed | gate `BASE`, ledger row `TNET-3` |
-| The goal conversation | A model talks with the person and names assets from the chain's catalog. It sets no weight and types no figure: the weights come from one function in code (an equal split, or the shares the person stated), a measured figure is one it names and the server writes with its source, and the server checks every line again before a deposit | gates `RELAXED-INTAKE`, `FIGURES-BY-REFERENCE`, `ANY-COMPOSITION`, `DEPOSIT-STEP` |
-| The plan engine | Deterministic. One goal gives three candidate plans, each line with its reason. It is reached through `POST /v1/baskets/propose` (the MCP tool `build_plan`) and `pnpm plan:try`; `POST /v1/baskets/personalize` serves it too, and nothing in the app calls it. The chat on `/invest` does not use it to pick holdings | `packages/engine`, gates `SOLVER`, `THREE-PLANS`, `ANY-COMPOSITION` |
-| Bearing | Real reads. It measures what a sale costs, by size, from pools on Solana mainnet and Robinhood Chain mainnet, read-only | `packages/risk`, `scripts/risk-evm`, [`docs/risk/STATE-RISK.md`](docs/risk/STATE-RISK.md), ledger rows `REVM-1`, `RISK-5` |
-| Figures, by network | On Solana they are read from devnet and labelled "test network" (`"provenance": "sandbox"`); a stand-in token borrows the measured exit depth and the yield of the mainnet token it models, under the same label. On Robinhood Chain they are mainnet reads (`"provenance": "live"`) and carry no such label | gates `ENG-DEVNET-EXIT-TWIN`, `APP-MAINNET-BESIDE-TESTNET`, ledger rows `ENG-DEVNET-EXIT`, `ENG-DEVNET-YIELD` |
-| Sample figures | Anything run on the in-memory chain (`packages/chain-mock`, the default of a local run) is labelled "Sample figures" (`"provenance": "mock"`) | gate `MOCK-QUIET` |
-| Sign-in | A passkey wallet or the person's own wallet, through Privy | ledger rows `WAL-1`, `WAL-2` |
-| Portfolio | Each vault read from its chain, with drift from its targets and a status of "On track", "Watch" or "Off track" | ledger rows `PORT-1` to `PORT-4`, gate `ON-TRACK-V1` |
-| Agents | An HTTP API with an OpenAPI document, an SDK, an MCP server with seven tools and a skill file. An agent proposes; the person opens a link, reviews and signs | [`apps/mcp/README.md`](apps/mcp/README.md), [`skills/tenonfi/SKILL.md`](skills/tenonfi/SKILL.md), gates `AGENT-LINK`, `MCP-TOOLS` |
-| Mainnet | Two things have happened there. On Oct 12 a person deployed the vault contracts on Robinhood Chain, and on Oct 13 the hosted app was switched to them (the row above); no deposit has followed. On Sep 30 the first version of the engine ran on Solana from a demo wallet, at small size: swaps, a lending deposit, and a rebalance signed by an agent key held on the server. The server-signing route was removed on Oct 13 | ledger row `MAINNET-DEPLOY`, gate `SPEND-FIRST-MAINNET-DEPOSIT`; signatures in [`docs/structurer/STATE.md`](docs/structurer/STATE.md), rows D2-AM to D6-PM |
+You sign in with a passkey or your own wallet (through Privy), pick a chain and say your goal. A model talks it through and names holdings from that chain's catalog, but never sets a weight or types a number. The weights come from one function in code: an equal split, or the shares you stated. A measured figure the model refers to is written in by the server with its source, and the server checks every line again before you deposit.
 
-The ledger marks most build rows `in-review` even where the pull request has merged; the deployment records and the code are the firmer source.
+The draft vault sits beside the chat, and you deposit from the same pane, signing each step. Your portfolio reads each vault from its chain and shows its drift from its targets, with a status of "On track", "Watch" or "Off track". To change a vault, ask in its own chat; nothing changes until you review and sign.
 
-## What it looks like
+You can also follow a shared portfolio that someone publishes and updates. The registry on chain checks the author's limits. The vault program and contracts also support auto-follow, where our keeper rebalances a following vault one checked trade at a time. It has only run in a scripted check on Solana devnet, and the keeper is off on every hosted chain.
 
-Taken on Oct 12 from a local run against the hosted API, on Solana devnet with a passkey wallet. The figures are test-network reads, plus mainnet readings (yields, exit costs) applied to the stand-in tokens and labelled so.
+Bearing, our liquidity and risk layer, measures what a sale costs at each size from pools on Solana mainnet and Robinhood Chain mainnet, read-only. The exit plan's numbers come from it (`packages/risk`, `scripts/risk-evm`, [`docs/risk/STATE-RISK.md`](docs/risk/STATE-RISK.md)).
+
+Agents get an HTTP API with an OpenAPI document, an SDK, an MCP server with eight tools and a skill file ([`apps/mcp/README.md`](apps/mcp/README.md), [`skills/tenonfi/SKILL.md`](skills/tenonfi/SKILL.md)). An agent proposes; the person opens a link, reviews and signs.
+
+A deterministic plan engine turns one goal into three candidate plans, each line with its reason. You can reach it three ways:
+
+- `POST /v1/baskets/propose`, also the MCP tool `build_plan`
+- `POST /v1/baskets/personalize`, which nothing in the app calls
+- `pnpm plan:try`, the local playground
+
+The chat on `/invest` does not use the engine to pick holdings.
+
+The screens below are from Oct 12, a local run against the hosted API on Solana devnet: test-network reads, plus mainnet yields and exit costs applied to the stand-in tokens and labelled so.
 
 | | |
 |---|---|
@@ -37,14 +35,35 @@ Taken on Oct 12 from a local run against the hosted API, on Solana devnet with a
 | ![A vault's page](docs/screens/vault.png) | ![A change of targets proposed in the vault's chat](docs/screens/vault-change.png) |
 | A vault read from its chain, against its targets | "all in Google" becomes a draft; nothing changes until it is reviewed and signed |
 
+## Where it runs today
+
+Robinhood Chain is on mainnet (chain id 4663). Thom deployed the vault contracts we serve on Oct 15, in 53 transactions, and the 2-of-2 Safe took the keys the same day. The app shows 19 tokens: NVDA, SPY, META, AAPL, TSLA, GOOGL, MSFT, AMZN, GLD, MSTR, CRCL, USO, PLTR, WETH, cbBTC, SPCX, COIN, TSM and BABA, each trading against USDG through its own Uniswap v4 pool. Six more are listed on chain and not shown yet: DELL, held back for its thin pool, and QQQ, MU, AMD, INTC and SLV, which trade through Uniswap v3 pools the app can't route yet. A shared portfolio can hold 1 to 16 assets, in steps of 0.5%, with the rest in cash, as your own vault can. Real money can be deposited. Before the deploy we rehearsed it whole on a copy of mainnet, and bought and sold back every token the app trades there ([`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md)). The first contracts, deployed on Oct 12, are still on chain and no longer served; their two vaults were emptied. The same contracts also run on the test network (chain id 46630), which the hosted app no longer serves. See [`deployments/robinhood-mainnet.json`](deployments/robinhood-mainnet.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json).
+
+Solana is on devnet, with 13 test tokens standing in for mainnet tokens, a test dollar and a test exchange we deployed ([`deployments/solana-devnet.json`](deployments/solana-devnet.json)). A deposit from the hosted app landed there and the trades after it were refused (order 771a1fad). Tests in LiteSVM and on a local validator in CI cover the fix and a plan's full run: trades, adding money and withdrawing in kind. A person's full run by hand is still to do. On devnet a shared portfolio was published and given a new version, and in a scripted check the keeper rebalanced a vault that follows one; tests on both chains cover the rest of shared portfolios.
+
+Base is off: same Solidity contracts, nothing deployed.
+
+One earlier run touched mainnet. On Sep 30 the first version of the engine ran on Solana from a demo wallet at small size: swaps, a lending deposit, and a rebalance signed by an agent key held on the server. We removed that server-signing route on Oct 13. Signatures are in [`docs/structurer/STATE.md`](docs/structurer/STATE.md), rows D2-AM to D6-PM.
+
+Every task's evidence is in the ledger, [`docs/vault/STATE-VAULT.md`](docs/vault/STATE-VAULT.md), and every decision in [`docs/GATES.md`](docs/GATES.md). Where the ledger and the code disagree, the deployment records and the code are the source of truth.
+
+## Which figures are real
+
+Robinhood Chain figures are mainnet reads (`"provenance": "live"`) and carry no label. Solana figures are devnet reads labelled "test network" (`"provenance": "sandbox"`); a stand-in token borrows the measured exit depth and yield of the mainnet token it models, under the same label. Anything from the in-memory chain (`packages/chain-mock`, the local default) is labelled "Sample figures" (`"provenance": "mock"`).
+
+## Safety
+
+The API builds transactions and never signs for anyone. The guard in the browser (`packages/sdk`) reads each transaction's bytes and refuses anything that is not the step you approved. On chain, only the owner deposits or withdraws, and a keeper trade must stay inside the plan's assets, near a reference price and under a weekly loss limit. On Robinhood Chain mainnet, before it builds an owner's own trade, the app checks that the price is within 2% of a reference (Chainlink's feed while it is live, otherwise the pool's one-hour average, inside an outer rail) and that the size is under a cap per token; the contract does not check this (gate `OWNER-PRICE-BOUND`).
+
+On Robinhood Chain the admin is a 2-of-2 Safe the two of us hold, directly, with no timelock for now: a change takes effect as soon as we both sign it. A 48-hour timelock comes back once the four first portfolios are published and have traded a week with the keeper off without an incident, and Thom says so (gate `ROBINHOOD-REDEPLOY`). A guardian can only pause; its address is also one of the Safe's owners. The keeper is off, there is no deposit cap, and the contracts are unaudited. [`docs/vault/SECURITY.md`](docs/vault/SECURITY.md) has who can do what, and how fast.
+
 ## Try it
 
-Hosted: <https://www.tenonfi.xyz>, with the API at <https://tenonfi-api.onrender.com> (`/docs` for the OpenAPI pages, `/v1/config` for the chains and flags it runs with). The API host sleeps when idle, so the first request can be slow. Sign in with a passkey, say a goal and choose the chain beside the box.
+The app is at <https://www.tenonfi.xyz> and the API at <https://tenonfi-api.onrender.com> (`/docs` for the OpenAPI pages, `/v1/config` for the chains and flags it runs with). The API sleeps when idle, so the first request can be slow. Sign in with a passkey, say a goal and choose the chain beside the box.
 
-- On Solana (devnet) everything is free: where the test faucet is configured, the deposit step offers "Get test funds" for the test dollars and gas it needs.
-- On Robinhood Chain (mainnet) a deposit is real money. The wallet needs USDG and ETH for gas of its own; there is no faucet. Read the notice before the first deposit: the contracts are unaudited.
+On Solana (devnet) everything is free: where the test faucet is configured, the deposit step offers "Get test funds" for the test dollars and gas. On Robinhood Chain (mainnet) a deposit is real money; your wallet needs its own USDG and ETH for gas, with no faucet. Read the notice before your first deposit: the contracts are unaudited.
 
-Locally, on the in-memory chain with sample figures. Node 22 or later, pnpm 11 and Docker:
+To run it locally on the in-memory chain, with sample figures, you need Node 22 or later, pnpm 11 and Docker:
 
 ```sh
 cp .env.example .env     # one file at the repo root serves every app and script
@@ -56,16 +75,9 @@ pnpm feeds:refresh-models  # yields of the tokens the test networks' stand-ins m
 pnpm dev                 # API on :3001 (/docs), web on :3000
 ```
 
-The API does not start without the database. `.env.example` names every variable and says what each does; the ones that change what a local run can do:
+The API won't start without the database. `.env.example` explains every variable; two matter most. Set `PRIVY_APP_ID` (commented out there) to the value of `NEXT_PUBLIC_PRIVY_APP_ID`, or the goal chat, orders and portfolio answer 503. Set `ANTHROPIC_API_KEY`, or only the guided intake works, reading goals with the rules parser alone and saying so.
 
-- `DATABASE_URL`: the default matches `docker-compose.yml`.
-- `PRIVY_APP_ID`: commented out in `.env.example`. Set it to the same id as `NEXT_PUBLIC_PRIVY_APP_ID`, which the file already carries. Without it the API has nobody to trust, and the goal chat, orders and the portfolio answer 503.
-- `NEXT_PUBLIC_WALLET_DRIVER=test`: a throwaway wallet in the browser for work on screens. It carries no sign-in, so it does not reach those routes either.
-- `ANTHROPIC_API_KEY`: needed for the goal chat to answer. Without it only the guided intake works, reading a goal with the rules parser alone and saying so.
-- `CHAIN_MODE_<CHAIN>` and `CHAIN_NETWORK_<CHAIN>`: unset means the in-memory chain, and `testnet` when a chain is live, so nothing reaches mainnet by omission.
-- `SOLANA_RPC_URL`: the routes that read Solana.
-
-To run a checkout against Solana devnet with a real passkey wallet: [`docs/vault/RUN-DEVNET-LOCAL.md`](docs/vault/RUN-DEVNET-LOCAL.md).
+The rest are described there too, such as `NEXT_PUBLIC_WALLET_DRIVER=test` (a throwaway browser wallet for screen work, without sign-in), `DATABASE_URL`, `SOLANA_RPC_URL`, and `CHAIN_MODE_<CHAIN>` and `CHAIN_NETWORK_<CHAIN>`: unset means the in-memory chain, and `testnet` when a chain is live, so nothing reaches mainnet by omission. To run against Solana devnet with a real passkey wallet, see [`docs/vault/RUN-DEVNET-LOCAL.md`](docs/vault/RUN-DEVNET-LOCAL.md).
 
 ## Architecture
 
@@ -87,33 +99,17 @@ flowchart LR
   collectors["Bearing collectors"] -- "mainnet pools, read-only" --> db
 ```
 
-The API builds transactions and never signs for a person. The browser holds the guard (`packages/sdk`), which reads a transaction's bytes and refuses anything that is not the step the person approved. The vault enforces its own rules on chain: only the owner deposits or withdraws, and a keeper trade must stay inside the plan's assets, near a reference price and under a weekly loss limit. On Robinhood Chain mainnet an owner's own trade is held to a reference price (Chainlink's while its feed is live, the pool's one-hour average otherwise, within 2% and an outer rail) and to a largest size per token; that is the app's check before it builds the trade, not the contract's (gate `OWNER-PRICE-BOUND`).
-
 | Folder | What is in it |
 |---|---|
-| `apps/api` | Fastify and zod, served as OpenAPI at `/docs` |
-| `apps/web` | The app, Next.js |
-| `apps/risk-api` | The `/risk/*` routes on their own |
-| `apps/keeper` | The service that rebalances a vault with auto-follow on, one checked trade at a time |
-| `apps/snapshot` | The worker that reads every known vault every ten minutes and keeps what it read. It holds no key |
-| `apps/mcp` | The MCP server for outside agents. It never signs |
-| `packages/schemas` | zod types shared everywhere, and the disclaimer |
-| `packages/engine` | Parser, asset registry, solver, schedule, risk sheet |
-| `packages/risk` | Bearing: pool decoders, exit-cost curves, the liquidity provider |
-| `packages/basket` | The chain-free logic of a plan in a vault: limits, drift, the rebalance planner, the weights of a person's picks |
-| `packages/sdk` | The guard and the order executor the web and outside agents share |
-| `packages/chain-solana`, `packages/chain-evm`, `packages/chain-mock` | One `ChainAdapter` each. The mock is a chain in memory, stamped `mock` |
-| `packages/db` | Drizzle schema and migrations (Postgres) |
-| `programs/` | The Solana programs (Anchor), with interface files in `idl/` |
-| `contracts/` | The EVM contracts (Foundry) |
+| `apps/` | `web` (Next.js), `api` (Fastify and zod, OpenAPI at `/docs`), `risk-api` (the `/risk/*` routes), `mcp` (the MCP server, which never signs), `keeper` (rebalances vaults with auto-follow on) and `snapshot` (reads every known vault every ten minutes; holds no key) |
+| `packages/` | `engine` (the plan engine), `risk` (Bearing), `basket` (a plan's limits, drift and rebalance planner, free of any chain), `sdk` (the guard and the order executor), one `ChainAdapter` each in `chain-solana`, `chain-evm` and `chain-mock` (a chain in memory, stamped `mock`), `schemas` (shared zod types and the disclaimer) and `db` (Drizzle and Postgres) |
+| `programs/`, `contracts/` | The Solana programs (Anchor, interfaces in `idl/`) and the EVM contracts (Foundry) |
 | `deployments/` | What is deployed where, one file per network |
-| `scripts/` | Checks, test-network operations, the collectors. `scripts/mainnet` is the live sender, and a person runs it, never an agent |
-| `spikes/`, `try/` | The two early vault test rigs; the plan playground (`pnpm plan:try`) |
-| `content/`, `fixtures/` | Risk sheets, theme lists and stock attributes; frozen inputs for tests |
-| `docs/` | Specs, decisions and the ledger, indexed in [`docs/README.md`](docs/README.md) |
-| `.design/` | The design system |
+| `scripts/` | Checks, test-network operations and the collectors. `scripts/mainnet` is the live sender; a person runs it, never an agent |
+| `spikes/`, `try/`, `content/`, `fixtures/` | The two early vault test rigs, the plan playground (`pnpm plan:try`), risk sheets and stock attributes, frozen test inputs |
+| `docs/`, `.design/` | Specs, decisions and the ledger, indexed in [`docs/README.md`](docs/README.md); the design system |
 
-Who may import whom is a table in [`docs/vault/DESIGN-VAULT.md`](docs/vault/DESIGN-VAULT.md), section 2, and `tests/boundaries.test.ts` fails on anything else.
+The layout section of [`CLAUDE.md`](CLAUDE.md) has more on each folder. Who may import whom is a table in [`docs/vault/DESIGN-VAULT.md`](docs/vault/DESIGN-VAULT.md), section 2, and `tests/boundaries.test.ts` fails on anything else.
 
 ## Deployed addresses
 
@@ -131,15 +127,14 @@ Robinhood Chain mainnet (4663):
 
 | What | Address |
 |---|---|
-| Vault factory | [`0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80`](https://robin.etherscan.io/address/0xae4ae2f2a5c2ee50c5a7574cf355cd5b068e7a80) |
-| Shared-portfolio registry | [`0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc`](https://robin.etherscan.io/address/0xee6baaec7ec5cd946dad57e1edb3f10c794c8afc) |
-| Vault beacon | [`0xac27328a77962cd0b6095e7c4074946622d6d77d`](https://robin.etherscan.io/address/0xac27328a77962cd0b6095e7c4074946622d6d77d) |
-| Timelock, 48 hours (admin of the factory, owner of the beacon) | [`0x749f6aeb956b9f490e316599068ba8a6bd248342`](https://robin.etherscan.io/address/0x749f6aeb956b9f490e316599068ba8a6bd248342) |
-| Safe, 2 of 2 (proposes to the timelock) | [`0x4568bc6cc821b34095059fd46102eaa22a675fdc`](https://robin.etherscan.io/address/0x4568bc6cc821b34095059fd46102eaa22a675fdc) |
+| Vault factory | [`0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa`](https://robin.etherscan.io/address/0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa) |
+| Shared-portfolio registry | [`0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8`](https://robin.etherscan.io/address/0x65ff89c4436a11bb87e3c7328a3f02c407c7d6f8) |
+| Vault beacon | [`0x935658c738aef037092c69fd66b1ac3295882c0d`](https://robin.etherscan.io/address/0x935658c738aef037092c69fd66b1ac3295882c0d) |
+| Safe, 2 of 2 (admin of the factory, owner of the beacon, at once: no timelock) | [`0x4568bc6cc821b34095059fd46102eaa22a675fdc`](https://robin.etherscan.io/address/0x4568bc6cc821b34095059fd46102eaa22a675fdc) |
 | Guardian (can only pause; also one of the Safe's two owners) | [`0x0a1c3312c808b23d019bf241028f6b5624f4cc98`](https://robin.etherscan.io/address/0x0a1c3312c808b23d019bf241028f6b5624f4cc98) |
 | USDG, the dollar token (not ours) | [`0x5fc5360d0400a0fd4f2af552add042d716f1d168`](https://robin.etherscan.io/address/0x5fc5360d0400a0fd4f2af552add042d716f1d168) |
 
-Every transaction of the deploy is in [`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md).
+These are the contracts of the redeploy of 2026-10-15 (gate `ROBINHOOD-REDEPLOY`): USDG and 25 tokens, the second shared-portfolio rules, held by the Safe directly with no timelock. Every transaction is in [`docs/vault/MAINNET-REDEPLOY.md`](docs/vault/MAINNET-REDEPLOY.md). The contracts of 2026-10-12, behind a timelock, are still deployed and no longer served ([`docs/vault/MAINNET-DEPLOY.md`](docs/vault/MAINNET-DEPLOY.md)).
 
 Robinhood Chain test network (46630), still deployed and no longer served by the hosted app:
 
@@ -152,13 +147,12 @@ Robinhood Chain test network (46630), still deployed and no longer served by the
 
 The tokens, the roles and the parameters are in the same files.
 
-## How it is verified
+## How we test it
 
 - `pnpm verify`: lint, both typechecks, the tests and the build. CI runs the same command on every pull request, against Postgres 16 (`.github/workflows/ci.yml`), and a second job runs the app in a browser with Playwright and axe.
 - `pnpm test:program`: builds the Solana programs and runs their tests in LiteSVM. It needs Anchor and the Solana CLI ([`programs/README.md`](programs/README.md)). `program.yml` runs it when those files change, with the money path on a local validator.
 - `pnpm test:contracts`: `forge test` in `contracts/`. It needs Foundry. `contracts.yml` runs it when those files change.
-- `security.yml`, on every pull request and weekly: gitleaks, `pnpm audit --prod` and cargo-deny. The advisories accepted for now are in [`docs/vault/SECURITY-DEPS.md`](docs/vault/SECURITY-DEPS.md).
-- Every task has a row with its evidence in [`docs/vault/STATE-VAULT.md`](docs/vault/STATE-VAULT.md), and every decision a row in [`docs/GATES.md`](docs/GATES.md).
+- `security.yml` runs gitleaks, `pnpm audit --prod` and cargo-deny on every pull request and weekly. The advisories we accept for now are in [`docs/vault/SECURITY-DEPS.md`](docs/vault/SECURITY-DEPS.md).
 
 ## Disclaimer
 
@@ -166,7 +160,7 @@ This tool is not licensed investment advice. It structures and explains an alloc
 
 ## Team
 
-Rodrigo Trindade: the plan engine, Bearing and the design system. Thom Gabriel: the vault program and contracts, the API and the app. Work that existed before the hackathon window is disclosed in [`docs/PRIOR-WORK.md`](docs/PRIOR-WORK.md). How work moves here, for people and for Claude sessions alike, is in [`CLAUDE.md`](CLAUDE.md).
+Rodrigo Trindade built the plan engine, Bearing and the design system. Thom Gabriel built the vault program and contracts, the API and the app. Work that existed before the hackathon window is disclosed in [`docs/PRIOR-WORK.md`](docs/PRIOR-WORK.md). How work moves here, for people and for Claude sessions alike, is in [`CLAUDE.md`](CLAUDE.md).
 
 ## Licence
 

@@ -1,5 +1,7 @@
 import {
   type ChainId,
+  ConfigResponse,
+  CreatorLimitsResponse,
   chainFamily,
   FamilyResponse,
   OrderDetail,
@@ -14,9 +16,11 @@ import type { CallFailure, OrderOutcome } from '../order/order-api';
 
 // The calls the shared-portfolio screens make (API-3, WEB-4), each answer read with the shared schema:
 //
+//   GET  /v1/config                             whether the shelf lists live portfolios only
 //   GET  /v1/shelf?chain=                       the shared portfolios, from the server's store
 //   GET  /v1/indexes/{slug}?chain=              one, its recipes read from their chains by the server
 //   GET  /v1/indexes/{slug}/versions?chain=     every version the server has seen
+//   GET  /v1/shared/limits?chain=               the author limits, as the chain's registry says them
 //   GET  /v1/portfolio                          the person's vaults, for following and the prompt
 //   GET  /v1/vaults/{chain}/{address}           any vault, for the public page
 //   POST /v1/orders                             a publish, a buy of a portfolio, a follow
@@ -64,6 +68,8 @@ async function getAs<T>(
 
 const chainQuery = (chain: ChainId | null) => (chain ? `?chain=${encodeURIComponent(chain)}` : '');
 
+export const readConfig = (apiFetch: ApiFetch) => getAs(apiFetch, '/v1/config', ConfigResponse);
+
 export const readShelf = (apiFetch: ApiFetch, chain: ChainId | null) =>
   getAs(apiFetch, `/v1/shelf${chainQuery(chain)}`, ShelfResponse);
 
@@ -76,6 +82,10 @@ export const readVersions = (apiFetch: ApiFetch, slug: string, chain: ChainId | 
     `/v1/indexes/${encodeURIComponent(slug)}/versions${chainQuery(chain)}`,
     VersionsResponse,
   );
+
+/** The rules a publish on `chain` is held to, read from the chain by the server for this answer. */
+export const readLimits = (apiFetch: ApiFetch, chain: ChainId) =>
+  getAs(apiFetch, `/v1/shared/limits?chain=${encodeURIComponent(chain)}`, CreatorLimitsResponse);
 
 export const readPortfolio = (apiFetch: ApiFetch) =>
   getAs(apiFetch, '/v1/portfolio', PortfolioResponse);

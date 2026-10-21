@@ -45,7 +45,7 @@ export const status: Status = {
     loss_quarter: (used: string) =>
       `As perdas do nosso operador usaram ${used} do orçamento delas, um quarto ou mais.`,
     stale: (minutes: number) =>
-      `O cofre foi lido pela última vez há ${minutes} minutos, mais de uma hora.`,
+      `O cofre foi lido pela última vez há ${minutes} minutos, mais de duas horas.`,
     inside: (band: string, used: string) =>
       `Toda parte está a até ${band} da fatia planejada, e as perdas do nosso operador usaram ${used} do orçamento delas.`,
     inside_no_budget: (band: string) =>

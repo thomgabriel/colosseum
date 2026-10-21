@@ -47,6 +47,7 @@ export const EVM_INTERFACE: InterfaceTable = {
     'proxiableUUID()': '0x52d1902d',
     'publish(bytes32,(address,uint16)[],bytes32)': '0x05f284c1',
     'publishDelay()': '0xa1211d4b',
+    'rulesVersion()': '0x15b038ea',
     'setPublishDelay(uint32)': '0x62166e4c',
     'UPGRADE_INTERFACE_VERSION()': '0xad3cb1cc',
     'upgradeToAndCall(address,bytes)': '0x4f1ef286',

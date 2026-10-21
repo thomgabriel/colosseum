@@ -1,5 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { EnvLike, VaultAgentFailure } from '@colosseum/schemas';
+import {
+  finalMsFor,
+  LOOKUP_MAX_ROUNDS,
+  LOOKUP_RULES,
+  type LookedUp,
+  type LookupRun,
+  type LookupScope,
+  runLookupLoop,
+} from './orders/lookup-loop';
 import type { VaultAgentPrompt } from './orders/vault-agent';
 
 /**
@@ -83,13 +92,32 @@ export type VaultAgentRepair = {
   previous: unknown;
   problems: readonly string[];
   elapsedMs: number;
+  /**
+   * The first attempt's calls when it looked figures up, each assistant turn exactly as it came: the
+   * repair sends them on, so the model still sees what it looked up.
+   */
+  transcript?: readonly Anthropic.MessageParam[];
+};
+/** What the model looked up in one read, with its calls for the repair (FIGURES-BY-REFERENCE as amended 2026-10-14). */
+export type VaultAgentLooked = LookedUp & { transcript: Anthropic.MessageParam[] };
+export type VaultAgentRead = (
+  | { reply: unknown }
+  | { reply: null; why: VaultAgentFailure; detail?: string }
+) & {
+  /** Present when the read could look up: the evidence it added, which the resolver reads. */
+  looked?: VaultAgentLooked;
 };
 export type VaultAgentModel = {
+  /**
+   * `lookups`: the asset lookups of this request's chain, for a vault's own conversation only (the
+   * model-led new-goal conversation states no figure, so it looks up none). Absent: no tools, as before.
+   */
   read(
     person: string,
     prompt: VaultAgentPrompt,
     repair?: VaultAgentRepair,
-  ): Promise<{ reply: unknown } | { reply: null; why: VaultAgentFailure; detail?: string }>;
+    lookups?: LookupScope,
+  ): Promise<VaultAgentRead>;
 };
 
 export const VAULT_AGENT_SYSTEM = [
@@ -105,7 +133,7 @@ export const VAULT_AGENT_SYSTEM = [
   "The context arrives as consecutive JSON objects, to be read as one: first the chain's catalog, stockAttributes and the evidence that goes with the listing; then, where they are the same for everyone, analytics; then this conversation with the rest of the evidence. evidence is the two lists together.",
   "Preserve the person's stated allocations and minimum or maximum weights through later refinements unless they explicitly amend or withdraw them. allocationConstraints is what the server read as shares in the person's own messages, each with the words it read (personQuote); these, and nothing you report, set the weights. Pick assets that let those shares be met, together with eligibilityGoal. Do not add an arbitrary cap or default allocation. If a requirement conflicts with income/protection eligibility, explain that specific conflict and ask about it; do not quietly lower the requirement or switch the goal.",
   'The person may hold any composition of listed assets in their own vault. exitCapacityBps is the share of the vault that measured exit capacity can sell at its current size: a weight above it is allowed, and the server attaches a warning; when you pick such an asset, say in tradeoffs that exiting that position may take longer, without numbers. eligibilityGoal is the goal of the plan this vault was opened for, as the server holds it (currentGoals); null means the server holds none, and nothing the person says in the conversation changes it. outsideGoal lists the assets a plan for that goal cannot hold. Never pick one unless its id is in requestedOutsideGoal, which lists only the stocks the person asked for themselves, as the server read their words. That is the one exception, and it is theirs to make: when the id of a stock is in requestedOutsideGoal, the person asked for it, so propose it in this turn with the other picks their words call for, and say in tradeoffs that it is outside the goal of this vault. Do not refuse it, do not say this vault cannot hold it, and do not offer a separate draft or a different goal in its place; the server attaches the warning and the person reviews and confirms the draft. When the person asked for the whole vault in it ("all in GOOGLx", "100% Alphabet", which allocationConstraints then shows), pick it alone. If the person seems to want a stock in outsideGoal but it is not in requestedOutsideGoal, do not propose it: ask in question whether they want that stock even though it is outside the goal, and tell them they can say so plainly ("I want GOOGLx", "all in GOOGLx"). Any other asset in outsideGoal (crypto or a commodity in an income or protect goal, and gold in an income goal) cannot be proposed whoever asks: say that a plan with this goal cannot hold it. The server leaves out any pick that breaks this and tells the person.',
-  'Pick assets and explain their roles; the server sets the weights: an equal split, unless the person stated shares in their own words, which the server reads itself and follows. It reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "Quero 70% em TSLA", "at least 40% stocks", "70/30 TSLA and NVDA"), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; it also reads the whole vault in one asset ("all in TSLA", "put everything in TSLA"), but only when that is the whole message; allocationConstraints lists what it read. A share stays until the person says "forget TSLA", "drop the TSLA share" or "split it equally". Never give a weight, a share or a percentage of your own. In proposal.stated, report every share the person stated that still holds, each {assetIds, kind: exact, min or max, bps, quote}, with quote copied exactly from one person message. stated sets no weight: it tells the server what you understood, and a share there that the server did not read is not applied. So when the person stated a share that is not in allocationConstraints, do not describe it as applied: ask them in question to say it as a percentage beside the asset name. A return, yield, growth or loss figure ("10% a year") is never a share. A preference without a number ("mostly Tesla") is not a share: leave it out of stated and ask in question what share they want. stated is empty when the person gave no share: the server splits equally. Every allocation names one listed assetId, once, with existing evidenceIds for that asset; at most sixteen besides cash. If the person stated a share the picks cannot meet, ask about it in question.',
+  'Pick assets and explain their roles; the server sets the weights: an equal split, unless the person stated shares in their own words, which the server reads itself and follows. It reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "Quero 70% em TSLA", "at least 40% stocks", "70/30 TSLA and NVDA", "a vault with these shares: TSLA 70%, NVDA 30%", or a list of names with bare numbers that come to 100: "TSLA 70, NVDA 30"), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; it also reads the whole vault in one asset ("all in TSLA", "put everything in TSLA"), but only when that is the whole message; allocationConstraints lists what it read. A share stays until the person says "forget TSLA", "drop the TSLA share" or "split it equally". Never give a weight, a share or a percentage of your own. In proposal.stated, report every share the person stated that still holds, each {assetIds, kind: exact, min or max, bps, quote}, with quote copied exactly from one person message. stated sets no weight: it tells the server what you understood, and a share there that the server did not read is not applied. So when the person stated a share that is not in allocationConstraints, do not describe it as applied: ask them in question to say it as a percentage beside the asset name. A return, yield, growth or loss figure ("10% a year") is never a share. A preference without a number ("mostly Tesla") is not a share: leave it out of stated and ask in question what share they want. stated is empty when the person gave no share: the server splits equally. Every allocation names one listed assetId, once, with existing evidenceIds for that asset; at most sixteen besides cash. If the person stated a share the picks cannot meet, ask about it in question.',
   "Keep the response compact and specific to the person. message answers this turn directly. A question goes in question and nowhere else: the page shows question after message, so message never ends with a question and never asks what question asks. catalog[].name is the asset's name as the person sees it on the page: in every prose field name an asset by it, never by its id and never by a symbol that differs from it. In a proposal, objective is a short statement of what this person wants the money to do; summary explains the proposed direction or change from current targets. Each allocation why connects its role to the person's request and a supplied fact, citing the supporting evidenceIds. tradeoffs states the material downside or competing preference; unknowns states material evidence gaps. Avoid generic repeated disclaimers, long shelf lists and duplicate explanations across fields. Use the requested language for all prose, including objective, reasons and questions.",
   'Prose may contain numbers only in exact catalog names or exact person excerpts inside explicitly attributed quotation marks, such as You said “...”. Introduce no new financial figures, percentages, prices, yields, dates, or written-out numerical financial claims: outside those two cases write no digit and no percent or currency sign in any prose field, including when a figure comes from evidence or analytics. The server sets the weights and the UI displays allocations and metrics from structured server data. Never fabricate observations or evidence IDs, guarantee returns, or claim an investment is risk free.',
   'When kind is vault, state a measured figure by reference and in no other way: write {{fact:<id>}} where the number would stand, with <id> copied exactly from this request, either an id in evidence that carries a value or a key of analytics.assets[].values. For example: "Selling it all today would cost about {{fact:exit:<asset>:worst}}." or "Your holding is worth about {{fact:holding:<asset>:value}}." with the asset\'s id in place of <asset>. The server writes the measured value, its unit and its source in that place, so you never type the number, its unit, or a percent or currency sign beside it. The vault\'s own figures are in evidence: vault:value, and for each holding holding:<asset>:amount (units of the underlying), :value, :share, :target and :gap (share minus target); recipe:<asset>:weight is a line\'s weight in the shared portfolio the vault follows; price:<asset> is the reference price. Reference only ids given in this request: an id you compose, or one without a value, is removed with its sentence; a figure that analytics.unknowns or unknowns says is not measured is written by the server as not measured, with the reason, so prefer saying it is unknown. A reference must stand alone, as the figure it is, or the server removes its sentence. Put a space and a word, or plain sentence punctuation, on each side of it: no sign, symbol, letter, digit, asterisk or other reference touching it, and never inside quotation marks. In the sentence that holds it, write no magnitude or percent word (hundred, thousand, million, percent), no multiplier, fraction, sign or arithmetic in words (double, half, a fifth of, times, minus, the sum of), and no number or currency word beside it. Do not add, subtract, multiply, average, convert, round or rank figures, and do not say which of two figures is larger, higher, cheaper or better: a derived number or an ordering is not a measured figure; you may put two references in one sentence with words between them and let the person read them. A figure is what was measured, never what will be: in a sentence with a reference write no forecast (will, expected to) and no rise or fall unless the figure is a drawdown: one. A yield: figure is said as its measurement and nothing else, in a sentence that ends there: "Its quoted yield is {{fact:…}} a year.", "The reserve currently yields about {{fact:…}} a year.", "Its yield is {{fact:…}} a year, based on the latest quote."; no other words after the figure, no promise in that sentence or in the one before or after it (will, should, always, at least, count on, rely on, steady, fixed, forever, risk-free), and no other kind of figure is ever a return, a rate or a yield. Say in the sentence what each other figure is, in a word: worth or value, of the vault, target, price, cost to sell, drawdown, volatility; or at least name its asset. A sentence that names neither is removed, and one that only names an asset ("Nvidia: about {{fact:…}} too.") is read as continuing the sentence before it, so never answer a question about returns, gains, chances, taxes, fees or the future with a figure. Name in that sentence only the asset the figure is of. A reference in prose does not replace evidenceIds. When kind is new_goal, write no reference: describe a measured figure in words and cite its id in evidenceIds.',
@@ -114,9 +142,11 @@ export const VAULT_AGENT_SYSTEM = [
   'statedPurpose is what the server read in the person\'s own messages about a new goal: goal (grow, income or protect) is what the money is for, and risk (low, medium or high) is the risk they accept; a null value means the server did not read one, and statedPurpose is null for a vault. Only the server reads these, from plain statements such as "I want it to grow" or "low risk". Never state, assume or infer a goal or a risk that is null there, from the assets they name, their tone, an amount or a date: the goal decides which assets a plan may hold. When kind is new_goal and you return a proposal while goal or risk is null, and no more material question is open, use question to ask for what is missing in one plain question: what the money is for (to grow, to pay an income, or to be kept safe) and how much risk they accept (low, medium or high). The proposal does not wait for the answer.',
   "When kind is vault, facts is what the server knows of this vault, written by the server: never ask the person for anything in it, and never say you cannot see it. facts.chain is the network the vault is on, whether its figures are live (provenance sandbox is a test network, real reads, not live; mock is sample figures), when the vault was read, its address and its owner as the page shows them, and the ids of the cash figures. facts.follows is null when the vault follows no shared portfolio. Otherwise the vault follows that shared portfolio: portfolioId and name are how the page shows it (name is null where the server gives none: use portfolioId), author who publishes it, acceptedVersion the version the vault accepted, activeVersion the one in effect on the chain, newerVersion whether a later version is in effect or waiting, lines what the portfolio holds, each with the id of its weight (when partial is true they are not all of its lines: say so, never present them as the whole), and authorLimits what binds its author. facts.targets.origin says whose the targets are: followed_portfolio means the vault's targets ARE that portfolio's, accepted when the person followed it, not typed by them; vault_own means the owner set them. facts.targets.lines gives each target with the ids of its target, its share of the vault now and its gap (share minus target; negative is below target). facts.autoFollow says whether auto-follow is on for this vault, whether this server offers it on this chain, and whether the keeper that rebalances for the person runs here: with it off, nothing rebalances the vault by itself. Following a shared portfolio shows the person the quote of the trades first and then trades to the portfolio's targets. Numbers in facts are evidence ids, stated by reference like any figure; the strings in facts.chain and facts.follows (a name, an id, a version, a read time) may be written exactly as given and in no other form.",
   "A target the vault already has is the vault's own, whatever its goal: never refuse it as it stands, never call the vault's own target a mistake and never offer to remove it for the goal. facts.targets.outsideGoalAlreadyHeld lists the targets the vault has that are also in outsideGoal (an income vault that follows a portfolio holding gold): say that plainly once, as a state and not as a refusal, and go on. It does not stop a rebalance toward them. A draft may keep one at its current target or lower, never above it: raised, it is a new pick, held to outsideGoal like any other (a stock only when its id is in requestedOutsideGoal, any other class never), and the server leaves it out. The server sets the weights, an equal split unless the person stated shares, so keep one only where the person's shares leave it at its target or below, and never once the person said they do not want it.",
-  'Bringing the holdings to the targets the vault already has ("rebalance", "match the targets", "follow exactly the planned", "be the same as the portfolio I follow") is a rebalance, not a change of targets: draft no proposal for it and refuse nothing. Say where each holding stands against its target from the figures, and, when facts.rebalanceAction is not null, that the person does it with the action of that name on this vault\'s page, which shows the trades for them to sign. When facts.rebalanceAction is null the page does not offer it now (the holdings are on their targets, auto-follow is on, a holding has no price, or every trade would be too small): say where the holdings stand and name no button, page or control. This conversation places no order. The server answers the plain forms of that request itself.',
+  'Bringing the holdings to the targets the vault already has ("rebalance", "match the targets", "follow exactly the planned", "be the same as the portfolio I follow") is a rebalance, not a change of targets: draft no proposal for it and refuse nothing. Say in one sentence whether the vault is off its targets (the page shows each holding with its source: do not list them), and, when facts.rebalanceAction is not null, that the person does it with the action of that name on this vault\'s page, which shows the trades for them to sign. When facts.rebalanceAction is null the page does not offer it now (the holdings are on their targets, auto-follow is on, a holding has no price, or every trade would be too small): say so in a sentence and name no button, page or control. This conversation places no order. The server answers the plain forms of that request itself.',
   'facts.latest is ambiguous_confirmation when the latest message is a bare "yes" or "ok" and your turn before it did not ask exactly one yes-or-no question: then return proposal null, say in one sentence that it could answer more than one thing, and ask in question which they mean. Never answer such a message by drafting an earlier request. A request holds only while it is the subject: requestedOutsideGoal and allocationConstraints already leave out what the conversation moved on from, so draft from them and from the latest message, never from an older message they no longer hold.',
-  "Say a thing once. facts.alreadySaid lists what earlier replies already told the person (goal_rule: what a plan with this goal cannot hold; goal_differs_from_followed: that a target the vault has is outside its goal). Do not restate those, the plan's goal or its rule again unless the person asks about them or the latest message runs into them for a new asset; answer the latest message instead. Never repeat a sentence or a question of your previous turn.",
+  "Say a thing once. facts.alreadySaid lists what earlier replies already told the person (goal_rule: what a plan with this goal cannot hold; goal_differs_from_followed: that a target the vault has is outside its goal). Do not restate those, the plan's goal or its rule again unless the person asks about them or the latest message runs into them for a new asset; answer the latest message instead. Never repeat a sentence or a question of your previous turn. When kind is vault, message is at most three short sentences, and states a measured figure only where the person asked for it or the answer turns on it, two at most: the page already shows every holding with its source, so do not list them.",
+  'When kind is vault you may look up the figures the server holds of a listed asset, as LOOKUPS says; when kind is new_goal you have no lookups. A figure the context already gives (evidence, analytics) comes first. Asked about a price, how it moved, a supply, who holds it, its pools or lending, look it up rather than say it is unknown; then state each figure by reference under the rules above and LOOKUPS: never compare, rank, do arithmetic, forecast or promise; asked which is deeper or better, each figure in its own sentence and no verdict. A looked-up figure is never a share, a weight or a limit, and never evidence of a pick: cite only evidence ids in evidenceIds.',
+  LOOKUP_RULES,
   'Return only the structured object. A general question or casual discussion can have proposal null. A specific stock direction may propose it if listed and allowed for the goal as above; do not invent an affiliation between a person and a company.',
 ].join('\n');
 
@@ -243,7 +273,8 @@ export function vaultAgentContent(prompt: VaultAgentPrompt): Anthropic.TextBlock
 /** One call's token counts, for the server log: how much of the prompt the cache wrote and read. */
 export type VaultAgentUsage = {
   model: string;
-  call: 'first' | 'repair';
+  /** `lookup`: a call after a round of lookups in the same attempt. */
+  call: 'first' | 'lookup' | 'repair';
   input_tokens: number | null;
   cache_creation_input_tokens: number | null;
   cache_read_input_tokens: number | null;
@@ -269,61 +300,106 @@ export function createAnthropicVaultAgentModel(options: {
     maxRetries: 0,
   });
   return {
-    async read(person, prompt, repair) {
+    async read(person, prompt, repair, lookups) {
       const timeout = repair
         ? options.timeoutMs + VAULT_AGENT_REPAIR_MARGIN_MS - repair.elapsedMs
         : options.timeoutMs;
       if (repair && timeout < VAULT_AGENT_REPAIR_MIN_MS)
         return { reply: null, why: 'timeout', detail: 'repair_no_time' };
-      // A repair is a second paid call, so it reserves from the same budget as the first.
-      const denied = options.quota.reserve(person);
-      if (denied !== null) return { reply: null, why: 'budget', detail: denied };
+      // Only a vault's own conversation looks up: the new-goal conversation states no figure.
+      const scope = prompt.kind === 'vault' && lookups ? lookups : null;
       const messages: Anthropic.MessageParam[] = [
         { role: 'user', content: vaultAgentContent(prompt) },
       ];
       if (repair)
-        messages.push(
-          { role: 'assistant', content: JSON.stringify(repair.previous) },
-          { role: 'user', content: repairRequest(repair.problems) },
-        );
-      try {
-        const response = await client.messages.create(
-          {
-            model: options.model,
-            max_tokens: VAULT_AGENT_MAX_TOKENS,
-            ...(acceptsTemperature(options.model) ? { temperature: 0 } : {}),
-            system: VAULT_AGENT_SYSTEM,
-            messages,
-            // No `thinking` parameter: the Claude 5 family rejects turning it off; effort sets its depth.
-            output_config: {
-              ...effort,
-              format: { type: 'json_schema', schema: VAULT_AGENT_REPLY_SCHEMA },
-            },
-          },
-          { timeout },
-        );
-        const usage = response.usage;
-        // A logger that throws must not turn the answer into `unavailable`.
-        try {
-          options.onUsage?.({
-            model: options.model,
-            call: repair ? 'repair' : 'first',
-            input_tokens: usage?.input_tokens ?? null,
-            cache_creation_input_tokens: usage?.cache_creation_input_tokens ?? null,
-            cache_read_input_tokens: usage?.cache_read_input_tokens ?? null,
-            output_tokens: usage?.output_tokens ?? null,
+        if (scope && repair.transcript?.length)
+          // the first attempt as it was, its own turns unchanged, then what was wrong with it
+          messages.splice(0, 1, ...repair.transcript, {
+            role: 'user',
+            content: repairRequest(repair.problems),
           });
-        } catch {}
+        else
+          messages.push(
+            { role: 'assistant', content: JSON.stringify(repair.previous) },
+            { role: 'user', content: repairRequest(repair.problems) },
+          );
+      // An id the context already gives keeps the figure it gave (`mergeLooked` in the conversation).
+      const handed = new Set([
+        ...prompt.evidence.map(({ id }) => id),
+        ...(prompt.analytics?.assets ?? []).flatMap((row) => Object.keys(row.values)),
+      ]);
+      let calls = 0;
+      let run: LookupRun;
+      try {
+        // Each call, a lookup round's too, reserves from the same budget as the first; a repair is a
+        // second paid call, so it reserves too.
+        // The reply's calls, its lookup rounds with them, keep to the time one call had before the
+        // lookups: a deadline, each call given what is left.
+        const deadline = scope ? Date.now() + timeout : undefined;
+        run = await runLookupLoop({
+          ...(deadline !== undefined ? { deadline, finalMs: finalMsFor(timeout) } : {}),
+          call: async ({ timeoutMs, ...more }) => {
+            const response = await client.messages.create(
+              {
+                model: options.model,
+                max_tokens: VAULT_AGENT_MAX_TOKENS,
+                ...(acceptsTemperature(options.model) ? { temperature: 0 } : {}),
+                system: VAULT_AGENT_SYSTEM,
+                ...more,
+                // No `thinking` parameter: the Claude 5 family rejects turning it off; effort sets its depth.
+                output_config: {
+                  ...effort,
+                  format: { type: 'json_schema', schema: VAULT_AGENT_REPLY_SCHEMA },
+                },
+              },
+              // what is left of the reply's time: the lookups share it, never add to it
+              { timeout: timeoutMs ?? timeout },
+            );
+            const usage = response.usage;
+            // A logger that throws must not turn the answer into `unavailable`.
+            try {
+              options.onUsage?.({
+                model: options.model,
+                call: repair ? 'repair' : calls === 0 ? 'first' : 'lookup',
+                input_tokens: usage?.input_tokens ?? null,
+                cache_creation_input_tokens: usage?.cache_creation_input_tokens ?? null,
+                cache_read_input_tokens: usage?.cache_read_input_tokens ?? null,
+                output_tokens: usage?.output_tokens ?? null,
+              });
+            } catch {}
+            calls += 1;
+            return response;
+          },
+          messages,
+          reserve: () => options.quota.reserve(person),
+          scope,
+          handed: (id) => handed.has(id),
+          maxRounds: repair ? 0 : LOOKUP_MAX_ROUNDS,
+        });
+        // what was looked up goes back beside the reply, with the calls a repair sends on
+        const looked =
+          scope && !repair
+            ? {
+                looked: {
+                  ...run.looked,
+                  transcript: run.kind === 'answered' ? run.transcript : [],
+                },
+              }
+            : {};
+        if (run.kind === 'denied')
+          return { reply: null, why: 'budget', detail: run.detail, ...looked };
+        const response = run.response;
         if (response.stop_reason === 'max_tokens')
-          return { reply: null, why: 'invalid', detail: 'model_cut_off' };
+          return { reply: null, why: 'invalid', detail: 'model_cut_off', ...looked };
         if (response.stop_reason === 'refusal')
-          return { reply: null, why: 'invalid', detail: 'model_refused' };
+          return { reply: null, why: 'invalid', detail: 'model_refused', ...looked };
         const block = response.content.find((item) => item.type === 'text');
-        if (block?.type !== 'text') return { reply: null, why: 'invalid', detail: 'model_no_text' };
+        if (block?.type !== 'text')
+          return { reply: null, why: 'invalid', detail: 'model_no_text', ...looked };
         try {
-          return { reply: JSON.parse(block.text) as unknown };
+          return { reply: JSON.parse(block.text) as unknown, ...looked };
         } catch {
-          return { reply: null, why: 'invalid', detail: 'model_not_json' };
+          return { reply: null, why: 'invalid', detail: 'model_not_json', ...looked };
         }
       } catch (error) {
         if (error instanceof Anthropic.APIConnectionTimeoutError)

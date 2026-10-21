@@ -40,6 +40,8 @@ contract RobinhoodForkAddAssetsTest is Test {
         // calls are metered, and each must fit in one transaction.
         vm.pauseGasMetering();
         AddAssets.File memory f = script.readFile("script/config/4663-assets-2.json");
+        // The contract the batch's upgrade names, where a person's CREATE2 transaction puts it first.
+        script.deployCreate2(f);
         script.checkFile(f);
         TimelockController timelock = TimelockController(payable(f.timelock));
         uint256 delay = timelock.getMinDelay();

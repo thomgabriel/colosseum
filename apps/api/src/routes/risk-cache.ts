@@ -27,9 +27,10 @@ export type RiskCacheOptions = {
   now?: () => number;
 };
 
-/** Ten minutes fresh, as the conversations' reads (agent-analytics.ts); an hour at most while read again. */
-export const RISK_FRESH_MS = 10 * 60_000;
-export const RISK_STALE_MS = 60 * 60_000;
+/** An hour fresh, as the conversations' reads (agent-analytics.ts): the imports write hourly at most, and each
+ *  read again is the hosted database's free allowance. Two hours at most while read again. */
+export const RISK_FRESH_MS = 60 * 60_000;
+export const RISK_STALE_MS = 2 * 60 * 60_000;
 const MAX_CHARS = 64 * 1024 * 1024;
 const MAX_ENTRIES = 5_000;
 /** An address longer than this is not kept: no page reads one, and each would be an entry of its own. */
@@ -38,7 +39,8 @@ const HALF_HOUR_MS = 30 * 60_000;
 const JOIN_MS = 30_000;
 /** What a `GET /risk/*` answer tells a browser: a minute fresh, five more served while asked again. */
 export const RISK_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
-const NOT_KEPT = new Set(['/risk/pools/:address/liquidity', '/risk/assets/:id/score']);
+// `/risk/dex` is put together from answers that are kept themselves: keeping it too would add their ages.
+const NOT_KEPT = new Set(['/risk/pools/:address/liquidity', '/risk/assets/:id/score', '/risk/dex']);
 const BY_HALF_HOUR = new Set(['/risk/chains']);
 
 type Kept = { at: number; body: string; type: string };

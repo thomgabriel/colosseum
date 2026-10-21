@@ -26,6 +26,7 @@ import {
   ChainErrorCode,
   CONTRACT_ERROR_CODE,
   ConsentRequest,
+  CREATOR_LIMITS_V2,
   CreateVaultArgs,
   CreatorLimitReason,
   chainFamily,
@@ -160,10 +161,14 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
     expect(BasketId.safeParse('007').success).toBe(false);
   });
 
-  it('holds a recipe to exactly 10,000 and a shared portfolio to assets only', () => {
+  it('holds a personal recipe to exactly 10,000, a shared one to at most, and to assets only', () => {
     expect(Recipe.safeParse(recipe).success).toBe(true);
     const short = [recipe.components[0], { ...recipe.components[1], weightBps: 3999 }];
-    expect(Recipe.safeParse({ ...recipe, components: short }).success).toBe(false);
+    expect(Recipe.safeParse({ ...recipe, kind: 'personal', components: short }).success).toBe(
+      false,
+    );
+    const over = [recipe.components[0], { ...recipe.components[1], weightBps: 4001 }];
+    expect(Recipe.safeParse({ ...recipe, components: over }).success).toBe(false);
     const viaIndex = [recipe.components[0], { kind: 'index', family: 'chips', weightBps: 4000 }];
     expect(Recipe.safeParse({ ...recipe, components: viaIndex }).success).toBe(false);
     expect(Recipe.safeParse({ ...recipe, kind: 'personal', components: viaIndex }).success).toBe(
@@ -186,13 +191,16 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
     expect(Targets.safeParse([spy, { ...nvda, weightBps: 0 }]).success).toBe(false);
     expect(Targets.safeParse([spy, { ...spy, weightBps: 1000 }]).success).toBe(false);
     expect(Targets.safeParse([]).success).toBe(false);
-    // A shared portfolio still adds up to exactly 10,000, on the page and in a publish request.
+    // A shared portfolio may leave the rest in cash too, on the page and in a publish request, where
+    // its chain's rules let it (SHARED-RULES-V2): the registry holds it to them, the shape to the whole.
     const short = [recipe.components[0], { ...recipe.components[1], weightBps: 3950 }];
-    expect(Recipe.safeParse({ ...recipe, components: short }).success).toBe(false);
-    expect(RecipeDraft.safeParse({ chain: 'solana', components: short }).success).toBe(false);
+    expect(Recipe.safeParse({ ...recipe, components: short }).success).toBe(true);
+    expect(RecipeDraft.safeParse({ chain: 'solana', components: short }).success).toBe(true);
     expect(RecipeDraft.safeParse({ chain: 'solana', components: recipe.components }).success).toBe(
       true,
     );
+    const over = [recipe.components[0], { ...recipe.components[1], weightBps: 4050 }];
+    expect(RecipeDraft.safeParse({ chain: 'solana', components: over }).success).toBe(false);
   });
 
   it('builds the transaction types from UnsignedTx without its structurer fields', () => {
@@ -778,7 +786,19 @@ describe('vault schemas, v0 (DESIGN-VAULT 3.1 to 3.6)', () => {
 
   it('gives the author-limit check its delay, and the planner its policy and its units', () => {
     const listed = { id: 'solana:spyx', maxWeightBps: 5000, cls: 'etf' };
-    const ctx = { assets: [listed], now: 1000, lastPublishAt: null, hasPending: false };
+    const ctx = {
+      limits: CREATOR_LIMITS_V2,
+      assets: [listed],
+      now: 1000,
+      lastPublishAt: null,
+      hasPending: false,
+    };
+    // Without the chain's rules nothing can be checked.
+    const { limits: _limits, ...noRules } = ctx;
+    expect(LimitContext.safeParse({ ...noRules, publishDelay: 60 }).success).toBe(false);
+    expect(LimitContext.safeParse({ ...ctx, publishDelay: 60, limits: { rules: 3 } }).success).toBe(
+      false,
+    );
     // Without the delay "one version per publish delay" cannot be checked.
     expect(LimitContext.safeParse(ctx).success).toBe(false);
     expect(LimitContext.safeParse({ ...ctx, publishDelay: 172_800 }).success).toBe(true);

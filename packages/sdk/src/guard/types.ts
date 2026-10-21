@@ -103,9 +103,24 @@ export type ApprovedStep = StepBase &
         trades: ApprovedTrade[];
       }
     | { kind: 'deposit'; amountRaw: RawAmount; trades: ApprovedTrade[] }
-    | { kind: 'swap'; trades: ApprovedTrade[] }
-    | { kind: 'set_targets'; targets: Target[] }
-    | { kind: 'accept_version'; follow: Follow }
+    | {
+        kind: 'swap';
+        trades: ApprovedTrade[];
+        /** EVM: auto-follow is switched off before the trades, in the same transaction. */
+        switchAutoFollow?: false;
+      }
+    | {
+        kind: 'set_targets';
+        targets: Target[];
+        /** EVM: the trades toward the targets, after them in the same transaction. None when absent. */
+        trades?: ApprovedTrade[];
+      }
+    | {
+        kind: 'accept_version';
+        follow: Follow;
+        /** EVM: auto-follow switched off before the version is taken, or on after it, in one transaction. */
+        switchAutoFollow?: boolean;
+      }
     | { kind: 'set_auto_follow'; on: boolean }
     | {
         kind: 'withdraw';
@@ -115,6 +130,8 @@ export type ApprovedStep = StepBase &
          */
         withdrawals: Withdrawal[] | 'all';
         held?: HeldToken[];
+        /** EVM: auto-follow is switched off before anything leaves, in the same transaction. */
+        switchAutoFollow?: false;
       }
     | ({ kind: 'publish' } & Publication)
   );
@@ -257,6 +274,16 @@ export type PlanTerms = {
    * targets, each with a minimum above zero (approved.ts).
    */
   rebalance?: Rebalance;
+  /**
+   * A follow that sells first what the vault holds of the assets the version drops (gate
+   * SHARED-RULES-V2): past the vault's lines the accept needs them gone. `keeps` is the version's
+   * assets and `sales` the vault's dropped lines with what it holds of each, both as the caller read
+   * them itself, never from the order. Its swaps may then only sell these, each once, all of the amount
+   * read, for the deployment's cash token, never an asset the version keeps, each with a minimum at
+   * most `MAX_SLIPPAGE_BPS` under its quote, and all before the accept. A follow with no sales leaves
+   * this out, and then has no swap.
+   */
+  leftovers?: { keeps: AssetId[]; sales: { asset: AssetId; amountRaw: RawAmount }[] };
 };
 
 /** What a rebalance was reviewed as: the vault's targets, and every trade, in the order signed. */

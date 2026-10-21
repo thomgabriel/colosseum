@@ -8,7 +8,6 @@ import {
   SkeletonLine,
   SkeletonListRow,
   SkeletonMark,
-  SkeletonStats,
 } from '../../components/ui/Skeleton';
 import { ScreenWait } from '../../components/waits/ScreenWait';
 import { useT } from '../../i18n/I18nProvider';
@@ -111,7 +110,7 @@ export function PlanViewWait({
 /** A page's head: the chain's tag, the title in the title's own face, and the lines under it. */
 function HeadWait({
   title,
-  titleLines = 2,
+  titleLines = 1,
   children,
 }: {
   /** The page's own title, where it is known before the data. */
@@ -221,16 +220,7 @@ export function OrderScreenWait({
           <div aria-hidden="true" data-wait="order-steps" className={CARD}>
             <CardHeader title={t.order.stepsTitle} level={2} />
             <CardBody className="flex flex-col gap-4">
-              <SkeletonStats count={3} />
-              <div className="flex flex-col divide-y divide-border">
-                {Array.from({ length: steps }, (_, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-                  <div key={i} className="flex flex-col gap-1 py-3">
-                    <SkeletonLine className="text-body" width={i % 2 ? 'w-72' : 'w-80'} />
-                    <SkeletonLine className="text-body-sm" width="w-96" />
-                  </div>
-                ))}
-              </div>
+              <ReviewWait rows={steps} />
             </CardBody>
           </div>
         </div>
@@ -264,22 +254,47 @@ export function FundsWait({ label }: { label?: string }) {
 }
 
 /**
- * An order's steps while the order is made or read, inside the pane or the card that holds them: the
- * three figures over them, then a line a step. No card of its own (the host is one), and no amount.
+ * An order's review in outline (gate SIGN-ONE-STEP), drawn as the house kit draws it (HOUSE-KIT): the
+ * label and the figure it leads with, its small figures two by two, a row a line of the table of what
+ * changes, and the fold of its details. No amount is drawn: none is known yet.
+ */
+function ReviewWait({ rows }: { rows: number }) {
+  return (
+    <>
+      <div data-ui="skeleton-figure" className="flex flex-col gap-1">
+        <SkeletonLine className="text-body-sm" width="w-24" />
+        <SkeletonLine className="text-[2rem]/10" width="w-40" />
+      </div>
+      <div data-ui="skeleton-stats" className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+        {['w-16', 'w-20', 'w-14', 'w-12'].map((width) => (
+          <div key={width} className="flex flex-col gap-1">
+            <SkeletonLine className="text-caption" width="w-20" />
+            <SkeletonLine className="text-body" width={width} />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col">
+        {Array.from({ length: rows }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
+          <div key={i} className="flex items-center justify-between border-t border-border py-4">
+            <SkeletonLine className="text-body-sm" width={i % 2 ? 'w-16' : 'w-20'} />
+            <SkeletonLine className="text-body-sm" width="w-12" />
+          </div>
+        ))}
+      </div>
+      <SkeletonLine className="text-body-sm" width="w-16" />
+    </>
+  );
+}
+
+/**
+ * An order while it is made or read, inside the pane or the card that holds it: its review in outline.
+ * No card of its own (the host is one), and no amount.
  */
 export function StepsWait({ steps = 3 }: { steps?: number }) {
   return (
     <div aria-hidden="true" data-ui="steps-wait" className="flex flex-col gap-4">
-      <SkeletonStats count={3} />
-      <div className="flex flex-col divide-y divide-border">
-        {Array.from({ length: steps }, (_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: still boxes with no identity of their own
-          <div key={i} className="flex flex-col gap-1 py-3">
-            <SkeletonLine className="text-body" width={i % 2 ? 'w-72' : 'w-80'} />
-            {i > 0 && <SkeletonLine className="text-body-sm" width="w-4/5" />}
-          </div>
-        ))}
-      </div>
+      <ReviewWait rows={steps} />
     </div>
   );
 }

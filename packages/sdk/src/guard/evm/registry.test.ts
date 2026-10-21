@@ -132,6 +132,19 @@ describe('the guard on EVM: the registry calls of a creator pass', () => {
     }
   });
 
+  it('passes one asset with the rest in cash, which the second rules allow (SHARED-RULES-V2)', () => {
+    const seventy = [{ asset: 'robinhood:spy', weightBps: 7000 }];
+    const step: ApprovedStep = { ...publishStep, components: seventy } as ApprovedStep;
+    const given = input(step, to(createData({ components: seventy })));
+    expect(refusalOf(() => guardTransaction(given))?.message ?? null).toBeNull();
+    const over = [{ asset: 'robinhood:spy', weightBps: 10_050 }];
+    const tooMuch = { ...publishStep, components: over } as ApprovedStep;
+    expect(
+      refusalOf(() => guardTransaction(input(tooMuch, to(createData({ components: over })))))
+        ?.message,
+    ).toMatch(/more than 10,000/);
+  });
+
   it('passes a create through the registry of the committed 46630 entry, with no copy of the chain', () => {
     const rh = deploymentsOf('testnet').robinhood as Loaded<EvmDeployment>;
     expect(rh.registry).toBe('0xe73c5df15452469873f610a26dac7fec68a23b14');

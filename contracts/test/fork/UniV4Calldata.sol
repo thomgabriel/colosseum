@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.37;
 
-/// Builds Universal Router 2.1.x call data for an exact-input swap through one Uniswap v4 pool. From the rig
+/// Builds Universal Router 2.1.x call data for an exact-input swap through one Uniswap v4 pool, or one v3 pool. From the rig
 /// (`spikes/evm-vault`); in production the app and the keeper build it off-chain. Tests only.
 library UniV4Calldata {
     struct PoolKey {
@@ -27,6 +27,29 @@ library UniV4Calldata {
     uint8 internal constant SETTLE_ALL = 0x0c;
     uint8 internal constant TAKE = 0x0e;
     uint8 internal constant TAKE_ALL = 0x0f;
+
+    uint8 internal constant CMD_V3_SWAP_EXACT_IN = 0x00;
+    /// Universal Router's stand-in for the caller as a recipient (`ActionConstants.MSG_SENDER`).
+    address internal constant MSG_SENDER = address(1);
+
+    /// An exact-input swap through one Uniswap v3 pool (`V3_SWAP_EXACT_IN`), paid by the caller through
+    /// Permit2 and sent to the caller, as the vault's owner swap takes it.
+    function exactInV3(
+        address tokenIn,
+        uint24 fee,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minOut,
+        uint256 deadline
+    ) internal pure returns (bytes memory) {
+        bytes[] memory inputs = new bytes[](1);
+        // Universal Router 2.1.x reads a sixth field, the per-hop price floors; empty is none.
+        inputs[0] =
+            abi.encode(MSG_SENDER, amountIn, minOut, abi.encodePacked(tokenIn, fee, tokenOut), true, new uint256[](0));
+        return abi.encodeWithSignature(
+            "execute(bytes,bytes[],uint256)", abi.encodePacked(CMD_V3_SWAP_EXACT_IN), inputs, deadline
+        );
+    }
 
     /// @param recipient The zero address sends the output to the caller, the vault (`TAKE_ALL`). Any other
     /// address gets it instead (`TAKE`): what a hostile caller would build.

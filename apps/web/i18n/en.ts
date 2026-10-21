@@ -1,3 +1,5 @@
+import { VAULT_MAX_TARGETS } from '@colosseum/schemas';
+
 // Every sentence a person reads on the product screens, in English. pt.ts holds the same keys in
 // Brazilian Portuguese, and the type below is what keeps the two in step.
 //
@@ -322,17 +324,38 @@ export const en = {
   goal: {
     explore: {
       /**
-       * The conversation picker (GoalEntry): the one on screen, a new one, the saved ones, the vaults.
-       * A conversation is named by its person's first request; `current` and `untitled` are what one
-       * with no words yet is called, on screen and in the saved list.
+       * The conversations panel (ConversationRail): a rail beside the conversation on a wide screen, a
+       * sheet on a phone. A draft is named by the name the person gave it, else its first request; a
+       * vault by its goal, as the portfolio overview names it. `current` and `untitled` are what a
+       * draft with no words yet is called, on screen and in the list.
        */
       picker: {
-        label: 'Conversation',
+        label: 'Conversations',
         current: 'New conversation',
-        fresh: 'Start a new conversation',
-        vaults: 'Your vaults',
-        saved: 'Saved conversations',
         untitled: 'Earlier conversation',
+        fresh: 'New conversation',
+        show: 'Show conversations',
+        hide: 'Hide conversations',
+        close: 'Close',
+        groups: { today: 'Today', yesterday: 'Yesterday', earlier: 'Earlier' },
+        search: 'Search conversations',
+        noMatch: (words: string) => `No conversation has “${words}” in its name.`,
+        empty: 'Your conversations and vaults are listed here.',
+        vault: 'Vault',
+        draft: 'Draft',
+        openVault: (title: string) => `Open the vault: ${title}`,
+        rename: (title: string) => `Rename: ${title}`,
+        name: 'Name',
+        save: 'Save',
+        cancel: 'Cancel',
+        remove: (title: string) => `Delete: ${title}`,
+        confirm: 'Delete this draft from this browser? It can’t be brought back.',
+        /** A draft with a deposit that is not finished: it is not deleted. */
+        depositing:
+          'This draft has a deposit that isn’t finished, so it stays. Open it to see the deposit’s steps.',
+        yes: 'Delete',
+        keep: 'Keep',
+        removed: (title: string) => `Deleted: ${title}`,
       },
       invitation: 'What should your vault do?',
       lead: 'Tell me your ideas, needs and limits. I’ll draft a vault with its sources and tradeoffs.',
@@ -1163,8 +1186,11 @@ export const en = {
     mainnet: {
       real: 'This is real money on a live network. Nothing here promises a return, and this is not licensed advice.',
       loss: 'You can lose money, including all of it.',
+      /** `hours` 0: no timelock, the Safe holds the keys itself (gate ROBINHOOD-REDEPLOY). */
       governance: (hours: number, signatures: number) =>
-        `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
+        hours === 0
+          ? `The vault contracts belong to the team’s Safe, which needs ${signatures} signatures, held by the two founders. It can change settings and upgrade the vault code at once: there is no waiting period. A change could alter what a vault does, so the team could move funds.`
+          : `The vault contracts belong to a timelock. A Safe that needs ${signatures} signatures, held by the two founders, proposes each change to it, and a change takes effect ${hours} hours after it appears on chain. A change could alter what a vault does, so after that wait the team could move funds.`,
       withdraw:
         'A withdrawal sends you the tokens themselves, and the vault contracts never block it. The issuer can pause the stock tokens and freeze the dollar token, which would stop those tokens moving, in your vault or out of it.',
       safe: (address: string) => `The Safe: ${address}.`,
@@ -1178,7 +1204,9 @@ export const en = {
         'The issuer of the stock tokens can replace their code, and can pause them. The issuer of the dollar token can freeze it.',
       short: {
         governance: (hours: number, signatures: number) =>
-          `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
+          hours === 0
+            ? `The team’s ${signatures}-signature Safe, held by the founders, can change settings and the vault code at once.`
+            : `A ${signatures}-signature Safe held by the founders can change the vault code, ${hours} hours after it says so on chain.`,
         noKeeper: 'No keeper runs here: only you trade your vault.',
         noCap: 'Nothing limits how much you can deposit.',
         issuers: 'The issuers can change or pause the stock tokens and freeze the dollar token.',
@@ -1336,6 +1364,8 @@ export const en = {
       lead: 'Explore shared portfolios on every chain we run. Each names the chain it is on. Open one to see its assets and sources, then deposit or follow.',
       loading: 'Reading the shared portfolios…',
       empty: 'No portfolio is shared yet.',
+      /** Where the server lists live portfolios only (gate PRODUCTS-MAINNET-ONLY): the mainnets it runs. */
+      emptyOn: (chains: string) => `No portfolio is shared on ${chains} yet.`,
       publish: 'Publish a portfolio',
       /** Where publishing is not offered yet: said, in place of the link. */
       publishSoon: (chain: string) =>
@@ -1410,6 +1440,12 @@ export const en = {
         'One asset of this portfolio isn’t available on this chain now, so the portfolio can’t take a deposit as it stands.',
     },
     family: {
+      /**
+       * A weight over its asset's cap on the list, said before a deposit or a follow (SHARED-RULES-V2):
+       * the follower pays to sell that much of it.
+       */
+      overCap: (asset: string, weight: string, cap: string) =>
+        `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Selling that much of it may cost you more.`,
       loading: 'Reading this portfolio…',
       missing: 'I can’t find a shared portfolio with that name.',
       backToShelf: 'Back to the shared portfolios',
@@ -1588,14 +1624,31 @@ export const en = {
     },
     publish: {
       title: 'Publish your vault as a portfolio',
-      lead: (chain: string) =>
-        `Publish the targets recorded in your own vault on ${chain} as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.`,
+      lead: 'Publish the targets recorded in one of your vaults as a shared portfolio. Review its exact assets and target weights, give it a public name and description, then sign the publication.',
       signIn: 'Sign in to publish a portfolio.',
+      /**
+       * Where the server lists live portfolios only, said of the vault the link named when its chain is
+       * not one of them: a test network, or a chain not live here.
+       */
+      notListed: (chain: string, test: boolean) =>
+        test
+          ? `${chain} runs on a test network here, and Products lists real-money portfolios only.`
+          : `${chain} isn’t live here, and Products lists real-money portfolios only.`,
+      /** No vault of the person's on a chain whose portfolios Products lists: one line, and a way to make one. */
+      noVaultOn: (chains: string) =>
+        chains
+          ? `You have no vault on ${chains} to publish from.`
+          : 'You have no vault to publish from.',
+      makeVault: 'Make a vault',
       shareStrategy: 'Publish as a portfolio',
       sourceVault: 'Your source vault',
-      sourceHint: 'Choose a vault you own on the active chain.',
+      /** Where the server lists live portfolios only, the chains whose vaults are offered. */
+      sourceHint: (chains: string) =>
+        chains
+          ? `Products lists portfolios on ${chains}, so your vaults there are offered.`
+          : 'Choose a vault you own.',
       chooseVault: 'Choose your vault',
-      noVaults: 'Choose an owned vault on this chain before publishing a portfolio.',
+      noVaults: 'Choose one of your vaults before publishing a portfolio.',
       readingVaults: 'Reading your vaults…',
       readingStrategy: 'Reading the vault’s targets…',
       sourceUnavailable: 'Your vaults could not be read. Open the vault and try publishing again.',
@@ -1625,7 +1678,38 @@ export const en = {
       familyId: 'Its id, worked out from the address',
       assets: 'Assets and weights',
       assetsHint:
-        'These are the vault’s target weights. Publishing requires 3 to 12 listed assets, each from 2% to 50% in 0.5% steps, with no cash target. Change your vault’s targets before publishing if they do not fit.',
+        'These are the vault’s target weights. Change your vault’s targets before publishing if they do not fit.',
+      /** What a portfolio may hold, as the chain's registry says it now (gate SHARED-RULES-V2). */
+      rules: {
+        reading: (chain: string) => `Reading the publishing rules from ${chain}…`,
+        unread: (chain: string) =>
+          `I couldn’t read the publishing rules from ${chain}, so publishing is paused. Try again in a moment.`,
+        shape: (
+          chain: string,
+          min: number,
+          max: number,
+          low: string,
+          high: string,
+          step: string,
+          cash: boolean,
+        ) =>
+          cash
+            ? `On ${chain} a portfolio holds ${min} to ${max} listed assets, each from ${low} to ${high} in ${step} steps. What the weights leave under 100% stays in cash.`
+            : `On ${chain} a portfolio holds ${min} to ${max} listed assets, each from ${low} to ${high} in ${step} steps, adding up to 100%, with no cash.`,
+        count: (min: number, max: number) => `A portfolio holds ${min} to ${max} assets.`,
+        weight: (low: string, high: string, step: string) =>
+          `Each weight is from ${low} to ${high}, in steps of ${step}.`,
+        sum: 'The weights add up to 100%.',
+        sumAtMost: 'The weights add up to at most 100%.',
+        ceiling: (asset: string, weight: string, cap: string) =>
+          `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list.`,
+        /** A warning, not a refusal: the cap is set from what the asset can be sold for, measured. */
+        overCap: (asset: string, weight: string, cap: string) =>
+          `${asset} at ${weight} weighs more than ${cap}, its cap on the asset list, set from what it can be sold for. Followers may pay more to sell that much of it.`,
+        cash: 'Cash',
+        /** What the cited figure is, in its pin. */
+        capOnList: 'Cap on the asset list',
+      },
       asset: 'Asset',
       weight: 'Weight, in %',
       /** The labels of a row's two fields. */
@@ -1644,9 +1728,6 @@ export const en = {
         name: 'A name needs plain letters, digits and punctuation, with no space at either end and no link or web address.',
         slug: 'An address needs lower-case letters, digits and dashes, and can’t be “publish”.',
         copy: 'A description is at most 280 characters, with no link or web address and no hidden characters.',
-        count: 'A portfolio holds 3 to 12 assets.',
-        weight: 'Each weight is from 2% to 50%, in steps of 0.5%.',
-        sum: 'The weights add up to 100%.',
         twice: 'An asset appears once.',
         chain: 'Publishing isn’t open on this chain yet.',
       },
@@ -1751,6 +1832,10 @@ export const en = {
         /** Read out once when a message is sent; nothing on the screen carries it. */
         reading: 'Getting a reply',
         current: 'What it holds now',
+        /** The two right panes, for a screen reader: each scrolls on its own on a desktop. */
+        planPane: 'Your vault’s plan and holdings',
+        actionPane: 'The action under way',
+        headPane: 'This vault’s head',
         noHoldings: 'This vault holds no tokens now.',
         targets: 'Current targets',
         targetsNote: 'Targets recorded on chain, separate from the shares held now.',
@@ -1765,6 +1850,29 @@ export const en = {
         deposit: 'Deposit',
         more: 'More',
         editWeights: 'Edit weights by hand',
+        /** Closing an empty vault (gate VAULT-CLOSE-REUSE): a confirm, then the closed vault's note. */
+        close: {
+          action: 'Close this vault',
+          title: 'Close this vault?',
+          body: 'It leaves your portfolio, its totals and your lists of vaults. Nothing moves on the chain: the vault stays at its address, empty, and you can open it again from Closed vaults.',
+          confirm: 'Close vault',
+          closing: 'Closing…',
+          keep: 'Keep it open',
+          /** Worth a cent or more, or holding a token with no price. */
+          notEmpty: 'This vault still holds something. Withdraw it first, then close it.',
+          failed: 'I couldn’t close it: our server didn’t answer. Try again.',
+          /** An order on the vault is still under way. */
+          orderOpen:
+            'An order on this vault isn’t finished yet. Finish it, or let it run out, then close the vault.',
+        },
+        closed: {
+          title: 'This vault is closed',
+          body: (date: string) =>
+            `You closed it on ${date}. It isn’t in your portfolio or its totals. Nothing moved on the chain.`,
+          reopen: 'Open it again',
+          reopening: 'Opening…',
+          failed: 'I couldn’t open it again: our server didn’t answer. Try again.',
+        },
         /** The press that trades the vault to the targets it has, and the sentence that offers it. */
         rebalance: 'Rebalance',
         offTarget:
@@ -1812,8 +1920,14 @@ export const en = {
         onPlan: 'on target',
         /** With a plan and every share on it, said once above the ring. */
         allOnTarget: 'On target',
+        /** The press on a panel folded to its head while a draft has the pane. */
+        show: 'Show',
+        hide: 'Hide',
         /** In the head of the holdings when a share is off its target. */
         offTargetShort: 'Off target',
+        /** A share a little away from its target, by less than one trade: said, and not off target. */
+        gapTooSmall:
+          'A little away from its targets, by less than one trade is worth: nothing to rebalance.',
         /** A holding's status pill when it is off its target: "Drift +2%". */
         drift: (signed: string) => `Drift ${signed}`,
         /** Why cash is kept, where the vault plans a share of cash. */
@@ -1824,6 +1938,8 @@ export const en = {
         value: 'Value',
         change:
           'To change what this vault holds, say it in the conversation: more of one asset, less of another.',
+        /** After `change`: the editor by hand, the same as "Edit weights by hand" under More. */
+        changeByHand: 'Or edit the weights by hand.',
         details: 'Details',
         priceSources: 'Price sources',
         /** One price account's line: the entries in it that price this vault's assets. */
@@ -1865,7 +1981,13 @@ export const en = {
           lead: 'These steps swap the cash already in your vault. No new money is deposited.',
         },
         ended: 'The steps have ended',
-        endedLead: 'How each step ended is said under the steps below.',
+        /** Over the end of an order that is plainly done: no step skipped, no token left behind. */
+        doneTitle: {
+          deposit: 'Deposit done',
+          withdraw: 'Withdrawal done',
+          rebalance: 'Rebalance done',
+          change: 'Change done',
+        },
         panes: {
           deposit: {
             title: 'Deposit into your vault',
@@ -2100,8 +2222,8 @@ export const en = {
     signs: {
       passkey: (n: number) =>
         n === 1
-          ? 'One press signs the one step with your passkey wallet. No other window opens.'
-          : `One press signs the ${n} steps with your passkey wallet, one after another. No other window opens, and you can stop between steps.`,
+          ? 'One press signs it with your passkey wallet.'
+          : `One press signs all ${n} steps with your passkey wallet.`,
       wallet: (n: number) =>
         n === 1
           ? 'Your wallet asks you to confirm the one step in its own window.'
@@ -2250,7 +2372,7 @@ export const en = {
     elsewhere:
       'This order was made in another browser, so its plan isn’t here to check the steps against. Open it where you made it, or make a new order.',
     review: {
-      title: 'Review every step',
+      title: 'Review your order',
       lead: 'Each step is built fresh when its turn comes, checked against what you see here, and only then signed by your wallet. A step that doesn’t match is not signed.',
       /** An order that finishes another with the cash in its vault. */
       continuesLead:
@@ -2325,16 +2447,11 @@ export const en = {
       addCashNote: 'This vault has no targets, so the whole amount stays in it as cash.',
       publishNote:
         'Your wallet is asked to sign only a transaction that publishes exactly this name, description and these weights, under this id.',
-      signPublish: 'Sign and publish',
-      signFollow: 'Sign and follow',
-      signRebalance: 'Sign and rebalance',
       /** Under a follow that is done: its targets are set, and the trades to them are the next press. */
       followDone:
         'Your vault follows the portfolio now, and has its weights as targets. What it holds hasn’t been traded yet.',
       followRebalance: 'Rebalance this vault',
-      resume: 'Continue',
       withdrawTitle: 'What you withdraw',
-      signWithdraw: 'Sign and withdraw',
       /** One line of a withdraw step: what leaves, for the owner's own wallet. */
       withdraws: (amount: string) => `${amount} to your own wallet`,
       withdrawsAll: (held: string) => `All of it, ${held} when reviewed, to your own wallet`,
@@ -2365,7 +2482,6 @@ export const en = {
           ? `Done on ${chain}, except one step that was skipped: what it would have moved stayed in the vault.`
           : `Done on ${chain}, except ${n} steps that were skipped: what they would have moved stayed in the vault.`,
     },
-    signAndBuy: (amount: string) => `Sign and deposit ${amount}`,
     resume: (amount: string) => `Continue the deposit of ${amount}`,
     signing: (n: number, total: number) => `Signing step ${n} of ${total}…`,
     stepsTitle: 'Steps',
@@ -2381,12 +2497,168 @@ export const en = {
       deposit: 'Deposit',
       swap: 'Swap',
       set_targets: 'Set your vault’s targets',
+      /** The same step where it also trades toward them (Robinhood Chain): one transaction. */
+      set_targets_swap: 'Set your vault’s targets and swap',
       accept_version: 'Accept a new version',
+      /** An accept that also switches auto-follow, in one transaction (Robinhood Chain). */
+      accept_version_on: 'Accept a new version and switch auto-follow on',
+      accept_version_off: 'Switch auto-follow off and accept a new version',
       set_auto_follow: 'Switch auto-follow',
       withdraw: 'Withdraw',
+      /** A sale or a withdrawal that first switches auto-follow off, in one transaction (Robinhood Chain). */
+      swap_off: 'Switch auto-follow off and swap',
+      withdraw_off: 'Switch auto-follow off and withdraw',
       publish: 'Publish',
       adopt_version: 'Keeper: adopt a version',
       keeper_leg: 'Keeper: trade',
+    },
+    /**
+     * The order one screen at a time (gate SIGN-ONE-STEP): what changes and its worst case, then each
+     * step on its own card with a button that names it, then what the order did.
+     */
+    flow: {
+      continue: 'Continue',
+      details: 'Details',
+      /** The change's review, as its panel's title. */
+      changeTitle: 'Review the change',
+      changeWeights: 'Change the weights',
+      /** One box for every warning of a change. */
+      understand: 'I understand these',
+      /** Before the first signature: back to what changes. */
+      back: 'Back to the review',
+      /** The progress strip's name, read by a screen reader. */
+      progress: 'Where you are in the steps',
+      /** The strip's last place, after every step. */
+      done: 'Done',
+      /** Read after a done step's name. */
+      doneWord: 'done',
+      stepOf: (n: number, of: number) => `Step ${n} of ${of}`,
+      /** The fold with every step as it will be signed, to the last unit. */
+      allSteps: 'Every step, exactly',
+      /** The fold with each confirmed step's transaction. */
+      transactions: 'Transactions',
+      /** The steps already confirmed, over the one being signed. */
+      signed: 'Signed',
+      /** A step that deposits, then trades: "Deposit $1,000 into your vault, then swap $900 of cash for SPYx". */
+      andThen: (head: string, rest: string) => `${head}, then ${rest}`,
+      atLeast: (amount: string) => `at least ${amount}`,
+      allOf: (token: string) => `all of your ${token}`,
+      short: {
+        approve: 'Allow',
+        open: 'Open vault',
+        deposit: 'Deposit',
+        swap: 'Swap',
+        swapN: (n: number) => `Swap ${n}`,
+        sell: (what: string) => `Sell ${what}`,
+        into: (what: string) => `Swap to ${what}`,
+        targets: 'Set targets',
+        version: 'Accept version',
+        autoFollow: 'Auto-follow',
+        withdraw: 'Withdraw',
+        publish: 'Publish',
+      },
+      title: {
+        approve: (amount: string) => `Allow your vault to take ${amount} of cash`,
+        open: 'Open your vault',
+        openDeposit: (amount: string) => `Open your vault and deposit ${amount}`,
+        deposit: (amount: string) => `Deposit ${amount} into your vault`,
+        sell: (what: string) => `sell ${what}`,
+        swap: (amount: string, into: string) => `swap ${amount} of cash for ${into}`,
+        swapInto: (into: string) => `swap cash for ${into}`,
+        targets: 'Set your vault’s new targets on chain',
+        version: 'Accept the new version of the portfolio',
+        withdraw: (what: string) => `Send ${what} to your own wallet`,
+        publish: 'Publish your portfolio',
+      },
+      /** The one large line of a screen: what the order or the step does, at a glance. */
+      hero: {
+        /** "$1,354 → GOOGLx": what goes in, and where it goes. */
+        arrow: (from: string, to: string) => `${from} → ${to}`,
+        yourVault: 'your vault',
+        yourWallet: 'your wallet',
+        cash: 'cash',
+        allow: (amount: string) => `Allow ${amount}`,
+        targets: 'New targets',
+        moreLess: (more: string, less: string) => `More ${more}, less ${less}`,
+        more: (more: string) => `More ${more}`,
+        less: (less: string) => `Less ${less}`,
+        rebalance: 'Back to your targets',
+        deposit: (amount: string) => `${amount} into your vault`,
+        withdraw: (what: string) => `${what} to your wallet`,
+        finish: 'Finish your deposit',
+      },
+      /** The muted label over a screen's figure (HOUSE-KIT). */
+      label: {
+        change: 'New targets',
+        rebalance: 'Rebalance',
+        deposit: 'Into your vault',
+        withdraw: 'To your wallet',
+        withdrawAtLeast: 'To your wallet, at least',
+        order: 'Your order',
+      },
+      /** Over "Done": the action the order was. */
+      doneLabel: {
+        change: 'Change',
+        rebalance: 'Rebalance',
+        deposit: 'Deposit',
+        withdraw: 'Withdrawal',
+      },
+      /** The small figures under it. */
+      stat: {
+        swapped: 'Swapped',
+        expected: 'Expected cost',
+        worst: 'At worst',
+        steps: 'Steps',
+        least: 'At least',
+        under: 'Under today’s price, at worst',
+        /** A change's review, before its order is quoted: worked out from the vault's prices. */
+        swappedEstimate: 'Swapped, estimated',
+        worstEstimate: 'At worst, estimated',
+        estimate: 'Estimated at today’s prices. The next screen shows the quoted figures you sign.',
+      },
+      /** The heads of the table of what changes. */
+      table: { holding: 'Holding', change: 'Change', amount: 'Amount' },
+      /** A button that signs names the action and the amount. */
+      press: {
+        of: (what: string) => `Sign: ${what}`,
+        approve: (amount: string) => `Sign: allow ${amount}`,
+        open: 'Sign: open your vault',
+        deposit: (amount: string) => `Sign: deposit ${amount}`,
+        sell: (what: string) => `sell ${what}`,
+        swap: (amount: string, into: string) => `swap ${amount} for ${into}`,
+        swapInto: (into: string) => `swap for ${into}`,
+        targets: 'Sign: set the new targets',
+        /** The one press that signs a whole order, with the passkey wallet. */
+        change: 'Sign the change',
+        rebalance: 'Sign the rebalance',
+        follow: 'Sign: follow',
+        version: 'Sign: accept the new version',
+        autoFollow: 'Sign: switch auto-follow',
+        withdraw: (what: string) => `Sign: withdraw ${what}`,
+        publish: 'Sign: publish',
+        step: 'Sign this step',
+      },
+      picture: {
+        cash: 'Cash',
+        amount: 'Amount',
+        before: 'Before',
+        next: 'After',
+        unchanged: 'unchanged',
+        /** A move of a target's share, in percentage points. */
+        points: (n: string) => `${n} pp`,
+        holdsNow: 'Holds now',
+        target: 'Target',
+        targets: 'Your vault’s targets',
+        deposit: (amount: string) => `Where your ${amount} goes`,
+        withdraw: 'What leaves your vault',
+        sold: 'What is sold',
+        all: 'All of it',
+      },
+      /** The last screen: what the order did, and the vault as it is now. */
+      ended: {
+        title: 'Done',
+        targets: 'Your vault’s targets now',
+      },
     },
     status: {
       planned: 'Not started',
@@ -2414,8 +2686,7 @@ export const en = {
       unavailable: 'link unavailable',
     },
     outcome: {
-      done: (chain: string) =>
-        `Every step is confirmed on ${chain}. Each step’s transaction is linked beside it.`,
+      done: (chain: string) => `Every step is confirmed on ${chain}.`,
       seePortfolio: 'See your portfolio',
       buyMore: 'Deposit more',
       /** After a step failed or was refused once the deposit had landed. */
@@ -2734,9 +3005,9 @@ export const en = {
       remove: (name: string) => `Remove ${name}`,
       weight: (name: string) => `Weight of ${name}`,
       cash: (share: string) => `Cash: ${share}`,
-      lines: (n: number) => `${n} of 16 assets`,
+      lines: (n: number) => `${n} of ${VAULT_MAX_TARGETS} assets`,
       issues: {
-        'too-many': 'A vault holds 16 assets besides cash. Remove one.',
+        'too-many': `A vault holds ${VAULT_MAX_TARGETS} assets besides cash. Remove one.`,
         duplicate: 'Each asset once. Remove the repeat.',
         'cash-line': 'Cash is what the others leave. Remove it as a line.',
         'not-whole': 'Use percents with up to two decimals, or whole basis points.',
@@ -2777,7 +3048,7 @@ export const en = {
         case 'SUM_NOT_10000':
           return 'The weights don’t add up to the whole.';
         case 'TOO_MANY_LINES':
-          return 'A vault holds 16 assets besides cash.';
+          return `A vault holds ${VAULT_MAX_TARGETS} assets besides cash.`;
         case 'NO_PRICE':
           return `${asset} has no usable price just now.`;
         case 'NOT_FOR_GOAL':
@@ -2792,7 +3063,6 @@ export const en = {
     },
     order: {
       title: 'New targets for your vault',
-      signTargets: 'Sign and apply the targets',
       cash: (share: string) => `The rest stays in cash: ${share}.`,
       fromConversation: 'Proposed in your conversation, and confirmed by you.',
       fromPerson: 'Chosen by you.',

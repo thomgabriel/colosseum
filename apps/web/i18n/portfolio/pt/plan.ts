@@ -16,7 +16,7 @@ export const plan: Plan = {
     label: 'Como este plano está',
   },
   unread:
-    'Quando este cofre for lido, o valor dele ao longo do tempo, as partes, quanto custaria sair e onde está o risco aparecem aqui. Lemos cada cofre mais ou menos a cada dez minutos.',
+    'Quando este cofre for lido, o valor dele ao longo do tempo, as partes, quanto custaria sair e onde está o risco aparecem aqui. Lemos cada cofre mais ou menos uma vez por hora.',
 
   history: {
     heading: 'Valor ao longo do tempo',
@@ -39,8 +39,8 @@ export const plan: Plan = {
       deposit: 'Um depósito seu',
     },
     none: (when: string) =>
-      `Nenhum retrato deste cofre cai neste período: o mais recente é de ${when}. Tiramos um retrato mais ou menos a cada dez minutos.`,
-    one: 'Só um retrato cai neste período até agora. Uma linha precisa de dois, e tiramos um retrato mais ou menos a cada dez minutos.',
+      `Nenhum retrato deste cofre cai neste período: o mais recente é de ${when}. Tiramos um retrato mais ou menos uma vez por hora.`,
+    one: 'Só um retrato cai neste período até agora. Uma linha precisa de dois, e tiramos um retrato mais ou menos uma vez por hora.',
     oneAt: (when: string) => `Em ${when}:`,
     deposits: {
       label: 'Seus depósitos neste período',

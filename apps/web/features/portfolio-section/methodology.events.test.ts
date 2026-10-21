@@ -64,7 +64,11 @@ describe.each(['en', 'pt'] as const)('the methodology (%s)', (lang) => {
     const host = await methodology(lang);
     const page = text(find(host, '[data-ui="portfolio-methodology"]'));
     for (const paragraph of m.snapshot.body) expect(page).toContain(paragraph);
-    expect(m.snapshot.body.join(' ')).toMatch(lang === 'en' ? /every ten minutes/ : /dez minutos/);
+    expect(m.snapshot.body.join(' ')).toMatch(lang === 'en' ? /once an hour/ : /uma vez por hora/);
+    // stale after two hours, the rule's own figure
+    expect(m.snapshot.body.join(' ')).toMatch(
+      lang === 'en' ? /more than two hours old is called stale/ : /mais de duas horas é chamado/,
+    );
     expect(m.snapshot.body.join(' ')).toMatch(lang === 'en' ? /holds no key/ : /não tem chave/);
   });
 

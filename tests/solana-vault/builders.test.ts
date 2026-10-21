@@ -486,7 +486,7 @@ describe.skipIf(!PROGRAMS_BUILT)('the Solana builders, in LiteSVM with the real 
     expect((alone as ChainError).code).toBe('BalanceUnreadable');
   });
 
-  it('refuses an accept whose version and leftovers pass sixteen lines, and says to clear a leftover first', async () => {
+  it('refuses an accept whose version and leftovers pass sixteen lines, and takes it once a leftover is sold first', async () => {
     const owner = w.fixture.owner;
     // Fourteen lines held, none of them in the shared portfolio's three: seventeen once accepted.
     const lines = Array.from({ length: 13 }, (_, i) => id(`x${i + 1}`)).concat(id('delta'));
@@ -519,6 +519,29 @@ describe.skipIf(!PROGRAMS_BUILT)('the Solana builders, in LiteSVM with the real 
     expect(outcome).toBeInstanceOf(ChainError);
     expect((outcome as ChainError).code).toBe('InvalidTargets');
     expect((outcome as ChainError).message).toMatch(/sell or withdraw a leftover first/);
+
+    // A follow sells what the version drops before it accepts: the whole of one leftover sold, its
+    // line is no longer kept, and the version with the other thirteen fits sixteen lines.
+    const held = (await w.adapter.getVault(vault))?.positions.find((p) => p.asset === id('x13'));
+    expect(BigInt(held?.raw ?? 0)).toBeGreaterThan(0n);
+    await w.must(
+      await w.adapter.buildOwnerSwap({
+        vault,
+        trades: [{ sell: id('x13'), buy: id('cash'), amountInRaw: held?.raw ?? '0' }],
+        slippageBps: 100,
+      }),
+    );
+    const accept = await w.adapter.buildAcceptVersion({
+      vault,
+      recipeOnchainId: w.fixture.recipeOnchainId,
+      expectedVersion: 1,
+    });
+    holdsTheGuardShape(accept, owner);
+    await w.must(accept);
+    const after = await w.adapter.getVault(vault);
+    expect(after?.positions.map((p) => p.asset)).not.toContain(id('x13'));
+    expect(after?.positions.filter((p) => p.targetBps > 0)).toHaveLength(3);
+    expect(after?.positions.filter((p) => p.targetBps === 0)).toHaveLength(13);
     console.log(sizes.join('\n'));
   });
 });

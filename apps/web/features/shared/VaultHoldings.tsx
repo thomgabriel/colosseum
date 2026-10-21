@@ -1,7 +1,7 @@
 'use client';
 import type { Price, VaultResponse } from '@colosseum/schemas';
 import Link from 'next/link';
-import { type ReactNode, useId } from 'react';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
 import { CopyButton } from '../../components/ui/CopyButton';
 import { shorten } from '../../components/ui/format';
@@ -21,6 +21,8 @@ import { type HoldingRow, holdingsOf, unpriced } from '../portfolio/portfolio';
 import { sampleLine } from '../portfolio-section/parts';
 import { Composition, withVenue } from './Composition';
 import { explorerHeightUrlFor, heightWord } from './explorer-height';
+import { FoldToggle } from './FoldToggle';
+import { offItsTargets } from './off-target';
 import { type PriceSourceLine, priceSourceLines } from './price-sources';
 
 // What a vault holds, the centre of its page (gate VAULT-PAGE-ACTIONS): one picture and one list
@@ -43,15 +45,43 @@ const readable = (lang: Lang, decimal: string) => {
 export function VaultHoldings({
   read,
   deposit,
+  folded = false,
 }: {
   read: VaultResponse;
   /** The owner's way to fund an empty vault: the empty card's one action. */
   deposit?: ReactNode;
+  /**
+   * A draft has the pane (VaultConversation): the panel folds to its own head, with a press that opens
+   * it. It opens folded each time a draft takes the pane.
+   */
+  folded?: boolean;
 }) {
   const t = useT();
   const lang = useLang();
   const v = t.shared.vault;
   const titleId = useId();
+  const bodyId = useId();
+  const [opened, setOpened] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closed again whenever a draft takes the pane
+  useEffect(() => setOpened(false), [folded]);
+  const shut = folded && !opened;
+  const toggle = folded ? (
+    <FoldToggle
+      open={opened}
+      onToggle={() => setOpened((now) => !now)}
+      controls={bodyId}
+      label={{ show: v.page.show, hide: v.page.hide, what: v.page.holdings }}
+    />
+  ) : null;
+  const actions = (tag: ReactNode) =>
+    toggle ? (
+      <>
+        {tag}
+        {toggle}
+      </>
+    ) : (
+      tag
+    );
   const { vault } = read;
   const priceOf = (asset: string): Price | undefined => read.prices.find((p) => p.asset === asset);
   const addressPage = explorerAddressTemplateFor(read.chain, read.provenance === 'mock');
@@ -65,9 +95,11 @@ export function VaultHoldings({
   const missing = unpriced(vault);
   // A vault with no target has no plan to be over or under: no difference is drawn under a share.
   const planned = vault.positions.some((position) => position.targetBps > 0);
-  // every priced share as written on its plan: one picture, no comparison
-  const onTarget =
-    planned && rows.every((r, i) => r.valueUsd === null || nowTenths[i] === plannedTenths[i]);
+  // Off target by the rule that offers the Rebalance (off-target.ts), never by how a share rounds:
+  // a share a little away, by less than one trade, is on target, and says so once.
+  const onTarget = planned && offItsTargets(vault) === false;
+  const apart =
+    onTarget && rows.some((r, i) => r.valueUsd !== null && nowTenths[i] !== plannedTenths[i]);
 
   // not live: said in words on the panel's head, as the portfolio overview says it (the kit's Plate)
   const plate =
@@ -93,36 +125,47 @@ export function VaultHoldings({
     const targeted = vault.positions.some((position) => position.targetBps > 0);
     const tenths = shareTenths(planned.map((row) => row.targetBps));
     return (
-      <Panel aria-labelledby={titleId} data-ui="vault-holdings-panel">
-        <PanelHead id={titleId} title={v.page.empty.title} actions={plate} />
-        <PanelBody className="min-w-0 items-start">
-          <p data-ui="vault-empty" className="max-w-(--tf-measure-body) text-body">
-            {deposit
-              ? targeted
-                ? v.page.empty.withTargets
-                : v.page.empty.noTargets
-              : t.withdraw.empty}
-          </p>
-          {targeted && (
-            <div
-              data-ui="vault-empty-targets"
-              className="-mx-5 flex w-[calc(100%+2.5rem)] min-w-0 flex-col"
-            >
-              <Composition
-                share={(bps) => share(lang, bps)}
-                labels={{ caption: v.page.empty.targets, weight: v.columns.target }}
-                items={planned.map((row, i) => ({
-                  key: row.asset,
-                  ...named(row),
-                  asset: row.asset,
-                  cash: row.cash === true,
-                  bps: (tenths[i] ?? 0) * 10,
-                }))}
-              />
-            </div>
-          )}
-          {deposit}
-        </PanelBody>
+      <Panel
+        aria-labelledby={titleId}
+        data-ui="vault-holdings-panel"
+        data-folded={shut || undefined}
+      >
+        <PanelHead
+          id={titleId}
+          title={v.page.empty.title}
+          actions={actions(plate)}
+          className={shut ? 'border-b-0' : undefined}
+        />
+        <div id={bodyId} hidden={shut}>
+          <PanelBody className="min-w-0 items-start">
+            <p data-ui="vault-empty" className="max-w-(--tf-measure-body) text-body">
+              {deposit
+                ? targeted
+                  ? v.page.empty.withTargets
+                  : v.page.empty.noTargets
+                : t.withdraw.empty}
+            </p>
+            {targeted && (
+              <div
+                data-ui="vault-empty-targets"
+                className="-mx-5 flex w-[calc(100%+2.5rem)] min-w-0 flex-col"
+              >
+                <Composition
+                  share={(bps) => share(lang, bps)}
+                  labels={{ caption: v.page.empty.targets, weight: v.columns.target }}
+                  items={planned.map((row, i) => ({
+                    key: row.asset,
+                    ...named(row),
+                    asset: row.asset,
+                    cash: row.cash === true,
+                    bps: (tenths[i] ?? 0) * 10,
+                  }))}
+                />
+              </div>
+            )}
+            {deposit}
+          </PanelBody>
+        </div>
       </Panel>
     );
   }
@@ -133,10 +176,11 @@ export function VaultHoldings({
   );
   const whys = shown.map((r) => whyOf(r));
   return (
-    <Panel aria-labelledby={titleId} data-ui="vault-holdings-panel">
+    <Panel aria-labelledby={titleId} data-ui="vault-holdings-panel" data-folded={shut || undefined}>
       <PanelHead
         id={titleId}
         title={v.page.holdings}
+        className={shut ? 'border-b-0' : undefined}
         stats={[
           {
             label: t.plan.kpiAssets,
@@ -156,105 +200,114 @@ export function VaultHoldings({
               ]
             : []),
         ]}
-        actions={plate}
+        actions={actions(plate)}
       />
-      {missing > 0 && (
-        // The value leaves out what has no price: said beside the holdings it leaves out.
-        <p data-ui="vault-unpriced" className="px-5 pt-4 text-caption text-muted-foreground">
-          {t.portfolio.vault.unpriced(missing)}
-        </p>
-      )}
-      <Composition
-        // Planned over Now, with the planned share and a status a row, only where they differ; on
-        // target the head says so once, and the table is the holdings as they are
-        mode={planned && !onTarget ? 'compare' : 'single'}
-        changeAs="status"
-        share={(bps) => share(lang, bps)}
-        labels={{
-          caption: v.page.holdings,
-          weight: v.columns.weight,
-          before: v.columns.target,
-          after: v.columns.weight,
-          change: v.columns.status,
-          difference: v.page.against,
-          unchanged: v.page.allOnTarget,
-          drift: v.page.drift,
-        }}
-        columns={[
-          { key: 'price', header: v.columns.price, place: 'before', numeric: true },
-          { key: 'value', header: v.page.value, place: 'before', numeric: true },
-        ]}
-        items={shown.map((r, i) => {
-          const price = priceOf(r.asset);
-          const at = rows.indexOf(r);
-          const why = whys[i];
-          return {
-            key: r.asset,
-            ...named(r),
-            asset: r.asset,
-            cash: r.cash === true,
-            // a holding with no price has no share that was worked out: never drawn as 0%
-            bps: r.valueUsd === null ? 0 : (nowTenths[at] ?? 0) * 10,
-            ...(planned ? { beforeBps: (plannedTenths[at] ?? 0) * 10 } : {}),
-            ...(r.valueUsd === null ? { unknown: t.portfolio.vault.noPrice } : {}),
-            // every holding is a row, whatever its share
-            listed: !/^0+$/.test(r.raw),
-            // under the name: the amount, rounded to read and exact one hover away, then why it is
-            // there, in full: the pane is narrow, so a column of its own would be cut
-            detail: (
-              <span className="flex flex-col">
-                <span data-ui="holding-detail">
-                  <Hint
-                    tip={`${tokens(lang, r.display)} ${tokenName(r.asset)}`}
-                    label={`${readable(lang, r.display)} ${tokenName(r.asset)}`}
-                    // a 24px target, as every control has (WCAG 2.5.8)
-                    triggerClassName="min-h-6 tabular-nums"
-                  >
-                    {readable(lang, r.display)} {tokenName(r.asset)}
-                  </Hint>
-                </span>
-                {why && (
-                  <span data-ui="holding-why" className="max-w-[32ch]">
-                    {why}
+      <div id={bodyId} hidden={shut}>
+        {apart && (
+          <p data-ui="vault-gap-small" className="px-5 pt-4 text-caption text-muted-foreground">
+            {v.page.gapTooSmall}
+          </p>
+        )}
+        {missing > 0 && (
+          // The value leaves out what has no price: said beside the holdings it leaves out.
+          <p data-ui="vault-unpriced" className="px-5 pt-4 text-caption text-muted-foreground">
+            {t.portfolio.vault.unpriced(missing)}
+          </p>
+        )}
+        <Composition
+          // Planned over Now, with the planned share and a status a row, only where they differ; on
+          // target the head says so once, and the table is the holdings as they are
+          mode={planned && !onTarget ? 'compare' : 'single'}
+          // off its targets five figures a row, about 52rem whole: folded under 56rem
+          fold={planned && !onTarget ? 'wider' : 'wide'}
+          changeAs="status"
+          share={(bps) => share(lang, bps)}
+          labels={{
+            caption: v.page.holdings,
+            weight: v.columns.weight,
+            before: v.columns.target,
+            after: v.columns.weight,
+            change: v.columns.status,
+            difference: v.page.against,
+            unchanged: v.page.allOnTarget,
+            drift: v.page.drift,
+          }}
+          columns={[
+            { key: 'price', header: v.columns.price, place: 'before', numeric: true },
+            { key: 'value', header: v.page.value, place: 'before', numeric: true },
+          ]}
+          items={shown.map((r, i) => {
+            const price = priceOf(r.asset);
+            const at = rows.indexOf(r);
+            const why = whys[i];
+            return {
+              key: r.asset,
+              ...named(r),
+              asset: r.asset,
+              cash: r.cash === true,
+              // a holding with no price has no share that was worked out: never drawn as 0%
+              bps: r.valueUsd === null ? 0 : (nowTenths[at] ?? 0) * 10,
+              ...(planned ? { beforeBps: (plannedTenths[at] ?? 0) * 10 } : {}),
+              ...(r.valueUsd === null ? { unknown: t.portfolio.vault.noPrice } : {}),
+              // every holding is a row, whatever its share
+              listed: !/^0+$/.test(r.raw),
+              // under the name: the amount, rounded to read and exact one hover away, then why it is
+              // there, in full: the pane is narrow, so a column of its own would be cut
+              detail: (
+                <span className="flex flex-col">
+                  <span data-ui="holding-detail">
+                    <Hint
+                      tip={`${tokens(lang, r.display)} ${tokenName(r.asset)}`}
+                      label={`${readable(lang, r.display)} ${tokenName(r.asset)}`}
+                      // a 24px target, as every control has (WCAG 2.5.8)
+                      triggerClassName="min-h-6 tabular-nums"
+                    >
+                      {readable(lang, r.display)} {tokenName(r.asset)}
+                    </Hint>
                   </span>
-                )}
-              </span>
-            ),
-            cells: {
-              price: price ? (
-                <span className="inline-flex flex-col items-end">
-                  <ProvenancePin
-                    value={dollars(lang, price.usdPerToken)}
-                    // each address in the price's details links to this network's explorer
-                    obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
-                    what={v.columns.price}
-                    {...(price.market === 'closed' ? { detail: t.shell.marketClosedWhy } : {})}
-                    labels={t.pin}
-                  />
-                  <MarketNote market={price.market} label={t.shell.marketClosed} />
+                  {why && (
+                    <span data-ui="holding-why" className="max-w-[32ch]">
+                      {why}
+                    </span>
+                  )}
                 </span>
-              ) : (
-                // a missing price says why, one hover, focus or tap away
-                <Hint tip={t.portfolio.vault.noPriceWhy} label={t.portfolio.vault.noPrice}>
-                  —
-                </Hint>
               ),
-              // what it is worth, on the pin of the price it stands on
-              value:
-                r.valueUsd !== null && price ? (
-                  <ProvenancePin
-                    value={dollars(lang, r.valueUsd)}
-                    obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
-                    what={v.page.value}
-                    labels={t.pin}
-                  />
+              cells: {
+                price: price ? (
+                  <span className="inline-flex flex-col items-end">
+                    <ProvenancePin
+                      value={dollars(lang, price.usdPerToken)}
+                      // each address in the price's details links to this network's explorer
+                      obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
+                      what={v.columns.price}
+                      {...(price.market === 'closed' ? { detail: t.shell.marketClosedWhy } : {})}
+                      labels={t.pin}
+                    />
+                    <MarketNote market={price.market} label={t.shell.marketClosed} />
+                  </span>
                 ) : (
-                  '—'
+                  // a missing price says why, one hover, focus or tap away
+                  <Hint tip={t.portfolio.vault.noPriceWhy} label={t.portfolio.vault.noPrice}>
+                    —
+                  </Hint>
                 ),
-            },
-          };
-        })}
-      />
+                // what it is worth, on the pin of the price it stands on
+                value:
+                  r.valueUsd !== null && price ? (
+                    <ProvenancePin
+                      value={dollars(lang, r.valueUsd)}
+                      obs={{ ...pinSourceOfPrice(price), explorer: addressPage }}
+                      what={v.page.value}
+                      labels={t.pin}
+                    />
+                  ) : (
+                    '—'
+                  ),
+              },
+            };
+          })}
+        />
+      </div>
     </Panel>
   );
 }

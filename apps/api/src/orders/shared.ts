@@ -1,8 +1,15 @@
-import { checkCreatorLimits, familyIdOf, metaHash } from '@colosseum/basket';
+import {
+  batchTrades,
+  checkCreatorLimits,
+  familyIdOf,
+  metaHash,
+  overCeilings,
+} from '@colosseum/basket';
 import { indexIdOf } from '@colosseum/chain-evm/vault';
 import { mockRecipeId } from '@colosseum/chain-mock';
 import { recipeAddress } from '@colosseum/chain-solana/vault';
 import type { Db } from '@colosseum/db';
+import { reason } from '@colosseum/engine/personal';
 import {
   type Address,
   type AutoFollowOffer,
@@ -13,10 +20,15 @@ import {
   type IntentRequest,
   isAddressOf,
   type Leg,
+  leftoversOf,
+  ORDER_DEFAULT_SLIPPAGE_BPS,
   type Principal,
   type Recipe,
   TAKEN_SLUGS,
   type Target,
+  type Trade,
+  VAULT_MAX_LINES,
+  type VaultState,
 } from '@colosseum/schemas';
 import { holds } from '../plugins/auth';
 import { assertBuilds, type ChainEntry, type ChainRegistry } from './chains';
@@ -27,7 +39,8 @@ import { HOME_CHAIN } from './person';
 // Shared portfolios as orders (DESIGN-VAULT section 6, gate SHARED-FULL): a creator publishes one, a
 // person follows one. The API plans and builds; the creator's own form says what is published, and the
 // guard in packages/sdk holds the bytes to what that form showed (AGT-4): the family id, the text, the
-// assets and weights. Solana only for now: Robinhood Chain's registry calls wait for EVM-3 and ADE-2.
+// assets and weights. On Solana the program's `publish_recipe`, `update_recipe` and `cancel_pending`;
+// on Robinhood Chain `IndexRegistry`'s `create`, `publish` and `cancel` (AGT-4).
 
 type PublishRequest = Extract<IntentRequest, { type: 'publish' }>;
 type FollowRequest = Extract<IntentRequest, { type: 'follow' }>;
@@ -203,7 +216,16 @@ export type SharedContext = {
 };
 
 /** A step of a shared-portfolio order before it is a leg. */
-export type SharedStep = { chain: ChainId; kind: Leg['kind']; description: string };
+export type SharedStep = {
+  chain: ChainId;
+  kind: Leg['kind'];
+  description: string;
+  /** The auto-follow switch the step makes beside its own call (`Leg.switchAutoFollow`). */
+  switchAutoFollow?: boolean;
+  /** A sale step of a follow: the leftovers it sells for cash, each with its minimum. */
+  trades?: Trade[];
+  expected?: Leg['expected'];
+};
 
 /**
  * The family a publish is for: the stored one of that slug, or a new one with the id `familyIdOf(slug)`.
@@ -225,18 +247,18 @@ export async function familyOfPublish(
       fix: 'Choose another name.',
     });
   if (stored) {
-    const theirs = (chain: ChainId) => {
-      const creator = req.creator[chainFamily(chain)];
-      const recipe = stored.recipes.find((r) => r.chain === chain);
-      return recipe ? recipe.creator !== creator : false;
-    };
     const me = await userIdOf(ctx.db, ctx.principal.userId);
-    const another =
-      req.recipes.some((d) => theirs(d.chain)) ||
-      // A family is its creator's on every chain: one with no recipe on this chain yet is not open to
-      // anybody else either.
-      (stored.creatorUserId !== null && stored.creatorUserId !== me) ||
-      (stored.creatorUserId === null && stored.recipes.every((r) => theirs(r.chain)));
+    // The same rule `writePublished` holds the write to, a chain at a time: the recipe here is the
+    // creator's own; with none here, the family's user row is theirs, or, for a family with no user
+    // row, it has no recipe on any chain yet. A family is its creator's on every chain.
+    const theirs = (chain: ChainId) => {
+      const here = stored.recipes.find((r) => r.chain === chain);
+      if (here) return here.creator !== req.creator[chainFamily(chain)];
+      return stored.creatorUserId !== null
+        ? stored.creatorUserId !== me
+        : stored.recipes.length > 0;
+    };
+    const another = req.recipes.some((d) => theirs(d.chain));
     if (another)
       throw new Refusal(409, "this shared portfolio is another creator's", {
         fix: 'Publish yours under another slug.',
@@ -248,12 +270,16 @@ export async function familyOfPublish(
 /**
  * A creator's publish, planned: one `publish` step per chain, each the first version (in effect at
  * once) or the next one (in effect after the publish delay), held to the four creator limits against
- * what the chain has now. The limit on time is the chain's to say when the step is built.
+ * what the chain has now, under the rules and numbers the chain's registry says (`creatorLimits`). The
+ * limit on time is the chain's to say when the step is built.
+ *
+ * Under the second rules (SHARED-RULES-V2) a weight over its asset's ceiling on the list is published,
+ * with a warning that cites the ceiling, as a person's own vault has it (ANY-COMPOSITION, EXIT-SOURCE).
  */
 export async function planPublish(
   req: PublishRequest,
   ctx: SharedContext,
-): Promise<{ familyId: string; steps: SharedStep[] }> {
+): Promise<{ familyId: string; steps: SharedStep[]; warnings: { code: string; text: string }[] }> {
   if (!holds(ctx.principal, req.creator))
     throw new Refusal(403, 'the creator in the request is not a wallet of the signed-in person');
   checkText(req);
@@ -262,6 +288,7 @@ export async function planPublish(
     throw new Refusal(422, 'a shared portfolio has one recipe per chain');
   const { familyId } = await familyOfPublish(req, ctx);
   const steps: SharedStep[] = [];
+  const warnings: { code: string; text: string }[] = [];
   for (const draft of req.recipes) {
     const family = chainFamily(draft.chain);
     const name = ctx.chains.name(draft.chain);
@@ -271,22 +298,44 @@ export async function planPublish(
     if (!creator)
       throw new Refusal(422, `the creator has no ${family} address, and the recipe is on ${name}`);
     const onchain = await readRecipe(entry, await recipeIdOf(entry, creator, familyId));
-    const verdict = checkCreatorLimits(
-      onchain ? recipeTargets(onchain.active) : null,
-      recipeTargets(draft),
-      {
-        assets: await entry.adapter.listAssets(),
-        now: 0,
-        lastPublishAt: null,
-        hasPending: Boolean(onchain?.pending),
-        publishDelay: 0,
-      },
-    );
+    const [assets, limits] = await Promise.all([
+      entry.adapter.listAssets(),
+      entry.adapter.creatorLimits(),
+    ]);
+    const next = recipeTargets(draft);
+    const verdict = checkCreatorLimits(onchain ? recipeTargets(onchain.active) : null, next, {
+      limits,
+      assets,
+      now: 0,
+      lastPublishAt: null,
+      hasPending: Boolean(onchain?.pending),
+      publishDelay: 0,
+    });
     if (!verdict.ok)
       throw new Refusal(422, verdict.detail, {
         code: 'CREATOR_LIMIT',
         fix: 'Change the weights within the limits a shared portfolio follows.',
       });
+    // Under the first rules a line over its ceiling was refused above; under the second it is said,
+    // one warning per line, in the person's language: the ceiling and where it was read (EXIT-SOURCE).
+    // How a ceiling is set is the pin's to say (`ceilingsFrom.method` of /v1/shared/limits).
+    if (limits.rules === 2)
+      for (const over of overCeilings(next, assets)) {
+        const symbol = assets.find((a) => a.id === over.asset)?.symbol ?? over.asset;
+        const lang = req.language ?? 'en';
+        const said = reason(
+          'MIX_OVER_LISTED',
+          { asset: symbol, weightBps: over.weightBps, maxBps: over.ceilingBps },
+          lang,
+        ).text;
+        warnings.push({
+          code: `OVER_LISTED_CAP:${over.asset}`,
+          text:
+            lang === 'pt'
+              ? `${said} Lido agora de ${entry.source}, a lista de ativos na ${name}.`
+              : `${said} Read now from ${entry.source}, the asset list on ${name}.`,
+        });
+      }
     steps.push({
       chain: draft.chain,
       kind: 'publish',
@@ -295,7 +344,7 @@ export async function planPublish(
         : `Publish your shared portfolio on ${name}: version 1, in effect at once`,
     });
   }
-  return { familyId, steps };
+  return { familyId, steps, warnings };
 }
 
 /**
@@ -325,6 +374,95 @@ export async function followedOn(
       { code: 'VERSION_CHANGED', fix: 'Read the shared portfolio again.' },
     );
   return { family, entry, recipe: stored, onchain };
+}
+
+/**
+ * The sales a follow needs before its accept (`leftoversOf`): none while the version and the vault's
+ * lines it drops fit the vault's lines (`VAULT_MAX_LINES`); past that, every such line sold for cash,
+ * all the vault holds of it, each quoted now with the default slippage and a minimum the chain will
+ * take. A leftover that cannot be sold now refuses the follow in plain words, before anything is signed.
+ */
+export async function leftoverSales(
+  entry: ChainEntry,
+  vault: Pick<VaultState, 'owner' | 'positions' | 'cash'>,
+  version: Target[],
+): Promise<SharedStep[]> {
+  const leftovers = leftoversOf(
+    vault,
+    version.map((t) => t.asset),
+    VAULT_MAX_LINES[chainFamily(entry.chain)],
+  );
+  if (!leftovers.length) return [];
+  const assets = await entry.adapter.listAssets();
+  const symbol = (id: string) => assets.find((a) => a.id === id)?.symbol ?? id;
+  const why = (asset: string) =>
+    new Refusal(
+      409,
+      `Your vault still holds ${symbol(asset)}, which this version drops, and ${symbol(asset)} can't be sold now. Sell or withdraw it, then follow.`,
+      {
+        fix: 'Sell or withdraw what the vault holds of the assets this version drops, then follow.',
+        details: { retryable: false },
+      },
+    );
+  const sales: { trade: Trade; expected: Leg['expected'][number] }[] = [];
+  for (const held of leftovers) {
+    const trade: Trade = { sell: held.asset, buy: vault.cash.asset, amountInRaw: held.amountRaw };
+    if (!assets.some((a) => a.id === held.asset)) throw why(held.asset);
+    let quote: Awaited<ReturnType<typeof entry.adapter.quote>>;
+    try {
+      quote = await entry.adapter.quote(trade, vault.owner);
+    } catch (e) {
+      if (e instanceof ChainError) throw why(held.asset);
+      throw e;
+    }
+    const out = BigInt(quote.outRaw);
+    const ours = (out * BigInt(10_000 - ORDER_DEFAULT_SLIPPAGE_BPS)) / 10_000n;
+    const theirs = BigInt(quote.minOutRaw);
+    const least = theirs > ours ? theirs : ours;
+    if (out <= 0n || least <= 0n || least > out) throw why(held.asset);
+    sales.push({
+      trade,
+      expected: {
+        inRaw: trade.amountInRaw,
+        outRaw: out.toString(),
+        minOutRaw: least.toString(),
+        costBps: quote.costBps,
+      },
+    });
+  }
+  return batchTrades(
+    sales.map((x) => x.trade),
+    entry.adapter.capabilities.maxTradesPerTx,
+  ).map((group) => ({
+    chain: entry.chain,
+    kind: 'swap' as const,
+    description: `Sell what your vault holds of ${group.map((t) => symbol(t.sell)).join(', ')}, which this version drops, for ${symbol(vault.cash.asset)}`,
+    trades: group,
+    expected: group.map(
+      (t) => (sales.find((x) => x.trade === t) as (typeof sales)[number]).expected,
+    ),
+  }));
+}
+
+/**
+ * Where the vault takes several of the owner's calls in one transaction, a follow's switch rides beside
+ * the version it is next to (gate EVM-MULTICALL-STEPS): on after it, off before it, as one
+ * `accept_version` step. An off with sales of leftovers between it and the version stays first, on its
+ * own, so the keeper is stopped before anything is sold. Changes `steps` in place.
+ */
+export function rideSwitch(
+  steps: SharedStep[],
+  on: boolean,
+  accept: (description: string) => SharedStep,
+  said: { on: string; off: string },
+): void {
+  const at = steps.findIndex((s) => s.kind === 'accept_version');
+  const beside = steps[at + (on ? 1 : -1)];
+  if (at < 0 || beside?.kind !== 'set_auto_follow') return;
+  steps.splice(Math.min(at, steps.indexOf(beside)), 2, {
+    ...accept(on ? said.on : said.off),
+    switchAutoFollow: on,
+  });
 }
 
 /**
@@ -369,6 +507,10 @@ export async function planFollow(
     if (!offer.offered) refuseAutoFollow(entry, offer);
   }
   if (vault.recipeOnchainId !== active.onchainId || vault.acceptedVersion !== active.version) {
+    // The assets the vault still holds and the version drops stay beside it as targets of zero. Past
+    // the vault's lines, the accept would revert: their sales come first, in this order (gate
+    // SHARED-RULES-V2).
+    steps.push(...(await leftoverSales(entry, vault, recipeTargets(active))));
     // The vault takes the version's weights, assets it has no target on included: the guard asks the
     // person's own tap for every accept.
     needsConsent.push('new_asset');
@@ -394,6 +536,16 @@ export async function planFollow(
     throw new Refusal(409, 'the vault already follows this shared portfolio as asked', {
       details: { retryable: false },
     });
+  if (entry.adapter.capabilities.ownerCallsInOne)
+    rideSwitch(
+      steps,
+      req.autoFollow,
+      (description) => ({ chain, kind: 'accept_version', description }),
+      {
+        on: `Follow version ${active.version} of this shared portfolio: your vault's targets become its weights, and auto-follow goes on, so the keeper on ${name} rebalances the vault when this portfolio changes. Nothing is traded in this step`,
+        off: `Switch auto-follow off, then follow version ${active.version} of this shared portfolio: your vault's targets become its weights, and you are asked to rebalance when it changes. Nothing is traded in this step`,
+      },
+    );
   return { entry, owner: vault.owner, version: active.version, steps, needsConsent };
 }
 

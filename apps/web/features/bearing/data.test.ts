@@ -47,6 +47,22 @@ describe('the reader of the risk API', () => {
     expect(await r.probe()).toBe(true);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  it('probes the API each time, and tells of an answer the API gave, not of one kept', async () => {
+    const fetcher = vi.fn(() => answer(200, { ok: 1 }));
+    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
+    expect(await r.probe()).toBe(true);
+    expect(await r.probe()).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    const heard = vi.fn();
+    const off = r.onAnswer?.(heard);
+    await r.get('/risk/pools');
+    await r.get('/risk/pools');
+    expect(heard).toHaveBeenCalledTimes(1);
+    off?.();
+    await r.get('/risk/assets');
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('reads a few at a time', () => {

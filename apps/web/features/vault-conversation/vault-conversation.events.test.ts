@@ -60,6 +60,51 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
+describe('a reply that hands over the page’s Rebalance', () => {
+  const serve = (action?: 'rebalance') =>
+    portStore.setApi(async (url, init) =>
+      url.endsWith('/reply')
+        ? json({
+            version: 1,
+            chain: read.chain,
+            address: read.vault.address,
+            messageId: JSON.parse(String(init?.body)).messageId,
+            message: 'Your vault is off its targets. Use “Rebalance” to bring it back.',
+            question: null,
+            proposal: null,
+            ...(action ? { action } : {}),
+          })
+        : json({}, 404),
+    );
+
+  it('shows the page’s press under the reply, and pressing it is the page’s own', async () => {
+    serve('rebalance');
+    const onRebalance = vi.fn();
+    const host = await mount(
+      withAccount('en', createElement(VaultConversation, { read, userId, onRebalance })),
+    );
+    await send(host, 'i want to rebalance');
+    const press = find<HTMLButtonElement>(host, '[data-action="chat-rebalance"]');
+    expect(press.textContent).toBe(en.shared.vault.page.rebalance);
+    await click(press);
+    expect(onRebalance).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no press where the page offers none, or the reply hands none over', async () => {
+    serve('rebalance');
+    const host = await show();
+    await send(host, 'i want to rebalance');
+    expect(host.querySelector('[data-action="chat-rebalance"]')).toBeNull();
+    await unmountAll();
+    serve();
+    const offered = await mount(
+      withAccount('en', createElement(VaultConversation, { read, userId, onRebalance: vi.fn() })),
+    );
+    await send(offered, 'i want to rebalance');
+    expect(offered.querySelector('[data-action="chat-rebalance"]')).toBeNull();
+  });
+});
+
 describe('a continuous conversation for one vault', () => {
   it.each(['en', 'pt'] as const)(
     'prefills a starter without requesting a reply or submitting it, %s',
@@ -295,6 +340,27 @@ describe('a continuous conversation for one vault', () => {
     expect(find(host, '[data-ui="vault-plan"]').firstElementChild).toBe(building);
     // a vault never keeps a stale draft while the next is asked for
     expect(host.querySelector('[data-ui="vault-proposal"]')).toBeNull();
+    // the draft has the pane: what the vault holds folds into one line under it, a press away, and
+    // the pane scrolls on its own, a stop for the keyboard (Thom, Oct 14)
+    const plan = find(host, '[data-ui="vault-plan"]');
+    expect(plan.tagName).toBe('SECTION');
+    expect(plan.getAttribute('aria-label')).toBe(copy.planPane);
+    expect(plan.className).toContain('md:overflow-y-auto');
+    // no stop for the keyboard where it does not scroll (here nothing is laid out, as on a phone)
+    expect(plan.hasAttribute('tabindex')).toBe(false);
+    // the holdings card folds to its own head: its title, and a press that opens it
+    const held = find(plan, 'section[aria-labelledby$="-held"]');
+    expect(held.compareDocumentPosition(building) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    const toggle = find(held, '[data-action="fold-toggle"]');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const body = find(host, `#${toggle.getAttribute('aria-controls')}`);
+    expect(body.hidden).toBe(true);
+    expect(held.contains(body)).toBe(true);
+    await click(toggle);
+    expect(body.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    await click(toggle);
+    expect(body.hidden).toBe(true);
     // the next thought can be typed; it is not sent
     expect(box.readOnly).toBe(false);
     await type(box, 'and less cash');
@@ -304,6 +370,8 @@ describe('a continuous conversation for one vault', () => {
     expect(host.querySelector('[data-ui="reply-pending"]')).toBeNull();
     expect(host.querySelector('[data-ui="vault-building"]')).toBeNull();
     expect(rows()[1]?.textContent).toBe(`${copy.agent}: ${reply.message}`);
+    // a draft shown keeps the pane, the holdings folded under it
+    expect(find(host, '[data-action="fold-toggle"]').getAttribute('aria-expanded')).toBe('false');
     expect(announced()).toBe(`${copy.agent}: ${reply.message} ${copy.draftArrived}`);
     expect(host.querySelector('[data-ui="vault-proposal"]')).not.toBeNull();
     expect(box.value).toBe('and less cash');
@@ -703,6 +771,8 @@ describe('current context and truthful holdings', () => {
         withAccount('en', createElement(VaultConversation, { read: fixture, userId })),
       );
       const current = find(host, 'section[aria-labelledby$="-held"]');
+      // with no draft, what it holds is open in the pane, not folded
+      expect(host.querySelector('[data-action="fold-toggle"]')).toBeNull();
       if (fixture === emptyRead) {
         expect(current.textContent).toContain(en.shared.vault.conversation.noHoldings);
         expect(current.querySelector('[data-ui="composition"]')).toBeNull();

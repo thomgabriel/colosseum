@@ -3,7 +3,7 @@ pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
+import {IIndexRegistry} from "../../src/interfaces/IIndexRegistry.sol";
 import {Deploy} from "../../script/Deploy.s.sol";
 import {BasketVault} from "../../src/BasketVault.sol";
 import {IVaultConfig} from "../../src/interfaces/IVaultConfig.sol";
@@ -111,8 +111,18 @@ contract RobinhoodForkDeployTest is Test {
     function _file() internal view returns (Deploy.Config memory cfg) {
         cfg = script.readConfig("script/config/4663.json");
         cfg.placeholders = false;
-        cfg.timelockOwner = safe;
+        // The new tokens' values as if Thom had confirmed them, which a send needs first.
+        cfg.proposed = false;
+        cfg.safe = safe;
         cfg.guardian = guardian;
+    }
+
+    /// What the Safe signs after the deploy (gate ROBINHOOD-REDEPLOY): the two calls that take the keys.
+    function _accept(Deploy.Deployed memory d, address by) internal {
+        vm.startPrank(by);
+        VaultFactory(d.factory).acceptAdmin();
+        VaultBeacon(d.beacon).acceptOwnership();
+        vm.stopPrank();
     }
 
     /// The Safe the committed file names (created 2026-10-12, block 86,734,497), as it is on the chain: Safe
@@ -122,9 +132,10 @@ contract RobinhoodForkDeployTest is Test {
     ///
     /// Safe 1.5.0 has no `getModules()` of its own (it left the contract after 1.2.0); this one answers it
     /// through its fallback handler. The paged list is the Safe's own answer, and `checkSafe` needs only one.
-    function test_fork_theRealSafe_passesCheckSafe_andTheFileDeploysWithItAsTheTimelocksOwner() public onFork {
+    function test_fork_theRealSafe_passesCheckSafe_andTakesBothKeysWithItsOneBatch() public onFork {
         Deploy.Config memory cfg = script.readConfig("script/config/4663.json");
-        assertEq(cfg.timelockOwner, REAL_SAFE, "the file names the Safe");
+        assertEq(cfg.safe, REAL_SAFE, "the file names the Safe");
+        assertEq(cfg.timelockOwner, address(0), "and no timelock");
         assertGt(REAL_SAFE.code.length, 0, "the Safe exists at this block: RH_FORK_BLOCK is 86,734,497 or later");
         assertEq(ISafe(REAL_SAFE).VERSION(), "1.5.0");
 
@@ -148,23 +159,40 @@ contract RobinhoodForkDeployTest is Test {
         // takes it, and still refuses the deployer as guardian.
         assertEq(cfg.guardian, owners[0], "the guardian is the Safe's first owner");
         cfg.placeholders = false;
+        cfg.proposed = false;
         Deploy.Config memory self = script.readConfig("script/config/4663.json");
         self.placeholders = false;
+        self.proposed = false;
         self.guardian = deployer;
         vm.expectRevert(abi.encodeWithSelector(Deploy.MainnetRefused.selector, "the guardian is the deployer"));
         script.deploy(self, deployer);
 
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
-        TimelockController timelock = TimelockController(payable(d.timelock));
-        assertEq(VaultFactory(d.factory).guardian(), 0x0a1c3312c808b23D019bF241028f6B5624f4cc98);
-        assertEq(VaultFactory(d.factory).admin(), d.timelock);
-        assertEq(VaultBeacon(d.beacon).owner(), d.timelock);
-        assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), REAL_SAFE));
-        assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), REAL_SAFE));
-        assertTrue(timelock.hasRole(timelock.EXECUTOR_ROLE(), REAL_SAFE));
-        assertFalse(timelock.hasRole(timelock.PROPOSER_ROLE(), deployer));
-        assertFalse(timelock.hasRole(timelock.EXECUTOR_ROLE(), deployer));
-        assertEq(timelock.getMinDelay(), 48 hours);
+        VaultFactory factory = VaultFactory(d.factory);
+        VaultBeacon beacon = VaultBeacon(d.beacon);
+        assertEq(d.timelock, address(0), "no timelock is created");
+        assertEq(factory.guardian(), 0x0a1c3312c808b23D019bF241028f6B5624f4cc98);
+        // Until the Safe signs, the deployer holds both keys, and the Safe is proposed for each.
+        assertEq(factory.admin(), deployer);
+        assertEq(factory.pendingAdmin(), REAL_SAFE);
+        assertEq(beacon.owner(), deployer);
+        assertEq(beacon.pendingOwner(), REAL_SAFE);
+        // Nobody but the Safe can take them.
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert();
+        factory.acceptAdmin();
+        _accept(d, REAL_SAFE);
+        assertEq(factory.admin(), REAL_SAFE);
+        assertEq(factory.pendingAdmin(), address(0));
+        assertEq(beacon.owner(), REAL_SAFE);
+        assertEq(beacon.pendingOwner(), address(0));
+        // The deployer holds nothing now, and the Safe's call takes effect at once.
+        vm.prank(deployer);
+        vm.expectRevert();
+        factory.setPriceDevBps(10);
+        vm.prank(REAL_SAFE);
+        factory.setPriceDevBps(10);
+        assertEq(factory.priceDevBps(), 10);
     }
 
     /// The committed file as it stands, nothing filled in and nothing stood in for: every value in it is
@@ -184,12 +212,27 @@ contract RobinhoodForkDeployTest is Test {
         );
         script.deploy(marked, deployer);
 
+        // The new tokens of the redeploy were Proposed until Thom confirmed them (2026-10-15): a value
+        // Proposed again is refused, and the file as committed deploys.
+        assertFalse(cfg.proposed, "Thom confirmed every value");
+        Deploy.Config memory again = script.readConfig("script/config/4663.json");
+        again.proposed = true;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Deploy.MainnetRefused.selector,
+                "the file still holds a Proposed value: each is confirmed by a person before a send"
+            )
+        );
+        script.deploy(again, deployer);
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
         VaultFactory factory = VaultFactory(d.factory);
-        assertEq(factory.admin(), d.timelock);
+        assertEq(factory.pendingAdmin(), REAL_SAFE);
+        _accept(d, REAL_SAFE);
+        assertEq(factory.admin(), REAL_SAFE);
         assertEq(factory.guardian(), cfg.guardian);
         assertEq(factory.assets().length, cfg.assets.length);
-        assertTrue(TimelockController(payable(d.timelock)).hasRole(keccak256("PROPOSER_ROLE"), REAL_SAFE));
+        // The registry holds the second rules from the start (SHARED-RULES-V2).
+        assertEq(IIndexRegistry(d.registry).rulesVersion(), 2);
         // The ceilings a shared portfolio is held to, as confirmed.
         assertEq(factory.asset(NVDA).maxWeightBps, 2500);
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
@@ -198,20 +241,15 @@ contract RobinhoodForkDeployTest is Test {
         }
     }
 
-    /// Every rule passes on the real token, feed and router, and the run ends with the timelock holding
-    /// both keys.
+    /// Every rule passes on the real token, feed and router, and once the Safe signs it holds both keys.
     function test_fork_theCommittedFile_deploysAgainstTheRealContracts() public onFork {
         Deploy.Config memory cfg = _file();
         Deploy.Deployed memory d = script.deploy(cfg, deployer);
         VaultFactory factory = VaultFactory(d.factory);
-        TimelockController timelock = TimelockController(payable(d.timelock));
+        _accept(d, safe);
 
-        assertEq(factory.admin(), d.timelock);
-        assertEq(VaultBeacon(d.beacon).owner(), d.timelock);
-        assertEq(timelock.getMinDelay(), 48 hours);
-        assertFalse(timelock.hasRole(timelock.PROPOSER_ROLE(), deployer));
-        assertFalse(timelock.hasRole(timelock.EXECUTOR_ROLE(), deployer));
-        assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), safe));
+        assertEq(factory.admin(), safe);
+        assertEq(VaultBeacon(d.beacon).owner(), safe);
         assertEq(factory.cashToken(), USDG);
         assertTrue(factory.isAsset(NVDA));
         assertEq(factory.asset(NVDA).tokenDecimals, 18);
@@ -350,6 +388,8 @@ contract RobinhoodForkDeployTest is Test {
         assertFalse(vm.keyExistsJson(json, ".assets[0].pool"), "the cash has no pool");
         assertGt(cfg.assets.length, 2, "more than NVDA is listed");
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
+            // A token routed through Uniswap v3 states its v3 pool instead (gate WIDER-LIST, option B).
+            if (_v3Fee(json, i) != 0) continue;
             UniV4Calldata.PoolKey memory key = _poolOf(json, i, cfg.assets[i].token);
             assertLe(key.fee, 1_000_000, "a fee Uniswap v4 allows");
             assertGt(key.tickSpacing, 0, "a tick spacing above zero");
@@ -371,15 +411,50 @@ contract RobinhoodForkDeployTest is Test {
         assertTrue(IRealToken(USDG).transfer(person, listed * ROUND_TRIP_DEPOSIT));
 
         for (uint256 i = 1; i < cfg.assets.length; ++i) {
-            _roundTrip(factory, cfg.assets[i].token, cfg.assets[i].config.feed, _poolOf(json, i, cfg.assets[i].token));
+            // DELL is listed and held back from the app (`heldBack`) because its pool does not meet the
+            // bar: nothing of ours trades it, so it is held to being listed, not to a fill. (SGOV was
+            // dropped from the file on 2026-10-15: its pool paid about a quarter of the feed for $500.)
+            if (vm.keyExistsJson(json, string.concat(".assets[", vm.toString(i), "].heldBack"))) {
+                assertTrue(VaultFactory(d.factory).isAsset(cfg.assets[i].token), "a held-back token is listed");
+                continue;
+            }
+            uint24 v3Fee = _v3Fee(json, i);
+            UniV4Calldata.PoolKey memory key;
+            if (v3Fee == 0) key = _poolOf(json, i, cfg.assets[i].token);
+            _roundTrip(factory, cfg.assets[i], key, v3Fee);
         }
     }
 
-    function _roundTrip(VaultFactory factory, address token, address feed, UniV4Calldata.PoolKey memory key) internal {
+    /// The fee of the asset's Uniswap v3 pool, where it trades through one; zero for a v4 pool.
+    function _v3Fee(string memory json, uint256 index) internal view returns (uint24) {
+        string memory at = string.concat(".assets[", vm.toString(index), "].v3Pool.fee");
+        return vm.keyExistsJson(json, at) ? uint24(json.readUint(at)) : 0;
+    }
+
+    function _route(
+        UniV4Calldata.PoolKey memory key,
+        uint24 v3Fee,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minOut
+    ) internal view returns (bytes memory) {
+        return v3Fee == 0
+            ? UniV4Calldata.exactInSingle(key, tokenIn, amountIn, minOut, address(0), block.timestamp + 300)
+            : UniV4Calldata.exactInV3(tokenIn, v3Fee, tokenOut, amountIn, minOut, block.timestamp + 300);
+    }
+
+    function _roundTrip(VaultFactory factory, Deploy.Asset memory a, UniV4Calldata.PoolKey memory key, uint24 v3Fee)
+        internal
+    {
+        address token = a.token;
         string memory name = vm.toString(token);
         assertTrue(factory.isAsset(token), name);
-        (, int256 answer,,,) = IRealFeed(feed).latestRoundData();
+        (, int256 answer,,,) = IRealFeed(a.config.feed).latestRoundData();
         uint256 price = uint256(answer);
+        // Whole tokens per dollar at the feed: 6 decimals of dollars in, the token's own decimals out (18 for
+        // a stock, 8 for cbBTC), the feed's decimals in the price.
+        uint256 scale = 10 ** (uint256(a.config.tokenDecimals) + a.config.feedDecimals);
         assertGt(price, 0, name);
         uint256 dollarsBefore = IRealToken(USDG).balanceOf(person);
         uint256 tokensBefore = IRealToken(token).balanceOf(person);
@@ -392,8 +467,8 @@ contract RobinhoodForkDeployTest is Test {
         IRealToken(USDG).approve(address(vault), ROUND_TRIP_DEPOSIT);
         vault.deposit(ROUND_TRIP_DEPOSIT);
 
-        // In: dollars for the token. 6 decimals in, 18 out, the feed at 8: tokens = dollars * 1e20 / price.
-        uint256 fair = ROUND_TRIP_TRADE * 1e20 / price;
+        // In: dollars for the token: tokens = dollars * 10^(token + feed decimals) / (price * 10^6).
+        uint256 fair = ROUND_TRIP_TRADE * scale / (price * USD);
         uint256 minOut = fair * (10_000 - MAX_COST_BPS) / 10_000;
         vault.ownerSwap(
             _one(
@@ -403,9 +478,7 @@ contract RobinhoodForkDeployTest is Test {
                     tokenOut: token,
                     amountIn: ROUND_TRIP_TRADE,
                     minOut: minOut,
-                    data: UniV4Calldata.exactInSingle(
-                        key, USDG, ROUND_TRIP_TRADE, minOut, address(0), block.timestamp + 300
-                    )
+                    data: _route(key, v3Fee, USDG, token, ROUND_TRIP_TRADE, minOut)
                 })
             ),
             type(uint64).max
@@ -423,7 +496,7 @@ contract RobinhoodForkDeployTest is Test {
 
         // Out: half of the token back for dollars, through the same pool.
         uint256 sold = bought / 2;
-        uint256 minDollars = sold * price / 1e20 * (10_000 - MAX_COST_BPS) / 10_000;
+        uint256 minDollars = sold * price * USD / scale * (10_000 - MAX_COST_BPS) / 10_000;
         vault.ownerSwap(
             _one(
                 Swap({
@@ -432,7 +505,7 @@ contract RobinhoodForkDeployTest is Test {
                     tokenOut: USDG,
                     amountIn: sold,
                     minOut: minDollars,
-                    data: UniV4Calldata.exactInSingle(key, token, sold, minDollars, address(0), block.timestamp + 300)
+                    data: _route(key, v3Fee, token, USDG, sold, minDollars)
                 })
             ),
             type(uint64).max
@@ -454,7 +527,7 @@ contract RobinhoodForkDeployTest is Test {
         assertEq(vault.netDeposited(), 0, name);
         // The round trip cost the person at most the bound, twice over, on the half that was traded.
         assertGe(
-            dollarsInVault + (bought - sold) * price / 1e20,
+            dollarsInVault + (bought - sold) * price * USD / scale,
             ROUND_TRIP_DEPOSIT - ROUND_TRIP_TRADE * 2 * MAX_COST_BPS / 10_000,
             string.concat(name, ": what came out is worth what went in, less the bound")
         );

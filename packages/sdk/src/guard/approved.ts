@@ -98,6 +98,57 @@ function heldToRebalance(
 }
 
 /**
+ * A follow of a vault the person has (an order with an accept) swaps only to sell what the vault holds
+ * of the assets the version drops, as the caller read them: each for the cash token, each once, never
+ * an asset the version keeps, all of the amount read, with a minimum at most `MAX_SLIPPAGE_BPS` under
+ * its quote, and before the accept.
+ */
+function heldToLeftovers(legs: Leg[], plan: PlanTerms, cash: string): void {
+  const accept = legs.find((l) => l.kind === 'accept_version');
+  if (!accept) return;
+  const swaps = legs.filter((l) => l.kind === 'swap');
+  if (!swaps.length) return;
+  const reviewed = new Map((plan.leftovers?.sales ?? []).map((s) => [s.asset, s.amountRaw]));
+  if (!reviewed.size)
+    throw refuse('a follow trades only to sell what the version drops, and no sale was reviewed');
+  const keeps = new Set(plan.leftovers?.keeps ?? []);
+  if (!keeps.size) throw refuse('a follow that sells names the assets its version keeps');
+  const sold = new Set<string>();
+  for (const leg of swaps) {
+    if (leg.seq > accept.seq)
+      throw refuse('a sale of what the version drops comes after the accept it is for', leg.id);
+    if (leg.expected.length !== leg.trades.length)
+      throw refuse('a trade was shown with no minimum, so it has none to be held to', leg.id);
+    for (const [i, t] of leg.trades.entries()) {
+      if (t.buy !== cash || t.sell === cash)
+        throw refuse(
+          `a follow sells what the version drops for the cash token: this step trades ${t.sell} for ${t.buy}`,
+          leg.id,
+        );
+      if (keeps.has(t.sell))
+        throw refuse(`the version keeps ${t.sell}, and this step sells it`, leg.id);
+      if (sold.has(t.sell)) throw refuse(`${t.sell} is sold twice`, leg.id);
+      if (reviewed.get(t.sell) !== t.amountInRaw)
+        throw refuse(
+          `this step sells ${t.amountInRaw} of ${t.sell}, and the review sold ${reviewed.get(t.sell) ?? 'none'}`,
+          leg.id,
+        );
+      const least = leg.expected[i]?.minOutRaw;
+      if (!least || !isRawAmount(least) || BigInt(least) === 0n)
+        throw refuse('a sale states no minimum', leg.id);
+      // The minimum is the person's slippage under the quote the review showed, never a token one.
+      const quoted = leg.expected[i]?.outRaw;
+      if (!quoted || !isRawAmount(quoted) || BigInt(quoted) > quoteCeiling(BigInt(least)))
+        throw refuse(
+          `a sale's minimum, ${least}, is further under its quote, ${quoted ?? 'none'}, than any slippage an order may have`,
+          leg.id,
+        );
+      sold.add(t.sell);
+    }
+  }
+}
+
+/**
  * One approved step per leg, in the order they are signed. Throws a `GuardRefusal` with code `order`
  * when the order cannot mean what it says, and `unsupported` for a step this guard signs none of.
  */
@@ -146,7 +197,24 @@ export function approvedSteps(
   }
   if (plan.publish && legs.length !== 1)
     throw refuse('the order publishes one shared portfolio, in one step');
+  // A switch of auto-follow that rides beside a step (gate EVM-MULTICALL-STEPS) is the way the review
+  // said, and only where it can go: off before a swap or a withdrawal that opens the order, so the
+  // keeper is stopped before anything moves; off or on beside the version a follow takes.
+  for (const [i, leg] of legs.entries()) {
+    const to = leg.switchAutoFollow;
+    if (to === undefined) continue;
+    if (leg.kind !== 'accept_version' && leg.kind !== 'swap' && leg.kind !== 'withdraw')
+      throw refuse(`a ${leg.kind} step switches no auto-follow beside it`, leg.id);
+    if (plan.autoFollow !== to)
+      throw refuse(
+        `the step switches auto-follow ${to ? 'on' : 'off'}, and the review said ${plan.autoFollow === undefined ? 'nothing of it' : plan.autoFollow ? 'on' : 'off'}`,
+        leg.id,
+      );
+    if (leg.kind !== 'accept_version' && (to || i !== 0))
+      throw refuse('auto-follow is switched off before anything moves, in the first step', leg.id);
+  }
   if (plan.rebalance) heldToRebalance(order, legs, plan, deployment.cash);
+  heldToLeftovers(legs, plan, deployment.cash);
 
   // The cash an order moves is said once, by the order (`depositRaw`), and one step moves it: the create
   // or the deposit. An approval exists only to serve that step, for that exact amount. An order that
@@ -232,6 +300,7 @@ export function approvedSteps(
     for (const [i, leg] of legs.entries()) {
       if (leg === last) continue;
       if (leg.kind === 'set_auto_follow' && i === 0 && plan.autoFollow === false) continue;
+      // The switch off may ride in the first sale instead (gate EVM-MULTICALL-STEPS): checked above.
       if (leg.kind !== 'swap' || !leg.trades.length)
         throw refuse(
           `a withdrawal in dollars sells holdings for cash and withdraws the cash: a ${leg.kind} step is neither`,
@@ -312,14 +381,24 @@ export function approvedSteps(
       case 'deposit':
         return { ...base, kind: 'deposit', amountRaw: funded(leg), trades: tradesOf(leg) };
       case 'swap':
-        return { ...base, kind: 'swap', trades: tradesOf(leg) };
+        return {
+          ...base,
+          kind: 'swap',
+          trades: tradesOf(leg),
+          ...(leg.switchAutoFollow === false ? { switchAutoFollow: false as const } : {}),
+        };
       case 'set_targets':
         if (!plan.targets?.length)
           throw refuse('the step sets targets, and none were given', leg.id);
-        return { ...base, kind: 'set_targets', targets: plan.targets };
+        return { ...base, kind: 'set_targets', targets: plan.targets, trades: tradesOf(leg) };
       case 'accept_version':
         if (!plan.follow) throw refuse('the step accepts a version, and none was given', leg.id);
-        return { ...base, kind: 'accept_version', follow: plan.follow };
+        return {
+          ...base,
+          kind: 'accept_version',
+          follow: plan.follow,
+          ...(leg.switchAutoFollow === undefined ? {} : { switchAutoFollow: leg.switchAutoFollow }),
+        };
       case 'set_auto_follow':
         if (plan.autoFollow === undefined)
           throw refuse('the step switches auto-follow, and nothing says which way', leg.id);
@@ -330,6 +409,7 @@ export function approvedSteps(
           kind: 'withdraw',
           withdrawals: withdrawalsOf(leg),
           ...(plan.held ? { held: plan.held } : {}),
+          ...(leg.switchAutoFollow === false ? { switchAutoFollow: false as const } : {}),
         };
       case 'publish':
         if (!plan.publish)

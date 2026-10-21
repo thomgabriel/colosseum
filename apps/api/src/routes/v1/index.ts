@@ -44,6 +44,7 @@ import {
 } from '../../orders/chains';
 import { Refusal, refusalFromChainError } from '../../orders/errors';
 import type { OrderDeps } from '../../orders/legs';
+import type { AssetLookups } from '../../orders/lookups';
 import type { PlanInputs } from '../../orders/personalize';
 import { type RelaxedGoalAgent, relaxedGoalAgentFromEnv } from '../../orders/relaxed-goal-agent';
 import type { AgentAnalytics } from '../../orders/vault-agent';
@@ -51,6 +52,7 @@ import { authFromEnv, enforceSignIn, identify, type TokenIssuer } from '../../pl
 import { refuseNonFinite } from '../../plugins/finite';
 import { type Limits, registerLimits, requireDeclared } from '../../plugins/limits';
 import { loggable } from '../../plugins/loggable';
+import { noteLifetimes } from '../../portfolio/scope';
 import {
   createAnthropicVaultAgentModel,
   type VaultAgentModel,
@@ -58,6 +60,7 @@ import {
   vaultAgentModelId,
   vaultAgentTimeoutMs,
 } from '../../vault-agent-model';
+import { registerAssetFactsRoute } from './assets';
 import { type LinkedPlanLimits, registerBasketRoutes } from './baskets';
 import { buildConfig, registerConfigRoute } from './config';
 import { registerFundingRoute } from './funding';
@@ -72,7 +75,7 @@ import { registerPortfolioExposureRoute } from './portfolio-exposure';
 import { registerPortfolioHistoryRoute } from './portfolio-history';
 import { registerPortfolioPlansRoute } from './portfolio-plans';
 import { registerPortfolioRebalancesRoute } from './portfolio-rebalances';
-import { registerSharedRoutes } from './shared';
+import { registerSharedRoutes, SHELF_READ_MS, type ShelfWarmed } from './shared';
 import { registerStatsRoute } from './stats';
 import { registerTestnetRoute } from './testnet';
 import { registerThreadRoutes } from './thread';
@@ -113,8 +116,22 @@ export type V1Deps = {
    * model reads only the plan inputs. The server hands in the reader of the fact sheets.
    */
   agentAnalytics?: AgentAnalytics;
-  /** Read each live chain's analytics from the start and keep them current. Default: off. */
+  /** Read each live chain's analytics once at start, after the shelf. Default: off. */
   warmAgentAnalytics?: boolean;
+  /**
+   * Work the shelf out once at start, in the background, so its figures are kept before the first
+   * visitor asks; the other warm-ups wait for it. Default: off.
+   */
+  warmShelf?: boolean;
+  /** How long a read of a chain's shelf figures is waited for. Default: `SHELF_READ_MS`, a minute. */
+  shelfReadMs?: number;
+  /**
+   * The facts the server holds of one listed asset (`GET /v1/assets/{id}/facts`, gate
+   * FIGURES-BY-REFERENCE as amended 2026-10-14), and what the conversations' models may look up.
+   * Default: none, and the route answers 503 and the models have no tools. The server hands in its
+   * reader (asset-lookups.ts).
+   */
+  assetLookups?: AssetLookups;
   /**
    * The model the guided intake reads a goal with. Default: Anthropic's when `ANTHROPIC_API_KEY` is
    * set, else none, and the intake reads with the rules parser alone. A test hands in a replay.
@@ -142,6 +159,16 @@ export type V1Deps = {
   inScope?: (scope: FastifyInstance) => void;
 };
 
+/** The shelf's warm-up of each app, once it has started: what `shelfWarmed` answers. */
+const shelfWarmups = new WeakMap<FastifyInstance, Promise<void>>();
+/**
+ * Settles once the app's shelf warm-up has ended, failed or not, and at the latest twice a figures read's
+ * time limit after it began; at once where it does not warm the shelf. The other warm-ups wait for it,
+ * so the shelf is read first on a host with little CPU.
+ */
+export const shelfWarmed = (app: FastifyInstance): Promise<void> =>
+  shelfWarmups.get(app) ?? Promise.resolve();
+
 /** Every /v1 route. The app hands in its environment once; nothing under here reads process.env. */
 export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps: V1Deps = {}) {
   // First, so a flag or a chain config that cannot be read stops the app with its own message.
@@ -166,6 +193,21 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     ? undefined
     : (deps.robinhood ??
       (await robinhoodFromEnv(env, flags.chainMode.robinhood, db, deps.robinhoodRecord ?? null)));
+  // A token the record shows with no row is left out of every list, and said: loudly at start, and in
+  // GET /v1/config, so a deploy is checked for it (Thom, Oct 15).
+  const fromRecord = { solana: solana?.missing, robinhood: robinhood?.missing };
+  for (const chain of ['solana', 'robinhood'] as const) {
+    const rows = fromRecord[chain];
+    if (rows?.length)
+      app.log.error(
+        { code: 'basket_assets_missing', chain, missing: rows },
+        `basket_assets has no row for ${rows.length} token(s) the deploy record shows on ${chain}, so they are not listed: write them with ${FILL_SCRIPT[chain]}, then deploy`,
+      );
+  }
+  config.chains = config.chains.map((entry) => {
+    const rows = entry.id === 'base' ? undefined : fromRecord[entry.id];
+    return rows ? { ...entry, missingAssets: rows } : entry;
+  });
   const chains =
     deps.chains ??
     createChainRegistry(flags, parseChainConfigs(env, deps.contracts), {
@@ -174,6 +216,12 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       solana,
       robinhood,
     });
+  // Whether the database has the table of closed vaults yet (migration 0025): asked once the server
+  // is ready, and never waited on (portfolio/scope.ts).
+  const asked = db;
+  app.addHook('onReady', async () => {
+    void noteLifetimes(asked);
+  });
   const orderDeps: OrderDeps = {
     db,
     chains,
@@ -181,25 +229,70 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     // The kind of failure only: what was being written is a person's own words, and is not logged.
     onRecordError: (what) => app.log.error(what, 'a plan’s thread could not be written'),
   };
-  // The conversations' analytics, read from the start and kept current, so a turn finds them kept.
+  // The shelf, worked out once in the background as the server starts: the page most visitors open
+  // first. The server answers meanwhile; a shelf asked for before it ends shares its reads.
+  let shelf: { warm: () => Promise<ShelfWarmed> } | undefined;
+  const shelfReadMs = deps.shelfReadMs ?? SHELF_READ_MS;
+  let shelfDone = () => {};
+  const shelfWarm = new Promise<void>((done) => {
+    shelfDone = done;
+  });
+  if (deps.warmShelf) {
+    shelfWarmups.set(app, shelfWarm);
+    app.addHook('onReady', async () => {
+      const started = Date.now();
+      // A warm-up held up past this (the store not answering) no longer holds the others back.
+      setTimeout(shelfDone, 2 * shelfReadMs).unref?.();
+      const warm = shelf?.warm ?? (async () => ({ families: 0, chains: 0, withoutFigures: [] }));
+      void warm()
+        .then(
+          ({ families, chains, withoutFigures }) => {
+            const ms = Date.now() - started;
+            app.log.info(
+              { code: 'shelf_warmed', families, chains, withoutFigures, ms },
+              `shelf warmed: ${families} portfolio(s) in ${(ms / 1000).toFixed(1)} s, ${withoutFigures.length} of ${chains} chain(s) without figures`,
+            );
+          },
+          (err) =>
+            app.log.warn(
+              { code: 'shelf_warm_failed', err: loggable(err), ms: Date.now() - started },
+              'the shelf was not warmed',
+            ),
+        )
+        .finally(shelfDone);
+    });
+  } else shelfDone();
+  // The conversations' analytics, read once from the start so the first turn finds them kept. Never again
+  // on a timer: an idle server reads nothing (PERF-DB-LOAD).
   const analytics = deps.agentAnalytics;
   if (deps.warmAgentAnalytics && analytics?.warm) {
     const warm = analytics.warm;
     const on = db;
     app.addHook('onReady', async () => {
-      for (const entry of chains.active()) {
-        if (entry.mock) continue;
-        entry.adapter.listAssets().then(
-          (assets) => warm({ db: on, chain: entry.chain, assets, provenance: entry.provenance }),
-          () =>
+      // After the shelf: on a host with a sixth of a CPU (Render's free plan), both at once slow it down.
+      void shelfWarm.then(() => {
+        for (const entry of chains.active()) {
+          if (entry.mock) continue;
+          const failedWarm = (err: unknown) =>
             app.log.warn(
-              { code: 'analytics_warm_no_catalog', chain: entry.chain },
+              { code: 'analytics_warm_failed', chain: entry.chain, err: loggable(err) },
               'the conversation analytics were not warmed',
-            ),
-        );
-      }
+            );
+          const warmed = ({ read, failed }: { read: number; failed: number }) => {
+            const line = { code: 'analytics_warmed', chain: entry.chain, read, failed };
+            const msg = `conversation analytics warmed on ${entry.chain}: ${read} sheet(s), ${failed} failed`;
+            if (failed) app.log.warn(line, msg);
+            else app.log.info(line, msg);
+          };
+          entry.adapter
+            .listAssets()
+            .then((assets) =>
+              warm({ db: on, chain: entry.chain, assets, provenance: entry.provenance }),
+            )
+            .then(warmed, failedWarm);
+        }
+      });
     });
-    app.addHook('onClose', async () => analytics.stop?.());
   }
   const modelSettings = intakeSettings(env);
   const quota = createModelQuota({ ...modelSettings, now: deps.now });
@@ -309,7 +402,16 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     registerPortfolioPlansRoute(scope, orderDeps);
     registerPortfolioRebalancesRoute(scope, orderDeps);
     registerPortfolioExposureRoute(scope, orderDeps, planInputs);
-    registerSharedRoutes(scope, orderDeps, deps.planInputs);
+    shelf = registerSharedRoutes(scope, orderDeps, deps.planInputs, {
+      liveOnly: flags.shelfLiveOnly,
+      readMs: shelfReadMs,
+      // The chain and what failed, by its name and code: a database's error repeats its statement.
+      onFiguresError: (chain, err) =>
+        app.log.warn(
+          { code: 'shelf_figures_failed', chain, err: loggable(err) },
+          'a chain’s shelf figures could not be read',
+        ),
+    });
     registerVaultRoute(scope, orderDeps);
     registerVaultConversationRoutes(scope, orderDeps);
     registerVaultConversationReplyRoute(
@@ -319,7 +421,10 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       deps.planInputs,
       deps.agentAnalytics,
       undefined,
-      { keeperEnabled: flags.keeperEnabled },
+      {
+        keeperEnabled: flags.keeperEnabled,
+        ...(deps.assetLookups ? { lookups: deps.assetLookups } : {}),
+      },
     );
     registerGoalConversationReplyRoute(
       scope,
@@ -328,8 +433,11 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
       deps.planInputs,
       deps.agentAnalytics,
       relaxedGoalAgent,
+      deps.assetLookups,
     );
     registerMixRoutes(scope, orderDeps, deps.planInputs);
+    // The facts of one listed asset, for outside agents: public and read-only.
+    registerAssetFactsRoute(scope, orderDeps, deps.assetLookups);
     // Out of the route table altogether unless a chain runs on the mock.
     if (chains.active().some((entry) => entry.mock)) registerMockRoutes(scope, orderDeps);
   });
@@ -360,7 +468,7 @@ export async function solanaFromEnv(
   // The node is asked what network it is: a test label on a mainnet node does not start.
   const rpc = connect(url);
   await assertNode(rpc, record);
-  return { rpc, assets: listed };
+  return { rpc, assets: listed, missing: record ? missingFromRecord(assets, record) : [] };
 }
 
 /**
@@ -370,6 +478,12 @@ export async function solanaFromEnv(
  * another network's deploy, or a hand-edited one (a `priceRef` moved to another entry), stops the API
  * rather than build on it. The table has no token program: the adapter reads it from each mint.
  *
+ * Every problem is named, with the script that writes the rows from the record.
+ *
+ * A token the record shows with no row does not stop the start: withdrawals and reads go on, and the
+ * token is missing from every list the API answers until its row is written (`missingFromRecord`, logged
+ * as an error at start and served in `GET /v1/config`).
+ *
  * Answers the rows the adapter may list. A row of a token the deploy retired does not stop the start,
  * and is left out: a retired token is sold and withdrawn, never bought, and the adapter shows it under
  * its mint (`solana:mint-<hex>`) as it does once the fill script has removed the row.
@@ -377,6 +491,7 @@ export async function solanaFromEnv(
 export function holdToRecord(assets: BasketAsset[], record: SolanaDeploymentRecord): BasketAsset[] {
   return holdTo(assets, {
     network: record.network,
+    fill: FILL_SCRIPT.solana,
     made: deploymentAssets(record),
     cash: { id: record.cash.id, address: record.cash.mint },
     retired: record.retired.map((r) => r.mint),
@@ -387,16 +502,51 @@ export function holdToRecord(assets: BasketAsset[], record: SolanaDeploymentReco
 export function holdToEvmRecord(assets: BasketAsset[], record: EvmDeploymentRecord): BasketAsset[] {
   return holdTo(assets, {
     network: record.network,
+    fill: FILL_SCRIPT.robinhood,
     made: evmDeploymentAssets(record),
     cash: { id: record.cash.id, address: record.cash.address },
     retired: record.retired.map((r) => r.address),
   });
 }
 
+/** The script that writes a chain's `basket_assets` rows from its deploy record, run before a deploy. */
+export const FILL_SCRIPT = {
+  solana: 'scripts/solana/basket-assets.ts',
+  robinhood: 'scripts/robinhood/basket-assets.ts',
+} as const;
+
+/** A token the record shows that has no row: missing from every list the API answers. */
+export type MissingRow = { id: string; address: string };
+
+/** The tokens of a Solana record, its cash included and its retired ones not, that have no row. */
+export const missingFromRecord = (assets: BasketAsset[], record: SolanaDeploymentRecord) =>
+  missingRows(
+    assets,
+    deploymentAssets(record),
+    record.retired.map((r) => r.mint),
+  );
+
+/** The same for an EVM chain's rows and its record. */
+export const missingFromEvmRecord = (assets: BasketAsset[], record: EvmDeploymentRecord) =>
+  missingRows(
+    assets,
+    evmDeploymentAssets(record),
+    record.retired.map((r) => r.address),
+  );
+
+function missingRows(assets: BasketAsset[], made: BasketAsset[], retired: string[]): MissingRow[] {
+  const gone = new Set(retired);
+  const rows = new Set(assets.map((a) => a.address));
+  return made
+    .filter((a) => !gone.has(a.address) && !rows.has(a.address))
+    .map((a) => ({ id: a.id, address: a.address }));
+}
+
 function holdTo(
   assets: BasketAsset[],
   record: {
     network: string;
+    fill: string;
     made: BasketAsset[];
     cash: { id: string; address: string };
     retired: string[];
@@ -433,7 +583,7 @@ function holdTo(
     );
   if (wrong.length)
     throw new Error(
-      `basket_assets does not match the record of ${record.network}: ${wrong.slice(0, 3).join('; ')}`,
+      `basket_assets does not match the record of ${record.network} (${wrong.length} ${wrong.length === 1 ? 'problem' : 'problems'}): ${wrong.join('; ')}. Write the rows from the record with ${record.fill}, then deploy`,
     );
   return assets.filter((a) => !retired.has(a.address));
 }
@@ -475,6 +625,7 @@ export async function robinhoodFromEnv(
   return {
     rpc,
     assets: holdToEvmRecord(assets, record),
+    missing: missingFromEvmRecord(assets, record),
     pools: evmPools(record),
     limits: evmLimits(record),
     ...(mainnet ? { mainnet: true } : {}),

@@ -338,14 +338,21 @@ describe('investing with one press, with the passkey wallet', () => {
       autoFollow: false,
     });
     expect(holds.open).toBe(1);
-    expect(find(host, '[data-ui="invest-progress"]').textContent).toContain(
-      en.invest.progress.line(null, en.invest.progress.depositing, 1, 2),
-    );
+    // one step on the screen at a time (gate SIGN-ONE-STEP): the strip says where, the panel what
+    const current = () => find(host, '[data-ui="sign-progress"] [aria-current="step"]').textContent;
+    const panel = () => find(host, '[data-ui="sign-step"]');
+    expect(current()).toContain(en.order.flow.short.deposit);
+    expect(find(panel(), '[data-ui="sign-figure"]').textContent).toBe('$10 → your vault');
+    expect(find(panel(), '[data-ui="sign-phase"]').textContent).toBe(en.order.phase.signing);
     first.open();
     await settle();
-    expect(find(host, '[data-ui="invest-progress"]').textContent).toContain(
-      'Deposit confirmed · Swapping into SPYx · 2 of 2',
+    // the deposit is signed: one line with its check, and the swap has the screen
+    expect(find(host, '[data-ui="sign-past"]').textContent).toContain(
+      en.order.flow.title.openDeposit('$10'),
     );
+    expect(current()).toContain(en.order.flow.short.swap);
+    expect(find(panel(), '[data-ui="sign-figure"]').textContent).toBe('$6 → SPYx');
+    expect(panel().textContent).toContain(en.order.flow.stepOf(2, 2));
     second.open();
     await settle();
     await settle();
@@ -360,6 +367,11 @@ describe('investing with one press, with the passkey wallet', () => {
       [2, 2],
     ]);
     expect(done).toEqual([{ orderId: ORDER_ID, vault: MY_VAULT }]);
+    // the end leads to the vault the money went into, not to the portfolio (audit F3)
+    await settle();
+    const open = find<HTMLAnchorElement>(host, '[data-ui="order-next"] [data-action="open-vault"]');
+    expect(open.textContent).toBe(en.mix.deposit.signing.openVault);
+    expect(open.getAttribute('href')).toBe(`/portfolio/vaults/solana/${MY_VAULT}`);
     // one signing run in all: nothing is asked of the wallet twice
     expect(run.calls).toHaveLength(1);
   });

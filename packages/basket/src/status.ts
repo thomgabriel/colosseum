@@ -1,4 +1,5 @@
 import {
+  SNAPSHOT_STALE_AFTER_SECONDS,
   TRACK_RULE,
   type TrackLine,
   type TrackSnapshot,
@@ -22,8 +23,6 @@ import { BasketInputError, parseRaw } from './amounts';
 // that is past the band by under one basis point can read here as exactly at it, and so inside, while
 // the keeper trades it. That is left as it is.
 
-/** A snapshot older than this is stale: an hour. Exactly an hour is not. */
-const STALE_SECONDS = 3600;
 /** A chain that last answered this long ago is silent: a day, to the second. */
 const SILENT_SECONDS = 24 * 3600;
 
@@ -72,7 +71,8 @@ const percent = (bps: number) => `${bps / 100}%`;
  *   10,000, so what the cash is over is what the positions together are under. Cash under its share
  *   is not this line: the planner trades the one side only.
  * - `loss_quarter`, Watch: the loss used is at or past a quarter of the budget.
- * - `stale`, Watch: the snapshot is more than an hour old.
+ * - `stale`, Watch: the snapshot is more than two hours old (`SNAPSHOT_STALE_AFTER_SECONDS`).
+ *   Exactly two hours is not.
  * - `inside`, On track, on a chain with a loss budget. `inside_no_budget`, On track, on a chain that
  *   keeps none (a budget of null or of zero), where the two loss lines are skipped.
  *
@@ -232,13 +232,13 @@ export function statusOf(input: {
     );
 
   const age = now - read;
-  if (age > STALE_SECONDS * 1000) {
+  if (age > SNAPSHOT_STALE_AFTER_SECONDS * 1000) {
     const minutes = Math.floor(age / 60_000);
     return answer(
       'watch',
       'stale',
       { minutes },
-      `The vault was last read ${minutes} minutes ago, more than an hour.`,
+      `The vault was last read ${minutes} minutes ago, more than two hours.`,
     );
   }
 

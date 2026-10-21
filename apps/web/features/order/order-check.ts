@@ -65,6 +65,46 @@ type Standing = Pick<OrderDetail, 'status' | 'legs'>;
 export const movesCash = (leg: Pick<Leg, 'kind' | 'cashRaw'>): boolean =>
   leg.kind === 'deposit' || (leg.kind === 'create_vault' && (leg.cashRaw ?? '0') !== '0');
 
+/** The names a step may be headed by, beside its kind's own. */
+type StepNames = Record<
+  'set_targets_swap' | 'accept_version_on' | 'accept_version_off' | 'swap_off' | 'withdraw_off',
+  string
+>;
+
+/**
+ * The heading of a step that makes several of the vault's calls in one transaction (gate
+ * `EVM-MULTICALL-STEPS`): targets and the trades toward them, or a switch of auto-follow beside a
+ * version, a sale or a withdrawal. Null for a step that makes one: its kind names it.
+ */
+export function stepCalls(
+  leg: Pick<Leg, 'kind' | 'trades' | 'switchAutoFollow'>,
+  names: StepNames,
+): string | null {
+  if (leg.kind === 'set_targets' && leg.trades.length > 0) return names.set_targets_swap;
+  if (leg.switchAutoFollow === undefined) return null;
+  if (leg.kind === 'accept_version')
+    return leg.switchAutoFollow ? names.accept_version_on : names.accept_version_off;
+  if (leg.kind === 'swap') return names.swap_off;
+  if (leg.kind === 'withdraw') return names.withdraw_off;
+  return null;
+}
+
+/**
+ * Where the order switches auto-follow off, as its review said (`autoFollowOff`): a step of its own
+ * first, or beside the first step's own calls, never both and never anywhere else. Answers the steps
+ * after a switch of its own, or null when the order does not switch as the review said.
+ */
+function afterSwitchOff(legs: Leg[], autoFollowOff: boolean): Leg[] | null {
+  const own = legs[0]?.kind === 'set_auto_follow' ? legs[0] : null;
+  const rides = legs[0]?.switchAutoFollow === false;
+  if (own && (own.trades.length > 0 || own.withdrawals !== undefined || rides)) return null;
+  if ((own !== null || rides) !== autoFollowOff) return null;
+  const rest = own ? legs.slice(1) : legs;
+  if (rest.some((l, i) => l.switchAutoFollow !== undefined && !(i === 0 && rides && !own)))
+    return null;
+  return rest;
+}
+
 /** The order's deposit is confirmed on its chain: the cash is in the vault whatever came after. */
 export const depositLanded = (order: Pick<OrderDetail, 'legs'>): boolean =>
   order.legs.some((leg) => movesCash(leg) && leg.status === 'confirmed');
@@ -239,21 +279,53 @@ export function sharedShapeOk(
   terms: Extract<SharedTerms, { kind: 'follow' | 'publish' | 'withdraw' }>,
 ): boolean {
   if (order.depositRaw !== undefined || order.legs.length === 0) return false;
-  if (order.legs.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;
-  const kinds = order.legs.map((l) => l.kind);
+  // A follow may sell first what the vault holds of the assets the version drops (SHARED-RULES-V2):
+  // those sales, as this app worked them out, each for the cash, before the accept, never an asset the
+  // version keeps, each with a minimum within an order's slippage of its quote. Nothing else trades.
+  const sales = terms.kind === 'follow' ? (terms.leftovers?.sales ?? []) : [];
+  const keeps = new Set(terms.kind === 'follow' ? (terms.leftovers?.keeps ?? []) : []);
+  const keep = BigInt(10_000 - ORDER_LIMITS.maxSlippageBps);
+  const ordered = order.legs.slice().sort((a, b) => a.seq - b.seq);
+  const acceptAt = ordered.findIndex((l) => l.kind === 'accept_version');
+  const sold = ordered.filter((l) => l.kind === 'swap');
+  if (sold.length > 0) {
+    if (terms.kind !== 'follow' || !sales.length || acceptAt < 0) return false;
+    const named = new Map(sales.map((s) => [s.asset, s.amountRaw]));
+    const trades = sold.flatMap((l) => l.trades);
+    if (
+      sold.some((l) => ordered.indexOf(l) > acceptAt || l.cashRaw !== undefined) ||
+      trades.length !== sales.length ||
+      new Set(trades.map((t) => t.sell)).size !== trades.length ||
+      trades.some(
+        (t) => named.get(t.sell) !== t.amountInRaw || t.buy === t.sell || keeps.has(t.sell),
+      )
+    )
+      return false;
+    for (const l of sold) {
+      if (l.expected.length !== l.trades.length) return false;
+      for (const e of l.expected) {
+        if (!RAW.test(e.minOutRaw) || !RAW.test(e.outRaw) || BigInt(e.minOutRaw) === 0n)
+          return false;
+        // The guard's `quoteCeiling`: a minimum is at most `maxSlippageBps` under its quote.
+        if (BigInt(e.outRaw) > ((BigInt(e.minOutRaw) + 1n) * 10_000n + keep - 1n) / keep)
+          return false;
+      }
+    }
+  } else if (sales.length) return false;
+  const rest = order.legs.filter((l) => l.kind !== 'swap');
+  if (rest.some((l) => l.cashRaw !== undefined || l.trades.length > 0)) return false;
+  const kinds = rest.map((l) => l.kind);
   if (terms.kind === 'withdraw') {
     // In dollars it trades: that order has a check of its own (`dollarsShapeOk`), never this one.
     if (terms.dollars) return false;
     // Only withdrawals, of the tokens and the amounts the review showed, in its order, each once;
     // before them, the switch that turns auto-follow off, exactly where the review said there is one.
     const inOrder = order.legs.slice().sort((a, b) => a.seq - b.seq);
-    const first = inOrder[0]?.kind === 'set_auto_follow' ? inOrder[0] : null;
-    if ((first !== null) !== terms.autoFollowOff) return false;
-    const moving = first ? inOrder.slice(1) : inOrder;
+    const moving = afterSwitchOff(inOrder, terms.autoFollowOff);
+    if (!moving) return false;
     const taken = moving.flatMap((l) => l.withdrawals ?? []);
     return (
       moving.length > 0 &&
-      first?.withdrawals === undefined &&
       moving.every((l) => l.kind === 'withdraw' && l.withdrawals !== undefined) &&
       taken.length === terms.items.length &&
       taken.every(
@@ -262,8 +334,19 @@ export function sharedShapeOk(
     );
   }
   if (order.legs.some((l) => l.withdrawals !== undefined)) return false;
-  if (terms.kind === 'publish') return kinds.length === 1 && kinds[0] === 'publish';
+  if (terms.kind === 'publish')
+    return (
+      kinds.length === 1 && kinds[0] === 'publish' && order.legs[0]?.switchAutoFollow === undefined
+    );
   const allowed = new Set(['accept_version', 'set_auto_follow']);
+  // A switch beside the version is the way the review set auto-follow, and the order then has no step
+  // of its own for it.
+  const rides = order.legs.filter((l) => l.switchAutoFollow !== undefined);
+  if (
+    rides.some((l) => l.kind !== 'accept_version' || l.switchAutoFollow !== terms.autoFollow) ||
+    (rides.length > 0 && kinds.includes('set_auto_follow'))
+  )
+    return false;
   return (
     kinds.every((k) => allowed.has(k)) &&
     new Set(kinds).size === kinds.length &&
@@ -288,15 +371,19 @@ export function retargetShapeOk(
     legs.some((l) => (l.cashRaw !== undefined && l.cashRaw !== '0') || l.withdrawals !== undefined)
   )
     return false;
+  if (legs.some((l) => l.switchAutoFollow !== undefined)) return false;
   const [first, ...rest] = legs;
-  if (first?.kind !== 'set_targets' || first.trades.length > 0) return false;
+  if (first?.kind !== 'set_targets') return false;
   const buys = new Set([...terms.targets.map((t) => t.asset), units.cash]);
-  return rest.every(
-    (l) =>
-      l.kind === 'swap' &&
-      l.trades.length > 0 &&
-      l.trades.every((t) => t.sell !== t.buy && buys.has(t.buy)),
-  );
+  const toward = (trades: Trade[]) => trades.every((t) => t.sell !== t.buy && buys.has(t.buy));
+  // Where the chain takes them in one transaction, the first trades ride with the targets
+  // (gate EVM-MULTICALL-STEPS), each with its minimum.
+  if (
+    first.trades.length > 0 &&
+    (first.expected.length !== first.trades.length || !toward(first.trades))
+  )
+    return false;
+  return rest.every((l) => l.kind === 'swap' && l.trades.length > 0 && toward(l.trades));
 }
 
 /**
@@ -318,11 +405,10 @@ export function dollarsShapeOk(
   if (!dollars || !units || order.depositRaw !== undefined || order.legs.length === 0) return false;
   const legs = order.legs.slice().sort((a, b) => a.seq - b.seq);
   if (legs.some((l) => l.cashRaw !== undefined)) return false;
-  const first = legs[0]?.kind === 'set_auto_follow' ? legs[0] : null;
-  if ((first !== null) !== terms.autoFollowOff) return false;
-  if (first && (first.trades.length > 0 || first.withdrawals !== undefined)) return false;
-  const last = legs.at(-1);
-  const sales = legs.slice(first ? 1 : 0, -1);
+  const moving = afterSwitchOff(legs, terms.autoFollowOff);
+  if (!moving) return false;
+  const last = moving.at(-1);
+  const sales = moving.slice(0, -1);
   const may = new Map(dollars.sales.map((s) => [s.asset, s.amountRaw]));
   let least = BigInt(dollars.cashRaw);
   let quoted = 0n;
@@ -358,7 +444,6 @@ export function dollarsShapeOk(
   const [out, ...more] = last?.withdrawals ?? [];
   return (
     last?.kind === 'withdraw' &&
-    last !== first &&
     last.trades.length === 0 &&
     out !== undefined &&
     more.length === 0 &&
@@ -392,6 +477,7 @@ export function rebalanceShapeOk(
   return order.legs.every(
     (l) =>
       l.kind === 'swap' &&
+      l.switchAutoFollow === undefined &&
       l.trades.length > 0 &&
       l.expected.length === l.trades.length &&
       l.trades.every(

@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { familyIdOf, metaHash } from '@colosseum/basket';
 import { mockRecipeId } from '@colosseum/chain-mock';
-import { indexFamilies } from '@colosseum/db';
+import { chains, indexFamilies, recipes } from '@colosseum/db';
 import {
   type BasketAsset,
+  CEILING_METHOD,
   ChainError,
+  CREATOR_LIMITS_V2,
+  CreatorLimitsResponse,
   FamilyResponse,
   OrderDetail,
   PortfolioResponse,
@@ -15,6 +18,7 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ChainRegistry } from '../../orders/chains';
+import type { PlanInputs } from '../../orders/personalize';
 import { basketIdOf } from '../../orders/prepare';
 import { orderFlow } from '../../testing/flow';
 import {
@@ -27,6 +31,8 @@ import {
   testDb,
   testIssuer,
 } from '../../testing/harness';
+import { shelfWarmed } from '.';
+import { SHELF_FRESH_MS, SHELF_STALE_MS } from './shared';
 
 // The shared-portfolio routes (API-3) through HTTP on the mock chain and the real database: the shelf,
 // a portfolio's page and its versions, a creator's publish, a buy that follows a portfolio, and a
@@ -481,14 +487,14 @@ describe('a creator publishes a shared portfolio', () => {
             {
               chain: 'solana',
               components: [
-                { kind: 'asset', asset: 'solana:spy', weightBps: 5000 },
-                { kind: 'asset', asset: 'solana:nvda', weightBps: 5000 },
+                { kind: 'asset', asset: 'solana:spy', weightBps: 5025 },
+                { kind: 'asset', asset: 'solana:nvda', weightBps: 4975 },
               ],
             },
           ],
         },
         422,
-        /at least 3 assets/,
+        /steps of 50 bps/,
       ],
       [
         {
@@ -504,8 +510,8 @@ describe('a creator publishes a shared portfolio', () => {
           ],
         },
         422,
-        // The cash token's ceiling is nothing: rule 9 breaks before the cash rule, and the lowest names it.
-        /solana:usdc is at 30%; its ceiling is 0%/,
+        // Cash is what the weights leave under 100%, never a line of its own (SHARED-RULES-V2).
+        /solana:usdc is the cash token/,
       ],
     ];
     for (const [change, status, error] of cases) {
@@ -571,6 +577,135 @@ describe('a creator publishes a shared portfolio', () => {
     } finally {
       await lying.app.close();
     }
+  });
+});
+
+describe('the second rules, where a chain’s registry holds them (SHARED-RULES-V2)', () => {
+  const onRobinhood = (who: Person, text: Text, components: object[]) => ({
+    ...publishBody(who, text, components),
+    creator: { evm: who.evm },
+    recipes: [{ chain: 'robinhood', components }],
+  });
+  const spy = (weightBps: number) => ({ kind: 'asset', asset: 'robinhood:spy', weightBps });
+
+  it('answers each chain’s limits, read from the chain, to anybody', async () => {
+    // A chain that does not answer is said, never assumed, and nothing is kept of it.
+    const failing = vi
+      .spyOn(registry.get('robinhood').adapter, 'creatorLimits')
+      .mockRejectedValueOnce(new ChainError('Unavailable', 'the node did not answer'));
+    const down = await get(null, '/v1/shared/limits?chain=robinhood');
+    expect([down.statusCode, down.json().code]).toEqual([503, 'CHAIN_UNAVAILABLE']);
+    failing.mockRestore();
+    const solana = CreatorLimitsResponse.parse(
+      (await get(null, '/v1/shared/limits?chain=solana')).json(),
+    );
+    expect(solana).toMatchObject({ chain: 'solana', source: 'chain', provenance: 'mock' });
+    // Solana holds the second rules too since its program's upgrade of Oct 14.
+    expect(solana.limits).toEqual(CREATOR_LIMITS_V2);
+    const robinhood = CreatorLimitsResponse.parse(
+      (await get(null, '/v1/shared/limits?chain=robinhood')).json(),
+    );
+    expect(robinhood.limits).toEqual(CREATOR_LIMITS_V2);
+    expect(robinhood.ceilings).toContainEqual({ asset: 'robinhood:spy', maxWeightBps: 5000 });
+    expect(robinhood.ceilings.some((c) => c.asset === 'robinhood:usdc')).toBe(false);
+    expect(robinhood.ceilingsFrom).toMatchObject({ method: CEILING_METHOD, provenance: 'mock' });
+    expect((await get(null, '/v1/shared/limits')).statusCode).toBe(400);
+    // Asked again within LIMITS_KEPT_MS, the answer kept: the chain is not read again.
+    const reads = vi.spyOn(registry.get('robinhood').adapter, 'creatorLimits');
+    const again = CreatorLimitsResponse.parse(
+      (await get(null, '/v1/shared/limits?chain=robinhood')).json(),
+    );
+    expect(again).toEqual(robinhood);
+    expect(reads).not.toHaveBeenCalled();
+    reads.mockRestore();
+  });
+
+  it('publishes one asset, leaves the rest in cash, and warns on a weight over its listed ceiling', async () => {
+    const creator = await someone('robinhood');
+    await fund(creator);
+    // All of it in one asset, whose ceiling on the list is 50%: published, with the ceiling cited.
+    const one = await post(creator, '/v1/orders', onRobinhood(creator, fresh(), [spy(10_000)]));
+    expect(one.statusCode, one.body).toBe(200);
+    const placed = OrderDetail.parse(one.json());
+    expect(placed.warnings).toEqual([
+      {
+        code: 'OVER_LISTED_CAP:robinhood:spy',
+        text: expect.stringMatching(
+          /^SPY.*100%.*50%.*cap on the asset list\. Read now from .*, the asset list on .*\.$/,
+        ),
+      },
+    ]);
+    // The ceiling's formula is the pin's to say, never the sentence's.
+    expect(placed.warnings[0]?.text).not.toMatch(/×|capacity/);
+    expect((await settleAll(creator, placed)).status).toBe('done');
+
+    // Two lines over their caps, asked in Portuguese: one warning each, each with its own code.
+    const listed = await registry.get('robinhood').adapter.listAssets();
+    const lower = vi
+      .spyOn(registry.get('robinhood').adapter, 'listAssets')
+      .mockResolvedValue(
+        listed.map((a) => (a.id === 'robinhood:nvda' ? { ...a, maxWeightBps: 2500 } : a)),
+      );
+    const two = OrderDetail.parse(
+      (
+        await post(creator, '/v1/orders', {
+          ...onRobinhood(creator, fresh(), [spy(6000), { ...spy(3000), asset: 'robinhood:nvda' }]),
+          language: 'pt',
+        })
+      ).json(),
+    );
+    lower.mockRestore();
+    expect(two.warnings.map((w) => w.code)).toEqual([
+      'OVER_LISTED_CAP:robinhood:spy',
+      'OVER_LISTED_CAP:robinhood:nvda',
+    ]);
+    for (const w of two.warnings)
+      expect(w.text).toMatch(/o teto dele na lista de ativos\. Lido agora de /);
+
+    // 70% in one asset and 30% left in cash: published as it is, and the page holds 70%.
+    const text = fresh();
+    const cash = OrderDetail.parse(
+      (
+        await post(
+          creator,
+          '/v1/orders',
+          onRobinhood(creator, text, [spy(5000), { ...spy(2000), asset: 'robinhood:nvda' }]),
+        )
+      ).json(),
+    );
+    expect(cash.warnings).toEqual([]);
+    expect((await settleAll(creator, cash)).status).toBe('done');
+    const family = await page(text.slug, '?chain=robinhood');
+    expect(family.recipes[0]?.active.components.reduce((n, c) => n + c.weightBps, 0)).toBe(7000);
+
+    // The cash token as a line is still refused by the limits, and more than 100% by the request's shape.
+    const line = await post(
+      creator,
+      '/v1/orders',
+      onRobinhood(creator, fresh(), [
+        spy(7000),
+        { kind: 'asset', asset: 'robinhood:usdc', weightBps: 3000 },
+      ]),
+    );
+    expect([line.statusCode, line.json().code]).toEqual([422, 'CREATOR_LIMIT']);
+    const over = await post(
+      creator,
+      '/v1/orders',
+      onRobinhood(creator, fresh(), [spy(6000), { ...spy(4050), asset: 'robinhood:nvda' }]),
+    );
+    expect(over.statusCode).toBe(400);
+  });
+
+  it('holds Solana to the same rules: one asset and the rest in cash', async () => {
+    const creator = await someone();
+    await fund(creator);
+    const res = await post(
+      creator,
+      '/v1/orders',
+      publishBody(creator, fresh(), [{ kind: 'asset', asset: 'solana:spy', weightBps: 9_000 }]),
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    expect((await settleAll(creator, OrderDetail.parse(res.json()))).status).toBe('done');
   });
 });
 
@@ -1014,6 +1149,78 @@ describe('a vault follows a shared portfolio, and auto-follow where it is offere
     ]);
   });
 
+  it('on Robinhood Chain, switches auto-follow beside the version in one step: on after it, off before it', async () => {
+    // A portfolio on Robinhood Chain, whose assets all have an oracle there, and a vault of a plan there.
+    const creator = await someone('robinhood');
+    const text = fresh();
+    const components = WITHOUT_GOLD.map((c) => ({
+      ...c,
+      asset: c.asset.replace('solana', 'robinhood'),
+    }));
+    const made = await post(creator, '/v1/orders', {
+      ...publishBody(creator, text, components),
+      creator: { evm: creator.evm },
+      recipes: [{ chain: 'robinhood', components }],
+    });
+    expect(made.statusCode, made.body).toBe(200);
+    await fund(creator);
+    await settleAll(creator, OrderDetail.parse(made.json()));
+    const who = await someone('robinhood');
+    await fund(who);
+    await settleAll(who, await order(who, { amountUsd: 100 }));
+    const portfolio = PortfolioResponse.parse((await get(who, '/v1/portfolio')).json());
+    const vault = portfolio.chains.find((c) => c.chain === 'robinhood')?.vaults[0]?.address;
+    if (!vault) throw new Error('no vault');
+    const { adapter } = registry.get('robinhood');
+
+    // On: one accept that switches auto-follow on after the version, with both consents (gate
+    // EVM-MULTICALL-STEPS).
+    const on = OrderDetail.parse(
+      (
+        await post(who, '/v1/orders', {
+          type: 'follow',
+          vault,
+          family: text.slug,
+          autoFollow: true,
+        })
+      ).json(),
+    );
+    expect(on.legs.map((l) => [l.kind, l.switchAutoFollow])).toEqual([['accept_version', true]]);
+    expect(on.legs[0]?.description).toMatch(/auto-follow goes on/);
+    expect(on.needsConsent).toEqual(['new_asset', 'auto_follow_on']);
+    expect((await settleAll(who, on)).status).toBe('done');
+    expect((await adapter.getVault(vault))?.autoFollow).toBe(true);
+    expect(await adapter.listAutoFollowVaults()).toContain(vault);
+
+    // A vault that has auto-follow on and follows nothing, made to follow with auto-follow off: one
+    // accept that switches it off first.
+    const other = await someone('robinhood');
+    await fund(other);
+    await settleAll(other, await order(other, { amountUsd: 100 }));
+    const theirs = PortfolioResponse.parse((await get(other, '/v1/portfolio')).json()).chains.find(
+      (c) => c.chain === 'robinhood',
+    )?.vaults[0]?.address;
+    if (!theirs) throw new Error('no vault');
+    const { mock } = registry.get('robinhood');
+    await mock?.send(await adapter.buildSetAutoFollow({ vault: theirs, on: true }));
+    const off = OrderDetail.parse(
+      (
+        await post(other, '/v1/orders', {
+          type: 'follow',
+          vault: theirs,
+          family: text.slug,
+          autoFollow: false,
+        })
+      ).json(),
+    );
+    expect(off.legs.map((l) => [l.kind, l.switchAutoFollow])).toEqual([['accept_version', false]]);
+    expect(off.legs[0]?.description).toMatch(/^Switch auto-follow off, then follow version 1/);
+    expect(off.needsConsent).toEqual(['new_asset']);
+    expect((await settleAll(other, off)).status).toBe('done');
+    const after = await adapter.getVault(theirs);
+    expect([after?.autoFollow, after?.acceptedVersion]).toEqual([false, 1]);
+  });
+
   it('checks the offer again when the switch is built: a version that waits with gold stops it', async () => {
     const creator = await someone();
     const text = fresh();
@@ -1115,6 +1322,113 @@ describe('a vault follows a shared portfolio, and auto-follow where it is offere
   });
 });
 
+describe('a portfolio on a network its chain no longer runs (gate PRODUCTS-MAINNET-ONLY)', () => {
+  it('records a publish on the network its chain runs now', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    const [row] = await data.db
+      .select({ network: recipes.network })
+      .from(recipes)
+      .where(eq(recipes.familyId, familyIdOf(text.slug)));
+    const [chain] = await data.db
+      .select({ network: chains.network })
+      .from(chains)
+      .where(eq(chains.id, 'solana'));
+    expect(row?.network).toBe(chain?.network);
+  });
+
+  it('keeps it in the tables, and serves it neither on the shelf nor on its page', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    expect((await page(text.slug)).recipes).toHaveLength(1);
+    // The chain moved: the recipe is now another network's than the one the chain runs.
+    const familyId = familyIdOf(text.slug);
+    await data.db.update(recipes).set({ network: 'local' }).where(eq(recipes.familyId, familyId));
+    const shelf = ShelfResponse.parse((await get(null, '/v1/shelf?chain=solana')).json());
+    expect(shelf.families.some((f) => f.slug === text.slug)).toBe(false);
+    const everything = ShelfResponse.parse((await get(null, '/v1/shelf')).json());
+    expect(everything.families.find((f) => f.slug === text.slug)?.recipes ?? []).toEqual([]);
+    const unserved = await page(text.slug);
+    expect(unserved.recipes).toEqual([]);
+    expect(unserved.chains).toEqual([]);
+    const versions = VersionsResponse.parse(
+      (await get(null, `/v1/indexes/${text.slug}/versions`)).json(),
+    );
+    expect(versions.chains).toEqual([]);
+    // nothing was deleted
+    const kept = await data.db.select().from(recipes).where(eq(recipes.familyId, familyId));
+    expect(kept.map((r) => r.network)).toEqual(['local']);
+  });
+
+  it('lists live portfolios only where SHELF_LIVE_ONLY is on, and still answers a page by its slug', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    // the mock's figures are not live: with the setting on, the shelf leaves the portfolio out
+    const { app: liveOnly } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      env: { SHELF_LIVE_ONLY: 'on' },
+    });
+    try {
+      for (const query of ['', '?chain=solana']) {
+        const res = await liveOnly.inject({ method: 'GET', url: `/v1/shelf${query}` });
+        expect(res.statusCode, res.body).toBe(200);
+        const shelf = ShelfResponse.parse(res.json());
+        expect(shelf.families.some((f) => f.slug === text.slug)).toBe(false);
+        expect(shelf.families.flatMap((f) => f.recipes).every((r) => r.provenance === 'live')).toBe(
+          true,
+        );
+      }
+      const res = await liveOnly.inject({ method: 'GET', url: `/v1/indexes/${text.slug}` });
+      expect(res.statusCode, res.body).toBe(200);
+      // (this second app runs its own mock chain, which holds no such recipe: the page is the point)
+      expect(FamilyResponse.parse(res.json()).family.slug).toBe(text.slug);
+    } finally {
+      await liveOnly.close();
+    }
+    // off, the same shelf lists it
+    const shelf = ShelfResponse.parse((await get(null, '/v1/shelf')).json());
+    expect(shelf.families.some((f) => f.slug === text.slug)).toBe(true);
+  });
+
+  it('keeps a live recipe on the shelf, with its chain, where SHELF_LIVE_ONLY is on', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    // the same chains, Solana reported live: what a mainnet's recipes are labelled
+    const live = (inner: ChainRegistry): ChainRegistry => {
+      const wrap = (entry: ReturnType<ChainRegistry['get']>) =>
+        entry.chain === 'solana' ? { ...entry, provenance: 'live' as const } : entry;
+      return {
+        ...inner,
+        get: (chain) => wrap(inner.get(chain)),
+        active: () => inner.active().map(wrap),
+      };
+    };
+    const { app: liveOnly } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      env: { SHELF_LIVE_ONLY: 'on' },
+      wrap: () => live(registry),
+    });
+    try {
+      const res = await liveOnly.inject({ method: 'GET', url: '/v1/shelf' });
+      expect(res.statusCode, res.body).toBe(200);
+      const card = ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+      expect(card?.chains).toEqual(['solana']);
+      expect(card?.recipes.map((r) => [r.chain, r.provenance])).toEqual([['solana', 'live']]);
+      // and the server says so on its config, for the app to follow
+      const config = await liveOnly.inject({ method: 'GET', url: '/v1/config' });
+      expect(config.json().flags.shelfLiveOnly).toBe(true);
+    } finally {
+      await liveOnly.close();
+    }
+  });
+});
+
 describe('the reads need no sign-in, and each declares its rule', () => {
   it('answers the shelf, a page and its versions to anybody, and 404 for a slug nobody published', async () => {
     expect((await get(null, '/v1/shelf')).statusCode).toBe(200);
@@ -1124,5 +1438,250 @@ describe('the reads need no sign-in, and each declares its rule', () => {
     expect((await get(null, '/v1/shelf?chain=nowhere')).statusCode).toBe(400);
     const res = await get(null, '/v1/shelf');
     expect(res.headers['ratelimit-limit']).toBeDefined();
+  });
+});
+
+describe('the shelf is worked out as the server starts', () => {
+  /** A reader of the plan inputs that waits until it is let go, and counts its reads by chain. */
+  const held = () => {
+    const reads: string[] = [];
+    let open = () => {};
+    let gate = new Promise<void>((d) => {
+      open = d;
+    });
+    const planInputs: PlanInputs = async ({ chain }) => {
+      reads.push(chain);
+      await gate;
+      return {
+        yields: [
+          {
+            assetId: WITHOUT_GOLD[0]?.asset ?? '',
+            quotedYield: 0.04,
+            haircutYield: 0.03,
+            haircutRule: 'a test rule',
+            source: 'a test reading',
+            method: 'written for this test',
+            fetchedAt: '2026-10-05T00:00:00.000Z',
+            provenance: 'mock',
+          },
+        ],
+      };
+    };
+    return {
+      reads,
+      /** How often the chain's inputs were read: the shelf here holds other tests' portfolios too. */
+      of: (chain: string) => reads.filter((c) => c === chain).length,
+      planInputs,
+      release: () => open(),
+      hold: () => {
+        gate = new Promise<void>((d) => {
+          open = d;
+        });
+      },
+    };
+  };
+
+  it('fills the shelf’s figures in the background, answers meanwhile, and serves the first shelf from them', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    const inputs = held();
+    const lines: string[] = [];
+    const { app: started } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      wrap: goldWithoutOracle,
+      planInputs: inputs.planInputs,
+      warmShelf: true,
+      logTo: { write: (line) => lines.push(line) },
+    });
+    try {
+      // The warm-up starts when the app is ready and holds on its read: health and config answer anyway.
+      let ended = false;
+      expect((await started.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200);
+      void shelfWarmed(started).then(() => {
+        ended = true;
+      });
+      expect((await started.inject({ method: 'GET', url: '/v1/config' })).statusCode).toBe(200);
+      await vi.waitFor(() => expect(inputs.reads.length).toBeGreaterThan(0));
+      expect(ended).toBe(false);
+      // A shelf asked for meanwhile shares the warm-up's reads: each chain is read once.
+      const early = started.inject({ method: 'GET', url: '/v1/shelf?chain=solana' });
+      await vi.waitFor(() => expect(inputs.of('solana')).toBe(1));
+      inputs.release();
+      await shelfWarmed(started);
+      expect(ended).toBe(true);
+      const warmed = lines.map((l) => JSON.parse(l)).find((l) => l.code === 'shelf_warmed');
+      expect(warmed?.msg).toMatch(
+        /^shelf warmed: \d+ portfolio\(s\) in \d+\.\d s, 0 of \d+ chain\(s\) without figures$/,
+      );
+      expect(warmed?.withoutFigures).toEqual([]);
+      expect(warmed?.ms).toBeGreaterThanOrEqual(0);
+
+      const first = ShelfResponse.parse((await early).json());
+      const shelf = ShelfResponse.parse(
+        (await started.inject({ method: 'GET', url: '/v1/shelf?chain=solana' })).json(),
+      );
+      // Read once for both, and for the warm-up.
+      expect(inputs.of('solana')).toBe(1);
+      for (const answer of [first, shelf]) {
+        const card = answer.families.find((f) => f.slug === text.slug);
+        // Each figure keeps its source and the time of its reading, not the time it was served.
+        expect(card?.recipes[0]?.figures?.holdings[0]?.yield).toMatchObject({
+          source: 'a test reading',
+          fetchedAt: '2026-10-05T00:00:00.000Z',
+          provenance: 'mock',
+        });
+      }
+    } finally {
+      await started.close();
+    }
+  });
+
+  it('keeps the figures ten minutes, serves them up to an hour old while read again, then waits', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    const inputs = held();
+    inputs.release();
+    let at = Date.parse('2026-10-16T12:00:00Z');
+    const { app: kept } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      now: () => new Date(at),
+      planInputs: inputs.planInputs,
+      warmShelf: true,
+    });
+    const shelf = async () => {
+      const res = await kept.inject({ method: 'GET', url: '/v1/shelf?chain=solana' });
+      expect(res.statusCode, res.body).toBe(200);
+      return ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+    };
+    try {
+      await kept.ready();
+      await shelfWarmed(kept);
+      expect(inputs.of('solana')).toBe(1);
+      at += SHELF_FRESH_MS - 1;
+      await shelf();
+      expect(inputs.of('solana')).toBe(1);
+      // Older: served as kept at once, while one read brings it up to date.
+      at += 2;
+      inputs.hold();
+      expect((await shelf())?.recipes[0]?.figures).toBeDefined();
+      expect(inputs.of('solana')).toBe(2);
+      inputs.release();
+      // Past the hour: the answer waits for the read.
+      at += SHELF_STALE_MS + 1;
+      inputs.hold();
+      let answered = false;
+      const late = shelf().then((card) => {
+        answered = true;
+        return card;
+      });
+      await new Promise((d) => setTimeout(d, 50));
+      expect(answered).toBe(false);
+      inputs.release();
+      expect((await late)?.recipes[0]?.figures).toBeDefined();
+      expect(inputs.of('solana')).toBe(3);
+    } finally {
+      await kept.close();
+    }
+  });
+
+  /** A reading of the first asset the portfolios here hold, as `held` reads it. */
+  const reading = {
+    yields: [
+      {
+        assetId: WITHOUT_GOLD[0]?.asset ?? '',
+        quotedYield: 0.04,
+        haircutYield: 0.03,
+        haircutRule: 'a test rule',
+        source: 'a test reading',
+        method: 'written for this test',
+        fetchedAt: '2026-10-05T00:00:00.000Z',
+        provenance: 'mock' as const,
+      },
+    ],
+  };
+  const logged = (lines: string[], code: string) =>
+    lines.map((l) => JSON.parse(l)).filter((l) => l.code === code);
+
+  it('serves the kept figures while a read again fails, and logs the failure with its chain', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    let solanaReads = 0;
+    const planInputs: PlanInputs = async ({ chain }) => {
+      if (chain === 'solana' && ++solanaReads > 1) throw new Error('the database did not answer');
+      return reading;
+    };
+    let at = Date.parse('2026-10-16T12:00:00Z');
+    const lines: string[] = [];
+    const { app: failing } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      now: () => new Date(at),
+      planInputs,
+      warmShelf: true,
+      logTo: { write: (line) => lines.push(line) },
+    });
+    const card = async () => {
+      const res = await failing.inject({ method: 'GET', url: '/v1/shelf?chain=solana' });
+      expect(res.statusCode, res.body).toBe(200);
+      return ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+    };
+    try {
+      await failing.ready();
+      await shelfWarmed(failing);
+      const kept = (await card())?.recipes[0]?.figures;
+      expect(kept?.holdings[0]?.yield?.source).toBe('a test reading');
+      at += SHELF_FRESH_MS + 1;
+      // The read again fails: the kept figures are served, and the failure is logged once with its chain.
+      expect((await card())?.recipes[0]?.figures).toEqual(kept);
+      await vi.waitFor(() => expect(logged(lines, 'shelf_figures_failed')).toHaveLength(1));
+      expect(logged(lines, 'shelf_figures_failed')[0]).toMatchObject({ chain: 'solana' });
+      expect(solanaReads).toBe(2);
+      // and still, on the next answer within the hour: what was kept is not dropped by a failed read
+      expect((await card())?.recipes[0]?.figures).toEqual(kept);
+    } finally {
+      await failing.close();
+    }
+  });
+
+  it('gives up a read that never answers: the warm-up ends, says which chain has no figures, and the next shelf reads again', async () => {
+    const creator = await someone();
+    const text = fresh();
+    await published(creator, text);
+    let solanaReads = 0;
+    const planInputs: PlanInputs = async ({ chain }) => {
+      if (chain === 'solana' && ++solanaReads === 1) return new Promise(() => {});
+      return reading;
+    };
+    const lines: string[] = [];
+    const { app: hung } = await testApp({
+      issuer: issuer.issuer,
+      db: data.db,
+      planInputs,
+      warmShelf: true,
+      shelfReadMs: 100,
+      logTo: { write: (line) => lines.push(line) },
+    });
+    try {
+      await hung.ready();
+      await vi.waitFor(() => expect(logged(lines, 'shelf_warmed')).toHaveLength(1));
+      const [warmed] = logged(lines, 'shelf_warmed');
+      expect(warmed?.withoutFigures).toEqual(['solana']);
+      expect(warmed?.msg).toMatch(/, 1 of \d+ chain\(s\) without figures$/);
+      expect(logged(lines, 'shelf_figures_failed')).toMatchObject([{ chain: 'solana' }]);
+      expect(solanaReads).toBe(1);
+      // The hung read is not waited on again: once a read's time has passed, the next shelf reads anew.
+      await new Promise((d) => setTimeout(d, 150));
+      const res = await hung.inject({ method: 'GET', url: '/v1/shelf?chain=solana' });
+      const card = ShelfResponse.parse(res.json()).families.find((f) => f.slug === text.slug);
+      expect(solanaReads).toBe(2);
+      expect(card?.recipes[0]?.figures?.holdings[0]?.yield?.source).toBe('a test reading');
+    } finally {
+      await hung.close();
+    }
   });
 });

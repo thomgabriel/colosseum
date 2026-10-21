@@ -35,6 +35,7 @@ describe('GET /v1/config', () => {
       autoFollow: { solana: false, robinhood: false, base: false },
       keeperEnabled: false,
       agentSurface: false,
+      shelfLiveOnly: false,
       // Off: the structurer's server-signing routes are registered only when it is on.
     });
     expect(body.chains.map((c) => [c.id, c.mode, c.network, c.provenance])).toEqual([

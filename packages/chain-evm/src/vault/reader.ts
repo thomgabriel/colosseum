@@ -6,6 +6,7 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainReader,
+  CreatorLimits,
   chainProvenance,
   EvmAddress,
   explorerLink,
@@ -40,6 +41,16 @@ import {
 import { dayOf, marketAt } from './market';
 import { type AverageRefusal, readPoolAverageFeed } from './pool-average';
 import { ask, type EvmRpc, isRevert } from './rpc';
+
+/**
+ * The most trades one transaction makes (`Capabilities.maxTradesPerTx`), measured and not extrapolated
+ * (gate `EVM-MULTICALL-STEPS`): on a copy of 46630 on 2026-10-14 a deposit and ten purchases stated
+ * 2,975,009 gas, auto-follow off and ten sales 2,434,918, and new targets with ten trades 2,298,076,
+ * all well under the guard's 5 million. A vault of more assets than this makes its other trades in a
+ * step of their own.
+ */
+export const MAX_TRADES = 10;
+
 import { unlistedAssetId, unlistedToken } from './unlisted';
 
 // The read side of the EVM adapter (DESIGN-VAULT 3.2, ADE-1): one codebase for every EVM chain, with
@@ -287,9 +298,10 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
   const capabilities: Capabilities = {
     trade: options.trade ?? 'readonly',
     autoFollow: options.autoFollow ?? false,
-    maxTradesPerTx: 8,
+    maxTradesPerTx: MAX_TRADES,
     tradesInCreate: true,
     needsApprove: true,
+    ownerCallsInOne: true,
   };
 
   // ---- calls, all at one block
@@ -351,7 +363,11 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
       }),
     ) as Promise<unknown>;
 
-  const onRegistry = (m: Moment, functionName: 'indexInfo', args: readonly unknown[]) =>
+  const onRegistry = (
+    m: Moment,
+    functionName: 'indexInfo' | 'limits' | 'rulesVersion',
+    args: readonly unknown[] = [],
+  ) =>
     ask(`${functionName} of the registry`, () =>
       rpc.readContract({
         address: registry,
@@ -654,7 +670,14 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
         const raw = otherRaw[i] ?? 0n;
         // Held with no target: the weight it should have is zero.
         return raw > 0n
-          ? [holding(m, asset, raw).then((h) => ({ ...h, targetBps: 0, lastKeeperAt: null }))]
+          ? [
+              holding(m, asset, raw).then((h) => ({
+                ...h,
+                targetBps: 0,
+                lastKeeperAt: null,
+                untargeted: true as const,
+              })),
+            ]
           : [];
       }),
     ]);
@@ -1101,6 +1124,42 @@ export function createEvmVaultReader(options: EvmVaultReaderOptions): EvmVaultRe
           active: recipeOf(id, info, info.active),
           pending: info.pending.version > 0 ? recipeOf(id, info, info.pending) : null,
         };
+      }),
+
+    creatorLimits: () =>
+      guarded(async () => {
+        const m = await moment();
+        await assertRegistry(m);
+        const [numbers, rules] = await Promise.all([
+          onRegistry(m, 'limits') as Promise<{
+            minAssets: number;
+            maxAssets: number;
+            minWeightBps: number;
+            maxWeightBps: number;
+            stepBps: number;
+            maxTurnoverBps: number;
+          }>,
+          // The first logic has no `rulesVersion`: the call reverts, and that is how it is told apart.
+          (onRegistry(m, 'rulesVersion') as Promise<number>).catch((e: unknown) => {
+            if (isRevert(e)) return 1;
+            throw e;
+          }),
+        ]);
+        if (rules !== 1 && rules !== 2)
+          return refuse(
+            'NotSupported',
+            `the registry on ${config.networkName} reads its limits under rules ${rules}, which this app does not know`,
+          );
+        return CreatorLimits.parse({
+          rules,
+          minAssets: numbers.minAssets,
+          maxAssets: numbers.maxAssets,
+          minWeightBps: numbers.minWeightBps,
+          maxWeightBps: numbers.maxWeightBps,
+          stepBps: numbers.stepBps,
+          sumBps: 10_000,
+          maxTurnoverBps: numbers.maxTurnoverBps,
+        });
       }),
 
     getWalletHoldings: (owner) =>

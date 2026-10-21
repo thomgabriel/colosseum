@@ -20,6 +20,7 @@ export function TrustNotice({
   checked,
   onCheck,
   keeper: keeperTrades = true,
+  fold = false,
 }: {
   chain: ChainId;
   /**
@@ -32,6 +33,11 @@ export function TrustNotice({
   /** Ticked now. It is kept as accepted when the order is made. */
   checked: boolean;
   onCheck: (yes: boolean) => void;
+  /**
+   * In a pane that must fit its screen (/goal, a vault's own page): one line that opens to the points
+   * and the full list, the box to tick still in view (audit I3).
+   */
+  fold?: boolean;
 }) {
   const t = useT();
   const lang = useLang();
@@ -50,6 +56,52 @@ export function TrustNotice({
   // A live chain with no notice of its own: nothing to accept, so nothing is offered to tick.
   if (!points) return null;
   const { short, items } = points;
+  const box = accepted ? (
+    <p className="text-body-sm text-muted-foreground">{t.trust.accepted}</p>
+  ) : (
+    <label htmlFor={boxId} className="inline-flex items-center gap-2 text-body">
+      <input
+        id={boxId}
+        type="checkbox"
+        className="size-4 accent-primary"
+        checked={checked}
+        onChange={(e) => onCheck(e.currentTarget.checked)}
+      />
+      {t.trust.accept}
+    </label>
+  );
+  if (fold)
+    return (
+      <div data-ui="trust-notice" data-fold="" className="flex flex-col gap-2">
+        <details data-ui="trust-full">
+          <summary className="w-fit cursor-pointer text-body-sm font-medium text-honey-text underline decoration-1 underline-offset-4 hover:decoration-2">
+            {t.trust.short.title}
+          </summary>
+          <div className="mt-3 flex flex-col gap-3">
+            <p className="max-w-(--tf-measure-body) text-body-sm">{t.trust.lead}</p>
+            <ul
+              data-ui="trust-short"
+              className="flex max-w-(--tf-measure-body) list-disc flex-col gap-2 pl-5 text-body-sm"
+            >
+              {short.map((item) => (
+                <li key={item} className="[overflow-wrap:anywhere]">
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <p className="text-body-sm font-semibold">{t.trust.title}</p>
+            <ul className="flex max-w-(--tf-measure-body) list-disc flex-col gap-2 pl-5 text-body-sm">
+              {items.map((item) => (
+                <li key={item} className="[overflow-wrap:anywhere]">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </details>
+        {box}
+      </div>
+    );
   return (
     <div data-ui="trust-notice" className="flex flex-col gap-4">
       <p className="max-w-(--tf-measure-body) text-body">{t.trust.lead}</p>
@@ -84,20 +136,7 @@ export function TrustNotice({
           </ul>
         </div>
       </details>
-      {accepted ? (
-        <p className="text-body-sm text-muted-foreground">{t.trust.accepted}</p>
-      ) : (
-        <label htmlFor={boxId} className="inline-flex items-center gap-2 text-body">
-          <input
-            id={boxId}
-            type="checkbox"
-            className="size-4 accent-primary"
-            checked={checked}
-            onChange={(e) => onCheck(e.currentTarget.checked)}
-          />
-          {t.trust.accept}
-        </label>
-      )}
+      {box}
     </div>
   );
 }

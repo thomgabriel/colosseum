@@ -1,11 +1,19 @@
 'use client';
 import type { ChainId, Network, Provenance } from '@colosseum/schemas';
 import Link from 'next/link';
-import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '../../components/ui/Button';
 import { CardSampleRoom } from '../../components/ui/Card';
 import { Composer } from '../../components/ui/Composer';
-import { WORKSPACE_TITLE } from '../../components/ui/heading';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { LatticeGlyph } from '../../components/ui/Lattice';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { dictionary, LOCALE } from '../../i18n';
@@ -68,8 +76,10 @@ export function GoalConversation({
   conversationId = 'main',
   onSaved,
   onDeposit,
+  onDrafting,
   chainControl,
   carried,
+  picker,
 }: {
   /**
    * What the bar's account control shows (AccountProvider, `view`), so this page says the same:
@@ -88,7 +98,9 @@ export function GoalConversation({
    * Called as a deposit is open on the pane (approved, its steps not all confirmed) whichever way the
    * pane came to show it, with whether a step is being signed now, and as it no longer is.
    */
-  onDeposit?: (state: { open: boolean; signing: boolean }) => void;
+  onDeposit?: (state: { open: boolean; signing: boolean; planId?: string }) => void;
+  /** Called as the draft's column opens beside the chat, and as it closes. */
+  onDrafting?: (drafting: boolean) => void;
   /**
    * The chain of this plan, drawn beside the box (GoalChain, gate CHAIN-AT-THE-PLAN): a choice while
    * the conversation has no words, its badge with "Change" once it has.
@@ -99,6 +111,11 @@ export function GoalConversation({
    * beside the box: the box starts with them.
    */
   carried?: RefObject<{ chain: ChainId; text: string } | null>;
+  /**
+   * The conversations panel's button, on a line of its own under the title's row where the panel is a
+   * sheet (under 1024px): the title stays where every page's is (PAGE-SHELL, CONVERSATION-PANEL).
+   */
+  picker?: ReactNode;
 }) {
   const t = useT();
   const lang = useLang();
@@ -169,9 +186,15 @@ export function GoalConversation({
   lockedNow.current = locked;
   const tellDeposit = useRef(onDeposit);
   tellDeposit.current = onDeposit;
+  // The plan is said with it, so the panel can list the vault it opens in its place.
+  const openPlan = open?.planId;
   useEffect(() => {
-    tellDeposit.current?.({ open: locked, signing: locked && signing });
-  }, [locked, signing]);
+    tellDeposit.current?.({
+      open: locked,
+      signing: locked && signing,
+      ...(openPlan ? { planId: openPlan } : {}),
+    });
+  }, [locked, signing, openPlan]);
   useEffect(() => () => tellDeposit.current?.({ open: false, signing: false }), []);
   const [error, setError] = useState<string>();
   // The reply did not come: said in the transcript, where the reply would have been.
@@ -460,26 +483,46 @@ export function GoalConversation({
   const unanswered = !busy && ready && loaded ? turns.at(-1) : undefined;
   useChatScroll(list, box, busy, `${context}:${loaded}`);
   const chatId = useId();
+  // The draft's column opens with the first message and stays for the conversation: before it the
+  // chat has the room alone, one block in the middle (Thom, Oct 15). A deposit left open keeps it.
+  const drafting = turns.length > 0 || mix !== null || open !== null;
+  const chatShown = chatOpen || !drafting;
+  const tellDrafting = useRef(onDrafting);
+  tellDrafting.current = onDrafting;
+  // In the same paint as the column, so the rail folds with it, never a frame after; and only once
+  // this conversation is read, so moving to another draft never says "no draft" on the way.
+  useLayoutEffect(() => {
+    if (loaded) tellDrafting.current?.(drafting);
+  }, [drafting, loaded]);
   return (
     <section
       data-ui="goal-conversation"
       data-workbench
-      className="grid min-w-0 gap-4 md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch"
+      // Beside a draft the chat keeps half from 1440px and 45% from 1024px, never under 440px unless
+      // that is more than half (the rail opened by hand on a narrow desk); on a tablet five
+      // twelfths. Each range is bounded on both sides (`max-*` is `width <`, so they meet
+      // with no gap): an arbitrary breakpoint's rule is written before the named ones, so
+      // `min-[1440px]` alone would lose to `md:` and `lg:`.
+      className={`grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 md:min-h-0 md:flex-1 md:grid-rows-[auto_minmax(0,1fr)] md:items-stretch ${drafting && chatShown ? 'md:max-lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:max-[1440px]:grid-cols-[minmax(min(27.5rem,50%),9fr)_minmax(0,11fr)] min-[1440px]:grid-cols-[minmax(min(27.5rem,50%),1fr)_minmax(0,1fr)]' : ''}`}
     >
-      <header className="flex flex-wrap items-baseline justify-between gap-3 md:col-span-12">
-        <h1 className={WORKSPACE_TITLE}>{t.talk.workbench.title}</h1>
-        <div className="flex flex-wrap items-baseline gap-3">
-          <Button
-            variant="link"
-            aria-expanded={chatOpen}
-            aria-controls={chatId}
-            data-ui="goal-chat-toggle"
-            onClick={() => setChatOpen((open) => !open)}
-          >
-            {chatOpen ? t.talk.hideChat : t.talk.showChat}
-          </Button>
+      <header className="flex flex-wrap items-baseline justify-between gap-3 md:col-span-full">
+        <h1 className={PAGE_TITLE}>{t.talk.workbench.title}</h1>
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
+          {/* with no draft beside it there is nothing to give the chat's room to */}
+          {drafting && (
+            <Button
+              variant="secondary"
+              size="dense"
+              aria-expanded={chatShown}
+              aria-controls={chatId}
+              data-ui="goal-chat-toggle"
+              onClick={() => setChatOpen((open) => !open)}
+            >
+              {chatShown ? t.talk.hideChat : t.talk.showChat}
+            </Button>
+          )}
           {turns.length > 0 && !asking && (
-            <Button variant="link" disabled={busy} onClick={() => startOver()}>
+            <Button variant="secondary" size="dense" disabled={busy} onClick={() => startOver()}>
               {t.talk.startOver}
             </Button>
           )}
@@ -491,13 +534,14 @@ export function GoalConversation({
             />
           )}
         </div>
+        {picker && <div className="flex min-w-0 basis-full lg:hidden">{picker}</div>}
       </header>
       <div
         ref={box}
         id={chatId}
         data-ui="goal-chat"
-        hidden={!chatOpen}
-        className={`${chatOpen ? 'flex' : 'hidden'} min-w-0 flex-col gap-4 md:col-span-5 md:min-h-0`}
+        hidden={!chatShown}
+        className={`${chatShown ? 'flex' : 'hidden'} min-w-0 flex-col gap-4 md:min-h-0 ${drafting ? '' : 'md:mx-auto md:w-full md:max-w-[46rem] md:pt-6'}`}
       >
         {turns.length === 0 && (
           <div className="flex flex-col gap-2">
@@ -505,13 +549,17 @@ export function GoalConversation({
             <p className="text-body-sm text-muted-foreground">{copy.lead}</p>
           </div>
         )}
-        <p className="text-caption text-muted-foreground">{copy.local}</p>
+        <p className="text-caption text-muted-foreground">
+          {copy.local}
+          {/* said on the draft's card once there is one */}
+          {!drafting && <span className="block">{copy.previewOnly}</span>}
+        </p>
         <ReplyAnnouncer text={announced} />
         {/* Not a live region: the wait and the reply are announced once each, above. */}
         <ol
           ref={list}
           data-ui="goal-transcript"
-          className="tf-scroll-thin relative flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto md:flex-1 md:pr-2"
+          className={`tf-scroll-thin relative flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto md:pr-2 ${turns.length > 0 || busy ? 'md:flex-1' : 'empty:hidden'}`}
         >
           {/* The person's own words sit on the honey glow, so they stand apart from the replies
               (Rodrigo, Oct 8); the column itself has no glow. */}
@@ -631,7 +679,7 @@ export function GoalConversation({
           <ul
             data-ui="goal-starters"
             aria-label={t.goal.examples.label}
-            className="flex flex-wrap gap-2"
+            className={`flex flex-wrap gap-2 ${drafting ? '' : 'md:flex-nowrap'}`}
           >
             {copy.starters.map((starter) => (
               <li key={starter}>
@@ -651,107 +699,109 @@ export function GoalConversation({
           </ul>
         )}
       </div>
-      <div
-        data-ui="goal-strategy"
-        aria-busy={busy}
-        className={`tf-scroll-thin relative flex min-w-0 flex-col gap-4 ${chatOpen ? 'md:col-span-7' : 'md:col-span-12'} md:min-h-0 md:overflow-y-auto md:pr-2`}
-      >
-        {open?.left && (
-          <UnfinishedDeposit
-            orderId={open.orderId}
-            amountUsd={open.amountUsd}
-            onBack={() => {
-              setDepositing(false);
-              keepOpen({ planId: open.planId, orderId: open.orderId, amountUsd: open.amountUsd });
-            }}
-            onGone={() => keepOpen(null)}
-          />
-        )}
-        {mix && chain && userId && depositing && !kept ? (
-          <>
-            <DepositStep
-              chain={chain}
-              userId={userId}
-              allocations={mix.allocations}
-              said={said}
-              amountText={amountText}
-              onAmountText={typeAmount}
-              provenance={provenance}
-              onChangeMix={toChat}
-              waiting={busy}
-              onClose={() => {
-                backToPreview.current = true;
+      {drafting && (
+        <div
+          data-ui="goal-strategy"
+          aria-busy={busy}
+          className={`tf-scroll-thin relative flex min-w-0 flex-col gap-4 ${chatShown ? '' : 'md:col-span-full'} md:min-h-0 md:overflow-y-auto md:pr-2`}
+        >
+          {open?.left && (
+            <UnfinishedDeposit
+              orderId={open.orderId}
+              amountUsd={open.amountUsd}
+              onBack={() => {
                 setDepositing(false);
+                keepOpen({ planId: open.planId, orderId: open.orderId, amountUsd: open.amountUsd });
               }}
+              onGone={() => keepOpen(null)}
+            />
+          )}
+          {mix && chain && userId && depositing && !kept ? (
+            <>
+              <DepositStep
+                chain={chain}
+                userId={userId}
+                allocations={mix.allocations}
+                said={said}
+                amountText={amountText}
+                onAmountText={typeAmount}
+                provenance={provenance}
+                onChangeMix={toChat}
+                waiting={busy}
+                onClose={() => {
+                  backToPreview.current = true;
+                  setDepositing(false);
+                }}
+                host={host}
+              />
+              {reply && !reply.proposal && reply.notes && <WeightNotes notes={reply.notes} />}
+            </>
+          ) : open && !open.left && chain && ready ? (
+            // approved before a reload: the same steps, from the order's own record
+            <DepositSign
+              chain={chain}
+              planId={open.planId}
+              amountUsd={open.amountUsd}
+              resume={open}
               host={host}
             />
-            {reply && !reply.proposal && reply.notes && <WeightNotes notes={reply.notes} />}
-          </>
-        ) : open && !open.left && chain && ready ? (
-          // approved before a reload: the same steps, from the order's own record
-          <DepositSign
-            chain={chain}
-            planId={open.planId}
-            amountUsd={open.amountUsd}
-            resume={open}
-            host={host}
-          />
-        ) : mix ? (
-          <>
-            <StrategyPreview
-              proposal={mix}
-              previewOnly={copy.draftNote}
-              wait={{
-                banner: t.shared.vault.conversation.reworking,
-                action: t.shared.vault.conversation.waitingAction,
-              }}
-              pending={busy}
-              {...(chain && userId && !kept
-                ? {
-                    use: {
-                      label: t.mix.preview.deposit,
-                      onUse: () => setDepositing(true),
-                      primary: true,
-                    },
-                  }
-                : {})}
-            />
-            {reply && !reply.proposal && reply.notes && <WeightNotes notes={reply.notes} />}
-          </>
-        ) : (
-          <div
-            data-ui="goal-empty-preview"
-            data-state={busy ? 'building' : 'empty'}
-            // while the first draft is built the card has the draft card's own padding, and the room
-            // of its sample tag where it will carry one, so the outline's boxes are where the draft's
-            // will be
-            className={`flex min-w-0 flex-col rounded-lg border border-border bg-card sm:min-h-60 ${busy ? 'shrink-0' : 'items-start justify-center gap-3 p-4'}`}
-          >
-            {busy ? (
-              <>
-                {provenance !== 'live' && <CardSampleRoom />}
-                <div className="flex min-w-0 flex-col items-start gap-3 p-6">
-                  {/* the first draft is being worked on: said at heading size, with the rows it will fill */}
-                  <DraftBuilding
-                    title={copy.building}
-                    line={copy.working}
-                    note={copy.previewOnly}
-                  />
+          ) : mix ? (
+            <>
+              <StrategyPreview
+                proposal={mix}
+                previewOnly={copy.draftNote}
+                wait={{
+                  banner: t.shared.vault.conversation.reworking,
+                  action: t.shared.vault.conversation.waitingAction,
+                }}
+                pending={busy}
+                {...(chain && userId && !kept
+                  ? {
+                      use: {
+                        label: t.mix.preview.deposit,
+                        onUse: () => setDepositing(true),
+                        primary: true,
+                      },
+                    }
+                  : {})}
+              />
+              {reply && !reply.proposal && reply.notes && <WeightNotes notes={reply.notes} />}
+            </>
+          ) : (
+            <div
+              data-ui="goal-empty-preview"
+              data-state={busy ? 'building' : 'empty'}
+              // while the first draft is built the card has the draft card's own padding, and the room
+              // of its sample tag where it will carry one, so the outline's boxes are where the draft's
+              // will be
+              className={`flex min-w-0 flex-col rounded-lg border border-border bg-card sm:min-h-60 ${busy ? 'shrink-0' : 'items-start justify-center gap-3 p-4'}`}
+            >
+              {busy ? (
+                <>
+                  {provenance !== 'live' && <CardSampleRoom />}
+                  <div className="flex min-w-0 flex-col items-start gap-3 p-6">
+                    {/* the first draft is being worked on: said at heading size, with the rows it will fill */}
+                    <DraftBuilding
+                      title={copy.building}
+                      line={copy.working}
+                      note={copy.previewOnly}
+                    />
+                    {reply?.notes && <WeightNotes notes={reply.notes} />}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <LatticeGlyph size={32} />
+                  <h2 className="text-body-lg font-medium">{t.talk.workbench.strategy}</h2>
+                  <p className="max-w-[48ch] text-body-sm text-muted-foreground">{copy.empty}</p>
+                  <p className="text-caption text-muted-foreground">{copy.previewOnly}</p>
                   {reply?.notes && <WeightNotes notes={reply.notes} />}
-                </div>
-              </>
-            ) : (
-              <>
-                <LatticeGlyph size={32} />
-                <h2 className="text-body-lg font-medium">{t.talk.workbench.strategy}</h2>
-                <p className="max-w-[48ch] text-body-sm text-muted-foreground">{copy.empty}</p>
-                <p className="text-caption text-muted-foreground">{copy.previewOnly}</p>
-                {reply?.notes && <WeightNotes notes={reply.notes} />}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }

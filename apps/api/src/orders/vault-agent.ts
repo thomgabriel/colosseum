@@ -18,8 +18,9 @@ import {
   FIGURE_REFERENCE,
   isStalePrice,
   OWNER_REBALANCE_SLIPPAGE_BPS,
-  outsideOwnerBand,
   ownerRebalanceOffered,
+  ownerShares,
+  VAULT_MAX_TARGETS,
   type VaultAgentFigure,
   VaultAgentModelReply,
   VaultAgentReply,
@@ -31,6 +32,7 @@ import {
 } from '@colosseum/schemas';
 import type { VaultAgentModel, VaultAgentRepair } from '../vault-agent-model';
 import type { ChainEntry } from './chains';
+import { type LookupBase, type LookupCounts, mergeLooked } from './lookup-loop';
 import type { PlanInputs } from './personalize';
 import { statedPurpose } from './stated-purpose';
 import {
@@ -107,11 +109,11 @@ type AgentAnalyticsQuery = {
 };
 /**
  * Reads the analytics; injected, like `PlanInputs`, so nothing under /v1 reads a file or a fixture. `warm`
- * keeps a chain's reference-size reads current from the server's start; `stop` ends that.
+ * reads a chain's reference-size sheets once, at the server's start, so the first turn finds them kept; it
+ * answers how many were read and how many failed. Nothing reads them again on a timer.
  */
 export type AgentAnalytics = ((q: AgentAnalyticsQuery) => Promise<AgentAnalyticsResult>) & {
-  warm?: (q: Omit<AgentAnalyticsQuery, 'sizeUsd'>) => void;
-  stop?: () => void;
+  warm?: (q: Omit<AgentAnalyticsQuery, 'sizeUsd'>) => Promise<{ read: number; failed: number }>;
 };
 /** The code a route logs for analytics that were not all read, or null. */
 export function analyticsGap(read: AgentAnalyticsResult | null): string | null {
@@ -416,6 +418,38 @@ const MEASURES: Record<AnalyticsFigure['metric'], { id: string; says: string }> 
 /** Ends the label of a figure whose true value is at least what is measured. */
 export const LOWER_BOUND = '; a lower bound, the true figure is at least this';
 
+/** The evidence id of one of Bearing's figures of an asset (`exit:<asset>:worst`, `vol:<asset>`, …). */
+export function analyticsId(figure: AnalyticsFigure, assetId: string): string {
+  return MEASURES[figure.metric].id
+    .replace('<asset>', assetId)
+    .replace('<regime>', figure.regime ?? 'unknown');
+}
+
+/**
+ * What one of Bearing's figures measures, in words: `size` says the size the costs refer to ("the
+ * reference size"), and the regime is named where the figure is of one. No number is in it.
+ */
+export function analyticsLabel(figure: AnalyticsFigure, size: string): string {
+  const regime = figure.regime ? REGIME_NAMES[figure.regime] : null;
+  const larger = figure.value !== null && figure.sizeUsd !== undefined;
+  const said = MEASURES[figure.metric].says.replace(
+    '{size}',
+    larger ? `the nearest measured size above ${size}` : size,
+  );
+  return figure.metric === 'exit_worst' ||
+    figure.metric === 'exit' ||
+    figure.metric === 'cap_variation'
+    ? `${said}${regime ? ` (${regime})` : ''}`
+    : said;
+}
+
+/** The method of one of Bearing's figures, with the size it was measured at when that is not the asked one. */
+export function analyticsMethod(figure: Extract<AnalyticsFigure, { value: number }>): string {
+  return figure.sizeUsd === undefined
+    ? figure.method
+    : `${figure.method}; measured at $${figure.sizeUsd.toLocaleString('en-US')}`;
+}
+
 /**
  * Bearing's analytics as evidence: each measured figure an id the model may cite, with a label that says
  * the size and the regime it refers to in words (the figures themselves are structured, so a label holds
@@ -473,24 +507,11 @@ function analyticsEvidence(
     read.push(asset.symbol);
     const compact: (typeof assets)[number] = { assetId: asset.id, values: {}, provenance: {} };
     for (const figure of row.figures) {
-      const regime = figure.regime ? REGIME_NAMES[figure.regime] : null;
-      const measure = MEASURES[figure.metric];
-      const id = measure.id
-        .replace('<asset>', asset.id)
-        .replace('<regime>', figure.regime ?? 'unknown');
+      const id = analyticsId(figure, asset.id);
       if (taken.has(id)) continue;
       taken.add(id);
       const larger = figure.value !== null && figure.sizeUsd !== undefined;
-      const said = measure.says.replace(
-        '{size}',
-        larger ? `the nearest measured size above ${size}` : size,
-      );
-      const label =
-        figure.metric === 'exit_worst' ||
-        figure.metric === 'exit' ||
-        figure.metric === 'cap_variation'
-          ? `${said}${regime ? ` (${regime})` : ''}`
-          : said;
+      const label = analyticsLabel(figure, size);
       const twin = row.modelledOn ? `; ${row.modelledOn} mainnet figures on a test network` : '';
       // A stored figure that does not make a valid source is unknown too: it never fails the reply.
       const parsed =
@@ -504,10 +525,7 @@ function analyticsEvidence(
               unit: UNITS[figure.unit],
               source: figure.source,
               // the size it was measured at is a figure: it goes in the pin, not in the words
-              method:
-                figure.sizeUsd === undefined
-                  ? figure.method
-                  : `${figure.method}; measured at $${figure.sizeUsd.toLocaleString('en-US')}`,
+              method: analyticsMethod(figure),
               fetchedAt: figure.fetchedAt,
               provenance: figure.provenance,
             });
@@ -1011,8 +1029,7 @@ const REPAIR_HINTS: Record<string, string> = {
     'Prose said something was applied, created, funded, traded or approved. A proposal is only a private preview; nothing has been applied.',
   allocation_unlisted: "An allocation named an assetId that is not in this chain's catalog.",
   allocation_duplicate: 'The same assetId appeared in more than one allocation.',
-  allocation_lines:
-    'The proposal held more than sixteen assets besides cash; a vault holds at most sixteen.',
+  allocation_lines: `The proposal held more than ${VAULT_MAX_TARGETS} assets besides cash; a vault holds at most ${VAULT_MAX_TARGETS}.`,
   allocation_ineligible:
     'An allocation used an asset that is in outsideGoal and not in requestedOutsideGoal, so the server left it out. A plan for eligibilityGoal cannot hold it: a stock only when the person asks for it themselves, any other class never. Remove it and every mention of it as proposed. For a stock the person seems to want but has not plainly asked for, ask them to confirm in question; for any other class, say that a plan with this goal cannot hold it.',
   asked_not_proposed:
@@ -1022,7 +1039,7 @@ const REPAIR_HINTS: Record<string, string> = {
   allocation_constraint:
     'The picks cannot meet a share the person stated, which the server read in their own words (allocationConstraints). Pick the assets it covers, with room for the rest, so the server can meet it, or ask the person about it in question. The share is theirs and still stands until they say "forget" or "drop" it, or ask for an equal split.',
   stated_ungrounded:
-    'A share in stated is not one the server read in the person\'s words, so it is not applied. The server reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "at least 40% stocks", "70/30 TSLA and NVDA"), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; allocationConstraints lists what it read. Remove the share, do not describe it as applied, and ask the person in question to say it as a percentage beside the asset name.',
+    'A share in stated is not one the server read in the person\'s words, so it is not applied. The server reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "at least 40% stocks", "70/30 TSLA and NVDA", "TSLA 70, NVDA 30" where the numbers come to 100), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; allocationConstraints lists what it read. Remove the share, do not describe it as applied, and ask the person in question to say it as a percentage beside the asset name.',
   confirmation_ambiguous:
     "The person's latest message is a bare confirmation, and the app's turn before it did not ask exactly one yes-or-no question, so the server cannot tell what it confirms (facts.latest is ambiguous_confirmation). Return proposal null. Say in message, in one sentence, that it could answer more than one thing; restate no rule and no earlier refusal. Ask in question which they mean, naming the choices in a few words. Do not draft an earlier request.",
   reply_shape:
@@ -1556,8 +1573,16 @@ const ASK_SUBJECT =
 const ASK_VERB =
   '(?:put|make\\s+(?:it|that)|(?:change|set)\\s+(?:it|that)\\s+to|set|give(?:\\s+me)?|allocate|use|add|coloc(?:ar|a|que)|p[oô]r|ponha|põe|bot(?:ar|a|e)|deix(?:ar|a|e)|aloc(?:ar|a|que)|us(?:ar|a|e))';
 const END_OF_WORD = '(?![\\p{L}\\p{N}])';
+// What the shares are of, named before them ("a vault with SPY 50%, …"), and a heading that hands
+// over the list ("exactly these shares: SPY 50%, …"). Thom, Oct 15: "A vault with exactly these
+// shares: SPY 50%, AAPL 15%, …" read as no share at all, and his vault was split equally. Never "my
+// portfolio with …" or "minha carteira com …": that may describe what the person holds elsewhere.
+const ASK_OBJECT =
+  '(?:(?:a|an|one|the|this)\\s+(?:new\\s+)?(?:vault|portfolio|plan)\\s+(?:with|of|holding)|(?:um|uma|o|a|este|esta|esse|essa)\\s+(?:nov[oa]\\s+)?(?:cofre|carteira|plano)\\s+(?:com|de))';
+const ASK_LIST =
+  '(?:(?:exactly|precisely|exatamente)\\s+)?(?:these|the\\s+following|estas|estes|essas|esses|(?:os|as)\\s+seguintes)\\s+(?:shares|weights|allocations?|percentages|targets|partes|pesos|percentuais|porcentagens|aloca[cç][oõ]es|alvos)\\s*:';
 const ASK_BEFORE = new RegExp(
-  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*$`,
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*(?:${ASK_OBJECT}${END_OF_WORD})?\\s*(?:${ASK_LIST})?\\s*$`,
   'iu',
 );
 // A piece that asks for something and holds no share ("I want EV stocks") opens the same way.
@@ -1971,6 +1996,58 @@ const replaces = (next: PersonShare, earlier: PersonShare) =>
     earlier.kind === 'exact' ||
     (next.kind === 'min' ? next.bps > earlier.bps : next.bps < earlier.bps));
 
+// A number with no sign or unit: a candidate share in a list of them. Never beside a currency sign,
+// a decimal mark, a slash or a letter ("$50", "1/2", "Q3").
+const BARE_NUMBER = /(?<![$€£]\s?)(?<![\p{L}\p{N}.,/])\d+(?:[.,]\d+)?(?![\p{L}\p{N}%/]|[.,]\d)/gu;
+
+/**
+ * A sentence that is a list of names each with a bare number ("SPY 50, AAPL 15, … GOOGL 2.5"), the
+ * numbers coming to exactly 100, written as percents; null for anything else (Thom, Oct 15: refusing
+ * such a list as "a bare number beside each name" was hostile). Every piece with a number, between
+ * commas or "and", is one name and its one number, after it ("SPY 50") or before it with "in" ("70 in
+ * TSLA"); at least two, each name once, and no other number or share word in the sentence. The
+ * sentence then goes through the same checks as one written with "%".
+ */
+function percentsOfList(sentence: string, named: (text: string) => Named[]): string | null {
+  if (SHARE_WORDS.test(sentence)) return null;
+  const numbers = [...sentence.matchAll(BARE_NUMBER)];
+  if (numbers.length < 2) return null;
+  // Each number beside its one name, as a share and never as a count of tokens: after the name with
+  // only a space or a colon between ("SPY 50", "SPY: 50"), or before it only with "in" or "em" ("70
+  // in TSLA"). "50 SPY" and "SPY at 50" are said back (the review of #325).
+  const PIECES = /(?<!\d),|,(?!\d)|\s(?:and|e|&)\s/iu;
+  for (const piece of sentence.split(PIECES)) {
+    const [number, ...more] = [...piece.matchAll(BARE_NUMBER)];
+    if (!number) continue;
+    const [name, ...others] = named(piece);
+    if (more.length || !name || others.length) return null;
+    const [from, to] = [number.index, number.index + number[0].length];
+    const beside =
+      name.end <= from
+        ? /^(?:\s+|\s*:\s*)$/u.test(piece.slice(name.end, from))
+        : to <= name.start && /^\s+(?:in|em)\s+$/iu.test(piece.slice(to, name.start));
+    if (!beside) return null;
+  }
+  const written = sentence.replace(BARE_NUMBER, '$&%');
+  const found = written
+    .split(PIECES)
+    .filter((piece) => piece.includes('%'))
+    .map((piece) => ({ piece, shares: sharesInPiece(piece, named) }));
+  if (
+    found.length !== numbers.length ||
+    found.some(({ piece, shares }) => shares.length !== 1 || piece.split('%').length !== 2)
+  )
+    return null;
+  const shares = found.flatMap(({ shares }) => shares);
+  const ids = shares.map((share) => share.assetIds.join('+'));
+  const whole = shares.reduce((n, share) => n + share.bps, 0);
+  return shares.every((share) => share.kind === 'exact' && share.assetIds.length === 1) &&
+    new Set(ids).size === ids.length &&
+    whole === 10_000
+    ? written
+    : null;
+}
+
 /**
  * The shares the person stated, read by the server from their own messages and from nothing else (gate
  * ANY-COMPOSITION). The default is not to apply: unread and said back is always acceptable, applied or
@@ -2088,9 +2165,11 @@ export function personShares(
       read.push(share);
       continue;
     }
-    for (const [, sentence = '', end = ''] of text.matchAll(
+    for (const [, said = '', end = ''] of text.matchAll(
       /((?:[^.;!?\n]|(?<=\d)\.(?=\d))+)([.;!?\n]*)/gu,
     )) {
+      // "SPY 50, AAPL 30, NVDA 20": a list whose bare numbers come to 100 is read as percents.
+      const sentence = percentsOfList(said, named) ?? said;
       // "Forget Tesla after all" is "forget Tesla": the words after it are no quantity to say back.
       const forgets = WITHDRAWS.test(sentence.trim())
         ? sentence.trim().replace(FORGET_TAIL, '')
@@ -2211,18 +2290,16 @@ export function vaultAgainstTargets(
   } catch {
     return none;
   }
-  const held = seen.positions.filter((position) => !/^0+$/.test(position.raw));
-  const total = Number(seen.valueUsd);
-  if (held.some((position) => position.valueUsd === null) || !(total > 0)) return none;
-  const invested = seen.positions.reduce((n, position) => n + position.weightBps, 0);
-  const planned = seen.positions.reduce((n, position) => n + position.targetBps, 0);
-  const cashOver = planned - invested;
-  return {
-    onTarget: !outsideOwnerBand(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS),
-    offered:
-      !state.autoFollow &&
-      ownerRebalanceOffered(seen.positions, cashOver, OWNER_REBALANCE_SLIPPAGE_BPS, total),
-  };
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  if (!read) return none;
+  // One rule with the page and the rebalance route: off target is what a rebalance would trade
+  const off = ownerRebalanceOffered(
+    read.rows,
+    read.cashOverBps,
+    OWNER_REBALANCE_SLIPPAGE_BPS,
+    read.valueUsd,
+  );
+  return { onTarget: !off, offered: !state.autoFollow && off };
 }
 
 /**
@@ -2385,6 +2462,12 @@ export async function replyToVaultConversation(
   request: VaultAgentRequest,
   context: ConversationAgentContext,
   model: VaultAgentModel | null,
+  /**
+   * The asset lookups this server holds (FIGURES-BY-REFERENCE as amended 2026-10-14): a vault's own
+   * conversation may look up the facts of a listed asset of its chain. Absent, and for a new goal (which
+   * states no figure), the model has no tools.
+   */
+  lookups?: LookupBase,
 ): Promise<VaultAgentResult> {
   const invalid = (detail: string): VaultAgentResult => ({
     kind: 'failure',
@@ -2701,14 +2784,28 @@ export async function replyToVaultConversation(
   // `problems` marks a check the model may repair once; `failed` names it. A broken stated limit already
   // has its final reply (asking the person about the limit), which stands if the repair fails too.
   type Checked = { result: VaultAgentResult; failed?: string; problems?: string[] };
+  const scope =
+    lookups && context.kind !== 'new_goal'
+      ? { ...lookups, chain, catalog: [...catalog.values()] }
+      : undefined;
+  // What the model looked up, for the log: counts only.
+  let lookupCounts: LookupCounts | undefined;
   const ask = async (repair?: VaultAgentRepair): Promise<Output> => {
+    let output: Output;
     try {
-      return await (repair
-        ? model.read(context.person, prompt, repair)
-        : model.read(context.person, prompt));
+      output = await (scope
+        ? model.read(context.person, prompt, repair, scope)
+        : repair
+          ? model.read(context.person, prompt, repair)
+          : model.read(context.person, prompt));
     } catch {
       return { reply: null, why: 'unavailable', detail: 'model_threw' };
     }
+    // What it looked up is evidence of this request, for the references alone: never a share, a
+    // weight or a pick's evidence (`sourceById` is unchanged). An id the context gave keeps its figure.
+    mergeLooked(lookedInto, output.looked);
+    if (output.looked?.counts.rounds) lookupCounts = output.looked.counts;
+    return output;
   };
   // Where a schema check failed and its limit, for the model's repair turn only; never logged.
   const where = (issues: readonly { path: PropertyKey[]; message: string }[]) =>
@@ -2734,15 +2831,24 @@ export async function replyToVaultConversation(
       .map((row) => row.company),
     ...sayable,
   ].map(withoutMark);
-  // Figures by reference (vault-figures.ts): only the vault's own conversation states one.
+  // Figures by reference (vault-figures.ts): only the vault's own conversation states one. The
+  // resolver reads the context's evidence and what the model looks up in this reply, merged in by `ask`.
+  const lookedInto = {
+    sources: new Map(sourceById),
+    references: {
+      missing: { ...(context.references?.missing ?? {}) },
+      staleAgeSec: { ...(context.references?.staleAgeSec ?? {}) },
+    },
+    lowerBound: new Set((context.analytics?.assets ?? []).flatMap((row) => row.lowerBound ?? [])),
+  };
   const references = conversationFigures({
     enabled: context.kind !== 'new_goal',
     catalog,
     companies,
     catalogNames,
-    sources: sourceById,
-    references: context.references,
-    lowerBound: new Set((context.analytics?.assets ?? []).flatMap((row) => row.lowerBound ?? [])),
+    sources: lookedInto.sources,
+    references: lookedInto.references,
+    lowerBound: lookedInto.lowerBound,
     language: parsed.data.language,
   });
   // References over both attempts that named no figure of this request; a count for the log.
@@ -2807,92 +2913,60 @@ export async function replyToVaultConversation(
       counts,
     };
   };
-  // A rebalance request is answered by the server from its own facts: the gap of each holding, by
-  // reference, and the action on the page. No model is asked, nothing is drafted, and no target the
-  // vault already has is held against its goal.
+  // A rebalance request is answered by the server itself, in a line or two: whether the vault is off
+  // its targets, and, where the page offers it, the same action as a button in the reply (`action`).
+  // No model is asked, nothing is drafted, no figure is restated (the page shows each with its
+  // source), and what the last reply said is not said again (Thom, Oct 14: "i want to rebalance" got
+  // the same long paragraph, with a pin on every number, each time it was asked).
   const latestPerson = everyone.at(-1);
   if (vault && facts && latestPerson?.who === 'person' && asksRebalance(latestPerson.text)) {
-    const held = vault.positions.filter(
-      (position) => position.targetBps > 0 || !/^0+$/.test(position.raw),
-    );
     const { onTarget } = standing;
-    const fact = (id: string) => `{{fact:${id}}}`;
-    const line = (name: string, id: string) =>
-      pt
-        ? `- ${name}: ${fact(`holding:${id}:share`)} do cofre, alvo ${fact(`holding:${id}:target`)}.`
-        : `- ${name}: ${fact(`holding:${id}:share`)} of the vault, target ${fact(`holding:${id}:target`)}.`;
-    const follows = facts.follows;
-    const portfolio = follows
-      ? follows.name
-        ? `${follows.name} (${follows.portfolioId})`
-        : follows.portfolioId
-      : '';
     // The keeper is spoken of only where it does rebalance this vault: auto-follow on, offered on
     // this chain, and the keeper running on this server.
     const auto =
       vault.autoFollow &&
       context.server?.autoFollowOffered === true &&
       context.server.keeperEnabled === true;
-    const differs =
-      outsideHeld.length && !alreadySaid.includes('goal_differs_from_followed')
-        ? outsideHeld.map(nameOf).join(', ')
-        : '';
-    const goalSaid = pt
-      ? { income: 'renda', protect: 'proteção', grow: 'crescimento' }
-      : { income: 'income', protect: 'protect', grow: 'growth' };
-    const where = [facts.chain.network, facts.chain.readAt].filter(Boolean);
-    const template = [
-      follows
+    const offered = !auto && action.kind === 'page_action';
+    const full = auto
+      ? pt
+        ? 'O seguir automático está ativado neste cofre, então o nosso operador o rebalanceia.'
+        : 'Auto-follow is on for this vault, so our keeper rebalances it.'
+      : offered
         ? pt
-          ? `Este cofre segue o portfólio compartilhado ${portfolio}, ${follows.acceptedVersion}, e os alvos dele são os desse portfólio.`
-          : `This vault follows the shared portfolio ${portfolio}, ${follows.acceptedVersion}, and its targets are that portfolio's.`
-        : pt
-          ? 'Os alvos deste cofre são os dele mesmo.'
-          : "This vault's targets are its own.",
-      pt
-        ? 'Levar o que o cofre tem aos alvos é um rebalanceamento: nenhum alvo muda, então nada é proposto aqui.'
-        : 'Bringing the holdings to those targets is a rebalance: no target changes, so nothing is drafted here.',
-      pt
-        ? `Como o cofre está${where.length ? `, lido em ${where.join(', ')}` : ''}:`
-        : `Where the vault stands${where.length ? `, read from ${where.join(' on ')}` : ''}:`,
-      ...held.map((position) => line(nameOf(position.asset), position.asset)),
-      line(pt ? 'Caixa' : 'Cash', vault.cash.asset),
-      ...(differs && goal
-        ? [
-            pt
-              ? `${differs} já é um alvo deste cofre. O objetivo de ${goalSaid[goal]} do plano não o aceitaria como alvo novo, e isso não impede rebalancear até ele.`
-              : `${differs} is already a target of this vault. The ${goalSaid[goal]} goal of its plan would not admit it as a new target, and that does not stop a rebalance toward it.`,
-          ]
-        : []),
-      auto
-        ? pt
-          ? 'O seguir automático está ativado neste cofre, então o nosso operador o rebalanceia.'
-          : 'Auto-follow is on for this vault, so our keeper rebalances it.'
-        : action.kind === 'page_action'
+          ? `O cofre está fora dos alvos. Use “${action.label}” para levá-lo de volta: você revê as trocas e assina cada passo.`
+          : `Your vault is off its targets. Use “${action.label}” to bring it back: you review the trades and sign each step.`
+        : onTarget
           ? pt
-            ? `Para levá-lo aos alvos, use “${action.label}” na página deste cofre: ela mostra as trocas e você as assina. Esta conversa não faz nenhuma ordem.`
-            : `To bring them in line, use “${action.label}” on this vault's page: it shows the trades and you sign them. This conversation places no order.`
-          : onTarget
-            ? pt
-              ? 'O cofre está nos alvos, então não há o que rebalancear agora.'
-              : 'The holdings are on their targets, so there is nothing to rebalance now.'
-            : pt
-              ? 'O cofre ainda não está nos alvos. Esta conversa não faz nenhuma ordem.'
-              : 'The holdings are not at their targets yet. This conversation places no order.',
-    ].join('\n');
-    const filled = withFigures({
+            ? 'O cofre está nos alvos, então não há o que rebalancear agora.'
+            : 'Your vault is on its targets, so there is nothing to rebalance now.'
+          : pt
+            ? 'O cofre ainda não está nos alvos, e um rebalanceamento não pode ser feito daqui agora.'
+            : 'Your vault is not at its targets yet, and a rebalance can’t be made from here now.';
+    // Asked again: the answer is not given again, only what to do.
+    const before = everyone.at(-2);
+    const message =
+      offered && before?.who === 'app' && before.text === full
+        ? pt
+          ? `Use “${action.label}” abaixo.`
+          : `Use “${action.label}” below.`
+        : full;
+    const served = VaultAgentReply.safeParse({
       version: 1,
       messageId: request.messageId,
-      message: template,
+      message,
       question: null,
       proposal: null,
       warnings: [],
       weightNotes: [],
+      ...(offered ? { action: 'rebalance' } : {}),
     });
-    const served = filled && VaultAgentReply.safeParse(filled.reply);
-    // A reply the server cannot write whole (a figure it does not hold) is left to the model.
-    if (filled && served?.success)
-      return { kind: 'reply', reply: served.data, figures: { ...filled.counts, unknown: 0 } };
+    if (served.success)
+      return {
+        kind: 'reply',
+        reply: served.data,
+        figures: { resolved: 0, missing: 0, unknown: 0 },
+      };
   }
   // The app's turn just before this one, for what need not be said again.
   const saidBefore: string[] = [];
@@ -3100,7 +3174,10 @@ export async function replyToVaultConversation(
       }
     }
     const kept = proposal.allocations.filter(({ assetId }) => !leftOut.includes(assetId));
-    if (kept.filter((allocation) => catalog.get(allocation.assetId)?.cls !== 'cash').length > 16)
+    if (
+      kept.filter((allocation) => catalog.get(allocation.assetId)?.cls !== 'cash').length >
+      VAULT_MAX_TARGETS
+    )
       return rejected('allocation_lines');
     // Said, never silent, and the model is asked once to write the reply without them. Should that
     // fail too, the reply stands as corrected here.
@@ -3367,17 +3444,20 @@ export async function replyToVaultConversation(
     return checked.problems ? checked : corrected(checked.result);
   };
   /** The served result with what became of its references, when there were any. */
-  const counted = (result: VaultAgentResult): VaultAgentResult =>
-    result.kind === 'reply' && (result.figures || unknownReferences)
+  const counted = (result: VaultAgentResult): VaultAgentResult => {
+    const looked =
+      result.kind === 'reply' && lookupCounts ? { ...result, lookups: lookupCounts } : result;
+    return looked.kind === 'reply' && (looked.figures || unknownReferences)
       ? {
-          ...result,
+          ...looked,
           figures: {
-            resolved: result.figures?.resolved ?? 0,
-            missing: result.figures?.missing ?? 0,
+            resolved: looked.figures?.resolved ?? 0,
+            missing: looked.figures?.missing ?? 0,
             unknown: unknownReferences,
           },
         }
-      : result;
+      : looked;
+  };
   const started = Date.now();
   const first = await ask();
   const checked = check(first);
@@ -3387,6 +3467,8 @@ export async function replyToVaultConversation(
       previous: first.reply,
       problems: checked.problems,
       elapsedMs: Date.now() - started,
+      // the first attempt's calls, so the repair still sees what it looked up
+      ...(first.looked ? { transcript: first.looked.transcript } : {}),
     }),
     true,
   );

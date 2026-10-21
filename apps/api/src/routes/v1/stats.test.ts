@@ -83,17 +83,20 @@ describe('the platform’s numbers', () => {
     }
   });
 
-  it('has no value, rather than 0, while the worker has not finished a pass in the last hour', async () => {
+  it('has no value, rather than 0, while the worker has not finished a pass in the last two hours', async () => {
     await vault(vaultAddress('base'), 5, 100);
     // No pass at all.
     expect((await stats()).valueUsd).toBeNull();
-    // A pass that failed, and one that went through more than an hour ago.
+    // A pass that failed, and one that went through more than two hours ago.
     await seedRun(data.db, { chain: 'base', finishedAt: ago(5), error: 'node', provenance: LABEL });
-    await seedRun(data.db, { chain: 'base', finishedAt: ago(61), provenance: LABEL });
+    await seedRun(data.db, { chain: 'base', finishedAt: ago(121), provenance: LABEL });
     expect((await stats()).valueUsd).toBeNull();
+    // An hourly pass that is late, or failed once: the one before still stands.
+    await seedRun(data.db, { chain: 'base', finishedAt: ago(119), provenance: LABEL });
+    expect((await stats()).valueUsd?.value).toBe(100);
   });
 
-  it('sums each vault’s newest snapshot of the last hour once a fresh pass stands behind it', async () => {
+  it('sums each vault’s newest snapshot of the last two hours once a fresh pass stands behind it', async () => {
     const owner = vaultAddress('base');
     const address = await vault(owner, 30, 999);
     // A newer read of the same vault: only it is added.
@@ -115,11 +118,11 @@ describe('the platform’s numbers', () => {
     expect(value?.source).toBe(STATS_SOURCE);
   });
 
-  it('has no value, rather than a smaller one, while a vault counted has no snapshot in the hour', async () => {
+  it('has no value, rather than a smaller one, while a vault counted has no snapshot in two hours', async () => {
     const owner = vaultAddress('base');
     await vault(owner, 10, 100);
-    // Its reads failing for over an hour, in passes that otherwise went through.
-    const failing = await vault(owner, 90, 5000);
+    // Its reads failing for over two hours, in passes that otherwise went through.
+    const failing = await vault(owner, 150, 5000);
     await seedRun(data.db, {
       chain: 'base',
       finishedAt: ago(8),

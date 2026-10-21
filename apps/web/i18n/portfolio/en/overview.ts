@@ -7,7 +7,7 @@ export const overview = {
   label: 'Overview',
   /** The page's title. */
   title: 'Your plans over time.',
-  lead: 'Each plan sits in a vault of its own. We read every vault about every ten minutes and keep what we read. This page shows where each plan stands, and what stands behind every figure. Nothing here signs or moves anything.',
+  lead: 'Each plan sits in a vault of its own. We read every vault about once an hour and keep what we read. This page shows where each plan stands, and what stands behind every figure. Nothing here signs or moves anything.',
   /** How many plans there are: counted, and never added across chains. */
   count: (plans: number, chains: number) =>
     chains > 1
@@ -114,7 +114,7 @@ export const overview = {
       up: 'Above what you put in',
       down: 'Below what you put in',
       cash: 'Cash',
-      empty: 'No readings in this period yet. A reading is taken about every ten minutes.',
+      empty: 'No readings in this period yet. A reading is taken about once an hour.',
       reading: 'Reading the history…',
       hint: 'Point at the chart, or use the arrow keys, to read a day.',
     },
@@ -134,7 +134,7 @@ export const overview = {
     neverRead: 'Not read yet',
   },
   /** At the foot of the page, beside "Read again". */
-  refresh: 'A new snapshot is taken about every ten minutes.',
+  refresh: 'A new snapshot is taken about once an hour.',
 };
 
 export type Overview = typeof overview;

@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
+import { openVault } from './conversations';
 import { readyToInvest } from './invest';
 import { inTheme } from './theme';
 
@@ -277,17 +278,13 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
 
   // through the app's own links: the throwaway sign-in does not outlive a page load. The bar's
   // Portfolio is now the portfolio section's board (PORT-1); the person's own vaults are in the
-  // conversation picker on the goal page (GOAL-CHAT-PORT), each opening its page. The goal page
+  // conversations panel on the goal page, each opening its page. The goal page
   // reads them when it opens, so it is opened again (by way of the board) after the vault was made.
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
   await expect(page).toHaveURL(/\/invest$/);
-  const vaultOption = `vault:solana:${address}`;
-  await expect(page.locator(`[data-ui="goal-picker"] option[value="${vaultOption}"]`)).toHaveCount(
-    1,
-  );
-  await page.locator('[data-ui="goal-picker"]').selectOption(vaultOption);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   // By hand, behind "More" on the vault's own page: the editor, the review and the steps are in the
   // page's pane, at one address (gate VAULT-PAGE-ACTIONS). The editor's own page stays for old links.
@@ -295,7 +292,7 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
   const pane = page.locator('[data-ui="vault-action-pane"]');
   await page.locator('[data-ui="vault-more"]').click();
   await page.locator('[data-action="vault-edit-weights"]').click();
-  await expect(pane.locator(':scope > header h2')).toHaveText(
+  await expect(pane.locator('[data-ui="pane-title"]')).toHaveText(
     en.shared.vault.page.panes.change.title,
   );
   // from 60/40 to 70 SPY, nothing in NVDA, 30 left in cash
@@ -305,18 +302,25 @@ test('a vault’s own weights, edited by hand: reviewed, ordered, every step sig
   await check(page, 'editor');
   await page.getByRole('button', { name: en.mix.vault.review }).click();
 
+  // the change reviewed as one screen (gate SIGN-ONE-STEP): a few words, the targets now and after,
+  // the warnings to tick, every line's figures under "Details", one "Continue"
+  const review = page.locator('[data-ui="change-review"]');
+  await expect(review.locator('[data-ui="sign-figure"]')).toHaveText('More SPY, less NVDA');
   await expect(page.locator('[data-ui="mix-review-lines"]')).toContainText('SPY');
   await check(page, 'vault-review');
-  const confirm = await tickAll(page, en.mix.vault.confirm);
+  const confirm = await tickAll(page, en.order.flow.continue);
   await confirm.click();
 
-  await expect(pane.locator(':scope > header h2')).toHaveText(
+  await expect(pane.locator('[data-ui="pane-title"]')).toHaveText(
     en.shared.vault.page.panes.change.signTitle,
   );
   await expect(page).toHaveURL(here);
-  await expect(pane.getByRole('region', { name: en.mix.order.title })).toContainText('70%');
+  // reviewed already: the pane opens on the first step, with a button that names it
+  await expect(pane.locator('[data-ui="sign-step"] [data-ui="sign-figure"]')).toHaveText(
+    'More SPY, less NVDA',
+  );
   await check(page, 'vault-order');
-  await pane.getByRole('button', { name: en.mix.order.signTargets }).click();
+  await pane.getByRole('button', { name: en.order.flow.press.change }).click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page.locator('[data-ui="order-status"]')).toHaveText(
     en.order.outcome.done('Solana'),

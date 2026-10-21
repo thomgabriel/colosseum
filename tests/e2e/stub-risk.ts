@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { dexPaths, trimPools } from '../../apps/api/src/routes/risk-dex';
 
 // The risk routes of the e2e stub (/risk/*), answered from Rodrigo's snapshot of the risk API: the
 // recording his Analytics 2.0 prototype falls back to, captured 2026-10-03 against the live collectors,
@@ -36,6 +37,23 @@ const robinhoodAnswer = (path: string) => {
 
 /** The recorded answer to a GET under /risk, or a 404 like the API's for a route it does not have. */
 export function riskAnswer(pathAndQuery: string): { status: number; body: unknown } {
+  // Many assets at once, as apps/api composes it: each asset's three recorded answers.
+  if (pathAndQuery.startsWith('/risk/dex?')) {
+    const q = new URLSearchParams(pathAndQuery.slice('/risk/dex?'.length));
+    const chain = q.get('chain') === 'robinhood' ? 'robinhood' : 'solana';
+    const ids = (q.get('ids') ?? '').split(',').filter(Boolean);
+    const sizeUsd = Number(q.get('sizeUsd') ?? 100_000);
+    const assets = ids.map((id) => {
+      const p = dexPaths(id, { chain, sizeUsd, days: 30, tau: 0.01 });
+      return {
+        id,
+        sheet: riskAnswer(p.sheet),
+        hist: riskAnswer(p.hist),
+        pools: trimPools(riskAnswer(p.pools)),
+      };
+    });
+    return { status: 200, body: { chain, assets, disclaimer: 'stub' } };
+  }
   const fixed = robinhoodAnswer(pathAndQuery);
   if (fixed) return fixed;
   const m = load();

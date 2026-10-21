@@ -1,16 +1,25 @@
-import { type Db, indexFamilies, recipes, recipeVersions, users } from '@colosseum/db';
-import type { ChainId, Recipe, RecipeVersionView, Target } from '@colosseum/schemas';
+import { chains, type Db, indexFamilies, recipes, recipeVersions, users } from '@colosseum/db';
+import type { ChainId, Network, Recipe, RecipeVersionView, Target } from '@colosseum/schemas';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 // The shared-portfolio tables (DESIGN-VAULT section 4): `index_families` holds the text, `recipes` a
 // family's recipe on one chain, `recipe_versions` the versions the server has seen. They are a cache:
 // the registry onchain is the truth, and a route that reads the chain writes what it read here.
+//
+// A recipe names the network it was published on (gate PRODUCTS-MAINNET-ONLY), and only the recipes of
+// the network each chain runs now are read back: the network `chains` holds for it, which the server
+// holds to its own config at every start (`seedChains`). A test network's portfolio stays in the tables,
+// unserved, once its chain moves to mainnet.
+
+/** A recipe on the network its chain runs now: `chains` names that network. */
+const onCurrentNetwork = sql`${recipes.chainId} = ${chains.id} and ${recipes.network} = ${chains.network}`;
 
 type VersionRow = typeof recipeVersions.$inferSelect;
 
 export type StoredRecipe = {
   id: string;
   chain: ChainId;
+  network: Network;
   onchainId: string;
   creator: string;
   /** Newest first. */
@@ -34,16 +43,19 @@ type FamilyRow = typeof indexFamilies.$inferSelect;
 
 async function withRecipes(db: Db, rows: FamilyRow[]): Promise<StoredFamily[]> {
   if (!rows.length) return [];
-  const recipeRows = await db
-    .select()
-    .from(recipes)
-    .where(
-      inArray(
-        recipes.familyId,
-        rows.map((r) => r.familyId),
-      ),
-    )
-    .orderBy(asc(recipes.chainId));
+  const recipeRows = (
+    await db
+      .select({ recipe: recipes })
+      .from(recipes)
+      .innerJoin(chains, onCurrentNetwork)
+      .where(
+        inArray(
+          recipes.familyId,
+          rows.map((r) => r.familyId),
+        ),
+      )
+      .orderBy(asc(recipes.chainId))
+  ).map((r) => r.recipe);
   const versionRows = recipeRows.length
     ? await db
         .select()
@@ -72,6 +84,7 @@ async function withRecipes(db: Db, rows: FamilyRow[]): Promise<StoredFamily[]> {
       .map((r) => ({
         id: r.id,
         chain: r.chainId,
+        network: r.network,
         onchainId: r.onchainId as string,
         creator: r.creator,
         versions: versionRows.filter((v) => v.recipeId === r.id),
@@ -134,13 +147,21 @@ export async function writePublished(
 ): Promise<string | null> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`family:${w.familyId}`}))`);
+    // The network the chain runs now: the recipe is that network's.
+    const [chain] = await tx
+      .select({ network: chains.network })
+      .from(chains)
+      .where(eq(chains.id, w.chain));
+    if (!chain) throw new Error(`no chains row for ${w.chain}`);
     const [family] = await tx
       .select()
       .from(indexFamilies)
       .where(eq(indexFamilies.familyId, w.familyId));
+    // A recipe on a network a chain no longer runs is nobody's to defend here: it is not served.
     const held = await tx
       .select({ chain: recipes.chainId, creator: recipes.creator })
       .from(recipes)
+      .innerJoin(chains, onCurrentNetwork)
       .where(eq(recipes.familyId, w.familyId));
     const here = held.find((r) => r.chain === w.chain);
     // Another creator's: their recipe on this chain, their user row on the family, or, for a family
@@ -173,15 +194,22 @@ export async function writePublished(
       .values({
         familyId: w.familyId,
         chainId: w.chain,
+        network: chain.network,
         onchainId: w.onchainId,
         creator: w.creator,
         kind: 'community',
       })
-      .onConflictDoNothing({ target: [recipes.familyId, recipes.chainId] });
+      .onConflictDoNothing({ target: [recipes.familyId, recipes.chainId, recipes.network] });
     const [row] = await tx
       .select({ id: recipes.id })
       .from(recipes)
-      .where(and(eq(recipes.familyId, w.familyId), eq(recipes.chainId, w.chain)));
+      .where(
+        and(
+          eq(recipes.familyId, w.familyId),
+          eq(recipes.chainId, w.chain),
+          eq(recipes.network, chain.network),
+        ),
+      );
     if (!row) throw new Error('the recipe row vanished');
     return row.id;
   });
@@ -274,6 +302,7 @@ export async function hasVersion(
     .select({ metaHash: recipeVersions.metaHash })
     .from(recipeVersions)
     .innerJoin(recipes, eq(recipeVersions.recipeId, recipes.id))
+    .innerJoin(chains, onCurrentNetwork)
     .where(and(eq(recipes.familyId, familyId), eq(recipes.chainId, chain)))
     .orderBy(desc(recipeVersions.version))
     .limit(1);

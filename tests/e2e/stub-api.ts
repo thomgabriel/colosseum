@@ -14,26 +14,37 @@ import {
   ApplyVaultMixRequest,
   ApplyVaultMixResponse,
   type BasketSheet,
+  CEILING_METHOD,
   ChainError,
   ChainId,
+  CLOSE_DUST_USD,
+  ClosedVaultsResponse,
   ConfigResponse,
   chainFamily,
   chainProvenance,
   DEFAULT_FLAGS,
   DISCLAIMER,
+  idleCashToInvest,
   isAddressOf,
   MixReview,
   type OrderDetail,
+  OWNER_REBALANCE_BAND_BPS,
+  OWNER_REBALANCE_MIN_TRADE_USD,
+  OWNER_REBALANCE_SLIPPAGE_BPS,
+  outsideOwnerBand,
+  ownerShares,
   PortfolioExposureResponse,
   PortfolioHistoryResponse,
   PortfolioPlansResponse,
   PortfolioRebalancesQuery,
   PortfolioRebalancesResponse,
   parseChainConfigs,
+  RebalanceVaultResponse,
   type Recipe,
   type RecipeVersionView,
   type SharedFamily,
   Target,
+  VAULT_MAX_TARGETS,
   VaultAgentReplyShape,
   VaultAgentStatedPurpose,
   warningsBelong,
@@ -145,8 +156,12 @@ const freshWorld = (): World => ({
 });
 let world: World = freshWorld();
 let tamperNext = false;
+/** The vaults closed here, by address, with when (gate VAULT-CLOSE-REUSE). */
+let closed = new Map<string, string>();
 /** The funding answers as a test network's, and the test faucet sends (POST /__stub/test-network). */
 let testNetwork = false;
+/** `GET /v1/config` says the server lists live portfolios only (POST /__stub/live-only). */
+let liveOnly = false;
 /** The plan an agent proposed from a link (`POST /v1/baskets/propose`), read back by its id. */
 let linked: ReturnType<typeof proposal> | null = null;
 /** The plan a person built (`POST /v1/baskets/personalize`), read back by its id as their own. */
@@ -185,7 +200,7 @@ const OBSERVED = {
 function config(): ConfigResponse {
   const configs = parseChainConfigs({});
   return ConfigResponse.parse({
-    flags: DEFAULT_FLAGS,
+    flags: { ...DEFAULT_FLAGS, shelfLiveOnly: liveOnly },
     chains: (['solana', 'robinhood', 'base'] as const).map((id) => ({
       ...configs[id],
       mode: DEFAULT_FLAGS.chainMode[id],
@@ -757,7 +772,9 @@ async function mixReview(
   const issues = [
     ...sent.filter((l) => !listed.has(l.assetId)).map((l) => `NOT_LISTED:${l.assetId}`),
     ...(sent.reduce((n, l) => n + l.weightBps, 0) !== 10_000 ? ['SUM_NOT_10000'] : []),
-    ...(sent.filter((l) => l.assetId !== cash).length > 16 ? ['TOO_MANY_LINES'] : []),
+    ...(sent.filter((l) => l.assetId !== cash).length > VAULT_MAX_TARGETS
+      ? ['TOO_MANY_LINES']
+      : []),
   ];
   if (issues.length)
     throw new ApiRefusal(422, {
@@ -897,6 +914,56 @@ function goalReply(body: { messageId?: string; messages?: { who: string; text: s
   });
 }
 
+async function placeRebalance(address: string): Promise<RebalanceVaultResponse> {
+  const { adapter } = world;
+  const state = await adapter.getVault(address);
+  if (!state) throw new ApiRefusal(404, { error: 'no vault of yours at that address' });
+  const targets = state.positions
+    .filter((p) => p.targetBps > 0)
+    .map((p) => ({ asset: p.asset, weightBps: p.targetBps }));
+  if (!targets.length) throw new ApiRefusal(409, { error: 'this vault has no targets' });
+  const listed = await adapter.listAssets();
+  const prices = await adapter.getPrices([...new Set(state.positions.map((p) => p.asset))]);
+  const seen = view(state, prices, listed);
+  const read = ownerShares(seen.positions, Number(seen.valueUsd));
+  if (!read) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const inside = !outsideOwnerBand(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS);
+  const idle =
+    inside &&
+    idleCashToInvest(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS, read.valueUsd);
+  if (inside && !idle) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const plan = rebalancePlan(
+    state,
+    targets,
+    prices,
+    {
+      bandBps: idle ? 0 : OWNER_REBALANCE_BAND_BPS,
+      minTradeUsd: OWNER_REBALANCE_MIN_TRADE_USD,
+      costBps: OWNER_REBALANCE_SLIPPAGE_BPS,
+      ...(idle ? { purchasesOnly: true } : {}),
+    },
+    listed,
+  );
+  if (!plan.trades.length) return RebalanceVaultResponse.parse({ status: 'on_target', targets });
+  const order = await doubleFor(state.owner).place({
+    type: 'rebalance',
+    summary: 'Sample: rebalance your vault to its targets',
+    needsConsent: [],
+    steps: plan.trades.map((t) => ({
+      kind: 'swap' as const,
+      description: t.buy === adapter.mock.cash ? 'Sell for cash' : 'Swap',
+      trades: [t],
+    })),
+    build: (leg) =>
+      adapter.buildOwnerSwap({
+        vault: address,
+        trades: leg.trades,
+        slippageBps: OWNER_REBALANCE_SLIPPAGE_BPS,
+      }),
+  });
+  return RebalanceVaultResponse.parse({ status: 'ordered', targets, order });
+}
+
 async function placeRetarget(address: string, body: MixBody): Promise<ApplyVaultMixResponse> {
   const { adapter } = world;
   const state = await adapter.getVault(address);
@@ -1002,7 +1069,13 @@ async function vaultView(address: string) {
     };
   });
   return {
-    vault: { ...seen, positions, cash: { ...seen.cash, why: null }, provenance: 'mock' as const },
+    vault: {
+      ...seen,
+      positions,
+      cash: { ...seen.cash, why: null },
+      provenance: 'mock' as const,
+      closedAt: closed.get(address) ?? null,
+    },
     prices,
   };
 }
@@ -1098,17 +1171,31 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     world = freshWorld();
     tamperNext = false;
     testNetwork = false;
+    liveOnly = false;
     reports = [];
     linked = null;
     built = null;
+    closed = new Map();
     return send(res, 200, { ok: true });
   }
   if (path === '/__stub/reports') return send(res, 200, reports);
   if (path === '/__stub/source-vault' && method === 'POST') {
     // An already-owned private vault fixture, not an order or production endpoint. Publication and
     // follower buys below still build, guard and sign every step through the browser executor.
-    const body = (await read(req)) as { owner: string; targets: unknown };
+    // `empty`: everything taken out again once it is made, as a vault ready to close is
+    const body = (await read(req)) as {
+      owner: string;
+      targets: unknown;
+      empty?: boolean;
+      /** In raw units of the cash: $100 unless said, and how much of it the swaps leave as cash. */
+      depositRaw?: string;
+      cashLeftRaw?: string;
+      /** What the vault is bought into, where a test wants it away from its targets (a rebalance). */
+      holds?: unknown;
+    };
     const targets = Target.array().parse(body.targets);
+    // what the vault is bought into, where a test wants it away from its targets (a rebalance)
+    const holds = body.holds === undefined ? targets : Target.array().parse(body.holds);
     const owner = body.owner;
     const { adapter } = world;
     const listed = new Set((await adapter.listAssets()).map((a) => a.id));
@@ -1122,12 +1209,13 @@ async function route(req: IncomingMessage, res: ServerResponse) {
       return send(res, 422, { error: 'an owned source needs exact listed targets' });
     lastWallet = owner;
     const basketId = '700';
-    const depositRaw = '100000000';
+    const depositRaw = body.depositRaw ?? '100000000';
     adapter.mock.fund(owner, { gasRaw: GAS_FAUCET, assets: { [adapter.mock.cash]: depositRaw } });
-    const trades = targets.map((t) => ({
+    const spent = BigInt(depositRaw) - BigInt(body.cashLeftRaw ?? '0');
+    const trades = holds.map((t) => ({
       sell: adapter.mock.cash,
       buy: t.asset,
-      amountInRaw: String(t.weightBps * 10_000),
+      amountInRaw: String((spent * BigInt(t.weightBps)) / 10_000n),
     }));
     if (adapter.capabilities.needsApprove)
       await adapter.mock.send(
@@ -1155,6 +1243,9 @@ async function route(req: IncomingMessage, res: ServerResponse) {
             slippageBps: 50,
           }),
         );
+    if (body.empty)
+      for (const tx of await adapter.buildWithdrawInKind({ vault: source.address }))
+        await adapter.mock.send(tx);
     return send(res, 200, { address: source.address });
   }
   if (path.startsWith('/risk/') && method === 'GET') {
@@ -1163,6 +1254,10 @@ async function route(req: IncomingMessage, res: ServerResponse) {
   }
   if (path === '/__stub/test-network' && method === 'POST') {
     testNetwork = true;
+    return send(res, 200, { ok: true });
+  }
+  if (path === '/__stub/live-only' && method === 'POST') {
+    liveOnly = true;
     return send(res, 200, { ok: true });
   }
   if (path === '/__stub/tamper' && method === 'POST') {
@@ -1254,6 +1349,15 @@ async function route(req: IncomingMessage, res: ServerResponse) {
         proposal: built,
       }),
     );
+  }
+  // The owner's one-press rebalance, as apps/api orders it (orders/mix.ts, `planVaultRebalance`): to
+  // the targets the vault has, outside the owner's band, or by purchases alone where only idle cash
+  // worth a trade is over its share; `on_target` otherwise.
+  const rebalance = /^\/v1\/vaults\/([^/]+)\/([^/]+)\/rebalance$/.exec(path);
+  if (rebalance && method === 'POST') {
+    if (rebalance[1] !== CHAIN)
+      return send(res, 404, { error: 'no vault of yours at that address' });
+    return send(res, 200, await placeRebalance(decodeURIComponent(rebalance[2] ?? '')));
   }
   const targets = /^\/v1\/vaults\/([^/]+)\/([^/]+)\/targets$/.exec(path);
   if (targets && method === 'POST') {
@@ -1369,7 +1473,10 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     const held = states.flatMap((v) => [v.cash.asset, ...v.positions.map((p) => p.asset)]);
     const ids = [...new Set(held)].filter((id) => known.has(id));
     const prices = ids.length ? await adapter.getPrices(ids) : [];
-    const vaults = states.map((v) => ({ ...view(v, prices, listed), provenance: 'mock' }));
+    // a vault its person closed is in no list of theirs (gate VAULT-CLOSE-REUSE)
+    const vaults = states
+      .filter((v) => !closed.has(v.address))
+      .map((v) => ({ ...view(v, prices, listed), provenance: 'mock' }));
     return send(res, 200, {
       chains: [
         { chain: CHAIN, name: CHAIN_NAME, mode: 'mock', provenance: 'mock', vaults, prices },
@@ -1385,6 +1492,26 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     if (!owner) return send(res, 422, { error: 'a buy names its owner' });
     if (body.vault !== undefined) return send(res, 200, await placeVaultAdd(body, owner));
     return send(res, 200, await doubleFor(owner).buy(body.amountUsd));
+  }
+  // The rules a publish is held to, as the mock chain's registry says them (GET /v1/shared/limits).
+  if (path === '/v1/shared/limits') {
+    const listed = await world.adapter.listAssets();
+    return send(res, 200, {
+      chain: CHAIN,
+      limits: await world.adapter.creatorLimits(),
+      ceilings: listed
+        .filter((a) => a.cls !== 'cash')
+        .map((a) => ({ asset: a.id, maxWeightBps: a.maxWeightBps })),
+      ceilingsFrom: {
+        source: 'chain-mock: the asset list',
+        method: CEILING_METHOD,
+        fetchedAt: new Date().toISOString(),
+        provenance: 'mock',
+      },
+      source: 'chain',
+      observedAt: new Date().toISOString(),
+      provenance: 'mock',
+    });
   }
   if (path === '/v1/shelf') {
     const families = [];
@@ -1423,6 +1550,46 @@ async function route(req: IncomingMessage, res: ServerResponse) {
         : [],
     });
   }
+  // Closing a vault and opening it again (gate VAULT-CLOSE-REUSE), as apps/api does: the owner's own
+  // empty vault, nothing on chain. The stub tells no callers apart: whoever asks is its owner.
+  const lifetime = /^\/v1\/vaults\/([^/]+)\/([^/]+)\/(close|reopen)$/.exec(path);
+  if (lifetime && method === 'POST') {
+    const address = decodeURIComponent(lifetime[2] ?? '');
+    const read = lifetime[1] === CHAIN ? await vaultView(address) : null;
+    if (!read) return send(res, 404, { error: 'no vault with that address that is yours' });
+    if (lifetime[3] === 'close') {
+      const unpriced = read.vault.positions.some((p) => p.valueUsd === null && p.raw !== '0');
+      if (unpriced || Number(read.vault.valueUsd) >= CLOSE_DUST_USD)
+        return send(res, 409, {
+          error: 'this vault still holds something: withdraw it first',
+          code: 'NOT_EMPTY',
+        });
+      if (!closed.has(address)) closed.set(address, new Date().toISOString());
+    } else closed.delete(address);
+    return send(res, 200, {
+      chain: CHAIN,
+      address,
+      closedAt: closed.get(address) ?? null,
+      reopenedAt: lifetime[3] === 'reopen' ? new Date().toISOString() : null,
+    });
+  }
+  if (path === '/v1/portfolio/closed' && method === 'GET')
+    return send(
+      res,
+      200,
+      ClosedVaultsResponse.parse({
+        vaults: [...closed]
+          .sort((a, b) => b[1].localeCompare(a[1]))
+          .map(([address, closedAt]) => ({
+            chain: CHAIN,
+            chainName: CHAIN_NAME,
+            address,
+            name: null,
+            closedAt,
+            provenance: 'mock',
+          })),
+      }),
+    );
   const vault = /^\/v1\/vaults\/([^/]+)\/([^/]+)$/.exec(path);
   if (vault) {
     // apps/api answers an address that is not one of the chain's with 400, before any read

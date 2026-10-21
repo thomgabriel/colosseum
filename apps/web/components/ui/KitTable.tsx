@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useId } from 'react';
 import { cn } from './cn';
 
 // The house kit's table (STYLE.md, "The house kit"), as the portfolio overview's list of vaults draws
@@ -14,7 +14,9 @@ export type KitTableName =
 
 /**
  * The table, in its scrolling box. `minWidth` keeps its columns apart on a narrow screen. It is always
- * named: by a caption, a label, or the heading over it.
+ * named: by a caption, a label, or the heading over it. The box is a region the keyboard can reach,
+ * named as the table is, so a table wider than its screen can be scrolled without a mouse
+ * (data-table.md).
  */
 export function KitTable({
   ui,
@@ -30,21 +32,33 @@ export function KitTable({
   /** The rows: `<tr className={KIT_ROW}>` with `KIT_CELL` cells. */
   children: ReactNode;
 } & KitTableName) {
+  const captionId = useId();
+  const labelledBy = name.labelledBy ?? (name.caption ? captionId : undefined);
   return (
-    <div className="overflow-x-auto">
+    <section
+      aria-label={name.label}
+      aria-labelledby={labelledBy}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a region that scrolls must be reachable by keyboard (data-table.md)
+      tabIndex={0}
+      className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
       <table
         data-ui={ui}
         aria-label={name.label}
-        aria-labelledby={name.labelledBy}
+        aria-labelledby={labelledBy}
         className={cn('w-full border-collapse text-body-sm', minWidth)}
       >
-        {name.caption && <caption className="sr-only">{name.caption}</caption>}
+        {name.caption && (
+          <caption id={captionId} className="sr-only">
+            {name.caption}
+          </caption>
+        )}
         <thead className="text-left text-caption text-muted-foreground">
           <tr>{head}</tr>
         </thead>
         <tbody>{children}</tbody>
       </table>
-    </div>
+    </section>
   );
 }
 

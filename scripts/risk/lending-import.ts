@@ -34,7 +34,9 @@ import {
   lendingEventRows,
   lendingPoolIndex,
 } from '@colosseum/risk';
-import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { eq, inArray, max } from 'drizzle-orm';
+import { importFloor } from '../ops/risk-retention';
+import { lendingDetail, rowsSince } from './lib-import';
 
 // Step 10b item 8 — `pnpm risk:lending-import`. Imports the lending files into risk_lending_snapshots,
 // risk_lending_positions and risk_lending_events. Idempotent: every table has a natural key and inserts skip
@@ -46,6 +48,13 @@ import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 //   --history  also the complete history in data/risk/lending-history (run by hand; launchd jobs cannot read
 //              ~/Documents): reconstructed hourly rows (item 7), their LTV tables, and every decoded event and
 //              configuration change of the decode pass (items 4–5), scrubbed of wallets and positions.
+//
+// A day file that starts before the hosted retention of risk_lending_snapshots (scripts/ops/risk-retention.ts,
+// four days) is skipped: the daily prune deletes those rows, and they would be inserted again. Of the rest, only
+// the rows from the newest imported five-minute row on are sent (Oct 18, DB-LOAD).
+// RISK_LENDING_IMPORT_ALL=1 imports every day on disk, for a database that keeps everything.
+// A snapshot's `detail` keeps only the keys a reader takes from it (`lendingDetail`, lib-import.ts; DB-STORAGE);
+// the whole row stays in the file it came from.
 const HOME = process.env.RISK_HOME ?? join(homedir(), '.colosseum', 'risk');
 const HISTORY = process.argv.includes('--history');
 const HIST_DIR = resolve(process.env.RISK_LENDING_HISTORY ?? 'data/risk/lending-history');
@@ -114,7 +123,7 @@ function liveSnapshot(r: Row): SnapshotInsert | null {
     symbol: (r.symbol as string) ?? null,
     role: (r.role as string) ?? null,
     slot: num(r.slot),
-    detail: r,
+    detail: lendingDetail(r),
     methodVersion: (r.methodVersion as string) ?? METHOD_VERSION,
     source: r.source as string,
     method: r.method as string,
@@ -199,30 +208,41 @@ async function importLiveSnapshots() {
   const files = readdirSync(dir)
     .filter((n) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(n))
     .sort();
+  const all = process.env.RISK_LENDING_IMPORT_ALL === '1';
+  const floor = all ? null : importFloor('risk_lending_snapshots');
+  // The newest five-minute row imported: a run sends only the rows from it on (`rowsSince`). Before, a day
+  // whose count in the table was short of its file (today's, always) was sent whole every hour.
+  const [last] = all
+    ? []
+    : await db
+        .select({ t: max(riskLendingSnapshots.observedAt) })
+        .from(riskLendingSnapshots)
+        .where(inArray(riskLendingSnapshots.kind, LIVE_KINDS));
+  const newest = last?.t ?? null;
   for (const n of files) {
     const day = n.slice(0, 10);
     const from = new Date(`${day}T00:00:00Z`);
-    const to = new Date(from.getTime() + 86_400_000);
-    const rows = jsonl(readFileSync(join(dir, n), 'utf8')).filter((r) =>
-      LIVE_KINDS.includes(r.kind as string),
-    );
-    const [have] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(riskLendingSnapshots)
-      .where(
-        and(
-          inArray(riskLendingSnapshots.kind, LIVE_KINDS),
-          gte(riskLendingSnapshots.observedAt, from),
-          lt(riskLendingSnapshots.observedAt, to),
-        ),
-      );
-    bump('snapshotFileRows', rows.length);
-    if ((have?.n ?? 0) >= rows.length) {
+    if (floor && from < floor) {
+      bump('snapshotDaysBeforeRetention');
+      continue;
+    }
+    // a day that ended before the newest imported row was sent whole by earlier runs
+    if (newest && from.getTime() + 86_400_000 <= newest.getTime()) {
       bump('snapshotDaysSkipped');
       continue;
     }
+    const rows = jsonl(readFileSync(join(dir, n), 'utf8')).filter((r) =>
+      LIVE_KINDS.includes(r.kind as string),
+    );
+    bump('snapshotFileRows', rows.length);
     for (const r of rows) learnDecimals(r);
-    const out = rows.map(liveSnapshot).filter((x): x is SnapshotInsert => x !== null);
+    const fresh = rowsSince(rows, newest, (r) => r.fetchedAt);
+    bump('snapshotRowsAlreadySent', rows.length - fresh.length);
+    if (!fresh.length) {
+      bump('snapshotDaysSkipped');
+      continue;
+    }
+    const out = fresh.map(liveSnapshot).filter((x): x is SnapshotInsert => x !== null);
     await insertSnapshots(out, 'snapshots');
   }
 }
@@ -409,7 +429,7 @@ async function importHistorySnapshotsAndPositions() {
       suppliedUsd: num(r.suppliedUsd),
       borrowedUsd: num(r.borrowedUsd),
       usdNullReason: (r.usdNullReason as string) ?? null,
-      detail: r,
+      detail: lendingDetail(r),
       methodVersion: r.method as string,
       source: r.source as string,
       method: r.method as string,
@@ -440,7 +460,7 @@ async function importHistorySnapshotsAndPositions() {
       suppliedUsd: num(r.collateralUsd),
       borrowedUsd: num(r.debtUsd),
       usdNullReason: (r.usdNullReason as string) ?? null,
-      detail: r,
+      detail: lendingDetail(r),
       methodVersion: r.method as string,
       source: r.source as string,
       method: r.method as string,

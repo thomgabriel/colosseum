@@ -62,6 +62,8 @@ export type SolanaInputs = {
   rpc: VaultWriteRpc;
   /** The assets of the network the chain runs on, with their mints. */
   assets: BasketAsset[];
+  /** The tokens the deploy record shows that `basket_assets` has no row for: not in `assets`. */
+  missing?: { id: string; address: string }[];
   /** Jupiter's build endpoint, where the chain's router is Jupiter. */
   jupiter?: JupiterOptions;
 };
@@ -72,6 +74,8 @@ export type EvmInputs = {
   rpc: EvmRpc;
   /** The assets of the network, with their token contracts and feeds. */
   assets: BasketAsset[];
+  /** The tokens the deploy record shows that `basket_assets` has no row for: not in `assets`. */
+  missing?: { id: string; address: string }[];
   /** Each asset's own pool against cash, from the deploy's record: the pool its trades go through. */
   pools: V4Pools;
   /** What an owner's trade is held to: the bound to the feed and each asset's largest trade, from the record. */
