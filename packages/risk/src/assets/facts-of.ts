@@ -397,6 +397,28 @@ export const MAX_POOLS = 5;
 export type PoolFigures = { rank: number; pool: string; venue: string; figures: AssetFigure[] };
 
 /**
+ * The pools a `pool_tvl_usd` reading's `detail.pools` lists, by dollars held, at most five: the pools the asset
+ * lookups show, and so the only pools whose bars they use. The jobs that write bars for the lookups alone keep
+ * these pools' bars and no other (scripts/risk/assets/lookup-rows.ts).
+ */
+export function topPools(
+  detail: Record<string, unknown> | null | undefined,
+): Array<{ address: string; venue: string; tvl: number }> {
+  const listed = Array.isArray(detail?.pools) ? (detail.pools as unknown[]) : [];
+  return listed
+    .flatMap((entry) => {
+      const p = entry as Record<string, unknown>;
+      const address =
+        typeof p.address === 'string' ? p.address : typeof p.id === 'string' ? p.id : null;
+      const tvl = typeof p.tvlUsd === 'number' && Number.isFinite(p.tvlUsd) ? p.tvlUsd : null;
+      if (!address || tvl === null) return [];
+      return [{ address, venue: typeof p.venue === 'string' ? p.venue : 'unknown', tvl }];
+    })
+    .sort((a, b) => b.tvl - a.tvl || a.address.localeCompare(b.address))
+    .slice(0, MAX_POOLS);
+}
+
+/**
  * The asset's pools by dollars held, at most five, each with its TVL in dollars, its share of the asset's pool
  * TVL and its volume over the last day in dollars.
  *
@@ -418,18 +440,7 @@ export function poolFigures(
   if (!reading) return { pools: [], missing: missing('tvl', 'not_collected') };
   const whole = observationFigure('tvl', reading, now);
   if (whole.value === null) return { pools: [], missing: whole };
-  const listed = Array.isArray(reading.detail?.pools) ? (reading.detail.pools as unknown[]) : [];
-  const pools = listed
-    .flatMap((entry) => {
-      const p = entry as Record<string, unknown>;
-      const address =
-        typeof p.address === 'string' ? p.address : typeof p.id === 'string' ? p.id : null;
-      const tvl = typeof p.tvlUsd === 'number' && Number.isFinite(p.tvlUsd) ? p.tvlUsd : null;
-      if (!address || tvl === null) return [];
-      return [{ address, venue: typeof p.venue === 'string' ? p.venue : 'unknown', tvl }];
-    })
-    .sort((a, b) => b.tvl - a.tvl || a.address.localeCompare(b.address))
-    .slice(0, MAX_POOLS);
+  const pools = topPools(reading.detail);
   if (!pools.length) return { pools: [], missing: missing('tvl', 'not_collected') };
   const start = now.getTime() - 24 * HOUR_MS;
   const pin = {

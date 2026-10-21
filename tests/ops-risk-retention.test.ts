@@ -103,8 +103,8 @@ describe('retention: every growing table has a decision', () => {
     }
   });
 
-  it('names where the rows of each windowed table live on the Mac; only pool flow has the database alone', () => {
-    expect(UNFILED.map((r) => r.table)).toEqual(['risk_pool_flow']);
+  it('names where the rows of each windowed table live on the Mac; only pool flow and the bars have the database alone', () => {
+    expect(UNFILED.map((r) => r.table)).toEqual(['risk_pool_flow', 'market_bars']);
     const flow = RETENTION.find((r) => r.table === 'risk_pool_flow') as Retention;
     const pools = RETENTION.find((r) => r.table === 'risk_pool_snapshots') as Retention;
     // a table in the collectors' files is cut at its window, with an archive named or not
@@ -135,6 +135,49 @@ describe('retention: every growing table has a decision', () => {
     // DB-STORAGE: every reader of the lending report's tables takes the newest report
     expect(hours.risk_lending_facts).toBe(48);
     expect(hours.risk_lending_coverage).toBe(48);
+    // the asset lookups read the newest reading of each metric and at most 30 days of bars
+    expect(hours.asset_observations).toBe(168);
+    expect(hours.market_bars).toBe(744);
+  });
+});
+
+describe('the prune of the asset readings on a database', () => {
+  const { client: sql } = createDb();
+  const schema = `prune_assets_${process.pid}`;
+  const own = RETENTION.find((x) => x.table === 'asset_observations') as Retention;
+  const r: Retention = { ...own, schema };
+
+  beforeAll(async () => {
+    await sql.unsafe(`create schema ${schema}`);
+    await sql.unsafe(
+      `create table ${schema}.asset_observations (id serial primary key, observed_at timestamptz not null, metric text not null, method text not null)`,
+    );
+    // relative to now: the exempt rule reads the clock, as the daily job does
+    await sql.unsafe(
+      `insert into ${schema}.asset_observations (observed_at, metric, method) values
+         (now() - interval '1 day', 'supply_total', 'read'),
+         (now() - interval '10 days', 'supply_total', 'read'),
+         (now() - interval '60 days', 'yield_quoted', 'asset-metrics-plan'),
+         (now() - interval '30 days', 'exchange_rate', 'read'),
+         (now() - interval '50 days', 'exchange_rate', 'read')`,
+    );
+  });
+  afterAll(async () => {
+    await sql.unsafe(`drop schema if exists ${schema} cascade`);
+    await sql.end();
+  });
+
+  it('keeps a week of readings, the plan’s rows written once, and 41 days of exchange rates', async () => {
+    const res = await pruneTable(sql, r, { at: new Date(), batch: 50, dryRun: false });
+    expect(res.deleted).toBe(2);
+    const left = await sql.unsafe<{ metric: string; method: string }[]>(
+      `select metric, method from ${schema}.asset_observations order by observed_at desc`,
+    );
+    expect(left).toEqual([
+      { metric: 'supply_total', method: 'read' },
+      { metric: 'exchange_rate', method: 'read' },
+      { metric: 'yield_quoted', method: 'asset-metrics-plan' },
+    ]);
   });
 });
 

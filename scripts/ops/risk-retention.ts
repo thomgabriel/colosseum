@@ -111,6 +111,28 @@ export const RETENTION: readonly Retention[] = [
     why: 'one import a day, each row summing its 24h, 7d and 28d window; readers take the newest data_to, and a week of imports covers days the rewalk returned fewer pools',
     files: null,
   },
+  {
+    schema: 'public',
+    table: 'asset_observations',
+    column: 'observed_at',
+    keepHours: 7 * DAY,
+    // the plan's rows are written once, stamped with the list's time, and never again (metric-rows.ts
+    // `structural`); the metrics jobs read 40 days of exchange rates (SERIES_DAYS in metrics-solana.ts and
+    // scripts/risk-evm/assets-metrics.ts)
+    exempt:
+      "method = 'asset-metrics-plan' or (metric = 'exchange_rate' and observed_at >= now() - interval '41 days')",
+    why: "the asset metrics jobs' readings (about 6,800 rows and 3 MB a day); the asset profile reads each metric's newest reading and the jobs 40 days of exchange rates (exempt, with the plan's rows, which are written once)",
+    files:
+      "asset-metrics/<chain>/metrics/<stamp>.jsonl.gz (the jobs' answers; pnpm risk:assets-import <chain> --from rebuilds the rows)",
+  },
+  {
+    schema: 'public',
+    table: 'market_bars',
+    column: 'hour',
+    keepHours: 31 * DAY,
+    why: 'hourly bars per pool and token; the asset lookups read at most 30 days (asset_price_history)',
+    files: null,
+  },
 ];
 
 /**
@@ -131,8 +153,6 @@ export const KEPT_WHOLE: Readonly<Record<string, string>> = {
   risk_network_fees: 'one row per swap the product sent',
   risk_depth_recovery: 'one row per asset, regime and history report',
   risk_sheets: 'plans point at it',
-  asset_observations: 'the metrics jobs read 40 days of exchange rates',
-  market_bars: 'the facts read 30 days of hourly bars, built by hand',
 };
 
 /** The tables whose only copy is the database: what the daily job archives. */

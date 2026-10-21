@@ -16,6 +16,12 @@
 // re-run on the same files changes nothing; a run after the fetch moved on adds the new days, and a key it wrote
 // that the build no longer produces (a day no longer whole, a pool moved) is withdrawn (reconcileBackfillBars).
 // The held path below never writes over a row of the backfill.
+//
+// --lookups-only [--since-hours <n>] [--drop-old-pool-bars] (the hosted bars job): writes only the rows the asset
+// lookups read (lookup-rows.ts): the token rows of the last n hours (default 72), with an empty `detail`, and the
+// rows of each token's top five pools (from the newest `pool_tvl_usd` readings in the same database) of the last
+// POOL_BAR_HOURS. --drop-old-pool-bars then deletes the chain's held pool bars older than that, never a row of
+// the backfill: the hosted database keeps a pool's bars for two days, its tokens' for 31 (DB-RETENTION).
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -37,6 +43,7 @@ import {
   reconcileBackfillBars,
   upsertBackfillBars,
 } from './bars-rows';
+import { dropOldPoolBars, lookupRows, POOL_BAR_HOURS, readTopPools } from './lookup-rows';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -46,12 +53,19 @@ const opt = (k: string) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const backfill = opt('--source') === 'backfill';
+const lookupsOnly = args.includes('--lookups-only');
+const sinceHours = Number(opt('--since-hours') ?? 72);
+const dropOld = args.includes('--drop-old-pool-bars');
 if (
   (chain !== 'solana' && chain !== 'robinhood') ||
-  (opt('--source') ?? 'held') !== (backfill ? 'backfill' : 'held')
+  (opt('--source') ?? 'held') !== (backfill ? 'backfill' : 'held') ||
+  (lookupsOnly && backfill) ||
+  ((args.includes('--since-hours') || dropOld) && !lookupsOnly) ||
+  !Number.isFinite(sinceHours) ||
+  sinceHours < 1
 ) {
   console.error(
-    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>]]',
+    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars]]',
   );
   process.exit(1);
 }
@@ -128,6 +142,27 @@ function readBackfill() {
 const readS = (Date.now() - t0) / 1000;
 
 const { rows, poolRows, tokens, byToken } = barRows(read, chain, backfill);
+
+// --lookups-only: the rows the asset lookups read and no other (lookup-rows.ts), their top pools from the same
+// database's newest `pool_tvl_usd` readings
+const startedAt = Date.now();
+let toWrite: BarRow[] = rows;
+let lookups: { topPools: number; tokenRows: number; poolRows: number; dropped: number } | null =
+  null;
+if (lookupsOnly) {
+  const { db, client } = createDb();
+  try {
+    const top = await readTopPools(db, chain);
+    toWrite = lookupRows(rows, top, {
+      since: new Date(startedAt - sinceHours * 3_600_000),
+      poolSince: new Date(startedAt - POOL_BAR_HOURS * 3_600_000),
+    });
+    const tokenRows = toWrite.filter((r) => r.pool === 'asset').length;
+    lookups = { topPools: top.size, tokenRows, poolRows: toWrite.length - tokenRows, dropped: 0 };
+  } finally {
+    await client.end();
+  }
+}
 
 let written = 0;
 let replaced = 0;
@@ -210,15 +245,15 @@ if (!dry && backfill) {
   await client.end();
 } else if (!dry) {
   const { db, client } = createDb();
-  const cols = Object.keys(rows[0] ?? {}).filter(
+  const cols = Object.keys(toWrite[0] ?? {}).filter(
     (k) => !['chain', 'address', 'pool', 'hour', 'methodVersion'].includes(k),
   ) as Array<keyof BarRow>;
   const snake = (k: string) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
   const set = Object.fromEntries(cols.map((k) => [k, sql.raw(`excluded.${snake(k)}`)]));
-  for (let i = 0; i < rows.length; i += 500) {
+  for (let i = 0; i < toWrite.length; i += 500) {
     const res = await db
       .insert(marketBars)
-      .values(rows.slice(i, i + 500))
+      .values(toWrite.slice(i, i + 500))
       .onConflictDoUpdate({
         target: [
           marketBars.chain,
@@ -236,6 +271,12 @@ if (!dry && backfill) {
       .returning({ h: marketBars.hour });
     written += res.length;
   }
+  if (lookups && dropOld)
+    lookups.dropped = await dropOldPoolBars(
+      db,
+      chain,
+      new Date(startedAt - POOL_BAR_HOURS * 3_600_000),
+    );
   await client.end();
 }
 
@@ -255,6 +296,7 @@ console.log(
     tokens: byToken.size,
     assetBars: rows.length - poolRows,
     rows: rows.length,
+    ...(lookups ? { lookupsOnly: { sinceHours, poolBarHours: POOL_BAR_HOURS, ...lookups } } : {}),
     written,
     ...(backfill
       ? { replaced, withdrawn, daysOnDisk: read.daysOnDisk, alreadyStored: existing }
