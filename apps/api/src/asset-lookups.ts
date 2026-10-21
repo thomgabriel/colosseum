@@ -7,10 +7,12 @@ import {
   barCoverage,
   defaultFactsParams,
   type FigureUnit,
+  isMidsVersion,
   type LendingMarketRow,
   largestLendingMarkets,
   lendingFigures,
   type ObservationRow,
+  oneAnHour,
   type PoolBarRow,
   poolFigures,
   priceHistoryFigures,
@@ -154,6 +156,16 @@ const BAR_LABELS: Record<string, (window: string) => string> = {
   swaps: (w) => `Number of swaps of the asset on its DEX pools over ${w}`,
   gaps: (w) => `Hours over ${w} with no priced swap of the asset`,
 };
+// A window with an hour built from the collector's mid prices (Solana's hourly bars, gate HOURLY-BARS): its prices
+// are a pool's mid where no swap was collected, and its volumes, swaps and gaps answer not collected.
+const MID_BAR_LABELS: Record<string, (window: string) => string> = {
+  close: (w) =>
+    `Latest hourly closing price in dollars of the asset in ${w}: its DEX swaps, or the mid price of its deepest USDC pool where no swap was collected`,
+  high: (w) =>
+    `Highest price in dollars of the asset over ${w}: its DEX swaps, or the mid price of its deepest USDC pool where no swap was collected`,
+  low: (w) =>
+    `Lowest price in dollars of the asset over ${w}: its DEX swaps, or the mid price of its deepest USDC pool where no swap was collected`,
+};
 
 const ORDINALS = ['largest', 'second largest', 'third largest', 'fourth largest', 'fifth largest'];
 const POOL_LABELS: Record<string, (rank: string, venue: string) => string> = {
@@ -296,11 +308,18 @@ export function priceHistoryAnswer(
   window: LookupWindow,
   now: Date,
 ): Built {
+  const start = windowStart(window, now).getTime();
+  const mids = oneAnHour(read.rows.filter((row) => Date.parse(row.hour) >= start)).some((row) =>
+    isMidsVersion(row.methodVersion),
+  );
   return answerOf(
     assetId,
     priceHistoryFigures(read.rows, read.before, window, now, read.chainHours).map((figure) => ({
       id: `bars:${assetId}:${window}:${figure.key}`,
-      label: (BAR_LABELS[figure.key] as (w: string) => string)(WINDOW_WORDS[window]),
+      label: (
+        (mids ? MID_BAR_LABELS[figure.key] : undefined) ??
+        (BAR_LABELS[figure.key] as (w: string) => string)
+      )(WINDOW_WORDS[window]),
       figure,
     })),
   );
