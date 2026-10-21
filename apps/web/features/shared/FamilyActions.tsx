@@ -23,6 +23,7 @@ import { DepositCard, type DepositCardProps } from '../amount/DepositCard';
 import { dollars } from '../goal/sheet';
 import { tokenName } from '../order/amounts';
 import { Invest } from '../order/Invest';
+import { useOrdersEnded } from '../order/order-done';
 import { keepOrder, type OrderRecord, recallOrders } from '../order/order-record';
 import { AssetMark } from '../order/PlanView';
 import { goalLine } from '../order/plain';
@@ -36,7 +37,7 @@ import { FollowQuote } from './FollowQuote';
 import { sharedRefusal } from './refusal';
 import { Offer } from './ShelfScreen';
 import { placeShared, readPortfolio } from './shared-api';
-import type { SharedTerms } from './terms';
+import { followLeftovers, type SharedTerms } from './terms';
 import { type SharedPerson, shortAddress } from './use-person';
 import { ActionsWait } from './waits';
 
@@ -130,7 +131,9 @@ function useFamilyVaults(
     };
   }, [key]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `key` and `round` say when to read
+  // an order that ends anywhere (a follow, a deposit on another screen) may change this list too
+  const ended = useOrdersEnded();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `key`, `round` and `ended` say when to read
   useEffect(() => {
     if (!person) return;
     let mine = true;
@@ -143,7 +146,7 @@ function useFamilyVaults(
     return () => {
       mine = false;
     };
-  }, [apiFetch, key, round]);
+  }, [apiFetch, key, round, ended]);
 
   async function follow(
     vault: VaultView,
@@ -165,6 +168,13 @@ function useFamilyVaults(
       setFailure(t.order.mismatch.shape);
       return;
     }
+    // What the accept needs sold first, worked out from this app's reads: the vault as read and the
+    // version's assets as the follow is held to them (SHARED-RULES-V2). With no version read, nothing:
+    // an order that sells is then refused at its review.
+    const leftovers =
+      accept && followed.targets
+        ? followLeftovers(person.chain, vault, followed.targets)
+        : undefined;
     const terms: SharedTerms = {
       kind: 'follow',
       slug: family.slug,
@@ -174,6 +184,7 @@ function useFamilyVaults(
       follow: accept ? followed.follow : null,
       autoFollow,
       source: followed.source,
+      ...(leftovers ? { leftovers } : {}),
     };
     const started = generation.current;
     const placed = await placeShared(
@@ -215,6 +226,8 @@ function useFamilyVaults(
       chain: person.chain,
       amountUsd: 0,
       lines: [],
+      // The sales the accept needs, as this app worked them out (SHARED-RULES-V2): the order's review
+      // holds its sales to them, and the guard signs those and nothing else.
       terms,
       approved: null,
     });
@@ -594,6 +607,8 @@ function Chosen({
               }}
               onDone={() => {
                 onRunning(false);
+                // the field is for the next deposit; the card keeps what this one did
+                entry.onText('');
                 // the vault it opened follows the portfolio now: said above, as a state (F3)
                 mine.reread();
               }}

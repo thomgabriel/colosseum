@@ -504,8 +504,13 @@ describe('the evidence the model is handed', () => {
     expect(loaded).not.toContain(`exit:${NVDA}`);
     expect(loaded).not.toContain(`yield:${SGOV}`);
     expect(loaded).toMatch(/NVDA/u);
-    // an id and what it measures, never its value
-    expect(loaded).not.toMatch(/42[,.]?000|0\.004|0\.4%|250/u);
+    // an id, what it measures, its value and unit, when and its provenance (RELAXED-INTAKE as amended
+    // again, 2026-10-14); never its source or method, and never the value as the server writes it
+    expect(loaded).toContain(
+      `exit:${TSLA}:worst — Exit cost at the reference size, worst measured regime (weekday off-hours); TSLAx mainnet figures on a test network: value 0.004 fraction, as of 2026-10-09T14:00:00.000Z, sandbox`,
+    );
+    expect(loaded).toMatch(new RegExp(`capacity:${TSLA} — [^\\n]*: value 42000 USD`, 'u'));
+    expect(loaded).not.toMatch(/0\.4%|\$42,000|Bearing fact sheet|hourly quotes/u);
     expect(loaded).not.toMatch(/(?:vault|holding):/u);
   });
 

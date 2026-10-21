@@ -1,5 +1,7 @@
 # Robinhood Chain mainnet: the second list of tokens
 
+**Superseded in how, not in what (2026-10-14, gate `ROBINHOOD-REDEPLOY`):** these tokens, with the values below, are listed by the redeploy at deploy (`contracts/script/config/4663.json`, [`MAINNET-REDEPLOY.md`](MAINNET-REDEPLOY.md)), not by a timelock batch on the factory of 2026-10-12.
+
 Measured 2026-10-13, read-only, for gate `WIDER-LIST` (Thom: launch "with as much tokens we can"). Nothing was sent, signed or proposed: the Safe's two owners list these tokens through the timelock, and the app shows a token only once the chain lists it (below).
 
 **Twelve tokens meet the bar the nine of the deploy met:** MSTR, CRCL, USO, PLTR, WETH, cbBTC, DELL, SPCX, COIN, TSM, BABA, SGOV. Seventeen do not. The batch that lists them is `contracts/script/config/4663-assets-2.json`.
@@ -93,3 +95,23 @@ Not measured on chain, and not listable today: the six stock tokens with no Chai
 ## How the app shows them
 
 The deploy record keeps the twelve under `pending` with the batch's operation id. Nothing that trades, shows or limits reads `pending` (`deploymentAssets`, `deploymentPools`, `deploymentLimits` read `assets` only), and the guard's file does not name them, so neither the app nor the guard accepts a trade in them before the chain does. Once the execute has landed, `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads `isOperationDone` and each token's `asset()` from the factory, refuses a token listed with other settings than the file's, and moves each listed one into `assets` and the guard's file together, regenerating the guard's tables. Then the rows are filled (`scripts/robinhood/basket-assets.ts deployments/robinhood-mainnet.json`) and the API restarted.
+
+## 2026-10-14: five more through v3, two held back, one batch with the registry's upgrade
+
+Thom chose, on Oct 14, to sign one batch that covers every token we will want rather than wait 48 hours more than once: the twelve above, five tokens whose money is in Uniswap v3, and the registry's upgrade (gate `WIDER-LIST-B`). Nothing was signed or sent.
+
+**Still valid, re-read.** At block 88,587,740 the factory's admin was still the timelock, its delay 172,800 s, the Safe 2 of 2 with the same owners and nonce 0, and none of the twelve listed. At block 88,588,018 (18:39 UTC, in session) ten of the twelve still met the bar. DELL did not: its v4 pool held about a sixth of its Oct 13 liquidity and cost 1.16% / 1.21% at $1,000. SGOV still filled $1,000 at 0.04% and no $2,500 buy, and on a fork a $500 buy filled about 2.4% under its feed. Both stay in the batch, listed on chain, and are **held back** from the app (`heldBack` in the file, with why): the fork test holds their listing to the file and does not trade them, and `--promote` leaves them pending.
+
+**Five through v3.** QQQ, MU, AMD, INTC and SLV have Chainlink feeds and no v4 pool against USDG that fills $1,000 for 1% or less; each has a Uniswap v3 pool that does. They are listed with a `v3Pool` and no `pool`, and stay pending, out of the app, until the app builds a v3 route; their ceiling is on chain now, so that route needs no second timelock. Read at block 88,616,978 (2026-10-14 19:27:41 UTC) by `pool-quotes.ts` with `RH_POOLS_V3_QUOTES=1` (method `pool-quotes-0.3`: Bearing's `ClQuoter` through a state override, never deployed), cost against the pool's own mid, fee included, in / out:
+
+| Token | Feed | v3 pool (fee) | Mid vs feed | $1,000 | $10,000 | $50,000 | Largest trade | Ceiling | Average pool (observations) |
+|---|---|---|---|---|---|---|---|---|---|
+| QQQ | Robinhood QQQ / USD | `0xd60a5d14db690b7afad71f76b108071d7175597d` (500) | 19.9 bps | 0.07% / 0.07% | 0.21% / 0.21% | 0.63% / 0.89% | $50,000 | 25% | same pool (7,200), usable |
+| MU | RHMU / USD | `0xd057b1bc54917855bbee58ead58647f47cab35e5` (3000) | -11.8 bps | 0.32% / 0.32% | 0.49% / 0.49% | 1.21% / 1.32% | $25,000 | 5% | same pool (14,400), usable |
+| AMD | RHAMD / USD | `0x48d284a2a4d3dc1b3da08231fe44317e7e7aa51f` (3000) | -10 bps | 0.37% / 0.37% | 0.94% / 1.05% | — | $5,000 | 0.5% | same pool (7,200), usable |
+| INTC | RHINTC / USD | `0x2e5a92f5013a64661a49312111be2e8abd33f56a` (3000) | 9.6 bps | 0.43% / 0.44% | 1.09% / 1.61% | — | $5,000 | 0.5% | same pool (14,400), usable |
+| SLV | Robinhood SLV / USD | `0x8cb787e6c315d464775289bad00fdd67d53ecb3d` (3000) | -15 bps | 0.48% / 0.49% | 0.91% / 2.89% | — | $2,500 | 0.5% | same pool (1,801), not usable |
+
+The same rules as the twelve: largest trade the largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) at 1% or less each way; ceiling DESIGN-VAULT section 6 on the sale capacity at $1,000, $10,000, $50,000 and $250,000. On a fork of the head the five were listed by the batch and a vault bought $500 of each through Universal Router's v3 command (`V3_SWAP_EXACT_IN`, with 2.1's empty per-hop field) and sold half back, every fill within 2% of its feed.
+
+**Not added.** Rodrigo's shelf (`scripts/risk/assets/shelf-robinhood.json`) names more Robinhood Chain tokens; none meets the bar today. GME (its pools sit far from its feed or cost over 1%) and SNDK ($319 of sale capacity in Bearing's curves) have feeds; HIMS, COST, LLY, AMC, RDDT, DJT, MRNA, SNAP, TTWO, RBLX, GLXY, TAO, NET, DUAL, PROLOGUE and LIT have no Chainlink feed, so an owner's trade in them would have no witness (`OWNER-PRICE-BOUND`). Bearing's capacity for the feedless ones (hosted `risk_depth_curves`, Oct 7 to 14, the worst regime at 1%): HIMS $58k, COST $52k, LLY $50k, AMC $18k, RDDT $7k, DJT $4k.

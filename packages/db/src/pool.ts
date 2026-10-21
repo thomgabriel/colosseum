@@ -14,6 +14,12 @@
 //
 // What the API locks with holds in either mode: its advisory locks are transaction-scoped
 // (`pg_advisory_xact_lock`) and its timeouts are `SET LOCAL`, both inside one transaction.
+//
+// A connection left idle in the pool is closed after `IDLE_TIMEOUT_S` (`idleOptions`): a hosted database
+// that bills its compute by the hour, and sleeps only when no connection is open and no query runs for a
+// few minutes, is otherwise held awake by a pool that keeps its connections for as long as the process
+// lives. The driver opens one again at the next query. A connection in a transaction or reserved is not
+// idle and is never closed this way. `?idle_timeout=` in the address or `PGIDLE_TIMEOUT` stand over it.
 
 export type PoolEnv = { DB_POOL_MAX?: string; DB_PGBOUNCER?: string };
 
@@ -38,4 +44,25 @@ export function poolOptions(env: PoolEnv): { max?: number; prepare?: boolean } {
     ...(max === undefined ? {} : { max }),
     ...(mode ? { prepare: mode !== 'transaction' } : {}),
   };
+}
+
+/** Seconds a connection may sit idle in the pool before it is closed (Oct 18, DB-LOAD). */
+export const IDLE_TIMEOUT_S = 60;
+
+/**
+ * The idle timeout the driver is opened with: `IDLE_TIMEOUT_S`, unless the address (`?idle_timeout=`) or
+ * the driver's own variable (`PGIDLE_TIMEOUT`) says, which is then left to stand.
+ */
+export function idleOptions(
+  url: string,
+  env: { PGIDLE_TIMEOUT?: string },
+): { idle_timeout?: number } {
+  if (env.PGIDLE_TIMEOUT?.trim()) return {};
+  let named = false;
+  try {
+    named = new URL(url).searchParams.has('idle_timeout');
+  } catch {
+    // an address the URL parser cannot read: the driver reads it as it does
+  }
+  return named ? {} : { idle_timeout: IDLE_TIMEOUT_S };
 }

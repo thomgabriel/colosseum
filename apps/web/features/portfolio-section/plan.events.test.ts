@@ -769,7 +769,7 @@ describe('the figures of a plan’s page', () => {
     expect(hatchProblems(parse(host.innerHTML))).toEqual([]);
   });
 
-  it('says a snapshot older than an hour is stale, as the answer says, in the head and over the table', async () => {
+  it('says a snapshot older than two hours is stale, as the answer says, in the head and over the table', async () => {
     api();
     signIn();
     const host = await open('solana', SOL_STALE);
@@ -807,7 +807,7 @@ describe('a vault that follows a shared portfolio', () => {
     const host = await open('solana', SOL_STALE);
     expect(text(find(host, 'h1'))).toBe('Your vault follows Steady dollars.');
     expect(part(block(host, 'plan-head'), 'plan-reason')).toBe(
-      'The vault was last read 185 minutes ago, more than an hour.',
+      'The vault was last read 185 minutes ago, more than two hours.',
     );
     expect(rows(host)).toEqual([
       ['USDY (Ondo)', '$130.80', '51.9%', '50%', '+1.9%', ''],
@@ -1114,7 +1114,7 @@ describe('a vault on the sample chain', () => {
     // one point in the window: a sentence and that one figure, never an empty frame
     const one = block(host, 'history-one');
     expect(text(find(one, ':scope > p:first-child'))).toBe(en.plan.history.one);
-    expect(en.plan.history.one).toMatch(/about every ten minutes/);
+    expect(en.plan.history.one).toMatch(/about once an hour/);
     expect(text(one)).toContain('On Oct 6, 2026, 10:00 UTC:');
     expect(pins(one)).toHaveLength(1);
     expect(
@@ -1197,7 +1197,7 @@ describe('how far back a plan’s page looks', () => {
     signIn();
     const host = await open('solana', SOL_INCOME);
     expect(part(host, 'history-none')).toBe(
-      'No snapshot of this vault falls in this window: its newest is from Oct 7, 2026, 11:56 UTC. We take a snapshot about every ten minutes.',
+      'No snapshot of this vault falls in this window: its newest is from Oct 7, 2026, 11:56 UTC. We take a snapshot about once an hour.',
     );
     const figure = block(host, 'plan-history');
     expect(figure.querySelector('svg, [data-ui="card"], [data-ui="figure"]')).toBeNull();

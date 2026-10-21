@@ -6,7 +6,7 @@ import type { Overview } from '../en/overview';
 export const overview: Overview = {
   label: 'Visão geral',
   title: 'Seus planos ao longo do tempo.',
-  lead: 'Cada plano fica em um cofre só dele. Lemos cada cofre mais ou menos a cada dez minutos e guardamos o que lemos. Esta página mostra como cada plano está e o que sustenta cada número. Nada aqui assina ou move coisa alguma.',
+  lead: 'Cada plano fica em um cofre só dele. Lemos cada cofre mais ou menos uma vez por hora e guardamos o que lemos. Esta página mostra como cada plano está e o que sustenta cada número. Nada aqui assina ou move coisa alguma.',
   count: (plans: number, chains: number) =>
     chains > 1
       ? `Você tem ${plans} planos em ${chains} redes. Os planos de cada rede são somados à parte, nunca entre redes.`
@@ -91,7 +91,7 @@ export const overview: Overview = {
       down: 'Abaixo do que você depositou',
       cash: 'Caixa',
       empty:
-        'Ainda não há leituras neste período. Uma leitura é feita mais ou menos a cada dez minutos.',
+        'Ainda não há leituras neste período. Uma leitura é feita mais ou menos uma vez por hora.',
       reading: 'Lendo o histórico…',
       hint: 'Aponte para o gráfico, ou use as setas, para ler um dia.',
     },
@@ -109,5 +109,5 @@ export const overview: Overview = {
     newPlan: 'Novo plano',
     neverRead: 'Ainda não lido',
   },
-  refresh: 'Um novo retrato é tirado mais ou menos a cada dez minutos.',
+  refresh: 'Um novo retrato é tirado mais ou menos uma vez por hora.',
 };

@@ -16,7 +16,7 @@ The kit's table (`KitTable` measures): small muted heads, a hairline over each r
 - **The caller's columns**, before or after the weight, each only where some holding has the figure:
   - shared portfolio and a plan: Type (the asset's class; a dash where the server sent none, never "Other"), Amount, Yield after haircut (pin), Exit cost (Bearing's figure with its pin, or "Not measured"), Why;
   - vault page: Price (pin), Value (pin).
-- **Why**: at most two short muted lines, about 15rem wide, cut after them, the whole of it one hover, focus or tap away. It is a column wherever its two-line cap fits, a table 52rem wide or more (1440 beside the actions pane), and a line under the row where the table folds into rows; between, it is left out rather than cut at the panel's edge, and every reason stays in the plan's fold. On a plan, the line's deciding reason, and nothing where the server sent no kind for the asset; on a vault (under the amount), what the server holds (`why` on GET /v1/vaults/{chain}/{address}): the followed portfolio's asset kind, the plan's deciding reason, or the owner's stored choice; cash "Kept as cash" where its target is above 0; nothing invented.
+- **Why**: at most two short muted lines, about 15rem wide, cut after them, the whole of it one hover, focus or tap away. It is a column wherever its two-line cap fits, a table 52rem wide or more (1440 beside the actions pane), and a line under the row's figures where the table folds into rows; between, it is left out rather than cut at the panel's edge, and every reason stays in the plan's fold. On a plan, the line's deciding reason, and nothing where the server sent no kind for the asset; on a vault (under the amount), what the server holds (`why` on GET /v1/vaults/{chain}/{address}): the followed portfolio's asset kind, the plan's deciding reason, or the owner's stored choice; cash "Kept as cash" where its target is above 0; nothing invented.
 
 ## Before and after
 
@@ -28,7 +28,7 @@ The strip, then the three largest holdings, one line each (logo, name, share), a
 
 ## In a narrow box
 
-Under 32rem the table folds into rows: the asset on the left, the weight on the right, every other figure under them, each with its column's name.
+A table of the share alone folds into rows under 32rem: the asset on the left, the share on the right, its reason wrapping at a reading width (18rem at least where the table has its columns). A table with more columns folds where they no longer fit: under 40rem, and under 56rem where the caller asks for it (`fold="wider"`), which only a vault's holdings off their targets do: their five figures need about 52rem. Folded, the asset and its line run across the row and the figures sit in a row under it, each under its column's name, with its pin; they wrap where the row runs out of room. Where such a table has its columns, the line under a name wraps at 32ch, so a long reason never widens it.
 
 ## Pointing and focus
 

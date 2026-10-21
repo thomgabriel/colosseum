@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   assets as assetsTable,
+  type Db,
   riskAssetSnapshots,
   riskDepthCurves,
   riskEvents,
@@ -46,7 +47,10 @@ import { z } from 'zod';
 import { curveVersionOf, EVM_METHOD_VERSION } from '../curve-version';
 import { loadAssetFacts, loadPlanFacts } from '../facts';
 import { FACTS_METHODOLOGY } from '../facts-methodology';
+import { curveNotionalOut, curvePointAt } from '../history';
+import { latestLendingReportAt } from '../lending-facts';
 import { type RiskCacheOptions, registerRiskReadCache } from './risk-cache';
+import { registerRiskDexRoute } from './risk-dex';
 import { registerRiskHistoryRoutes } from './risk-history';
 import { registerPoolLiquidityRoute } from './risk-pool-liquidity';
 import { registerRiskSplitRoute } from './risk-split';
@@ -84,6 +88,146 @@ const Chain = ChainName.default('solana');
 type Chain = z.infer<typeof ChainName>;
 const EVM_POOLS_NOT_IN_REGISTRY =
   'not collected on Robinhood Chain: its pools are not in the pool registry (PLAN-UNIVERSE RU.14, DU6)';
+
+/**
+ * Each asset with pools of tier A or B: its symbol, its pools' TVL summed (a pool with none counts 0) and
+ * how many pools, summed in the database: one row per asset, not every listed pool's.
+ */
+export function listedPoolTvl(db: Db) {
+  return db
+    .select({
+      mint: riskPools.assetMint,
+      symbol: sql<string>`min(${riskPools.assetSymbol})`,
+      tvl: sql<number>`coalesce(sum(${riskPools.tvlUsd}), 0)::float8`,
+      pools: sql<number>`count(*)::int`,
+    })
+    .from(riskPools)
+    .where(inArray(riskPools.tier, ['A', 'B']))
+    .groupBy(riskPools.assetMint);
+}
+
+/**
+ * The heatmap's cells: per hour of the week (ET), the median over snapshots of the asset's best single-pool
+ * cost at `notional`, from the pools that exit to dollars. Each snapshot's one point at `notional` is picked
+ * in the database (`curvePointAt`); a snapshot without one is not counted. A side stored as JSON null (a
+ * ten-minute run found it as the pool's last stored curve, scripts/risk/import.ts) reads as the pool's
+ * previous curve on that side. A run with a null side whose curve is no longer kept is not counted (the prune
+ * cuts pool snapshots on the hour, so the oldest row it keeps of a pool is from a full run). Null when the asset
+ * has no such pool.
+ */
+export async function heatmapCells(
+  db: Db,
+  mint: string,
+  notional: number,
+  side: 'sell' | 'buy',
+): Promise<Array<{ hourOfWeekEt: number; medianCost: number; samples: number }> | null> {
+  const pools = await db
+    .select({ address: riskPools.address })
+    .from(riskPools)
+    .where(
+      and(eq(riskPools.assetMint, mint), inArray(riskPools.exitPath, ['direct_usd', 'via_sol'])),
+    );
+  if (!pools.length) return null;
+  const col = side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy;
+  const snaps = await db
+    .select({
+      pool: riskPoolSnapshots.pool,
+      fetchedAt: riskPoolSnapshots.fetchedAt,
+      asBefore: sql<boolean>`jsonb_typeof(${col}) = 'null'`,
+      point: curvePointAt(col, notional),
+    })
+    .from(riskPoolSnapshots)
+    .where(
+      inArray(
+        riskPoolSnapshots.pool,
+        pools.map((p) => p.address),
+      ),
+    )
+    .orderBy(riskPoolSnapshots.pool, riskPoolSnapshots.fetchedAt);
+  // each pool's point on its last stored curve, which a side stored as null repeats
+  const lastPoint = new Map<string, unknown>();
+  const bestAt = new Map<string, number>();
+  // runs with a null side whose curve is no longer kept: the run's best pool is not known, so it is not counted
+  const unknown = new Set<string>();
+  for (const s of snaps) {
+    const k = s.fetchedAt.toISOString();
+    if (!s.asBefore) lastPoint.set(s.pool, s.point);
+    else if (!lastPoint.has(s.pool)) {
+      unknown.add(k);
+      continue;
+    }
+    const pt = lastPoint.get(s.pool) as { outUsd: number } | null;
+    if (!pt) continue;
+    bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
+  }
+  for (const k of unknown) bestAt.delete(k);
+  const byHow = new Map<number, number[]>();
+  for (const [t, out] of bestAt) {
+    const h = hourOfWeek(new Date(t));
+    const arr = byHow.get(h) ?? [];
+    arr.push(1 - out / notional);
+    byHow.set(h, arr);
+  }
+  return [...byHow.entries()]
+    .sort((x, y) => x[0] - y[0])
+    .map(([how, xs]) => {
+      const s = [...xs].sort((p, q) => p - q);
+      return {
+        hourOfWeekEt: how,
+        medianCost: s[Math.floor((s.length - 1) / 2)] as number,
+        samples: s.length,
+      };
+    });
+}
+
+/** The days of routed asset snapshots the thinnest hour reads: the retention of risk_asset_snapshots. */
+export const THINNEST_HOUR_DAYS = 7;
+
+/**
+ * The thinnest hour of the week (ET) to sell `valueUsd` of an asset: the hour with the highest median routed
+ * sell cost at the smallest measured notional at or above the value, over the asset's snapshots of the
+ * `THINNEST_HOUR_DAYS` up to its newest (`newest`), which is what the hosted database keeps (DB-RETENTION).
+ * Each side is read cut to its two numbers (`curveNotionalOut`). Null when no snapshot reaches the value.
+ */
+export async function thinnestHour(db: Db, mint: string, valueUsd: number, newest: Date) {
+  const rows = await db
+    .select({
+      fetchedAt: riskAssetSnapshots.fetchedAt,
+      sell: curveNotionalOut(riskAssetSnapshots.sell),
+    })
+    .from(riskAssetSnapshots)
+    .where(
+      and(
+        eq(riskAssetSnapshots.assetMint, mint),
+        gte(
+          riskAssetSnapshots.fetchedAt,
+          new Date(newest.getTime() - THINNEST_HOUR_DAYS * 86_400_000),
+        ),
+      ),
+    );
+  const byHow = new Map<number, number[]>();
+  for (const r of rows) {
+    const pts = (r.sell as Array<{ notionalUsd: number; outUsd: number }>)
+      .map((p) => ({ n: p.notionalUsd, c: 1 - p.outUsd / p.notionalUsd }))
+      .sort((x, y) => x.n - y.n);
+    const hi = pts.findIndex((p) => p.n >= valueUsd);
+    const cost = hi < 0 ? null : (pts[hi] as { c: number }).c;
+    if (cost === null) continue;
+    const how = hourOfWeek(r.fetchedAt);
+    byHow.set(how, [...(byHow.get(how) ?? []), cost]);
+  }
+  const med = (xs: number[]) =>
+    [...xs].sort((x, y) => x - y)[Math.floor((xs.length - 1) / 2)] as number;
+  return (
+    [...byHow.entries()]
+      .map(([how, xs]) => ({
+        hourOfWeekEt: how,
+        medianSellCost: med(xs),
+        samples: xs.length,
+      }))
+      .sort((x, y) => y.medianSellCost - x.medianSellCost)[0] ?? null
+  );
+}
 
 export async function registerRiskRoutes(
   app: FastifyInstance,
@@ -181,6 +325,8 @@ export async function registerRiskRoutes(
   await registerPoolLiquidityRoute(app, db);
   // how a routed sale divides across the pools, leg by leg, from the hourly split snapshot (risk-split.ts)
   await registerRiskSplitRoute(app, db, resolveAsset, REGIME_PARAMS);
+  // what the stocks and commodities pages read of each asset, many assets in one answer (risk-dex.ts)
+  await registerRiskDexRoute(app);
 
   /** Sell capacity at tau per regime, as `/risk/assets` lists it. */
   function capacityAt(c: AssetCurves, tau: number) {
@@ -207,20 +353,10 @@ export async function registerRiskRoutes(
   async function chainAssets(chain: Chain) {
     if (chain === 'robinhood')
       return (await evmAssets()).map((a) => ({ ...a, tvl: null, pools: null }));
-    const pools = await db
-      .select()
-      .from(riskPools)
-      .where(inArray(riskPools.tier, ['A', 'B']));
-    const tvl = new Map<string, { symbol: string; tvl: number; pools: number }>();
-    for (const p of pools) {
-      const v = tvl.get(p.assetMint) ?? { symbol: p.assetSymbol, tvl: 0, pools: 0 };
-      v.tvl += p.tvlUsd ?? 0;
-      v.pools++;
-      tvl.set(p.assetMint, v);
-    }
-    return [...tvl.entries()]
-      .sort((a, b) => b[1].tvl - a[1].tvl)
-      .map(([mint, v]) => ({ id: mint, symbol: v.symbol, mint, tvl: v.tvl, pools: v.pools }));
+    const rows = await listedPoolTvl(db);
+    return rows
+      .sort((a, b) => b.tvl - a.tvl)
+      .map((v) => ({ id: v.mint, symbol: v.symbol, mint: v.mint, tvl: v.tvl, pools: v.pools }));
   }
 
   f.get(
@@ -302,14 +438,7 @@ export async function registerRiskRoutes(
   );
 
   // PLAN-ANALYTICS item 11: the lending and plan fact sheets, and liquidation coverage under both definitions.
-  const latestReportAt = async () => {
-    const [r] = await db
-      .select({ t: riskLendingFacts.reportAt })
-      .from(riskLendingFacts)
-      .orderBy(desc(riskLendingFacts.reportAt))
-      .limit(1);
-    return r?.t ?? null;
-  };
+  const latestReportAt = () => latestLendingReportAt(db);
   f.get(
     '/risk/facts/methodology',
     {
@@ -549,54 +678,8 @@ export async function registerRiskRoutes(
     async (req, reply) => {
       const a = await resolveAsset(req.params.id);
       if (!a) return reply.code(404).send({ error: `unknown asset ${req.params.id}` });
-      const pools = await db
-        .select({ address: riskPools.address })
-        .from(riskPools)
-        .where(
-          and(
-            eq(riskPools.assetMint, a.mint),
-            inArray(riskPools.exitPath, ['direct_usd', 'via_sol']),
-          ),
-        );
-      if (!pools.length) return { asset: a.symbol, cells: [], disclaimer: DISCLAIMER.en };
-      const snaps = await db
-        .select({
-          fetchedAt: riskPoolSnapshots.fetchedAt,
-          curve: req.query.side === 'sell' ? riskPoolSnapshots.sell : riskPoolSnapshots.buy,
-        })
-        .from(riskPoolSnapshots)
-        .where(
-          inArray(
-            riskPoolSnapshots.pool,
-            pools.map((p) => p.address),
-          ),
-        );
-      const bestAt = new Map<string, number>();
-      for (const s of snaps) {
-        const pt = (s.curve as Array<{ notionalUsd: number; outUsd: number }>).find(
-          (x) => x.notionalUsd === req.query.notional,
-        );
-        if (!pt) continue;
-        const k = s.fetchedAt.toISOString();
-        bestAt.set(k, Math.max(bestAt.get(k) ?? 0, pt.outUsd));
-      }
-      const byHow = new Map<number, number[]>();
-      for (const [t, out] of bestAt) {
-        const h = hourOfWeek(new Date(t));
-        const arr = byHow.get(h) ?? [];
-        arr.push(1 - out / req.query.notional);
-        byHow.set(h, arr);
-      }
-      const cells = [...byHow.entries()]
-        .sort((x, y) => x[0] - y[0])
-        .map(([how, xs]) => {
-          const s = [...xs].sort((p, q) => p - q);
-          return {
-            hourOfWeekEt: how,
-            medianCost: s[Math.floor((s.length - 1) / 2)],
-            samples: s.length,
-          };
-        });
+      const cells = await heatmapCells(db, a.mint, req.query.notional, req.query.side);
+      if (!cells) return { asset: a.symbol, cells: [], disclaimer: DISCLAIMER.en };
       return {
         asset: a.symbol,
         notionalUsd: req.query.notional,
@@ -811,7 +894,10 @@ export async function registerRiskRoutes(
         liquidationMaxLimit?: number;
       };
       const [snap] = await db
-        .select()
+        .select({
+          fetchedAt: riskAssetSnapshots.fetchedAt,
+          refMidUsd: riskAssetSnapshots.refMidUsd,
+        })
         .from(riskAssetSnapshots)
         .where(eq(riskAssetSnapshots.assetMint, m.assetMint))
         .orderBy(desc(riskAssetSnapshots.fetchedAt))
@@ -907,39 +993,17 @@ export async function registerRiskRoutes(
         const a = await resolveAsset(h.asset);
         if (!a) return reply.code(404).send({ error: `unknown asset ${h.asset}` });
         const [snap] = await db
-          .select()
+          .select({
+            fetchedAt: riskAssetSnapshots.fetchedAt,
+            refMidUsd: riskAssetSnapshots.refMidUsd,
+          })
           .from(riskAssetSnapshots)
           .where(eq(riskAssetSnapshots.assetMint, a.mint))
           .orderBy(desc(riskAssetSnapshots.fetchedAt))
           .limit(1);
         if (!snap) return reply.code(404).send({ error: `no price snapshot for ${a.symbol}` });
         const valueUsd = h.units * snap.refMidUsd;
-        // thinnest hour: highest median routed sell cost at the holding's size, by hour of week (ET)
-        const rows = await db
-          .select({ fetchedAt: riskAssetSnapshots.fetchedAt, sell: riskAssetSnapshots.sell })
-          .from(riskAssetSnapshots)
-          .where(eq(riskAssetSnapshots.assetMint, a.mint));
-        const byHow = new Map<number, number[]>();
-        for (const r of rows) {
-          const pts = (r.sell as Array<{ notionalUsd: number; outUsd: number }>)
-            .map((p) => ({ n: p.notionalUsd, c: 1 - p.outUsd / p.notionalUsd }))
-            .sort((x, y) => x.n - y.n);
-          const hi = pts.findIndex((p) => p.n >= valueUsd);
-          const cost = hi < 0 ? null : (pts[hi] as { c: number }).c;
-          if (cost === null) continue;
-          const how = hourOfWeek(r.fetchedAt);
-          byHow.set(how, [...(byHow.get(how) ?? []), cost]);
-        }
-        const med = (xs: number[]) =>
-          [...xs].sort((x, y) => x - y)[Math.floor((xs.length - 1) / 2)] as number;
-        const thinnest =
-          [...byHow.entries()]
-            .map(([how, xs]) => ({
-              hourOfWeekEt: how,
-              medianSellCost: med(xs),
-              samples: xs.length,
-            }))
-            .sort((x, y) => y.medianSellCost - x.medianSellCost)[0] ?? null;
+        const thinnest = await thinnestHour(db, a.mint, valueUsd, snap.fetchedAt);
         const venues = markets
           .filter((m) => m.assetMint === a.mint)
           .map((m) => {

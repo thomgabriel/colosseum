@@ -1,4 +1,5 @@
 import {
+  SNAPSHOT_STALE_AFTER_SECONDS,
   TRACK_RULE,
   TrackLine,
   TrackSnapshot,
@@ -351,24 +352,32 @@ describe('statusOf, each line of ON-TRACK-V1', () => {
     expect(lossAt(1, 3)).toMatchObject({ line: 'loss_quarter', params: { usedPct: 33 } });
   });
 
-  it('stale: Watch when the snapshot is more than an hour old', () => {
-    // A second short of 76 minutes: the minutes are whole, and cut.
-    const old = snapshot({ observedAt: ago(75 * 60 + 59) });
+  it('stale: Watch when the snapshot is more than two hours old', () => {
+    // A second short of 136 minutes: the minutes are whole, and cut.
+    const old = snapshot({ observedAt: ago(135 * 60 + 59) });
     expect(said({ snapshot: old })).toEqual({
       status: 'watch',
       rule: TRACK_RULE,
       line: 'stale',
-      params: { minutes: 75 },
-      text: 'The vault was last read 75 minutes ago, more than an hour.',
+      params: { minutes: 135 },
+      text: 'The vault was last read 135 minutes ago, more than two hours.',
       observedAt: old.observedAt,
     });
   });
 
-  it('stale: exactly an hour is not stale, and anything more is', () => {
+  it('stale: exactly two hours is not stale, and anything more is', () => {
+    expect(SNAPSHOT_STALE_AFTER_SECONDS).toBe(7200);
     const aged = (ms: number) => said({ snapshot: snapshot({ observedAt: msAgo(ms) }) });
-    expect(aged(3_600_000).line).toBe('inside');
-    expect(aged(3_601_000)).toMatchObject({ line: 'stale', params: { minutes: 60 } });
-    expect(aged(3_600_001).line).toBe('stale');
+    expect(aged(7_200_000).line).toBe('inside');
+    expect(aged(7_201_000)).toMatchObject({ line: 'stale', params: { minutes: 120 } });
+    expect(aged(7_200_001).line).toBe('stale');
+  });
+
+  it('stale: not while an hourly pass is late or failed once', () => {
+    const aged = (ms: number) => lineOf({ snapshot: snapshot({ observedAt: msAgo(ms) }) });
+    // The pass before last, a second over the hour; one missed pass, just under two.
+    expect(aged(3_601_000)).toBe('inside');
+    expect(aged(7_199_999)).toBe('inside');
   });
 
   it('inside: On track, with the loss used as a share of the budget', () => {
@@ -469,8 +478,8 @@ describe('statusOf, the order of the lines', () => {
     [
       'no_band',
       'stale',
-      { snapshot: snapshot({ observedAt: ago(7200), bandBps: null }) },
-      { snapshot: snapshot({ observedAt: ago(7200) }) },
+      { snapshot: snapshot({ observedAt: ago(10_800), bandBps: null }) },
+      { snapshot: snapshot({ observedAt: ago(10_800) }) },
     ],
     [
       // 80 bps short in the positions, so 80 over in cash: with one of them outside, and with none.
@@ -488,14 +497,14 @@ describe('statusOf, the order of the lines', () => {
     [
       'loss_quarter',
       'stale',
-      { snapshot: snapshot({ observedAt: ago(7200), lossUsedBps: 30 }) },
-      { snapshot: snapshot({ observedAt: ago(7200) }) },
+      { snapshot: snapshot({ observedAt: ago(10_800), lossUsedBps: 30 }) },
+      { snapshot: snapshot({ observedAt: ago(10_800) }) },
     ],
-    ['stale', 'inside', { snapshot: snapshot({ observedAt: ago(7200) }) }, {}],
+    ['stale', 'inside', { snapshot: snapshot({ observedAt: ago(10_800) }) }, {}],
     [
       'stale',
       'inside_no_budget',
-      { snapshot: snapshot({ observedAt: ago(7200), lossCapBps: null }) },
+      { snapshot: snapshot({ observedAt: ago(10_800), lossCapBps: null }) },
       { snapshot: snapshot({ lossCapBps: null }) },
     ],
   ];
@@ -766,11 +775,11 @@ describe('statusOf, on generated vaults', () => {
     often(1, fc.constant('0')),
     often(4, fc.bigInt({ min: 1n, max: 10n ** 30n }).map(String)),
   );
-  // Seconds back from NOW: fresh, over an hour, over a day, and ahead of the clock.
+  // Seconds back from NOW: fresh, over two hours, over a day, and ahead of the clock.
   const when = fc
     .oneof(
-      often(6, fc.integer({ min: 0, max: 3600 })),
-      often(2, fc.integer({ min: 3601, max: DAY - 1 })),
+      often(6, fc.integer({ min: 0, max: SNAPSHOT_STALE_AFTER_SECONDS })),
+      often(2, fc.integer({ min: SNAPSHOT_STALE_AFTER_SECONDS + 1, max: DAY - 1 })),
       often(1, fc.integer({ min: DAY, max: 3 * DAY })),
       often(1, fc.integer({ min: -DAY, max: -1 })),
     )

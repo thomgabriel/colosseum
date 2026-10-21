@@ -61,8 +61,20 @@ export type FigureReferences = {
 
 const LOCALE = { en: 'en-US', pt: 'pt-BR' } as const;
 const WORDS = {
-  en: { atLeast: 'at least', missing: 'not measured', hours: 'hours', seconds: 'seconds' },
-  pt: { atLeast: 'pelo menos', missing: 'não medido', hours: 'horas', seconds: 'segundos' },
+  en: {
+    atLeast: 'at least',
+    missing: 'not measured',
+    hours: 'hours',
+    seconds: 'seconds',
+    tokens: 'tokens',
+  },
+  pt: {
+    atLeast: 'pelo menos',
+    missing: 'não medido',
+    hours: 'horas',
+    seconds: 'segundos',
+    tokens: 'tokens',
+  },
 } as const;
 
 /**
@@ -94,7 +106,10 @@ export function figureText(
               ? [{}, { maximumFractionDigits: 1 }, ` ${words[unit]}`]
               : unit === 'units'
                 ? [{}, { maximumFractionDigits: 6 }, '']
-                : [{}, { maximumFractionDigits: 6 }, ` ${unit}`];
+                : // a token supply (the asset lookups): whole tokens to two places
+                  unit === 'tokens'
+                  ? [{}, { maximumFractionDigits: 2 }, ` ${words.tokens}`]
+                  : [{}, { maximumFractionDigits: 6 }, ` ${unit}`];
   const number = (digits: Intl.NumberFormatOptions) =>
     new Intl.NumberFormat(LOCALE[language], { ...style, ...digits })
       .format(value)
@@ -314,12 +329,199 @@ const yieldClauses = (names: readonly string[]): RegExp[] => {
   ].map((clause) => new RegExp(`${start}(?:${clause})${end}`, 'iu'));
 };
 
+/**
+ * The figures read under the yield grammar (rule 5): a stored yield (`yield:`), and of the asset lookups
+ * (FIGURES-BY-REFERENCE as amended 2026-10-14) a yield reading of an asset's profile, which is the token's
+ * own yield. A lending market's supply or borrow rate is not one: it is the rate of the token the market
+ * lends (`LEND_RATE`), never the asset's yield.
+ */
+export const isYield = (id: string): boolean =>
+  id.startsWith('yield:') || /^profile:.+:yield_[a-z0-9_]+$/u.test(id);
+
+/**
+ * A lending market's supply or borrow rate (the asset lookups). It is served only where its sentence calls
+ * it a supply rate or a borrow rate (`LOOKUP_KINDS`, `MUST_BE_CALLED`); "rate" and a period are its own
+ * words, a yield, a return, earning, a gain or a profit cut it (`RETURN`), and the promise words that cut a
+ * yield cut it.
+ */
+const LEND_RATE = /^lend:.+:(?:supply|borrow)$/u;
+/** The rate words a lending rate's sentence may hold, which cut any other figure (`RETURN`). */
+const RATE_WORDS = /(?<![\p{L}\p{N}'’])(?:rates?|taxas?)(?![\p{L}\p{N}])/giu;
+/**
+ * A sentence names a token as what a market takes as collateral ("the vault that takes NVDAx as collateral"):
+ * the token is where the figure was read, not what it is of, so the rule that a lending figure's sentence
+ * names no other asset leaves it out.
+ */
+const AS_COLLATERAL =
+  /(?<![\p{L}\p{N}])(?:takes?|taking|accepts?|accepting|aceita[mr]?)\s+(?:(?:o|a)\s+)?\S+\s+(?:as|como)\s+(?:collateral|colateral|garantia)(?![\p{L}\p{N}])/giu;
+/**
+ * The person's own holding or action, or the vault's: a looked-up figure is of an asset or its market, never
+ * the person's or the vault's share, stake, result or what they can do (`ANY-COMPOSITION`). Read only in a
+ * sentence with a lookup's figure (`personal`).
+ */
+const PERSON_WORDS =
+  "your|yours|yourself|you\\s+(?:can|could|will|would|might|may|should|hold|held|have|had|own|owned|get|got|keep|kept|made|lost|gained|earned|put|invested|bought|sold|are|were|want|wanted|wish|need|lend|lent|supply|supplied|deposit|deposited|withdraw|withdrew|borrow|borrowed|stake|staked)|you['’](?:ll|d|ve|re)|my|mine|myself|ur|vc|vcs|seu|sua|seus|suas|voc[eê]s?|teu|tua|teus|tuas|meu|minha|meus|minhas|we|we['’](?:ll|d|ve|re)|our|ours|ourselves|n[oó]s|nosso|nossa|nossos|nossas|(?:by|for|to)\\s+you|a\\s+person|someone|somebody|anyone|anybody|whoever|uma\\s+pessoa|algu[eé]m|quem|d[aá]\\s+(?:pra|para)";
+/** The agent speaking of itself ("I see", "eu vejo"): the person's in a figure's sentence, not beside it. */
+const AGENT_WORDS = 'I|eu';
+const PERSONAL = lone(`${PERSON_WORDS}|${AGENT_WORDS}`);
+const PERSONAL_BESIDE = lone(PERSON_WORDS);
+/** "u" and "us" in lower case only, so neither "U.S." nor "US" reads as the person. */
+const PERSONAL_CASED = /(?<![\p{L}\p{N}'’])(?:u|us|Us|Ur)(?![\p{L}\p{N}'’.])/u;
+/** A vault as a holder: it holds, has, owns or can; or its holding, by an asset's name after "vault's". */
+const VAULT_HOLDS = new RegExp(
+  `${
+    lone(
+      "(?:the|this|that|my|your|our)\\s+vaults?\\s+(?:\\p{L}+\\s+)?(?:holds?|held|holding|has|had|owns?|owned|can|could|is\\s+able|gets?|got|keeps?|kept)|(?:o|este|esse|aquele|meu|seu|nosso)\\s+cofre\\s+(?:\\p{L}+\\s+)?(?:tem|teve|pode|podem|possui|det[eé]m|guarda|segura|consegue)|vault['’]s\\s+(?:holdings?|positions?|stakes?|shares?|assets?|tokens?|money|balance|dollars)",
+    ).source
+  }(?!\\s+(?:(?:a|an|the|its|uma)\\s+)?(?:\\p{L}+\\s+)?(?:(?:supply|borrow|borrowing|lending)\\s+rates?|utili\\p{L}*|taxas?))`,
+  'iu',
+);
+const VAULT_OWNS = /(?<![\p{L}\p{N}])vault['’]s\s+(\S+)/giu;
+/** A sentence that tells the person to act: it opens with withdraw, sell, lend, supply, deposit, borrow or hold. */
+const IMPERATIVE =
+  /^\s*(?:[-*•–—]\s+)?(?:(?:just|then|now|so|please|agora|ent[aã]o|basta)\s*,?\s+)?(?:withdraw|sell|lend|supply|deposit|borrow|hold|buy|stake|saque|sacar|venda|vender|empreste|emprestar|deposite|depositar|tome|tomar|compre|segure)(?![\p{L}\p{N}])(?!\s+(?:rates?|apy|apr|caps?|limits?|sides?|volumes?|of|is|was|stands|totals?)(?![\p{L}\p{N}]))/iu;
+/** Portuguese without a subject: "pode sacar", "podem vender", at the start of a sentence or a clause. */
+const SUBJECTLESS =
+  /(?:^\s*(?:[-*•–—]\s+)?(?:(?:sim|hoje|agora|ent[aã]o|e|mas|j[aá])\s*,?\s+)?|[,;:]\s+)(?:pode|podem)\s+\p{L}{2,}/iu;
+
+/**
+ * Whether a sentence speaks of the person's or the vault's own holding or action: a person word, a vault as a
+ * holder, an order to act or Portuguese without a subject. `agent`: the agent's own "I" counts too (in the
+ * figure's own sentence; beside it, "This is what I found" is the agent speaking).
+ */
+function personal(
+  text: string,
+  named: ((text: string) => { own: string[] }) | undefined,
+  agent: boolean,
+): boolean {
+  if (
+    (agent ? PERSONAL : PERSONAL_BESIDE).test(text) ||
+    PERSONAL_CASED.test(text) ||
+    VAULT_HOLDS.test(text) ||
+    IMPERATIVE.test(text) ||
+    SUBJECTLESS.test(text)
+  )
+    return true;
+  // "the vault's NVDAx": a holding of the vault, by the asset's name
+  for (const match of text.matchAll(VAULT_OWNS))
+    if ((named?.(match[1] ?? '').own.length ?? 0) > 0) return true;
+  return false;
+}
+
+/** Read in a sentence beside a lookup's figure, never alone. */
+const NEIGHBOUR_RETURN = lone(
+  'returns?|returned|returning|yields?|yielded|yielding|earn\\p{L}*|pays?|paid|paying|payouts?|income|profit\\p{L}*|gain\\p{L}*|interest|dividends?|rind\\p{L}*|rend[ae]\\p{L}*|rendiment\\p{L}*|rentabilidade|renda|retorn\\p{L}*|ganh\\p{L}*|lucr\\p{L}*|pag[ao]\\p{L}*|juros|dividendos?',
+);
+/** A sentence that refers back to the figure before it or on to the one after it. */
+const REFERS_OPEN =
+  /^\s*(?:[-*•–—]\s+)?(?:(?:and|but|so|e|mas)\s+)?(?:that|this|it|which|so|those|these|isso|isto|esse|essa|esses|essas)(?![\p{L}\p{N}])/iu;
+const REFERS_IN = lone('that|this|it|isso|isto|isso\\s+tudo');
+/** Beside a change over a window, a result: a change is the asset's past move, never a performance. */
+const PERFORMANCE = lone(
+  'perform\\p{L}*|profit\\p{L}*|earn\\p{L}*|gain\\p{L}*|lost|made|results?|deliver\\p{L}*|winners?|losers?|(?:good|bad|great|strong|weak|rough|solid|terrible)\\s+(?:week|month|day|year)|(?:did|done|doing)\\s+(?:well|badly|poorly|great)|desempenh\\p{L}*|lucr\\p{L}*|ganh\\p{L}*|perd\\p{L}*|resultados?|entreg\\p{L}*|vencedor\\p{L}*|perdedor\\p{L}*',
+);
+
 // A holding's distance from its target, and a line's weight in the shared portfolio the vault follows.
 const GAP_WORDS =
   'gaps?|off\\s+(?:its\\s+)?target|away\\s+from|above|below|over|under|short|drift|dist[aâ]ncia|desvio|acima|abaixo';
 const WEIGHT_WORDS = 'weights?|weighs|portfolio|pesos?|pesa|portf[oó]lio|carteira';
+// A pool's share of the asset's pool dollars, called that: "of the dollars in its pools", "of its pool
+// liquidity", "of the pools' TVL", "da liquidez dos pools".
+const POOL_SHARE_WORDS = [
+  "of\\s+(?:the\\s+)?(?:dollars|liquidity|tvl|value)\\s+(?:held\\s+)?(?:in|across|of)\\s+(?:all\\s+)?(?:its|the|\\p{L}+['’]s)\\s+(?:dex\\s+)?pools",
+  "of\\s+(?:its|the|\\p{L}+['’]s)\\s+(?:dex\\s+)?pool\\s+(?:liquidity|tvl|dollars|value)",
+  "of\\s+(?:its\\s+|the\\s+)?(?:dex\\s+)?pools['’]\\s+(?:tvl|liquidity|dollars|value)",
+  'd[ao]s?\\s+(?:liquidez|tvl|d[oó]lares|valor)\\s+(?:d[oe]s|n[oa]s|em)\\s+(?:\\p{L}+\\s+)?pools',
+].join('|');
+// A lending market's rates, called a supply rate or a borrow rate, or the rate to supply, lend or borrow.
+const SUPPLY_RATE_WORDS =
+  'supply\\s+rates?|rates?\\s+(?:to|for)\\s+(?:supply|supplying|lend|lending|deposit|depositing)|taxas?\\s+(?:de|para)\\s+(?:fornecimento|fornecer|suprimento|emprestar|dep[oó]sito|depositar)';
+const BORROW_RATE_WORDS =
+  'borrow(?:ing)?\\s+rates?|rates?\\s+(?:to|for)\\s+(?:borrow|borrowing)|taxas?\\s+(?:de|para)\\s+(?:tomada|tomar)';
+// The kinds a lookup's figure must be called by in its own sentence, wherever it is served: neither a
+// lending rate nor a pool's share is ever left to a sentence that could read it as something else.
+const MUST_BE_CALLED: Array<[RegExp, RegExp]> = [
+  [/^lend:.+:supply$/u, lone(SUPPLY_RATE_WORDS)],
+  [/^lend:.+:borrow$/u, lone(BORROW_RATE_WORDS)],
+  [/^pool:.+:share$/u, lone(POOL_SHARE_WORDS)],
+];
+// The asset lookups' families (FIGURES-BY-REFERENCE as amended 2026-10-14): each called what it is. A
+// change over a window is a change or a move, never a return or a gain (those words cut it, rule 3).
+const LOOKUP_KINDS: Array<[RegExp, RegExp]> = [
+  [
+    /^profile:.+:supply_(?:total|issuer)$/u,
+    lone('supply|supplies|circulat\\p{L}*|issued|oferta|emitid\\p{L}*|emiss\\p{L}*|circula\\p{L}*'),
+  ],
+  [
+    /^profile:.+:holders_top\d+_share$/u,
+    lone(
+      'holders?|held|largest\\s+(?:accounts|wallets)|concentrat\\p{L}*|detentor\\p{L}*|concentra\\p{L}*',
+    ),
+  ],
+  [
+    /^profile:.+:pool_tvl_usd$/u,
+    lone('tvl|pools?|held\\s+in|deposited|locked|depositad\\p{L}*|bloquead\\p{L}*'),
+  ],
+  [
+    /^profile:.+:protocol_tvl_usd$/u,
+    lone('tvl|protocol|locked|deposited|protocolo|depositad\\p{L}*'),
+  ],
+  [/^profile:.+:dex_volume_\w+$/u, lone('volume|traded|negociad\\p{L}*')],
+  [
+    /^profile:.+:exchange_rate$/u,
+    lone(
+      'exchange|conversion|redemption|redeem\\p{L}*|underlying|c[aâ]mbio|convers[aã]o|resgate|subjacente',
+    ),
+  ],
+  [
+    /^bars:.+:close$/u,
+    lone('price[sd]?|close[sd]?|closing|pre[cç]os?|fechamento|fechou|cota[cç][aã]o'),
+  ],
+  [/^bars:.+:high$/u, lone('high|highest|peak|top|m[aá]xim\\p{L}*|pico')],
+  [/^bars:.+:low$/u, lone('low|lowest|bottom|trough|m[ií]nim\\p{L}*')],
+  [
+    /^bars:.+:change$/u,
+    lone(
+      'change[sd]?|changing|move[sd]?|movement|moving|varia\\p{L}*|mudan[cç]\\p{L}*|mud(?:ou|ar)|oscil\\p{L}*',
+    ),
+  ],
+  [/^bars:.+:volume$/u, lone('volume|traded|negociad\\p{L}*')],
+  // the entry and exit sides (Bearing's market terms), beside the old words
+  [
+    /^bars:.+:buyvol$/u,
+    lone('entry\\s+side|entries|bought|buys?|buying|purchases?|purchased|compras?|comprad\\p{L}*'),
+  ],
+  [
+    /^bars:.+:sellvol$/u,
+    lone('exit\\s+side|exits|sold|sells?|selling|sales?|vendas?|vendid\\p{L}*'),
+  ],
+  [
+    /^bars:.+:swaps$/u,
+    lone('swaps?|trades|count|number\\s+of|trocas?|opera[cç](?:ão|ões|ao|oes)|n[uú]mero\\s+de'),
+  ],
+  [/^bars:.+:gaps$/u, lone('hours?|gaps?|quiet|horas?|lacunas?')],
+  [
+    /^pool:.+:tvl$/u,
+    lone('tvl|holds|held|deposited|locked|liquidity|liquidez|depositad\\p{L}*|bloquead\\p{L}*'),
+  ],
+  [/^pool:.+:volume$/u, lone('volume|traded|negociad\\p{L}*')],
+  // a share of the dollars in the asset's pools, never a bare "share" (a person's share: ANY-COMPOSITION)
+  [/^pool:.+:share$/u, lone(POOL_SHARE_WORDS)],
+  [/^lend:.+:supply$/u, lone(SUPPLY_RATE_WORDS)],
+  [/^lend:.+:borrow$/u, lone(BORROW_RATE_WORDS)],
+  [
+    /^lend:.+:util$/u,
+    lone('utili[sz]\\p{L}*|lent\\s+out|in\\s+use|utiliza\\p{L}*|emprestad\\p{L}*'),
+  ],
+  [
+    /^lend:.+:withdrawable$/u,
+    lone('withdraw\\p{L}*|available|sac\\p{L}*|dispon[ií]ve\\p{L}*|resgat\\p{L}*'),
+  ],
+  // a market that only takes the asset as collateral: no figure, a note that it is collateral there
+  [/^lend:.+:collateral$/u, lone('collateral|colateral|garantia')],
+];
 // The kind of a figure, by its id, and the words that name it in a sentence.
-const KINDS: Array<[RegExp, RegExp]> = [
+const BASE_KINDS: Array<[RegExp, RegExp]> = [
   [
     /^(?:vault:value|holding:.*:value)$/u,
     lone(
@@ -357,7 +559,7 @@ const VAULT_WORD = lone('vault|cofre');
 // name each kind, narrower than `KINDS`. A cost is not a capacity, "trades" is a price and not a
 // volume, and "is at" and "goes for" say a price. A kind of the vault's own (worth, share, target,
 // amount) has no words here: no such figure exists where this is asked.
-const STRICT_KINDS: Array<[RegExp, RegExp]> = [
+const BASE_STRICT_KINDS: Array<[RegExp, RegExp]> = [
   [
     /^price:/u,
     lone(
@@ -379,7 +581,7 @@ const STRICT_KINDS: Array<[RegExp, RegExp]> = [
 // The words that bind to a figure: each names one kind and stands beside the figure it speaks of
 // ("priced at X", "X of the vault", "X units"). Narrower than `KINDS`: "holding" and "total" stand
 // in sentences about any figure, and "share" is also a unit of a stock.
-const BOUND_KINDS: Array<[RegExp, RegExp]> = [
+const BASE_BOUND_KINDS: Array<[RegExp, RegExp]> = [
   [/^(?:vault:value|holding:.*:value)$/u, lone('worth|values?|valued|vale|valem|valor')],
   [
     /^holding:.*:share$/u,
@@ -389,8 +591,17 @@ const BOUND_KINDS: Array<[RegExp, RegExp]> = [
   [/^holding:.*:amount$/u, lone('units?|tokens?|unidades?')],
   [/^holding:.*:gap$/u, lone(GAP_WORDS)],
   [/^recipe:.*:weight$/u, lone(WEIGHT_WORDS)],
-  ...STRICT_KINDS,
+  ...BASE_STRICT_KINDS,
 ];
+// A lookup's kind words count only in a sentence that names a lookup's figure: elsewhere ("selling",
+// "hours", "supply" beside a cost) they are plain words, as they were before the lookups.
+const LOOKUP_ID = /^(?:profile|bars|pool|lend):/u;
+const hasLookup = (ids: readonly (string | undefined)[]) =>
+  ids.some((id) => id !== undefined && LOOKUP_ID.test(id));
+const KINDS = [...BASE_KINDS, ...LOOKUP_KINDS];
+const STRICT_KINDS = [...BASE_STRICT_KINDS, ...LOOKUP_KINDS];
+const boundKinds = (ids: readonly (string | undefined)[]) =>
+  hasLookup(ids) ? [...BASE_BOUND_KINDS, ...LOOKUP_KINDS] : BASE_BOUND_KINDS;
 /**
  * Whether each figure stands beside a word of its own kind. Every kind word of the sentence binds to
  * the reference nearest it; a figure that words are bound to, none of them of its kind, is called
@@ -404,6 +615,7 @@ function boundToItsKind(words: string, ids: readonly (string | undefined)[]): bo
   const bound = marks.map(() => ({ any: false, own: false }));
   // every kind word, once, in the order it stands
   const spans = new Map<number, { from: number; to: number; word: string }>();
+  const BOUND_KINDS = boundKinds(ids);
   for (const [, named] of BOUND_KINDS)
     for (const match of words.matchAll(new RegExp(named.source, `g${named.flags}`)))
       spans.set(match.index, {
@@ -441,8 +653,11 @@ function boundToItsKind(words: string, ids: readonly (string | undefined)[]): bo
 }
 const strictlyNamed = (id: string, words: string) =>
   STRICT_KINDS.some(([of, named]) => of.test(id) && named.test(words));
-const anyKindWord = (words: string) =>
-  [...KINDS, ...STRICT_KINDS].some(([, named]) => named.test(words));
+const anyKindWord = (words: string, ids: readonly string[]) =>
+  [
+    ...(hasLookup(ids) ? KINDS : BASE_KINDS),
+    ...(hasLookup(ids) ? STRICT_KINDS : BASE_STRICT_KINDS),
+  ].some(([, named]) => named.test(words));
 /** One figure set against another, or against anything: a verdict, which no figure states. */
 const COMPARISON = lone(
   '(?:more|less|higher|lower|deeper|shallower|cheaper|costlier|pricier|better|worse|bigger|smaller|larger|greater|fewer|safer|riskier|easier|harder)\\s+than|than|compared\\s+(?:to|with)|versus|vs|(?:mais|menos|maior|menor|melhor|pior)\\s+(?:\\p{L}+\\s+)?(?:do\\s+)?que|do\\s+que',
@@ -485,6 +700,14 @@ const SAID = {
   kind: "a reference whose sentence does not call the figure what it is: say price, cost to sell, the largest sale or capacity, weekend, provider, variation, volume, volatility or drawdown, as the figure's own line says, in the sentence of the figure or in the heading of its list",
   comparison:
     'a comparison in a sentence with a reference ("more than", "cheaper than", "versus"): give each figure in its own sentence and no verdict',
+  called:
+    "a lending rate not called a supply rate or a borrow rate, or a pool's share not called a share of the dollars in the asset's pools, in its own sentence",
+  personal:
+    "a looked-up figure in a sentence about the person's or the vault's own holding or action (your, you can, we, our, I, the vault holds, an order such as \"withdraw\", seu, você, pode sacar): it is a figure of the asset or its market, never the person's",
+  neighbour:
+    "a looked-up figure with a sentence just before or after it that refers back to it (that, this, it, isso) and calls it a yield, a return, a payment, a result or the person's or the vault's own: say what the figure is in its own sentence and nothing more of it",
+  performance:
+    'a change over a window called a performance, a profit or a result made or lost: call it the change over its window',
 } as const;
 
 export type FigureResolver = {
@@ -593,24 +816,44 @@ export function figureResolver(input: {
   const worded = (sentence: string, before: string, next: string): Array<keyof typeof SAID> => {
     const ids = idsIn(sentence);
     // the figures that are not yields; an id that names no figure is refused where ids are read
-    const others = ids.filter((id) => !id.startsWith('yield:') && figure(id) !== undefined);
-    const yields = ids.some((id) => id.startsWith('yield:'));
+    const others = ids.filter((id) => !isYield(id) && figure(id) !== undefined);
+    const yields = ids.some((id) => isYield(id));
+    // a lending market's supply or borrow rate: not a yield, but promised as one is
+    const lendRates = others.filter((id) => LEND_RATE.test(id));
     const all = plainly(withoutReferences(sentence));
     const lead = plainly(withoutReferences(before));
     const found: Array<keyof typeof SAID> = [];
+    // A promise beside a yield or a lending rate is one of it, in its own sentence or in the one before
+    // or after: "…a year. You will keep earning that." A neighbour is read for a forecast only when it
+    // speaks of the figure (`promisesTheYield`); one about anything else, or one that hedges, is served.
+    // Every neighbour is read against the promise list, whoever speaks and question or not. Two honest
+    // shapes are spared, each only in its own words: the clause in which the agent says what it cannot
+    // tell or would not count on, and the words of an offer to the person ("Would you like…?", "Do you
+    // want to keep…?"). The rest of either sentence is read.
+    const promised = () => {
+      const after = plainly(withoutReferences(next));
+      const worded = [lead, after].map((neighbour) =>
+        (OFFER.test(neighbour) ? neighbour.replace(OFFER_WORDS, ' ') : neighbour).replace(
+          OWN_CAVEAT,
+          ' ',
+        ),
+      );
+      return (
+        PROMISE.test(`${worded.join(' ').replace(DISCLAIMED, ' ')} ${all}`) ||
+        [lead, after].some(promisesTheYield)
+      );
+    };
     // Rule 5: each yield in a clause of the grammar, which is then set aside; what is left of the
     // sentence is read for its other figures.
     let own = all;
     let bindable = all;
     if (yields) {
       let rest = plainly(
-        sentence.replace(FIGURE_REFERENCE, (_whole, id: string) =>
-          id.startsWith('yield:') ? Y : MARK,
-        ),
+        sentence.replace(FIGURE_REFERENCE, (_whole, id: string) => (isYield(id) ? Y : MARK)),
       );
       const clauses = yieldClauses(
         ids.flatMap((id) => {
-          const of = id.startsWith('yield:') ? figure(id)?.assetId : undefined;
+          const of = isYield(id) ? figure(id)?.assetId : undefined;
           return of === undefined ? [] : (input.namesOf?.(of) ?? []);
         }),
       );
@@ -627,25 +870,7 @@ export function figureResolver(input: {
       // What is left beside the clauses is nothing, or another figure that is judged on its own
       // words: free text there would say of the yield what the clause may not.
       if (rest.includes(Y) || (!rest.includes(MARK) && /\p{L}/u.test(rest))) found.push('frame');
-      // A promise beside the yield is one of it, in its own sentence or in the one before or after:
-      // "…a year. You will keep earning that." A neighbour is read for a forecast only when it speaks
-      // of the yield (`promisesTheYield`); one about anything else, or one that hedges, is served.
-      const after = plainly(withoutReferences(next));
-      // Every neighbour is read against the promise list, whoever speaks and question or not. Two
-      // honest shapes are spared, each only in its own words: the clause in which the agent says what
-      // it cannot tell or would not count on, and the words of an offer to the person ("Would you
-      // like…?", "Do you want to keep…?"). The rest of either sentence is read.
-      const worded = [lead, after].map((neighbour) =>
-        (OFFER.test(neighbour) ? neighbour.replace(OFFER_WORDS, ' ') : neighbour).replace(
-          OWN_CAVEAT,
-          ' ',
-        ),
-      );
-      if (
-        PROMISE.test(`${worded.join(' ').replace(DISCLAIMED, ' ')} ${all}`) ||
-        [lead, after].some(promisesTheYield)
-      )
-        found.push('forecast');
+      if (promised()) found.push('forecast');
       bindable = rest;
       own = rest.replaceAll(Y, MARK);
     }
@@ -653,7 +878,7 @@ export function figureResolver(input: {
     if (
       !boundToItsKind(
         bindable,
-        ids.filter((id) => !id.startsWith('yield:')).map((id) => (figure(id) ? id : undefined)),
+        ids.filter((id) => !isYield(id)).map((id) => (figure(id) ? id : undefined)),
       )
     )
       found.push('bound');
@@ -679,17 +904,52 @@ export function figureResolver(input: {
     if (CLAIM.test(whole)) found.push('claim');
     if (FORECAST.test(whole)) found.push('forecast');
     if (input.kindRequired && others.length) {
-      const said = anyKindWord(own) ? own : lead;
+      const said = anyKindWord(own, ids) ? own : lead;
       if (!others.every((id) => strictlyNamed(id, said))) found.push('kind');
     }
     if (input.noComparison && COMPARISON.test(all)) found.push('comparison');
+    // The asset lookups' own rules, read only where one of their figures stands: no earlier id is judged
+    // otherwise.
+    if (lendRates.length && !yields && promised()) found.push('forecast');
+    if (
+      others.some((id) => MUST_BE_CALLED.some(([kind, named]) => kind.test(id) && !named.test(own)))
+    )
+      found.push('called');
+    if (hasLookup(ids) && personal(all, input.named, true)) found.push('personal');
+    if (
+      ids.some((id) => /^bars:.+:change$/u.test(id)) &&
+      // a result in the sentence before or after a change is said of the change
+      (PERFORMANCE.test(whole) ||
+        PERFORMANCE.test(lead) ||
+        PERFORMANCE.test(plainly(withoutReferences(next))))
+    )
+      found.push('performance');
+    // A sentence just before or after a lookup's figure that refers to it and calls it a yield, a return, a
+    // result or the person's or the vault's own says that of the figure ("… a year. That is NVDAx's yield.").
+    if (
+      hasLookup(ids) &&
+      [lead, plainly(withoutReferences(next))].some(
+        (beside) =>
+          (REFERS_OPEN.test(beside) || REFERS_IN.test(beside)) &&
+          (NEIGHBOUR_RETURN.test(beside) ||
+            PERFORMANCE.test(beside) ||
+            personal(beside, input.named, false)),
+      )
+    )
+      found.push('neighbour');
     if (others.length) {
       const every = (...kinds: string[]) =>
         others.every((id) => kinds.some((kind) => id.startsWith(kind)));
       const some = (kind: string) => others.some((id) => id.startsWith(kind));
       const oneAsset = new Set(others.map((id) => figure(id)?.assetId)).size === 1;
       const both = oneAsset && every('vol:', 'drawdown:');
-      if (RETURN.test(read) || (PERIOD.test(read) && !every('vol:') && !(both && some('vol:'))))
+      // a lending rate is a rate a year: "rate" and its period are its own words, when every figure of
+      // the sentence is one; a yield, a return, earning, a gain or a profit still cut it
+      const rates = lendRates.length === others.length;
+      if (
+        RETURN.test(rates ? read.replace(RATE_WORDS, ' ') : read) ||
+        (PERIOD.test(read) && !every('vol:') && !(both && some('vol:')) && !rates)
+      )
         found.push('rate');
       if (MOVE.test(read) && !every('drawdown:') && !(both && some('drawdown:')))
         found.push('move');
@@ -698,12 +958,24 @@ export function figureResolver(input: {
     // names none ("It trades at…") speaks of what the sentence before named.
     const told = namesHere ? here : input.named?.(lead);
     const names = new Set([...(told?.own ?? []), ...(told?.classes ?? [])]);
+    // A lending figure is the figure of the token its market lends, and is served under that token
+    // (asset-lookups.ts, `lendingAnswer`): its sentence names no other asset, but for one named as what the
+    // market takes as collateral ("the vault that takes NVDAx as collateral").
+    const ofIds = new Set(
+      ids.flatMap((id) => {
+        const of = figure(id)?.assetId;
+        return of === undefined ? [] : [of];
+      }),
+    );
+    const besides = namesHere ? input.named?.(all.replace(AS_COLLATERAL, ' ')) : told;
     if (
       names.size > 0 &&
-      ids.some((id) => {
+      (ids.some((id) => {
         const of = figure(id)?.assetId;
         return of !== undefined && !names.has(of);
-      })
+      }) ||
+        (ids.some((id) => id.startsWith('lend:')) &&
+          (besides?.own ?? []).some((named) => !ofIds.has(named))))
     )
       found.push('asset');
     return found;

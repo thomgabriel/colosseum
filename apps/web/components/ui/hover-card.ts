@@ -22,7 +22,12 @@ const PRESS_MS = 700;
 const GAP = 8;
 const EDGE = 16;
 
-export type Place = { top: number; left: number; maxHeight: number; side: 'below' | 'above' };
+export type Place = {
+  top: number;
+  left: number;
+  maxHeight: number;
+  side: 'below' | 'above' | 'right' | 'left';
+};
 
 /**
  * Where a panel of this size goes for a trigger at this box, in a viewport of this size. Below, unless
@@ -45,6 +50,53 @@ export function placeFor(
     left: Math.max(EDGE, Math.min(at.left, view.width - size.width - EDGE)),
     maxHeight: room,
   };
+}
+
+/**
+ * Where a panel goes beside a list of rows, so it never covers the row under its own (a rail's): right
+ * of `at`'s right edge (the list's, where the trigger sits in one), else left of its left edge; level
+ * with the trigger's top and held inside the viewport. Where the list leaves no room on either side (a
+ * sheet in a narrow window), beside the trigger's own box (`own`), left of it, else right: over its own
+ * row, not the next. Only where none of these fits, as `placeFor`.
+ */
+export function besideFor(
+  at: { top: number; bottom: number; left: number; right: number },
+  size: { width: number; height: number },
+  view: { width: number; height: number },
+  own: { left: number; right: number } = at,
+): Place {
+  const maxHeight = Math.max(0, view.height - 2 * EDGE);
+  const top = Math.max(
+    EDGE,
+    Math.min(at.top, view.height - EDGE - Math.min(size.height, maxHeight)),
+  );
+  const fitsRight = (edge: number) => edge + GAP + size.width <= view.width - EDGE;
+  const fitsLeft = (edge: number) => edge - GAP - size.width >= EDGE;
+  const right = (edge: number): Place => ({ side: 'right', top, left: edge + GAP, maxHeight });
+  const left = (edge: number): Place => ({
+    side: 'left',
+    top,
+    left: edge - GAP - size.width,
+    maxHeight,
+  });
+  if (fitsRight(at.right)) return right(at.right);
+  if (fitsLeft(at.left)) return left(at.left);
+  if (fitsLeft(own.left)) return left(own.left);
+  if (fitsRight(own.right)) return right(own.right);
+  return placeFor(at, size, view);
+}
+
+/** The element a panel placed beside its trigger goes beside: the nearest one marked so, or the trigger. */
+export const HINT_EDGE = 'data-hint-edge';
+
+/** Whether this focus shows itself (`:focus-visible`): a script's focus after a press does not. */
+function shown(target: EventTarget | null): boolean {
+  if (!(target instanceof Element) || target !== document.activeElement) return true;
+  try {
+    return target.matches(':focus-visible');
+  } catch {
+    return true;
+  }
 }
 
 export type HoverCard = {
@@ -74,7 +126,11 @@ export type HoverCard = {
  * `enabled` false: there is nothing to show for now. It opens on nothing and hears no Escape, and
  * the element it is on stays as it is.
  */
-export function useHoverCard(defaultOpen = false, enabled = true): HoverCard {
+/**
+ * `beside`: the panel goes beside the trigger's list (`besideFor`), not under the trigger, so it never
+ * covers the next row and a press there is the row's.
+ */
+export function useHoverCard(defaultOpen = false, enabled = true, beside = false): HoverCard {
   const [isOpen, setOpen] = useState(defaultOpen);
   const open = isOpen && enabled;
   const [pinned, setPinned] = useState(defaultOpen);
@@ -104,7 +160,24 @@ export function useHoverCard(defaultOpen = false, enabled = true): HoverCard {
       // What scrolls is the box inside the panel (Hint.tsx): its full height is the panel's own.
       const full = box.firstElementChild?.scrollHeight ?? 0;
       const size = { width: rect.width, height: Math.max(rect.height, box.scrollHeight, full) };
-      setPlace(placeFor(at, size, { width: window.innerWidth, height: window.innerHeight }));
+      const view = { width: window.innerWidth, height: window.innerHeight };
+      if (!beside) return setPlace(placeFor(at, size, view));
+      const edge = (
+        trigger.current?.closest(`[${HINT_EDGE}]`) ?? trigger.current
+      )?.getBoundingClientRect();
+      setPlace(
+        besideFor(
+          {
+            top: at.top,
+            bottom: at.bottom,
+            left: edge?.left ?? at.left,
+            right: edge?.right ?? at.right,
+          },
+          size,
+          view,
+          at,
+        ),
+      );
     };
     measure();
     // What the panel holds can grow (the pin's details): it is placed again when it does.
@@ -117,7 +190,7 @@ export function useHoverCard(defaultOpen = false, enabled = true): HoverCard {
       window.removeEventListener('scroll', measure, true);
       window.removeEventListener('resize', measure);
     };
-  }, [open]);
+  }, [open, beside]);
 
   useEffect(() => {
     if (!open) return;
@@ -208,9 +281,10 @@ export function useHoverCard(defaultOpen = false, enabled = true): HoverCard {
         setOpen(next);
         setPinned(next);
       },
-      // The keyboard arriving opens it; it closes when focus goes elsewhere.
-      onFocus() {
-        if (pressed.current || returning.current) return;
+      // The keyboard arriving opens it; it closes when focus goes elsewhere. A focus the page does not
+      // show (a script's, back on a row after a press on its rename or delete) opens nothing.
+      onFocus(event) {
+        if (pressed.current || returning.current || !shown(event.target)) return;
         if (enabled) setOpen(true);
       },
     },

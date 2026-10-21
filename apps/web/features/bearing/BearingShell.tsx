@@ -7,11 +7,13 @@ import { CHAIN_NAMES } from '../../components/ui/ChainBadge';
 import { cn } from '../../components/ui/cn';
 import { Disclaimer } from '../../components/ui/Disclaimer';
 import { formatAge } from '../../components/ui/format';
+import { PAGE_TITLE } from '../../components/ui/heading';
 import { Icon } from '../../components/ui/Icon';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { MENU_BUTTON, MENU_MARK, MENU_ROW, MENU_TEXT } from '../../components/ui/side-menu';
 import { Segmented } from '../../components/ui/TimeChart';
 import { useLang } from '../../i18n/I18nProvider';
-import { useBearing } from './BearingProvider';
+import { type Mode, useBearing } from './BearingProvider';
 import { BEARING_CHAINS, isBearingChain, onChain } from './chain';
 import { RISK_API } from './data';
 import { hhmm } from './format';
@@ -70,7 +72,8 @@ export function BearingShell({ children }: { children: ReactNode }) {
       data-ui="bearing"
       data-collapsed={collapsed || undefined}
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)] text-[0.8125rem]/5',
+        'grid grid-cols-[minmax(0,1fr)]',
+        MENU_TEXT,
         collapsed
           ? 'min-[900px]:grid-cols-[56px_minmax(0,1fr)]'
           : 'min-[900px]:grid-cols-[220px_minmax(0,1fr)]',
@@ -86,7 +89,8 @@ export function BearingShell({ children }: { children: ReactNode }) {
           aria-controls="bearing-nav"
           onClick={toggle}
           className={cn(
-            'flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md border border-input px-2.5 py-1.5 text-left font-medium hover:border-primary min-[900px]:w-full',
+            MENU_BUTTON,
+            'min-[900px]:w-full',
             collapsed && 'min-[900px]:justify-center min-[900px]:px-0',
             FOCUS,
           )}
@@ -110,7 +114,7 @@ export function BearingShell({ children }: { children: ReactNode }) {
                   onClick={followed}
                   aria-current={p.id === current ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-9 items-center gap-2.5 rounded-r-md border-l-2 border-transparent px-2.5 py-1.5 text-foreground no-underline hover:bg-muted aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:font-semibold',
+                    MENU_ROW,
                     collapsed && 'min-[900px]:justify-center min-[900px]:px-0',
                     FOCUS,
                   )}
@@ -118,7 +122,7 @@ export function BearingShell({ children }: { children: ReactNode }) {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'w-6 shrink-0 pl-1 font-mono text-caption',
+                      MENU_MARK,
                       p.id === current ? 'text-foreground' : 'text-muted-foreground',
                     )}
                   >
@@ -150,15 +154,13 @@ export function BearingShell({ children }: { children: ReactNode }) {
         {/* The page's head on the honey fog, as the landing's hero (Rodrigo, Oct 8). */}
         <div
           data-ui="bearing-head"
-          className="relative isolate -mx-4 overflow-hidden px-4 pt-4 pb-1 min-[900px]:mx-0 min-[900px]:rounded-lg"
+          className="relative isolate -mx-3 overflow-hidden px-3 pt-4 pb-1 min-[900px]:mx-0 min-[900px]:rounded-lg"
         >
           <HoneyFog className="pointer-events-none absolute inset-0 -z-10 size-full" />
           <div className="font-condensed text-b-head font-medium text-muted-foreground">
             {t.head}
           </div>
-          <h1 className="mt-2 mb-4 max-w-[34ch] font-display text-[clamp(1.75rem,1.3rem+1.4vw,2.5rem)]/[1.15] font-semibold tracking-[-0.02em]">
-            {page.lede}
-          </h1>
+          <h1 className={cn(PAGE_TITLE, 'mt-2 mb-4')}>{page.lede}</h1>
           <ChainToggle />
           <Banner />
         </div>
@@ -187,60 +189,82 @@ export function ChainToggle() {
   );
 }
 
-/** Live or stale, said once for the whole page; or that the API did not answer. */
+/** What a banner not shown lays out in place of the newest reading's time and its age. */
+const STAND_IN_READING = '2026-01-01T00:00:00Z';
+const STAND_IN_AGE_S = 4 * 3600;
+
+/**
+ * Live or stale, said once for the whole page; or that the API did not answer. Every state is laid out
+ * in the same cell and only the one in force is seen, so the box is as tall as the tallest at any width
+ * and in either language: nothing under it moves when the readings come, turn stale or stop.
+ */
 export function Banner() {
   const { mode, newest, clock } = useBearing();
   const t = useWords();
   const fm = useFmt();
   const w = t.banner;
-  const box =
-    'mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border border-l-2 border-border border-l-primary px-3 py-2';
-  // While the readings come, the banner keeps its box in the shape of what it will say; the page's own
-  // wait says in words what is awaited.
-  if (mode === 'loading')
-    return (
-      <div data-ui="bearing-banner" data-mode={mode} aria-hidden="true" className={box}>
-        {/* Each bar sits on a line of the live banner's own type, so the box is that banner's height. */}
-        <b className="font-semibold">
-          {'\u200b'}
-          <Skeleton className="inline-block h-3.5 w-56 align-middle" />
-        </b>
-        <span className="font-mono text-b-meta">
-          {'\u200b'}
-          <Skeleton className="inline-block h-3 w-40 align-middle" />
+  const now = new Date(clock.now || Date.parse(STAND_IN_READING));
+  const time = newest ? hhmm(newest) : w.unknownTime;
+  const longestRegime = Object.values(t.regimes).reduce((a, b) => (b.length > a.length ? b : a));
+  const stale = (seen: boolean) =>
+    newest || !seen
+      ? w.stale(
+          fm.second(newest ?? STAND_IN_READING),
+          formatAge(newest ? (clock.now - Date.parse(newest)) / 1000 : STAND_IN_AGE_S)?.short ??
+            w.unknownAge,
+        )
+      : w.noReading;
+  const states: Record<Mode, (seen: boolean) => ReactNode> = {
+    // While the readings come the page's own wait says in words what is awaited: here, two bars.
+    loading: () => (
+      <>
+        <Skeleton className="mt-1 h-3.5 w-56 max-w-full" />
+        <Skeleton className="mt-1 h-3 w-40 max-w-full" />
+      </>
+    ),
+    live: (seen) => (
+      <>
+        <b className="font-semibold">{w.live(time)}</b>
+        <span className="font-mono text-b-meta text-muted-foreground">
+          {w.now(seen ? t.regimes[regimeAt(now)] : longestRegime, etLabel(now, t.heat.days))}
         </span>
-      </div>
-    );
-  const now = new Date(clock.now);
+      </>
+    ),
+    stale: (seen) => (
+      <>
+        <b className="font-semibold">{stale(seen)}</b>
+        <span>{w.staleAll}</span>
+      </>
+    ),
+    none: () => (
+      <>
+        <b className="font-semibold">{w.down(RISK_API)}</b>
+        <span>{w.downAll}</span>
+      </>
+    ),
+  };
+  const loading = mode === 'loading';
   return (
-    <div role="status" data-ui="bearing-banner" data-mode={mode} className={box}>
-      {mode === 'live' && (
-        <>
-          <b className="font-semibold">{w.live(newest ? hhmm(newest) : w.unknownTime)}</b>
-          <span className="font-mono text-b-meta text-muted-foreground">
-            {w.now(t.regimes[regimeAt(now)], etLabel(now, t.heat.days))}
-          </span>
-        </>
-      )}
-      {mode === 'stale' && (
-        <>
-          <b className="font-semibold">
-            {newest
-              ? w.stale(
-                  fm.second(newest),
-                  formatAge((clock.now - Date.parse(newest)) / 1000)?.short ?? w.unknownAge,
-                )
-              : w.noReading}
-          </b>
-          <span>{w.staleAll}</span>
-        </>
-      )}
-      {mode === 'none' && (
-        <>
-          <b className="font-semibold">{w.down(RISK_API)}</b>
-          <span>{w.downAll}</span>
-        </>
-      )}
+    <div
+      data-ui="bearing-banner"
+      data-mode={mode}
+      role={loading ? undefined : 'status'}
+      aria-hidden={loading ? 'true' : undefined}
+      className="mt-3 grid border border-l-2 border-border border-l-primary px-3 py-2"
+    >
+      {(Object.keys(states) as Mode[]).map((m) => (
+        <div
+          key={m}
+          data-ui={m === mode ? 'bearing-banner-said' : undefined}
+          aria-hidden={m === mode ? undefined : 'true'}
+          className={cn(
+            'col-start-1 row-start-1 flex flex-wrap items-baseline gap-x-3 gap-y-1',
+            m !== mode && 'invisible',
+          )}
+        >
+          {states[m](m === mode)}
+        </div>
+      ))}
     </div>
   );
 }

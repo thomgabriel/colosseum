@@ -14,7 +14,9 @@ import {
   ChainError,
   type ChainErrorCode,
   type ChainId,
+  CREATOR_LIMITS_V2,
   CreateVaultArgs,
+  type CreatorLimits,
   chainFamily,
   DecimalString,
   DepositArgs,
@@ -126,7 +128,12 @@ type Op =
   | { kind: 'set_auto_follow'; a: SetAutoFollowArgs }
   | {
       kind: 'withdraw';
-      a: { vault: Address; assets: AssetId[]; amounts?: Record<AssetId, string> };
+      a: {
+        vault: Address;
+        assets: AssetId[];
+        amounts?: Record<AssetId, string>;
+        switchAutoFollow?: false;
+      };
     }
   | { kind: 'publish'; a: PublishRecipeArgs }
   | { kind: 'adopt_version'; a: { vault: Address } }
@@ -154,6 +161,11 @@ export type MockOptions = {
    * least between two versions. Default 300, the team test cycle.
    */
   publishDelaySeconds?: number;
+  /**
+   * The rules and numbers its registry holds a shared portfolio to. Default the second rules, as the
+   * Solana program and the EVM registry's second logic hold them (SHARED-RULES-V2).
+   */
+  creatorLimits?: CreatorLimits;
   /** Replaces the built-in asset list. Exactly one asset must have `cls: 'cash'`. */
   assets?: BasketAsset[];
   /** USD per whole token by asset id. Required for every asset when `assets` is given. */
@@ -243,6 +255,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
   const factory = mockAddress(chain, 'factory');
   const keeper = mockAddress(chain, 'keeper');
   const publishDelay = options.publishDelaySeconds ?? 300;
+  const limits = options.creatorLimits ?? CREATOR_LIMITS_V2;
   const seed = options.seed ?? '';
   /** One fee for every transaction, and the extra a new vault costs, in native units. */
   const fee = family === 'solana' ? 5_000n : 20_000_000_000_000n;
@@ -256,13 +269,15 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
           maxTradesPerTx: 1,
           tradesInCreate: false,
           needsApprove: false,
+          ownerCallsInOne: false,
         }
       : {
           trade: 'mock',
           autoFollow: true,
-          maxTradesPerTx: 8,
+          maxTradesPerTx: 10,
           tradesInCreate: true,
           needsApprove: true,
+          ownerCallsInOne: true,
         };
 
   let state: State = {
@@ -436,6 +451,14 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
     w.set(cash, (w.get(cash) ?? 0n) - amount);
     v.cash += amount;
   }
+  /** Where each owner call is its own step, none switches auto-follow beside it or trades with targets. */
+  function oneCallEach(switchAutoFollow: boolean | undefined, trades?: Trade[]) {
+    if (capabilities.ownerCallsInOne) return;
+    if (switchAutoFollow !== undefined)
+      refuse('NotSupported', `on ${chain} auto-follow is switched by a step of its own`);
+    if (trades?.length)
+      refuse('NotSupported', `on ${chain} a target change carries no trade: each is its own step`);
+  }
   function checkTrades(trades: Trade[] | undefined, inCreate: boolean) {
     if (!trades?.length) return;
     if (inCreate && !capabilities.tradesInCreate)
@@ -504,6 +527,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
       }
       case 'swap': {
         const v = vaultOf(s, op.a.vault);
+        if (op.a.switchAutoFollow === false) v.autoFollow = false;
         checkTrades(op.a.trades, false);
         for (const t of op.a.trades) swap(s, v, t, run);
         return;
@@ -515,10 +539,15 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
         v.recipeOnchainId = null;
         v.acceptedVersion = 0;
         v.autoFollow = false;
+        // The trades toward them, after them in the same transaction.
+        checkTrades(op.a.trades, false);
+        for (const t of op.a.trades ?? []) swap(s, v, t, run);
         return;
       }
       case 'accept_version': {
         const v = vaultOf(s, op.a.vault);
+        // Off goes before the version is taken, on after it.
+        if (op.a.switchAutoFollow === false) v.autoFollow = false;
         const r = recipeOf(s, op.a.recipeOnchainId);
         if (r.pending?.version === op.a.expectedVersion)
           refuse('VersionNotEffective', 'that version has not taken effect yet');
@@ -527,14 +556,16 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
         v.recipeOnchainId = op.a.recipeOnchainId;
         v.acceptedVersion = r.active.version;
         setTargets(v, targetsOf(r.active));
+        if (op.a.switchAutoFollow === true) v.autoFollow = true;
         return;
       }
       case 'set_auto_follow':
         vaultOf(s, op.a.vault).autoFollow = op.a.on;
         return;
       case 'withdraw': {
-        // In kind, and only ever to the owner.
+        // In kind, and only ever to the owner, with auto-follow switched off first where asked.
         const v = vaultOf(s, op.a.vault);
+        if (op.a.switchAutoFollow === false) v.autoFollow = false;
         const w = walletOf(s, v.owner);
         for (const id of op.a.assets) {
           const has = balance(v, asset(id).id);
@@ -559,13 +590,14 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
         });
         const id = mockRecipeId(chain, creator, recipe.familyId);
         const existing = s.recipes.get(id);
-        // The four author limits (DESIGN-VAULT section 6), as a real registry checks them: the same
-        // function the Solana program and the EVM registry are held to by the shared vectors. The
-        // cash token as a component is one of them, refused like the rest.
+        // The four author limits (DESIGN-VAULT section 6), as a real registry checks them, under the
+        // rules this mock is given: the same function the Solana program and the EVM registry are held
+        // to by the shared vectors. The cash token as a component is one of them, refused like the rest.
         const verdict = checkCreatorLimits(
           existing ? targetsOf(existing.active) : null,
           next,
           {
+            limits,
             assets,
             now: s.seconds,
             lastPublishAt: existing?.lastPublishAt ?? null,
@@ -714,7 +746,11 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
    * adapter's own for a keeper leg that carries a minimum, and none where the bytes carry no minimum.
    */
   const slippageOf = (op: Op) =>
-    'slippageBps' in op.a ? op.a.slippageBps : carriesMinimums(op) ? QUOTE_SLIPPAGE_BPS : 10_000;
+    'slippageBps' in op.a && op.a.slippageBps !== undefined
+      ? op.a.slippageBps
+      : carriesMinimums(op)
+        ? QUOTE_SLIPPAGE_BPS
+        : 10_000;
   /** The trades a transaction makes, in the order it makes them. */
   const tradesOf = (op: Op): Trade[] =>
     op.kind === 'keeper_leg' ? [op.a.trade] : 'trades' in op.a ? (op.a.trades ?? []) : [];
@@ -991,6 +1027,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
           )
           .map((v) => v.address),
       ),
+    creatorLimits: () => guarded(() => limits),
     getRecipe: (recipeOnchainId) =>
       guarded(() => {
         const { active, pending } = recipeOf(live(), recipeOnchainId);
@@ -1075,16 +1112,19 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
     buildOwnerSwap: (a) =>
       guarded(() => {
         const { nonce, ...args } = input(OwnerSwapArgs, a, 'swap');
+        oneCallEach(args.switchAutoFollow);
         return ownerTx({ kind: 'swap', a: args }, nonce);
       }),
     buildSetTargets: (a) =>
       guarded(() => {
         const { nonce, ...args } = input(SetTargetsArgs, a, 'targets');
+        oneCallEach(undefined, args.trades);
         return ownerTx({ kind: 'set_targets', a: args }, nonce);
       }),
     buildAcceptVersion: (a) =>
       guarded(() => {
         const { nonce, ...args } = input(AcceptVersionArgs, a, 'accept');
+        oneCallEach(args.switchAutoFollow);
         return ownerTx({ kind: 'accept_version', a: args }, nonce);
       }),
     buildSetAutoFollow: (a) =>
@@ -1097,6 +1137,7 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
         const args = input(WithdrawInKindArgs, a, 'withdraw');
         if (args.nonce !== undefined && family !== 'evm')
           refuse('NotSupported', `a transaction on ${chain} has no nonce`);
+        oneCallEach(args.switchAutoFollow);
         const v = vaultOf(live(), args.vault);
         for (const id of args.assets ?? []) asset(id);
         const held = [cash, ...v.positions.keys()].filter((id) => balance(v, id) > 0n);
@@ -1111,12 +1152,25 @@ export function createMockAdapter(options: MockOptions): MockAdapter {
           return named.length ? { amounts: Object.fromEntries(named) } : {};
         };
         // Solana withdraws one mint per call; EVM takes everything in one.
+        // An EVM sweep that also switches auto-follow off is built though nothing is left to take.
         const groups =
-          family === 'solana' ? wanted.map((id) => [id]) : wanted.length ? [wanted] : [];
+          family === 'solana'
+            ? wanted.map((id) => [id])
+            : wanted.length || args.switchAutoFollow === false
+              ? [wanted]
+              : [];
         // On EVM the one transaction takes the nonce; Solana, which makes several, has none.
         return groups.map((ids) =>
           ownerTx(
-            { kind: 'withdraw', a: { vault: args.vault, assets: ids, ...amountsOf(ids) } },
+            {
+              kind: 'withdraw',
+              a: {
+                vault: args.vault,
+                assets: ids,
+                ...amountsOf(ids),
+                ...(args.switchAutoFollow === false ? { switchAutoFollow: false as const } : {}),
+              },
+            },
             args.nonce,
           ),
         );

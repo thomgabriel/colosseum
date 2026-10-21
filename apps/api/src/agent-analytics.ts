@@ -10,6 +10,7 @@ import {
 import { loadAssetFacts } from './facts';
 import type { AgentAnalytics, AgentAnalyticsResult, AnalyticsFigure } from './orders/vault-agent';
 import { resolveExitTwins } from './plan-inputs';
+import { keeper, limiter, stored, within } from './read-cache';
 
 // What the vault and new-goal conversations hand the model from Bearing besides the plan inputs: a few
 // figures of each listed asset's fact sheet (facts.ts), each with its pin or null with the reason. A sheet
@@ -24,29 +25,19 @@ type Sheet = (db: Db, id: string, sizeUsd: number) => Promise<AssetFacts | null>
 type Read = Extract<AgentAnalyticsResult, { assets: unknown }>;
 type Query = Parameters<AgentAnalytics>[0];
 
-/** Ten minutes: the collectors write hourly at most. A kept read older than this is served once more while
- *  it is read again. */
-const TTL_MS = 10 * 60_000;
-/** Sheets read at once across every conversation and the warm-up: each holds one of the pool's 15
+/** An hour: the collectors write hourly at most. A kept read older than this is served once more while it
+ *  is read again, so nothing reads a sheet that no turn asks for. */
+const TTL_MS = 60 * 60_000;
+/** Sheets read at once across every conversation and the start-up read: each holds one of the pool’s 15
  *  connections. */
 const CONCURRENCY = 3;
 /** A turn waits this long for reads it does not have kept; they carry on and fill the cache for the next. */
 const WAIT_MS = 2_500;
 /** Sheet reads waiting or running at once, about three catalogs; past it a sheet is left for a later turn. */
 const MAX_PENDING = 90;
-const MAX_KEPT = 2_000;
 /** A read with no answer after this long is given up: its place goes to the next, and a later turn reads
  *  again. Nothing else bounds a query on a connection that went quiet. */
 const READ_MS = 60_000;
-
-/** `work`, or a rejection once `ms` have passed without its answer. */
-function within<T>(ms: number, work: Promise<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('no answer')), ms);
-    timer.unref?.();
-    work.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
-}
 
 /** The figures the model reads, from one sheet, each with the regime it is about or none. */
 export function projectSheet(sheet: AssetFacts): AnalyticsFigure[] {
@@ -105,7 +96,7 @@ export function projectSheet(sheet: AssetFacts): AnalyticsFigure[] {
  * On a chain that is not live, no figure says live: a test-network token's figures are its mainnet
  * model's, labelled sandbox, with the source naming whose they are.
  */
-function relabel(
+export function relabel(
   figures: AnalyticsFigure[],
   provenance: Provenance | undefined,
   twin: { twinSymbol: string; symbol: string } | undefined,
@@ -124,61 +115,10 @@ function relabel(
   );
 }
 
-/** At most `n` reads at once; the rest wait their turn, and a finished read hands its turn on. */
-function limiter(n: number) {
-  let running = 0;
-  const waiting: Array<() => void> = [];
-  return async <T>(work: () => Promise<T>): Promise<T> => {
-    if (running >= n) await new Promise<void>((resolve) => waiting.push(resolve));
-    else running += 1;
-    try {
-      return await work();
-    } finally {
-      const next = waiting.shift();
-      if (next) next();
-      else running -= 1;
-    }
-  };
-}
-
 /** Two significant figures: a vault's value moves with its prices, and its reads are kept by this. */
 export function roundSize(usd: number): number {
   const step = 10 ** Math.max(0, Math.floor(Math.log10(usd)) - 1);
   return Math.round(usd / step) * step;
-}
-
-const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-/** The collectors store an EVM address in lower case; a shelf may spell it checksummed. */
-const stored = (address: string) => (EVM_ADDRESS.test(address) ? address.toLowerCase() : address);
-
-/**
- * A read kept by key: a fresh one is served as it is, an older one is served while it is read again, and
- * a missing one is read once however many turns ask. A failed read keeps what was there.
- */
-function keeper<T>(ttl: number, now: () => number) {
-  const kept = new Map<string, { at: number; value?: { v: T }; read?: Promise<T> }>();
-  return (key: string, load: () => Promise<T>): Promise<T> => {
-    if (kept.size > MAX_KEPT)
-      for (const [k, e] of kept) if (!e.read && now() - e.at > 2 * ttl) kept.delete(k);
-    const entry = kept.get(key) ?? { at: 0 };
-    kept.set(key, entry);
-    if (!entry.read && (!entry.value || now() - entry.at > ttl)) {
-      const read = load();
-      entry.read = read;
-      read.then(
-        (v) => {
-          entry.value = { v };
-          entry.at = now();
-          entry.read = undefined;
-        },
-        () => {
-          entry.read = undefined;
-          if (!entry.value) kept.delete(key);
-        },
-      );
-    }
-    return entry.value ? Promise.resolve(entry.value.v) : (entry.read as Promise<T>);
-  };
 }
 
 export function createAgentAnalytics(
@@ -284,19 +224,13 @@ export function createAgentAnalytics(
     }
   }) as AgentAnalytics;
 
-  // Keeps a chain's reference-size sheets read, so a new goal's turn finds them kept.
-  const timers: Array<ReturnType<typeof setInterval>> = [];
-  read.warm = (query) => {
-    const once = () => {
-      start(query, refSizeUsd).catch(() => {});
-    };
-    once();
-    const timer = setInterval(once, Math.max(1_000, ttl / 2));
-    timer.unref?.();
-    timers.push(timer);
-  };
-  read.stop = () => {
-    for (const timer of timers.splice(0)) clearInterval(timer);
+  // Once, at the server's start: a chain's reference-size sheets, so the first new goal finds them kept.
+  // No timer: past that, a sheet is read again only when a turn asks for it.
+  read.warm = async (query) => {
+    const rows = await start(query, refSizeUsd);
+    const settled = await Promise.allSettled(rows.map((row) => row.figures));
+    const failed = settled.filter((s) => s.status === 'rejected').length;
+    return { read: settled.length - failed, failed };
   };
   return read;
 }

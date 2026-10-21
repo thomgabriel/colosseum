@@ -134,9 +134,10 @@ describe('the chain registry', () => {
         expect([entry.mode, entry.provenance, entry.mock]).toEqual([mode, 'sandbox', undefined]);
         expect(entry.adapter.capabilities).toMatchObject({
           trade: mode,
-          maxTradesPerTx: 8,
+          maxTradesPerTx: 10,
           tradesInCreate: true,
           needsApprove: true,
+          ownerCallsInOne: true,
         });
         expect(entry.source).not.toMatch(/https?:/);
       }
@@ -904,6 +905,7 @@ describe('the /v1 route table', () => {
     const app = await buildApp();
     await app.ready();
     expect(v1Paths(app.swagger())).toEqual([
+      '/v1/assets/{id}/facts',
       '/v1/baskets/intake',
       '/v1/baskets/personalize',
       '/v1/baskets/propose',
@@ -928,19 +930,23 @@ describe('the /v1 route table', () => {
       '/v1/orders/{id}/legs/{legId}/cancel',
       '/v1/orders/{id}/legs/{legId}/report',
       '/v1/portfolio',
+      '/v1/portfolio/closed',
       '/v1/portfolio/exposure',
       '/v1/portfolio/history',
       '/v1/portfolio/plans',
       '/v1/portfolio/rebalances',
+      '/v1/shared/limits',
       '/v1/shelf',
       '/v1/stats',
       '/v1/testnet/fund',
       '/v1/vaults/{chain}/{address}',
+      '/v1/vaults/{chain}/{address}/close',
       '/v1/vaults/{chain}/{address}/conversation',
       '/v1/vaults/{chain}/{address}/conversation/reply',
       '/v1/vaults/{chain}/{address}/name',
       '/v1/vaults/{chain}/{address}/rebalance',
       '/v1/vaults/{chain}/{address}/rebalance/quote',
+      '/v1/vaults/{chain}/{address}/reopen',
       '/v1/vaults/{chain}/{address}/targets',
     ]);
     // No route lets a caller through without a token: 503 with no Privy app set, 401 with one.
@@ -1022,6 +1028,10 @@ describe('no /v1 route can make the server sign', () => {
       // a shared portfolio's figures, from the plan inputs handed in: no file, no key, no chain call
       'orders/figures.ts',
       'orders/legs.ts',
+      // the conversations' lookup loop: tools that read through the reader handed in, no key, no file
+      'orders/lookup-loop.ts',
+      // the asset lookups' types: the reader itself is handed in (asset-lookups.ts)
+      'orders/lookups.ts',
       'orders/mix.ts',
       'orders/person.ts',
       'orders/personalize.ts',
@@ -1049,6 +1059,7 @@ describe('no /v1 route can make the server sign', () => {
       'plugins/paths.ts',
       'portfolio/exposure.ts',
       'portfolio/history.ts',
+      'portfolio/lifetimes.ts',
       'portfolio/numbers.ts',
       'portfolio/plans.ts',
       'portfolio/rebalances-snapshots.ts',
@@ -1057,6 +1068,7 @@ describe('no /v1 route can make the server sign', () => {
       'portfolio/snapshots.ts',
       // why a vault's holdings are there, from stored reasons and the chain's asset list: no key
       'portfolio/why.ts',
+      'routes/v1/assets.ts',
       'routes/v1/baskets.ts',
       'routes/v1/config.ts',
       'routes/v1/funding.ts',
@@ -1107,12 +1119,17 @@ describe('no /v1 route can make the server sign', () => {
     ]);
     // jose is used to verify and nowhere to sign; node:crypto to hash and to make ids.
     expect([...(packages.get('jose') ?? [])]).toEqual(['plugins/auth.ts']);
-    // the model's client, for the intake, the vault conversation and the relaxed goal agent
+    // the model's client, for the intake, the vault conversation and the relaxed goal agent; the lookup
+    // loop takes the SDK's types only (its calls are the two agents')
     expect([...(packages.get('@anthropic-ai/sdk') ?? [])]).toEqual([
       'llm.ts',
       'orders/relaxed-goal-agent.ts',
       'vault-agent-model.ts',
+      'orders/lookup-loop.ts',
     ]);
+    expect(readFileSync(join(src, 'orders/lookup-loop.ts'), 'utf8')).toMatch(
+      /^import type Anthropic from '@anthropic-ai\/sdk';$/mu,
+    );
     for (const file of files) {
       // The code, without its comments.
       const text = readFileSync(file, 'utf8')

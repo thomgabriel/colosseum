@@ -3,6 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 // `shortAddress` (features/shared/use-person.ts) cuts as `shorten` does; it imports the wallet
 import { shorten as shortAddress } from '../components/ui/format';
 import { dictionary } from '../i18n';
+import { openVault } from './conversations';
 import { pressInView, readyToInvest } from './invest';
 import { inTheme } from './theme';
 
@@ -51,6 +52,25 @@ async function check(page: Page, name: string) {
   await inTheme(page, 'light');
 }
 
+/**
+ * One screen of an order in the pane, whole at a desk (gate SIGN-ONE-STEP): at 1440x900 the pane's
+ * own scroller holds it with nothing to scroll. Back to the phone after.
+ */
+async function fitsPane(page: Page, name: string, selector = '[data-ui="vault-action"]') {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const m = await page.evaluate((selector) => {
+    const pane = document.querySelector<HTMLElement>(selector);
+    const doc = document.scrollingElement as HTMLElement;
+    return {
+      over: pane ? pane.scrollHeight - pane.clientHeight : -1,
+      page: doc.scrollHeight - doc.clientHeight,
+    };
+  }, selector);
+  expect(m.over, `${name}: the screen fits the pane at 1440x900`).toBeLessThanOrEqual(1);
+  expect(m.page, `${name}: the page does not scroll at 1440x900`).toBeLessThanOrEqual(1);
+  await page.setViewportSize(PHONE);
+}
+
 /** Follows a link of the product's bar, as a phone does: the menu button, then the link in its sheet. */
 async function go(page: Page, name: string) {
   await page.getByRole('button', { name: en.shell.menu }).click();
@@ -58,7 +78,11 @@ async function go(page: Page, name: string) {
 }
 
 /** Signed in, with a vault of the person's own (60% SPY, 40% NVDA, $100 in), on its page. */
-async function toVault(page: Page): Promise<string> {
+async function toVault(
+  page: Page,
+  /** What the vault is bought into, where it is to start away from its 60/40 targets. */
+  holds?: { asset: string; weightBps: number }[],
+): Promise<string> {
   await page.request.post(`${STUB}/__stub/reset`);
   await page.goto('/invest');
   await page.locator('header a[href^="/sign-in"]').click();
@@ -80,6 +104,7 @@ async function toVault(page: Page): Promise<string> {
         { asset: 'solana:spy', weightBps: 6000 },
         { asset: 'solana:nvda', weightBps: 4000 },
       ],
+      ...(holds ? { holds } : {}),
     },
   });
   expect(source.ok(), await source.text()).toBe(true);
@@ -89,7 +114,7 @@ async function toVault(page: Page): Promise<string> {
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
   await expect(page).toHaveURL(/\/invest$/);
-  await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(new RegExp(`/portfolio/vaults/solana/${address}$`));
   await expect(page.locator('[data-ui="vault-screen"]')).toHaveAttribute('data-pane', 'holdings');
   return address;
@@ -142,7 +167,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   const here = new RegExp(`/portfolio/vaults/solana/${address}$`);
   const screen = page.locator('[data-ui="vault-screen"]');
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  const title = pane.locator(':scope > header h2');
+  const title = pane.locator('[data-ui="pane-title"]');
 
   // The head: the name in full, the value with what kind of figure it is, the chain as a quiet label.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(p.yourVault);
@@ -229,11 +254,12 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
         };
       }),
     );
-    // the sample chain has no explorer, so its row is not here: the weights by hand and sharing are
+    // the sample chain has no explorer, so its row is not here: the weights by hand, sharing and
+    // closing the vault are
     expect(
       rows.map((row) => row.text),
       at,
-    ).toEqual([p.editWeights, en.shared.publish.shareStrategy]);
+    ).toEqual([p.editWeights, en.shared.publish.shareStrategy, p.close.action]);
     for (const row of rows) {
       expect(row.inside, `${at}: ${row.text} is inside the window`).toBe(true);
       expect(row.met, `${at}: ${row.text} is not covered`).toBe(true);
@@ -283,7 +309,10 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await pane.getByLabel(en.amount.field.deposit, { exact: true }).fill('40');
   await pressInView(page, 'deposit, first time');
   const press = await readyToInvest(page, { amount: '40' });
-  await expect(pane.locator('[data-ui="order-step"]').first()).toBeVisible();
+  // the deposit as the figure the review leads with, where it goes, and every step one fold away
+  await expect(pane.locator('[data-ui="sign-figure"]')).toHaveText('$40');
+  await expect(pane.locator('[data-ui="sign-picture"]')).toBeVisible();
+  await expect(pane.locator('[data-ui="order-step"]').first()).toBeHidden();
   await check(page, 'deposit-review');
   await fixedWorkbench(page, '[data-ui="vault-action"]');
   await press.click();
@@ -327,8 +356,18 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await expect(title).toHaveText(p.panes.withdraw.signTitle);
   await expect(page).toHaveURL(here);
   await expect(pane.locator('[data-ui="order-step"]')).toHaveCount(2);
+  // the review: what leaves, one sentence, and "Continue", which approves nothing
+  await expect(pane.locator('[data-ui="sign-picture"]')).toBeVisible();
   await check(page, 'withdraw-steps');
-  await pane.getByRole('button', { name: en.order.shared.signWithdraw }).click();
+  await fitsPane(page, 'withdraw review');
+  await pane.locator('[data-action="order-continue"]').click();
+  // the first step alone, with a button that names it
+  const withdrawPress = pane.locator('[data-ui="sign-step"] [data-variant="primary"]');
+  await expect(withdrawPress).toContainText(en.order.flow.press.withdraw(''));
+  await expect(pane.locator('[data-ui="sign-progress"] [aria-current="step"]')).toBeVisible();
+  await check(page, 'withdraw-sign');
+  await fitsPane(page, 'withdraw step');
+  await withdrawPress.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page).toHaveURL(here);
   await expect(pane.locator('[data-ui="withdraw-done"]')).toBeVisible();
@@ -360,7 +399,7 @@ test('the owner’s vault page: a deposit, then a withdrawal, signed in place', 
   await go(page, en.shell.portfolio);
   await expect(page).toHaveURL(/\/portfolio$/);
   await go(page, en.shell.invest);
-  await page.locator('[data-ui="goal-picker"]').selectOption(`vault:solana:${address}`);
+  await openVault(page, 'solana', address);
   await expect(page).toHaveURL(here);
   await expect(screen.locator('[data-ui="vault-empty"]')).toHaveText(p.empty.noTargets);
   await expect(screen.locator('[data-ui="vault-empty-targets"]')).toHaveCount(0);
@@ -523,7 +562,7 @@ test('a change proposed in the conversation is applied in place, and the weights
   const here = new RegExp(`/portfolio/vaults/solana/${address}$`);
   const screen = page.locator('[data-ui="vault-screen"]');
   const pane = page.locator('[data-ui="vault-action-pane"]');
-  const title = pane.locator(':scope > header h2');
+  const title = pane.locator('[data-ui="pane-title"]');
   // The stub has no model: the reply is answered here, as apps/api declares it, for this vault.
   await page.route('**/conversation/reply', async (route) => {
     const asked = route.request().postDataJSON() as { messageId: string };
@@ -581,24 +620,46 @@ test('a change proposed in the conversation is applied in place, and the weights
   await fixedWorkbench(page, '[data-ui="vault-plan"]');
   await expect(page.locator('[data-ui="vault-transcript"]')).toHaveCSS('overflow-y', 'auto');
   await proposal.getByRole('button', { name: en.mix.preview.apply }).click();
-  await proposal.getByRole('button', { name: en.mix.vault.review }).click();
-  await expect(page.locator('[data-ui="mix-review-lines"]')).toContainText('SPY');
-  await expect(page.locator('[data-ui="mix-review-lines"]')).not.toContainText(/SPYx|NVDAx/);
+  // Thom's case (gate SIGN-ONE-STEP): "Apply" leads straight to the change's review, in the draft's
+  // place: a few words, the targets now beside the new ones, the warnings to tick, one "Continue";
+  // every line's figures are folded
+  const review = page.locator('[data-ui="change-review"]');
+  await expect(review.locator('[data-ui="sign-figure"]')).toHaveText('More SPY, less NVDA');
+  const picture = review.locator('[data-ui="sign-picture"]');
+  await expect(picture).toContainText('60%');
+  await expect(picture).toContainText('70%');
+  await expect(page.locator('[data-ui="mix-review-lines"]')).toBeHidden();
+  // every holding by the name the draft gave it, never the chain's symbol (the UI audit, I4)
+  await expect(review).not.toContainText(/SPYx|NVDAx/);
   const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
   for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
   await check(page, 'apply-review');
-  await page.getByRole('button', { name: en.mix.vault.confirm }).click();
-  // the order's steps take the pane: no other page
+  await fitsPane(page, 'change review', '[data-ui="vault-plan"]');
+  await review.getByRole('button', { name: en.order.flow.continue }).click();
+  // the order's steps take the pane, on the first step: no other page and no second review
   await expect(screen).toHaveAttribute('data-pane', 'apply');
   await expect(page).toHaveURL(here);
   await expect(title).toHaveText(p.panes.change.signTitle);
   await expect(page.locator('[data-ui="vault-chat-waits"]')).toHaveText(p.waits.change);
-  await expect(pane.getByRole('region', { name: en.mix.order.title })).toContainText('70%');
-  await check(page, 'apply-steps');
-  await pane.getByRole('button', { name: en.mix.order.signTargets }).click();
+  // one press of the passkey wallet signs every step: the screen is the whole change's
+  await expect(pane.locator('[data-ui="sign-step"] [data-ui="sign-figure"]')).toHaveText(
+    'More SPY, less NVDA',
+  );
+  const targetsPress = pane.getByRole('button', { name: en.order.flow.press.change });
+  await expect(targetsPress).toBeVisible();
+  await expect(pane.getByRole('region', { name: en.mix.order.title })).toBeHidden();
+  await check(page, 'apply-sign');
+  await fitsPane(page, 'change step');
+  await targetsPress.click();
   await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
   await expect(page).toHaveURL(here);
+  // done: the targets as the order set them, the transactions folded
+  await expect(pane.locator('[data-ui="sign-picture"]')).toContainText('70%');
+  await expect(pane.locator('[data-ui="order-details"] > summary')).toHaveText(
+    en.order.flow.transactions,
+  );
   await check(page, 'apply-done');
+  await fitsPane(page, 'change done');
   await pane.getByRole('button', { name: p.backToVault }).click();
   await expect(screen).toHaveAttribute('data-pane', 'holdings');
   const targets = async () => {
@@ -625,3 +686,120 @@ test('a change proposed in the conversation is applied in place, and the weights
   await expect(screen).toHaveAttribute('data-pane', 'holdings');
   await expect(more).toBeFocused();
 });
+
+test('a vault away from its targets: the rebalance reviewed, signed and done in the pane', async ({
+  page,
+}) => {
+  // bought 40/60 with targets of 60/40: away from them, so the page offers the rebalance
+  await toVault(page, [
+    { asset: 'solana:spy', weightBps: 4000 },
+    { asset: 'solana:nvda', weightBps: 6000 },
+  ]);
+  const screen = page.locator('[data-ui="vault-screen"]');
+  const pane = page.locator('[data-ui="vault-action-pane"]');
+  await screen.locator('[data-action="vault-rebalance"]').click();
+  await expect(screen).toHaveAttribute('data-pane', 'rebalance');
+  // the review: its figure, what the vault holds now beside its targets, one "Continue"
+  await expect(pane.locator('[data-ui="sign-label"]')).toHaveText(en.order.flow.label.rebalance);
+  await expect(pane.locator('[data-ui="sign-figure"]')).toHaveText(en.order.flow.hero.rebalance);
+  const picture = pane.locator('[data-ui="sign-picture"]');
+  await expect(picture).toContainText('40%');
+  await expect(picture).toContainText('60%');
+  await check(page, 'rebalance-review');
+  await fitsPane(page, 'rebalance review');
+  await pane.locator('[data-action="order-continue"]').click();
+  // one press signs the swaps: the screen is the rebalance's
+  const press = pane.getByRole('button', { name: en.order.flow.press.rebalance });
+  await expect(press).toBeVisible();
+  await check(page, 'rebalance-sign');
+  await fitsPane(page, 'rebalance step');
+  await press.click();
+  await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
+  await expect(pane.locator('[data-ui="sign-figure"]')).toHaveText(en.order.flow.ended.title);
+  await check(page, 'rebalance-done');
+  await fitsPane(page, 'rebalance done');
+  await pane.getByRole('button', { name: p.backToVault }).click();
+  await expect(screen).toHaveAttribute('data-pane', 'holdings');
+  await expect(screen.locator('[data-action="vault-rebalance"]')).toHaveCount(0);
+});
+
+// The holdings' table has the asset, the price, the value and the share, and off its targets the
+// target and a status: more than fits beside the chat at 1024, where it was 607px wide in a 546px box
+// and scrolled sideways. It folds into rows (Composition.tsx) under 40rem, or 56rem off its targets:
+// the asset on top, the figures in a row under it, each under its column's name. At 1024, 1280 and
+// 1440, on its targets and off them, the table is no wider than its box and every figure is in it.
+for (const holds of [
+  undefined,
+  [
+    { asset: 'solana:spy', weightBps: 4000 },
+    { asset: 'solana:nvda', weightBps: 6000 },
+  ],
+]) {
+  test(`the holdings table fits its box beside the chat at 1024, 1280 and 1440, ${holds ? 'off' : 'on'} its targets`, async ({
+    page,
+  }) => {
+    await toVault(page, holds);
+    const plan = page.locator('[data-ui="vault-plan"]');
+    const table = plan.locator('[data-ui="composition-table"]').first();
+    for (const width of [1024, 1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.locator('[data-ui="vault-chat"]')).toBeVisible();
+      await expect(table).toBeVisible();
+      await expect(async () => {
+        const [wide, room] = await table.evaluate((el) => [
+          el.scrollWidth,
+          el.parentElement?.clientWidth ?? 0,
+        ]);
+        expect(wide, `${width}px: the table is no wider than its box`).toBeLessThanOrEqual(room);
+      }).toPass();
+      const box = await table.evaluate((el) => {
+        const r = (el.parentElement as HTMLElement).getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      const rows = table.locator('tbody [data-row]');
+      await expect(rows).toHaveCount(2);
+      for (const row of await rows.all()) {
+        const figures = [
+          // each figure on its pin
+          row.locator('[data-column="price"] [data-ui="figure"]'),
+          row.locator('[data-column="price"] [data-ui="pin"]'),
+          row.locator('[data-column="value"] [data-ui="figure"]'),
+          row.locator('[data-column="value"] [data-ui="pin"]'),
+          row.locator('[data-ui="composition-share"]'),
+          ...(holds
+            ? [row.locator('[data-column="before"]'), row.locator('[data-column="change"]')]
+            : []),
+        ];
+        for (const figure of figures) {
+          await expect(figure).toBeVisible();
+          const b = await figure.boundingBox();
+          if (!b) throw new Error('the figure is drawn');
+          expect(b.x, `${width}px: a figure starts in the box`).toBeGreaterThanOrEqual(
+            box.left - 1,
+          );
+          expect(b.x + b.width, `${width}px: a figure ends in the box`).toBeLessThanOrEqual(
+            box.right + 1,
+          );
+        }
+      }
+      // folded where the box is under 40rem (56rem off its targets): each figure under its name
+      const folded = await table.evaluate(
+        (el, fold) => (el.parentElement as HTMLElement).getBoundingClientRect().width < fold,
+        holds ? 896 : 640,
+      );
+      if (width === 1024) expect(folded, 'beside the chat at 1024 the table folds').toBe(true);
+      const label = rows.first().locator('[data-column="weight"] [data-part="fold-label"]');
+      if (folded) await expect(label).toHaveText(en.shared.vault.columns.weight);
+      else await expect(label).toBeHidden();
+      if (SHOTS)
+        for (const theme of ['light', 'dark'] as const) {
+          await inTheme(page, theme);
+          await page.mouse.move(0, 0);
+          await page.screenshot({
+            path: `${SHOTS}/holdings-${holds ? 'off' : 'on'}-target-${width}-${theme}.png`,
+          });
+        }
+      await inTheme(page, 'light');
+    }
+  });
+}

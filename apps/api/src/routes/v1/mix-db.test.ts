@@ -237,9 +237,11 @@ describe.skipIf(!DB)('a mix, stored and bought, and a vault retargeted, in the d
     expect(placed.body).not.toMatch(/Infinity|NaN/);
     const ordered = ApplyVaultMixResponse.parse(placed.json());
     if (ordered.status !== 'ordered') throw new Error(placed.body);
-    const [targets, swap] = ordered.order.legs;
-    if (!targets || !swap) throw new Error('the order has two steps');
-    expect(ordered.order.legs.map((l) => l.kind)).toEqual(['set_targets', 'swap']);
+    // One step: the targets, then the sale and the purchase toward them, in one transaction (gate
+    // EVM-MULTICALL-STEPS).
+    const [swap] = ordered.order.legs;
+    if (!swap) throw new Error('the order has no step');
+    expect(ordered.order.legs.map((l) => l.kind)).toEqual(['set_targets']);
     // The sale is a sale: the stock in, in its own raw units, for cash; then cash for the other stock.
     expect(swap.trades[0]).toEqual({
       sell: 'robinhood:tsla',
@@ -249,16 +251,10 @@ describe.skipIf(!DB)('a mix, stored and bought, and a vault retargeted, in the d
     expect(swap.trades[1]).toMatchObject({ sell: 'robinhood:usdc', buy: 'robinhood:nvda' });
     for (const e of swap.expected) expect(Number.isFinite(e.costBps)).toBe(true);
 
-    // Step 1 lands.
-    await build(who, ordered.order, targets.id);
-    await report(who, ordered.order, targets.id, {
-      txId: await land(who, ordered.order, targets.id),
-    });
-
-    // Step 2 is refused by the chain once (as the EVM adapter refused it on Oct 9): a 409 the person
-    // can try again, and step 1 stays as it landed.
+    // The step is refused by the chain once (as the EVM adapter refused a swap on Oct 9): a 409 the
+    // person can try again, and nothing landed.
     const refusedOnce = vi
-      .spyOn(adapter, 'buildOwnerSwap')
+      .spyOn(adapter, 'buildSetTargets')
       .mockRejectedValueOnce(
         new ChainError('SpentTooMuch', 'the vault holds less than the trade sells'),
       );
@@ -267,11 +263,9 @@ describe.skipIf(!DB)('a mix, stored and bought, and a vault retargeted, in the d
     expect(refused.json().details).toMatchObject({ chainCode: 'SpentTooMuch' });
     refusedOnce.mockRestore();
     const stopped = await read(who, ordered.order);
-    expect(stopped.legs.map((l) => l.status)).toEqual(['confirmed', 'planned']);
+    expect(stopped.legs.map((l) => l.status)).toEqual(['planned']);
 
-    // "Try again": the same order at step 2. Step 1 is not built again.
-    const again = await post(who, legUrl(ordered.order, targets.id, 'build'));
-    expect(again.statusCode).toBe(409);
+    // "Try again": the same order at the same step.
     const built = await post(who, legUrl(ordered.order, swap.id, 'build'));
     expect(built.statusCode, built.body).toBe(200);
     expect(built.body).not.toMatch(/Infinity|NaN/);
@@ -289,7 +283,7 @@ describe.skipIf(!DB)('a mix, stored and bought, and a vault retargeted, in the d
       txId: await land(who, ordered.order, swap.id),
     });
     expect(done.status).toBe('done');
-    expect(attemptsOf(done, targets.id)).toEqual([[1, 'confirmed']]);
+    expect(attemptsOf(done, swap.id)).toEqual([[1, 'confirmed']]);
     const after = await adapter.getVault(vault.address);
     expect(after?.positions.find((p) => p.asset === 'robinhood:tsla')?.raw ?? '0').toBe('0');
     expect(

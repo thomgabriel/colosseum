@@ -8,16 +8,18 @@ import { parseRecord } from '../scripts/ops/authority';
 import { buildRecords, validate, writeBoth } from '../scripts/ops/mainnet-records';
 
 // The two files the app runs on after a mainnet deploy, written from what the deploy left behind. The
-// broadcast here is forge's own, from a run of the deploy script against a local fork of Robinhood
-// Chain mainnet: nothing in it reached a network. The deploy file is the committed one.
+// broadcasts here are forge's own, from runs of the deploy script against a local fork of Robinhood
+// Chain mainnet: nothing in them reached a network. The first is the deploy of 2026-10-12 with its file
+// (timelock); the second the redeploy of gate ROBINHOOD-REDEPLOY with the committed file (the Safe
+// holds the keys itself), from `contracts/script/redeploy-fork.sh`.
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 const broadcast = read('tests/fixtures/mainnet-records/run-latest.json');
-const config = read('contracts/script/config/4663.json');
+const config = read('contracts/script/config/4663-2026-10-12.json');
 // The guard's file as it stood before the deploy: marked a placeholder, with no contract named.
 const guard = (() => {
-  const g = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
+  const g = JSON.parse(read('tests/fixtures/mainnet-records/guard-2026-10-12.json'));
   const zero = `0x${'0'.repeat(40)}`;
   Object.assign(g.chains.robinhood, { factory: zero, beacon: zero, registry: zero });
   return JSON.stringify({ placeholder: true, todo: 'not deployed', ...g });
@@ -333,5 +335,65 @@ describe('the records of a mainnet deploy', () => {
       guard,
     });
     expect(() => validate(built)).toThrow();
+  });
+});
+
+describe('the records of the redeploy, whose Safe holds the keys itself (ROBINHOOD-REDEPLOY)', () => {
+  const redeploy = read('tests/fixtures/mainnet-records/redeploy-run-latest.json');
+  const file = read('contracts/script/config/4663.json');
+  const safe = {
+    threshold: 2,
+    owners: [
+      '0x0a1c3312c808b23d019bf241028f6b5624f4cc98',
+      '0xac3cbbcd6e51dbfaf4e79d5e8cf54a1622d71e0e',
+    ],
+  };
+
+  it('name the Safe as the admin, with no timelock, and every reader takes them', () => {
+    const built = buildRecords({ broadcast: redeploy, config: file, guard, safe });
+    validate(built);
+    const record = EvmDeploymentRecord.parse(built.record);
+    expect(record.roles.admin).toBe('0x4568bc6cc821b34095059fd46102eaa22a675fdc');
+    expect(record.safe).toEqual({ address: record.roles.admin, ...safe });
+    expect(record.timelock).toBeUndefined();
+    expect(parseRecord(JSON.stringify(built.record)).safe?.address).toBe(record.roles.admin);
+  });
+
+  it('show 19 tokens and keep the six the app does not show apart, with their route', () => {
+    const record = EvmDeploymentRecord.parse(
+      buildRecords({ broadcast: redeploy, config: file, guard }).record,
+    );
+    expect(record.assets).toHaveLength(19);
+    expect((record.hidden ?? []).map((h) => [h.symbol, h.why])).toEqual([
+      ['DELL', 'held_back'],
+      ['QQQ', 'v3_route'],
+      ['MU', 'v3_route'],
+      ['AMD', 'v3_route'],
+      ['INTC', 'v3_route'],
+      ['SLV', 'v3_route'],
+    ]);
+    for (const h of record.hidden ?? []) expect(h.why === 'v3_route').toBe(h.pool === null);
+    // The guard's file signs trades in the shown tokens alone.
+    const built = buildRecords({ broadcast: redeploy, config: file, guard });
+    const rows = Object.keys((built.guard as Json).chains.robinhood.assets);
+    expect(rows).toHaveLength(20);
+    expect(rows).toContain('robinhood:cbbtc');
+    expect(rows).not.toContain('robinhood:dell');
+    expect(rows).not.toContain('robinhood:qqq');
+  });
+
+  it('refuse a broadcast whose deploy proposed the keys to another than the file’s Safe', () => {
+    const other = edit(file, (j) => {
+      j.safe.address = '0x000000000000000000000000000000000000dead';
+    });
+    expect(() => buildRecords({ broadcast: redeploy, config: other, guard })).toThrow(
+      /proposed admin/,
+    );
+    const both = edit(file, (j) => {
+      j.timelock = { owner: j.safe.address, delay: 172_800 };
+    });
+    expect(() => buildRecords({ broadcast: redeploy, config: both, guard })).toThrow(
+      /one of the two/,
+    );
   });
 });

@@ -215,6 +215,71 @@ async function build(chain: ChainId): Promise<World> {
       ['publish'],
     );
   }
+  // Several of the vault's calls in one transaction, where the chain takes them (EVM-MULTICALL-STEPS).
+  if (adapter.capabilities.ownerCallsInOne) {
+    const follow = { recipeOnchainId: recipe, version: 2 };
+    await keep(
+      'accept_on',
+      { ...base, basketId: '43', kind: 'accept_version', follow, switchAutoFollow: true },
+      await adapter.buildAcceptVersion({
+        vault: following,
+        recipeOnchainId: recipe,
+        expectedVersion: 2,
+        switchAutoFollow: true,
+      }),
+      ['new_asset', 'auto_follow_on'],
+    );
+    await keep(
+      'accept_off',
+      { ...base, basketId: '43', kind: 'accept_version', follow, switchAutoFollow: false },
+      await adapter.buildAcceptVersion({
+        vault: following,
+        recipeOnchainId: recipe,
+        expectedVersion: 2,
+        switchAutoFollow: false,
+      }),
+      ['new_asset'],
+    );
+    const toward = await adapter.buildSetTargets({
+      vault,
+      targets,
+      trades: [{ ...spy, buy: `${chain}:nvda`, amountInRaw: usd(50) }],
+      slippageBps: 100,
+    });
+    await keep(
+      'targets_trades',
+      { ...base, kind: 'set_targets', targets, trades: tradesOfTx(toward) },
+      toward,
+    );
+    const sale = await adapter.buildOwnerSwap({
+      vault,
+      trades: [{ ...spy, buy: `${chain}:gold`, amountInRaw: usd(10) }],
+      slippageBps: 100,
+      switchAutoFollow: false,
+    });
+    await keep(
+      'swap_off',
+      { ...base, kind: 'swap', trades: tradesOfTx(sale), switchAutoFollow: false },
+      sale,
+    );
+    const [out] = await adapter.buildWithdrawInKind({
+      vault,
+      assets: [`${chain}:gold`],
+      amounts: { [`${chain}:gold`]: '3' },
+      switchAutoFollow: false,
+    });
+    if (!out) throw new Error('the mock built no withdrawal');
+    await keep(
+      'withdraw_off',
+      {
+        ...base,
+        kind: 'withdraw',
+        withdrawals: [{ asset: `${chain}:gold`, amountRaw: '3' }],
+        switchAutoFollow: false,
+      },
+      out,
+    );
+  }
   // Part of a token: the amount the person reviewed, in the bytes.
   const [part] = await adapter.buildWithdrawInKind({
     vault,
@@ -293,6 +358,22 @@ describe('the guard on the mock chain: what the mock builds passes', () => {
           `${w.chain} ${name}`,
         ).toBeNull();
     }
+  });
+
+  it('each merged step on an EVM chain, and none of its switch or trades on a step that has none', () => {
+    const w = worlds.robinhood;
+    for (const name of ['accept_on', 'accept_off', 'targets_trades', 'swap_off', 'withdraw_off'])
+      expect(w.cases[name], name).toBeDefined();
+    expect(worlds.solana.cases.accept_on).toBeUndefined();
+    const other = (name: string, from: string, consents?: ConsentKind[]) =>
+      refusalOf(() => guardTransaction(input(w, name, w.cases[from]?.tx, consents)))?.code;
+    // the bytes switch where the step does not, or the other way
+    expect(other('accept_version', 'accept_on', ['new_asset', 'auto_follow_on'])).toBe(
+      'auto_follow',
+    );
+    expect(other('accept_on', 'accept_off')).toBe('auto_follow');
+    // targets with trades the step does not name: their minimums are not the step's
+    expect(other('set_targets', 'targets_trades')).toBe('preview');
   });
 
   it('a withdrawal of everything, whatever the mock lists', () => {

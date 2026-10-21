@@ -43,7 +43,7 @@ describe.skipIf(!FORK_URL)('a change of targets, all of one stock into all of an
   };
   afterAll(async () => (await started)?.stop());
 
-  it('sets the targets, then sells and spends the sale in one step the guard passes', async () => {
+  it('sets the targets, sells and spends the sale, all in one step the guard passes', async () => {
     const w = await start();
     const { adapter } = w;
     const land = async (tx: BuiltTx) => {
@@ -104,9 +104,10 @@ describe.skipIf(!FORK_URL)('a change of targets, all of one stock into all of an
     });
     expect(nonFinitePaths(order)).toEqual([]);
     Order.parse(order);
-    expect(order.legs.map((l) => l.kind)).toEqual(['set_targets', 'swap']);
-    const [targets, swap] = order.legs;
-    if (!targets || !swap) throw new Error('no steps');
+    // One step: the targets, then the sale and the purchase toward them (gate EVM-MULTICALL-STEPS).
+    expect(order.legs.map((l) => l.kind)).toEqual(['set_targets']);
+    const [swap] = order.legs;
+    if (!swap) throw new Error('no steps');
     // The sale first, of the stock, in its own 18 decimals; then the purchase with cash.
     expect(swap.trades.map((t) => [t.sell, t.buy])).toEqual([
       [id('ttsla'), id('tusdg')],
@@ -131,8 +132,7 @@ describe.skipIf(!FORK_URL)('a change of targets, all of one stock into all of an
       });
       return tx;
     };
-    await land(await signed(targets));
-    // The step the report saw refused: the vault holds no cash until the sale in it has run.
+    // The step the report of Oct 9 saw refused: the vault holds no cash until the sale in it has run.
     const tx = await signed(swap);
     // What the bytes hold each trade to is what the order stated, asset for asset.
     expect(tx.preview.minimums).toEqual(

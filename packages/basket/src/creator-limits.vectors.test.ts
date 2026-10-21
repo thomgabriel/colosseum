@@ -1,18 +1,21 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { LimitContext, Target } from '@colosseum/schemas';
+import type { CreatorLimits, LimitContext, Target } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 import {
   CREATOR_LIMIT_ERROR,
-  CREATOR_LIMITS,
+  CREATOR_LIMITS_V1,
+  CREATOR_LIMITS_V2,
   checkCreatorLimits,
   LIMIT_REASONS,
   versionEffectiveAt,
 } from './creator-limits';
 import { referenceBreaks } from './creator-limits.reference';
 
-// fixtures/creator-limits/vectors.json is the one list of cases the TypeScript check, the Solana program
-// and the EVM registry are each tested against. This is the TypeScript side.
+// The shared files of cases, one per rule set: fixtures/creator-limits/vectors.json for the first rules,
+// which the Solana program and the EVM registry's first logic are tested against, and vectors-v2.json for
+// the second (SHARED-RULES-V2), which the registry's second logic is. This is the TypeScript side of both.
 
 type Version = { n: number; assets: string[]; weightsBps: number[] };
 type Case = {
@@ -35,6 +38,7 @@ type Case = {
   };
 };
 type Vectors = {
+  rules?: number;
   limits: Record<string, number>;
   error: string;
   reasons: { id: number; name: string }[];
@@ -59,37 +63,57 @@ const SCENARIOS = [
   'next_ceiling_lowered',
 ];
 
-const file = fileURLToPath(
-  new URL('../../../fixtures/creator-limits/vectors.json', import.meta.url),
-);
-const vectors: Vectors = JSON.parse(readFileSync(file, 'utf8'));
+const read = (name: string): Vectors =>
+  JSON.parse(
+    readFileSync(
+      fileURLToPath(new URL(`../../../fixtures/creator-limits/${name}`, import.meta.url)),
+      'utf8',
+    ),
+  );
+const FILES: [string, Vectors, CreatorLimits][] = [
+  ['vectors.json, the first rules', read('vectors.json'), CREATOR_LIMITS_V1],
+  ['vectors-v2.json, the second rules', read('vectors-v2.json'), CREATOR_LIMITS_V2],
+];
 
 /** A placeholder name as an asset id of this repo: 'CAP_2500' is 'solana:cap-2500'. */
 const assetId = (name: string) => `solana:${name.toLowerCase().replaceAll('_', '-')}`;
 const targets = (v: Version): Target[] =>
   v.assets.map((name, i) => ({ asset: assetId(name), weightBps: v.weightsBps[i] ?? Number.NaN }));
-const platform = vectors.platform.assets.map((name, i) => ({
-  id: assetId(name),
-  maxWeightBps: vectors.platform.ceilingsBps[i] ?? Number.NaN,
-  // `platform.cash` names the chain's cash token.
-  cls: name === vectors.platform.cash ? ('cash' as const) : ('stock' as const),
-}));
 
-function inputs(c: Case) {
-  const prev = c.prev.exists === 1 ? targets(c.prev) : null;
-  const ctx: LimitContext = {
-    assets: platform,
-    now: c.ctx.now,
-    lastPublishAt: c.prev.exists === 1 ? c.ctx.lastPublishAt : null,
-    hasPending: c.ctx.hasPending === 1,
-    publishDelay: c.ctx.publishDelay,
-  };
-  return { prev, next: targets(c.next), ctx, header: c.next };
-}
+it('holds vectors-v2.json to the script that writes it', () => {
+  const script = fileURLToPath(
+    new URL('../../../fixtures/creator-limits/vectors-v2.mjs', import.meta.url),
+  );
+  expect(execFileSync(process.execPath, [script, '--check'], { encoding: 'utf8' })).toMatch(
+    /as written/,
+  );
+});
 
-describe('the shared vectors for the author limits', () => {
+describe.each(FILES)('the shared vectors for the author limits: %s', (_title, vectors, limits) => {
+  const platform = vectors.platform.assets.map((name, i) => ({
+    id: assetId(name),
+    maxWeightBps: vectors.platform.ceilingsBps[i] ?? Number.NaN,
+    // `platform.cash` names the chain's cash token.
+    cls: name === vectors.platform.cash ? ('cash' as const) : ('stock' as const),
+  }));
+
+  function inputs(c: Case) {
+    const prev = c.prev.exists === 1 ? targets(c.prev) : null;
+    const ctx: LimitContext = {
+      limits,
+      assets: platform,
+      now: c.ctx.now,
+      lastPublishAt: c.prev.exists === 1 ? c.ctx.lastPublishAt : null,
+      hasPending: c.ctx.hasPending === 1,
+      publishDelay: c.ctx.publishDelay,
+    };
+    return { prev, next: targets(c.next), ctx, header: c.next };
+  }
+
   it('is a file this check can be held to', () => {
-    expect(vectors.limits).toEqual(CREATOR_LIMITS);
+    const { rules, ...numbers } = limits;
+    expect(vectors.rules ?? 1).toBe(rules);
+    expect(vectors.limits).toEqual(numbers);
     expect(vectors.platform.assets).toContain(vectors.platform.cash);
     expect(vectors.error).toBe(CREATOR_LIMIT_ERROR);
     expect(vectors.reasons.map((r) => r.name)).toEqual([...LIMIT_REASONS]);
@@ -102,15 +126,17 @@ describe('the shared vectors for the author limits', () => {
       expect(vectors.platform.assets).not.toContain(name);
   });
 
-  it('keeps the first 71 cases where they were, and adds after them', () => {
-    // Other test suites name cases by position. New cases go at the end.
-    expect(vectors.cases.length).toBeGreaterThanOrEqual(87);
-    expect(vectors.cases[0]?.name).toBe('three assets, the fewest allowed');
-    expect(vectors.cases[38]?.name).toBe('exactly on time, 48-hour delay');
-    expect(vectors.cases[70]?.name).toBe('a bad shape and too soon');
-    expect(vectors.cases[71]?.scenario).toBe('matured');
-  });
-
+  it.runIf(limits.rules === 1)(
+    'keeps the first 71 cases where they were, and adds after them',
+    () => {
+      // Other test suites name cases by position. New cases go at the end.
+      expect(vectors.cases.length).toBeGreaterThanOrEqual(87);
+      expect(vectors.cases[0]?.name).toBe('three assets, the fewest allowed');
+      expect(vectors.cases[38]?.name).toBe('exactly on time, 48-hour delay');
+      expect(vectors.cases[70]?.name).toBe('a bad shape and too soon');
+      expect(vectors.cases[71]?.scenario).toBe('matured');
+    },
+  );
   it('measures a matured version against itself, not against the one it replaced', () => {
     // Each matured case is built so that measuring against the older version gives the other answer.
     const matured = vectors.cases.filter((c) => c.scenario === 'matured');

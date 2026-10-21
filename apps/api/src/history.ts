@@ -14,7 +14,7 @@ import {
   type RegimeParams,
   regimeAt,
 } from '@colosseum/risk';
-import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { type AnyColumn, and, asc, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm';
 
 /**
  * Time series for line charts (`/risk/assets/:id/history`, `/risk/assets/:id/prices`,
@@ -29,6 +29,53 @@ export const seriesProvenance = (xs: Provenance[]): Provenance =>
   xs.find((p) => p !== 'live') ?? 'live';
 
 type CurvePt = { notionalUsd: number; outUsd: number };
+
+// A stored side is either form (`packSide`, packages/risk/src/curve-store.ts): an array of objects as the
+// collector wrote them, or of `[notionalUsd, outUsd]` pairs. These read a point's two numbers in both.
+const nOf = (pt: string) =>
+  `case when jsonb_typeof(${pt}) = 'array' then ${pt}->0 else ${pt}->'notionalUsd' end`;
+const outOf = (pt: string) =>
+  `case when jsonb_typeof(${pt}) = 'array' then ${pt}->1 else ${pt}->'outUsd' end`;
+const pointsOf = (side: AnyColumn) =>
+  sql`jsonb_array_elements(case when jsonb_typeof(${side}) = 'array' then ${side} else '[]'::jsonb end) with ordinality p(pt, ord)`;
+
+/**
+ * A stored side cut, in the database, to what `capacityAtTau` reads: `[notionalUsd, outUsd]` of each point
+ * whose outUsd is a number, in the stored order. The numbers are the stored JSON's, not floats the
+ * database printed. A snapshot's side held the collector's route detail beside the two numbers (pool,
+ * mid, cost, fill), about three quarters of what a row shipped; the series read only the two.
+ */
+export const curvePairs = (side: AnyColumn): SQL<Array<[number, number]>> =>
+  sql<
+    Array<[number, number]>
+  >`(select coalesce(jsonb_agg(jsonb_build_array(${sql.raw(nOf('p.pt'))}, ${sql.raw(outOf('p.pt'))}) order by p.ord), '[]'::jsonb) from ${pointsOf(side)} where jsonb_typeof(${sql.raw(outOf('p.pt'))}) = 'number')`;
+
+/**
+ * A stored side cut, in the database, to each point's `notionalUsd` and `outUsd`, in the stored order: every
+ * point kept, each key there or absent as stored (a pair has both), the numbers the stored JSON's. For a read
+ * that does its own arithmetic on the two and nothing else, without the collector's route detail.
+ */
+export const curveNotionalOut = (side: AnyColumn): SQL<Array<Record<string, unknown>>> =>
+  sql<
+    Array<Record<string, unknown>>
+  >`(select coalesce(jsonb_agg(case when jsonb_typeof(p.pt) = 'object' then p.pt - array(select k from jsonb_object_keys(p.pt) k where k not in ('notionalUsd', 'outUsd')) when jsonb_typeof(p.pt) = 'array' then jsonb_build_object('notionalUsd', p.pt->0, 'outUsd', p.pt->1) else p.pt end order by p.ord), '[]'::jsonb) from ${pointsOf(side)})`;
+
+/**
+ * The first point of a stored side whose `notionalUsd` is the number `notionalUsd` (compared as a double, as
+ * JavaScript compares the parsed point), cut to its `outUsd` as stored; null when no point is at that size.
+ * The heatmap reads one point of each snapshot, not the side.
+ */
+export const curvePointAt = (
+  side: AnyColumn,
+  notionalUsd: number,
+): SQL<{ outUsd?: unknown } | null> =>
+  sql<{
+    outUsd?: unknown;
+  } | null>`(select case when jsonb_typeof(p.pt) = 'array' then jsonb_build_object('outUsd', p.pt->1) else p.pt - array(select k from jsonb_object_keys(p.pt) k where k <> 'outUsd') end from ${pointsOf(side)} where jsonb_typeof(p.pt) in ('object', 'array') and case when jsonb_typeof(${sql.raw(nOf('p.pt'))}) = 'number' then (${sql.raw(nOf('p.pt'))} #>> '{}')::float8 = ${notionalUsd}::float8 else false end order by p.ord limit 1)`;
+
+/** `curvePairs` back as the points `capacityAtTau` reads. */
+export const fromPairs = (xs: Array<[number, number]>): CurvePt[] =>
+  xs.map(([notionalUsd, outUsd]) => ({ notionalUsd, outUsd }));
 
 /**
  * Capacity at cost tolerance `tau` of one routed snapshot side: the computation `loadAssetFacts` runs for its
@@ -111,40 +158,54 @@ export async function loadAssetHistory(
   opts: { days: number; tau: number; now?: Date; regimeParams: RegimeParams },
 ) {
   const now = opts.now ?? new Date();
-  const rows = await db
-    .select({
-      fetchedAt: riskAssetSnapshots.fetchedAt,
-      sell: riskAssetSnapshots.sell,
-      buy: riskAssetSnapshots.buy,
-      refMidUsd: riskAssetSnapshots.refMidUsd,
-      pools: riskAssetSnapshots.pools,
-      source: riskAssetSnapshots.source,
-      method: riskAssetSnapshots.method,
-      methodVersion: riskAssetSnapshots.methodVersion,
-      provenance: riskAssetSnapshots.provenance,
-    })
-    .from(riskAssetSnapshots)
-    .where(
-      and(
-        eq(riskAssetSnapshots.assetMint, mint),
-        gte(riskAssetSnapshots.fetchedAt, new Date(now.getTime() - opts.days * 86_400_000)),
-        lte(riskAssetSnapshots.fetchedAt, now),
-      ),
-    )
-    .orderBy(asc(riskAssetSnapshots.fetchedAt));
-  const points = assetHistoryPoints(rows, opts.tau, opts.regimeParams);
-  const head = rows.at(-1);
-  const versions = [...new Set(rows.map((r) => r.methodVersion))].sort();
+  const inWindow = and(
+    eq(riskAssetSnapshots.assetMint, mint),
+    gte(riskAssetSnapshots.fetchedAt, new Date(now.getTime() - opts.days * 86_400_000)),
+    lte(riskAssetSnapshots.fetchedAt, now),
+  );
+  // The chart keeps the last row of each UTC hour: only those rows are read, with only what a point
+  // needs. What the series says of every row in the window (the newest row's source and method, the
+  // method versions, the provenance) is worked out in the database and read as one row.
+  const hour = sql`date_trunc('hour', ${riskAssetSnapshots.fetchedAt} at time zone 'UTC')`;
+  const [rows, [all]] = await Promise.all([
+    db
+      .selectDistinctOn([hour], {
+        fetchedAt: riskAssetSnapshots.fetchedAt,
+        sell: curvePairs(riskAssetSnapshots.sell),
+        buy: curvePairs(riskAssetSnapshots.buy),
+        refMidUsd: riskAssetSnapshots.refMidUsd,
+        pools: riskAssetSnapshots.pools,
+      })
+      .from(riskAssetSnapshots)
+      .where(inWindow)
+      .orderBy(hour, desc(riskAssetSnapshots.fetchedAt)),
+    db
+      .select({
+        head: sql<
+          string | null
+        >`(array_agg(${riskAssetSnapshots.source} || '; ' || ${riskAssetSnapshots.method} order by ${riskAssetSnapshots.fetchedAt} desc))[1]`,
+        versions: sql<string[] | null>`array_agg(distinct ${riskAssetSnapshots.methodVersion})`,
+        notLive: sql<Provenance | null>`(array_agg(${riskAssetSnapshots.provenance} order by ${riskAssetSnapshots.fetchedAt}) filter (where ${riskAssetSnapshots.provenance} <> 'live'))[1]`,
+      })
+      .from(riskAssetSnapshots)
+      .where(inWindow),
+  ]);
+  const points = assetHistoryPoints(
+    rows.map((r) => ({ ...r, sell: fromPairs(r.sell), buy: fromPairs(r.buy) })),
+    opts.tau,
+    opts.regimeParams,
+  );
+  const versions = [...(all?.versions ?? [])].sort();
   return {
     tau: opts.tau,
     days: opts.days,
     resolution: 'hour' as const,
     points,
     ...span(points.map((p) => p.t)),
-    source: `risk_asset_snapshots (${head ? `${head.source}; ${head.method}` : 'no rows in window'}${versions.length ? `; snapshot method ${versions.join(', ')}` : ''})`,
+    source: `risk_asset_snapshots (${all?.head ?? 'no rows in window'}${versions.length ? `; snapshot method ${versions.join(', ')}` : ''})`,
     method: `last snapshot of each UTC hour; per snapshot and side, fitCurve over cost = 1 − outUsd ÷ notionalUsd (quantile 0.5, minSamples 1), then maxNotionalAt(tau); buy side: notionalUsd is USD spent and outUsd the asset received at the reference mid, same cost formula; lowerBound when the cost stays within tau up to the largest simulated size; null when the side has no finite point`,
     methodVersion: HISTORY_METHOD_VERSION,
-    provenance: seriesProvenance(rows.map((r) => r.provenance)),
+    provenance: all?.notLive ?? ('live' as const),
   };
 }
 
@@ -361,35 +422,55 @@ export async function loadLendingHistory(
     .orderBy(desc(riskLendingFacts.reportAt))
     .limit(1);
   const resolution = opts.days <= 14 ? ('hour' as const) : ('day' as const);
-  const rows = await db
-    .select({
-      observedAt: riskLendingSnapshots.observedAt,
-      kind: riskLendingSnapshots.kind,
-      available: riskLendingSnapshots.available,
-      priceUsd: riskLendingSnapshots.priceUsd,
-      suppliedUsd: riskLendingSnapshots.suppliedUsd,
-      borrowedUsd: riskLendingSnapshots.borrowedUsd,
-      shareLentOut: riskLendingSnapshots.shareLentOut,
-      supplyApy: riskLendingSnapshots.supplyApy,
-      borrowApy: riskLendingSnapshots.borrowApy,
-      usdNullReason: riskLendingSnapshots.usdNullReason,
-      source: riskLendingSnapshots.source,
-      method: riskLendingSnapshots.method,
-      provenance: riskLendingSnapshots.provenance,
-    })
-    .from(riskLendingSnapshots)
-    .where(
-      and(
-        eq(riskLendingSnapshots.account, account),
-        inArray(riskLendingSnapshots.kind, LENDING_HISTORY_KINDS),
-        gte(riskLendingSnapshots.observedAt, new Date(now.getTime() - opts.days * 86_400_000)),
-        lte(riskLendingSnapshots.observedAt, now),
-      ),
-    )
-    .orderBy(asc(riskLendingSnapshots.observedAt));
+  const inWindow = and(
+    eq(riskLendingSnapshots.account, account),
+    inArray(riskLendingSnapshots.kind, LENDING_HISTORY_KINDS),
+    gte(riskLendingSnapshots.observedAt, new Date(now.getTime() - opts.days * 86_400_000)),
+    lte(riskLendingSnapshots.observedAt, now),
+  );
+  // Only the last row of each UTC hour or day is read (the live rows come every five minutes), with what
+  // a point needs; the kinds, sources and provenance of every row in the window come grouped.
+  // the unit as text of the statement, not a parameter: DISTINCT ON must match the ORDER BY's expression
+  const bucket = sql`date_trunc(${sql.raw(`'${resolution}'`)}, ${riskLendingSnapshots.observedAt} at time zone 'UTC')`;
+  const [rows, groups] = await Promise.all([
+    db
+      .selectDistinctOn([bucket], {
+        observedAt: riskLendingSnapshots.observedAt,
+        kind: riskLendingSnapshots.kind,
+        available: riskLendingSnapshots.available,
+        priceUsd: riskLendingSnapshots.priceUsd,
+        suppliedUsd: riskLendingSnapshots.suppliedUsd,
+        borrowedUsd: riskLendingSnapshots.borrowedUsd,
+        shareLentOut: riskLendingSnapshots.shareLentOut,
+        supplyApy: riskLendingSnapshots.supplyApy,
+        borrowApy: riskLendingSnapshots.borrowApy,
+        usdNullReason: riskLendingSnapshots.usdNullReason,
+      })
+      .from(riskLendingSnapshots)
+      .where(inWindow)
+      .orderBy(bucket, desc(riskLendingSnapshots.observedAt)),
+    db
+      .select({
+        kind: riskLendingSnapshots.kind,
+        source: riskLendingSnapshots.source,
+        method: riskLendingSnapshots.method,
+        provenance: riskLendingSnapshots.provenance,
+        first: sql`min(${riskLendingSnapshots.observedAt})`.as('first'),
+      })
+      .from(riskLendingSnapshots)
+      .where(inWindow)
+      .groupBy(
+        riskLendingSnapshots.kind,
+        riskLendingSnapshots.source,
+        riskLendingSnapshots.method,
+        riskLendingSnapshots.provenance,
+      )
+      .orderBy(sql`min(${riskLendingSnapshots.observedAt})`),
+  ]);
   const points = lendingHistoryPoints(rows, resolution);
-  const kinds = [...new Set(rows.map((r) => r.kind))].sort();
-  const sources = [...new Set(rows.map((r) => `${r.source}; ${r.method}`))];
+  const kinds = [...new Set(groups.map((r) => r.kind))].sort();
+  // in the order each first appears, as the rows oldest first would give them
+  const sources = [...new Set(groups.map((r) => `${r.source}; ${r.method}`))];
   return {
     account,
     venue: sheet?.venue ?? any.venue,
@@ -402,6 +483,6 @@ export async function loadLendingHistory(
     source: `risk_lending_snapshots (${kinds.length ? kinds.join(', ') : 'no rows in window'}${sources.length ? `: ${sources.join(' | ')}` : ''})`,
     method: `last observation of each UTC ${resolution} across the live 5-minute rows and the reconstructed hourly history (kinds ${LENDING_HISTORY_KINDS.join(', ')}); USD figures as stored; availableUsd = stored available (whole tokens) × the row's priceUsd, or suppliedUsd − borrowedUsd where available is not stored (availableBasis says which); null with availableNullReason not_applicable_vault for a Jupiter Lend vault (collateral and debt are different tokens); a missing supplied or borrowed USD figure is null with usdNullReason`,
     methodVersion: HISTORY_METHOD_VERSION,
-    provenance: seriesProvenance(rows.map((r) => r.provenance)),
+    provenance: seriesProvenance(groups.map((r) => r.provenance)),
   };
 }

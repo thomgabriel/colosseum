@@ -67,7 +67,11 @@ export const riskPoolSnapshots = pgTable(
     /** Mid price of the asset in the quote token (UI units). */
     midPrice: doublePrecision('mid_price').notNull(),
     activeLiquidity: text('active_liquidity'),
-    /** [{notionalUsd, out, costPct, unfilledShare}] for selling the asset into the quote token. */
+    /**
+     * Selling the asset into the quote token: [[notionalUsd, outUsd], …] since Oct 18 (`packSide`,
+     * packages/risk/src/curve-store.ts), the collector's [{notionalUsd, outUsd, costPct, unfilledShare}] before;
+     * JSON null when a ten-minute run found the side as the pool's last stored curve (DB-STORAGE).
+     */
     sell: jsonb('sell').notNull(),
     buy: jsonb('buy').notNull(),
     /** Liquidity within ±band of price, for LP-withdrawal detection. */
@@ -176,6 +180,7 @@ export const riskAssetSnapshots = pgTable(
     refPool: text('ref_pool').notNull(),
     refMidUsd: doublePrecision('ref_mid_usd').notNull(),
     pools: integer('pools').notNull(),
+    /** [[notionalUsd, outUsd], …] since Oct 18 (`packSide`, DB-STORAGE); the collector's point objects before. */
     sell: jsonb('sell').notNull(),
     buy: jsonb('buy').notNull(),
     methodVersion: text('method_version').notNull(),
@@ -262,7 +267,8 @@ export const riskLendingPools = pgTable(
  * Lending state rows (Step 10b item 8): the collector's 5-minute on-chain rows (`kind` kamino_reserve | jl_vault |
  * jl_liquidity | kvault) and the reconstructed hourly history (`kind` kamino_reserve_hourly | jl_vault_hourly).
  * `observed_at` is the time the state refers to (the read, or the hour); `fetched_at` is when the row was made.
- * The full source row is kept in `detail`; it holds protocol accounts only, never a wallet or a position.
+ * `detail` holds the keys of the source row a reader takes from it (`lendingDetail`, scripts/risk/lib-import.ts;
+ * the whole row until Oct 18, DB-STORAGE); it holds protocol accounts only, never a wallet or a position.
  */
 export const riskLendingSnapshots = pgTable(
   'risk_lending_snapshots',

@@ -18,6 +18,7 @@ import {
   type Shelf,
   type Target,
   Targets,
+  VAULT_MAX_TARGETS,
   YieldObservation,
 } from '@colosseum/schemas';
 import { z } from 'zod';
@@ -2300,7 +2301,7 @@ export function violations(plan: PersonalProposal, shelf: Shelf, given: ComposeC
     if (targets.length > 0)
       say(Targets.safeParse(targets).success, `${r.chain}: not the shared Targets`);
     say(
-      targets.length <= Math.min(16, linesInAll(plan.sheet, P)),
+      targets.length <= Math.min(VAULT_MAX_TARGETS, linesInAll(plan.sheet, P)),
       `${r.chain}: ${targets.length} targets`,
     );
     say(sum(targets.map((t) => t.weightBps)) <= 10_000, `${r.chain}: targets over 10,000`);

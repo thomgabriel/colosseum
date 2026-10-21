@@ -97,8 +97,16 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
       readFileSync(join(ROOT, 'packages', 'sdk', 'deployments', 'mainnet.json'), 'utf8'),
     ) as GuardFile
   ).chains.robinhood;
+  // The deploy file the committed record was made from: the redeploy's (its Safe holds the keys
+  // itself) once Thom has run it, the file of 2026-10-12 (its timelock) until then.
+  const recordNow = JSON.parse(
+    readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8'),
+  ) as { safe?: unknown; hidden?: { address: string }[] };
+  // Listed on chain and kept out of the app, so out of the guard's file (DELL held back, the v3 five).
+  const hidden = new Set((recordNow.hidden ?? []).map((h) => h.address.toLowerCase()));
+  const deployFile = recordNow.safe ? '4663.json' : '4663-2026-10-12.json';
   const contracts = JSON.parse(
-    readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8'),
+    readFileSync(join(ROOT, 'contracts', 'script', 'config', deployFile), 'utf8'),
   ) as ContractsFile;
   const lower = (s: string) => s.toLowerCase();
 
@@ -106,7 +114,8 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     expect(guard.evmChainId).toBe(contracts.chainId);
     expect(lower(guard.assets[guard.cash]?.address ?? '')).toBe(lower(contracts.cashToken));
     expect(guard.routers.map(lower)).toEqual(contracts.routers.map((r) => lower(r.router)));
-    const [cash, ...stocks] = contracts.assets;
+    const [cash, ...listedOnChain] = contracts.assets;
+    const stocks = listedOnChain.filter((a) => !hidden.has(lower(a.token)));
     expect(lower(cash?.token ?? '')).toBe(lower(contracts.cashToken));
     expect(cash?.pool).toBeUndefined();
     expect(guard.assets[guard.cash]?.pool).toBeUndefined();
@@ -126,11 +135,14 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
         }
       ).assets.map((a) => lower(a.address)),
     );
-    const added = (
-      JSON.parse(
-        readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-assets-2.json'), 'utf8'),
-      ) as ContractsFile
-    ).assets.filter((a) => listed.has(lower(a.token)));
+    // (The redeploy lists them at deploy, in its own file: no batch is added to it.)
+    const added = recordNow.safe
+      ? []
+      : (
+          JSON.parse(
+            readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-assets-2.json'), 'utf8'),
+          ) as ContractsFile
+        ).assets.filter((a) => listed.has(lower(a.token)));
     const fromContracts = Object.fromEntries(
       [...stocks, ...added].map((a) => [
         lower(a.token),
@@ -189,18 +201,100 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     const feeds = JSON.parse(
       readFileSync(join(ROOT, 'contracts', 'script', 'config', 'pool-feeds', '4663.json'), 'utf8'),
     ) as { assets: { token: string; pool: string; fee: number; minLiquidity: string }[] };
+    // The nine of 2026-10-12 were listed with the keeper's file's floors; a token added by the
+    // redeploy states the floor measured with it (QQQ's on 2026-10-14 is below the keeper file's of
+    // 2026-10-09), and the keeper is off on mainnet, so only its pool and fee are held to that file.
+    const first = new Set(
+      (
+        JSON.parse(
+          readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-2026-10-12.json'), 'utf8'),
+        ) as ContractsFile
+      ).assets.map((x) => lower(x.token)),
+    );
     for (const a of stocks) {
-      const named = feeds.assets.find((f) => lower(f.token) === lower(a.token));
-      expect(a.average, a.token).toEqual({
-        pool: named?.pool,
-        fee: named?.fee,
-        minLiquidity: named?.minLiquidity,
-        usable: expect.any(Boolean),
-      });
+      const found = feeds.assets.find((f) => lower(f.token) === lower(a.token));
+      const named =
+        found && !first.has(lower(a.token))
+          ? { ...found, pool: lower(found.pool), minLiquidity: expect.stringMatching(/^\d+$/) }
+          : found;
+      // A token the keeper's file names has that file's pool; one listed since (the redeploy's, with
+      // the keeper off) states its own, measured with it in contracts/script/config/4663-tokens-2026-10-14.json.
+      expect(a.average, a.token).toEqual(
+        named
+          ? {
+              pool: named.pool,
+              fee: named.fee,
+              minLiquidity: named.minLiquidity,
+              usable: expect.any(Boolean),
+            }
+          : {
+              pool: expect.stringMatching(/^0x[0-9a-f]{40}$/),
+              fee: expect.any(Number),
+              minLiquidity: expect.stringMatching(/^\d+$/),
+              usable: expect.any(Boolean),
+            },
+      );
     }
-    // The two whose pools keep under an hour of history say so, and are not traded on a stale feed.
+    // Those whose pools keep under an hour of history say so, and are not traded on a stale feed.
     const unusable = stocks.filter((a) => !a.average?.usable).map((a) => a.feedDescription);
-    expect(unusable.sort()).toEqual(['GLD / USD', 'Robinhood META / USD']);
+    expect(unusable.sort()).toEqual(
+      recordNow.safe
+        ? [
+            'BTC / USD',
+            'GLD / USD',
+            'Robinhood BABA / USD',
+            'Robinhood COIN / USD',
+            'Robinhood DELL-USD',
+            'Robinhood META / USD',
+            'Robinhood PLTR / USD',
+            'Robinhood SLV / USD',
+            'Robinhood TSM / USD',
+          ]
+        : ['GLD / USD', 'Robinhood META / USD'],
+    );
+  });
+
+  it('list each token the redeploy added with the values measured in its record of 2026-10-14', () => {
+    if (!recordNow.safe) return;
+    // The tokens the redeploy added (gate WIDER-LIST-B) are taken from their measured records, value
+    // for value: the deploy file adds no figure of its own to them.
+    const first = new Set(
+      (
+        JSON.parse(
+          readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-2026-10-12.json'), 'utf8'),
+        ) as ContractsFile
+      ).assets.map((x) => lower(x.token)),
+    );
+    const measured = new Map(
+      (
+        JSON.parse(
+          readFileSync(
+            join(ROOT, 'contracts', 'script', 'config', '4663-tokens-2026-10-14.json'),
+            'utf8',
+          ),
+        ) as { tokens: Record<string, unknown>[] }
+      ).tokens.map((x) => [lower(String(x.token)), x]),
+    );
+    const added = (contracts.assets as unknown as Record<string, unknown>[]).filter(
+      (a) => !first.has(lower(String(a.token))),
+    );
+    expect(added).toHaveLength(16);
+    const fields = [
+      'feed',
+      'feedDescription',
+      'tokenDecimals',
+      'maxWeightBps',
+      'maxTradeUsd',
+      'average',
+      'pool',
+      'maxAge',
+      'session',
+    ];
+    for (const a of added) {
+      const r = measured.get(lower(String(a.token)));
+      expect(r, String(a.symbol)).toBeDefined();
+      for (const f of fields) expect(a[f], `${String(a.symbol)} ${f}`).toEqual(r?.[f]);
+    }
   });
 
   it('the builder writes each mainnet token the pool the guard would hold it to', () => {
@@ -229,7 +323,7 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     // Every value of the contracts' file was confirmed by a person on 2026-10-12: the marker word the
     // deploy script refuses on is gone, and every note that stood beside a proposed value says who
     // confirmed it and when.
-    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663.json'), 'utf8');
+    const text = readFileSync(join(ROOT, 'contracts', 'script', 'config', deployFile), 'utf8');
     expect(text).not.toContain('TODO');
     const file = JSON.parse(text) as Record<string, unknown> & {
       assets: Record<string, unknown>[];
@@ -240,12 +334,15 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
           /Note$|^note$/.test(k) &&
           typeof v === 'string' &&
           k !== 'ownerNote' &&
-          k !== 'guardianNote',
+          k !== 'guardianNote' &&
+          // Why a token is listed and not shown: a decision's words, not a value's confirmation.
+          k !== 'hiddenNote',
       ),
     );
     expect(notes.length).toBeGreaterThan(40);
+    // The deploy of 2026-10-12's values, and the redeploy's 17 tokens confirmed on 2026-10-15.
     for (const [key, note] of notes)
-      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-12/);
+      expect(note, key).toMatch(/^Confirmed by Thom( Gabriel)?,? (on )?2026-10-1[25]/);
     // A ceiling for every token, none at zero.
     for (const a of file.assets.slice(1)) expect(a.maxWeightBps).toBeGreaterThan(0);
   });

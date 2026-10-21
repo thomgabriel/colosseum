@@ -272,10 +272,12 @@ describe.skipIf(!PROGRAMS_BUILT)('shared portfolios through the API on Solana, i
     return order;
   }
 
+  // Two assets and 10% cash: what a person's own vault may hold, and since Oct 14 a shared portfolio too
+  // (SHARED-RULES-V2). The API reads the program's limits by simulating it; under the first rules this
+  // was refused (three assets at least, adding up to 100%).
   const COMPONENTS = [
-    { kind: 'asset', asset: id('alpha'), weightBps: 4_000 },
+    { kind: 'asset', asset: id('alpha'), weightBps: 6_000 },
     { kind: 'asset', asset: id('beta'), weightBps: 3_000 },
-    { kind: 'asset', asset: id('gamma'), weightBps: 3_000 },
   ];
 
   it('publishes a portfolio the guard holds to the form, and a person buys it, following it', async () => {
@@ -406,7 +408,6 @@ describe.skipIf(!PROGRAMS_BUILT)('shared portfolios through the API on Solana, i
       ['create_vault', []],
       ['swap', [id('alpha')]],
       ['swap', [id('beta')]],
-      ['swap', [id('gamma')]],
     ]);
     const follow: PlanTerms = {
       basketId: basketIdOfPlan(familyId),
@@ -441,9 +442,8 @@ describe.skipIf(!PROGRAMS_BUILT)('shared portfolios through the API on Solana, i
     ]);
     expect(vault?.positions.map((p) => [p.asset, p.targetBps])).toEqual(
       expect.arrayContaining([
-        [id('alpha'), 4_000],
+        [id('alpha'), 6_000],
         [id('beta'), 3_000],
-        [id('gamma'), 3_000],
       ]),
     );
   });

@@ -1,4 +1,4 @@
-import { type Db, indexFamilies, legs, orders, recipes } from '@colosseum/db';
+import { chains, type Db, indexFamilies, legs, orders, recipes } from '@colosseum/db';
 import {
   type ChainId,
   chainFamily,
@@ -6,6 +6,7 @@ import {
   type PlanFollows,
   type PlanNewest,
   type PlanPutIn,
+  SNAPSHOT_STALE_AFTER_SECONDS,
 } from '@colosseum/schemas';
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { boughtOf, type JoinedPlan, numberWorkedOut } from '../orders/plan-join';
@@ -16,12 +17,6 @@ import type { SnapshotRow } from './snapshots';
 // person put in, from the order tables; the newest snapshot, as the answer carries it; the shared
 // portfolio the vault follows; and the one it was opened to follow. Read from the database alone, and
 // only the person's own rows.
-
-/**
- * How old a snapshot may be before it is stale: the hour of the status rule's `stale` line
- * (`statusOf` of packages/basket). Exactly an hour is not stale, as the rule has it.
- */
-export const STALE_AFTER_SECONDS = 3600;
 
 /**
  * Raw units of a dollar token as dollars: the amount over ten to the token's decimals, worked out in
@@ -87,6 +82,8 @@ export async function putInOf(
   scoped: ScopedChain,
   vaults: readonly NumberedVault[],
   privyId: string | undefined,
+  /** Where a vault was opened again, when: its deposits count from then (gate VAULT-CLOSE-REUSE). */
+  countsFrom: ReadonlyMap<string, Date> = new Map(),
 ): Promise<Map<string, PlanPutIn>> {
   if (vaults.length === 0) return new Map();
   const { entry } = scoped;
@@ -138,9 +135,10 @@ export async function putInOf(
   const answers = new Map<string, PlanPutIn>();
   for (const vault of vaults) {
     // Oldest first, and by the order's id where two were learned of at the same instant.
-    const mine = [...(deposits.get(vaultKey(vault.owner, vault.basketId)) ?? [])].sort(
-      (a, b) => a.at.getTime() - b.at.getTime() || (a.orderId < b.orderId ? -1 : 1),
-    );
+    const from = countsFrom.get(vault.address);
+    const mine = [...(deposits.get(vaultKey(vault.owner, vault.basketId)) ?? [])]
+      .filter((deposit) => !from || deposit.at >= from)
+      .sort((a, b) => a.at.getTime() - b.at.getTime() || (a.orderId < b.orderId ? -1 : 1));
     const newest = mine.at(-1);
     if (!newest) continue;
     answers.set(vault.address, {
@@ -164,14 +162,14 @@ export async function putInOf(
  * A snapshot as the answer carries it: the row whole, with how old it is at the answer. The age is
  * in whole seconds and never below zero (a worker's clock may run ahead of this server's). `stale` is
  * read off the same two instants as the status rule reads them, to the millisecond, so the two never
- * disagree: a snapshot a fraction of a second past the hour is stale, at `ageSeconds` 3600.
+ * disagree: a snapshot a fraction of a second past two hours is stale, at `ageSeconds` 7200.
  */
 export function newestOf(row: SnapshotRow, now: Date): PlanNewest {
   const ageMs = Math.max(0, now.getTime() - row.observedAt.getTime());
   return {
     observedAt: row.observedAt.toISOString(),
     ageSeconds: Math.floor(ageMs / 1000),
-    stale: ageMs > STALE_AFTER_SECONDS * 1000,
+    stale: ageMs > SNAPSHOT_STALE_AFTER_SECONDS * 1000,
     blockOrSlot: row.blockOrSlot,
     valueUsd: row.valueUsd,
     cash: row.cash,
@@ -211,6 +209,8 @@ export async function familiesOf(
     })
     .from(recipes)
     .innerJoin(indexFamilies, eq(indexFamilies.familyId, recipes.familyId))
+    // the recipes of the network the chain runs now (gate PRODUCTS-MAINNET-ONLY)
+    .innerJoin(chains, and(eq(chains.id, recipes.chainId), eq(chains.network, recipes.network)))
     .where(and(eq(recipes.chainId, chain), inArray(recipes.onchainId, ids)));
   return new Map(
     rows.flatMap(({ onchainId, ...family }) => (onchainId === null ? [] : [[onchainId, family]])),

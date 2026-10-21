@@ -28,6 +28,14 @@ import { Holding, Price, VaultName, VaultNumber, VaultView } from './vault';
 /** The rule's name and version, printed beside every status it gives. */
 export const TRACK_RULE = 'ON-TRACK-V1';
 
+/**
+ * How old a vault's snapshot may be before it is stale: two hours, and exactly two hours is not. The
+ * one figure behind the status rule's `stale` line, a snapshot's `stale` and /v1/stats's fresh pass.
+ * The hosted worker reads once an hour (gate SNAPSHOT-IN-API, amended Oct 19), so a pass that is late
+ * or fails once leaves the vaults fresh.
+ */
+export const SNAPSHOT_STALE_AFTER_SECONDS = 7200;
+
 /** The three words a plan's status is said in. Never odds, never a probability. */
 export const TrackWord = z.enum(['on_track', 'watch', 'off_track']);
 export type TrackWord = z.infer<typeof TrackWord>;
@@ -48,7 +56,7 @@ export type TrackWord = z.infer<typeof TrackWord>;
  * - `no_band`: no status. The chain stated no band, so there is nothing to hold the positions to.
  * - `outside_band`, `cash_over`, `loss_quarter`, `stale`: Watch. A position is further from its target
  *   than the band; the cash is over its share by more than the band; the loss used is at or past a
- *   quarter of the budget; the newest snapshot is older than an hour.
+ *   quarter of the budget; the newest snapshot is older than two hours.
  * - `inside`, `inside_no_budget`: On track, on a chain with a loss budget and on one that keeps none.
  */
 export const TrackLine = z.enum([
@@ -280,7 +288,7 @@ export type PlanPutIn = z.infer<typeof PlanPutIn>;
  * The newest snapshot of a vault, whole: what it held, each position's value, weight, target and
  * drift, the chain's band and loss budget at the read, and every price the values stood on, each with
  * its own source, time and method. `ageSeconds` is how old it is at the answer, and `stale` whether
- * that is more than the hour the status rule allows.
+ * that is more than the two hours the status rule allows (`SNAPSHOT_STALE_AFTER_SECONDS`).
  */
 export const PlanNewest = z.object({
   observedAt: z.string().datetime(),
@@ -344,6 +352,12 @@ export const PortfolioPlan = z.object({
    */
   openedFor: z.object({ familyId: z.string(), slug: z.string(), name: z.string() }).nullable(),
   putIn: PlanPutIn.nullable(),
+  /**
+   * When the person last opened the vault again after closing it (gate `VAULT-CLOSE-REUSE`): its
+   * deposits, withdrawals, snapshots and status count from here, and nothing before it is added up.
+   * Null for a vault in its first life. Left out by a server that predates it.
+   */
+  countsFrom: z.string().datetime().nullable().optional(),
   newest: PlanNewest.nullable(),
   status: TrackStatus,
   follows: PlanFollows.nullable(),

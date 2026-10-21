@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { buttonClass } from '../../components/ui/button-class';
 import { ChainBadge } from '../../components/ui/ChainBadge';
-import { PAGE_TITLE, WORKSPACE_TITLE } from '../../components/ui/heading';
+import { PAGE_BACK, PAGE_TITLE } from '../../components/ui/heading';
 import { Panel } from '../../components/ui/Panel';
 import {
   Skeleton,
@@ -81,7 +81,7 @@ export function FamilyWait() {
         <div data-ui="family-wait" className="flex flex-col gap-8">
           <div className="flex flex-col gap-3">
             {/* The way back works while the page waits: on a slow read it is what a person wants. */}
-            <Link href="/products" className={`${buttonClass({ variant: 'link' })} self-start`}>
+            <Link href="/products" className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}>
               {t.shared.family.backToShelf}
             </Link>
             <div aria-hidden="true" className="flex flex-col gap-3">
@@ -296,11 +296,14 @@ export function PublishWait() {
 
 /**
  * What a vault holds, in outline, in the house kit's panel as it lands (VaultHoldings.tsx): its head,
- * the strip, then a row a holding.
+ * the strip, then a row a holding. As the table does (Composition.tsx), a row is one line where the
+ * box is 40rem wide or more, and under it folds: the asset on top, the figures in a row under it, each
+ * under its column's name.
  */
 function VaultHoldingsWait({ className }: { className?: string }) {
   const t = useT();
   const v = t.shared.vault;
+  const figures = [v.columns.price, v.page.value, v.columns.weight];
   return (
     <div aria-hidden="true" data-wait="holdings" className={`min-w-0 ${className ?? ''}`}>
       <Panel as="div">
@@ -311,15 +314,33 @@ function VaultHoldingsWait({ className }: { className?: string }) {
         <div className="px-5 pt-4">
           <Skeleton className="h-2 w-full rounded-full" />
         </div>
-        <div className="pt-4">
+        <div className="@container pt-4">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex items-center gap-3 border-t border-border px-5 py-4">
-              <SkeletonMark />
-              <span className="flex flex-col gap-1">
-                <SkeletonLine className="text-body" width="w-16" />
-                <SkeletonLine className="text-caption" width="w-20" />
+            <div
+              key={i}
+              data-wait="holding"
+              className="flex flex-wrap items-center gap-x-6 border-t border-border px-5 py-4 @max-[40rem]:items-start @max-[40rem]:gap-y-2 @max-[40rem]:py-3"
+            >
+              <span className="flex min-w-0 items-center gap-3 @max-[40rem]:basis-full">
+                <SkeletonMark />
+                <span className="flex flex-col gap-1">
+                  <SkeletonLine className="text-body" width="w-16" />
+                  <SkeletonLine className="text-caption" width="w-20" />
+                </span>
               </span>
-              <SkeletonLine className="ml-auto text-body" width="w-12" />
+              <span className="ml-auto flex gap-6 @max-[40rem]:ml-0">
+                {figures.map((label) => (
+                  <span
+                    key={label}
+                    className="flex flex-col items-end gap-1 @max-[40rem]:items-start"
+                  >
+                    <span className="hidden text-caption text-muted-foreground @max-[40rem]:block">
+                      {label}
+                    </span>
+                    <SkeletonLine className="text-body-sm" width="w-12" />
+                  </span>
+                ))}
+              </span>
             </div>
           ))}
         </div>
@@ -344,14 +365,15 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
         label={v.loading}
         skeleton={
           <div data-ui="vault-wait" data-visitor className="flex min-w-0 flex-col gap-6">
-            <div className="flex min-w-0 flex-col gap-2">
-              <p className="text-caption">
-                <Link href="/portfolio" className={buttonClass({ variant: 'link' })}>
-                  {v.back}
-                </Link>
-              </p>
+            <div className="flex min-w-0 flex-col gap-3">
+              <Link
+                href="/portfolio"
+                className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}
+              >
+                {v.back}
+              </Link>
               <div aria-hidden="true" className="flex flex-col gap-2">
-                <SkeletonLine className={WORKSPACE_TITLE} width="w-40" />
+                <SkeletonLine className={PAGE_TITLE} width="w-40" />
                 <SkeletonLine className="font-display text-h3" width="w-36" />
               </div>
             </div>
@@ -371,22 +393,24 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
           data-workbench
           className="grid min-w-0 gap-4 md:min-h-0 md:flex-1 md:grid-cols-12 md:grid-rows-[minmax(0,auto)_minmax(15rem,1fr)] md:items-stretch"
         >
-          <div className="flex min-w-0 flex-col gap-2 md:col-span-12">
+          <div className="flex min-w-0 flex-col gap-3 md:col-span-12">
             {/* the way back works while the vault is read */}
-            <p className="text-caption">
-              <Link href="/portfolio" className={buttonClass({ variant: 'link' })}>
-                {v.back}
-              </Link>
-            </p>
+            <Link href="/portfolio" className={`${buttonClass({ variant: 'link' })} ${PAGE_BACK}`}>
+              {v.back}
+            </Link>
             <div aria-hidden="true" className="flex flex-col gap-2">
-              <SkeletonLine className={WORKSPACE_TITLE} width="w-40" />
+              {/* the name and its Rename button (PAGE-SHELL: a button, not a link) */}
+              <div className="flex w-full flex-wrap items-start gap-x-4 gap-y-1">
+                <SkeletonLine className={PAGE_TITLE} width="w-40" />
+                <Skeleton className="h-9 w-[5.5rem] rounded-md" />
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
                 <SkeletonLine className="font-display text-h3" width="w-36" />
                 {/* on a phone the third action wraps under the pair, as the page's does */}
                 <div className="flex flex-wrap items-center gap-3 max-sm:w-[16.25rem]">
                   <Skeleton className="h-10 w-24 rounded-md max-sm:w-[7.25rem]" />
                   <Skeleton className="h-10 w-24 rounded-md max-sm:w-[7.25rem]" />
-                  <Skeleton className="h-6 w-12" />
+                  <Skeleton className="h-10 w-24 rounded-md" />
                 </div>
               </div>
             </div>
@@ -411,7 +435,11 @@ export function VaultWait({ visitor = false }: { visitor?: boolean }) {
               <SkeletonLine className="text-caption/8" width="w-48" />
             </div>
           </div>
-          <VaultHoldingsWait className="self-start md:col-span-7 md:mr-2" />
+          {/* the right pane as the page draws it: it scrolls on its own on a desktop, with the same
+              gutter for its scrollbar, so what it holds lands where its outline was */}
+          <div className="tf-scroll-pane flex min-w-0 flex-col md:col-span-7 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2">
+            <VaultHoldingsWait />
+          </div>
         </div>
       }
     />

@@ -126,6 +126,8 @@ export type InvestCardProps = {
   onFollowUp?: (orderId: string) => void;
   /** The host says where to go once every step is confirmed: no link of the card's own. */
   hostEnds?: boolean;
+  /** The order ended, and whether plainly (OrderEmbed's `onEnded`). */
+  onEnded?: (plainly: boolean) => void;
 };
 
 /** What a host that mounts a buy inside its own screen passes: the amount, and what it is told. */
@@ -139,6 +141,7 @@ export type InvestEmbedded = Pick<
   | 'onAmount'
   | 'hostEnds'
   | 'onFollowUp'
+  | 'onEnded'
 > & {
   /** The id of an order approved on this card before it was lost: the card takes it up again. */
   resumeOrder?: string;
@@ -174,6 +177,7 @@ export function InvestCard({
   resume,
   hostEnds,
   onFollowUp,
+  onEnded,
 }: InvestCardProps) {
   const t = useT();
   const lang = useLang();
@@ -191,6 +195,8 @@ export function InvestCard({
   const [orderRound, setOrderRound] = useState(0);
   // The person pressed: from then on the card is that order's, whatever is typed or read after.
   const [started, setStarted] = useState(Boolean(resume));
+  // The vault the money went into, once every step is confirmed: where the end of the steps leads.
+  const [endsAt, setEndsAt] = useState<string | null>(null);
   const [mockBusy, setMockBusy] = useState(false);
   const [testBusy, setTestBusy] = useState(false);
   const [testOutcome, setTestOutcome] = useState<TestFundsOutcome | null>(null);
@@ -440,16 +446,25 @@ export function InvestCard({
   }
 
   async function done(orderId: string) {
-    if (!onDone) return;
-    if ('vault' in buyOf) return onDone({ orderId, vault: buyOf.vault });
-    // A buy opens its vault, or adds to the one its plan has: the portfolio says which it is.
-    const portfolio = await readPortfolio(apiFetch);
-    const vaults =
-      portfolio.kind === 'read'
-        ? (portfolio.value.chains.find((c) => c.chain === chain)?.vaults ?? [])
-        : [];
-    const found = made?.basketId ? vaults.find((v) => v.basketId === made.basketId) : undefined;
-    onDone({ orderId, vault: found?.address ?? null });
+    if (!onDone && hostEnds) return;
+    const vault =
+      'vault' in buyOf
+        ? buyOf.vault
+        : await (async () => {
+            // A buy opens its vault, or adds to the one its plan has: the portfolio says which it is.
+            const portfolio = await readPortfolio(apiFetch);
+            const vaults =
+              portfolio.kind === 'read'
+                ? (portfolio.value.chains.find((c) => c.chain === chain)?.vaults ?? [])
+                : [];
+            const found = made?.basketId
+              ? vaults.find((v) => v.basketId === made.basketId)
+              : undefined;
+            return found?.address ?? null;
+          })();
+    // the end of the steps leads to the vault the money is in, where the card ends them itself
+    if (vault && !hostEnds) setEndsAt(vault);
+    onDone?.({ orderId, vault });
   }
 
   const label = t.invest.press(dollars(amount ?? MIN_USD, lang));
@@ -600,6 +615,8 @@ export function InvestCard({
               checked={ticked}
               onCheck={setTicked}
               keeper={keeper}
+              // in a pane that must fit its screen, one line that opens (audit I3)
+              fold={amountFrom === 'goal' || Boolean(hostEnds)}
             />
           ) : (
             // Accepted before, for this text: not asked again, and still here to read.
@@ -629,6 +646,7 @@ export function InvestCard({
               key={made.orderId}
               id={made.orderId}
               embed={{
+                ...(onEnded ? { onEnded } : {}),
                 blocked: [
                   ...(trustHeld ? [t.buy.blocked.trust] : []),
                   ...(fresh ? [t.invest.updatedHold] : []),
@@ -667,6 +685,14 @@ export function InvestCard({
                   onStopped?.(stopped);
                 },
                 ...(hostEnds ? { hostEnds: true } : {}),
+                ...(endsAt
+                  ? {
+                      endsAt: {
+                        href: `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(endsAt)}`,
+                        label: t.mix.deposit.signing.openVault,
+                      },
+                    }
+                  : {}),
                 // The host ends the deposit in place: the order that finishes this one takes the
                 // card, to be reviewed and signed here. It deposits nothing, so no other is made.
                 ...(hostEnds

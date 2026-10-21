@@ -539,8 +539,12 @@ describe('the monitor, for a person with a vault on their chain', () => {
     signIn();
     const host = await screen();
     const parts = find(host, '[data-ui="vault-parts"]');
-    // a cell's own figure, without the column's name it carries for a narrow box
-    const figure = (cell: Element | null) => cell?.textContent?.split(' ').at(-1);
+    // a cell's own figure, without the column's name a folded row writes over it
+    const figure = (cell: Element | null) => {
+      const copy = cell?.cloneNode(true) as Element | undefined;
+      for (const label of copy?.querySelectorAll('[data-part="fold-label"]') ?? []) label.remove();
+      return copy?.textContent;
+    };
     const items = [...parts.querySelectorAll('tr[data-row]')].map((tr) => [
       tr.querySelector('[data-part="name"]')?.textContent,
       tr.querySelector('[data-ui="composition-share"]')?.textContent,

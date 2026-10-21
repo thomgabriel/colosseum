@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.colosseum.risk-prune</string>
+  <key>WorkingDirectory</key><string>__HOME_DIR__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>unset SOURCE_DATABASE_URL; set -a; source __HOME_DIR__/env; set +a; at=$(date -u +%Y-%m-%dT%H:%M:%SZ); { __NODE_BIN__/node __HOME_DIR__/risk-archive.mjs --out __ARCHIVE_DIR__ --at $at &amp;&amp; __NODE_BIN__/node __HOME_DIR__/risk-prune.mjs --at $at --archived __ARCHIVE_DIR__; } >> __HOME_DIR__/risk-prune.log 2>&amp;1</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>__HOUR__</integer>
+    <key>Minute</key><integer>__MINUTE__</integer>
+  </dict>
+  <key>StandardErrorPath</key><string>__HOME_DIR__/launchd.err</string>
+</dict>
+</plist>

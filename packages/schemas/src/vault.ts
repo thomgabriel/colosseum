@@ -55,6 +55,11 @@ export const VaultPosition = Holding.extend({
   targetBps: Bps,
   /** Unix seconds of the last keeper trade on this asset. */
   lastKeeperAt: z.number().int().nonnegative().nullable(),
+  /**
+   * Held with no line among the vault's targets (EVM): a token sent to the vault. An accept keeps no
+   * line for it (`leftoversOf`). Left out: one of the vault's lines.
+   */
+  untargeted: z.literal(true).optional(),
 });
 export type VaultPosition = z.infer<typeof VaultPosition>;
 

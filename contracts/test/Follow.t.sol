@@ -3,7 +3,7 @@ pragma solidity 0.8.37;
 
 import {BasketVault} from "../src/BasketVault.sol";
 import {IBasketVault} from "../src/interfaces/IBasketVault.sol";
-import {Swap, Weight} from "../src/interfaces/Types.sol";
+import {Snapshot, Swap, Weight} from "../src/interfaces/Types.sol";
 import {KeeperFixture} from "./helpers/KeeperFixture.sol";
 import {BackdoorToken} from "./mocks/Tokens.sol";
 
@@ -166,20 +166,126 @@ contract FollowTest is KeeperFixture {
         _assertTargets(_sort(v2));
     }
 
-    /// A version and the assets it drops that are still held must fit 16 targets: the owner sells first.
-    function test_acceptVersion_moreThanSixteenTargets_isRefused() public {
-        Weight[] memory sixteen = new Weight[](16);
-        for (uint256 i; i < 16; ++i) {
+    /// `n` new listed tokens, sorted, at `bps` each, `held` of each in the vault.
+    function _tokens(uint256 n, uint16 bps, uint256 held) internal returns (Weight[] memory list) {
+        list = new Weight[](n);
+        for (uint256 i; i < n; ++i) {
             BackdoorToken t = new BackdoorToken(dec);
             _list(address(t), dec);
-            t.mint(address(vault), unit);
-            sixteen[i] = Weight(address(t), 100);
+            if (held != 0) t.mint(address(vault), held);
+            list[i] = Weight(address(t), bps);
         }
+        return _sort(list);
+    }
+
+    /// A version and the assets it drops that are still held must fit 24 targets, 16 of them above zero: past
+    /// that, the owner sells first.
+    function test_acceptVersion_moreThan24Lines_isRefused() public {
+        Weight[] memory own = _tokens(16, 100, unit);
         vm.prank(owner);
-        vault.setTargets(_sort(sixteen));
+        vault.setTargets(own);
+        Weight[] memory other = _tokens(16, 600, 0);
+        vm.prank(creator);
+        bytes32 big = registry.create(keccak256("big"), other, META, 0, 0);
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(IBasketVault.InvalidTargets.selector, 1));
+        vault.acceptVersion(big, 1);
+        // Three assets beside the sixteen held: 19 lines, room enough.
+        vm.prank(owner);
         vault.acceptVersion(id, 1);
+        assertEq(vault.targets().length, 19);
+    }
+
+    /// The case the second rules opened (SHARED-RULES-V2): a sixteen-asset portfolio swaps one asset. The
+    /// follower still holds the one dropped, which stays as a target of zero beside the sixteen, and the vault
+    /// takes the version; a later version that only moves weights is adopted with the leftover still there.
+    function test_sixteenAssets_aSwapWithTheDroppedAssetHeld_isTaken() public {
+        Weight[] memory sixteen = _tokens(16, 600, unit);
+        vm.prank(creator);
+        bytes32 big = registry.create(keccak256("big"), sixteen, META, 0, 0);
+        vm.prank(owner);
+        vault.acceptVersion(big, 1);
+        assertEq(vault.targets().length, 16);
+
+        // Swap the first asset for a new one, 6% moved each way: 12%.
+        Weight[] memory swapped = new Weight[](16);
+        Weight[] memory fresh = _tokens(1, 600, 0);
+        swapped[0] = fresh[0];
+        for (uint256 i = 1; i < 16; ++i) {
+            swapped[i] = sixteen[i];
+        }
+        swapped = _sort(swapped);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(creator);
+        registry.publish(big, swapped, META);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(owner);
+        vault.acceptVersion(big, 2);
+        Weight[] memory held = vault.targets();
+        assertEq(held.length, 17, "sixteen, and the dropped asset at zero");
+        (bool found, uint16 bps) = _targetOf(sixteen[0].token);
+        assertTrue(found);
+        assertEq(bps, 0);
+
+        // Only weights move: the auto-follow vault adopts it, the leftover still held.
+        vm.prank(owner);
+        vault.setAutoFollow(true);
+        for (uint256 i; i < 16; ++i) {
+            swapped[i].bps = i < 8 ? 650 : 550;
+        }
+        vm.prank(creator);
+        registry.publish(big, swapped, META);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vault.adoptVersion();
+        assertEq(vault.targets().length, 17);
+    }
+
+    /// An adopt never adds a line, so it cannot pass 24: it takes no new asset (`NewAssetNeedsOwner`; the
+    /// owner's accept is held to 24), and a version that drops an asset the vault holds turns that line to
+    /// zero in place. A vault at 24 (sixteen followed, eight of its own still held at zero) stays at 24.
+    function test_adoptVersion_atTwentyFourLines_addsNone() public {
+        Weight[] memory own = _tokens(8, 100, unit);
+        vm.prank(owner);
+        vault.setTargets(own);
+        Weight[] memory sixteen = _tokens(16, 600, unit);
+        vm.prank(creator);
+        bytes32 big = registry.create(keccak256("big"), sixteen, META, 0, 0);
+        vm.prank(owner);
+        vault.acceptVersion(big, 1);
+        assertEq(vault.targets().length, 24, "sixteen, and the eight of its own at zero");
+        vm.prank(owner);
+        vault.setAutoFollow(true);
+
+        // A new asset in place of the first: the adopt refuses it, and the targets stay as they were.
+        Weight[] memory swapped = new Weight[](16);
+        address fresh = _tokens(1, 600, 0)[0].token;
+        swapped[0] = Weight(fresh, 600);
+        for (uint256 i = 1; i < 16; ++i) {
+            swapped[i] = sixteen[i];
+        }
+        swapped = _sort(swapped);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(creator);
+        registry.publish(big, swapped, META);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.expectRevert(abi.encodeWithSelector(IBasketVault.NewAssetNeedsOwner.selector, fresh));
+        vault.adoptVersion();
+        assertEq(vault.targets().length, 24, "nothing changed");
+
+        // The first asset dropped for cash, still held: adopted, its line at zero, 24 lines still.
+        Weight[] memory fifteen = new Weight[](15);
+        for (uint256 i = 1; i < 16; ++i) {
+            fifteen[i - 1] = sixteen[i];
+        }
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vm.prank(creator);
+        registry.publish(big, fifteen, META);
+        vm.warp(block.timestamp + PUBLISH_DELAY);
+        vault.adoptVersion();
+        assertEq(vault.targets().length, 24);
+        (bool found, uint16 bps) = _targetOf(sixteen[0].token);
+        assertTrue(found);
+        assertEq(bps, 0);
     }
 
     // ---- auto-follow
@@ -322,5 +428,34 @@ contract FollowTest is KeeperFixture {
         made.adoptVersion();
         (, version,) = made.following();
         assertEq(version, 2);
+    }
+
+    // ---- a portfolio that holds cash (gate SHARED-RULES-V2)
+
+    /// A shared portfolio may leave part of itself in cash. A vault that follows it takes the weights as they
+    /// are, its snapshot gives the cash what they leave, and the keeper buys up to the weights and no
+    /// further: the rest stays cash.
+    function test_followingAPortfolioWithCash_theKeeperLeavesTheCash() public {
+        Weight[] memory seventy = new Weight[](1);
+        seventy[0] = Weight(address(stockA), 7000);
+        vm.prank(creator);
+        bytes32 withCash = registry.create(keccak256("with-cash"), seventy, META, 0, 0);
+        vm.prank(owner);
+        vault.acceptVersion(withCash, 1);
+        _assertTargets(seventy);
+        Snapshot memory snap = vault.snapshot();
+        assertEq(snap.tokens.length, 2);
+        assertEq(snap.tokens[1], address(cash));
+        assertEq(snap.targetBps[1], 3000, "what the weights leave is the cash's");
+
+        _keeperSwap(_buy(direct, address(stockA), 6950 * USD, 0));
+        assertEq(_weightOf(address(stockA)), 6950);
+        vm.warp(block.timestamp + 3600);
+        _refresh();
+        _expectKeeperRevert(
+            _buy(direct, address(stockA), 600 * USD, 0),
+            abi.encodeWithSelector(IBasketVault.PastTarget.selector, address(stockA))
+        );
+        assertEq(cash.balanceOf(address(vault)), START - 6950 * USD);
     }
 }

@@ -136,6 +136,17 @@ const Record_ = z.object({
         .optional(),
     })
     .optional(),
+  /**
+   * The Safe that is the admin and the beacon's owner itself, with no timelock (gate ROBINHOOD-REDEPLOY).
+   * A mainnet's record names this or a timelock, never both.
+   */
+  safe: z
+    .object({
+      address: Address,
+      threshold: z.number().int().nonnegative().optional(),
+      owners: z.array(Address).optional(),
+    })
+    .optional(),
   expected: z
     .object({
       launched: z.boolean(),
@@ -393,14 +404,26 @@ export async function checkAuthority(
     }
   }
 
-  const { contracts, roles, timelock, expected } = record;
+  const { contracts, roles, timelock, safe, expected } = record;
   const sel = (name: keyof typeof SELECTORS, ...args: string[]) =>
     SELECTORS[name][1] + args.map(pad).join('');
 
   // ---- what the record itself must say on a mainnet
   if (mainnet) {
-    if (!timelock)
-      say({ status: 'FAIL', what: 'record.timelock', note: 'missing: a mainnet has a timelock' });
+    if (!timelock === !safe)
+      say({
+        status: 'FAIL',
+        what: 'record.timelock',
+        note: 'a mainnet names a timelock or a Safe that holds the keys itself, one of the two',
+      });
+    if (safe && roles.admin !== safe.address)
+      say({
+        status: 'FAIL',
+        what: 'record.roles.admin',
+        live: roles.admin,
+        expected: safe.address,
+        note: 'the admin of a mainnet with no timelock is its Safe',
+      });
     if (!expected)
       say({
         status: 'FAIL',
@@ -430,6 +453,7 @@ export async function checkAuthority(
     timelock?.safe?.owners.forEach((a, i) => {
       required.push([`record.timelock.safe.owners[${i}]`, a]);
     });
+    if (safe) required.push(['record.safe.address', safe.address]);
     if (expected?.safeMinThreshold !== undefined && expected.safeMinThreshold < MIN_SAFE_THRESHOLD)
       say({
         status: 'FAIL',
@@ -575,8 +599,27 @@ export async function checkAuthority(
 
   await checkCreation();
 
-  // ---- the timelock
+  // ---- the timelock, or the Safe that holds the keys itself
   if (timelock) await checkTimelock(timelock);
+  if (safe) {
+    if (admin !== undefined)
+      say({
+        status: admin === safe.address ? 'OK' : 'DIFFERS',
+        what: 'the Safe is the admin',
+        live: admin,
+        expected: safe.address,
+        note:
+          admin === safe.address
+            ? 'every admin call is the Safe’s, at once: there is no timelock'
+            : 'the Safe has not accepted the admin yet: it signs acceptAdmin() and acceptOwnership()',
+      });
+    await checkSafe(
+      safe.address,
+      safe.threshold !== undefined && safe.owners
+        ? { threshold: safe.threshold, owners: safe.owners }
+        : undefined,
+    );
+  }
 
   // ---- the mainnet rules
   if (mainnet) {
@@ -585,7 +628,7 @@ export async function checkAuthority(
         status: 'FAIL',
         what: 'factory.admin()',
         live: `${admin} (no code)`,
-        note: 'the admin has no code: on a mainnet it is the timelock, not a key',
+        note: 'the admin has no code: on a mainnet it is the timelock or a Safe, not a key',
       });
     if (guardian !== undefined) {
       if (guardian === ZERO_ADDRESS)

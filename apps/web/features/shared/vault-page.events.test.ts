@@ -210,6 +210,17 @@ const button = (host: Element, name: string) => {
   if (!found) throw new Error(`no button "${name}"`);
   return found;
 };
+/**
+ * The withdrawal's order, from its review to its first signature (gate SIGN-ONE-STEP): "Continue" on
+ * what changes, then the step's own button, which names what it takes out.
+ */
+async function signWithdrawal(at: Element) {
+  await click(button(at, en.order.flow.continue));
+  await settle();
+  const press = find(at, '[data-ui="sign-step"] [data-variant="primary"]');
+  expect(press.textContent).toContain(en.order.flow.press.withdraw(''));
+  await click(press);
+}
 /** From the page through the withdrawal's amount card to its order, in the pane. */
 async function toSteps(host: HTMLElement) {
   await click(find(host, '[data-action="vault-withdraw"]'));
@@ -362,6 +373,7 @@ describe('the owner’s page at rest', () => {
       p.editWeights,
       en.shared.publish.shareStrategy,
       en.shared.vault.explorer('Solscan'),
+      p.close.action,
     ]);
     // the way back is navigation: a link over the name, not one of the actions
     const back = find(host, '[data-ui="vault-back"]');
@@ -385,6 +397,7 @@ describe('the owner’s page at rest', () => {
       p.editWeights,
       en.shared.publish.shareStrategy,
       en.shared.vault.explorer('Solscan'),
+      p.close.action,
     ]);
     for (const row of rows) {
       // a row, not a bare underlined link: the whole width, 40px tall, in the tab order
@@ -755,12 +768,26 @@ describe('the pane’s states, and the way out of each', () => {
     await click(find(host, '[data-action="vault-edit-weights"]'));
     await settle();
     expect(screen(host).dataset.pane).toBe('weights');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.change.title);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.panes.change.title);
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.change);
     expect(router.push).not.toHaveBeenCalled();
     await click(find(pane(host), '[data-action="leave-action"]'));
     expect(screen(host).dataset.pane).toBe('holdings');
     expect(document.activeElement).toBe(find(host, '[data-ui="vault-more"]'));
+  });
+
+  it('weights by hand: also from the line that says how to change the vault (Thom, Oct 15)', async () => {
+    api();
+    const host = await show();
+    const hint = find(host, '[data-ui="vault-change-hint"]');
+    const edit = find(hint, '[data-action="vault-hint-edit-weights"]');
+    expect(edit.textContent).toBe(p.changeByHand);
+    await click(edit);
+    await settle();
+    expect(screen(host).dataset.pane).toBe('weights');
+    await click(find(pane(host), '[data-action="leave-action"]'));
+    expect(screen(host).dataset.pane).toBe('holdings');
+    expect(document.activeElement).toBe(find(host, '[data-action="vault-hint-edit-weights"]'));
   });
 
   it('withdraw: chosen, reviewed and signed in the pane, with no other page, then the vault is read again', async () => {
@@ -772,20 +799,27 @@ describe('the pane’s states, and the way out of each', () => {
     // the order is drawn in the pane, held to what was reviewed; nothing was opened
     expect(router.push).not.toHaveBeenCalled();
     expect(pane(again).dataset.state).toBe('open');
-    expect(find(pane(again), ':scope > header h2').textContent).toBe(p.panes.withdraw.signTitle);
+    expect(find(pane(again), '[data-ui="pane-title"]').textContent).toBe(
+      p.panes.withdraw.signTitle,
+    );
     expect(pane(again).querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
     expect(pane(again).textContent).toContain(SOLANA);
-    expect(pane(again).querySelector('[data-ui="data-note"]')?.textContent).toBe(
-      en.buy.steps.note.testNetwork('Solana'),
+    // on a test network the order's panel says so in its one tag (MOCK-QUIET)
+    expect(pane(again).querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
+      en.shell.testNetworkLine,
     );
     // not kept for a reload before the press: nobody approved it
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
     const before = server.reads();
-    await click(button(pane(again), en.order.shared.signWithdraw));
+    await signWithdrawal(pane(again));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(pane(again).dataset.state).toBe('done');
-    expect(find(pane(again), ':scope > header h2').textContent).toBe(p.ended);
+    // plainly done, so the panel's head says so, and the figure is under the action's name
+    expect(find(pane(again), '[data-ui="pane-title"]').textContent).toBe(p.doneTitle.withdraw);
+    expect(find(pane(again), '[data-ui="sign-label"]').textContent).toBe(
+      en.order.flow.doneLabel.withdraw,
+    );
     // how it ended is the order's own sentence, said once: here, plainly done
     expect(find(pane(again), '[data-ui="order-status"]').textContent).toContain(
       en.order.outcome.done('Solana'),
@@ -811,7 +845,7 @@ describe('the pane’s states, and the way out of each', () => {
     api();
     const host = await show();
     await toSteps(host);
-    await click(button(pane(host), en.order.shared.signWithdraw));
+    await signWithdrawal(pane(host));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(pane(host).dataset.state).toBe('stopped');
@@ -916,21 +950,23 @@ describe('an order that is done, but not plainly', () => {
     api();
     const host = await show();
     await toSteps(host);
-    await click(button(pane(host), en.order.shared.signWithdraw));
+    await signWithdrawal(pane(host));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(pane(host).dataset.state).toBe('done');
     const text = pane(host).textContent ?? '';
     expect(text).toContain(en.order.shared.doneExcept('Solana', 1));
     // nothing over the steps claims more than the order does
     const top = find(pane(host), '[data-ui="vault-action-done"]').textContent ?? '';
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.ended);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.ended);
+    // and neither does the screen's own figure, under the action's name
+    expect(find(pane(host), '[data-ui="sign-figure"]').textContent).toBe(p.ended);
     for (const claim of [
       /is done/i,
       /in your wallet/i,
       /follows its new targets/i,
       /in your vault\./i,
     ])
-      expect(`${top} ${find(pane(host), ':scope > header').textContent}`).not.toMatch(claim);
+      expect(`${top} ${find(pane(host), '[data-ui="pane-title"]').textContent}`).not.toMatch(claim);
     expect(text).not.toContain(en.order.outcome.done('Solana'));
     // and the way on is still the page's one button
     expect(find(pane(host), '[data-action="back-to-vault"]')).toBeTruthy();
@@ -1005,7 +1041,8 @@ describe('a reload in the middle of signing', () => {
     expect(pane(host).textContent).toContain(p.panes.withdraw.resumed);
     expect(pane(host).querySelectorAll('[data-ui="order-step"]')).toHaveLength(2);
     // the same order goes on: no new one is made
-    expect(button(pane(host), en.order.shared.resume)).toBeTruthy();
+    // its button names the step it goes on with, never the review's "Continue"
+    expect(button(pane(host), en.order.flow.press.withdraw(''))).toBeTruthy();
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.withdraw);
     expect(router.push).not.toHaveBeenCalled();
   });
@@ -1016,7 +1053,7 @@ describe('a reload in the middle of signing', () => {
     keepAction(USER, 'solana', MY_VAULT, { kind: 'apply', orderId: ORDER_ID });
     const host = await show();
     expect(screen(host).dataset.pane).toBe('apply');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.change.signTitle);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.panes.change.signTitle);
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.change);
   });
 
@@ -1160,7 +1197,7 @@ describe('a reload in the middle of signing', () => {
     keepAction(USER, 'solana', MY_VAULT, { kind: 'withdraw', orderId: ORDER_ID });
     const host = await show();
     expect(pane(host).querySelector('[data-action="leave-action"]')).not.toBeNull();
-    await click(button(pane(host), en.order.shared.resume));
+    await click(button(pane(host), en.order.flow.press.withdraw('')));
     await settle();
     // before any step answers: the pane is signing, the box says so, and Back is gone
     expect(pane(host).dataset.state).toBe('signing');
@@ -1233,7 +1270,7 @@ describe('a reload in the middle of signing', () => {
     expect(pane(host).textContent).not.toContain(p.amount);
     expect(pane(host).textContent).not.toContain(en.amount.pressed('$10'));
     // and the pane is headed for what it is: no "Sign your deposit", no "the whole amount goes in"
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.finish.title);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(p.finish.title);
     expect(find(pane(host), ':scope > header').textContent).toContain(p.finish.lead);
     expect(pane(host).textContent).not.toContain(p.panes.deposit.signTitle);
     expect(pane(host).textContent).not.toContain(p.panes.deposit.lead);
@@ -1297,11 +1334,13 @@ describe('a vault away from its targets is offered one press that trades it to t
     });
   const atTargets = () =>
     followed({
-      cash: holding(CASH, '40000000', '40'),
+      // the vault is worth what it holds: the server's value is the sum of its holdings' values
+      valueUsd: '80089',
+      cash: holding(CASH, '0', '0'),
       positions: [
         position(JL, '37788000000', '37788', '40055', 5_000, 5_000),
-        position(SYRUP, '20180000000', '20180', '24014', 2_998, 3_000),
-        position(PAXG, '3857000000', '3.857', '16020', 1_999, 2_000),
+        position(SYRUP, '20180000000', '20180', '24014', 3_000, 3_000),
+        position(PAXG, '3857000000', '3.857', '16020', 2_000, 2_000),
       ] as VaultView['positions'],
     });
   const TARGETS = [
@@ -1339,7 +1378,8 @@ describe('a vault away from its targets is offered one press that trades it to t
         }),
       ),
     ).toBe(true);
-    // what a rebalance leaves: cash up to the slippage over, each asset up to its part of it under
+    // cash over its share worth a trade, inside the band: off target, and spent by purchases alone
+    // (Vault #4 on devnet, Oct 14: $39 of cash and "Off target", with no Rebalance)
     expect(
       offTarget(
         followed({
@@ -1350,18 +1390,20 @@ describe('a vault away from its targets is offered one press that trades it to t
           ] as VaultView['positions'],
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
     // outside the band, but every trade it would take is under the smallest a rebalance makes: the
     // server answers on_target, so the page offers nothing
-    const small = (valueUsd: string) =>
-      followed({
+    const small = (valueUsd: string) => {
+      const part = (bps: number) => String((Number(valueUsd) * bps) / 10_000);
+      return followed({
         valueUsd,
         positions: [
-          position(JL, '1', '1', '1', 4_800, 5_000),
-          position(SYRUP, '1', '1', '1', 3_000, 3_000),
-          position(PAXG, '1', '1', '1', 2_000, 2_000),
+          position(JL, '1', '1', part(4_800), 4_800, 5_000),
+          position(SYRUP, '1', '1', part(3_000), 3_000, 3_000),
+          position(PAXG, '1', '1', part(2_000), 2_000, 2_000),
         ] as VaultView['positions'],
       });
+    };
     expect(offTarget(small('200'))).toBe(false);
     expect(offTarget(small('1000'))).toBe(true);
     // a holding with no price: the shares are not known
@@ -1404,6 +1446,29 @@ describe('a vault away from its targets is offered one press that trades it to t
     expect((await show()).querySelector('[data-action="vault-rebalance"]')).toBeNull();
   });
 
+  it('says "Off target" only where it offers the press, and a gap too small to trade as such', async () => {
+    const one = (valueUsd: string, weightBps: number, cash: string) =>
+      followed({
+        valueUsd,
+        cash: holding(CASH, cash, String(Number(cash) / 1e6)),
+        positions: [
+          position(JL, '1', '1', String(Number(valueUsd) - Number(cash) / 1e6), weightBps, 10_000),
+        ] as VaultView['positions'],
+      });
+    // Vault #4 on devnet: $38.83 of $9,898 in cash, 39 bps; worth a trade, so off target and offered
+    serving(ordered, { vault: one('9898.67', 9_961, '38832993') });
+    const off = await show();
+    expect(find(off, '[data-ui="vault-on-target"]').textContent).toContain(p.offTargetShort);
+    expect(off.querySelector('[data-action="vault-rebalance"]')).not.toBeNull();
+    await unmountAll();
+    // $0.40 of $100: shown as 99.6% against 100%, under one trade, so on target, and said why
+    serving(ordered, { vault: one('100', 9_960, '400000') });
+    const small = await show();
+    expect(find(small, '[data-ui="vault-on-target"]').textContent).toContain(p.allOnTarget);
+    expect(find(small, '[data-ui="vault-gap-small"]').textContent).toBe(p.gapTooSmall);
+    expect(small.querySelector('[data-action="vault-rebalance"]')).toBeNull();
+  });
+
   it('one press: the order is asked for, its swaps are shown in the pane with their minimums, signed there, and the vault is read again', async () => {
     const server = serving(ordered);
     const host = await show();
@@ -1415,7 +1480,9 @@ describe('a vault away from its targets is offered one press that trades it to t
     ]);
     expect(router.push).not.toHaveBeenCalled();
     expect(screen(host).dataset.pane).toBe('rebalance');
-    expect(find(pane(host), ':scope > header h2').textContent).toBe(p.panes.rebalance.signTitle);
+    expect(find(pane(host), '[data-ui="pane-title"]').textContent).toBe(
+      p.panes.rebalance.signTitle,
+    );
     expect(find(host, '[data-ui="vault-chat-waits"]').textContent).toBe(p.waits.rebalance);
     // what it is held to: the vault and the targets it has
     const review = find(pane(host), `section[aria-label="${p.rebalancing.reviewTitle}"]`);
@@ -1428,8 +1495,8 @@ describe('a vault away from its targets is offered one press that trades it to t
     expect(steps).toHaveLength(2);
     expect(steps[0]).toMatch(/Spend 16,022 USDC on .*receive at least/);
     expect(steps[1]).toMatch(/Spend 3,936 USDC on .*receive at least/);
-    expect(pane(host).querySelector('[data-ui="data-note"]')?.textContent).toBe(
-      en.buy.steps.note.testNetwork('Solana'),
+    expect(pane(host).querySelector('[data-ui="sample-tag"]')?.textContent).toBe(
+      en.shell.testNetworkLine,
     );
     expect(pane(host).textContent).not.toMatch(/\b(mix|buy)\b/i);
     // kept with the terms the guard is handed: the vault's number, and nothing that changes the vault
@@ -1443,8 +1510,27 @@ describe('a vault away from its targets is offered one press that trades it to t
     });
     expect(recallAction(USER, 'solana', MY_VAULT)).toBeNull();
 
+    // reviewed in the pane (gate SIGN-ONE-STEP): what the vault holds beside its targets, then
+    // "Continue", then the first swap's own button
+    const heads = [...pane(host).querySelectorAll('[data-ui="sign-picture"] thead th')].map(
+      (th) => th.textContent,
+    );
+    expect(heads).toEqual([
+      en.order.flow.table.holding,
+      en.order.flow.picture.target,
+      en.order.flow.picture.holdsNow,
+      en.order.flow.table.change,
+    ]);
+    // the way back is the order panel's own, under its button, not loose on the pane
+    const way = find(pane(host), '[data-action="leave-action"]');
+    expect(way.closest('[data-ui="pane-panel"]')).not.toBeNull();
     const before = server.reads();
-    await click(button(pane(host), en.order.shared.signRebalance));
+    await click(button(pane(host), en.order.flow.continue));
+    await settle();
+    const press = find(pane(host), '[data-ui="sign-step"] [data-variant="primary"]');
+    // the passkey wallet signs both swaps on one press: the button is the rebalance's
+    expect(press.textContent).toContain(en.order.flow.press.rebalance);
+    await click(press);
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(run.calls).toHaveLength(1);
     expect(run.calls[0]?.order.legs.map((l) => l.kind)).toEqual(['swap', 'swap']);
@@ -1485,8 +1571,10 @@ describe('a vault away from its targets is offered one press that trades it to t
     await click(find(host, '[data-action="vault-rebalance"]'));
     for (let i = 0; i < 4; i += 1) await settle(30);
     expect(
-      [...pane(host).querySelectorAll('button')].some((b) =>
-        b.textContent?.includes(en.order.shared.signRebalance),
+      [...pane(host).querySelectorAll('button')].some(
+        (b) =>
+          b.textContent?.includes(en.order.flow.continue) ||
+          b.textContent?.startsWith(en.order.flow.press.of('')),
       ),
     ).toBe(false);
     expect(pane(host).querySelector('[role="alert"]')).not.toBeNull();
@@ -1597,5 +1685,117 @@ describe('a vault away from its targets is offered one press that trades it to t
     } finally {
       window.history.replaceState(null, '', window.location.pathname);
     }
+  });
+});
+
+describe('closing a vault (gate VAULT-CLOSE-REUSE)', () => {
+  const c = p.close;
+  const CLOSE = `/v1/vaults/solana/${MY_VAULT}/close`;
+  const REOPEN = `/v1/vaults/solana/${MY_VAULT}/reopen`;
+  const lifetime = (closedAt: string | null) =>
+    json({ chain: 'solana', address: MY_VAULT, closedAt, reopenedAt: null });
+  const askClose = async (host: HTMLElement) => {
+    await click(find(host, '[data-ui="vault-more"]'));
+    await click(find(host, '[data-action="vault-close"]'));
+    await settle();
+  };
+
+  it('asks once more before it closes an empty vault, and nothing is closed until the press', async () => {
+    const closedAt = '2026-10-14T12:00:00.000Z';
+    const server = api({
+      vault: nothing(0),
+      more: (path, method) => {
+        if (path === CLOSE && method === 'POST') {
+          server.state.vault = { ...nothing(0), closedAt } as never;
+          return lifetime(closedAt);
+        }
+        return undefined;
+      },
+    });
+    const host = await show();
+    await askClose(host);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(find(confirm, 'h2').textContent).toBe(c.title);
+    expect(document.activeElement).toBe(find(confirm, 'h2'));
+    expect(confirm.textContent).toContain(c.body);
+    // while it asks, the page's own actions step back: its press is the one primary
+    expect(host.querySelector('[data-ui="vault-page-actions"]')).toBeNull();
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+
+    // kept open: nothing was asked of the server
+    await click(find(confirm, '[data-action="vault-close-keep"]'));
+    await settle();
+    expect(host.querySelector('[data-ui="vault-close-confirm"]')).toBeNull();
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+    // Escape is the same way out, from anywhere in the confirm
+    await askClose(host);
+    await press(find(host, '[data-action="vault-close-confirm"]'), 'Escape');
+    await settle();
+    expect(host.querySelector('[data-ui="vault-close-confirm"]')).toBeNull();
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+
+    await askClose(host);
+    await click(find(host, '[data-action="vault-close-confirm"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(server.calls.filter((call) => call.path === CLOSE)).toEqual([
+      { method: 'POST', path: CLOSE },
+    ]);
+    // read again: the page says it is closed, and how to open it again
+    const note = find(host, '[data-ui="vault-closed"]');
+    expect(note.textContent).toContain(p.closed.title);
+    // the note that says so has the focus
+    expect(document.activeElement).toBe(find(note, 'h2'));
+    expect(note.textContent).toContain(p.closed.body('Oct 14, 2026'));
+    expect(host.querySelector('[data-action="vault-close"]')).toBeNull();
+  });
+
+  it('tells a vault that holds something to withdraw first, and offers no close', async () => {
+    const server = api();
+    const host = await show();
+    await askClose(host);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(confirm.textContent).toContain(c.notEmpty);
+    expect(confirm.querySelector('[data-action="vault-close-confirm"]')).toBeNull();
+    await click(find(confirm, '[data-action="vault-close-withdraw"]'));
+    await settle();
+    expect(find(host, '[data-ui="vault-screen"]').getAttribute('data-pane')).toBe('withdraw');
+    expect(server.calls.some((call) => call.path === CLOSE)).toBe(false);
+  });
+
+  it('says an order on the vault is not finished, where the server refuses the close for one', async () => {
+    api({
+      vault: nothing(0),
+      more: (path, method) =>
+        path === CLOSE && method === 'POST'
+          ? json({ error: 'an order on this vault is not finished', code: 'ORDER_UNFINISHED' }, 409)
+          : undefined,
+    });
+    const host = await show();
+    await askClose(host);
+    await click(find(host, '[data-action="vault-close-confirm"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    const confirm = find(host, '[data-ui="vault-close-confirm"]');
+    expect(find(confirm, '[role="alert"]').textContent).toBe(c.orderOpen);
+    // the sentence that says why has the focus
+    expect(document.activeElement).toBe(find(confirm, '[role="alert"]'));
+    expect(host.querySelector('[data-ui="vault-closed"]')).toBeNull();
+  });
+
+  it('opens a closed vault again from its note', async () => {
+    const server = api({
+      vault: { ...nothing(0), closedAt: '2026-10-14T12:00:00.000Z' } as never,
+      more: (path, method) => {
+        if (path === REOPEN && method === 'POST') {
+          server.state.vault = { ...nothing(0), closedAt: null } as never;
+          return lifetime(null);
+        }
+        return undefined;
+      },
+    });
+    const host = await show();
+    await click(find(host, '[data-action="vault-reopen"]'));
+    for (let i = 0; i < 4; i += 1) await settle(30);
+    expect(server.calls.filter((call) => call.path === REOPEN)).toHaveLength(1);
+    expect(host.querySelector('[data-ui="vault-closed"]')).toBeNull();
   });
 });

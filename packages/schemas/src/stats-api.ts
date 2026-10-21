@@ -25,8 +25,8 @@ export const PlatformNetwork = z.object({
   wallets: PlatformFigure,
   /**
    * What the vaults held at the snapshot worker's last pass, in dollars. Null when no pass in the last
-   * hour stands behind it on every one of the chains, or a vault counted has no snapshot in that hour:
-   * unknown, never 0 and never a partial sum.
+   * two hours stands behind it on every one of the chains, or a vault counted has no snapshot in those
+   * two hours: unknown, never 0 and never a partial sum.
    */
   valueUsd: PlatformFigure.nullable(),
 });

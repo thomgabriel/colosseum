@@ -22,7 +22,7 @@ const lines: Record<TrackLine, string> = {
   cash_over:
     'Cash is over its share by more than the band. Cash under its share is no line of its own.',
   loss_quarter: 'Our keeper’s losses have used a quarter or more of the loss budget.',
-  stale: 'The newest snapshot is more than an hour old.',
+  stale: 'The newest snapshot is more than two hours old.',
   inside:
     'None of the lines above holds. The share of the loss budget used is said beside the status.',
   inside_no_budget:
@@ -39,10 +39,10 @@ export const methodology = {
     heading: 'What a snapshot is',
     body: [
       'A snapshot is one read of a vault, kept whole: what it held, what each part was worth, its share and its planned share, and every price the values stood on. Each price keeps its source, its time and its method.',
-      'We read every vault we know about every ten minutes, from its own chain, and keep each read. A vault made outside this app is found within the hour.',
+      'We read every vault we know about once an hour, from its own chain, and keep each read. A vault made outside this app is found within about an hour.',
       'The reader holds no key. It reads and keeps: it can’t sign, trade or move anything.',
       'It reads Robinhood Chain on its mainnet, Solana on its test network, and our sample chain. Every figure carries the label of where it was read: only a mainnet figure is shown as live, and a test network’s or a sample’s is marked as such.',
-      'A snapshot more than an hour old is called stale, with its age beside it.',
+      'A snapshot more than two hours old is called stale, with its age beside it.',
     ],
   },
   status: {
@@ -55,9 +55,9 @@ export const methodology = {
     /** Under each of the three words, and under "No status yet". */
     means: {
       on_track:
-        'None of the lines below holds: every part and the cash are inside the band, our keeper’s losses are under a quarter of the loss budget, and the newest snapshot is no more than an hour old.',
+        'None of the lines below holds: every part and the cash are inside the band, our keeper’s losses are under a quarter of the loss budget, and the newest snapshot is no more than two hours old.',
       watch:
-        'A part is outside the band, or cash is over its share by more than the band, or a part that is held and planned has no price, or our keeper’s losses have used a quarter or more of the loss budget, or the newest snapshot is more than an hour old.',
+        'A part is outside the band, or cash is over its share by more than the band, or a part that is held and planned has no price, or our keeper’s losses have used a quarter or more of the loss budget, or the newest snapshot is more than two hours old.',
       off_track:
         'Our keeper’s losses have used half or more of the loss budget, or the chain hasn’t been read for a day or more.',
       none: 'There is nothing to hold the vault to yet: it hasn’t been read, it holds nothing, or its chain states no band.',

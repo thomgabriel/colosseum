@@ -1,11 +1,11 @@
 {
-  "about": "More tokens for the Robinhood Chain MAINNET (4663) factory deployed on 2026-10-12, listed through its timelock: one scheduleBatch the Safe signs, and 48 hours later the same batch's executeBatch (script/AddAssets.s.sol prints both and holds this file to the chain; pnpm ops:add-assets writes them as the Safe app's Transaction Builder files). Tokens: MSTR, CRCL, USO, PLTR, WETH, cbBTC, DELL, SPCX, COIN, TSM, BABA, SGOV. Each entry is an entry of the deploy file's shape (script/config/4663.json) with how a person reads it (symbol, name, kind), and each was held to the bar the nine of the deploy met (docs/vault/MAINNET-WIDER-LIST.md, gate WIDER-LIST): a Chainlink feed that names its aggregator and is live, a hookless Uniswap v4 pool against USDG that fills $1,000 each way for 1% or less with its mid within 2% of the feed, and on a fork a vault that buys $500 of it and sells half back within 2% of the feed. The pool is the deepest that meets that, maxTradeUsd the largest size asked that cost 1% or less each way, maxWeightBps DESIGN-VAULT section 6 on the pool's sale capacity, average the deepest Uniswap v3 pool against USDG (usable only with more than 3,600 observations). The keeper stays off: flags 0, no average feed, no range. Every value is PROPOSED: the Safe's two owners confirm them by signing the schedule. Figures read by packages/chain-evm/test/pool-quotes.ts (method pool-quotes-0.2) at the blocks in `measured`; each note names its own.",
+  "about": "More tokens for the Robinhood Chain MAINNET (4663) factory deployed on 2026-10-12, listed through its timelock: one scheduleBatch the Safe signs, and 48 hours later the same batch's executeBatch (script/AddAssets.s.sol prints both and holds this file to the chain; pnpm ops:add-assets writes them as the Safe app's Transaction Builder files). Tokens: MSTR, CRCL, USO, PLTR, WETH, cbBTC, DELL, SPCX, COIN, TSM, BABA, SGOV with a v4 pool; QQQ, MU, AMD, INTC, SLV with a v3 pool (`v3Pool`, Thom's option B, 2026-10-14), listed now and kept out of the app until it builds a v3 route. Each entry is an entry of the deploy file's shape (script/config/4663.json) with how a person reads it (symbol, name, kind), and each was held to the bar the nine of the deploy met (docs/vault/MAINNET-WIDER-LIST.md, gate WIDER-LIST): a Chainlink feed that names its aggregator and is live, a hookless Uniswap v4 pool (or, for the five, a Uniswap v3 pool) against USDG that fills $1,000 each way for 1% or less with its mid within 2% of the feed, and on a fork a vault that buys $500 of it and sells half back within 2% of the feed. The pool is the deepest that meets that, maxTradeUsd the largest size asked that cost 1% or less each way, maxWeightBps DESIGN-VAULT section 6 on the pool's sale capacity, average the deepest Uniswap v3 pool against USDG (usable only with more than 3,600 observations). The keeper stays off: flags 0, no average feed, no range. Every value is PROPOSED: the Safe's two owners confirm them by signing the schedule. Figures read by packages/chain-evm/test/pool-quotes.ts (method pool-quotes-0.2) at the blocks in `measured`; each note names its own.",
   "chainId": 4663,
   "factory": "0xaE4ae2F2a5c2ee50C5A7574Cf355Cd5B068E7A80",
   "timelock": "0x749f6aEB956b9f490e316599068Ba8a6Bd248342",
   "safe": "0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc",
   "cashToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
-  "salt": "tenonfi robinhood-mainnet more tokens 2026-10-13",
+  "salt": "tenonfi robinhood-mainnet more tokens and registry v2 2026-10-14",
   "delay": 172800,
   "priceBoundBps": 200,
   "measured": [
@@ -16,6 +16,10 @@
     {
       "block": 87739606,
       "at": "2026-10-13T18:51:14.000Z"
+    },
+    {
+      "block": 88616978,
+      "at": "2026-10-14T19:27:41.000Z"
     }
   ],
   "assets": [
@@ -269,7 +273,8 @@
         "minLiquidity": "100000000000000000",
         "usable": false
       },
-      "averageNote": "Proposed 2026-10-13. The token's Uniswap v3 pool against USDG with the most liquidity in range, fee 10000, the v3 factory's own (getPool). It keeps 1801 observations, so usable is false (an hour needs more than 3,600): the feed stays the witness up to maxAge and the token is not traded past it. minLiquidity is half its liquidity in range, 207657694280430145, down to two figures."
+      "averageNote": "Proposed 2026-10-13. The token's Uniswap v3 pool against USDG with the most liquidity in range, fee 10000, the v3 factory's own (getPool). It keeps 1801 observations, so usable is false (an hour needs more than 3,600): the feed stays the witness up to maxAge and the token is not traded past it. minLiquidity is half its liquidity in range, 207657694280430145, down to two figures.",
+      "heldBack": "Thom, 2026-10-14: listed with the batch and kept out of the app for now. On Oct 14 its v4 pool held a sixth of its Oct 13 liquidity and cost 1.16% / 1.21% at $1,000, over the bar; promote it once the pool fills $1,000 at 1% or less again."
     },
     {
       "symbol": "SPCX",
@@ -449,7 +454,188 @@
         "minLiquidity": "17000000000000000000",
         "usable": false
       },
-      "averageNote": "Proposed 2026-10-13. The token's Uniswap v3 pool against USDG with the most liquidity in range, fee 3000, the v3 factory's own (getPool). It keeps 1800 observations, so usable is false (an hour needs more than 3,600): the feed stays the witness up to maxAge and the token is not traded past it. minLiquidity is half its liquidity in range, 35197935629136580012, down to two figures."
+      "averageNote": "Proposed 2026-10-13. The token's Uniswap v3 pool against USDG with the most liquidity in range, fee 3000, the v3 factory's own (getPool). It keeps 1800 observations, so usable is false (an hour needs more than 3,600): the feed stays the witness up to maxAge and the token is not traded past it. minLiquidity is half its liquidity in range, 35197935629136580012, down to two figures.",
+      "heldBack": "Thom, 2026-10-14: listed with the batch and kept out of the app for now (the reviewer of #273 recommended dropping it). Its one cheap pool fills $1,000 and no $2,500 buy, and on Oct 14 a $500 buy on a fork filled about 2.4% under its feed, outside the bound."
+    },
+    {
+      "symbol": "QQQ",
+      "name": "Invesco QQQ",
+      "kind": "etf",
+      "token": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+      "feed": "0x80901d846d5d7b030f26b480776ee3b29374c2ae",
+      "feedDescription": "Robinhood QQQ / USD",
+      "tokenDecimals": 18,
+      "feedDecimals": 8,
+      "maxAge": 93600,
+      "session": 1,
+      "source": 1,
+      "maxWeightBps": 2500,
+      "maxWeightNote": "Proposed 2026-10-14: 2500 bps, the ceiling in a shared portfolio (gate EXIT-SOURCE); a person's own vault is not capped. By DESIGN-VAULT section 6 (10,000 x 0.25 x capacity / $50,000, down to a 50 bps step, at most 5000), with capacity $50,000: the largest of $1,000, $10,000, $50,000 and $250,000 the v3 pool below took as a sale for 1% or less. One reading.",
+      "pauseProbe": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+      "pauseSelector": "0x5c975abb",
+      "scheduleSelector": "0x97a4064f",
+      "flags": 0,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "minPrice": 0,
+      "maxPrice": 0,
+      "v3Pool": {
+        "pool": "0xd60a5d14db690b7afad71f76b108071d7175597d",
+        "fee": 500
+      },
+      "v3PoolNote": "Proposed 2026-10-14 (Thom's option B: listed now, traded once the app builds a v3 route; it stays out of the app until then). QQQ has no v4 route: its v4 pools against USDG do not fill a $1,000 buy. This is its Uniswap v3 pool against USDG with the most liquidity in range among those that fill $1,000 each way for 1% or less within 2% of the feed, the v3 factory's own, fee 500, at block 88616978 (2026-10-14T19:27:41.000Z). Quoted by Bearing's ClQuoter through a state override, cost against its own mid, fee included, in bps to trade in / out: $1,000 6.6/6.6, $2,500 9.1/9.1, $10,000 21.1/21.4, $50,000 62.8/88.5. Its mid sat 19.9 bps from the feed. The fork test trades it through Universal Router's v3 command.",
+      "maxTradeUsd": 50000,
+      "maxTradeNote": "Proposed 2026-10-14. The largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) that cost 1% or less each way in the v3 pool above at block 88616978, every smaller size too: 0.63% in, 0.89% out at $50,000; $250,000 costs 1.31% in, 6.74% out. App-side; the record can change it without the Safe.",
+      "average": {
+        "pool": "0xd60a5d14db690b7afad71f76b108071d7175597d",
+        "fee": 500,
+        "minLiquidity": "110000000000000000",
+        "usable": true
+      },
+      "averageNote": "Proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 500, the v3 factory's own. It keeps 7200 observations, so usable is true. minLiquidity is half its liquidity in range, 227318452311090706, down to two figures."
+    },
+    {
+      "symbol": "MU",
+      "name": "Micron Technology",
+      "kind": "stock",
+      "token": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+      "feed": "0x425eefdcf05ed6526c3ce61af99429a228a6d596",
+      "feedDescription": "RHMU / USD",
+      "tokenDecimals": 18,
+      "feedDecimals": 8,
+      "maxAge": 93600,
+      "session": 1,
+      "source": 1,
+      "maxWeightBps": 500,
+      "maxWeightNote": "Proposed 2026-10-14: 500 bps, the ceiling in a shared portfolio (gate EXIT-SOURCE); a person's own vault is not capped. By DESIGN-VAULT section 6 (10,000 x 0.25 x capacity / $50,000, down to a 50 bps step, at most 5000), with capacity $10,000: the largest of $1,000, $10,000, $50,000 and $250,000 the v3 pool below took as a sale for 1% or less. One reading.",
+      "pauseProbe": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+      "pauseSelector": "0x5c975abb",
+      "scheduleSelector": "0x97a4064f",
+      "flags": 0,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "minPrice": 0,
+      "maxPrice": 0,
+      "v3Pool": {
+        "pool": "0xd057b1bc54917855bbee58ead58647f47cab35e5",
+        "fee": 3000
+      },
+      "v3PoolNote": "Proposed 2026-10-14 (Thom's option B: listed now, traded once the app builds a v3 route; it stays out of the app until then). MU has no v4 route: its only v4 pools that quote charge 1% (1.15% at $1,000). This is its Uniswap v3 pool against USDG with the most liquidity in range among those that fill $1,000 each way for 1% or less within 2% of the feed, the v3 factory's own, fee 3000, at block 88616978 (2026-10-14T19:27:41.000Z). Quoted by Bearing's ClQuoter through a state override, cost against its own mid, fee included, in bps to trade in / out: $1,000 31.9/31.9, $2,500 34.7/34.7, $10,000 48.9/49.2, $50,000 120.5/131.7. Its mid sat -11.8 bps from the feed. The fork test trades it through Universal Router's v3 command.",
+      "maxTradeUsd": 25000,
+      "maxTradeNote": "Proposed 2026-10-14. The largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) that cost 1% or less each way in the v3 pool above at block 88616978, every smaller size too: 0.76% in, 0.80% out at $25,000; $50,000 costs 1.21% in, 1.32% out. App-side; the record can change it without the Safe.",
+      "average": {
+        "pool": "0xd057b1bc54917855bbee58ead58647f47cab35e5",
+        "fee": 3000,
+        "minLiquidity": "86000000000000000",
+        "usable": true
+      },
+      "averageNote": "Proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 3000, the v3 factory's own. It keeps 14400 observations, so usable is true. minLiquidity is half its liquidity in range, 172722657102828450, down to two figures."
+    },
+    {
+      "symbol": "AMD",
+      "name": "Advanced Micro Devices",
+      "kind": "stock",
+      "token": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+      "feed": "0x943a29e7ae51a4798823ca9eed2ed533b2a22c72",
+      "feedDescription": "RHAMD / USD",
+      "tokenDecimals": 18,
+      "feedDecimals": 8,
+      "maxAge": 93600,
+      "session": 1,
+      "source": 1,
+      "maxWeightBps": 50,
+      "maxWeightNote": "Proposed 2026-10-14: 50 bps, the ceiling in a shared portfolio (gate EXIT-SOURCE); a person's own vault is not capped. By DESIGN-VAULT section 6 (10,000 x 0.25 x capacity / $50,000, down to a 50 bps step, at most 5000), with capacity $1,000: the largest of $1,000, $10,000, $50,000 and $250,000 the v3 pool below took as a sale for 1% or less. One reading.",
+      "pauseProbe": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+      "pauseSelector": "0x5c975abb",
+      "scheduleSelector": "0x97a4064f",
+      "flags": 0,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "minPrice": 0,
+      "maxPrice": 0,
+      "v3Pool": {
+        "pool": "0x48d284a2a4d3dc1b3da08231fe44317e7e7aa51f",
+        "fee": 3000
+      },
+      "v3PoolNote": "Proposed 2026-10-14 (Thom's option B: listed now, traded once the app builds a v3 route; it stays out of the app until then). AMD has no v4 route: its only v4 pools that quote charge 1% (1.12% at $1,000). This is its Uniswap v3 pool against USDG with the most liquidity in range among those that fill $1,000 each way for 1% or less within 2% of the feed, the v3 factory's own, fee 3000, at block 88616978 (2026-10-14T19:27:41.000Z). Quoted by Bearing's ClQuoter through a state override, cost against its own mid, fee included, in bps to trade in / out: $1,000 37.1/37.1, $2,500 47.6/47.8, $10,000 94/104.5, $50,000 266.8/421.3. Its mid sat -10 bps from the feed. The fork test trades it through Universal Router's v3 command.",
+      "maxTradeUsd": 5000,
+      "maxTradeNote": "Proposed 2026-10-14. The largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) that cost 1% or less each way in the v3 pool above at block 88616978, every smaller size too: 0.64% in, 0.66% out at $5,000; $10,000 costs 0.94% in, 1.04% out. App-side; the record can change it without the Safe.",
+      "average": {
+        "pool": "0x48d284a2a4d3dc1b3da08231fe44317e7e7aa51f",
+        "fee": 3000,
+        "minLiquidity": "29000000000000000",
+        "usable": true
+      },
+      "averageNote": "Proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 3000, the v3 factory's own. It keeps 7200 observations, so usable is true. minLiquidity is half its liquidity in range, 58834499063747176, down to two figures."
+    },
+    {
+      "symbol": "INTC",
+      "name": "Intel",
+      "kind": "stock",
+      "token": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+      "feed": "0x3f390c5c24628ac7c489515402235fead71d1913",
+      "feedDescription": "RHINTC / USD",
+      "tokenDecimals": 18,
+      "feedDecimals": 8,
+      "maxAge": 93600,
+      "session": 1,
+      "source": 1,
+      "maxWeightBps": 50,
+      "maxWeightNote": "Proposed 2026-10-14: 50 bps, the ceiling in a shared portfolio (gate EXIT-SOURCE); a person's own vault is not capped. By DESIGN-VAULT section 6 (10,000 x 0.25 x capacity / $50,000, down to a 50 bps step, at most 5000), with capacity $1,000: the largest of $1,000, $10,000, $50,000 and $250,000 the v3 pool below took as a sale for 1% or less. One reading.",
+      "pauseProbe": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+      "pauseSelector": "0x5c975abb",
+      "scheduleSelector": "0x97a4064f",
+      "flags": 0,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "minPrice": 0,
+      "maxPrice": 0,
+      "v3Pool": {
+        "pool": "0x2e5a92f5013a64661a49312111be2e8abd33f56a",
+        "fee": 3000
+      },
+      "v3PoolNote": "Proposed 2026-10-14 (Thom's option B: listed now, traded once the app builds a v3 route; it stays out of the app until then). INTC has no v4 route: its only v4 pools that quote charge 1% (1.15% at $1,000). This is its Uniswap v3 pool against USDG with the most liquidity in range among those that fill $1,000 each way for 1% or less within 2% of the feed, the v3 factory's own, fee 3000, at block 88616978 (2026-10-14T19:27:41.000Z). Quoted by Bearing's ClQuoter through a state override, cost against its own mid, fee included, in bps to trade in / out: $1,000 43.4/44.1, $2,500 56.9/63.3, $10,000 109.3/160.8, $50,000 283.6/5346.1. Its mid sat 9.6 bps from the feed. The fork test trades it through Universal Router's v3 command.",
+      "maxTradeUsd": 5000,
+      "maxTradeNote": "Proposed 2026-10-14. The largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) that cost 1% or less each way in the v3 pool above at block 88616978, every smaller size too: 0.77% in, 0.90% out at $5,000; $10,000 costs 1.09% in, 1.61% out. App-side; the record can change it without the Safe.",
+      "average": {
+        "pool": "0x2e5a92f5013a64661a49312111be2e8abd33f56a",
+        "fee": 3000,
+        "minLiquidity": "35000000000000000",
+        "usable": true
+      },
+      "averageNote": "Proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 3000, the v3 factory's own. It keeps 14400 observations, so usable is true. minLiquidity is half its liquidity in range, 71072152419773650, down to two figures."
+    },
+    {
+      "symbol": "SLV",
+      "name": "iShares Silver Trust",
+      "kind": "commodity",
+      "token": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+      "feed": "0x209b73908e92ae021826ed79609845451ecba2ce",
+      "feedDescription": "Robinhood SLV / USD",
+      "tokenDecimals": 18,
+      "feedDecimals": 8,
+      "maxAge": 93600,
+      "session": 1,
+      "source": 1,
+      "maxWeightBps": 50,
+      "maxWeightNote": "Proposed 2026-10-14: 50 bps, the ceiling in a shared portfolio (gate EXIT-SOURCE); a person's own vault is not capped. By DESIGN-VAULT section 6 (10,000 x 0.25 x capacity / $50,000, down to a 50 bps step, at most 5000), with capacity $1,000: the largest of $1,000, $10,000, $50,000 and $250,000 the v3 pool below took as a sale for 1% or less. One reading.",
+      "pauseProbe": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+      "pauseSelector": "0x5c975abb",
+      "scheduleSelector": "0x97a4064f",
+      "flags": 0,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "minPrice": 0,
+      "maxPrice": 0,
+      "v3Pool": {
+        "pool": "0x8cb787e6c315d464775289bad00fdd67d53ecb3d",
+        "fee": 3000
+      },
+      "v3PoolNote": "Proposed 2026-10-14 (Thom's option B: listed now, traded once the app builds a v3 route; it stays out of the app until then). SLV has no v4 route: no v4 pool against USDG fills $1,000. This is its Uniswap v3 pool against USDG with the most liquidity in range among those that fill $1,000 each way for 1% or less within 2% of the feed, the v3 factory's own, fee 3000, at block 88616978 (2026-10-14T19:27:41.000Z). Quoted by Bearing's ClQuoter through a state override, cost against its own mid, fee included, in bps to trade in / out: $1,000 47.5/48.5, $2,500 63.7/80.9, $10,000 91.3/289.2, $50,000 204.8/6697.1. Its mid sat -15 bps from the feed. The fork test trades it through Universal Router's v3 command.",
+      "maxTradeUsd": 2500,
+      "maxTradeNote": "Proposed 2026-10-14. The largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) that cost 1% or less each way in the v3 pool above at block 88616978, every smaller size too: 0.64% in, 0.81% out at $2,500; $4,000 costs 0.71% in, 1.17% out. App-side; the record can change it without the Safe.",
+      "average": {
+        "pool": "0x8cb787e6c315d464775289bad00fdd67d53ecb3d",
+        "fee": 3000,
+        "minLiquidity": "40000000000000000",
+        "usable": false
+      },
+      "averageNote": "Proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range, fee 3000, the v3 factory's own. It keeps 1801 observations, so usable is false (an hour needs more than 3,600). minLiquidity is half its liquidity in range, 80131018153997092, down to two figures."
     }
   ]
 }

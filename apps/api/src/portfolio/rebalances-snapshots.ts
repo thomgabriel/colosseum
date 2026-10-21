@@ -1,7 +1,7 @@
 import { type Db, vaultSnapshots } from '@colosseum/db';
 import type { Price, RebalanceDrift, RebalanceEntry } from '@colosseum/schemas';
 import { and, gt, inArray, type SQL, sql } from 'drizzle-orm';
-import { ownedOn, type ScopedChain } from './scope';
+import { openOn, type ScopedChain } from './scope';
 import type { SnapshotRow } from './snapshots';
 
 // What the rebalances route reads from the snapshots (PORT-2): a position and its price in the snapshot
@@ -77,7 +77,7 @@ export async function snapshotsNear(
     cross join lateral (
       select ${t.observedAt} as observed_at, ${t.positions} as positions, ${t.prices} as prices
       from ${t}
-      where ${ownedOn(t, scoped)} and ${t.address} = wanted.address
+      where ${openOn(t, scoped, t.observedAt)} and ${t.address} = wanted.address
         and ${t.observedAt} ${reaches} wanted.at
       order by ${t.observedAt} ${nearestFirst}
       limit 1
@@ -124,7 +124,7 @@ export async function keeperTrades(
   const t = vaultSnapshots;
   // The person's own rows, on every read of the table below: the one the window runs over, and the
   // two that read a pair's snapshots back by their key.
-  const mine = ownedOn(t, scoped);
+  const mine = openOn(t, scoped, t.observedAt);
   const searched = and(mine, inArray(t.address, [...a.addresses]), gt(t.observedAt, a.since));
   const rows = await db.execute<{
     address: string;

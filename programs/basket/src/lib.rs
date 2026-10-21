@@ -234,4 +234,10 @@ pub mod basket {
     ) -> Result<()> {
         Withdraw::handle(ctx, amount)
     }
+
+    /// Anyone, read only. The author limits a shared portfolio is held to, as return data:
+    /// the app simulates this to read them from the program it talks to.
+    pub fn creator_limits(ctx: Context<ReadCreatorLimits>) -> Result<checks::CreatorLimits> {
+        ReadCreatorLimits::handle(ctx)
+    }
 }

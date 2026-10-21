@@ -553,7 +553,7 @@ export const STATUS_BY_LINE: Record<TrackLine, TrackStatus[]> = {
       'watch',
       'stale',
       { minutes: 185 },
-      'The vault was last read 185 minutes ago, more than an hour.',
+      'The vault was last read 185 minutes ago, more than two hours.',
       NEWEST_STALE.observedAt,
     ),
   ],

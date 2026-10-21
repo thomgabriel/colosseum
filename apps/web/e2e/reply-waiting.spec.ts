@@ -157,9 +157,10 @@ for (const width of [1440, 375] as const)
     await expect(send.locator('[data-ui="lattice-loader"]')).toBeVisible();
     expect(await assembling(pending)).toBeGreaterThan(0);
     await inView(pending);
-    // the box takes the next thought and says that sending waits, in a place as tall as it was
+    // the box takes the next thought and says that sending waits, in a place as tall as it was (the
+    // first message opens the draft's column beside the chat, so the chat, and the line, narrow)
     await expect(composer.locator('[data-ui="composer-hint"]')).toContainText(talk.busyHint);
-    expect(await hintSize()).toEqual(settledHint);
+    expect((await hintSize())[1]).toBe(settledHint[1]);
     await page.locator('textarea').fill('and keep some cash');
     await expect(send).toHaveAttribute('aria-disabled', 'true');
     await page.locator('textarea').fill('');
@@ -281,8 +282,14 @@ test('in a full transcript a landed reply is read from its first line, a failure
     return { top: box.y - list.y, bottom: list.y + list.height - (box.y + box.height) };
   };
   const scrolled = () => transcript.evaluate((el) => el.scrollTop);
-  // enough turns for the transcript to scroll
-  for (const words of ['A broad fund and gold', 'A little safer', 'And some cash', 'Less gold']) {
+  // enough turns for the transcript to scroll (the chat has half the room beside the draft at 1440)
+  for (const words of [
+    'A broad fund and gold',
+    'A little safer',
+    'And some cash',
+    'Less gold',
+    'Keep it simple',
+  ]) {
     const before = await transcript.locator('li[data-who="app"]').count();
     await say(page, `${words}, and this message runs long enough to take two lines in the column`);
     await expect(pending).toHaveCount(0);

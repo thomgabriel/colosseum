@@ -12,8 +12,9 @@ import { heldToFile, promote, safeFiles } from '../scripts/ops/add-assets';
 const ROOT = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 const file = AddAssetsFile.parse(JSON.parse(read('contracts/script/config/4663-assets-2.json')));
-const record = JSON.parse(read('deployments/robinhood-mainnet.json'));
-const guard = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
+// The factory of 2026-10-12, its record and the guard's file as they stood before the redeploy took both.
+const record = JSON.parse(read('deployments/robinhood-mainnet-2026-10-12.json'));
+const guard = JSON.parse(read('tests/fixtures/mainnet-records/guard-2026-10-12.json'));
 
 describe('the tokens the Safe lists after the deploy', () => {
   it("are the record's pending tokens, exactly as the file makes them", () => {
@@ -21,6 +22,18 @@ describe('the tokens the Safe lists after the deploy', () => {
     const edited = structuredClone(record);
     edited.pending[0].maxTradeUsd += 1;
     expect(() => heldToFile(edited, file)).toThrow(/not the file's/);
+  });
+
+  it('never go into the guard’s file of another factory: the redeploy’s', () => {
+    const now = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
+    expect(() => promote(record, now, [record.pending[0].address])).toThrow(/another factory/);
+    // Nor into one that names none, and never from a record that names none.
+    const none = structuredClone(guard);
+    delete none.chains.robinhood.factory;
+    expect(() => promote(record, none, [record.pending[0].address])).toThrow(/names no factory/);
+    const bare = structuredClone(record);
+    delete bare.contracts.factory;
+    expect(() => promote(bare, none, [record.pending[0].address])).toThrow(/names no factory/);
   });
 
   it('are not in the guard’s file before the chain lists them', () => {
@@ -47,6 +60,18 @@ describe('the tokens the Safe lists after the deploy', () => {
     });
     // Nothing listed, nothing moves.
     expect(promote(record, guard, []).moved).toEqual([]);
+  });
+
+  it('leave a held-back token and a v3-routed one pending when the chain lists them', () => {
+    const all = record.pending.map((p: { address: string }) => p.address);
+    const held = file.assets.filter((a) => a.heldBack !== undefined).map((a) => a.symbol);
+    const next = promote(record, guard, all, held);
+    const left = (next.record.pending as { symbol: string; pool: unknown }[]).map((p) => p.symbol);
+    for (const symbol of held) expect(left, symbol).toContain(symbol);
+    for (const a of file.assets.filter((x) => x.v3Pool !== undefined))
+      expect(left, a.symbol).toContain(a.symbol);
+    expect(next.moved.length + left.length).toBe(record.pending.length);
+    EvmDeploymentRecord.parse(next.record);
   });
 
   it('come as two Transaction Builder files from the Safe to the timelock, schedule then execute', () => {
