@@ -7,6 +7,7 @@ export * from './assets/history';
 export * from './assets/metric-prices';
 export * from './assets/metric-rows';
 export * from './assets/metrics';
+export * from './assets/mid-bars';
 export * from './assets/shelf';
 export * from './assets/spl-mint';
 export * from './assets/universe';
