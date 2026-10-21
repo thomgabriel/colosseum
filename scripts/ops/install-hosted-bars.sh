@@ -10,15 +10,16 @@
 #       the bars from it (scripts/risk/assets/bars.ts --walk, the held path, bars-0.1) and writes the complete hours no
 #       earlier run wrote (--lookups-only, scripts/risk/assets/lookup-rows.ts): the token bars and, for each token's
 #       top five pools by the newest pool_tvl_usd reading, their bars; it then deletes the pool bars older than two days
-#       (--drop-old-pool-bars, never a backfill row). A run past minute 25 of the UTC hour it started in writes nothing
-#       (--write-by-minute 25: Neon is awake :10 to :25; the next run writes those hours), so the first run, whose
+#       (--drop-old-pool-bars, never a backfill row). A run outside minutes 10 to 25 of the UTC hour it started in writes
+#       nothing (--write-window 10-25: Neon is awake :10 to :25; the next run writes those hours), so the first run, whose
 #       30-hour walk takes minutes, may write at the next hour. After the run at HH:18 the newest bar is HH-1. Measured on
 #       Oct 21: one hour of the chain is about 40,000 blocks, 25,000 swaps, 16 RPC calls in 5 requests, 7 s; the first
 #       run walks 30 hours (a few minutes); the folder holds up to about 600 MB (whole days are deleted).
 #   solana  com.colosseum.hosted-bars-solana, minute 19. It builds the token bars of the last six complete hours from
 #       the pool collector's mid prices in the same database (scripts/risk/assets/mid-bars.ts, mids-0.1: one USDC pool
 #       of tier A or B an hour, the deepest; prices only, no volume) and writes them over its own rows of those hours.
-#       No RPC, no file (but the one-off --fill-from-files below).
+#       No RPC, no file (but the one-off --fill-from-files below). It too touches the database only inside :10 to :25
+#       UTC (--write-window 10-25); the runs below that a person starts are not held to it.
 #
 # The token bars are kept 31 days by the daily prune (risk-retention.ts, market_bars).
 #
@@ -138,13 +139,13 @@ if [ "$CHAIN" = robinhood ]; then
   BUNDLE=risk-hosted-bars
   WALK="$HOME_DIR/bars-walk/$CHAIN"
   mkdir -p "$WALK"
-  ARGS="$CHAIN --lookups-only --walk $WALK --drop-old-pool-bars --write-by-minute 25"
+  ARGS="$CHAIN --lookups-only --walk $WALK --drop-old-pool-bars --write-window 10-25"
   MINUTE=18
 else
   SETTINGS=""
   SRC="$REPO/scripts/risk/assets/mid-bars.ts"
   BUNDLE=risk-hosted-mid-bars
-  ARGS="--since-hours 6"
+  ARGS="--since-hours 6 --write-window 10-25"
   MINUTE=19
 fi
 LOG="$HOME_DIR/risk-hosted-bars-$CHAIN.log"

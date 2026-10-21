@@ -14,7 +14,13 @@
 // into risk_pool_snapshots: midQuotePerAsset is mid_price, depth2pct.sellQuoteOut is in_band_liquidity, and as the
 // import a row without its curves is skipped), for the hours after the newest swap-built Solana token bar of the
 // database (the copied backfill, Oct 15 23:00) up to the first whole hour of its snapshots; --from and --to (ISO
-// hours) set them by hand. The pools are the database's, as above. Streamed line by line; a dry run counts.
+// hours) set them by hand. The pools are the database's, as above. Streamed line by line; a dry run counts. It must
+// run after the --since-hours 96 fill (the installer runs them in that order): the hour the database's first snapshot
+// cuts short is the files' to write, and a database run after it would rewrite that hour from the partial snapshots.
+//
+// --write-window <from>-<to> (the scheduled hourly run, 10-25; write-window.ts): outside those minutes of the UTC hour
+// the run started in, it touches the database not at all (before reading) and writes nothing (before writing); the
+// next run rebuilds the same hours. Not with --fill-from-files: a fill is a person's run.
 import 'dotenv/config';
 import { createReadStream, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -31,6 +37,7 @@ import {
 } from '@colosseum/risk';
 import type { Provenance } from '@colosseum/schemas';
 import { and, eq, gte, inArray, lt, max, min, notLike, sql } from 'drizzle-orm';
+import { outsideWriteWindow, parseWriteWindow } from './write-window';
 
 const HOUR_MS = 3_600_000;
 /** The registry tiers the collector reads (scripts/risk/collector/pools.ts: A every run, B on the hour). */
@@ -275,14 +282,29 @@ if (process.argv[1]?.endsWith('mid-bars.ts') || process.argv[1]?.endsWith('mid-b
   const files = args.includes('--fill-from-files');
   const sinceHours = Number(opt('--since-hours') ?? 6);
   const at = (k: string) => (opt(k) === undefined ? null : new Date(opt(k) as string));
-  const known = new Set(['--dry-run', '--since-hours', '--fill-from-files', '--from', '--to']);
-  const takesValue = new Set(['--since-hours', '--fill-from-files', '--from', '--to']);
+  const known = new Set([
+    '--dry-run',
+    '--since-hours',
+    '--fill-from-files',
+    '--from',
+    '--to',
+    '--write-window',
+  ]);
+  const takesValue = new Set([
+    '--since-hours',
+    '--fill-from-files',
+    '--from',
+    '--to',
+    '--write-window',
+  ]);
+  const window = args.includes('--write-window') ? parseWriteWindow(opt('--write-window')) : null;
   const [fromArg, toArg] = [at('--from'), at('--to')];
   if (
     !Number.isInteger(sinceHours) ||
     sinceHours < 1 ||
     sinceHours > 24 * 31 ||
     (files && args.includes('--since-hours')) ||
+    (args.includes('--write-window') && (window === null || files)) ||
     (!files && (args.includes('--from') || args.includes('--to'))) ||
     [fromArg, toArg].some(
       (d) => d !== null && (!Number.isFinite(d.getTime()) || d.getTime() % HOUR_MS !== 0),
@@ -292,11 +314,23 @@ if (process.argv[1]?.endsWith('mid-bars.ts') || process.argv[1]?.endsWith('mid-b
     )
   ) {
     console.error(
-      'usage: pnpm risk:assets-mid-bars [--since-hours <n, 1 to 744>] [--dry-run] | --fill-from-files [dir] [--from <hour>] [--to <hour>] [--dry-run]',
+      'usage: pnpm risk:assets-mid-bars [--since-hours <n, 1 to 744>] [--dry-run] [--write-window <from>-<to>] | --fill-from-files [dir] [--from <hour>] [--to <hour>] [--dry-run]',
     );
     process.exit(1);
   }
   const t0 = Date.now();
+  const outside = () => window !== null && outsideWriteWindow(t0, Date.now(), window);
+  const skip = (when: string) =>
+    console.log(
+      JSON.stringify({
+        chain: 'solana',
+        skipped: `outside minutes ${window?.from} to ${window?.to} UTC of the hour the run started in (${when}): nothing written; the next run rebuilds these hours`,
+      }),
+    );
+  if (outside()) {
+    skip('before reading');
+    process.exit(0);
+  }
   const { db, client } = createDb();
   try {
     let hours: { from: Date; to: Date };
@@ -324,7 +358,9 @@ if (process.argv[1]?.endsWith('mid-bars.ts') || process.argv[1]?.endsWith('mid-b
       ({ snapshots, pools } = await readMidSnapshots(db, hours));
     }
     const bars = midBars(snapshots, pools, hours, files ? 'day_files' : 'snapshots');
-    const written = dry ? 0 : await upsertMidBars(db, bars);
+    const late = !dry && outside();
+    if (late) skip('before writing');
+    const written = dry || late ? 0 : await upsertMidBars(db, bars);
     const tokens = new Set(bars.map((b) => b.address));
     console.log(
       JSON.stringify({

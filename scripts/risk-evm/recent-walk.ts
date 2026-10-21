@@ -173,16 +173,6 @@ export function writeWrittenThrough(root: string, through: number): void {
   );
 }
 
-/**
- * Whether a scheduled run is past the minute by which it must have written (gate HOURLY-BARS): the hosted
- * database is awake from about :10 to :25 UTC for the hourly import, and a write after that would wake it again.
- * The minute is counted in the hour the run started, so a run started late (a Mac waking) writes nothing and the
- * next hour's run writes its hours.
- */
-export function pastWriteDeadline(startedMs: number, nowMs: number, minute: number): boolean {
-  return nowMs >= Math.floor(startedMs / (HOUR_S * 1000)) * HOUR_S * 1000 + minute * 60_000;
-}
-
 /** Writes a file whole: a temporary file beside it, renamed over it, so a crash never leaves half of it. */
 export function writeAtomic(path: string, text: string): void {
   const tmp = `${path}.${process.pid}.tmp`;

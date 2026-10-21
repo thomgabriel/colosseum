@@ -17,6 +17,11 @@ import { describe, expect, it } from 'vitest';
 import { readRobinhood } from '../scripts/risk/assets/bars-read';
 import { barRows } from '../scripts/risk/assets/bars-rows';
 import { newestTokenHour, rowsInHours } from '../scripts/risk/assets/lookup-rows';
+import {
+  HOSTED_WRITE_WINDOW,
+  outsideWriteWindow,
+  parseWriteWindow,
+} from '../scripts/risk/assets/write-window';
 import { TOPIC } from '../scripts/risk-evm/abi';
 import { CHAINS, type ChainConfig } from '../scripts/risk-evm/config';
 import type { CutRow } from '../scripts/risk-evm/cut';
@@ -27,7 +32,6 @@ import {
   dropPartialLastLine,
   headerBlocks,
   hoursToWrite,
-  pastWriteDeadline,
   RECENT_CONTEXT_HOURS,
   RECENT_KEEP_HOURS,
   readWrittenThrough,
@@ -390,13 +394,24 @@ describe('what each hourly run writes, and when (HOURLY-BARS)', () => {
     expect(newestTokenHour([])).toBeNull();
   });
 
-  it('a scheduled run writes nothing past minute 25 of the hour it started in', () => {
+  it('a scheduled run touches the database only inside :10 to :25 UTC of the hour it started in', () => {
     const at = (hm: string) => Date.parse(`2026-10-22T${hm}:00Z`);
-    expect(pastWriteDeadline(at('10:18'), at('10:24'), 25)).toBe(false);
-    expect(pastWriteDeadline(at('10:18'), at('10:25'), 25)).toBe(true);
-    // a run started late (a Mac waking at 10:40) writes nothing; nor one that ran into the next hour
-    expect(pastWriteDeadline(at('10:40'), at('10:41'), 25)).toBe(true);
-    expect(pastWriteDeadline(at('10:18'), at('11:02'), 25)).toBe(true);
+    const w = parseWriteWindow('10-25');
+    expect(w).toEqual(HOSTED_WRITE_WINDOW);
+    const out = (start: string, now: string) =>
+      outsideWriteWindow(at(start), at(now), HOSTED_WRITE_WINDOW);
+    // both edges: :10 is in, a second before it is not; :25 is out, a second before it is in
+    expect(outsideWriteWindow(at('10:09'), at('10:09') + 59_000, HOSTED_WRITE_WINDOW)).toBe(true);
+    expect(out('10:09', '10:10')).toBe(false);
+    expect(out('10:18', '10:24')).toBe(false);
+    expect(outsideWriteWindow(at('10:18'), at('10:25') - 1_000, HOSTED_WRITE_WINDOW)).toBe(false);
+    expect(out('10:18', '10:25')).toBe(true);
+    // a run started late (a Mac waking at 10:40), or one that ran into the next hour's window, touches nothing
+    expect(out('10:40', '10:41')).toBe(true);
+    expect(out('10:18', '11:12')).toBe(true);
+    expect(out('10:02', '10:05')).toBe(true);
+    for (const bad of ['25-10', '10-61', '10', 'a-b', undefined])
+      expect(parseWriteWindow(bad)).toBeNull();
   });
 
   it('a day file cut short by a crash loses its half line, and the next walk reads every swap once', async () => {

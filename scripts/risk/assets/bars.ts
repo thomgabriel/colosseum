@@ -30,10 +30,11 @@
 // folder (scripts/risk-evm/recent-walk.ts: about the last 30 hours, never the loop's history/), then builds the bars
 // from <dir> and writes the complete hours after the first RECENT_CONTEXT_HOURS of its span that no earlier run wrote
 // (<dir>/written.json). A dry run walks too (the folder is the job's own) and records nothing as written.
-// --write-by-minute <m> (the scheduled hourly run, m = 25): when the run is past minute m of the UTC hour it started
-// in once the bars are built, it reads and writes nothing in the database and exits: the hosted database is awake
-// about :10 to :25 for the hourly import (SNAPSHOT-IN-API), and the next hour's run writes these hours (written.json
-// is not moved). A first walk of 30 hours, or a run on a Mac waking late, so writes nothing until the next hour.
+// --write-window <from>-<to> (the scheduled hourly run, 10-25; write-window.ts): when, once the bars are built, the
+// clock is outside those minutes of the UTC hour the run started in, it reads and writes nothing in the database and
+// exits: the hosted database is awake about :10 to :25 for the hourly import (SNAPSHOT-IN-API), and the next hour's
+// run writes these hours (written.json is not moved). A first walk of 30 hours, or a run on a Mac waking late, so
+// writes nothing until the next hour.
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -47,7 +48,6 @@ import { historyPools } from '../../risk-evm/history';
 import { acquireLock } from '../../risk-evm/loop';
 import {
   hoursToWrite,
-  pastWriteDeadline,
   RECENT_CONTEXT_HOURS,
   readWrittenThrough,
   runRecentWalk,
@@ -78,6 +78,7 @@ import {
   readTopPools,
   rowsInHours,
 } from './lookup-rows';
+import { outsideWriteWindow, parseWriteWindow } from './write-window';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -92,7 +93,9 @@ const sinceHours = Number(opt('--since-hours') ?? 72);
 const dropOld = args.includes('--drop-old-pool-bars');
 const localRehearsal = args.includes('--local-rehearsal');
 const walkDir = opt('--walk');
-const writeByMinute = args.includes('--write-by-minute') ? Number(opt('--write-by-minute')) : null;
+const writeWindow = args.includes('--write-window')
+  ? parseWriteWindow(opt('--write-window'))
+  : null;
 if (
   (chain !== 'solana' && chain !== 'robinhood') ||
   (opt('--source') ?? 'held') !== (backfill ? 'backfill' : 'held') ||
@@ -100,16 +103,12 @@ if (
   ((args.includes('--since-hours') || dropOld || localRehearsal) && !lookupsOnly) ||
   (args.includes('--walk') &&
     (!walkDir || walkDir.startsWith('--') || !lookupsOnly || chain !== 'robinhood')) ||
-  (writeByMinute !== null &&
-    (!lookupsOnly ||
-      !Number.isInteger(writeByMinute) ||
-      writeByMinute < 1 ||
-      writeByMinute > 59)) ||
+  (args.includes('--write-window') && (writeWindow === null || !lookupsOnly)) ||
   !Number.isFinite(sinceHours) ||
   sinceHours < 1
 ) {
   console.error(
-    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal] [--walk <dir> (robinhood)] [--write-by-minute <m>]]',
+    'usage: pnpm risk:assets-bars <solana|robinhood> [--dry-run] [--source backfill [--registry <file>] [--scope <key>] | --lookups-only [--since-hours <n>] [--drop-old-pool-bars] [--local-rehearsal] [--walk <dir> (robinhood)] [--write-window <from>-<to>]]',
   );
   process.exit(1);
 }
@@ -246,12 +245,12 @@ let lookups: { topPools: number; tokenRows: number; poolRows: number; dropped: n
   null;
 // --walk: the hours an earlier run wrote (written.json), so each hour is written once
 const writtenThrough = walkDir ? readWrittenThrough(walkDir) : null;
-// --write-by-minute: past the hosted database's waking window, nothing is read from it or written to it
-if (writeByMinute !== null && pastWriteDeadline(t0, Date.now(), writeByMinute)) {
+// --write-window: outside the hosted database's waking minutes, nothing is read from it or written to it
+if (writeWindow !== null && outsideWriteWindow(t0, Date.now(), writeWindow)) {
   console.log(
     JSON.stringify({
       chain,
-      skipped: `past minute ${writeByMinute} of the hour the run started in: nothing written; the next run writes these hours`,
+      skipped: `outside minutes ${writeWindow.from} to ${writeWindow.to} UTC of the hour the run started in: nothing written; the next run writes these hours`,
       ...(walk ? { walk } : {}),
       seconds: Math.round((Date.now() - t0) / 1000),
     }),
