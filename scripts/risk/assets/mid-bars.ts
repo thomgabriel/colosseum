@@ -335,9 +335,10 @@ if (process.argv[1]?.endsWith('mid-bars.ts') || process.argv[1]?.endsWith('mid-b
     process.exit(0);
   }
   if (window !== null && !dry) {
-    exitCleanlyWhenOffline('hosted-bars-solana');
     const dbHost = hostOf(process.env.DATABASE_URL);
-    const offline = await waitForNetwork(dbHost ? [{ host: dbHost }] : [], {
+    const targets = dbHost ? [{ host: dbHost }] : [];
+    exitCleanlyWhenOffline('hosted-bars-solana', targets);
+    const offline = await waitForNetwork(targets, {
       until: Math.min(t0 + 120_000, windowEnd(t0, window)),
       log: (l) => console.log(l),
     });

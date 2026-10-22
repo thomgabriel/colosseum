@@ -141,7 +141,6 @@ if (args.includes('--plan')) {
 const t0 = Date.now();
 let deadline: number | undefined;
 if (window && !dryRun) {
-  exitCleanlyWhenOffline(`asset-metrics-${chain}`);
   if (outsideWriteWindow(t0, t0, window)) {
     console.log(
       JSON.stringify({
@@ -164,6 +163,7 @@ if (window && !dryRun) {
     ...(rpcHost ? [{ host: rpcHost, port: 443 }] : []),
     ...(dbHost ? [{ host: dbHost }] : []),
   ];
+  exitCleanlyWhenOffline(`asset-metrics-${chain}`, targets);
   const offline = await waitForNetwork(targets, {
     until: Math.min(t0 + 120_000, deadline),
     log,

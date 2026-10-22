@@ -81,6 +81,11 @@ export type MetricAnswers = {
    * 2026-10-22): a token they did not reach has no row, not a null, and the next run reads it.
    */
   cutShort?: string[];
+  /**
+   * The reads that gave no answer in the time they were given (SOL's getSupply in the hosted job): no row, and
+   * the part counts as tried, so it is asked again the next day, not every hour.
+   */
+  timedOut?: string[];
   // Solana
   mints?: Array<{
     slot: number;

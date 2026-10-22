@@ -5,8 +5,9 @@ import { connect } from 'node:net';
 // EHOSTUNREACH, fetch failed, each a stack trace in the job's log). A scheduled run first waits for the network a
 // short while: every host it needs must resolve, and the RPC's must take a TCP connection (nothing is sent on it;
 // the database's host is only resolved, so the probe never wakes it). A run that finds no network, or loses it half
-// way, ends with one line and exit code 0, having written nothing more: the next hour's run picks up. Any other
-// error still ends the run as a crash, with its stack.
+// way, ends with one line and exit code 0, having written nothing more: the next hour's run picks up. An error that
+// reads as the network's counts as offline only when the hosts, probed again, do not answer: a refused connection or
+// a TLS error with the network there, like any other error, still ends the run as a crash, with its stack.
 
 /** The error codes that mean the network, not the job: a name that does not resolve, a host that cannot be reached. */
 const NETWORK_CODES = new Set([
@@ -134,13 +135,41 @@ export function exitOffline(
 }
 
 /**
- * From here on, an error the network caused ends the run with `exitOffline`'s line instead of a crash; any other
- * error is printed with its stack and ends the run with code 1, as before.
+ * Whether an error ended the run because the network is gone: it reads as the network's (`networkCode`) and the
+ * targets do not answer when probed again (the RPC's host resolved and connected to, the database's only resolved).
+ * A refused connection, a TLS or certificate error, or a server that hung up, with the network there, is not.
  */
-export function exitCleanlyWhenOffline(job: string, log: (l: string) => void = console.log) {
-  const onError = (e: unknown) => {
-    const code = networkCode(e);
-    if (code) exitOffline(job, code, log);
+export async function offlineCause(
+  e: unknown,
+  targets: readonly NetTarget[],
+  probe: (t: NetTarget) => Promise<void> = (t) => probeTarget(t),
+): Promise<string | null> {
+  if (!networkCode(e)) return null;
+  try {
+    for (const t of targets) await probe(t);
+    return null;
+  } catch (again) {
+    return (
+      networkCode(again) ?? (again instanceof Error ? again.message.slice(0, 120) : 'no answer')
+    );
+  }
+}
+
+/**
+ * From here on, an error that `offlineCause` puts on a network that is gone ends the run with `exitOffline`'s line
+ * instead of a crash; any other error is printed with its stack and ends the run with code 1, as before.
+ */
+export function exitCleanlyWhenOffline(
+  job: string,
+  targets: readonly NetTarget[],
+  log: (l: string) => void = console.log,
+) {
+  let handling = false;
+  const onError = async (e: unknown) => {
+    if (handling) return;
+    handling = true;
+    const why = await offlineCause(e, targets).catch(() => null);
+    if (why) exitOffline(job, why, log);
     console.error(e);
     process.exit(1);
   };

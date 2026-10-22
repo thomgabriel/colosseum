@@ -12,9 +12,9 @@
 #
 # The hosted job (gate ASSET-METRICS, amended 2026-10-22) reads only the rows the asset lookups answer for (the
 # shelf, the listed rows and the deploy records' tokens and models: about 100 Solana rows and 46 Robinhood Chain
-# rows, not 2,249 and 272; ASSET_METRICS_SCOPE=served), touches the database only inside minutes 10 to 25 UTC
-# (ASSET_METRICS_WRITE_WINDOW=10-25: its slow reads stop 90 s before :25, past :25 it writes nothing, and what was
-# not done is done the next hour), reads SOL's supply once a day with the daily metrics, waits up to two minutes for
+# rows, not 2,249 and 272; ASSET_METRICS_SCOPE=served), touches the database from about :10 to about :25 UTC
+# (ASSET_METRICS_WRITE_WINDOW=10-25, checked once a phase: its slow reads stop 90 s before :25, past :25 it writes
+# nothing, and what was not done is done the next hour), reads SOL's supply once a day with the daily metrics, waits up to two minutes for
 # the network after a wake and otherwise ends with one line. Its plist sets
 # NODE_OPTIONS=--network-family-autoselection-attempt-timeout=3000: Neon (Oregon) answers in about 240 ms, near
 # Node's 250 ms per address, and connections failed at random without it, as they did in the hosted loop.

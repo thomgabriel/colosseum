@@ -18,8 +18,8 @@
 #   solana  com.colosseum.hosted-bars-solana, minute 19. It builds the token bars of the last six complete hours from
 #       the pool collector's mid prices in the same database (scripts/risk/assets/mid-bars.ts, mids-0.1: one USDC pool
 #       of tier A or B an hour, the deepest; prices only, no volume) and writes them over its own rows of those hours.
-#       No RPC, no file (but the one-off --fill-from-files below). It too touches the database only inside :10 to :25
-#       UTC (--write-window 10-25); the runs below that a person starts are not held to it.
+#       No RPC, no file (but the one-off --fill-from-files below). It too touches the database only from about :10 to
+#       about :25 UTC (--write-window 10-25); the runs below that a person starts are not held to it.
 #
 # The token bars are kept 31 days by the daily prune (risk-retention.ts, market_bars).
 #
@@ -206,8 +206,22 @@ if grep -q '__[A-Z_]*__' "$PLIST"; then echo "the plist template has a slot this
 if command -v plutil > /dev/null; then plutil -lint "$PLIST" > /dev/null; fi
 # the runs below go first and the agent is loaded after them: on Oct 22 the dry run's first walk (30 hours, minutes)
 # still held the walk's lock when the scheduled run came at :18, which then did nothing. Until the load, the agent
-# of an earlier install is unloaded, so it cannot start beside them either; a run that fails does not stop the load
-if [ "$LOAD" = 1 ]; then launchctl unload "$PLIST" 2>/dev/null || true; fi
+# of an earlier install is unloaded, so it cannot start beside them either. The load is the exit trap's: a run that
+# fails, an interrupt (Ctrl-C) or a stop never leaves the job unloaded
+LOADED=0
+load_job() {
+  [ "$LOAD" = 1 ] && [ "$LOADED" = 0 ] || return 0
+  LOADED=1
+  launchctl load "$PLIST"
+  echo "loaded com.colosseum.hosted-bars-$CHAIN (every hour at minute $MINUTE); log $LOG"
+}
+if [ "$LOAD" = 1 ]; then
+  launchctl unload "$PLIST" 2>/dev/null || true
+  trap 'load_job' EXIT
+  # zsh runs no EXIT trap for an exit inside another trap: the load is said here too
+  trap 'load_job; exit 130' INT
+  trap 'load_job; exit 143' TERM
+fi
 # a rehearsal's database is a scratch one on this machine, which the Robinhood Chain job refuses without
 # --local-rehearsal (the Solana job deletes nothing and empties nothing, and takes no such flag)
 REH=()
@@ -231,9 +245,4 @@ else
     run_once --fill-from-files "${FILES_DIR:-$HOME_DIR/pools}" "${DRY[@]}"
   fi
 fi
-if [ "$LOAD" = 1 ]; then
-  launchctl load "$PLIST"
-  echo "loaded com.colosseum.hosted-bars-$CHAIN (every hour at minute $MINUTE); log $LOG"
-else
-  echo "not loaded: $PLIST"
-fi
+if [ "$LOAD" = 1 ]; then load_job; else echo "not loaded: $PLIST"; fi

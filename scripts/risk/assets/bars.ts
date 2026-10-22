@@ -134,13 +134,13 @@ const t0 = Date.now();
 // a scheduled run: the network first, or one line and nothing done
 if (writeWindow !== null && !dry) {
   const job = `hosted-bars-${chain}`;
-  exitCleanlyWhenOffline(job);
   const rpcHost = walkDir ? hostOf(CHAINS.find((c) => c.id === 'robinhood')?.rpcDefault) : null;
   const dbHost = hostOf(process.env.DATABASE_URL);
   const targets: NetTarget[] = [
     ...(rpcHost ? [{ host: rpcHost, port: 443 }] : []),
     ...(dbHost ? [{ host: dbHost }] : []),
   ];
+  exitCleanlyWhenOffline(job, targets);
   const offline = await waitForNetwork(targets, {
     until: Math.min(t0 + 120_000, windowEnd(t0, writeWindow)),
     log: (l) => console.log(l),

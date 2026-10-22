@@ -87,6 +87,11 @@ async function rpcAt<T>(url: string, method: string, params: unknown[]): Promise
   throw new Error(`rpc ${method}: still refused after 8 attempts`);
 }
 
+/** A call `rpcUntil` gave up on at its time limit: no answer, which is not an error of the RPC's. */
+export class RpcTimeout extends Error {
+  override name = 'RpcTimeout';
+}
+
 /**
  * One JSON-RPC call that gives up at `until` (ms): each try's timeout ends there, a 429 is asked again until then.
  * For a run with a deadline (the hosted job), where lib-pools' rpc() could retry for minutes.
@@ -94,17 +99,22 @@ async function rpcAt<T>(url: string, method: string, params: unknown[]): Promise
 async function rpcUntil<T>(method: string, params: unknown[], until: number): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const left = until - Date.now();
-    if (left <= 0) throw new Error(`rpc ${method}: no answer in the time it was given`);
-    const res = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-      signal: AbortSignal.timeout(left),
-    });
-    const j = (res.status === 429 ? { error: { code: 429 } } : await res.json()) as {
-      result?: T;
-      error?: { code?: number; message?: string };
-    };
+    if (left <= 0) throw new RpcTimeout(`rpc ${method}: no answer in the time it was given`);
+    let j: { result?: T; error?: { code?: number; message?: string } };
+    try {
+      const res = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(left),
+      });
+      j = (res.status === 429 ? { error: { code: 429 } } : await res.json()) as typeof j;
+    } catch (e) {
+      // the time limit's abort, at the request or while its body was read; any other failure is the network's
+      if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError'))
+        throw new RpcTimeout(`rpc ${method}: no answer in the time it was given`);
+      throw e;
+    }
     if (j.error?.code === 429) {
       await sleep(Math.min(500 * 2 ** attempt, Math.max(0, until - Date.now())));
       continue;
@@ -135,6 +145,8 @@ export async function readSolanaMetrics(o: {
   log: (l: string) => void;
   /** Reads left out of this run (the hosted job's SOL supply, between its daily reads). */
   skipReads?: ReadonlySet<string>;
+  /** How long SOL's getSupply is given in a run with a deadline (NATIVE_SUPPLY_MS; a test sets less). */
+  nativeSupplyMs?: number;
   /**
    * When the slow reads stop (ms; the hosted job's, before the end of its write window): the holders' and DEX
    * reads not reached by then are not made, their tokens have no row, and the run names them in `cutShort`.
@@ -189,8 +201,8 @@ export async function readSolanaMetrics(o: {
   if (need.has('native_supply') && late()) cut.add('native_supply');
   else if (need.has('native_supply')) {
     const fetchedAt = new Date().toISOString();
-    const until =
-      o.deadline === undefined ? null : Math.min(o.deadline, Date.now() + NATIVE_SUPPLY_MS);
+    const own = Date.now() + (o.nativeSupplyMs ?? NATIVE_SUPPLY_MS);
+    const until = o.deadline === undefined ? null : Math.min(o.deadline, own);
     try {
       A.nativeSupply = await R.timed('solana_supply', 'getSupply (SOL)', async (l) => {
         l.calls += 2;
@@ -216,7 +228,15 @@ export async function readSolanaMetrics(o: {
         };
       });
     } catch (e) {
-      A.nativeSupply = { error: scrub(e), fetchedAt };
+      // no answer in time is no row, not a null: at the run's deadline the part stays due (`cutShort`); at its own
+      // 45 s it was tried, and is tried again the next day (`timedOut`), so SOL's newest reading stays its last value
+      if (e instanceof RpcTimeout && until !== null && until >= own) {
+        A.timedOut = ['native_supply'];
+        o.log(
+          `getSupply gave no answer in ${Math.round((o.nativeSupplyMs ?? NATIVE_SUPPLY_MS) / 1000)} s: no row; tried again tomorrow`,
+        );
+      } else if (e instanceof RpcTimeout) cut.add('native_supply');
+      else A.nativeSupply = { error: scrub(e), fetchedAt };
     }
   }
   const largest = [...(need.get('largest_accounts') ?? [])].sort();

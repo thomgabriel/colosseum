@@ -14,7 +14,8 @@ import { ASSET_METRICS, type AssetMetric, METRIC_CADENCE, type MetricAsset } fro
 // The daily parts. The hourly metrics are read every run; each daily part when no run in the last 23 hours read it
 // in full and wrote: the issuer's supply, the twenty largest holders' share (one getTokenLargestAccounts a mint),
 // the DEX volume (one DexScreener call a token with a pair), and, for the hosted job, SOL's total supply (getSupply,
-// which took six minutes on Oct 22: SOL's supply moves by inflation, a fraction a day). A part a run did not finish
+// which took six minutes on Oct 22: SOL's supply moves by inflation, a fraction a day; given 45 s, a call with no answer
+// by then writes no row and counts as tried, `timedOut`, so it is asked once a day). A part a run did not finish
 // (its reads stopped at the run's deadline) or did not write (past its window) stays due, and the next run reads
 // only what is still due.
 

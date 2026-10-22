@@ -144,6 +144,7 @@ export async function runChain(o: RunOptions) {
     metrics: A.metrics,
     ...(o.daily ? { daily: o.daily } : {}),
     cutShort: A.cutShort ?? [],
+    ...(A.timedOut?.length ? { timedOut: A.timedOut } : {}),
     ...(skipped ? { skipped } : {}),
     rows: built.rows.length,
     counts: metricCounts(built.rows),
