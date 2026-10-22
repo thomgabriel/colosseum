@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { MetricAnswers, MetricAsset, MetricSources } from '@colosseum/risk';
 import { rowsFromAnswers } from '@colosseum/risk';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import robinhoodMainnet from '../deployments/robinhood-mainnet.json';
 import robinhoodTestnet from '../deployments/robinhood-testnet.json';
 import solanaDevnet from '../deployments/solana-devnet.json';
@@ -19,7 +20,8 @@ import {
   runPlan,
   servedAssets,
 } from '../scripts/risk/assets/metrics-schedule';
-import { networkCode, waitForNetwork } from '../scripts/risk/assets/network-wait';
+import { readSolanaMetrics } from '../scripts/risk/assets/metrics-solana';
+import { networkCode, offlineCause, waitForNetwork } from '../scripts/risk/assets/network-wait';
 import robinhoodList from '../scripts/risk/assets/robinhood.json';
 import shelfRobinhood from '../scripts/risk/assets/shelf-robinhood.json';
 import shelfSolana from '../scripts/risk/assets/shelf-solana.json';
@@ -318,6 +320,113 @@ describe('DexScreener stopped at the deadline: no row for a token it did not rea
   });
 });
 
+describe("SOL's supply in the hosted job: 45 s, then no row until tomorrow", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const solRow = sol.find(
+    (a) => a.address === 'So11111111111111111111111111111111111111112',
+  ) as MetricAsset;
+  const untouchable = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error('the database was touched');
+      },
+    },
+  );
+  /** fetch for getSupply as `answer` says; getBlockTime answers a time. */
+  const stubRpc = (answer: 'hang' | 'error' | 'value') =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const { method } = JSON.parse(String(init.body)) as { method: string };
+        if (method === 'getBlockTime')
+          return new Response(JSON.stringify({ result: 1_761_000_000 }));
+        if (answer === 'hang')
+          return new Promise<Response>((_, reject) =>
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+          );
+        if (answer === 'error')
+          return new Response(JSON.stringify({ error: { code: -32000, message: 'node behind' } }));
+        return new Response(
+          JSON.stringify({
+            result: {
+              context: { slot: 1 },
+              value: { total: 6e17, circulating: 5e17, nonCirculating: 1e17 },
+            },
+          }),
+        );
+      }),
+    );
+  const read = (o: { deadlineMs: number; nativeSupplyMs: number }) =>
+    readSolanaMetrics({
+      list: [solRow],
+      sources,
+      metrics: ['supply_total'],
+      prices: false,
+      db: untouchable as never,
+      riskHome: tmpdir(),
+      reads: new Reads(),
+      list_: {
+        file: 'scripts/risk/assets/solana.json',
+        fetchedAt: new Date().toISOString(),
+        method: 'test',
+      },
+      sourcesFile: 'scripts/risk/assets/metrics.sources.json',
+      log: () => {},
+      deadline: Date.now() + o.deadlineMs,
+      nativeSupplyMs: o.nativeSupplyMs,
+    });
+  const supplyRows = (A: MetricAnswers) =>
+    rowsFromAnswers([solRow], sources, A).rows.filter((r) => r.metric === 'supply_total');
+  const doneToday = (A: MetricAnswers) =>
+    dailyDue(
+      JSON.stringify({
+        kind: 'asset-metrics-job',
+        chain: 'solana',
+        at: new Date().toISOString(),
+        daily: ['native_supply'],
+        cutShort: A.cutShort ?? [],
+      }),
+      'solana',
+      Date.now(),
+      ['native_supply'],
+    ).size === 0;
+
+  it('no answer in its own time: no row (SOL keeps its last value), tried, not asked again today', async () => {
+    stubRpc('hang');
+    const A = await read({ deadlineMs: 60_000, nativeSupplyMs: 50 });
+    expect(A.nativeSupply).toBeUndefined();
+    expect(A.timedOut).toEqual(['native_supply']);
+    expect(A.cutShort).toBeUndefined();
+    expect(supplyRows(A)).toEqual([]);
+    expect(doneToday(A)).toBe(true);
+  });
+
+  it("no answer by the run's deadline: no row, and the part stays due for the next hour", async () => {
+    stubRpc('hang');
+    const A = await read({ deadlineMs: 50, nativeSupplyMs: 10_000 });
+    expect(A.cutShort).toEqual(['native_supply']);
+    expect(A.timedOut).toBeUndefined();
+    expect(supplyRows(A)).toEqual([]);
+    expect(doneToday(A)).toBe(false);
+  });
+
+  it('an error the RPC answers is still a null row with its reason, as before', async () => {
+    stubRpc('error');
+    const A = await read({ deadlineMs: 60_000, nativeSupplyMs: 10_000 });
+    expect(A.timedOut).toBeUndefined();
+    expect(supplyRows(A).map((r) => r.nullReason)).toEqual(['read_failed']);
+  });
+
+  it('an answer is a value', async () => {
+    stubRpc('value');
+    const A = await read({ deadlineMs: 60_000, nativeSupplyMs: 10_000 });
+    const rows = supplyRows(A);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.value).toBeGreaterThan(0);
+  });
+});
+
 describe('a Mac that wakes before its network', () => {
   // the errors of the Oct 22 logs, as Node and the libraries wrap them
   const drizzle = Object.assign(
@@ -393,37 +502,93 @@ describe('a Mac that wakes before its network', () => {
     expect(t).toBe(120_000);
   });
 
+  it('an error that reads as the network is offline only when the hosts, probed again, do not answer', async () => {
+    const refused = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), {
+      code: 'ECONNREFUSED',
+    });
+    const tls = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error('unable to verify the first certificate'), {
+        code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+      }),
+    });
+    const targets = [{ host: 'rpc.example', port: 443 }, { host: 'db.example' }];
+    const up = async () => {};
+    const down = async () => {
+      throw Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' });
+    };
+    expect(await offlineCause(refused, targets, up)).toBeNull();
+    expect(await offlineCause(tls, targets, up)).toBeNull();
+    expect(await offlineCause(drizzle, targets, up)).toBeNull();
+    expect(await offlineCause(drizzle, targets, down)).toBe('ENOTFOUND');
+    expect(await offlineCause(new Error('a bug'), targets, down)).toBeNull();
+  });
+
   describe('the run ends with one line and code 0 when the network is gone, and still crashes otherwise', {
     timeout: 60_000,
   }, () => {
     const dir = mkdtempSync(join(tmpdir(), 'offline-exit-'));
-    afterAll(() => rmSync(dir, { recursive: true, force: true }));
-    const run = (body: string) => {
+    const server = createServer();
+    let open = 0;
+    let closed = 0;
+    beforeAll(async () => {
+      await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+      open = (server.address() as AddressInfo).port;
+      const gone = createServer();
+      await new Promise<void>((r) => gone.listen(0, '127.0.0.1', r));
+      closed = (gone.address() as AddressInfo).port;
+      await new Promise((r) => gone.close(r));
+    });
+    afterAll(() => {
+      server.close();
+      rmSync(dir, { recursive: true, force: true });
+    });
+    const run = (port: () => number, body: string) => {
       const file = join(dir, `run-${Math.random().toString(36).slice(2)}.mts`);
       writeFileSync(
         file,
-        `import { exitCleanlyWhenOffline } from ${JSON.stringify(resolve('scripts/risk/assets/network-wait.ts'))};\nexitCleanlyWhenOffline('hosted-test');\n${body}\n`,
+        `import { exitCleanlyWhenOffline } from ${JSON.stringify(resolve('scripts/risk/assets/network-wait.ts'))};\nexitCleanlyWhenOffline('hosted-test', [{ host: '127.0.0.1', port: ${port()} }, { host: 'localhost' }]);\n${body}\n`,
       );
       return spawnSync(resolve('node_modules/.bin/tsx'), [file], {
         encoding: 'utf8',
         timeout: 60_000,
       });
     };
+    const notResolved = `await Promise.reject(Object.assign(new Error('Failed query: select 1'), { cause: Object.assign(new Error('getaddrinfo ENOTFOUND db'), { code: 'ENOTFOUND' }) }));`;
 
-    it('a query whose host does not resolve', () => {
-      const r = run(
-        `await Promise.reject(Object.assign(new Error('Failed query: select 1'), { cause: Object.assign(new Error('getaddrinfo ENOTFOUND db'), { code: 'ENOTFOUND' }) }));`,
-      );
+    it('a query whose host does not resolve, and the hosts do not answer: one line, code 0', () => {
+      const r = run(() => closed, notResolved);
       expect(r.status, r.stderr).toBe(0);
       const lines = r.stdout.trim().split('\n');
       expect(lines).toHaveLength(1);
       const l = JSON.parse(lines[0] as string);
-      expect(l).toMatchObject({ job: 'hosted-test', offline: 'ENOTFOUND' });
+      expect(l).toMatchObject({ job: 'hosted-test', offline: 'ECONNREFUSED' });
       expect(r.stderr).not.toContain('    at ');
     });
 
+    it('the same error with the hosts answering is a crash with its stack', () => {
+      const r = run(() => open, notResolved);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('ENOTFOUND db');
+      expect(r.stderr).toContain('    at ');
+    });
+
+    it('a refused connection or a TLS error with the network there is a crash', () => {
+      const refused = run(
+        () => open,
+        `throw Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), { code: 'ECONNREFUSED' });`,
+      );
+      expect(refused.status).toBe(1);
+      expect(refused.stderr).toContain('ECONNREFUSED 127.0.0.1:5432');
+      const tls = run(
+        () => open,
+        `throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('unable to verify the first certificate'), { code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' }) });`,
+      );
+      expect(tls.status).toBe(1);
+      expect(tls.stderr).toContain('fetch failed');
+    });
+
     it('any other error is a crash with its stack, as before', () => {
-      const r = run(`throw new Error('a bug');`);
+      const r = run(() => closed, `throw new Error('a bug');`);
       expect(r.status).toBe(1);
       expect(r.stderr).toContain('a bug');
     });

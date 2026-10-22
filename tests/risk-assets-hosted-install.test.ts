@@ -106,6 +106,24 @@ describe.skipIf(!hasZsh)('the hosted bars installer, Robinhood Chain', { timeout
     expect(launchctlCalls()).toEqual([]);
   });
 
+  it('a run of the install that fails, or is stopped, still leaves the job loaded', () => {
+    for (const [name, line, status] of [
+      // the dry run fails: the install goes on and loads
+      ['run-fails', 'exit 7', 0],
+      // the install itself is stopped mid-run (a Ctrl-C or a kill): its exit trap loads
+      ['run-stopped', 'kill -TERM $$', 143],
+    ] as Array<[string, string, number]>) {
+      const { home, hosted } = fakeHome(name, { cuts: [HOSTED_CUT], hostedList: true });
+      writeFileSync(
+        join(hosted, 'env'),
+        `DATABASE_URL=postgres://made-up@127.0.0.1:9/x\n${line}\n`,
+      );
+      const r = run(BARS, home, ['robinhood', '--dry-run-now']);
+      expect(r.status, `${name}: ${r.out}`).toBe(status);
+      expect(launchctlCalls().map((l) => l.split(' ')[1])).toEqual(['unload', 'load']);
+    }
+  });
+
   it('--list takes that list only; the repository list is taken when its cut is the one there', () => {
     const { home } = fakeHome('list-arg', { cuts: [HOSTED_CUT], hostedList: true });
     const r = run(BARS, home, ['robinhood', '--list', REPO_LIST]);
