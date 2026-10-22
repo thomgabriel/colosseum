@@ -7,8 +7,17 @@
 # <folder>, nothing loaded) | install --hosted (the same job beside the hosted collectors in ~/.colosseum/hosted-risk,
 # whose env file names the hosted database, as com.colosseum.hosted-assets-<chain>: it writes the hosted
 # asset_observations the asset lookups read in production, at minutes 21 (Solana) and 17 (Robinhood Chain), inside
-# the hourly import's window; on Robinhood Chain set RISK_EVM_DIR to the folder of the hosted loop's newest discovery
-# file).
+# the hourly import's window; on Robinhood Chain the discovery file is the hosted loop's, $HOME_DIR/evm, unless
+# RISK_EVM_DIR names another folder).
+#
+# The hosted job (gate ASSET-METRICS, amended 2026-10-22) reads only the rows the asset lookups answer for (the
+# shelf, the listed rows and the deploy records' tokens and models: about 100 Solana rows and 46 Robinhood Chain
+# rows, not 2,249 and 272; ASSET_METRICS_SCOPE=served), touches the database only inside minutes 10 to 25 UTC
+# (ASSET_METRICS_WRITE_WINDOW=10-25: its slow reads stop 90 s before :25, past :25 it writes nothing, and what was
+# not done is done the next hour), reads SOL's supply once a day with the daily metrics, waits up to two minutes for
+# the network after a wake and otherwise ends with one line. Its plist sets
+# NODE_OPTIONS=--network-family-autoselection-attempt-timeout=3000: Neon (Oregon) answers in about 240 ms, near
+# Node's 250 ms per address, and connections failed at random without it, as they did in the hosted loop.
 #
 # It sits beside the collectors and touches none of them, the way the price and raw-arrays jobs were added (gate
 # PRICE-JOB): it builds one bundle, writes one plist, and loads that one agent. It reads
@@ -26,7 +35,7 @@
 #   ASSET_METRICS_SOLANA_PRICES=none|unresolved   which Solana prices it writes (none by default: PLAN-ASSETS AS.5)
 # A line in the env file still wins over the bundle.
 #
-# Minutes. Solana, 44: after the price job (14, which reads the prices this job may write), refresh (10), lending
+# Minutes. Hosted: Solana 21, Robinhood Chain 17 (above). Solana, 44: after the price job (14, which reads the prices this job may write), refresh (10), lending
 # import (12), split (15), lending facts (20) and the raw arrays (25); between the pool collector's runs of 42 and 47
 # and the lending collector's of 41 and 46; its hourly part takes about half a minute. Robinhood Chain, 38: outside
 # minutes 1 to 14, when the hourly loop reads the same public RPC (the reader also waits them out).
@@ -143,11 +152,18 @@ DATA="$HOME_DIR/asset-metrics"
 mkdir -p "$DATA" "$PLIST_DIR"
 js() { node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$1"; }
 SETTINGS="process.env.ASSET_METRICS_CHAIN ??= $(js "$CHAIN"); process.env.ASSET_METRICS_DIR ??= $(js "$DATA");"
+if [ "$HOSTED" = 1 ]; then
+  SETTINGS+=" process.env.ASSET_METRICS_SCOPE ??= 'served'; process.env.ASSET_METRICS_WRITE_WINDOW ??= '10-25';"
+  echo "hosted: the rows the asset lookups answer for, written inside minutes 10 to 25 UTC"
+fi
 echo "the job's folder: $DATA"
 if [ "$CHAIN" = robinhood ]; then
-  # the job cannot read RISK_EVM_DIR (under ~/Documents): the pools of the newest discovery file go beside it
+  # the job cannot read RISK_EVM_DIR (under ~/Documents): the pools of the newest discovery file go beside it. The
+  # hosted job's is the hosted loop's folder, whose collectors read the same discovery
+  EVM_DEFAULT="$HOME/Documents/Colosseum-data/risk-evm"
+  if [ "$HOSTED" = 1 ]; then EVM_DEFAULT="$HOME_DIR/evm"; fi
   EXTRACT="$DATA/robinhood-discovery.json"
-  (cd "$REPO" && RISK_EVM_DIR="${RISK_EVM_DIR:-$HOME/Documents/Colosseum-data/risk-evm}" \
+  (cd "$REPO" && RISK_EVM_DIR="${RISK_EVM_DIR:-$EVM_DEFAULT}" \
     "$REPO/node_modules/.bin/tsx" scripts/risk/assets/metrics-extract.ts --out "$EXTRACT")
   SETTINGS+=" process.env.ASSET_METRICS_RH_DISCOVERY ??= $(js "$EXTRACT");"
 fi
@@ -178,6 +194,12 @@ sed -e "s#__LABEL__#$LABEL#g" -e "s#__NODE_BIN__#$NODE_BIN#g" -e "s#__HOME_DIR__
   -e "s#__SCRIPT__#risk-$NAME#g" -e "s#__MINUTES__#$MINUTES#" \
   "$REPO/scripts/risk/collector/risk-job.plist" > "$NEW_PLIST"
 if grep -q '__[A-Z_]*__' "$NEW_PLIST"; then echo "the plist template has a slot this installer does not fill"; exit 1; fi
+if [ "$HOSTED" = 1 ]; then
+  # the template is the collectors' too, so the hosted job's NODE_OPTIONS is added here, not there
+  awk '/<key>StandardErrorPath<\/key>/ { print "  <key>EnvironmentVariables</key>"; print "  <dict><key>NODE_OPTIONS</key><string>--network-family-autoselection-attempt-timeout=3000</string></dict>" } { print }' \
+    "$NEW_PLIST" > "$NEW_PLIST.env" && mv -f "$NEW_PLIST.env" "$NEW_PLIST"
+  grep -q 'network-family-autoselection-attempt-timeout=3000' "$NEW_PLIST" || { echo "the plist did not take NODE_OPTIONS"; exit 1; }
+fi
 if command -v plutil > /dev/null; then plutil -lint "$NEW_PLIST" > /dev/null || { echo "the new plist is not a plist"; exit 1; }; fi
 
 if [ -f "$OUT" ]; then

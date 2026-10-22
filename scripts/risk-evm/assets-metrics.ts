@@ -110,6 +110,8 @@ export async function readRobinhoodMetrics(o: {
   /** The discovery file's folder (the import), or the extract the installer made (the job). */
   discovery: { dir: string } | { extractFile: string };
   log: (l: string) => void;
+  /** When the DexScreener pairs calls stop (ms; the hosted job's): a token not reached has no row. */
+  deadline?: number;
 }): Promise<MetricAnswers> {
   const chain = CHAINS.find((c) => c.id === 'robinhood');
   if (!chain) throw new Error('no robinhood chain in config.ts');
@@ -296,12 +298,20 @@ export async function readRobinhoodMetrics(o: {
       A.registry = { error: errorOf(e), fetchedAt };
     }
   }
-  if (need.has('dexscreener'))
+  const late = () => o.deadline !== undefined && Date.now() > o.deadline;
+  if (need.has('dexscreener') && late()) A.cutShort = ['dexscreener'];
+  else if (need.has('dexscreener'))
     A.dex = await readDexScreener(
       chain.dexscreener,
       [...(need.get('dexscreener') ?? [])].sort(),
       R,
-      { log: o.log },
+      {
+        log: o.log,
+        deadline: o.deadline,
+        onCut: () => {
+          A.cutShort = ['dexscreener'];
+        },
+      },
     );
   const pools = [...(need.get('defillama_yield_pool') ?? [])].sort();
   if (pools.length) A.llamaPools = await readLlamaPools(pools, R);

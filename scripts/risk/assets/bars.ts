@@ -34,7 +34,9 @@
 // clock is outside those minutes of the UTC hour the run started in, it reads and writes nothing in the database and
 // exits: the hosted database is awake about :10 to :25 for the hourly import (SNAPSHOT-IN-API), and the next hour's
 // run writes these hours (written.json is not moved). A first walk of 30 hours, or a run on a Mac waking late, so
-// writes nothing until the next hour.
+// writes nothing until the next hour. A scheduled run (with --write-window, not a dry run) first waits up to two
+// minutes for the network (a Mac waking from sleep), and one that finds none, or loses it, ends with one line and
+// exit code 0, not a crash: the next hour's run walks and writes (network-wait.ts).
 import 'dotenv/config';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -78,7 +80,14 @@ import {
   readTopPools,
   rowsInHours,
 } from './lookup-rows';
-import { outsideWriteWindow, parseWriteWindow } from './write-window';
+import {
+  exitCleanlyWhenOffline,
+  exitOffline,
+  hostOf,
+  type NetTarget,
+  waitForNetwork,
+} from './network-wait';
+import { outsideWriteWindow, parseWriteWindow, windowEnd } from './write-window';
 
 const args = process.argv.slice(2);
 const chain = args.find((a) => !a.startsWith('--'));
@@ -122,6 +131,22 @@ if (lookupsOnly && !localRehearsal && isLocalDatabase(process.env.DATABASE_URL))
   process.exit(1);
 }
 const t0 = Date.now();
+// a scheduled run: the network first, or one line and nothing done
+if (writeWindow !== null && !dry) {
+  const job = `hosted-bars-${chain}`;
+  exitCleanlyWhenOffline(job);
+  const rpcHost = walkDir ? hostOf(CHAINS.find((c) => c.id === 'robinhood')?.rpcDefault) : null;
+  const dbHost = hostOf(process.env.DATABASE_URL);
+  const targets: NetTarget[] = [
+    ...(rpcHost ? [{ host: rpcHost, port: 443 }] : []),
+    ...(dbHost ? [{ host: dbHost }] : []),
+  ];
+  const offline = await waitForNetwork(targets, {
+    until: Math.min(t0 + 120_000, windowEnd(t0, writeWindow)),
+    log: (l) => console.log(l),
+  });
+  if (offline) exitOffline(job, offline);
+}
 // --walk: the job's own walk of the last hours, before the bars are read from it (one run at a time)
 let walk: Record<string, unknown> | null = null;
 let releaseWalk: (() => void) | null = null;

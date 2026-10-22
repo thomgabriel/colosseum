@@ -52,6 +52,13 @@ export type RunOptions = {
   }) => Promise<MetricAnswers>;
   log: (l: string) => void;
   kind: 'import' | 'job';
+  /**
+   * Whether the run may still touch the database, asked once the reads are done (the hosted job's write window,
+   * write-window.ts): when not, it reads nothing more from it and writes nothing; the answers are kept.
+   */
+  mayWrite?: () => boolean;
+  /** The daily parts this run was asked (metrics-schedule.ts), for the run log. */
+  daily?: string[];
 };
 
 /** One line per read: the header first, then each answer under its name. */
@@ -89,8 +96,16 @@ export async function runChain(o: RunOptions) {
   } else A = await o.read({ reads, list: o.list, listMeta });
   const built = rowsFromAnswers(o.list.assets, o.sources, A);
 
+  // past the write window nothing more is read from the database or written to it: the next run reads again
+  const skipped =
+    !o.dryRun && o.mayWrite && !o.mayWrite()
+      ? 'past the write window: nothing written; the next run reads and writes again'
+      : null;
+  if (skipped) o.log(`${o.chain}: ${skipped}`);
   // facts at every change: a row equal to the newest stored one, and less than a day after it, is not written
-  const { keep, unchanged } = changedOnly(built.rows, await latestRows(o.db, o.chain));
+  const { keep, unchanged } = skipped
+    ? { keep: built.rows, unchanged: 0 }
+    : changedOnly(built.rows, await latestRows(o.db, o.chain));
   const job = A.prices?.job;
   const priced = pricesToWrite(built.prices, {
     mode: o.solanaPrices,
@@ -110,7 +125,7 @@ export async function runChain(o: RunOptions) {
     mkdirSync(dirname(o.answersOut), { recursive: true });
     writeFileSync(o.answersOut, encodeAnswers(A));
   }
-  const written = await writeRun(o.db, keep, priced.write, { dryRun: o.dryRun });
+  const written = await writeRun(o.db, keep, priced.write, { dryRun: o.dryRun || !!skipped });
 
   const refused: Record<string, number> = {};
   for (const r of built.refusals)
@@ -127,6 +142,9 @@ export async function runChain(o: RunOptions) {
     from: o.from ?? null,
     answers: answersFile,
     metrics: A.metrics,
+    ...(o.daily ? { daily: o.daily } : {}),
+    cutShort: A.cutShort ?? [],
+    ...(skipped ? { skipped } : {}),
     rows: built.rows.length,
     counts: metricCounts(built.rows),
     unchangedNotWritten: unchanged,

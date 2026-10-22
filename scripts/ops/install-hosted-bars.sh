@@ -23,9 +23,16 @@
 #
 # The token bars are kept 31 days by the daily prune (risk-retention.ts, market_bars).
 #
-#   install-hosted-bars.sh [robinhood] [--evm-dir <dir>]   bundle, copy the stock list, write the plist, load it. The
-#                                    folder of the loop's Robinhood Chain files (the cut, the universe file, and for
-#                                    --fill-now history/robinhood) defaults to ~/.colosseum/hosted-risk/evm
+#   install-hosted-bars.sh [robinhood] [--evm-dir <dir>] [--list <file>]   bundle, copy the stock list, write the
+#                                    plist, load it. The folder of the loop's Robinhood Chain files (the cut, the
+#                                    universe file, and for --fill-now history/robinhood) defaults to
+#                                    ~/.colosseum/hosted-risk/evm. The stock list is the hosted loop's own,
+#                                    ~/.colosseum/hosted-risk/evm-work/scripts/risk/universe/robinhood.json (its
+#                                    collectors read it, and only its cut is in the loop's folder: on Oct 22 the cut of
+#                                    Oct 6, the repository's 30 stocks and IBM), else the repository's
+#                                    (scripts/risk/universe/robinhood.json); the first whose cut (inputs.cut) is in the
+#                                    folder is taken, and with none the install is refused, naming each list and its
+#                                    cut. --list names the one list to take
 #   install-hosted-bars.sh solana    the same for Solana's job (it reads nothing but the env file)
 #   --dry-run-now   after installing, one dry run (counts only) against the env file's database; Robinhood Chain's walks
 #                   the chain into its own folder all the same
@@ -41,17 +48,22 @@
 #
 # HOSTED_HOME names another folder (a rehearsal): the plist goes to $HOSTED_HOME/LaunchAgents and nothing is loaded.
 # The job is bundled with its dependencies into one file because launchd agents cannot read ~/Documents; for the same
-# reason the stock list (scripts/risk/universe/robinhood.json) and the market calendar are copied beside it. The env
-# file is read by the job only; this script checks that it names DATABASE_URL and prints nothing from it.
+# reason the stock list and the market calendar are copied beside it. The env file is read by the job only; this
+# script checks that it names DATABASE_URL and prints nothing from it. The plist sets
+# NODE_OPTIONS=--network-family-autoselection-attempt-timeout=3000 (Neon answers in about 240 ms, near Node's 250 ms
+# per address, and connections failed at random without it), and the runs this script starts get it too. A scheduled
+# run waits up to two minutes for the network after a wake; a run with none ends with one line, not a crash, and the
+# next hour's run picks up (scripts/risk/assets/network-wait.ts).
 set -euo pipefail
 DRY_NOW=0
 FILL_NOW=0
 LOAD=1
 EVM_DIR=""
+LIST_ARG=""
 CHAIN=robinhood
 FILES_NOW=0
 FILES_DIR=""
-usage() { echo "usage: install-hosted-bars.sh [robinhood|solana] [--evm-dir <dir>] [--dry-run-now] [--fill-now] [--fill-from-files [dir]] [--no-load]"; exit 1; }
+usage() { echo "usage: install-hosted-bars.sh [robinhood|solana] [--evm-dir <dir>] [--list <file>] [--dry-run-now] [--fill-now] [--fill-from-files [dir]] [--no-load]"; exit 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --fill-from-files) FILES_NOW=1
@@ -61,11 +73,13 @@ while [ $# -gt 0 ]; do
     --fill-now) FILL_NOW=1 ;;
     --no-load) LOAD=0 ;;
     --evm-dir) shift; [ $# -gt 0 ] || usage; EVM_DIR="$1" ;;
+    --list) shift; [ $# -gt 0 ] || usage; LIST_ARG="${1:a}" ;;
     *) usage ;;
   esac
   shift
 done
 [ "$CHAIN" = solana ] && [ -n "$EVM_DIR" ] && { echo "--evm-dir is for robinhood: the Solana job reads no file"; exit 1; }
+[ "$CHAIN" = solana ] && [ -n "$LIST_ARG" ] && { echo "--list is for robinhood: the Solana job reads no file"; exit 1; }
 [ "$CHAIN" = robinhood ] && [ "$FILES_NOW" = 1 ] && { echo "--fill-from-files is for solana"; exit 1; }
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 DEFAULT_HOME="$HOME/.colosseum/hosted-risk"
@@ -119,10 +133,29 @@ js() { node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$1"; }
 if [ "$CHAIN" = robinhood ]; then
   # what the held path reads (scripts/risk/assets/bars-read.ts readRobinhood): the cut and the universe file for
   # the hourly walk, and the loop's swap history for --fill-now
-  LIST="$REPO/scripts/risk/universe/$CHAIN.json"
-  CUT="$(node -e 'const l=require(process.argv[1]); process.stdout.write(l.inputs?.cut ?? "")' "$LIST")"
-  [ -n "$CUT" ] || { echo "$LIST names no cut file (inputs.cut)"; exit 1; }
-  [ -f "$EVM_DIR/$CUT" ] || need "no cut file $CUT in $EVM_DIR"
+  # the stock list: the hosted loop's own, whose cut is the one in its folder, else the repository's
+  if [ -n "$LIST_ARG" ]; then
+    CANDIDATES=("$LIST_ARG")
+  else
+    CANDIDATES=("$HOME_DIR/evm-work/scripts/risk/universe/$CHAIN.json" "$REPO/scripts/risk/universe/$CHAIN.json")
+  fi
+  LIST=""
+  CUT=""
+  TRIED=()
+  for f in "${CANDIDATES[@]}"; do
+    if [ ! -f "$f" ]; then TRIED+=("$f: no such file"); continue; fi
+    c="$(node -e 'const l=require(process.argv[1]); process.stdout.write(l.inputs?.cut ?? "")' "$f")"
+    if [ -z "$c" ]; then TRIED+=("$f: names no cut (inputs.cut)"); continue; fi
+    if [ -f "$EVM_DIR/$c" ]; then LIST="$f"; CUT="$c"; break; fi
+    TRIED+=("$f: its cut $c is not in $EVM_DIR")
+  done
+  if [ -z "$LIST" ]; then
+    echo "refusing: no stock list whose cut is in $EVM_DIR"
+    for t in "${TRIED[@]}"; do echo "  $t"; done
+    echo "name the hosted loop's list with --list <file>, or the folder that holds its cut with --evm-dir <dir>"
+    exit 1
+  fi
+  echo "the stock list: $LIST (cut $CUT)"
   ls "$EVM_DIR"/universe-$CHAIN-*.json > /dev/null 2>&1 || need "no universe-$CHAIN-*.json in $EVM_DIR"
   if [ "$FILL_NOW" = 1 ]; then
     [ -f "$EVM_DIR/history/$CHAIN/cursor.json" ] || need "no swap history at $EVM_DIR/history/$CHAIN (the loop's rewalk), which --fill-now reads"
@@ -171,13 +204,10 @@ sed -e "s#__HOME_DIR__#$HOME_DIR#g" -e "s#__NODE_BIN__#$NODE_BIN#g" -e "s#__CHAI
   "$REPO/scripts/launchd/com.colosseum.hosted-bars.plist" > "$PLIST"
 if grep -q '__[A-Z_]*__' "$PLIST"; then echo "the plist template has a slot this installer does not fill"; exit 1; fi
 if command -v plutil > /dev/null; then plutil -lint "$PLIST" > /dev/null; fi
-if [ "$LOAD" = 1 ]; then
-  launchctl unload "$PLIST" 2>/dev/null || true
-  launchctl load "$PLIST"
-  echo "loaded com.colosseum.hosted-bars-$CHAIN (every hour at minute $MINUTE); log $LOG"
-else
-  echo "not loaded: $PLIST"
-fi
+# the runs below go first and the agent is loaded after them: on Oct 22 the dry run's first walk (30 hours, minutes)
+# still held the walk's lock when the scheduled run came at :18, which then did nothing. Until the load, the agent
+# of an earlier install is unloaded, so it cannot start beside them either; a run that fails does not stop the load
+if [ "$LOAD" = 1 ]; then launchctl unload "$PLIST" 2>/dev/null || true; fi
 # a rehearsal's database is a scratch one on this machine, which the Robinhood Chain job refuses without
 # --local-rehearsal (the Solana job deletes nothing and empties nothing, and takes no such flag)
 REH=()
@@ -185,7 +215,8 @@ REH=()
 run_once() {
   [ -f "$HOME_DIR/env" ] || { echo "no env file at $HOME_DIR/env: nothing run"; return 0; }
   (set -a; . "$HOME_DIR/env"; set +a
-   cd "$HOME_DIR" && "$NODE_BIN/node" "$OUT" "$@" "${REH[@]}")
+   export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--network-family-autoselection-attempt-timeout=3000"
+   cd "$HOME_DIR" && "$NODE_BIN/node" "$OUT" "$@" "${REH[@]}") || echo "that run failed (above); the job is loaded all the same"
 }
 if [ "$CHAIN" = robinhood ]; then
   if [ "$DRY_NOW" = 1 ]; then run_once $CHAIN --lookups-only --walk "$WALK" --drop-old-pool-bars --dry-run; fi
@@ -199,4 +230,10 @@ else
     [ "$DRY_NOW" = 1 ] && DRY=(--dry-run)
     run_once --fill-from-files "${FILES_DIR:-$HOME_DIR/pools}" "${DRY[@]}"
   fi
+fi
+if [ "$LOAD" = 1 ]; then
+  launchctl load "$PLIST"
+  echo "loaded com.colosseum.hosted-bars-$CHAIN (every hour at minute $MINUTE); log $LOG"
+else
+  echo "not loaded: $PLIST"
 fi
