@@ -2,7 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- A hosted bars job (scripts/ops/install-hosted-bars.sh fills the slots; gate HOURLY-BARS): every hour at its
      minute, inside the hourly import's window (Robinhood Chain at 18, Solana at 19). Robinhood Chain walks its own
-     last hours of swaps and writes the complete hours; Solana builds its bars from the pool collector's mid prices. -->
+     last hours of swaps and writes the complete hours; Solana builds its bars from the pool collector's mid prices.
+     NODE_OPTIONS: Neon answers in about 240 ms, near Node's 250 ms per address, so connections failed at random. -->
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.colosseum.hosted-bars-__CHAIN__</string>
@@ -16,6 +17,10 @@
   <key>StartCalendarInterval</key>
   <dict>
     <key>Minute</key><integer>__MINUTE__</integer>
+  </dict>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_OPTIONS</key><string>--network-family-autoselection-attempt-timeout=3000</string>
   </dict>
   <key>StandardErrorPath</key><string>__HOME_DIR__/launchd.err</string>
 </dict>

@@ -76,6 +76,16 @@ export type MetricAnswers = {
   rpcLabel: string;
   /** Solana: the RPC asked for getTokenLargestAccounts, when it is not the one of `rpcLabel`. */
   largestRpcLabel?: string;
+  /**
+   * The reads a run's deadline stopped before they were done (the hosted jobs, gate ASSET-METRICS amended
+   * 2026-10-22): a token they did not reach has no row, not a null, and the next run reads it.
+   */
+  cutShort?: string[];
+  /**
+   * The reads that gave no answer in the time they were given (SOL's getSupply in the hosted job): no row, and
+   * the part counts as tried, so it is asked again the next day, not every hour.
+   */
+  timedOut?: string[];
   // Solana
   mints?: Array<{
     slot: number;
@@ -451,6 +461,9 @@ export function rowsFromAnswers(
             'dexscreener_token_pairs_h24',
           );
         if (!t) {
+          // a token the batch named whose pairs the run's deadline left unread: no row, the next run reads it
+          if (d.withPair.includes(a.chain === 'solana' ? a.address : a.address.toLowerCase()))
+            return null;
           // the batch endpoint named no pair for the token: no pairs call was made
           return dexVolume24h(a, null, d.chainId, s(d.batchAt));
         }

@@ -113,7 +113,12 @@ export async function readDexScreener(
   chainId: string,
   addresses: readonly string[],
   reads: Reads,
-  opts: { log?: (l: string) => void } = {},
+  opts: {
+    log?: (l: string) => void;
+    /** When the pairs calls stop (ms): a token not reached has no row, and `onCut` is called. */
+    deadline?: number;
+    onCut?: () => void;
+  } = {},
 ): Promise<NonNullable<MetricAnswers['dex']>> {
   const norm = (a: string) => (chainId === 'solana' ? a : a.toLowerCase());
   const want = new Set(addresses.map(norm));
@@ -149,6 +154,11 @@ export async function readDexScreener(
     async (l) => {
       let k = 0;
       for (const t of [...withPair].sort()) {
+        if (opts.deadline !== undefined && Date.now() > opts.deadline) {
+          opts.onCut?.();
+          opts.log?.(`dexscreener pairs stopped at the run's deadline: ${k} of ${withPair.size}`);
+          break;
+        }
         const fetchedAt = nowIso();
         try {
           const pairs = (await getJson(

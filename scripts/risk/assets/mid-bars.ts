@@ -20,7 +20,9 @@
 //
 // --write-window <from>-<to> (the scheduled hourly run, 10-25; write-window.ts): outside those minutes of the UTC hour
 // the run started in, it touches the database not at all (before reading) and writes nothing (before writing); the
-// next run rebuilds the same hours. Not with --fill-from-files: a fill is a person's run.
+// next run rebuilds the same hours. Not with --fill-from-files: a fill is a person's run. A scheduled run (with
+// --write-window, not a dry run) waits up to two minutes for the network after a wake, and one with none ends with
+// one line and exit code 0, not a crash (network-wait.ts).
 import 'dotenv/config';
 import { createReadStream, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -37,7 +39,8 @@ import {
 } from '@colosseum/risk';
 import type { Provenance } from '@colosseum/schemas';
 import { and, eq, gte, inArray, lt, max, min, notLike, sql } from 'drizzle-orm';
-import { outsideWriteWindow, parseWriteWindow } from './write-window';
+import { exitCleanlyWhenOffline, exitOffline, hostOf, waitForNetwork } from './network-wait';
+import { outsideWriteWindow, parseWriteWindow, windowEnd } from './write-window';
 
 const HOUR_MS = 3_600_000;
 /** The registry tiers the collector reads (scripts/risk/collector/pools.ts: A every run, B on the hour). */
@@ -330,6 +333,20 @@ if (process.argv[1]?.endsWith('mid-bars.ts') || process.argv[1]?.endsWith('mid-b
   if (outside()) {
     skip('before reading');
     process.exit(0);
+  }
+  if (window !== null && !dry) {
+    const dbHost = hostOf(process.env.DATABASE_URL);
+    const targets = dbHost ? [{ host: dbHost }] : [];
+    exitCleanlyWhenOffline('hosted-bars-solana', targets);
+    const offline = await waitForNetwork(targets, {
+      until: Math.min(t0 + 120_000, windowEnd(t0, window)),
+      log: (l) => console.log(l),
+    });
+    if (offline) exitOffline('hosted-bars-solana', offline);
+    if (outside()) {
+      skip('before reading');
+      process.exit(0);
+    }
   }
   const { db, client } = createDb();
   try {

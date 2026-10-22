@@ -37,6 +37,8 @@ const MINTS_PER_CALL = 100;
 /** Between two getTokenLargestAccounts calls: about seven a second at most, beside the collectors. */
 const LARGEST_GAP_MS = 120;
 const SERIES_DAYS = 40;
+/** SOL's getSupply, the one slow read (six minutes on Oct 22), is given this long at most in a run with a deadline. */
+const NATIVE_SUPPLY_MS = 45_000;
 
 const scrub = (e: unknown) => {
   let m = (e instanceof Error ? e.message : String(e)).slice(0, 300);
@@ -85,6 +87,43 @@ async function rpcAt<T>(url: string, method: string, params: unknown[]): Promise
   throw new Error(`rpc ${method}: still refused after 8 attempts`);
 }
 
+/** A call `rpcUntil` gave up on at its time limit: no answer, which is not an error of the RPC's. */
+export class RpcTimeout extends Error {
+  override name = 'RpcTimeout';
+}
+
+/**
+ * One JSON-RPC call that gives up at `until` (ms): each try's timeout ends there, a 429 is asked again until then.
+ * For a run with a deadline (the hosted job), where lib-pools' rpc() could retry for minutes.
+ */
+async function rpcUntil<T>(method: string, params: unknown[], until: number): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const left = until - Date.now();
+    if (left <= 0) throw new RpcTimeout(`rpc ${method}: no answer in the time it was given`);
+    let j: { result?: T; error?: { code?: number; message?: string } };
+    try {
+      const res = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(left),
+      });
+      j = (res.status === 429 ? { error: { code: 429 } } : await res.json()) as typeof j;
+    } catch (e) {
+      // the time limit's abort, at the request or while its body was read; any other failure is the network's
+      if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError'))
+        throw new RpcTimeout(`rpc ${method}: no answer in the time it was given`);
+      throw e;
+    }
+    if (j.error?.code === 429) {
+      await sleep(Math.min(500 * 2 ** attempt, Math.max(0, until - Date.now())));
+      continue;
+    }
+    if (j.error) throw new Error(`rpc ${method}: ${JSON.stringify(j.error)}`);
+    return j.result as T;
+  }
+}
+
 async function blockTime(slot: number): Promise<number | null> {
   try {
     return (await rpc<number | null>('getBlockTime', [slot])) ?? null;
@@ -104,6 +143,15 @@ export async function readSolanaMetrics(o: {
   list_: { file: string; fetchedAt: string; method: string };
   sourcesFile: string;
   log: (l: string) => void;
+  /** Reads left out of this run (the hosted job's SOL supply, between its daily reads). */
+  skipReads?: ReadonlySet<string>;
+  /** How long SOL's getSupply is given in a run with a deadline (NATIVE_SUPPLY_MS; a test sets less). */
+  nativeSupplyMs?: number;
+  /**
+   * When the slow reads stop (ms; the hosted job's, before the end of its write window): the holders' and DEX
+   * reads not reached by then are not made, their tokens have no row, and the run names them in `cutShort`.
+   */
+  deadline?: number;
 }): Promise<MetricAnswers> {
   const startedAt = new Date().toISOString();
   const A: MetricAnswers = {
@@ -117,7 +165,10 @@ export async function readSolanaMetrics(o: {
     rpcLabel: solanaRpcLabel(),
   };
   const need = readsNeeded(o.list, o.sources, new Set(o.metrics));
+  for (const read of o.skipReads ?? []) need.delete(read);
   const R = o.reads;
+  const cut = new Set<string>();
+  const late = () => o.deadline !== undefined && Date.now() > o.deadline;
 
   // ------------------------------------------------------------------------------ mints: supply and holders
   const mintAddrs = [
@@ -147,15 +198,23 @@ export async function readSolanaMetrics(o: {
       },
     );
   }
-  if (need.has('native_supply')) {
+  if (need.has('native_supply') && late()) cut.add('native_supply');
+  else if (need.has('native_supply')) {
     const fetchedAt = new Date().toISOString();
+    const own = Date.now() + (o.nativeSupplyMs ?? NATIVE_SUPPLY_MS);
+    const until = o.deadline === undefined ? null : Math.min(o.deadline, own);
     try {
       A.nativeSupply = await R.timed('solana_supply', 'getSupply (SOL)', async (l) => {
         l.calls += 2;
-        const r = await rpc<{
+        type Supply = {
           context: { slot: number };
           value: { total: number; circulating: number; nonCirculating: number };
-        }>('getSupply', [{ excludeNonCirculatingAccountsList: true }]);
+        };
+        const params = [{ excludeNonCirculatingAccountsList: true }];
+        const r =
+          until === null
+            ? await rpc<Supply>('getSupply', params)
+            : await rpcUntil<Supply>('getSupply', params, until);
         l.rows = 1;
         return {
           slot: r.context.slot,
@@ -169,7 +228,15 @@ export async function readSolanaMetrics(o: {
         };
       });
     } catch (e) {
-      A.nativeSupply = { error: scrub(e), fetchedAt };
+      // no answer in time is no row, not a null: at the run's deadline the part stays due (`cutShort`); at its own
+      // 45 s it was tried, and is tried again the next day (`timedOut`), so SOL's newest reading stays its last value
+      if (e instanceof RpcTimeout && until !== null && until >= own) {
+        A.timedOut = ['native_supply'];
+        o.log(
+          `getSupply gave no answer in ${Math.round((o.nativeSupplyMs ?? NATIVE_SUPPLY_MS) / 1000)} s: no row; tried again tomorrow`,
+        );
+      } else if (e instanceof RpcTimeout) cut.add('native_supply');
+      else A.nativeSupply = { error: scrub(e), fetchedAt };
     }
   }
   const largest = [...(need.get('largest_accounts') ?? [])].sort();
@@ -189,6 +256,13 @@ export async function readSolanaMetrics(o: {
       async (l) => {
         let k = 0;
         for (const mint of largest) {
+          if (late()) {
+            cut.add('largest_accounts');
+            o.log(
+              `getTokenLargestAccounts stopped at the run's deadline: ${k} of ${largest.length}`,
+            );
+            break;
+          }
           const fetchedAt = new Date().toISOString();
           if (unavailable) {
             // the RPC said it does not serve the method: no mint is asked again
@@ -312,9 +386,12 @@ export async function readSolanaMetrics(o: {
   }
 
   // ------------------------------------------------------------------------------------------- public GETs
-  if (need.has('dexscreener'))
+  if (need.has('dexscreener') && late()) cut.add('dexscreener');
+  else if (need.has('dexscreener'))
     A.dex = await readDexScreener('solana', [...(need.get('dexscreener') ?? [])].sort(), R, {
       log: o.log,
+      deadline: o.deadline,
+      onCut: () => cut.add('dexscreener'),
     });
   if (need.has('jupiter_lend')) {
     const fetchedAt = new Date().toISOString();
@@ -382,5 +459,6 @@ export async function readSolanaMetrics(o: {
     );
     A.prices.job = { resolved: job.resolved, newestT: job.newestT, fetchedAt: jobAt };
   }
+  if (cut.size) A.cutShort = [...cut].sort();
   return A;
 }

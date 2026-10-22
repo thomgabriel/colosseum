@@ -22,3 +22,20 @@ export function outsideWriteWindow(startedMs: number, nowMs: number, w: WriteWin
   const hour = Math.floor(startedMs / 3_600_000) * 3_600_000;
   return nowMs < hour + w.from * 60_000 || nowMs >= hour + w.to * 60_000;
 }
+
+/** The end of the window in the UTC hour `startedMs` fell in, in ms. */
+export function windowEnd(startedMs: number, w: WriteWindow): number {
+  return Math.floor(startedMs / 3_600_000) * 3_600_000 + w.to * 60_000;
+}
+
+/**
+ * What a run keeps for its database work at the end of the window (the newest stored rows, the write): the reads
+ * that would run past it stop, and what they did not read is read by the next run (gate ASSET-METRICS, amended
+ * 2026-10-22).
+ */
+export const WRITE_MARGIN_MS = 90_000;
+
+/** When a scheduled run's reads stop: the window's end less the margin for the write. */
+export function readDeadline(startedMs: number, w: WriteWindow): number {
+  return windowEnd(startedMs, w) - WRITE_MARGIN_MS;
+}
