@@ -153,5 +153,7 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
     expect(next.record.hidden.at(-1)).not.toHaveProperty('operation');
     expect(next.guard).toEqual(guardNow);
     EvmDeploymentRecord.parse(next.record);
+    // --status still reads the file against the record afterwards.
+    expect(() => heldToFile(next.record, list)).not.toThrow();
   });
 });

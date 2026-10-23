@@ -111,7 +111,8 @@ export function safeFiles(file: AddAssetsFile, name: string) {
  */
 export function heldToFile(record: Json, file: AddAssetsFile): void {
   const { operationId } = assetBatch(file);
-  const listed = new Set(record.assets.map((a: Json) => a.address));
+  // Listed already: shown, or kept out of the app (`hidden`) once --promote has moved it there.
+  const listed = new Set([...record.assets, ...(record.hidden ?? [])].map((a: Json) => a.address));
   const want = file.assets
     .filter((a) => !listed.has(a.token))
     .map((a) => recordEntryOf(a, operationId));
