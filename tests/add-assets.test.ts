@@ -62,14 +62,21 @@ describe('the tokens the Safe lists after the deploy', () => {
     expect(promote(record, guard, []).moved).toEqual([]);
   });
 
-  it('leave a held-back token and a v3-routed one pending when the chain lists them', () => {
+  it('leave a held-back token pending when the chain lists it, and move a v3-routed one with its v3 pool', () => {
     const all = record.pending.map((p: { address: string }) => p.address);
     const held = file.assets.filter((a) => a.heldBack !== undefined).map((a) => a.symbol);
     const next = promote(record, guard, all, held);
     const left = (next.record.pending as { symbol: string; pool: unknown }[]).map((p) => p.symbol);
     for (const symbol of held) expect(left, symbol).toContain(symbol);
-    for (const a of file.assets.filter((x) => x.v3Pool !== undefined))
-      expect(left, a.symbol).toContain(a.symbol);
+    // Gate V3-ROUTE: the builders route v3, so a v3-routed token is shown once listed.
+    for (const a of file.assets.filter((x) => x.v3Pool !== undefined)) {
+      expect(next.moved, a.symbol).toContain(a.symbol);
+      expect(next.guard.chains.robinhood.assets[`robinhood:${a.symbol.toLowerCase()}`]).toEqual({
+        address: a.token,
+        decimals: a.tokenDecimals,
+        v3Pool: a.v3Pool,
+      });
+    }
     expect(next.moved.length + left.length).toBe(record.pending.length);
     EvmDeploymentRecord.parse(next.record);
   });

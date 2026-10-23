@@ -654,6 +654,53 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
       spyPool({ fee: 500, tickSpacing: 10, hooks: OTHER }),
       /pool of robinhood:spy carries hooks/,
     ],
+    // ---- an asset whose pool is a Uniswap v3 pool (gate V3-ROUTE)
+    [
+      'an asset with both a v4 and a v3 pool',
+      asset(evm, 'robinhood:spy', {
+        address: e.anyone('token spy'),
+        decimals: 18,
+        pool: { fee: 500, tickSpacing: 10 },
+        v3Pool: { pool: e.anyone('v3 pool'), fee: 500 },
+      }),
+      /states two pools/,
+    ],
+    [
+      'a v3 pool with no fee',
+      asset(evm, 'robinhood:spy', {
+        address: e.anyone('token spy'),
+        decimals: 18,
+        v3Pool: { pool: e.anyone('v3 pool') },
+      }),
+      /fee of the v3 pool of robinhood:spy/,
+    ],
+    [
+      'a v3 pool of fee zero',
+      asset(evm, 'robinhood:spy', {
+        address: e.anyone('token spy'),
+        decimals: 18,
+        v3Pool: { pool: e.anyone('v3 pool'), fee: 0 },
+      }),
+      /fee of the v3 pool/,
+    ],
+    [
+      'a v3 pool that is not an address',
+      asset(evm, 'robinhood:spy', {
+        address: e.anyone('token spy'),
+        decimals: 18,
+        v3Pool: { pool: 'pool', fee: 500 },
+      }),
+      /address of the v3 pool/,
+    ],
+    [
+      'a v3 pool with a tick spacing',
+      asset(evm, 'robinhood:spy', {
+        address: e.anyone('token spy'),
+        decimals: 18,
+        v3Pool: { pool: e.anyone('v3 pool'), fee: 500, tickSpacing: 10 },
+      }),
+      /v3 pool of robinhood:spy carries tickSpacing/,
+    ],
     [
       'the cash with a pool',
       asset(evm, 'robinhood:usdc', {
@@ -861,12 +908,14 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     const { fee, tickSpacing } = routeVectors.pools.mainnet;
     expect(rh.assets['robinhood:nvda']?.pool).toEqual({ fee, tickSpacing });
     expect(rh.assets[rh.cash]?.pool).toBeUndefined();
+    // Five have their money in Uniswap v3 and state that pool instead (gate V3-ROUTE).
     const shapes = Object.entries(rh.assets)
       .filter(([id]) => id !== rh.cash)
-      .map(([, a]) => `${a.pool?.fee}/${a.pool?.tickSpacing}`);
+      .map(([, a]) => (a.v3Pool ? `v3/${a.v3Pool.fee}` : `${a.pool?.fee}/${a.pool?.tickSpacing}`));
     expect(shapes.length).toBeGreaterThan(1);
     expect(shapes).not.toContain('undefined/undefined');
     expect(new Set(shapes).size).toBeGreaterThan(1);
+    expect(shapes.filter((x) => x.startsWith('v3/'))).toHaveLength(5);
     for (const address of [rh.factory, rh.beacon, rh.registry])
       expect(address).not.toBe(e.ZERO_ADDRESS);
     // With a placeholder's mark on it, real addresses change nothing.

@@ -5,6 +5,8 @@ import {
   deploymentPools,
   EvmDeploymentRecord,
   poolOf,
+  ROBINHOOD_V3,
+  v3PoolAddress,
   v4Pools,
 } from '@colosseum/chain-evm/vault';
 import { deploymentsOf } from '@colosseum/sdk';
@@ -75,7 +77,12 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
         routes: Record<string, { kind: string; hooks: string }>;
         assets: Record<
           string,
-          { address: string; decimals: number; pool?: { fee: number; tickSpacing: number } }
+          {
+            address: string;
+            decimals: number;
+            pool?: { fee: number; tickSpacing: number };
+            v3Pool?: { pool: string; fee: number };
+          }
         >;
       };
     };
@@ -90,6 +97,7 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
       feed: string;
       feedDescription?: string;
       pool?: { fee: number; tickSpacing: number };
+      v3Pool?: { pool: string; fee: number };
     }[];
   };
   const guard = (
@@ -102,7 +110,7 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
   const recordNow = JSON.parse(
     readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8'),
   ) as { safe?: unknown; hidden?: { address: string }[] };
-  // Listed on chain and kept out of the app, so out of the guard's file (DELL held back, the v3 five).
+  // Listed on chain and kept out of the app, so out of the guard's file (DELL, held back).
   const hidden = new Set((recordNow.hidden ?? []).map((h) => h.address.toLowerCase()));
   const deployFile = recordNow.safe ? '4663.json' : '4663-2026-10-12.json';
   const contracts = JSON.parse(
@@ -124,7 +132,10 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     const fromGuard = Object.fromEntries(
       Object.entries(guard.assets)
         .filter(([id]) => id !== guard.cash)
-        .map(([, a]) => [lower(a.address), { decimals: a.decimals, pool: a.pool }]),
+        .map(([, a]) => [
+          lower(a.address),
+          { decimals: a.decimals, pool: a.pool, v3Pool: a.v3Pool },
+        ]),
     );
     // And the tokens the Safe listed later through the timelock, once the record lists them
     // (`4663-assets-2.json`, `pnpm ops:add-assets --promote`): the guard learns a token with the record.
@@ -146,17 +157,38 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     const fromContracts = Object.fromEntries(
       [...stocks, ...added].map((a) => [
         lower(a.token),
-        { decimals: a.tokenDecimals, pool: a.pool },
+        {
+          decimals: a.tokenDecimals,
+          pool: a.pool,
+          v3Pool: a.v3Pool ? { pool: lower(a.v3Pool.pool), fee: a.v3Pool.fee } : undefined,
+        },
       ]),
     );
     expect(fromGuard).toEqual(fromContracts);
     for (const a of stocks) {
-      expect(a.pool, a.token).toMatchObject({
-        fee: expect.any(Number),
-        tickSpacing: expect.any(Number),
-      });
+      // One route each: a v4 pool, or a v3 pool (gate V3-ROUTE).
+      if (a.v3Pool) {
+        expect(a.pool, a.token).toBeUndefined();
+        expect(a.v3Pool.fee, a.token).toBeGreaterThan(0);
+      } else
+        expect(a.pool, a.token).toMatchObject({
+          fee: expect.any(Number),
+          tickSpacing: expect.any(Number),
+        });
       expect(a.feedDescription, a.token).toBeTruthy();
     }
+    // The five whose money is in Uniswap v3 are shown and traded through it.
+    expect(
+      stocks
+        .filter((a) => a.v3Pool)
+        .map((a) => lower(a.token))
+        .sort(),
+    ).toEqual(
+      Object.values(guard.assets)
+        .filter((a) => a.v3Pool)
+        .map((a) => lower(a.address))
+        .sort(),
+    );
     // One token, one entry, one feed.
     expect(new Set(stocks.map((a) => lower(a.token))).size).toBe(stocks.length);
     expect(new Set(stocks.map((a) => lower(a.feed))).size).toBe(stocks.length);
@@ -301,14 +333,27 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
     const [, ...stocks] = contracts.assets;
     const pools = v4Pools(
       contracts.cashToken,
-      stocks.map((a) => ({ address: a.token, pool: a.pool ?? { fee: -1, tickSpacing: -1 } })),
+      stocks.map((a) => ({ address: a.token, pool: a.pool ?? null, v3Pool: a.v3Pool })),
     );
     for (const [id, a] of Object.entries(guard.assets)) {
       if (id === guard.cash) continue;
-      expect(poolOf(pools, pools.cash, lower(a.address) as `0x${string}`), id).toEqual(a.pool);
+      const built = poolOf(pools, pools.cash, lower(a.address) as `0x${string}`);
+      expect(built, id).toEqual(
+        a.v3Pool ? { v3Pool: lower(a.v3Pool.pool), fee: a.v3Pool.fee } : a.pool,
+      );
+      // A v3 pool is the router's own: the v3 factory's pool of the two tokens at its fee.
+      if (a.v3Pool)
+        expect(
+          v3PoolAddress(ROBINHOOD_V3, pools.cash, lower(a.address) as `0x${string}`, a.v3Pool.fee),
+          id,
+        ).toBe(lower(a.v3Pool.pool));
     }
     expect(
-      new Set(Object.values(pools.byToken).map((p) => `${p.fee}/${p.tickSpacing}`)).size,
+      new Set(
+        Object.values(pools.byToken).map((p) =>
+          'v3Pool' in p ? `v3/${p.fee}` : `${p.fee}/${p.tickSpacing}`,
+        ),
+      ).size,
     ).toBeGreaterThan(1);
   });
 
@@ -335,8 +380,10 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
           typeof v === 'string' &&
           k !== 'ownerNote' &&
           k !== 'guardianNote' &&
-          // Why a token is listed and not shown: a decision's words, not a value's confirmation.
-          k !== 'hiddenNote',
+          // Why a token is listed and not shown, or shown since: a decision's words, not a value's
+          // confirmation.
+          k !== 'hiddenNote' &&
+          k !== 'shownNote',
       ),
     );
     expect(notes.length).toBeGreaterThan(40);
