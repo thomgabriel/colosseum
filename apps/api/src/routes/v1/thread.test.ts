@@ -602,7 +602,7 @@ describe('a plan built again in the same conversation', () => {
   it('joins only a plan of the caller’s own: another person’s, a link’s or an unknown id starts a thread', async () => {
     const [who, other] = [await someone(), await someone()];
     const theirs = await make(other, 6_124, {
-      thread: [{ text: 'the other person’s own words 9917', reply: reply() }],
+      thread: [{ text: 'the other person’s own words QZX-other-words', reply: reply() }],
     });
     const linked = PersonalizeResponse.parse(
       (await post(null, '/v1/baskets/propose', { sheet: sheet({ amountUsd: 6_125 }) })).json(),
@@ -611,7 +611,7 @@ describe('a plan built again in the same conversation', () => {
     for (const previousPlanId of [theirs.id, linked.id, crypto.randomUUID()]) {
       const mine = await make(who, amountUsd++, { previousPlanId });
       const read = await get(who, `/v1/baskets/${mine.id}/thread`);
-      expect(read.body).not.toContain('9917');
+      expect(read.body).not.toContain('QZX-other-words');
       // a thread of its own, started as any plan's is
       expect(events(ThreadResponse.parse(read.json()))).toEqual([
         { type: 'plan_built', planId: mine.id },
@@ -619,7 +619,7 @@ describe('a plan built again in the same conversation', () => {
     }
     // and nothing was written to the thread that was named
     expect(lines(await thread(other, theirs.id))).toEqual([
-      'person: the other person’s own words 9917',
+      'person: the other person’s own words QZX-other-words',
       'app',
       'plan_built',
     ]);
