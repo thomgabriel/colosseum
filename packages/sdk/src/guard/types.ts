@@ -170,15 +170,23 @@ export type SolanaDeployment = {
 /**
  * How the guard reads the call data a vault hands one of its exchanges (`Swap.data`). Every router of
  * a deployment states one, and only a stated kind is read:
- * - `universal-router-v4`: Uniswap's Universal Router, held to one exact-input swap in one v4 pool
- *   with these hooks (the zero address: a pool with none). Which pool is the traded asset's own
- *   (`EvmDeployment.assets[id].pool`): its fee and tick spacing, and no other pool of the two tokens.
+ * - `universal-router-v4`: Uniswap's Universal Router, held to one exact-input swap in the traded
+ *   asset's own pool. For an asset with a v4 pool (`EvmDeployment.assets[id].pool`), one swap in that
+ *   pool with these hooks (the zero address: a pool with none), its fee and tick spacing, and no other
+ *   pool of the two tokens. For an asset with a v3 pool (`assets[id].v3Pool`, gate V3-ROUTE), one
+ *   `V3_SWAP_EXACT_IN` of one hop at that pool's fee, to the caller, paid by the caller.
  * - `unread`: an exchange whose call data the guard does not read, such as the mock router of a local
  *   chain. The vault still holds the trade to its tokens, its amount and its minimum. Never on a live
  *   network: the loader refuses it there, and so does the check.
  */
 /** A Uniswap v4 pool's shape: the fee in hundredths of a basis point, and the tick spacing. */
 export type EvmPool = { fee: number; tickSpacing: number };
+/**
+ * A Uniswap v3 pool against the cash: its address and its fee. The call data names the pool by its
+ * two tokens and the fee, so the fee is what the guard holds a route to; the address is for whoever
+ * reads the file.
+ */
+export type EvmV3Pool = { pool: Address; fee: number };
 
 export type EvmRoute = { kind: 'universal-router-v4'; hooks: Address } | { kind: 'unread' };
 
@@ -204,10 +212,10 @@ export type EvmDeployment = {
   registry?: Address;
   cash: AssetId;
   /**
-   * Each asset's token contract and its decimals, and for an asset that trades, its one Uniswap v4
-   * pool against the cash. The cash has none.
+   * Each asset's token contract and its decimals, and for an asset that trades, its one pool against
+   * the cash: a Uniswap v4 pool, or a Uniswap v3 pool. The cash has none.
    */
-  assets: Record<AssetId, { token: Address; decimals: number; pool?: EvmPool }>;
+  assets: Record<AssetId, { token: Address; decimals: number; pool?: EvmPool; v3Pool?: EvmV3Pool }>;
   fee?: FeeLimit;
 };
 

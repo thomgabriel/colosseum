@@ -6,8 +6,11 @@ import { GuardRefusal } from '../refusal';
 import type { ApprovedTrade, EvmDeployment, Withdrawal } from '../types';
 import { type AbiValue, decodeArgs, parseSignature } from './abi';
 import { evmIndexId, evmVaultAddress, planIdOf } from './addresses';
-import { readV4SingleSwap, type V4SingleSwap } from './route';
+import { readV3ExactIn, readV4SingleSwap, type V3ExactIn, type V4SingleSwap } from './route';
 import type { InterfaceTable } from './table';
+
+/** Universal Router's stand-in for its caller as a recipient (`ActionConstants.MSG_SENDER`). */
+const MSG_SENDER = `0x${'0'.repeat(39)}1`;
 
 // An EVM transaction against the step. It is one call, with no value, to one of four contracts and no
 // other: the cash token for an approval, the factory for a create, the registry for a publish, the
@@ -251,6 +254,22 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
       );
       return;
     }
+    // The asset of a trade is its side that is not cash. Two assets, or cash for cash, have no pool.
+    const traded =
+      trade.sell === deployment.cash
+        ? trade.buy
+        : trade.buy === deployment.cash
+          ? trade.sell
+          : undefined;
+    const asset =
+      traded !== undefined && traded !== deployment.cash && Object.hasOwn(deployment.assets, traded)
+        ? deployment.assets[traded]
+        : undefined;
+    const v3 = asset?.v3Pool;
+    if (v3) {
+      checkV3Route(v3.fee, traded as string, tokenIn, tokenOut, amountIn, data, deadline);
+      return;
+    }
     let route: V4SingleSwap;
     try {
       route = readV4SingleSwap(data);
@@ -275,17 +294,7 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
       route.settle.currency === tokenIn && route.take.currency === tokenOut,
       `a trade's route pays in ${route.settle.currency} and takes ${route.take.currency}, and the trade is ${tokenIn} for ${tokenOut}`,
     );
-    // The asset of a trade is its side that is not cash. Two assets, or cash for cash, have no pool.
-    const traded =
-      trade.sell === deployment.cash
-        ? trade.buy
-        : trade.buy === deployment.cash
-          ? trade.sell
-          : undefined;
-    const pool =
-      traded !== undefined && traded !== deployment.cash && Object.hasOwn(deployment.assets, traded)
-        ? deployment.assets[traded]?.pool
-        : undefined;
+    const pool = asset?.pool;
     need(
       'route',
       pool !== undefined,
@@ -316,6 +325,65 @@ export function checkEvm(ctx: Context, deployment: EvmDeployment, table: Interfa
       'minimum',
       route.amountOutMinimum === 0n && route.minHopPriceX36 === 0n && route.take.minAmount === 0n,
       `a trade's route sets the exchange's own minimums (${route.amountOutMinimum}, ${route.minHopPriceX36}, ${route.take.minAmount}), and the vault's minimum is the only one a built trade carries`,
+    );
+    need(
+      'deadline',
+      route.deadline === deadline,
+      `a trade's route is good until ${route.deadline}, and the trade until ${deadline}`,
+    );
+  };
+  /**
+   * The route of a trade in an asset whose pool is a Uniswap v3 pool (gate V3-ROUTE), against the
+   * trade: exactly what the builder makes, one `V3_SWAP_EXACT_IN` of one hop from the trade's input to
+   * its output at the fee the deployment records for the asset, the output to the caller (the vault:
+   * Universal Router's `MSG_SENDER`, address 1), paid by the caller, for the trade's amount, with the
+   * router's own minimum at zero and no per-hop floor, under the trade's deadline. The router swaps in
+   * the v3 factory's pool of the two tokens at that fee and no other.
+   */
+  const checkV3Route = (
+    fee: number,
+    traded: string,
+    tokenIn: string,
+    tokenOut: string,
+    amountIn: bigint,
+    data: Uint8Array,
+    deadline: bigint,
+  ) => {
+    let route: V3ExactIn;
+    try {
+      route = readV3ExactIn(data);
+    } catch (e) {
+      need(
+        'route',
+        false,
+        `a trade's call data for ${traded}, whose pool is a v3 pool, is not one exact-input swap of one hop: ${e instanceof Error ? e.message : 'it cannot be read'}`,
+      );
+      return;
+    }
+    need(
+      'asset',
+      route.tokenIn === tokenIn && route.tokenOut === tokenOut,
+      `a trade's route swaps ${route.tokenIn} for ${route.tokenOut}, and the trade is ${tokenIn} for ${tokenOut}`,
+    );
+    need(
+      'route',
+      route.fee === BigInt(fee),
+      `a trade's route is in a v3 pool of fee ${route.fee}, and the pool the deployment records for ${traded} is of fee ${fee}`,
+    );
+    need(
+      'route',
+      route.recipient === MSG_SENDER && route.payerIsUser,
+      `a trade's route sends its output to ${route.recipient}${route.payerIsUser ? '' : ' and is paid by the router'}, and a built trade's goes to the vault that pays`,
+    );
+    need(
+      'amount',
+      route.amountIn === amountIn,
+      `a trade's route sells ${route.amountIn}, and the trade sells ${amountIn}`,
+    );
+    need(
+      'minimum',
+      route.amountOutMin === 0n && route.minHopPriceX36.length === 0,
+      `a trade's route sets the exchange's own minimums (${route.amountOutMin}, ${route.minHopPriceX36.length} hop floors), and the vault's minimum is the only one a built trade carries`,
     );
     need(
       'deadline',

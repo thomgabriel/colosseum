@@ -2,14 +2,22 @@ import { hexEncode, utf8Encode } from '../../bytes';
 import { keccak256 } from '../../hash';
 import { type AbiType, type AbiValue, decodeArgs, parseSignature, parseType } from './abi';
 
-// The call data a vault hands Uniswap's Universal Router for one trade, read as the one shape the
-// builders make (packages/chain-evm/src/vault/routes.ts, `swapCalldata`):
+// The call data a vault hands Uniswap's Universal Router for one trade, read as one of the two shapes
+// the builders make (packages/chain-evm/src/vault/routes.ts, `swapCalldata`). In a v4 pool:
 //
 //   execute(bytes commands, bytes[] inputs, uint256 deadline)
 //     commands  one byte: V4_SWAP
 //     inputs    one: abi.encode(bytes actions, bytes[] params)
 //       actions SWAP_EXACT_IN_SINGLE, SETTLE_ALL, TAKE_ALL
 //       params  the swap, (currency, maxAmount) to settle, (currency, minAmount) to take
+//
+// In a v3 pool (gate V3-ROUTE):
+//
+//   execute(bytes commands, bytes[] inputs, uint256 deadline)
+//     commands  one byte: V3_SWAP_EXACT_IN
+//     inputs    one: abi.encode(address recipient, uint256 amountIn, uint256 amountOutMin,
+//                               bytes path, bool payerIsUser, uint256[] minHopPriceX36)
+//       path    tokenIn (20 bytes), fee (3 bytes), tokenOut (20 bytes): one hop
 //
 // Every level is read with the codec of abi.ts, which takes only the canonical encoding of what it
 // reads: an offset somewhere odd, padding that is not zero and a byte left over are refused at the
@@ -22,8 +30,9 @@ export const UNIVERSAL_ROUTER_EXECUTE_SELECTOR = `0x${hexEncode(
   keccak256(utf8Encode(UNIVERSAL_ROUTER_EXECUTE)).slice(0, 4),
 )}`;
 
-/** Universal Router's command, with no flag set: a flag that lets a command fail is another byte. */
+/** Universal Router's commands, with no flag set: a flag that lets a command fail is another byte. */
 const V4_SWAP = 0x10;
+const V3_SWAP_EXACT_IN = 0x00;
 /** The v4 router's actions (`Actions.sol`). */
 const SWAP_EXACT_IN_SINGLE = 0x06;
 const SETTLE_ALL = 0x0c;
@@ -39,6 +48,18 @@ const SWAP: AbiType[] = [
   parseType('((address,address,uint24,uint24,address),bool,uint128,uint128,uint256,bytes)'),
 ];
 const CURRENCY_AMOUNT: AbiType[] = [parseType('address'), parseType('uint256')];
+// `V3_SWAP_EXACT_IN` of Universal Router 2.1: the recipient, the amount in, the least out, the path,
+// whether the caller pays, and 2.1's per-hop price floors.
+const V3_INPUT: AbiType[] = [
+  parseType('address'),
+  parseType('uint256'),
+  parseType('uint256'),
+  parseType('bytes'),
+  parseType('bool'),
+  parseType('uint256[]'),
+];
+/** One hop of a v3 path: an address, a three-byte fee, an address. */
+const V3_HOP_BYTES = 20 + 3 + 20;
 
 /** One exact-input swap in one pool, as the call data states it. Addresses in lower case. */
 export type V4SingleSwap = {
@@ -116,5 +137,59 @@ export function readV4SingleSwap(data: Uint8Array): V4SingleSwap {
     hookData,
     settle: { currency: settleCurrency, maxAmount },
     take: { currency: takeCurrency, minAmount },
+  };
+}
+
+/** One exact-input swap of one hop in a v3 pool, as the call data states it. Addresses in lower case. */
+export type V3ExactIn = {
+  /** The router's own deadline, in unix seconds. */
+  deadline: bigint;
+  recipient: string;
+  amountIn: bigint;
+  amountOutMin: bigint;
+  tokenIn: string;
+  fee: bigint;
+  tokenOut: string;
+  payerIsUser: boolean;
+  /** Universal Router 2.1's per-hop price floors: one entry per hop, or none. */
+  minHopPriceX36: bigint[];
+};
+
+/**
+ * Reads `data` as one `V3_SWAP_EXACT_IN` of one hop. Throws an `Error` that says what is not the
+ * shape: another function, another command or one more, a path of another length, or bytes that are
+ * not the canonical encoding of what they say.
+ */
+export function readV3ExactIn(data: Uint8Array): V3ExactIn {
+  const selector = hex(data.slice(0, 4));
+  if (data.length < 4 || selector !== UNIVERSAL_ROUTER_EXECUTE_SELECTOR)
+    throw new Error(`it calls ${selector}, not ${UNIVERSAL_ROUTER_EXECUTE}`);
+  const [commands, inputs, deadline] = decodeArgs(EXECUTE, data.slice(4)) as [
+    Uint8Array,
+    Uint8Array[],
+    bigint,
+  ];
+  if (!sameList(commands, [V3_SWAP_EXACT_IN]))
+    throw new Error(`its commands are ${hex(commands)}, not the one v3 exact-input swap`);
+  const [input] = inputs;
+  if (inputs.length !== 1 || !input)
+    throw new Error(`it carries ${inputs.length} inputs for one command`);
+  const [recipient, amountIn, amountOutMin, path, payerIsUser, minHopPriceX36] = decodeArgs(
+    V3_INPUT,
+    input,
+  ) as [string, bigint, bigint, Uint8Array, boolean, bigint[]];
+  if (path.length !== V3_HOP_BYTES)
+    throw new Error(`its path is ${path.length} bytes, not one hop of ${V3_HOP_BYTES}`);
+  const fee = path.slice(20, 23);
+  return {
+    deadline,
+    recipient,
+    amountIn,
+    amountOutMin,
+    tokenIn: hex(path.slice(0, 20)),
+    fee: (BigInt(fee[0] ?? 0) << 16n) | (BigInt(fee[1] ?? 0) << 8n) | BigInt(fee[2] ?? 0),
+    tokenOut: hex(path.slice(23, 43)),
+    payerIsUser,
+    minHopPriceX36,
   };
 }
