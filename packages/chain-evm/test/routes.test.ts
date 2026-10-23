@@ -1,16 +1,27 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ChainError } from '@colosseum/schemas';
-import { type Address, decodeAbiParameters, decodeFunctionData, parseAbi } from 'viem';
+import {
+  type Address,
+  decodeAbiParameters,
+  decodeFunctionData,
+  encodeFunctionResult,
+  parseAbi,
+  parseAbiParameters,
+} from 'viem';
 import { describe, expect, it } from 'vitest';
+import { CL_QUOTER_ADDRESS, CL_QUOTER_CODE } from '../src/vault/cl-quoter';
 import { deploymentPools, EvmDeploymentRecord } from '../src/vault/deployment';
 import {
   poolKeyOf,
   poolOf,
   quoteExactIn,
+  ROBINHOOD_V3,
   ROBINHOOD_V4_QUOTER,
   swapCalldata,
+  UNIVERSAL_ROUTER_MSG_SENDER,
   type V4Pools,
+  v3PoolAddress,
   v4Pools,
 } from '../src/vault/routes';
 import type { EvmRpc } from '../src/vault/rpc';
@@ -261,5 +272,147 @@ describe("a network's pools, from its record", () => {
     expect(withPool({ fee: 1_000_001, tickSpacing: 60 })).toBe(false);
     expect(withPool({ fee: 3000, tickSpacing: 0 })).toBe(false);
     expect(withPool({ fee: 3000, tickSpacing: 60, hooks: ZERO })).toBe(false);
+  });
+});
+
+// Gate V3-ROUTE: an asset whose money is in Uniswap v3 trades through one `V3_SWAP_EXACT_IN` of
+// Universal Router, in its own v3 pool, priced by Bearing's read-only quoter put in place for the call.
+// The node's answers are the ones recorded on mainnet (fixtures/qqq-v3-quotes.json).
+describe('an asset whose pool is a Uniswap v3 pool', () => {
+  const fx = JSON.parse(
+    readFileSync(join(import.meta.dirname, 'fixtures', 'qqq-v3-quotes.json'), 'utf8'),
+  ) as {
+    block: string;
+    cash: Address;
+    asset: Address;
+    pool: Address;
+    fee: number;
+    feed: { answer: string };
+    quotes: { zeroForOne: boolean; amountIn: string; out: string; returnData: `0x${string}` }[];
+  };
+  const pools = v4Pools(fx.cash, [
+    { address: fx.asset, pool: null, v3Pool: { pool: fx.pool, fee: fx.fee } },
+    { address: HIGH, pool: { fee: 100, tickSpacing: 1 } },
+  ]);
+  const QUOTER_ABI = parseAbi([
+    'function quote(address pool, bool zeroForOne, uint256[] amountsIn, uint256 gasPerSwap) returns (uint256[] ins, uint256[] outs)',
+  ]);
+  /** A node that answers each quote with what mainnet answered, and keeps what it was asked. */
+  const recorded = () => {
+    const asked: { to: string; stateOverride: { address: string; code: string }[] }[] = [];
+    const rpc = {
+      call: async (c: {
+        to: string;
+        data: `0x${string}`;
+        stateOverride: { address: string; code: string }[];
+      }) => {
+        asked.push(c);
+        const { args } = decodeFunctionData({ abi: QUOTER_ABI, data: c.data });
+        const [pool, zeroForOne, amounts] = args;
+        const hit = fx.quotes.find(
+          (q) =>
+            pool.toLowerCase() === fx.pool &&
+            q.zeroForOne === zeroForOne &&
+            amounts.length === 1 &&
+            BigInt(q.amountIn) === amounts[0],
+        );
+        if (!hit) throw new Error('no recorded answer for that call');
+        return { data: hit.returnData };
+      },
+    } as unknown as EvmRpc;
+    return { rpc, asked };
+  };
+
+  it('the quoter copy is the build of scripts/risk-evm', () => {
+    const build = JSON.parse(
+      readFileSync(
+        join(import.meta.dirname, '..', '..', '..', 'scripts', 'risk-evm', 'cl-quoter.json'),
+        'utf8',
+      ),
+    ) as { deployedBytecode: string };
+    expect(CL_QUOTER_CODE).toBe(build.deployedBytecode);
+  });
+
+  it("is the v3 factory's pool of the two tokens at its fee: the one the router swaps in", () => {
+    expect(v3PoolAddress(ROBINHOOD_V3, fx.cash, fx.asset, fx.fee)).toBe(fx.pool);
+    expect(v3PoolAddress(ROBINHOOD_V3, fx.asset, fx.cash, fx.fee)).toBe(fx.pool);
+    expect(v3PoolAddress(ROBINHOOD_V3, fx.cash, fx.asset, 3000)).not.toBe(fx.pool);
+  });
+
+  it('is quoted in its own pool, both ways, as mainnet answered at the recorded block', async () => {
+    const { rpc, asked } = recorded();
+    const buy = await quoteExactIn(rpc, pools, {
+      tokenIn: fx.cash,
+      tokenOut: fx.asset,
+      amountIn: 1_000_000_000n,
+    });
+    const sell = await quoteExactIn(rpc, pools, {
+      tokenIn: fx.asset,
+      tokenOut: fx.cash,
+      amountIn: 10n ** 18n,
+    });
+    expect([buy, sell]).toEqual(fx.quotes.map((q) => BigInt(q.out)));
+    // Within 0.2% of QQQ's feed at that block both ways: $1,000 buys about 1.413 QQQ at $707.28.
+    const feed = Number(fx.feed.answer) / 1e8;
+    expect(Math.abs(1000 / (Number(buy) / 1e18) / feed - 1)).toBeLessThan(0.002);
+    expect(Math.abs(Number(sell) / 1e6 / feed - 1)).toBeLessThan(0.002);
+    // The quoter is put in place for the call, never deployed.
+    for (const c of asked) {
+      expect(c.to).toBe(CL_QUOTER_ADDRESS);
+      expect(c.stateOverride).toEqual([{ address: CL_QUOTER_ADDRESS, code: CL_QUOTER_CODE }]);
+    }
+  });
+
+  it("a pool that did not take the whole amount, or a pool that is not the router's, does not quote", async () => {
+    const partial = {
+      call: async () => ({
+        data: encodeFunctionResult({
+          abi: QUOTER_ABI,
+          functionName: 'quote',
+          result: [[5n], [7n]],
+        }),
+      }),
+    } as unknown as EvmRpc;
+    await expect(
+      quoteExactIn(partial, pools, { tokenIn: fx.cash, tokenOut: fx.asset, amountIn: 6n }),
+    ).rejects.toThrow(/cannot fill that amount/);
+    const elsewhere = v4Pools(fx.cash, [
+      { address: fx.asset, pool: null, v3Pool: { pool: HIGH, fee: fx.fee } },
+    ]);
+    await expect(
+      quoteExactIn(silent, elsewhere, { tokenIn: fx.cash, tokenOut: fx.asset, amountIn: 6n }),
+    ).rejects.toThrow(/router would swap in another/);
+  });
+
+  it("builds one V3_SWAP_EXACT_IN of one hop for the recorded quote: to the vault, paid by it, the vault's minimum the only one", () => {
+    const deadline = 1_792_775_000n;
+    for (const q of fx.quotes) {
+      const [tokenIn, tokenOut] = q.zeroForOne ? [fx.cash, fx.asset] : [fx.asset, fx.cash];
+      const data = swapCalldata(pools, {
+        tokenIn,
+        tokenOut,
+        amountIn: BigInt(q.amountIn),
+        deadline,
+      });
+      const { args } = decodeFunctionData({ abi: ROUTER_ABI, data });
+      const [commands, inputs, until] = args;
+      expect(commands).toBe('0x00');
+      expect(inputs).toHaveLength(1);
+      expect(until).toBe(deadline);
+      const [recipient, amountIn, amountOutMin, path, payerIsUser, floors] = decodeAbiParameters(
+        parseAbiParameters('address, uint256, uint256, bytes, bool, uint256[]'),
+        inputs[0] as `0x${string}`,
+      );
+      expect(recipient).toBe(UNIVERSAL_ROUTER_MSG_SENDER);
+      expect(amountIn).toBe(BigInt(q.amountIn));
+      expect(amountOutMin).toBe(0n);
+      expect(path).toBe(`${tokenIn}${fx.fee.toString(16).padStart(6, '0')}${tokenOut.slice(2)}`);
+      expect(payerIsUser).toBe(true);
+      expect(floors).toEqual([]);
+    }
+    // A v4 asset beside it keeps the v4 route.
+    const v4 = swapCalldata(pools, { tokenIn: fx.cash, tokenOut: HIGH, amountIn: 5n, deadline });
+    expect(keyIn(v4)).toMatchObject({ fee: 100, tickSpacing: 1 });
+    expect(() => poolKeyOf(pools, fx.cash, fx.asset)).toThrow(ChainError);
   });
 });

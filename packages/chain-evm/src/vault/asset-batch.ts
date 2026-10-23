@@ -50,7 +50,7 @@ const AddedAsset = z
     averageFeed: Address.refine((a) => a === ZERO, 'no average feed while the keeper is off'),
     minPrice: z.literal(0),
     maxPrice: z.literal(0),
-    /** The hookless Uniswap v4 pool against the cash its trades go through: the route the app builds today. */
+    /** The hookless Uniswap v4 pool against the cash its trades go through. */
     pool: z
       .strictObject({
         fee: z.number().int().min(0).max(1_000_000),
@@ -59,7 +59,7 @@ const AddedAsset = z
       .optional(),
     /**
      * Instead, the Uniswap v3 pool against the cash its trades will go through, for a token whose v4 pools
-     * do not fill $1,000: listed on chain now, traded once the app builds a v3 route. One of the two.
+     * do not fill $1,000: listed on chain, and traded through the v3 route (gate V3-ROUTE). One of the two.
      */
     v3Pool: z
       .strictObject({ pool: Address, fee: z.number().int().min(1).max(1_000_000) })
@@ -308,7 +308,7 @@ export function recordEntryOf(a: AddAssetsFile['assets'][number], operationId: H
     maxWeightBps: a.maxWeightBps,
     keeperOn: false,
     range: null,
-    // A token routed through v3 has no v4 pool: it stays pending until the app builds that route.
+    // A token routed through v3 states its v3 pool and no v4 pool.
     pool: a.pool ?? null,
     ...(a.v3Pool ? { v3Pool: a.v3Pool } : {}),
     maxTradeUsd: a.maxTradeUsd,
