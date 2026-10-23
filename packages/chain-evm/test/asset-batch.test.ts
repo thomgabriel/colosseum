@@ -9,6 +9,7 @@ import {
   listedAsFiled,
   recordEntryOf,
   safeBatchFile,
+  safeCalls,
   safeChecksum,
   TIMELOCK_BATCH_ABI,
 } from '../src/vault/asset-batch';
@@ -29,12 +30,18 @@ const record = EvmDeploymentRecord.parse(
   JSON.parse(readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet-2026-10-12.json'), 'utf8')),
 );
 const batch = assetBatch(file);
+// The factory of 2026-10-12 is held by a timelock: the Safe schedules, then executes.
+if (!file.timelock || !batch.schedule || !batch.execute)
+  throw new Error('the file names its timelock');
+const timelock = file.timelock;
+const schedule = batch.schedule;
+const execute = batch.execute;
 
 describe('the committed file of more tokens', () => {
   it('names the deployed factory, its timelock and Safe, and only tokens the deploy did not list', () => {
     expect(file.chainId).toBe(record.evmChainId);
     expect(file.factory).toBe(record.contracts.factory);
-    expect(file.timelock).toBe(record.timelock?.address);
+    expect(timelock).toBe(record.timelock?.address);
     expect(file.delay).toBe(record.timelock?.minDelay);
     expect(file.cashToken).toBe(record.cash.address);
     expect(file.priceBoundBps).toBe(record.priceBoundBps);
@@ -84,15 +91,15 @@ describe('the batch', () => {
   });
 
   it('is scheduled with the timelock’s own delay and executed as the same operation', () => {
-    const schedule = decodeFunctionData({ abi: TIMELOCK_BATCH_ABI, data: batch.schedule });
-    const execute = decodeFunctionData({ abi: TIMELOCK_BATCH_ABI, data: batch.execute });
-    expect(schedule.functionName).toBe('scheduleBatch');
-    expect(execute.functionName).toBe('executeBatch');
-    expect(schedule.args?.slice(0, 5)).toEqual(execute.args);
-    expect(schedule.args?.[5]).toBe(172_800n);
-    expect(schedule.args?.[3]).toBe(`0x${'0'.repeat(64)}`);
-    expect(schedule.args?.[4]).toBe(keccak256(toBytes(file.salt)));
-    expect(batch.scheduleHash).toBe(keccak256(batch.schedule));
+    const scheduled = decodeFunctionData({ abi: TIMELOCK_BATCH_ABI, data: schedule });
+    const executed = decodeFunctionData({ abi: TIMELOCK_BATCH_ABI, data: execute });
+    expect(scheduled.functionName).toBe('scheduleBatch');
+    expect(executed.functionName).toBe('executeBatch');
+    expect(scheduled.args?.slice(0, 5)).toEqual(executed.args);
+    expect(scheduled.args?.[5]).toBe(172_800n);
+    expect(scheduled.args?.[3]).toBe(`0x${'0'.repeat(64)}`);
+    expect(scheduled.args?.[4]).toBe(keccak256(toBytes(file.salt)));
+    expect(batch.scheduleHash).toBe(keccak256(schedule));
   });
 });
 
@@ -100,8 +107,8 @@ describe("the Transaction Builder's files", () => {
   const made = safeBatchFile({
     chainId: 4663,
     safe: file.safe,
-    to: file.timelock,
-    data: batch.schedule,
+    to: timelock,
+    data: schedule,
     name: 'schedule',
     description: 'a test',
     createdAt: Date.parse(file.measured.at(-1)?.at ?? ''),
@@ -110,12 +117,12 @@ describe("the Transaction Builder's files", () => {
   it('carry the one call, from the Safe to the timelock, with no value', () => {
     expect(made.chainId).toBe('4663');
     expect(made.meta.createdFromSafeAddress.toLowerCase()).toBe(file.safe);
-    expect(made.transactions[0]?.to.toLowerCase()).toBe(file.timelock);
+    expect(made.transactions[0]?.to.toLowerCase()).toBe(timelock);
     expect(made.transactions).toEqual([
       {
-        to: getAddress(file.timelock),
+        to: getAddress(timelock),
         value: '0',
-        data: batch.schedule,
+        data: schedule,
         contractMethod: null,
         contractInputsValues: null,
       },
@@ -128,7 +135,7 @@ describe("the Transaction Builder's files", () => {
       made.meta.checksum,
     );
     const changed = structuredClone(made);
-    if (changed.transactions[0]) changed.transactions[0].data = batch.execute;
+    if (changed.transactions[0]) changed.transactions[0].data = execute;
     expect(safeChecksum(changed)).not.toBe(made.meta.checksum);
   });
 });
@@ -174,5 +181,71 @@ describe('a token routed through v3', () => {
     const both = structuredClone(JSON.parse(text));
     both.assets[0].v3Pool = { pool: both.assets[0].token, fee: 500 };
     expect(AddAssetsFile.safeParse(both).success).toBe(false);
+  });
+});
+
+describe('a factory whose admin is the Safe itself (the redeploy, gate ROBINHOOD-REDEPLOY)', () => {
+  const direct = structuredClone(JSON.parse(text));
+  delete direct.timelock;
+  delete direct.delay;
+  delete direct.calls;
+  delete direct.create2;
+  const parsed = AddAssetsFile.parse(direct);
+
+  it('is listed by the Safe calling setAsset on the factory, one call per token, with no timelock call', () => {
+    const made = assetBatch(parsed);
+    expect([made.schedule, made.execute, made.scheduleHash, made.executeHash]).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
+    const calls = safeCalls(parsed);
+    expect(calls).toHaveLength(parsed.assets.length);
+    calls.forEach((c, i) => {
+      expect(c.to).toBe(parsed.factory);
+      const call = decodeFunctionData({ abi: VAULT_FACTORY_ABI, data: c.data });
+      expect(call.functionName).toBe('setAsset');
+      expect(String(call.args?.[0]).toLowerCase()).toBe(parsed.assets[i]?.token);
+    });
+    expect(() => safeCalls(file)).toThrow(/timelock/);
+  });
+
+  it('becomes one Transaction Builder file the Safe signs once', () => {
+    const made = safeBatchFile({
+      chainId: parsed.chainId,
+      safe: parsed.safe,
+      calls: safeCalls(parsed),
+      name: 'list',
+      description: 'a test',
+      createdAt: 0,
+    });
+    expect(made.transactions.map((t) => t.to)).toEqual(
+      parsed.assets.map(() => getAddress(parsed.factory)),
+    );
+    expect(made.transactions.every((t) => t.value === '0')).toBe(true);
+    expect(made.meta.checksum).toBe(safeChecksum(made));
+  });
+
+  it('is promoted on the chain’s listing alone: there is no operation to wait for', () => {
+    const [first] = parsed.assets;
+    if (!first) throw new Error('the file lists a token');
+    const configs: Record<string, `0x${string}` | null> = Object.fromEntries(
+      parsed.assets.map((a) => [a.token, null]),
+    );
+    configs[first.token] = encodeFunctionResult({
+      abi: VAULT_FACTORY_ABI,
+      functionName: 'asset',
+      result: assetConfigOf(first),
+    });
+    expect(listedAsFiled(parsed, { operationDone: true, configs })).toEqual([first.token]);
+  });
+
+  it('names a timelock with its delay, or neither, and then lists tokens only', () => {
+    expect(AddAssetsFile.safeParse({ ...direct, delay: 172_800 }).success).toBe(false);
+    expect(
+      AddAssetsFile.safeParse({ ...direct, calls: [{ target: direct.factory, data: '0x' }] })
+        .success,
+    ).toBe(false);
   });
 });

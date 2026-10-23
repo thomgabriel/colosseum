@@ -13,10 +13,12 @@ import { z } from 'zod';
 import { VAULT_FACTORY_ABI } from './generated/abi';
 import type { EvmRpc } from './rpc';
 
-// More tokens for a deployed mainnet factory, through its timelock (`contracts/script/AddAssets.s.sol` is
-// the same batch in Solidity, and holds the file to the chain). One file names the tokens; from it come
-// the one `scheduleBatch` and the one `executeBatch` the Safe sends, as files the Safe app's Transaction
-// Builder imports, and the entries the deploy record keeps under `pending` until the chain lists them.
+// More tokens for a deployed mainnet factory. One file names the tokens; from it come the calls the Safe
+// sends, as files the Safe app's Transaction Builder imports, and the entries the deploy record keeps under
+// `pending` until the chain lists them. Where the file names a timelock (the factory of 2026-10-12), the
+// Safe sends one `scheduleBatch` and, after the delay, one `executeBatch` (`contracts/script/AddAssets.s.sol`
+// is the same batch in Solidity); where it names none (the redeploy's, gate ROBINHOOD-REDEPLOY, whose admin
+// is the Safe itself), the Safe sends the `setAsset` calls to the factory itself, as one batch it signs once.
 // Nothing here sends, signs or holds a key.
 
 const Address = z
@@ -78,40 +80,48 @@ const AddedAsset = z
     message: 'a token states one route: a v4 `pool` or a `v3Pool`',
   });
 
-export const AddAssetsFile = z.looseObject({
-  chainId: z.number().int().positive(),
-  factory: Address,
-  timelock: Address,
-  safe: Address,
-  cashToken: Address,
-  /** Hashed (keccak256 of its UTF-8 bytes) into the batch's salt, so the operation's id is the file's. */
-  salt: z.string().min(1),
-  /** The timelock's delay, which `AddAssets.s.sol` holds to `getMinDelay()`. */
-  delay: z.number().int().min(172_800),
-  priceBoundBps: z.number().int().min(1).max(1_000),
-  /** When the figures in the notes were read: each block and its time. */
-  measured: z
-    .array(z.strictObject({ block: z.number().int().positive(), at: z.string().datetime() }))
-    .min(1),
-  assets: z.array(AddedAsset).min(1),
-  /** Calls after the listings, in the same batch: the registry's upgrade. Each to its own target. */
-  calls: z
-    .array(
-      z.looseObject({
-        target: Address,
-        data: z.string().regex(/^0x([0-9a-fA-F]{2})*$/),
-      }),
-    )
-    .optional(),
-  /** A contract one of the calls needs, deployed first by Arachnid's CREATE2 deployer (`AddAssets.s.sol`). */
-  create2: z
-    .looseObject({
-      address: Address,
-      salt: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
-      artifact: z.string(),
-    })
-    .optional(),
-});
+export const AddAssetsFile = z
+  .looseObject({
+    chainId: z.number().int().positive(),
+    factory: Address,
+    /** The factory's admin when it is a timelock; absent where the Safe is the admin itself. */
+    timelock: Address.optional(),
+    safe: Address,
+    cashToken: Address,
+    /** Hashed (keccak256 of its UTF-8 bytes) into the batch's salt, so the operation's id is the file's. */
+    salt: z.string().min(1),
+    /** The timelock's delay, which `AddAssets.s.sol` holds to `getMinDelay()`. With a timelock only. */
+    delay: z.number().int().min(172_800).optional(),
+    priceBoundBps: z.number().int().min(1).max(1_000),
+    /** When the figures in the notes were read: each block and its time. */
+    measured: z
+      .array(z.strictObject({ block: z.number().int().positive(), at: z.string().datetime() }))
+      .min(1),
+    assets: z.array(AddedAsset).min(1),
+    /** Calls after the listings, in the same batch: the registry's upgrade. Each to its own target. */
+    calls: z
+      .array(
+        z.looseObject({
+          target: Address,
+          data: z.string().regex(/^0x([0-9a-fA-F]{2})*$/),
+        }),
+      )
+      .optional(),
+    /** A contract one of the calls needs, deployed first by Arachnid's CREATE2 deployer (`AddAssets.s.sol`). */
+    create2: z
+      .looseObject({
+        address: Address,
+        salt: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+        artifact: z.string(),
+      })
+      .optional(),
+  })
+  .refine((f) => (f.timelock === undefined) === (f.delay === undefined), {
+    message: 'a timelock and its delay, or neither: the Safe is then the admin itself',
+  })
+  .refine((f) => f.timelock !== undefined || (f.calls === undefined && f.create2 === undefined), {
+    message: 'with no timelock the file lists tokens only',
+  });
 export type AddAssetsFile = z.infer<typeof AddAssetsFile>;
 
 export const TIMELOCK_BATCH_ABI = parseAbi([
@@ -149,15 +159,22 @@ export type AssetBatch = {
   salt: Hex;
   /** `hashOperationBatch` of the timelock: what `isOperationDone` is asked about. */
   operationId: Hex;
-  /** The call data of the Safe's two transactions, both to the timelock. */
-  schedule: Hex;
-  execute: Hex;
-  /** keccak256 of each, for a person to compare with what the Safe app shows. */
-  scheduleHash: Hex;
-  executeHash: Hex;
+  /**
+   * The call data of the Safe's two transactions, both to the timelock, and keccak256 of each, for a
+   * person to compare with what the Safe app shows. Null where the file names no timelock: the Safe
+   * then sends `payloads` to `targets` itself (`safeCalls`).
+   */
+  schedule: Hex | null;
+  execute: Hex | null;
+  scheduleHash: Hex | null;
+  executeHash: Hex | null;
 };
 
-/** One `setAsset` on the factory per token, in the file's order, then the file's calls, as one timelock operation. */
+/**
+ * One `setAsset` on the factory per token, in the file's order, then the file's calls, as one timelock
+ * operation. `operationId` is `hashOperationBatch` of those calls: with no timelock it names the batch
+ * only, for the record's `pending` entries.
+ */
 export function assetBatch(file: AddAssetsFile): AssetBatch {
   const calls = file.calls ?? [];
   const targets = [...file.assets.map(() => file.factory), ...calls.map((c) => c.target)];
@@ -185,6 +202,18 @@ export function assetBatch(file: AddAssetsFile): AssetBatch {
       [targets, values, payloads, PREDECESSOR, salt],
     ),
   );
+  if (file.timelock === undefined || file.delay === undefined)
+    return {
+      targets,
+      values,
+      payloads,
+      salt,
+      operationId,
+      schedule: null,
+      execute: null,
+      scheduleHash: null,
+      executeHash: null,
+    };
   const schedule = encodeFunctionData({
     abi: TIMELOCK_BATCH_ABI,
     functionName: 'scheduleBatch',
@@ -206,6 +235,17 @@ export function assetBatch(file: AddAssetsFile): AssetBatch {
     scheduleHash: keccak256(schedule),
     executeHash: keccak256(execute),
   };
+}
+
+/** Where the Safe is the factory's admin itself: the calls it sends, one `setAsset` per token, in order. */
+export function safeCalls(file: AddAssetsFile): { to: Hex; data: Hex }[] {
+  if (file.timelock !== undefined)
+    throw new ChainError(
+      'NotSupported',
+      'the file names a timelock: the Safe schedules through it',
+    );
+  const { targets, payloads } = assetBatch(file);
+  return targets.map((to, i) => ({ to, data: payloads[i] as Hex }));
 }
 
 // ---- the Safe app's Transaction Builder
@@ -321,6 +361,7 @@ export function recordEntryOf(a: AddAssetsFile['assets'][number], operationId: H
 
 /** What the chain answers for the file's batch and each of its tokens: read by the caller, compared here. */
 export type ListedOnChain = {
+  /** The timelock's `isOperationDone`; true where there is no timelock (each token's listing then speaks for itself). */
   operationDone: boolean;
   /** `factory.asset(token)` as raw return data, by token address; `isAsset` false is `null`. */
   configs: Record<string, Hex | null>;
@@ -367,12 +408,14 @@ export function listedAsFiled(file: AddAssetsFile, onChain: ListedOnChain): Hex[
 export async function readListed(rpc: EvmRpc, file: AddAssetsFile): Promise<ListedOnChain> {
   if ((await rpc.getChainId()) !== file.chainId)
     throw new ChainError('NotSupported', `the node is not chain ${file.chainId}`);
-  const operationDone = await rpc.readContract({
-    address: file.timelock,
-    abi: TIMELOCK_BATCH_ABI,
-    functionName: 'isOperationDone',
-    args: [assetBatch(file).operationId],
-  });
+  const operationDone =
+    file.timelock === undefined ||
+    (await rpc.readContract({
+      address: file.timelock,
+      abi: TIMELOCK_BATCH_ABI,
+      functionName: 'isOperationDone',
+      args: [assetBatch(file).operationId],
+    }));
   const configs: Record<string, Hex | null> = {};
   for (const a of file.assets) {
     const listed = await rpc.readContract({
