@@ -776,7 +776,7 @@ describe('a thread’s place in the limits and the database', () => {
   });
 
   it('lets nothing of a person’s words into a log when the database refuses a write', async () => {
-    const secret = 'what I earn is my own 5521';
+    const secret = 'what I earn is my own QZX-earned';
     // the driver's own error repeats what it was sent: this is what must never be logged
     const raw = await breaking(data.db)
       .insert(planTurns)
@@ -785,7 +785,7 @@ describe('a thread’s place in the limits and the database', () => {
         () => null,
         (e: unknown) => e as Error & { params?: unknown },
       );
-    expect(`${raw?.message} ${JSON.stringify(raw?.params)}`).toContain('5521');
+    expect(`${raw?.message} ${JSON.stringify(raw?.params)}`).toContain('QZX-earned');
 
     const logged: string[] = [];
     const broken = await testApp({
@@ -821,7 +821,7 @@ describe('a thread’s place in the limits and the database', () => {
       // and no line of the log, of any request, has a word of either turn or of the reply
       const all = logged.join('\n');
       expect(logged.length).toBeGreaterThan(2);
-      for (const word of ['5521', 'what I earn', 'said first', 'tesla', 'cantPick'])
+      for (const word of ['QZX-earned', 'what I earn', 'said first', 'tesla', 'cantPick'])
         expect(all, word).not.toContain(word);
       expect(lines(await thread(who, plan.id))).toEqual(['plan_built']);
     } finally {
