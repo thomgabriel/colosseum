@@ -174,6 +174,56 @@ export function routeOf(o: RouteOf): Uint8Array {
   ]);
 }
 
+/** What a v3 route says, field by field, for a test to change one of. Left out: what the builder writes. */
+export type RouteV3Of = {
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: bigint;
+  fee: number;
+  deadline?: bigint;
+  recipient?: string;
+  swapAmountIn?: bigint;
+  amountOutMin?: bigint;
+  /** The path's bytes. Left out: tokenIn, the fee in three bytes, tokenOut. */
+  path?: Uint8Array;
+  payerIsUser?: boolean;
+  minHopPriceX36?: bigint[];
+  commands?: number[];
+  inputs?: (input: Uint8Array) => Uint8Array[];
+};
+/** Universal Router's stand-in for its caller as a recipient (`ActionConstants.MSG_SENDER`). */
+export const MSG_SENDER = `0x${'0'.repeat(39)}1`;
+/**
+ * Universal Router call data for one `V3_SWAP_EXACT_IN` of one hop, as `swapCalldata` of
+ * packages/chain-evm builds it for an asset with a v3 pool (tests/evm-vault/v3-route.test.ts holds the
+ * guard to that builder's own bytes), with `o` on top.
+ */
+export function routeV3Of(o: RouteV3Of): Uint8Array {
+  const hexBytes = (h: string) => Uint8Array.from(Buffer.from(h.replace(/^0x/, ''), 'hex'));
+  const path =
+    o.path ??
+    Uint8Array.from([
+      ...hexBytes(o.tokenIn),
+      (o.fee >> 16) & 0xff,
+      (o.fee >> 8) & 0xff,
+      o.fee & 0xff,
+      ...hexBytes(o.tokenOut),
+    ]);
+  const input = encodeArgs(types('address', 'uint256', 'uint256', 'bytes', 'bool', 'uint256[]'), [
+    o.recipient ?? MSG_SENDER,
+    o.swapAmountIn ?? o.amountIn,
+    o.amountOutMin ?? 0n,
+    path,
+    o.payerIsUser ?? true,
+    o.minHopPriceX36 ?? [],
+  ]);
+  return call('execute(bytes,bytes[],uint256)', [
+    Uint8Array.from(o.commands ?? [0x00]),
+    o.inputs ? o.inputs(input) : [input],
+    o.deadline ?? DEADLINE,
+  ]);
+}
+
 /**
  * A trade as the vault takes it, with the route the builder writes for it: through the test
  * deployment's router, in the pool of the trade's asset (gold's for gold, SPY's otherwise), good until

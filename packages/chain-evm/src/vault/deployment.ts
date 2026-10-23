@@ -58,12 +58,20 @@ const ListedAsset = Token.extend({
   /**
    * The asset's own Uniswap v4 pool against the cash token, hookless: its fee in hundredths of a
    * basis point and its tick spacing, within Uniswap's bounds. Every trade of the asset goes
-   * through this pool and no other, and the guard's deployment file says the same pool.
+   * through this pool and no other, and the guard's deployment file says the same pool. Null for an
+   * asset whose money is in Uniswap v3: it states `v3Pool` instead (gate V3-ROUTE).
    */
-  pool: z.strictObject({
-    fee: z.number().int().min(0).max(1_000_000),
-    tickSpacing: z.number().int().min(1).max(32_767),
-  }),
+  pool: z
+    .strictObject({
+      fee: z.number().int().min(0).max(1_000_000),
+      tickSpacing: z.number().int().min(1).max(32_767),
+    })
+    .nullable(),
+  /**
+   * The asset's own Uniswap v3 pool against the cash token, for an asset with no v4 pool: its address
+   * (the v3 factory's pool of the two tokens at the fee) and its fee. One of `pool` and `v3Pool`.
+   */
+  v3Pool: z.strictObject({ pool: Address, fee: z.number().int().min(1).max(1_000_000) }).optional(),
   /**
    * The largest single trade of the asset the builder makes, in dollars: the size its pool was
    * measured to fill near its price. Null: no limit (the test network, whose pools hold a
@@ -79,6 +87,10 @@ const ListedAsset = Token.extend({
    */
   average: z.strictObject({ pool: Address, minLiquidity: Raw, usable: z.boolean() }).nullable(),
 });
+
+/** A token states one route: a v4 pool, or a v3 pool and no v4 pool. */
+const oneRoute = (a: { pool: unknown; v3Pool?: unknown }) =>
+  (a.pool === null) !== (a.v3Pool === undefined);
 
 export const EvmDeploymentRecord = z
   .strictObject({
@@ -158,7 +170,11 @@ export const EvmDeploymentRecord = z
       z.strictObject({ address: Address, pull: z.union([z.literal(1), z.literal(2)]) }),
     ),
     cash: Token,
-    assets: z.array(ListedAsset),
+    assets: z.array(
+      ListedAsset.refine(oneRoute, {
+        message: 'a token states one route: a v4 pool, or a v3 pool and no v4 pool',
+      }),
+    ),
     /**
      * Tokens the Safe has scheduled through the timelock and the chain does not list yet
      * (`contracts/script/AddAssets.s.sol`): each as it will be listed, with the timelock operation that
@@ -170,10 +186,7 @@ export const EvmDeploymentRecord = z
       .array(
         ListedAsset.extend({
           operation: z.string().regex(/^0x[0-9a-f]{64}$/),
-          /** Null for a token routed through Uniswap v3 (`v3Pool`), which no builder routes yet. */
-          pool: ListedAsset.shape.pool.nullable(),
-          v3Pool: z.strictObject({ pool: Address, fee: z.number().int().min(1) }).optional(),
-        }).refine((p) => (p.pool === null) !== (p.v3Pool === undefined), {
+        }).refine(oneRoute, {
           message: 'a pending token states one route: a v4 pool, or a v3 pool and no v4 pool',
         }),
       )
@@ -212,17 +225,16 @@ export const EvmDeploymentRecord = z
       })
       .optional(),
     /**
-     * Tokens the chain lists and the app keeps out of sight: held back (`held_back`), or traded through
-     * a Uniswap v3 pool no builder routes yet (`v3_route`). Nothing that reads the record trades, shows
-     * or holds them to anything; they are here so that what the chain lists is all reviewed.
+     * Tokens the chain lists and the app keeps out of sight (`held_back`: their pool does not meet the
+     * bar). Nothing that reads the record trades, shows or holds them to anything; they are here so
+     * that what the chain lists is all reviewed. (`v3_route`, the five whose money is in Uniswap v3,
+     * left this list when the builders learnt the v3 route, gate V3-ROUTE.)
      */
     hidden: z
       .array(
         ListedAsset.extend({
-          why: z.enum(['held_back', 'v3_route']),
-          pool: ListedAsset.shape.pool.nullable(),
-          v3Pool: z.strictObject({ pool: Address, fee: z.number().int().min(1) }).optional(),
-        }).refine((p) => (p.pool === null) !== (p.v3Pool === undefined), {
+          why: z.enum(['held_back']),
+        }).refine(oneRoute, {
           message: 'a hidden token states one route: a v4 pool, or a v3 pool and no v4 pool',
         }),
       )

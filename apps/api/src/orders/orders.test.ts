@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { view } from '@colosseum/basket';
+import { v4Pools } from '@colosseum/chain-evm/vault';
 import { mockAddress } from '@colosseum/chain-mock';
 import {
   type Attempt,
@@ -112,12 +113,7 @@ describe('the chain registry', () => {
     const robinhood = {
       rpc: {} as never,
       assets: [cash],
-      pools: {
-        quoter: '0x00000000000000000000000000000000000000cd' as const,
-        hooks: '0x0000000000000000000000000000000000000000' as const,
-        cash: cash.address as `0x${string}`,
-        byToken: {},
-      },
+      pools: v4Pools(cash.address, [], '0x00000000000000000000000000000000000000cd'),
       limits: { priceBoundBps: null, maxTradeUsd: {} },
     };
     for (const mode of ['live', 'readonly'] as const)

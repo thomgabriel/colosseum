@@ -10,6 +10,7 @@ import type {
   EvmDeployment,
   EvmPool,
   EvmRoute,
+  EvmV3Pool,
   FeeLimit,
   GuardDeployment,
   GuardDeployments,
@@ -60,10 +61,14 @@ export type EvmEntry = {
   cash: AssetId;
   /**
    * Each asset's token contract. The field is `address`: a secret scanner reads `token` as a credential.
-   * `pool` is the asset's own Uniswap v4 pool against the cash, the one its trades go through: stated
-   * for every asset but the cash wherever a router's route is `universal-router-v4`.
+   * `pool` is the asset's own Uniswap v4 pool against the cash, the one its trades go through, and
+   * `v3Pool` its Uniswap v3 pool where it has no v4 one (gate V3-ROUTE): one of the two is stated for
+   * every asset but the cash wherever a router's route is `universal-router-v4`.
    */
-  assets: Record<AssetId, { address: string; decimals: number; pool?: EvmPoolEntry }>;
+  assets: Record<
+    AssetId,
+    { address: string; decimals: number; pool?: EvmPoolEntry; v3Pool?: EvmV3PoolEntry }
+  >;
   fee?: FeeLimit;
 };
 /**
@@ -74,6 +79,8 @@ export type EvmEntry = {
 export type EvmRouteEntry = { kind: 'universal-router-v4'; hooks: string } | { kind: 'unread' };
 /** An asset's pool in a file: the fee in hundredths of a basis point, and the tick spacing. */
 export type EvmPoolEntry = { fee: number; tickSpacing: number };
+/** An asset's Uniswap v3 pool in a file: its address, and its fee in hundredths of a basis point. */
+export type EvmV3PoolEntry = { pool: string; fee: number };
 /** A chain's entry in the mock's file: the chain runs on packages/chain-mock and moves nothing. */
 export type MockEntry = { family: 'mock'; cash: AssetId; cashDecimals: number };
 
@@ -240,6 +247,17 @@ function poolOf(value: unknown, id: string): EvmPool {
   return { fee: pool.fee as number, tickSpacing: pool.tickSpacing as number };
 }
 
+/** An asset's v3 pool: its address and a fee above zero inside Uniswap's bounds, and nothing else. */
+function v3PoolOf(value: unknown, id: string): EvmV3Pool {
+  const what = `the v3 pool of ${id}`;
+  const pool = only(what, value, ['pool', 'fee']);
+  must(
+    count(pool.fee, 1) && (pool.fee as number) <= MAX_V4_FEE,
+    `the fee of ${what} is not 1 to ${MAX_V4_FEE}`,
+  );
+  return { pool: evmAddress(pool.pool, `the address of ${what}`), fee: pool.fee as number };
+}
+
 /**
  * The routes of an EVM entry: one for every router, none for anything else, each of a kind the guard
  * knows. A router with no route is refused, so no call data goes unread without the file saying so.
@@ -320,12 +338,19 @@ function evmOf(
     entry.registry === undefined ? undefined : evmAddress(entry.registry, 'the registry');
   const seen = [factory, beacon, ...routers, ...(registry ? [registry] : [])];
   const { cash, assets } = assetsOf(chain, entry, seen, (a, id) => {
-    const asset = only(`the asset ${id}`, a, ['address', 'decimals', 'pool']);
+    const asset = only(`the asset ${id}`, a, ['address', 'decimals', 'pool', 'v3Pool']);
     const token = evmAddress(asset.address, `the token of ${id}`);
     const pool = asset.pool === undefined ? undefined : poolOf(asset.pool, id);
+    const v3Pool = asset.v3Pool === undefined ? undefined : v3PoolOf(asset.v3Pool, id);
+    must(!(pool && v3Pool), `the asset ${id} states two pools: its trades go through one`);
     return {
       address: token,
-      value: { token, decimals: decimalsOf(asset.decimals, id), ...(pool ? { pool } : {}) },
+      value: {
+        token,
+        decimals: decimalsOf(asset.decimals, id),
+        ...(pool ? { pool } : {}),
+        ...(v3Pool ? { v3Pool } : {}),
+      },
     };
   });
   must(new Set(seen).size === seen.length, 'two of its addresses are the same');
@@ -333,13 +358,13 @@ function evmOf(
   // A pool is an asset's pool against the cash: the cash has none. Where a router's swaps are read,
   // every other asset states its own, so no trade is held to a pool nobody wrote down.
   must(
-    assets[cash]?.pool === undefined,
+    assets[cash]?.pool === undefined && assets[cash]?.v3Pool === undefined,
     `the cash ${cash} states a pool, and a pool is an asset's`,
   );
   if (Object.values(routes).some((r) => r.kind === 'universal-router-v4'))
     for (const [id, asset] of Object.entries(assets))
       must(
-        id === cash || asset.pool !== undefined,
+        id === cash || asset.pool !== undefined || asset.v3Pool !== undefined,
         `the asset ${id} states no pool: which pool its trades go through is not said`,
       );
   let proxyCreationCode: string | undefined;

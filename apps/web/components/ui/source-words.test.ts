@@ -71,6 +71,7 @@ const WRITTEN: ReadonlyArray<readonly [source: string, from: string]> = [
     `Uniswap v4 Quoter ${EVM} on Robinhood Chain testnet`,
     'a Uniswap quote on Robinhood Chain testnet',
   ],
+  [`Uniswap v3 pool ${EVM} on Robinhood Chain`, 'a Uniswap quote on Robinhood Chain'],
   [
     `simulation of the call on Robinhood Chain testnet, factory ${EVM}`,
     'a dry run of the transaction on Robinhood Chain testnet',

@@ -172,6 +172,46 @@
             "fee": 1000,
             "tickSpacing": 10
           }
+        },
+        "robinhood:qqq": {
+          "address": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+          "decimals": 18,
+          "v3Pool": {
+            "pool": "0xd60a5d14db690b7afad71f76b108071d7175597d",
+            "fee": 500
+          }
+        },
+        "robinhood:mu": {
+          "address": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+          "decimals": 18,
+          "v3Pool": {
+            "pool": "0xd057b1bc54917855bbee58ead58647f47cab35e5",
+            "fee": 3000
+          }
+        },
+        "robinhood:amd": {
+          "address": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+          "decimals": 18,
+          "v3Pool": {
+            "pool": "0x48d284a2a4d3dc1b3da08231fe44317e7e7aa51f",
+            "fee": 3000
+          }
+        },
+        "robinhood:intc": {
+          "address": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+          "decimals": 18,
+          "v3Pool": {
+            "pool": "0x2e5a92f5013a64661a49312111be2e8abd33f56a",
+            "fee": 3000
+          }
+        },
+        "robinhood:slv": {
+          "address": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+          "decimals": 18,
+          "v3Pool": {
+            "pool": "0x8cb787e6c315d464775289bad00fdd67d53ecb3d",
+            "fee": 3000
+          }
         }
       }
     }

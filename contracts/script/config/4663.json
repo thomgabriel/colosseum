@@ -1,5 +1,5 @@
 {
-  "about": "Robinhood Chain MAINNET (4663), the redeploy of gate ROBINHOOD-REDEPLOY (Thom, 2026-10-14). The deploy of 2026-10-12 is left as it is; this file deploys new contracts beside it. The admin and the beacon's owner is the team's 2-of-2 Safe itself (`safe`), with no timelock: the script proposes it for both and the Safe accepts both with one batch it signs (`Deploy.safeAcceptance()`, `pnpm ops:redeploy --safe-file`); until it signs, the deployer holds both. The registry is the second rules' logic (gate SHARED-RULES-V2) from the start. Listed: USDG as cash and 25 tokens. The nine of 2026-10-12 keep the values Thom confirmed that day; eleven of the twelve of WIDER-LIST were measured on 2026-10-13 and re-read on 2026-10-14; the five routed through Uniswap v3 (QQQ, MU, AMD, INTC, SLV, WIDER-LIST-B) were measured on 2026-10-14. Every token's record, sources and blocks are in contracts/script/config/4663-tokens-2026-10-14.json and docs/vault/MAINNET-WIDER-LIST.md. Six are listed on chain and kept out of the app (`hidden`): DELL held back (`held_back`), and the five v3 tokens until the app builds a v3 route (`v3_route`, with `v3Pool` in place of `pool`). SGOV dropped Oct 15: pool paid ~25% of feed for $500 at block 89,240,446 (the orchestrator, under Thom's authority). Unchanged from 2026-10-12: the guardian, the keeper off (keeperEnabled false, keeper zero, every asset's flags 0), no deposit cap, the publish delay, the app's trade limits (priceBoundBps, staleRailBps, maxTradeUsdNotLive, staleRailMaxAge), the router and the closed days. Deploying is a person's to do (scripts/mainnet/redeploy-robinhood.sh).",
+  "about": "Robinhood Chain MAINNET (4663), the redeploy of gate ROBINHOOD-REDEPLOY (Thom, 2026-10-14). The deploy of 2026-10-12 is left as it is; this file deploys new contracts beside it. The admin and the beacon's owner is the team's 2-of-2 Safe itself (`safe`), with no timelock: the script proposes it for both and the Safe accepts both with one batch it signs (`Deploy.safeAcceptance()`, `pnpm ops:redeploy --safe-file`); until it signs, the deployer holds both. The registry is the second rules' logic (gate SHARED-RULES-V2) from the start. Listed: USDG as cash and 25 tokens. The nine of 2026-10-12 keep the values Thom confirmed that day; eleven of the twelve of WIDER-LIST were measured on 2026-10-13 and re-read on 2026-10-14; the five routed through Uniswap v3 (QQQ, MU, AMD, INTC, SLV, WIDER-LIST-B) were measured on 2026-10-14. Every token's record, sources and blocks are in contracts/script/config/4663-tokens-2026-10-14.json and docs/vault/MAINNET-WIDER-LIST.md. Six were listed on chain and kept out of the app (`hidden`); since 2026-10-23 (gate V3-ROUTE) the five v3 tokens are shown and traded through their `v3Pool`, and DELL alone stays held back (`held_back`). SGOV dropped Oct 15: pool paid ~25% of feed for $500 at block 89,240,446 (the orchestrator, under Thom's authority). Unchanged from 2026-10-12: the guardian, the keeper off (keeperEnabled false, keeper zero, every asset's flags 0), no deposit cap, the publish delay, the app's trade limits (priceBoundBps, staleRailBps, maxTradeUsdNotLive, staleRailMaxAge), the router and the closed days. Deploying is a person's to do (scripts/mainnet/redeploy-robinhood.sh).",
   "chainId": 4663,
   "adminIsDeployer": false,
   "admin": "0x0000000000000000000000000000000000000000",
@@ -819,8 +819,7 @@
         "usable": true
       },
       "averageNote": "Confirmed by Thom, 2026-10-15, as proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 500, the v3 factory's own. It keeps 7200 observations, so usable is true. minLiquidity is half its liquidity in range, 227318452311090706, down to two figures.",
-      "hidden": "v3_route",
-      "hiddenNote": "v3 route: listed, not shown until the app routes v3: listed on chain at the deploy; the app shows it once it builds a route through Uniswap v3 (gate WIDER-LIST, option B)."
+      "shownNote": "Shown since 2026-10-23 (Thom, gate V3-ROUTE): the app routes it through this v3 pool with Universal Router's V3_SWAP_EXACT_IN, and the guard reads that route. App-side; nothing on chain changed."
     },
     {
       "symbol": "MU",
@@ -857,8 +856,7 @@
         "usable": true
       },
       "averageNote": "Confirmed by Thom, 2026-10-15, as proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 3000, the v3 factory's own. It keeps 14400 observations, so usable is true. minLiquidity is half its liquidity in range, 172722657102828450, down to two figures.",
-      "hidden": "v3_route",
-      "hiddenNote": "v3 route: listed, not shown until the app routes v3: listed on chain at the deploy; the app shows it once it builds a route through Uniswap v3 (gate WIDER-LIST, option B)."
+      "shownNote": "Shown since 2026-10-23 (Thom, gate V3-ROUTE): the app routes it through this v3 pool with Universal Router's V3_SWAP_EXACT_IN, and the guard reads that route. App-side; nothing on chain changed."
     },
     {
       "symbol": "AMD",
@@ -895,8 +893,7 @@
         "usable": true
       },
       "averageNote": "Confirmed by Thom, 2026-10-15, as proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 3000, the v3 factory's own. It keeps 7200 observations, so usable is true. minLiquidity is half its liquidity in range, 58834499063747176, down to two figures.",
-      "hidden": "v3_route",
-      "hiddenNote": "v3 route: listed, not shown until the app routes v3: listed on chain at the deploy; the app shows it once it builds a route through Uniswap v3 (gate WIDER-LIST, option B)."
+      "shownNote": "Shown since 2026-10-23 (Thom, gate V3-ROUTE): the app routes it through this v3 pool with Universal Router's V3_SWAP_EXACT_IN, and the guard reads that route. App-side; nothing on chain changed."
     },
     {
       "symbol": "INTC",
@@ -933,8 +930,7 @@
         "usable": true
       },
       "averageNote": "Confirmed by Thom, 2026-10-15, as proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 3000, the v3 factory's own. It keeps 14400 observations, so usable is true. minLiquidity is half its liquidity in range, 71072152419773650, down to two figures.",
-      "hidden": "v3_route",
-      "hiddenNote": "v3 route: listed, not shown until the app routes v3: listed on chain at the deploy; the app shows it once it builds a route through Uniswap v3 (gate WIDER-LIST, option B)."
+      "shownNote": "Shown since 2026-10-23 (Thom, gate V3-ROUTE): the app routes it through this v3 pool with Universal Router's V3_SWAP_EXACT_IN, and the guard reads that route. App-side; nothing on chain changed."
     },
     {
       "symbol": "SLV",
@@ -971,8 +967,7 @@
         "usable": false
       },
       "averageNote": "Confirmed by Thom, 2026-10-15, as proposed 2026-10-14. The token's Uniswap v3 pool against USDG with the most liquidity in range, fee 3000, the v3 factory's own. It keeps 1801 observations, so usable is false (an hour needs more than 3,600). minLiquidity is half its liquidity in range, 80131018153997092, down to two figures.",
-      "hidden": "v3_route",
-      "hiddenNote": "v3 route: listed, not shown until the app routes v3: listed on chain at the deploy; the app shows it once it builds a route through Uniswap v3 (gate WIDER-LIST, option B)."
+      "shownNote": "Shown since 2026-10-23 (Thom, gate V3-ROUTE): the app routes it through this v3 pool with Universal Router's V3_SWAP_EXACT_IN, and the guard reads that route. App-side; nothing on chain changed."
     }
   ],
   "routers": [

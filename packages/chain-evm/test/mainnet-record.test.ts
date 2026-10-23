@@ -270,6 +270,39 @@ describe("a mainnet record's pending tokens", () => {
   });
 });
 
+describe('a shown token whose money is in Uniswap v3 (gate V3-ROUTE)', () => {
+  const v3 = { pool: A(0x3e3), fee: 3000 };
+  const withAsset = (change: (a: Json) => void) => {
+    const record = mainnet();
+    change(record.assets[0]);
+    return EvmDeploymentRecord.safeParse(record);
+  };
+
+  it('states its v3 pool and no v4 pool, and trades in it', () => {
+    const parsed = withAsset((a) => Object.assign(a, { pool: null, v3Pool: v3 }));
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const [asset] = parsed.data.assets;
+    expect(deploymentPools(parsed.data).byToken[asset?.address ?? '']).toEqual({
+      v3Pool: v3.pool,
+      fee: 3000,
+    });
+    expect(deploymentAssets(parsed.data).map((a) => a.address)).toContain(asset?.address);
+  });
+
+  it('is refused with both pools, with neither, or with a v3 pool that is not an address', () => {
+    expect(withAsset((a) => (a.v3Pool = v3)).success).toBe(false);
+    expect(withAsset((a) => (a.pool = null)).success).toBe(false);
+    expect(
+      withAsset((a) => Object.assign(a, { pool: null, v3Pool: { ...v3, pool: 'x' } })).success,
+    ).toBe(false);
+    expect(
+      withAsset((a) => Object.assign(a, { pool: null, v3Pool: { ...v3, fee: 0 } })).success,
+    ).toBe(false);
+    expect(withAsset((a) => delete a.pool).success).toBe(false);
+  });
+});
+
 describe('the node check, for a mainnet record', () => {
   const node = (chainId: number, code: string | undefined = '0x6080') =>
     ({ getChainId: async () => chainId, getCode: async () => code }) as unknown as EvmRpc;

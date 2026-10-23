@@ -65,6 +65,10 @@ const RULES: readonly Rule[] = [
     test: /^Uniswap v4 Quoter \S+ on (.+)$/i,
     from: (m) => `a Uniswap quote on ${network(m[1])}`,
   },
+  {
+    test: /^Uniswap v3 pool \S+ on (.+)$/i,
+    from: (m) => `a Uniswap quote on ${network(m[1])}`,
+  },
   { test: /^test exchange\b/i, from: 'the test network’s exchange' },
   {
     test: /^simulation of the (?:call|transaction) on ([^,]+)/i,

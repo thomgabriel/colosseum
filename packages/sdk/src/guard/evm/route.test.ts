@@ -12,12 +12,16 @@ import {
   evmDeployment,
   evmTx,
   GOLD_POOL,
+  MSG_SENDER,
   now,
   OWNER,
   POOL,
   ROUTER,
   type RouteOf,
+  type RouteV3Of,
   routeOf,
+  routeV3Of,
+  STRANGER,
   swapOf,
   tokenOf,
   VAULT,
@@ -28,9 +32,10 @@ import { hexDecode, hexEncode } from '../../bytes';
 import { type DeploymentFile, deploymentsOf } from '../deployment';
 import { guardTransaction } from '../index';
 import type { GuardCheck } from '../refusal';
-import type { ApprovedStep, EvmDeployment, GuardInput, Loaded } from '../types';
+import type { ApprovedStep, ApprovedTrade, EvmDeployment, GuardInput, Loaded } from '../types';
 import { evmVaultAddress } from './addresses';
 import {
+  readV3ExactIn,
   readV4SingleSwap,
   UNIVERSAL_ROUTER_EXECUTE,
   UNIVERSAL_ROUTER_EXECUTE_SELECTOR,
@@ -697,6 +702,8 @@ describe("the guard on EVM: the builder's own bytes, against the committed deplo
     expect(others.length).toBeGreaterThan(0);
     let differing = 0;
     for (const [id, asset] of others) {
+      // A token whose pool is a v3 pool has the v3 route, held below.
+      if (asset.v3Pool) continue;
       const through = (pool: { fee: number; tickSpacing: number } | undefined) => {
         const own = { sell: 'robinhood:usdg', buy: id, inRaw: v.amountIn, minOutRaw: '1' };
         const ownStep: ApprovedStep = { ...base, kind: 'swap', trades: [own] };
@@ -776,5 +783,207 @@ describe("the guard on EVM: the builder's own bytes, against the committed deplo
       ),
     );
     expect(refusal?.code).toBe('route');
+  });
+});
+
+// Gate V3-ROUTE: five of mainnet's tokens have their money in Uniswap v3, and trade through one
+// `V3_SWAP_EXACT_IN` of Universal Router. The guard holds that route to exactly what the builder writes
+// (tests/evm-vault/v3-route.test.ts runs the builder's own bytes through it), and refuses every other.
+describe("the guard on EVM: a token whose pool is a v3 pool, on mainnet's file", () => {
+  afterEach(() => vi.useRealTimers());
+  const committed = readDeploymentFiles().mainnet as DeploymentFile;
+  const live = withFile(committed, () => deploymentsOf('mainnet'))
+    .robinhood as Loaded<EvmDeployment>;
+  const cash = live.assets[live.cash]?.token ?? '';
+  const qqq = live.assets['robinhood:qqq'];
+  const nvda = live.assets['robinhood:nvda'];
+  const [router] = live.routers;
+  const amountIn = 1_000_000_000n;
+
+  /** The guard's word on a buy of `asset` whose route is `route`; null where it passes. */
+  const guardOn = (asset: string, route: Uint8Array, trade?: Partial<ApprovedTrade>) => {
+    const token = live.assets[asset]?.token ?? '';
+    const t = { sell: live.cash, buy: asset, inRaw: String(amountIn), minOutRaw: '1', ...trade };
+    const step: ApprovedStep = { ...base, kind: 'swap', trades: [t] };
+    vi.useFakeTimers();
+    vi.setSystemTime(Number(DEADLINE - 300n) * 1000);
+    const tx = evmTx(
+      step,
+      {
+        to: evmVaultAddress(live, OWNER, BASKET_ID),
+        data: calls.ownerSwap([[router ?? '', cash, token, amountIn, 1n, route]], DEADLINE),
+        chainId: 4663,
+      },
+      {},
+    );
+    return refusalOf(() =>
+      guardTransaction({
+        step,
+        tx: { ...tx, provenance: 'live', preview: { ...tx.preview, provenance: 'live' } },
+        deployment: live,
+        consents: [],
+      }),
+    );
+  };
+  const buyQqq = (o: Partial<RouteV3Of> = {}) =>
+    routeV3Of({ tokenIn: cash, tokenOut: qqq?.token ?? '', amountIn, fee: 500, ...o });
+
+  it('lists the five with their v3 pool and no v4 one', () => {
+    const v3 = Object.entries(live.assets)
+      .filter(([, a]) => a.v3Pool)
+      .map(([id, a]) => [id, a.v3Pool?.fee, a.pool]);
+    expect(v3).toEqual([
+      ['robinhood:qqq', 500, undefined],
+      ['robinhood:mu', 3000, undefined],
+      ['robinhood:amd', 3000, undefined],
+      ['robinhood:intc', 3000, undefined],
+      ['robinhood:slv', 3000, undefined],
+    ]);
+    expect(live.assets['robinhood:dell']).toBeUndefined();
+  });
+
+  it("reads the builder's shape back field by field", () => {
+    expect(readV3ExactIn(buyQqq())).toEqual({
+      deadline: DEADLINE,
+      recipient: MSG_SENDER,
+      amountIn,
+      amountOutMin: 0n,
+      tokenIn: cash.toLowerCase(),
+      fee: 500n,
+      tokenOut: qqq?.token.toLowerCase(),
+      payerIsUser: true,
+      minHopPriceX36: [],
+    });
+  });
+
+  it("passes the builder's shape, a buy and a sale, in the asset's own v3 pool", () => {
+    expect(guardOn('robinhood:qqq', buyQqq())?.message ?? null).toBeNull();
+    const sale = (() => {
+      const t = {
+        sell: 'robinhood:qqq',
+        buy: live.cash,
+        inRaw: '1000000000000000000',
+        minOutRaw: '1',
+      };
+      const step: ApprovedStep = { ...base, kind: 'swap', trades: [t] };
+      vi.useFakeTimers();
+      vi.setSystemTime(Number(DEADLINE - 300n) * 1000);
+      const route = routeV3Of({
+        tokenIn: qqq?.token ?? '',
+        tokenOut: cash,
+        amountIn: 10n ** 18n,
+        fee: 500,
+      });
+      const tx = evmTx(step, {
+        to: evmVaultAddress(live, OWNER, BASKET_ID),
+        data: calls.ownerSwap(
+          [[router ?? '', qqq?.token ?? '', cash, 10n ** 18n, 1n, route]],
+          DEADLINE,
+        ),
+        chainId: 4663,
+      });
+      return refusalOf(() =>
+        guardTransaction({
+          step,
+          tx: { ...tx, provenance: 'live', preview: { ...tx.preview, provenance: 'live' } },
+          deployment: live,
+          consents: [],
+        }),
+      );
+    })();
+    expect(sale?.message ?? null).toBeNull();
+  });
+
+  const negatives: [string, Uint8Array, GuardCheck][] = [
+    ['another fee: another v3 pool of the same two tokens', buyQqq({ fee: 3000 }), 'route'],
+    ['the output to someone else', buyQqq({ recipient: STRANGER }), 'route'],
+    ['the output to the router itself', buyQqq({ recipient: `0x${'0'.repeat(39)}2` }), 'route'],
+    ['paid by the router, not the vault', buyQqq({ payerIsUser: false }), 'route'],
+    ['a smaller amount than the trade', buyQqq({ swapAmountIn: amountIn - 1n }), 'amount'],
+    ["the router's own minimum", buyQqq({ amountOutMin: 1n }), 'minimum'],
+    ['a per-hop floor', buyQqq({ minHopPriceX36: [1n] }), 'minimum'],
+    ['another deadline', buyQqq({ deadline: DEADLINE + 1n }), 'deadline'],
+    [
+      'the path the other way round',
+      routeV3Of({ tokenIn: qqq?.token ?? '', tokenOut: cash, amountIn, fee: 500 }),
+      'asset',
+    ],
+    [
+      'a second hop, through another token',
+      buyQqq({
+        path: hexDecode(
+          `0x${cash.slice(2)}0001f4${(nvda?.token ?? '').slice(2)}0001f4${(qqq?.token ?? '').slice(2)}`,
+        ),
+      }),
+      'route',
+    ],
+    [
+      'a v4 swap for a v3 token',
+      routeOf({ tokenIn: cash, tokenOut: qqq?.token ?? '', amountIn }),
+      'route',
+    ],
+    ['two commands', buyQqq({ commands: [0x00, 0x00], inputs: (i) => [i, i] }), 'route'],
+    ['the command that may fail', buyQqq({ commands: [0x80] }), 'route'],
+    [
+      'a byte left over in the input',
+      buyQqq({ inputs: (i) => [Uint8Array.from([...i, 0])] }),
+      'route',
+    ],
+    ['more than the trade sells', buyQqq({ swapAmountIn: amountIn + 1n }), 'amount'],
+    [
+      "the router's whole balance (CONTRACT_BALANCE)",
+      buyQqq({ swapAmountIn: 1n << 255n }),
+      'amount',
+    ],
+    ['the output to the zero address', buyQqq({ recipient: ZERO_ADDRESS }), 'route'],
+    [
+      'the output to the vault by its own address',
+      buyQqq({ recipient: evmVaultAddress(live, OWNER, BASKET_ID) }),
+      'route',
+    ],
+    ["the router's minimum set to the trade's", buyQqq({ amountOutMin: 1n }), 'minimum'],
+  ];
+  it.each(negatives)('refuses %s', (_, route, code) => {
+    expect(guardOn('robinhood:qqq', route)?.code).toBe(code);
+  });
+
+  it('refuses a sale through another fee', () => {
+    const t = {
+      sell: 'robinhood:qqq',
+      buy: live.cash,
+      inRaw: '1000000000000000000',
+      minOutRaw: '1',
+    };
+    const step: ApprovedStep = { ...base, kind: 'swap', trades: [t] };
+    vi.useFakeTimers();
+    vi.setSystemTime(Number(DEADLINE - 300n) * 1000);
+    const route = routeV3Of({
+      tokenIn: qqq?.token ?? '',
+      tokenOut: cash,
+      amountIn: 10n ** 18n,
+      fee: 3000,
+    });
+    const tx = evmTx(step, {
+      to: evmVaultAddress(live, OWNER, BASKET_ID),
+      data: calls.ownerSwap(
+        [[router ?? '', qqq?.token ?? '', cash, 10n ** 18n, 1n, route]],
+        DEADLINE,
+      ),
+      chainId: 4663,
+    });
+    const refusal = refusalOf(() =>
+      guardTransaction({
+        step,
+        tx: { ...tx, provenance: 'live', preview: { ...tx.preview, provenance: 'live' } },
+        deployment: live,
+        consents: [],
+      }),
+    );
+    expect(refusal?.code).toBe('route');
+  });
+
+  it('refuses the v3 command for a token whose pool is a v4 pool', () => {
+    const route = routeV3Of({ tokenIn: cash, tokenOut: nvda?.token ?? '', amountIn, fee: 100 });
+    expect(guardOn('robinhood:nvda', route)?.code).toBe('route');
   });
 });
