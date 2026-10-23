@@ -65,7 +65,7 @@ What the call sets, in the struct's order: feed `0x27C7…5B67`, token decimals 
 
 Before the Safe signs (this pull request): GME is under `pending` in `deployments/robinhood-mainnet.json`, with the batch's id. Nothing that trades, shows or limits reads `pending`, and the guard's file does not name it.
 
-After the Safe's transaction lands (a second pull request, opened then): `pnpm ops:add-assets --status --rpc-env ROBINHOOD_RPC_URL` must say "GME listed as the file says"; then `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads the factory's `asset(GME)`, refuses any other settings than the file's, and moves GME from `pending` to `hidden` (`v3_route`). The guard's file and `basket_assets` do not change: a hidden token has no row and the guard refuses a trade in it. Both change only when the app builds the v3 route, with the other five v3 tokens.
+After the Safe's transaction lands (a second pull request, opened then; prepared on branch `evm/list-13-promote`, whose record is exactly what `--promote` writes): `pnpm ops:add-assets --status --rpc-env ROBINHOOD_RPC_URL` must say "GME listed as the file says"; then `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads the factory's `asset(GME)`, refuses any other settings than the file's, and moves GME from `pending` to `hidden` (`v3_route`). The guard's file and `basket_assets` do not change: a hidden token has no row and the guard refuses a trade in it. Both change only when the app builds the v3 route, with the other five v3 tokens.
 
 ## For the signers
 
