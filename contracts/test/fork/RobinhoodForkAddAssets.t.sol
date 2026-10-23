@@ -90,6 +90,42 @@ contract RobinhoodForkAddAssetsTest is Test {
         script.check();
     }
 
+    /// Gate LIST-13: the redeploy's factory, whose admin is the Safe itself. The Safe sends the batch's calls
+    /// to the factory, exactly the bytes of `4663-assets-3.safe.json`; nobody else can; then every token is
+    /// listed as the file says and a vault trades each one through its own route within the bound.
+    function test_fork_theSafeListsTheRedeploysTokens_andEachTradesWithinTheBound() public onFork {
+        vm.pauseGasMetering();
+        AddAssets.File memory f = script.readFile("script/config/4663-assets-3.json");
+        assertEq(f.timelock, address(0), "no timelock: the Safe is the admin");
+        script.checkFile(f);
+        (address[] memory targets,, bytes[] memory payloads) = script.batch(f);
+        string memory safeFile = vm.readFile("script/config/4663-assets-3.safe.json");
+        for (uint256 i; i < targets.length; ++i) {
+            string memory tx_ = string.concat(".transactions[", vm.toString(i), "]");
+            assertEq(vm.parseJsonAddress(safeFile, string.concat(tx_, ".to")), targets[i], "the Safe file's target");
+            assertEq(vm.parseJsonBytes(safeFile, string.concat(tx_, ".data")), payloads[i], "the Safe file's bytes");
+            vm.prank(makeAddr("stranger"));
+            (bool refused,) = targets[i].call(payloads[i]);
+            assertFalse(refused, "a stranger cannot list a token");
+        }
+        assertFalse(
+            vm.keyExistsJson(safeFile, string.concat(".transactions[", vm.toString(targets.length), "]")),
+            "the Safe file holds the batch's calls and nothing more"
+        );
+        for (uint256 i; i < targets.length; ++i) {
+            vm.prank(f.safe);
+            vm.resumeGasMetering();
+            uint256 before = gasleft();
+            (bool ok,) = targets[i].call(payloads[i]);
+            uint256 used = before - gasleft();
+            vm.pauseGasMetering();
+            assertTrue(ok, "the Safe lists the token");
+            emit log_named_uint("gas, one setAsset", used);
+        }
+        vm.setEnv("ADD_ASSETS_CONFIG", "script/config/4663-assets-3.json");
+        script.check();
+    }
+
     function test_fork_theFileRefusesAToken_alreadyListed() public onFork {
         vm.pauseGasMetering();
         AddAssets.File memory f = script.readFile("script/config/4663-assets-2.json");
