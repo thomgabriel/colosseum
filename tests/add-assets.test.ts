@@ -123,7 +123,6 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
       expect([a.flags, a.minPrice, a.maxPrice], a.symbol).toEqual([0, 0, 0]);
       expect(a.maxTradeUsd, a.symbol).toBeGreaterThanOrEqual(1_000);
       expect(a.maxWeightBps % 50, a.symbol).toBe(0);
-      // A v3 token is kept out of the app until it builds that route, and the file says so.
       // Gate V3-ROUTE: a v3 token is shown once listed, so the file holds none back.
       expect(a.heldBack, a.symbol).toBeUndefined();
     }
