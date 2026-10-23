@@ -2,7 +2,7 @@
 
 Thom and Rodrigo asked on 2026-10-23 for thirteen more stock tokens on the redeploy's factory ([`MAINNET-REDEPLOY.md`](MAINNET-REDEPLOY.md)): AMC, COST, DJT, GLXY, GME, HIMS, LLY, MRNA, RBLX, RDDT, SNAP, SNDK, TTWO. Measured read-only on the same day. Nothing was sent, signed or proposed: the Safe's two owners list what passes with one batch they sign in the Safe app.
 
-**One passes: GME**, through its Uniswap v3 pool. It is listed on chain by the batch and kept out of the app until the app builds a v3 route, as QQQ, MU, AMD, INTC and SLV are. **Twelve do not**: eleven have no Chainlink feed on the chain, and SNDK's pools cost more than 1% at $1,000.
+**One passes: GME**, through its Uniswap v3 pool. Once the batch lists it, the app trades and shows it through the v3 route, as QQQ, MU, AMD, INTC and SLV (gate `V3-ROUTE`). **Twelve do not**: eleven have no Chainlink feed on the chain, and SNDK's pools cost more than 1% at $1,000.
 
 ## Source and read time
 
@@ -17,7 +17,7 @@ A Friday, in session. The raw reads are in `fixtures/risk-evm/robinhood-list-13-
 
 ## The bar
 
-Unchanged from `WIDER-LIST` and `WIDER-LIST-B` ([`MAINNET-WIDER-LIST.md`](MAINNET-WIDER-LIST.md), "The bar"): a live Chainlink feed that names its aggregator, 8 decimals; a hookless Uniswap v4 pool against USDG, or else a Uniswap v3 pool (then listed and hidden until the app routes v3), that fills $1,000 each way for 1% or less with its mid within 2% of the feed; on a fork, a vault on the live factory buys $500 and sells half back within 2% of the feed. `maxTradeUsd` is the largest size asked at 1% or less each way, every smaller size too; `maxWeightBps` is DESIGN-VAULT section 6 on the pool's sale capacity; `average` is the deepest v3 pool against USDG keeping more than 3,600 observations. Session 1 and `maxAge` 93,600 s, as every Robinhood stock (their feeds are the same product, "us_equities_24/5", heartbeat 86,400 s). Keeper off.
+Unchanged from `WIDER-LIST` and `WIDER-LIST-B` ([`MAINNET-WIDER-LIST.md`](MAINNET-WIDER-LIST.md), "The bar"): a live Chainlink feed that names its aggregator, 8 decimals; a hookless Uniswap v4 pool against USDG, or else a Uniswap v3 pool (traded through the v3 route, `V3-ROUTE`), that fills $1,000 each way for 1% or less with its mid within 2% of the feed; on a fork, a vault on the live factory buys $500 and sells half back within 2% of the feed. `maxTradeUsd` is the largest size asked at 1% or less each way, every smaller size too; `maxWeightBps` is DESIGN-VAULT section 6 on the pool's sale capacity; `average` is the deepest v3 pool against USDG keeping more than 3,600 observations. Session 1 and `maxAge` 93,600 s, as every Robinhood stock (their feeds are the same product, "us_equities_24/5", heartbeat 86,400 s). Keeper off.
 
 ## GME
 
@@ -30,7 +30,7 @@ Unchanged from `WIDER-LIST` and `WIDER-LIST-B` ([`MAINNET-WIDER-LIST.md`](MAINNE
 | Cost, in / out | $1,000 0.12% / 0.12%; $5,000 0.42% / 0.41%; $10,000 0.81% / 0.81%; $25,000 2.07% / 4.44% |
 | Largest trade | $10,000 |
 | Ceiling | 500 bps (capacity $10,000) |
-| Average | the same pool, 3,601 observations (growing to 4,101), `observe([3600, 0])` answers: usable, at the edge. `minLiquidity` 130,000,000,000,000,000 |
+| Average | the same pool, 4,101 observations (re-read at block 96,171,268, 19:08 UTC; 3,601 at the measured block), `observe([3600, 0])` answers: usable. `minLiquidity` 130,000,000,000,000,000 |
 
 The deeper v3 pool (fee 10000, `0xe971…2fdf`) costs 1.02% at $1,000 and keeps 1,860 observations, so it is neither the route nor the average.
 
@@ -65,7 +65,7 @@ What the call sets, in the struct's order: feed `0x27C7…5B67`, token decimals 
 
 Before the Safe signs (this pull request): GME is under `pending` in `deployments/robinhood-mainnet.json`, with the batch's id. Nothing that trades, shows or limits reads `pending`, and the guard's file does not name it.
 
-After the Safe's transaction lands (a second pull request, opened then; prepared on branch `evm/list-13-promote`, whose record is exactly what `--promote` writes): `pnpm ops:add-assets --status --rpc-env ROBINHOOD_RPC_URL` must say "GME listed as the file says"; then `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads the factory's `asset(GME)`, refuses any other settings than the file's, and moves GME from `pending` to `hidden` (`v3_route`). The guard's file and `basket_assets` do not change: a hidden token has no row and the guard refuses a trade in it. Both change only when the app builds the v3 route, with the other five v3 tokens.
+After the Safe's transaction lands (a second pull request, opened then; prepared on branch `evm/list-13-promote`, whose record is exactly what `--promote` writes): `pnpm ops:add-assets --status --rpc-env ROBINHOOD_RPC_URL` must say "GME listed as the file says"; then `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads the factory's `asset(GME)`, refuses any other settings than the file's, and moves GME from `pending` to the record's `assets` with its `v3Pool` and into the guard's file, exactly as QQQ is, and regenerates the guard's tables. Then the hosted `basket_assets` gets GME's row (`scripts/robinhood/basket-assets.ts deployments/robinhood-mainnet.json`, a person applies it) before the API's next deploy, and `GET /v1/config` must show `"missingAssets":[]` for `robinhood`.
 
 ## For the signers
 

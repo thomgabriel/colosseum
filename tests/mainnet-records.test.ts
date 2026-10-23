@@ -359,27 +359,32 @@ describe('the records of the redeploy, whose Safe holds the keys itself (ROBINHO
     expect(parseRecord(JSON.stringify(built.record)).safe?.address).toBe(record.roles.admin);
   });
 
-  it('show 19 tokens and keep the six the app does not show apart, with their route', () => {
-    const record = EvmDeploymentRecord.parse(
-      buildRecords({ broadcast: redeploy, config: file, guard }).record,
-    );
-    expect(record.assets).toHaveLength(19);
-    expect((record.hidden ?? []).map((h) => [h.symbol, h.why])).toEqual([
-      ['DELL', 'held_back'],
-      ['QQQ', 'v3_route'],
-      ['MU', 'v3_route'],
-      ['AMD', 'v3_route'],
-      ['INTC', 'v3_route'],
-      ['SLV', 'v3_route'],
-    ]);
-    for (const h of record.hidden ?? []) expect(h.why === 'v3_route').toBe(h.pool === null);
-    // The guard's file signs trades in the shown tokens alone.
+  it('show 24 tokens, the v3 five with their v3 pool, and keep DELL apart, as the committed files do', () => {
     const built = buildRecords({ broadcast: redeploy, config: file, guard });
+    const record = EvmDeploymentRecord.parse(built.record);
+    expect(record.assets).toHaveLength(24);
+    expect((record.hidden ?? []).map((h) => [h.symbol, h.why])).toEqual([['DELL', 'held_back']]);
+    // The five whose money is in Uniswap v3 are shown with their v3 pool and no v4 one (V3-ROUTE).
+    expect(record.assets.filter((a) => a.v3Pool).map((a) => [a.symbol, a.pool])).toEqual([
+      ['QQQ', null],
+      ['MU', null],
+      ['AMD', null],
+      ['INTC', null],
+      ['SLV', null],
+    ]);
+    // What the committed record and guard's file say of the tokens is what the deploy file makes.
+    const committed = JSON.parse(read('deployments/robinhood-mainnet.json'));
+    expect(built.record.assets).toEqual(committed.assets);
+    expect(built.record.hidden).toEqual(committed.hidden);
+    expect((built.guard as Json).chains.robinhood.assets).toEqual(
+      JSON.parse(read('packages/sdk/deployments/mainnet.json')).chains.robinhood.assets,
+    );
+    // The guard's file signs trades in the shown tokens alone.
     const rows = Object.keys((built.guard as Json).chains.robinhood.assets);
-    expect(rows).toHaveLength(20);
+    expect(rows).toHaveLength(25);
+    expect(rows).toContain('robinhood:qqq');
     expect(rows).toContain('robinhood:cbbtc');
     expect(rows).not.toContain('robinhood:dell');
-    expect(rows).not.toContain('robinhood:qqq');
   });
 
   it('refuse a broadcast whose deploy proposed the keys to another than the file’s Safe', () => {

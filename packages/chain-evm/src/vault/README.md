@@ -8,7 +8,7 @@ One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network
 |---|---|
 | `adapter.ts` | `createEvmVaultAdapter`: every builder of DESIGN-VAULT 3.2, `quote`, and `buildCancelPending` |
 | `compose.ts` | One transaction from a builder's call: `eth_simulateV1` with its transfers traced, the refusal a revert maps to, gas, fee, nonce, preview, message hash |
-| `routes.ts` | The route: Uniswap's v4 Quoter for a quote, Universal Router call data for a swap, each in the traded asset's own pool (`V4Pools`, `poolOf`) |
+| `routes.ts` | The route: Universal Router call data for a swap in the traded asset's own pool (`V4Pools`, `poolOf`), a v4 pool's priced by Uniswap's v4 Quoter, a v3 pool's (gate `V3-ROUTE`) by an exact-input swap of the read-only quoter in `cl-quoter.ts`, put in place for the call by a state override |
 | `trade-limits.ts` | What an owner's trade is held to before it is built: the pool's quote within the record's `priceBoundBps` of the asset's Chainlink price, a fresh feed, a minimum no lower than the feed's worth less the bound, and the asset's `maxTradeUsd` (`holdTrade`, `deploymentLimits(record)`) |
 | `send.ts` | The probe (`TxProbe`): `messageHashOf`, `relay`, `carries`, `fate`, `nonceOf`. Key-free |
 | `reader.ts` | `createEvmVaultReader`: vaults, prices, holdings, funding, `track`, the platform's settings, each asset's settings |
@@ -65,12 +65,12 @@ One codebase for every EVM chain. The adapter takes a `ChainConfig` (its network
   cash: { id, symbol, name, address, decimals },
   assets: [{ id, symbol, name, address, decimals, modelOf, kind, feed, feedDecimals, averageFeed (zero address for none),
              maxAge, session: 0 | 1, maxWeightBps, keeperOn, range: { minPrice, maxPrice } | null,
-             pool: { fee, tickSpacing }, maxTradeUsd | null,
+             pool: { fee, tickSpacing } | null, v3Pool?: { pool, fee }, maxTradeUsd | null,
              average: { pool, minLiquidity, usable } | null }],
   retired: [{ id | null, symbol | null, address }] }
 ```
 
-`pool` is the asset's own Uniswap v4 pool against the cash, hookless: the one pool its trades go through (`deploymentPools(record)`), stated for each asset even where a network's pools are all one shape, as on 46630 (fee 500, tick spacing 10). `priceWriter` is who writes the test price feeds, `tokenIssuer` who mints, schedules multipliers on and pauses the test tokens, `sequencerFeed` what the factory's `sequencerFeed()` names; each is null where the network's own are used.
+`pool` is the asset's own Uniswap v4 pool against the cash, hookless: the one pool its trades go through (`deploymentPools(record)`), stated for each asset even where a network's pools are all one shape, as on 46630 (fee 500, tick spacing 10). An asset whose money is in Uniswap v3 states `pool: null` and `v3Pool` (its address and fee) instead, one of the two (gate `V3-ROUTE`): its trades are one `V3_SWAP_EXACT_IN` through the same router, and the v3 pool must be the v3 factory's pool of the two tokens at the fee (`v3PoolAddress`, `ROBINHOOD_V3`), the one the router swaps in. `hidden` keeps a token the chain lists and the app does not show (`held_back`). `priceWriter` is who writes the test price feeds, `tokenIssuer` who mints, schedules multipliers on and pauses the test tokens, `sequencerFeed` what the factory's `sequencerFeed()` names; each is null where the network's own are used.
 
 `assertNode(rpc, record)` at start: the node's chain id is the record's, a mainnet's only for a mainnet's own record, and the factory has code. A local copy of an EVM mainnet runs under its own chain id: the `local` presets are 31337 for Robinhood Chain and 31338 for Base (`LOCAL_EVM_CHAIN_IDS`), started with `anvil --chain-id`. A signature made for 4663 or 8453 is good on mainnet.
 

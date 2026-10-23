@@ -139,8 +139,8 @@ export function buildRecords(input: {
       maxPrice: number | string;
       pool?: { fee: number; tickSpacing: number };
       v3Pool?: { pool: string; fee: number };
-      /** Listed on chain and kept out of the app: `held_back`, or `v3_route` until a v3 route is built. */
-      hidden?: 'held_back' | 'v3_route';
+      /** Listed on chain and kept out of the app: `held_back`, while its pool does not meet the bar. */
+      hidden?: 'held_back';
       symbol?: string;
       name?: string;
       kind?: string;
@@ -155,7 +155,12 @@ export function buildRecords(input: {
         cash: string;
         assets: Record<
           string,
-          { address: string; decimals: number; pool?: { fee: number; tickSpacing: number } }
+          {
+            address: string;
+            decimals: number;
+            pool?: { fee: number; tickSpacing: number };
+            v3Pool?: { pool: string; fee: number };
+          }
         >;
       };
     };
@@ -374,14 +379,17 @@ export function buildRecords(input: {
     .map((a) => {
       // A token the guard's file does not list yet is added to it from the deploy file, by the symbol the
       // file states (the redeploy's new tokens); one it lists is held to the file.
+      if (!a.pool === !a.v3Pool)
+        fail(`${a.symbol ?? a.token}: the deploy file states one route, a v4 pool or a v3 pool`);
       const row =
         byAddress.get(lower(a.token)) ??
-        (a.symbol && a.pool
+        (a.symbol
           ? {
               id: `robinhood:${a.symbol.toLowerCase()}`,
               address: a.token,
               decimals: a.tokenDecimals,
-              pool: { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing },
+              ...(a.pool ? { pool: { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing } } : {}),
+              ...(a.v3Pool ? { v3Pool: { pool: lower(a.v3Pool.pool), fee: a.v3Pool.fee } } : {}),
             }
           : fail(
               `the guard's file lists no token at ${a.token}, and the deploy file names no symbol for it`,
@@ -391,9 +399,14 @@ export function buildRecords(input: {
         fail(
           `${symbol}: the guard's file says ${row.decimals} decimals and the deploy file ${a.tokenDecimals}`,
         );
-      if (!a.pool) fail(`${symbol}: the deploy file states no pool`);
-      if (!row.pool || row.pool.fee !== a.pool?.fee || row.pool.tickSpacing !== a.pool?.tickSpacing)
-        fail(`${symbol}: the guard's file and the deploy file name different pools`);
+      const samePool = a.pool
+        ? row.pool?.fee === a.pool.fee &&
+          row.pool?.tickSpacing === a.pool.tickSpacing &&
+          row.v3Pool === undefined
+        : row.pool === undefined &&
+          lower(row.v3Pool?.pool ?? '') === lower(a.v3Pool?.pool ?? '') &&
+          row.v3Pool?.fee === a.v3Pool?.fee;
+      if (!samePool) fail(`${symbol}: the guard's file and the deploy file name different pools`);
       const known =
         KINDS[symbol] ?? (a.name && a.kind ? { name: a.name, kind: a.kind } : undefined);
       if (!known)
@@ -417,7 +430,9 @@ export function buildRecords(input: {
         maxWeightBps: a.maxWeightBps,
         keeperOn: (a.flags & 1) === 1,
         range: ranged ? { minPrice: String(a.minPrice), maxPrice: String(a.maxPrice) } : null,
-        pool: { fee: a.pool?.fee, tickSpacing: a.pool?.tickSpacing },
+        // An asset whose money is in Uniswap v3 states its v3 pool and no v4 one (gate V3-ROUTE).
+        pool: a.pool ? { fee: a.pool.fee, tickSpacing: a.pool.tickSpacing } : null,
+        ...(a.v3Pool ? { v3Pool: { pool: lower(a.v3Pool.pool), fee: a.v3Pool.fee } } : {}),
         maxTradeUsd: a.maxTradeUsd ?? null,
         average: a.average
           ? {
@@ -439,7 +454,8 @@ export function buildRecords(input: {
     guardAssets[a.id] = {
       address: byAddress.get(a.address)?.address ?? a.address,
       decimals: a.decimals,
-      pool: a.pool,
+      ...(a.pool ? { pool: a.pool } : {}),
+      ...(a.v3Pool ? { v3Pool: a.v3Pool } : {}),
     };
 
   const record: Json = {

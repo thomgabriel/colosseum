@@ -62,14 +62,21 @@ describe('the tokens the Safe lists after the deploy', () => {
     expect(promote(record, guard, []).moved).toEqual([]);
   });
 
-  it('leave a held-back token and a v3-routed one pending when the chain lists them', () => {
+  it('leave a held-back token pending when the chain lists it, and move a v3-routed one with its v3 pool', () => {
     const all = record.pending.map((p: { address: string }) => p.address);
     const held = file.assets.filter((a) => a.heldBack !== undefined).map((a) => a.symbol);
     const next = promote(record, guard, all, held);
     const left = (next.record.pending as { symbol: string; pool: unknown }[]).map((p) => p.symbol);
     for (const symbol of held) expect(left, symbol).toContain(symbol);
-    for (const a of file.assets.filter((x) => x.v3Pool !== undefined))
-      expect(left, a.symbol).toContain(a.symbol);
+    // Gate V3-ROUTE: the builders route v3, so a v3-routed token is shown once listed.
+    for (const a of file.assets.filter((x) => x.v3Pool !== undefined)) {
+      expect(next.moved, a.symbol).toContain(a.symbol);
+      expect(next.guard.chains.robinhood.assets[`robinhood:${a.symbol.toLowerCase()}`]).toEqual({
+        address: a.token,
+        decimals: a.tokenDecimals,
+        v3Pool: a.v3Pool,
+      });
+    }
     expect(next.moved.length + left.length).toBe(record.pending.length);
     EvmDeploymentRecord.parse(next.record);
   });
@@ -117,7 +124,8 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
       expect(a.maxTradeUsd, a.symbol).toBeGreaterThanOrEqual(1_000);
       expect(a.maxWeightBps % 50, a.symbol).toBe(0);
       // A v3 token is kept out of the app until it builds that route, and the file says so.
-      if (a.v3Pool) expect(a.hidden, a.symbol).toBe('v3_route');
+      // Gate V3-ROUTE: a v3 token is shown once listed, so the file holds none back.
+      expect(a.heldBack, a.symbol).toBeUndefined();
     }
   });
 
@@ -138,7 +146,7 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
     expect(() => safeFiles(list, 'x')).toThrow(/no timelock/);
   });
 
-  it('once listed, a v3 token moves to hidden, never to the guard’s file, and the record still reads', () => {
+  it('once listed, move into the record’s assets and the guard’s file with their v3 pool, as QQQ', () => {
     const next = promote(
       now,
       guardNow,
@@ -146,13 +154,24 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
       [],
       true,
     );
-    expect(next.moved).toEqual([]);
-    expect(next.hidden).toEqual(list.assets.map((a) => a.symbol));
+    expect(next.moved).toEqual(list.assets.map((a) => a.symbol));
+    expect(next.hidden).toEqual([]);
     expect(next.record.pending).toBeUndefined();
-    expect(next.record.hidden.at(-1)).toMatchObject({ symbol: 'GME', why: 'v3_route', pool: null });
-    expect(next.record.hidden.at(-1)).not.toHaveProperty('operation');
-    expect(next.guard).toEqual(guardNow);
+    const qqq = now.assets.find((a: { symbol: string }) => a.symbol === 'QQQ');
+    for (const a of list.assets) {
+      const id = `robinhood:${a.symbol.toLowerCase()}`;
+      const entry = next.record.assets.find((x: { id: string }) => x.id === id);
+      expect(entry, a.symbol).not.toHaveProperty('operation');
+      expect(Object.keys(entry).sort(), a.symbol).toEqual(Object.keys(qqq).sort());
+      expect(entry, a.symbol).toMatchObject({ pool: null, v3Pool: a.v3Pool });
+      expect(next.guard.chains.robinhood.assets[id], a.symbol).toEqual({
+        address: a.token,
+        decimals: a.tokenDecimals,
+        v3Pool: a.v3Pool,
+      });
+    }
     EvmDeploymentRecord.parse(next.record);
+    readDeploymentFile(next.guard);
     // --status still reads the file against the record afterwards.
     expect(() => heldToFile(next.record, list)).not.toThrow();
   });

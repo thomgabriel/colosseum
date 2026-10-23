@@ -44,7 +44,7 @@ import {
   type EvmVaultReaderOptions,
   MAX_TRADES,
 } from './reader';
-import { poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
+import { describePool, isV3Pool, poolOf, quoteExactIn, swapCalldata, type V4Pools } from './routes';
 import { ask } from './rpc';
 import { createEvmProbe } from './send';
 import { type AverageWitness, holdTrade, type TradeLimits } from './trade-limits';
@@ -625,8 +625,10 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
         const costBps = referenceCostBps(usd(t.sell, amountIn), usd(t.buy, out));
         const reference = costBps !== null;
         return {
-          source: `Uniswap v4 Quoter ${pools.quoter} on ${config.networkName}`,
-          method: `quoteExactInputSingle in the asset's pool, of fee ${pool.fee} and tick spacing ${pool.tickSpacing}, no hooks; minimum ${quoteSlippageBps} bps under the quote${
+          source: isV3Pool(pool)
+            ? `Uniswap v3 pool ${pool.v3Pool} on ${config.networkName}`
+            : `Uniswap v4 Quoter ${pools.quoter} on ${config.networkName}`,
+          method: `${isV3Pool(pool) ? 'an exact-input swap by a read-only quoter put in place for the call (state override)' : 'quoteExactInputSingle'} in the asset's pool, ${describePool(pool)}; minimum ${quoteSlippageBps} bps under the quote${
             reference
               ? "; cost against the factory's Chainlink-interface feeds, cash at a dollar"
               : ''
@@ -639,7 +641,7 @@ export function createEvmVaultAdapter(options: EvmVaultAdapterOptions): EvmVault
           ...(feedFloor !== null ? { floorRaw: feedFloor.toString() } : {}),
           costBps: costBps ?? 0,
           against: reference ? 'reference' : 'pool_mid',
-          venue: `Uniswap v4 (fee ${pool.fee}) through Universal Router ${router ?? 'unset'}`,
+          venue: `Uniswap ${isV3Pool(pool) ? 'v3' : 'v4'} (fee ${pool.fee}) through Universal Router ${router ?? 'unset'}`,
         };
       }),
 

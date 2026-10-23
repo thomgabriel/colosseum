@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
+import { deploymentAssets, EvmDeploymentRecord, v4Pools } from '@colosseum/chain-evm/vault';
 import { ConfigResponse, parseChainConfigs, parseFlags } from '@colosseum/schemas';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -42,12 +42,7 @@ const cash = {
 const inputs = (mainnet: boolean) => ({
   rpc: {} as never,
   assets: [cash],
-  pools: {
-    quoter: '0x00000000000000000000000000000000000000cd' as const,
-    hooks: '0x0000000000000000000000000000000000000000' as const,
-    cash: cash.address as `0x${string}`,
-    byToken: {},
-  },
+  pools: v4Pools(cash.address, [], '0x00000000000000000000000000000000000000cd'),
   limits: { priceBoundBps: 200, maxTradeUsd: {} },
   mainnet,
 });
@@ -193,24 +188,35 @@ describe('Robinhood Chain on mainnet', () => {
       JSON.parse(readFileSync(join(dir, 'robinhood-mainnet.json'), 'utf8')),
     );
     const rows = deploymentAssets(record);
-    // the committed record's shown tokens and its cash: the rows the hosted table holds since Oct 15
+    // the committed record's shown tokens and its cash: the 20 rows the hosted table holds since
+    // Oct 15, and the five shown since the v3 route (gate V3-ROUTE, Oct 23)
+    const v3Five = ['AMD', 'INTC', 'MU', 'QQQ', 'SLV'];
     expect(rows.map((r) => r.symbol).sort()).toEqual(
       [
         'USDG',
         ...['AAPL', 'AMZN', 'BABA', 'COIN', 'CRCL', 'GLD', 'GOOGL', 'META', 'MSFT', 'MSTR'],
         ...['NVDA', 'PLTR', 'SPCX', 'SPY', 'TSLA', 'TSM', 'USO', 'WETH', 'cbBTC'],
+        ...v3Five,
       ].sort(),
     );
-    expect(holdToEvmRecord(rows, record)).toHaveLength(20);
+    expect(holdToEvmRecord(rows, record)).toHaveLength(25);
     expect(missingFromEvmRecord(rows, record)).toEqual([]);
-    // the table as it stood before the redeploy's rows were written: ten of the twenty. The API
-    // starts on them (withdrawals and reads go on), and the other ten are named, each with its address.
+    // the table as it stood before the redeploy's rows were written: ten of the twenty-five. The API
+    // starts on them (withdrawals and reads go on), and the other fifteen are named, each with its address.
     const ten = ['USDG', 'NVDA', 'SPY', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'GLD'];
     const before = rows.filter((r) => ten.includes(r.symbol));
     expect(holdToEvmRecord(before, record)).toHaveLength(10);
     expect(missingFromEvmRecord(before, record)).toEqual(
       rows.filter((r) => !ten.includes(r.symbol)).map((r) => ({ id: r.id, address: r.address })),
     );
+    // the table as it stands from Oct 15 until the fill script runs again: the five are named
+    const sinceOct15 = rows.filter((r) => !v3Five.includes(r.symbol));
+    expect(holdToEvmRecord(sinceOct15, record)).toHaveLength(20);
+    expect(
+      missingFromEvmRecord(sinceOct15, record)
+        .map((m) => m.id)
+        .sort(),
+    ).toEqual(v3Five.map((x) => `robinhood:${x.toLowerCase()}`).sort());
   });
 
   it('names every row that does not match the record, and the script that writes them', () => {

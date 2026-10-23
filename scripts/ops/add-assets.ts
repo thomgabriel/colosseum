@@ -134,9 +134,9 @@ export function heldToFile(record: Json, file: AddAssetsFile): void {
 
 /**
  * The record and the guard's file with the tokens the chain lists moved in. Pure. A token held back by
- * symbol (`except`), or routed through v3, which no builder routes yet, stays pending; with `hide` (the
- * redeploy's record, which keeps such tokens apart) it moves to the record's `hidden` instead, `held_back`
- * or `v3_route`, and never into the guard's file.
+ * symbol (`except`) stays pending; with `hide` (the redeploy's record, which keeps such tokens apart) it
+ * moves to the record's `hidden` instead (`held_back`), never into the guard's file. One routed through v3
+ * moves with its v3 pool (gate V3-ROUTE).
  */
 export function promote(
   record: Json,
@@ -154,8 +154,7 @@ export function promote(
     throw new Error(
       "the guard's file names another factory than the record: nothing to promote into it",
     );
-  const moves = (p: Json) =>
-    listed.includes(p.address) && p.pool !== null && !except.includes(p.symbol.toUpperCase());
+  const moves = (p: Json) => listed.includes(p.address) && !except.includes(p.symbol.toUpperCase());
   const moving = (record.pending ?? []).filter(moves);
   const hiding = hide
     ? (record.pending ?? []).filter((p: Json) => listed.includes(p.address) && !moves(p))
@@ -168,10 +167,7 @@ export function promote(
   if (hiding.length)
     nextRecord.hidden = [
       ...(record.hidden ?? []),
-      ...hiding.map(({ operation: _, ...entry }: Json) => ({
-        ...entry,
-        why: entry.pool === null ? 'v3_route' : 'held_back',
-      })),
+      ...hiding.map(({ operation: _, ...entry }: Json) => ({ ...entry, why: 'held_back' })),
     ];
   nextRecord.pending = (record.pending ?? []).filter((p: Json) => !moves(p) && !hiding.includes(p));
   if (nextRecord.pending.length === 0 && hide) delete nextRecord.pending;
@@ -180,7 +176,8 @@ export function promote(
     nextGuard.chains.robinhood.assets[p.id] = {
       address: p.address,
       decimals: p.decimals,
-      pool: p.pool,
+      ...(p.pool ? { pool: p.pool } : {}),
+      ...(p.v3Pool ? { v3Pool: p.v3Pool } : {}),
     };
   return {
     record: nextRecord,

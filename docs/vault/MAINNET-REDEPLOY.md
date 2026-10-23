@@ -87,7 +87,7 @@ More tokens after the deploy are listed by the Safe with one batch of `setAsset`
 - the guardian `0x0a1c…4cc98`, no keeper, no deposit cap, the Universal Router, the publish delay of 48 hours;
 - the Safe proposed for the factory's admin and the beacon's owner. No `TimelockController`.
 
-The app shows 19 of the 25 tokens. DELL is listed and held back until its pool meets the bar again; the v3 five wait for the app to build a v3 route. The record keeps all six under `hidden`, with the reason, and the guard's file does not list them. SGOV dropped Oct 15: pool paid ~25% of feed for $500 at block 89,240,446: a listed token whose pool pays a quarter of its feed is not one to have on chain, even hidden (the orchestrator, under Thom's authority).
+The app showed 19 of the 25 tokens at the redeploy. DELL is listed and held back until its pool meets the bar again; the v3 five waited for the app to build a v3 route. Since 2026-10-23 (gate `V3-ROUTE`) the app shows 24: the five are under `assets` with their `v3Pool`, and the guard's file lists them with it. The record keeps DELL under `hidden`, with the reason, and the guard's file does not list it. SGOV dropped Oct 15: pool paid ~25% of feed for $500 at block 89,240,446: a listed token whose pool pays a quarter of its feed is not one to have on chain, even hidden (the orchestrator, under Thom's authority).
 
 ## The steps
 

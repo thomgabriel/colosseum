@@ -116,4 +116,22 @@ The same rules as the twelve: largest trade the largest size asked ($1,000, $2,5
 
 **Not added.** Rodrigo's shelf (`scripts/risk/assets/shelf-robinhood.json`) names more Robinhood Chain tokens; none meets the bar today. GME (its pools sit far from its feed or cost over 1%) and SNDK ($319 of sale capacity in Bearing's curves) have feeds; HIMS, COST, LLY, AMC, RDDT, DJT, MRNA, SNAP, TTWO, RBLX, GLXY, TAO, NET, DUAL, PROLOGUE and LIT have no Chainlink feed, so an owner's trade in them would have no witness (`OWNER-PRICE-BOUND`). Bearing's capacity for the feedless ones (hosted `risk_depth_curves`, Oct 7 to 14, the worst regime at 1%): HIMS $58k, COST $52k, LLY $50k, AMC $18k, RDDT $7k, DJT $4k.
 
-Re-read on 2026-10-23 for gate `LIST-13` ([`MAINNET-LIST-13.md`](MAINNET-LIST-13.md)): GME now fills $1,000 through a v3 pool and is in that batch; SNDK still does not; the eleven feedless stocks still have no feed.
+## 2026-10-23: the v3 five shown, DELL still held back
+
+Gate `V3-ROUTE` (Thom). The app routes QQQ, MU, AMD, INTC and SLV through their v3 pool with Universal Router's `V3_SWAP_EXACT_IN`, and the guard reads that route; the five moved from `hidden` to `assets` in the record and into the guard's file. Nothing on chain changed: they were listed at the redeploy, with their ceilings, and the router is the one the factory allows.
+
+**Read on 2026-10-23, nothing signed or sent.** The router's code holds the v3 factory `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` and the v3 pool creation hash, and `factory()` of each of the five pools answers that factory. At block 96,103,934, `eth_simulateV1` on the public node, from a USDG holder: approve, `createVaultAndBuy` with $300 of the token through the builder's own call data, then `ownerSwap` of half back. All five succeeded, and each vault held exactly what the builder's quote said.
+
+| Token | v3 fee | $300 bought (quote = held) | Half sold back for |
+|---|---|---|---|
+| QQQ | 500 | 0.4246 | $148.34 |
+| MU | 3000 | 0.3374 | $147.60 |
+| AMD | 3000 | 0.5787 | $147.58 |
+| INTC | 3000 | 3.4408 | $147.56 |
+| SLV | 3000 | 6.1251 | $147.54 |
+
+QQQ's two quotes at block 96,095,456 ($1,000 in: 1.4130 QQQ; 1 QQQ out: $706.78; feed $707.28) are the fixture `packages/chain-evm/test/fixtures/qqq-v3-quotes.json`.
+
+**DELL, re-read at block 96,095,456 (16:57 UTC, in session).** Feed $463.58, 86 minutes old; its v4 pool (fee 5000, tick spacing 25) has its mid about 0.4% under the feed and costs 1.10% in and 1.09% out at $1,000 against the mid, fee included (Uniswap's v4 Quoter). That is over the 1% bar, so DELL stays held back.
+
+Re-read on 2026-10-23 for gate `LIST-13` ([`MAINNET-LIST-13.md`](MAINNET-LIST-13.md)): GME now fills $1,000 through a v3 pool and is in that batch, shown through the v3 route once listed; SNDK still does not; the eleven feedless stocks still have no feed.

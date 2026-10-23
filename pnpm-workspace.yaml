@@ -57,4 +57,7 @@ auditConfig:
     - GHSA-w293-vg96-wgc3 # undici, under @scalar/fastify-api-reference
     - GHSA-82x6-q7mm-w9cf # toml, under @kamino-finance/klend-sdk
     - GHSA-v5mp-jgw5-2x6j # toml, under @kamino-finance/klend-sdk
+    - GHSA-4qx8-w7c3-pj3p # toml, under @kamino-finance/klend-sdk
+    - GHSA-9j65-hcg3-gc64 # toml, under @kamino-finance/klend-sdk
+    - GHSA-9qmh-m7c6-f92p # toml, under @kamino-finance/klend-sdk
     - GHSA-3gc7-fjrx-p6mg # bigint-buffer, under @kamino-finance/klend-sdk
