@@ -133,3 +133,5 @@ Gate `V3-ROUTE` (Thom). The app routes QQQ, MU, AMD, INTC and SLV through their 
 QQQ's two quotes at block 96,095,456 ($1,000 in: 1.4130 QQQ; 1 QQQ out: $706.78; feed $707.28) are the fixture `packages/chain-evm/test/fixtures/qqq-v3-quotes.json`.
 
 **DELL, re-read at block 96,095,456 (16:57 UTC, in session).** Feed $463.58, 86 minutes old; its v4 pool (fee 5000, tick spacing 25) has its mid about 0.4% under the feed and costs 1.10% in and 1.09% out at $1,000 against the mid, fee included (Uniswap's v4 Quoter). That is over the 1% bar, so DELL stays held back.
+
+Re-read on 2026-10-23 for gate `LIST-13` ([`MAINNET-LIST-13.md`](MAINNET-LIST-13.md)): GME now fills $1,000 through a v3 pool and is in that batch, shown through the v3 route once listed; SNDK still does not; the eleven feedless stocks still have no feed.

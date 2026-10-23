@@ -76,6 +76,8 @@ Sent by Thom from the deployer `0x04957C813932B659a9DA3B7eA2E320c1073A8938`, com
 
 The two vaults on the factory of 2026-10-12, both of one owner, were emptied by him before the switch (read at block 89,256,400: every listed token at 0).
 
+More tokens after the deploy are listed by the Safe with one batch of `setAsset` on the factory: [`MAINNET-LIST-13.md`](MAINNET-LIST-13.md) (2026-10-23, GME).
+
 ## What is deployed
 
 `contracts/script/config/4663.json` as committed:

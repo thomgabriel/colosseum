@@ -26,9 +26,11 @@ interface IAddAssetsToken {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
-/// Lists more tokens on a deployed mainnet factory, through its timelock: the one batch the Safe schedules
-/// and, once the delay has passed, the same batch it executes. It sends nothing and holds no key. The
-/// Safe's two owners sign the two calls in the Safe app (ROBINHOOD-MAINNET-WIDER-LIST.md, outside the repo).
+/// Lists more tokens on a deployed mainnet factory. Where the file names a timelock (the factory of
+/// 2026-10-12), through it: the one batch the Safe schedules and, once the delay has passed, the same batch it
+/// executes. Where it names none (the redeploy's factory, whose admin is the Safe itself, gate
+/// ROBINHOOD-REDEPLOY), the Safe calls `setAsset` on the factory itself, every token in one batch it signs
+/// once (`4663-assets-3.safe.json`). It sends nothing and holds no key; the Safe's two owners sign in the Safe app.
 ///
 ///   forge script script/AddAssets.s.sol --rpc-url <node>                   holds the file to the chain, prints both calls
 ///   forge script script/AddAssets.s.sol --sig "check()" --rpc-url <node>   after the execute: every token listed as
@@ -37,8 +39,9 @@ interface IAddAssetsToken {
 ///
 /// The file is `ADD_ASSETS_CONFIG`, by default `script/config/4663-assets-2.json`. Each asset is an entry of
 /// the deploy file's shape (`script/config/4663.json`), held to the same per-asset rules (`checkMainnetAsset`);
-/// beside it the file names the factory, the timelock, the Safe and the batch's salt. `run()` refuses a file
-/// whose factory's admin is not that timelock, whose Safe cannot propose to and execute from it, whose
+/// beside it the file names the factory, the timelock if any, the Safe and the batch's salt. `run()` refuses a
+/// file whose factory's admin is not that timelock (or, with none, the Safe), whose Safe cannot propose to and
+/// execute from the timelock, whose
 /// cash is not the factory's, or one of whose tokens is listed already, has the keeper's switch on, states no
 /// largest trade or no pool.
 ///
@@ -94,6 +97,19 @@ contract AddAssets is Script, StdCheats {
         File memory f = readFile(_path());
         checkFile(f);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = batch(f);
+        if (f.timelock == address(0)) {
+            console2.log("factory:", f.factory);
+            console2.log("safe, the factory's admin itself:", f.safe);
+            for (uint256 i; i < targets.length; ++i) {
+                console2.log(
+                    string.concat("call ", vm.toString(i + 1), " of the Safe's batch, to ", vm.toString(targets[i]))
+                );
+                console2.log(string.concat("  setAsset of ", f.feedDescriptions[i], "; keccak256 of its data:"));
+                console2.logBytes32(keccak256(payloads[i]));
+                console2.logBytes(payloads[i]);
+            }
+            return;
+        }
         TimelockController timelock = TimelockController(payable(f.timelock));
         uint256 delay = timelock.getMinDelay();
         bytes32 id = timelock.hashOperationBatch(targets, values, payloads, bytes32(0), f.salt);
@@ -145,10 +161,15 @@ contract AddAssets is Script, StdCheats {
         File memory f = readFile(_path());
         require(block.chainid == f.chainId, AddAssetsRefused("the node is not the file's chain"));
         IVaultConfig factory = IVaultConfig(f.factory);
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = batch(f);
-        bytes32 id =
-            TimelockController(payable(f.timelock)).hashOperationBatch(targets, values, payloads, bytes32(0), f.salt);
-        require(TimelockController(payable(f.timelock)).isOperationDone(id), AddAssetsRefused("the batch has not run"));
+        if (f.timelock != address(0)) {
+            (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = batch(f);
+            bytes32 id = TimelockController(payable(f.timelock)).hashOperationBatch(
+                targets, values, payloads, bytes32(0), f.salt
+            );
+            require(
+                TimelockController(payable(f.timelock)).isOperationDone(id), AddAssetsRefused("the batch has not run")
+            );
+        }
         for (uint256 i; i < f.assets.length; ++i) {
             address token = f.assets[i].token;
             require(factory.isAsset(token), AddAssetsRefused(string.concat(vm.toString(token), " is not listed")));
@@ -209,16 +230,25 @@ contract AddAssets is Script, StdCheats {
         require(block.chainid == f.chainId, AddAssetsRefused("the node is not the file's chain"));
         require(f.factory.code.length != 0, AddAssetsRefused("the factory has no code"));
         IVaultConfig factory = IVaultConfig(f.factory);
-        require(factory.admin() == f.timelock, AddAssetsRefused("the factory's admin is not the file's timelock"));
-        TimelockController timelock = TimelockController(payable(f.timelock));
-        require(
-            timelock.getMinDelay() >= helperDeploy().MIN_MAINNET_DELAY(),
-            AddAssetsRefused("the timelock waits under 48 hours")
-        );
-        require(
-            timelock.hasRole(timelock.PROPOSER_ROLE(), f.safe) && timelock.hasRole(timelock.EXECUTOR_ROLE(), f.safe),
-            AddAssetsRefused("the Safe cannot propose to and execute from the timelock")
-        );
+        if (f.timelock == address(0)) {
+            // The redeploy's factory: the Safe is the admin itself, and the file adds tokens only.
+            require(factory.admin() == f.safe, AddAssetsRefused("the factory's admin is not the file's Safe"));
+            require(
+                f.callTargets.length == 0 && f.create2Address == address(0),
+                AddAssetsRefused("with no timelock the file lists tokens only")
+            );
+        } else {
+            require(factory.admin() == f.timelock, AddAssetsRefused("the factory's admin is not the file's timelock"));
+            TimelockController timelock = TimelockController(payable(f.timelock));
+            require(
+                timelock.getMinDelay() >= helperDeploy().MIN_MAINNET_DELAY(),
+                AddAssetsRefused("the timelock waits under 48 hours")
+            );
+            require(
+                timelock.hasRole(timelock.PROPOSER_ROLE(), f.safe) && timelock.hasRole(timelock.EXECUTOR_ROLE(), f.safe),
+                AddAssetsRefused("the Safe cannot propose to and execute from the timelock")
+            );
+        }
         require(f.cashToken == factory.cashToken(), AddAssetsRefused("the file's cash is not the factory's"));
         require(f.priceBoundBps != 0 && f.priceBoundBps <= 1000, AddAssetsRefused("no priceBoundBps of 1 to 1000"));
         require(f.assets.length != 0, AddAssetsRefused("the file lists no token"));
@@ -284,7 +314,7 @@ contract AddAssets is Script, StdCheats {
         require(!_hasTodo(json), AddAssetsRefused("the file still holds a TODO: every value must be confirmed"));
         f.chainId = json.readUint(".chainId");
         f.factory = json.readAddress(".factory");
-        f.timelock = json.readAddress(".timelock");
+        if (vm.keyExistsJson(json, ".timelock")) f.timelock = json.readAddress(".timelock");
         f.safe = json.readAddress(".safe");
         f.cashToken = json.readAddress(".cashToken");
         f.salt = keccak256(bytes(json.readString(".salt")));

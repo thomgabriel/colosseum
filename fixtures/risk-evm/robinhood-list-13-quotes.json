@@ -1,0 +1,2440 @@
+{
+  "about": "Read-only reads for gate LIST-13 (Thom and Rodrigo, 2026-10-23): the thirteen Robinhood stock tokens AMC, COST, DJT, GLXY, GME, HIMS, LLY, MRNA, RBLX, RDDT, SNAP, SNDK, TTWO, against the bar of WIDER-LIST. `feedDirectory`: Chainlink's directory for Robinhood Chain mainnet, read 2026-10-23 ~15:41 UTC, and which of the thirteen it names (only GME and SNDK). `identity`: symbol(), decimals(), paused(), the schedule selector 0x97a4064f and the redeploy factory's isAsset(), by eth_call at block 96097359 through https://rpc.mainnet.chain.robinhood.com (cast). `quotes`: packages/chain-evm/test/pool-quotes.ts for the two with a feed, RH_POOLS_SIZES=1000,2500,4000,5000,10000,25000,50000,250000 RH_POOLS_V3_QUOTES=1, as it wrote it.",
+  "feedDirectory": {
+    "source": "https://reference-data-directory.vercel.app/feeds-robinhood-mainnet.json",
+    "fetched_at": "2026-10-23T15:41:00Z",
+    "feeds": 58,
+    "names": [
+      "BTC / USD",
+      "BTC.B / USD",
+      "CBBTC / USD",
+      "ENA / USD",
+      "ETH / USD",
+      "EURC / USD",
+      "GLD / USD",
+      "LBTC / USD",
+      "LINK / USD",
+      "Robinhood AAPL / USD",
+      "Robinhood AMD / USD",
+      "Robinhood AMZN / USD",
+      "Robinhood ASML / USD",
+      "Robinhood BABA / USD",
+      "Robinhood CLSK / USD",
+      "Robinhood COIN / USD",
+      "Robinhood CRCL / USD",
+      "Robinhood CRWV / USD",
+      "Robinhood DELL-USD",
+      "Robinhood EWY / USD",
+      "Robinhood GME / USD",
+      "Robinhood GOOGL / USD",
+      "Robinhood INTC / USD",
+      "Robinhood IONQ / USD",
+      "Robinhood META / USD",
+      "Robinhood MSFT / USD",
+      "Robinhood MSTR / USD",
+      "Robinhood MU / USD",
+      "Robinhood NBIS / USD",
+      "Robinhood NVDA / USD",
+      "Robinhood ORCL / USD",
+      "Robinhood PLTR / USD",
+      "Robinhood QQQ / USD",
+      "Robinhood RGTI / USD",
+      "Robinhood RKLB / USD",
+      "Robinhood SGOV-USD",
+      "Robinhood SLV / USD",
+      "Robinhood SNDK / USD",
+      "Robinhood SPCX / USD",
+      "Robinhood SPY / USD",
+      "Robinhood TSLA / USD",
+      "Robinhood TSM / USD",
+      "Robinhood USAR-USD",
+      "Robinhood USO / USD",
+      "SYRUPUSDC / USD",
+      "SYRUPUSDC / USDC Exchange Rate",
+      "SYRUPUSDT / USDT Exchange Rate",
+      "USDC / USD",
+      "USDE / USD",
+      "USDG / USD",
+      "USDS / USD",
+      "USDT / USD",
+      "WBTC / USD",
+      "WEETH / EETH Exchange Rate",
+      "WEETH / USD",
+      "WSTETH / STETH Exchange Rate",
+      "WSTETH / USD",
+      "syrupUSDG / USDG Exchange Rate"
+    ],
+    "matched": {
+      "AMC": [],
+      "COST": [],
+      "DJT": [],
+      "GLXY": [],
+      "GME": [
+        {
+          "name": "Robinhood GME / USD",
+          "proxy": "0x27c71df6a64fb476468edf256cf72c038bab5b67"
+        }
+      ],
+      "HIMS": [],
+      "LLY": [],
+      "MRNA": [],
+      "RBLX": [],
+      "RDDT": [],
+      "SNAP": [],
+      "SNDK": [
+        {
+          "name": "Robinhood SNDK / USD",
+          "proxy": "0xfb133fa4b7b385802b693a293606682df47109a3"
+        }
+      ],
+      "TTWO": []
+    }
+  },
+  "identity": {
+    "block": 96097359,
+    "source": "eth_call through https://rpc.mainnet.chain.robinhood.com",
+    "factory": "0x7e2bbb8483eb1baa6d87210bc83b63ad7a1bb8aa",
+    "tokens": [
+      {
+        "symbol": "COST",
+        "token": "0x4ea005168d7f09a7a0ba9d1def21a479950e44c2",
+        "symbolAnswered": "COST",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "DJT",
+        "token": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+        "symbolAnswered": "DJT",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "GLXY",
+        "token": "0x2d427692e928fa156ec22acfabafa0447c5805b7",
+        "symbolAnswered": "GLXY",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "GME",
+        "token": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+        "symbolAnswered": "GME",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "HIMS",
+        "token": "0xccee82fe024c36fa15e1005ede3e9e4787e23d09",
+        "symbolAnswered": "HIMS",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "LLY",
+        "token": "0x8005d266423c7ea827372c9c864491e5786600ea",
+        "symbolAnswered": "LLY",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "MRNA",
+        "token": "0x43b07d15ce533bec5476d70c22a78a1b2b662155",
+        "symbolAnswered": "MRNA",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "RBLX",
+        "token": "0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8",
+        "symbolAnswered": "RBLX",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "RDDT",
+        "token": "0x05b37fb53a299a1b874a619e1c4c404d52c36f4c",
+        "symbolAnswered": "RDDT",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "SNAP",
+        "token": "0xf6589f11bc40b669e584073f428b05562f568733",
+        "symbolAnswered": "SNAP",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "SNDK",
+        "token": "0xb90a19ff0af67f7779aff50a882a9cff42446400",
+        "symbolAnswered": "SNDK",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      },
+      {
+        "symbol": "TTWO",
+        "token": "0x5e81213613b6b86eab4c6c50d718d34359459786",
+        "symbolAnswered": "TTWO",
+        "decimals": 18,
+        "paused": false,
+        "scheduleSelectorAnswers": true,
+        "listedOnFactory": false
+      }
+    ]
+  },
+  "quotes": {
+    "source": "Uniswap v4 StateView 0xf3334192d15450cdd385c8b70e03f9a6bd9e673b and Quoter 0x8dc178efb8111bb0973dd9d722ebeff267c98f94 on Robinhood Chain (4663) through robinhood.drpc.org; pools listed through rpc.mainnet.chain.robinhood.com",
+    "method": "pool-quotes-0.3: hookless v4 pools against USDG; quoteExactInputSingle for $1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000 each way; cost in bps against the pool mid of the same block, fee included; pools of a fee above 1% listed and not quoted; the v3 pools of the token and USDG at fees 100, 500, 3000 and 10000 with their liquidity, observations kept and whether observe([3600, 0]) answers, each quoted at the same sizes by ClQuoter through a state override, cost against its own mid",
+    "fetchedAt": "2026-10-23T16:59:24.000Z",
+    "blockNumber": 96096520,
+    "provenance": "live",
+    "rows": [
+      {
+        "symbol": "GME",
+        "asked": "GME",
+        "token": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+        "decimals": 18,
+        "paused": false,
+        "feed": "0x27c71df6a64fb476468edf256cf72c038bab5b67",
+        "feedDescription": "Robinhood GME / USD",
+        "feedDecimals": 8,
+        "feedUsd": 25.4548,
+        "feedAgeSeconds": 1918,
+        "feedAggregator": "0xf83Cde62D1Cd90dE8d2Bf3332B90c590985aD679",
+        "poolsFrom": "Initialize events and the four standard shapes",
+        "hookedPoolsSkipped": 88,
+        "pools": [
+          {
+            "fee": 10000,
+            "tickSpacing": 200,
+            "poolId": "0x3d436b4fdc532c61a0bf15d6cae80a66eb8f28ee9daec34dbec4b5bc9964063b",
+            "liquidity": "1438392051343609",
+            "midUsd": 25.2461,
+            "midVsFeedBps": -82,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 4170.2,
+                "sellBps": 1036.1,
+                "buyOutRaw": "23091720178698739350",
+                "sellInRaw": "39610016165000000000",
+                "sellOutRaw": "896385988"
+              },
+              {
+                "usd": 2500,
+                "buyBps": 7336.3,
+                "sellBps": 1912.6,
+                "buyOutRaw": "26377654003960042909",
+                "sellInRaw": "99025040413000000000",
+                "sellOutRaw": "2021849453"
+              },
+              {
+                "usd": 4000,
+                "buyBps": 8283.4,
+                "sellBps": 4205.3,
+                "buyOutRaw": "27197465601451621988",
+                "sellInRaw": "158440064660000000000",
+                "sellOutRaw": "2317869521"
+              },
+              {
+                "usd": 5000,
+                "buyBps": 8612.9,
+                "sellBps": 5311.8,
+                "buyOutRaw": "27470587847222554648",
+                "sellInRaw": "198050080825000000000",
+                "sellOutRaw": "2344096323"
+              },
+              {
+                "usd": 10000,
+                "buyBps": 9292.7,
+                "sellBps": 7625.1,
+                "buyOutRaw": "28016610089049966719",
+                "sellInRaw": "396100161651000000000",
+                "sellOutRaw": "2374944145"
+              },
+              {
+                "usd": 25000,
+                "buyBps": 9713.8,
+                "sellBps": 9045.4,
+                "buyOutRaw": "28344081275338055100",
+                "sellInRaw": "990250404127000000000",
+                "sellOutRaw": "2386471121"
+              },
+              {
+                "usd": 50000,
+                "buyBps": 9856.3,
+                "sellBps": 9522.1,
+                "buyOutRaw": "28453214655864226161",
+                "sellInRaw": "1980500808254000000000",
+                "sellOutRaw": "2389621390"
+              },
+              {
+                "usd": 250000,
+                "buyBps": 9971.2,
+                "sellBps": 9904.3,
+                "buyOutRaw": "28540512837140704357",
+                "sellInRaw": "9902504041272000000000",
+                "sellOutRaw": "2391944442"
+              }
+            ]
+          },
+          {
+            "fee": 2120,
+            "tickSpacing": 42,
+            "poolId": "0x659e64f089e5d9ea30c4c50d01d365008cfd336b396c05853ea7700af3eb78f5",
+            "liquidity": "448266490904593",
+            "midUsd": 25.5026,
+            "midVsFeedBps": 18.8,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "39211703280000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 2500,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "98029258200000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 4000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "156846813121000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 5000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "196058516401000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 10000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "392117032801000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 25000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "980292582003000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 50000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "1960585164007000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 250000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "9802925820034000000000",
+                "sellOutRaw": null
+              }
+            ]
+          },
+          {
+            "fee": 3000,
+            "tickSpacing": 60,
+            "poolId": "0x3f05d2b224a67d723e3a7ea46d229a3d8e106b56ffaa335229eb28ae8fc21a16",
+            "liquidity": "399378424229793",
+            "midUsd": 22.4266,
+            "midVsFeedBps": -1189.6,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "44589934316000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 2500,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "111474835789000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 4000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "178359737263000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 5000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "222949671579000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 10000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "445899343157000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 25000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "1114748357893000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 50000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "2229496715787000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 250000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "11147483578933000000000",
+                "sellOutRaw": null
+              }
+            ]
+          },
+          {
+            "fee": 910000,
+            "tickSpacing": 18200,
+            "poolId": "0xb767c50c20c9ec37e540cf9f85a3344c0a9f0877a4400bc152a39c7ad3033cf3",
+            "liquidity": "102088798488962",
+            "midUsd": 181.698,
+            "midVsFeedBps": 61380.7,
+            "quotes": []
+          },
+          {
+            "fee": 961000,
+            "tickSpacing": 9610,
+            "poolId": "0xf7d77598db61628c17dbf03b80ec71825ed3d8fac8652e2e384139ad298a8e2a",
+            "liquidity": "30130069646475",
+            "midUsd": 7,
+            "midVsFeedBps": -7250,
+            "quotes": []
+          },
+          {
+            "fee": 900000,
+            "tickSpacing": 18000,
+            "poolId": "0x60643044437ccf6fd7c1d39c185a2ba0b0d612b9c6bf800374cbbc59923c6e4d",
+            "liquidity": "21825215253862",
+            "midUsd": 173.8885,
+            "midVsFeedBps": 58312.7,
+            "quotes": []
+          },
+          {
+            "fee": 700000,
+            "tickSpacing": 7000,
+            "poolId": "0x7d607ffca2a69c92f44a232658266c04d4f4a9af3d79d2a81a8814f130b16244",
+            "liquidity": "11598695183884",
+            "midUsd": 18.5368,
+            "midVsFeedBps": -2717.8,
+            "quotes": []
+          },
+          {
+            "fee": 800000,
+            "tickSpacing": 8000,
+            "poolId": "0x21ccf2da93989952447404325cab92053cb262181f26d3a389d7fea309a992f1",
+            "liquidity": "10812957881833",
+            "midUsd": 21.4248,
+            "midVsFeedBps": -1583.2,
+            "quotes": []
+          },
+          {
+            "fee": 440000,
+            "tickSpacing": 4400,
+            "poolId": "0xe47e1f2f34ac3b87b576a0822500bc4b71720446051512be7516f53500570a1b",
+            "liquidity": "1164795175704",
+            "midUsd": 18.4259,
+            "midVsFeedBps": -2761.3,
+            "quotes": []
+          },
+          {
+            "fee": 950100,
+            "tickSpacing": 9501,
+            "poolId": "0x6b3d25623807c0988f1137620b186dc319b896633eb3d2d91fd5cd6edf491e29",
+            "liquidity": "373697763535",
+            "midUsd": 1.9016,
+            "midVsFeedBps": -9253,
+            "quotes": []
+          },
+          {
+            "fee": 905000,
+            "tickSpacing": 18100,
+            "poolId": "0x0e07100bfefd9008c2d1e058d75143ecf8e34758dd61d6099301b09f08179430",
+            "liquidity": "341655214314",
+            "midUsd": 67.3705,
+            "midVsFeedBps": 16466.7,
+            "quotes": []
+          },
+          {
+            "fee": 930000,
+            "tickSpacing": 18600,
+            "poolId": "0x537b6fc97827b1dcc3bd202ae78bb6f628961ae486063f687eb4f17456a5e9ad",
+            "liquidity": "155714699686",
+            "midUsd": 10.9999,
+            "midVsFeedBps": -5678.7,
+            "quotes": []
+          },
+          {
+            "fee": 980000,
+            "tickSpacing": 19600,
+            "poolId": "0xde3a7dec8a926badcc0e193369b6f5707d109c35da131f5441ddf8fed2ed2055",
+            "liquidity": "55234919035",
+            "midUsd": 177.9929,
+            "midVsFeedBps": 59925.1,
+            "quotes": []
+          },
+          {
+            "fee": 880000,
+            "tickSpacing": 17600,
+            "poolId": "0x9e16c17f36482ab75ad1c5b610f2207c70fe4d0c2a0b912aa5b3ffbe58d1cfb3",
+            "liquidity": "11038635075",
+            "midUsd": 121.3116,
+            "midVsFeedBps": 37657.7,
+            "quotes": []
+          },
+          {
+            "fee": 770000,
+            "tickSpacing": 15400,
+            "poolId": "0xbb36d71f8a0b22dfc48bd5f549c72223f8b0a53e5d0f71497b4e5c7ccf2ee014",
+            "liquidity": "4420250573",
+            "midUsd": 21.286,
+            "midVsFeedBps": -1637.7,
+            "quotes": []
+          },
+          {
+            "fee": 891210,
+            "tickSpacing": 17824,
+            "poolId": "0x5ce5afeb6f0534b11291e706cd17e74c28ff73755bcac9b9220a14c5750142b8",
+            "liquidity": "2608780992",
+            "midUsd": 21.2045,
+            "midVsFeedBps": -1669.8,
+            "quotes": []
+          },
+          {
+            "fee": 760000,
+            "tickSpacing": 7600,
+            "poolId": "0xbd6db3fcc0ee762144da00611c6be5ff6895f15809405aebafa02f05c919e30f",
+            "liquidity": "983573349",
+            "midUsd": 17.9746,
+            "midVsFeedBps": -2938.6,
+            "quotes": []
+          },
+          {
+            "fee": 800000,
+            "tickSpacing": 16000,
+            "poolId": "0x5bec9f0a91420ecf992b6a6b0ced1e51d7290d51cd4cf7eb4fb3dd954ed75bb1",
+            "liquidity": "648965120",
+            "midUsd": 63.4902,
+            "midVsFeedBps": 14942.3,
+            "quotes": []
+          },
+          {
+            "fee": 870000,
+            "tickSpacing": 17400,
+            "poolId": "0xd4567bd02684e88b8598a9c8b75acfbe98df87a993511eb0d2f8e8f761fa5b97",
+            "liquidity": "489409198",
+            "midUsd": 22.4715,
+            "midVsFeedBps": -1172,
+            "quotes": []
+          },
+          {
+            "fee": 600000,
+            "tickSpacing": 6000,
+            "poolId": "0x7062125aaa6881fd7ffc7bb3954dc4af09809538c919d53017ad3a9e2f0af4a1",
+            "liquidity": "0",
+            "midUsd": 23.2347,
+            "midVsFeedBps": -872.2,
+            "quotes": []
+          },
+          {
+            "fee": 1111,
+            "tickSpacing": 11,
+            "poolId": "0x0499f5bee328c9a888657f681e4ad5bbde173cbfc2b1f85f7e59b708b2098d46",
+            "liquidity": "0",
+            "midUsd": 23.2231,
+            "midVsFeedBps": -876.7,
+            "quotes": []
+          },
+          {
+            "fee": 1000,
+            "tickSpacing": 10,
+            "poolId": "0x5bc7b2dfc4245a0ec7a4bf3b2cd47ff20982af4cc3034443ec70037a4bbd4596",
+            "liquidity": "0",
+            "midUsd": 22.807,
+            "midVsFeedBps": -1040.2,
+            "quotes": []
+          },
+          {
+            "fee": 991200,
+            "tickSpacing": 19824,
+            "poolId": "0xe0c6a1fd0eb9a8167b2f764d6617757734bdfe4fc2bd128bf25483b26f0f374e",
+            "liquidity": "0",
+            "midUsd": 0.4778,
+            "midVsFeedBps": -9812.3,
+            "quotes": []
+          },
+          {
+            "fee": 2,
+            "tickSpacing": 1,
+            "poolId": "0x7fde245f94faaac14e8b6aa187e23a156aa5363efa4a67ad88e414ca07a994dd",
+            "liquidity": "0",
+            "midUsd": 20.9796,
+            "midVsFeedBps": -1758.1,
+            "quotes": []
+          },
+          {
+            "fee": 10,
+            "tickSpacing": 1,
+            "poolId": "0xd5c8fce69efc85cf2e5c16137c6ee7123e30447ea8e2070c8a94dd3fc83241ec",
+            "liquidity": "0",
+            "midUsd": 20.985,
+            "midVsFeedBps": -1756,
+            "quotes": []
+          },
+          {
+            "fee": 75,
+            "tickSpacing": 1,
+            "poolId": "0xd33450ec6517e655d4d5d39c08588907b6c66e4653a62999565f26e74b9203da",
+            "liquidity": "0",
+            "midUsd": 21.0572,
+            "midVsFeedBps": -1727.6,
+            "quotes": []
+          },
+          {
+            "fee": 300,
+            "tickSpacing": 3,
+            "poolId": "0x2073e16deafdd1bf8619c19f8250478d62e789384faeb6b0a3eafc4a463f6b50",
+            "liquidity": "0",
+            "midUsd": 18.9129,
+            "midVsFeedBps": -2570,
+            "quotes": []
+          },
+          {
+            "fee": 30000,
+            "tickSpacing": 300,
+            "poolId": "0xf487e051e69adedd87b0a1d0a4e061308e7623a4b848d8483475f3220de1619c",
+            "liquidity": "0",
+            "midUsd": 19.5828,
+            "midVsFeedBps": -2306.8,
+            "quotes": []
+          },
+          {
+            "fee": 15000,
+            "tickSpacing": 150,
+            "poolId": "0x5c586962fd6d981b23353931cfa1e0bab207a05b9edd279c736fc78e2074f834",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 488,
+            "tickSpacing": 5,
+            "poolId": "0xfe48a4fb576d43cc75af88f97eedb31dc59cbe04764f36bf631266d15bc7c855",
+            "liquidity": "0",
+            "midUsd": 19.3383,
+            "midVsFeedBps": -2402.9,
+            "quotes": []
+          },
+          {
+            "fee": 758,
+            "tickSpacing": 8,
+            "poolId": "0x71bde345b75127eed34bf9008c99397c85c7bc31f11a8e31d9347df46a825a14",
+            "liquidity": "0",
+            "midUsd": 19.3201,
+            "midVsFeedBps": -2410,
+            "quotes": []
+          },
+          {
+            "fee": 3589,
+            "tickSpacing": 36,
+            "poolId": "0x368f99f30d62124d40eda4071f4409c3838d3113ef291af94f4bee0214bfd242",
+            "liquidity": "0",
+            "midUsd": 19.4988,
+            "midVsFeedBps": -2339.8,
+            "quotes": []
+          },
+          {
+            "fee": 5000,
+            "tickSpacing": 25,
+            "poolId": "0xf5a1a6a08daf9ae1d30d18d0fe9278fafac6c4b31c18810b26bb2a8d6f5aad0a",
+            "liquidity": "0",
+            "midUsd": 19.3505,
+            "midVsFeedBps": -2398.1,
+            "quotes": []
+          },
+          {
+            "fee": 11000,
+            "tickSpacing": 220,
+            "poolId": "0x7b9e5d51a80323b57b16e31af0c6885cda8ed1066c25aeb0da9bb37b9605bcd0",
+            "liquidity": "0",
+            "midUsd": 50,
+            "midVsFeedBps": 9642.7,
+            "quotes": []
+          },
+          {
+            "fee": 5,
+            "tickSpacing": 1,
+            "poolId": "0x21609ace6417b07fe5ba5405a952c5693e2fb78e3b1524908c415ceff6f96634",
+            "liquidity": "0",
+            "midUsd": 19.2632,
+            "midVsFeedBps": -2432.4,
+            "quotes": []
+          },
+          {
+            "fee": 6,
+            "tickSpacing": 1,
+            "poolId": "0x9ee51c3eb0bb5325ff61bd65c6a9b8d6d23b75d979f23800f246572900089c53",
+            "liquidity": "0",
+            "midUsd": 19.2716,
+            "midVsFeedBps": -2429.1,
+            "quotes": []
+          },
+          {
+            "fee": 7,
+            "tickSpacing": 1,
+            "poolId": "0xfb3165f5ff3b2e0712ca111ac1c3fe26e816ba004e51b4de704a9a0684017e52",
+            "liquidity": "0",
+            "midUsd": 19.3302,
+            "midVsFeedBps": -2406.1,
+            "quotes": []
+          },
+          {
+            "fee": 80,
+            "tickSpacing": 1,
+            "poolId": "0x0aee880f0d4a41678dd6e32f525b3ea04bb281ee1e4d52bcec2135888d1ade58",
+            "liquidity": "0",
+            "midUsd": 19.3274,
+            "midVsFeedBps": -2407.2,
+            "quotes": []
+          },
+          {
+            "fee": 200000,
+            "tickSpacing": 200,
+            "poolId": "0xc31e9ad9c103d8de3c29ef72c3b05755da578b9d3af581202fbda28036733fc1",
+            "liquidity": "0",
+            "midUsd": 19.3174,
+            "midVsFeedBps": -2411.1,
+            "quotes": []
+          },
+          {
+            "fee": 99900,
+            "tickSpacing": 999,
+            "poolId": "0x35991ea2a162adb27cca381a37d2583daf926b262988026a5c075d3d0c798274",
+            "liquidity": "0",
+            "midUsd": 19.4152,
+            "midVsFeedBps": -2372.7,
+            "quotes": []
+          },
+          {
+            "fee": 9800,
+            "tickSpacing": 98,
+            "poolId": "0x9a82aa6af873870874cf11cf9e99bb81c9ebf28cc5b394e4fa4996a6805c7c06",
+            "liquidity": "0",
+            "midUsd": 20.1832,
+            "midVsFeedBps": -2071,
+            "quotes": []
+          },
+          {
+            "fee": 49000,
+            "tickSpacing": 490,
+            "poolId": "0x91da5949133ed3fb3cf5032ad389e0df81b576f209ac60854149be132da601af",
+            "liquidity": "0",
+            "midUsd": 19.5087,
+            "midVsFeedBps": -2335.9,
+            "quotes": []
+          },
+          {
+            "fee": 11001,
+            "tickSpacing": 60,
+            "poolId": "0xe428fd6b395e38c05299b0aafbf8deadaa0eadbd55d901bb737546920520586b",
+            "liquidity": "0",
+            "midUsd": 190.2371,
+            "midVsFeedBps": 64735.3,
+            "quotes": []
+          },
+          {
+            "fee": 11000,
+            "tickSpacing": 60,
+            "poolId": "0x7663c1c2963c05e84d84dc61e2c6e43ec723d2d34b726c59eb1afe350283ca2f",
+            "liquidity": "0",
+            "midUsd": 1.842026994812163e25,
+            "midVsFeedBps": 7.236462257853777e27,
+            "quotes": []
+          },
+          {
+            "fee": 1030,
+            "tickSpacing": 10,
+            "poolId": "0x701d35b67a4dc1727137834542cdb9fb5f0730b88b2852d315edca6ed377831b",
+            "liquidity": "0",
+            "midUsd": 19.2143,
+            "midVsFeedBps": -2451.6,
+            "quotes": []
+          },
+          {
+            "fee": 60000,
+            "tickSpacing": 500,
+            "poolId": "0x560b388c0c35d83063cf72746e589c5d8790977035fda85e618458e6872aa121",
+            "liquidity": "0",
+            "midUsd": 18.559,
+            "midVsFeedBps": -2709,
+            "quotes": []
+          },
+          {
+            "fee": 900000,
+            "tickSpacing": 19988,
+            "poolId": "0x12a6dfce9c6cb4dc54f9c2c6cd357e72db54df4e0365d1a4af2b20b6affe9e0c",
+            "liquidity": "0",
+            "midUsd": 3.0733,
+            "midVsFeedBps": -8792.7,
+            "quotes": []
+          },
+          {
+            "fee": 70000,
+            "tickSpacing": 2000,
+            "poolId": "0x992d5fa69653f4fcce779100cced77c5b82a331ec7580d65add56e2d16593749",
+            "liquidity": "0",
+            "midUsd": 18.3942,
+            "midVsFeedBps": -2773.8,
+            "quotes": []
+          },
+          {
+            "fee": 2990,
+            "tickSpacing": 30,
+            "poolId": "0x9354213a993ba8c208c476fa04248c097a9e2ac8a4ca719f989b9208b06b7e92",
+            "liquidity": "0",
+            "midUsd": 18.5818,
+            "midVsFeedBps": -2700.1,
+            "quotes": []
+          },
+          {
+            "fee": 152230,
+            "tickSpacing": 1522,
+            "poolId": "0xadbdd73ae3ae84e67751524be279589dd71584eb0f017f9eb5a8ee82418500a0",
+            "liquidity": "0",
+            "midUsd": 17.9926,
+            "midVsFeedBps": -2931.6,
+            "quotes": []
+          },
+          {
+            "fee": 11924,
+            "tickSpacing": 119,
+            "poolId": "0x4d3b5e2f9a87e1f7927eedb3c3ca4a71f8a918827b51cdee4e01fc6c2ed30dee",
+            "liquidity": "0",
+            "midUsd": 19.1376,
+            "midVsFeedBps": -2481.7,
+            "quotes": []
+          },
+          {
+            "fee": 875,
+            "tickSpacing": 9,
+            "poolId": "0x38c1b3766df4fa7796847beb14bfb777861b1ab71a723f72e1d703956dea029b",
+            "liquidity": "0",
+            "midUsd": 19.1332,
+            "midVsFeedBps": -2483.5,
+            "quotes": []
+          },
+          {
+            "fee": 450,
+            "tickSpacing": 5,
+            "poolId": "0x712ab407f624684c736feec03761b6c6ea4c2f0f5936a74a1d5146e301aa0715",
+            "liquidity": "0",
+            "midUsd": 18.495,
+            "midVsFeedBps": -2734.2,
+            "quotes": []
+          },
+          {
+            "fee": 1236,
+            "tickSpacing": 1,
+            "poolId": "0x2627c7d61c4fb2d33dd4ca28f7bafebc8b177e0a77745a94f3c1e40cbd80aab0",
+            "liquidity": "0",
+            "midUsd": 0,
+            "midVsFeedBps": -10000,
+            "quotes": []
+          },
+          {
+            "fee": 50000,
+            "tickSpacing": 60,
+            "poolId": "0x615de6e6bcf40d69ca2bf55176b261043310501484a1affb83999db6287737bd",
+            "liquidity": "0",
+            "midUsd": 13.5256,
+            "midVsFeedBps": -4686.4,
+            "quotes": []
+          },
+          {
+            "fee": 50000,
+            "tickSpacing": 500,
+            "poolId": "0x0091e9d1eb097e7ad4a5886e8fe00c617469b0c02bfd2d2e3723f58874b7b853",
+            "liquidity": "0",
+            "midUsd": 23.225,
+            "midVsFeedBps": -876,
+            "quotes": []
+          },
+          {
+            "fee": 375,
+            "tickSpacing": 4,
+            "poolId": "0x564ebf24bd01ee4e9d7e42fb45f458e096ecac5ee8c923a24b4e5d80895dc9e8",
+            "liquidity": "0",
+            "midUsd": 19.2572,
+            "midVsFeedBps": -2434.7,
+            "quotes": []
+          },
+          {
+            "fee": 2200,
+            "tickSpacing": 22,
+            "poolId": "0xb55d85be6809302f27f04adf2a32b77c762cbb8559281f917f5ea4d1a682d161",
+            "liquidity": "0",
+            "midUsd": 19.314,
+            "midVsFeedBps": -2412.4,
+            "quotes": []
+          },
+          {
+            "fee": 2500,
+            "tickSpacing": 25,
+            "poolId": "0xd587a3aa264f783e0e60ed6304609afaaf2bc52ccad36be22385cdd1dec1eb7a",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 5000,
+            "tickSpacing": 50,
+            "poolId": "0xfbdbabcb0d0396847bfe09412813d9e7474441e5d1f02f1315ebd0f1f8d888fd",
+            "liquidity": "0",
+            "midUsd": 20.9523,
+            "midVsFeedBps": -1768.8,
+            "quotes": []
+          },
+          {
+            "fee": 400000,
+            "tickSpacing": 4000,
+            "poolId": "0x5c5abc991f0757c084141e67e76017b0783eb277e38b195d6f24753433703d2c",
+            "liquidity": "0",
+            "midUsd": 21.9913,
+            "midVsFeedBps": -1360.6,
+            "quotes": []
+          },
+          {
+            "fee": 10000,
+            "tickSpacing": 5,
+            "poolId": "0x04fba3a46c3fd2ad1d21a2ce8ceacf894fbc8463a87479c2d6ab219966af9a46",
+            "liquidity": "0",
+            "midUsd": 21.403,
+            "midVsFeedBps": -1591.7,
+            "quotes": []
+          },
+          {
+            "fee": 995210,
+            "tickSpacing": 19904,
+            "poolId": "0xfbcef4c6696484e31b8ca07e9f1a29f10e7405f9fde88599e867dded3dd1c565",
+            "liquidity": "0",
+            "midUsd": 2087.4958,
+            "midVsFeedBps": 810079.5,
+            "quotes": []
+          },
+          {
+            "fee": 990000,
+            "tickSpacing": 19800,
+            "poolId": "0xaffb319a806ac62936667c488aae86a90960897cd956f86b0fb76cadb9371815",
+            "liquidity": "0",
+            "midUsd": 0.4,
+            "midVsFeedBps": -9842.9,
+            "quotes": []
+          },
+          {
+            "fee": 1120,
+            "tickSpacing": 22,
+            "poolId": "0xaee6386cba9b31a00cdf048dc408f0aa818ad26b2ed5fbbbcc327a84b6a3c76b",
+            "liquidity": "0",
+            "midUsd": 21.2586,
+            "midVsFeedBps": -1648.5,
+            "quotes": []
+          },
+          {
+            "fee": 5000,
+            "tickSpacing": 5,
+            "poolId": "0xcac5a5872439adbe0ec645df98ce8242ad5788a69b1c13a578e70842527441d6",
+            "liquidity": "0",
+            "midUsd": 21.4402,
+            "midVsFeedBps": -1577.1,
+            "quotes": []
+          },
+          {
+            "fee": 10000,
+            "tickSpacing": 20,
+            "poolId": "0x9ba57ee51fcfaef9a2abb311c53228fd1f6656c3237ee5d43cf542017c968b11",
+            "liquidity": "0",
+            "midUsd": 21.4398,
+            "midVsFeedBps": -1577.3,
+            "quotes": []
+          },
+          {
+            "fee": 7000,
+            "tickSpacing": 10,
+            "poolId": "0x489b09be6462ed5baa396365fb58428fd82e2e7e4cc304650488f92b312585d9",
+            "liquidity": "0",
+            "midUsd": 21.4184,
+            "midVsFeedBps": -1585.7,
+            "quotes": []
+          },
+          {
+            "fee": 1110,
+            "tickSpacing": 22,
+            "poolId": "0x8e8ba6bdf9760a605d9f5747617c825a5c1ace9ed3ce4e3136c09723a1860230",
+            "liquidity": "0",
+            "midUsd": 19.3441,
+            "midVsFeedBps": -2400.6,
+            "quotes": []
+          },
+          {
+            "fee": 1300,
+            "tickSpacing": 26,
+            "poolId": "0x424c9c4a6b4d0f336533b0afaa02aa013bad63bf5227b54d3351219209d97fa1",
+            "liquidity": "0",
+            "midUsd": 21.4022,
+            "midVsFeedBps": -1592.1,
+            "quotes": []
+          },
+          {
+            "fee": 9700,
+            "tickSpacing": 194,
+            "poolId": "0x5eec088581ee82cfaebe35046795c9a5564a43d788e2825f23f29f11214f0209",
+            "liquidity": "0",
+            "midUsd": 19.2471,
+            "midVsFeedBps": -2438.7,
+            "quotes": []
+          },
+          {
+            "fee": 2800,
+            "tickSpacing": 56,
+            "poolId": "0x6ae1e4b81fd1460f1b6f084b42e978479eb6012ab24134b5f930a2674023ec90",
+            "liquidity": "0",
+            "midUsd": 21.5207,
+            "midVsFeedBps": -1545.5,
+            "quotes": []
+          },
+          {
+            "fee": 9600,
+            "tickSpacing": 192,
+            "poolId": "0x764f44d5f834c109a447049093b4e62a1b4f7948d357f8d9c19348cceb3684a6",
+            "liquidity": "0",
+            "midUsd": 20.6628,
+            "midVsFeedBps": -1882.6,
+            "quotes": []
+          },
+          {
+            "fee": 9500,
+            "tickSpacing": 190,
+            "poolId": "0xcaa7f23c4d070694572621410fda0ae2191d3b69d2b1222745e9e3bbf53f2142",
+            "liquidity": "0",
+            "midUsd": 20.7404,
+            "midVsFeedBps": -1852.1,
+            "quotes": []
+          },
+          {
+            "fee": 9900,
+            "tickSpacing": 198,
+            "poolId": "0x148b3a1967fd547e289979f4523e36d0fe553c650c5ea7d46ea4867a0baed163",
+            "liquidity": "0",
+            "midUsd": 21.2732,
+            "midVsFeedBps": -1642.7,
+            "quotes": []
+          },
+          {
+            "fee": 499,
+            "tickSpacing": 10,
+            "poolId": "0x539bb404b2a10a205a80c29e9cb0dae5824e83e599c678222486fb39f723423b",
+            "liquidity": "0",
+            "midUsd": 21.2805,
+            "midVsFeedBps": -1639.9,
+            "quotes": []
+          },
+          {
+            "fee": 1220,
+            "tickSpacing": 24,
+            "poolId": "0x0e9df6df846426896a12de94b70f7a2ccc550007dc4135fa96fe76cb72eebb24",
+            "liquidity": "0",
+            "midUsd": 21.178,
+            "midVsFeedBps": -1680.2,
+            "quotes": []
+          },
+          {
+            "fee": 900,
+            "tickSpacing": 18,
+            "poolId": "0x615797ecd34b27dcc179cc8f54d4e7f915667fc8777c77819182b0a85c6ff8fa",
+            "liquidity": "0",
+            "midUsd": 21.2391,
+            "midVsFeedBps": -1656.1,
+            "quotes": []
+          },
+          {
+            "fee": 1010,
+            "tickSpacing": 20,
+            "poolId": "0x1317fad5823f873a04d394997ddf1cce74cad90b565972ad8efc00f164ce85ff",
+            "liquidity": "0",
+            "midUsd": 21.0186,
+            "midVsFeedBps": -1742.8,
+            "quotes": []
+          },
+          {
+            "fee": 1000,
+            "tickSpacing": 20,
+            "poolId": "0xb727736c749402828937afae7607b5cd1889cf530bf7d631a021dbf02daa7452",
+            "liquidity": "0",
+            "midUsd": 20.9523,
+            "midVsFeedBps": -1768.8,
+            "quotes": []
+          },
+          {
+            "fee": 1100,
+            "tickSpacing": 22,
+            "poolId": "0x29892be7efb93a419414e1595ffa79f17789848efd9fdbbb3f08091b139e7b28",
+            "liquidity": "0",
+            "midUsd": 21.2362,
+            "midVsFeedBps": -1657.3,
+            "quotes": []
+          },
+          {
+            "fee": 1210,
+            "tickSpacing": 24,
+            "poolId": "0x484343a70838734db69a8ad5fb09c33b4f5b03f903bf1f9301baf1a5871426f3",
+            "liquidity": "0",
+            "midUsd": 20.9093,
+            "midVsFeedBps": -1785.7,
+            "quotes": []
+          },
+          {
+            "fee": 1230,
+            "tickSpacing": 25,
+            "poolId": "0xee1e99dd258cc661c8d5c292d230deaf7f865e44f6c771b9e3b2d6fbc6f9b731",
+            "liquidity": "0",
+            "midUsd": 20.9045,
+            "midVsFeedBps": -1787.6,
+            "quotes": []
+          },
+          {
+            "fee": 1910,
+            "tickSpacing": 38,
+            "poolId": "0x375cfb381dceba57f1fcbbdd4974450661c18399a1b677d2f041c95eb616edeb",
+            "liquidity": "0",
+            "midUsd": 21.4494,
+            "midVsFeedBps": -1573.5,
+            "quotes": []
+          },
+          {
+            "fee": 1983,
+            "tickSpacing": 40,
+            "poolId": "0x603bd7168bfea0aaf9de93c6c41a57dd573590217a595d82c6f90bbb0e050251",
+            "liquidity": "0",
+            "midUsd": 21.2545,
+            "midVsFeedBps": -1650.1,
+            "quotes": []
+          },
+          {
+            "fee": 1988,
+            "tickSpacing": 40,
+            "poolId": "0xca78b0fd2f907acae24c0c1052c7f699790d383f7d679025f601e2c79313921d",
+            "liquidity": "0",
+            "midUsd": 21.3863,
+            "midVsFeedBps": -1598.3,
+            "quotes": []
+          },
+          {
+            "fee": 7813,
+            "tickSpacing": 156,
+            "poolId": "0x397f1510343d4c5b6ca7196b54022bbe66176ddc73e2863f4526ecc6dfeafa18",
+            "liquidity": "0",
+            "midUsd": 21.2787,
+            "midVsFeedBps": -1640.6,
+            "quotes": []
+          },
+          {
+            "fee": 2000,
+            "tickSpacing": 40,
+            "poolId": "0x3eab4c9c2cf80f343ffd8114d1d1f237e7601807e1eb9e73bddb3bbb14c9e878",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 1800,
+            "tickSpacing": 36,
+            "poolId": "0xfbb46833e3f0c93d66977d494c02863cc84b3de3e5ce423f4bd0b9177f028284",
+            "liquidity": "0",
+            "midUsd": 21.1589,
+            "midVsFeedBps": -1687.7,
+            "quotes": []
+          },
+          {
+            "fee": 3550,
+            "tickSpacing": 71,
+            "poolId": "0x3c470b1093c54bffa8aa6e2b407d25151400cc90094f74fc80a559107fd52003",
+            "liquidity": "0",
+            "midUsd": 22.2079,
+            "midVsFeedBps": -1275.6,
+            "quotes": []
+          },
+          {
+            "fee": 2111,
+            "tickSpacing": 42,
+            "poolId": "0xc951922344c606c686ca048690df311863fbf6030505ce1d647f0e235edfaeaa",
+            "liquidity": "0",
+            "midUsd": 0,
+            "midVsFeedBps": -10000,
+            "quotes": []
+          },
+          {
+            "fee": 4590,
+            "tickSpacing": 92,
+            "poolId": "0xe8f29350cef2394951ab2541e42c09d6207f77110eafa8eaea64939260e8b6c2",
+            "liquidity": "0",
+            "midUsd": 22.1608,
+            "midVsFeedBps": -1294,
+            "quotes": []
+          },
+          {
+            "fee": 5000,
+            "tickSpacing": 100,
+            "poolId": "0xa97e4a068974943124a9e84df8ee90c84f3c08b4138e7da83a46bd60f035e727",
+            "liquidity": "0",
+            "midUsd": 22.1582,
+            "midVsFeedBps": -1295.1,
+            "quotes": []
+          },
+          {
+            "fee": 8820,
+            "tickSpacing": 176,
+            "poolId": "0xfd737e9aa4f01d14eafca7760d50337449d1db28eea52e77edc25a7cdb8899ef",
+            "liquidity": "0",
+            "midUsd": 22.25,
+            "midVsFeedBps": -1259,
+            "quotes": []
+          },
+          {
+            "fee": 8011,
+            "tickSpacing": 160,
+            "poolId": "0xaa68353ae0e3fe34b19cc370c4943adf179e40b444434d9a264bc5548a9412ca",
+            "liquidity": "0",
+            "midUsd": 21.6214,
+            "midVsFeedBps": -1506,
+            "quotes": []
+          },
+          {
+            "fee": 2166,
+            "tickSpacing": 43,
+            "poolId": "0x5dcf3e2953f8e866d95518e2b834c6a58542c81362279bf5e6e9de28d44e1406",
+            "liquidity": "0",
+            "midUsd": 22.503,
+            "midVsFeedBps": -1159.6,
+            "quotes": []
+          },
+          {
+            "fee": 8012,
+            "tickSpacing": 160,
+            "poolId": "0x39329bd9f65c7548adf52d1c18cb95b8d1b64660e3eb81244110fa9efc7bdf01",
+            "liquidity": "0",
+            "midUsd": 22.8979,
+            "midVsFeedBps": -1004.5,
+            "quotes": []
+          },
+          {
+            "fee": 9812,
+            "tickSpacing": 196,
+            "poolId": "0xa1ab3de494a60d279ab53ff815c7eef0fce57ef3a574c22d088880964e0076ee",
+            "liquidity": "0",
+            "midUsd": 22.8887,
+            "midVsFeedBps": -1008.1,
+            "quotes": []
+          },
+          {
+            "fee": 2130,
+            "tickSpacing": 43,
+            "poolId": "0x61191a95c70871e9702aac3e1fcb81c247f6bf998ad293737be65cd012170e9a",
+            "liquidity": "0",
+            "midUsd": 22.5999,
+            "midVsFeedBps": -1121.5,
+            "quotes": []
+          },
+          {
+            "fee": 3560,
+            "tickSpacing": 71,
+            "poolId": "0xa72ae9825b98fb446a7b57de0da785d305c412aaf17d9ef0986ebb87c2b3500b",
+            "liquidity": "0",
+            "midUsd": 22.7155,
+            "midVsFeedBps": -1076.2,
+            "quotes": []
+          },
+          {
+            "fee": 8050,
+            "tickSpacing": 161,
+            "poolId": "0x142bc570093dbfed0f209b45e0cf80da89546801d02244b205fed485ffed10c2",
+            "liquidity": "0",
+            "midUsd": 22.2294,
+            "midVsFeedBps": -1267.1,
+            "quotes": []
+          },
+          {
+            "fee": 7000,
+            "tickSpacing": 140,
+            "poolId": "0xab0326c1ad7ea59b9632bb5ed3184c1c826340c2b2eb7f746c7d00500160e6a3",
+            "liquidity": "0",
+            "midUsd": 22.6973,
+            "midVsFeedBps": -1083.3,
+            "quotes": []
+          },
+          {
+            "fee": 7700,
+            "tickSpacing": 154,
+            "poolId": "0x7bf8c8cac590d488c3e977efe3a0c721be76f5b0097b95e28369b1c4e7670b48",
+            "liquidity": "0",
+            "midUsd": 22.808,
+            "midVsFeedBps": -1039.8,
+            "quotes": []
+          },
+          {
+            "fee": 8300,
+            "tickSpacing": 166,
+            "poolId": "0x3c6575c7e57bba775ce7e6825693f8af0d232e65157174902c79bd4d59c01b9b",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 7900,
+            "tickSpacing": 158,
+            "poolId": "0x630379598b49ee16888b6c897ac53a3edbc0a2f17ea9065904a63d4848119663",
+            "liquidity": "0",
+            "midUsd": 22.4352,
+            "midVsFeedBps": -1186.3,
+            "quotes": []
+          },
+          {
+            "fee": 9000,
+            "tickSpacing": 180,
+            "poolId": "0x73ea1a65bc3ba85ddc7c7767dbdde55aa57b239db9b6412ac5330229673432df",
+            "liquidity": "0",
+            "midUsd": 22.9989,
+            "midVsFeedBps": -964.8,
+            "quotes": []
+          },
+          {
+            "fee": 8200,
+            "tickSpacing": 164,
+            "poolId": "0xca3f048ed5139ca95417014cab09119aaf3c656f2af76b6a3c5757053aea2462",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 8000,
+            "tickSpacing": 160,
+            "poolId": "0x4aee0b7abbbddf3a2255bbfdcc7b100747b338fe149af34b874a27693f9fb461",
+            "liquidity": "0",
+            "midUsd": 22.2923,
+            "midVsFeedBps": -1242.4,
+            "quotes": []
+          },
+          {
+            "fee": 90000,
+            "tickSpacing": 1800,
+            "poolId": "0xb028f8394e1fec00230a3bef540494a5f5caa6394eef3840ba3a002eced58620",
+            "liquidity": "0",
+            "midUsd": 23.678,
+            "midVsFeedBps": -698,
+            "quotes": []
+          },
+          {
+            "fee": 10124,
+            "tickSpacing": 202,
+            "poolId": "0x0c3d9a11dbb81a31991160346cb26193372291b4041c9a14bc228928926f31db",
+            "liquidity": "0",
+            "midUsd": 23.7111,
+            "midVsFeedBps": -685,
+            "quotes": []
+          },
+          {
+            "fee": 22200,
+            "tickSpacing": 444,
+            "poolId": "0xd48fa4d45846a330f199535dc0e53217022c76626c93667bb5d75739be295694",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 11112,
+            "tickSpacing": 222,
+            "poolId": "0xf313687744b1fc90fa1734c525fe06c0574ef500a9fff4a8046431189438e040",
+            "liquidity": "0",
+            "midUsd": 24.2895,
+            "midVsFeedBps": -457.8,
+            "quotes": []
+          },
+          {
+            "fee": 10200,
+            "tickSpacing": 204,
+            "poolId": "0x7740672ab94eb7bd73e3f78d342896014dc698aca83f1d040fb5821c1db87495",
+            "liquidity": "0",
+            "midUsd": 23.2619,
+            "midVsFeedBps": -861.5,
+            "quotes": []
+          },
+          {
+            "fee": 22000,
+            "tickSpacing": 440,
+            "poolId": "0x05e4d5510175e67390f078b745e88a22f7bcef15d7dc70e7a6e43990d4055342",
+            "liquidity": "0",
+            "midUsd": 23.5334,
+            "midVsFeedBps": -754.8,
+            "quotes": []
+          },
+          {
+            "fee": 7500,
+            "tickSpacing": 200,
+            "poolId": "0x8ce9db4c1a9befa1c5e5746c3737cc95dc0a9823148007a4a80ad3b16a9d3a06",
+            "liquidity": "0",
+            "midUsd": 22.3059,
+            "midVsFeedBps": -1237,
+            "quotes": []
+          },
+          {
+            "fee": 660000,
+            "tickSpacing": 13200,
+            "poolId": "0xb8337171e8f479a4806dbf213b9f8ba34cd19107abe45bac954ee512488686e2",
+            "liquidity": "0",
+            "midUsd": 48.8722,
+            "midVsFeedBps": 9199.6,
+            "quotes": []
+          },
+          {
+            "fee": 51000,
+            "tickSpacing": 1020,
+            "poolId": "0x0bb0bf88ddf57a5bcd5f26bafd5201519b4eb88e471d74904aec636a3439882d",
+            "liquidity": "0",
+            "midUsd": 53.9848,
+            "midVsFeedBps": 11208.1,
+            "quotes": []
+          },
+          {
+            "fee": 40000,
+            "tickSpacing": 800,
+            "poolId": "0x3969754435328d2532ec58aa8c054400407832560d402e850444ac16f7752d7b",
+            "liquidity": "0",
+            "midUsd": 43.7263,
+            "midVsFeedBps": 7178,
+            "quotes": []
+          },
+          {
+            "fee": 901110,
+            "tickSpacing": 18022,
+            "poolId": "0x4e94e3aa415c59dca6bf182bd0c06b39357cf488c7f2ef62a6ad148ae37e375b",
+            "liquidity": "0",
+            "midUsd": 66.9196,
+            "midVsFeedBps": 16289.6,
+            "quotes": []
+          },
+          {
+            "fee": 850000,
+            "tickSpacing": 17000,
+            "poolId": "0xfc8c7e47d75fd85688edaa098a55031cdc1e5b2afe31d983e1b411387632eca2",
+            "liquidity": "0",
+            "midUsd": 170.826,
+            "midVsFeedBps": 57109.6,
+            "quotes": []
+          },
+          {
+            "fee": 330000,
+            "tickSpacing": 6600,
+            "poolId": "0xe570d3f6d79c66746897028d70858ea90190a850ab2085a5bed5b864d7fe1139",
+            "liquidity": "0",
+            "midUsd": 72.3428,
+            "midVsFeedBps": 18420.1,
+            "quotes": []
+          },
+          {
+            "fee": 300000,
+            "tickSpacing": 6000,
+            "poolId": "0xa7ab7157066a6364fadfd2b09bba920807b38b7a30083257502476fc9b227aa7",
+            "liquidity": "0",
+            "midUsd": 247.9996,
+            "midVsFeedBps": 87427.4,
+            "quotes": []
+          },
+          {
+            "fee": 25000,
+            "tickSpacing": 500,
+            "poolId": "0x2b37c07d0683aefa207eb7cf64fc76a3c1c0bf23a95ad580817c156fedf50bd0",
+            "liquidity": "0",
+            "midUsd": 3.4025678683638813e50,
+            "midVsFeedBps": 1.336709724045713e53,
+            "quotes": []
+          },
+          {
+            "fee": 20000,
+            "tickSpacing": 400,
+            "poolId": "0x6fe5d505cb10dd8b1355c49bf14e95422ebbbe56129606de926bfdab3f64ea43",
+            "liquidity": "0",
+            "midUsd": 290.657,
+            "midVsFeedBps": 104185.5,
+            "quotes": []
+          },
+          {
+            "fee": 929000,
+            "tickSpacing": 18580,
+            "poolId": "0xa8556df6937e19ab4c4821ea5883f55479a33f6347574dc188fdf38a7c13b258",
+            "liquidity": "0",
+            "midUsd": 42.9963,
+            "midVsFeedBps": 6891.2,
+            "quotes": []
+          },
+          {
+            "fee": 200000,
+            "tickSpacing": 1000,
+            "poolId": "0x73a3b78c6e7113a49cfb6a01c5a13bf67ba181b7f5a819dc080d33d411a81032",
+            "liquidity": "0",
+            "midUsd": 113.5412,
+            "midVsFeedBps": 34605,
+            "quotes": []
+          },
+          {
+            "fee": 100000,
+            "tickSpacing": 2000,
+            "poolId": "0x10871879a29d6048f97d71f52cd8681b942f688455b69d4c280cd61f19b56994",
+            "liquidity": "0",
+            "midUsd": 24.519,
+            "midVsFeedBps": -367.6,
+            "quotes": []
+          },
+          {
+            "fee": 800000,
+            "tickSpacing": 200,
+            "poolId": "0x6113bbaa9c1c2dc521354de5d730bbe375c1831c4c8e49a13d6158508b15497e",
+            "liquidity": "0",
+            "midUsd": 154.26,
+            "midVsFeedBps": 50601.5,
+            "quotes": []
+          },
+          {
+            "fee": 910000,
+            "tickSpacing": 10000,
+            "poolId": "0xe2dd1a66d53b0fb36f722cfc84cc36e7460d5247800c1edc59471c562a829652",
+            "liquidity": "0",
+            "midUsd": 21.599,
+            "midVsFeedBps": -1514.7,
+            "quotes": []
+          },
+          {
+            "fee": 50000,
+            "tickSpacing": 1000,
+            "poolId": "0xffa3239c99e098add82c9d6f35d93ad7de3fae96d7af666ba2b253d9f01cf174",
+            "liquidity": "0",
+            "midUsd": 206.8794,
+            "midVsFeedBps": 71273.2,
+            "quotes": []
+          },
+          {
+            "fee": 906000,
+            "tickSpacing": 18120,
+            "poolId": "0x812f70fcdf526c85818175a5094f7695c7c3ca65a47e44c31ebee75a5a851a56",
+            "liquidity": "0",
+            "midUsd": 19.9984,
+            "midVsFeedBps": -2143.6,
+            "quotes": []
+          },
+          {
+            "fee": 990000,
+            "tickSpacing": 1000,
+            "poolId": "0x199ec16803a32444f5f4d97b73be5022856eb6523cc4224b86c34b9f8d82d041",
+            "liquidity": "0",
+            "midUsd": 2063.0094,
+            "midVsFeedBps": 800459.9,
+            "quotes": []
+          },
+          {
+            "fee": 999470,
+            "tickSpacing": 19989,
+            "poolId": "0x1bebaae3195d9b9826e33fe3ae6dd073aa083e1874e860aa4eb76ea348a272b2",
+            "liquidity": "0",
+            "midUsd": 28299.237,
+            "midVsFeedBps": 11107446.2,
+            "quotes": []
+          },
+          {
+            "fee": 997069,
+            "tickSpacing": 19941,
+            "poolId": "0x723772600bcd657dea848885cc74bc2babbed68af5da6d5568bb3e110a3bf523",
+            "liquidity": "0",
+            "midUsd": 0.9122,
+            "midVsFeedBps": -9641.7,
+            "quotes": []
+          },
+          {
+            "fee": 991150,
+            "tickSpacing": 19823,
+            "poolId": "0x93567ae20abadce319c4bde82986ccf24ae173864b7bb3bfacc074f70da6c7c3",
+            "liquidity": "0",
+            "midUsd": 0.887,
+            "midVsFeedBps": -9651.5,
+            "quotes": []
+          },
+          {
+            "fee": 920000,
+            "tickSpacing": 18400,
+            "poolId": "0x3de54340e8cd912f46789bd67250b6cef482b6d4b3fe97ea70f35dd5d4bb826c",
+            "liquidity": "0",
+            "midUsd": 97.4646,
+            "midVsFeedBps": 28289.3,
+            "quotes": []
+          },
+          {
+            "fee": 950000,
+            "tickSpacing": 19000,
+            "poolId": "0x4d4389f9183040e95b9425d666b13b5e875811c53cd0d975bd19ec91c0bce7bc",
+            "liquidity": "0",
+            "midUsd": 59.3229,
+            "midVsFeedBps": 13305.2,
+            "quotes": []
+          },
+          {
+            "fee": 500,
+            "tickSpacing": 10,
+            "poolId": "0xf68f430f9497ec1d1d8d59fc9ee706a056ea6b261aff73d3385f171181dabbcd",
+            "liquidity": "0",
+            "midUsd": 22.8271,
+            "midVsFeedBps": -1032.3,
+            "quotes": []
+          }
+        ],
+        "averages": [
+          {
+            "pool": "0xe9713f453adb9245b19559790c96f470a18f2fdf",
+            "fee": 10000,
+            "liquidity": "989421844935028118",
+            "minLiquidity": "490000000000000000",
+            "observationCardinality": 1860,
+            "observationCardinalityNext": 3601,
+            "hourReadable": true,
+            "midUsd": 25.4089,
+            "midVsFeedBps": -18,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 102,
+                "sellBps": 102
+              },
+              {
+                "usd": 2500,
+                "buyBps": 104.9,
+                "sellBps": 104.9
+              },
+              {
+                "usd": 4000,
+                "buyBps": 107.9,
+                "sellBps": 107.9
+              },
+              {
+                "usd": 5000,
+                "buyBps": 109.8,
+                "sellBps": 109.8
+              },
+              {
+                "usd": 10000,
+                "buyBps": 119.6,
+                "sellBps": 119.6
+              },
+              {
+                "usd": 25000,
+                "buyBps": 148.9,
+                "sellBps": 147.9
+              },
+              {
+                "usd": 50000,
+                "buyBps": 197.4,
+                "sellBps": 194.6
+              },
+              {
+                "usd": 250000,
+                "buyBps": 3316.3,
+                "sellBps": 2861.9
+              }
+            ]
+          },
+          {
+            "pool": "0xe2b46c905e12ab8e2f864e4821a4325884c1b126",
+            "fee": 500,
+            "liquidity": "275587637415882901",
+            "minLiquidity": "130000000000000000",
+            "observationCardinality": 3601,
+            "observationCardinalityNext": 4101,
+            "hourReadable": true,
+            "midUsd": 25.4048,
+            "midVsFeedBps": -19.6,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 12.2,
+                "sellBps": 12.2
+              },
+              {
+                "usd": 2500,
+                "buyBps": 23,
+                "sellBps": 23
+              },
+              {
+                "usd": 4000,
+                "buyBps": 34.1,
+                "sellBps": 34
+              },
+              {
+                "usd": 5000,
+                "buyBps": 41.6,
+                "sellBps": 41.4
+              },
+              {
+                "usd": 10000,
+                "buyBps": 81.2,
+                "sellBps": 80.9
+              },
+              {
+                "usd": 25000,
+                "buyBps": 206.5,
+                "sellBps": 443.6
+              },
+              {
+                "usd": 50000,
+                "buyBps": 417.9,
+                "sellBps": 3900.6
+              },
+              {
+                "usd": 250000,
+                "buyBps": null,
+                "sellBps": 8780.1
+              }
+            ]
+          },
+          {
+            "pool": "0x0a0675689c2ad2a3ade86539bcbd27b6c0764e9d",
+            "fee": 3000,
+            "liquidity": "5911341763576404",
+            "minLiquidity": "2900000000000000",
+            "observationCardinality": 1500,
+            "observationCardinalityNext": 1500,
+            "hourReadable": true,
+            "midUsd": 25.4667,
+            "midVsFeedBps": 4.7,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 373.7,
+                "sellBps": 514.1
+              },
+              {
+                "usd": 2500,
+                "buyBps": 5110.9,
+                "sellBps": 4631.5
+              },
+              {
+                "usd": 4000,
+                "buyBps": 6944.2,
+                "sellBps": 6644.5
+              },
+              {
+                "usd": 5000,
+                "buyBps": 7555.3,
+                "sellBps": 7315.6
+              },
+              {
+                "usd": 10000,
+                "buyBps": 8777.6,
+                "sellBps": 8657.8
+              },
+              {
+                "usd": 25000,
+                "buyBps": 9511.1,
+                "sellBps": 9463.1
+              },
+              {
+                "usd": 50000,
+                "buyBps": 9755.5,
+                "sellBps": 9731.6
+              },
+              {
+                "usd": 250000,
+                "buyBps": 9951.1,
+                "sellBps": 9946.3
+              }
+            ]
+          },
+          {
+            "pool": "0xb7723619e09e9317b3e538e7531ecbb910aec107",
+            "fee": 100,
+            "liquidity": "0",
+            "minLiquidity": "0",
+            "observationCardinality": 1,
+            "observationCardinalityNext": 1,
+            "hourReadable": true,
+            "midUsd": 21.2074,
+            "midVsFeedBps": -1668.6,
+            "quotes": []
+          }
+        ]
+      },
+      {
+        "symbol": "SNDK",
+        "asked": "SNDK",
+        "token": "0xb90a19ff0af67f7779aff50a882a9cff42446400",
+        "decimals": 18,
+        "paused": false,
+        "feed": "0xfb133fa4b7b385802b693a293606682df47109a3",
+        "feedDescription": "RHSNDK / USD",
+        "feedDecimals": 8,
+        "feedUsd": 1270.605675,
+        "feedAgeSeconds": 451,
+        "feedAggregator": "0x7B2FdfcEa772f093DD33b3aCF8EE294B368f6c23",
+        "poolsFrom": "Initialize events and the four standard shapes",
+        "hookedPoolsSkipped": 16,
+        "pools": [
+          {
+            "fee": 10000,
+            "tickSpacing": 200,
+            "poolId": "0x2707cb88a6a40fa0f948f58958051ba097d6f6a3cf7f87929bd68ccc5becea24",
+            "liquidity": "41727895523561524",
+            "midUsd": 1280.3875,
+            "midVsFeedBps": 77,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 116.4,
+                "sellBps": 116.4,
+                "buyOutRaw": "771918932109944722",
+                "sellInRaw": "781013571000000000",
+                "sellOutRaw": "988355339"
+              },
+              {
+                "usd": 2500,
+                "buyBps": 126.3,
+                "sellBps": 126.3,
+                "buyOutRaw": "1927883127762908072",
+                "sellInRaw": "1952533926000000000",
+                "sellOutRaw": "2468436212"
+              },
+              {
+                "usd": 4000,
+                "buyBps": 136,
+                "sellBps": 136.1,
+                "buyOutRaw": "3081556350328543812",
+                "sellInRaw": "3124054282000000000",
+                "sellOutRaw": "3945548911"
+              },
+              {
+                "usd": 5000,
+                "buyBps": 142.5,
+                "sellBps": 142.7,
+                "buyOutRaw": "3849402430262983399",
+                "sellInRaw": "3905067853000000000",
+                "sellOutRaw": "4928637673"
+              },
+              {
+                "usd": 10000,
+                "buyBps": 175,
+                "sellBps": 175.7,
+                "buyOutRaw": "7673475184401419394",
+                "sellInRaw": "7810135705000000000",
+                "sellOutRaw": "9824344588"
+              },
+              {
+                "usd": 25000,
+                "buyBps": 267.9,
+                "sellBps": 274.5,
+                "buyOutRaw": "19002318745549132205",
+                "sellInRaw": "19525339263000000000",
+                "sellOutRaw": "24313629467"
+              },
+              {
+                "usd": 50000,
+                "buyBps": 412.2,
+                "sellBps": 442.9,
+                "buyOutRaw": "37441126878598277856",
+                "sellInRaw": "39050678527000000000",
+                "sellOutRaw": "47785729925"
+              },
+              {
+                "usd": 250000,
+                "buyBps": 1589.1,
+                "sellBps": 5435.4,
+                "buyOutRaw": "164226587040018819238",
+                "sellInRaw": "195253392633000000000",
+                "sellOutRaw": "114114143714"
+              }
+            ]
+          },
+          {
+            "fee": 4000,
+            "tickSpacing": 40,
+            "poolId": "0x6d65849d00b3407f060b5a5210f49c1cd67bd19f0c954e80db722373c6d03e17",
+            "liquidity": "1487559002642616",
+            "midUsd": 1366.546,
+            "midVsFeedBps": 755.1,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 223.9,
+                "sellBps": null,
+                "buyOutRaw": "715385891076268480",
+                "sellInRaw": "731771941000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 2500,
+                "buyBps": 477.8,
+                "sellBps": null,
+                "buyOutRaw": "1742011012942677594",
+                "sellInRaw": "1829429854000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 4000,
+                "buyBps": 718.9,
+                "sellBps": null,
+                "buyOutRaw": "2716655022775655850",
+                "sellInRaw": "2927087766000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 5000,
+                "buyBps": 873,
+                "sellBps": null,
+                "buyOutRaw": "3339456541684605863",
+                "sellInRaw": "3658859707000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 10000,
+                "buyBps": 1572.3,
+                "sellBps": null,
+                "buyOutRaw": "6167118144073630875",
+                "sellInRaw": "7317719415000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 25000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "18294298537000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 50000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "36588597074000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 250000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "182942985370000000000",
+                "sellOutRaw": null
+              }
+            ]
+          },
+          {
+            "fee": 8000,
+            "tickSpacing": 80,
+            "poolId": "0xc9c8c236fae910f6e293022414fd676a45fc277eef6cd1bd374eb19f0cceaffc",
+            "liquidity": "16739431409898",
+            "midUsd": 1277.9202,
+            "midVsFeedBps": 57.6,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "782521478000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 2500,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "1956303695000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 4000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "3130085911000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 5000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "3912607389000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 10000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "7825214779000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 25000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "19563036946000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 50000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "39126073893000000000",
+                "sellOutRaw": null
+              },
+              {
+                "usd": 250000,
+                "buyBps": null,
+                "sellBps": null,
+                "buyOutRaw": null,
+                "sellInRaw": "195630369463000000000",
+                "sellOutRaw": null
+              }
+            ]
+          },
+          {
+            "fee": 800000,
+            "tickSpacing": 16000,
+            "poolId": "0x98d3852dfb69c89a55c514f37d1dd77b986c36999fc0ce7739fa151e6f19423b",
+            "liquidity": "4287162303781",
+            "midUsd": 1414.0878,
+            "midVsFeedBps": 1129.2,
+            "quotes": []
+          },
+          {
+            "fee": 951000,
+            "tickSpacing": 9510,
+            "poolId": "0xaca314d8e8c58db37b5476afe6d52ab64784b2be928dc4833f56ac35ea828731",
+            "liquidity": "3408433641533",
+            "midUsd": 400.0154,
+            "midVsFeedBps": -6851.8,
+            "quotes": []
+          },
+          {
+            "fee": 900000,
+            "tickSpacing": 18000,
+            "poolId": "0xc08d188927e659535c699d33a59cf804ea49ca3683f314949951ae84fc561b23",
+            "liquidity": "2212717270034",
+            "midUsd": 2048.391,
+            "midVsFeedBps": 6121.4,
+            "quotes": []
+          },
+          {
+            "fee": 996672,
+            "tickSpacing": 19933,
+            "poolId": "0x37370d8bee731f080467b5e48ee614c01e65f5c5ab419fc789e7e2bea2a178af",
+            "liquidity": "354312264466",
+            "midUsd": 33.0613,
+            "midVsFeedBps": -9739.8,
+            "quotes": []
+          },
+          {
+            "fee": 10000,
+            "tickSpacing": 1,
+            "poolId": "0xa97443c637c850d0584e6cb492e226b7fac1aeab17fa2c220292825a566994c3",
+            "liquidity": "66634020873",
+            "midUsd": 1287.4008,
+            "midVsFeedBps": 132.2,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 9976.1,
+                "sellBps": 9976.2,
+                "buyOutRaw": "1852637852417605",
+                "sellInRaw": "776758898000000000",
+                "sellOutRaw": "2384861"
+              },
+              {
+                "usd": 2500,
+                "buyBps": 9990.4,
+                "sellBps": 9990.4,
+                "buyOutRaw": "1855322421240511",
+                "sellInRaw": "1941897246000000000",
+                "sellOutRaw": "2388281"
+              },
+              {
+                "usd": 4000,
+                "buyBps": 9994,
+                "sellBps": 9994,
+                "buyOutRaw": "1855994779325451",
+                "sellInRaw": "3107035594000000000",
+                "sellOutRaw": "2389129"
+              },
+              {
+                "usd": 5000,
+                "buyBps": 9995.2,
+                "sellBps": 9995.2,
+                "buyOutRaw": "1856219006971364",
+                "sellInRaw": "3883794492000000000",
+                "sellOutRaw": "2389408"
+              },
+              {
+                "usd": 10000,
+                "buyBps": 9997.6,
+                "sellBps": 9997.6,
+                "buyOutRaw": "1856667624807830",
+                "sellInRaw": "7767588985000000000",
+                "sellOutRaw": "2389958"
+              },
+              {
+                "usd": 25000,
+                "buyBps": 9999,
+                "sellBps": 9999,
+                "buyOutRaw": "1856936899588508",
+                "sellInRaw": "19418972462000000000",
+                "sellOutRaw": "2390272"
+              },
+              {
+                "usd": 50000,
+                "buyBps": 9999.5,
+                "sellBps": 9999.5,
+                "buyOutRaw": "1857026675202225",
+                "sellInRaw": "38837944924000000000",
+                "sellOutRaw": "2390357"
+              },
+              {
+                "usd": 250000,
+                "buyBps": 9999.9,
+                "sellBps": 9999.9,
+                "buyOutRaw": "1857098501941685",
+                "sellInRaw": "194189724622000000000",
+                "sellOutRaw": "2390388"
+              }
+            ]
+          },
+          {
+            "fee": 770000,
+            "tickSpacing": 7700,
+            "poolId": "0xcd87d8a7341253c583845a388929b4ea848e37fc4b1b624ca96330856022acbd",
+            "liquidity": "2609841398",
+            "midUsd": 427.4165,
+            "midVsFeedBps": -6636.1,
+            "quotes": []
+          },
+          {
+            "fee": 770000,
+            "tickSpacing": 1,
+            "poolId": "0xe1714051e62226b4397b3c1e6c32bccf13b11f678c71dac27894d3222af2a42f",
+            "liquidity": "0",
+            "midUsd": 1526.8104,
+            "midVsFeedBps": 2016.4,
+            "quotes": []
+          },
+          {
+            "fee": 375,
+            "tickSpacing": 4,
+            "poolId": "0xdfce3db96f63f783ec29befc29140b1ac3a75b9e29eb3fc2fcca9c3523a369db",
+            "liquidity": "0",
+            "midUsd": 1701.4399,
+            "midVsFeedBps": 3390.8,
+            "quotes": []
+          },
+          {
+            "fee": 2890,
+            "tickSpacing": 29,
+            "poolId": "0xb0706c40f54819959de0ae02f4187a1ba5a17dd2d22bf726fbf54c40db77c099",
+            "liquidity": "0",
+            "midUsd": 1714.5361,
+            "midVsFeedBps": 3493.8,
+            "quotes": []
+          },
+          {
+            "fee": 9950,
+            "tickSpacing": 15,
+            "poolId": "0xc5e809b4ba0c12e86ac36cd68ce3cb6db70220995b104893767407cebb54cf36",
+            "liquidity": "0",
+            "midUsd": 1756.7646,
+            "midVsFeedBps": 3826.2,
+            "quotes": []
+          },
+          {
+            "fee": 2900,
+            "tickSpacing": 29,
+            "poolId": "0xe3dc81d70596b9031a280042d685f9938eb8a41e2e36a020bdbce0ede805f626",
+            "liquidity": "0",
+            "midUsd": 3.402567865403252e50,
+            "midVsFeedBps": 2.6779101749276004e51,
+            "quotes": []
+          },
+          {
+            "fee": 5000,
+            "tickSpacing": 50,
+            "poolId": "0xb94f6ff97617bfc9dd47e088181479aa67dd5fcd350628e9e27ec0009fcb85ab",
+            "liquidity": "0",
+            "midUsd": 1772.3649,
+            "midVsFeedBps": 3949,
+            "quotes": []
+          },
+          {
+            "fee": 3000,
+            "tickSpacing": 30,
+            "poolId": "0xf65024a893c84b5a25a71929119247c39eee09f81ef310eb9dc62722c2ed0d41",
+            "liquidity": "0",
+            "midUsd": 1529.408,
+            "midVsFeedBps": 2036.8,
+            "quotes": []
+          },
+          {
+            "fee": 950160,
+            "tickSpacing": 9502,
+            "poolId": "0xf864d5016897567dd8f1be422429c4f5d3a8e9ff091c258ea1c0983853f581f4",
+            "liquidity": "0",
+            "midUsd": 160.012,
+            "midVsFeedBps": -8740.7,
+            "quotes": []
+          },
+          {
+            "fee": 950100,
+            "tickSpacing": 9501,
+            "poolId": "0xca85572691d6efa5c0a508d64e5a4a5b7f2d05c30eedb11be64b6a1ebbfcb620",
+            "liquidity": "0",
+            "midUsd": 400.0154,
+            "midVsFeedBps": -6851.8,
+            "quotes": []
+          },
+          {
+            "fee": 150000,
+            "tickSpacing": 1500,
+            "poolId": "0x821b087451229863e3fc448673db8792794378f0e0076a6c55913946e64524d1",
+            "liquidity": "0",
+            "midUsd": 1534.0354,
+            "midVsFeedBps": 2073.3,
+            "quotes": []
+          },
+          {
+            "fee": 900000,
+            "tickSpacing": 9000,
+            "poolId": "0x77ae36b90d52d0c3122c9d9131e444b91eb4f1b65b0028b9ff3c76255038bec7",
+            "liquidity": "0",
+            "midUsd": 1303.4163,
+            "midVsFeedBps": 258.2,
+            "quotes": []
+          },
+          {
+            "fee": 10990,
+            "tickSpacing": 200,
+            "poolId": "0xdab658c038bee692dfe672054cda1815c542951cdd9293b51805fcd2dc5bcdd2",
+            "liquidity": "0",
+            "midUsd": 3.402567865403252e50,
+            "midVsFeedBps": 2.6779101749276004e51,
+            "quotes": []
+          },
+          {
+            "fee": 8800,
+            "tickSpacing": 176,
+            "poolId": "0xd1f5bf4413ef11c9d82b7889651597e563f42e02bb7974458634d28e3e9cc981",
+            "liquidity": "0",
+            "midUsd": 1409.8524,
+            "midVsFeedBps": 1095.9,
+            "quotes": []
+          },
+          {
+            "fee": 880000,
+            "tickSpacing": 17600,
+            "poolId": "0xd08f13cf3ef306f8181989e3b95519096c998a2231b525b06fc674718ff02d95",
+            "liquidity": "0",
+            "midUsd": 1605.7297,
+            "midVsFeedBps": 2637.5,
+            "quotes": []
+          },
+          {
+            "fee": 920000,
+            "tickSpacing": 18400,
+            "poolId": "0xf6a2ce6163db3c4b27c15606210da8088c1894b47277c6cc79842a37a10006aa",
+            "liquidity": "0",
+            "midUsd": 1200.0856,
+            "midVsFeedBps": -555,
+            "quotes": []
+          },
+          {
+            "fee": 20000,
+            "tickSpacing": 400,
+            "poolId": "0x250c401f1f8cae172f0d2ded2764c5f364f360e2218731aab1a7e69f95a47f43",
+            "liquidity": "0",
+            "midUsd": 1615.4848,
+            "midVsFeedBps": 2714.3,
+            "quotes": []
+          },
+          {
+            "fee": 950000,
+            "tickSpacing": 19000,
+            "poolId": "0xd1ed74ec80e4841f36796426afca45fed5f2da01122fb45751222fe03d205287",
+            "liquidity": "0",
+            "midUsd": 1973.5229,
+            "midVsFeedBps": 5532.1,
+            "quotes": []
+          },
+          {
+            "fee": 3000,
+            "tickSpacing": 60,
+            "poolId": "0x66718ade63ce000f5c44fd390836c2f75d036ea81ef7128391c27506239f4917",
+            "liquidity": "0",
+            "midUsd": 1725.8339,
+            "midVsFeedBps": 3582.8,
+            "quotes": []
+          },
+          {
+            "fee": 500,
+            "tickSpacing": 10,
+            "poolId": "0x42d4466acec21e04d8c01c97e18871bb9442d3f67f220f0e2a461f6a3f75a4c5",
+            "liquidity": "0",
+            "midUsd": 1639.6867,
+            "midVsFeedBps": 2904.8,
+            "quotes": []
+          }
+        ],
+        "averages": [
+          {
+            "pool": "0xa1e1c9519cd5ae47e9a935645e1a7b935b944559",
+            "fee": 10000,
+            "liquidity": "4460389389880274",
+            "minLiquidity": "2200000000000000",
+            "observationCardinality": 7200,
+            "observationCardinalityNext": 7200,
+            "hourReadable": true,
+            "midUsd": 1278.8497,
+            "midVsFeedBps": 64.9,
+            "quotes": [
+              {
+                "usd": 1000,
+                "buyBps": 161.1,
+                "sellBps": 201.4
+              },
+              {
+                "usd": 2500,
+                "buyBps": 251.7,
+                "sellBps": 719
+              },
+              {
+                "usd": 4000,
+                "buyBps": 341.4,
+                "sellBps": 3703.6
+              },
+              {
+                "usd": 5000,
+                "buyBps": 400.4,
+                "sellBps": 4961.7
+              },
+              {
+                "usd": 10000,
+                "buyBps": 739.4,
+                "sellBps": 7480.3
+              },
+              {
+                "usd": 25000,
+                "buyBps": 4957.1,
+                "sellBps": 8992.1
+              },
+              {
+                "usd": 50000,
+                "buyBps": 7478.5,
+                "sellBps": 9496
+              },
+              {
+                "usd": 250000,
+                "buyBps": 9495.7,
+                "sellBps": 9899.2
+              }
+            ]
+          },
+          {
+            "pool": "0xc9f2e2229ef638a7629185c9b222ad2eeec39b74",
+            "fee": 3000,
+            "liquidity": "0",
+            "minLiquidity": "0",
+            "observationCardinality": 1,
+            "observationCardinalityNext": 1,
+            "hourReadable": true,
+            "midUsd": 1549.5382,
+            "midVsFeedBps": 2195.3,
+            "quotes": []
+          }
+        ]
+      }
+    ]
+  }
+}

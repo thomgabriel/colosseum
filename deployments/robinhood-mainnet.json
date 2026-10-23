@@ -693,6 +693,37 @@
       }
     }
   ],
+  "pending": [
+    {
+      "id": "robinhood:gme",
+      "symbol": "GME",
+      "name": "GameStop",
+      "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+      "decimals": 18,
+      "modelOf": "GME",
+      "kind": "stock",
+      "feed": "0x27c71df6a64fb476468edf256cf72c038bab5b67",
+      "feedDecimals": 8,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "maxAge": 93600,
+      "session": 1,
+      "maxWeightBps": 500,
+      "keeperOn": false,
+      "range": null,
+      "pool": null,
+      "v3Pool": {
+        "pool": "0xe2b46c905e12ab8e2f864e4821a4325884c1b126",
+        "fee": 500
+      },
+      "maxTradeUsd": 10000,
+      "average": {
+        "pool": "0xe2b46c905e12ab8e2f864e4821a4325884c1b126",
+        "minLiquidity": "130000000000000000",
+        "usable": true
+      },
+      "operation": "0x0f9ee17d6dfef61faa1216f66d00f0b8e22217ea308e14fe396f1e3bfe8db394"
+    }
+  ],
   "hidden": [
     {
       "id": "robinhood:dell",

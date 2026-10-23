@@ -1,0 +1,53 @@
+{
+  "about": "More tokens for the Robinhood Chain MAINNET (4663) factory of the redeploy (gate ROBINHOOD-REDEPLOY), whose admin is the team's 2-of-2 Safe itself: no timelock, so the Safe lists them with one batch of setAsset calls on the factory that both owners sign once (pnpm ops:add-assets --safe-files writes it as the Safe app's Transaction Builder file, 4663-assets-3.safe.json beside this one). Gate LIST-13 (Thom and Rodrigo, 2026-10-23) asked for thirteen: AMC, COST, DJT, GLXY, GME, HIMS, LLY, MRNA, RBLX, RDDT, SNAP, SNDK, TTWO. One meets the bar of WIDER-LIST: GME, through its Uniswap v3 pool (`v3Pool`), traded and shown through the v3 route once listed, as QQQ (gate V3-ROUTE). Eleven have no Chainlink feed on the chain, and SNDK has no pool that fills $1,000 each way for 1% or less (docs/vault/MAINNET-LIST-13.md). The entry is of the deploy file's shape (script/config/4663.json), held to the same rules: a Chainlink feed that names its aggregator and is live; a pool against USDG that fills $1,000 each way for 1% or less with its mid within 2% of the feed; maxTradeUsd the largest size asked that cost 1% or less each way; maxWeightBps DESIGN-VAULT section 6 on the pool's sale capacity; average the deepest Uniswap v3 pool against USDG keeping more than 3,600 observations. The keeper stays off: flags 0, no average feed, no range. Every value is PROPOSED: the Safe's two owners confirm them by signing the batch. Figures read by packages/chain-evm/test/pool-quotes.ts (method pool-quotes-0.3) at the block in `measured`; raw reads in fixtures/risk-evm/robinhood-list-13-quotes.json.",
+  "chainId": 4663,
+  "factory": "0x7E2Bbb8483eB1BaA6D87210Bc83b63ad7A1bB8aA",
+  "safe": "0x4568Bc6Cc821B34095059Fd46102eAA22A675Fdc",
+  "cashToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+  "salt": "tenonfi robinhood-mainnet list-13 2026-10-23",
+  "priceBoundBps": 200,
+  "measured": [
+    {
+      "block": 96096520,
+      "at": "2026-10-23T16:59:24.000Z"
+    }
+  ],
+  "assets": [
+    {
+      "symbol": "GME",
+      "name": "GameStop",
+      "kind": "stock",
+      "token": "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
+      "feed": "0x27C71df6A64fB476468EdF256CF72c038baB5B67",
+      "feedDescription": "Robinhood GME / USD",
+      "tokenDecimals": 18,
+      "feedDecimals": 8,
+      "maxAge": 93600,
+      "session": 1,
+      "source": 1,
+      "maxWeightBps": 500,
+      "maxWeightNote": "Proposed 2026-10-23: 500 bps, the ceiling in a shared portfolio (gate EXIT-SOURCE); a person's own vault is not capped. By DESIGN-VAULT section 6 (10,000 x 0.25 x capacity / $50,000, down to a 50 bps step, at most 5000), with capacity $10,000: the largest of $1,000, $10,000, $50,000 and $250,000 the v3 pool below took as a sale for 1% or less. One reading; Bearing has no curve for GME's pools in the repository.",
+      "pauseProbe": "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
+      "pauseSelector": "0x5c975abb",
+      "scheduleSelector": "0x97a4064f",
+      "flags": 0,
+      "averageFeed": "0x0000000000000000000000000000000000000000",
+      "minPrice": 0,
+      "maxPrice": 0,
+      "v3Pool": {
+        "pool": "0xE2b46c905E12Ab8E2f864e4821a4325884C1B126",
+        "fee": 500
+      },
+      "v3PoolNote": "Proposed 2026-10-23. Traded and shown through the v3 route once listed, as QQQ (gate V3-ROUTE). GME has no v4 route: its deepest hookless v4 pool against USDG (fee 10000, spacing 200) costs 41.7% to buy and 10.4% to sell $1,000, and no other v4 pool fills $1,000. This is its Uniswap v3 pool against USDG with the most liquidity in range among those that fill $1,000 each way for 1% or less within 2% of the feed, the v3 factory's own, fee 500, at block 96096520 (2026-10-23T16:59:24.000Z); the deeper fee-10000 pool costs 1.02% at $1,000. Quoted by Bearing's ClQuoter through a state override, cost against its own mid, fee included, in bps to trade in / out: $1,000 12.2/12.2, $2,500 23/23, $5,000 41.6/41.4, $10,000 81.2/80.9, $25,000 206.5/443.6, $50,000 417.9/3900.6. Its mid sat -19.6 bps from the feed.",
+      "maxTradeUsd": 10000,
+      "maxTradeNote": "Proposed 2026-10-23. The largest size asked ($1,000, $2,500, $4,000, $5,000, $10,000, $25,000, $50,000, $250,000) that cost 1% or less each way in the v3 pool above at block 96096520, every smaller size too: 0.81% in, 0.81% out at $10,000; $25,000 costs 2.07% in, 4.44% out. App-side; the record can change it without the Safe.",
+      "average": {
+        "pool": "0xE2b46c905E12Ab8E2f864e4821a4325884C1B126",
+        "fee": 500,
+        "minLiquidity": "130000000000000000",
+        "usable": true
+      },
+      "averageNote": "Proposed 2026-10-23. The token's Uniswap v3 pool against USDG with the most liquidity in range among those keeping more than 3,600 observations, fee 500, the v3 factory's own (the fee-10000 pool is deeper and keeps 1,860). It keeps 4,101 observations (observationCardinality, re-read at block 96171268, 2026-10-23T19:08:45Z; 3,601 at block 96096520) and observe([3600, 0]) answers, so usable is true. minLiquidity is half its liquidity in range at block 96096520, 275587637415882901, down to two figures; at block 96171268 it held 255849404103162744."
+    }
+  ]
+}
