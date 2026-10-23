@@ -363,6 +363,21 @@ describe('an asset whose pool is a Uniswap v3 pool', () => {
     }
   });
 
+  it("keeps a caller's state override and puts the quoter's code over any it names for the quoter", async () => {
+    const { rpc, asked } = recorded();
+    const other = { address: HIGH, balance: 1n };
+    await quoteExactIn(
+      rpc,
+      pools,
+      { tokenIn: fx.cash, tokenOut: fx.asset, amountIn: 1_000_000_000n },
+      { stateOverride: [other, { address: CL_QUOTER_ADDRESS, code: '0x00' }] },
+    );
+    expect(asked[0]?.stateOverride).toEqual([
+      other,
+      { address: CL_QUOTER_ADDRESS, code: CL_QUOTER_CODE },
+    ]);
+  });
+
   it("a pool that did not take the whole amount, or a pool that is not the router's, does not quote", async () => {
     const partial = {
       call: async () => ({

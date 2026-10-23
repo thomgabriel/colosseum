@@ -7,7 +7,9 @@ import {
   EvmDeploymentRecord,
   isV3Pool,
   poolOf,
+  ROBINHOOD_V3,
   swapCalldata,
+  v3PoolAddress,
 } from '@colosseum/chain-evm/vault';
 import type { ApprovedStep, EvmDeployment, Loaded } from '@colosseum/sdk';
 import { deploymentsOf, evmVaultAddress, guardTransaction, isGuardRefusal } from '@colosseum/sdk';
@@ -89,6 +91,10 @@ describe('the five Robinhood Chain tokens whose money is in Uniswap v3', () => {
       const token = a.address as `0x${string}`;
       const pool = poolOf(pools, cash, token);
       expect(isV3Pool(pool) && pool.v3Pool, a.symbol).toBe(a.v3Pool?.pool);
+      // The recorded pool is the one Universal Router swaps in: the v3 factory's at that fee.
+      expect(v3PoolAddress(ROBINHOOD_V3, cash, token, a.v3Pool?.fee ?? 0), a.symbol).toBe(
+        a.v3Pool?.pool,
+      );
       const buy = swapCalldata(pools, {
         tokenIn: cash,
         tokenOut: token,

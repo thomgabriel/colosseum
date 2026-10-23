@@ -924,9 +924,62 @@ describe("the guard on EVM: a token whose pool is a v3 pool, on mainnet's file",
     ],
     ['two commands', buyQqq({ commands: [0x00, 0x00], inputs: (i) => [i, i] }), 'route'],
     ['the command that may fail', buyQqq({ commands: [0x80] }), 'route'],
+    [
+      'a byte left over in the input',
+      buyQqq({ inputs: (i) => [Uint8Array.from([...i, 0])] }),
+      'route',
+    ],
+    ['more than the trade sells', buyQqq({ swapAmountIn: amountIn + 1n }), 'amount'],
+    [
+      "the router's whole balance (CONTRACT_BALANCE)",
+      buyQqq({ swapAmountIn: 1n << 255n }),
+      'amount',
+    ],
+    ['the output to the zero address', buyQqq({ recipient: ZERO_ADDRESS }), 'route'],
+    [
+      'the output to the vault by its own address',
+      buyQqq({ recipient: evmVaultAddress(live, OWNER, BASKET_ID) }),
+      'route',
+    ],
+    ["the router's minimum set to the trade's", buyQqq({ amountOutMin: 1n }), 'minimum'],
   ];
   it.each(negatives)('refuses %s', (_, route, code) => {
     expect(guardOn('robinhood:qqq', route)?.code).toBe(code);
+  });
+
+  it('refuses a sale through another fee', () => {
+    const t = {
+      sell: 'robinhood:qqq',
+      buy: live.cash,
+      inRaw: '1000000000000000000',
+      minOutRaw: '1',
+    };
+    const step: ApprovedStep = { ...base, kind: 'swap', trades: [t] };
+    vi.useFakeTimers();
+    vi.setSystemTime(Number(DEADLINE - 300n) * 1000);
+    const route = routeV3Of({
+      tokenIn: qqq?.token ?? '',
+      tokenOut: cash,
+      amountIn: 10n ** 18n,
+      fee: 3000,
+    });
+    const tx = evmTx(step, {
+      to: evmVaultAddress(live, OWNER, BASKET_ID),
+      data: calls.ownerSwap(
+        [[router ?? '', qqq?.token ?? '', cash, 10n ** 18n, 1n, route]],
+        DEADLINE,
+      ),
+      chainId: 4663,
+    });
+    const refusal = refusalOf(() =>
+      guardTransaction({
+        step,
+        tx: { ...tx, provenance: 'live', preview: { ...tx.preview, provenance: 'live' } },
+        deployment: live,
+        consents: [],
+      }),
+    );
+    expect(refusal?.code).toBe('route');
   });
 
   it('refuses the v3 command for a token whose pool is a v4 pool', () => {
