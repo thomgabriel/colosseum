@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { AddAssetsFile, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
 import { readDeploymentFile } from '@colosseum/sdk';
 import { describe, expect, it } from 'vitest';
-import { heldToFile, promote, safeFiles } from '../scripts/ops/add-assets';
+import { heldToFile, promote, recordFor, safeFiles, safeListFile } from '../scripts/ops/add-assets';
 
 // More tokens on Robinhood Chain mainnet through the timelock: the record keeps them under `pending`,
 // which nothing that trades or shows reads, until the chain lists them; then they move to `assets` and
@@ -85,5 +85,73 @@ describe('the tokens the Safe lists after the deploy', () => {
       expect(f.meta.createdFromSafeAddress.toLowerCase()).toBe(file.safe);
     }
     expect(schedule.meta.description).toContain(batch.operationId);
+  });
+});
+
+// Gate LIST-13: more tokens on the redeploy's factory, whose admin is the Safe itself. One batch of setAsset
+// calls the Safe signs once; the record keeps the tokens under `pending` until the chain lists them.
+describe('the tokens of LIST-13, on the redeploy’s factory', () => {
+  const list = AddAssetsFile.parse(JSON.parse(read('contracts/script/config/4663-assets-3.json')));
+  const now = JSON.parse(read('deployments/robinhood-mainnet.json'));
+  const guardNow = JSON.parse(read('packages/sdk/deployments/mainnet.json'));
+  const committed = JSON.parse(read('contracts/script/config/4663-assets-3.safe.json'));
+
+  it("name the redeploy's factory, its Safe and cash, and no timelock", () => {
+    expect(list.timelock).toBeUndefined();
+    expect(recordFor(list, [record, now])).toBe(now);
+    expect(list.factory).toBe(now.contracts.factory);
+    expect(list.safe).toBe(now.safe.address);
+    expect(list.safe).toBe(now.roles.admin);
+    expect(list.cashToken).toBe(now.cash.address);
+    expect(list.priceBoundBps).toBe(now.priceBoundBps);
+  });
+
+  it('hold each token to the bar of WIDER-LIST, apart from everything the chain lists already', () => {
+    const onChain = new Set(
+      [now.cash, ...now.assets, ...(now.hidden ?? [])].map((a: { address: string }) => a.address),
+    );
+    for (const a of list.assets) {
+      expect(onChain.has(a.token), a.symbol).toBe(false);
+      expect([a.source, a.feedDecimals, a.maxAge, a.session], a.symbol).toEqual([1, 8, 93_600, 1]);
+      expect([a.flags, a.minPrice, a.maxPrice], a.symbol).toEqual([0, 0, 0]);
+      expect(a.maxTradeUsd, a.symbol).toBeGreaterThanOrEqual(1_000);
+      expect(a.maxWeightBps % 50, a.symbol).toBe(0);
+      // A v3 token is kept out of the app until it builds that route, and the file says so.
+      if (a.v3Pool) expect(a.hidden, a.symbol).toBe('v3_route');
+    }
+  });
+
+  it("are the record's pending tokens, and the guard's file names none of them", () => {
+    expect(() => heldToFile(now, list)).not.toThrow();
+    EvmDeploymentRecord.parse(now);
+    const ids = Object.keys(guardNow.chains.robinhood.assets);
+    for (const p of now.pending) expect(ids, p.id).not.toContain(p.id);
+  });
+
+  it('come as the one committed Transaction Builder file: setAsset on the factory per token, from the Safe', () => {
+    const { batch, list: made } = safeListFile(list, 'Tenonfi: more tokens');
+    expect(committed).toEqual(made);
+    expect(made.transactions).toHaveLength(list.assets.length);
+    for (const t of made.transactions) expect(t.to.toLowerCase()).toBe(list.factory);
+    expect(made.meta.createdFromSafeAddress.toLowerCase()).toBe(list.safe);
+    expect(made.meta.description).toContain(batch.operationId);
+    expect(() => safeFiles(list, 'x')).toThrow(/no timelock/);
+  });
+
+  it('once listed, a v3 token moves to hidden, never to the guard’s file, and the record still reads', () => {
+    const next = promote(
+      now,
+      guardNow,
+      now.pending.map((p: { address: string }) => p.address),
+      [],
+      true,
+    );
+    expect(next.moved).toEqual([]);
+    expect(next.hidden).toEqual(list.assets.map((a) => a.symbol));
+    expect(next.record.pending).toBeUndefined();
+    expect(next.record.hidden.at(-1)).toMatchObject({ symbol: 'GME', why: 'v3_route', pool: null });
+    expect(next.record.hidden.at(-1)).not.toHaveProperty('operation');
+    expect(next.guard).toEqual(guardNow);
+    EvmDeploymentRecord.parse(next.record);
   });
 });
