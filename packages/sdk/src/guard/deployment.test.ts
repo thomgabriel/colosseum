@@ -908,14 +908,14 @@ describe('the loader reads a deployment file and nothing that is nearly one', ()
     const { fee, tickSpacing } = routeVectors.pools.mainnet;
     expect(rh.assets['robinhood:nvda']?.pool).toEqual({ fee, tickSpacing });
     expect(rh.assets[rh.cash]?.pool).toBeUndefined();
-    // Five have their money in Uniswap v3 and state that pool instead (gate V3-ROUTE).
+    // Six have their money in Uniswap v3 and state that pool instead (gate V3-ROUTE; GME, LIST-13).
     const shapes = Object.entries(rh.assets)
       .filter(([id]) => id !== rh.cash)
       .map(([, a]) => (a.v3Pool ? `v3/${a.v3Pool.fee}` : `${a.pool?.fee}/${a.pool?.tickSpacing}`));
     expect(shapes.length).toBeGreaterThan(1);
     expect(shapes).not.toContain('undefined/undefined');
     expect(new Set(shapes).size).toBeGreaterThan(1);
-    expect(shapes.filter((x) => x.startsWith('v3/'))).toHaveLength(5);
+    expect(shapes.filter((x) => x.startsWith('v3/'))).toHaveLength(6);
     for (const address of [rh.factory, rh.beacon, rh.registry])
       expect(address).not.toBe(e.ZERO_ADDRESS);
     // With a placeholder's mark on it, real addresses change nothing.

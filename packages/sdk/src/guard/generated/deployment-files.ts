@@ -219,6 +219,14 @@ export const DEPLOYMENT_FILES: Readonly<Record<string, unknown>> = deepFreeze({
               fee: 3000,
             },
           },
+          'robinhood:gme': {
+            address: '0x1b0e319c6a659f002271b69db8a7df2f911c153e',
+            decimals: 18,
+            v3Pool: {
+              pool: '0xe2b46c905e12ab8e2f864e4821a4325884c1b126',
+              fee: 500,
+            },
+          },
         },
       },
     },

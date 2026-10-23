@@ -146,14 +146,21 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
         }
       ).assets.map((a) => lower(a.address)),
     );
-    // (The redeploy lists them at deploy, in its own file: no batch is added to it.)
-    const added = recordNow.safe
-      ? []
-      : (
-          JSON.parse(
-            readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-assets-2.json'), 'utf8'),
-          ) as ContractsFile
-        ).assets.filter((a) => listed.has(lower(a.token)));
+    // On the redeploy, the Safe's own batches after the deploy (`4663-assets-3.json`, gate LIST-13).
+    const added = (
+      JSON.parse(
+        readFileSync(
+          join(
+            ROOT,
+            'contracts',
+            'script',
+            'config',
+            recordNow.safe ? '4663-assets-3.json' : '4663-assets-2.json',
+          ),
+          'utf8',
+        ),
+      ) as ContractsFile
+    ).assets.filter((a) => listed.has(lower(a.token)));
     const fromContracts = Object.fromEntries(
       [...stocks, ...added].map((a) => [
         lower(a.token),
@@ -165,7 +172,7 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
       ]),
     );
     expect(fromGuard).toEqual(fromContracts);
-    for (const a of stocks) {
+    for (const a of [...stocks, ...added]) {
       // One route each: a v4 pool, or a v3 pool (gate V3-ROUTE).
       if (a.v3Pool) {
         expect(a.pool, a.token).toBeUndefined();
@@ -177,9 +184,9 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
         });
       expect(a.feedDescription, a.token).toBeTruthy();
     }
-    // The five whose money is in Uniswap v3 are shown and traded through it.
+    // The five whose money is in Uniswap v3 are shown and traded through it, and GME (gate LIST-13).
     expect(
-      stocks
+      [...stocks, ...added]
         .filter((a) => a.v3Pool)
         .map((a) => lower(a.token))
         .sort(),
@@ -330,7 +337,20 @@ describe("Robinhood Chain mainnet, before a deploy: the guard's file and the con
   });
 
   it('the builder writes each mainnet token the pool the guard would hold it to', () => {
-    const [, ...stocks] = contracts.assets;
+    // With the tokens the Safe listed after the deploy, once the record shows them (gate LIST-13).
+    const shown = new Set(
+      (
+        JSON.parse(readFileSync(join(ROOT, 'deployments', 'robinhood-mainnet.json'), 'utf8')) as {
+          assets: { address: string }[];
+        }
+      ).assets.map((a) => lower(a.address)),
+    );
+    const later = (
+      JSON.parse(
+        readFileSync(join(ROOT, 'contracts', 'script', 'config', '4663-assets-3.json'), 'utf8'),
+      ) as ContractsFile
+    ).assets.filter((a) => shown.has(lower(a.token)));
+    const stocks = [...contracts.assets.slice(1), ...later];
     const pools = v4Pools(
       contracts.cashToken,
       stocks.map((a) => ({ address: a.token, pool: a.pool ?? null, v3Pool: a.v3Pool })),

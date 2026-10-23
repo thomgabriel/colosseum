@@ -691,9 +691,7 @@
         "minLiquidity": "40000000000000000",
         "usable": false
       }
-    }
-  ],
-  "pending": [
+    },
     {
       "id": "robinhood:gme",
       "symbol": "GME",
@@ -720,8 +718,7 @@
         "pool": "0xe2b46c905e12ab8e2f864e4821a4325884c1b126",
         "minLiquidity": "130000000000000000",
         "usable": true
-      },
-      "operation": "0x0f9ee17d6dfef61faa1216f66d00f0b8e22217ea308e14fe396f1e3bfe8db394"
+      }
     }
   ],
   "hidden": [
