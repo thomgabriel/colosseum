@@ -181,7 +181,7 @@ export function registerRiskReadCache(app: FastifyInstance, opts: RiskCacheOptio
     peek: (url) => {
       const k = kept.get(url);
       if (!k || !fresh(k)) return null;
-      asked.add(url);
+      if (asked.size < MAX_ASKED) asked.add(url);
       return k.body;
     },
     takeAsked: () => {
