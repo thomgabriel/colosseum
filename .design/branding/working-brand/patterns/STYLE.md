@@ -15,7 +15,7 @@ These are product rules expressed as design. A screen that breaks one of them is
 2. **Sample is never shown as live (gate `MOCK-QUIET`, Thom, Oct 6; amended Oct 13).** A card whose data is mocked or stubbed (the API carries `"provenance": "mock"`) carries **one quiet tag in its top-right corner**: "Sample figures" ("Números de exemplo"), or "Test network" ("Rede de teste") for figures from a test network or a local copy of mainnet (`"provenance": "sandbox"`). The tag is drawn as the portfolio overview's plate for figures that are not live (a pill on `--honey-tint` with a honey edge at 60%, ink text, caption size; `board-plate` in `OverviewPage.tsx`), sits after the header's meta or in a line of its own above the content, and its words are its screen-reader name. No hatched edge on a card and no foot line (Thom, Oct 13). A card that holds no figure (a sign-in card, a form) carries no tag. A sample figure keeps its hatched pin, or a small hatched glyph where it has no pin, named "sample figure" for screen readers. The word MOCK is the API's value and the name of the state in these documents; it never appears as a boxed label beside a figure. Text never sits on hatch strokes. Stale data gets a hollow pin plus the word "stale" and its age.
 3. **The disclaimer is never omitted, and the brand is never presented as advice.** The disclaimer renders from the single `DISCLAIMER` constant, unedited, on the plan view and in the API docs, at body size, in a hairline box. No return promises: no "earn up to", "guaranteed" or "risk-free".
 4. **No Japanese clichés.** The reference is joinery as craft and structure, not culture as costume. No kanji or kana, torii, ensō, hanko or seal-red, sakura, waves, brush type, washi texture, asanoha, kikkō or seigaiha, and no Japanese words in product UI.
-5. **Nothing like Teiten.** No bevelled chassis, instrument nameplates, LEDs, screws, retro-OS panels, mono-led headlines or cinnabar signal. Bearing is a dense data screen, not hardware.
+5. **Nothing like Teiten.** No bevelled chassis, instrument nameplates, LEDs, screws, retro-OS panels, mono-led headlines or cinnabar signal. Analytics is a dense data screen, not hardware.
 6. **One brand colour.** Honey `#F5A83A` is the only accent, in both modes, and it always carries ink text. Leaf, clay and madder carry direction and status, never brand. Chalk is a line (focus, guides, "today"), never a fill or a brand element. There is no second brand hue and no blue brand. Exception for token identification (Thom, Oct 7, `INVEST-TWO-PANE`): verified token logos keep their original artwork colours; that does not extend the interface or chart palette. What a vault holds takes the share palette (`identity/share-palette.md`, gate `WEIGHTS-RING`, Thom, Oct 13), the one categorical set, for holdings only.
 7. **Status is word + shape + colour.** On track, watch and off track each have a square glyph, a word and a colour on a 14% tint. Deltas are signed and coloured by direction. Colour alone never carries meaning.
 8. **The brand recedes in the embed.** Inside a partner app, the partner's colours, font, radius and buttons take over. What survives: the pin and its popover, the sample tag or line, hairline structure, the disclaimer block, explorer links, and a "Powered by tenonfi" credit with the 16 px cut in the partner's muted colour.
@@ -31,11 +31,11 @@ New screens are built from the house kit (gate `HOUSE-KIT`, Thom, Oct 13): the p
 - `KitTable` / `KitTh`: small muted heads, a hairline per row, always named (a caption, a label or the heading over it). `KIT_ROW` for a row, `KIT_CELL` for a cell, `KIT_NUMERIC` for a column of figures; a row that opens something stretches its one link over the row with `KIT_ROW_LINK`, and every pin or control in it sits over the link with `KIT_ABOVE_LINK`.
 - `OptionCards`: a choice between a few ways, a tile each with its title and one muted line; a way that cannot be taken here is dimmed and its line says why.
 
-The page shell (gate `PAGE-SHELL`, Thom, Oct 14): every product page (the landing excepted) sits in one frame, `AppShell`: the overview's width (`max-w-shell`, 1600px) and its side gutter (`clamp(12px, 2vw, 28px)`), so the left edge, the width and the title's place are the same on every route at every window width. A page's title is `PAGE_TITLE` (Inter Tight 600 at `text-h3`), on a workbench (Invest, an owner's vault) and on Bearing's analytics too; no hero titles in the app. An action in a page's head is a secondary button, never a link: dense beside a title (Rename, Hide chat, Start over), default size in an actions row (More). A head control that goes to another page (Publish a portfolio) is a link drawn as a secondary button, since it goes somewhere. A title sits at the head's top, or 32px lower under a way back or a chain tag (`PAGE_BACK`); the portfolio section's pages have their tabs over it, and Bearing's analytics its side menu beside it. Invest from 1024px has its conversations rail beside it, a card in the frame level with the title and drawn inside as Bearing's side menu (gate `CONVERSATION-PANEL`, Thom, Oct 15), the title starting 328px in with the rail open and 80px folded; under 1024px the title keeps the frame's left edge, the panel's button on a line of its own under it. A table's head has no band of its own, as `KitTable`'s. The disclaimer in the foot carries its heading, "Not licensed advice", on every page.
+The page shell (gate `PAGE-SHELL`, Thom, Oct 14): every product page (the landing excepted) sits in one frame, `AppShell`: the overview's width (`max-w-shell`, 1600px) and its side gutter (`clamp(12px, 2vw, 28px)`), so the left edge, the width and the title's place are the same on every route at every window width. A page's title is `PAGE_TITLE` (Inter Tight 600 at `text-h3`), on a workbench (Invest, an owner's vault) and on Analytics's analytics too; no hero titles in the app. An action in a page's head is a secondary button, never a link: dense beside a title (Rename, Hide chat, Start over), default size in an actions row (More). A head control that goes to another page (Publish a portfolio) is a link drawn as a secondary button, since it goes somewhere. A title sits at the head's top, or 32px lower under a way back or a chain tag (`PAGE_BACK`); the portfolio section's pages have their tabs over it, and Analytics's analytics its side menu beside it. Invest from 1024px has its conversations rail beside it, a card in the frame level with the title and drawn inside as Analytics's side menu (gate `CONVERSATION-PANEL`, Thom, Oct 15), the title starting 328px in with the rail open and 80px folded; under 1024px the title keeps the frame's left edge, the panel's button on a line of its own under it. A table's head has no band of its own, as `KitTable`'s. The disclaimer in the foot carries its heading, "Not licensed advice", on every page.
 
 Pins, `Status` pills and `ChainBadge` chips sit in them as on the overview. A screen that needs a piece the kit does not have adds it to the kit, with a showcase specimen; it does not style its own. Spec: [components/house-kit.md](./components/house-kit.md).
 
-What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Bearing's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head, as the overview does.
+What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Analytics's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head, as the overview does.
 
 ---
 
@@ -45,7 +45,7 @@ What the older pieces are still for, until each screen that uses them moves to t
 |------|-------|---------|
 | Variance | 3 | A 12-column grid, flush left. Asymmetry comes from the empty third in heroes and the honey glow sitting off-centre |
 | Motion | 3 | One vocabulary: slide on one axis, seat, then the pin appears. Purposeful, never ambient |
-| Density | 4 | Consumer surfaces are airy (one goal, the composer and a sample plan above the fold). Bearing is tight (13 px type, 36 px rows). Docs sit in between |
+| Density | 4 | Consumer surfaces are airy (one goal, the composer and a sample plan above the fold). Analytics is tight (13 px type, 36 px rows). Docs sit in between |
 
 ---
 
@@ -66,7 +66,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | shadow | none. Depth comes from the three layers, hairlines and tints |
 | radius | 10px (`--radius-lg`) |
 | background | `--card`: night-2 `#13151C` / white `#FFFFFF` |
-| padding | 24px for consumer and docs, 16px for Bearing tiles |
+| padding | 24px for consumer and docs, 16px for Analytics tiles |
 | rule | No photography and no pattern inside. A card holds one goal, one leg or one tile |
 
 ### Button (primary)
@@ -118,8 +118,8 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 |----------|------|
 | archetype | **asymmetric-grid** |
 | max-width | 1600px for every product page (`PAGE-SHELL`), 1280px for the landing; 66ch body, 72ch docs prose, 16ch display |
-| section-spacing | 96px marketing, 64px docs and plan, 32px Bearing panels |
-| grid-gap | 24px (16px in Bearing) |
+| section-spacing | 96px marketing, 64px docs and plan, 32px Analytics panels |
+| grid-gap | 24px (16px in Analytics) |
 | surfaces | Night or paper, flat. A honey glow (`--tf-glow`) behind heroes and the composer. P1 lattice on marketing section grounds only, faint, never in the app |
 | first viewport | The product, not a manifesto: the composer with a sample plan beneath it, numbers and pins visible before any scroll |
 | decoration | Hairline rules, dimension lines (45° ticks, Plex Mono values, chalk) on drawings, exploded views |
@@ -137,7 +137,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | a11y | `<button aria-label="Source for 6.4%">` (with ", stale, 3 hours old" or ", mock data" appended), a 24×24 hit area, and Enter opens it |
 | embed | The pin takes the partner's muted text colour |
 
-### Goal card, plan leg, data row, chart, disclaimer, embed, Bearing tile
+### Goal card, plan leg, data row, chart, disclaimer, embed, Analytics tile
 | Component | Rule |
 |---|---|
 | goal card | Eyebrow caption ("Apartment fund · Jun 2028") → amount in Inter Tight 600 28px + pin → one line (net yield ⊡ · access to cash) → status pill → progress bar (honey on `--border`, pill ends) → one link or the view's one primary. No photography, patterns, leaderboards, a big APY as the headline, or progress rings |
@@ -147,7 +147,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 | chart | Base case: 2px honey with `--tf-curve-fill` beneath. Stress cases: dashed muted and dashed madder. "Today": 1px dashed chalk with a Plex Mono label. Dashed = projected, solid = measured. Heatmaps on the night → honey → pale ramp; no-sample cells empty with an en dash |
 | disclaimer | The `DISCLAIMER` constant verbatim, in a hairline box directly under the plan and at the top of the API reference. Inter 400 at body size (≥ 1em in the embed) |
 | embed | Partner skin. The pin, the sample tag or line, hairlines, disclaimer, explorer links and "Powered by" survive. Sizes in em on a 1.2 ratio, with container queries |
-| Bearing tile | b-head label (Inter 500 11px uppercase) → b-kpi value (Inter Tight 600 22px) + pin + delta → b-meta line (unit · n= · method version · as-of UTC, Plex Mono). night-2 on night, 1px line, 10px radius, 16px padding |
+| Analytics tile | b-head label (Inter 500 11px uppercase) → b-kpi value (Inter Tight 600 22px) + pin + delta → b-meta line (unit · n= · method version · as-of UTC, Plex Mono). night-2 on night, 1px line, 10px radius, 16px padding |
 
 ---
 
@@ -163,7 +163,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 - White text on honey (2.0:1). Honey as small text on light grounds (use honey-l).
 - Honey as the "watch" colour, or any status shown by colour alone.
 - Cinnabar, vermilion or seal-red. Japanese clichés (binding rule 4). Anything like Teiten (binding rule 5).
-- A serif anywhere in the app, Bearing or the embed. At most one serif line on the marketing site, by decision, not by default.
+- A serif anywhere in the app, Analytics or the embed. At most one serif line on the marketing site, by decision, not by default.
 - Patterns behind numbers, text, form fields, charts, the provenance popover or the disclaimer.
 - Pills on primary or secondary buttons. Radius above 16px on anything but chips, badges and the composer (20px).
 - Font weights below 400, centred or justified body text, uppercase other than captions and column heads.
@@ -227,7 +227,7 @@ It takes the Sage's structure (a grid, hairlines, tabular figures, signed deltas
 ## Bold Bets
 
 1. **The provenance pin is the brand's smallest logo.** The logo is the end view of a pinned through-tenon on a tile; the pin that follows every figure is the same tenon end drawn in line mode, with the same square pin. It has four states (solid; hollow + "stale"; hatched, named "sample figure", with the card's tag "Sample figures"; the same with "Test network") and opens `source · fetched_at · method`. When the brand recedes in the embed, only the pin is left, and it is still the brand.
-2. **The section hatch is a word, not a texture.** A 45° hatch (1px muted strokes, 6px pitch; 3px in glyphs) means one thing only: *not finished timber* (sample or stale). It always travels with its words (a card's tag "Sample figures", a glyph's name, or "stale" and the age), fills a 6px edge band on a row, a plan leg, a stale plate or a Bearing tile (never on a card, since Oct 13), and never sits under text. A DOM test fails the build if the hatch appears without those words in the same component, or if any element's text is exactly "MOCK" (gate `MOCK-QUIET`).
+2. **The section hatch is a word, not a texture.** A 45° hatch (1px muted strokes, 6px pitch; 3px in glyphs) means one thing only: *not finished timber* (sample or stale). It always travels with its words (a card's tag "Sample figures", a glyph's name, or "stale" and the age), fills a 6px edge band on a row, a plan leg, a stale plate or a Analytics tile (never on a card, since Oct 13), and never sits under text. A DOM test fails the build if the hatch appears without those words in the same component, or if any element's text is exactly "MOCK" (gate `MOCK-QUIET`).
 3. **One colour, and it carries ink.** Honey is the only accent, in both modes, and the primary button is black on honey. Meteora is white on orange, Jupiter black on lime, Binance black on yellow. Black on honey beside a cool black ground and wood photography is ours.
 4. **Direction lives in surfaces.** Leaf, clay and madder sit as 14% tints under status pills, as signed deltas under values and as the colour of sparklines. The screen reads alive at density because colour is in the surfaces, not only in the text, and it never means anything but direction.
 5. **Light is the only gradient.** A honey glow behind the hero and the composer, a honey fill under the base-case curve, and nothing else. No two-hue gradient, no glass, no glow on controls. The joint is lit; the interface is not.

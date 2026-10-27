@@ -1117,7 +1117,7 @@ export async function registerRiskRoutes(
       schema: {
         summary:
           'The chains side by side: assets tracked, pool TVL, exit capacity at tau now, 24 h volume',
-        description: `One row per chain Bearing measures. Every figure carries its source, time, method and provenance, or is null with the reason it is not collected.\n\n${DISCLAIMER.en}`,
+        description: `One row per chain whose liquidity is measured. Every figure carries its source, time, method and provenance, or is null with the reason it is not collected.\n\n${DISCLAIMER.en}`,
         querystring: z.object({ tau: z.coerce.number().positive().max(0.5).default(0.01) }),
         response: { 200: z.any() },
       },

@@ -823,7 +823,7 @@ describe('DexScreener’s 24 h volume (gate VOLUME-DEXSCREENER)', () => {
     const f = dexVolume([pool(1_000, '2026-10-06T04:00:00Z'), pool(250, '2026-10-06T05:00:00Z')]);
     expect(f.value).toBe(1_250);
     expect(f.source).toBe('DexScreener · 24 h');
-    expect(f.method).toContain("not Bearing's swap history");
+    expect(f.method).toContain('not our own swap history');
     expect(f.fetchedAt).toBe('2026-10-06T05:00:00Z');
     expect(f.quality).toBe('measured');
     expect(

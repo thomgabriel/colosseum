@@ -119,55 +119,49 @@ const WRITTEN: ReadonlyArray<readonly [source: string, from: string]> = [
     'confirmed deposits recorded here on Robinhood Chain',
   ],
   // packages/risk and the risk routes: Bearing's tables
-  ['Bearing', 'Bearing’s measurements'],
-  ['bearing', 'Bearing’s measurements'],
+  ['Bearing', 'our measurements'],
+  ['bearing', 'our measurements'],
   [
     'Bearing, from the pools its collectors read each hour',
-    'Bearing’s measured exit, from the pools it reads each hour',
+    'our measured exit, from the pools we read each hour',
   ],
   [
     'vault_snapshots: no snapshot of a vault of yours was found for this answer',
     'this app’s kept readings of your vaults, which hold none yet',
   ],
-  ['Bearing test curves', 'Bearing’s test curves'],
-  ['risk_depth_curves', 'Bearing’s measured exit'],
-  ['risk_depth_curves (GET /risk/assets)', 'Bearing’s measured exit'],
-  ['risk_depth_curves (depth-0.4, depth-0.3) of 3 legs', 'Bearing’s measured exit'],
-  ['risk_asset_snapshots (last 30 days)', 'Bearing’s hourly measurements of the asset'],
-  ['risk_asset_snapshots.ref_mid_usd', 'Bearing’s reference prices'],
-  [
-    'risk_pool_snapshots (GET /risk/assets/:id/heatmap)',
-    'Bearing’s hourly measurements of the pool',
-  ],
-  ['risk_pool_flow', 'Bearing’s record of trading in the pool'],
-  ['risk_pool_flow (24 h window, every regime)', 'Bearing’s record of trading in the pool'],
-  ['risk_pool_flow (fixture flow rows)', 'Bearing’s record of trading in the pool'],
+  ['Bearing test curves', 'our test curves'],
+  ['risk_depth_curves', 'our measured exit'],
+  ['risk_depth_curves (GET /risk/assets)', 'our measured exit'],
+  ['risk_depth_curves (depth-0.4, depth-0.3) of 3 legs', 'our measured exit'],
+  ['risk_asset_snapshots (last 30 days)', 'our hourly measurements of the asset'],
+  ['risk_asset_snapshots.ref_mid_usd', 'our reference prices'],
+  ['risk_pool_snapshots (GET /risk/assets/:id/heatmap)', 'our hourly measurements of the pool'],
+  ['risk_pool_flow', 'our record of trading in the pool'],
+  ['risk_pool_flow (24 h window, every regime)', 'our record of trading in the pool'],
+  ['risk_pool_flow (fixture flow rows)', 'our record of trading in the pool'],
   [
     'risk_pools.tvl_usd, read when each pool was registered',
-    'the pool’s size when Bearing first recorded it',
+    'the pool’s size when we first recorded it',
   ],
   [
     'risk_pools.tvl_usd (GET /risk/pools), read when each pool was registered',
-    'the pool’s size when Bearing first recorded it',
+    'the pool’s size when we first recorded it',
   ],
-  ['risk_reference_prices (pool mids; step-11)', 'Bearing’s reference prices'],
+  ['risk_reference_prices (pool mids; step-11)', 'our reference prices'],
   [
     'risk_reference_prices (pool mids): hours priced at the pool mid',
-    'the pool’s own mid price, as Bearing recorded it',
+    'the pool’s own mid price, as we recorded it',
   ],
   [
     "risk_lending_positions (4 markets, each market's latest hour)",
-    'Bearing’s hourly record of the lending markets',
+    'our hourly record of the lending markets',
   ],
-  [
-    'risk_lending_snapshots (kamino, jupiter_lend)',
-    'Bearing’s hourly record of the lending markets',
-  ],
-  ['risk_events (lp_withdrawal, last 30 days)', 'Bearing’s record of withdrawals from the pool'],
-  ['risk_lp_concentration', 'Bearing’s record of who supplies the pool'],
-  ['AssetFacts of 3 legs (risk_depth_curves; tier source)', 'Bearing’s measurements of 3 holdings'],
-  ['AssetFacts of 1 legs (risk_depth_curves)', 'Bearing’s measurements of 1 holding'],
-  ['split snapshot (pnpm risk:split-snapshot)', 'Bearing’s hourly record of each pool’s two sides'],
+  ['risk_lending_snapshots (kamino, jupiter_lend)', 'our hourly record of the lending markets'],
+  ['risk_events (lp_withdrawal, last 30 days)', 'our record of withdrawals from the pool'],
+  ['risk_lp_concentration', 'our record of who supplies the pool'],
+  ['AssetFacts of 3 legs (risk_depth_curves; tier source)', 'our measurements of 3 holdings'],
+  ['AssetFacts of 1 legs (risk_depth_curves)', 'our measurements of 1 holding'],
+  ['split snapshot (pnpm risk:split-snapshot)', 'our hourly record of each pool’s two sides'],
   ['lite-api.jup.ag/price/v3', 'Jupiter’s price'],
   ['stable_par', 'a dollar stablecoin, counted at one dollar'],
   [
@@ -283,10 +277,10 @@ describe('the table of source names', () => {
       from: 'the test network’s price feed',
     });
     expect(sourceWords('risk_depth_curves; split snapshot (pnpm risk:split-snapshot)').from).toBe(
-      'Bearing’s measured exit and Bearing’s hourly record of each pool’s two sides',
+      'our measured exit and our hourly record of each pool’s two sides',
     );
     expect(sourceWords('Scope; chain-mock; Bearing').from).toBe(
-      'the Kamino Scope price feed, the sample chain and Bearing’s measurements',
+      'the Kamino Scope price feed, the sample chain and our measurements',
     );
     expect(sourceWords('Scope; ledger 7').from).toBeNull();
     // a source with a plus in its own name is one source

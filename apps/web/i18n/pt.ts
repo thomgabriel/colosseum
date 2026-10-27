@@ -1878,7 +1878,7 @@ export const pt: Dictionary = {
         costBps: (bps: string) => `${bps} bps`,
         notMeasured: 'Não medido',
         costNote:
-          'Cada custo é a medida do Bearing para vender, sozinha, toda a posição do seu cofre naquele ativo. Um ponto-base é um centésimo de um por cento. A venda em si fica presa ao mínimo que ela declara.',
+          'Cada custo é a nossa medida para vender, sozinha, toda a posição do seu cofre naquele ativo. Um ponto-base é um centésimo de um por cento. A venda em si fica presa ao mínimo que ela declara.',
         nothing: 'Este cofre só tem caixa: nada é vendido.',
         cash: (amount: string) =>
           `${amount} do caixa do cofre sai junto com o que as vendas trazem.`,
@@ -2453,7 +2453,7 @@ export const pt: Dictionary = {
       menu: 'Menu',
       skip: 'Pular para o conteúdo',
       plans: 'Planos',
-      bearing: 'Bearing',
+      bearing: 'Análises',
       docs: 'Docs',
     },
     hero: {

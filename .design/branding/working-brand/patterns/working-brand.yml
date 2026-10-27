@@ -132,7 +132,7 @@ tokens:
     font-family-primary: '"Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", Arial, sans-serif'
     font-family-display: '"Inter Tight", "Inter", system-ui, Arial, sans-serif'
     font-family-mono: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
-    font-family-condensed: '"Inter Tight", "Inter", system-ui, sans-serif'   # Bearing heads and dense labels
+    font-family-condensed: '"Inter Tight", "Inter", system-ui, sans-serif'   # Analytics heads and dense labels
     font-weight-heading: 600        # Inter Tight 600, −0.02em. Never a serif
     font-weight-body: 400
     font-weight-label: 500
@@ -156,7 +156,7 @@ tokens:
       sample-line: { face: primary, weight: 400, size: "0.78125rem", line-height: "1.25rem", tracking: "0", note: "a whole sample panel's or the embed's quiet line, muted; a card has its tag (sample-tag)" }
       source: { face: mono, weight: 400, size: "0.8125rem", line-height: "1.25rem", tracking: "0" }
 
-    # Productive register (Bearing): 13px base, fixed
+    # Productive register (Analytics): 13px base, fixed
     scale-productive:
       b-kpi: { face: display, weight: 600, size: "1.375rem", line-height: "1.75rem", tracking: "-0.02em" }
       b-title: { face: display, weight: 600, size: "1.25rem", line-height: "1.75rem" }
@@ -206,7 +206,7 @@ tokens:
   spacing:
     base: 4
     scale: [4, 8, 12, 16, 24, 32, 48, 64, 96]
-    row-dense: "36px"        # Bearing rows: 20px line + 8px padding each side
+    row-dense: "36px"        # Analytics rows: 20px line + 8px padding each side
     row-comfortable: "44px"
     grid-columns: 12
     hit-area-min: "24px"
@@ -222,7 +222,7 @@ tokens:
   # Patterns (structure only)
   pattern:
     p1-kumiko:
-      use: "marketing section grounds only, as a faint hairline lattice (line / line-l at 60% opacity); never in the app, Bearing or the embed"
+      use: "marketing section grounds only, as a faint hairline lattice (line / line-l at 60% opacity); never in the app, Analytics or the embed"
       cell: "1 column of the 12-col grid"
     p4-hatch:
       meaning: "sample (mock, sandbox) and stale ONLY — never decoration"
@@ -230,8 +230,8 @@ tokens:
       stroke: "1px muted (night) / muted-l (day)"
       pitch-ui: "6px"
       pitch-glyph: "3px"
-      band: "6px left edge band on a sample row or plan leg, a stale plate or a Bearing tile (not a card, since Oct 13); text never on strokes"
-    p5-bracket-set: "Bearing imagery only (photo / render), never a repeat"
+      band: "6px left edge band on a sample row or plan leg, a stale plate or a Analytics tile (not a card, since Oct 13); text never on strokes"
+    p5-bracket-set: "Analytics imagery only (photo / render), never a repeat"
     dimension-lines: "45° ticks and Plex Mono values on drawings and exploded views; chalk / chalk-l"
 
   # Provenance pin: the logo's tenon end in line mode. Its own component, never in the icon registry.
@@ -301,7 +301,7 @@ dark_mode:
 intensity:
   variance: 3     # 12-col grid, flush left; asymmetry from the empty third in heroes and the glow's off-centre
   motion: 3       # one vocabulary: slide on one axis, seat, pin drops. Purposeful, never ambient
-  density: 4      # consumer airy; Bearing tight (13px type, 36px rows); docs between
+  density: 4      # consumer airy; Analytics tight (13px type, 36px rows); docs between
 
 patterns:
   card:
@@ -309,7 +309,7 @@ patterns:
     shadow: "none"
     radius: "{shape.border-radius-lg} (10px)"
     background: "{color.card} (white / night-2)"
-    padding: "24px consumer and docs; 16px Bearing tiles"
+    padding: "24px consumer and docs; 16px Analytics tiles"
     rule: "no photography and no pattern inside; a card holds one goal, one leg or one tile"
   button-primary:
     background: "{color.primary} (honey); hover honey-hover #E99C2E; pressed honey-deep #D9881B"
@@ -344,8 +344,8 @@ patterns:
   layout:
     archetype: "asymmetric-grid"
     max-width: "1600px product page (PAGE-SHELL); 1280px landing; 66ch body; 72ch docs prose; 16ch display"
-    section-spacing: "96px marketing; 64px docs and plan; 32px Bearing panels"
-    grid-gap: "24px; 16px Bearing"
+    section-spacing: "96px marketing; 64px docs and plan; 32px Analytics panels"
+    grid-gap: "24px; 16px Analytics"
     surfaces: "night or paper, flat; a honey glow (brand-color.glow) behind heroes and the composer; P1 lattice on marketing grounds only"
     first-viewport: "the product, not a manifesto: the composer with a sample plan beneath it, numbers and pins visible before any scroll"
     decoration: "hairline rules, dimension lines with 45deg ticks and Plex Mono values (chalk), exploded views"
@@ -358,7 +358,7 @@ patterns:
     popover: "plain words in Inter (what and where from, how fresh, whether live; stale first); under Details the API's source · fetched_at (UTC) · method, addresses only in Plex Mono; on night-3 / white, 1px border, shadow-popover (gate TOOLTIP-WORDS)"
   sample:
     rule: "gate MOCK-QUIET: one quiet tag in the card's top-right corner ('Sample figures', or 'Test network') + a hatched pin or glyph named 'sample figure'. Never a boxed MOCK word. Never styled like a live figure"
-    surface: "the tag sits after the header's meta, or in a line of its own at the top right; hatch fills a 6px band only on rows, legs, stale plates and Bearing tiles"
+    surface: "the tag sits after the header's meta, or in a line of its own at the top right; hatch fills a 6px band only on rows, legs, stale plates and Analytics tiles"
   goal-card:
     anatomy: "eyebrow (caption: 'Apartment fund · Jun 2028') → amount in figure-lg + pin → one line (net yield · access to cash) → status pill → progress bar (honey on line)"
     never: "photography, patterns, leaderboards, a big APY as the headline, progress rings"
@@ -401,7 +401,7 @@ constraints:
     - "honey as the 'watch' colour, or any status shown by colour alone"
     - "cinnabar / vermilion / seal-red; Japanese clichés (kanji/kana as decoration, torii, ensō, hanko, sakura, waves, brush type, asanoha, kikkō, seigaiha, Japanese terms in product UI)"
     - "anything like Teiten: bevelled chassis, instrument nameplates, LEDs, screws, retro-OS panels, mono-led headlines"
-    - "a serif anywhere in the app, Bearing or the embed. At most one serif line on the marketing site, by decision, not by default"
+    - "a serif anywhere in the app, Analytics or the embed. At most one serif line on the marketing site, by decision, not by default"
     - "patterns behind numbers, text, form fields, charts, the provenance popover or the disclaimer"
     - "pills on primary or secondary buttons; radius above 16px on anything but chips, badges and the composer"
     - "font weights below 400; centred or justified body text; uppercase except captions and column heads"

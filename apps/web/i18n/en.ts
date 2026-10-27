@@ -1070,7 +1070,7 @@ export const en = {
     allocation: 'Allocation',
     /** The first figure under a plan's answer: how many assets it holds. */
     kpiAssets: 'Assets',
-    /** In the exit cost column, where Bearing measures nothing. */
+    /** In the exit cost column, where nothing is measured. */
     notMeasured: 'Not measured',
     /** Under the meter of what leaving costs. */
     exitScale: 'A full bar is 1%, the cost at which selling is measured.',
@@ -2159,7 +2159,7 @@ export const en = {
         costBps: (bps: string) => `${bps} bps`,
         notMeasured: 'Not measured',
         costNote:
-          'Each cost is Bearing’s measure of selling your vault’s whole holding of that asset, alone. A basis point is a hundredth of a percent. The sale itself is held to the minimum it states.',
+          'Each cost is our measure of selling your vault’s whole holding of that asset, alone. A basis point is a hundredth of a percent. The sale itself is held to the minimum it states.',
         nothing: 'This vault holds only cash: nothing is sold.',
         cash: (amount: string) => `${amount} of the vault’s cash leaves with what the sales bring.`,
         noCash: 'The vault holds no cash now: what leaves is what the sales bring.',
@@ -2790,9 +2790,9 @@ export const en = {
       main: 'Main',
       menu: 'Menu',
       skip: 'Skip to content',
-      /** The landing's static bar: the product, Bearing, and the API's documents. */
+      /** The landing's static bar: the product, Analytics, and the API's documents. */
       plans: 'Invest',
-      bearing: 'Bearing',
+      bearing: 'Analytics',
       docs: 'Docs',
     },
     hero: {

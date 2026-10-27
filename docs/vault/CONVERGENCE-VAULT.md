@@ -2,7 +2,7 @@
 
 *Written 2026-10-01, and brought in line with `DESIGN-VAULT.md` the same day. For Rodrigo and Thom. The verdicts follow from the direction Thom and Rodrigo spoke about on Oct 1; either of them can reopen one.* Read with the audit (`AUDIT-VAULT.md`), the product (`HANDOFF-VAULT.md`) and the design (`DESIGN-VAULT.md`), which is the reference wherever more detail is needed.
 
-Product words follow the brand strategy on the `design` branch: plan, shared portfolio, vault, exit plan, Bearing. Paths and code names in backticks are working names.
+Product words follow the brand strategy on the `design` branch: plan, shared portfolio, vault, exit plan, Analytics (gate `ANALYTICS-NAME`, Oct 27; it was Bearing). Paths and code names in backticks are working names.
 
 ## Starting point
 

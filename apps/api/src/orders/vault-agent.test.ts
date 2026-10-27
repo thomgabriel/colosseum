@@ -2088,7 +2088,7 @@ describe("Bearing's analytics in the conversation context", () => {
       `Weekend ÷ market-hours exit capacity: unknown (no samples in that regime yet), for ${stock.symbol}.`,
       `Annualised price volatility: unknown (no reference prices collected), for ${stock.symbol}.`,
       `Largest price drawdown: unknown (no reference prices collected), for ${stock.symbol}.`,
-      `No Bearing fact sheet, so exit, liquidity and market figures are unknown, for ${reserve.symbol}.`,
+      `No analytics fact sheet, so exit, liquidity and market figures are unknown, for ${reserve.symbol}.`,
     ]);
     // The model reads the figures once, by id, with what each id measures said once.
     expect(ctx.analytics).toMatchObject({
@@ -2296,7 +2296,7 @@ describe("Bearing's analytics in the conversation context", () => {
     );
     expect(ctx.analytics?.unknowns).toEqual([
       'Annualised price volatility: unknown (no reference prices collected), for every asset with a sheet.',
-      `Bearing's figures are still being read, so unknown for this reply, for ${otherReserve.symbol}.`,
+      `The analytics figures are still being read, so unknown for this reply, for ${otherReserve.symbol}.`,
     ]);
   });
 
@@ -2347,7 +2347,7 @@ describe("Bearing's analytics in the conversation context", () => {
     expect(down.evidence.some((row) => /^(?:exit|lp|vol):/.test(row.id))).toBe(false);
     expect(down.analytics).toEqual({
       unknowns: [
-        "Bearing's exit, liquidity and market analytics could not be read for this reply; those figures are unknown, not zero.",
+        'The exit, liquidity and market analytics could not be read for this reply; those figures are unknown, not zero.',
       ],
     });
     expect(await readAgentAnalytics(undefined, {} as never)).toBeNull();

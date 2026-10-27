@@ -1,7 +1,7 @@
 # Sample marking (gate MOCK-QUIET)
 > Type: custom | Components: `SampleTag` (the card's tag, drawn by `Card mock` and `GoalCard mock`), `SampleNote` (a panel's quiet line), the hatched pin / `<SampleGlyph>` | Gate: `MOCK-QUIET` (Thom, 2026-10-06, docs/GATES.md) | Revised 2026-10-08 (honey on night); 2026-10-13 (Thom: the card's hatched edge and foot line become one tag). File name kept for links; the plate it once described is gone.
 
-**The rule.** No boxed MOCK beside a figure, anywhere: landing, plan, buy and funding cards, risk, charts, embed, Bearing. A card whose figures are sample or from a test network **says so once**, in **one quiet tag in its top-right corner**: "Sample figures" or "Test network" ("Números de exemplo", "Rede de teste"); "sample rates, not live" on the landing's cases. A card has no hatched edge and no foot line (Thom, Oct 13: "i also dont like this part of the card"). A sample figure keeps its **hatched pin**, or a small **hatched glyph** where it has no pin, named "sample figure" for screen readers. Live figures keep their pin. Sample is never shown as live. The buy card's line on a test network reads "Test network · <chain> · not live". The word MOCK stays as the API value (`"provenance": "mock"`) and as the name of the state in the documents; it never appears as a label in the UI.
+**The rule.** No boxed MOCK beside a figure, anywhere: landing, plan, buy and funding cards, risk, charts, embed, Analytics. A card whose figures are sample or from a test network **says so once**, in **one quiet tag in its top-right corner**: "Sample figures" or "Test network" ("Números de exemplo", "Rede de teste"); "sample rates, not live" on the landing's cases. A card has no hatched edge and no foot line (Thom, Oct 13: "i also dont like this part of the card"). A sample figure keeps its **hatched pin**, or a small **hatched glyph** where it has no pin, named "sample figure" for screen readers. Live figures keep their pin. Sample is never shown as live. The buy card's line on a test network reads "Test network · <chain> · not live". The word MOCK stays as the API value (`"provenance": "mock"`) and as the name of the state in the documents; it never appears as a label in the UI.
 
 The P4 hatch is still a word, not a texture: it means *not finished*, and it appears only for **sample** and **stale**. Text never sits on hatch strokes.
 
@@ -16,7 +16,7 @@ The P4 hatch is still a word, not a texture: it means *not finished*, and it app
 
 Two parts, together, always:
 1. **The tag** `SampleTag` (`components/ui/internal/mock-parts.tsx`), drawn by the card itself (`Card mock`, `GoalCard mock`): the house kit's `Plate` (`PLATE` in `components/ui/Panel.tsx`, the portfolio overview's pill, the house style, Thom, Oct 13), with the hook a panel's `Plate` has, `data-ui="sample-tag"`, so a card and a kit panel carry one mark: Inter 500, `text-caption` (12px / 16px), `--foreground` on `--honey-tint`, a 1px `--primary` edge at 60%, a pill, `px-2.5 py-0.5`. No icon, sentence case. One per card that holds figures; a card with none (a sign-in card, a form) has no tag. One per card, in its top-right corner: at the right of the header's row, after the meta, when the card opens with a `CardHeader`; otherwise in a line of its own at the top right, tucked into the content's top padding. Its words are its screen-reader name. Wording by context:
-   - app, plan, risk, charts, Bearing: "Sample figures";
+   - app, plan, risk, charts, Analytics: "Sample figures";
    - test network (`"provenance": "sandbox"`): "Test network" / "Rede de teste";
    - never "MOCK", never "demo", never a status hue, never chalk.
 
@@ -28,7 +28,7 @@ Two parts, together, always:
 | Placement | Treatment |
 |---|---|
 | `card` (goal card, plan panel, buy / funding card, vault card) | one quiet tag in the top-right corner, figures with hatched pins; no hatched edge, no foot line (Oct 13) |
-| Bearing tile | 6px hatched left edge + the line in the b-meta slot ([bearing-heatmap-tile.md](./bearing-heatmap-tile.md)) |
+| Analytics tile | 6px hatched left edge + the line in the b-meta slot ([bearing-heatmap-tile.md](./bearing-heatmap-tile.md)) |
 | `frame` (whole mocked panel or showcase case) | outer 1px border at the card radius (10px), 8px hatched margin, inner solid `--card` surface; the line in the pane foot ("sample rates, not live") |
 | `row` (table row / plan leg) | 6px hatched band at the row's left edge; the row's figures keep the hatched pin; the status cell carries the line |
 | `inline` (a figure alone, e.g. in prose) | hatched pin or hatched glyph only; the nearest card carries the line |

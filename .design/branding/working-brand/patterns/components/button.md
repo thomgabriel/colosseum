@@ -14,7 +14,7 @@
 | `icon` | Copy, close, menu | `size-10` (`size-8` dense) `grid place-items-center rounded-md border border-input hover:bg-secondary`; `aria-label` + tooltip |
 | `destructive` | "Revoke delegation" | secondary shape, `border-destructive text-destructive`; always a confirm step with the consequence in words |
 
-Sizes: `default` 40px, `dense` 32px (Monitor, Bearing). Text Inter 600, 15px (`dense` 14px), sentence case, no tracking change. Radius is 8px (`rounded-md`) on every button; pills (`rounded-full`) belong to chips, status badges and the composer's send button only.
+Sizes: `default` 40px, `dense` 32px (Monitor, Analytics). Text Inter 600, 15px (`dense` 14px), sentence case, no tracking change. Radius is 8px (`rounded-md`) on every button; pills (`rounded-full`) belong to chips, status badges and the composer's send button only.
 
 ## States
 

@@ -18,4 +18,4 @@ The one way to build a screen: the pieces of Rodrigo's portfolio overview (`feat
 
 Pins, status pills (`Status`), chain chips (`ChainBadge`) and `ProvenancePin` sit in these as they do on the overview. The PnL period chip and the delta chip beside a figure stay in the overview for now; a second screen that needs them moves them into the kit.
 
-What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Bearing's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head.
+What the older pieces are still for, until each screen that uses them moves to the kit: `Card` for the cards of a flow that are not panels of a page (the goal card, the deposit and signing steps) and for the partner embed; `DataTable` for Analytics's dense data rows (data-table.md); `MockPlate` for a card's sample mark (`MOCK-QUIET`). A kit panel says it with its `Plate` in its head.

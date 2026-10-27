@@ -151,7 +151,7 @@ export type ShelfResponse = z.infer<typeof ShelfResponse>;
  * (gate EXIT-SOURCE, DESIGN-VAULT section 6).
  */
 export const CEILING_METHOD =
-  "the asset's maxWeightBps on the chain's asset list, set from Bearing's measured exit capacity: 10,000 × 0.25 × the largest sale that cost 1% or less / the portfolio capacity ($50,000 on EVM, $250,000 on Solana), down to a 50 bps step";
+  "the asset's maxWeightBps on the chain's asset list, set from the measured exit capacity: 10,000 × 0.25 × the largest sale that cost 1% or less / the portfolio capacity ($50,000 on EVM, $250,000 on Solana), down to a 50 bps step";
 
 /** The query of the author limits: the chain whose registry is read. */
 export const CreatorLimitsQuery = z.object({ chain: ChainId });

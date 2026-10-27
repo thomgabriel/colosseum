@@ -476,7 +476,7 @@ function analyticsEvidence(
       notMeasured,
       prompt: {
         unknowns: [
-          "Bearing's exit, liquidity and market analytics could not be read for this reply; those figures are unknown, not zero.",
+          'The exit, liquidity and market analytics could not be read for this reply; those figures are unknown, not zero.',
         ],
       },
     };
@@ -559,15 +559,15 @@ function analyticsEvidence(
     );
   if (unsheeted.length)
     unknowns.push(
-      `No Bearing fact sheet, so exit, liquidity and market figures are unknown, for ${unsheeted.join(', ')}.`,
+      `No analytics fact sheet, so exit, liquidity and market figures are unknown, for ${unsheeted.join(', ')}.`,
     );
   if (unread.reading.length)
     unknowns.push(
-      `Bearing's figures are still being read, so unknown for this reply, for ${unread.reading.join(', ')}.`,
+      `The analytics figures are still being read, so unknown for this reply, for ${unread.reading.join(', ')}.`,
     );
   if (unread.failed.length)
     unknowns.push(
-      `Bearing's figures could not be read this time, so unknown for this reply, for ${unread.failed.join(', ')}.`,
+      `The analytics figures could not be read this time, so unknown for this reply, for ${unread.failed.join(', ')}.`,
     );
   return {
     evidence,

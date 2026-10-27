@@ -10,8 +10,8 @@ Tenonfi's MCP server (AGT-2, `docs/vault/DESIGN-VAULT.md` section 12): eight too
 | `get_shared_portfolios` | the shelf, or one shared portfolio by its slug; the creator's words under `untrusted` | `GET /v1/shelf`, `GET /v1/indexes/{slug}` |
 | `prepare_order` | checks a plan or a shared portfolio and answers the page the person signs a buy or a follow on | `GET /v1/baskets/{id}`, `GET /v1/indexes/{slug}` |
 | `get_order_status` | an order and its steps, with the person's sign-in; otherwise the link | `GET /v1/orders/{id}` |
-| `get_asset_risk` | Bearing's fact sheet for one asset at a trade size | `GET /risk/facts/assets/{id}` |
-| `get_asset_facts` | the facts the server holds of one listed asset (`chain`, `assetId`, `parts`, `window`): profile, price history, pools, lending, Bearing; each fact with its source, time, method and provenance, the ones not measured with why, a `plate` when figures are MOCK, a test network or recorded, and the disclaimer. An id of another chain than `chain` is refused before the API is asked | `GET /v1/assets/{id}/facts` |
+| `get_asset_risk` | the analytics fact sheet for one asset at a trade size | `GET /risk/facts/assets/{id}` |
+| `get_asset_facts` | the facts the server holds of one listed asset (`chain`, `assetId`, `parts`, `window`): profile, price history, pools, lending, and the measured exit, liquidity and market figures (`bearing`); each fact with its source, time, method and provenance, the ones not measured with why, a `plate` when figures are MOCK, a test network or recorded, and the disclaimer. An id of another chain than `chain` is refused before the API is asked | `GET /v1/assets/{id}/facts` |
 
 Every tool but `build_plan`, which stores a plan, is read-only.
 
