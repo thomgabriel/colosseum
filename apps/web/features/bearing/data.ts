@@ -4,7 +4,8 @@ import type { BearingChain } from './chain';
 // The risk API as the Bearing pages read it: the `/risk/*` routes apps/api serves (apps/risk-api serves
 // the same routes alone). Every read resolves to an answer the page can show; none rejects. A failed
 // read is a reason, never a made-up figure. Reads are cached for the life of the page, so moving
-// between pages does not read the same route twice.
+// between pages does not read the same route twice, and `READS_AT_ONCE` go to the API at a time, in the
+// order they were asked: on a small host, a dozen at once make each of them slower.
 
 /** Where the risk routes are: their own API when set, else the app's API, which mounts them. */
 export const RISK_API = (process.env.NEXT_PUBLIC_RISK_API_URL || API).replace(/\/$/, '');
@@ -31,6 +32,8 @@ export const notKept = (r: Res) => !r.ok && (r.status === 0 || r.status >= 500);
 /** How long one probe of the API waits, and how many it makes before saying the API did not answer. */
 const PROBE_MS = 3000;
 const PROBE_TRIES = 3;
+/** Reads of the risk API out at once, from one page. The probe is not one of them. */
+export const READS_AT_ONCE = 3;
 
 export type Reader = {
   get: <T>(path: string) => Promise<Res<T>>;
@@ -58,12 +61,16 @@ export function resOf(status: number, body: unknown): Res {
 export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetch): Reader {
   const cache = new Map<string, Promise<Res>>();
   const listeners = new Set<() => void>();
+  const turn = gate(READS_AT_ONCE);
   const get = <T>(path: string): Promise<Res<T>> => {
     let p = cache.get(path);
     if (!p) {
       // The API says how long an answer may be kept (a minute); the probe always asks the API itself.
-      p = fetcher(`${base}${path}`, { cache: path === R.methodology() ? 'no-store' : 'default' })
-        .then(async (r): Promise<Res> => resOf(r.status, await r.json().catch(() => null)))
+      p = turn(() =>
+        fetcher(`${base}${path}`, {
+          cache: path === R.methodology() ? 'no-store' : 'default',
+        }).then(async (r): Promise<Res> => resOf(r.status, await r.json().catch(() => null))),
+      )
         .catch((): Res => ({ ok: false, status: 0, body: null, reason: 'api_error' }))
         .then((r) => {
           // An answer is kept; a failure (no answer, or the server's own error) is not, so the next
@@ -77,21 +84,34 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
     return p as Promise<Res<T>>;
   };
   // The probe asks the API each time, never an answer kept from before: after a retry, the API that
-  // answered an hour ago says nothing about the API now.
+  // answered an hour ago says nothing about the API now. A try that waited its time out leaves its
+  // request out, and the next try waits for that same one: a slow API is asked once, not three times.
+  let asking: Promise<boolean> | null = null;
+  const ask = () => {
+    asking ??= fetcher(`${base}${R.methodology()}`, { cache: 'no-store' })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => {
+        asking = null;
+      });
+    return asking;
+  };
   const once = () =>
-    Promise.race([
-      fetcher(`${base}${R.methodology()}`, { cache: 'no-store' })
-        .then((r) => r.ok)
-        .catch(() => false),
-      new Promise<boolean>((done) => setTimeout(() => done(false), PROBE_MS)),
-    ]);
-  // A slow first answer is not "the API is down": three tries, a second apart.
-  const probe = async () => {
-    for (let i = 0; i < PROBE_TRIES; i++) {
-      if (await once()) return true;
-      if (i < PROBE_TRIES - 1) await new Promise((done) => setTimeout(done, 1000));
-    }
-    return false;
+    Promise.race([ask(), new Promise<boolean>((done) => setTimeout(() => done(false), PROBE_MS))]);
+  // A slow first answer is not "the API is down": three tries, a second apart. Probes asked while one
+  // is under way share it.
+  let probing: Promise<boolean> | null = null;
+  const probe = () => {
+    probing ??= (async () => {
+      for (let i = 0; i < PROBE_TRIES; i++) {
+        if (await once()) return true;
+        if (i < PROBE_TRIES - 1) await new Promise((done) => setTimeout(done, 1000));
+      }
+      return false;
+    })().finally(() => {
+      probing = null;
+    });
+    return probing;
   };
   const onAnswer = (heard: () => void) => {
     listeners.add(heard);

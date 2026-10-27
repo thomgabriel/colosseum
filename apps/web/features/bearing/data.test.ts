@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { gate, inPool, makeReader, notKept } from './data';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { gate, inPool, makeReader, notKept, READS_AT_ONCE } from './data';
 
 // The reader of the risk API: an answer is kept for the life of the page, a failure is not, and the
 // API is asked three times, a second apart, before the page says it did not answer.
@@ -62,6 +62,55 @@ describe('the reader of the risk API', () => {
     off?.();
     await r.get('/risk/assets');
     expect(heard).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the reader on a slow API', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('asks a slow API once: probes asked together share one, and a try that timed out waits for the same request', async () => {
+    vi.useFakeTimers();
+    // the API answers its methodology after 11 s, as the hosted one did under load
+    const fetcher = vi.fn(
+      () =>
+        new Promise<Response>((done) =>
+          setTimeout(() => done(new Response('{}', { status: 200 })), 11_000),
+        ),
+    );
+    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
+    // the provider probes on arrival and again once the chain is known
+    const both = Promise.all([r.probe(), r.probe()]);
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(await both).toEqual([true, true]);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it(`sends ${READS_AT_ONCE} reads at a time, in the order asked, and a route asked twice once`, async () => {
+    const open: string[] = [];
+    let most = 0;
+    const fetcher = vi.fn(async (url: string) => {
+      open.push(url);
+      most = Math.max(most, open.length);
+      await new Promise((d) => setTimeout(d, 2));
+      open.splice(open.indexOf(url), 1);
+      return new Response('{}', { status: 200 });
+    });
+    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
+    const paths = Array.from({ length: 8 }, (_, i) => `/risk/thing?${i}`);
+    await Promise.all([...paths, ...paths].map((p) => r.get(p)));
+    expect(most).toBe(READS_AT_ONCE);
+    expect(fetcher.mock.calls.map(([u]) => u)).toEqual(paths.map((p) => `http://api${p}`));
+  });
+
+  it('a probe is not held behind the reads: it says whether the API is there while they wait', async () => {
+    const fetcher = vi.fn((url: string) =>
+      url.endsWith('/risk/facts/methodology')
+        ? Promise.resolve(new Response('{}', { status: 200 }))
+        : new Promise<Response>(() => {}),
+    );
+    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
+    for (let i = 0; i < READS_AT_ONCE + 2; i++) void r.get(`/risk/hung?${i}`);
+    expect(await r.probe()).toBe(true);
   });
 });
 

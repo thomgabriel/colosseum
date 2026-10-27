@@ -1129,6 +1129,13 @@ describe('what a page waits for', () => {
     expect(base.read).toContain(R.lendList());
   });
 
+  it('the stocks page reads no lending pools: it does not show them', async () => {
+    const reader = snapshotReader();
+    const host = await mount(onSnapshot(createElement(DexPage, { page: 'stocks' }), reader));
+    await settle(host, ready);
+    expect(reader.read.some((p) => p.startsWith(R.lendList()))).toBe(false);
+  });
+
   it('no page reads the chain’s whole pool list; the stocks page reads the pools of its assets', async () => {
     const reader = snapshotReader();
     const host = await mount(onSnapshot(createElement(DexPage, { page: 'commodities' }), reader));
