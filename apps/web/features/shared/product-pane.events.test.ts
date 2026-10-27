@@ -376,7 +376,7 @@ describe('a product’s page, on the plan view', () => {
     expect(said).not.toContain('syrupUSDC (Maple):');
     expect(exit.querySelectorAll('[data-ui="pin"]')).toHaveLength(2);
     expect(await pinLine(exit.querySelector('[data-ui="figure"]') as Element)).toContain('Bearing');
-    expect(find(host, '[data-ui="pin-what"]').textContent).toBe('From Bearing’s measurements');
+    expect(find(host, '[data-ui="pin-what"]').textContent).toBe('From our measurements');
   });
 
   it('names the version and the publisher in view, and offers one way to invest', async () => {

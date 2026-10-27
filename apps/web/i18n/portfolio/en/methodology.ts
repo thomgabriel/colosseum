@@ -113,7 +113,7 @@ export const methodology = {
       ],
       [
         'A selling cost',
-        'Bearing’s measured cost of selling your whole holding of one asset on one chain. Where Bearing doesn’t measure the asset, its tier is named as a fallback, and a tier states no cost.',
+        'our measured cost of selling your whole holding of one asset on one chain. Where we don’t measure the asset, its tier is named as a fallback, and a tier states no cost.',
       ],
     ],
     pin: 'Every figure carries its source, its time and its method: open the mark beside it to read them.',

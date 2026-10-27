@@ -210,7 +210,7 @@ const TYPE = [
   ['figure-lg', 'font-display text-figure-lg font-semibold tabular-nums', '$12,480'],
   ['sample-line', 'text-sample-line text-sample-foreground', 'Sample figures · test network'],
   ['b-kpi', 'font-display text-b-kpi font-semibold tabular-nums', '$1.2M'],
-  ['b-cell', 'text-b-cell tabular-nums', 'Bearing table cell 1,234.50'],
+  ['b-cell', 'text-b-cell tabular-nums', 'Analytics table cell 1,234.50'],
 ] as const;
 
 const ICONS: IconName[] = ['ArrowUp', 'ArrowUpRight', 'Check', 'ChevronDown', 'Copy', 'Menu', 'X'];
@@ -1255,7 +1255,7 @@ export function Showcase() {
 
       <Section
         spec="bearing-heatmap-tile.md"
-        title="Bearing heatmap tile"
+        title="Analytics heatmap tile"
         note="Hours with no sample are the ground with an en dash, never hatched: the hatch means sample or stale. The grid is one tab stop; the arrow keys move through the hours."
       >
         <Specimen state="live" wide>

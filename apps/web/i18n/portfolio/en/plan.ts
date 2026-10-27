@@ -92,7 +92,7 @@ export const plan = {
   /** What leaving would cost. */
   exit: {
     heading: 'What leaving would cost',
-    lead: 'Each cost is Bearing’s measure of selling this vault’s whole holding of one asset, alone, at the size shown. It is not the cost of selling everything at once, which these figures can’t say. A basis point is a hundredth of a percent.',
+    lead: 'Each cost is our measure of selling this vault’s whole holding of one asset, alone, at the size shown. It is not the cost of selling everything at once, which these figures can’t say. A basis point is a hundredth of a percent.',
     reading: 'Reading what leaving would cost…',
     holding: 'Holding',
     costLabel: 'Selling it alone',
