@@ -237,7 +237,12 @@ export async function registerRiskRoutes(
   const { db } = sharedDb();
   const f = app.withTypeProvider<ZodTypeProvider>();
   // Every GET's answer kept in the process a while, and a browser told it may keep it a minute (risk-cache.ts).
-  if (opts.cache !== false) registerRiskReadCache(app, opts.cache);
+  // The chains side by side are kept per regime of now: the answer changes only when the regime does.
+  if (opts.cache !== false)
+    registerRiskReadCache(app, {
+      regimeOf: (at) => regimeAt(new Date(at), REGIME_PARAMS),
+      ...opts.cache,
+    });
 
   async function resolveAsset(id: string) {
     const rows = await db
@@ -1136,9 +1141,10 @@ export async function registerRiskRoutes(
           measured++;
           if (c.to && (!capTo || c.to > capTo)) capTo = c.to;
         }
-        // 24 h volume: each pool's newest 24 h row of the swap history, by the chain's address family
+        // 24 h volume: each pool's newest 24 h row of the swap history, by the chain's address family,
+        // picked in the database (every import's rows were read and all but one dropped: 628 KB for 2 KB)
         const flow = await db
-          .select({
+          .selectDistinctOn([riskPoolFlow.pool], {
             pool: riskPoolFlow.pool,
             usd: sql<number>`${riskPoolFlow.sellUsd} + ${riskPoolFlow.buyUsd}`,
             dataTo: riskPoolFlow.dataTo,
@@ -1153,7 +1159,7 @@ export async function registerRiskRoutes(
                 : sql`${riskPoolFlow.pool} not like '0x%'`,
             ),
           )
-          .orderBy(desc(riskPoolFlow.dataTo));
+          .orderBy(riskPoolFlow.pool, desc(riskPoolFlow.dataTo));
         const newestFlow = new Map<string, { usd: number; dataTo: Date }>();
         for (const r of flow) if (!newestFlow.has(r.pool)) newestFlow.set(r.pool, r);
         let volTo: string | null = null;

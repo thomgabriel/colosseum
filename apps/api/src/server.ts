@@ -2,6 +2,7 @@ import './env';
 import { createDb, seedChains } from '@colosseum/db';
 import { parseChainConfigs } from '@colosseum/schemas';
 import { buildApp } from './app';
+import { startRiskWarm } from './risk-warm';
 import { warmRiskReads } from './routes/risk-dex';
 import { shelfWarmed } from './routes/v1';
 import { startSnapshotInApi } from './snapshot-in-api';
@@ -21,5 +22,7 @@ app.log.info(`docs at http://localhost:${port}/docs`);
 warmRiskReads(app, { log: (msg) => app.log.info(msg), after: shelfWarmed(app) }).catch((err) =>
   app.log.warn({ err }, 'risk reads not warmed'),
 );
+// Then once an hour, after the hourly import, the pages' reads again (gate RISK-WARM; RISK_WARM_AT_MINUTE).
+startRiskWarm(app, process.env, { log: app.log });
 // The snapshot worker's passes in this process, behind SNAPSHOT_IN_API=1; never ends the API.
 startSnapshotInApi(process.env, { log: app.log });
