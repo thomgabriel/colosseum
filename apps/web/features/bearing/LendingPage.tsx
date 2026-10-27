@@ -78,9 +78,9 @@ export function LendingPage() {
 }
 
 function LendingOnSolana() {
-  const { base, lending, reader, ui } = useBearing();
+  const { lendList, lending, reader, ui } = useBearing();
   const tol = ui.tol;
-  const b = useAnswer(() => base(), [base]);
+  const list = useAnswer(() => lendList(), [lendList]);
   const rows = useAnswer(() => lending(), [lending]);
   const assets = useAnswer(() => reader.get<AssetsBody>(R.assets(tol)), [reader, tol]);
   const ids = rows ? collateralAssets(rows) : null;
@@ -98,11 +98,11 @@ function LendingOnSolana() {
         : null,
     [key, reader],
   );
-  if (!b || !rows || !assets || (assets.ok && b.lendList.ok && !hist)) return <LendingWait />;
-  if (!b.lendList.ok || !assets.ok)
+  if (!list || !rows || !assets || (assets.ok && list.ok && !hist)) return <LendingWait />;
+  if (!list.ok || !assets.ok)
     return (
       <p className="mt-6">
-        <Reason code={b.lendList.ok ? assets.reason : b.lendList.reason} />
+        <Reason code={list.ok ? assets.reason : list.reason} />
       </p>
     );
   return <LendView rows={rows} body={assets.body} assetIds={ids ?? []} histBy={hist ?? {}} />;

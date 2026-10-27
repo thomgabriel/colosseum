@@ -1,8 +1,8 @@
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { describe, expect, it } from 'vitest';
-import { registerRiskReadCache } from './risk-cache';
-import { DEX_MAX_IDS, registerRiskDexRoute, warmRiskReads } from './risk-dex';
+import { RISK_FRESH_MS, registerRiskReadCache } from './risk-cache';
+import { DEX_MAX_IDS, dexAssetPath, registerRiskDexRoute, warmRiskReads } from './risk-dex';
 
 // GET /risk/dex on stand-ins of the three routes it asks, which count their reads.
 const POOL = {
@@ -25,14 +25,19 @@ const POOL = {
   provenance: 'live',
 };
 
-async function app() {
+async function app(opts: { now?: () => number } = {}) {
   const a = Fastify();
   a.setValidatorCompiler(validatorCompiler);
   a.setSerializerCompiler(serializerCompiler);
-  registerRiskReadCache(a);
+  registerRiskReadCache(a, opts.now ? { now: opts.now } : {});
   const read: string[] = [];
   a.addHook('onRequest', async (req) => {
-    if (req.url !== '/risk/dex' && !req.url.startsWith('/risk/dex?')) read.push(req.url);
+    if (
+      req.url !== '/risk/dex' &&
+      !req.url.startsWith('/risk/dex?') &&
+      !req.url.startsWith('/risk/dex/')
+    )
+      read.push(req.url);
   });
   a.get('/risk/facts/assets/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
@@ -194,12 +199,61 @@ describe('the warm-up', () => {
     expect(read.filter((u) => u.startsWith('/risk/facts/assets/'))).toEqual([]);
   });
 
-  it('keeps no batch: it is put together from kept parts each time', async () => {
+  it('keeps no batch: it is put together from each asset’s kept entry each time', async () => {
     const { a, read } = await app();
     await a.inject({ url: '/risk/dex?ids=AAAx' });
     const second = await a.inject({ url: '/risk/dex?ids=AAAx' });
     expect(second.headers['x-read-cache']).toBeUndefined();
     // its parts were kept: the second batch read nothing new
     expect(read.filter((u) => u.startsWith('/risk/facts/assets/'))).toHaveLength(1);
+  });
+});
+
+describe('one asset of the batch, kept', () => {
+  const q = { chain: 'solana' as const, sizeUsd: 100_000, days: 30, tau: 0.01 };
+
+  it('is kept per asset and size, so a second batch asks none of the three routes', async () => {
+    const { a, read } = await app();
+    await a.inject({ url: '/risk/dex?ids=AAAx,BBBx' });
+    const before = read.length;
+    const again = await a.inject({ url: '/risk/dex?ids=BBBx,AAAx' });
+    expect(again.json().assets.map((x: { id: string }) => x.id)).toEqual(['BBBx', 'AAAx']);
+    expect(read.length).toBe(before);
+    expect((await a.inject({ url: dexAssetPath('AAAx', q) })).headers['x-read-cache']).toBe('hit');
+    // another size is another entry
+    const other = await a.inject({ url: dexAssetPath('AAAx', { ...q, sizeUsd: 5_000 }) });
+    expect(other.headers['x-read-cache']).toBe('miss');
+  });
+
+  it('is dated from its oldest part, so kept parts do not add their ages', async () => {
+    let t = Date.UTC(2026, 9, 27, 12);
+    const { a } = await app({ now: () => t });
+    const sheetAt = t;
+    await a.inject({ url: '/risk/facts/assets/AAAx?sizeUsd=100000' });
+    t += 50 * 60_000;
+    const one = await a.inject({ url: dexAssetPath('AAAx', q) });
+    expect(one.headers['x-read-at']).toBe(String(sheetAt));
+    // fresh an hour from the sheet's reading, not from its own
+    t = sheetAt + RISK_FRESH_MS + 1;
+    expect((await a.inject({ url: dexAssetPath('AAAx', q) })).headers['x-read-cache']).toBe(
+      'stale',
+    );
+  });
+
+  it('keeps no entry with a part that was refused or failed: it is asked again next time', async () => {
+    const { a } = await app();
+    const first = await a.inject({ url: dexAssetPath('NOPEx', q) });
+    expect(first.statusCode).toBe(207);
+    expect(first.json().sheet.status).toBe(404);
+    expect((await a.inject({ url: dexAssetPath('NOPEx', q) })).headers['x-read-cache']).toBe(
+      'miss',
+    );
+  });
+
+  it('a browser may keep the batch as long as its entries', async () => {
+    const { a } = await app();
+    const res = await a.inject({ url: '/risk/dex?ids=AAAx' });
+    expect(res.headers['cache-control']).toBe('public, max-age=60, stale-while-revalidate=300');
+    expect(res.headers['content-type']).toMatch(/^application\/json/);
   });
 });

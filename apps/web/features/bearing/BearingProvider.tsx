@@ -41,15 +41,17 @@ import type {
 // simulated). It lives in the section's layout, so it outlives a page.
 
 export const TAU = 0.01;
-/** Assets asked in one `GET /risk/dex`, and how many of those answers are read at once. */
+/**
+ * Assets asked in one `GET /risk/dex`, and how many of those answers are read at once: fewer than the
+ * reader's `READS_AT_ONCE`, so the page's other reads are not queued behind every batch.
+ */
 export const DEX_BATCH = 8;
-export const DEX_BATCHES_AT_ONCE = 3;
+export const DEX_BATCHES_AT_ONCE = 2;
 /** How often an open page looks at its clock again. */
 export const TICK_MS = 60_000;
 
 export type Base = {
   assets: Res<AssetsBody>;
-  lendList: Res<LendListBody>;
   recorded: Set<string>;
 };
 
@@ -75,9 +77,9 @@ type Ctx = {
   clock: Clock;
   /** The newest reading of the collectors, when the API gave one. */
   newest: string | null;
-  /** The chain's lists: its assets, lending pools and recorded pools. */
+  /** The chain's lists: its assets and recorded pools. */
   base: () => Promise<Base>;
-  /** Solana's lending pools alone, for a page that needs no other list. */
+  /** Solana's lending pools, read only by the pages that show them. */
   lendList: () => Promise<Res<LendListBody>>;
   /**
    * Per asset of the chain, by the symbol the page shows. `onOne` hears each asset as its answer lands,
@@ -192,18 +194,16 @@ export function BearingProvider({
     const baseOf = (c: BearingChain) => {
       let p = memo.current.base.get(c);
       if (!p) {
-        // Solana's addresses are read as they always were; Robinhood Chain's name it. Lending pools
-        // and recorded pools are Solana's only. The chain's whole pool list is not read: a page reads
-        // the pools of its assets (`dex`).
+        // Solana's addresses are read as they always were; Robinhood Chain's name it. Recorded pools
+        // are Solana's only. The chain's whole pool list is not read: a page reads the pools of its
+        // assets (`dex`), and the lending pools only where they are shown (`lendList`).
         p = Promise.all([
           reader.get<AssetsBody>(R.assets(TAU, c)),
-          c === 'solana' ? lendListOf() : Promise.resolve(notOnChain<LendListBody>()),
           c === 'solana'
             ? reader.get<RecordedBody>(R.recorded())
             : Promise.resolve(notOnChain<RecordedBody>()),
-        ]).then(([assets, lendList, rec]) => ({
+        ]).then(([assets, rec]) => ({
           assets,
-          lendList,
           recorded: new Set(rec.ok ? rec.body.pools.map((p) => p.address) : []),
         }));
         memo.current.base.set(c, p);

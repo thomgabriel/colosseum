@@ -237,7 +237,12 @@ export async function registerRiskRoutes(
   const { db } = sharedDb();
   const f = app.withTypeProvider<ZodTypeProvider>();
   // Every GET's answer kept in the process a while, and a browser told it may keep it a minute (risk-cache.ts).
-  if (opts.cache !== false) registerRiskReadCache(app, opts.cache);
+  // The chains side by side are kept per regime of now: the answer changes only when the regime does.
+  if (opts.cache !== false)
+    registerRiskReadCache(app, {
+      regimeOf: (at) => regimeAt(new Date(at), REGIME_PARAMS),
+      ...opts.cache,
+    });
 
   async function resolveAsset(id: string) {
     const rows = await db
@@ -1136,9 +1141,11 @@ export async function registerRiskRoutes(
           measured++;
           if (c.to && (!capTo || c.to > capTo)) capTo = c.to;
         }
-        // 24 h volume: each pool's newest 24 h row of the swap history, by the chain's address family
+        // 24 h volume: each pool's newest 24 h row of the swap history, by the chain's address family,
+        // one row a pool, picked in the database (every import's rows were read before; the route read
+        // 628 KB from the database for a 2 KB answer, 290 KB now)
         const flow = await db
-          .select({
+          .selectDistinctOn([riskPoolFlow.pool], {
             pool: riskPoolFlow.pool,
             usd: sql<number>`${riskPoolFlow.sellUsd} + ${riskPoolFlow.buyUsd}`,
             dataTo: riskPoolFlow.dataTo,
@@ -1153,11 +1160,9 @@ export async function registerRiskRoutes(
                 : sql`${riskPoolFlow.pool} not like '0x%'`,
             ),
           )
-          .orderBy(desc(riskPoolFlow.dataTo));
-        const newestFlow = new Map<string, { usd: number; dataTo: Date }>();
-        for (const r of flow) if (!newestFlow.has(r.pool)) newestFlow.set(r.pool, r);
+          .orderBy(riskPoolFlow.pool, desc(riskPoolFlow.dataTo));
         let volTo: string | null = null;
-        for (const r of newestFlow.values()) {
+        for (const r of flow) {
           const t = r.dataTo.toISOString();
           if (!volTo || t > volTo) volTo = t;
         }
@@ -1205,14 +1210,14 @@ export async function registerRiskRoutes(
                   provenance: 'live',
                 },
           volume24hUsd:
-            newestFlow.size === 0
+            flow.length === 0
               ? {
                   value: null,
                   nullReason: `not collected yet on ${chain === 'robinhood' ? 'Robinhood Chain' : 'Solana'}: no swap history imported (risk_pool_flow)`,
                 }
               : {
-                  value: [...newestFlow.values()].reduce((sum, r) => sum + r.usd, 0),
-                  pools: newestFlow.size,
+                  value: flow.reduce((sum, r) => sum + r.usd, 0),
+                  pools: flow.length,
                   source: 'risk_pool_flow (24 h window, every regime)',
                   method: 'sum over the pools of the swap volume in the newest 24 h of the history',
                   fetchedAt: volTo,
