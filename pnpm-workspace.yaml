@@ -46,6 +46,10 @@ overrides:
   # GHSA-96hv-2xvq-fx4p (high) and GHSA-58qx-3vcg-4xpx: the older viem copies under Privy's WalletConnect
   # pin ws 8.18. Only Node opens a socket with ws; a browser uses its own WebSocket.
   'ws@>=8.0.0 <8.21.0': ^8.21.0
+  # GHSA-xjj6-f33q-929c (high): undici DoS, under @scalar/fastify-api-reference; same major, patched release.
+  'undici@>=7.18.0 <7.30.1': ^7.30.1
+  # GHSA-mrhx-c7xc-m3w5 (high): zod memory exhaustion on oversized input; every zod 4 copy (ours, @modelcontextprotocol, @scalar) to the patched release.
+  'zod@>=4.0.0 <4.6.6': ^4.6.6
   # GHSA-68fv-2mgg-jv7q (high): source-map-js 1.2.1 under next's postcss. 1.2.2 is the fix, a patch.
   'source-map-js@<1.2.2': ^1.2.2
   # GHSA-q3jh-wrc6-jgq8 and GHSA-8r9p-f939-6h3c (high): follow-redirects 1.16.0 under Privy's wallet tree
@@ -61,3 +65,4 @@ auditConfig:
     - GHSA-9j65-hcg3-gc64 # toml, under @kamino-finance/klend-sdk
     - GHSA-9qmh-m7c6-f92p # toml, under @kamino-finance/klend-sdk
     - GHSA-3gc7-fjrx-p6mg # bigint-buffer, under @kamino-finance/klend-sdk
+    - GHSA-mrhx-c7xc-m3w5 # zod 3.x copies only (@reown, abitype, @anthropic-ai/sdk); every zod 4 copy is overridden to 4.6.6+
