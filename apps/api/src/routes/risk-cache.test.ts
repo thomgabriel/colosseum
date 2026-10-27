@@ -174,6 +174,60 @@ describe('the kept answers of GET /risk/*', () => {
     expect([after.json(), after.headers['x-read-cache']]).toEqual([{ n: 2 }, 'miss']);
   });
 
+  it('keeps the chains side by side per regime when told the regime rule: the half hours inside one regime share it', async () => {
+    let t = Date.UTC(2026, 9, 14, 17, 50); // 13:50 ET
+    const a = Fastify();
+    registerRiskReadCache(a, {
+      now: () => t,
+      regimeOf: (at) =>
+        new Date(at).getUTCHours() < 20 ? 'us_market_hours' : 'us_offhours_weekday',
+    });
+    let n = 0;
+    a.get('/risk/chains', async () => ({ n: ++n }));
+    await a.inject({ url: '/risk/chains?tau=0.01' });
+    t = Date.UTC(2026, 9, 14, 18, 40); // another half hour, the same regime
+    expect((await a.inject({ url: '/risk/chains?tau=0.01' })).headers['x-read-cache']).toBe('hit');
+    t = Date.UTC(2026, 9, 14, 20, 0); // the market closed
+    expect((await a.inject({ url: '/risk/chains?tau=0.01' })).json()).toEqual({ n: 2 });
+  });
+
+  it('reads stale answers again one at a time, so a page of them does not start them all at once', async () => {
+    let t = 0;
+    const a = Fastify();
+    registerRiskReadCache(a, { freshMs: 1, staleMs: 1_000, now: () => t });
+    let open = 0;
+    let most = 0;
+    a.get('/risk/thing', async () => {
+      most = Math.max(most, ++open);
+      await new Promise((d) => setTimeout(d, 5));
+      open--;
+      return { ok: 1 };
+    });
+    for (const q of ['a', 'b', 'c', 'd']) await a.inject({ url: `/risk/thing?${q}` });
+    most = 0;
+    t = 10;
+    const stale = await Promise.all(
+      ['a', 'b', 'c', 'd'].map((q) => a.inject({ url: `/risk/thing?${q}` })),
+    );
+    expect(stale.map((r) => r.headers['x-read-cache'])).toEqual(Array(4).fill('stale'));
+    await new Promise((d) => setTimeout(d, 60));
+    expect(most).toBe(1);
+    // every one was read again
+    expect((await a.inject({ url: '/risk/thing?d' })).headers['x-read-cache']).toBe('hit');
+  });
+
+  it('says when a kept answer was read, and keeps one from the time its handler names', async () => {
+    let t = 1_000;
+    const a = Fastify();
+    registerRiskReadCache(a, { freshMs: 100, staleMs: 1_000, now: () => t });
+    a.get('/risk/made', async (_req, reply) => reply.header('x-read-at', '950').send({ ok: 1 }));
+    expect((await a.inject({ url: '/risk/made' })).headers['x-read-at']).toBe('950');
+    t = 1_049;
+    expect((await a.inject({ url: '/risk/made' })).headers['x-read-cache']).toBe('hit');
+    t = 1_051;
+    expect((await a.inject({ url: '/risk/made' })).headers['x-read-cache']).toBe('stale');
+  });
+
   it('a read that took over from a hung one is still waited for when the hung one ends', async () => {
     const a = Fastify();
     registerRiskReadCache(a, { joinMs: 20 });
