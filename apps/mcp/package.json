@@ -10,6 +10,6 @@
   "dependencies": {
     "@colosseum/sdk": "workspace:*",
     "@modelcontextprotocol/server": "2.3.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   }
 }
