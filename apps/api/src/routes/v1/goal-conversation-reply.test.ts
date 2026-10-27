@@ -315,7 +315,7 @@ describe('new-goal model preview route', () => {
     expect(res.statusCode, res.body).toBe(200);
     expect(vi.mocked(s.model.read).mock.calls[0]?.[1].analytics).toEqual({
       unknowns: [
-        "Bearing's exit, liquidity and market analytics could not be read for this reply; those figures are unknown, not zero.",
+        'The exit, liquidity and market analytics could not be read for this reply; those figures are unknown, not zero.',
       ],
     });
     expect(
