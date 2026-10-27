@@ -114,7 +114,7 @@ describe('GET /risk/dex', () => {
 });
 
 describe('the warm-up', () => {
-  it('reads each chain’s list and each asset’s entry of the batch, keeps them, and reads nothing else', async () => {
+  it('reads each chain’s list and each asset’s fact sheet, keeps them, and reads nothing else', async () => {
     const { a, read } = await app();
     await warmRiskReads(a, { firstMs: 0 });
     expect([...read].sort()).toEqual(
@@ -123,18 +123,14 @@ describe('the warm-up', () => {
         '/risk/assets?tau=0.01&chain=robinhood',
         ...['AAAx', 'BBBx', 'CCCx'].flatMap((s) => [
           `/risk/facts/assets/${s}?sizeUsd=100000`,
-          `/risk/assets/${s}/history?days=30&tau=0.01`,
-          `/risk/pools?asset=${s}`,
           `/risk/facts/assets/MINT-${s}?sizeUsd=100000`,
-          `/risk/assets/MINT-${s}/history?days=30&tau=0.01`,
-          `/risk/pools?asset=MINT-${s}&chain=robinhood`,
         ]),
       ].sort(),
     );
-    // the warm answers are kept: a page's own batch asks nothing new of the routes
+    // the warm answers are kept: a page's own read of a sheet asks nothing new of the routes
     const before = read.length;
-    await a.inject({ url: '/risk/dex?ids=AAAx,BBBx,CCCx' });
-    await a.inject({ url: '/risk/dex?ids=MINT-AAAx&chain=robinhood' });
+    await a.inject({ url: '/risk/facts/assets/AAAx?sizeUsd=100000' });
+    await a.inject({ url: '/risk/facts/assets/MINT-AAAx?sizeUsd=100000' });
     expect(read.length).toBe(before);
   });
 
