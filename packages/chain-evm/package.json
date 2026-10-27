@@ -17,7 +17,7 @@
   "dependencies": {
     "@colosseum/schemas": "workspace:*",
     "viem": "2.56.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@colosseum/chain-mock": "workspace:*",

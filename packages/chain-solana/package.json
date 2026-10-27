@@ -21,6 +21,6 @@
     "@solana-program/system": "^0.8.0",
     "@solana-program/address-lookup-table": "^0.8.0",
     "@solana-program/compute-budget": "^0.9.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   }
 }
