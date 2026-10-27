@@ -71,7 +71,7 @@ export function dexVolume(pools: readonly Pool[]): Fact {
       source: DEXSCREENER_24H,
       fetchedAt: at,
       quality: known.length < pools.length ? 'lower_bound' : 'measured',
-      method: `sum of DexScreener's 24 h volume of ${known.length} pools (api.dexscreener.com, h24), as reported when each pool was registered; DexScreener's figure, not Bearing's swap history`,
+      method: `sum of DexScreener's 24 h volume of ${known.length} pools (api.dexscreener.com, h24), as reported when each pool was registered; DexScreener's figure, not our own swap history`,
       methodVersion: 'registry-0.1',
     },
   );

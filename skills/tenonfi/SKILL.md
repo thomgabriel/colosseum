@@ -34,8 +34,8 @@ To buy one, which also follows it, call `prepare_order` with `action: "buy"` and
 
 - `get_portfolio` with a vault's `chain` and address: anybody may read a vault, read from its chain.
 - `get_portfolio` with nothing, and `get_order_status`: only when the person's client sent their sign-in to the server. Without it the tool says `SIGN_IN_REQUIRED` and gives the link where they see it themselves.
-- `get_asset_risk`: Bearing's measured facts for one asset at a trade size: what it costs to get out, by market hours, and how much can get out. A fact with no data is null with its reason: say it is not measured, never guess.
-- `get_asset_facts` with the asset's `chain` and its id (`solana:nvdax`): the facts Tenonfi holds of one listed asset, its profile, price history over a window, pools, lending markets and Bearing's figures. Say each figure with what it measures, its unit, its source and when it was read. One under `missing` is not measured: say why. When the answer has a `plate` (MOCK, a test network, recorded data), say it with the figures. A change over a window is a past figure, never a forecast or a return.
+- `get_asset_risk`: the measured facts for one asset at a trade size: what it costs to get out, by market hours, and how much can get out. A fact with no data is null with its reason: say it is not measured, never guess.
+- `get_asset_facts` with the asset's `chain` and its id (`solana:nvdax`): the facts Tenonfi holds of one listed asset, its profile, price history over a window, pools, lending markets and its measured exit, liquidity and market figures. Say each figure with what it measures, its unit, its source and when it was read. One under `missing` is not measured: say why. When the answer has a `plate` (MOCK, a test network, recorded data), say it with the figures. A change over a window is a past figure, never a forecast or a return.
 
 ## Rules
 

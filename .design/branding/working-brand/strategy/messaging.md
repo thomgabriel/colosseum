@@ -50,7 +50,7 @@ Tokenized does not mean liquid. The exit plan answers *"can I actually get the m
 
 | Proof point | Status |
 |---|---|
-| Exit capacity is measured, not assumed: depth by size, path and hour of week, recorded continuously since Sept 2026 (the [Name] Bearing dataset, which can't be backfilled) | Shipped (depth snapshot cron); dataset growing |
+| Exit capacity is measured, not assumed: depth by size, path and hour of week, recorded continuously since Sept 2026 (the [Name] Analytics dataset, which can't be backfilled) | Shipped (depth snapshot cron); dataset growing |
 | Positions are sized so the user's cash-access limit holds under measured depth | Engine behaviour (sizing uses depth) |
 | Stress cases are shown next to the base case, including exit cost in a thin market | Shipped (path + stress) |
 
@@ -101,9 +101,9 @@ Tokenized does not mean liquid. The exit plan answers *"can I actually get the m
 | **Mariana 1a**, crypto-native diversifier | Move idle stables into RWAs for a real target without becoming a PM. Distrusts hidden illiquidity | "Tell it what your stack needs to do. It builds the portfolio for that, **plans the exit before it invests**, and shows every number's source in your wallet." | SM2 → SM1 → SM3 | Drier, receipts over reassurance | Exit plan with measured depth, explorer links, haircut vs quoted | X, Telegram/Discord, Colosseum demo |
 | **Mariana 1b**, life-goal saver | Know her goal will land without learning DeFi | "Your apartment fund, built backwards from June 2028. **Your odds of reaching it** are on track, and you can reach your cash within a week. If the odds move, you'll hear it early." | SM1 → SM3 → SM2 | Warmest. Goal by name, dates over percentages | On-track and odds statement (with as-of date), "access to cash" in plain words | Partner app (embed), word of mouth |
 | **Rafael**, neobank / fintech PM | A differentiated, defensible earn feature | "Put the **goal and liquidity layer** under your app: users say what their money needs to do, and each plan comes with an **exit plan before it invests** and every figure's source for compliance." | SM1 → SM2 → SM3 | Professional, docs-first | OpenAPI `/docs`, MOCK labels, disclaimer, embed in partner skin | Partner intros (Chainless, Picnic LOIs), docs |
-| **Priya**, risk lead | Auditable liquidity to set parameters from | "Tokenized doesn't mean liquid. [Name] Bearing measures **whether the money can come back**: how much, at what cost, at what hour, versioned, n=, method open." | Measurement → method → neutrality | Instrument register | Hour-of-week depth heatmap, method doc, raw samples | Governance forums, research posts |
-| **Consumer apps as distribution** (including idea-to-basket apps) | Add liquidity truth and goal tracking without building it | "Your users pick the idea. We tell them whether they can get out, and whether their goal still lands." | SM2 → SM3 | Partner-to-partner | Bearing API, exit-plan endpoint | BD |
-| **Colosseum judges** | Real? Novel? Not a rerun of Cohort 5? | "Peaks and Cesto turn an idea into a basket. We solve the inverse problem: goal and constraints in, a made-to-measure portfolio out, **an exit plan before investing**, managed on **the odds of reaching the goal**. Live on mainnet." | Inverse problem → exit plan → live proof → Bearing | Confident, specific | Mainnet transactions, solver determinism, depth heatmap, LOIs | Video, demo, deck |
+| **Priya**, risk lead | Auditable liquidity to set parameters from | "Tokenized doesn't mean liquid. [Name] Analytics measures **whether the money can come back**: how much, at what cost, at what hour, versioned, n=, method open." | Measurement → method → neutrality | Instrument register | Hour-of-week depth heatmap, method doc, raw samples | Governance forums, research posts |
+| **Consumer apps as distribution** (including idea-to-basket apps) | Add liquidity truth and goal tracking without building it | "Your users pick the idea. We tell them whether they can get out, and whether their goal still lands." | SM2 → SM3 | Partner-to-partner | Analytics API, exit-plan endpoint | BD |
+| **Colosseum judges** | Real? Novel? Not a rerun of Cohort 5? | "Peaks and Cesto turn an idea into a basket. We solve the inverse problem: goal and constraints in, a made-to-measure portfolio out, **an exit plan before investing**, managed on **the odds of reaching the goal**. Live on mainnet." | Inverse problem → exit plan → live proof → Analytics | Confident, specific | Mainnet transactions, solver determinism, depth heatmap, LOIs | Video, demo, deck |
 
 ### Objection handling
 | Objection | Answer |
@@ -112,7 +112,7 @@ Tokenized does not mean liquid. The exit plan answers *"can I actually get the m
 | "Isn't this a robo-advisor or a model portfolio?" | Those put a goal label on someone else's model. Ours is solved from your goal and limits, with the exit measured. |
 | "Can an AI agent be trusted with money?" | The language model only reads your goal and writes it down for you to confirm. A deterministic solver builds the plan. Everything runs in your wallet, and every move is logged. |
 | "What return will I get?" | We don't promise returns. We show your odds of reaching the goal (an estimate, with its method), what could change them, and the exit. |
-| "How is Bearing neutral if you earn fees?" | Bearing is never paid by, and never curates for, the protocols it measures. The method and samples are public. |
+| "How is Analytics neutral if you earn fees?" | Analytics is never paid by, and never curates for, the protocols it measures. The method and samples are public. |
 | "Is this financial advice?" | No. It builds and explains a plan from the goal you set. The disclaimer is on every plan. |
 
 ---

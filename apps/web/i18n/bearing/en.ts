@@ -4,7 +4,7 @@
 // sources and methods in a pin's popover are the API's, in English, in both languages.
 
 export const bearingEn = {
-  head: 'Bearing · analytics',
+  head: 'Analytics',
   notAdvice: 'Not licensed advice',
   menu: {
     region: 'Analytics pages',
@@ -54,10 +54,10 @@ export const bearingEn = {
   chain: {
     label: 'Chain',
     pageNotCollected: (chain: string) =>
-      `Not collected yet on ${chain}: Bearing measures this page on Solana only for now.`,
+      `Not collected yet on ${chain}: this page is measured on Solana only for now.`,
     sideBySide: {
       title: 'Chains side by side',
-      note: 'Each chain as Bearing measures it now. Exit capacity is read in the time of week it is now.',
+      note: 'Each chain as it is measured now. Exit capacity is read in the time of week it is now.',
       caption: 'Assets tracked, pool TVL, exit capacity and 24 h volume per chain',
       chain: 'Chain',
       assets: 'Assets tracked',
@@ -97,17 +97,17 @@ export const bearingEn = {
    * The short words above stay on the page; this is the same reason said in full.
    */
   why: {
-    no_samples_in_regime: 'No figure: Bearing has no readings for this time of week yet.',
+    no_samples_in_regime: 'No figure: there are no readings for this time of week yet.',
     insufficient_samples: 'No figure: there are too few readings to measure this.',
     not_a_number: 'No figure: the stored value could not be used.',
-    beyond_measured_size: 'No figure: this size is above the largest Bearing has measured.',
-    no_reference_price: 'No figure: Bearing has no reference price for this asset at that time.',
+    beyond_measured_size: 'No figure: this size is above the largest one measured.',
+    no_reference_price: 'No figure: there is no reference price for this asset at that time.',
     no_external_source: 'No figure: this needs an outside price source that is not connected.',
-    chain_not_covered: 'No figure: Bearing does not collect this on this chain.',
-    not_collected: 'No figure: this is on chain, and Bearing does not collect it yet.',
-    not_imported: 'No figure: this was collected and is not in Bearing’s tables yet.',
+    chain_not_covered: 'No figure: this is not collected on this chain.',
+    not_collected: 'No figure: this is on chain, and it is not collected yet.',
+    not_imported: 'No figure: this was collected and is not in our tables yet.',
     not_followed: 'No figure: these liquidations were not traced after the transaction.',
-    before_routed_curves: 'No figure: this reading is from before Bearing measured routed exits.',
+    before_routed_curves: 'No figure: this reading is from before routed exits were measured.',
     gate_open: 'No figure: how to measure this isn’t settled yet.',
     not_applicable: 'No figure: this does not apply to this asset or pool.',
     not_served: 'No figure: this isn’t measured here yet.',
@@ -189,7 +189,7 @@ export const bearingEn = {
       capacityNote: (regime: string) => `sale at ≤ 1% cost, ${regime}`,
       volume: 'Volume 24 h',
       volumeNote: (to: string) => `to ${to}, the newest swap history`,
-      volumeDexNote: 'DexScreener’s figure: Bearing’s swap history is not collected here yet.',
+      volumeDexNote: 'DexScreener’s figure: our own swap history is not collected here yet.',
       lp: 'Top-3 LP share',
       lpNote: 'largest pool, by position',
     },

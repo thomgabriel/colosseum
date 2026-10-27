@@ -8,13 +8,13 @@
 | Part | Treatment |
 |---|---|
 | Surface | `bg-card border border-border rounded-lg` (white `#FFFFFF` / night-2 `#13151C`; line-l `#E3DFD6` / line `#262A36`; 10px) |
-| Padding | 24px consumer and docs (`p-6`); 16px Bearing and Monitor dense (`p-4`) |
+| Padding | 24px consumer and docs (`p-6`); 16px Analytics and Monitor dense (`p-4`) |
 | Header | title Inter 600 `text-h4` (consumer) or `text-b-section` (dense); meta on the right in `text-caption uppercase text-muted-foreground` |
 | Divider | 1px `--border` between header/body/footer, full bleed |
 | Footer | source lines, explorer links (Plex Mono), or one link action |
 | Table panel | `rounded-lg overflow-hidden`, no padding; the table owns its cells ([data-table.md](./data-table.md)) |
 
-**Stat cell** (StatsCard, showcase KPIs, Bearing tiles): label `text-caption uppercase text-muted-foreground` above value `font-display font-semibold tabular-nums` (consumer `text-figure-lg` 28px, Bearing `text-b-kpi` 22px) + a signed delta in `text-b-delta` (leaf up, madder down, muted flat); cells separated by 1px hairlines, not gaps. Any yield, price or FX value gets a [provenance pin](./provenance-pin.md). Counts (plans, transactions) don't.
+**Stat cell** (StatsCard, showcase KPIs, Analytics tiles): label `text-caption uppercase text-muted-foreground` above value `font-display font-semibold tabular-nums` (consumer `text-figure-lg` 28px, Analytics `text-b-kpi` 22px) + a signed delta in `text-b-delta` (leaf up, madder down, muted flat); cells separated by 1px hairlines, not gaps. Any yield, price or FX value gets a [provenance pin](./provenance-pin.md). Counts (plans, transactions) don't.
 
 ## States
 

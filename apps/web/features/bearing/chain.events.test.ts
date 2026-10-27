@@ -176,7 +176,7 @@ describe('a page Robinhood Chain has nothing collected for', () => {
     );
     await until(host, (h) => h.querySelector('[data-ui="bearing-not-on-chain"]') != null);
     expect(find(host, '[data-ui="bearing-not-on-chain"]').textContent).toBe(
-      'Not collected yet on Robinhood Chain: Bearing measures this page on Solana only for now.',
+      'Not collected yet on Robinhood Chain: this page is measured on Solana only for now.',
     );
     expect(reader.read.some((p) => p.startsWith('/risk/facts/lending'))).toBe(false);
   });

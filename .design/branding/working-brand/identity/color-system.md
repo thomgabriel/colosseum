@@ -11,7 +11,7 @@
 
 ## Core palette
 
-### Dark · "night" (the app, Bearing, the video)
+### Dark · "night" (the app, Analytics, the video)
 
 | Role | Token | Hex | Usage | Contrast |
 |---|---|---|---|---|
@@ -107,7 +107,7 @@ No glass, backdrop blur, neon glow, ambient orbs, metallic or wood-grain fills.
 
 ## Dark mode direction
 
-Night is the native register for the **app**, **Bearing**, the **video** and **social**. Day is native for **docs**, the **plan view** and the **embed default**. Both are complete and first-class.
+Night is the native register for the **app**, **Analytics**, the **video** and **social**. Day is native for **docs**, the **plan view** and the **embed default**. Both are complete and first-class.
 
 | Day | → Night | Note |
 |---|---|---|

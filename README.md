@@ -14,7 +14,7 @@ The draft vault sits beside the chat, and you deposit from the same pane, signin
 
 You can also follow a shared portfolio that someone publishes and updates. The registry on chain checks the author's limits. The vault program and contracts also support auto-follow, where our keeper rebalances a following vault one checked trade at a time. It has only run in a scripted check on Solana devnet, and the keeper is off on every hosted chain.
 
-Bearing, our liquidity and risk layer, measures what a sale costs at each size from pools on Solana mainnet and Robinhood Chain mainnet, read-only. The exit plan's numbers come from it (`packages/risk`, `scripts/risk-evm`, [`docs/risk/STATE-RISK.md`](docs/risk/STATE-RISK.md)).
+Analytics, our liquidity and risk layer (`bearing` in the code), measures what a sale costs at each size from pools on Solana mainnet and Robinhood Chain mainnet, read-only. The exit plan's numbers come from it (`packages/risk`, `scripts/risk-evm`, [`docs/risk/STATE-RISK.md`](docs/risk/STATE-RISK.md)).
 
 Agents get an HTTP API with an OpenAPI document, an SDK, an MCP server with eight tools and a skill file ([`apps/mcp/README.md`](apps/mcp/README.md), [`skills/tenonfi/SKILL.md`](skills/tenonfi/SKILL.md)). An agent proposes; the person opens a link, reviews and signs.
 
@@ -88,7 +88,7 @@ flowchart LR
   web -- "asks, gets unsigned steps" --> api["apps/api"]
   mcp --> api
   api --> engine["packages/engine: plans"]
-  api --> risk["packages/risk: Bearing"]
+  api --> risk["packages/risk: Analytics"]
   api --> db[("Postgres")]
   api --> adapters["chain adapters: solana, evm, mock"]
   adapters -- "reads, builds steps" --> vaults["Vault program on Solana, vault contracts on Robinhood Chain"]
@@ -96,13 +96,13 @@ flowchart LR
   keeper["apps/keeper"] -- "one checked trade per call" --> vaults
   snapshot["apps/snapshot"] -- "reads" --> vaults
   snapshot --> db
-  collectors["Bearing collectors"] -- "mainnet pools, read-only" --> db
+  collectors["Analytics collectors"] -- "mainnet pools, read-only" --> db
 ```
 
 | Folder | What is in it |
 |---|---|
 | `apps/` | `web` (Next.js), `api` (Fastify and zod, OpenAPI at `/docs`), `risk-api` (the `/risk/*` routes), `mcp` (the MCP server, which never signs), `keeper` (rebalances vaults with auto-follow on) and `snapshot` (reads every known vault every ten minutes; holds no key) |
-| `packages/` | `engine` (the plan engine), `risk` (Bearing), `basket` (a plan's limits, drift and rebalance planner, free of any chain), `sdk` (the guard and the order executor), one `ChainAdapter` each in `chain-solana`, `chain-evm` and `chain-mock` (a chain in memory, stamped `mock`), `schemas` (shared zod types and the disclaimer) and `db` (Drizzle and Postgres) |
+| `packages/` | `engine` (the plan engine), `risk` (Analytics), `basket` (a plan's limits, drift and rebalance planner, free of any chain), `sdk` (the guard and the order executor), one `ChainAdapter` each in `chain-solana`, `chain-evm` and `chain-mock` (a chain in memory, stamped `mock`), `schemas` (shared zod types and the disclaimer) and `db` (Drizzle and Postgres) |
 | `programs/`, `contracts/` | The Solana programs (Anchor, interfaces in `idl/`) and the EVM contracts (Foundry) |
 | `deployments/` | What is deployed where, one file per network |
 | `scripts/` | Checks, test-network operations and the collectors. `scripts/mainnet` is the live sender; a person runs it, never an agent |
@@ -160,7 +160,7 @@ This tool is not licensed investment advice. It structures and explains an alloc
 
 ## Team
 
-Rodrigo Trindade built the plan engine, Bearing and the design system. Thom Gabriel built the vault program and contracts, the API and the app. Work that existed before the hackathon window is disclosed in [`docs/PRIOR-WORK.md`](docs/PRIOR-WORK.md). How work moves here, for people and for Claude sessions alike, is in [`CLAUDE.md`](CLAUDE.md).
+Rodrigo Trindade built the plan engine, Analytics and the design system. Thom Gabriel built the vault program and contracts, the API and the app. Work that existed before the hackathon window is disclosed in [`docs/PRIOR-WORK.md`](docs/PRIOR-WORK.md). How work moves here, for people and for Claude sessions alike, is in [`CLAUDE.md`](CLAUDE.md).
 
 ## Licence
 

@@ -48,6 +48,6 @@
 | Type | Location | Naming | Example |
 |------|----------|--------|---------|
 | Component | `apps/web/components/` (primitives → new `apps/web/components/ui/`) | PascalCase, named export | `components/ui/Button.tsx` |
-| Page | `apps/web/app/<route>/page.tsx` | lowercase route folder, default export | `app/bearing/page.tsx` |
+| Page | `apps/web/app/<route>/page.tsx` | lowercase route folder, default export | `app/analytics/page.tsx` |
 | Utility | `apps/web/lib/` | camelCase file, named exports | `lib/format.ts` (`pct`, `brl`, `usd`, `shortSig`) |
 | Token / Theme | `apps/web/app/globals.css` | Tailwind v4 `@theme` block, `--color-*`, `--font-*`, `--radius-*` | `@theme { --color-wood-500: oklch(0.493 0.063 65.5); }` |

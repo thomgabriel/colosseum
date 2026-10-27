@@ -105,7 +105,7 @@ export const methodology: Methodology = {
       ],
       [
         'Um custo de venda',
-        'o custo, medido pela Bearing, de vender toda a sua posição em um ativo em uma rede. Onde a Bearing não mede o ativo, a faixa dele é citada como alternativa, e uma faixa não informa custo.',
+        'o custo, medido por nós, de vender toda a sua posição em um ativo em uma rede. Onde não medimos o ativo, a faixa dele é citada como alternativa, e uma faixa não informa custo.',
       ],
     ],
     pin: 'Todo número leva sua fonte, sua hora e seu método: abra a marca ao lado dele para ler.',

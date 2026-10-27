@@ -293,7 +293,7 @@ test.describe('Bearing on each chain', () => {
     for (const id of ['lending', 'stablecoins'] as const) {
       await openOn(page, `/analytics/${id}?chain=robinhood`);
       await expect(page.locator('[data-ui="bearing-not-on-chain"]')).toHaveText(
-        'Not collected yet on Robinhood Chain: Bearing measures this page on Solana only for now.',
+        'Not collected yet on Robinhood Chain: this page is measured on Solana only for now.',
       );
       await expect(page.locator('main [data-ui="figure"]')).toHaveCount(0);
       await check(page, `${id} on Robinhood Chain`);

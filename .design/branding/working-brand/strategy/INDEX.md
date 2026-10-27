@@ -18,9 +18,9 @@
 - **Competitive frame:** idea → basket (Peaks, Cesto) · menu → model portfolio (Ondo IP, Glider) · **goal + constraints → made to measure ([Name])**, rebalanced on the odds of reaching the goal. Never say "AI agent that builds diversified RWA portfolios".
 - **Voice:** Clear, candid, kind. Answer → reason → risk → action. Metaphor in the pictures, plain words in the product.
 - **Essence:** "Fit, shown." **Promise:** "Built for your goal. Nothing hidden."
-- **Architecture:** branded house. **[Name]** (app) · **Powered by [Name]** / **[Name] API** (embed) · **[Name] Bearing** (risk product and the goal + liquidity intelligence layer for partners). No separate sub-brand.
+- **Architecture:** branded house. **[Name]** (app) · **Powered by [Name]** / **[Name] API** (embed) · **[Name] Analytics** (risk product and the goal + liquidity intelligence layer for partners). No separate sub-brand.
 - **Tagline (recommended):** "Made to measure. Every joint shown." **Manifesto:** "No product fits everyone. So we make the pieces — and your goals decide how they fit."
 
 ## Open for the founder
-- **Name:** recommended top 3 are **Tenon** (strategist's pick), **Masu** and **Cerne**. Risk-product noun: **Bearing**. Evidence and gaps are in naming.md. Trademark registers are not yet searched.
+- **Name:** recommended top 3 are **Tenon** (strategist's pick), **Masu** and **Cerne**. Risk-product noun: **Analytics**. Evidence and gaps are in naming.md. Trademark registers are not yet searched.
 - After the name is chosen: run the native-speaker check, the trademark knock-out, and secure the domain and handle. Then rename the folder and replace `[Name]` across these files.

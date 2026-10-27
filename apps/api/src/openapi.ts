@@ -29,7 +29,7 @@ const V1_TEXT =
  * The text of the whole document the server serves at /docs: the /v1 routes, Bearing's /risk/* and
  * the structurer's first routes, then the disclaimer in both languages.
  */
-export const SERVED_DESCRIPTION = `Tenonfi turns a person's goal into a plan, with an exit plan before it invests, held in the person's own vault on one chain. Three groups of routes are served here: the product's, under /v1; Bearing's measured liquidity and risk, under /risk; and the structurer's first routes (\`/goals\`, \`/plans\`, \`/executions\`), from before the vault: the embed still reads a goal with \`POST /goals\`.\n\n${V1_TEXT}\n\n**${DISCLAIMER.en}**\n\n${DISCLAIMER.pt}`;
+export const SERVED_DESCRIPTION = `Tenonfi turns a person's goal into a plan, with an exit plan before it invests, held in the person's own vault on one chain. Three groups of routes are served here: the product's, under /v1; the measured liquidity and risk behind Analytics, under /risk; and the structurer's first routes (\`/goals\`, \`/plans\`, \`/executions\`), from before the vault: the embed still reads a goal with \`POST /goals\`.\n\n${V1_TEXT}\n\n**${DISCLAIMER.en}**\n\n${DISCLAIMER.pt}`;
 
 /**
  * The groups of /docs, in the order they are shown. A /v1 route names its own group (`tags`); a route
@@ -61,7 +61,7 @@ export const SERVED_TAGS = [
   {
     name: 'assets',
     description:
-      'The facts the server holds of one listed asset: its profile, price history, pools, lending markets and Bearing’s figures, each with its source.',
+      'The facts the server holds of one listed asset: its profile, price history, pools, lending markets and its measured exit, liquidity and market figures, each with its source.',
   },
   {
     name: 'platform',

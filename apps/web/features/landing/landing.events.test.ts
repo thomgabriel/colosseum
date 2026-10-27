@@ -114,7 +114,7 @@ describe('the hero', () => {
 });
 
 describe('the bar', () => {
-  it('is static: the face and the wordmark home, Plans, Bearing, Docs, and one action', async () => {
+  it('is static: the face and the wordmark home, Plans, Analytics, Docs, and one action', async () => {
     const host = await landing();
     const bar = find(host, '[data-ui="landing-bar"]');
     expect(find(bar, 'a[href="/"]').getAttribute('aria-label')).toBe(en.landing.nav.home);

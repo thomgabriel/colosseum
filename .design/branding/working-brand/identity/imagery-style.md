@@ -20,10 +20,10 @@
 | # | Joint | Role in the brand | Product moment |
 |---|---|---|---|
 | **J1** | **Pinned through-tenon** (mortise, tenon and pin, *komisen*). The governing image | **Logo, plan, provenance.** **Mortise** = the goal's shape (constraint sheet). **Tenon** = the plan cut to fit it. **Pin** = the source that holds each number | Goal → plan → lock. The pin glyph on every figure |
-| **J2** | **Half-lap cross** (two members notched halfway so they lie flush) | **Structure and measurement.** The unit cell of every lattice | Layout grid, Bearing heatmap, loading |
+| **J2** | **Half-lap cross** (two members notched halfway so they lie flush) | **Structure and measurement.** The unit cell of every lattice | Layout grid, Analytics heatmap, loading |
 | **J3** | **Sliding dovetail, dropped in** (*ari-otoshi*: in from above, out along the same axis) | **The exit plan.** The way out is the way in, reversed, designed first | "Access to cash", exit-plan drawing |
 | **J4** | **Keyed scarf splice** (*kanawa tsugi*: a section replaced while the building stands, locked by a driven key) | **Rebalance.** One section replaced while the structure carries load | Activity log hero, rebalance explanation |
-| **J5** | **Bracket set** (*masugumi*: stacked blocks and arms carrying the eaves) | **Bearing.** Load through many small pieces; capacity measured, not assumed | Bearing hero, docs cover, risk deck |
+| **J5** | **Bracket set** (*masugumi*: stacked blocks and arms carrying the eaves) | **Analytics.** Load through many small pieces; capacity measured, not assumed | Analytics hero, docs cover, risk deck |
 
 **Not in the set:** decorative furniture dovetails, puzzle boxes, jigsaws, LEGO studs, screws, nails, glue, and any joint we can't name and explain in one sentence. Every joint shown is one of J1–J5.
 
@@ -105,17 +105,17 @@ Every pattern is hairline (`line-l` / `line`) only, never honey, so it stays str
 |---|---|---|---|
 | **P1** | **Square kumiko** (orthogonal half-lap grid, J2) | Layout grid made visible | **Coarse:** cell = 1 column of the 12-col grid, section grounds. **Medium:** 24 px, loading and empty states only. **Fine (8 px): print and video only** (moiré on screen) |
 | **P2** | **Stacked offset** (members stepped one unit) | Section ends; hero blocks offset one column | Step = 1 column (marketing), 8 px (docs) | *(retired 2026-10-08, `IDENTITY-2`)*
-| **P3** | **Receding grid** (lattice in depth) | Bearing landing hero, video interstitials, deck covers | One density per composition; ≥ 40% of frame empty | *(retired 2026-10-08, `IDENTITY-2`)*
+| **P3** | **Receding grid** (lattice in depth) | Analytics landing hero, video interstitials, deck covers | One density per composition; ≥ 40% of frame empty | *(retired 2026-10-08, `IDENTITY-2`)*
 | **P4** | **Section hatch** (45°) | **MOCK and stale only** | 4 px pitch |
-| **P5** | **Bracket set** | Bearing imagery only (photo/render). Never a repeat | n/a |
+| **P5** | **Bracket set** | Analytics imagery only (photo/render). Never a repeat | n/a |
 
 | Surface | P1 coarse | P1 medium | P2 | P3 | P4 |
 |---|---|---|---|---|---|
-| Marketing | Section grounds | No | Yes | Bearing page only | On MOCK |
+| Marketing | Section grounds | No | Yes | Analytics page only | On MOCK |
 | Consumer plan / goal card | No | Loading only | No | No | On MOCK fields |
 | API docs | Page margins only | No | Section ends | No | On MOCK examples |
 | Partner embed | No | No | No | No | **Always** (survives white-label) |
-| Bearing dashboard | No (the heatmap *is* P1, as data) | Loading only | No | Landing only | No-sample cells |
+| Analytics dashboard | No (the heatmap *is* P1, as data) | Loading only | No | Landing only | No-sample cells |
 | Video / social | Yes | Yes | Yes | Yes | On any MOCK figure |
 
 **Hard rules:** (1) **Never behind numbers, text, form fields, charts, the provenance popover or the disclaimer**; a pattern stops ≥ 1 grid unit from any figure. (2) Only P4 is diagonal. (3) Banned motifs: asanoha, kikkō (also reads as crypto hex), seigaiha, shippō, sakura, crests, wood-grain wallpaper. (4) Patterns don't move, except the P1-medium loader and video. (5) Density comes from the table, never scaled up for "more texture".
@@ -190,7 +190,7 @@ Every pattern is hairline (`line-l` / `line`) only, never honey, so it stays str
 | **H1 "Before it locks"** (still) | Video end card, landing hero, X header, deck cover | 3:2 3600 × 2400 master; crops 1:1 2400, 16:9 3840 × 2160, 9:16 2160 × 3840, OG 1200 × 630, X header 1500 × 500; night + day variants | J1: hardwood rail and hinoki post ≈ 15 mm apart on the tenon axis; hinoki pin already through the tenon end. §2 light, 85 mm, focus on pin and tenon end grain. Left third empty. On night, the honey glow upper right in comp | Pin sharp at 100%; end grain shows rings; no edge clipping; the ground reads as `night`, not neutral black; crops keep the pin ≥ 10% from any edge |
 | **H2 "Lock"** (animation) | Video resolution beat, landing loop | 6 s, 24 fps (144 frames), 1080p + 4K; 1:1 and 9:16 social cuts; loop version; poster = frames 1 and 144 | 0–1.0 s hold (H1 framing) → 1.0–2.4 s rail slides ≈ 60 mm, last 4 mm slowest, **seats** → 2.6–3.3 s pin slides down its axis → hold to 6.0 s. Loop: 0.5 s crossfade last → first. No click or ding sound | No overshoot frame; light unchanged across the shot; loop ≤ 2 MB at 1080p; reduced-motion shows poster |
 | **H3 "Your plan, exploded"** (SVG) | "Why this plan?", video overlay, docs | Axonometric 1200 × 800 (marketing, video); orthographic 640 × 400 (product); light + dark via `currentColor`; ≤ 12 KB gzipped each | Post with empty mortise, dimensions "$40,000 · June 2028" and exit "≤ 7 days"; three tenons with callouts ① USDY 42% ② Kamino USDC 38% ③ Cash 20%; one leg hatched with the line "sample"; J3 lift-out dashed | Marketing version labelled "Illustrative"; product version binds every value to the plan API (no literal figures in the SVG); groups animate §4 steps 1–3 |
-| **H4 "Bearing"** (SVG + render) | Bearing landing, risk deck, video Bearing beat | (a) Heatmap component; (b) J5 still 3600 × 2400 on black + P3 as a separate SVG layer | (a) 24 × 7 cells, 1 px `line` lattice gaps, the night → honey → pale ramp from color-system.md, no-sample cells empty with an en dash and a "no sample" label (the hatch means MOCK), Plex Mono axes, every cell's value reachable with its pin. (b) J5 in warm wood on night, H1 light | Heatmap is data, never a backdrop; no P3 behind the heatmap; render credited "Render · Blender" |
+| **H4 "Analytics"** (SVG + render) | Analytics landing, risk deck, video Analytics beat | (a) Heatmap component; (b) J5 still 3600 × 2400 on black + P3 as a separate SVG layer | (a) 24 × 7 cells, 1 px `line` lattice gaps, the night → honey → pale ramp from color-system.md, no-sample cells empty with an en dash and a "no sample" label (the hatch means MOCK), Plex Mono axes, every cell's value reachable with its pin. (b) J5 in warm wood on night, H1 light | Heatmap is data, never a backdrop; no P3 behind the heatmap; render credited "Render · Blender" |
 
 **Next (Oct 5–10, before the video lock):** **H5** J3 exit lift-out and **H6** J4 re-true splice, as SVG animations following §4, drawn from the same Blender models.
 
