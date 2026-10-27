@@ -372,13 +372,26 @@ describe('the records of the redeploy, whose Safe holds the keys itself (ROBINHO
       ['INTC', null],
       ['SLV', null],
     ]);
-    // What the committed record and guard's file say of the tokens is what the deploy file makes.
+    // What the committed record and guard's file say of the tokens is what the deploy file makes, plus the
+    // tokens the Safe listed later (LIST-13, Oct 27: GME through its v3 pool), each promoted by add-assets.
+    const LATER = ['robinhood:gme'];
     const committed = JSON.parse(read('deployments/robinhood-mainnet.json'));
-    expect(built.record.assets).toEqual(committed.assets);
-    expect(built.record.hidden).toEqual(committed.hidden);
-    expect((built.guard as Json).chains.robinhood.assets).toEqual(
-      JSON.parse(read('packages/sdk/deployments/mainnet.json')).chains.robinhood.assets,
+    expect(committed.assets.filter((a: Json) => !LATER.includes(a.id))).toEqual(
+      built.record.assets,
     );
+    expect(committed.hidden).toEqual(built.record.hidden);
+    const gme = committed.assets.find((a: Json) => a.id === 'robinhood:gme');
+    expect([gme?.address, gme?.pool, gme?.v3Pool?.fee]).toEqual([
+      '0x1b0e319c6a659f002271b69db8a7df2f911c153e',
+      null,
+      500,
+    ]);
+    const guardRows = JSON.parse(read('packages/sdk/deployments/mainnet.json')).chains.robinhood
+      .assets;
+    expect(
+      Object.fromEntries(Object.entries(guardRows).filter(([id]) => !LATER.includes(id))),
+    ).toEqual((built.guard as Json).chains.robinhood.assets);
+    expect(Object.keys(guardRows)).toContain('robinhood:gme');
     // The guard's file signs trades in the shown tokens alone.
     const rows = Object.keys((built.guard as Json).chains.robinhood.assets);
     expect(rows).toHaveLength(25);
