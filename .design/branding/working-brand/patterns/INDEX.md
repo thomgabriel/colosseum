@@ -44,7 +44,7 @@ The approved landing prototype is the reference for structure, but these details
 
 1. **Staleness is not in the API schema.** `YieldObservation`/`FxObservation` carry `source`, `method`, `fetchedAt`, `provenance` but no stale flag or max-age. The pin spec requires the API to state staleness (the UI must not infer it). Needs a schema field (e.g. `staleAfterSec` or `stale: { ageSec }`).
 2. **Provenance enum has five values** (`live`, `mock`, `sandbox`, `fixture`, `prior_dataset`). Specs treat every non-live value as sample (hatched pin + the card's muted sample line, the value in the popover; `sandbox` adds "test network"). Confirm.
-3. **Bearing no-sample cells:** brand-applications.md says "hatched"; the `.yml` reserves the hatch for sample and stale. The heatmap spec uses an empty cell with an en dash instead. Confirm or amend the `.yml`.
+3. **Analytics no-sample cells:** brand-applications.md says "hatched"; the `.yml` reserves the hatch for sample and stale. The heatmap spec uses an empty cell with an en dash instead. Confirm or amend the `.yml`.
 4. **`DISCLAIMER_SHORT`** exists beside `DISCLAIMER` in `packages/schemas`. The specs allow it only as an in-panel pointer alongside a full block. Confirm.
 5. **`ArrowUp`** (composer send) is not in the curated icon registry (iconography.md §6); add it.
 6. **Subscribe consent:** the prototype pre-checks both boxes; the newsletter should probably be unchecked by default (LGPD/GDPR).
@@ -69,7 +69,7 @@ Revised 2026-10-08 on `IDENTITY-2` and `LOGO-2`. The 2026-10-01 decisions below 
 - Hatch pitch is 6px in UI, 3px in glyphs and 4px in SVG drawings, in muted-l / muted.
 - All shadows are `none` except `--tf-shadow-popover` (`0 8px 24px rgba(0,0,0,.35)`) on popovers and the composer. Depth comes from three layers plus hairlines plus the 14% tint on the selected surface.
 - Gradients exist only as light: `--tf-glow` behind heroes and the composer, `--tf-curve-fill` under the base-case line. Nothing else.
-- Fonts: `--font-display` Inter Tight (600, −0.02em; display, headings, big figures), `--font-sans` Inter, `--font-mono` IBM Plex Mono. No serif, no condensed face. Bearing heads are Inter 500 11px uppercase.
+- Fonts: `--font-display` Inter Tight (600, −0.02em; display, headings, big figures), `--font-sans` Inter, `--font-mono` IBM Plex Mono. No serif, no condensed face. Analytics heads are Inter 500 11px uppercase.
 - The heatmap ramp is the honey family by lightness (night-3 → honey → pale on dark, reversed on light).
 - The guidelines hero is always on night with the honey glow (an inverted section). It "feels alive" through the J1 lock animation (seat, then the square pin), which runs once, in the new colours: post honey, tenon in the text colour, pin honey.
 

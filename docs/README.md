@@ -80,7 +80,7 @@ Written Oct 1 to 6 as the evidence behind the handoff and the design, and kept a
 
 `yield-shelf/inputs/` holds the two asset lists the screenings started from, as spreadsheets and CSV.
 
-## `risk/`: Bearing, the liquidity and risk layer
+## `risk/`: Analytics, the liquidity and risk layer (code name Bearing)
 
 Built and merged; the collectors still run.
 

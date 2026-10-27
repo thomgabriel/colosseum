@@ -395,9 +395,9 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     'get_asset_risk',
     {
-      title: 'Read Bearing’s risk facts for an asset',
+      title: 'Read the measured risk facts for an asset',
       description:
-        'Bearing’s fact sheet for one asset (its symbol, such as SPYx, or its mint) at a trade size in dollars: entry and exit cost by market regime, exit capacity, liquidity-pool concentration and lending use, each measured, with its source. A fact with no data is null with its reason, never zero: say so rather than guess.',
+        'The analytics fact sheet for one asset (its symbol, such as SPYx, or its mint) at a trade size in dollars: entry and exit cost by market regime, exit capacity, liquidity-pool concentration and lending use, each measured, with its source. A fact with no data is null with its reason, never zero: say so rather than guess.',
       inputSchema: z.object({
         asset: Word.describe('A symbol, such as SPYx, or a mint.'),
         sizeUsd: z.number().positive().optional().describe('The trade size, in dollars.'),
@@ -419,7 +419,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
     {
       title: 'Read the facts Tenonfi holds of one listed asset',
       description:
-        'The facts the server holds of one listed asset of a chain, by its id (`solana:nvdax`, the chain first): `profile` (the newest reading of each metric: supply, the issuer’s supply, the twenty largest holders’ share, pool TVL, DEX volume over a day, protocol TVL, exchange rate, each yield reading), `price_history` over `window` (latest close, high, low, the change from the window’s first close to its last, volume, swaps, the hours with no priced swap), `pools` (its pools by dollars held, at most five), `lending` (per market: supply and borrow rate, the share lent out, what can be withdrawn now) and `bearing` (Bearing’s exit, liquidity and market figures). Every part when `parts` is left out; 7 days when `window` is. Each fact has its id, what it measures (`label`), value, unit, source, method, `fetchedAt` and `provenance`; one not measured is under `missing` with its reason, never zero. `plate` says when figures are MOCK, a test network or recorded: say so with them. A change over a window is a past figure, never a forecast or a return. One named asset per call; no ranking.',
+        'The facts the server holds of one listed asset of a chain, by its id (`solana:nvdax`, the chain first): `profile` (the newest reading of each metric: supply, the issuer’s supply, the twenty largest holders’ share, pool TVL, DEX volume over a day, protocol TVL, exchange rate, each yield reading), `price_history` over `window` (latest close, high, low, the change from the window’s first close to its last, volume, swaps, the hours with no priced swap), `pools` (its pools by dollars held, at most five), `lending` (per market: supply and borrow rate, the share lent out, what can be withdrawn now) and `bearing` (the measured exit, liquidity and market figures). Every part when `parts` is left out; 7 days when `window` is. Each fact has its id, what it measures (`label`), value, unit, source, method, `fetchedAt` and `provenance`; one not measured is under `missing` with its reason, never zero. `plate` says when figures are MOCK, a test network or recorded: say so with them. A change over a window is a past figure, never a forecast or a return. One named asset per call; no ranking.',
       inputSchema: z.object({
         chain: z.enum(CHAINS).describe('The chain the asset is listed on; the id starts with it.'),
         assetId: z

@@ -72,7 +72,7 @@ export const plan: Plan = {
 
   exit: {
     heading: 'Quanto custaria sair',
-    lead: 'Cada custo é a medida da Bearing para vender, sozinha, toda a posição deste cofre em um ativo, no tamanho mostrado. Não é o custo de vender tudo de uma vez, que estes números não sabem dizer. Um ponto-base é um centésimo de um por cento.',
+    lead: 'Cada custo é a nossa medida para vender, sozinha, toda a posição deste cofre em um ativo, no tamanho mostrado. Não é o custo de vender tudo de uma vez, que estes números não sabem dizer. Um ponto-base é um centésimo de um por cento.',
     reading: 'Lendo quanto custaria sair…',
     holding: 'Posição',
     costLabel: 'Vendê-la sozinha',

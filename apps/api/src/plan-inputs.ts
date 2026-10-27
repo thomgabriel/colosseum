@@ -70,7 +70,7 @@ const SCOPE = readJson<{ assets: Array<{ symbol: string; mint: string }> }>(
   'fixtures/solana-vault/scope-indexes.json',
 );
 
-export const BEARING_SOURCE = `Bearing: sell-side depth measured on chain (risk_depth_curves, ${RISK_METHOD_VERSION})`;
+export const BEARING_SOURCE = `Analytics: sell-side depth measured on chain (risk_depth_curves, ${RISK_METHOD_VERSION})`;
 
 /**
  * The pool registry's assets whose symbol is one of `lower` (lower case), one row per symbol and mint with

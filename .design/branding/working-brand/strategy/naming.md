@@ -60,7 +60,7 @@ Nothing below is claimed as "available". At most it is "no registration found".
 | 24 | Justo | 3 | PT/ES fair, exact, close-fitting | **Out.** **Justos**, a Ribbit-backed Brazilian insurtech **[V]** |
 | 25 | Medida / Talla / Tento | 3 | Measure / size and carving / care | **Out.** Generic (Medida), unstable pronunciation (Talla), weak outside PT (Tento) |
 | 26 | **Masu** | 3·4 | Japanese wooden measuring box. Also the bearing block in bracket sets | **Shortlist** |
-| 27 | Bearing | 4 | Bearing capacity: load a structure can carry | **Risk-product noun** (§6) |
+| 27 | Bearing | 4 | Bearing capacity: load a structure can carry | Risk-product noun until Oct 27 (§6) |
 | 28 | Span / Brace / Corbel / Lintel | 4 | Structural members | **Out** as masterbrand: cold or infrastructural. Span.io, Brace.ai and the Corbel font **[U]** |
 | 29 | **Cerne** | 5 | PT/ES heartwood. PT "the core" (*o cerne da questão*) | **Shortlist** |
 
@@ -178,7 +178,9 @@ Mesura outscores Aplomb on the sheet, but it ranks below Cerne in the recommenda
 
 ---
 
-## 6. Risk-product noun (branded house: [Name] Bearing)
+## 6. Risk-product noun (superseded)
+
+**Superseded on 2026-10-27 (Thom, gate `ANALYTICS-NAME`):** there is no risk-product noun. The section is plain Analytics ("Análises" in Portuguese) and nothing a person reads says "Bearing", which stays only as the code name of the risk layer. The table below is the record of why it was chosen on Oct 1.
 
 | Candidate | Logic | Verdict |
 |---|---|---|
@@ -190,7 +192,7 @@ Mesura outscores Aplomb on the sheet, but it ranks below Cerne in the recommenda
 
 **Risks for Bearing:** the crypto ear may hear "bear" or "bearish". Mitigate by always using the full product name, never shortening to "Bear-", and using "bearing capacity" in the descriptor line. @bearing on X is taken (80 followers) **[V]**. That's irrelevant for a product noun under the masterbrand's handle.
 
-**Descriptor line:** *"[Name] Bearing: measured exit capacity for on-chain collateral, by size, path and hour of week."*
+**Descriptor line** (now): *"[Name] Analytics: measured exit capacity for on-chain collateral, by size, path and hour of week."*
 
 ---
 

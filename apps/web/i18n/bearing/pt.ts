@@ -3,7 +3,7 @@ import type { BearingDictionary } from './en';
 // Bearing's analytics in Brazilian Portuguese: the same keys as en.ts.
 
 export const bearingPt: BearingDictionary = {
-  head: 'Bearing · análises',
+  head: 'Análises',
   notAdvice: 'Aviso legal',
   menu: {
     region: 'Páginas de análises',
@@ -53,10 +53,10 @@ export const bearingPt: BearingDictionary = {
   chain: {
     label: 'Rede',
     pageNotCollected: (chain: string) =>
-      `Ainda não coletado na ${chain}: por enquanto o Bearing mede esta página só na Solana.`,
+      `Ainda não coletado na ${chain}: por enquanto esta página é medida só na Solana.`,
     sideBySide: {
       title: 'As redes lado a lado',
-      note: 'Cada rede como o Bearing a mede agora. A capacidade de saída é lida no horário da semana de agora.',
+      note: 'Cada rede como é medida agora. A capacidade de saída é lida no horário da semana de agora.',
       caption: 'Ativos acompanhados, TVL dos pools, capacidade de saída e volume em 24 h por rede',
       chain: 'Rede',
       assets: 'Ativos acompanhados',
@@ -92,20 +92,18 @@ export const bearingPt: BearingDictionary = {
     no_quote_price: 'sem preço em dólar para a moeda de cotação',
   },
   why: {
-    no_samples_in_regime:
-      'Sem número: a Bearing ainda não tem leituras para este período da semana.',
+    no_samples_in_regime: 'Sem número: ainda não há leituras para este período da semana.',
     insufficient_samples: 'Sem número: há poucas leituras para medir isto.',
     not_a_number: 'Sem número: o valor guardado não pôde ser usado.',
-    beyond_measured_size: 'Sem número: este tamanho está acima do maior que a Bearing mediu.',
-    no_reference_price:
-      'Sem número: a Bearing não tem preço de referência deste ativo naquele momento.',
+    beyond_measured_size: 'Sem número: este tamanho está acima do maior já medido.',
+    no_reference_price: 'Sem número: não há preço de referência deste ativo naquele momento.',
     no_external_source:
       'Sem número: isto precisa de uma fonte externa de preço que não está conectada.',
-    chain_not_covered: 'Sem número: a Bearing não coleta isto nesta rede.',
-    not_collected: 'Sem número: isto está na rede, e a Bearing ainda não coleta.',
-    not_imported: 'Sem número: isto foi coletado e ainda não está nas tabelas da Bearing.',
+    chain_not_covered: 'Sem número: isto não é coletado nesta rede.',
+    not_collected: 'Sem número: isto está na rede, e ainda não é coletado.',
+    not_imported: 'Sem número: isto foi coletado e ainda não está nas nossas tabelas.',
     not_followed: 'Sem número: estas liquidações não foram acompanhadas depois da transação.',
-    before_routed_curves: 'Sem número: esta leitura é de antes de a Bearing medir saídas roteadas.',
+    before_routed_curves: 'Sem número: esta leitura é de antes de medirmos saídas roteadas.',
     gate_open: 'Sem número: ainda não está definido como medir isto.',
     not_applicable: 'Sem número: isto não se aplica a este ativo ou pool.',
     not_served: 'Sem número: isto ainda não é medido aqui.',
@@ -188,8 +186,7 @@ export const bearingPt: BearingDictionary = {
       capacityNote: (regime: string) => `venda com custo ≤ 1%, ${regime}`,
       volume: 'Volume 24 h',
       volumeNote: (to: string) => `até ${to}, o histórico de swaps mais recente`,
-      volumeDexNote:
-        'Número da DexScreener: o histórico de swaps do Bearing ainda não é coletado aqui.',
+      volumeDexNote: 'Número da DexScreener: o nosso histórico de swaps ainda não é coletado aqui.',
       lp: 'Fatia dos 3 maiores LPs',
       lpNote: 'maior pool, por posição',
     },

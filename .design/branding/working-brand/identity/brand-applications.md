@@ -43,14 +43,14 @@ All figures below are **illustrative**. In the product, every yield, price and F
 - **Disclaimer:** the same constant, in a hairline box at the top of the reference section.
 - **Header:** mark + `tenonfi` + "API" in Inter 500. No photography.
 
-## 5. Tenonfi Bearing dashboard (night default)
+## 5. Tenonfi Analytics dashboard (night default)
 
 - **Register:** Meteora's density with our joints. `night` ground, `night-2` tiles with 1 px `line` and 10 px radius, 36 px rows, 13 px type. No bevels, no nameplates, no LEDs (anti-Teiten).
 - **Type:** Inter for cells and heads, Inter Tight 600 for KPIs, Plex Mono for meta lines.
 - **Every metric:** value ⊡ with a signed delta beneath (leaf up, madder down) · unit · n= · method version · as-of (UTC). Example: "TSLAx · $412K sellable at ≤ 1% cost ⊡ +18% · Sun 03:00 UTC · n=412 · method v1.3".
 - **Rows:** asset avatar + name (600) + type chip (pill) · sparkline coloured by direction · tabular values · status cell (pin, stale, MOCK). Selected row on `honey-tint`. Filter chips are pills; the selected chip is honey text on honey tint.
 - **Hero visual:** the hour-of-week depth **heatmap** (24 × 7) on the night → honey → pale ramp; no-sample cells empty with an en dash.
-- **Lockup:** mark + `tenonfi Bearing`, top left, at a modest size.
+- **Lockup:** mark + `tenonfi Analytics`, top left, at a modest size.
 
 ## 6. Social and hackathon video frames
 
@@ -61,10 +61,10 @@ All figures below are **illustrative**. In the product, every yield, price and F
 | **Setup:** menus | Night ground. A rack of identical pre-cut members drawn in text-colour lines, all the same. Title in Inter Tight 600: "Most portfolios start from someone else's idea." |
 | **Tension:** can't get out | A J3 dovetail jammed, drawn with its lift-out path blocked in madder. "Tokenized doesn't mean liquid." |
 | **Resolution** | The H2 lock animation, the joint rendered in warm wood on night with the honey glow. Then H3 assembles: goal → legs → lock → pin (honey). Then the exit path draws in (chalk). Real product screen recording follows, with the pins visible |
-| **Proof** | Mainnet transaction log with explorer links (Plex Mono), Bearing heatmap (H4a), signed deltas |
+| **Proof** | Mainnet transaction log with explorer links (Plex Mono), Analytics heatmap (H4a), signed deltas |
 | **Transformation** | Day ground, goal card: "Your apartment fund is on track for June 2028." |
 | **End card** | Night, left third: the primary lockup, then "Made to measure. Every joint shown." in Inter Tight 600, text colour; the honey glow upper right |
 
 - **Title cards:** Inter Tight 600, sentence case, centred allowed, on `night` or `paper`. No kinetic type tricks, no glitch, no whooshes.
 - **Social (X):** 1:1 and 16:9. Receipts first: real plan screenshots with pins, transactions with explorer links, method notes. Avatar = the mark on night (`logo/mark-32-night.svg`). Header = the daylight timber photograph with the stacked lockup, or the joint render on night. Any sample figure in a post carries the hatch and the line "Sample figures". No memes in the brand voice, no emoji.
-- **Deck:** night for the story, paper for the data; the primary lockup on the cover; H3 for "how it works"; H4 for Bearing.
+- **Deck:** night for the story, paper for the data; the primary lockup on the cover; H3 for "how it works"; H4 for Analytics.

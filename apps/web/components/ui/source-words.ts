@@ -101,43 +101,44 @@ const RULES: readonly Rule[] = [
     from: (m) => `${m[0]}, read directly`,
   },
 
-  // Bearing: the risk layer's measurements, by the table they are kept in.
+  // The risk layer's measurements, by the table they are kept in. Older raw sources still say
+  // "Bearing", its code name; the words a person reads never do (gate ANALYTICS-NAME).
   {
     test: /hours priced at the pool mid/i,
-    from: 'the pool’s own mid price, as Bearing recorded it',
+    from: 'the pool’s own mid price, as we recorded it',
   },
-  { test: /^risk_reference_prices\b/i, from: 'Bearing’s reference prices' },
+  { test: /^risk_reference_prices\b/i, from: 'our reference prices' },
   {
     test: /^risk_asset_snapshots\.ref_mid_usd$/i,
-    from: 'Bearing’s reference prices',
+    from: 'our reference prices',
   },
-  { test: /^risk_depth_curves\b/i, from: 'Bearing’s measured exit' },
-  { test: /^risk_asset_snapshots\b/i, from: 'Bearing’s hourly measurements of the asset' },
-  { test: /^risk_pool_snapshots\b/i, from: 'Bearing’s hourly measurements of the pool' },
-  { test: /^risk_pool_flow\b/i, from: 'Bearing’s record of trading in the pool' },
-  { test: /^risk_pools\.tvl_usd\b/i, from: 'the pool’s size when Bearing first recorded it' },
+  { test: /^risk_depth_curves\b/i, from: 'our measured exit' },
+  { test: /^risk_asset_snapshots\b/i, from: 'our hourly measurements of the asset' },
+  { test: /^risk_pool_snapshots\b/i, from: 'our hourly measurements of the pool' },
+  { test: /^risk_pool_flow\b/i, from: 'our record of trading in the pool' },
+  { test: /^risk_pools\.tvl_usd\b/i, from: 'the pool’s size when we first recorded it' },
   {
     test: /^risk_lending_(?:positions|snapshots)\b/i,
-    from: 'Bearing’s hourly record of the lending markets',
+    from: 'our hourly record of the lending markets',
   },
-  { test: /^risk_events\b/i, from: 'Bearing’s record of withdrawals from the pool' },
-  { test: /^risk_lp_concentration\b/i, from: 'Bearing’s record of who supplies the pool' },
+  { test: /^risk_events\b/i, from: 'our record of withdrawals from the pool' },
+  { test: /^risk_lp_concentration\b/i, from: 'our record of who supplies the pool' },
   {
     test: /^AssetFacts of (\d+) legs?\b/i,
-    from: (m) => `Bearing’s measurements of ${m[1]} ${m[1] === '1' ? 'holding' : 'holdings'}`,
+    from: (m) => `our measurements of ${m[1]} ${m[1] === '1' ? 'holding' : 'holdings'}`,
   },
-  { test: /split snapshot/i, from: 'Bearing’s hourly record of each pool’s two sides' },
+  { test: /split snapshot/i, from: 'our hourly record of each pool’s two sides' },
   {
     test: /^tier \S+ of (\S+) on mainnet\b/i,
     from: (m) => `a liquidity tier standing in for a measurement, taken from ${m[1]} on mainnet`,
   },
   { test: /^tier source$/i, from: 'a liquidity tier standing in for a measurement' },
-  { test: /^Bearing test curves$/i, from: 'Bearing’s test curves' },
+  { test: /^Bearing test curves$/i, from: 'our test curves' },
   {
     test: /^Bearing, from the pools its collectors read each hour$/i,
-    from: 'Bearing’s measured exit, from the pools it reads each hour',
+    from: 'our measured exit, from the pools we read each hour',
   },
-  { test: /^bearing$/i, from: 'Bearing’s measurements' },
+  { test: /^bearing$/i, from: 'our measurements' },
   // No snapshot behind an answer: the API says so in the source itself.
   {
     test: /^vault_snapshots: no snapshot\b/i,

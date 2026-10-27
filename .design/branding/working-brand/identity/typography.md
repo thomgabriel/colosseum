@@ -12,7 +12,7 @@
 **Why:** a tight grotesk reads as product, not as editorial. Inter Tight is Inter with the spacing closed up, so headlines and big numbers sit dense and confident, and the whole page stays one family. Weight 600 only (500 for the stacked wordmark's companions); never 700 or above, never light.
 
 - **Tracking:** −0.02 em on headings, −0.025 em on display. Big numbers −0.02 em.
-- **Use:** every heading, the goal card amount (`figure-lg`, 28 px), Bearing KPIs (`b-kpi`, 22 px), the wordmark (outlines, see logo-directions.md), video title cards.
+- **Use:** every heading, the goal card amount (`figure-lg`, 28 px), Analytics KPIs (`b-kpi`, 22 px), the wordmark (outlines, see logo-directions.md), video title cards.
 - **Never:** body copy, labels, buttons, table cells.
 
 ## UI and body: **Inter** 400 / 500 / 600
@@ -20,7 +20,7 @@
 **Why:** the category's face, and that is the point: Mariana and Rafael should feel at home in the product register before they notice the brand. Inter has tabular figures, a true minus, latin-ext and `opsz`. We are ownable through honey, the mark and the words, not through a quirky sans.
 
 - **Weights:** 400 body, 500 labels and nav, 600 buttons, emphasis and row leads.
-- **Figures:** `font-variant-numeric: lining-nums tabular-nums` in all UI; `slashed-zero` in Bearing.
+- **Figures:** `font-variant-numeric: lining-nums tabular-nums` in all UI; `slashed-zero` in Analytics.
 - **Case:** sentence case. Uppercase only for captions and column heads at 11–12 px with +0.04 em. The word MOCK never appears in the UI (gate `MOCK-QUIET`): sample data is marked by the quiet line "Sample figures".
 
 **If Inter feels too generic later:** Geist + Geist Mono, same rules, one swap in the tokens.
@@ -51,7 +51,7 @@
 | sample-line | Inter | 400 | 0.78125rem | 1.25rem | 0 (a sample panel's or the embed's quiet line, "Sample figures · test network", muted; a card has its tag) |
 | source | Plex Mono | 400 | 0.8125rem | 1.25rem | 0 |
 
-### Productive (Bearing): 13 px base, fixed
+### Productive (Analytics): 13 px base, fixed
 
 | Style | Face | Weight | Size | Line height |
 |---|---|---|---|---|

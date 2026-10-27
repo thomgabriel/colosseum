@@ -16,7 +16,7 @@
 ### Proof line (killer feature)
 > **"Every portfolio has an exit plan before the agent invests."**
 
-Tokenized does not mean liquid. The question nobody else answers up front is *"can I actually get the money back when I need it, and at what cost?"*. [Name] answers it **before** the first dollar moves, from measured exit depth (the same data that powers [Name] Bearing).
+Tokenized does not mean liquid. The question nobody else answers up front is *"can I actually get the money back when I need it, and at what cost?"*. [Name] answers it **before** the first dollar moves, from measured exit depth (the same data that powers [Name] Analytics).
 
 ### Formula breakdown
 | Slot | Content |
@@ -29,7 +29,7 @@ Tokenized does not mean liquid. The question nobody else answers up front is *"c
 
 ### Surface statements (same engine)
 - **Embed / API (Rafael):** "The goal and liquidity intelligence layer under your app. Your users say what their money needs to do. [Name] builds the made-to-measure plan, with an exit plan before it invests, under your brand, with every figure's source for compliance."
-- **[Name] Bearing (Priya and B2B):** "Tokenized does not mean liquid. Bearing measures whether the money can actually come back, how much, at what cost, at what hour of the week: versioned, sample-counted, method in the open." Bearing is also sold as the liquidity layer **under wallets, fintechs and consumer apps**. Even idea-to-basket apps are potential distribution, not only competitors.
+- **[Name] Analytics (Priya and B2B):** "Tokenized does not mean liquid. Analytics measures whether the money can actually come back, how much, at what cost, at what hour of the week: versioned, sample-counted, method in the open." Analytics is also sold as the liquidity layer **under wallets, fintechs and consumer apps**. Even idea-to-basket apps are potential distribution, not only competitors.
 
 ---
 
@@ -94,7 +94,7 @@ Plots reflect market perception (the competitive audit, plus the Colosseum Cohor
 
 ---
 
-## 4. Positioning map: liquidity layer ([Name] Bearing)
+## 4. Positioning map: liquidity layer ([Name] Analytics)
 
 - **X: Sells yield or AI ↔ Neutral measurement.**
 - **Y: Modelled opinion ↔ Measured, reproducible.**
@@ -102,7 +102,7 @@ Plots reflect market perception (the competitive audit, plus the Colosseum Cohor
 ```
                          MEASURED, REPRODUCIBLE
                                   |
-                                  |            ◎ [Name] Bearing
+                                  |            ◎ [Name] Analytics
                                   |      "can the money come back, how much,
          Gauntlet VaultBook ●     |       at what cost, at what hour?"
 SELLS YIELD / AI ─────────────────┼─────────────────── NEUTRAL MEASUREMENT
@@ -111,7 +111,7 @@ SELLS YIELD / AI ─────────────────┼───
                           MODELLED OPINION
 ```
 
-**Honest complication:** [Name] earns fees on goal portfolios. Bearing is never paid by, and never curates for, the protocols it measures, and it publishes its method and samples. The relationship is disclosed, not hidden.
+**Honest complication:** [Name] earns fees on goal portfolios. Analytics is never paid by, and never curates for, the protocols it measures, and it publishes its method and samples. The relationship is disclosed, not hidden.
 
 ---
 

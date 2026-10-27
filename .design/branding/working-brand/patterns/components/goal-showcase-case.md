@@ -38,7 +38,7 @@ Grid: 5 / 7 columns (≥ 980px), stacked below. One case per row, 32px between c
 ## Data rules
 
 - All figures come from `fixtures/showcase/*.json` with `"provenance": "mock"` and `source`/`fetched_at`/`method` fields (e.g. `source: "sample"`, `method: "illustrative weights v1"`). **No rate literals in components** (the prototype's in-script `sampleRate` values move to fixtures; the repo's yield-literal test enforces this).
-- **Income cases never include tokenized stocks (xStocks).** The Mariana case (income) has no equity leg, and its sub-line says so. Only growth/high-risk cases (Diego) may show xStocks, sized to Bearing.
+- **Income cases never include tokenized stocks (xStocks).** The Mariana case (income) has no equity leg, and its sub-line says so. Only growth/high-risk cases (Diego) may show xStocks, sized to Analytics.
 - The showcase never claims returns: "earned on top" is labelled sample; no "earn up to".
 
 ## Prototype deltas (the `.yml` wins)

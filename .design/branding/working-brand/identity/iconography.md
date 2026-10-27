@@ -34,7 +34,7 @@ Enriches the "Iconography direction" line in imagery-style.md §3 (24 px grid, 1
 | Inline | **16 px** | 13–14 px text | Explorer `↗`, copy, timestamp clock, table sort |
 | Default UI | **20 px** | 15–16 px text | Nav items, buttons, inputs, menus |
 | Feature | **24 px** | Section labels, 18 px+ | List leads, "Access to cash" panel, empty-state glyph |
-| Hero | **32 px** max | Marketing and docs headers only | Product switcher (Plan / Bearing / API) |
+| Hero | **32 px** max | Marketing and docs headers only | Product switcher (Plan / Analytics / API) |
 
 - **Above 32 px, use a drawing, not a scaled icon.** Empty states use a P1-medium lattice or an H3 fragment.
 - **Hit area ≥ 24 × 24** (WCAG 2.5.8) for any interactive icon, including the 12 px pin. Icon-only buttons are 32 × 32 (dense tables) or 40 × 40 (default), with a visible label or `aria-label` and a tooltip.
@@ -48,7 +48,7 @@ Enriches the "Iconography direction" line in imagery-style.md §3 (24 px grid, 1
 |---|---|---|
 | **Bare** | Everywhere by default | `inline-flex text-current` |
 | **Tag** | Icon-only buttons, list leads at 24 px | `inline-grid place-items-center size-10 rounded-lg border border-input bg-card` (8 px radius, line-l2 / line-2 edge, white / night-2 fill) |
-| **Well** | Feature rows in docs and the Bearing sidebar | `inline-grid place-items-center size-10 rounded-lg bg-secondary` (paper-3 / night-3, no border) |
+| **Well** | Feature rows in docs and the Analytics sidebar | `inline-grid place-items-center size-10 rounded-lg bg-secondary` (paper-3 / night-3, no border) |
 | **Pressed / active** | Toggled icon buttons | Tag + `bg-accent text-accent-foreground` (honey tint, honey / honey-l icon) |
 
 **Banned containers:** circles as icon containers, radius above 8 px on an icon button, shadows, gradients, glows. Pills are for chips and badges, not for icon buttons.
@@ -93,10 +93,10 @@ Used in activity-log rows ("Rebalanced"), the rebalance settings and policy docs
 - **16 px cut:** drop the key and keep the stepped line and the offset.
 - **Not** circular arrows (`RefreshCw` is banned for rebalance): it reads as "retry", and a mainnet transaction is never auto-retried.
 
-### 4.4 Bearing: J5 bracket set (*masugumi*)
-Used only for the product switcher, the nav item and Bearing doc pages. **It is never placed beside the wordmark:** the `tenonfi Bearing` lockup has no separate symbol (logo-directions.md).
+### 4.4 Analytics: J5 bracket set (*masugumi*)
+Used only for the product switcher, the nav item and Analytics doc pages. **It is never placed beside the wordmark:** the `tenonfi Analytics` lockup has no separate symbol (logo-directions.md).
 - Post `x 10–14, y 15–21`. Bearing block (*daito*) `x 8–16, y 12–15`. Arm (*hijiki*) `x 3–21, y 9–12`. Three small blocks (*makito*) `x 3–7`, `x 10–14` and `x 17–21` at `y 5–9`, **with 3 px gaps** so load visibly passes through separate pieces.
-- **Risk:** like logo B, it can read as a funnel or filter at 16 px. Mitigated by the separated blocks and an arm wider than the block. The 16 px cut keeps the gaps and drops the daito. If it still reads as a filter in testing, the nav uses the word "Bearing" alone.
+- **Risk:** like logo B, it can read as a funnel or filter at 16 px. Mitigated by the separated blocks and an arm wider than the block. The 16 px cut keeps the gaps and drops the daito. If it still reads as a filter in testing, the nav uses the word "Analytics" alone.
 
 ## 5. Motion
 Icons don't animate, except that the brand glyphs may play their joint's single-axis move on state change (J3 tail lifts 3 px and returns, J4 section slides in, the pin drops in on live). 160 ms, `cubic-bezier(0.2,0,0,1)`, no bounce. Reduced motion: none.
@@ -110,6 +110,6 @@ Icons don't animate, except that the brand glyphs may play their joint's single-
 
 ## Related
 - [Imagery Style](./imagery-style.md): drawing line weights, hatch, dashed = projected
-- [Logo Directions](./logo-directions.md): provenance glyph origin, Bearing lockup rule
+- [Logo Directions](./logo-directions.md): provenance glyph origin, Analytics lockup rule
 - [Color System](./color-system.md): species rule, semantic squares
 - [Brand Applications](./brand-applications.md): where the pin, J3 and J4 appear

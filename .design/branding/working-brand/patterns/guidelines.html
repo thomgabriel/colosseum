@@ -350,7 +350,7 @@ table.pairs td[data-numeric] { text-align: right; font-family: var(--font-mono);
 .activity { font-size: 0.9375rem; line-height: 1.5rem; padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
 .activity .tx { font-family: var(--font-mono); font-size: 0.8125rem; }
 
-/* Bearing rows: 36px, 13px type */
+/* Analytics rows: 36px, 13px type */
 .brows { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--card); }
 .brow { display: grid; grid-template-columns: 1.4fr 88px 1fr 1fr 110px; align-items: center; height: 36px; padding: 0 12px; font: 400 0.8125rem/1.25rem var(--font-sans); border-top: 1px solid var(--border); }
 .brow.head { height: 28px; border-top: 0; font: 500 0.6875rem/1rem var(--font-sans); letter-spacing: .05em; text-transform: uppercase; color: var(--muted-foreground); background: var(--muted); }
@@ -382,7 +382,7 @@ table.pairs td[data-numeric] { text-align: right; font-family: var(--font-mono);
 .tf-embed .credit .wordmark { font-size: 13px; }
 @container (inline-size < 360px) { .tf-embed .e-title { font-size: 1.2em; } }
 
-/* Bearing */
+/* Analytics */
 .bearing { background: var(--background); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
 .btile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
 .heat { display: grid; grid-template-columns: 32px repeat(24, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-top: 12px; }
@@ -547,7 +547,7 @@ footer { padding: 48px 0 64px; }
   <a href="#provenance" class="toc-link">Provenance</a>
   <a href="#components" class="toc-link">Components</a>
   <a href="#embed" class="toc-link">Embed</a>
-  <a href="#bearing" class="toc-link">Bearing</a>
+  <a href="#bearing" class="toc-link">Analytics</a>
   <a href="#personas" class="toc-link">Personas</a>
   <a href="#voice" class="toc-link">Voice</a>
   <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Switch to dark</button>
@@ -601,7 +601,7 @@ footer { padding: 48px 0 64px; }
       </figure>
     </div>
     <div class="metrics">
-      <div class="metric"><div class="v">3 surfaces · 1 engine</div><div class="l">Consumer app, partner embed and API, and Bearing, on one deterministic solver</div></div>
+      <div class="metric"><div class="v">3 surfaces · 1 engine</div><div class="l">Consumer app, partner embed and API, and Analytics, on one deterministic solver</div></div>
       <div class="metric"><div class="v">Since Sept 2026</div><div class="l">Exit depth recorded by size and hour of week. It can't be backfilled</div></div>
       <div class="metric"><div class="v">2–5.6×</div><div class="l">How far quoted on-chain figures were off, in the founder's prior analytics</div></div>
       <div class="metric"><div class="v">Live on mainnet</div><div class="l">In the user's own vault. Every transaction logged with its explorer link</div></div>
@@ -628,7 +628,7 @@ footer { padding: 48px 0 64px; }
         </div>
         <div class="lockup" style="margin-top:40px"><svg width="40" height="40"><use href="#m32"/></svg><span class="wordmark" style="font-size:44px">tenonfi</span></div>
         <div class="mark-row" style="margin-top:28px;align-items:center;gap:36px">
-          <div class="lockup" style="gap:10px"><svg width="26" height="26"><use href="#m32"/></svg><span class="wordmark" style="font-size:28px">tenonfi</span><span class="wordmark-bearing" style="font-size:28px;margin-left:2px">Bearing</span></div>
+          <div class="lockup" style="gap:10px"><svg width="26" height="26"><use href="#m32"/></svg><span class="wordmark" style="font-size:28px">tenonfi</span><span class="wordmark-bearing" style="font-size:28px;margin-left:2px">Analytics</span></div>
           <div class="lockup"><svg width="26" height="26"><use href="#m32"/></svg><span class="wordmark" style="font-size:28px">tenon</span><span class="lab" style="margin-left:6px">fallback</span></div>
         </div>
       </div>
@@ -642,7 +642,7 @@ footer { padding: 48px 0 64px; }
         </div>
         <div class="lockup" style="margin-top:40px"><svg width="40" height="40"><use href="#m32"/></svg><span class="wordmark" style="font-size:44px">tenonfi</span></div>
         <div class="mark-row" style="margin-top:28px;align-items:center;gap:36px">
-          <div class="lockup" style="gap:10px"><svg width="26" height="26"><use href="#m32"/></svg><span class="wordmark" style="font-size:28px">tenonfi</span><span class="wordmark-bearing" style="font-size:28px;margin-left:2px">Bearing</span></div>
+          <div class="lockup" style="gap:10px"><svg width="26" height="26"><use href="#m32"/></svg><span class="wordmark" style="font-size:28px">tenonfi</span><span class="wordmark-bearing" style="font-size:28px;margin-left:2px">Analytics</span></div>
           <div class="lockup"><svg width="26" height="26"><use href="#m32"/></svg><span class="wordmark" style="font-size:28px">tenon</span><span class="lab" style="margin-left:6px">fallback</span></div>
         </div>
       </div>
@@ -690,9 +690,9 @@ footer { padding: 48px 0 64px; }
         <div class="cap">Wordmark</div>
         <div style="margin-top:16px;display:grid;gap:12px">
           <div class="wordmark" style="font-size:56px">tenonfi</div>
-          <div class="lockup" style="gap:10px"><span class="wordmark" style="font-size:32px">tenonfi</span><span class="wordmark-bearing" style="font-size:32px">Bearing</span></div>
+          <div class="lockup" style="gap:10px"><span class="wordmark" style="font-size:32px">tenonfi</span><span class="wordmark-bearing" style="font-size:32px">Analytics</span></div>
         </div>
-        <p class="rule-note">Inter Tight 600, −0.02em, lowercase. "Bearing" follows in Inter 500 in the muted colour at the same size, so the x-heights match; there is no separate symbol for Bearing. Colour: ink on light grounds, text on night; never honey. In production the wordmark is outlines (<span class="mono">wordmark*.svg</span>, <span class="mono">lockup*.svg</span>); here it is live type.</p>
+        <p class="rule-note">Inter Tight 600, −0.02em, lowercase. "Analytics" follows in Inter 500 in the muted colour at the same size, so the x-heights match; there is no separate symbol for Analytics. Colour: ink on light grounds, text on night; never honey. In production the wordmark is outlines (<span class="mono">wordmark*.svg</span>, <span class="mono">lockup*.svg</span>); here it is live type.</p>
       </div>
     </div>
 
@@ -839,10 +839,10 @@ footer { padding: 48px 0 64px; }
   <div class="container">
     <div class="section-label"><b>04</b> Typography</div>
     <h2 class="section-heading">Inter Tight answers. Inter explains. Plex Mono cites.</h2>
-    <p class="lede">Three faces, all OFL with Latin Extended for EN, PT and ES. Inter Tight 600 at −0.02em for display and big numbers, Inter 400/500/600 for everything a person reads or presses, IBM Plex Mono for provenance and code. No serif anywhere in the app, Bearing or the embed. The grid unit is 4 px, and every line height lands on it.</p>
+    <p class="lede">Three faces, all OFL with Latin Extended for EN, PT and ES. Inter Tight 600 at −0.02em for display and big numbers, Inter 400/500/600 for everything a person reads or presses, IBM Plex Mono for provenance and code. No serif anywhere in the app, Analytics or the embed. The grid unit is 4 px, and every line height lands on it.</p>
 
     <div class="type-block">
-      <div class="who"><h4>Inter Tight</h4><p>600 only, −0.02em (−0.025em at display size). Headlines, the goal sentence, the amount on a goal card (figure-lg) and Bearing KPIs (b-kpi). Tabular lining figures. Never below 20 px, never for body text.</p></div>
+      <div class="who"><h4>Inter Tight</h4><p>600 only, −0.02em (−0.025em at display size). Headlines, the goal sentence, the amount on a goal card (figure-lg) and Analytics KPIs (b-kpi). Tabular lining figures. Never below 20 px, never for body text.</p></div>
       <div>
         <div class="step"><div class="t-display">Tell it the goal. Get the portfolio cut for it.</div><div class="scale-meta">display · Inter Tight 600 · 44 → 64 px · lh 1.05 · −0.025em</div></div>
         <div class="step"><div class="t-h1">Your apartment fund is on track.</div><div class="scale-meta">h1 · Inter Tight 600 · 34 → 46 px · lh 1.1 · −0.02em</div></div>
@@ -873,7 +873,7 @@ footer { padding: 48px 0 64px; }
     </div>
 
     <div class="type-block">
-      <div class="who"><h4>Bearing (productive)</h4><p>A 13 px base, fixed, with no clamp. Inter Tight for the KPI, Inter for cells and heads, Plex Mono for meta. Rows are 36 px: a 20 px line with 8 px padding each side.</p></div>
+      <div class="who"><h4>Analytics (productive)</h4><p>A 13 px base, fixed, with no clamp. Inter Tight for the KPI, Inter for cells and heads, Plex Mono for meta. Rows are 36 px: a 20 px line with 8 px padding each side.</p></div>
       <div class="on-dark" style="padding:24px;border:1px solid var(--border);border-radius:var(--radius-lg)">
         <div class="step" style="margin-bottom:16px"><div class="t-bkpi">$1.2M&#8239;<svg class="pin"><use href="#pin-live"/></svg> <span class="delta up" style="font-size:.75rem">+4.2%</span></div><div class="scale-meta">b-kpi · Inter Tight 600 · 22 / 28 · −0.02em · with a signed delta</div></div>
         <div class="step" style="margin-bottom:16px"><div class="t-btitle">Depth by hour</div><div class="scale-meta">b-title · Inter Tight 600 · 20 / 28</div></div>
@@ -906,14 +906,14 @@ footer { padding: 48px 0 64px; }
       <div class="jcard"><svg><use href="#j2"/></svg><div class="jn">J2 · Half-lap cross</div><div class="jm">Structure and measurement: the unit cell of the lattice, the layout grid, the heatmap.</div></div>
       <div class="jcard"><svg><use href="#j3"/></svg><div class="jn">J3 · Sliding dovetail, dropped in</div><div class="jm">The exit plan. The way out is the way in, reversed, designed first. The lift-out path is dashed.</div></div>
       <div class="jcard"><svg><use href="#j4"/></svg><div class="jn">J4 · Keyed scarf splice</div><div class="jm">Rebalance: one section replaced while the structure carries load, locked by a driven key.</div></div>
-      <div class="jcard"><svg><use href="#j5"/></svg><div class="jn">J5 · Bracket set</div><div class="jm">Bearing: load through many small pieces; capacity measured, not assumed. Never beside the wordmark.</div></div>
+      <div class="jcard"><svg><use href="#j5"/></svg><div class="jn">J5 · Bracket set</div><div class="jm">Analytics: load through many small pieces; capacity measured, not assumed. Never beside the wordmark.</div></div>
     </div>
     <p class="rule-note">Drawings are inline SVG with <span class="mono">currentColor</span> and CSS variables, 1.5 px strokes, square caps, so the theme swap is free. Figures in drawings are HTML overlays, never SVG text, so the pin and its popover work. Not in the set: furniture dovetails, puzzle boxes, screws, nails, glue.</p>
 
     <div class="grid-2" style="margin-top:48px">
       <div>
         <div class="pattern-demo lattice"><span class="ptag">P1 lattice · cell = 1 column · 60% opacity</span></div>
-        <p class="rule-note"><b>P1 lattice.</b> The layout grid made visible as a faint hairline (line / line-l at 60%), on marketing section grounds only. On a <span class="mono">::before</span> layer, never on a content box, never in the app, Bearing or the embed. It stops one grid unit short of any figure.</p>
+        <p class="rule-note"><b>P1 lattice.</b> The layout grid made visible as a faint hairline (line / line-l at 60%), on marketing section grounds only. On a <span class="mono">::before</span> layer, never on a content box, never in the app, Analytics or the embed. It stops one grid unit short of any figure.</p>
       </div>
       <div>
         <div class="pattern-demo" style="display:grid;place-items:center;background:var(--card)">
@@ -1093,7 +1093,7 @@ footer { padding: 48px 0 64px; }
       </div>
     </div>
 
-    <h3 class="sub">Bearing rows</h3>
+    <h3 class="sub">Analytics rows</h3>
     <div class="brows" role="table" aria-label="Exit depth by asset, illustrative">
       <div class="brow head" role="row"><span>Asset</span><span></span><span class="num">Sellable ≤ 2%</span><span class="num">Thinnest hour</span><span class="st">Status</span></div>
       <div class="brow" role="row"><span class="asset"><span class="avatar">AA</span><b>xAAPL</b><span class="tag">stock</span></span><svg class="spark" viewBox="0 0 64 20" aria-hidden="true"><polyline points="0,16 10,14 20,15 30,10 40,11 50,6 64,4" fill="none" stroke="var(--tf-leaf)" stroke-width="1.5"/></svg><span class="num">$1.2M&#8239;<svg class="pin"><use href="#pin-live"/></svg><span class="delta up">+4.2%</span></span><span class="num">$310K<span class="delta flat">±0.0%</span></span><span class="st t-bmeta muted">Sun 03:00 UTC</span></div>
@@ -1155,11 +1155,11 @@ footer { padding: 48px 0 64px; }
 <!-- ================================================================ BEARING -->
 <section id="bearing">
   <div class="container">
-    <div class="section-label"><b>09</b> tenonfi Bearing</div>
+    <div class="section-label"><b>09</b> tenonfi Analytics</div>
     <h2 class="section-heading">An instrument drawn as a drawing, not hardware.</h2>
     <p class="lede">Dark by default: night-2 tiles on night, 1 px line edges, 10 px radius, 16 px padding, 13 px type and 36 px rows. No bevels, nameplates, LEDs or glow. Every metric carries unit · n= · method version · as-of (UTC) · pin, and a signed delta where there is a previous reading. Values below are illustrative.</p>
     <div class="bearing on-dark" style="margin-top:40px">
-      <div class="lockup" style="gap:8px;margin-bottom:20px"><svg width="22" height="22"><use href="#m24"/></svg><span class="wordmark" style="font-size:22px">tenonfi</span><span class="wordmark-bearing" style="font-size:22px">Bearing</span></div>
+      <div class="lockup" style="gap:8px;margin-bottom:20px"><svg width="22" height="22"><use href="#m24"/></svg><span class="wordmark" style="font-size:22px">tenonfi</span><span class="wordmark-bearing" style="font-size:22px">Analytics</span></div>
       <div class="grid-3" style="gap:16px">
         <div class="btile">
           <div class="t-bhead muted">xAAPL · sellable at ≤ 2% impact</div>
@@ -1236,7 +1236,7 @@ footer { padding: 48px 0 64px; }
         <tr><td>At risk</td><td>Rates fell 0.8 pts this month. At this level you'd land in August, two months late. You can add $150/month, accept August, or move the date.</td><td class="no">Warning: underperformance detected.</td></tr>
         <tr><td>Rebalance</td><td>I moved $1,200 from USDC to USDY because rates dipped and your June date needs a little more income. Source · Tx ↗</td><td class="no">Portfolio auto-optimised.</td></tr>
         <tr><td>Exit</td><td>You can get about $4,000 out today at under 0.5% cost. Selling all of it at once on a Sunday night would cost more.</td><td class="no">Instant liquidity.</td></tr>
-        <tr><td>Bearing metric</td><td class="mono" style="font-size:.875rem">xAAPL · $1.2M&#8239;<svg class="pin" style="display:inline-block"><use href="#pin-live"/></svg> sellable at ≤2% impact · Sun 03:00 UTC · n=412 · method v1.3</td><td class="no">Deep liquidity, low risk.</td></tr>
+        <tr><td>Analytics metric</td><td class="mono" style="font-size:.875rem">xAAPL · $1.2M&#8239;<svg class="pin" style="display:inline-block"><use href="#pin-live"/></svg> sellable at ≤2% impact · Sun 03:00 UTC · n=412 · method v1.3</td><td class="no">Deep liquidity, low risk.</td></tr>
         <tr><td>Agent identity</td><td>I proposed this because…</td><td class="no">Your AI wealth genie.</td></tr>
       </tbody>
     </table>

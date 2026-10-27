@@ -1,7 +1,7 @@
 # Share palette
 > Phase: identity | Brand: Tenonfi | Added 2026-10-13 on `WEIGHTS-RING` (docs/GATES.md, Thom)
 
-The colours of what a vault or a portfolio holds: one ring, or two bars before and after ([composition.md](../patterns/components/composition.md)). It replaces the plan-leg ramp (honey, honey-deep, wood-deep, muted) for holdings. That ramp kept every holding within one brown family, so two neighbours read as one and a fifth holding had to repeat the first (Thom, Oct 13: "the colours are muddy"). The plan-leg ramp stays for `<PlanLegs>` itself and Bearing's series.
+The colours of what a vault or a portfolio holds: one ring, or two bars before and after ([composition.md](../patterns/components/composition.md)). It replaces the plan-leg ramp (honey, honey-deep, wood-deep, muted) for holdings. That ramp kept every holding within one brown family, so two neighbours read as one and a fifth holding had to repeat the first (Thom, Oct 13: "the colours are muddy"). The plan-leg ramp stays for `<PlanLegs>` itself and Analytics's series.
 
 **Why these hues.** Honey is first, so the largest holding of most vaults carries the brand. The others come from the daylight photograph the direction colours were drawn from (forest, water, heather and the darker timber), and stay away from what already means something: no leaf, clay or madder (direction), no chalk or other blue (a line), no violet. A holding is an identity, not a direction, so it never wears a direction colour.
 

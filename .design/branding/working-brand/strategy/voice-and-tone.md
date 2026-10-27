@@ -65,7 +65,7 @@ Reserved      1 ──[2]── 3 ── 4 ── 5  Enthusiastic  calm; confide
 | MOCK / stale state | 2 | 1 | 3 | 3 | Always the word MOCK or stale, plus what is missing |
 | Embed (inside partner app) | partner's | 1–2 | partner's | 5 | Inherit the partner's register. Keep provenance, MOCK and disclaimer wording verbatim |
 | API docs | 2 | 1 | 2 | 1 | Precise, exhaustive, example-led. Plex Mono |
-| [Name] Bearing (risk) | 2 | 1 | 2 | 1 | Instrument language: units, n=, version, method. No adjectives about risk |
+| [Name] Analytics (risk) | 2 | 1 | 2 | 1 | Instrument language: units, n=, version, method. No adjectives about risk |
 | Marketing site / video | 3 | 2 | 3 | 4 | The manifesto voice. Bold claims about fit and visibility, never about returns |
 | Social (X) | 4 | 3 | 4 | 4 | Show receipts: transactions, methods, real plan screenshots. Dry wit allowed, hype never |
 | Legal / disclaimer | 1 | 1 | 2 | 3 | The single DISCLAIMER constant, unedited |
@@ -104,7 +104,7 @@ Reserved      1 ──[2]── 3 ── 4 ── 5  Enthusiastic  calm; confide
 | **Capitalisation** | Sentence case everywhere. **MOCK** in caps (it's a label, not a word) |
 | **Oxford comma** | Yes |
 | **Hedging** | One precise conditional ("if rates fall by a third…") rather than many soft hedges ("may", "could potentially") |
-| **Jargon** | Avoid on the first layer. Define on first use one layer down: haircut, depth, slippage, LTV, constraint sheet. Free use in API docs and Bearing |
+| **Jargon** | Avoid on the first layer. Define on first use one layer down: haircut, depth, slippage, LTV, constraint sheet. Free use in API docs and Analytics |
 | **Metaphor** | **The metaphor lives in the pictures, and plain words live in the product.** The UI says "rebalance", not "re-true". The UI says "source", not "pin". Joinery words belong to marketing, the video and the visual system. Exception: "made to measure" may appear anywhere |
 | **Disclaimer** | Never paraphrased. Rendered from the single `DISCLAIMER` constant on the plan view and API docs |
 | **Comparisons** | Never name competitors in public copy. Contrast with "the menu", "a rate button", "a model portfolio" |
@@ -112,7 +112,7 @@ Reserved      1 ──[2]── 3 ── 4 ── 5  Enthusiastic  calm; confide
 ### Multilingual rules (EN · PT · ES)
 - **Register:** PT uses Brazilian Portuguese with **"você"**. ES uses neutral Latin American Spanish with **"tú"**, avoiding regionalisms; adapt to "vos" only on a partner's request. Keep the same answer-first order in all three.
 - **"Made to measure"** = **"sob medida"** (PT) / **"a la medida"** (ES). These are natural idioms in both languages, so use them freely.
-- **Keep untranslated:** the product name, **[Name] Bearing**, **MOCK**, API field names (`source`, `fetched_at`, `method`) and ticker symbols.
+- **Keep untranslated:** the product name, **MOCK**, API field names (`source`, `fetched_at`, `method`) and ticker symbols.
 - **Avoid literal carpentry terms in PT/ES copy.** ES *mortaja* (mortise) also means **burial shroud**, and PT and ES *dado* (dado/groove) also means **dice**. Use the visual instead.
 - **Numbers and dates are localised** (1.234,56 in PT and ES; "junho de 2028", "junio de 2028"). Provenance timestamps stay ISO and UTC.
 - **Length budget:** PT and ES run about 20–30% longer. Consumer headlines are written in EN to about 80% of the available width.
@@ -126,7 +126,7 @@ Reserved      1 ──[2]── 3 ── 4 ── 5  Enthusiastic  calm; confide
 [Name]                          masterbrand (company = product name; no "Labs", "Finance", "AI")
 ├── [Name]                      the direct app (goal → plan → execute → monitor)
 ├── [Name] API / Powered by [Name]   the embed and API for partners
-└── [Name] Bearing              the liquidity-risk product (exit capacity by size, path, hour of week)
+└── [Name] Analytics              the liquidity-risk product (exit capacity by size, path, hour of week)
 ```
 
 ### Core terms (use exactly these)
@@ -137,7 +137,7 @@ Reserved      1 ──[2]── 3 ── 4 ── 5  Enthusiastic  calm; confide
 | **Plan** | The portfolio solved for the goal, plus path and stress cases | Not "strategy" for a plan. Two scoped exceptions (Thom, Oct 7–8): a vault's target weights as its owner sets and refines them in the vault conversation, and a product shared from that vault, are its "strategy" (gates `MODEL-LED-VAULT-CONVERSATION`, `SHARED-FULL`). A plan made for a goal stays a plan |
 | **Leg** | One position in the plan | Consumer UI may say "part of your plan". Never "bet" or "play" |
 | **After-haircut yield** | The yield we use, after credit-aware haircut | "Quoted" for the source's number. Never show quoted alone |
-| **Exit** / **access to cash** | How much can be withdrawn, how fast, at what cost | Consumer: "access to cash". Docs and Bearing: "exit capacity", "depth" |
+| **Exit** / **access to cash** | How much can be withdrawn, how fast, at what cost | Consumer: "access to cash". Docs and Analytics: "exit capacity", "depth" |
 | **Stress case** | A named downside scenario with its effect on the goal | Shown with the base case, never hidden |
 | **On track / Watch / Off track** | Goal states | Always word + shape + colour, never colour alone |
 | **Rebalance** | A move to keep the goal on track | Marketing may say "re-true". Product says "rebalance" |
@@ -150,4 +150,4 @@ Reserved      1 ──[2]── 3 ── 4 ── 5  Enthusiastic  calm; confide
 *earn up to · guaranteed · risk-free · safe yield · beat the bank · passive income · set and forget · autopilot · walk away · self-driving · smart (as an adjective for the product) · AI-powered · intelligent · magic · unlock · supercharge · seamless · effortless · revolutionary · best-in-class · bespoke (worn out, so use "made to measure") · to the moon · degen · APY leaderboard · don't miss out · limited time · whale · alpha*
 
 ### Feature naming pattern
-Plain descriptive nouns, sentence case: *Goal, Plan, Stress cases, Access to cash, Activity, Sources*. No coined feature names and no Japanese terms in product UI. The only branded noun below the masterbrand is **Bearing**.
+Plain descriptive nouns, sentence case: *Goal, Plan, Stress cases, Access to cash, Activity, Sources*. No coined feature names and no Japanese terms in product UI. There is no branded noun below the masterbrand: the risk section is plain **Analytics**, "Análises" in Portuguese, and nothing a person reads says "Bearing" (gate `ANALYTICS-NAME`, Thom, Oct 27).

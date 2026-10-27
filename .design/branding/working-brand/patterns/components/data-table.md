@@ -10,8 +10,8 @@
 | Wrapper | `overflow-x-auto rounded-lg border border-border` with `tabIndex={0}` and `role="region" aria-labelledby` (scrollable regions must be keyboard-reachable) |
 | Caption | `<caption>` visible, Inter 600 `text-h4` left-aligned, or `sr-only` when a card header names it |
 | Head | no band of its own: on the card, as the house kit's table (`KitTable`, gate `PAGE-SHELL`, Oct 14); `<th scope="col">` Inter 500 `text-b-head` (11px, uppercase, +0.05em) `text-muted-foreground`, 1px `--border` bottom |
-| Rows | 1px `--border` between rows; height 44px (`--tf-row-comfortable`), **36px dense** (Monitor / Bearing: a 20px line + 8px each side). Hover tint-rise `bg-accent`; selected `bg-accent` + `aria-selected` |
-| Text cells | Inter 400 `text-body-sm` (consumer) / `text-b-cell` 13px (Bearing); the asset cell = 22px avatar · name Inter 600 · type tag (`rounded-sm bg-secondary text-muted-foreground` 11px) |
+| Rows | 1px `--border` between rows; height 44px (`--tf-row-comfortable`), **36px dense** (Monitor / Analytics: a 20px line + 8px each side). Hover tint-rise `bg-accent`; selected `bg-accent` + `aria-selected` |
+| Text cells | Inter 400 `text-body-sm` (consumer) / `text-b-cell` 13px (Analytics); the asset cell = 22px avatar · name Inter 600 · type tag (`rounded-sm bg-secondary text-muted-foreground` 11px) |
 | Number cells | right-aligned, Inter `tabular-nums` (not mono); yields 2 decimals; true minus; pin after every yield/price/FX value; a signed delta beneath the value in `text-b-delta` (leaf up, madder down, muted flat) |
 | Sparkline cell | 64 × 20 SVG, 1.5px stroke, coloured by direction (leaf / madder / muted), `aria-hidden` |
 | Source column | `font-mono text-source text-muted-foreground`: `source · fetched_at · method`, truncation with the full line in the pin popover |

@@ -41,7 +41,7 @@ How the mission breaks down across the three surfaces (one engine):
 |---|---|
 | **[Name]** (direct app) | Take the goal and limits in plain words. Confirm them as an editable constraint sheet. Solve the portfolio backwards from them. **Plan the exit before investing.** Show the path and stress cases. Execute into the user's wallet. Re-true it when the odds of reaching the goal move |
 | **Powered by [Name]** (embed / API) | Be the **goal and liquidity intelligence layer** under wallets, fintechs and consumer apps (including idea-to-basket apps). The colour and type become theirs; the joints (provenance, exit plan, MOCK labels, disclaimer, logs) stay |
-| **[Name] Bearing** (risk product) | Answer *"can the money actually come back, and at what cost?"*: how much of an asset can become dollars, at what cost, at what hour. Publish it with method and sample counts. The same data writes every exit plan |
+| **[Name] Analytics** (risk product) | Answer *"can the money actually come back, and at what cost?"*: how much of an asset can become dollars, at what cost, at what hour. Publish it with method and sample counts. The same data writes every exit plan |
 
 ---
 
@@ -101,20 +101,20 @@ The long form, for internal use only: *cut to fit, shown in full.*
 
 ## Brand architecture (recommendation)
 
-**Recommendation: a branded house. One masterbrand, [Name], with one named product noun for the risk layer, [Name] Bearing. No separate sub-brand.**
+**Recommendation: a branded house. One masterbrand, [Name], and no coined noun below it: the risk layer is plain [Name] Analytics (gate `ANALYTICS-NAME`, Thom, Oct 27; it was "[Name] Bearing"). No separate sub-brand.**
 
 | Surface | Name pattern | Brand presence |
 |---|---|---|
 | Direct app | **[Name]** | Full identity: wood species, serif personal line, photography |
 | Embed / API | **Powered by [Name]** (or "Built with [Name]" in partner UI) / **[Name] API** | Recedes. Partner colour, type and radius. The joinery stays: pin glyph, provenance popover, section-hatch MOCK, disclaimer block, explorer links |
-| Risk product | **[Name] Bearing** | Instrument register: dark, hairline, Plex Condensed and Mono, no photography, no serif |
+| Risk product | **[Name] Analytics** | Instrument register: dark, hairline, Plex Condensed and Mono, no photography, no serif |
 
 **Why one masterbrand:**
-1. **One engine, one proof.** The exit depth Bearing measures is the same data that writes every exit plan and sizes Mariana's positions. "Every portfolio has an exit plan before the agent invests" is only true because Bearing exists. "The same measurements that size your plan" is a consumer trust point. "Used in production portfolios" is a risk-buyer trust point. Splitting the brand splits the proof.
+1. **One engine, one proof.** The exit depth Analytics measures is the same data that writes every exit plan and sizes Mariana's positions. "Every portfolio has an exit plan before the agent invests" is only true because Analytics exists. "The same measurements that size your plan" is a consumer trust point. "Used in production portfolios" is a risk-buyer trust point. Splitting the brand splits the proof.
 2. **A solo founder with a 4 October deadline** can build one name's equity, not two.
 3. **A separate name would hide a joint.** A distinct risk sub-brand reads as distance from the yield business. We'd rather disclose the relationship and publish the method. That is our own value 2 applied to ourselves.
-4. **Joinery supports a family without new names.** The masterbrand is the craft. Product nouns come from structure (*Bearing*). Features use plain words.
+4. **Joinery supports a family without new names.** The masterbrand is the craft. Sections and features use plain words (*Analytics*, not a coined noun).
 
-**Why "Bearing" for the risk product:** in structural engineering, *bearing capacity* is how much load something can carry before it fails. That is exactly Priya's question about collateral: how much can be sold, at what cost, before the price gives way. In joinery, the bearing surface is where load passes through a joint. Alternatives considered are in naming.md §6. **Fallback:** the plain descriptive "[Name] Depth", if Bearing tests poorly with risk leads.
+**Why plain "Analytics" for the risk product (gate `ANALYTICS-NAME`, Thom, Oct 27):** a coined noun is one more name a person has to learn before the section says what it does, and "Bearing", the noun chosen first, can be heard as "bear" or "bearish". The section is named for what it is. Why "Bearing" was chosen on Oct 1 is kept in naming.md §6 as the record.
 
-**When to revisit:** if Bearing grows a customer base that needs procurement independence from the consumer business (for example, a large protocol requires a separate legal entity), consider an endorsed brand ("Bearing, by [Name]"). Not before.
+**When to revisit:** if Analytics grows a customer base that needs procurement independence from the consumer business (for example, a large protocol requires a separate legal entity), consider an endorsed brand with a name of its own, by [Name]. Not before.

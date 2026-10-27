@@ -78,7 +78,7 @@ Hand-written; values are `tokens.brand-color` verbatim. Kept out of `theme-css.j
   --tf-curve-fill: linear-gradient(to bottom, rgba(245,168,58,0.35), rgba(245,168,58,0));
   /* the one shadow: popovers and the composer */
   --tf-shadow-popover: 0 8px 24px rgba(0,0,0,0.35);
-  /* Bearing heatmap, low → high depth (light: pale → night) */
+  /* Analytics heatmap, low → high depth (light: pale → night) */
   --tf-heat-1: #FFE9C2; --tf-heat-2: #F5A83A; --tf-heat-3: #B06C12; --tf-heat-4: #5C3707; --tf-heat-5: #1A1D26;
   /* motion */
   --tf-dur-fade: 160ms; --tf-dur-slide: 320ms; --tf-delay-pin: 120ms; --tf-dur-reduced: 120ms; --tf-stagger: 60ms;
@@ -148,7 +148,7 @@ The tints are translucent on purpose: `--tf-honey-tint` over night is `#2D2318`,
   --radius-none: 0px;
   --radius-sm: calc(var(--radius) - 2px);   /* 6px  → tags on a dense row, inline code */
   --radius-md: var(--radius);               /* 8px  → buttons, inputs, selects, popovers */
-  --radius-lg: calc(var(--radius) + 2px);   /* 10px → cards, panels, table containers, Bearing tiles */
+  --radius-lg: calc(var(--radius) + 2px);   /* 10px → cards, panels, table containers, Analytics tiles */
   --radius-xl: calc(var(--radius) + 8px);   /* 16px → app tiles, hero media */
   --radius-2xl: var(--radius-xl);           /* nothing above 16px except chips, badges and the composer */
   --radius-full: var(--tf-radius-pill);     /* chips, status badges, filter tabs, the composer's send button */
@@ -172,7 +172,7 @@ The tints are translucent on purpose: `--tf-honey-tint` over night is `#2D2318`,
   --text-figure-lg: 1.75rem;  --text-figure-lg--line-height: 2rem;    --text-figure-lg--letter-spacing: -0.02em; /* the amount on a goal card */
   --text-sample-line: 0.78125rem; --text-sample-line--line-height: 1.125rem;   /* a sample panel's or the embed's quiet line: Inter 400, muted, no box; a card has its tag */
   --text-source: 0.8125rem;   --text-source--line-height: 1.25rem;
-  /* productive scale (Bearing): 13px base, fixed */
+  /* productive scale (Analytics): 13px base, fixed */
   --text-b-kpi: 1.375rem;     --text-b-kpi--line-height: 1.75rem;     --text-b-kpi--letter-spacing: -0.02em;
   --text-b-title: 1.25rem;    --text-b-title--line-height: 1.75rem;
   --text-b-section: 0.9375rem; --text-b-section--line-height: 1.5rem;
@@ -224,11 +224,11 @@ export const interTight = Inter_Tight({ subsets: ['latin', 'latin-ext'], weight:
 export const plexMono = IBM_Plex_Mono({ subsets: ['latin', 'latin-ext'], weight: ['400', '500'], variable: '--font-plex-mono', display: 'swap' });
 ```
 
-Put the `next/font` variable first in each `--font-*` stack (`--font-sans: var(--font-inter), "Inter", …`; `--font-display: var(--font-inter-tight), "Inter Tight", …`). Load `interTight` in the `(app)` and `(marketing)` layouts only, never in the embed layout. There is no condensed face and no serif: Bearing heads use Inter 500 at 11px uppercase (`text-b-head`).
+Put the `next/font` variable first in each `--font-*` stack (`--font-sans: var(--font-inter), "Inter", …`; `--font-display: var(--font-inter-tight), "Inter Tight", …`). Load `interTight` in the `(app)` and `(marketing)` layouts only, never in the embed layout. There is no condensed face and no serif: Analytics heads use Inter 500 at 11px uppercase (`text-b-head`).
 
 ## 6. Theme switching
 
-- Class strategy: `.dark` on `<html>` (`@custom-variant dark`). Default per surface: **marketing and Bearing dark**, **app (plan, monitor) and API docs light**. Both modes ship for every component (`always: light and dark as peers`).
+- Class strategy: `.dark` on `<html>` (`@custom-variant dark`). Default per surface: **marketing and Analytics dark**, **app (plan, monitor) and API docs light**. Both modes ship for every component (`always: light and dark as peers`).
 - First paint: an inline script reads `localStorage.theme` or `prefers-color-scheme`. No `next-themes` needed.
 - The hero and the composer may sit on `bg-glow` in both modes (glow-l on paper is 28%, glow on night 22%: the `.dark` block swaps `--tf-glow`).
 - **Embed**: no `.dark` from us. The partner sets `--embed-*` vars (section 8); the embed inherits `color-scheme` from the host.

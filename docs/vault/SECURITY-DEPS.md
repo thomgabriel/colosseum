@@ -2,7 +2,7 @@
 
 *Recorded 2026-10-02 (FRAME-2). Accepted for now, so the audit check stays worth reading; SEC-4 in `STATE-VAULT.md` removes them.*
 
-`pnpm audit --prod` reports eight high advisories in the dependencies of the apps. Their ids are under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`. With that list, `security.yml` passes on these eight and fails on any other high or critical advisory. Its job summary still lists all of them, with these marked as accepted. Moderate and low advisories are listed and never fail the job.
+`pnpm audit --prod` reports nine high advisories in the dependencies of the apps. Their ids are under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`. With that list, `security.yml` passes on these nine and fails on any other high or critical advisory. Its job summary still lists all of them, with these marked as accepted. Moderate and low advisories are listed and never fail the job.
 
 | Advisory | Package, installed | Comes in through | What it is | Do we reach it | Fix |
 |---|---|---|---|---|---|
@@ -13,6 +13,7 @@
 | GHSA-4qx8-w7c3-pj3p | `toml` 3.0.0 | The same | Quadratic-time parsing of many keys (denial of service) | No, for the same reason | 5.0.1, covered by the same override |
 | GHSA-9j65-hcg3-gc64 | `toml` 3.0.0 | The same | Quadratic-time parsing of long dotted keys (denial of service) | No, for the same reason | 5.0.1, covered by the same override |
 | GHSA-9qmh-m7c6-f92p | `toml` 3.0.0 | The same | Uncontrolled CPU use while parsing (denial of service) | No, for the same reason | 5.0.1, covered by the same override |
+| GHSA-mrhx-c7xc-m3w5 | `zod` 3.22.4 and 3.25.76 (every zod 4 copy is overridden to 4.6.6+) | `@reown/appkit-wallet`, `abitype` (under viem), `@anthropic-ai/sdk`, `@scalar/fastify-api-reference` | Memory exhaustion validating an oversized input | No. Our request validation runs on our own zod 4.6.6 (patched); the 3.x copies validate their own configs and tool schemas, never a request body | Patched only in 4.6.6, a major version up for those packages: waits for them |
 | GHSA-3gc7-fjrx-p6mg | `bigint-buffer` 1.1.5 | `packages/chain-solana` > `@kamino-finance/klend-sdk` > `@kamino-finance/farms-sdk` > `@kamino-finance/kliquidity-sdk` > `@orca-so/common-sdk` > `@solana/spl-token` > `@solana/buffer-layout-utils` | Buffer overflow in `toBigIntLE()` | It can be called: `buffer-layout-utils` uses it to decode 64-bit fields of account data. That data comes from our RPC, never from what a user sends | No fixed release exists. 1.1.5 is the latest on npm and the advisory names no patched version, though `pnpm audit` prints `>=1.1.6`. The override has to swap the package for a maintained one, or wait for `klend-sdk` to drop it |
 
 When an override lands, its line leaves `pnpm-workspace.yaml` and its row leaves this table. A new advisory is never added here without a row that says why.

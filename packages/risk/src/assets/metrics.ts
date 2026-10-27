@@ -654,7 +654,7 @@ export function dexVolume24h(
     withVolume.reduce((m, p) => m + (p.volume?.h24 as number), 0),
     s,
     {
-      what: "DexScreener's 24 h volume of the pairs, not Bearing's measure",
+      what: "DexScreener's 24 h volume of the pairs, not our own measure",
       pairs: withVolume.map((p) => ({
         pair: p.pairAddress,
         dex: p.dexId,
