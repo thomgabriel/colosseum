@@ -34,6 +34,23 @@ const PROBE_MS = 3000;
 const PROBE_TRIES = 3;
 /** Reads of the risk API out at once, from one page. The probe is not one of them. */
 export const READS_AT_ONCE = 3;
+/** The longest a read holds its place: past it, it is given up as no answer and the next read goes. */
+export const READ_MS = 30_000;
+
+/** `fetcher` given up after `ms`: aborted, and answered as a failure even if it ignores the abort. */
+function within(fetcher: typeof fetch, url: string, init: RequestInit, ms: number) {
+  const stop = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    fetcher(url, { ...init, signal: stop.signal }),
+    new Promise<never>((_, fail) => {
+      timer = setTimeout(() => {
+        stop.abort();
+        fail(new Error('timeout'));
+      }, ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 export type Reader = {
   get: <T>(path: string) => Promise<Res<T>>;
@@ -67,9 +84,12 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
     if (!p) {
       // The API says how long an answer may be kept (a minute); the probe always asks the API itself.
       p = turn(() =>
-        fetcher(`${base}${path}`, {
-          cache: path === R.methodology() ? 'no-store' : 'default',
-        }).then(async (r): Promise<Res> => resOf(r.status, await r.json().catch(() => null))),
+        within(
+          fetcher,
+          `${base}${path}`,
+          { cache: path === R.methodology() ? 'no-store' : 'default' },
+          READ_MS,
+        ).then(async (r): Promise<Res> => resOf(r.status, await r.json().catch(() => null))),
       )
         .catch((): Res => ({ ok: false, status: 0, body: null, reason: 'api_error' }))
         .then((r) => {
@@ -88,7 +108,7 @@ export function makeReader(base: string = RISK_API, fetcher: typeof fetch = fetc
   // request out, and the next try waits for that same one: a slow API is asked once, not three times.
   let asking: Promise<boolean> | null = null;
   const ask = () => {
-    asking ??= fetcher(`${base}${R.methodology()}`, { cache: 'no-store' })
+    asking ??= within(fetcher, `${base}${R.methodology()}`, { cache: 'no-store' }, READ_MS)
       .then((r) => r.ok)
       .catch(() => false)
       .finally(() => {

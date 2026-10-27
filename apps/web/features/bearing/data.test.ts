@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { gate, inPool, makeReader, notKept, READS_AT_ONCE } from './data';
+import { gate, inPool, makeReader, notKept, READ_MS, READS_AT_ONCE } from './data';
 
 // The reader of the risk API: an answer is kept for the life of the page, a failure is not, and the
 // API is asked three times, a second apart, before the page says it did not answer.
@@ -100,6 +100,35 @@ describe('the reader on a slow API', () => {
     await Promise.all([...paths, ...paths].map((p) => r.get(p)));
     expect(most).toBe(READS_AT_ONCE);
     expect(fetcher.mock.calls.map(([u]) => u)).toEqual(paths.map((p) => `http://api${p}`));
+  });
+
+  it('gives up a read that hangs, so its place goes to the next, and asks it again next time', async () => {
+    vi.useFakeTimers();
+    let n = 0;
+    // the first reads never answer and ignore their abort; every later one answers at once
+    const fetcher = vi.fn(() =>
+      n++ < READS_AT_ONCE
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(new Response('{}', { status: 200 })),
+    );
+    const r = makeReader('http://api', fetcher as unknown as typeof fetch);
+    const hung = r.get('/risk/hung');
+    for (let i = 1; i < READS_AT_ONCE; i++) void r.get(`/risk/busy?${i}`);
+    let came = false;
+    const queued = r.get('/risk/after').then((x) => {
+      came = true;
+      return x;
+    });
+    await vi.advanceTimersByTimeAsync(READ_MS - 1);
+    // every place is held by a read that hangs: the next waits
+    expect(came).toBe(false);
+    await vi.advanceTimersByTimeAsync(2);
+    expect((await hung).reason).toBe('api_error');
+    expect((await queued).ok).toBe(true);
+    expect((await r.get('/risk/hung')).ok).toBe(true);
+    // the reader aborts what it gave up
+    const signal = (fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].signal;
+    expect(signal?.aborted).toBe(true);
   });
 
   it('a probe is not held behind the reads: it says whether the API is there while they wait', async () => {
