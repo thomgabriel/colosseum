@@ -111,6 +111,24 @@ describe('a warm pass', () => {
     expect(await cacheOf('/risk/chains?tau=0.01')).toBe('stale');
   });
 
+  it('moves on from a read that does not end, counting it failed', async () => {
+    const { a, read } = await app();
+    a.get('/risk/hung', () => new Promise(() => {}));
+    // asked for, as a batch asks for its parts: not a visitor the warm waits behind
+    void a.inject({ url: '/risk/hung' });
+    await new Promise((d) => setTimeout(d, 5));
+    await a.inject({ url: '/risk/facts/assets/ZZZx?sizeUsd=1', headers: browser });
+    read.length = 0;
+    const log = vi.fn();
+    const r = await warmPass(a, { pauseMs: 1, readMs: 20, log });
+    expect(r).toMatchObject({ read: WARM_PAGES.length + 1, failed: 1, left: 0 });
+    expect(read).toContain('/risk/facts/assets/ZZZx?sizeUsd=1');
+    expect(log).toHaveBeenCalledWith(
+      { url: '/risk/hung', waitedMs: 20 },
+      'risk warm: a read did not end in time',
+    );
+  });
+
   it('with every asset asked for, reads each listed asset’s entry, Solana’s first', async () => {
     const { a, read } = await app();
     await warmPass(a, { all: true, pauseMs: 1 });
@@ -168,6 +186,28 @@ describe('the hourly schedule', () => {
     warm?.stop();
     await vi.advanceTimersByTimeAsync(3_600_000);
     expect(at).toHaveLength(3);
+  });
+
+  it('skips a pass while the start-up warm-up is still reading', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 9, 27, 12, 0));
+    let ended: () => void = () => {};
+    const after = new Promise<void>((d) => {
+      ended = d;
+    });
+    const pass = vi.fn(async () => ({ read: 1, failed: 0, left: 0, ms: 0, cpuMs: 0 }));
+    const log = { info: vi.fn(), error: vi.fn() };
+    const warm = startRiskWarm(Fastify(), {}, { log, pass, after });
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(pass).not.toHaveBeenCalled();
+    expect(log.info).toHaveBeenCalledWith(
+      {},
+      'risk warm skipped: the start-up warm-up is still reading',
+    );
+    ended();
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(pass).toHaveBeenCalledTimes(1);
+    warm?.stop();
   });
 
   it('is off with RISK_WARM_AT_MINUTE=off, and logs a value it cannot read', () => {

@@ -21,6 +21,8 @@ export const DEFAULT_WARM_MINUTE = 26;
 export const WARM_MAX_MS = 12 * 60_000;
 /** How long it waits before looking again while a visitor's request is under way. */
 const PAUSE_MS = 250;
+/** The longest it waits for one read: past it the read is counted failed and the warm moves on. */
+export const WARM_READ_MS = 60_000;
 
 /** What every analytics page reads first, both chains; the stocks page's first. */
 export const WARM_PAGES = [
@@ -84,6 +86,8 @@ export type WarmPassOptions = {
   all?: boolean;
   maxMs?: number;
   pauseMs?: number;
+  /** The longest one read is waited for. */
+  readMs?: number;
   log?: (obj: object, msg: string) => void;
 };
 
@@ -92,7 +96,13 @@ export async function warmPass(
   app: FastifyInstance,
   opts: WarmPassOptions = {},
 ): Promise<WarmPassResult> {
-  const { all = false, maxMs = WARM_MAX_MS, pauseMs = PAUSE_MS, log = () => {} } = opts;
+  const {
+    all = false,
+    maxMs = WARM_MAX_MS,
+    pauseMs = PAUSE_MS,
+    readMs = WARM_READ_MS,
+    log = () => {},
+  } = opts;
   const started = Date.now();
   const cpu0 = process.cpuUsage();
   const cache = riskReadCacheOf(app);
@@ -111,7 +121,17 @@ export async function warmPass(
   for (const url of queue) {
     while (seen && seen.inFlight > 0 && !late()) await pause(pauseMs);
     if (late()) break;
-    const r = await cache.read(url, { again: true });
+    // A read that hangs is left to finish on its own; the warm goes on without it.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const r = await Promise.race([
+      cache.read(url, { again: true }).catch(() => ({ status: 0, body: '' })),
+      new Promise<{ status: number; body: string }>((d) => {
+        timer = setTimeout(() => d({ status: -1, body: '' }), readMs);
+        timer.unref?.();
+      }),
+    ]);
+    clearTimeout(timer);
+    if (r.status === -1) log({ url, waitedMs: readMs }, 'risk warm: a read did not end in time');
     if (r.status === 200) out.read++;
     else out.failed++;
     if (url.startsWith('/risk/assets?')) lists[url] = r.body;
@@ -169,7 +189,13 @@ export type RiskWarm = { stop(): void };
 export function startRiskWarm(
   app: FastifyInstance,
   env: EnvLike,
-  deps: { log: Log; now?: () => number; pass?: typeof warmPass },
+  deps: {
+    log: Log;
+    now?: () => number;
+    pass?: typeof warmPass;
+    /** The start-up warm-up: while it runs, an hourly pass is skipped, so the two never read together. */
+    after?: Promise<unknown>;
+  },
 ): RiskWarm | null {
   let settings: RiskWarmSettings | null;
   try {
@@ -184,6 +210,15 @@ export function startRiskWarm(
   const pass = deps.pass ?? warmPass;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
+  let warmingUp = deps.after !== undefined;
+  deps.after?.then(
+    () => {
+      warmingUp = false;
+    },
+    () => {
+      warmingUp = false;
+    },
+  );
   const next = () => {
     if (stopped) return;
     timer = setTimeout(run, msToMinute(now(), atMinute));
@@ -191,7 +226,8 @@ export function startRiskWarm(
   };
   const run = async () => {
     try {
-      await pass(app, { all, log: (obj, msg) => deps.log.info(obj, msg) });
+      if (warmingUp) deps.log.info({}, 'risk warm skipped: the start-up warm-up is still reading');
+      else await pass(app, { all, log: (obj, msg) => deps.log.info(obj, msg) });
     } catch (e) {
       deps.log.error({ reason: (e as Error).message }, 'risk warm failed');
     }
