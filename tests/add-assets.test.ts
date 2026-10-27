@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AddAssetsFile, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
+import {
+  AddAssetsFile,
+  assetBatch,
+  EvmDeploymentRecord,
+  recordEntryOf,
+} from '@colosseum/chain-evm/vault';
 import { readDeploymentFile } from '@colosseum/sdk';
 import { describe, expect, it } from 'vitest';
 import { heldToFile, promote, recordFor, safeFiles, safeListFile } from '../scripts/ops/add-assets';
@@ -113,9 +118,12 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
     expect(list.priceBoundBps).toBe(now.priceBoundBps);
   });
 
-  it('hold each token to the bar of WIDER-LIST, apart from everything the chain lists already', () => {
+  it('hold each token to the bar of WIDER-LIST, apart from everything else the chain lists', () => {
+    const mine = new Set<string>(list.assets.map((a) => a.token));
     const onChain = new Set(
-      [now.cash, ...now.assets, ...(now.hidden ?? [])].map((a: { address: string }) => a.address),
+      [now.cash, ...now.assets, ...(now.hidden ?? [])]
+        .map((a: { address: string }) => a.address)
+        .filter((a: string) => !mine.has(a)),
     );
     for (const a of list.assets) {
       expect(onChain.has(a.token), a.symbol).toBe(false);
@@ -128,11 +136,23 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
     }
   });
 
-  it("are the record's pending tokens, and the guard's file names none of them", () => {
-    expect(() => heldToFile(now, list)).not.toThrow();
+  it('are listed by the chain and shown: in assets and the guard’s file with their v3 pool, as QQQ, none pending', () => {
+    expect(now.pending).toBeUndefined();
     EvmDeploymentRecord.parse(now);
-    const ids = Object.keys(guardNow.chains.robinhood.assets);
-    for (const p of now.pending) expect(ids, p.id).not.toContain(p.id);
+    readDeploymentFile(guardNow);
+    const qqq = now.assets.find((a: { symbol: string }) => a.symbol === 'QQQ');
+    for (const a of list.assets) {
+      const id = `robinhood:${a.symbol.toLowerCase()}`;
+      const entry = now.assets.find((x: { id: string }) => x.id === id);
+      expect(Object.keys(entry), a.symbol).toEqual(Object.keys(qqq));
+      expect(entry, a.symbol).toMatchObject({ pool: null, v3Pool: a.v3Pool });
+      expect(guardNow.chains.robinhood.assets[id], a.symbol).toEqual({
+        address: a.token,
+        decimals: a.tokenDecimals,
+        v3Pool: a.v3Pool,
+      });
+    }
+    expect(() => heldToFile(now, list)).not.toThrow();
   });
 
   it('come as the one committed Transaction Builder file: setAsset on the factory per token, from the Safe', () => {
@@ -145,33 +165,18 @@ describe('the tokens of LIST-13, on the redeploy’s factory', () => {
     expect(() => safeFiles(list, 'x')).toThrow(/no timelock/);
   });
 
-  it('once listed, move into the record’s assets and the guard’s file with their v3 pool, as QQQ', () => {
-    const next = promote(
-      now,
-      guardNow,
-      now.pending.map((p: { address: string }) => p.address),
-      [],
-      true,
-    );
-    expect(next.moved).toEqual(list.assets.map((a) => a.symbol));
-    expect(next.hidden).toEqual([]);
-    expect(next.record.pending).toBeUndefined();
-    const qqq = now.assets.find((a: { symbol: string }) => a.symbol === 'QQQ');
-    for (const a of list.assets) {
-      const id = `robinhood:${a.symbol.toLowerCase()}`;
-      const entry = next.record.assets.find((x: { id: string }) => x.id === id);
-      expect(entry, a.symbol).not.toHaveProperty('operation');
-      expect(Object.keys(entry).sort(), a.symbol).toEqual(Object.keys(qqq).sort());
-      expect(entry, a.symbol).toMatchObject({ pool: null, v3Pool: a.v3Pool });
-      expect(next.guard.chains.robinhood.assets[id], a.symbol).toEqual({
-        address: a.token,
-        decimals: a.tokenDecimals,
-        v3Pool: a.v3Pool,
-      });
-    }
-    EvmDeploymentRecord.parse(next.record);
-    readDeploymentFile(next.guard);
-    // --status still reads the file against the record afterwards.
-    expect(() => heldToFile(next.record, list)).not.toThrow();
+  it('are exactly what --promote makes of the record and the guard’s file that held them pending', () => {
+    const { operationId } = assetBatch(list);
+    const mine = new Set<string>(list.assets.map((a) => a.token));
+    const before = structuredClone(now);
+    before.assets = now.assets.filter((a: { address: string }) => !mine.has(a.address));
+    before.pending = list.assets.map((a) => recordEntryOf(a, operationId));
+    const guardBefore = structuredClone(guardNow);
+    for (const a of list.assets)
+      delete guardBefore.chains.robinhood.assets[`robinhood:${a.symbol.toLowerCase()}`];
+    expect(() => heldToFile(before, list)).not.toThrow();
+    const next = promote(before, guardBefore, [...mine], [], true);
+    expect(JSON.stringify(next.record)).toBe(JSON.stringify(now));
+    expect(JSON.stringify(next.guard)).toBe(JSON.stringify(guardNow));
   });
 });

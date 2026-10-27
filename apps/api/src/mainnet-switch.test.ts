@@ -189,7 +189,8 @@ describe('Robinhood Chain on mainnet', () => {
     );
     const rows = deploymentAssets(record);
     // the committed record's shown tokens and its cash: the 20 rows the hosted table holds since
-    // Oct 15, and the five shown since the v3 route (gate V3-ROUTE, Oct 23)
+    // Oct 15, the five shown since the v3 route (gate V3-ROUTE, Oct 23), and GME, listed by the
+    // Safe's batch of gate LIST-13
     const v3Five = ['AMD', 'INTC', 'MU', 'QQQ', 'SLV'];
     expect(rows.map((r) => r.symbol).sort()).toEqual(
       [
@@ -197,9 +198,10 @@ describe('Robinhood Chain on mainnet', () => {
         ...['AAPL', 'AMZN', 'BABA', 'COIN', 'CRCL', 'GLD', 'GOOGL', 'META', 'MSFT', 'MSTR'],
         ...['NVDA', 'PLTR', 'SPCX', 'SPY', 'TSLA', 'TSM', 'USO', 'WETH', 'cbBTC'],
         ...v3Five,
+        'GME',
       ].sort(),
     );
-    expect(holdToEvmRecord(rows, record)).toHaveLength(25);
+    expect(holdToEvmRecord(rows, record)).toHaveLength(26);
     expect(missingFromEvmRecord(rows, record)).toEqual([]);
     // the table as it stood before the redeploy's rows were written: ten of the twenty-five. The API
     // starts on them (withdrawals and reads go on), and the other fifteen are named, each with its address.
@@ -209,14 +211,15 @@ describe('Robinhood Chain on mainnet', () => {
     expect(missingFromEvmRecord(before, record)).toEqual(
       rows.filter((r) => !ten.includes(r.symbol)).map((r) => ({ id: r.id, address: r.address })),
     );
-    // the table as it stands from Oct 15 until the fill script runs again: the five are named
-    const sinceOct15 = rows.filter((r) => !v3Five.includes(r.symbol));
+    // the table as it stands from Oct 15 until the fill script runs again: the five and GME are named
+    const later = [...v3Five, 'GME'];
+    const sinceOct15 = rows.filter((r) => !later.includes(r.symbol));
     expect(holdToEvmRecord(sinceOct15, record)).toHaveLength(20);
     expect(
       missingFromEvmRecord(sinceOct15, record)
         .map((m) => m.id)
         .sort(),
-    ).toEqual(v3Five.map((x) => `robinhood:${x.toLowerCase()}`).sort());
+    ).toEqual(later.map((x) => `robinhood:${x.toLowerCase()}`).sort());
   });
 
   it('names every row that does not match the record, and the script that writes them', () => {

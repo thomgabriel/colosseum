@@ -67,6 +67,10 @@ Before the Safe signs (this pull request): GME is under `pending` in `deployment
 
 After the Safe's transaction lands (a second pull request, opened then; prepared on branch `evm/list-13-promote`, whose record is exactly what `--promote` writes): `pnpm ops:add-assets --status --rpc-env ROBINHOOD_RPC_URL` must say "GME listed as the file says"; then `pnpm ops:add-assets --promote --rpc-env ROBINHOOD_RPC_URL` reads the factory's `asset(GME)`, refuses any other settings than the file's, and moves GME from `pending` to the record's `assets` with its `v3Pool` and into the guard's file, exactly as QQQ is, and regenerates the guard's tables. Then the hosted `basket_assets` gets GME's row (`scripts/robinhood/basket-assets.ts deployments/robinhood-mainnet.json`, a person applies it) before the API's next deploy, and `GET /v1/config` must show `"missingAssets":[]` for `robinhood`.
 
+## Executed
+
+The Safe executed the batch on 2026-10-27: transaction `0x0d2a50a40f5965f388e56f9f0aa2e8bd13002b124fe6a7c19e57c187c5767d2c`, block 99,480,911. `isAsset(GME)` returns true, and `pnpm ops:add-assets --status` reads "GME listed as the file says". The record's `pending` entry moved to `assets` with `--promote`.
+
 ## For the signers
 
 1. **Open** the Safe `0x4568…5Fdc` on Robinhood Chain in the Safe app, Apps, Transaction Builder, and drag in `contracts/script/config/4663-assets-3.safe.json` from this pull request's head. No warning about the checksum may show; one means the file was changed after it was written.

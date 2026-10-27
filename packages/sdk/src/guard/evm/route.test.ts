@@ -828,7 +828,7 @@ describe("the guard on EVM: a token whose pool is a v3 pool, on mainnet's file",
   const buyQqq = (o: Partial<RouteV3Of> = {}) =>
     routeV3Of({ tokenIn: cash, tokenOut: qqq?.token ?? '', amountIn, fee: 500, ...o });
 
-  it('lists the five with their v3 pool and no v4 one', () => {
+  it('lists the five, and GME (gate LIST-13), with their v3 pool and no v4 one', () => {
     const v3 = Object.entries(live.assets)
       .filter(([, a]) => a.v3Pool)
       .map(([id, a]) => [id, a.v3Pool?.fee, a.pool]);
@@ -838,6 +838,7 @@ describe("the guard on EVM: a token whose pool is a v3 pool, on mainnet's file",
       ['robinhood:amd', 3000, undefined],
       ['robinhood:intc', 3000, undefined],
       ['robinhood:slv', 3000, undefined],
+      ['robinhood:gme', 500, undefined],
     ]);
     expect(live.assets['robinhood:dell']).toBeUndefined();
   });
