@@ -5,7 +5,7 @@
 
 Picked by Rodrigo on 2026-10-08 from five options drawn on the accepted palette ([logo-options-2.html](./logo-options-2.html)). The three directions of 2026-10-01 (pinned through-tenon elevation, stacked cantilever, the pin as full stop) are retired; the elevation's idea survives only as the provenance pin.
 
-**Brief every drawing of it must meet:** built from honey, the ground and the ground's text colour only; holds at 16 px; recedes to a "Powered by" credit; carries "Bearing" without a second brand; still works as `tenon`.
+**Brief every drawing of it must meet:** built from honey, the ground and the ground's text colour only; holds at 16 px; recedes to a "Powered by" credit; carries "Analytics" without a second brand; still works as `tenon`.
 
 ---
 
@@ -37,7 +37,7 @@ Below 12 px: text-only "Powered by tenonfi".
 
 | Variant | Tile | Tenon end | Pin | Use |
 |---|---|---|---|---|
-| **On night** | honey | night #0C0D12 | honey | App nav, Bearing, video, social avatar |
+| **On night** | honey | night #0C0D12 | honey | App nav, Analytics, video, social avatar |
 | **On paper** | honey | ink #15161C | honey | Docs, the plan, light marketing |
 | **App tile** | honey, platform mask | ink | honey | `logo/app-tile-1024.svg`. The platform's mask is the only rounding applied |
 | **On honey** | ink | honey | ink | Honey grounds only (closing sections, stickers). `logo/mark-32-on-honey.svg` |
@@ -64,7 +64,7 @@ Measurements at size 100: width 305.3, x-height 54.6, cap height 72.8.
 |---|---|---|
 | **Primary (horizontal)** | Mark height **H = 1.4 × cap height**. Gap = 0.4 × cap. The mark's centre sits 0.52 × cap above the baseline, so it reads level with the lowercase word. Mark on the left | `logo/lockup.svg`, `lockup-night.svg` |
 | **Fallback** | Same geometry with `tenon` | `logo/lockup-tenon.svg` |
-| **Product: `tenonfi Bearing`** | "Bearing" in Inter 500, scaled so its x-height equals the wordmark's; colour `muted-l` #6A6D78 on paper, `muted` #9A9DAD on night; gap = one word space (0.6 × x-height). Never a separate mark | `logo/lockup-bearing.svg`, `lockup-bearing-night.svg` |
+| **Product: `tenonfi Analytics`** | "Analytics" in Inter 500, scaled so its x-height equals the wordmark's; colour `muted-l` #6A6D78 on paper, `muted` #9A9DAD on night; gap = one word space (0.6 × x-height). Never a separate mark | `logo/lockup-bearing.svg`, `lockup-bearing-night.svg` |
 | **Stacked** | Mark above the wordmark, left edges aligned, vertical gap 0.5 × H. Square formats only (social card, slide closer, print) | `logo/lockup-stacked.svg`, `lockup-stacked-night.svg` |
 | **"Powered by"** | `Powered by` in the partner's UI font (or Inter 500) in the partner's muted colour, then the 16 px cut and the wordmark outlines at 1.15 × the text size (x-heights match). The mark takes the partner's muted colour (mono variant) or stays honey where the partner allows colour | `logo/powered-by.svg` |
 | **Wordmark only** | When the mark is already on screen (app header beside the favicon, footer) | `logo/wordmark*.svg` |
@@ -72,7 +72,7 @@ Measurements at size 100: width 305.3, x-height 54.6, cap height 72.8.
 ### Clear space and minimums
 
 - **Clear space: 0.25 H on every side**, for every cut and lockup (8 px at 32, 4 px at 16). Lockups measure it from the mark's H around the whole lockup box. In the "Powered by" credit the partner's card padding counts.
-- **Minimums:** master mark 28 px (24 hint from 20 px, small cut from 12 px); primary lockup 96 px wide (mark 22 px); `tenonfi Bearing` 140 px wide; "Powered by" 12 px mark, 11 px text, 13 px wordmark; wordmark alone 18 px font size; print: mark 6 mm, lockup 22 mm wide.
+- **Minimums:** master mark 28 px (24 hint from 20 px, small cut from 12 px); primary lockup 96 px wide (mark 22 px); `tenonfi Analytics` 140 px wide; "Powered by" 12 px mark, 11 px text, 13 px wordmark; wordmark alone 18 px font size; print: mark 6 mm, lockup 22 mm wide.
 
 ---
 

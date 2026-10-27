@@ -6,7 +6,7 @@ Start Claude Code inside this checkout, in the folder that holds this file. The 
 
 ## What this is
 
-Tenonfi turns a person's goal into a plan made to measure, with an exit plan before it invests, held in the person's own vault on one chain. Three pieces of work live here: the structurer (the engine), the liquidity and risk layer ("Bearing"), and the vault work, which is the live one. `docs/README.md` says which document is which.
+Tenonfi turns a person's goal into a plan made to measure, with an exit plan before it invests, held in the person's own vault on one chain. Three pieces of work live here: the structurer (the engine), the liquidity and risk layer (Analytics to a person; "Bearing" is its code name), and the vault work, which is the live one. `docs/README.md` says which document is which.
 
 Before any work, read the spec for the piece you touch:
 
@@ -22,12 +22,12 @@ Before any work, read the spec for the piece you touch:
 - A person's own vault may hold any composition of listed assets the person chooses (gate `ANY-COMPOSITION`, Thom, Oct 8). The model picks assets; the weights come from one deterministic function after it, an equal split unless the person stated shares in their own words, which it follows. What stays a limit: listed on the vault's chain, each once, at most 16 besides cash, evidence for each line, and the person's own stated limits. Shared portfolios keep their author limits, which the chain's registry says (the second rules, the rules of a person's own vault, on Robinhood Chain and Solana, gate `SHARED-RULES-V2`: an asset's ceiling is a warning there too), and engine-made plans keep the solver's caps.
 - Stock tokens are ineligible for income plans and for plans whose goal is to protect (gate `PROTECT-NO-STOCKS`). Enforce in the asset registry, not in the prompt. Test it. The one exception is the person's own vault when the person asked for that stock in their own words, as the server reads them; it then passes with a warning, and neither the engine nor the model adds one on its own (`ANY-COMPOSITION`).
 - A plan lives on one chain, the chain of the person's wallet: the deposit, the vault and every trade are there, and nothing is split across chains (gate `ONE-CHAIN`).
-- What an asset may weigh comes from Bearing's measured exit numbers: the cap on chain, the ceiling in a plan, the exit cost shown. A tier stands in only where nothing is measured, and is labelled as a fallback (gate `EXIT-SOURCE`). In the person's own vault the measured exit capacity is a warning that cites its figure, not a cap (`ANY-COMPOSITION`), and so it is in a shared portfolio under the second rules (`SHARED-RULES-V2`).
+- What an asset may weigh comes from the risk layer's measured exit numbers: the cap on chain, the ceiling in a plan, the exit cost shown. A tier stands in only where nothing is measured, and is labelled as a fallback (gate `EXIT-SOURCE`). In the person's own vault the measured exit capacity is a warning that cites its figure, not a cap (`ANY-COMPOSITION`), and so it is in a shared portfolio under the second rules (`SHARED-RULES-V2`).
 - The "BRL leg" is an abstract asset with a parameterised cap and mint path. No BRS-specific code until `docs/GATES.md` marks G-Nora as PASSED.
 - Every mainnet transaction is logged with its explorer link in the `executions` table and shown in the UI.
 - Do not present the product as licensed advice. The disclaimer text lives in one constant and appears on the plan view and in API docs.
 - Build the product, not demo code: real API, real schema, real migrations.
-- Product words follow the brand: goal, limits, plan, portfolio, exit plan, rebalance, Bearing. No return promises. Nothing a user reads says "mix" or "buy": what a proposal holds is the vault, and putting money in is a deposit (gate `WORDS-VAULT-DEPOSIT`); code names keep theirs. Competitors are not named in anything a user reads. The package scope `@colosseum` and the code names `basket` and `index` are working names until the one rename (FRAME-4).
+- Product words follow the brand: goal, limits, plan, portfolio, exit plan, rebalance, Analytics. No return promises. Nothing a user reads says "mix" or "buy": what a proposal holds is the vault, and putting money in is a deposit (gate `WORDS-VAULT-DEPOSIT`); nor "Bearing": the liquidity and risk section is Analytics, "Análises" in Portuguese (gate `ANALYTICS-NAME`, `tests/analytics-name.test.ts`); code names keep theirs. Competitors are not named in anything a user reads. The package scope `@colosseum` and the code names `basket` and `index` are working names until the one rename (FRAME-4).
 
 ## The contract: what "done" means
 

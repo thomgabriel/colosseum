@@ -1,9 +1,9 @@
-# Bearing heatmap tile
-> Type: custom | Component: `<DepthHeatmap>` inside a `<BearingTile>` | Surface: Bearing dashboard (dark default; light ships too) | Data: `DepthObservation` from `scripts/depth-snapshot.ts` | Revised 2026-10-08 (honey on night)
+# Analytics heatmap tile
+> Type: custom | Component: `<DepthHeatmap>` inside a `<BearingTile>` | Surface: Analytics dashboard (dark default; light ships too) | Data: `DepthObservation` from `scripts/depth-snapshot.ts` | Revised 2026-10-08 (honey on night)
 
 The hour-of-week depth heatmap as a lattice (24 × 7): how much of an xStock can be sold at ≤ X% impact, by hour, measured. It is the instrument drawn as a drawing.
 
-## Tile anatomy (all Bearing tiles)
+## Tile anatomy (all Analytics tiles)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐ night-2 on night, 1px line, 10px radius, 16px padding
@@ -38,7 +38,7 @@ Light mode: white tiles on paper, line-l edges, ink text, muted-l meta; the same
 ## Rules
 
 - Every figure (KPI, cell popover, scale ends) carries source · fetched_at · method via the pin. `method` includes the impact threshold and version.
-- Not shown for income contexts: Bearing measures xStocks, which income plans never hold. The plan view's exit panel links to Bearing only for non-income plans.
+- Not shown for income contexts: Analytics measures xStocks, which income plans never hold. The plan view's exit panel links to Analytics only for non-income plans.
 - No bevels, nameplates, LEDs, glow or traffic-light colours (anti-Teiten). The heatmap is honey by lightness, never leaf-to-madder. No animation of cells.
 - Dashed = projected: if a forecast row is ever added, its cells use a dashed outline and "projected".
 - 13px type, 36px rows in any table beside it ([data-table.md](./data-table.md) dense).
