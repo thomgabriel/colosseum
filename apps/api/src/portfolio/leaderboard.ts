@@ -28,11 +28,11 @@ import { SNAPSHOT_LOOKBACK_DAYS } from './snapshots';
 
 /** How a row's `pnl` is made: its `method`. */
 export const LEADERBOARD_PNL_METHOD =
-  'value at the newest snapshot less what went in: the cash of each confirmed deposit made in this app, less each confirmed withdrawal at its value when it was ordered; a vault opened again counts from then';
+  'value at the newest snapshot, plus each confirmed withdrawal at its value when it was ordered, less the cash of each confirmed deposit made in this app; as a share, that over the deposits; a vault opened again counts from then';
 
 /** How the rows are ordered: the answer's `rule`. */
 export const LEADERBOARD_RULE =
-  'by what the vault made as a share of what went in, highest first, then by what it made in dollars; a vault that made a figure but has nothing left in it follows, by dollars; a vault with no figure comes last, by value';
+  'by what the vault made as a share of what was deposited into it, highest first, then by what it made in dollars; a vault with no figure (no deposit made in this app, or never read) comes last, by value';
 
 const MICRO = 1_000_000n;
 
@@ -56,18 +56,23 @@ export function decimalOf(micro: bigint): string {
 export const shortOwner = (address: string) =>
   address.length > 12 ? `${address.slice(0, 4)}…${address.slice(-4)}` : address;
 
-/** What a vault made: value less (deposits less withdrawals), and that as a share of what went in. */
+/**
+ * What a vault made: value plus withdrawals less deposits, and that as a share of the deposits (gate
+ * LEADERBOARD, amended Oct 28). The share is over everything deposited, not over what is left in: over
+ * what is left in, a vault that took most of its money out would show a share of thousands of percent.
+ */
 export function pnlOf(a: { valueUsd: string; depositsUsd: string; withdrawalsUsd: string }): {
   usd: string;
   pct: number | null;
   netInUsd: string;
 } {
-  const net = microOf(a.depositsUsd) - microOf(a.withdrawalsUsd);
+  const deposits = microOf(a.depositsUsd);
+  const net = deposits - microOf(a.withdrawalsUsd);
   const made = microOf(a.valueUsd) - net;
   return {
     usd: decimalOf(made),
-    // Nothing left in, or more taken out than put in: a share of that is no figure.
-    pct: net > 0n ? Number(made) / Number(net) : null,
+    // Over the deposits, whatever was taken out since. Nothing deposited: no share.
+    pct: deposits > 0n ? Number(made) / Number(deposits) : null,
     netInUsd: decimalOf(net),
   };
 }

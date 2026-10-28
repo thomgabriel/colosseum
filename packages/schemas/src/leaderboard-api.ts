@@ -29,8 +29,8 @@ export type LeaderboardHolding = z.infer<typeof LeaderboardHolding>;
 
 /**
  * What a vault made or lost: its value now less what went in, deposits less withdrawals, as the
- * portfolio's overview counts it. `pct` is `usd` over what went in, a fraction (0.05 is 5%), and null
- * where what went in is not above zero.
+ * portfolio's overview counts it. `pct` is `usd` over the deposits, a fraction (0.05 is 5%), whatever
+ * was taken out since; null only where nothing was deposited.
  */
 export const LeaderboardPnl = Sourced.extend({
   usd: SignedDecimal,

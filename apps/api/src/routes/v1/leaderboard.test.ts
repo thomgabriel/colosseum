@@ -180,7 +180,7 @@ afterAll(async () => {
 
 describe('GET /v1/leaderboard', () => {
   it('ranks every open vault by what it made, with deposits less withdrawals as what went in', async () => {
-    // Up: $1,000 in, $200 out, worth $1,100 now: it made $300 on the $800 left in.
+    // Up: $1,000 in, $200 out, worth $1,100 now: it made $300, 30% of the $1,000 deposited.
     const a = await someone();
     const up = await vaultOf(a, { number: '7' });
     await deposit(a, '7', 1000);
@@ -243,7 +243,7 @@ describe('GET /v1/leaderboard', () => {
       value: { usd: '1100.00', provenance: 'mock', fetchedAt: upRead },
       pnl: {
         usd: '300.00',
-        pct: 0.375,
+        pct: 0.3,
         netInUsd: '800.00',
         depositsUsd: '1000.00',
         withdrawalsUsd: '200.00',

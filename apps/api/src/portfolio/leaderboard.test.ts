@@ -56,11 +56,11 @@ describe('dollars as exact decimals', () => {
 });
 
 describe('what a vault made', () => {
-  it('is its value less deposits less withdrawals, and that over what went in', () => {
-    // $1,000 in, $200 out, worth $900: it made $100 on the $800 left in.
+  it('is its value plus withdrawals less deposits, and that over the deposits', () => {
+    // $1,000 in, $200 out, worth $900: it made $100 on the $1,000 deposited.
     expect(pnlOf({ valueUsd: '900.00', depositsUsd: '1000', withdrawalsUsd: '200' })).toEqual({
       usd: '100.00',
-      pct: 0.125,
+      pct: 0.1,
       netInUsd: '800.00',
     });
     // A loss is negative, in dollars and as a share.
@@ -71,13 +71,36 @@ describe('what a vault made', () => {
     });
   });
 
-  it('has no share where nothing is left in, or more was taken out than put in', () => {
-    expect(pnlOf({ valueUsd: '10.00', depositsUsd: '100', withdrawalsUsd: '100' })).toEqual({
-      usd: '10.00',
-      pct: null,
-      netInUsd: '0.00',
-    });
-    expect(pnlOf({ valueUsd: '0', depositsUsd: '100', withdrawalsUsd: '150' }).pct).toBeNull();
+  // Over what is left in, these read +10,000%, −98% and no share at all (gate LEADERBOARD, Oct 28).
+  const grewThenOut = { valueUsd: '101.00', depositsUsd: '100', withdrawalsUsd: '99' };
+  const fellThenOut = { valueUsd: '1.00', depositsUsd: '100', withdrawalsUsd: '49' };
+  const cashedOut = { valueUsd: '10.00', depositsUsd: '100', withdrawalsUsd: '150' };
+
+  it('keeps its share after a withdrawal: the share is of what was deposited', () => {
+    // $100 in, grew to $200, $99 taken out: it doubled.
+    expect(pnlOf(grewThenOut)).toMatchObject({ usd: '100.00', pct: 1 });
+    // $100 in, fell to $50, $49 taken out: it lost half.
+    expect(pnlOf(fellThenOut)).toMatchObject({ usd: '-50.00', pct: -0.5 });
+    // $100 in, grew to $160, $150 taken out: more out than in, and still its real share.
+    expect(pnlOf(cashedOut)).toMatchObject({ usd: '60.00', pct: 0.6, netInUsd: '-50.00' });
+  });
+
+  it('ranks those three by their real share', () => {
+    const rowOf = (address: string, a: typeof grewThenOut) => {
+      const { usd, pct } = pnlOf(a);
+      return row(address, a.valueUsd, { usd, pct });
+    };
+    expect(
+      ranked([
+        rowOf('fell', fellThenOut),
+        rowOf('cashed', cashedOut),
+        rowOf('grew', grewThenOut),
+      ]).map((r) => r.address),
+    ).toEqual(['grew', 'cashed', 'fell']);
+  });
+
+  it('has no share only where nothing was deposited', () => {
+    expect(pnlOf({ valueUsd: '10.00', depositsUsd: '0', withdrawalsUsd: '0' }).pct).toBeNull();
   });
 });
 
