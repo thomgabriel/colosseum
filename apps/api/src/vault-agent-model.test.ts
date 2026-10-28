@@ -216,7 +216,25 @@ describe('vault proposal provider uses the existing model settings and a shared 
     expect(JSON.stringify(VAULT_AGENT_REPLY_SCHEMA)).not.toMatch(/purpose|goal|risk/);
     expect(VAULT_AGENT_SYSTEM).toContain('Only the server reads these');
     expect(VAULT_AGENT_SYSTEM).toContain('Never state, assume or infer a goal or a risk');
-    expect(VAULT_AGENT_SYSTEM).toContain('use question to ask for what is missing');
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'use question to ask for the one missing thing the data can act on',
+    );
+  });
+
+  // ANALYTICS-FIRST (Thom, Oct 28): no risk-level talk; choices and "why" answered from measured figures.
+  it('never asks for a risk level, and chooses and explains from the measurements', () => {
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/how much risk they accept/u);
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'Never ask the person for a risk level (low, medium or high) and never say one back',
+    );
+    expect(VAULT_AGENT_SYSTEM).toContain('how much, when they need it, or which assets or themes');
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'Choose and explain from the measurements, not from labels',
+    );
+    expect(VAULT_AGENT_SYSTEM).toMatch(/deeper exit capacity and a lower exit cost/u);
+    expect(VAULT_AGENT_SYSTEM).toContain('Asked why an asset ("why TSLAx?"');
+    expect(VAULT_AGENT_SYSTEM).toContain('what would make it not fit');
+    expect(VAULT_AGENT_SYSTEM).toContain('or why an asset was picked');
   });
 
   it('asks the model for picks only: no weight in its schema, and the prompt says the server sets them', () => {

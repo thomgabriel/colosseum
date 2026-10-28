@@ -378,4 +378,32 @@ describe('the relaxed intake looks up the data we hold', () => {
     expect(rules?.text).toMatch(/never a return/u);
     expect(rules?.text).toMatch(/no verdict/u);
   });
+
+  // ANALYTICS-FIRST (Thom, Oct 28)
+  it('chooses from the measurements, asks for no risk level, and answers "why" with its figures', async () => {
+    const { calls } = await ask({ final: sheet('Noted.') }, 'hello');
+    const rules = systemOf(calls[0])[0]?.text ?? '';
+    expect(rules).toContain('Choose from the measurements, not from labels');
+    expect(rules).toContain(
+      'Never ask the person for a risk level (low, medium or high) and never say one back',
+    );
+    expect(rules).toContain('Asked why a holding ("why TSLAx?"');
+    expect(rules).toContain('or why an asset was picked');
+  });
+
+  it('looks up a holding\'s figures on "why NVDAx?" and serves them by reference', async () => {
+    const profile = { name: 'asset_profile', input: { assetId: NVDA } };
+    const { result, calls } = await ask(
+      {
+        lookups: [[profile]],
+        final: sheet(
+          `I picked NVDAx for how much trades. Its pools hold ${ref(`profile:${NVDA}:pool_tvl_usd`)} in total.`,
+        ),
+      },
+      'why NVDAx?',
+    );
+    expect(toolResults(calls[1])[0]?.json).toMatchObject({ assetId: NVDA, part: 'profile' });
+    expect(result.kind === 'reply' && result.lookups).toMatchObject({ rounds: 1, calls: 1 });
+    expect(factsOf(result).has(`profile:${NVDA}:pool_tvl_usd`)).toBe(true);
+  });
 });

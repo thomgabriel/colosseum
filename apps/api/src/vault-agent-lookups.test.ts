@@ -146,6 +146,25 @@ beforeEach(() => {
 });
 
 describe("a vault's own conversation looks up the data we hold", () => {
+  // ANALYTICS-FIRST (Thom, Oct 28): "why this asset?" is answered with its measured figures.
+  it('looks up an asset\'s figures on "why NVDAx?" and serves them by reference', async () => {
+    const profile = { name: 'asset_profile', input: { assetId: NVDA } };
+    const { result, calls } = await ask(
+      {
+        lookups: [[profile]],
+        final: said(
+          `I picked Nvidia for how much trades. Its pools hold ${ref(`profile:${NVDA}:pool_tvl_usd`)} in total.`,
+        ),
+      },
+      'why NVDAx?',
+    );
+    expect(calls).toHaveLength(2);
+    expect(toolResults(calls[1])).toHaveLength(1);
+    const reply = served(result);
+    expect(reply.figures?.facts.map((fact) => fact.id)).toContain(`profile:${NVDA}:pool_tvl_usd`);
+    expect(reply.message).not.toMatch(/\{\{/u);
+  });
+
   it('serves a looked-up figure by reference with its pin', async () => {
     const { result, calls, responses } = await ask({ lookups: [[week]], final: said(MOVED) });
     const reply = served(result);
