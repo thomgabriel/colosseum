@@ -82,6 +82,8 @@ async function toVault(
   page: Page,
   /** What the vault is bought into, where it is to start away from its 60/40 targets. */
   holds?: { asset: string; weightBps: number }[],
+  /** Its targets, and the cash its swaps leave, where a test wants more than SPY and NVDA. */
+  more?: { targets: { asset: string; weightBps: number }[]; cashLeftRaw?: string },
 ): Promise<string> {
   await page.request.post(`${STUB}/__stub/reset`);
   await page.goto('/invest');
@@ -100,11 +102,12 @@ async function toVault(
   const source = await page.request.post(`${STUB}/__stub/source-vault`, {
     data: {
       owner,
-      targets: [
+      targets: more?.targets ?? [
         { asset: 'solana:spy', weightBps: 6000 },
         { asset: 'solana:nvda', weightBps: 4000 },
       ],
       ...(holds ? { holds } : {}),
+      ...(more?.cashLeftRaw ? { cashLeftRaw: more.cashLeftRaw } : {}),
     },
   });
   expect(source.ok(), await source.text()).toBe(true);
@@ -803,3 +806,59 @@ for (const holds of [
     }
   });
 }
+
+// Thom, Oct 28: with six holdings the sixth row was cut off at the card's foot and nothing scrolled to
+// it. The house panel has `overflow-hidden` (its corners), so in the pane's column it shrank to what
+// was left of the window; the pane's children now keep their height and the pane scrolls instead.
+test('every holding is in reach: the pane scrolls to the last row, at desk sizes and on a phone', async ({
+  page,
+}) => {
+  await toVault(page, undefined, {
+    targets: [
+      { asset: 'solana:spy', weightBps: 2500 },
+      { asset: 'solana:nvda', weightBps: 2000 },
+      { asset: 'solana:tsla', weightBps: 2000 },
+      { asset: 'solana:gold', weightBps: 2000 },
+      { asset: 'solana:yield', weightBps: 1500 },
+    ],
+    cashLeftRaw: '5000000',
+  });
+  const plan = page.locator('[data-ui="vault-plan"]');
+  const rows = plan.locator('[data-ui="composition-table"] tbody [data-row]');
+  // five assets and the cash the swaps left
+  await expect(rows).toHaveCount(6);
+  for (const size of [
+    { width: 1440, height: 900 },
+    { width: 1280, height: 720 },
+    { width: 1280, height: 650 },
+    { width: 1024, height: 650 },
+  ]) {
+    await page.setViewportSize(size);
+    const at = `${size.width}x${size.height}`;
+    const m = await rows.last().evaluate((last) => {
+      const pane = document.querySelector<HTMLElement>('[data-ui="vault-plan"]') as HTMLElement;
+      pane.scrollTop = pane.scrollHeight;
+      // the nearest box that cuts off what overflows it, above the table's own sideways scroller
+      let clip =
+        last.closest('[data-ui="composition-table"]')?.parentElement?.parentElement ?? null;
+      while (clip && clip !== pane && getComputedStyle(clip).overflowY === 'visible')
+        clip = clip.parentElement;
+      const doc = document.scrollingElement as HTMLElement;
+      return {
+        row: Math.round(last.getBoundingClientRect().bottom),
+        clip: clip ? Math.round(clip.getBoundingClientRect().bottom) : -1,
+        pane: Math.round(pane.getBoundingClientRect().bottom),
+        pageTall: doc.scrollHeight - doc.clientHeight,
+      };
+    });
+    expect(m.row, `${at}: the last row is not cut off by its card`).toBeLessThanOrEqual(m.clip);
+    expect(m.row, `${at}: the pane scrolls to the last row`).toBeLessThanOrEqual(m.pane);
+    expect(m.pageTall, `${at}: the page itself does not scroll`).toBeLessThanOrEqual(0);
+    await expect(rows.last()).toBeInViewport();
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/vault-six-rows-${at}.png` });
+  }
+  // on a phone the page scrolls, and the last row comes into view
+  await page.setViewportSize(PHONE);
+  await rows.last().scrollIntoViewIfNeeded();
+  await expect(rows.last()).toBeInViewport();
+});
