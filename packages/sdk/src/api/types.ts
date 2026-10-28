@@ -2026,6 +2026,14 @@ export type PostConversationsByChainGoalAcceptResponse =
             usd: number;
             measured: boolean;
           } | null;
+          exitCost?: {
+            source: string;
+            method: string;
+            fetchedAt: string;
+            provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+            bps: number;
+            sizeUsd: number;
+          };
         }[];
         targets: {
           asset: string;
@@ -2088,6 +2096,14 @@ export type PostConversationsByChainGoalAcceptResponse =
             usd: number;
             measured: boolean;
           } | null;
+          exitCost?: {
+            source: string;
+            method: string;
+            fetchedAt: string;
+            provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+            bps: number;
+            sizeUsd: number;
+          };
         }[];
         targets: {
           asset: string;
@@ -4967,6 +4983,14 @@ export type PostVaultsByChainByAddressTargetsResponse =
             usd: number;
             measured: boolean;
           } | null;
+          exitCost?: {
+            source: string;
+            method: string;
+            fetchedAt: string;
+            provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+            bps: number;
+            sizeUsd: number;
+          };
         }[];
         targets: {
           asset: string;
@@ -5029,6 +5053,14 @@ export type PostVaultsByChainByAddressTargetsResponse =
             usd: number;
             measured: boolean;
           } | null;
+          exitCost?: {
+            source: string;
+            method: string;
+            fetchedAt: string;
+            provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
+            bps: number;
+            sizeUsd: number;
+          };
         }[];
         targets: {
           asset: string;

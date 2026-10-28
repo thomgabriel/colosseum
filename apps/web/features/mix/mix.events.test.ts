@@ -939,7 +939,7 @@ describe('a new goal’s mix, deposited from one screen (gate DEPOSIT-ONE-SCREEN
     await deposit(host, '100');
     const summary = find(host, '[data-ui="deposit-summary"]');
     expect(summary.textContent?.replace(/\s+/g, ' ')).toBe(
-      `${en.mix.deposit.summary.holdings(1)} · ${en.mix.deposit.summary.exitCostAt('$100.00')} 0.07% ${en.mix.deposit.summary.atWorst} · ${en.mix.deposit.summary.within}`,
+      `${en.mix.deposit.summary.holdings(1)} · ${en.mix.deposit.summary.worstExit} 0.07% · ${en.mix.deposit.summary.within}`,
     );
     // the exit cost carries its pin, from the server's figure
     expect(find(summary, '[data-ui="summary-exit-cost"] [data-ui="figure"]')).not.toBeNull();

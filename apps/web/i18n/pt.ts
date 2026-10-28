@@ -2563,8 +2563,7 @@ export const pt: Dictionary = {
       currency: 'US$',
       summary: {
         holdings: (n: number) => (n === 1 ? '1 ativo' : `${n} ativos`),
-        exitCostAt: (amount: string) => `custo de saída com ${amount}:`,
-        atWorst: 'no pior caso',
+        worstExit: 'pior custo de saída de um ativo no seu valor:',
         within: 'todo ativo dentro do que consegue vender',
         over: (n: number) =>
           n === 1

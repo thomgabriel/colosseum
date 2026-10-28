@@ -113,8 +113,9 @@ export function DepositFacts({
 
 /**
  * One line of measured facts about the vault at this amount, over its rows (gate DEPOSIT-ONE-SCREEN,
- * amended Oct 28 by Thom: objective, no goal or risk label): how many holdings, the worst exit cost at
- * this size among them with its pin, and whether every holding is within what it can sell as planned,
+ * amended Oct 28 by Thom: objective, no goal or risk label): how many holdings, the worst exit cost
+ * of any one holding at its own size on the card, with its pin (each line's cost is of selling that
+ * line, never of the whole deposit), and whether every holding is within what it can sell as planned,
  * as the server's check says; a ceiling that is a tier's, not a measurement, is said as such.
  */
 export function DepositSummary({ review }: { review: MixReview }) {
@@ -143,8 +144,7 @@ export function DepositSummary({ review }: { review: MixReview }) {
     ...(worst
       ? [
           <span key="cost" data-ui="summary-exit-cost">
-            {s.exitCostAt(dollars(lang, review.amountUsd.toFixed(2)))}{' '}
-            <ProvenancePin value={pct(worst.bps)} obs={worst} labels={t.pin} /> {s.atWorst}
+            {s.worstExit} <ProvenancePin value={pct(worst.bps)} obs={worst} labels={t.pin} />
           </span>,
         ]
       : []),
@@ -154,12 +154,9 @@ export function DepositSummary({ review }: { review: MixReview }) {
     </span>,
   ];
   return (
-    <p
-      data-ui="deposit-summary"
-      className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-body-sm"
-    >
+    <p data-ui="deposit-summary" className="text-body-sm [overflow-wrap:anywhere]">
       {parts.map((part, i) => (
-        <span key={(part as { key: string }).key} className="whitespace-nowrap">
+        <span key={(part as { key: string }).key}>
           {part}
           {i < parts.length - 1 && <span aria-hidden="true">{' · '}</span>}
         </span>

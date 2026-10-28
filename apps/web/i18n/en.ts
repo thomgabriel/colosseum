@@ -2904,8 +2904,7 @@ export const en = {
       /** One line of measured facts of the vault at this amount, over its rows (no goal or risk label). */
       summary: {
         holdings: (n: number) => (n === 1 ? '1 holding' : `${n} holdings`),
-        exitCostAt: (amount: string) => `exit cost at ${amount}:`,
-        atWorst: 'at worst',
+        worstExit: 'worst exit cost of one holding at its size:',
         within: 'every holding within what it can sell',
         over: (n: number) =>
           n === 1
