@@ -26,7 +26,7 @@ export const TEST_FUNDS = {
   /** Sends per person per day. */
   perPerson: 3,
   /** Sends per day for everybody together. */
-  perDay: 100,
+  perDay: 500,
   /** How long a count is kept, in seconds: a day. */
   windowSeconds: 86_400,
   /** Over what is missing of the test dollar, in basis points: a rounding margin. */
@@ -34,7 +34,7 @@ export const TEST_FUNDS = {
   /** Over what is missing of gas, in basis points: fees move between the read and the buy. */
   gasMarginBps: 2_500,
   /** The most test dollars one send transfers, in whole dollars. */
-  maxCashUsd: 5_000,
+  maxCashUsd: 10_000,
   /**
    * The most gas one send transfers, in raw units of the native token: 0.05 SOL; 0.0005 ETH, about
    * twenty times what a buy's steps cost there.
