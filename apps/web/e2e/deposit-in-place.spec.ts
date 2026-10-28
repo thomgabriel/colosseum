@@ -3,9 +3,9 @@ import { expect, type Page, test } from '@playwright/test';
 import { dictionary } from '../i18n';
 import { inTheme } from './theme';
 
-// The deposit, signed in place on /invest (gate DEPOSIT-IN-PLACE), end to end on the mock chain: the
-// conversation, the proposal, the deposit step, the review, and then the steps to sign in the same
-// pane, every one signed through the guard, to the finished state and the vault's own page. The
+// The deposit, signed in place on /invest (gates DEPOSIT-IN-PLACE, DEPOSIT-ONE-SCREEN), end to end on
+// the mock chain: the conversation, the proposal, then one card with the amount, each holding's facts
+// and the steps to sign, every one signed through the guard, to the finished state and the vault's own page. The
 // address never changes until "Open your vault". Then a step the server lies about, refused in the
 // pane; the pane taken up again after the conversation's screen is left and opened again; and a quote
 // that ran out. Every stage is checked with axe at 375 px, in light and in dark, and for no sideways
@@ -65,12 +65,11 @@ async function signIn(page: Page) {
 }
 
 const pane = (page: Page) => page.locator('[data-ui="deposit-sign"]');
+// The press, at the deposit card's foot until it is pressed (gate DEPOSIT-ONE-SCREEN).
 const press = (page: Page) =>
-  pane(page)
-    .locator('[data-ui="invest-card"]')
-    .getByRole('button', {
-      name: en.invest.press('$100'),
-    });
+  page.locator('[data-ui="deposit-foot"]').getByRole('button', {
+    name: en.invest.press('$100'),
+  });
 
 /** From the conversation to the steps on the pane, the wallet funded and the notice ticked. */
 async function toSteps(page: Page, shots = false) {
@@ -88,28 +87,32 @@ async function toSteps(page: Page, shots = false) {
   await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
   await expect(step.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checked);
   if (shots) await check(page, '04-amount');
-  await page.getByRole('button', { name: en.mix.deposit.reviewOf('$100') }).click();
-  await expect(page.getByRole('heading', { name: en.mix.review.title })).toBeFocused();
-  const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
-  for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
-  if (shots) await check(page, '05-review');
-  await page.getByRole('button', { name: en.mix.goal.confirm }).click();
+  // one screen (gate DEPOSIT-ONE-SCREEN): each holding's facts under its name, the warnings in one
+  // short list with one box, and no review screen to go through
+  await expect(step.locator('[data-ui="deposit-facts"]').first()).toBeVisible();
+  const ack = step.locator('[data-ui="warnings-ack"]');
+  if ((await ack.count()) > 0) await ack.check();
+  if (shots) await check(page, '05-checked');
 
-  // the steps to sign take the pane: the amount as a fact, and no field to type it again
+  // our server checks every line again and stores the plan: the steps to sign are on the same card,
+  // under the amount, which is still the one field
   await expect(pane(page)).toHaveAttribute('data-state', 'ready');
-  await expect(
-    pane(page).getByRole('heading', { name: en.mix.deposit.signing.title }),
-  ).toBeFocused();
-  await expect(pane(page).locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
+  await expect(step.locator('[data-ui="amount-well"] input')).toHaveValue('100');
   await expect(pane(page).locator('input[inputmode="decimal"]')).toHaveCount(0);
+  await expect(page.locator('[data-action="mix-confirm"]')).toHaveCount(0);
   const card = pane(page).locator('[data-ui="invest-card"]');
   // the wallet is short: what is missing and the way to fill it, and no order yet
   await expect(card.locator('[data-ui="funding-step"]')).toBeVisible();
   await expect(card.locator('[data-ui="order-step"]')).toHaveCount(0);
   if (shots) await check(page, '06-sign-wallet-short');
   await card.getByRole('button', { name: en.buy.funding.mockFund }).click();
-  // the order is on the card: what it does in one sentence, its steps one fold away (SIGN-ONE-STEP)
-  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
+  // the order is on the card: its costs in one line at the foot, over the press, its steps one fold
+  // away (SIGN-ONE-STEP)
+  const costs = step.locator('[data-ui="deposit-foot"] [data-ui="order-costs"]');
+  await expect(costs).toBeVisible({ timeout: 30_000 });
+  await expect(costs).toContainText(en.order.flow.stat.worst);
+  // the price the vault buys at, from the order's quote, beside the feed's
+  await expect(step.locator('[data-ui="pool-price"]').first()).toBeVisible();
   // a first deposit: the notice is in the pane and holds the press until it is ticked
   await expect(press(page)).toHaveAttribute('aria-disabled', 'true');
   await page.getByLabel(en.trust.accept).check();
@@ -120,11 +123,11 @@ async function toSteps(page: Page, shots = false) {
   await expect(card).toContainText(en.order.review.steps);
   await expect(card).toContainText(en.order.review.expires);
   await expect(card.locator('[data-ui="order-step"]').first()).toContainText('100');
-  // sample figures on the mock: the card's tag says so, and nothing reads as live
-  await expect(pane(page)).toContainText(en.shell.mockAnnounce);
+  // sample figures on the mock: the deposit card's tag says so, and nothing reads as live
+  await expect(step).toContainText(en.shell.mockAnnounce);
 }
 
-test('the whole deposit on /invest: chat, proposal, amount, review, every step signed, then the vault', async ({
+test('the whole deposit on /invest: chat, proposal, one screen from the amount to the press, every step signed, then the vault', async ({
   page,
 }) => {
   const visited: string[] = [];
@@ -260,10 +263,11 @@ test('a quote that ran out before the press: the pane says so and offers a fresh
   const left = expiresAt * 1000 - (await page.evaluate(() => Date.now()));
   await page.clock.fastForward(left + 2_000);
   const card = pane(page).locator('[data-ui="invest-card"]');
-  await expect(card.locator('[data-ui="invest-old"]')).toHaveText(en.invest.old);
+  const foot = page.locator('[data-ui="deposit-foot"]');
+  await expect(foot.locator('[data-ui="invest-old"]')).toHaveText(en.invest.old);
   await expect(card.locator('[data-ui="order-step"]')).toHaveCount(0);
   await check(page, '12-quote-ran-out');
-  await card.getByRole('button', { name: en.invest.again }).click();
-  await expect(card.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
+  await foot.getByRole('button', { name: en.invest.again }).click();
+  await expect(foot.locator('[data-ui="order-costs"]')).toBeVisible({ timeout: 30_000 });
   await expect(page).toHaveURL(/\/invest$/);
 });

@@ -183,6 +183,9 @@ export function BuyScreen({ id, embedded }: { id: string; embedded?: InvestEmbed
           }
         : {})}
       {...(embedded?.onFollowUp ? { onFollowUp: embedded.onFollowUp } : {})}
+      {...(embedded?.compact ? { compact: true } : {})}
+      {...(embedded?.onOrder ? { onOrder: embedded.onOrder } : {})}
+      {...(embedded?.foot ? { foot: embedded.foot } : {})}
     />
   );
   if (embedded) return card;

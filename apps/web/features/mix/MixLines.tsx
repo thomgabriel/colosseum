@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import { LOCALE } from '../../i18n';
 import { useLang, useT } from '../../i18n/I18nProvider';
 import { isCashId } from '../order/plain';
@@ -15,17 +16,22 @@ export type MixRow = {
   weightBps: number;
   /** The line's dollars as the server's review has them; null while there is no review of this mix. */
   amountUsd?: number | null;
+  /** Under the name: the line's own facts with their pins (the one-screen deposit's prices and exit). */
+  facts?: ReactNode;
 };
 
 export function MixLines({
   rows,
   caption,
   amounts = false,
+  narrow = false,
 }: {
   rows: readonly MixRow[];
   caption: string;
   /** Show the dollars column: on the deposit step, where an amount is typed. */
   amounts?: boolean;
+  /** Keep the columns in a narrow pane, each row's facts under its name (Composition's `narrow`). */
+  narrow?: boolean;
 }) {
   const t = useT();
   const lang = useLang();
@@ -40,12 +46,14 @@ export function MixLines({
           the rows */}
       <Composition
         still
+        {...(narrow ? { fold: 'narrow' as const } : {})}
         share={share}
         labels={{ caption }}
         columns={amounts ? [{ key: 'amount', header: t.mix.review.amount, numeric: true }] : []}
         items={rows.map((row) => ({
           key: row.assetId,
           ...withVenue(row.name),
+          ...(row.facts ? { detail: row.facts } : {}),
           asset: row.assetId,
           cash: isCashId(row.assetId),
           bps: row.weightBps,

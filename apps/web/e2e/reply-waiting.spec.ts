@@ -383,7 +383,7 @@ test('with reduced motion the same words stand beside a still mark', async ({ pa
 });
 
 for (const width of [1440, 375] as const)
-  test(`the deposit step says what each press is waiting for, at ${width}px`, async ({ page }) => {
+  test(`the deposit step says what its press is waiting for, at ${width}px`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
     await signIn(page);
@@ -414,48 +414,55 @@ for (const width of [1440, 375] as const)
       open();
     };
 
-    // the press before the amount's own check has answered: it asks, and says what it asks
+    // one screen (gate DEPOSIT-ONE-SCREEN): the amount is checked by itself once it is still, and the
+    // press, held, says what it waits for
     await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
-    const review = step.locator('[data-action="deposit-review"]');
-    await review.scrollIntoViewIfNeeded();
-    const resting = await boxOf(review);
-    await review.click();
-    await expect(review).toContainText(en.mix.deposit.reviewing);
-    await expect(review).toHaveAttribute('aria-busy', 'true');
-    await expect(review.locator('[data-ui="lattice-loader"]')).toBeVisible();
-    await expect(review).toBeFocused();
-    // the button keeps its place and its width; no dollars are shown before the server sent them
-    expect(await boxOf(review)).toEqual(resting);
+    const press = step.locator('[data-action="deposit-press"]');
+    await expect(press).toHaveAttribute('aria-disabled', 'true');
+    await expect(step.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checking);
+    await expect(step).toContainText(en.mix.deposit.blocked.checking);
+    // no dollars are shown before the server sent them
     await expect(step.locator('[data-row="solana:spy"] [data-ui="mix-line-amount"]')).toHaveText(
       `—${en.mix.deposit.unchecked}`,
     );
     await axe(page, 'deposit-checking');
-    // let through: the debounced check of the same amount, then the press's own
+    // let through: the check of the amount, with each holding's facts
     next();
-    next();
-
-    const lines = page.locator('[data-ui="mix-review-lines"]');
-    await expect(lines).toContainText('SPY');
-    const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
-    for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
-    const confirm = page.locator('[data-action="mix-confirm"]');
-    await expect(confirm).not.toHaveAttribute('aria-disabled', 'true');
-    await confirm.scrollIntoViewIfNeeded();
-    const confirmAt = await boxOf(confirm);
+    await expect(step.locator('[data-ui="deposit-facts"]').first()).toBeVisible();
+    await press.scrollIntoViewIfNeeded();
+    // where the press is: in the window on a desk, where it stays at the pane's foot; on a phone,
+    // from the card's corner, since ticking the box above it scrolls the page
+    const placeOf = async () => {
+      const box = await boxOf(press);
+      const card = width === 375 ? await boxOf(step) : { x: 0, y: 0 };
+      // to the pixel, and within one: a line of text is a fraction taller than its empty room
+      return {
+        x: Math.round(box.x - card.x),
+        y: Math.round(box.y - card.y),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      };
+    };
+    const resting = await placeOf();
+    // the warnings, confirmed with one box: then our server checks every line again and stores the
+    // plan, said on the press, which keeps its place and waits with its mark
     const before = sent.length;
-    await confirm.click();
-    await expect(confirm).toContainText(en.mix.goal.confirming);
-    await expect(confirm).toHaveAttribute('aria-busy', 'true');
-    await expect(confirm.locator('[data-ui="lattice-loader"]')).toBeVisible();
-    await expect(confirm).toBeFocused();
-    expect(await boxOf(confirm)).toEqual(confirmAt);
+    const ack = step.locator('[data-ui="warnings-ack"]');
+    if ((await ack.count()) > 0) await ack.check();
+    await expect(press).toContainText(en.mix.deposit.saving);
+    await expect(press).toHaveAttribute('aria-busy', 'true');
+    await expect(press.locator('[data-ui="lattice-loader"]')).toBeVisible();
+    const busyAt = await placeOf();
+    expect({ ...busyAt, y: 0 }).toEqual({ ...resting, y: 0 });
+    expect(Math.abs(busyAt.y - resting.y), 'the press keeps its place').toBeLessThanOrEqual(1);
     expect(sent.slice(before)).toEqual([true]);
     await axe(page, 'deposit-saving');
     next();
-    // stored: the steps to sign take the review's place in the same pane, at the amount typed, with
-    // no dead screen on the way and no other page (gate DEPOSIT-IN-PLACE)
+    // stored: the steps to sign are on the same card, at the amount typed, with no dead screen on
+    // the way and no other page (gates DEPOSIT-IN-PLACE, DEPOSIT-ONE-SCREEN)
     await expect(page).toHaveURL(/\/invest$/);
     const pane = page.locator('[data-ui="deposit-sign"]');
-    await expect(pane.locator('[data-ui="deposit-sign-amount"]')).toContainText('$100');
+    await expect(pane).toHaveAttribute('data-state', 'ready');
+    await expect(step.locator('[data-ui="amount-well"] input')).toHaveValue('100');
     await expect(page.locator('[data-action="mix-confirm"]')).toHaveCount(0);
   });

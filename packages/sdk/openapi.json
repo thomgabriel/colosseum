@@ -10216,6 +10216,51 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "exitCost": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "method": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "fetchedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      "provenance": {
+                                        "type": "string",
+                                        "enum": [
+                                          "live",
+                                          "mock",
+                                          "sandbox",
+                                          "fixture",
+                                          "prior_dataset"
+                                        ]
+                                      },
+                                      "bps": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "sizeUsd": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "method",
+                                      "fetchedAt",
+                                      "provenance",
+                                      "bps",
+                                      "sizeUsd"
+                                    ],
+                                    "additionalProperties": false
                                   }
                                 },
                                 "required": [
@@ -10555,6 +10600,51 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "exitCost": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "method": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "fetchedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      "provenance": {
+                                        "type": "string",
+                                        "enum": [
+                                          "live",
+                                          "mock",
+                                          "sandbox",
+                                          "fixture",
+                                          "prior_dataset"
+                                        ]
+                                      },
+                                      "bps": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "sizeUsd": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "method",
+                                      "fetchedAt",
+                                      "provenance",
+                                      "bps",
+                                      "sizeUsd"
+                                    ],
+                                    "additionalProperties": false
                                   }
                                 },
                                 "required": [
@@ -30568,6 +30658,51 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "exitCost": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "method": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "fetchedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      "provenance": {
+                                        "type": "string",
+                                        "enum": [
+                                          "live",
+                                          "mock",
+                                          "sandbox",
+                                          "fixture",
+                                          "prior_dataset"
+                                        ]
+                                      },
+                                      "bps": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "sizeUsd": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "method",
+                                      "fetchedAt",
+                                      "provenance",
+                                      "bps",
+                                      "sizeUsd"
+                                    ],
+                                    "additionalProperties": false
                                   }
                                 },
                                 "required": [
@@ -30907,6 +31042,51 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "exitCost": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "method": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "fetchedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      "provenance": {
+                                        "type": "string",
+                                        "enum": [
+                                          "live",
+                                          "mock",
+                                          "sandbox",
+                                          "fixture",
+                                          "prior_dataset"
+                                        ]
+                                      },
+                                      "bps": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "sizeUsd": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "method",
+                                      "fetchedAt",
+                                      "provenance",
+                                      "bps",
+                                      "sizeUsd"
+                                    ],
+                                    "additionalProperties": false
                                   }
                                 },
                                 "required": [

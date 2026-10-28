@@ -72,7 +72,15 @@ const stamp = {
 };
 
 /** The server's review of the preview's two lines at the amount asked, with nothing to tick. */
-const review = (body: { amountUsd: number; goal: string; risk: string }): MixReview =>
+const review = (
+  body: { amountUsd: number; goal: string; risk: string },
+  asset: { id: string; symbol: string; cls: string; usd: string } = {
+    id: 'solana:gldx',
+    symbol: 'tGLDx',
+    cls: 'gold',
+    usd: '20',
+  },
+): MixReview =>
   ({
     chain: 'solana',
     origin: 'model',
@@ -90,16 +98,17 @@ const review = (body: { amountUsd: number; goal: string; risk: string }): MixRev
         exitCeiling: null,
       },
       {
-        assetId: 'solana:gldx',
-        symbol: 'tGLDx',
-        cls: 'gold',
+        assetId: asset.id,
+        symbol: asset.symbol,
+        cls: asset.cls,
         weightBps: 4000,
         amountUsd: body.amountUsd * 0.4,
-        price: { usdPerToken: '20', ...stamp },
+        price: { usdPerToken: asset.usd, ...stamp },
         exitCeiling: { usd: 1200, measured: true, ...stamp },
+        exitCost: { bps: 7, sizeUsd: body.amountUsd * 0.4, ...stamp },
       },
     ],
-    targets: [{ asset: 'solana:gldx', weightBps: 4000 }],
+    targets: [{ asset: asset.id, weightBps: 4000 }],
     cashBps: 6000,
     warnings: [],
     unconfirmed: [],
@@ -107,6 +116,15 @@ const review = (body: { amountUsd: number; goal: string; risk: string }): MixRev
     provenance: 'sandbox',
     disclaimer: 'Test disclaimer',
   }) as MixReview;
+
+/** SPYx in the review at a feed of $590: the order's swap buys it at its quote, $6 for 0.01. */
+const SPY_LINE = { id: 'solana:spyx', symbol: 'SPYx', cls: 'stock', usd: '590' };
+const SPY_PREVIEW = {
+  ...preview,
+  allocations: preview.allocations.map((line) =>
+    line.assetId === 'solana:gldx' ? { ...line, assetId: 'solana:spyx', symbol: 'SPYx' } : line,
+  ),
+};
 
 const funding = (ok: boolean) => ({
   chain: 'solana',
@@ -171,6 +189,10 @@ function api(
     twoChains?: boolean;
     /** Orders our server already has, by id. */
     orders?: OrderDetail[];
+    /** Our server's second check, as it stores the plan, refuses it. */
+    refuseStore?: boolean;
+    /** The proposal holds SPYx, the asset the order's swap buys, in place of gold. */
+    spy?: boolean;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -204,22 +226,33 @@ function api(
           messageId: body.messageId,
           message: 'Here is a draft.',
           question: null,
-          proposal: preview,
+          proposal: o.spy ? SPY_PREVIEW : preview,
           goal: 'grow',
           risk: 'high',
         });
       }
-      if (path === ACCEPT)
+      if (path === ACCEPT && body.confirm && o.refuseStore)
+        return json(
+          {
+            error: 'this mix cannot be bought as it is',
+            code: 'MIX_NOT_VALID',
+            details: { issues: ['NO_PRICE:solana:gldx'] },
+          },
+          422,
+        );
+      if (path === ACCEPT) {
+        const checked = o.spy ? review(body, SPY_LINE) : review(body);
         return json(
           body.confirm
             ? {
                 status: 'stored',
-                review: review(body),
+                review: checked,
                 proposalId: PLAN_ID,
                 proposal: planOn().proposal,
               }
-            : { status: 'review', review: review(body) },
+            : { status: 'review', review: checked },
         );
+      }
       if (path.startsWith('/v1/funding?')) return json(funding(o.funded ?? true));
       if (path === '/v1/orders' && method === 'POST') {
         const base = orderOn();
@@ -304,7 +337,10 @@ function installLocks() {
   Object.defineProperty(window.navigator, 'locks', { value: locks, configurable: true });
 }
 
-const PRESS = '[data-ui="invest-card"] [data-variant="primary"]';
+// The press: at the deposit card's foot until it is pressed (gate DEPOSIT-ONE-SCREEN), then with the
+// steps on the card, and there on a deposit taken up again.
+const PRESS =
+  '[data-ui="deposit-foot"] [data-variant="primary"], [data-ui="invest-card"] [data-variant="primary"]';
 const label = (el: Element) =>
   el.querySelector('.grid > span:not([aria-hidden])')?.textContent ?? el.textContent;
 const pane = (host: HTMLElement) => find(host, '[data-ui="deposit-sign"]');
@@ -364,15 +400,16 @@ const say = async (host: HTMLElement, words: string) => {
   await click(find(host, '[data-ui="composer-send"]'));
   await settle();
 };
-/** From the conversation to the confirmed review: the steps to sign are on the pane, unpressed. */
+/**
+ * From the conversation to the press, on one screen (gate DEPOSIT-ONE-SCREEN): the amount is typed,
+ * our server checks it, then checks every line again and stores the plan, and the order for it is on
+ * the same card, unpressed. No confirm in between: the check has nothing to tick.
+ */
 async function toSteps(host: HTMLElement) {
   await say(host, 'Gold and cash, to grow, at high risk');
   await click(find(host, '[data-action="deposit"]'));
   await type(find<HTMLInputElement>(host, '[data-ui="amount-well"] input'), '10');
   await settle(CHECK_MS + 50);
-  await click(find(host, '[data-action="deposit-review"]'));
-  await settle();
-  await click(find(host, '[data-action="mix-confirm"]'));
   await settle();
   // the wallet is read, then the order is made for the amount
   await settle(350);
@@ -395,18 +432,28 @@ beforeEach(() => {
 afterEach(unmountAll);
 
 describe('the deposit signed in place on /invest', () => {
-  it('shows the steps to sign in the same pane, with everything the plan’s own page shows, and the amount as a fact', async () => {
+  it('shows the steps to sign on the deposit’s own card, with everything the plan’s own page shows, under the amount', async () => {
     const server = api();
     const host = await show();
     await toSteps(host);
     const sign = pane(host);
     expect(sign.getAttribute('data-state')).toBe('ready');
-    expect(document.activeElement?.textContent).toBe(en.mix.deposit.signing.title);
-    // the amount is the one typed on the deposit step: said, with the way back, and never asked again
-    const amount = find(sign, '[data-ui="deposit-sign-amount"]');
-    expect(amount.textContent).toContain(en.mix.deposit.signing.amount);
-    expect(amount.textContent).toContain('$10');
+    // one screen: the amount, the holdings and the press are on the same card, the focus where it was
+    const card = find(host, '[data-ui="deposit-step"]');
+    expect(card.contains(sign)).toBe(true);
+    const amount = find<HTMLInputElement>(card, '[data-ui="amount-well"] input');
+    expect(amount.value).toBe('10');
+    expect(document.activeElement).toBe(amount);
+    expect(card.querySelectorAll('[data-ui="mix-lines"]')).toHaveLength(1);
     expect(sign.querySelector('input[inputmode="decimal"]')).toBeNull();
+    // no review screen in between, and no second table of what the deposit goes into
+    expect(host.querySelector('[data-action="mix-confirm"]')).toBeNull();
+    expect(host.querySelector('[data-ui="mix-review-lines"]')).toBeNull();
+    expect(sign.textContent).not.toContain(en.invest.buying);
+    expect(sign.querySelector('[data-ui="sign-hero"]')).toBeNull();
+    // our server checked the lines, then checked them again and stored the plan, at that amount
+    const accepts = server.calls.filter((c) => c.path === ACCEPT).map((c) => c.body?.confirm);
+    expect(accepts).toEqual([false, true]);
     // the order our server made for the stored plan, at that amount
     expect(server.placed().map((c) => c.body)).toEqual([
       { type: 'buy', owner: { solana: SOLANA }, amountUsd: 10, proposalId: PLAN_ID },
@@ -416,6 +463,17 @@ describe('the deposit signed in place on /invest', () => {
       en.buy.steps.note.testNetwork('Solana'),
     );
     expect(find(sign, '[data-ui="trust-notice"]').textContent).toContain(en.trust.unaudited);
+    // the order's costs in one line: expected, at worst, and the number of steps
+    // at the card's foot, with the press: in view where the pane scrolls
+    const foot = find(card, '[data-ui="deposit-foot"]');
+    const costs = find(foot, '[data-ui="order-costs"]');
+    expect(find(costs, '[data-ui="stat-expected"]').textContent).toContain(
+      en.order.flow.stat.expected,
+    );
+    expect(find(costs, '[data-ui="stat-worst"]').textContent).toContain(en.order.flow.stat.worst);
+    expect(find(costs, '[data-ui="stat-steps"]').textContent).toContain(
+      `${en.order.flow.stat.steps} 2`,
+    );
     const steps = [...sign.querySelectorAll('[data-ui="order-step"]')].map((s) => s.textContent);
     expect(steps).toHaveLength(2);
     expect(steps[0]).toContain(`${en.order.step(1)} · ${en.order.kind.create_vault}`);
@@ -425,10 +483,10 @@ describe('the deposit signed in place on /invest', () => {
     expect(steps[1]).toContain(en.order.review.spend('6 USDC', 'SPYx'));
     expect(steps[1]).toContain(en.order.review.atLeastWhole('0.0099 SPYx'));
     expect(sign.textContent).toContain(en.order.review.deposit);
-    expect(sign.textContent).toContain(en.order.review.steps);
     expect(sign.textContent).toContain(en.order.review.expires);
-    expect(find(sign, '[data-ui="invest-signing"]').textContent).toBe(en.invest.signs.passkey(2));
-    expect(label(find(host, PRESS))).toBe(en.invest.press('$10'));
+    // one press signs every step: said before it, and the button names the amount
+    expect(find(foot, '[data-ui="invest-signing"]').textContent).toBe(en.invest.signs.passkey(2));
+    expect(label(find(foot, PRESS))).toBe(en.invest.press('$10'));
     // held by the notice, and nothing asked of the wallet before the press
     expect(find(host, PRESS).getAttribute('aria-disabled')).toBe('true');
     expect(run.calls).toEqual([]);
@@ -437,11 +495,68 @@ describe('the deposit signed in place on /invest', () => {
     expect(box(host).disabled).toBe(false);
     expect(localStorage.getItem(POINTER)).toBeNull();
     expect(router.push).not.toHaveBeenCalled();
-    // "Change" leads back to the amount on the deposit step, and the unsigned order is dropped
-    await click(named(sign, en.mix.deposit.signing.change));
+    // another amount in the same field: the unsigned order is dropped, and nothing is signed
+    await type(amount, '12');
+    await settle();
     expect(host.querySelector('[data-ui="deposit-sign"]')).toBeNull();
-    expect(find<HTMLInputElement>(host, '[data-ui="amount-well"] input').value).toBe('10');
     expect(recallOrder(ORDER_ID, USER)).toBeNull();
+    expect(run.calls).toEqual([]);
+  });
+
+  it('the notice is accepted before anything is signed, and one press signs every step', async () => {
+    api();
+    const host = await show();
+    await toSteps(host);
+    // the press is held by the notice, and says so
+    const press = find(host, PRESS);
+    expect(press.getAttribute('aria-disabled')).toBe('true');
+    expect(find(host, '[data-ui="deposit-foot"]').textContent).toContain(en.buy.blocked.trust);
+    await click(press);
+    await settle();
+    expect(run.calls).toEqual([]);
+    await tick(host);
+    expect(find(host, PRESS).getAttribute('aria-disabled')).toBeNull();
+    await click(find(host, PRESS));
+    await settle();
+    await settle();
+    // one press, one run of the whole order: both steps, as the card showed them
+    expect(run.calls).toHaveLength(1);
+    expect(run.calls[0]?.order.legs.map((leg) => leg.id)).toEqual([LEG_CREATE, LEG_SWAP]);
+    expect(pane(host).getAttribute('data-state')).toBe('done');
+  });
+
+  it('says each holding’s pool price from the order’s quote beside the feed, with the gap and its exit facts', async () => {
+    api({ spy: true });
+    const host = await show();
+    await toSteps(host);
+    const facts = find(host, '[data-row="solana:spyx"] [data-ui="deposit-facts"]');
+    // the order buys SPYx with $6 for 0.01 at its quote: $600, against the feed's $590
+    expect(find(facts, '[data-ui="pool-price"]').textContent).toContain('$600.00');
+    expect(find(facts, '[data-ui="feed-price"]').textContent).toContain('$590.00');
+    expect(find(facts, '[data-ui="price-gap"]').textContent).toBe(
+      en.mix.deposit.facts.gap('+1.69%'),
+    );
+    // each figure with its pin: the pool's names the order's quote as its source
+    const pool = find(facts, '[data-ui="pool-price"] [data-ui="figure"]');
+    expect(pool.getAttribute('data-state')).toBe('mock');
+    // the exit as measured: what selling this size costs, the most it holds, and how old
+    expect(find(facts, '[data-ui="exit-cost"]').textContent).toContain('0.07%');
+    expect(find(facts, '[data-ui="exit-ceiling"]').textContent).toContain('$1,200.00');
+    expect(find(facts, '[data-ui="exit-age"]').textContent).toMatch(/measured .* ago/);
+  });
+
+  it('a second check our server refuses as it stores the plan: said, with no order made and nothing signed', async () => {
+    const server = api({ refuseStore: true });
+    const host = await show();
+    await toSteps(host);
+    const said = find(host, '[data-ui="deposit-store-failed"]');
+    expect(said.getAttribute('role')).toBe('alert');
+    expect(said.textContent).toContain(en.mix.failure.invalid);
+    expect(host.querySelector('[data-ui="deposit-sign"]')).toBeNull();
+    expect(server.placed()).toEqual([]);
+    expect(run.calls).toEqual([]);
+    // the press stays held: nothing can be signed past a refusal
+    expect(find(host, '[data-action="deposit-press"]').getAttribute('aria-disabled')).toBe('true');
   });
 
   it('signs every step there: the box waits and says why, the progress is said, and the end leads to the vault', async () => {
@@ -587,7 +702,8 @@ describe('the deposit signed in place on /invest', () => {
     expect(find(host, '[data-ui="invest-old"]').textContent).toBe(en.invest.old);
     await settle(1_200);
     expect(server.placed()).toHaveLength(1);
-    await click(named(pane(host), en.invest.again));
+    // asked for at the card's foot, where the press is
+    await click(named(find(host, '[data-ui="deposit-foot"]'), en.invest.again));
     await settle(1050);
     await settle();
     expect(server.placed()).toHaveLength(2);
@@ -698,7 +814,7 @@ describe('the deposit signed in place on /invest', () => {
     expect(find(sign, '[data-ui="deposit-sign-waiting"]').textContent).toBe(
       en.mix.deposit.blocked.reply,
     );
-    expect(find(sign, PRESS).closest('[inert]')).not.toBeNull();
+    expect(find(host, PRESS).closest('[inert]')).not.toBeNull();
     expect(run.calls).toEqual([]);
     reply.open();
     await settle();

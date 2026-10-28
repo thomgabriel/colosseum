@@ -1,8 +1,6 @@
 'use client';
 import type { MixReview } from '@colosseum/schemas';
-import { useEffect, useId, useState } from 'react';
-import { Button } from '../../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
+import { useState } from 'react';
 import { ProvenancePin } from '../../components/ui/ProvenancePin';
 import { StatusMark } from '../../components/ui/StatusMark';
 import { LOCALE } from '../../i18n';
@@ -14,9 +12,10 @@ import { unticked } from './mix';
 
 // The server's reading of a mix before it is bought or applied (gate ANY-COMPOSITION, #191): every
 // line with its amount, the sourced price it was counted at and the most it may hold and still exit as
-// planned, each figure with its pin; then each warning, which the person ticks one by one. Nothing here
-// is a figure of the model's or of this app's: the review is the server's, and the confirm sends back
-// its hash with the ticks.
+// planned, each figure with its pin; then the warnings, confirmed with one box. Nothing here is a
+// figure of the model's or of this app's: the review is the server's, and the confirm sends back its
+// hash with the ticks. A new goal's deposit draws its lines on its own card (DepositStep, gate
+// DEPOSIT-ONE-SCREEN); a vault's change of targets draws them here (ChangeReview).
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -41,97 +40,6 @@ export function useTicks(
     });
   };
   return [ticked, tick];
-}
-
-export function MixReviewCard({
-  review,
-  ticked,
-  onTick,
-  confirmLabel,
-  busyLabel,
-  onConfirm,
-  onBack,
-  backLabel,
-  purpose,
-  focusOnOpen = false,
-  busy,
-  changed,
-}: {
-  review: MixReview;
-  ticked: ReadonlySet<string>;
-  onTick: (id: string, on: boolean) => void;
-  confirmLabel: string;
-  /**
-   * What the confirm says while it runs, beside the loader: what is being done ("Checking and saving…").
-   * Left out, the caller changes `confirmLabel` itself.
-   */
-  busyLabel?: string;
-  onConfirm: () => void;
-  onBack: () => void;
-  /** Where "back" leads, when it is not to changing the mix: the deposit step of a new goal. */
-  backLabel?: string;
-  /** What the mix was checked for, in words: "For growth, at higher risk." A new goal's review. */
-  purpose?: string;
-  /** The review took the place of another screen: its heading takes focus, so it is read from the top. */
-  focusOnOpen?: boolean;
-  busy: boolean;
-  /** The server answered a new review to a confirm: its figures moved since the person looked. */
-  changed?: boolean;
-}) {
-  const t = useT();
-  const r = t.mix.review;
-  const titleId = useId();
-  const left = unticked(review, ticked).length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the review opens
-  useEffect(() => {
-    if (!focusOnOpen) return;
-    const heading = document.getElementById(titleId);
-    heading?.setAttribute('tabindex', '-1');
-    heading?.focus();
-  }, []);
-  return (
-    <Card
-      as="section"
-      aria-labelledby={titleId}
-      mock={review.provenance !== 'live'}
-      mockLabels={{
-        announce: review.provenance === 'mock' ? t.shell.mockAnnounce : t.shell.testNetworkLine,
-      }}
-    >
-      <CardHeader id={titleId} title={r.title} level={2} meta={t.chain.names[review.chain]} />
-      <CardBody className="flex min-w-0 flex-col gap-4">
-        <p className="max-w-(--tf-measure-body) text-body-sm">{r.lead}</p>
-        {purpose && (
-          <p data-ui="mix-review-purpose" className="text-body-sm">
-            {purpose}
-          </p>
-        )}
-        {changed && (
-          <p role="status" className="flex items-start gap-1.5 text-body-sm">
-            <StatusMark status="watch" className="mt-1.5" />
-            <span>{r.changed}</span>
-          </p>
-        )}
-        <MixReviewLines review={review} />
-        <MixReviewWarnings review={review} ticked={ticked} onTick={onTick} />
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="primary"
-            data-action="mix-confirm"
-            {...(busyLabel !== undefined
-              ? { busy, busyLabel, busyMark: true, disabled: left > 0 }
-              : { disabled: busy || left > 0 })}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
-          <Button variant="secondary" disabled={busy} onClick={onBack}>
-            {backLabel ?? r.back}
-          </Button>
-        </div>
-      </CardBody>
-    </Card>
-  );
 }
 
 /** The words and figures a review's parts are written with. */
@@ -228,7 +136,6 @@ export function MixReviewLines({
   );
 }
 
-/** Each warning of a review with its box: the person ticks them one by one. */
 /**
  * A warning of the server's as the rows around it name its holdings: every line's symbol ("SPYx",
  * "mGOLD", a test network's "tGLDx") becomes the name its row shows (audit I4), whether or not the
@@ -248,59 +155,6 @@ export function namedAsRows(
     said = said.replace(new RegExp(`(?<![\\w])${symbol}(?![\\w])`, 'g'), named(line.assetId));
   }
   return plainNames(said);
-}
-
-export function MixReviewWarnings({
-  review,
-  ticked,
-  onTick,
-}: {
-  review: MixReview;
-  ticked: ReadonlySet<string>;
-  onTick: (id: string, on: boolean) => void;
-}) {
-  const { t, r, share, usd } = useReviewWords();
-  const left = unticked(review, ticked).length;
-  if (review.warnings.length === 0) return null;
-  return (
-    <fieldset data-ui="mix-review-warnings" className="flex min-w-0 flex-col gap-3">
-      <legend className="text-caption font-medium">{r.warnings}</legend>
-      {review.warnings.map((warning) => (
-        <label
-          key={warning.id}
-          data-warning={warning.code}
-          className="flex max-w-(--tf-measure-body) items-start gap-2 text-body-sm"
-        >
-          <input
-            type="checkbox"
-            className="mt-1 size-4 shrink-0 accent-primary"
-            checked={ticked.has(warning.id)}
-            onChange={(e) => onTick(warning.id, e.currentTarget.checked)}
-          />
-          <span className="min-w-0 [overflow-wrap:anywhere]">
-            {/* the server's sentence, its tokens named as the rows name them */}
-            {namedAsRows(warning.text, review, (asset) => displayName(asset, t.plan))}
-            {warning.figures.map((figure) => (
-              <span
-                key={`${figure.label}:${figure.fetchedAt}`}
-                className="block text-caption text-muted-foreground"
-              >
-                {figure.label}:{' '}
-                <ProvenancePin
-                  value={figure.unit === 'USD' ? usd(figure.value) : share(figure.value)}
-                  obs={figure}
-                  labels={t.pin}
-                />
-              </span>
-            ))}
-          </span>
-        </label>
-      ))}
-      <p aria-live="polite" className="text-caption text-muted-foreground">
-        {left === 0 ? r.allTicked : r.left(left)}
-      </p>
-    </fieldset>
-  );
 }
 
 /**

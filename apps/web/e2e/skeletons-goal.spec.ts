@@ -90,14 +90,12 @@ for (const width of WIDTHS) {
       await strategy.getByRole('button', { name: en.mix.preview.deposit, exact: true }).click();
       await page.getByLabel(en.amount.field.deposit, { exact: true }).fill('100');
       await expect(page.locator('[data-ui="deposit-check"]')).toHaveText(en.mix.deposit.checked);
-      await page.getByRole('button', { name: en.mix.deposit.reviewOf('$100') }).click();
-      const boxes = page.locator('[data-ui="mix-review-warnings"] input[type="checkbox"]');
-      await expect(boxes.first()).toBeVisible();
-      for (let i = 0; i < (await boxes.count()); i += 1) await boxes.nth(i).check();
 
       // the wallet's funds are read: said in words, over the outline of what the check brings
       const funds = await hold(page, /\/v1\/funding/);
-      await page.getByRole('button', { name: en.mix.goal.confirm }).click();
+      // one screen (gate DEPOSIT-ONE-SCREEN): the warnings confirmed with one box, then the plan is
+      // stored and the steps to sign are on the same card
+      await page.locator('[data-ui="warnings-ack"]').check();
       const pane = page.locator('[data-ui="deposit-sign"]');
       const reading = pane.locator('[data-ui="invest-funds-reading"]');
       // its words stand where the check's own first line will, over the outline of the rest
@@ -128,29 +126,27 @@ for (const width of WIDTHS) {
       await shot(page, 'deposit-funds-loaded');
       await funds.drop();
 
-      // the order is made: its steps wait as three figures and a line a step, in the pane itself
+      // the order is made: its line of costs waits in outline at the card's foot, where the press is
       // (the order's own read, by its id: making it is the card's busy button)
       const orders = await hold(page, /\/v1\/orders\/[^/]+$/);
       await page.getByRole('button', { name: en.buy.funding.mockFund }).click();
-      const making = pane.locator('[data-ui="invest-reading"]');
+      const foot = page.locator('[data-ui="deposit-foot"]');
+      const making = foot.locator('[data-ui="invest-reading"]');
       await expect(making).toContainText(en.invest.preparing, { timeout: 30_000 });
-      await hiddenAndBlank(page, '[data-ui="steps-wait"]');
+      await hiddenAndBlank(page, '[data-ui="costs-wait"]');
       // not a card inside the card
       await expect(making.locator('[data-ui="card"]')).toHaveCount(0);
       await axe(page, `steps waiting, ${width}px`);
       await inTheme(page, 'dark');
-      const figure = await boxOf(page, '[data-ui="steps-wait"] [data-ui="skeleton-figure"]');
-      const stats = await boxOf(page, '[data-ui="steps-wait"] [data-ui="skeleton-stats"]');
+      const outline = await boxOf(page, '[data-ui="costs-wait"]');
       await shot(page, 'deposit-steps-loading');
       orders.release();
-      // the review (gate SIGN-ONE-STEP): its figure lands where the outline's was
-      await expect(pane.locator('[data-ui="sign-figure"]')).toBeVisible({ timeout: 30_000 });
+      // the costs land where their outline was, over the press
+      await expect(foot.locator('[data-ui="order-costs"]')).toBeVisible({ timeout: 30_000 });
       await settled(page);
       await inTheme(page, 'dark');
-      const said = await boxOf(page, '[data-ui="deposit-sign"] [data-ui="sign-hero"]');
-      expect.soft([said.x, said.width], 'the figure').toEqual([figure.x, figure.width]);
-      const row = await boxOf(page, '[data-ui="deposit-sign"] [data-ui="stat-row"]');
-      expect.soft([row.x, row.width], 'the small figures').toEqual([stats.x, stats.width]);
+      const costs = await boxOf(page, '[data-ui="deposit-foot"] [data-ui="order-costs"]');
+      expect.soft([costs.x], 'the line of costs').toEqual([outline.x]);
       await shot(page, 'deposit-steps-loaded');
       // nothing was signed by any of this
       await expect(pane.locator('[data-ui="order-step"][data-status="confirmed"]')).toHaveCount(0);

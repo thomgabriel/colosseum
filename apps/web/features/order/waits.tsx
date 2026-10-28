@@ -298,3 +298,16 @@ export function StepsWait({ steps = 3 }: { steps?: number }) {
     </div>
   );
 }
+
+/**
+ * The order's costs in one line while the order is made or read, at the foot of the one-screen
+ * deposit (gate DEPOSIT-ONE-SCREEN), where the line lands.
+ */
+export function CostsWait() {
+  return (
+    <div aria-hidden="true" data-ui="costs-wait" className="flex flex-col gap-3">
+      <SkeletonLine className="text-body-sm" width="w-72" />
+      <SkeletonLine className="text-body-sm" width="w-56" />
+    </div>
+  );
+}

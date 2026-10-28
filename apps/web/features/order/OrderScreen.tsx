@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '../../components/ui/Button';
 import { buttonClass } from '../../components/ui/button-class';
 import { Stat, StatRow } from '../../components/ui/Card';
@@ -95,7 +96,7 @@ import {
 import { TrustNotice } from './TrustNotice';
 import { tradeLine } from './trade-line';
 import { type ChainUnits, unitsFor } from './units';
-import { OrderScreenWait, StepsWait } from './waits';
+import { CostsWait, OrderScreenWait, StepsWait } from './waits';
 import { useStayed } from './withdraw-stayed';
 
 // The order, one screen at a time (gate SIGN-ONE-STEP): what changes and its worst case, then each step
@@ -529,12 +530,29 @@ export function OrderScreen({
     [record, load, consents, run, port, embed, t, lang],
   );
 
+  // The host that reads the order's quotes is told of each read of it (gate DEPOSIT-ONE-SCREEN).
+  const toldOrder = useRef(embed?.onOrder);
+  toldOrder.current = embed?.onOrder;
+  const readOrderNow = load.kind === 'read' ? load.order : null;
+  useEffect(() => {
+    if (readOrderNow) toldOrder.current?.(readOrderNow);
+  }, [readOrderNow]);
+
   if (
     embed &&
     (port.status === 'loading' || account.status === 'loading' || load.kind === 'loading')
   )
-    // In the card: one quiet line while the order is read, not a card inside the card.
-    return (
+    // In the card: one quiet line while the order is read, not a card inside the card; at the host's
+    // foot, where the order's line of costs will land, when it keeps its press there.
+    return embed.foot && embed.compact ? (
+      createPortal(
+        <div data-ui="invest-reading" className="flex flex-col gap-3">
+          <p className="text-body-sm text-muted-foreground">{t.invest.preparing}</p>
+          <CostsWait />
+        </div>,
+        embed.foot,
+      )
+    ) : (
       <div data-ui="invest-reading" className="flex flex-col gap-4">
         <p className="text-body-sm text-muted-foreground">{t.invest.preparing}</p>
         <StepsWait />
@@ -1598,14 +1616,43 @@ export function OrderScreen({
     amount: flow.table.amount,
   };
 
+  // The order's costs in one line, for a host that shows the amount and each holding's dollars.
+  const costsLine = (
+    // The host shows the amount and each holding's dollars (gate DEPOSIT-ONE-SCREEN): the
+    // order's costs, in one line, over the press.
+    <p data-ui="order-costs" className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-body-sm">
+      {reviewStats
+        .filter((stat) => stat.ui !== 'stat-swapped')
+        .map((stat, i) => (
+          <span key={stat.ui} data-ui={stat.ui} className="whitespace-nowrap">
+            {i > 0 && (
+              <span aria-hidden="true" className="mr-2 text-muted-foreground">
+                ·
+              </span>
+            )}
+            <span className="text-muted-foreground">{stat.label}</span>{' '}
+            <span className="font-medium tabular-nums">{stat.value}</span>
+          </span>
+        ))}
+    </p>
+  );
+
   const stageBody =
     stage === 'review' ? (
       <>
-        <OrderHero label={heroLabel} figure={heroFigure} plate={plate} />
-        <OrderStats stats={reviewStats} />
+        {embed?.compact ? (
+          embed.foot ? null : (
+            costsLine
+          )
+        ) : (
+          <>
+            <OrderHero label={heroLabel} figure={heroFigure} plate={plate} />
+            <OrderStats stats={reviewStats} />
+          </>
+        )}
         {shares && sharesOf(flow.picture.targets, shares)}
         {/* on the deposit card in a pane, where it goes in one line: the button stays in view (I3) */}
-        {picture && picture.rows.length > 0 && (
+        {!embed?.compact && picture && picture.rows.length > 0 && (
           <AmountList picture={picture} labels={tableWords} compact={onePress} />
         )}
         {shown.warnings.length > 0 && (
@@ -1644,7 +1691,16 @@ export function OrderScreen({
             ))}
           </fieldset>
         )}
-        {actions}
+        {/* a host that keeps its press in view draws it at its own foot, with the costs over it */}
+        {embed?.foot
+          ? createPortal(
+              <>
+                {embed.compact && costsLine}
+                {actions}
+              </>,
+              embed.foot,
+            )
+          : actions}
         {allSteps(flow.details)}
       </>
     ) : stage === 'steps' ? (

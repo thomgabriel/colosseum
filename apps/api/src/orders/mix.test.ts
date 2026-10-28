@@ -312,6 +312,19 @@ describe('reviewMix: warnings the person confirms, never refusals', () => {
     expect(review.lines[1]?.price).toMatchObject({ source: 'chain-mock', usdPerToken: '50' });
     expect(review.lines[2]?.exitCeiling).toMatchObject({ measured: false, provenance: 'mock' });
     expect(review.lines[0]).toMatchObject({ price: null, exitCeiling: null });
+    // What selling the line's own amount costs, from the same measured curves and source: the
+    // fixture's 1% for each whole capacity sold, so $4,000 against $2,000 is 2% (gate
+    // DEPOSIT-ONE-SCREEN). A tier that stands in and cash state none: never a zero for unknown.
+    expect(review.lines[1]?.exitCost).toEqual({
+      bps: 200,
+      sizeUsd: 4000,
+      source: 'fixture exit table',
+      method: expect.stringContaining('fixture-0.1'),
+      fetchedAt: expect.any(String),
+      provenance: 'fixture',
+    });
+    expect(review.lines[2]?.exitCost).toBeUndefined();
+    expect(review.lines[0]?.exitCost).toBeUndefined();
   });
 
   it('a smaller line under the same exit is no warning', async () => {
@@ -474,6 +487,8 @@ describe('reviewMix: a ceiling with no source is not printed', () => {
       'NVDAx at $4,000 is more than the part of its exit a plan counts on. That measurement names no source, so its limit is not stated.',
     );
     expect(review.lines[1]?.exitCeiling).toBeNull();
+    // and no cost of selling it either: a figure with no source is not shown
+    expect(review.lines[1]?.exitCost).toBeUndefined();
   });
 });
 

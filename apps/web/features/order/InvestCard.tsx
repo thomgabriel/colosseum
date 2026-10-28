@@ -1,6 +1,13 @@
 'use client';
-import { type ChainId, type Provenance, type Target, TRUST_STATUS } from '@colosseum/schemas';
+import {
+  type ChainId,
+  type OrderDetail,
+  type Provenance,
+  type Target,
+  TRUST_STATUS,
+} from '@colosseum/schemas';
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
@@ -128,6 +135,16 @@ export type InvestCardProps = {
   hostEnds?: boolean;
   /** The order ended, and whether plainly (OrderEmbed's `onEnded`). */
   onEnded?: (plainly: boolean) => void;
+  /**
+   * The host draws the card inside its own (the one-screen deposit on /invest, gate
+   * DEPOSIT-ONE-SCREEN): no card of its own, no table of what the amount buys (the host's rows say
+   * it), and the order's review in one line of costs over the press.
+   */
+  compact?: boolean;
+  /** The order on the card as our server made it, and null once none is: the host reads its quotes. */
+  onOrder?: (order: OrderDetail | null) => void;
+  /** With `compact`: where the host draws the press, its reasons and the order's costs. */
+  foot?: HTMLElement;
 };
 
 /** What a host that mounts a buy inside its own screen passes: the amount, and what it is told. */
@@ -142,6 +159,9 @@ export type InvestEmbedded = Pick<
   | 'hostEnds'
   | 'onFollowUp'
   | 'onEnded'
+  | 'compact'
+  | 'onOrder'
+  | 'foot'
 > & {
   /** The id of an order approved on this card before it was lost: the card takes it up again. */
   resumeOrder?: string;
@@ -178,6 +198,9 @@ export function InvestCard({
   hostEnds,
   onFollowUp,
   onEnded,
+  compact = false,
+  onOrder,
+  foot,
 }: InvestCardProps) {
   const t = useT();
   const lang = useLang();
@@ -361,6 +384,14 @@ export function InvestCard({
     return () => document.removeEventListener('visibilitychange', onSeen);
   }, []);
 
+  // No order on the card: the host's quotes go with it.
+  const toldOrder = useRef(onOrder);
+  toldOrder.current = onOrder;
+  const hasOrder = made !== null;
+  useEffect(() => {
+    if (!hasOrder) toldOrder.current?.(null);
+  }, [hasOrder]);
+
   // The press is held for a moment after an order takes another's place: each one from when it shows.
   const replaced = made?.again ? made.orderId : null;
   useEffect(() => {
@@ -499,6 +530,285 @@ export function InvestCard({
         ]
       : [];
 
+  // No order on the card yet: the press, held, with what holds it and the ways on.
+  const noOrder = (
+    <div className="flex flex-col items-start gap-3">
+      <Button
+        variant="primary"
+        busy={placing}
+        busyLabel={t.invest.preparing}
+        disabled
+        aria-describedby={waiting.length > 0 ? reasonId : undefined}
+      >
+        {label}
+      </Button>
+      {waiting.length > 0 && (
+        <ul id={reasonId} className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm">
+          {waiting.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      )}
+      {paused && old && !failure && (
+        <p data-ui="invest-old" className="max-w-(--tf-measure-body) text-body-sm">
+          {t.invest.old}
+        </p>
+      )}
+      {paused && !failure && (
+        <Button
+          variant="secondary"
+          onClick={() => {
+            asked.current = want ? `${want}|${orderRound + 1}` : null;
+            setOld(false);
+            mustAsk.current = false;
+            setOrderRound((n) => n + 1);
+          }}
+        >
+          {t.invest.again}
+        </Button>
+      )}
+      {failure && (
+        <>
+          <p
+            role="alert"
+            className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
+          >
+            <StatusMark status="off-track" size={12} className="mt-1.5" />
+            <span>{failure}</span>
+          </p>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              asked.current = want ? `${want}|${orderRound + 1}` : null;
+              setOld(false);
+              mustAsk.current = false;
+              setOrderRound((n) => n + 1);
+            }}
+          >
+            {t.invest.again}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+  const inner = (
+    <div data-ui="invest-card" className="flex flex-col gap-5">
+      {provenance === 'sandbox' && (
+        // A test network's figures are real reads, not samples: one quiet line says where they
+        // are from, never a plate on a figure.
+        <p
+          data-ui="data-note"
+          className="text-caption text-muted-foreground [overflow-wrap:anywhere]"
+        >
+          {t.buy.steps.note.testNetwork(chainName)}
+        </p>
+      )}
+
+      {!compact && !made && rows.length > 0 && amount !== null && (
+        // What the amount buys, by the weights the host's screen showed, until the order itself
+        // is here with each trade and the least it may receive.
+        <DataTable
+          caption={t.invest.buying}
+          dense
+          rows={rows}
+          rowKey={(row) => row.key}
+          columns={[
+            {
+              key: 'name',
+              header: t.invest.columns.holding,
+              rowHeader: true,
+              cell: (r) => r.name,
+            },
+            {
+              key: 'share',
+              header: t.invest.columns.share,
+              numeric: true,
+              cell: (r) => formatBps(r.weightBps, LOCALE[lang]),
+            },
+            {
+              key: 'amount',
+              header: t.invest.columns.amount,
+              numeric: true,
+              cell: (r) => dollars((amount * r.weightBps) / 10_000, lang),
+            },
+          ]}
+        />
+      )}
+
+      {!started && owner && amount !== null && heard.kind === 'reading' && (
+        // said in words where the check's own first line will be, over the outline of the
+        // rest: the step lands on it
+        <div data-ui="invest-funds-reading">
+          <FundsWait label={t.invest.checkingFunds} />
+        </div>
+      )}
+      {!started &&
+        heard.kind !== 'idle' &&
+        heard.kind !== 'reading' &&
+        // still said once test funds were sent: what arrived, and that the wallet holds it now
+        (!funded || testOutcome?.kind === 'sent') && (
+          // Shown only when the wallet is short, or could not be read: what is missing and the
+          // way to fill it.
+          <FundingStep
+            funding={heard}
+            chainName={chainName}
+            owner={owner}
+            mock={mock}
+            units={unitsFor(chain, mock)}
+            gasUnits={gasUnitsFor(chain)}
+            mockBusy={mockBusy}
+            onReadAgain={() => setFundsRound((n) => n + 1)}
+            onMock={addMock}
+            testFunds={{ busy: testBusy, outcome: testOutcome, onAsk: askTestFunds }}
+            capped={
+              beyondOneSend
+                ? {
+                    note: t.invest.short.cap(dollars(TEST_SEND.maxUsd, lang), TEST_SEND.perDay),
+                    label: t.invest.short.sendAnyway(dollars(TEST_SEND.maxUsd, lang)),
+                  }
+                : undefined
+            }
+          />
+        )}
+      {!started && beyondOneSend && (
+        // The other ways on: the amount the wallet covers, in one press, and how to choose another.
+        <div data-ui="invest-short" className="flex flex-col items-start gap-2">
+          {covered !== null && onAmount && (
+            <>
+              <p className="max-w-(--tf-measure-body) text-body-sm">
+                {t.invest.short.covers(dollars(covered, lang))}
+              </p>
+              <Button variant="secondary" onClick={() => onAmount(covered)}>
+                {t.invest.short.instead(dollars(covered, lang))}
+              </Button>
+            </>
+          )}
+          <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
+            {amountFrom === 'goal' ? t.invest.short.inGoal : t.invest.short.typeLess}
+          </p>
+        </div>
+      )}
+
+      {!accepted && !started ? (
+        // Before the first deposit: the notice with its box, in the card. The press is held
+        // until it is ticked, and the acceptance is kept as the person presses.
+        <TrustNotice
+          chain={chain}
+          accepted={false}
+          checked={ticked}
+          onCheck={setTicked}
+          keeper={keeper}
+          // in a pane that must fit its screen, one line that opens (audit I3)
+          fold={amountFrom === 'goal' || Boolean(hostEnds)}
+        />
+      ) : (
+        // Accepted before, for this text: not asked again, and still here to read.
+        <details data-ui="trust-kept">
+          <summary className="w-fit cursor-pointer text-body-sm font-medium text-honey-text underline decoration-1 underline-offset-4 hover:decoration-2">
+            {t.trust.short.title}
+          </summary>
+          <div className="mt-3">
+            <TrustNotice
+              chain={chain}
+              accepted
+              checked={false}
+              onCheck={setTicked}
+              keeper={keeper}
+            />
+          </div>
+        </details>
+      )}
+
+      {made?.again && !started && (
+        <p data-ui="invest-updated" aria-live="polite" className="text-body-sm font-medium">
+          {t.invest.updated}
+        </p>
+      )}
+      {made ? (
+        <OrderScreen
+          key={made.orderId}
+          id={made.orderId}
+          embed={{
+            ...(onEnded ? { onEnded } : {}),
+            ...(compact ? { compact: true } : {}),
+            ...(onOrder ? { onOrder } : {}),
+            ...(compact && foot ? { foot } : {}),
+            blocked: [
+              ...(trustHeld ? [t.buy.blocked.trust] : []),
+              ...(fresh ? [t.invest.updatedHold] : []),
+            ],
+            onApprove: () => {
+              // The order is the person's now: it is kept, whatever becomes of the card.
+              open.current = null;
+              runOf.current = made.orderId;
+              setStarted(true);
+              onProgress?.({ orderId: made.orderId, step: 0, of: 0, line: '' });
+            },
+            // Kept only once the run has begun: a press that could not start accepted nothing.
+            onStarted: () => {
+              if (!accepted && userId)
+                acceptTrust(userId, TRUST_STATUS.textVersion, keeper, chainIsLive(chain));
+            },
+            onAgain: () => {
+              // asked for by the person: made whatever the card has made by itself
+              asked.current = want ? `${want}|${orderRound + 1}` : null;
+              runOf.current = null;
+              setStarted(false);
+              setMade(null);
+              setOrderRound((n) => n + 1);
+            },
+            onProgress: (progress) => {
+              // also a run begun again after it stopped: finish, try again
+              runOf.current = progress.orderId;
+              onProgress?.(progress);
+            },
+            onDone: ({ orderId }) => {
+              runOf.current = null;
+              void done(orderId);
+            },
+            onStopped: (stopped) => {
+              runOf.current = null;
+              onStopped?.(stopped);
+            },
+            ...(hostEnds ? { hostEnds: true } : {}),
+            ...(endsAt
+              ? {
+                  endsAt: {
+                    href: `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(endsAt)}`,
+                    label: t.mix.deposit.signing.openVault,
+                  },
+                }
+              : {}),
+            // The host ends the deposit in place: the order that finishes this one takes the
+            // card, to be reviewed and signed here. It deposits nothing, so no other is made.
+            ...(hostEnds
+              ? {
+                  onFinish: (orderId: string) => {
+                    runOf.current = null;
+                    setStarted(true);
+                    setMade({
+                      key: `finish:${orderId}`,
+                      orderId,
+                      expiresAt: 0,
+                      again: false,
+                      ...(made.basketId ? { basketId: made.basketId } : {}),
+                    });
+                    onFollowUp?.(orderId);
+                  },
+                }
+              : {}),
+          }}
+        />
+      ) : compact && foot ? (
+        // drawn at the host's foot, where its press stays in view
+        createPortal(noOrder, foot)
+      ) : (
+        noOrder
+      )}
+    </div>
+  );
+  // Inside the host's own card: no card in a card. The host's card carries the sample tag.
+  if (compact) return inner;
   return (
     <Card
       as="section"
@@ -508,276 +818,7 @@ export function InvestCard({
       mockLabels={{ announce: t.shell.mockAnnounce }}
       className="max-w-3xl"
     >
-      <CardBody className="flex flex-col gap-5">
-        <div data-ui="invest-card" className="flex flex-col gap-5">
-          {provenance === 'sandbox' && (
-            // A test network's figures are real reads, not samples: one quiet line says where they
-            // are from, never a plate on a figure.
-            <p
-              data-ui="data-note"
-              className="text-caption text-muted-foreground [overflow-wrap:anywhere]"
-            >
-              {t.buy.steps.note.testNetwork(chainName)}
-            </p>
-          )}
-
-          {!made && rows.length > 0 && amount !== null && (
-            // What the amount buys, by the weights the host's screen showed, until the order itself
-            // is here with each trade and the least it may receive.
-            <DataTable
-              caption={t.invest.buying}
-              dense
-              rows={rows}
-              rowKey={(row) => row.key}
-              columns={[
-                {
-                  key: 'name',
-                  header: t.invest.columns.holding,
-                  rowHeader: true,
-                  cell: (r) => r.name,
-                },
-                {
-                  key: 'share',
-                  header: t.invest.columns.share,
-                  numeric: true,
-                  cell: (r) => formatBps(r.weightBps, LOCALE[lang]),
-                },
-                {
-                  key: 'amount',
-                  header: t.invest.columns.amount,
-                  numeric: true,
-                  cell: (r) => dollars((amount * r.weightBps) / 10_000, lang),
-                },
-              ]}
-            />
-          )}
-
-          {!started && owner && amount !== null && heard.kind === 'reading' && (
-            // said in words where the check's own first line will be, over the outline of the
-            // rest: the step lands on it
-            <div data-ui="invest-funds-reading">
-              <FundsWait label={t.invest.checkingFunds} />
-            </div>
-          )}
-          {!started &&
-            heard.kind !== 'idle' &&
-            heard.kind !== 'reading' &&
-            // still said once test funds were sent: what arrived, and that the wallet holds it now
-            (!funded || testOutcome?.kind === 'sent') && (
-              // Shown only when the wallet is short, or could not be read: what is missing and the
-              // way to fill it.
-              <FundingStep
-                funding={heard}
-                chainName={chainName}
-                owner={owner}
-                mock={mock}
-                units={unitsFor(chain, mock)}
-                gasUnits={gasUnitsFor(chain)}
-                mockBusy={mockBusy}
-                onReadAgain={() => setFundsRound((n) => n + 1)}
-                onMock={addMock}
-                testFunds={{ busy: testBusy, outcome: testOutcome, onAsk: askTestFunds }}
-                capped={
-                  beyondOneSend
-                    ? {
-                        note: t.invest.short.cap(dollars(TEST_SEND.maxUsd, lang), TEST_SEND.perDay),
-                        label: t.invest.short.sendAnyway(dollars(TEST_SEND.maxUsd, lang)),
-                      }
-                    : undefined
-                }
-              />
-            )}
-          {!started && beyondOneSend && (
-            // The other ways on: the amount the wallet covers, in one press, and how to choose another.
-            <div data-ui="invest-short" className="flex flex-col items-start gap-2">
-              {covered !== null && onAmount && (
-                <>
-                  <p className="max-w-(--tf-measure-body) text-body-sm">
-                    {t.invest.short.covers(dollars(covered, lang))}
-                  </p>
-                  <Button variant="secondary" onClick={() => onAmount(covered)}>
-                    {t.invest.short.instead(dollars(covered, lang))}
-                  </Button>
-                </>
-              )}
-              <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">
-                {amountFrom === 'goal' ? t.invest.short.inGoal : t.invest.short.typeLess}
-              </p>
-            </div>
-          )}
-
-          {!accepted && !started ? (
-            // Before the first deposit: the notice with its box, in the card. The press is held
-            // until it is ticked, and the acceptance is kept as the person presses.
-            <TrustNotice
-              chain={chain}
-              accepted={false}
-              checked={ticked}
-              onCheck={setTicked}
-              keeper={keeper}
-              // in a pane that must fit its screen, one line that opens (audit I3)
-              fold={amountFrom === 'goal' || Boolean(hostEnds)}
-            />
-          ) : (
-            // Accepted before, for this text: not asked again, and still here to read.
-            <details data-ui="trust-kept">
-              <summary className="w-fit cursor-pointer text-body-sm font-medium text-honey-text underline decoration-1 underline-offset-4 hover:decoration-2">
-                {t.trust.short.title}
-              </summary>
-              <div className="mt-3">
-                <TrustNotice
-                  chain={chain}
-                  accepted
-                  checked={false}
-                  onCheck={setTicked}
-                  keeper={keeper}
-                />
-              </div>
-            </details>
-          )}
-
-          {made?.again && !started && (
-            <p data-ui="invest-updated" aria-live="polite" className="text-body-sm font-medium">
-              {t.invest.updated}
-            </p>
-          )}
-          {made ? (
-            <OrderScreen
-              key={made.orderId}
-              id={made.orderId}
-              embed={{
-                ...(onEnded ? { onEnded } : {}),
-                blocked: [
-                  ...(trustHeld ? [t.buy.blocked.trust] : []),
-                  ...(fresh ? [t.invest.updatedHold] : []),
-                ],
-                onApprove: () => {
-                  // The order is the person's now: it is kept, whatever becomes of the card.
-                  open.current = null;
-                  runOf.current = made.orderId;
-                  setStarted(true);
-                  onProgress?.({ orderId: made.orderId, step: 0, of: 0, line: '' });
-                },
-                // Kept only once the run has begun: a press that could not start accepted nothing.
-                onStarted: () => {
-                  if (!accepted && userId)
-                    acceptTrust(userId, TRUST_STATUS.textVersion, keeper, chainIsLive(chain));
-                },
-                onAgain: () => {
-                  // asked for by the person: made whatever the card has made by itself
-                  asked.current = want ? `${want}|${orderRound + 1}` : null;
-                  runOf.current = null;
-                  setStarted(false);
-                  setMade(null);
-                  setOrderRound((n) => n + 1);
-                },
-                onProgress: (progress) => {
-                  // also a run begun again after it stopped: finish, try again
-                  runOf.current = progress.orderId;
-                  onProgress?.(progress);
-                },
-                onDone: ({ orderId }) => {
-                  runOf.current = null;
-                  void done(orderId);
-                },
-                onStopped: (stopped) => {
-                  runOf.current = null;
-                  onStopped?.(stopped);
-                },
-                ...(hostEnds ? { hostEnds: true } : {}),
-                ...(endsAt
-                  ? {
-                      endsAt: {
-                        href: `/portfolio/vaults/${encodeURIComponent(chain)}/${encodeURIComponent(endsAt)}`,
-                        label: t.mix.deposit.signing.openVault,
-                      },
-                    }
-                  : {}),
-                // The host ends the deposit in place: the order that finishes this one takes the
-                // card, to be reviewed and signed here. It deposits nothing, so no other is made.
-                ...(hostEnds
-                  ? {
-                      onFinish: (orderId: string) => {
-                        runOf.current = null;
-                        setStarted(true);
-                        setMade({
-                          key: `finish:${orderId}`,
-                          orderId,
-                          expiresAt: 0,
-                          again: false,
-                          ...(made.basketId ? { basketId: made.basketId } : {}),
-                        });
-                        onFollowUp?.(orderId);
-                      },
-                    }
-                  : {}),
-              }}
-            />
-          ) : (
-            <div className="flex flex-col items-start gap-3">
-              <Button
-                variant="primary"
-                busy={placing}
-                busyLabel={t.invest.preparing}
-                disabled
-                aria-describedby={waiting.length > 0 ? reasonId : undefined}
-              >
-                {label}
-              </Button>
-              {waiting.length > 0 && (
-                <ul
-                  id={reasonId}
-                  className="flex max-w-(--tf-measure-body) flex-col gap-1 text-body-sm"
-                >
-                  {waiting.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
-              )}
-              {paused && old && !failure && (
-                <p data-ui="invest-old" className="max-w-(--tf-measure-body) text-body-sm">
-                  {t.invest.old}
-                </p>
-              )}
-              {paused && !failure && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    asked.current = want ? `${want}|${orderRound + 1}` : null;
-                    setOld(false);
-                    mustAsk.current = false;
-                    setOrderRound((n) => n + 1);
-                  }}
-                >
-                  {t.invest.again}
-                </Button>
-              )}
-              {failure && (
-                <>
-                  <p
-                    role="alert"
-                    className="flex max-w-(--tf-measure-body) items-start gap-1.5 text-body-sm text-destructive"
-                  >
-                    <StatusMark status="off-track" size={12} className="mt-1.5" />
-                    <span>{failure}</span>
-                  </p>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      asked.current = want ? `${want}|${orderRound + 1}` : null;
-                      setOld(false);
-                      mustAsk.current = false;
-                      setOrderRound((n) => n + 1);
-                    }}
-                  >
-                    {t.invest.again}
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </CardBody>
+      <CardBody className="flex flex-col gap-5">{inner}</CardBody>
     </Card>
   );
 }
