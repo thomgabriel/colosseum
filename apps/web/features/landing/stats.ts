@@ -56,8 +56,11 @@ const usd = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 });
 
-/** Which block the strip shows: a mainnet's, else a test network's, else the mock's. */
-const PREFERRED: Provenance[] = ['live', 'sandbox', 'mock'];
+/**
+ * Which block the strip shows: the test network's, where people make vaults with test money, else a
+ * mainnet's, else the mock's (gate `LANDING-STATS-NETWORK`, Thom, Oct 28, for the Island DAO demo).
+ */
+const PREFERRED: Provenance[] = ['sandbox', 'live', 'mock'];
 
 /** The strip from a reply of `/v1/stats`, or null when the reply is not one or has no block to show. */
 export function fromReply(reply: unknown): PlatformStats | null {
