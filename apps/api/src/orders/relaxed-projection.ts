@@ -127,6 +127,9 @@ export function project(input: ProjectionInput): Projection {
   if (!input.lines.length) return null;
   if (input.amount == null && input.monthly == null) return null;
   const { r, used, none } = blended(input);
+  // No line pays a sourced yield (a vault of stocks): "would earn about $0" reads as a forecast of
+  // nothing, so there is no growth sentence to make. Withdrawals below still have arithmetic to do.
+  if (!used.length && input.monthly == null) return null;
   const out: string[] = [];
   const monthlyRate = (1 + r) ** (1 / 12) - 1;
 
