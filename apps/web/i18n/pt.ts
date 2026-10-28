@@ -16,6 +16,7 @@ export const pt: Dictionary = {
     invest: 'Investir',
     portfolio: 'Portfólio',
     products: 'Produtos',
+    leaderboard: 'Ranking',
     resources: 'Recursos',
     analytics: 'Análises',
     shelf: 'Prateleira',
@@ -1768,7 +1769,7 @@ export const pt: Dictionary = {
       loading: 'Lendo o cofre…',
       missing: 'Não há cofre neste endereço.',
       back: 'Voltar ao seu portfólio',
-      backVisitor: 'Voltar aos Produtos',
+      backVisitor: 'Voltar ao ranking',
       unreachable: 'Não consegui ler este cofre: nosso servidor não respondeu. Tente de novo.',
       chainOff: (chain: string) =>
         `${chain} está indisponível no nosso servidor por enquanto, então não consigo ler este cofre aqui.`,
@@ -2724,5 +2725,49 @@ export const pt: Dictionary = {
       fromPerson: 'Escolhido por você.',
       note: 'O primeiro passo define estes pesos-alvo na rede; os passos seguintes trocam para chegar a eles, cada um com seu mínimo.',
     },
+  },
+  leaderboard: {
+    title: 'Ranking',
+    description:
+      'Todos os cofres abertos, ordenados pelo que renderam sobre o que foi depositado neles.',
+    lead: (chain: string) =>
+      `Todos os cofres abertos na ${chain}, ordenados pelo que renderam como parte do que foi depositado neles.`,
+    rule: 'O que um cofre rendeu é o valor de agora mais o que foi sacado, menos os depósitos feitos neste app. Um cofre sem depósito feito neste app fica por último.',
+    loading: 'Lendo os cofres…',
+    empty: (chain: string) => `Nenhum cofre está aberto na ${chain} ainda.`,
+    failure: {
+      unreachable: 'Não consegui ler o ranking: nosso servidor não respondeu. Tente de novo.',
+      unreadable: 'Não consegui ler a resposta do ranking. Tente de novo.',
+      retry: 'Tentar de novo',
+    },
+    heading: 'Cofres abertos',
+    vaults: 'Total',
+    table: {
+      rank: 'Posição',
+      vault: 'Cofre',
+      owner: 'Dono',
+      holds: 'Contém',
+      value: 'Valor',
+      made: 'Resultado',
+      read: 'Última leitura',
+    },
+    unnamed: (address: string) => `Cofre ${address}`,
+    follows: (name: string) => `Segue ${name}`,
+    open: (title: string) => `Abrir ${title}`,
+    more: (count: number) => `+${count} outros`,
+    noDeposit: 'Nenhum depósito feito neste app',
+    ago: {
+      said: 'há {n} {unit}',
+      minute: ['min', 'min'],
+      hour: ['h', 'h'],
+      day: ['dia', 'dias'],
+    },
+    neverRead: 'Ainda não lido',
+    unvalued: (count: number) =>
+      count === 1
+        ? 'Um token sacado não tinha preço na hora e não entra na conta.'
+        : `${count} tokens sacados não tinham preço na hora e não entram na conta.`,
+    value: 'Valor',
+    made: 'Resultado',
   },
 };

@@ -183,11 +183,11 @@ describe('the test faucet', () => {
   it('refuses a buy that needs more than one send gives, and counts nothing for it', async () => {
     const entry = entryOn('solana');
     const { funds, sender } = faucet();
-    // $5,000 is the most; with its 1% margin, $4,951 is over it.
-    const cash = String(4_951 * 1_000_000);
+    // $10,000 is the most; with its 1% margin, $9,901 is over it.
+    const cash = String(9_901 * 1_000_000);
     const big = await refusal(funds.send('user-1', entry, funding(entry, { cash, gas: '0' })));
     expect(big.status).toBe(422);
-    expect(big.body().error).toMatch(/\$5,000/);
+    expect(big.body().error).toMatch(/\$10,000/);
     const gas = await refusal(
       funds.send('user-1', entry, funding(entry, { cash: '0', gas: '100000000' })),
     );

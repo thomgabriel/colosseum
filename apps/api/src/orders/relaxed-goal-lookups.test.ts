@@ -5,7 +5,7 @@ import { launchShelf } from '../../../../packages/engine/src/personal/testing';
 import { type ModelScript, scriptedModel, toolResults } from '../testing/lookup-script';
 import { fixtureLookups, OFFLINE_DB } from '../testing/lookups';
 import { LOOKUP_TOOLS, type LookupBase } from './lookup-loop';
-import { createRelaxedGoalAgent } from './relaxed-goal-agent';
+import { createRelaxedGoalAgent, RELAXED_TIMEOUT_MS } from './relaxed-goal-agent';
 import { FIGURE_CUT, type GoalAgentContext } from './vault-agent';
 
 // The lookups on /goal (FIGURES-BY-REFERENCE and RELAXED-INTAKE as amended 2026-10-14, ledger
@@ -144,7 +144,7 @@ describe('the relaxed intake looks up the data we hold', () => {
     const given = options.map((option) => option?.timeout);
     expect(given).toHaveLength(2);
     for (const ms of given) expect(ms).toBeGreaterThan(0);
-    expect(given[0]).toBeLessThanOrEqual(60_000);
+    expect(given[0]).toBeLessThanOrEqual(RELAXED_TIMEOUT_MS);
     expect(given[1]).toBeLessThanOrEqual(given[0] as number);
     // the time is the client's, never a parameter of the request
     for (const call of calls) expect(call).not.toHaveProperty('timeoutMs');

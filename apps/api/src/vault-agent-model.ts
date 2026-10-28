@@ -18,13 +18,15 @@ import type { VaultAgentPrompt } from './orders/vault-agent';
  * room for the thinking the Claude 5 family always does, which counts against it, and stays under the
  * SDK's limit for a call that is not streamed.
  */
-export const VAULT_AGENT_TIMEOUT_MS = 30_000;
+export const VAULT_AGENT_TIMEOUT_MS = 60_000;
 export const VAULT_AGENT_MAX_TOKENS = 16_000;
 
 /** How hard a model that takes `output_config.effort` thinks; `VAULT_AGENT_EFFORT` overrides it. */
 export const VAULT_AGENT_EFFORTS = ['low', 'medium', 'high'] as const;
 export type VaultAgentEffort = (typeof VAULT_AGENT_EFFORTS)[number];
-export const VAULT_AGENT_EFFORT: VaultAgentEffort = 'low';
+export const VAULT_AGENT_EFFORT: VaultAgentEffort = 'high';
+/** The conversation's model when `VAULT_AGENT_MODEL` is unset (Thom, Oct 28: Opus 5.5 at high effort). */
+export const VAULT_AGENT_MODEL_ID = 'claude-opus-5-5';
 
 /**
  * Whether a model takes `temperature`. The Claude 5 family and Opus 4.7/4.8 answer 400 to any sampling
@@ -46,7 +48,7 @@ export function acceptsEffort(model: string): boolean {
   );
 }
 
-/** The conversation's effort: `VAULT_AGENT_EFFORT`, low by default. A value that cannot be read throws. */
+/** The conversation's effort: `VAULT_AGENT_EFFORT`, high by default. A value that cannot be read throws. */
 export function vaultAgentEffort(env: EnvLike): VaultAgentEffort {
   const raw = env.VAULT_AGENT_EFFORT?.trim();
   if (raw === undefined || raw === '') return VAULT_AGENT_EFFORT;
@@ -56,11 +58,11 @@ export function vaultAgentEffort(env: EnvLike): VaultAgentEffort {
 }
 
 /**
- * The conversation's model: `VAULT_AGENT_MODEL`, or the intake's configured model when unset. Checked like
+ * The conversation's model: `VAULT_AGENT_MODEL`, or `VAULT_AGENT_MODEL_ID` when unset. Checked like
  * `INTAKE_MODEL`; a value that cannot be read throws without repeating it.
  */
-export function vaultAgentModelId(env: EnvLike, intakeModel: string): string {
-  const model = env.VAULT_AGENT_MODEL?.trim() || intakeModel;
+export function vaultAgentModelId(env: EnvLike): string {
+  const model = env.VAULT_AGENT_MODEL?.trim() || VAULT_AGENT_MODEL_ID;
   if (!/^[A-Za-z0-9][A-Za-z0-9._:@-]{0,99}$/.test(model))
     throw new Error('VAULT_AGENT_MODEL must be a model id: letters, digits, dots and dashes');
   return model;

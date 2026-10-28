@@ -18,6 +18,7 @@ export * from './enums';
 export * from './facts';
 export * from './flags';
 export * from './keeper';
+export * from './leaderboard-api';
 export * from './liquidity';
 export * from './mix-api';
 export * from './order';

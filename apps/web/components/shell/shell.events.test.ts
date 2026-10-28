@@ -134,7 +134,7 @@ describe('the frame', () => {
     const links = (root: HTMLElement) => [...find(root, 'nav').querySelectorAll(':scope > a')];
     // a visitor: no portfolio to show
     expect(links(host).map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.products, '/products'],
+      [en.leaderboard, '/leaderboard'],
       [en.invest, '/invest'],
       [en.analytics, '/analytics/stocks'],
     ]);
@@ -168,8 +168,17 @@ describe('the frame', () => {
       'page',
       null,
     ]);
-    // a shared portfolio's page is under Products, the shelf
+    // Products is out of the bar for the demo (Thom, Oct 28): the shelf and a portfolio's page are
+    // still there, under no item
+    expect(host.querySelector('nav a[href="/products"]')).toBeNull();
     location.pathname = '/products/some-portfolio';
+    expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
+      null,
+      null,
+      null,
+    ]);
+    // the leaderboard is its own item, for everyone
+    location.pathname = '/leaderboard';
     expect(links(await shell()).map((a) => a.getAttribute('aria-current'))).toEqual([
       'page',
       null,
@@ -180,7 +189,7 @@ describe('the frame', () => {
     location.pathname = '/portfolio/monitor';
     const signedIn = await shell();
     expect(links(signedIn).map((a) => [a.textContent, a.getAttribute('aria-current')])).toEqual([
-      [en.products, null],
+      [en.leaderboard, null],
       [en.invest, null],
       [en.portfolio, 'page'],
       [en.analytics, null],
@@ -203,7 +212,7 @@ describe('the frame', () => {
     // on a phone the same links are in the sheet under the menu button
     const sheet = find(signedIn, '[data-ui="compact-nav-sheet"]');
     expect([...sheet.querySelectorAll(':scope > a')].map((a) => a.getAttribute('href'))).toEqual([
-      '/products',
+      '/leaderboard',
       '/invest',
       '/portfolio',
       '/analytics/stocks',
@@ -789,7 +798,7 @@ describe('the language', () => {
     const host = await shell('pt');
     expect(find(host, 'a[href="#content"]').textContent).toBe(pt.skip);
     expect([...find(host, 'nav').querySelectorAll(':scope > a')].map((a) => a.textContent)).toEqual(
-      [pt.products, pt.invest, pt.analytics],
+      [pt.leaderboard, pt.invest, pt.analytics],
     );
     expect(find(host, 'header a[href^="/sign-in"]').textContent).toBe(pt.signIn);
     expect(host.textContent).not.toMatch(/!/);

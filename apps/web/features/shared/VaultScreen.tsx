@@ -74,8 +74,9 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
   const shown = useRef<string | null>(null);
   const titleId = useId();
   const known = ChainId.safeParse(chain);
-  // Someone signed out has no portfolio to go back to: they came from Products, or from a link.
-  // Until the wallet is known nobody is named either way: no "Back to Products" flashes by for a
+  // Someone signed out has no portfolio to go back to: they came from the leaderboard, which lists
+  // every vault and stands in the bar where Products stood (gate LEADERBOARD), or from a link. Until
+  // the wallet is known nobody is named either way: no "Back to the leaderboard" flashes by for a
   // person whose sign-in is still loading.
   const signedIn = port.status !== 'signed-out' && port.userId !== null;
   const backLink = (ui?: string) =>
@@ -91,7 +92,7 @@ export function VaultScreen({ chain, address }: { chain: string; address: string
       </Link>
     ) : (
       <Link
-        href="/products"
+        href="/leaderboard"
         data-ui={ui}
         className={cn(buttonClass({ variant: 'link' }), PAGE_BACK)}
       >
