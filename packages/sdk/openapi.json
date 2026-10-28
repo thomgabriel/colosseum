@@ -12397,7 +12397,7 @@
           {
             "schema": {
               "type": "number",
-              "exclusiveMinimum": 0,
+              "minimum": 1,
               "maximum": 1000000
             },
             "in": "query",
@@ -24998,7 +24998,7 @@
                   },
                   "amountUsd": {
                     "type": "number",
-                    "exclusiveMinimum": 0,
+                    "minimum": 1,
                     "maximum": 1000000
                   },
                   "proposalId": {

@@ -9,6 +9,7 @@ import {
   OrderError,
   PersonResponse,
   PickChainRequest,
+  TestFundsRequest,
 } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
 
@@ -183,10 +184,17 @@ describe('the bodies of /v1/me and /v1/funding', () => {
       amountUsd: 250.5,
       proposalId: ID,
     });
+    // the floor of one deposit (gate DEPOSIT-FLOOR): $1 is read, and so is the test faucet's ask
+    expect(FundingQuery.parse({ amountUsd: '1', proposalId: ID }).amountUsd).toBe(1);
+    expect(TestFundsRequest.safeParse({ amountUsd: 1, proposalId: ID }).success).toBe(true);
+    for (const amountUsd of [0.99, 0, 1_000_000.01])
+      expect(TestFundsRequest.safeParse({ amountUsd, proposalId: ID }).success).toBe(false);
     for (const query of [
       { amountUsd: '10' },
       { proposalId: ID },
       { amountUsd: '0', proposalId: ID },
+      // under the floor of one deposit (gate DEPOSIT-FLOOR)
+      { amountUsd: '0.99', proposalId: ID },
       { amountUsd: '1000000.01', proposalId: ID },
       { amountUsd: '10', proposalId: 'a-plan' },
       { family: 'core' },
