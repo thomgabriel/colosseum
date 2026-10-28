@@ -75,7 +75,7 @@ describe('the lookup loop', () => {
       required: ['assetId', 'window'],
       properties: { window: { enum: ['24h', '7d', '30d'] } },
     });
-    expect(LOOKUP_MAX_ROUNDS).toBe(3);
+    expect(LOOKUP_MAX_ROUNDS).toBe(1);
     expect(LOOKUP_WAIT_MS).toBe(2_500);
   });
 
@@ -148,7 +148,7 @@ describe('the lookup loop', () => {
     expect(text).not.toMatch(/"source"|"method"|api\.dexscreener\.com|dexscreener_token_pairs/u);
   });
 
-  it('stops looking up after three rounds: the next call may not (tool_choice none)', async () => {
+  it('stops looking up after one round: the next call may not (tool_choice none)', async () => {
     const again = asks(use('x', 'asset_profile', { assetId: NVDA }));
     const sent: Sent[] = [];
     const call: LookupCall = async (request) => {
@@ -157,11 +157,11 @@ describe('the lookup loop', () => {
     };
     const reserve = vi.fn(() => null);
     const run = await runLookupLoop({ call, messages: base, reserve, scope: scope() });
-    expect(sent.map((r) => r.tool_choice ?? null)).toEqual([null, null, null, { type: 'none' }]);
+    expect(sent.map((r) => r.tool_choice ?? null)).toEqual([null, { type: 'none' }]);
     expect(sent.every((r) => r.tools === LOOKUP_TOOLS)).toBe(true);
     // one reservation before every paid call
-    expect(reserve).toHaveBeenCalledTimes(4);
-    expect(run.kind === 'answered' && run.looked.counts.rounds).toBe(3);
+    expect(reserve).toHaveBeenCalledTimes(2);
+    expect(run.kind === 'answered' && run.looked.counts.rounds).toBe(1);
     expect(run.kind === 'answered' && run.response).toBe(answer);
   });
 
@@ -202,6 +202,8 @@ describe('the lookup loop', () => {
       scope: scope(),
       deadline: 30_000,
       now: () => clock,
+      // more rounds than the default, so the deadline is what stops them
+      maxRounds: 3,
     });
     expect(run.kind).toBe('answered');
     // 30 s, then 22 s and 14 s left; at 6 s left the last call may not look up and has the floor

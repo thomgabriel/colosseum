@@ -228,6 +228,25 @@ describe('vault proposal provider uses the existing model settings and a shared 
     );
   });
 
+  // Thom, Oct 28 (CHAT-FEWER-WORDS, QUOTED-SHARES): what the 61 logged replies repeated is no longer
+  // asked for, a stated share is drafted, and a go-ahead is one yes-or-no question.
+  it('asks for what changed and the next step, not the boilerplate the logged replies repeated', () => {
+    // no longer required
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/You cannot trade, fund, approve, or apply anything/u);
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/private, non-executable preview/u);
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/ask them in question to say it as a percentage/u);
+    // asked for instead
+    expect(VAULT_AGENT_SYSTEM).toContain('Say what changed and the one next step');
+    expect(VAULT_AGENT_SYSTEM).toContain(
+      'that you cannot place trades, or that auto-follow is off',
+    );
+    expect(VAULT_AGENT_SYSTEM).toContain('Never ask the person to restate or rephrase a share');
+    expect(VAULT_AGENT_SYSTEM).toContain('Never say you cannot make a deposit');
+    expect(VAULT_AGENT_SYSTEM).toContain('Deposit button');
+    expect(VAULT_AGENT_SYSTEM).toContain('ask one yes-or-no question about the single next step');
+    expect(VAULT_AGENT_SYSTEM).toContain('facts.rebalanceNotOffered says why: within_tolerance');
+  });
+
   it('reads VAULT_AGENT_MODEL, or falls back to Opus 5.5', () => {
     expect(VAULT_AGENT_MODEL_ID).toBe('claude-opus-5-5');
     expect(vaultAgentModelId({})).toBe('claude-opus-5-5');

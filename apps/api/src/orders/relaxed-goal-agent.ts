@@ -777,8 +777,9 @@ export function createRelaxedGoalAgent(options: {
           lines.map((l) => ({ ...l, why: trim(l.why) || FIGURE_REMOVED[language] }));
         const r: Reply = {
           ...data,
-          // what is left of the message, then the server's line saying part of it was cut
-          say: said ? [say, FIGURE_CUT[language]].filter(Boolean).join('\n') : say,
+          // what is left of the message; the cut is logged (`sentencesCut`), and said only when
+          // nothing of the message is left
+          say: said && !say ? FIGURE_CUT[language] : say,
           lines: cleanLines(data.lines),
           buckets: data.buckets?.map((b, i) => ({
             ...b,
@@ -1068,10 +1069,6 @@ export function createRelaxedGoalAgent(options: {
           cashAsset,
           gap,
           'The part your shares left unplaced, held as cash until you say where.',
-        );
-      if (live.length)
-        notes.push(
-          'Your deposit goes into exactly these holdings and shares, after the server checks every line again.',
         );
       if (
         live.length &&

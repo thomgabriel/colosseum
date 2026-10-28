@@ -195,7 +195,7 @@ describe('the relaxed intake looks up the data we hold', () => {
       lookups: [[week]],
       final: sheet("NVDAx's latest closing price was $240.51. It trades on several pools."),
     });
-    expect(served(result).message).toBe(`It trades on several pools.\n${CUT}`);
+    expect(served(result).message).toBe(`It trades on several pools.`);
   });
 
   it('cuts a reference to an id it did not look up', async () => {
@@ -205,7 +205,7 @@ describe('the relaxed intake looks up the data we hold', () => {
         `NVDAx's latest closing price was ${ref(`bars:${NVDA}:30d:close`)}. It trades on several pools.`,
       ),
     });
-    expect(served(result).message).toBe(`It trades on several pools.\n${CUT}`);
+    expect(served(result).message).toBe(`It trades on several pools.`);
   });
 
   it('repairs with the attempt as it was: the lookups, their results and its answer, and no tools to call', async () => {
@@ -225,9 +225,9 @@ describe('the relaxed intake looks up the data we hold', () => {
   });
 
   it('reserves the quota before each paid call, and a denial ends the reply as a budget failure', async () => {
-    const two = await ask({ lookups: [[week], [week]], final: sheet(MOVED) });
-    expect(two.calls).toHaveLength(3);
-    expect(two.reserve).toHaveBeenCalledTimes(3);
+    const two = await ask({ lookups: [[week]], final: sheet(MOVED) });
+    expect(two.calls).toHaveLength(2);
+    expect(two.reserve).toHaveBeenCalledTimes(2);
     let n = 0;
     const denied = await ask({ lookups: [[week]], final: sheet(MOVED) }, undefined, {
       reserve: () => (n++ === 0 ? null : 'model_person_budget_spent'),
@@ -262,7 +262,7 @@ describe('the relaxed intake looks up the data we hold', () => {
       { base: lookups({ service: never }) },
     );
     expect(toolResults(calls[1])[0]?.json.reading).toMatch(/still being read/u);
-    expect(served(result).message).toBe(`Its figures are still being read.\n${CUT}`);
+    expect(served(result).message).toBe(`Its figures are still being read.`);
   });
 
   it('answers an asset not on the chain and the cash token with an error, and the reply stands', async () => {
@@ -374,7 +374,7 @@ describe('the relaxed intake looks up the data we hold', () => {
     expect(rules?.text).toBe(systemOf(two.calls[0])[0]?.text);
     expect(rules?.text).toContain('LOOKUPS');
     expect(rules?.text).toMatch(/come first/u);
-    expect(rules?.text).toMatch(/At most three rounds/u);
+    expect(rules?.text).toMatch(/One round in one reply/u);
     expect(rules?.text).toMatch(/never a return/u);
     expect(rules?.text).toMatch(/no verdict/u);
   });

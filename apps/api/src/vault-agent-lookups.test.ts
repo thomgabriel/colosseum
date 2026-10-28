@@ -211,7 +211,9 @@ describe("a vault's own conversation looks up the data we hold", () => {
       `Nvidia's latest closing price was ${ref(`bars:${NVDA}:30d:close`)}. It trades on several pools.`,
     );
     const { result, calls } = await ask({ lookups: [[week]], final: bad });
-    expect(served(result).message).toBe(`It trades on several pools.\n${FIGURE_CUT.en}`);
+    expect(served(result).message).toBe(`It trades on several pools.`);
+    // the cut is logged, not said (Oct 28)
+    expect(served(result).message).not.toContain(FIGURE_CUT.en);
     expect(calls).toHaveLength(3);
     const repair = calls[2];
     expect(repair?.tool_choice).toEqual({ type: 'none' });
@@ -235,10 +237,7 @@ describe("a vault's own conversation looks up the data we hold", () => {
         lookups: [[week]],
         final: said(`${message} It trades on several pools.`),
       });
-      expect([message, served(result).message]).toEqual([
-        message,
-        `It trades on several pools.\n${FIGURE_CUT.en}`,
-      ]);
+      expect([message, served(result).message]).toEqual([message, `It trades on several pools.`]);
       expect(served(result).figures).toBeUndefined();
     }
   });
@@ -328,7 +327,7 @@ describe("a vault's own conversation looks up the data we hold", () => {
   it('tells the model when to look up, in the system text every request shares', () => {
     expect(VAULT_AGENT_SYSTEM).toContain('LOOKUPS');
     expect(VAULT_AGENT_SYSTEM).toMatch(/when kind is new_goal you have no lookups/u);
-    expect(VAULT_AGENT_SYSTEM).toMatch(/At most three rounds/u);
+    expect(VAULT_AGENT_SYSTEM).toMatch(/One round in one reply/u);
     expect(VAULT_AGENT_SYSTEM).toMatch(/never a share, a weight or a limit/u);
   });
 });
