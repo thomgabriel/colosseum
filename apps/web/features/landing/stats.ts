@@ -10,7 +10,7 @@ import { API } from '../../lib/api';
 // The platform's numbers under the hero, from the API's `/v1/stats` when it answers: the vaults the
 // server knows, the wallets that own them, and what they held at the snapshot worker's last pass. Each
 // is pinned with the source, instant and method the API gives it, and under the label of the chains
-// it was counted on: a mainnet's block when one runs, a test network's otherwise. The value is shown
+// it was counted on: a test network's block when one runs, a mainnet's otherwise (LANDING-STATS-NETWORK). The value is shown
 // only when the API has one; with no fresh pass of the worker it has none, and the strip leaves it
 // out rather than say 0. When the API does not answer (no API, no database: a local run, a preview),
 // the strip shows sample figures instead, pinned `mock`, and the strip says so in its quiet line
