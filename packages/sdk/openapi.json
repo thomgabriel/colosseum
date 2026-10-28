@@ -13760,6 +13760,433 @@
         }
       }
     },
+    "/v1/leaderboard": {
+      "get": {
+        "summary": "Every open vault on a chain, ranked by what it made",
+        "tags": ["platform"],
+        "description": "Every vault the server knows on the chain (named by its vault cache, or read by the snapshot worker in the last 7 days) and that is open: a closed vault is left out, and a vault opened again counts from then. Read from the database alone. Each row has the vault’s address, the wallet that owns it in short form (nothing else about who owns it: not the name its owner gave it, nor its number among their vaults, which only the owner is answered), what it holds at its newest snapshot with each share of its value, its value then, and the shared portfolio it follows where the server names it. `pnl` is its value less what went in: the cash of each confirmed deposit made in this app, less each confirmed withdrawal at its value when it was ordered; `pct` is that over the deposits, a fraction, whatever was taken out since. A vault with no deposit the server holds (made outside this app) has no `pnl`, says so in `noPnl` and is ranked last. Every figure carries `source`, `fetchedAt`, `method` and `provenance` (`sandbox` on a test network). An answer is kept for 60 seconds.",
+        "parameters": [
+          {
+            "schema": {
+              "default": "solana",
+              "type": "string",
+              "enum": ["solana"]
+            },
+            "in": "query",
+            "name": "chain",
+            "required": false
+          }
+        ],
+        "security": [],
+        "x-rate-limit": "standard",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain": {
+                      "type": "string",
+                      "enum": ["solana", "base", "robinhood"]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "provenance": {
+                      "type": "string",
+                      "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                    },
+                    "readAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "rule": {
+                      "type": "string"
+                    },
+                    "vaults": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "rank": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "chain": {
+                            "type": "string",
+                            "enum": ["solana", "base", "robinhood"]
+                          },
+                          "address": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              }
+                            ]
+                          },
+                          "owner": {
+                            "type": "string"
+                          },
+                          "holdings": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "asset": {
+                                  "type": "string",
+                                  "pattern": "^(?:solana|base|robinhood):[a-z0-9][a-z0-9-]*$"
+                                },
+                                "weightBps": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                }
+                              },
+                              "required": ["asset", "weightBps"],
+                              "additionalProperties": false
+                            }
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "method": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "usd": {
+                                    "type": "string",
+                                    "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                  }
+                                },
+                                "required": ["source", "method", "fetchedAt", "provenance", "usd"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "pnl": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "method": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "fetchedAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "provenance": {
+                                    "type": "string",
+                                    "enum": ["live", "mock", "sandbox", "fixture", "prior_dataset"]
+                                  },
+                                  "usd": {
+                                    "type": "string",
+                                    "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                  },
+                                  "pct": {
+                                    "type": ["number", "null"]
+                                  },
+                                  "netInUsd": {
+                                    "type": "string",
+                                    "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                  },
+                                  "depositsUsd": {
+                                    "type": "string",
+                                    "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                  },
+                                  "withdrawalsUsd": {
+                                    "type": "string",
+                                    "pattern": "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+                                  },
+                                  "unvaluedWithdrawals": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "source",
+                                  "method",
+                                  "fetchedAt",
+                                  "provenance",
+                                  "usd",
+                                  "pct",
+                                  "netInUsd",
+                                  "depositsUsd",
+                                  "withdrawalsUsd",
+                                  "unvaluedWithdrawals"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "noPnl": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["no_deposit_record", "never_read"]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "follows": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "slug": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["name", "slug"],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "rank",
+                          "chain",
+                          "address",
+                          "owner",
+                          "holdings",
+                          "value",
+                          "pnl",
+                          "noPnl",
+                          "follows"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "disclaimer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "chain",
+                    "name",
+                    "provenance",
+                    "readAt",
+                    "rule",
+                    "vaults",
+                    "disclaimer"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "chainCode": {
+                          "type": "string",
+                          "enum": [
+                            "NotKeeper",
+                            "AutoFollowOff",
+                            "KeeperPaused",
+                            "MintNotAccepted",
+                            "RouterNotAllowed",
+                            "SpentTooMuch",
+                            "ReceivedTooLittle",
+                            "OtherAccountDebited",
+                            "AccountTampered",
+                            "PriceStale",
+                            "PriceDeviation",
+                            "MarketClosed",
+                            "MultiplierWindow",
+                            "NotTowardTarget",
+                            "PastTarget",
+                            "Cooldown",
+                            "LossCapReached",
+                            "AssetNotPriced",
+                            "NewAssetNeedsOwner",
+                            "VersionNotEffective",
+                            "CreatorLimit",
+                            "VersionMismatch",
+                            "WrongDestination",
+                            "ParamOutOfBounds",
+                            "NotUpgradeAuthority",
+                            "InvalidTargets",
+                            "NotCashMint",
+                            "ZeroAddress",
+                            "LockedAtLaunch",
+                            "HookNotAllowed",
+                            "AssetListFull",
+                            "SameMint",
+                            "NoPendingVersion",
+                            "NotCreatorOrGuardian",
+                            "NotCashLeg",
+                            "KeeperAssetOff",
+                            "PriceOutOfRange",
+                            "NothingTraded",
+                            "NotOwner",
+                            "CashTokenNotSet",
+                            "DepositShortfall",
+                            "GasTooLow",
+                            "DepositsPaused",
+                            "DepositCapReached",
+                            "CreationNotOpen",
+                            "NotAdmin",
+                            "NoCode",
+                            "AssetIsRouter",
+                            "RouterIsAsset",
+                            "NotCreating",
+                            "RouterFailed",
+                            "BalanceUnreadable",
+                            "CashTokenNotRemovable",
+                            "HandoverNotDone",
+                            "AlreadySet",
+                            "RecipeExists",
+                            "BadInput",
+                            "NotSupported",
+                            "TooManyTrades",
+                            "BadTrade",
+                            "TradeOverAssetLimit",
+                            "TradeOverClosedLimit",
+                            "VaultNotFound",
+                            "VaultExists",
+                            "RecipeNotFound",
+                            "NotFollowing",
+                            "NotFunded",
+                            "NoGas",
+                            "AllowanceTooLow",
+                            "Expired",
+                            "PriceMoved",
+                            "NotBuiltHere",
+                            "Unavailable",
+                            "Unknown"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "blocking": {
+                          "type": "object",
+                          "properties": {
+                            "orderId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "legId": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": ["orderId", "legId"],
+                          "additionalProperties": false
+                        },
+                        "continuedBy": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "issues": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "NOT_FUNDED",
+                        "ASSET_NOT_ELIGIBLE",
+                        "GOAL_NOT_ACHIEVABLE",
+                        "NEW_ASSET_NEEDS_APPROVAL",
+                        "VERSION_CHANGED",
+                        "CREATOR_LIMIT",
+                        "ORDER_EXPIRED",
+                        "US_PERSON",
+                        "RATE_LIMITED",
+                        "CHAIN_UNAVAILABLE",
+                        "PLAN_GONE",
+                        "CURRENCY_UNSUPPORTED",
+                        "NO_WALLET_FOR_CHAIN",
+                        "PRICE_MOVED",
+                        "ORDER_CONTINUED",
+                        "STEP_IN_FLIGHT",
+                        "STEP_LANDED",
+                        "NOTHING_LEFT",
+                        "VAULT_CASH_SHORT",
+                        "NOT_EMPTY",
+                        "ORDER_UNFINISHED",
+                        "DEPOSIT_NOT_LANDED",
+                        "ORDER_BUSY",
+                        "CONTINUE_NOT_SUPPORTED",
+                        "MIX_NOT_VALID",
+                        "AMOUNT_OVER_REVIEW"
+                      ]
+                    },
+                    "fix": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["error"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "summary": "The signed-in person: their wallets, and the chain their new plans are made on",
@@ -24549,7 +24976,7 @@
       "post": {
         "summary": "Test network only: send the signed-in wallet the test tokens and gas a deposit is missing",
         "tags": ["funding"],
-        "description": "For the one chain the deposit is on (the plan’s own, the vault’s own, or for a shared portfolio the chain `chain` names with `family`, else the person’s current chain), when it runs on a test network and this server holds a faucet key for it (GET /v1/funding says `testFunds: true`). The server works out what is missing for this deposit itself, as GET /v1/funding does, and sends that with a small margin: test dollars and the native token for fees, transferred from the faucet’s float. Never on mainnet. A person may ask three times a day, the faucet as a whole a hundred; one send is at most $5,000 in test dollars. The faucet is a wallet holding a float of test tokens that it transfers from, with no mint authority or role; a send the float cannot cover answers 409 with `test funds are low; ask the team` (or `test gas is low; ask the team`). The answer names what was sent and the test network’s transaction ids, and nothing about the node or the key.",
+        "description": "For the one chain the deposit is on (the plan’s own, the vault’s own, or for a shared portfolio the chain `chain` names with `family`, else the person’s current chain), when it runs on a test network and this server holds a faucet key for it (GET /v1/funding says `testFunds: true`). The server works out what is missing for this deposit itself, as GET /v1/funding does, and sends that with a small margin: test dollars and the native token for fees, transferred from the faucet’s float. Never on mainnet. A person may ask three times a day, the faucet as a whole five hundred; one send is at most $10,000 in test dollars. The faucet is a wallet holding a float of test tokens that it transfers from, with no mint authority or role; a send the float cannot cover answers 409 with `test funds are low; ask the team` (or `test gas is low; ask the team`). The answer names what was sent and the test network’s transaction ids, and nothing about the node or the key.",
         "requestBody": {
           "required": true,
           "content": {

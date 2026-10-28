@@ -2101,7 +2101,7 @@ describe('a vault’s public page', () => {
     expect(find(host, 'h1').textContent).toBe(en.shared.vault.missing);
     const ways = [...host.querySelectorAll('a')];
     expect(ways.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      [en.shared.vault.backVisitor, '/products'],
+      [en.shared.vault.backVisitor, '/leaderboard'],
     ]);
     expect(host.querySelectorAll('button')).toHaveLength(0);
   });
@@ -2119,7 +2119,7 @@ describe('a vault’s public page', () => {
     expect(host.textContent).toContain(en.shared.vault.unreachable);
     expect(host.textContent).not.toMatch(/shared portfolios/);
     expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
-      '/products',
+      '/leaderboard',
     ]);
     await click(find(host, 'button'));
     await settle();
@@ -2135,7 +2135,7 @@ describe('a vault’s public page', () => {
     expect(host.textContent).not.toContain(en.shared.vault.unreachable);
     expect(host.querySelectorAll('button')).toHaveLength(0);
     expect([...host.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([
-      '/products',
+      '/leaderboard',
     ]);
   });
 

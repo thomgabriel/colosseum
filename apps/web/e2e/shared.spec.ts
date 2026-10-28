@@ -58,16 +58,18 @@ async function signIn(page: Page) {
 }
 
 /**
- * The shelf, by the bar: the throwaway wallet lives in the page, so every move stays inside it. The
- * bar is his compact bar, whose links are in the sheet under the menu button at 375 px; the shelf is
- * his "Products".
+ * The shelf, reached inside the page: the throwaway wallet lives in the page, so every move stays
+ * inside it. Products is out of the bar for the demo (Thom, Oct 28), and the one other link to the
+ * shelf a person can always click, the landing's "see a plan" (`SEE_A_PLAN`), is a plain link on the
+ * marketing page, which loads the page again and with it a new wallet. So the move is the app router's
+ * own client-side push, which `next dev` (the server these specs run on) exposes as `window.nd`.
  */
 async function toShelf(page: Page) {
-  await page.getByRole('button', { name: en.shell.menu }).click();
-  await page
-    .locator('[data-ui="compact-nav-sheet"]')
-    .getByRole('link', { name: en.shell.products })
-    .click();
+  await page.evaluate(() =>
+    (window as unknown as { nd: { router: { push(href: string): void } } }).nd.router.push(
+      '/products',
+    ),
+  );
   // one list of every chain's portfolios: the address names no chain (gate CHAIN-AT-THE-PLAN)
   await expect(page).toHaveURL(/\/products$/);
 }
