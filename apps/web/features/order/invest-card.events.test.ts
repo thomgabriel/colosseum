@@ -468,7 +468,7 @@ describe('the funds, shown because the wallet is short', () => {
 
 describe('short by more than one send of test funds gives', () => {
   // $40,000 asked for, 12,900 test dollars in the wallet, fees covered: 27,100 short, and one send
-  // gives at most $5,000.
+  // gives at most $10,000.
   const HAVE = '12900000000';
 
   it('says what a send gives before the ask, and sends that much instead of being refused the whole amount', async () => {
@@ -478,19 +478,19 @@ describe('short by more than one send of test funds gives', () => {
     expect(find(host, '[data-ui="funding-line"]').textContent).not.toMatch(/\d/);
     expect(find(host, '[data-ui="funding-details"]').textContent).toContain('27,100 USDC');
     expect(find(host, '[data-ui="test-funds-cap"]').textContent).toContain(
-      en.invest.short.cap('$5,000', 3),
+      en.invest.short.cap('$10,000', 3),
     );
     // the button says what it will do, and "Get test funds" is not offered as if it covered it
     expect(button(host, en.buy.funding.testFunds)).toBeUndefined();
-    const send = button(host, en.invest.short.sendAnyway('$5,000'));
+    const send = button(host, en.invest.short.sendAnyway('$10,000'));
     expect(send).toBeDefined();
     await click(send as HTMLButtonElement);
     await settle();
     await settle();
-    // asked for what one send covers over what the wallet holds: 4,950 short, which with the
-    // server's 1% over is within its $5,000
+    // asked for what one send covers over what the wallet holds: 9,900 short, which with the
+    // server's 1% over is within its $10,000
     expect(server.to('/v1/testnet/fund').map((c) => c.body)).toEqual([
-      { proposalId: PLAN_ID, amountUsd: 12_900 + 4_950, wallet: SOLANA },
+      { proposalId: PLAN_ID, amountUsd: 12_900 + 9_900, wallet: SOLANA },
     ]);
     expect(host.textContent).not.toContain(en.buy.funding.testFailure.tooMuch);
   });
