@@ -179,7 +179,10 @@ export const AcceptGoalMixRequest = z.strictObject({
   ...confirmation,
   goal: z.enum(['grow', 'income', 'protect']).nullable().optional(),
   risk: z.enum(['low', 'medium', 'high']).nullable().optional(),
-  amountUsd: z.number().min(10).max(ORDER_LIMITS.maxAmountUsd, 'one deposit is at most $1,000,000'),
+  amountUsd: z
+    .number()
+    .min(ORDER_LIMITS.minAmountUsd, 'one deposit is at least $1')
+    .max(ORDER_LIMITS.maxAmountUsd, 'one deposit is at most $1,000,000'),
   /** The goal's term. Left out: the goal has no date (`horizonOpen`). */
   horizonMonths: z.number().int().min(1).max(480).optional(),
 });

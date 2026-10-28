@@ -84,11 +84,12 @@ describe('the hero', () => {
     ]);
     expect(actions).toEqual([
       [t.start, '/invest'],
-      [t.see, '/products'],
+      // the leaderboard, not the shelf (Thom, Oct 28)
+      [t.see, '/leaderboard'],
     ]);
   });
 
-  it('starts a plan with the filled honey action, and shows a plan with the outlined one', async () => {
+  it('starts a plan with the filled honey action, and shows the leaderboard with the outlined one', async () => {
     const host = await landing();
     const [start, see] = [...find(host, '[data-ui="landing-hero"]').querySelectorAll('a')];
     expect(start?.className).toContain('bg-primary');

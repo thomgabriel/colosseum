@@ -113,6 +113,26 @@ describe('private strategy exploration for a new goal', () => {
       expect(buttons.map((button) => button.textContent)).toEqual(
         dictionary(lang).goal.explore.starters,
       );
+      // Thom, Oct 28: technology first, then two that ask for what only the measured exit figures
+      // answer (apps/api relaxed-goal-agent.test.ts: they load those figures); no abstract risk level,
+      // and no income or protect starter, whose drafts were poor
+      const said = buttons.map((button) => button.textContent ?? '');
+      expect(said).toEqual(
+        lang === 'en'
+          ? [
+              'Explore technology stocks',
+              'The stocks with the deepest liquidity',
+              '$2,000 in tech stocks and gold, cheapest to exit',
+            ]
+          : [
+              'Explorar ações de tecnologia',
+              'As ações com a liquidez mais profunda',
+              'US$ 2.000 em ações de tecnologia e ouro, saída mais barata',
+            ],
+      );
+      expect(said.join(' ')).not.toMatch(
+        /\b(?:low|medium|high) risk\b|risco|income|protect|renda|proteger/i,
+      );
       const composer = find<HTMLTextAreaElement>(host, 'textarea');
       for (const button of buttons) {
         expect(button.type).toBe('button');

@@ -1,10 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
+import {
+  SolanaDeploymentRecord,
+  deploymentAssets as solanaDeploymentAssets,
+} from '@colosseum/chain-solana/vault';
 import type { BasketAsset, VaultAgentReply, VaultAgentSource } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
+import { DEPLOYMENTS_DIR } from '../deployments';
 import { createModelQuota, type ModelQuota } from '../model-quota';
 import { goalFit } from './mix';
+import { CLASS_LOADS, goalFigures } from './relaxed-figures';
 import { createRelaxedGoalAgent, RELAXED_MAX_TOKENS, splitShares } from './relaxed-goal-agent';
 import { type GoalAgentContext, personShares } from './vault-agent';
 
@@ -695,7 +701,7 @@ describe('relaxed intake: the projection starts from the person’s own figures'
   });
   it('holds the amount to what the deposit step accepts', async () => {
     none(await sheet({ amount: 5_000_000 }, 'I have $5,000,000 to grow'));
-    none(await sheet({ amount: 5 }, 'I have $5 to grow'));
+    none(await sheet({ amount: 0.5 }, 'I have $0.50 to grow'));
   });
   it('drops a date that is past, unreal, out of reach or not the person’s', async () => {
     for (const need_by of ['1999-01-01', '2026-02-31x', '9999-01-01', '2400-06-01', '2031-01-01'])
@@ -1423,4 +1429,56 @@ describe('goalFit, the rule goal/accept and the preview share', () => {
     expect(goalFit(of('TSLAx'), 'grow')).toBe('fits');
     expect(goalFit(of('SOL'), null)).toBe('fits');
   });
+});
+
+describe('the starters under “What should your vault do?” on /invest (Thom, Oct 28)', () => {
+  // The two starters after "Explore technology stocks", as apps/web/i18n/en.ts and pt.ts write them,
+  // ask for what only the measured exit figures answer. On Solana devnet each test token reads the
+  // depth of the mainnet token it models (model-exits.ts), so "stocks" and "gold" have to load those
+  // figures into the conversation's MEASURED FIGURES, or the draft could not rank by them.
+  const STARTERS = [
+    {
+      en: 'The stocks with the deepest liquidity',
+      pt: 'As ações com a liquidez mais profunda',
+      gold: false,
+    },
+    {
+      en: '$2,000 in tech stocks and gold, cheapest to exit',
+      pt: 'US$ 2.000 em ações de tecnologia e ouro, saída mais barata',
+      gold: true,
+    },
+  ];
+  const assets = solanaDeploymentAssets(
+    SolanaDeploymentRecord.parse(
+      JSON.parse(readFileSync(join(DEPLOYMENTS_DIR, 'solana-devnet.json'), 'utf8')),
+    ),
+  );
+  // a size-free exit capacity for every holding, as `buildGoalAgentContext` adds for a new goal
+  const evidence = assets
+    .filter((a) => a.cls !== 'cash')
+    .map((a, i) =>
+      source(`capacity:${a.id}`, {
+        assetId: a.id,
+        label: 'Largest sale within the cost tolerance, worst regime of the exit window',
+        value: 10_000 * (i + 1),
+        unit: 'USD',
+      }),
+    );
+  const ctx = context({ assets, evidence });
+  const stocks = assets.filter((a) => a.cls === 'stock' || a.cls === 'etf').map((a) => a.id);
+
+  for (const starter of STARTERS)
+    for (const language of ['en', 'pt'] as const)
+      it(`loads the exit capacity of the stocks${starter.gold ? ' and of gold' : ''} for “${starter[language]}”`, () => {
+        const offered = goalFigures(ctx, assets, new Map(), [
+          { who: 'person', text: starter[language] },
+        ]);
+        const loaded = [...offered.sources.keys()];
+        // as many stocks as a class word loads, the deepest two on mainnet (SPYx, NVDAx) among them
+        const stocksLoaded = stocks.filter((id) => loaded.includes(`capacity:${id}`));
+        expect(stocksLoaded).toHaveLength(CLASS_LOADS);
+        expect(stocksLoaded).toEqual(expect.arrayContaining(['solana:spyx', 'solana:nvdax']));
+        expect(loaded.includes('capacity:solana:paxg')).toBe(starter.gold);
+        expect(offered.block).toContain('MEASURED FIGURES');
+      });
 });

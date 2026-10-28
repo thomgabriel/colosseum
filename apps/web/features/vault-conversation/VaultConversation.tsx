@@ -51,9 +51,14 @@ import { useScrolls } from './use-scrolls';
  * (`current`), and takes the right pane for a deposit, a withdrawal or an order's steps (`action`):
  * while one is open the box is inert and says why, and no message is sent.
  */
-/** A pane of the workbench that scrolls on its own on a desktop (the page does not). */
+/**
+ * A pane of the workbench that scrolls on its own on a desktop (the page does not). What is in it keeps
+ * its own height (`*:shrink-0`): a card with `overflow-hidden` (the house panel, for its corners) would
+ * otherwise shrink to what is left of the pane and cut its last rows off, leaving the pane nothing to
+ * scroll (Thom, Oct 28: a vault's sixth holding).
+ */
 const PANE =
-  'tf-scroll-pane relative min-w-0 flex-col gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2';
+  'tf-scroll-pane relative min-w-0 flex-col gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2 md:*:shrink-0';
 
 export function VaultConversation({
   read,

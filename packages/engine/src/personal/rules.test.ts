@@ -315,7 +315,7 @@ describe('what compose refuses, and what it says instead of pretending', () => {
 
   it('never runs on a sheet that is not valid', () => {
     const bad: Partial<PersonalSheet>[] = [
-      { amountUsd: 5 },
+      { amountUsd: 0.5 },
       { amountUsd: 2_000_000 },
       { horizonMonths: 0 },
       { country: 'Brazil' },

@@ -278,6 +278,14 @@ export type Order = z.infer<typeof Order>;
 
 /** The most a request may ask for. One place, so the schema, the server and a client agree. */
 export const ORDER_LIMITS = {
+  /**
+   * The least one deposit may be, in dollars: the floor of a plan's own amount (`BasketSheet`) too.
+   * Neither the program nor the contracts hold one; it is the smallest round amount whose swaps all
+   * state a minimum above zero (gate `DEPOSIT-FLOOR`). The dearest unit listed is devnet's tPAXG, gold
+   * at six decimals (about $0.004 a unit): a dollar split over sixteen lines still buys ten or more of
+   * them, where a dime buys one and its minimum rounds to nothing, which no order may state.
+   */
+  minAmountUsd: 1,
   /** The most one order may buy, in dollars: the ceiling of a plan's own amount (`BasketSheet`). */
   maxAmountUsd: 1_000_000,
   /**
@@ -443,7 +451,7 @@ export const IntentRequest = z.discriminatedUnion('type', [
     owner: Owner,
     amountUsd: z
       .number()
-      .positive()
+      .min(ORDER_LIMITS.minAmountUsd, 'one deposit is at least $1')
       .max(ORDER_LIMITS.maxAmountUsd, 'one deposit is at most $1,000,000'),
     /**
      * The slippage each trade of this order is built with: the least a trade accepts is its quote

@@ -626,7 +626,7 @@ describe('prepareIntent holds a buy to the caps itself, for a caller that does n
   };
 
   it('plans a buy at the ceiling and at the cap, with the legs the plan gives', async () => {
-    expect(ORDER_LIMITS).toEqual({ maxAmountUsd: 1_000_000, maxSlippageBps: 300 });
+    expect(ORDER_LIMITS).toEqual({ minAmountUsd: 1, maxAmountUsd: 1_000_000, maxSlippageBps: 300 });
     const order = await prepare({ amountUsd: 1_000_000, maxSlippageBps: 300 });
     expect(order.legs.map((l) => l.kind)).toEqual(['create_vault', 'swap', 'swap', 'swap']);
     // The cap is the slippage the figures are worked out with.
@@ -640,6 +640,19 @@ describe('prepareIntent holds a buy to the caps itself, for a caller that does n
       expect([amountUsd, refused.status]).toEqual([amountUsd, 422]);
       expect(refused.message).toBe('one deposit is at most $1,000,000');
     }
+  });
+
+  it('refuses an amount under the floor with 422, and plans one at it (gate DEPOSIT-FLOOR)', async () => {
+    for (const amountUsd of [0.99, 0.0001, 0, -1]) {
+      const refused = await refusal(prepare({ amountUsd }));
+      expect([amountUsd, refused.status]).toEqual([amountUsd, 422]);
+      expect(refused.message).toBe('one deposit is at least $1');
+    }
+    const order = await prepare({ amountUsd: 1 });
+    expect(order.legs.map((l) => l.kind)).toEqual(['create_vault', 'swap', 'swap', 'swap']);
+    // every swap of a one-dollar deposit states a minimum above nothing
+    for (const leg of order.legs.slice(1))
+      for (const figure of leg.expected) expect(BigInt(figure.minOutRaw)).toBeGreaterThan(0n);
   });
 
   it('refuses a slippage over the cap, or under nothing, with 422', async () => {

@@ -181,14 +181,14 @@ describe('the amount', () => {
     expect(planOn().proposal.sheet.amountUsd).toBe(40_000);
     expect(amountField(host).value).toBe('40000');
     expect(host.textContent).toContain(en.buy.amount.hint('$40,000'));
-    expect(en.buy.amount.hint('$40,000')).toMatch(/\$10 to \$1,000,000/);
+    expect(en.buy.amount.hint('$40,000')).toMatch(/\$1 to \$1,000,000/);
   });
 
-  it('holds the press, and reads nothing, while the amount is not one from $10 to $1,000,000', async () => {
+  it('holds the press, and reads nothing, while the amount is not one from $1 to $1,000,000', async () => {
     const server = api();
     const host = await buy();
     const reads = server.to('/v1/funding').length;
-    await type(amountField(host), '5');
+    await type(amountField(host), '0.5');
     await settle(350);
     expect(press(host).getAttribute('aria-disabled')).toBe('true');
     expect(host.textContent).toContain(en.buy.blocked.amount);

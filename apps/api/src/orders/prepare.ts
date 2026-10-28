@@ -379,12 +379,12 @@ function amountOf(req: Extract<IntentRequest, { type: 'buy' }>): bigint {
       422,
       `one deposit is at most $${ORDER_LIMITS.maxAmountUsd.toLocaleString('en-US')}`,
     );
+  if (req.amountUsd < ORDER_LIMITS.minAmountUsd)
+    throw new Refusal(422, `one deposit is at least $${ORDER_LIMITS.minAmountUsd}`);
   const slippageBps = slippageOf(req);
   if (!(slippageBps >= 0 && slippageBps <= ORDER_LIMITS.maxSlippageBps))
     throw new Refusal(422, `a trade takes at most ${ORDER_LIMITS.maxSlippageBps} bps of slippage`);
-  const cents = centsOf(req.amountUsd);
-  if (cents <= 0n) throw new Refusal(422, 'the amount is less than one cent');
-  return cents;
+  return centsOf(req.amountUsd);
 }
 
 /** Every target is a listed asset of the chain that is not its cash. Answers the chain's cash. */

@@ -515,7 +515,7 @@ describe('the engine never runs on a sheet that did not validate', () => {
     undo.push(() => own.app.close());
     const who = await someone('solana');
     const bad: unknown[] = [
-      { ...sheet(), amountUsd: 5 },
+      { ...sheet(), amountUsd: 0.5 },
       { ...sheet(), chains: ['solana', 'robinhood'] },
       { ...sheet(), chains: [] },
       { ...sheet(), risk: 'reckless' },
