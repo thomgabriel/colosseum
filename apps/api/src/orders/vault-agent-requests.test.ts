@@ -1222,7 +1222,10 @@ describe("the person's stated shares, as their words hold them", () => {
   // to rephrase, then what is still refused.
   describe('a share the model quotes from the person, checked word for word', () => {
     const stockAttributes = {
-      stocks: [{ symbol: 'TSLAx', company: 'Tesla, Inc.' }],
+      stocks: [
+        { symbol: 'TSLAx', company: 'Tesla, Inc.' },
+        { symbol: 'NVDAx', company: 'NVIDIA Corporation' },
+      ],
     } as unknown as VaultAgentContext['stockAttributes'];
     const stated = (out: Awaited<ReturnType<typeof served>>) =>
       out.notes.filter((note) => note.code === 'stated');
@@ -1299,6 +1302,21 @@ describe("the person's stated shares, as their words hold them", () => {
         extra,
       );
       expect(over.weights).toEqual([3334, 3333, 3333]);
+      // A move on a condition, a later time, out of worry or under a bound sets nothing either.
+      for (const said of [
+        'Move 10% from Tesla into cash when Tesla hits 300.',
+        "I'm worried, so move 10% from Tesla into cash next month.",
+        'Move at most 10% from Tesla into cash.',
+      ]) {
+        const out = await served(
+          [said],
+          ['TSLA', 'NVDA', 'USD'],
+          [shareOf(['TSLA'], 'exact', 2000, said.replace(/\.$/u, ''))],
+          'en',
+          extra,
+        );
+        expect(out.weights, said).toEqual([3334, 3333, 3333]);
+      }
     });
 
     it('"i wanto to goo all in in telsa" drafts Tesla alone; no typo is read as a name', async () => {
@@ -1400,11 +1418,130 @@ describe("the person's stated shares, as their words hold them", () => {
         'Not TSLAx 10%, keep it small.',
         [shareOf(['TSLA'], 'exact', 1000, 'TSLAx 10%')],
       ],
-    ])('refuses %s: the split stays equal', async (_case, text, report) => {
-      const out = await served([text], ['TSLA', 'NVDA', 'GLD'], report);
-      expect(out.weights).toEqual([3334, 3333, 3333]);
-      expect(stated(out)).toEqual([]);
+      // from the review of this change: each was applied before it was held to more
+      [
+        'a number cut out of a longer one',
+        'I want 15% Tesla.',
+        [shareOf(['TSLA'], 'exact', 500, '5% Tesla')],
+      ],
+      [
+        'a worry',
+        "I'm scared to put 70% in Tesla.",
+        [shareOf(['TSLA'], 'exact', 7000, '70% in Tesla')],
+      ],
+      [
+        'a holding elsewhere',
+        'My 401k is 60% Nvidia.',
+        [shareOf(['NVDA'], 'exact', 6000, '60% Nvidia')],
+      ],
+      [
+        'a relative change',
+        'Add 10% to Tesla.',
+        [shareOf(['TSLA'], 'exact', 1000, '10% to Tesla')],
+      ],
+      [
+        'another move',
+        'Move another 10% from Tesla to Nvidia.',
+        [shareOf(['TSLA'], 'exact', 1000, '10% from Tesla')],
+      ],
+      [
+        'everything out of a name',
+        'Get everything out of Tesla.',
+        [shareOf(['TSLA'], 'exact', 10_000, 'everything out of Tesla')],
+      ],
+      [
+        'one number over two names',
+        'Put 40% in Tesla and Nvidia.',
+        [shareOf(['TSLA'], 'exact', 4000, '40% in Tesla')],
+      ],
+      [
+        'a bound left out of the quote',
+        'Make it at least 20% Tesla, as a floor.',
+        [shareOf(['TSLA'], 'exact', 2000, '20% Tesla')],
+      ],
+      // the second look at it
+      [
+        'a bound a word away',
+        'At most around 20% Tesla.',
+        [shareOf(['TSLA'], 'exact', 2000, '20% Tesla')],
+      ],
+      [
+        'a bound after',
+        'Up to roughly 20% Tesla please.',
+        [shareOf(['TSLA'], 'exact', 2000, '20% Tesla')],
+      ],
+      [
+        'a condition on a price',
+        'Put 30% in Tesla when it dips below 200.',
+        [shareOf(['TSLA'], 'exact', 3000, '30% in Tesla')],
+      ],
+      [
+        'a later time',
+        'Put 30% in Tesla next year.',
+        [shareOf(['TSLA'], 'exact', 3000, '30% in Tesla')],
+      ],
+      [
+        'the past',
+        'I put 30% in Tesla yesterday.',
+        [shareOf(['TSLA'], 'exact', 3000, '30% in Tesla')],
+      ],
+      [
+        'someone else',
+        'Put 30% in Tesla for my brother.',
+        [shareOf(['TSLA'], 'exact', 3000, '30% in Tesla')],
+      ],
+      ['a maybe', 'Maybe 30% in Tesla.', [shareOf(['TSLA'], 'exact', 3000, '30% in Tesla')]],
+      [
+        'one number over a choice',
+        'Put 30% in Tesla, or Nvidia.',
+        [shareOf(['TSLA'], 'exact', 3000, '30% in Tesla')],
+      ],
+      [
+        'a move on a condition',
+        'Move 10% from Tesla to Nvidia when Tesla hits 300.',
+        [shareOf(['TSLA'], 'exact', 1000, 'Move 10% from Tesla to Nvidia')],
+      ],
+      [
+        'a move out of worry',
+        "I'm worried, so move 10% from Tesla to Nvidia next month.",
+        [shareOf(['TSLA'], 'exact', 1000, 'move 10% from Tesla to Nvidia')],
+      ],
+    ])('refuses %s: the report sets nothing', async (_case, text, report) => {
+      const picks = ['TSLA', 'NVDA', 'GLD'];
+      const out = await served([text], picks, report, 'en', { stockAttributes });
+      // the same weights as with no report at all: what the server's own reader reads, if anything
+      // ("I want 15% Tesla" is 15%, never the model's 5%), else an equal split
+      const alone = await served([text], picks, [], 'en', { stockAttributes });
+      expect(out.weights).toEqual(alone.weights);
+      expect(stated(out)).toEqual(stated(alone));
       expect(out.repair).toBeUndefined();
+    });
+
+    it('moves nothing beside a share the conversation already set: the move has no base', async () => {
+      const out = await served(
+        ['I want 50% TSLA and 50% NVDA.', noted, 'move 10% from Tesla to Nvidia'],
+        ['TSLA', 'NVDA'],
+        [
+          shareOf(['TSLA'], 'exact', 4000, 'move 10% from Tesla to Nvidia'),
+          shareOf(['NVDA'], 'exact', 6000, 'move 10% from Tesla to Nvidia'),
+        ],
+        'en',
+        { stockAttributes },
+      );
+      // the person's 50/50 stands, and the move is said back as not applied
+      expect(out.weights).toEqual([5000, 5000]);
+      expect(unreadOf(out)).toContain('move 10% from Tesla to Nvidia');
+    });
+
+    it('sets nothing a message itself takes back: "Make Tesla 30%. Actually drop Tesla."', async () => {
+      const out = await served(
+        ['Make Tesla 30%. Actually drop Tesla.'],
+        ['TSLA', 'GLD'],
+        [shareOf(['TSLA'], 'exact', 3000, 'Make Tesla 30%')],
+        'en',
+        { stockAttributes },
+      );
+      expect(out.weights).toEqual([5000, 5000]);
     });
 
     it('takes a quoted share back when a later message withdraws it, as any other', async () => {

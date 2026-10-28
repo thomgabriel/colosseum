@@ -723,13 +723,6 @@ export type FigureResolver = {
   parts(text: string, lead?: string): Array<{ sentence: string; why: string[] }>;
 };
 
-/**
- * Resolves references against one request's evidence: an id whose source carries a value is that
- * figure, an id listed as missing says why, and anything else names nothing. With `enabled` false (the
- * model-led conversation of a new goal, which states no figure) every reference names nothing. `sentences` cuts a
- * text where the trimming does, `digitNames` are the catalog names that hold digits, and `named` the
- * assets a text names: `own` by a name of one asset, `classes` by a word for a class of them.
- */
 /** The most characters a served figure's `source` or `method` holds (`VaultAgentFigure`). */
 export const FIGURE_WORDS_MAX = 2000;
 /** `text` trimmed, and cut to `max` characters with an ellipsis where it is longer. */
@@ -738,6 +731,13 @@ export const clipped = (text: string, max: number): string => {
   return trimmed.length > max ? `${trimmed.slice(0, max - 1).trimEnd()}…` : trimmed;
 };
 
+/**
+ * Resolves references against one request's evidence: an id whose source carries a value is that
+ * figure, an id listed as missing says why, and anything else names nothing. With `enabled` false (the
+ * model-led conversation of a new goal, which states no figure) every reference names nothing. `sentences` cuts a
+ * text where the trimming does, `digitNames` are the catalog names that hold digits, and `named` the
+ * assets a text names: `own` by a name of one asset, `classes` by a word for a class of them.
+ */
 export function figureResolver(input: {
   enabled: boolean;
   sources: ReadonlyMap<string, VaultAgentSource>;
