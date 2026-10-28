@@ -129,7 +129,14 @@ export function DepositSummary({ review }: { review: MixReview }) {
     (most, cost) => (most === null || cost.bps > most.bps ? cost : most),
     null,
   );
-  const over = held.filter((line) => line.exitCeiling && line.amountUsd > line.exitCeiling.usd);
+  // Which holdings are above what they can sell as planned is the server's word, from its warnings:
+  // a measured exit with no source has no ceiling to compare with, and is still warned about.
+  const overIds = new Set(
+    review.warnings
+      .filter((w) => w.code === 'EXIT_OVER_CAPACITY' || w.code === 'EXIT_OVER_TIER_CEILING')
+      .flatMap((w) => (w.assetId ? [w.assetId] : [])),
+  );
+  const over = held.filter((line) => overIds.has(line.assetId));
   const tiers = held.filter((line) => line.exitCeiling && !line.exitCeiling.measured).length;
   const pct = (bps: number) =>
     new Intl.NumberFormat(LOCALE[lang], {

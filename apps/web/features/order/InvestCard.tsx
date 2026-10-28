@@ -145,6 +145,8 @@ export type InvestCardProps = {
   onOrder?: (order: OrderDetail | null) => void;
   /** With `compact`: where the host draws the press, its reasons and the order's costs. */
   foot?: HTMLElement;
+  /** An order is being made for the card now (its quotes are on the way), or no longer is. */
+  onQuoting?: (quoting: boolean) => void;
 };
 
 /** What a host that mounts a buy inside its own screen passes: the amount, and what it is told. */
@@ -162,6 +164,7 @@ export type InvestEmbedded = Pick<
   | 'compact'
   | 'onOrder'
   | 'foot'
+  | 'onQuoting'
 > & {
   /** The id of an order approved on this card before it was lost: the card takes it up again. */
   resumeOrder?: string;
@@ -201,6 +204,7 @@ export function InvestCard({
   compact = false,
   onOrder,
   foot,
+  onQuoting,
 }: InvestCardProps) {
   const t = useT();
   const lang = useLang();
@@ -383,6 +387,13 @@ export function InvestCard({
     document.addEventListener('visibilitychange', onSeen);
     return () => document.removeEventListener('visibilitychange', onSeen);
   }, []);
+
+  // Whether an order is being made now: the host says its quotes are on the way only then.
+  const toldQuoting = useRef(onQuoting);
+  toldQuoting.current = onQuoting;
+  useEffect(() => {
+    toldQuoting.current?.(placing);
+  }, [placing]);
 
   // No order on the card: the host's quotes go with it.
   const toldOrder = useRef(onOrder);

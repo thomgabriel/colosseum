@@ -890,6 +890,39 @@ describe('a new goal’s mix, deposited from one screen (gate DEPOSIT-ONE-SCREEN
     expect(find(host, '[data-ui="deposit-check"]').textContent).toBe(en.mix.deposit.checked);
   });
 
+  it('takes which holdings are above what they can sell from the server’s warnings, a ceiling with no source among them', async () => {
+    const [cash, gold] = reviewOf().lines as [
+      MixReview['lines'][number],
+      MixReview['lines'][number],
+    ];
+    // a measured exit whose measurement names no source: no ceiling is printed, the warning stays
+    portStore.setApi(async (url, init) => {
+      if (!url.endsWith('/goal/accept')) return json({}, 404);
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      return json({
+        status: 'review',
+        review: reviewOf({
+          ...of(body),
+          lines: [cash, { ...gold, exitCeiling: null }],
+          warnings: [
+            {
+              id: 'EXIT_OVER_CAPACITY:solana:gldx',
+              code: 'EXIT_OVER_CAPACITY',
+              assetId: 'solana:gldx',
+              text: 'tGLDx at $40 is more than the part of its exit a plan counts on. That measurement names no source, so its limit is not stated.',
+              figures: [],
+            },
+          ],
+        }),
+      });
+    });
+    const host = await goalMix();
+    await deposit(host, '100');
+    const summary = find(host, '[data-ui="deposit-summary"]').textContent ?? '';
+    expect(summary).toContain(en.mix.deposit.summary.over(1));
+    expect(summary).not.toContain(en.mix.deposit.summary.within);
+  });
+
   it('sends what the person said with the check, and shows it as no label', async () => {
     const calls: Call[] = [];
     portStore.setApi(async (url, init) => {

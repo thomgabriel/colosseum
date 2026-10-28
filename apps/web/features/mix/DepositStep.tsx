@@ -146,6 +146,8 @@ export function DepositStep({
     planId: string;
     prices: Map<string, QuotePrice>;
   } | null>(null);
+  // The plan an order is being made for now, as the invest card says.
+  const [placingFor, setPlacingFor] = useState<string | null>(null);
   // The reader's clock, for the age of a measurement, read again once a minute.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -298,7 +300,8 @@ export function DepositStep({
   const plan = pinned ?? ready;
   const pressed = pinned !== null;
   const prices = plan && quotes?.planId === plan.planId ? quotes.prices : null;
-  const quoting = plan !== null && prices === null;
+  // the pool price is said to be on its way only while an order is actually being made for the plan
+  const quoting = plan !== null && prices === null && placingFor === plan.planId;
   const capped =
     storeKey !== null &&
     acked &&
@@ -587,6 +590,9 @@ export function DepositStep({
                 host={hostOf(plan)}
                 onLeave={onClose}
                 foot={pressed ? null : foot}
+                onQuoting={(now: boolean) =>
+                  setPlacingFor((was) => (now ? plan.planId : was === plan.planId ? null : was))
+                }
                 onOrder={(order: OrderDetail | null) =>
                   setQuotes(
                     order ? { planId: plan.planId, prices: quotePrices(order, units) } : null,

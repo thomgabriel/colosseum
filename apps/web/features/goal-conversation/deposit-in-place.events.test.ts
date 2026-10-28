@@ -545,6 +545,18 @@ describe('the deposit signed in place on /invest', () => {
     expect(find(facts, '[data-ui="exit-age"]').textContent).toMatch(/measured .* ago/);
   });
 
+  it('says the pool price is on its way only while an order is made: a wallet that is short has none', async () => {
+    const server = api({ spy: true, funded: false });
+    const host = await show();
+    await toSteps(host);
+    // the plan is stored, the wallet is short, so no order is being made: no promise of a quote
+    expect(server.placed()).toEqual([]);
+    const facts = find(host, '[data-row="solana:spyx"] [data-ui="deposit-facts"]');
+    expect(facts.querySelector('[data-ui="pool-later"]')).toBeNull();
+    expect(facts.querySelector('[data-ui="pool-price"]')).toBeNull();
+    expect(find(facts, '[data-ui="feed-price"]').textContent).toContain('$590.00');
+  });
+
   it('a second check our server refuses as it stores the plan: said, with no order made and nothing signed', async () => {
     const server = api({ refuseStore: true });
     const host = await show();

@@ -55,6 +55,7 @@ export function DepositSign({
   inline = false,
   onOrder,
   foot,
+  onQuoting,
 }: {
   chain: ChainId;
   planId: string;
@@ -78,6 +79,8 @@ export function DepositSign({
   onOrder?: (order: OrderDetail | null) => void;
   /** Where the host draws the press and the order's costs (its card's foot), until the press. */
   foot?: HTMLElement | null;
+  /** An order is being made for the card now, or no longer is. */
+  onQuoting?: (quoting: boolean) => void;
 }) {
   const t = useT();
   const lang = useLang();
@@ -178,6 +181,7 @@ export function DepositSign({
           {...(inline ? { compact: true } : {})}
           {...(onOrder ? { onOrder } : {})}
           {...(foot ? { foot } : {})}
+          {...(onQuoting ? { onQuoting } : {})}
           {...(resume ? { resumeOrder: resume.orderId } : {})}
           onProgress={(progress) => {
             // The first word is the press itself: from here the deposit is kept, and the box is held.
