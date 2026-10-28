@@ -161,7 +161,7 @@ describe('the numbers', () => {
   });
 
   it('shows a mainnet’s numbers live, with no hatch and no change figure', async () => {
-    const stats = fromReply(LIVE_REPLY);
+    const stats = fromReply({ ...LIVE_REPLY, networks: [LIVE_REPLY.networks[1]] });
     expect(stats).not.toBeNull();
     const host = await landing({ stats: stats ?? SAMPLE_STATS });
     const strip = find(host, '[data-ui="landing-stats"]');
@@ -173,7 +173,7 @@ describe('the numbers', () => {
       en.landing.stats.wallets,
       en.landing.stats.value,
     ]);
-    // the mainnet's block, never the test network's beside it
+    // the mainnet's block, when it is the only one
     expect(strip.textContent).toContain('37');
     expect(strip.textContent).toContain('$15.2K');
     expect(strip.textContent).not.toContain('900');
@@ -223,13 +223,21 @@ describe('where the numbers come from', () => {
     const fetched = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.json(LIVE_REPLY));
     const stats = await platformStats();
     expect(String(fetched.mock.calls[0]?.[0])).toMatch(/\/v1\/stats$/);
-    expect(stats.provenance).toBe('live');
+    // the test network's block, where people make vaults, ahead of a mainnet's (LANDING-STATS-NETWORK)
+    expect(stats.provenance).toBe('sandbox');
+    expect(stats.items.find((i) => i.key === 'vaults')?.value).toBe('900');
     for (const item of stats.items) {
       expect(item.obs.source).toBe('tenonfi API /v1/stats');
       expect(item.obs.method).not.toBe('');
-      expect(item.obs.provenance).toBe('live');
+      expect(item.obs.provenance).toBe('sandbox');
     }
-    expect(stats.items.find((i) => i.key === 'value')?.obs.fetchedAt).toBe(
+  });
+
+  it('shows a mainnet’s block when there is no test network’s', () => {
+    const live = fromReply({ ...LIVE_REPLY, networks: [LIVE_REPLY.networks[1]] });
+    expect(live?.provenance).toBe('live');
+    expect(live?.items.find((i) => i.key === 'vaults')?.value).toBe('37');
+    expect(live?.items.find((i) => i.key === 'value')?.obs.fetchedAt).toBe(
       '2026-10-08T11:55:00.000Z',
     );
   });
