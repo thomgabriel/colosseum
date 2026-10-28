@@ -241,6 +241,10 @@ describe('vault proposal provider uses the existing model settings and a shared 
       'that you cannot place trades, or that auto-follow is off',
     );
     expect(VAULT_AGENT_SYSTEM).toContain('Never ask the person to restate or rephrase a share');
+    // one rule on what sets a weight, and no relative move read as a share (review of #359)
+    expect(VAULT_AGENT_SYSTEM).not.toContain('these, and nothing you report, set the weights');
+    expect(VAULT_AGENT_SYSTEM).toContain('is no share: draft the direction');
+    expect(VAULT_AGENT_SYSTEM).not.toMatch(/works both out from the current targets/u);
     expect(VAULT_AGENT_SYSTEM).toContain('Never say you cannot make a deposit');
     expect(VAULT_AGENT_SYSTEM).toContain('Deposit button');
     expect(VAULT_AGENT_SYSTEM).toContain('ask one yes-or-no question about the single next step');

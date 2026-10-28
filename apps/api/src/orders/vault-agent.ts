@@ -1537,7 +1537,8 @@ function withoutSentencesNaming(text: string, named: RegExp[], catalogNames: str
 // The person's shares, read by the server from their own messages (gate ANY-COMPOSITION). The weights
 // are a preview the person confirms on an editable review screen, so the bar is a deterministic read
 // that is never silent: a few fixed patterns set a share, and anything else that looks like one is
-// said back as unread. Nothing here comes from the model.
+// said back as unread. The reader takes nothing from the model; a share the model quotes from the
+// person's latest message is held to the same words by `quotedShares`.
 const BOUNDS = {
   min: 'at\\s+least|no\\s+less\\s+than|not\\s+less\\s+than|more\\s+than|over|above|mais\\s+de|acima\\s+de|(?:a\\s+)?minimum(?:\\s+of)?|min|pelo\\s+menos|ao\\s+menos|no\\s+m[ií]nimo|m[ií]nimo\\s+de',
   max: 'at\\s+most|up\\s+to|no\\s+more\\s+than|not\\s+more\\s+than|less\\s+than|under|below|menos\\s+de|abaixo\\s+de|(?:a\\s+)?maximum(?:\\s+of)?|max|no\\s+m[aá]ximo|m[aá]ximo\\s+de|até',
@@ -2298,231 +2299,136 @@ export function personShares(
 
 /** A share the model reported in `stated` that the server found in the person's own words. */
 export type QuotedShare = {
-  /** The message of `messages` the words are in. */
+  /** The message of `messages` the words are in: always the person's latest. */
   at: number;
-  /** The share, with the person's words as its quote and the basis points the server worked out. */
+  /** The share, with the person's words as its quote. */
   share: PersonShare;
   /** Its place in the model's `stated`. */
   from: number;
 };
 
-// A move between two assets: "move 10% from Tesla into cash", "shift 5% of the vault from TSLA to
-// NVDA", "mova 10% de TSLA para caixa". The verb straight before the number, "from" before the first
-// name and "to" or "into" before the second.
-const MOVE_VERB =
-  /(?:^|[\s,:;(])(?:move|shift|transfer|take|put|switch|mova|mover|passe|passar|transfira|transferir|tire|tirar|coloque|colocar)\s+$/iu;
-const MOVE_FROM =
-  /^\s+(?:(?:of\s+(?:the|my)\s+(?:vault|portfolio)|d[oa]\s+(?:meu\s+|minha\s+)?(?:cofre|carteira))\s+)?(?:from|out\s+of|off|de|da|do)\s+(?:(?:the|my|o|a|meu|minha)\s+)?$/iu;
-const MOVE_TO =
-  /^\s+(?:and\s+)?(?:into|to|in|para|pra|em|no|na)\s+(?:(?:the|my|o|a|meu|minha)\s+)?$/iu;
-// The whole vault in one name: "all in", "everything into", "tudo em", straight before the name.
-const WHOLE_BEFORE_NAME =
+// What may stand before a quoted share in its sentence, start to end: the reader's asking lead
+// (`ASK_BEFORE`: "I want", "please put", "make it", "give me", "quero"), and "the other" before the
+// number ("Put the other 10% in cash"). Nothing else: "Show me", "Undo the", "Hypothetically".
+const QUOTED_LEAD = new RegExp(
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*(?:the\\s+other\\s+|a\\s+outra\\s+|os\\s+outros\\s+)?$`,
+  'iu',
+);
+// Before "all in": the asking lead, and go, put or invest ("ok so i want to go all in on Tesla").
+const WHOLE_LEAD = new RegExp(
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:(?:go|put|invest|be)${END_OF_WORD})?\\s*$`,
+  'iu',
+);
+// "all in", "everything into", "tudo em", straight before the asset's name.
+const WHOLE_IN =
   /(?<![\p{L}\p{N}])(?:all|everything|tudo)\s+(?:in\s+on|in|into|on|em|no|na)\s+(?:the\s+)?$/iu;
-// A change relative to what is held, or a state rather than an ask: never read as a share by a quote
-// outside the move form ("Add 10% to Tesla", "Move another 10%", "My 401k is 60% Nvidia").
-const RELATIVE_OR_STATE = word(
-  'add|adds|adding|increase\\p{L}*|raise\\p{L}*|boost\\p{L}*|bump\\p{L}*|another|additional|extra|more|by|reduce\\p{L}*|decrease\\p{L}*|cut|lower|trim|move|shift|transfer|switch|aument\\p{L}*|diminu\\p{L}*|mais|outr[oa]|is|are|hold|holds|holding|have|has|own|owns|elsewhere|currently|tenho|tem|está|esta|são|sao',
-  'iu',
-);
-// Joins one number over two names ("40% in Tesla and Nvidia"): such a number is no one asset's.
-const JOINED = /^\s*,?\s*(?:(?:and|or|e|ou|&|\+|\/)\s*)?$/iu;
-// Read by a quote only, beside the reader's own checks: a sentence without an asking verb is held to
-// more. A price move ("TSLA up 20%", "o ouro renda 10%"), a price or a value, what someone else did or
-// said, or what was ("I put 70% in TSLA last year") sets no share.
-const NOT_A_SHARE = word(
-  'when|whenever|once|after|until|till|next|tomorrow|yesterday|today|tonight|later|soon|hits?|reach\\p{L}*|dips?|quando|depois|amanh[aã]|ontem|hoje|semana|maybe|perhaps|might|possibly|talvez|brother|sister|wife|husband|son|daughter|mom|dad|mother|father|friend|kids?|family|worr\\p{L}*|scared|afraid|nervous|concern\\p{L}*|preocup\\p{L}*|medo|receio|up|down|jump\\p{L}*|surg\\p{L}*|rall\\p{L}*|climb\\p{L}*|drop\\p{L}*|plung\\p{L}*|sank|sink\\p{L}*|slid\\p{L}*|soar\\p{L}*|crash\\p{L}*|tank\\p{L}*|moon\\p{L}*|pump\\p{L}*|dump\\p{L}*|price|priced|worth|value|renda|rendam|rendeu|subiu|subir|caiu|despenc\\p{L}*|dispar\\p{L}*|alta|baixa|pre[cç]o|valor|you|your|he|she|they|his|her|their|você|voce|ele|ela|eles|elas|last|ago|was|were|had|used\\s+to|passad[oa]|tinha|era|foi',
-  'iu',
-);
-
-/** The one move a quote holds, as the two assets and the basis points moved; null for anything else. */
-function moveIn(
-  quote: string,
-  named: (text: string) => Named[],
-): { from: string; to: string; bps: number } | null {
-  const spans = named(quote);
-  for (const match of quote.matchAll(NUMBER)) {
-    const at = match.index ?? 0;
-    const end = at + match[0].length;
-    const { kind, bps } = numberOf(match);
-    if (kind !== 'exact' || !MOVE_VERB.test(quote.slice(0, at))) continue;
-    const from = spans.find(
-      (span) => span.start >= end && MOVE_FROM.test(quote.slice(end, span.start)),
-    );
-    const to =
-      from &&
-      spans.find(
-        (span) => span.start >= from.end && MOVE_TO.test(quote.slice(from.end, span.start)),
-      );
-    const [a, b] = [from?.ids, to?.ids];
-    if (a?.length === 1 && b?.length === 1 && a[0] !== b[0] && wholeBps({ bps }))
-      return { from: a[0] as string, to: b[0] as string, bps };
-  }
-  return null;
-}
+// What may follow it, to the end of the sentence: a short courtesy or a word on what kind of share it
+// is ("TSLAx 10%, as an exact target."). Anything else ("of my stocks", "scares me", "tops", "- joking")
+// and the sentence is no plain request.
+const QUOTED_TAIL =
+  /^(?:\s*,?\s*(?:as\s+an?\s+(?:exact\s+)?(?:target|share|weight)|exactly|exatamente|please|por\s+favor|in\s+(?:this|the|my)\s+(?:vault|portfolio)|n[oa]\s+(?:meu\s+|minha\s+)?(?:cofre|carteira)|overall|in\s+total|no\s+total|now|agora|thanks|thank\s+you|obrigad[oa]))*\s*[.!]*\s*$/iu;
 
 /**
- * The shares the model reports in `stated` that hold in the person's own words, checked by the server
- * (ANY-COMPOSITION as amended Oct 28, Thom: "this doesn't seem like a good chat experience"). The
- * weights still come from the person's words: the model only points at them. A share holds when:
- *   - its quote is a verbatim piece of one of the person's messages, whole words, spaces aside, in a
- *     sentence with no question, condition, time ("when", "next year"), "maybe", someone else's view,
- *     refusal, worry, price move, past, or return, yield or loss word, and no bound but its own;
- *   - it is of one asset, named in the quote by its ticker, symbol or company as the catalog's matcher
- *     reads names (no typo is guessed);
- *   - and the quote holds its number: a percent or "half" with the same bound, whose nearest name in
- *     its sentence is that asset and not one of two names it is joined over ("TSLAx 10%", "Put the
- *     other 10% in cash"), in a sentence with no relative change or state ("add", "another", "is",
- *     "hold"); or "all in", "everything into" or "tudo em" straight before the name, no other named,
- *     for the whole vault; or a move of a number from one asset to another ("move 10% from Tesla into
- *     cash"), whose two shares the server works out from the vault's current targets, whatever the
- *     model reported, keeping every other current target the draft picks where it is; a move beside
- *     any share the conversation already set has no base and sets nothing.
- * Anything else sets nothing, as before.
+ * The shares the model reports in `stated` that the person's latest message plainly asks for, checked
+ * by the server (ANY-COMPOSITION as amended Oct 28 by QUOTED-SHARES, Thom: "this doesn't seem like a
+ * good chat experience"). The weights still come from the person's words: the model only points at
+ * them. An allowlist, as the reader is: a share holds only when
+ *   - its quote is a verbatim piece, whole words, spaces aside, of the person's latest message (an
+ *     earlier message is the reader's alone, as before), not a quoted text;
+ *   - it is of one asset, named by its ticker, symbol or company as the catalog's matcher reads names
+ *     (no typo is guessed);
+ *   - and a sentence the quote covers is that share and nothing else, start to end: the asking lead
+ *     (`QUOTED_LEAD`), then the number with its own bound and the asset straight after it ("10% in
+ *     cash") or the asset with the number straight after it ("TSLAx 10%"), or "all in" before the
+ *     asset for the whole vault, then at most a short tail (`QUOTED_TAIL`), with no other bound and no
+ *     question.
+ * A relative change ("move 10% from Tesla into cash", "more Tesla") is never a share here: the model
+ * drafts it and the person sets the share on the review. Anything else sets nothing, as before.
  */
 export function quotedShares(input: {
   stated: readonly PersonShare[];
   messages: VaultAgentRequest['messages'];
-  language: 'en' | 'pt';
   named: (text: string) => Named[];
-  /** The vault's targets now, cash included; null for a new goal. */
-  current: ReadonlyMap<string, number> | null;
-  /** The assets the draft picks. */
-  picked: ReadonlySet<string>;
-  /** The shares the server's own reader holds: a move is refused beside any (it would not know from what). */
-  standing: readonly PersonShare[];
 }): QuotedShare[] {
-  const { named, current } = input;
+  const { named } = input;
   const flat = (text: string) => text.replace(/\s+/gu, ' ').trim();
+  const at = input.messages.map((message) => message.who).lastIndexOf('person');
+  const text = at < 0 ? '' : flat(input.messages[at]?.text ?? '');
+  if (!text || /^["“‘']/u.test(text)) return [];
   const bounds = new RegExp(`(?<![\\p{L}\\p{N}])(?:${BOUND})(?![\\p{L}\\p{N}])`, 'giu');
+  // The message's sentences, each with where it starts; a full stop between digits is a decimal mark.
+  const sentences: Array<{ start: number; said: string }> = [];
+  for (const match of text.matchAll(/((?:[^.;!?]|(?<=\d)\.(?=\d))+)([.;!?]*)/gu))
+    sentences.push({ start: match.index ?? 0, said: match[0] });
   const found: QuotedShare[] = [];
-  const moves = new Map<number, { from: string; to: string; bps: number; quote: string }>();
-  // A stop ends a sentence; a full stop between digits is a decimal mark ("2.5%").
-  const stops = (text: string, i: number) =>
-    /[;!?]/u.test(text[i] ?? '') ||
-    (text[i] === '.' && !(/\d/u.test(text[i - 1] ?? '') && /\d/u.test(text[i + 1] ?? '')));
   input.stated.forEach((share, from) => {
     const quote = flat(share.quote);
     const [id, ...more] = share.assetIds;
     if (!id || more.length || quote.length < 3) return;
-    // The latest person message that holds the quote, word for word and as whole words: "5% Tesla"
-    // is not in "15% Tesla".
-    const whole = (said: string) => {
-      for (let i = said.indexOf(quote); i >= 0; i = said.indexOf(quote, i + 1))
-        if (
-          !/[\p{L}\p{N}.,]/u.test(said[i - 1] ?? '') &&
-          !/[\p{L}\p{N}]/u.test(said[i + quote.length] ?? '')
-        )
-          return i;
-      return -1;
-    };
-    let at = -1;
-    let text = '';
+    // The quote, as whole words: "5% Tesla" is not in "15% Tesla".
     let start = -1;
-    input.messages.forEach((message, i) => {
-      const said = flat(message.text);
-      const where = whole(said);
-      if (message.who === 'person' && where >= 0 && !/^["“‘']/u.test(said)) {
-        at = i;
-        text = said;
-        start = where;
-      }
-    });
-    if (at < 0) return;
-    // A bound just before the quote is part of the share: "No more than 20% Tesla" is no exact 20%.
-    if (new RegExp(`(?<![\\p{L}\\p{N}])(?:${BOUND})\\s*$`, 'iu').test(text.slice(0, start))) return;
-    // The sentence around the quote, read as the reader reads one.
-    let first = start;
-    let last = first + quote.length;
-    while (first > 0 && !stops(text, first - 1)) first -= 1;
-    while (last < text.length && !stops(text, last)) last += 1;
-    const sentence = text.slice(first, last + 1);
-    const plain = sentence.replace(bounds, ' ');
-    const spoken = input.language === 'pt' ? plain.replace(word('no', 'giu'), 'em') : plain;
-    if (
-      sentence.includes('?') ||
-      NOT_THEIRS.test(plain) ||
-      CONDITION.test(plain) ||
-      ASKS_A_QUESTION.test(sentence.trim()) ||
-      RETURNS.test(plain) ||
-      SHARE_REFUSES.test(spoken) ||
-      NOT_A_SHARE.test(plain)
-    )
-      return;
-    // Every bound in the sentence must be the share's own, written straight before its number: "At
-    // most around 20% Tesla" is no exact 20%, and a move has none.
-    const boundsIn = sentence.match(bounds)?.length ?? 0;
-    const spans = named(quote);
-    if (!spans.some((span) => span.ids.length === 1 && span.ids[0] === id)) return;
-    const said = (bps: number, kind: PersonShare['kind'] = 'exact') =>
-      found.push({ at, from, share: { assetIds: [id], kind, bps, quote: quote.slice(0, 400) } });
-    const move = moveIn(quote, named);
-    if (move) {
-      if (boundsIn) return;
-      // Both sides are worked out below, from the person's number and the targets now.
-      if (current && (id === move.from || id === move.to)) moves.set(at, { ...move, quote });
-      return;
-    }
-    // Outside a move, no relative change, state, worry or refusal in the sentence.
-    if (REFUSES.test(spoken) || RELATIVE_OR_STATE.test(plain)) return;
-    if (
-      share.kind === 'exact' &&
-      share.bps === 10_000 &&
-      spans.every((span) => span.ids.length === 1 && span.ids[0] === id) &&
-      spans.some((span) => WHOLE_BEFORE_NAME.test(quote.slice(0, span.start)))
-    ) {
-      said(10_000);
-      return;
-    }
-    // The number is read in its sentence, so a name just outside the quote counts too.
-    const [qs, qe] = [start - first, start - first + quote.length];
-    const around = named(sentence);
-    for (const match of sentence.matchAll(NUMBER)) {
-      const [lo, hi] = [match.index ?? 0, (match.index ?? 0) + match[0].length];
-      if (lo < qs || hi > qe) continue;
-      const number = numberOf(match);
-      if (number.bps !== share.bps || number.kind !== share.kind || !wholeBps(number)) continue;
-      if (boundsIn > (match[1] ? 1 : 0)) continue;
-      const far = (span: Named) =>
-        span.end <= lo ? lo - span.end : span.start >= hi ? span.start - hi : 0;
-      const [nearest, next] = [...around].sort((a, b) => far(a) - far(b));
-      if (!nearest || (next && far(next) === far(nearest))) continue;
-      // in the quote, and not one name of two the number is joined over ("40% in Tesla and Nvidia")
-      if (nearest.start < qs || nearest.end > qe) continue;
-      const k = around.indexOf(nearest);
-      const [prev, after] = [around[k - 1], around[k + 1]];
+    for (let i = text.indexOf(quote); i >= 0 && start < 0; i = text.indexOf(quote, i + 1))
       if (
-        (after && JOINED.test(sentence.slice(nearest.end, after.start))) ||
-        (prev && JOINED.test(sentence.slice(prev.end, nearest.start)))
+        !/[\p{L}\p{N}.,]/u.test(text[i - 1] ?? '') &&
+        !/[\p{L}\p{N}]/u.test(text[i + quote.length] ?? '')
       )
-        continue;
-      if (nearest.ids.length === 1 && nearest.ids[0] === id) {
-        said(share.bps, share.kind);
-        return;
+        start = i;
+    if (start < 0) return;
+    const end = start + quote.length;
+    const holds = sentences.some(({ start: from0, said: sentence }) => {
+      // only a sentence the quote covers
+      if (from0 + sentence.length <= start || from0 >= end || sentence.includes('?')) return false;
+      const spans = named(sentence);
+      const asset = spans.find((span) => span.ids.length === 1 && span.ids[0] === id);
+      if (!asset || spans.length !== 1) return false;
+      const lead = (to: number) => sentence.slice(0, to);
+      const tail = (to: number) => QUOTED_TAIL.test(sentence.slice(to));
+      const covered = (lo: number, hi: number) => from0 + lo >= start && from0 + hi <= end;
+      // the whole vault: "all in on Tesla"
+      if (share.kind === 'exact' && share.bps === 10_000) {
+        const before = lead(asset.start);
+        const whole = WHOLE_IN.exec(before);
+        if (
+          whole &&
+          WHOLE_LEAD.test(before.slice(0, whole.index)) &&
+          tail(asset.end) &&
+          covered(whole.index, asset.end) &&
+          !sentence.match(bounds)
+        )
+          return true;
       }
-    }
-  });
-  // A move changes two targets, and every other target the vault has now that the draft picks stays.
-  // A move that would take an asset below none or above the whole sets nothing.
-  for (const [at, move] of moves) {
-    // Against the vault's targets only: beside a share the conversation already set, the move's base
-    // is not the targets, so nothing is moved and the words are said back.
-    if (input.standing.length || found.some((one) => one.at < at)) continue;
-    const now = (id: string) => current?.get(id) ?? 0;
-    const [less, more] = [now(move.from) - move.bps, now(move.to) + move.bps];
-    if (less < 0 || more > 10_000) continue;
-    const quote = move.quote.slice(0, 400);
-    const exact = (id: string, bps: number): QuotedShare => ({
-      at,
-      from: input.stated.findIndex((share) => share.assetIds.includes(id)),
-      share: { assetIds: [id], kind: 'exact', bps, quote },
+      const numbers = [...sentence.matchAll(NUMBER)];
+      const [match, ...others] = numbers;
+      if (!match || others.length) return false;
+      const number = numberOf(match);
+      if (number.bps !== share.bps || number.kind !== share.kind || !wholeBps(number)) return false;
+      // no bound but the share's own
+      if ((sentence.match(bounds)?.length ?? 0) > (match[1] ? 1 : 0)) return false;
+      const [lo, hi] = [match.index ?? 0, (match.index ?? 0) + match[0].length];
+      // "10% in cash": the number, then the asset
+      if (asset.start >= hi)
+        return (
+          NUMBER_THEN_ASSET.test(sentence.slice(hi, asset.start)) &&
+          QUOTED_LEAD.test(lead(lo)) &&
+          tail(asset.end) &&
+          covered(lo, asset.end)
+        );
+      // "TSLAx 10%": the asset, then the number
+      return (
+        asset.end <= lo &&
+        ASSET_THEN_NUMBER.test(sentence.slice(asset.end, lo)) &&
+        QUOTED_LEAD.test(lead(asset.start)) &&
+        tail(hi) &&
+        covered(asset.start, hi)
+      );
     });
-    const kept = found.filter((one) => one.at !== at);
-    found.length = 0;
-    found.push(...kept, exact(move.from, less), exact(move.to, more));
-    for (const [id, bps] of current ?? [])
-      if (id !== move.from && id !== move.to && bps > 0 && input.picked.has(id))
-        found.push(exact(id, bps));
-  }
+    if (holds)
+      found.push({
+        at,
+        from,
+        share: { assetIds: [id], kind: share.kind, bps: share.bps, quote: quote.slice(0, 400) },
+      });
+  });
   return found;
 }
 
@@ -2868,16 +2774,6 @@ export async function replyToVaultConversation(
     ],
   });
   const person = personOf(stated);
-  // The vault's targets now, cash with what they leave it: what a move in the person's words is from.
-  const currentTargets = vault
-    ? new Map([
-        ...ownTargets,
-        [
-          vault.cash.asset,
-          Math.max(0, 10_000 - [...ownTargets.values()].reduce((a, b) => a + b, 0)),
-        ],
-      ])
-    : null;
   // What the latest message asked the draft to hold, with a share, in the person's own words: a stock
   // outside the goal that the server read as asked for there. A reply that drafts nothing, or leaves
   // it out, is not what the person asked (ANY-COMPOSITION), so the model is asked once more, and for
@@ -3418,15 +3314,7 @@ export async function replyToVaultConversation(
       });
     // The shares the model points at in the person's words, each checked against them here
     // (`quotedShares`); with none, the server's own reading stands as it was.
-    const quoted = quotedShares({
-      stated: proposal.stated,
-      messages,
-      language,
-      named: namer,
-      current: currentTargets,
-      picked: new Set(proposal.allocations.map(({ assetId }) => assetId)),
-      standing: person.standing,
-    });
+    const quoted = quotedShares({ stated: proposal.stated, messages, named: namer });
     const held = quoted.length
       ? personOf(personShares(messages, language, shelf, companies, quoted))
       : person;

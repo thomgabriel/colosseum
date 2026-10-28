@@ -1258,7 +1258,9 @@ describe("the person's stated shares, as their words hold them", () => {
       expect((await served([text], ['TSLA', 'USD', 'GLD'], [])).weights).toEqual(equal);
     });
 
-    it('"move 10% from Tesla into cash" moves it against the targets the vault has now', async () => {
+    it('"move 10% from Tesla into cash" sets no share: the model drafts it, the review sets it', async () => {
+      // The orchestrator, Oct 28, after /review-pr on #359: a move re-applied on every later turn and
+      // overrode later shares, so relative changes are no share at all.
       const text = 'Less Tesla, more cash: move 10% from Tesla into cash';
       const tsla = symbol('TSLA');
       const nvda = symbol('NVDA');
@@ -1270,53 +1272,40 @@ describe("the person's stated shares, as their words hold them", () => {
         targetBps,
         lastKeeperAt: null,
       });
-      // Tesla 30%, Nvidia 20%, cash 50% now.
       const vault = { ...state, positions: [position(tsla, 3000), position(nvda, 2000)] };
       const extra = { stockAttributes, state: vault };
-      const out = await served(
+      for (const turns of [
         [text],
-        ['TSLA', 'NVDA', 'USD'],
-        // what the model reports as the result: the server works both out from the targets itself
-        [shareOf(['TSLA'], 'exact', 1000, text), shareOf(['USD'], 'exact', 1000, text)],
-        'en',
-        extra,
-      );
-      expect(out.weights).toEqual([2000, 2000, 6000]);
-      expect(out.repair).toBeUndefined();
-      expect(stated(out).every((note) => note.quote === text)).toBe(true);
-      // One side reported is enough: the move is the person's, both sides of it.
-      const one = await served(
-        [text],
-        ['TSLA', 'NVDA', 'USD'],
-        [shareOf(['TSLA'], 'exact', 2000, 'move 10% from Tesla into cash')],
-        'en',
-        extra,
-      );
-      expect(one.weights).toEqual([2000, 2000, 6000]);
-      // A move of more than the asset holds sets nothing.
-      const over = await served(
-        ['move 40% from Tesla into cash'],
-        ['TSLA', 'NVDA', 'USD'],
-        [shareOf(['TSLA'], 'exact', 0, 'move 40% from Tesla into cash')],
-        'en',
-        extra,
-      );
-      expect(over.weights).toEqual([3334, 3333, 3333]);
-      // A move on a condition, a later time, out of worry or under a bound sets nothing either.
-      for (const said of [
-        'Move 10% from Tesla into cash when Tesla hits 300.',
-        "I'm worried, so move 10% from Tesla into cash next month.",
-        'Move at most 10% from Tesla into cash.',
-      ]) {
+        // a later turn, the move still in the history and still reported
+        [text, ['app', 'Drafted: less Tesla, more cash.'], 'Great. Why is gold not in there?'],
+      ] as Turn[][]) {
         const out = await served(
-          [said],
+          turns,
           ['TSLA', 'NVDA', 'USD'],
-          [shareOf(['TSLA'], 'exact', 2000, said.replace(/\.$/u, ''))],
+          [shareOf(['TSLA'], 'exact', 2000, text), shareOf(['USD'], 'exact', 6000, text)],
           'en',
           extra,
         );
-        expect(out.weights, said).toEqual([3334, 3333, 3333]);
+        expect(out.weights).toEqual([3334, 3333, 3333]);
+        expect(stated(out)).toEqual([]);
+        expect(out.repair).toBeUndefined();
       }
+    });
+
+    it("reads a quote from the latest message only: an earlier one is the reader's alone", async () => {
+      const said = 'TSLAx 10%, as an exact target.';
+      const now = await served(
+        [said],
+        ['TSLA', 'GLD'],
+        [shareOf(['TSLA'], 'exact', 1000, 'TSLAx 10%')],
+      );
+      expect(now.weights).toEqual([1000, 9000]);
+      const later = await served(
+        [said, noted, 'Also add gold.'],
+        ['TSLA', 'GLD'],
+        [shareOf(['TSLA'], 'exact', 1000, 'TSLAx 10%')],
+      );
+      expect(later.weights).toEqual([5000, 5000]);
     });
 
     it('"i wanto to goo all in in telsa" drafts Tesla alone; no typo is read as a name', async () => {
@@ -1517,21 +1506,86 @@ describe("the person's stated shares, as their words hold them", () => {
       expect(out.repair).toBeUndefined();
     });
 
-    it('moves nothing beside a share the conversation already set: the move has no base', async () => {
-      const out = await served(
-        ['I want 50% TSLA and 50% NVDA.', noted, 'move 10% from Tesla to Nvidia'],
-        ['TSLA', 'NVDA'],
-        [
-          shareOf(['TSLA'], 'exact', 4000, 'move 10% from Tesla to Nvidia'),
-          shareOf(['NVDA'], 'exact', 6000, 'move 10% from Tesla to Nvidia'),
-        ],
-        'en',
-        { stockAttributes },
-      );
-      // the person's 50/50 stands, and the move is said back as not applied
-      expect(out.weights).toEqual([5000, 5000]);
-      expect(unreadOf(out)).toContain('move 10% from Tesla to Nvidia');
+    // From /review-pr on #359: words that are no plain request set nothing, whatever the model reports.
+    it.each<[string, string, number, ('en' | 'pt')?]>([
+      ['Tesla 50% would be crazy.', 'Tesla 50%', 5000],
+      ['50% Tesla feels wrong to me.', '50% Tesla', 5000],
+      ['Honestly 50% Tesla sounds insane.', '50% Tesla', 5000],
+      ['I hate the idea of 50% Tesla.', '50% Tesla', 5000],
+      ['Compared to 50% Tesla, this is fine.', '50% Tesla', 5000],
+      ['Undo the 50% Tesla.', '50% Tesla', 5000],
+      ['Revert 50% Tesla.', '50% Tesla', 5000],
+      ['Go from 50% Tesla to equal weights.', '50% Tesla', 5000],
+      ['Reduce from 50% Tesla to 20% Tesla.', '50% Tesla', 5000],
+      ['Down from 50% Tesla, please.', '50% Tesla', 5000],
+      ['Tesla 50%, lol no.', 'Tesla 50%', 5000],
+      ['Ugh, 50% Tesla.', '50% Tesla', 5000],
+      ['Halving 50% Tesla.', '50% Tesla', 5000],
+      ['Not sure about 50% Tesla.', '50% Tesla', 5000],
+      ['Unsure about 50% Tesla.', '50% Tesla', 5000],
+      ['Tesla 50% scares me.', 'Tesla 50%', 5000],
+      ['Tesla 50% is too much.', 'Tesla 50%', 5000],
+      ['50% Tesla seems too much.', '50% Tesla', 5000],
+      ['Quero 50% em Tesla, ou não.', '50% em Tesla', 5000, 'pt'],
+      ['Compare 50% Tesla.', '50% Tesla', 5000],
+      ['Simulate 50% Tesla.', '50% Tesla', 5000],
+      ['Show me 50% Tesla.', '50% Tesla', 5000],
+      ['Hypothetically, 50% Tesla.', '50% Tesla', 5000],
+      ['Tesla 50% vs Nvidia 50%.', 'Tesla 50%', 5000],
+      ['Tesla 50% then sell it all.', 'Tesla 50%', 5000],
+      ['Max Tesla, 50%.', 'Tesla, 50%', 5000],
+      ['Tesla up to 50%.', 'Tesla up to 50%', 5000],
+      ['Tesla capped at 50%.', 'Tesla capped at 50%', 5000],
+      ['Tesla no higher than 50%.', 'Tesla no higher than 50%', 5000],
+      ['Tesla 50% or less.', 'Tesla 50%', 5000],
+      ['Tesla 50% or more.', 'Tesla 50%', 5000],
+      ['Tesla 50% at most.', 'Tesla 50%', 5000],
+      ['Tesla 50% max.', 'Tesla 50%', 5000],
+      ['Tesla 50% tops.', 'Tesla 50%', 5000],
+      ['Tesla 50% minimum.', 'Tesla 50%', 5000],
+      ['Tesla 50%-ish.', 'Tesla 50%', 5000],
+      ['Tesla roughly 50%.', 'Tesla roughly 50%', 5000],
+      ['Tesla around 50%.', 'Tesla around 50%', 5000],
+      ['Tesla 50% of the stock part.', 'Tesla 50%', 5000],
+      ['Tesla 50% of my stocks.', 'Tesla 50%', 5000],
+      ['Half my stocks in Tesla.', 'Half my stocks in Tesla', 5000],
+      ['50% of the remainder in Tesla.', '50% of the remainder in Tesla', 5000],
+      ['Tesla 50% of what Nvidia gets.', 'Tesla 50%', 5000],
+      ['Tesla gets half of Nvidia.', 'Tesla gets half', 5000],
+      ['Tesla 5%, no 50%.', 'Tesla 5%', 500],
+      ['Tesla 50% wait no.', 'Tesla 50%', 5000],
+      ['Tesla 50%, gold 50% - joking.', 'Tesla 50%', 5000],
+    ])('sets nothing from "%s"', async (text, quote, bps, language = 'en') => {
+      const picks = ['TSLA', 'NVDA', 'GLD'];
+      const out = await served([text], picks, [shareOf(['TSLA'], 'exact', bps, quote)], language, {
+        stockAttributes,
+      });
+      const alone = await served([text], picks, [], language, { stockAttributes });
+      expect(out.weights).toEqual(alone.weights);
     });
+
+    it.each<[string, string, number, ('en' | 'pt')?]>([
+      ['Tesla 50%.', 'Tesla 50%', 5000],
+      ['Put 50% in Tesla please.', '50% in Tesla', 5000],
+      ['Make it 50% Tesla.', '50% Tesla', 5000],
+      ['I want Tesla 50%, as an exact target.', 'Tesla 50%', 5000],
+      ['Quero 50% em Tesla.', '50% em Tesla', 5000, 'pt'],
+    ])(
+      'applies a plain request the reader alone leaves: "%s"',
+      async (text, quote, bps, language = 'en') => {
+        const out = await served(
+          [text],
+          ['TSLA', 'GLD'],
+          [shareOf(['TSLA'], 'exact', bps, quote)],
+          language,
+          {
+            stockAttributes,
+          },
+        );
+        expect(out.weights).toEqual([5000, 5000].map((_, i) => (i === 0 ? bps : 10_000 - bps)));
+        expect(stated(out).map((note) => note.assetIds)).toEqual([[symbol('TSLA')]]);
+      },
+    );
 
     it('sets nothing a message itself takes back: "Make Tesla 30%. Actually drop Tesla."', async () => {
       const out = await served(
