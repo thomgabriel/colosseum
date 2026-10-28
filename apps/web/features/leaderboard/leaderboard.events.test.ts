@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { click, find, mount, settle, unmountAll } from '../../components/ui/test/dom';
 import { dictionary } from '../../i18n';
 import { inLanguage } from '../account/test/screen';
+import { localTime } from '../portfolio-section/list-figures';
 import { LeaderboardScreen, readAgo } from './LeaderboardScreen';
 
 vi.mock('next/link', () => import('../wallet/test/mock-next'));
@@ -55,6 +56,7 @@ const ANSWER: LeaderboardResponse = {
   provenance: 'sandbox',
   readAt: '2026-10-28T12:01:00.000Z',
   rule: 'the rule',
+  since: null,
   disclaimer: DISCLAIMER.en,
   vaults: [
     row({
@@ -172,6 +174,29 @@ describe('the leaderboard page', () => {
     expect(readAgo(SOURCED.fetchedAt, at + 3 * 86_400_000, pt)).toBe('há 3 dias');
     // a clock behind the worker's never says a time to come
     expect(readAgo(SOURCED.fetchedAt, at - 60_000, w.ago)).toBe('1 min ago');
+  });
+
+  it('says the event window where the server runs one, in the reader’s time', async () => {
+    const since = '2026-10-29T12:00:00.000Z';
+    const { host } = await page(() => json({ ...ANSWER, since }));
+    const lead = find(host, '[data-ui="leaderboard-lead"]').textContent ?? '';
+    expect(lead).toBe(w.leadSince('Solana', localTime('en', since)));
+    expect(lead).not.toContain(w.lead('Solana'));
+  });
+
+  it('with a window and no vault yet, invites people to make the first one', async () => {
+    const since = '2026-10-29T12:00:00.000Z';
+    const { host } = await page(() => json({ ...ANSWER, since, vaults: [] }));
+    expect(host.textContent).toContain(w.emptySince(localTime('en', since)));
+    expect(find(host, '[data-ui="leaderboard-make-first"]').getAttribute('href')).toBe('/invest');
+    expect(host.textContent).not.toMatch(/mystery|gift/i);
+  });
+
+  it('reads an answer from a server with no window as every open vault', async () => {
+    const { since: _, ...older } = ANSWER;
+    const { host } = await page(() => json(older));
+    expect(find(host, '[data-ui="leaderboard-lead"]').textContent).toBe(w.lead('Solana'));
+    expect(host.querySelectorAll('[data-ui="leaderboard-row"]')).toHaveLength(3);
   });
 
   it('says so when no vault is open', async () => {

@@ -2598,6 +2598,7 @@ export type GetLeaderboardResponse = {
   provenance: 'live' | 'mock' | 'sandbox' | 'fixture' | 'prior_dataset';
   readAt: string;
   rule: string;
+  since: string | null;
   vaults: {
     rank: number;
     chain: 'solana' | 'base' | 'robinhood';

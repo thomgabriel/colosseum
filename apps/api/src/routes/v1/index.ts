@@ -52,6 +52,7 @@ import { authFromEnv, enforceSignIn, identify, type TokenIssuer } from '../../pl
 import { refuseNonFinite } from '../../plugins/finite';
 import { type Limits, registerLimits, requireDeclared } from '../../plugins/limits';
 import { loggable } from '../../plugins/loggable';
+import { leaderboardSince } from '../../portfolio/leaderboard';
 import { noteLifetimes } from '../../portfolio/scope';
 import {
   createAnthropicVaultAgentModel,
@@ -382,7 +383,8 @@ export async function registerV1Routes(app: FastifyInstance, env: EnvLike, deps:
     });
     registerConfigRoute(scope, config);
     registerStatsRoute(scope, orderDeps);
-    registerLeaderboardRoute(scope, orderDeps);
+    // The event window is read here, at start: a value it cannot read stops the server.
+    registerLeaderboardRoute(scope, orderDeps, leaderboardSince(env));
     registerMeRoutes(scope, orderDeps);
     registerFundingRoute(scope, orderDeps, testFunds ?? undefined);
     registerTestnetRoute(scope, orderDeps, testFunds);

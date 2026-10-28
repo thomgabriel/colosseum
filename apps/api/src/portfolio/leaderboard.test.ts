@@ -1,6 +1,14 @@
 import type { LeaderboardRow } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
-import { decimalOf, holdingsOf, microOf, pnlOf, ranked, shortOwner } from './leaderboard';
+import {
+  decimalOf,
+  holdingsOf,
+  leaderboardSince,
+  microOf,
+  pnlOf,
+  ranked,
+  shortOwner,
+} from './leaderboard';
 
 // The leaderboard's arithmetic and its order, without a database: what a vault made, as a share of
 // what went in, and where each kind of row stands.
@@ -169,5 +177,29 @@ describe('what a vault holds', () => {
 describe('the owner', () => {
   it('is the short form of the wallet', () => {
     expect(shortOwner('9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin')).toBe('9xQe…VFin');
+  });
+});
+
+describe('the event window', () => {
+  it('is unset by default, and an instant with its zone when set', () => {
+    expect(leaderboardSince({})).toBeNull();
+    expect(leaderboardSince({ LEADERBOARD_SINCE: '  ' })).toBeNull();
+    expect(leaderboardSince({ LEADERBOARD_SINCE: '2026-10-29T12:00:00Z' })?.toISOString()).toBe(
+      '2026-10-29T12:00:00.000Z',
+    );
+    expect(leaderboardSince({ LEADERBOARD_SINCE: '2026-10-29T09:00-03:00' })?.toISOString()).toBe(
+      '2026-10-29T12:00:00.000Z',
+    );
+  });
+
+  it('refuses a date alone, an instant with no zone and anything else, never repeating it', () => {
+    for (const bad of ['2026-10-29', '2026-10-29T12:00:00', 'tomorrow', '2026-02-30T25:00:00Z']) {
+      expect(() => leaderboardSince({ LEADERBOARD_SINCE: bad })).toThrow(/^LEADERBOARD_SINCE: /);
+      try {
+        leaderboardSince({ LEADERBOARD_SINCE: bad });
+      } catch (err) {
+        expect((err as Error).message).not.toContain(bad);
+      }
+    }
   });
 });

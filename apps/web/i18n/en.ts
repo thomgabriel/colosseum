@@ -3090,6 +3090,12 @@ export const en = {
     rule: 'What a vault made is its value now plus what was taken out, less the deposits made in this app. A vault with no deposit made in this app comes last.',
     loading: 'Reading the vaults…',
     empty: (chain: string) => `No vault is open on ${chain} yet.`,
+    /** The event window: `when` is its start, in the reader's time zone. */
+    leadSince: (chain: string, when: string) =>
+      `Vaults made on ${chain} since ${when}, ranked by what each made as a share of what was deposited into it.`,
+    emptySince: (when: string) =>
+      `No vault has been made since ${when} yet. Make the first one: set a goal, and your vault is on the board once your deposit confirms.`,
+    makeFirst: 'Make the first vault',
     failure: {
       unreachable: 'I couldn’t read the leaderboard: our server didn’t answer. Try again.',
       unreadable: 'I couldn’t read the leaderboard’s answer. Try again.',

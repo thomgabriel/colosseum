@@ -2732,6 +2732,11 @@ export const pt: Dictionary = {
     rule: 'O que um cofre rendeu é o valor de agora mais o que foi sacado, menos os depósitos feitos neste app. Um cofre sem depósito feito neste app fica por último.',
     loading: 'Lendo os cofres…',
     empty: (chain: string) => `Nenhum cofre está aberto na ${chain} ainda.`,
+    leadSince: (chain: string, when: string) =>
+      `Cofres criados na ${chain} desde ${when}, ordenados pelo que cada um rendeu como parte do que foi depositado nele.`,
+    emptySince: (when: string) =>
+      `Nenhum cofre foi criado desde ${when} ainda. Crie o primeiro: defina um objetivo, e seu cofre entra no ranking assim que seu depósito for confirmado.`,
+    makeFirst: 'Criar o primeiro cofre',
     failure: {
       unreachable: 'Não consegui ler o ranking: nosso servidor não respondeu. Tente de novo.',
       unreadable: 'Não consegui ler a resposta do ranking. Tente de novo.',

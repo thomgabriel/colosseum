@@ -75,6 +75,11 @@ export const LeaderboardResponse = z.object({
   readAt: z.string().datetime(),
   /** How the rows are ordered. */
   rule: z.string(),
+  /**
+   * The event window's start, where the server runs one: only vaults whose first confirmed deposit made
+   * in this app is at or after it are listed. Null: every open vault.
+   */
+  since: z.string().datetime().nullable().default(null),
   vaults: z.array(LeaderboardRow),
   disclaimer: z.string(),
 });

@@ -7,6 +7,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/Button';
+import { buttonClass } from '../../components/ui/button-class';
 import { Card, CardEmpty } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { type AgeWords, formatAge, sayAge } from '../../components/ui/format';
@@ -86,6 +87,7 @@ function signedShare(lang: Lang, share: number): string {
 
 export function LeaderboardScreen() {
   const t = useT();
+  const lang = useLang();
   const w = t.leaderboard;
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [round, setRound] = useState(0);
@@ -104,11 +106,16 @@ export function LeaderboardScreen() {
   }, [round]);
 
   const chain = load.kind === 'read' ? load.answer.name : t.chain.names.solana;
+  // the event window, where the server runs one: said in the reader's own time zone
+  const since =
+    load.kind === 'read' && load.answer.since ? localTime(lang, load.answer.since) : null;
   return (
     <div data-ui="leaderboard-screen" className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
         <h1 className={PAGE_TITLE}>{w.title}</h1>
-        <p className="max-w-(--tf-measure-body) text-body-lg">{w.lead(chain)}</p>
+        <p data-ui="leaderboard-lead" className="max-w-(--tf-measure-body) text-body-lg">
+          {since ? w.leadSince(chain, since) : w.lead(chain)}
+        </p>
         <p className="max-w-(--tf-measure-body) text-body-sm text-muted-foreground">{w.rule}</p>
       </header>
       {load.kind === 'loading' ? (
@@ -133,7 +140,20 @@ export function LeaderboardScreen() {
         </section>
       ) : load.answer.vaults.length === 0 ? (
         <Card>
-          <CardEmpty sentence={w.empty(load.answer.name)} />
+          <CardEmpty
+            sentence={since ? w.emptySince(since) : w.empty(load.answer.name)}
+            action={
+              since ? (
+                <Link
+                  href="/invest"
+                  data-ui="leaderboard-make-first"
+                  className={buttonClass({ variant: 'link' })}
+                >
+                  {w.makeFirst}
+                </Link>
+              ) : undefined
+            }
+          />
         </Card>
       ) : (
         <Board answer={load.answer} now={load.now} />
