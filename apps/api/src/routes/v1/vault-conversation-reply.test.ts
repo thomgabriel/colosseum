@@ -397,9 +397,8 @@ describe('private model-led vault reply route', () => {
     vi.mocked(s.model.read).mockResolvedValueOnce({ reply: figure });
     const res = await s.post();
     expect(res.statusCode).toBe(200);
-    expect(res.json().message).toBe(
-      'Which direction would you like to explore?\nPart of this reply was left out because it stated a figure that could not be confirmed.',
-    );
+    // the cut is logged, not said in the reply (Oct 28)
+    expect(res.json().message).toBe('Which direction would you like to explore?');
     expect(res.body).not.toContain('12%');
     expect(s.model.read).toHaveBeenCalledTimes(2);
   });

@@ -45,8 +45,11 @@ export function StrategyPreview({
   pending: waiting = false,
   onDiscuss,
   use,
+  tradeoffsShown = false,
 }: {
   proposal: VaultStrategyPreview;
+  /** The host shows the tradeoffs elsewhere (under the reply on /invest): not again in the reasons. */
+  tradeoffsShown?: boolean;
   /**
    * The proposal's prose with the figures it states in their places (FIGURES-BY-REFERENCE): each is
    * then drawn with its pin instead of read from the plain words. `now` is the reader's clock.
@@ -313,7 +316,7 @@ export function StrategyPreview({
               {copy.reasons}
             </summary>
             <div className="flex flex-col gap-3 pt-3">
-              {proposal.tradeoffs.length > 0 && (
+              {proposal.tradeoffs.length > 0 && !tradeoffsShown && (
                 <div>
                   <h3 className="text-caption font-medium">{copy.tradeoffs}</h3>
                   <ul className="list-inside list-disc text-body-sm">

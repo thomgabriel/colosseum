@@ -62,8 +62,6 @@ export type Risk = 'low' | 'medium' | 'high';
 /** What the person said in the conversation, as the server served it. Null: not said. */
 export type Purpose = { goal: Goal | null; risk: Risk | null };
 
-/** The amounts one tap types. They are amounts to type, not figures of anybody's. */
-export const QUICK_USD = [100, 500, 1000] as const;
 /** How long the amount has to be still before the server is asked what it becomes in each asset. */
 export const CHECK_MS = 500;
 /**
@@ -404,7 +402,7 @@ export function DepositStep({
             <>
               <div className="flex min-w-0 flex-col gap-2">
                 {/* The amount card's field (gate AMOUNT-CARD): the figure large, the chain's dollar
-                    beside it, the wallet's balance with Max, and the quick amounts. */}
+                    beside it, and the wallet's balance with Max; no quick amounts (Thom, Oct 28). */}
                 <AmountWell
                   label={t.amount.field.deposit}
                   onBlur={() => setSettled(true)}
@@ -446,13 +444,6 @@ export function DepositStep({
                           ? { label: t.amount.balance.wallet, state: 'failed' }
                           : { label: t.amount.balance.wallet, state: 'reading' }
                   }
-                  chipsLabel={d.quick}
-                  chips={QUICK_USD.map((usd) => ({
-                    key: String(usd),
-                    label: dollars(usd, lang),
-                    name: d.quickOne(dollars(usd, lang)),
-                    onPick: () => onAmountText(String(usd)),
-                  }))}
                   problem={amountError ?? null}
                 />
               </div>

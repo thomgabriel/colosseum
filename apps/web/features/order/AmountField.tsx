@@ -22,7 +22,7 @@ export function AmountField({
   text: string;
   onText: (text: string) => void;
   hint: string;
-  /** The amount in dollars, or null while the text is not one from $10 to $1,000,000. */
+  /** The amount in dollars, or null while the text is not one from $1 to $1,000,000. */
   value: number | null;
   /** The person pressed: the order under way is for the amount it was made for. */
   disabled?: boolean;

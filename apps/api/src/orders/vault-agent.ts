@@ -18,6 +18,7 @@ import {
   FIGURE_REFERENCE,
   isStalePrice,
   OWNER_REBALANCE_SLIPPAGE_BPS,
+  outsideOwnerBand,
   ownerRebalanceOffered,
   ownerShares,
   VAULT_MAX_TARGETS,
@@ -164,7 +165,7 @@ type AgentContextData = {
   /** Whether the vault's page has the rebalance action; the route passes it. */
   rebalanceOnPage?: boolean;
   /** Where the vault stands against its targets, by the page's rule (`vaultAgainstTargets`). */
-  againstTargets?: { onTarget: boolean; offered: boolean };
+  againstTargets?: AgainstTargets;
   server?: {
     network: string | null;
     autoFollowOffered: boolean | null;
@@ -240,6 +241,15 @@ export type VaultStandingFacts = {
    * too small), and then no control is named.
    */
   rebalanceAction: string | null;
+  /**
+   * Why the page offers no rebalance now, when `rebalanceAction` is null (Thom, Oct 28: leftover cash
+   * inside the band could not be explained): `within_tolerance` every holding and the cash are inside
+   * the band around the targets, so what is off, leftover cash included, is too small to trade;
+   * `trade_too_small` outside the band, but no single trade reaches the smallest a rebalance makes;
+   * `auto_follow` the keeper does it; `no_price` a holding has no price; `no_targets` the vault has none;
+   * `not_on_page` the page has no rebalance action here.
+   */
+  rebalanceNotOffered: NotOffered | null;
   /** What the server read the latest message as, where it read one. */
   latest: 'ambiguous_confirmation' | null;
   /** What earlier replies already told the person: not restated unless they ask. */
@@ -939,7 +949,11 @@ export const FIGURE_REMOVED = {
   en: 'This part of the draft was left out because it stated a figure that could not be confirmed.',
   pt: 'Esta parte da proposta foi omitida porque trazia um número que não pôde ser confirmado.',
 };
-/** Said by the server on a line of its own after what is left of a message, and once in a list that lost an item or part of one. */
+/**
+ * Said by the server in place of a message whose every sentence was cut for a figure (the relaxed
+ * intake's only). A message with something left is served without a note: a cut is logged
+ * (`sentencesCut`), never shown (Thom, Oct 28: the note reached people in 10 of 61 replies).
+ */
 export const FIGURE_CUT = {
   en: 'Part of this reply was left out because it stated a figure that could not be confirmed.',
   pt: 'Parte desta resposta foi omitida porque trazia um número que não pôde ser confirmado.',
@@ -964,11 +978,10 @@ export function trimFigureSentences(
 
 /**
  * The repair attempt's reply without the sentences that state a figure (`figure`), so one stray number
- * does not cost the person the whole reply and none of the model's reaches them. No cut is silent where
- * a caveat may have gone with it: the message ends with the server's `FIGURE_CUT`, and a list of
- * tradeoffs or unknowns that lost an item or part of one holds it once. A question left empty is
- * dropped; an objective, a summary or a pick's reason left empty is the server's `FIGURE_REMOVED`,
- * never words made up for the model. Null when nothing of the message is left, or no room for the note.
+ * does not cost the person the whole reply and none of the model's reaches them. The cut is counted
+ * for the log (`sentencesCut`), not said in the reply. A question left empty is dropped; an objective, a
+ * summary or a pick's reason left empty is the server's `FIGURE_REMOVED`, never words made up for the
+ * model. Null when nothing of the message is left.
  * Fields shown together are read together: the question and the objective under the message, the
  * summary under the objective, a pick's reason and the first tradeoff under the summary, a list item
  * under the item before, the first unknown under the last tradeoff.
@@ -985,18 +998,14 @@ function withoutFigureSentences(
     cut += left.cut;
     return left.text;
   };
-  const list = (items: string[], above: string): string[] => {
-    const before = cut;
-    const kept = items.map((item, at) => trim(item, items[at - 1] ?? above)).filter(Boolean);
-    return cut === before ? kept : [...kept.slice(0, 11), FIGURE_CUT[language]];
-  };
+  const list = (items: string[], above: string): string[] =>
+    items.map((item, at) => trim(item, items[at - 1] ?? above)).filter(Boolean);
   const message = trim(reply.message);
-  const said = cut ? `${message}\n${FIGURE_CUT[language]}` : message;
-  if (!message || said.length > 2400) return null;
+  if (!message) return null;
   const { proposal } = reply;
   return {
     reply: {
-      message: said,
+      message,
       question: (reply.question === null ? null : trim(reply.question, reply.message)) || null,
       proposal: proposal && {
         ...proposal,
@@ -1038,8 +1047,6 @@ const REPAIR_HINTS: Record<string, string> = {
     'An allocation cited an evidenceId that does not exist in evidence or belongs to a different asset.',
   allocation_constraint:
     'The picks cannot meet a share the person stated, which the server read in their own words (allocationConstraints). Pick the assets it covers, with room for the rest, so the server can meet it, or ask the person about it in question. The share is theirs and still stands until they say "forget" or "drop" it, or ask for an equal split.',
-  stated_ungrounded:
-    'A share in stated is not one the server read in the person\'s words, so it is not applied. The server reads a share only where the person plainly asked for it with the number beside the asset ("I want 70% TSLA", "TSLA 70%", "at least 40% stocks", "70/30 TSLA and NVDA", "TSLA 70, NVDA 30" where the numbers come to 100), in a sentence with nothing else in it, no refusal and no return, yield, growth or loss word; allocationConstraints lists what it read. Remove the share, do not describe it as applied, and ask the person in question to say it as a percentage beside the asset name.',
   confirmation_ambiguous:
     "The person's latest message is a bare confirmation, and the app's turn before it did not ask exactly one yes-or-no question, so the server cannot tell what it confirms (facts.latest is ambiguous_confirmation). Return proposal null. Say in message, in one sentence, that it could answer more than one thing; restate no rule and no earlier refusal. Ask in question which they mean, naming the choices in a few words. Do not draft an earlier request.",
   reply_shape:
@@ -1111,8 +1118,8 @@ function askedDraft(
   const pt = language === 'pt';
   return {
     message: pt
-      ? `Seu pedido foi: “${quote}”. Esta proposta tem só ${name}. Nada muda até você revisar e confirmar.`
-      : `Your request was: “${quote}”. This draft holds ${name} alone. Nothing changes until you review and confirm it.`,
+      ? `Seu pedido foi: “${quote}”. Esta proposta tem só ${name}.`
+      : `Your request was: “${quote}”. This draft holds ${name} alone.`,
     question: null,
     proposal: {
       objective: pt ? `Ter ${name}, como você pediu` : `Hold ${name}, as you asked`,
@@ -1512,8 +1519,7 @@ function stockAsks(
 
 /**
  * `text` without the sentences that name one of `named`, cut where `sentencesOf` cuts. Each line is
- * read on its own, so the server's note on a line of its own (`FIGURE_CUT`) stays when the line before
- * it goes.
+ * read on its own.
  */
 function withoutSentencesNaming(text: string, named: RegExp[], catalogNames: string[]): string {
   return text
@@ -1531,7 +1537,8 @@ function withoutSentencesNaming(text: string, named: RegExp[], catalogNames: str
 // The person's shares, read by the server from their own messages (gate ANY-COMPOSITION). The weights
 // are a preview the person confirms on an editable review screen, so the bar is a deterministic read
 // that is never silent: a few fixed patterns set a share, and anything else that looks like one is
-// said back as unread. Nothing here comes from the model.
+// said back as unread. The reader takes nothing from the model; a share the model quotes from the
+// person's latest message is held to the same words by `quotedShares`.
 const BOUNDS = {
   min: 'at\\s+least|no\\s+less\\s+than|not\\s+less\\s+than|more\\s+than|over|above|mais\\s+de|acima\\s+de|(?:a\\s+)?minimum(?:\\s+of)?|min|pelo\\s+menos|ao\\s+menos|no\\s+m[ií]nimo|m[ií]nimo\\s+de',
   max: 'at\\s+most|up\\s+to|no\\s+more\\s+than|not\\s+more\\s+than|less\\s+than|under|below|menos\\s+de|abaixo\\s+de|(?:a\\s+)?maximum(?:\\s+of)?|max|no\\s+m[aá]ximo|m[aá]ximo\\s+de|até',
@@ -2073,12 +2080,18 @@ function percentsOfList(sentence: string, named: (text: string) => Named[]): str
  * `standing` is what holds now and `read` everything ever read (to compare with what the model
  * reports). For the latest message: `withdrawn` the shares it withdrew, `unread` the pieces that read
  * as a share and set none, and `rest` where it said the rest should go, with the assets it named.
+ *
+ * `fromModel`: the shares of the model's `stated` the server found in the person's words
+ * (`quotedShares`), each read as if the server had read it from its message, after that message's own
+ * shares, so a later withdrawal or share on the same asset takes it back as any other. One the server
+ * read itself on the same asset in the same message wins.
  */
 export function personShares(
   messages: VaultAgentRequest['messages'],
   language: 'en' | 'pt',
   assets: BasketAsset[],
   companies: Map<string, string[]>,
+  fromModel: readonly QuotedShare[] = [],
 ): {
   standing: PersonShare[];
   read: PersonShare[];
@@ -2100,6 +2113,9 @@ export function personShares(
   let withdrawn: PersonShare[] = [];
   let unread: string[] = [];
   let rest: Array<{ quote: string; assetIds: string[] }> = [];
+  // What the message being read takes back by name, whether or not a share stood on it: a model share
+  // quoted from the same message is not set on it ("Make Tesla 30%. Actually drop Tesla.").
+  let takenBack: Set<string> | 'all' = new Set();
   const withdraw = (gone: (share: PersonShare) => boolean) => {
     withdrawn.push(...standing.filter(gone));
     standing = standing.filter((share) => !gone(share));
@@ -2108,6 +2124,7 @@ export function personShares(
   const withdraws = (sentence: string): boolean => {
     if (EQUAL_SPLIT.test(sentence)) {
       withdraw(() => true);
+      takenBack = 'all';
       return true;
     }
     const body = WITHDRAWS.exec(sentence)?.[1]?.trim();
@@ -2138,14 +2155,17 @@ export function personShares(
     const [asset, ...more] = named(target);
     const on = !more.length && whole(asset) ? asset?.ids : null;
     if (!on) return false;
+    if (takenBack !== 'all') for (const id of on) takenBack.add(id);
     withdraw((standing) => fits(standing) && sameAssets(standing, { assetIds: on }));
     return true;
   };
-  for (const message of messages) {
+  for (const [at, message] of messages.entries()) {
     if (message.who !== 'person') continue;
     withdrawn = [];
     unread = [];
     rest = [];
+    takenBack = new Set();
+    const readFrom = read.length;
     const text = message.text.trim();
     const quoted = /^["“‘']/u.test(text);
     // A message that is one request for the whole vault: an exact share of all of it. It, and "100%
@@ -2261,8 +2281,171 @@ export function personShares(
         (earlier) => before.includes(earlier) && wholes.some((whole) => noRoomFor(earlier, whole)),
       );
     }
+    const readHere = read.slice(readFrom);
+    for (const { share } of fromModel.filter((one) => one.at === at)) {
+      if (readHere.some((own) => own.assetIds.some((id) => share.assetIds.includes(id)))) continue;
+      const back = takenBack as Set<string> | 'all';
+      if (back === 'all' || share.assetIds.some((id) => back.has(id))) continue;
+      read.push(share);
+      standing = [...standing.filter((earlier) => !replaces(share, earlier)), share];
+      // what reads as a share and is now applied is no longer said back as unread
+      unread = unread.filter(
+        (piece) => !piece.includes(share.quote) && !share.quote.includes(piece),
+      );
+    }
   }
   return { standing, read, withdrawn, unread, rest };
+}
+
+/** A share the model reported in `stated` that the server found in the person's own words. */
+export type QuotedShare = {
+  /** The message of `messages` the words are in: always the person's latest. */
+  at: number;
+  /** The share, with the person's words as its quote. */
+  share: PersonShare;
+  /** Its place in the model's `stated`. */
+  from: number;
+};
+
+// What may stand before a quoted share in its sentence, start to end: the reader's asking lead
+// (`ASK_BEFORE`: "I want", "please put", "make it", "give me", "quero"), and "the other" before the
+// number ("Put the other 10% in cash"). Nothing else: "Show me", "Undo the", "Hypothetically".
+const QUOTED_LEAD = new RegExp(
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:${ASK_VERB}${END_OF_WORD})?\\s*(?:the\\s+other\\s+|a\\s+outra\\s+|os\\s+outros\\s+)?$`,
+  'iu',
+);
+// Before "all in": the asking lead, and go, put or invest ("ok so i want to go all in on Tesla").
+const WHOLE_LEAD = new RegExp(
+  `^${ASK_LEAD}(?:${ASK_SUBJECT}${END_OF_WORD})?\\s*(?:(?:go|put|invest|be)${END_OF_WORD})?\\s*$`,
+  'iu',
+);
+// "all in", "everything into", "tudo em", straight before the asset's name.
+const WHOLE_IN =
+  /(?<![\p{L}\p{N}])(?:all|everything|tudo)\s+(?:in\s+on|in|into|on|em|no|na)\s+(?:the\s+)?$/iu;
+// What may follow it, to the end of the sentence: a short courtesy or a word on what kind of share it
+// is ("TSLAx 10%, as an exact target."). Anything else ("of my stocks", "scares me", "tops", "- joking")
+// and the sentence is no plain request.
+const QUOTED_TAIL =
+  /^(?:\s*,?\s*(?:as\s+an?\s+(?:exact\s+)?(?:target|share|weight)|exactly|exatamente|please|por\s+favor|in\s+(?:this|the|my)\s+(?:vault|portfolio)|n[oa]\s+(?:meu\s+|minha\s+)?(?:cofre|carteira)|overall|in\s+total|no\s+total|thanks|thank\s+you|obrigad[oa]))*\s*[.!]*\s*$/iu;
+
+/**
+ * The shares the model reports in `stated` that the person's latest message plainly asks for, checked
+ * by the server (ANY-COMPOSITION as amended Oct 28 by QUOTED-SHARES, Thom: "this doesn't seem like a
+ * good chat experience"). The weights still come from the person's words: the model only points at
+ * them. An allowlist, as the reader is: a share holds only when
+ *   - its quote is a verbatim piece, whole words, spaces aside, of the person's latest message (an
+ *     earlier message is the reader's alone, as before), not a quoted text;
+ *   - it is of one asset, named by its ticker, symbol or company as the catalog's matcher reads names
+ *     (no typo is guessed);
+ *   - and a sentence the quote covers is that share and nothing else, start to end: the asking lead
+ *     (`QUOTED_LEAD`), then the number with its own bound and the asset straight after it ("10% in
+ *     cash") or the asset with the number straight after it ("TSLAx 10%"), or "all in" before the
+ *     asset for the whole vault, then at most a short tail (`QUOTED_TAIL`), with no other bound and no
+ *     question; and every other sentence of the message is a share the reader reads itself or a
+ *     courtesy, so a later sentence cannot take it back ("All in on Tesla. Kidding."), and "all in"
+ *     counts only as the whole message.
+ * A relative change ("move 10% from Tesla into cash", "more Tesla") is never a share here: the model
+ * drafts it and the person sets the share on the review. Anything else sets nothing, as before.
+ */
+export function quotedShares(input: {
+  stated: readonly PersonShare[];
+  messages: VaultAgentRequest['messages'];
+  named: (text: string) => Named[];
+}): QuotedShare[] {
+  const { named } = input;
+  const flat = (text: string) => text.replace(/\s+/gu, ' ').trim();
+  const at = input.messages.map((message) => message.who).lastIndexOf('person');
+  const text = at < 0 ? '' : flat(input.messages[at]?.text ?? '');
+  if (!text || /^["“‘']/u.test(text)) return [];
+  const bounds = new RegExp(`(?<![\\p{L}\\p{N}])(?:${BOUND})(?![\\p{L}\\p{N}])`, 'giu');
+  // The message's sentences, each with where it starts; a full stop between digits is a decimal mark.
+  const sentences: Array<{ start: number; said: string }> = [];
+  for (const match of text.matchAll(/((?:[^.;!?]|(?<=\d)\.(?=\d))+)([.;!?]*)/gu))
+    sentences.push({ start: match.index ?? 0, said: match[0] });
+  const found: QuotedShare[] = [];
+  // The sentences an accepted quote covers; every other one must be a share the reader reads itself
+  // or a courtesy, else nothing is applied ("All in on Tesla. Kidding.").
+  const accepted = new Set<number>();
+  const single = sentences.filter(({ said }) => said.replace(/[.;!?\s]/gu, '')).length === 1;
+  input.stated.forEach((share, from) => {
+    const quote = flat(share.quote);
+    const [id, ...more] = share.assetIds;
+    if (!id || more.length || quote.length < 3) return;
+    // The quote, as whole words: "5% Tesla" is not in "15% Tesla".
+    let start = -1;
+    for (let i = text.indexOf(quote); i >= 0 && start < 0; i = text.indexOf(quote, i + 1))
+      if (
+        !/[\p{L}\p{N}.,]/u.test(text[i - 1] ?? '') &&
+        !/[\p{L}\p{N}]/u.test(text[i + quote.length] ?? '')
+      )
+        start = i;
+    if (start < 0) return;
+    const end = start + quote.length;
+    const holds = sentences.findIndex(({ start: from0, said: sentence }) => {
+      // only a sentence the quote covers
+      if (from0 + sentence.length <= start || from0 >= end || sentence.includes('?')) return false;
+      const spans = named(sentence);
+      const asset = spans.find((span) => span.ids.length === 1 && span.ids[0] === id);
+      if (!asset || spans.length !== 1) return false;
+      const lead = (to: number) => sentence.slice(0, to);
+      const tail = (to: number) => QUOTED_TAIL.test(sentence.slice(to));
+      const covered = (lo: number, hi: number) => from0 + lo >= start && from0 + hi <= end;
+      // the whole vault: "all in on Tesla", only as the whole message (as the reader reads it)
+      if (share.kind === 'exact' && share.bps === 10_000 && single) {
+        const before = lead(asset.start);
+        const whole = WHOLE_IN.exec(before);
+        if (
+          whole &&
+          WHOLE_LEAD.test(before.slice(0, whole.index)) &&
+          tail(asset.end) &&
+          covered(whole.index, asset.end) &&
+          !sentence.match(bounds)
+        )
+          return true;
+      }
+      const numbers = [...sentence.matchAll(NUMBER)];
+      const [match, ...others] = numbers;
+      if (!match || others.length) return false;
+      const number = numberOf(match);
+      if (number.bps !== share.bps || number.kind !== share.kind || !wholeBps(number)) return false;
+      // no bound but the share's own
+      if ((sentence.match(bounds)?.length ?? 0) > (match[1] ? 1 : 0)) return false;
+      const [lo, hi] = [match.index ?? 0, (match.index ?? 0) + match[0].length];
+      // "10% in cash": the number, then the asset
+      if (asset.start >= hi)
+        return (
+          NUMBER_THEN_ASSET.test(sentence.slice(hi, asset.start)) &&
+          QUOTED_LEAD.test(lead(lo)) &&
+          tail(asset.end) &&
+          covered(lo, asset.end)
+        );
+      // "TSLAx 10%": the asset, then the number
+      return (
+        asset.end <= lo &&
+        ASSET_THEN_NUMBER.test(sentence.slice(asset.end, lo)) &&
+        QUOTED_LEAD.test(lead(asset.start)) &&
+        tail(hi) &&
+        covered(asset.start, hi)
+      );
+    });
+    if (holds < 0) return;
+    accepted.add(holds);
+    found.push({
+      at,
+      from,
+      share: { assetIds: [id], kind: share.kind, bps: share.bps, quote: quote.slice(0, 400) },
+    });
+  });
+  const plainly = sentences.every(({ said }, i) => {
+    if (accepted.has(i)) return true;
+    const bare = said.replace(/[.;!?]+\s*$/u, '').trim();
+    if (!bare) return true;
+    return bare
+      .split(/(?<!\d),|,(?!\d)/u)
+      .map((piece) => piece.trim())
+      .every((piece) => COURTESY.test(piece) || plainShares(piece, named).length > 0);
+  });
+  return plainly ? found : [];
 }
 
 /**
@@ -2270,6 +2453,21 @@ export function personShares(
  * (`vault.page.rebalance` in apps/web's dictionary; the API does not import the web's words).
  */
 export const REBALANCE_ACTION = { en: 'Rebalance', pt: 'Rebalancear' } as const;
+
+/** Why a rebalance is not offered now (`VaultStandingFacts.rebalanceNotOffered`). */
+export type NotOffered =
+  | 'within_tolerance'
+  | 'trade_too_small'
+  | 'auto_follow'
+  | 'no_price'
+  | 'no_targets'
+  | 'not_on_page';
+export type AgainstTargets = {
+  onTarget: boolean;
+  offered: boolean;
+  /** Why it is not offered, by the same rule; absent when it is. */
+  why?: Exclude<NotOffered, 'not_on_page'>;
+};
 
 /**
  * Where the vault stands against its targets, by the rule the vault's page reads (`offTarget` in
@@ -2281,17 +2479,18 @@ export function vaultAgainstTargets(
   state: VaultState,
   prices: readonly Price[],
   assets: readonly BasketAsset[],
-): { onTarget: boolean; offered: boolean } {
-  const none = { onTarget: false, offered: false };
-  if (!state.positions.some((position) => position.targetBps > 0)) return none;
+): AgainstTargets {
+  if (!state.positions.some((position) => position.targetBps > 0))
+    return { onTarget: false, offered: false, why: 'no_targets' };
+  const unpriced = { onTarget: false, offered: false, why: 'no_price' } as const;
   let seen: ReturnType<typeof view>;
   try {
     seen = view(state, [...prices], [...assets]);
   } catch {
-    return none;
+    return unpriced;
   }
   const read = ownerShares(seen.positions, Number(seen.valueUsd));
-  if (!read) return none;
+  if (!read) return unpriced;
   // One rule with the page and the rebalance route: off target is what a rebalance would trade
   const off = ownerRebalanceOffered(
     read.rows,
@@ -2299,7 +2498,15 @@ export function vaultAgainstTargets(
     OWNER_REBALANCE_SLIPPAGE_BPS,
     read.valueUsd,
   );
-  return { onTarget: !off, offered: !state.autoFollow && off };
+  if (off && state.autoFollow) return { onTarget: false, offered: false, why: 'auto_follow' };
+  if (off) return { onTarget: false, offered: true };
+  return {
+    onTarget: true,
+    offered: false,
+    why: outsideOwnerBand(read.rows, read.cashOverBps, OWNER_REBALANCE_SLIPPAGE_BPS)
+      ? 'trade_too_small'
+      : 'within_tolerance',
+  };
 }
 
 /**
@@ -2410,9 +2617,6 @@ export function ambiguousConfirmation(messages: VaultAgentRequest['messages']): 
   return asked.length !== 1 || EITHER_OR.test(one);
 }
 
-// That nothing changes until the person confirms is said every time it applies.
-const ALWAYS_SAID =
-  /nothing\s+(?:changes|is\s+applied|was\s+applied)|nada\s+(?:muda|foi\s+aplicado)/iu;
 const sameWords = (text: string) =>
   text
     .toLowerCase()
@@ -2438,12 +2642,7 @@ export function withoutSaidBefore(
   if (!said.size) return reply;
   const lines = reply.message.split('\n').map((line) =>
     sentencesOf(line, catalogNames)
-      .filter(
-        (sentence) =>
-          sentence.trim().length < 40 ||
-          ALWAYS_SAID.test(sentence) ||
-          !said.has(sameWords(sentence)),
-      )
+      .filter((sentence) => sentence.trim().length < 40 || !said.has(sameWords(sentence)))
       .join('')
       .trim(),
   );
@@ -2582,16 +2781,15 @@ export async function replyToVaultConversation(
     shelf,
     companies,
   ).refused;
-  const person = {
-    ...stated,
-    standing: stated.standing.filter((share) => !givenUp(share, refused)),
+  const personOf = (read: ReturnType<typeof personShares>) => ({
+    ...read,
+    standing: read.standing.filter((share) => !givenUp(share, refused)),
     withdrawn: [
-      ...stated.withdrawn,
-      ...stated.standing.filter(
-        (share) => givenUp(share, refused) && !givenUp(share, refusedBefore),
-      ),
+      ...read.withdrawn,
+      ...read.standing.filter((share) => givenUp(share, refused) && !givenUp(share, refusedBefore)),
     ],
-  };
+  });
+  const person = personOf(stated);
   // What the latest message asked the draft to hold, with a share, in the person's own words: a stock
   // outside the goal that the server read as asked for there. A reply that drafts nothing, or leaves
   // it out, is not what the person asked (ANY-COMPOSITION), so the model is asked once more, and for
@@ -2704,6 +2902,10 @@ export async function replyToVaultConversation(
           keeperRunsOnThisServer: context.server?.keeperEnabled ?? null,
         },
         rebalanceAction: action.kind === 'page_action' ? action.label : null,
+        rebalanceNotOffered:
+          action.kind === 'page_action'
+            ? null
+            : (standing.why ?? (context.rebalanceOnPage === true ? null : 'not_on_page')),
         latest: ambiguous ? 'ambiguous_confirmation' : null,
         alreadySaid,
       }
@@ -3072,8 +3274,8 @@ export async function replyToVaultConversation(
       const quote = (everyone.at(-1)?.text ?? '').trim().slice(0, 80);
       model = {
         message: pt
-          ? `Seu “${quote}” pode responder a mais de uma coisa, então nada foi proposto e nada mudou.`
-          : `Your “${quote}” could answer more than one thing, so nothing is drafted and nothing changed.`,
+          ? `Seu “${quote}” pode responder a mais de uma coisa.`
+          : `Your “${quote}” could answer more than one thing.`,
         question: pt ? 'O que você quer que eu faça?' : 'Which did you mean?',
         proposal: null,
       };
@@ -3126,6 +3328,12 @@ export async function replyToVaultConversation(
         warnings: [],
         weightNotes: [],
       });
+    // The shares the model points at in the person's words, each checked against them here
+    // (`quotedShares`); with none, the server's own reading stands as it was.
+    const quoted = quotedShares({ stated: proposal.stated, messages, named: namer });
+    const held = quoted.length
+      ? personOf(personShares(messages, language, shelf, companies, quoted))
+      : person;
     const ids = new Set<string>();
     const leftOut: string[] = [];
     for (const allocation of proposal.allocations) {
@@ -3151,7 +3359,7 @@ export async function replyToVaultConversation(
     const weighed = (picked: typeof proposal.allocations) =>
       personWeights(
         picked.length,
-        person.standing.map((share) => ({
+        held.standing.map((share) => ({
           members: picked.flatMap(({ assetId }, i) =>
             share.assetIds.includes(assetId) ? [i] : [],
           ),
@@ -3258,15 +3466,10 @@ export async function replyToVaultConversation(
       .join(' ')
       .slice(0, 1600);
     const told = [clean(conversation.message), leftOutSaid].filter(Boolean).join(' ');
-    // With no room for what is left of the message, the server's notes alone: the figure's, if the
-    // message carried it, and this one.
-    const figureCut = FIGURE_CUT[request.language];
-    const notes = conversation.message.includes(figureCut)
-      ? `${figureCut} ${leftOutSaid}`
-      : leftOutSaid;
+    // With no room for what is left of the message, the server's note alone.
     const said = gone.length
       ? {
-          message: told.length > 2400 ? notes : told,
+          message: told.length > 2400 ? leftOutSaid : told,
           question: clean(conversation.question ?? '') || null,
         }
       : conversation;
@@ -3287,20 +3490,23 @@ export async function replyToVaultConversation(
     // sentences in it.
     if (gone.length && figured({ ...said, proposal: { ...preview, stated } }))
       return rejected('prose_figure');
-    const unconfirmed = stated.flatMap((share, index) =>
-      person.read.some(
-        (own) =>
-          own.bps === share.bps &&
-          own.kind === share.kind &&
-          own.assetIds.some((id) => share.assetIds.includes(id)),
-      )
-        ? []
-        : [
-            `At stated.${index} (“${share.quote}”): the server did not read this share in the person's words, so it is not applied.`,
-          ],
+    // A share the model reports that holds neither in the server's reading nor in its quote sets
+    // nothing. It costs no second call: where its quote is the person's own words and the draft does
+    // not meet it, it is said back under the draft (`share_unread`), and the review sets any share.
+    const words = personWords.map((text) => text.replace(/\s+/gu, ' '));
+    const unapplied = stated.filter(
+      (share, index) =>
+        !quoted.some((one) => one.from === index || one.share.quote === share.quote.trim()) &&
+        !held.read.some(
+          (own) =>
+            own.bps === share.bps &&
+            own.kind === share.kind &&
+            own.assetIds.some((id) => share.assetIds.includes(id)),
+        ) &&
+        share.quote.trim().length > 0 &&
+        words.some((text) => text.includes(share.quote.replace(/\s+/gu, ' ').trim())),
     );
-    if (unconfirmed.length && !final) return rejected('stated_ungrounded', unconfirmed);
-    const shares = person.standing;
+    const shares = held.standing;
     const picks = preview.allocations.map((allocation) => ({
       allocation,
       asset: catalog.get(allocation.assetId) as BasketAsset,
@@ -3391,8 +3597,8 @@ export async function replyToVaultConversation(
     });
     const served = (indexes: readonly number[]) =>
       indexes.filter((i) => (weights[i] ?? 0) > 0).map((i) => picks[i]?.asset.id as string);
-    const held = new Set(members.flat());
-    const free = served(picks.map((_, i) => i).filter((i) => !held.has(i)));
+    const covered = new Set(members.flat());
+    const free = served(picks.map((_, i) => i).filter((i) => !covered.has(i)));
     const weightNotes: VaultAgentWeightNote[] = [
       ...shares.flatMap((share, i) => {
         const assetIds = served(members[i] ?? []);
@@ -3405,15 +3611,38 @@ export async function replyToVaultConversation(
       ),
       // What the person's latest words withdrew, and what reads as a share in them and set none, is
       // said, never dropped. "The rest in gold" is said unless the rest did go only where it names.
-      ...person.withdrawn.map((share) => ({
+      ...held.withdrawn.map((share) => ({
         code: 'share_withdrawn' as const,
         assetIds: share.assetIds.slice(0, 64),
         quote: share.quote,
       })),
       ...[
         ...new Set([
-          ...person.unread,
-          ...person.rest
+          ...held.unread,
+          ...unapplied
+            .filter((share) => {
+              const total = picks.reduce(
+                (sum, { asset }, i) =>
+                  share.assetIds.includes(asset.id) ? sum + (weights[i] ?? 0) : sum,
+                0,
+              );
+              const met =
+                share.kind === 'exact'
+                  ? total === share.bps
+                  : share.kind === 'min'
+                    ? total >= share.bps
+                    : total <= share.bps;
+              const quote = share.quote.trim();
+              // words already said back, or applied to another asset, are not said again
+              return (
+                !met &&
+                ![...held.unread, ...held.read.map((own) => own.quote)].some(
+                  (piece) => piece.includes(quote) || quote.includes(piece),
+                )
+              );
+            })
+            .map((share) => share.quote.trim().slice(0, 400)),
+          ...held.rest
             .filter(
               ({ assetIds }) =>
                 assetIds.length > 0 && !(free.length && free.every((id) => assetIds.includes(id))),

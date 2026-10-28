@@ -265,8 +265,9 @@ export function reviewMix(
   },
 ) {
   const { entry, prepared } = ctx;
-  // The engine reads a sheet of at least $10; a smaller vault is read at that size, and only its
-  // ceilings and the goal's list are used, which the size does not change.
+  // The engine reads the sheet at $10 at least, as it did while that was the floor; a smaller vault is
+  // read at that size, and only its ceilings and the goal's list are used, which the size does not
+  // change.
   const sheet = mixSheet(ctx, {
     ...a,
     goal: a.goal ?? 'grow',

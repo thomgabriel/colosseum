@@ -1,4 +1,4 @@
-import type { BasketSheetDraft } from '@colosseum/schemas';
+import { type BasketSheetDraft, ORDER_LIMITS } from '@colosseum/schemas';
 import { COUNTRY_CODES } from './countries';
 import { parseNumber } from './sheet';
 
@@ -174,7 +174,8 @@ export function preRead(text: string, now: Date = new Date()): Words {
   if (g) words.goal = g;
   const figures = dollarFigures(t);
   const start = figures.find((f) => !f.monthly);
-  if (start && start.usd >= 10 && start.usd <= 1_000_000) words.amountUsd = start.usd;
+  if (start && start.usd >= ORDER_LIMITS.minAmountUsd && start.usd <= ORDER_LIMITS.maxAmountUsd)
+    words.amountUsd = start.usd;
   const monthly = figures.find((f) => f.monthly);
   if (monthly && monthly.usd > 0 && (g === 'income' || g === undefined))
     words.incomeTargetUsdMonthly = monthly.usd;

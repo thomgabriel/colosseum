@@ -1,10 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deploymentAssets, EvmDeploymentRecord } from '@colosseum/chain-evm/vault';
+import {
+  SolanaDeploymentRecord,
+  deploymentAssets as solanaDeploymentAssets,
+} from '@colosseum/chain-solana/vault';
 import type { BasketAsset, VaultAgentReply, VaultAgentSource } from '@colosseum/schemas';
 import { describe, expect, it } from 'vitest';
+import { DEPLOYMENTS_DIR } from '../deployments';
 import { createModelQuota, type ModelQuota } from '../model-quota';
 import { goalFit } from './mix';
+import { CLASS_LOADS, goalFigures } from './relaxed-figures';
 import { createRelaxedGoalAgent, RELAXED_MAX_TOKENS, splitShares } from './relaxed-goal-agent';
 import { type GoalAgentContext, personShares } from './vault-agent';
 
@@ -383,11 +389,9 @@ describe('relaxed intake: the split', () => {
     expect(notes(reply)).toContain('the other 20% of the money is held in USDC');
   });
 
-  it('the preview note is true: the deposit goes into it exactly, no solver', async () => {
+  it('adds no deposit boilerplate under a draft (the page labels it, Oct 28), and no solver', async () => {
     const reply = await run({ shape: 'grow', lines: [line('solana:usdy')] }, 'grow');
-    expect(notes(reply)).toContain(
-      'Your deposit goes into exactly these holdings and shares, after the server checks every line again.',
-    );
+    expect(notes(reply)).not.toMatch(/Your deposit goes into exactly/u);
     expect(notes(reply)).not.toContain('solver');
   });
 });
@@ -697,7 +701,7 @@ describe('relaxed intake: the projection starts from the person’s own figures'
   });
   it('holds the amount to what the deposit step accepts', async () => {
     none(await sheet({ amount: 5_000_000 }, 'I have $5,000,000 to grow'));
-    none(await sheet({ amount: 5 }, 'I have $5 to grow'));
+    none(await sheet({ amount: 0.5 }, 'I have $0.50 to grow'));
   });
   it('drops a date that is past, unreal, out of reach or not the person’s', async () => {
     for (const need_by of ['1999-01-01', '2026-02-31x', '9999-01-01', '2400-06-01', '2031-01-01'])
@@ -802,7 +806,7 @@ describe('relaxed intake: the model never states a figure', () => {
       },
       'Tesla and Nvidia please',
     );
-    expect(own(reply)).toBe(`Here are the two you named.\n${CUT}`);
+    expect(own(reply)).toBe(`Here are the two you named.`);
     expect(JSON.stringify(reply)).not.toMatch(/40%|guaranteed|131/);
   });
   it('serves the server’s note when nothing of the message is left', async () => {
@@ -1094,7 +1098,8 @@ describe('relaxed intake: caps', () => {
     expect(weights(reply)).toEqual({ SOL: 10_000 });
     expect(reply.message).toContain('All of it goes into SOL, as you asked.');
     expect(reply.message).not.toMatch(/cap|warning/i);
-    expect(reply.message).toContain('Part of this reply was left out');
+    // the cut is logged, not said (Oct 28)
+    expect(reply.message).not.toContain('Part of this reply was left out');
     expect(reply.proposal?.allocations[0]?.why).not.toMatch(/cap/i);
     expect(notes(reply)).toContain('Above the cap listed today: SOL at 100% (cap 20%)');
   });
@@ -1424,4 +1429,56 @@ describe('goalFit, the rule goal/accept and the preview share', () => {
     expect(goalFit(of('TSLAx'), 'grow')).toBe('fits');
     expect(goalFit(of('SOL'), null)).toBe('fits');
   });
+});
+
+describe('the starters under “What should your vault do?” on /invest (Thom, Oct 28)', () => {
+  // The two starters after "Explore technology stocks", as apps/web/i18n/en.ts and pt.ts write them,
+  // ask for what only the measured exit figures answer. On Solana devnet each test token reads the
+  // depth of the mainnet token it models (model-exits.ts), so "stocks" and "gold" have to load those
+  // figures into the conversation's MEASURED FIGURES, or the draft could not rank by them.
+  const STARTERS = [
+    {
+      en: 'The stocks with the deepest liquidity',
+      pt: 'As ações com a liquidez mais profunda',
+      gold: false,
+    },
+    {
+      en: '$2,000 in tech stocks and gold, cheapest to exit',
+      pt: 'US$ 2.000 em ações de tecnologia e ouro, saída mais barata',
+      gold: true,
+    },
+  ];
+  const assets = solanaDeploymentAssets(
+    SolanaDeploymentRecord.parse(
+      JSON.parse(readFileSync(join(DEPLOYMENTS_DIR, 'solana-devnet.json'), 'utf8')),
+    ),
+  );
+  // a size-free exit capacity for every holding, as `buildGoalAgentContext` adds for a new goal
+  const evidence = assets
+    .filter((a) => a.cls !== 'cash')
+    .map((a, i) =>
+      source(`capacity:${a.id}`, {
+        assetId: a.id,
+        label: 'Largest sale within the cost tolerance, worst regime of the exit window',
+        value: 10_000 * (i + 1),
+        unit: 'USD',
+      }),
+    );
+  const ctx = context({ assets, evidence });
+  const stocks = assets.filter((a) => a.cls === 'stock' || a.cls === 'etf').map((a) => a.id);
+
+  for (const starter of STARTERS)
+    for (const language of ['en', 'pt'] as const)
+      it(`loads the exit capacity of the stocks${starter.gold ? ' and of gold' : ''} for “${starter[language]}”`, () => {
+        const offered = goalFigures(ctx, assets, new Map(), [
+          { who: 'person', text: starter[language] },
+        ]);
+        const loaded = [...offered.sources.keys()];
+        // as many stocks as a class word loads, the deepest two on mainnet (SPYx, NVDAx) among them
+        const stocksLoaded = stocks.filter((id) => loaded.includes(`capacity:${id}`));
+        expect(stocksLoaded).toHaveLength(CLASS_LOADS);
+        expect(stocksLoaded).toEqual(expect.arrayContaining(['solana:spyx', 'solana:nvdax']));
+        expect(loaded.includes('capacity:solana:paxg')).toBe(starter.gold);
+        expect(offered.block).toContain('MEASURED FIGURES');
+      });
 });

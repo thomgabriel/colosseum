@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { BasketAsset } from './basket-asset';
 import { AssetId, Bps, ChainId, Sourced } from './chain';
 import { Language } from './enums';
+import { ORDER_LIMITS } from './order';
 import { Component, FamilyMeta, Recipe } from './recipe';
 
 // DESIGN-VAULT 3.6, personalization. A plan is a `BasketProposal`: lines with reasons, a card and one
@@ -60,7 +61,7 @@ export type PlanSleeves = z.infer<typeof PlanSleeves>;
 export const BasketSheet = z.object({
   basketType: z.literal('standard'),
   goal: z.enum(['grow', 'income', 'protect']),
-  amountUsd: z.number().min(10).max(1_000_000),
+  amountUsd: z.number().min(ORDER_LIMITS.minAmountUsd).max(ORDER_LIMITS.maxAmountUsd),
   horizonMonths: z.number().int().min(1).max(480),
   /**
    * The person gave no date for the goal ("no hard cap", "sem prazo"; gate GLIDE-OPT-IN, Oct 6).

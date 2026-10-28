@@ -177,7 +177,7 @@ test('the deposit step asks nothing the conversation did not hear: the server wo
   await check(page, 'deposit-unknown');
 
   // below the least: said on the field, the figures gone, the press held
-  await amount.fill('5');
+  await amount.fill('0.5');
   await expect(step.getByText(en.mix.deposit.errors.belowMin)).toBeVisible();
   await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await expect(dollarsOf(step, 'spy')).toHaveText(`—${en.mix.deposit.unchecked}`);
@@ -186,9 +186,9 @@ test('the deposit step asks nothing the conversation did not hear: the server wo
     'true',
   );
   await check(page, 'deposit-error');
-  // a quick amount puts it right
-  await step.getByRole('button', { name: en.mix.deposit.quickOne('$500') }).click();
-  await expect(amount).toHaveValue('500');
+  // no quick amounts (Thom, Oct 28): a typed amount puts it right
+  await expect(step.locator('[data-ui="amount-chips"]')).toHaveCount(0);
+  await amount.fill('500');
   await expect(dollarsOf(step, 'gold')).toHaveText('$250.00');
 });
 
@@ -211,8 +211,8 @@ test('the deposit step by keyboard', async ({ page }) => {
   await page.keyboard.type('100.50');
   await expect(dollarsOf(step, 'spy')).toHaveText(/50\.25/);
   await check(page, 'deposit-keyboard');
-  // from the amount, by Tab: the balance's pin, the quick amounts, each holding's figures by their
-  // pins, then the one box for the warnings, which Space ticks
+  // from the amount, by Tab: the balance's pin (no quick amounts, Thom, Oct 28), each holding's
+  // figures by their pins, then the one box for the warnings, which Space ticks
   const ack = step.locator('[data-ui="warnings-ack"]');
   const stops: string[] = [];
   for (let i = 0; i < 24 && !(await ack.evaluate((el) => el === document.activeElement)); i += 1) {
@@ -225,16 +225,10 @@ test('the deposit step by keyboard', async ({ page }) => {
     );
   }
   await expect(ack).toBeFocused();
-  expect(stops.slice(0, 5)).toEqual([
-    'Source for 0.00 USDC, sample figure',
-    'pin-details',
-    en.mix.deposit.quickOne('$100'),
-    en.mix.deposit.quickOne('$500'),
-    en.mix.deposit.quickOne('$1,000'),
-  ]);
+  expect(stops.slice(0, 2)).toEqual(['Source for 0.00 USDC, sample figure', 'pin-details']);
   // every figure in the rows is a stop of its own, named for its source
   expect(
-    stops.slice(5, -1).every((stop) => stop.startsWith('Source for') || stop === 'pin-details'),
+    stops.slice(2, -1).every((stop) => stop.startsWith('Source for') || stop === 'pin-details'),
   ).toBe(true);
   await page.keyboard.press('Space');
   await expect(ack).toBeChecked();

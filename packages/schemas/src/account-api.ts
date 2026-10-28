@@ -49,7 +49,7 @@ export const FundingQuery = z
     wallet: Address.optional(),
     amountUsd: z.coerce
       .number()
-      .positive()
+      .min(ORDER_LIMITS.minAmountUsd, 'one deposit is at least $1')
       .max(ORDER_LIMITS.maxAmountUsd, 'one deposit is at most $1,000,000')
       .optional(),
     proposalId: z.uuid().optional(),
@@ -138,7 +138,7 @@ export const TestFundsRequest = z
     wallet: Address.optional(),
     amountUsd: z
       .number()
-      .positive()
+      .min(ORDER_LIMITS.minAmountUsd, 'one deposit is at least $1')
       .max(ORDER_LIMITS.maxAmountUsd, 'one deposit is at most $1,000,000'),
     proposalId: z.uuid().optional(),
     family: FundingQuery.shape.family,

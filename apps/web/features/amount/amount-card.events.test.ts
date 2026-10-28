@@ -151,13 +151,13 @@ describe('the amount card on a deposit', () => {
     api();
     const host = await mount(inLanguage('en', deposit()));
     await settle(10);
-    await type(field(host), '5');
+    await type(field(host), '0.5');
     // not on the first digit
     expect(host.querySelector('[data-ui="amount-problem"]')).toBeNull();
     expect(held(primary(host))).toBe(true);
     await settle(SETTLE_MS + 50);
     expect(find(host, '[data-ui="amount-problem"]').textContent).toBe(
-      en.amount.errors.belowMin('$10'),
+      en.amount.errors.belowMin('$1'),
     );
     // said where a screen reader hears it, by someone still in the field
     expect(find(host, '[data-ui="amount-problem"]').closest('[role="status"]')).not.toBeNull();
@@ -379,7 +379,7 @@ describe('the amount card on a deposit', () => {
     expect(details.querySelectorAll('dt').length).toBeGreaterThanOrEqual(4);
     const text = details.textContent ?? '';
     expect(text).toContain(en.amount.details.least);
-    expect(text).toContain('$10');
+    expect(text).toContain('Least$1Most');
     expect(text).toContain('$1,000,000');
     expect(text).toContain(en.amount.details.slippage);
     // the slippage the order is built with (ORDER_DEFAULT_SLIPPAGE_BPS), not the request's cap

@@ -285,7 +285,7 @@ describe('the Invest chat states measured figures by reference', () => {
       { say: 'The Tesla pool is about $40,000 deep. It trades around the clock.' },
       DRAFT,
     );
-    expect(typed.reply.message).toBe(`It trades around the clock.\n${CUT}`);
+    expect(typed.reply.message).toBe(`It trades around the clock.`);
     expect(typed.calls).toHaveLength(2);
     expect(typed.result.repair).toMatchObject({
       failed: 'prose_figure',
@@ -303,7 +303,7 @@ describe('the Invest chat states measured figures by reference', () => {
       { say: 'Selling Tesla costs about five percent. It trades around the clock.' },
       DRAFT,
     );
-    expect(words.reply.message).toBe(`It trades around the clock.\n${CUT}`);
+    expect(words.reply.message).toBe(`It trades around the clock.`);
   });
 
   it('passes a repaired reply whole', async () => {
@@ -379,9 +379,7 @@ describe('the Invest chat states measured figures by reference', () => {
     const turns: Turn[] = [{ who: 'person', text: 'Which is deeper, Tesla or Nvidia?' }];
     const rank = `Selling Tesla costs about ${ref(`exit:${TSLA}:worst`)}. Selling Nvidia costs about ${ref(`exit:${NVDA}:worst`)}. Tesla at ${ref(`exit:${TSLA}:worst`)} is cheaper than Nvidia.`;
     const { reply } = await ask({ say: rank }, turns);
-    expect(reply.message).toBe(
-      `Selling Tesla costs about 0.4%. Selling Nvidia costs about 0.6%.\n${CUT}`,
-    );
+    expect(reply.message).toBe(`Selling Tesla costs about 0.4%. Selling Nvidia costs about 0.6%.`);
   });
 });
 
@@ -444,7 +442,7 @@ describe('what a reference on /invest may name', () => {
       { say: `Tesla is listed here. The Tesla figure is ${ref(id)}.` },
       DRAFT,
     );
-    expect(reply.message).toBe(`Tesla is listed here.\n${CUT}`);
+    expect(reply.message).toBe(`Tesla is listed here.`);
     expect(reply.figures).toBeUndefined();
     expect(result.repair).toMatchObject({
       failed: 'figure_reference',
@@ -593,7 +591,7 @@ describe('the evidence the model is handed', () => {
       .join('\n');
     expect(loaded).toContain(`price:${GLD}`);
     expect(loaded).not.toContain(`exit:${GLD}`);
-    expect(reply.message).toBe(`Gold is listed here.\n${CUT}`);
+    expect(reply.message).toBe(`Gold is listed here.`);
   });
 
   it('tells the model when to use a reference, and never to rank, compare or promise', async () => {

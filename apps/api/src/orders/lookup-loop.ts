@@ -18,12 +18,13 @@ import { type FigureReferences, NULL_REASONS } from './vault-figures';
 // (asset-lookups.ts, handed in), adds each answer's facts to this request's evidence and hands the model
 // per fact its id, what it measures, its value, unit, time and provenance, never its source or method,
 // which the server writes. The model still writes no number: a looked-up figure is stated by reference
-// under the unchanged rules of vault-figures.ts. At most three lookup rounds a reply, each round's reads
+// under the unchanged rules of vault-figures.ts. One lookup round a reply (three until Oct 28, when every
+// logged reply used all three at high effort and two found nothing), each round's reads
 // waited for at most 2.5 s; the shared quota is reserved before every paid call, and a denial ends the
 // loop with no further call. A lookup that fails answers the model an error and never fails the reply.
 
 /** At most this many lookup rounds in one reply; the call after the last one may not look up again. */
-export const LOOKUP_MAX_ROUNDS = 3;
+export const LOOKUP_MAX_ROUNDS = 1;
 /** How long one round's reads are waited for; what is late answers "reading". */
 export const LOOKUP_WAIT_MS = 2_500;
 
@@ -101,8 +102,8 @@ export const LOOKUP_TOOLS: Anthropic.Tool[] = [
  */
 export const LOOKUP_RULES = [
   'LOOKUPS. Four read-only tools give the figures the server holds of one listed asset of this chain: asset_profile (its supply, the share its largest holders hold, the dollars in its pools, its volume, its exchange rate, its yield readings), asset_price_history (its price over the last day, week or month: the latest close, the high, the low, the change, volume, the dollars traded on the entry side and on the exit side, swaps), asset_pools (its pools by dollars held) and asset_lending (its lending markets: supply and borrow rate, how much is lent out, what can be withdrawn).',
-  "- When: the person asks about an asset's price, how it moved, its supply, who holds it, its pools or lending, or a caution you give needs a figure. The figures handed to you up front come first: look up only what they do not answer. Never to decorate a reply.",
-  '- How: name only assets listed on this chain, by their exact id, and the cash token only for its lending markets (asset_lending); one asset a call, every call a round needs in that round. At most three rounds in one reply; then answer with what you have.',
+  '- When: the person asks about an asset\'s price, how it moved, its supply, who holds it, its pools or lending, or why an asset was picked ("why TSLAx?"), or a caution or a choice you explain needs a figure. The figures handed to you up front come first: look up only what they do not answer. Never to decorate a reply.',
+  '- How: name only assets listed on this chain, by their exact id, and the cash token only for its lending markets (asset_lending); one asset a call, every call a round needs in that round. One round in one reply: ask for everything you need at once, then answer with what you have.',
   '- What comes back: per figure its id, what it measures, its value, unit, time and provenance (sandbox: a test network, with the mainnet token it is modelled on), or that it is not measured and why. State a looked-up figure exactly as any other, by {{fact:<id>}} with its id, under the same rules: never its value typed, never a comparison, a ranking, arithmetic, a forecast or a promise.',
   '- Each looked-up figure is the asset\'s or its market\'s, never the person\'s: no "you", "your", "my" or "I" in a sentence that holds one.',
   '- A change over a window is a change in price over that window ("NVDAx\'s price changed by {{fact:<id>}} over the last week."), never a return, a gain, a profit, a loss or a performance.',

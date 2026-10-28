@@ -2,7 +2,7 @@ import type { Dictionary, Lang } from '../../i18n';
 import { dollars, parseNumber } from '../goal/sheet';
 
 // What an amount typed on the amount card is, and what is wrong with it, in the card's own quiet
-// words ("At least $10", "More than your balance"). Pure, so the words a person reads for each case
+// words ("At least $1", "More than your balance"). Pure, so the words a person reads for each case
 // are held by a test. The card says a problem only once the amount has been still for a moment; this
 // says what the problem is.
 

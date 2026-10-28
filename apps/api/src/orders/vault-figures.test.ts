@@ -150,6 +150,30 @@ describe('the vault conversation states a measured figure by reference', () => {
     expect(out.repair).toBeUndefined();
   });
 
+  it('clips a figure method longer than a reply holds, and still serves the reply', async () => {
+    // Oct 27: a method over 2,000 characters failed the whole reply as 503 unavailable.
+    const long = `fixture ${'m'.repeat(2600)}`;
+    const wordy = sheet();
+    const first = wordy.assets[0];
+    if (!first?.figures) throw new Error('No sheet row');
+    first.figures = first.figures.map((figure) =>
+      figure.metric === 'exit_worst' ? { ...figure, method: long, source: long } : figure,
+    );
+    const out = served(
+      await replyToVaultConversation(
+        request(),
+        built({ analytics: wordy }),
+        fake(said(`Selling it all today would cost about ${ref(exit)}.`)),
+      ),
+    );
+    const fact = out.reply.figures?.facts[0];
+    if (!fact || fact.value === null) throw new Error('No measured figure served');
+    expect(fact.method.length).toBe(2000);
+    expect(fact.method.endsWith('…')).toBe(true);
+    expect(fact.method.startsWith('fixture mmm')).toBe(true);
+    expect(fact.source.length).toBe(2000);
+  });
+
   it('leaves a reply with no reference exactly as before: no figures field', async () => {
     const out = served(await replyToVaultConversation(request(), built(), fake(said('Hello.'))));
     expect(out).toEqual({
@@ -195,7 +219,7 @@ describe('the vault conversation states a measured figure by reference', () => {
       const model = fake(said(`It would cost about ${token}. A reserve helps.`));
       const out = served(await replyToVaultConversation(request(), built(), model));
       expect(model.read).toHaveBeenCalledTimes(2);
-      expect(out.reply.message).toBe(`A reserve helps.\n${FIGURE_CUT}`);
+      expect(out.reply.message).toBe(`A reserve helps.`);
       expect(out.reply.figures).toBeUndefined();
       expect(out.repair).toEqual({
         failed: 'figure_reference',
@@ -237,7 +261,7 @@ describe('the vault conversation states a measured figure by reference', () => {
     expect(vi.mocked(model.read).mock.calls[1]?.[2]?.problems[0]).toContain(
       'Prose contained a financial figure',
     );
-    expect(out.reply.message).toBe(`A reserve helps.\n${FIGURE_CUT}`);
+    expect(out.reply.message).toBe(`A reserve helps.`);
     expect(out.repair).toEqual({
       failed: 'prose_figure',
       outcome: 'prose_figure_trimmed',
@@ -248,7 +272,7 @@ describe('the vault conversation states a measured figure by reference', () => {
     const bare = said(`It costs about ${ref(exit)} or 0.4 of the trade. A reserve helps.`);
     expect(
       served(await replyToVaultConversation(request(), built(), fake(bare))).reply.message,
-    ).toBe(`A reserve helps.\n${FIGURE_CUT}`);
+    ).toBe(`A reserve helps.`);
   });
 
   it.each([
@@ -265,7 +289,7 @@ describe('the vault conversation states a measured figure by reference', () => {
     );
     const out = served(await replyToVaultConversation(request(), built(), model));
     expect(model.read).toHaveBeenCalledTimes(2);
-    expect(out.reply.message).toBe(`A reserve helps.\n${FIGURE_CUT}`);
+    expect(out.reply.message).toBe(`A reserve helps.`);
     expect(out.repair).toMatchObject({ failed: 'figure_reference' });
   });
 
@@ -420,7 +444,7 @@ describe('the vault conversation states a measured figure by reference', () => {
     });
     const model = fake(said(`It would cost about ${ref(exit)}. A reserve helps.`));
     const out = served(await replyToVaultConversation(request(), goal, model));
-    expect(out.reply.message).toBe(`A reserve helps.\n${FIGURE_CUT}`);
+    expect(out.reply.message).toBe(`A reserve helps.`);
     expect(out.reply.figures).toBeUndefined();
   });
 });
@@ -611,7 +635,7 @@ describe('a reference stands alone, as the figure it is', () => {
     const out = served(await replyToVaultConversation(request(person, language), ctx(), model));
     return out.reply.message;
   };
-  const CUT = `A reserve helps.\n${FIGURE_CUT}`;
+  const CUT = `A reserve helps.`;
 
   it.each([
     // inside quotation marks: a quote is the person's words, and a figure is never theirs
@@ -948,7 +972,12 @@ describe('a figure is read with what stands around it', () => {
     const { out } = await ask(said(`${fill(sentence)} A new line follows.`));
     return served(out).reply.message;
   };
-  const CUT = `A new line follows.\n${FIGURE_CUT}`;
+  const CUT = `A new line follows.`;
+  /** How many sentences the repair attempt lost, as the log counts them: the cut is not shown. */
+  const cutOf = async (sentence: string) => {
+    const { out } = await ask(said(`${fill(sentence)} A new line follows.`));
+    return served(out).repair?.sentencesCut ?? 0;
+  };
 
   it.each([
     'You can count on [Y] a year from the reserve.',
@@ -1005,7 +1034,8 @@ describe('a figure is read with what stands around it', () => {
   ])('reads the words of the sentence before a reference too: %s', async (sentence) => {
     const shown = await left(sentence);
     expect(shown).not.toMatch(/\d/u);
-    expect(shown).toContain(FIGURE_CUT);
+    expect(shown).not.toContain(FIGURE_CUT);
+    expect(await cutOf(sentence)).toBeGreaterThan(0);
   });
 
   it.each(['About [NS].', 'Think [NS].', '[NS].', 'USDC: [NV].', 'Nvidia. [NS].'])(
@@ -1013,7 +1043,8 @@ describe('a figure is read with what stands around it', () => {
     async (sentence) => {
       const shown = await left(`Something about your vault. ${sentence}`);
       expect(shown).not.toMatch(/\d/u);
-      expect(shown).toContain(FIGURE_CUT);
+      expect(shown).not.toContain(FIGURE_CUT);
+      expect(await cutOf(`Something about your vault. ${sentence}`)).toBeGreaterThan(0);
     },
   );
 
@@ -1598,7 +1629,7 @@ describe('a figure is read with what stands around it', () => {
   it('keeps the yield when the sentence beside it only says it is not guaranteed', async () => {
     // the older figure check takes that sentence for its word; the yield is not refused with it
     const message = await shown('The reserve’s quoted yield is [Y] a year. It is not guaranteed.');
-    expect(message).toBe(`The reserve’s quoted yield is 5% a year.\n${FIGURE_CUT}`);
+    expect(message).toBe(`The reserve’s quoted yield is 5% a year.`);
   });
 
   it.each([
@@ -1658,7 +1689,7 @@ describe('a figure is read with what stands around it', () => {
 
   it('never serves the word guaranteed beside a yield: the older check takes that sentence', async () => {
     const message = await shown('Its quoted yield is [Y] a year. Guaranteed income, anyone?');
-    expect(message).toBe(`Its quoted yield is 5% a year.\n${FIGURE_CUT}`);
+    expect(message).toBe(`Its quoted yield is 5% a year.`);
   });
 
   it.each([

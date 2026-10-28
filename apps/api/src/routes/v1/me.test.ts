@@ -825,6 +825,7 @@ describe('GET /v1/funding: what the wallet is missing on its chain', () => {
       '?amountUsd=1000',
       `?proposalId=${plans.solana}`,
       `?amountUsd=0&proposalId=${plans.solana}`,
+      `?amountUsd=0.99&proposalId=${plans.solana}`,
       `?amountUsd=1000000.01&proposalId=${plans.solana}`,
       `?amountUsd=lots&proposalId=${plans.solana}`,
       '?amountUsd=10&proposalId=not-an-id',

@@ -840,7 +840,9 @@ describe('a new goal’s mix, deposited from one screen (gate DEPOSIT-ONE-SCREEN
     const host = await goalMix();
     expect(host.textContent).toContain(en.mix.deposit.limits);
     for (const [text, error] of [
-      ['9.99', en.mix.deposit.errors.belowMin],
+      // the floor is $1 (gate DEPOSIT-FLOOR): a cent under it is refused, and $1 itself is checked
+      ['0.99', en.mix.deposit.errors.belowMin],
+      ['0', en.mix.deposit.errors.belowMin],
       ['1000000.01', en.mix.deposit.errors.aboveMax],
       ['ten', en.mix.deposit.errors.notAmount],
     ] as const) {
@@ -851,15 +853,17 @@ describe('a new goal’s mix, deposited from one screen (gate DEPOSIT-ONE-SCREEN
       expect(label(press(host))).toBe(en.mix.deposit.press);
     }
     expect(calls).toEqual([]);
-    for (const text of ['10', '1000000']) {
+    for (const text of ['1', '5', '1000000']) {
       await deposit(host, text);
       expect(amountBox(host).getAttribute('aria-invalid')).toBeNull();
     }
-    expect(calls.map((call) => call.body.amountUsd)).toEqual([10, 1_000_000]);
-    // a quick amount types itself, and the press names it
-    await click(find(host, '[data-ui="amount-chips"] li:nth-child(2) button'));
-    expect(amountBox(host).value).toBe('500');
-    expect(label(press(host))).toBe(en.invest.press('$500'));
+    expect(calls.map((call) => call.body.amountUsd)).toEqual([1, 5, 1_000_000]);
+    expect(label(press(host))).toBe(en.invest.press('$1,000,000'));
+    // no quick amounts under the field (Thom, Oct 28): the amount is typed, or Max
+    expect(host.querySelector('[data-ui="amount-chips"]')).toBeNull();
+    expect(
+      [...host.querySelectorAll('button')].filter((b) => /^\$[\d,.]+$/.test(b.textContent ?? '')),
+    ).toEqual([]);
   });
 
   it('asks nothing it was not told: sends the unsaid goal and risk as not said, and says what the server worked out from the mix', async () => {
@@ -1316,12 +1320,12 @@ describe('the deposit step, kept honest while things move', () => {
   it('does not call an amount wrong on the first digit, only after a pause or on leaving the field', async () => {
     accepts(async (body) => json({ status: 'review', review: reviewOf(of(body as never)) }));
     const host = await goalMix();
-    await type(amountBox(host), '5');
+    await type(amountBox(host), '0.5');
     expect(host.textContent).not.toContain(en.mix.deposit.errors.belowMin);
     expect(amountBox(host).getAttribute('aria-invalid')).toBeNull();
     await fire(amountBox(host), new FocusEvent('focusout', { bubbles: true }));
     expect(host.textContent).toContain(en.mix.deposit.errors.belowMin);
-    await type(amountBox(host), '7');
+    await type(amountBox(host), '0.7');
     expect(host.textContent).not.toContain(en.mix.deposit.errors.belowMin);
     await settle(CHECK_MS + 50);
     expect(host.textContent).toContain(en.mix.deposit.errors.belowMin);
